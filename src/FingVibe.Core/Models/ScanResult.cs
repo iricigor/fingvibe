@@ -24,6 +24,20 @@ public sealed record ScanResult(
         : "-";
 
     public string MacAddressText => MacAddress ?? "-";
+
+    public bool MatchesFilter(string? filter)
+    {
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            return true;
+        }
+
+        var searchText = filter.Trim();
+        return AddressText.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || StatusText.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || RoundtripText.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || MacAddressText.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 public readonly record struct ScanProgress(int Completed, int Total);
