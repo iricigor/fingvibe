@@ -20,6 +20,8 @@ public static class UiReviewNativeWindow
     [DllImport("user32.dll")]
     public static extern bool ShowWindow(IntPtr window, int command);
     [DllImport("user32.dll")]
+    public static extern bool SetForegroundWindow(IntPtr window);
+    [DllImport("user32.dll")]
     public static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")]
     public static extern bool IsWindowVisible(IntPtr window);
@@ -77,9 +79,12 @@ function Initialize-UiReviewWindow {
                 $WindowHandle, [IntPtr]::Zero, $x, $y, $width, $height, 0x0044)) {
             throw [System.ComponentModel.Win32Exception]::new()
         }
-        [System.Windows.Automation.AutomationElement]::FromHandle($WindowHandle).SetFocus()
+        $null = [UiReviewNativeWindow]::SetForegroundWindow($WindowHandle)
         Start-Sleep -Milliseconds 750
 
+        if ([UiReviewNativeWindow]::GetForegroundWindow() -ne $WindowHandle) {
+            throw "The review window could not be brought to the foreground."
+        }
         $bounds = Get-UiReviewWindowBounds -WindowHandle $WindowHandle
         Assert-UiReviewWindowBounds -Bounds $bounds -WorkingArea $area
         Write-Host "Prepared full review window: $bounds."
