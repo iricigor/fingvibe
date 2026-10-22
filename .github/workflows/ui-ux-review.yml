@@ -41,6 +41,11 @@ jobs:
         id: tests
         run: dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj --configuration Release
 
+      - name: Test full-window screenshot capture
+        id: capture-tests
+        shell: pwsh
+        run: .\tests\UiReviewScreenshot.Tests.ps1
+
       - name: Publish review build
         id: publish
         shell: pwsh
@@ -103,11 +108,11 @@ jobs:
           $marker
           ## UI/UX review screenshot
 
-          The automated reviewer launched FingVibe, exercised **Scan LAN**, and captured the resulting UI.
+          The automated reviewer launched FingVibe, exercised **Scan LAN**, and captured the complete application window.
 
           [![FingVibe dark-theme UI review screenshot]($env:IMAGE_URL)]($env:IMAGE_URL)
 
-          A missing screenshot or broken primary interaction fails the ``ui-ux-review`` check.
+          A clipped or missing screenshot, or a broken primary interaction, fails the ``ui-ux-review`` check.
           "@
 
           $comments = gh api `
@@ -138,6 +143,7 @@ jobs:
           && github.actor != 'dependabot[bot]'
         env:
           COMMENT_OUTCOME: ${{ steps.pr-comment.outcome }}
+          CAPTURE_TEST_OUTCOME: ${{ steps.capture-tests.outcome }}
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
@@ -151,6 +157,9 @@ jobs:
           $reasons = [System.Collections.Generic.List[string]]::new()
           if ($env:TEST_OUTCOME -eq "failure") {
             $reasons.Add("- Core tests failed, so the primary application behavior is not safe to review.")
+          }
+          if ($env:CAPTURE_TEST_OUTCOME -eq "failure") {
+            $reasons.Add("- Full-window capture regression tests failed; screenshots may omit application edges.")
           }
           if ($env:PUBLISH_OUTCOME -eq "failure") {
             $reasons.Add("- The WinUI application could not be built and published.")

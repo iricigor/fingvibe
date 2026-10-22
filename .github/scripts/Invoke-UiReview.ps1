@@ -11,6 +11,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "UiReviewScreenshot.ps1")
+
 $serverUrl = "http://127.0.0.1:4723"
 $sessionId = $null
 $driverProcess = $null
@@ -133,44 +135,6 @@ function Invoke-WebDriverElement {
         -Body @{ }
 }
 
-function Save-WebDriverScreenshot {
-    param(
-        [Parameter(Mandatory)]
-        [string] $Path
-    )
-
-    $response = Invoke-WebDriverRequest -Method Get `
-        -Endpoint "/session/$sessionId/screenshot"
-    $bytes = [Convert]::FromBase64String([string] $response.value)
-    $directory = Split-Path -Parent $Path
-    New-Item -ItemType Directory -Path $directory -Force | Out-Null
-    [System.IO.File]::WriteAllBytes($Path, $bytes)
-
-    Add-Type -AssemblyName System.Drawing
-    $bitmap = [System.Drawing.Bitmap]::new($Path)
-    try {
-        if ($bitmap.Width -lt 640 -or $bitmap.Height -lt 480) {
-            throw "The screenshot rendered at an invalid size: $($bitmap.Width)x$($bitmap.Height)."
-        }
-
-        $colors = [System.Collections.Generic.HashSet[int]]::new()
-        $xStep = [Math]::Max([int] ($bitmap.Width / 20), 1)
-        $yStep = [Math]::Max([int] ($bitmap.Height / 20), 1)
-        for ($x = 0; $x -lt $bitmap.Width; $x += $xStep) {
-            for ($y = 0; $y -lt $bitmap.Height; $y += $yStep) {
-                $null = $colors.Add($bitmap.GetPixel($x, $y).ToArgb())
-            }
-        }
-
-        if ($colors.Count -lt 8) {
-            throw "The screenshot appears blank or failed to render."
-        }
-    }
-    finally {
-        $bitmap.Dispose()
-    }
-}
-
 if (-not (Test-Path -LiteralPath $AppPath -PathType Leaf)) {
     throw "The published application was not found at '$AppPath'."
 }
@@ -224,6 +188,11 @@ try {
         throw "WinAppDriver did not return a session identifier."
     }
 
+    $windowResponse = Invoke-WebDriverRequest -Method Get `
+        -Endpoint "/session/$sessionId/window_handle"
+    $windowHandle = [IntPtr]::new([Convert]::ToInt64([string] $windowResponse.value, 16))
+    Initialize-UiReviewWindow -WindowHandle $windowHandle
+
     $elements = @{}
     foreach ($expectedName in @("FingVibe", "Detected network", "Scan LAN", "Cancel")) {
         $elements[$expectedName] = Find-WebDriverElement -Using name -Value $expectedName
@@ -260,7 +229,7 @@ try {
         throw "Invoking 'Scan LAN' did not enter or complete the expected scanning state."
     }
 
-    Save-WebDriverScreenshot -Path $ScreenshotPath
+    Save-UiReviewWindowScreenshot -WindowHandle $windowHandle -Path $ScreenshotPath
 
     if (Get-WebDriverElementEnabled -ElementId $elements["Cancel"]) {
         Invoke-WebDriverElement -ElementId $elements["Cancel"]
