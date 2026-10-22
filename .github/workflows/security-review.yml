@@ -1,0 +1,184 @@
+name: Security review
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: security-review-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security-review:
+    name: security-review
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out source and history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan for exposed secrets
+        id: secrets
+        shell: pwsh
+        run: |
+          $version = "8.30.1"
+          $archiveName = "gitleaks_${version}_windows_x64.zip"
+          $releaseUrl = "https://github.com/gitleaks/gitleaks/releases/download/v${version}"
+          $archivePath = Join-Path $env:RUNNER_TEMP $archiveName
+          $checksumsPath = Join-Path $env:RUNNER_TEMP "gitleaks_checksums.txt"
+          $toolDirectory = Join-Path $env:RUNNER_TEMP "gitleaks"
+
+          Invoke-WebRequest "$releaseUrl/$archiveName" -OutFile $archivePath
+          Invoke-WebRequest "$releaseUrl/gitleaks_${version}_checksums.txt" -OutFile $checksumsPath
+
+          $checksumLine = Get-Content $checksumsPath |
+            Where-Object { $_ -match "\s$([Regex]::Escape($archiveName))$" } |
+            Select-Object -First 1
+          if (-not $checksumLine) {
+            throw "The Gitleaks release did not include a checksum for $archiveName."
+          }
+
+          $expectedChecksum = ($checksumLine -split "\s+")[0].ToLowerInvariant()
+          $actualChecksum = (Get-FileHash $archivePath -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actualChecksum -ne $expectedChecksum) {
+            throw "The downloaded Gitleaks archive failed SHA-256 verification."
+          }
+
+          Expand-Archive -LiteralPath $archivePath -DestinationPath $toolDirectory -Force
+          & "$toolDirectory\gitleaks.exe" git . --redact --no-banner
+          if ($LASTEXITCODE -ne 0) {
+            throw "Gitleaks detected an exposed secret."
+          }
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore dependencies
+        id: restore
+        run: dotnet restore FingVibe.sln
+
+      - name: Fail on critical dependency vulnerabilities
+        id: dependencies
+        shell: pwsh
+        run: |
+          $solution = Join-Path $env:GITHUB_WORKSPACE "FingVibe.sln"
+          $report = dotnet list $solution package `
+            --vulnerable `
+            --include-transitive `
+            --format json
+          $report | Set-Content dependency-vulnerabilities.json
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Dependency vulnerability analysis failed."
+          }
+
+          $json = $report | ConvertFrom-Json
+          $critical = @(
+            $json.projects.frameworks.topLevelPackages
+            $json.projects.frameworks.transitivePackages
+          ) |
+            Where-Object { $_.vulnerabilities.severity -contains "Critical" }
+
+          if ($critical.Count -gt 0) {
+            $critical | ConvertTo-Json -Depth 10 | Write-Host
+            throw "Critical dependency vulnerabilities were detected."
+          }
+
+          "No critical dependency vulnerabilities detected." >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload dependency report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-vulnerability-report
+          path: dependency-vulnerabilities.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Explain security review failure
+        if: >
+          failure()
+          && github.event_name == 'pull_request'
+          && github.event.pull_request.head.repo.full_name == github.repository
+          && github.actor != 'dependabot[bot]'
+        env:
+          DEPENDENCY_OUTCOME: ${{ steps.dependencies.outcome }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RESTORE_OUTCOME: ${{ steps.restore.outcome }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SECRET_OUTCOME: ${{ steps.secrets.outcome }}
+        shell: pwsh
+        run: |
+          $reasons = [System.Collections.Generic.List[string]]::new()
+          if ($env:SECRET_OUTCOME -eq "failure") {
+            $reasons.Add("- The exposed-secret scan found a potential credential or secret. Review the redacted Gitleaks annotations and rotate any real credential before removing it from the branch.")
+          }
+          if ($env:RESTORE_OUTCOME -eq "failure") {
+            $reasons.Add("- Dependency restore failed, so vulnerability analysis could not run.")
+          }
+          if ($env:DEPENDENCY_OUTCOME -eq "failure") {
+            $reasons.Add("- Dependency analysis failed or found at least one package with a **Critical** vulnerability. Download the dependency report from the workflow run for package details.")
+          }
+          if ($reasons.Count -eq 0) {
+            $reasons.Add("- The security workflow failed unexpectedly. Inspect the failed step in the workflow run.")
+          }
+
+          $marker = "<!-- fingvibe-security-review-failure -->"
+          $body = @"
+          $marker
+          ## Security review failed
+
+          $($reasons -join "`n")
+
+          [Open the failed security review run]($env:RUN_URL)
+          "@
+
+          $comments = gh api `
+            "repos/$env:GITHUB_REPOSITORY/issues/$env:PR_NUMBER/comments" `
+            --paginate | ConvertFrom-Json
+          $existing = $comments |
+            Where-Object { $_.user.login -eq "github-actions[bot]" -and $_.body.Contains($marker) } |
+            Select-Object -First 1
+
+          if ($existing) {
+            @{ body = $body } |
+              ConvertTo-Json |
+              gh api --method PATCH `
+                "repos/$env:GITHUB_REPOSITORY/issues/comments/$($existing.id)" `
+                --input -
+          } else {
+            gh pr comment $env:PR_NUMBER --body $body
+          }
+
+      - name: Clear resolved security failure comment
+        if: >
+          success()
+          && github.event_name == 'pull_request'
+          && github.event.pull_request.head.repo.full_name == github.repository
+          && github.actor != 'dependabot[bot]'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: pwsh
+        run: |
+          $marker = "<!-- fingvibe-security-review-failure -->"
+          $comments = gh api `
+            "repos/$env:GITHUB_REPOSITORY/issues/$env:PR_NUMBER/comments" `
+            --paginate | ConvertFrom-Json
+          $existing = $comments |
+            Where-Object { $_.user.login -eq "github-actions[bot]" -and $_.body.Contains($marker) } |
+            Select-Object -First 1
+          if ($existing) {
+            gh api --method DELETE `
+              "repos/$env:GITHUB_REPOSITORY/issues/comments/$($existing.id)"
+          }

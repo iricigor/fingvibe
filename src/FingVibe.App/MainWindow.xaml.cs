@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Net;
 using FingVibe.Core.Models;
 using FingVibe.Core.Networking;
 using Microsoft.UI.Xaml;
@@ -17,8 +18,13 @@ public sealed partial class MainWindow : Window
         MacAddress
     }
 
+    private static readonly bool IsUiReview =
+        Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW") == "1";
+
     private readonly NetworkDiscoveryService _networkDiscovery = new();
-    private readonly LanScannerService _scanner = new();
+    private readonly LanScannerService _scanner = IsUiReview
+        ? new LanScannerService(timeoutMilliseconds: 100, maximumConcurrency: 1)
+        : new LanScannerService();
     private readonly List<ScanResult> _allResults = [];
     private readonly ObservableCollection<ScanResult> _visibleResults = [];
     private CancellationTokenSource? _scanCancellation;
@@ -36,7 +42,17 @@ public sealed partial class MainWindow : Window
 
     private void RootGrid_Loaded(object sender, RoutedEventArgs e)
     {
-        var networks = _networkDiscovery.GetAvailableNetworks();
+        var networks = IsUiReview
+            ? new List<LanNetwork>
+            {
+                new(
+                    "UI review loopback",
+                    IPAddress.Loopback,
+                    IPAddress.Parse("127.0.0.0"),
+                    24,
+                    false)
+            }
+            : _networkDiscovery.GetAvailableNetworks();
         NetworkPicker.ItemsSource = networks;
         NetworkPicker.DisplayMemberPath = nameof(LanNetwork.DisplayLabel);
 
