@@ -9,15 +9,29 @@ namespace FingVibe.App;
 
 public sealed partial class MainWindow : Window
 {
+    private enum ResultSortColumn
+    {
+        Address,
+        Status,
+        Response,
+        MacAddress
+    }
+
     private readonly NetworkDiscoveryService _networkDiscovery = new();
     private readonly LanScannerService _scanner = new();
-    private readonly ObservableCollection<ScanResult> _results = [];
+    private readonly List<ScanResult> _allResults = [];
+    private readonly ObservableCollection<ScanResult> _visibleResults = [];
     private CancellationTokenSource? _scanCancellation;
+    private ResultSortColumn _sortColumn = ResultSortColumn.Address;
+    private bool _sortAscending = true;
+    private bool _isScanning;
 
     public MainWindow()
     {
         InitializeComponent();
-        ResultsList.ItemsSource = _results;
+        ResultsList.ItemsSource = _visibleResults;
+        ResultFilter.SelectedIndex = 0;
+        UpdateSortGlyphs();
     }
 
     private void RootGrid_Loaded(object sender, RoutedEventArgs e)
@@ -57,8 +71,10 @@ public sealed partial class MainWindow : Window
             return;
         }
 
-        _results.Clear();
-        EmptyResultsText.Visibility = Visibility.Collapsed;
+        _allResults.Clear();
+        _visibleResults.Clear();
+        _isScanning = true;
+        UpdateEmptyState();
         ScanButton.IsEnabled = false;
         NetworkPicker.IsEnabled = false;
         CancelButton.IsEnabled = true;
@@ -70,7 +86,16 @@ public sealed partial class MainWindow : Window
         ScanStatusText.Text = $"Scanning 0 of {total:N0}";
         var stopwatch = Stopwatch.StartNew();
 
-        var resultProgress = new Progress<ScanResult>(result => _results.Add(result));
+        var resultProgress = new Progress<ScanResult>(result =>
+        {
+            _allResults.Add(result);
+            if (ShouldShow(result))
+            {
+                InsertSorted(result);
+            }
+
+            UpdateEmptyState();
+        });
         var scanProgress = new Progress<ScanProgress>(progress =>
         {
             ScanProgressBar.Value = progress.Completed;
@@ -91,7 +116,7 @@ public sealed partial class MainWindow : Window
         }
         catch (OperationCanceledException)
         {
-            ScanStatusText.Text = $"Cancelled after {_results.Count:N0} results";
+            ScanStatusText.Text = $"Cancelled after {_allResults.Count:N0} results";
         }
         catch (InvalidOperationException exception)
         {
@@ -101,6 +126,8 @@ public sealed partial class MainWindow : Window
         }
         finally
         {
+            _isScanning = false;
+            UpdateEmptyState();
             _scanCancellation.Dispose();
             _scanCancellation = null;
             ScanButton.IsEnabled = true;
@@ -114,5 +141,154 @@ public sealed partial class MainWindow : Window
         _scanCancellation?.Cancel();
         CancelButton.IsEnabled = false;
         ScanStatusText.Text = "Cancelling...";
+    }
+
+    private void ResultFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        RefreshVisibleResults();
+    }
+
+    private void SortHeader_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not Button { Tag: string columnName }
+            || !Enum.TryParse(columnName, out ResultSortColumn column))
+        {
+            return;
+        }
+
+        if (_sortColumn == column)
+        {
+            _sortAscending = !_sortAscending;
+        }
+        else
+        {
+            _sortColumn = column;
+            _sortAscending = true;
+        }
+
+        UpdateSortGlyphs();
+        RefreshVisibleResults();
+    }
+
+    private void RefreshVisibleResults()
+    {
+        if (ResultsList is null)
+        {
+            return;
+        }
+
+        var sortedResults = _allResults
+            .Where(ShouldShow)
+            .ToList();
+        sortedResults.Sort(CompareResults);
+
+        _visibleResults.Clear();
+        foreach (var result in sortedResults)
+        {
+            _visibleResults.Add(result);
+        }
+
+        UpdateEmptyState();
+    }
+
+    private bool ShouldShow(ScanResult result) =>
+        ResultFilter.SelectedIndex != 1 || result.Status == HostStatus.Alive;
+
+    private void InsertSorted(ScanResult result)
+    {
+        var low = 0;
+        var high = _visibleResults.Count;
+        while (low < high)
+        {
+            var middle = low + ((high - low) / 2);
+            if (CompareResults(_visibleResults[middle], result) <= 0)
+            {
+                low = middle + 1;
+            }
+            else
+            {
+                high = middle;
+            }
+        }
+
+        _visibleResults.Insert(low, result);
+    }
+
+    private int CompareResults(ScanResult left, ScanResult right)
+    {
+        var comparison = _sortColumn switch
+        {
+            ResultSortColumn.Address => CompareAddresses(left.Address, right.Address),
+            ResultSortColumn.Status => left.Status.CompareTo(right.Status),
+            ResultSortColumn.Response => Nullable.Compare(
+                left.RoundtripTimeMilliseconds,
+                right.RoundtripTimeMilliseconds),
+            ResultSortColumn.MacAddress => string.Compare(
+                left.MacAddress,
+                right.MacAddress,
+                StringComparison.OrdinalIgnoreCase),
+            _ => 0
+        };
+
+        if (comparison == 0)
+        {
+            comparison = CompareAddresses(left.Address, right.Address);
+        }
+
+        return _sortAscending ? comparison : -comparison;
+    }
+
+    private static int CompareAddresses(System.Net.IPAddress left, System.Net.IPAddress right)
+    {
+        var leftBytes = left.GetAddressBytes();
+        var rightBytes = right.GetAddressBytes();
+        for (var index = 0; index < leftBytes.Length; index++)
+        {
+            var comparison = leftBytes[index].CompareTo(rightBytes[index]);
+            if (comparison != 0)
+            {
+                return comparison;
+            }
+        }
+
+        return 0;
+    }
+
+    private void UpdateSortGlyphs()
+    {
+        if (AddressSortGlyph is null)
+        {
+            return;
+        }
+
+        AddressSortGlyph.Text = GetSortGlyph(ResultSortColumn.Address);
+        StatusSortGlyph.Text = GetSortGlyph(ResultSortColumn.Status);
+        ResponseSortGlyph.Text = GetSortGlyph(ResultSortColumn.Response);
+        MacAddressSortGlyph.Text = GetSortGlyph(ResultSortColumn.MacAddress);
+    }
+
+    private string GetSortGlyph(ResultSortColumn column) =>
+        _sortColumn == column ? (_sortAscending ? "\u2191" : "\u2193") : string.Empty;
+
+    private void UpdateEmptyState()
+    {
+        if (EmptyResultsText is null)
+        {
+            return;
+        }
+
+        ResultCountText.Text = $"{_visibleResults.Count:N0} {(_visibleResults.Count == 1 ? "host" : "hosts")}";
+        EmptyResultsText.Visibility = _visibleResults.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+        if (_allResults.Count == 0)
+        {
+            EmptyResultsText.Text = _isScanning
+                ? "Waiting for scan results..."
+                : "Select Scan LAN to probe every address on the detected subnet.";
+        }
+        else if (ResultFilter.SelectedIndex == 1)
+        {
+            EmptyResultsText.Text = "No alive hosts found in the current results.";
+        }
     }
 }
