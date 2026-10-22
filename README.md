@@ -48,9 +48,11 @@ Every pull request uploads a `fingvibe-win-x64-pr-*` artifact from the **Actions
 Pull requests run two independent review checks:
 
 - `security-review` scans the repository for exposed secrets and fails on critical dependency vulnerabilities.
-- `ui-ux-review` builds and launches the WinUI app, exercises the primary **Scan LAN** action, verifies critical accessible controls, and posts a current screenshot artifact on the pull request.
+- `ui-ux-review` builds and launches the WinUI app, exercises the primary **Scan LAN** action, verifies critical accessible controls, and embeds the current screenshot on the pull request.
 
-The UI check runs on GitHub's `windows-2025` image and uses its preinstalled WinAppDriver to launch and automate the native application. It runs automatically only for same-repository pull requests from trusted collaborators; fork pull requests are not executed. The workflow sets `FINGVIBE_UI_REVIEW=1`, which confines the smoke-test scan to the local loopback network and keeps the hosted-runner review deterministic.
+The UI check runs on GitHub's `windows-2025` image and uses its preinstalled WinAppDriver to launch and automate the native application in dark theme. It runs automatically only for same-repository pull requests from trusted collaborators; fork pull requests are not executed. The workflow sets `FINGVIBE_UI_REVIEW=1`, which confines the smoke-test scan to the local loopback network and keeps the hosted-runner review deterministic.
+
+The workflow publishes the latest screenshot for each pull request to the `gh-pages` branch so the bot can embed the PNG directly in its review comment. After the workflow creates that branch for the first time, open **Settings > Pages**, choose **Deploy from a branch**, select `gh-pages` and `/ (root)`, then save. The published image URL uses `https://<owner>.github.io/<repository>/ui-review/pr-<number>/fingvibe-ui-review.png`.
 
 After both workflows have run at least once, configure them as required checks:
 
