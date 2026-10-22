@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   build:
@@ -40,9 +41,47 @@ jobs:
             /property:PublishDir="${{ github.workspace }}\artifacts\fingvibe-win-x64\"
 
       - name: Upload runnable app
+        id: upload
         uses: actions/upload-artifact@v4
         with:
           name: fingvibe-win-x64-pr-${{ github.event.pull_request.number || github.run_number }}
           path: artifacts\fingvibe-win-x64
           if-no-files-found: error
           retention-days: 14
+
+      - name: Post artifact link on pull request
+        if: >
+          github.event_name == 'pull_request'
+          && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: pwsh
+        run: |
+          $marker = "<!-- fingvibe-pr-artifact -->"
+          $body = @"
+          $marker
+          ## Windows build ready
+
+          [Download the Windows x64 executable artifact]($env:ARTIFACT_URL)
+
+          Unzip the download and run ``FingVibe.App.exe``. The artifact expires after 14 days.
+          "@
+
+          $comments = gh api `
+            "repos/$env:GITHUB_REPOSITORY/issues/$env:PR_NUMBER/comments" `
+            --paginate | ConvertFrom-Json
+          $existing = $comments |
+            Where-Object { $_.user.login -eq "github-actions[bot]" -and $_.body.Contains($marker) } |
+            Select-Object -First 1
+
+          if ($existing) {
+            @{ body = $body } |
+              ConvertTo-Json |
+              gh api --method PATCH `
+                "repos/$env:GITHUB_REPOSITORY/issues/comments/$($existing.id)" `
+                --input -
+          } else {
+            gh pr comment $env:PR_NUMBER --body $body
+          }
