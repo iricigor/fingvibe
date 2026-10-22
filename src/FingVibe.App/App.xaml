@@ -13,14 +13,44 @@
                     <SolidColorBrush x:Key="ScannerPageBackgroundBrush" Color="#F3F7FF" />
                     <SolidColorBrush x:Key="ScannerHeaderBackgroundBrush" Color="#E0ECFF" />
                     <SolidColorBrush x:Key="ScannerCardBorderBrush" Color="#B9D2FF" />
+                    <SolidColorBrush x:Key="ScannerMacOuiBrush" Color="#075985" />
+                    <SolidColorBrush x:Key="ScannerMacNicBrush" Color="#6B21A8" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="ScannerPageBackgroundBrush" Color="#101827" />
                     <SolidColorBrush x:Key="ScannerHeaderBackgroundBrush" Color="#172A46" />
                     <SolidColorBrush x:Key="ScannerCardBorderBrush" Color="#28558F" />
+                    <SolidColorBrush x:Key="ScannerMacOuiBrush" Color="#7DD3FC" />
+                    <SolidColorBrush x:Key="ScannerMacNicBrush" Color="#D8B4FE" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush x:Key="ScannerPageBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="ScannerHeaderBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="ScannerCardBorderBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="ScannerMacOuiBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="ScannerMacNicBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="ScannerOnlineBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="ScannerOnlineForegroundBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="ScannerOfflineBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="ScannerOfflineForegroundBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
             <local:PortIconGlyphConverter x:Key="PortIconGlyphConverter" />
+            <local:LatencyColorConverter x:Key="LatencyColorConverter" />
+            <SolidColorBrush x:Key="ScannerOnlineBackgroundBrush" Color="#143A2A" />
+            <SolidColorBrush x:Key="ScannerOnlineForegroundBrush" Color="#86EFAC" />
+            <SolidColorBrush x:Key="ScannerOfflineBackgroundBrush" Color="#293241" />
+            <SolidColorBrush x:Key="ScannerOfflineForegroundBrush" Color="#CBD5E1" />
+            <Style x:Key="ScannerHeaderButtonStyle" TargetType="Button">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="0,6" />
+                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="MinWidth" Value="0" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="HorizontalContentAlignment" Value="Left" />
+            </Style>
             <Color x:Key="SystemAccentColor">#2563EB</Color>
             <Color x:Key="SystemAccentColorLight1">#4F83F1</Color>
             <Color x:Key="SystemAccentColorLight2">#82A9F7</Color>

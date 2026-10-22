@@ -27,8 +27,10 @@ public sealed partial class MainWindow : Window
     private readonly LanScannerService _scanner = IsUiReview
         ? new LanScannerService(timeoutMilliseconds: 100, maximumConcurrency: 1)
         : new LanScannerService();
-    private readonly List<ScanResult> _allResults = [];
-    private readonly ObservableCollection<ScanResult> _visibleResults = [];
+    private readonly List<ScanResultRow> _allResults = [];
+    private readonly ObservableCollection<ScanResultRow> _visibleResults = [];
+    private long _minimumLatency = long.MaxValue;
+    private long _maximumLatency;
     private CancellationTokenSource? _scanCancellation;
     private ResultSortColumn _sortColumn = ResultSortColumn.Address;
     private PublicNetworkIdentity? _publicIdentity;
@@ -164,6 +166,8 @@ public sealed partial class MainWindow : Window
 
         _allResults.Clear();
         _visibleResults.Clear();
+        _minimumLatency = long.MaxValue;
+        _maximumLatency = 0;
         _onlineDeviceCount = null;
         UpdateNetworkIdentity();
         _isScanning = true;
@@ -181,10 +185,12 @@ public sealed partial class MainWindow : Window
 
         var resultProgress = new Progress<ScanResult>(result =>
         {
-            _allResults.Add(result);
-            if (ShouldShow(result))
+            var row = new ScanResultRow(result, network.PrefixLength);
+            _allResults.Add(row);
+            UpdateLatencyRange(row);
+            if (ShouldShow(row))
             {
-                InsertSorted(result);
+                InsertSorted(row);
             }
 
             UpdateEmptyState();
@@ -277,6 +283,7 @@ public sealed partial class MainWindow : Window
             return;
         }
 
+        var selectedResult = ResultsList.SelectedItem;
         var sortedResults = _allResults
             .Where(ShouldShow)
             .ToList();
@@ -288,14 +295,43 @@ public sealed partial class MainWindow : Window
             _visibleResults.Add(result);
         }
 
+        if (selectedResult is ScanResultRow selectedRow && _visibleResults.Contains(selectedRow))
+        {
+            ResultsList.SelectedItem = selectedRow;
+        }
+
         UpdateEmptyState();
     }
 
-    private bool ShouldShow(ScanResult result) =>
-        (StatusFilter.SelectedIndex != 1 || result.Status == HostStatus.Alive)
-        && result.MatchesFilter(ResultSearchBox.Text);
+    private void UpdateLatencyRange(ScanResultRow row)
+    {
+        if (!row.HasLatency || row.Result.RoundtripTimeMilliseconds is not long latency)
+        {
+            return;
+        }
 
-    private void InsertSorted(ScanResult result)
+        var minimum = Math.Min(_minimumLatency, latency);
+        var maximum = Math.Max(_maximumLatency, latency);
+        if (minimum != _minimumLatency || maximum != _maximumLatency)
+        {
+            _minimumLatency = minimum;
+            _maximumLatency = maximum;
+            foreach (var result in _allResults)
+            {
+                result.UpdateLatencyRange(minimum, maximum);
+            }
+        }
+        else
+        {
+            row.UpdateLatencyRange(minimum, maximum);
+        }
+    }
+
+    private bool ShouldShow(ScanResultRow row) =>
+        (StatusFilter.SelectedIndex != 1 || row.IsOnline)
+        && row.Result.MatchesFilter(ResultSearchBox.Text);
+
+    private void InsertSorted(ScanResultRow result)
     {
         var low = 0;
         var high = _visibleResults.Count;
@@ -315,8 +351,10 @@ public sealed partial class MainWindow : Window
         _visibleResults.Insert(low, result);
     }
 
-    private int CompareResults(ScanResult left, ScanResult right)
+    private int CompareResults(ScanResultRow leftRow, ScanResultRow rightRow)
     {
+        var left = leftRow.Result;
+        var right = rightRow.Result;
         var comparison = _sortColumn switch
         {
             ResultSortColumn.Address => CompareAddresses(left.Address, right.Address),

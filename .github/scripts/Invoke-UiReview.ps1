@@ -229,6 +229,15 @@ try {
         throw "Invoking 'Scan LAN' did not enter or complete the expected scanning state."
     }
 
+    $result = Find-WebDriverElement `
+        -Using xpath `
+        -Value "//*[@Name='Online' or @Name='Offline']" `
+        -TimeoutSeconds 30 `
+        -Optional
+    if (-not $result) {
+        throw "The scan did not render a result with an accessible Online or Offline badge."
+    }
+
     Save-UiReviewWindowScreenshot -WindowHandle $windowHandle -Path $ScreenshotPath
 
     if (Get-WebDriverElementEnabled -ElementId $elements["Cancel"]) {
