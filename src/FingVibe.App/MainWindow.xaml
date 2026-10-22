@@ -102,26 +102,56 @@
                 </Grid.RowDefinitions>
                 <Grid Padding="16,12" Background="{ThemeResource SubtleFillColorSecondaryBrush}">
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.5*" />
+                        <ColumnDefinition Width="1.25*" />
+                        <ColumnDefinition Width="1.5*" />
                         <ColumnDefinition Width="2*" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="IP address" FontWeight="SemiBold" />
-                    <TextBlock Grid.Column="1" Text="Status" FontWeight="SemiBold" />
-                    <TextBlock Grid.Column="2" Text="Response" FontWeight="SemiBold" />
+                    <TextBlock Text="Name" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="1" Text="IP address" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="2" Text="Vendor" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="3" Text="Open ports" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="4" Text="Status" FontWeight="SemiBold" />
+                    <TextBlock Grid.Column="5" Text="Response" FontWeight="SemiBold" />
                 </Grid>
                 <ListView x:Name="ResultsList" Grid.Row="1">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="models:ScanResult">
                             <Grid Padding="8,5">
                                 <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="1.5*" />
+                                    <ColumnDefinition Width="1.25*" />
+                                    <ColumnDefinition Width="1.5*" />
                                     <ColumnDefinition Width="2*" />
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="{x:Bind AddressText}" />
-                                <TextBlock Grid.Column="1" Text="{x:Bind StatusText}" />
-                                <TextBlock Grid.Column="2" Text="{x:Bind RoundtripText}" />
+                                <TextBlock Text="{x:Bind NameText}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="1" Text="{x:Bind AddressText}" />
+                                <TextBlock Grid.Column="2"
+                                           Text="{x:Bind VendorText}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <ItemsControl Grid.Column="3" ItemsSource="{x:Bind OpenPortItems}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" Spacing="8" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="models:OpenPort">
+                                            <FontIcon FontFamily="Segoe Fluent Icons"
+                                                      FontSize="16"
+                                                      Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                                      Glyph="{Binding Port, Converter={StaticResource PortIconGlyphConverter}}"
+                                                      AutomationProperties.Name="{Binding AccessibleLabel}"
+                                                      ToolTipService.ToolTip="{Binding AccessibleLabel}" />
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <TextBlock Grid.Column="4" Text="{x:Bind StatusText}" />
+                                <TextBlock Grid.Column="5" Text="{x:Bind RoundtripText}" />
                             </Grid>
                         </DataTemplate>
                     </ListView.ItemTemplate>
