@@ -15,6 +15,12 @@ concurrency:
 jobs:
   ui-ux-review:
     name: ui-ux-review
+    if: >
+      github.event_name == 'workflow_dispatch'
+      || (
+        github.event.pull_request.head.repo.full_name == github.repository
+        && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
+      )
     runs-on: windows-2025
     env:
       FINGVIBE_UI_REVIEW: "1"

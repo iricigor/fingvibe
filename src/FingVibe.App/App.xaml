@@ -1,7 +1,8 @@
 <Application
     x:Class="FingVibe.App.App"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:FingVibe.App">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
@@ -19,6 +20,7 @@
                     <SolidColorBrush x:Key="ScannerCardBorderBrush" Color="#28558F" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
+            <local:PortIconGlyphConverter x:Key="PortIconGlyphConverter" />
             <Color x:Key="SystemAccentColor">#2563EB</Color>
             <Color x:Key="SystemAccentColorLight1">#4F83F1</Color>
             <Color x:Key="SystemAccentColorLight2">#82A9F7</Color>

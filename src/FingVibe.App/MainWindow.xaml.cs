@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Net;
+using System.Text.Json;
 using FingVibe.Core.Models;
 using FingVibe.Core.Networking;
 using Microsoft.UI.Xaml;
@@ -22,6 +23,7 @@ public sealed partial class MainWindow : Window
         Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW") == "1";
 
     private readonly NetworkDiscoveryService _networkDiscovery = new();
+    private readonly PublicNetworkIdentityService _publicNetworkIdentity = new();
     private readonly LanScannerService _scanner = IsUiReview
         ? new LanScannerService(timeoutMilliseconds: 100, maximumConcurrency: 1)
         : new LanScannerService();
@@ -29,6 +31,8 @@ public sealed partial class MainWindow : Window
     private readonly ObservableCollection<ScanResult> _visibleResults = [];
     private CancellationTokenSource? _scanCancellation;
     private ResultSortColumn _sortColumn = ResultSortColumn.Address;
+    private PublicNetworkIdentity? _publicIdentity;
+    private int? _onlineDeviceCount;
     private bool _sortAscending = true;
     private bool _isScanning;
 
@@ -40,7 +44,7 @@ public sealed partial class MainWindow : Window
         UpdateSortGlyphs();
     }
 
-    private void RootGrid_Loaded(object sender, RoutedEventArgs e)
+    private async void RootGrid_Loaded(object sender, RoutedEventArgs e)
     {
         var networks = IsUiReview
             ? new List<LanNetwork>
@@ -58,6 +62,9 @@ public sealed partial class MainWindow : Window
 
         if (networks.Count == 0)
         {
+            NetworkIdentityText.Text = "No active IPv4 network";
+            PublicAddressText.Text = "Unavailable";
+            IspNameText.Text = "Unavailable";
             MachineAddressText.Text = "No active IPv4 interface";
             LanAddressText.Text = "Unavailable";
             ScanStatusText.Text = "Connect to a LAN to scan";
@@ -66,6 +73,19 @@ public sealed partial class MainWindow : Window
         }
 
         NetworkPicker.SelectedIndex = 0;
+
+        if (IsUiReview)
+        {
+            _publicIdentity = new PublicNetworkIdentity(
+                IPAddress.Parse("203.0.113.10"),
+                "UI review ISP");
+            PublicAddressText.Text = _publicIdentity.PublicAddress.ToString();
+            IspNameText.Text = _publicIdentity.IspName;
+            UpdateNetworkIdentity();
+            return;
+        }
+
+        await LoadPublicNetworkIdentityAsync();
     }
 
     private void NetworkPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -77,7 +97,57 @@ public sealed partial class MainWindow : Window
 
         MachineAddressText.Text = network.LocalAddress.ToString();
         LanAddressText.Text = network.Cidr;
+        _onlineDeviceCount = null;
+        UpdateNetworkIdentity();
         ScanStatusText.Text = $"{SubnetCalculator.GetUsableHostCount(network.PrefixLength):N0} addresses ready";
+    }
+
+    private async Task LoadPublicNetworkIdentityAsync()
+    {
+        try
+        {
+            _publicIdentity = await _publicNetworkIdentity.GetAsync();
+            PublicAddressText.Text = _publicIdentity.PublicAddress.ToString();
+            IspNameText.Text = _publicIdentity.IspName;
+        }
+        catch (HttpRequestException)
+        {
+            ShowPublicNetworkIdentityUnavailable();
+        }
+        catch (TaskCanceledException)
+        {
+            ShowPublicNetworkIdentityUnavailable();
+        }
+        catch (JsonException)
+        {
+            ShowPublicNetworkIdentityUnavailable();
+        }
+        catch (InvalidOperationException)
+        {
+            ShowPublicNetworkIdentityUnavailable();
+        }
+
+        UpdateNetworkIdentity();
+    }
+
+    private void ShowPublicNetworkIdentityUnavailable()
+    {
+        _publicIdentity = null;
+        PublicAddressText.Text = "Unavailable";
+        IspNameText.Text = "Unavailable";
+    }
+
+    private void UpdateNetworkIdentity()
+    {
+        if (NetworkPicker.SelectedItem is not LanNetwork network)
+        {
+            return;
+        }
+
+        NetworkIdentityText.Text = NetworkIdentityFormatter.FormatSummary(
+            network,
+            _publicIdentity,
+            _onlineDeviceCount);
     }
 
     private async void ScanButton_Click(object sender, RoutedEventArgs e)
@@ -89,6 +159,8 @@ public sealed partial class MainWindow : Window
 
         _allResults.Clear();
         _visibleResults.Clear();
+        _onlineDeviceCount = null;
+        UpdateNetworkIdentity();
         _isScanning = true;
         UpdateEmptyState();
         ScanButton.IsEnabled = false;
@@ -127,6 +199,8 @@ public sealed partial class MainWindow : Window
                 _scanCancellation.Token);
 
             stopwatch.Stop();
+            _onlineDeviceCount = summary.Alive;
+            UpdateNetworkIdentity();
             ScanStatusText.Text =
                 $"Complete in {stopwatch.Elapsed.TotalSeconds:N1}s - {summary.Alive:N0} alive, {summary.Unreachable:N0} unreachable";
         }
@@ -240,8 +314,8 @@ public sealed partial class MainWindow : Window
                 left.RoundtripTimeMilliseconds,
                 right.RoundtripTimeMilliseconds),
             ResultSortColumn.MacAddress => string.Compare(
-                left.MacAddress,
-                right.MacAddress,
+                left.MacAddressText,
+                right.MacAddressText,
                 StringComparison.OrdinalIgnoreCase),
             _ => 0
         };
