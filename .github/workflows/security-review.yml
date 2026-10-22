@@ -15,7 +15,7 @@ concurrency:
 jobs:
   security-review:
     name: security-review
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
       - name: Check out source and history
@@ -36,13 +36,14 @@ jobs:
 
       - name: Restore dependencies
         id: restore
-        run: dotnet restore FingVibe.sln -p:EnableWindowsTargeting=true
+        run: dotnet restore FingVibe.sln
 
       - name: Fail on critical dependency vulnerabilities
         id: dependencies
         shell: pwsh
         run: |
-          $report = dotnet list "${{ github.workspace }}/FingVibe.sln" package `
+          $solution = Join-Path $env:GITHUB_WORKSPACE "FingVibe.sln"
+          $report = dotnet list $solution package `
             --vulnerable `
             --include-transitive `
             --format json
