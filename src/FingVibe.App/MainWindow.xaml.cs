@@ -2,8 +2,10 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Net;
 using System.Text.Json;
+using FingVibe.Core.Formatting;
 using FingVibe.Core.Models;
 using FingVibe.Core.Networking;
+using FingVibe.Core.Storage;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
@@ -24,6 +26,10 @@ public sealed partial class MainWindow : Window
 
     private readonly NetworkDiscoveryService _networkDiscovery = new();
     private readonly PublicNetworkIdentityService _publicNetworkIdentity = new();
+    private readonly ScanSnapshotStore _snapshotStore = new(Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "FingVibe",
+        "latest-scan.json"));
     private readonly LanScannerService _scanner = IsUiReview
         ? new LanScannerService(timeoutMilliseconds: 100, maximumConcurrency: 1)
         : new LanScannerService();
@@ -37,6 +43,7 @@ public sealed partial class MainWindow : Window
     private int? _onlineDeviceCount;
     private bool _sortAscending = true;
     private bool _isScanning;
+    private bool _hasRestoredSnapshot;
 
     public MainWindow()
     {
@@ -53,6 +60,8 @@ public sealed partial class MainWindow : Window
 
     private async void RootGrid_Loaded(object sender, RoutedEventArgs e)
     {
+        await RestoreSavedScanAsync();
+
         var networks = IsUiReview
             ? new List<LanNetwork>
             {
@@ -169,6 +178,8 @@ public sealed partial class MainWindow : Window
         _minimumLatency = long.MaxValue;
         _maximumLatency = 0;
         _onlineDeviceCount = null;
+        SnapshotStatusText.Text = $"Current scan results for {network.Cidr}";
+        SnapshotStatusText.Visibility = Visibility.Visible;
         UpdateNetworkIdentity();
         _isScanning = true;
         UpdateEmptyState();
@@ -214,6 +225,20 @@ public sealed partial class MainWindow : Window
             UpdateNetworkIdentity();
             ScanStatusText.Text =
                 $"Complete in {stopwatch.Elapsed.TotalSeconds:N1}s - {summary.Alive:N0} alive, {summary.Unreachable:N0} unreachable";
+
+            var snapshot = new ScanSnapshot(
+                network.Cidr,
+                DateTimeOffset.UtcNow,
+                _allResults.Select(row => row.Result).ToArray());
+            try
+            {
+                await _snapshotStore.SaveAsync(snapshot);
+                ShowSavedSnapshotStatus(snapshot);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+            {
+                ShowSnapshotError("The completed scan could not be saved.");
+            }
         }
         catch (OperationCanceledException)
         {
@@ -242,6 +267,55 @@ public sealed partial class MainWindow : Window
         _scanCancellation?.Cancel();
         CancelButton.IsEnabled = false;
         ScanStatusText.Text = "Cancelling...";
+    }
+
+    private async Task RestoreSavedScanAsync()
+    {
+        if (_hasRestoredSnapshot)
+        {
+            return;
+        }
+
+        _hasRestoredSnapshot = true;
+        try
+        {
+            var snapshot = await _snapshotStore.LoadAsync();
+            if (snapshot is null)
+            {
+                return;
+            }
+
+            var prefixLength = int.Parse(snapshot.Subnet[(snapshot.Subnet.LastIndexOf('/') + 1)..]);
+            _minimumLatency = long.MaxValue;
+            _maximumLatency = 0;
+            foreach (var result in snapshot.Results)
+            {
+                var row = new ScanResultRow(result, prefixLength);
+                _allResults.Add(row);
+                UpdateLatencyRange(row);
+            }
+
+            RefreshVisibleResults();
+            ShowSavedSnapshotStatus(snapshot);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            ShowSnapshotError("The saved scan could not be loaded. Scan LAN to create a new snapshot.");
+        }
+    }
+
+    private void ShowSavedSnapshotStatus(ScanSnapshot snapshot)
+    {
+        var age = ScanAgeFormatter.FormatAge(DateTimeOffset.UtcNow - snapshot.CompletedAt);
+        var completedAt = snapshot.CompletedAt.ToLocalTime().ToString("g");
+        SnapshotStatusText.Text = $"Saved results for {snapshot.Subnet} · {age} old · completed {completedAt}";
+        SnapshotStatusText.Visibility = Visibility.Visible;
+    }
+
+    private void ShowSnapshotError(string message)
+    {
+        SnapshotStatusText.Text = message;
+        SnapshotStatusText.Visibility = Visibility.Visible;
     }
 
     private void ResultSearchBox_TextChanged(object sender, TextChangedEventArgs e)
