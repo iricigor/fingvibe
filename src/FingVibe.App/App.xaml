@@ -7,6 +7,25 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="ScannerPageBackgroundBrush" Color="#F3F7FF" />
+                    <SolidColorBrush x:Key="ScannerHeaderBackgroundBrush" Color="#E0ECFF" />
+                    <SolidColorBrush x:Key="ScannerCardBorderBrush" Color="#B9D2FF" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="ScannerPageBackgroundBrush" Color="#101827" />
+                    <SolidColorBrush x:Key="ScannerHeaderBackgroundBrush" Color="#172A46" />
+                    <SolidColorBrush x:Key="ScannerCardBorderBrush" Color="#28558F" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+            <Color x:Key="SystemAccentColor">#2563EB</Color>
+            <Color x:Key="SystemAccentColorLight1">#4F83F1</Color>
+            <Color x:Key="SystemAccentColorLight2">#82A9F7</Color>
+            <Color x:Key="SystemAccentColorLight3">#B7CDFB</Color>
+            <Color x:Key="SystemAccentColorDark1">#1E50C4</Color>
+            <Color x:Key="SystemAccentColorDark2">#193F99</Color>
+            <Color x:Key="SystemAccentColorDark3">#142F70</Color>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

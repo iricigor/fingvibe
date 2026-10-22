@@ -7,7 +7,8 @@ FingVibe is a native Windows 11 LAN scanner built with C# and WinUI 3. It detect
 - Native WinUI 3 desktop UI with no embedded web content
 - Automatic local IPv4 and CIDR discovery
 - Parallel ICMP scanning with up to 256 concurrent probes
-- Live progress, cancellation, and per-host reachability results
+- Live progress, cancellation, filtering, and sortable per-host results
+- MAC address discovery for reachable devices when available
 - Pull request build artifacts for Windows x64
 - Automatically versioned GitHub Releases from `main`
 
