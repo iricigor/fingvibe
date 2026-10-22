@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 
 namespace FingVibe.Core.Networking;
@@ -10,7 +11,7 @@ public sealed class MacAddressResolver
     {
         ArgumentNullException.ThrowIfNull(address);
 
-        if (!OperatingSystem.IsWindows() || address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork)
+        if (!OperatingSystem.IsWindows() || address.AddressFamily != AddressFamily.InterNetwork)
         {
             return null;
         }
@@ -32,6 +33,10 @@ public sealed class MacAddressResolver
         return bytes.Length > 0 && (bytes[0] & 0x02) != 0;
     }
 
-    [DllImport("iphlpapi.dll", ExactSpelling = true)]
-    private static extern int SendARP(uint destinationIp, uint sourceIp, byte[] macAddress, ref int physicalAddressLength);
+    [DllImport("iphlpapi.dll", ExactSpelling = true, SetLastError = true)]
+    private static extern int SendARP(
+        uint destinationIp,
+        uint sourceIp,
+        [Out] byte[] macAddress,
+        ref int physicalAddressLength);
 }

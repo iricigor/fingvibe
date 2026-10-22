@@ -7,10 +7,11 @@ FingVibe is a native Windows 11 LAN scanner built with C# and WinUI 3. It detect
 - Native WinUI 3 desktop UI with no embedded web content
 - Automatic local IPv4 and CIDR discovery
 - Parallel ICMP scanning with up to 256 concurrent probes
-- Device names from UPnP/SSDP, reverse DNS, and NetBIOS
+- Device names from UPnP/SSDP, mDNS, reverse DNS, and NetBIOS
 - MAC vendor lookup using locally cached IEEE registries, including private/randomized detection
 - Bounded probes for common TCP services with compact Fluent port icons
-- Live progress, cancellation, and per-host reachability results
+- Live progress, cancellation, filtering, and sortable per-host results
+- MAC address discovery for reachable devices when available
 - Pull request build artifacts for Windows x64
 - Automatically versioned GitHub Releases from `main`
 
@@ -38,3 +39,21 @@ dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj
 ## Download builds
 
 Every pull request uploads a `fingvibe-win-x64-pr-*` artifact from the **Actions** run. Every push to `main` publishes a GitHub Release tagged `v1.0.<run number>` with a self-contained Windows x64 ZIP.
+
+## Pull request review gates
+
+Pull requests run two independent review checks:
+
+- `security-review` scans the repository for exposed secrets and fails on critical dependency vulnerabilities.
+- `ui-ux-review` builds and launches the WinUI app, exercises the primary **Scan LAN** action, verifies critical accessible controls, and posts a current screenshot artifact on the pull request.
+
+The UI check requires a self-hosted Windows x64 runner because GitHub-hosted Windows runners do not provide an interactive desktop for native UI automation. It runs automatically only for same-repository pull requests from trusted collaborators; fork pull requests are not executed on the runner. Use an ephemeral VM runner that is destroyed after every job and isolated from internal networks. Start the runner in a logged-in desktop session, not as a Windows service, and assign it the custom `ui-review` label. The workflow sets `FINGVIBE_UI_REVIEW=1`, which confines the smoke-test scan to the local loopback network.
+
+After the runner is online and both workflows have run at least once, configure both as required checks:
+
+1. Open **Settings > Rules > Rulesets** and create or edit the branch ruleset for `main`.
+2. Enable **Require status checks to pass**.
+3. Add `security-review` and `ui-ux-review`.
+4. Enable **Require branches to be up to date before merging**.
+
+Do not merge when either check fails. A detected secret or critical vulnerability fails `security-review`; an app launch, rendering, screenshot, accessibility, or primary-interaction failure fails `ui-ux-review`.

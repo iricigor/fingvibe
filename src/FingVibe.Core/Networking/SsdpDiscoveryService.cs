@@ -16,9 +16,16 @@ public sealed class SsdpDiscoveryService
     private readonly HttpClient _httpClient;
     private readonly TimeSpan _discoveryWindow;
 
-    public SsdpDiscoveryService(HttpClient? httpClient = null, TimeSpan? discoveryWindow = null)
+    public SsdpDiscoveryService(TimeSpan? discoveryWindow = null)
     {
-        _httpClient = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+        _httpClient = new HttpClient(
+            new SocketsHttpHandler
+            {
+                AllowAutoRedirect = false
+            })
+        {
+            Timeout = TimeSpan.FromSeconds(2)
+        };
         _discoveryWindow = discoveryWindow ?? TimeSpan.FromMilliseconds(900);
     }
 

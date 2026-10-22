@@ -9,7 +9,7 @@
     mc:Ignorable="d"
     Title="FingVibe LAN Scanner">
 
-    <Grid x:Name="RootGrid" Loaded="RootGrid_Loaded" Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <Grid x:Name="RootGrid" Loaded="RootGrid_Loaded" Background="{ThemeResource ScannerPageBackgroundBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -17,17 +17,25 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <StackPanel Margin="32,28,32,18" Spacing="6">
-            <TextBlock Text="FingVibe" Style="{ThemeResource TitleTextBlockStyle}" />
-            <TextBlock Text="Fast, native LAN discovery for Windows 11"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        <StackPanel Margin="32,28,32,18" Orientation="Horizontal" Spacing="14">
+            <Border Width="48"
+                    Height="48"
+                    Background="{ThemeResource AccentFillColorDefaultBrush}"
+                    CornerRadius="12">
+                <FontIcon Glyph="&#xE8FE;" FontSize="24" Foreground="White" />
+            </Border>
+            <StackPanel VerticalAlignment="Center" Spacing="2">
+                <TextBlock Text="FingVibe" Style="{ThemeResource TitleTextBlockStyle}" />
+                <TextBlock Text="Fast, native LAN discovery for Windows 11"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
         </StackPanel>
 
         <Border Grid.Row="1"
                 Margin="32,0,32,16"
                 Padding="20"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderBrush="{ThemeResource ScannerCardBorderBrush}"
                 BorderThickness="1"
                 CornerRadius="8">
             <Grid ColumnSpacing="24" RowSpacing="10">
@@ -92,15 +100,38 @@
         <Border Grid.Row="3"
                 Margin="32,0,32,28"
                 Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                BorderBrush="{ThemeResource ScannerCardBorderBrush}"
                 BorderThickness="1"
                 CornerRadius="8">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
-                <Grid Padding="16,12" Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                <Grid Padding="16,10" ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <FontIcon Glyph="&#xE71C;" FontSize="16" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                        <TextBlock Text="Scan results" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <TextBlock x:Name="ResultCountText"
+                                   Text="0 hosts"
+                                   VerticalAlignment="Center"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                    <ComboBox x:Name="ResultFilter"
+                              Grid.Column="1"
+                              MinWidth="150"
+                              Header="Show"
+                              SelectionChanged="ResultFilter_SelectionChanged">
+                        <ComboBoxItem Content="All hosts" />
+                        <ComboBoxItem Content="Alive only" />
+                    </ComboBox>
+                </Grid>
+                <Grid Grid.Row="1" Padding="8,4" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="1.5*" />
                         <ColumnDefinition Width="1.25*" />
@@ -108,15 +139,37 @@
                         <ColumnDefinition Width="2*" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="1.5*" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="Name" FontWeight="SemiBold" />
-                    <TextBlock Grid.Column="1" Text="IP address" FontWeight="SemiBold" />
+                    <Button Grid.Column="1" Tag="Address" Click="SortHeader_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="IP address" FontWeight="SemiBold" />
+                            <TextBlock x:Name="AddressSortGlyph" />
+                        </StackPanel>
+                    </Button>
                     <TextBlock Grid.Column="2" Text="Vendor" FontWeight="SemiBold" />
                     <TextBlock Grid.Column="3" Text="Open ports" FontWeight="SemiBold" />
-                    <TextBlock Grid.Column="4" Text="Status" FontWeight="SemiBold" />
-                    <TextBlock Grid.Column="5" Text="Response" FontWeight="SemiBold" />
+                    <Button Grid.Column="4" Tag="Status" Click="SortHeader_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="Status" FontWeight="SemiBold" />
+                            <TextBlock x:Name="StatusSortGlyph" />
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="5" Tag="Response" Click="SortHeader_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="Response" FontWeight="SemiBold" />
+                            <TextBlock x:Name="ResponseSortGlyph" />
+                        </StackPanel>
+                    </Button>
+                    <Button Grid.Column="6" Tag="MacAddress" Click="SortHeader_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="MAC address" FontWeight="SemiBold" />
+                            <TextBlock x:Name="MacAddressSortGlyph" />
+                        </StackPanel>
+                    </Button>
                 </Grid>
-                <ListView x:Name="ResultsList" Grid.Row="1">
+                <ListView x:Name="ResultsList" Grid.Row="2">
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="models:ScanResult">
                             <Grid Padding="8,5">
@@ -127,6 +180,7 @@
                                     <ColumnDefinition Width="2*" />
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="1.5*" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="{x:Bind NameText}" TextTrimming="CharacterEllipsis" />
                                 <TextBlock Grid.Column="1" Text="{x:Bind AddressText}" />
@@ -150,14 +204,18 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <TextBlock Grid.Column="4" Text="{x:Bind StatusText}" />
-                                <TextBlock Grid.Column="5" Text="{x:Bind RoundtripText}" />
-                            </Grid>
+                               <TextBlock Grid.Column="5" Text="{x:Bind RoundtripText}" />
+                               <TextBlock Grid.Column="4"
+                                          Text="{x:Bind StatusText}"
+                                          Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                          FontWeight="SemiBold" />
+                               <TextBlock Grid.Column="6" Text="{x:Bind MacAddressText}" FontFamily="Consolas" />
+                           </Grid>
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
                 <TextBlock x:Name="EmptyResultsText"
-                           Grid.Row="1"
+                           Grid.Row="2"
                            Text="Select Scan LAN to probe every address on the detected subnet."
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"

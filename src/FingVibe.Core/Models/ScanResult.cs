@@ -32,6 +32,10 @@ public sealed record ScanResult(
     public string VendorText => Status == HostStatus.Alive ? VendorName : "-";
 
     public IReadOnlyList<OpenPort> OpenPortItems => OpenPorts ?? [];
+
+    public string MacAddressText => MacAddress is null
+        ? "-"
+        : string.Join("-", MacAddress.GetAddressBytes().Select(value => value.ToString("X2")));
 }
 
 public sealed record OpenPort(int Port, string ServiceName)
