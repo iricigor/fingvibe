@@ -41,8 +41,13 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        if (IsUiReview)
+        {
+            RootGrid.RequestedTheme = ElementTheme.Dark;
+        }
+
         ResultsList.ItemsSource = _visibleResults;
-        ResultFilter.SelectedIndex = 0;
+        StatusFilter.SelectedIndex = 0;
         UpdateSortGlyphs();
     }
 
@@ -239,7 +244,12 @@ public sealed partial class MainWindow : Window
         ScanStatusText.Text = "Cancelling...";
     }
 
-    private void ResultFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void ResultSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        RefreshVisibleResults();
+    }
+
+    private void StatusFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         RefreshVisibleResults();
     }
@@ -318,7 +328,8 @@ public sealed partial class MainWindow : Window
     }
 
     private bool ShouldShow(ScanResultRow row) =>
-        ResultFilter.SelectedIndex != 1 || row.IsOnline;
+        (StatusFilter.SelectedIndex != 1 || row.IsOnline)
+        && row.Result.MatchesFilter(ResultSearchBox.Text);
 
     private void InsertSorted(ScanResultRow result)
     {
@@ -414,7 +425,11 @@ public sealed partial class MainWindow : Window
                 ? "Waiting for scan results..."
                 : "Select Scan LAN to probe every address on the detected subnet.";
         }
-        else if (ResultFilter.SelectedIndex == 1)
+        else if (!string.IsNullOrWhiteSpace(ResultSearchBox.Text))
+        {
+            EmptyResultsText.Text = "No hosts match the current filter.";
+        }
+        else if (StatusFilter.SelectedIndex == 1)
         {
             EmptyResultsText.Text = "No alive hosts found in the current results.";
         }

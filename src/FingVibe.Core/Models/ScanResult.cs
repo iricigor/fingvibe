@@ -36,6 +36,24 @@ public sealed record ScanResult(
     public string MacAddressText => MacAddress is null
         ? "-"
         : string.Join("-", MacAddress.GetAddressBytes().Select(value => value.ToString("X2")));
+
+    public bool MatchesFilter(string? filter)
+    {
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            return true;
+        }
+
+        var searchText = filter.Trim();
+        return NameText.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || AddressText.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || VendorText.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || OpenPortItems.Any(port =>
+                port.AccessibleLabel.Contains(searchText, StringComparison.OrdinalIgnoreCase))
+            || StatusText.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || RoundtripText.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || MacAddressText.Contains(searchText, StringComparison.OrdinalIgnoreCase);
+    }
 }
 
 public sealed record OpenPort(int Port, string ServiceName)
