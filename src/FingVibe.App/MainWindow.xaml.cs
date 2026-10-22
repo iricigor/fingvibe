@@ -17,7 +17,6 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(1100, 720));
         ResultsList.ItemsSource = _results;
     }
 
