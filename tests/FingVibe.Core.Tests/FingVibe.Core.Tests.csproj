@@ -20,4 +20,7 @@
     </PackageReference>
     <ProjectReference Include="..\..\src\FingVibe.Core\FingVibe.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\..\src\FingVibe.App\ScanResultRow.cs" Link="ScanResultRow.cs" />
+  </ItemGroup>
 </Project>

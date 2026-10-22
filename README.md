@@ -12,6 +12,8 @@ FingVibe is a native Windows 11 LAN scanner built with C# and WinUI 3. It detect
 - MAC vendor lookup using locally cached IEEE registries, including private/randomized detection
 - Bounded probes for common TCP services with compact Fluent port icons
 - Live progress, cancellation, filtering, and sortable per-host results
+- Compact results with subnet-aware IP emphasis, online/offline badges, and two-tone MAC addresses
+- Numeric latency labels with green-to-red bars scaled across responding hosts (20% for fastest, 100% for slowest; equal times remain green at 20%)
 - MAC address discovery for reachable devices when available
 - Pull request build artifacts for Windows x64
 - Automatically versioned GitHub Releases from `main`
@@ -32,6 +34,8 @@ dotnet run --project src\FingVibe.App\FingVibe.App.csproj -p:Platform=x64
 The scanner uses ICMP echo requests. Firewall rules and devices configured not to answer ICMP can cause an active host to appear unreachable. On first use, vendor detection downloads the official IEEE MA-L, MA-M, and MA-S registries and caches them under the current user's local application data for 30 days.
 
 Public IP and ISP details are retrieved from `ipwho.is`. This optional display depends on internet access and sends the connection's public IP to that provider as part of the HTTPS request. LAN discovery and scanning continue to work when the lookup is unavailable.
+
+Results dim complete network-prefix octets using the scanned subnet's CIDR; partially masked octets remain emphasized because they also identify hosts. Latency bars update as responses arrive and keep the same scale when filtering or sorting. Missing responses show a dash, not a performance bar. "Offline" means no ICMP response, not proof that a device is powered off. Select a row with the pointer or keyboard to highlight it; sorting preserves the selection. Hover over service icons for port numbers and service names.
 
 ## Test
 
