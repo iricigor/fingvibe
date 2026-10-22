@@ -48,11 +48,13 @@ Every pull request uploads a `fingvibe-win-x64-pr-*` artifact from the **Actions
 Pull requests run two independent review checks:
 
 - `security-review` scans the repository for exposed secrets and fails on critical dependency vulnerabilities.
-- `ui-ux-review` builds and launches the WinUI app, exercises the primary **Scan LAN** action, verifies critical accessible controls, and posts a current screenshot artifact on the pull request.
+- `ui-ux-review` builds and launches the WinUI app, exercises the primary **Scan LAN** action, verifies critical accessible controls, and embeds the current screenshot on the pull request.
 
-The UI check requires a self-hosted Windows x64 runner because GitHub-hosted Windows runners do not provide an interactive desktop for native UI automation. It runs automatically only for same-repository pull requests from trusted collaborators; fork pull requests are not executed on the runner. Use an ephemeral VM runner that is destroyed after every job and isolated from internal networks. Start the runner in a logged-in desktop session, not as a Windows service, and assign it the custom `ui-review` label. The workflow sets `FINGVIBE_UI_REVIEW=1`, which confines the smoke-test scan to the local loopback network.
+The UI check runs on GitHub's `windows-2025` image and uses its preinstalled WinAppDriver to launch and automate the native application in dark theme. It runs automatically only for same-repository pull requests from trusted collaborators; fork pull requests are not executed. The workflow sets `FINGVIBE_UI_REVIEW=1`, which confines the smoke-test scan to the local loopback network and keeps the hosted-runner review deterministic.
 
-After the runner is online and both workflows have run at least once, configure both as required checks:
+The workflow publishes the latest screenshot for each pull request to the `gh-pages` branch so the bot can embed the PNG directly in its review comment. After the workflow creates that branch for the first time, open **Settings > Pages**, choose **Deploy from a branch**, select `gh-pages` and `/ (root)`, then save. The published image URL uses `https://<owner>.github.io/<repository>/ui-review/pr-<number>/fingvibe-ui-review.png`.
+
+After both workflows have run at least once, configure them as required checks:
 
 1. Open **Settings > Rules > Rulesets** and create or edit the branch ruleset for `main`.
 2. Enable **Require status checks to pass**.
