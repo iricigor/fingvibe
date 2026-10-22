@@ -314,8 +314,8 @@ public sealed partial class MainWindow : Window
                 left.RoundtripTimeMilliseconds,
                 right.RoundtripTimeMilliseconds),
             ResultSortColumn.MacAddress => string.Compare(
-                left.MacAddress,
-                right.MacAddress,
+                left.MacAddressText,
+                right.MacAddressText,
                 StringComparison.OrdinalIgnoreCase),
             _ => 0
         };

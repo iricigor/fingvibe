@@ -8,6 +8,9 @@ FingVibe is a native Windows 11 LAN scanner built with C# and WinUI 3. It detect
 - Automatic local IPv4 and CIDR discovery
 - ISP-based network identity with expandable public and local address details
 - Parallel ICMP scanning with up to 256 concurrent probes
+- Device names from UPnP/SSDP, mDNS, reverse DNS, and NetBIOS
+- MAC vendor lookup using locally cached IEEE registries, including private/randomized detection
+- Bounded probes for common TCP services with compact Fluent port icons
 - Live progress, cancellation, filtering, and sortable per-host results
 - MAC address discovery for reachable devices when available
 - Pull request build artifacts for Windows x64
@@ -26,7 +29,7 @@ dotnet restore FingVibe.sln
 dotnet run --project src\FingVibe.App\FingVibe.App.csproj -p:Platform=x64
 ```
 
-The scanner uses ICMP echo requests. Firewall rules and devices configured not to answer ICMP can cause an active host to appear unreachable.
+The scanner uses ICMP echo requests. Firewall rules and devices configured not to answer ICMP can cause an active host to appear unreachable. On first use, vendor detection downloads the official IEEE MA-L, MA-M, and MA-S registries and caches them under the current user's local application data for 30 days.
 
 Public IP and ISP details are retrieved from `ipwho.is`. This optional display depends on internet access and sends the connection's public IP to that provider as part of the HTTPS request. LAN discovery and scanning continue to work when the lookup is unavailable.
 
@@ -47,7 +50,7 @@ Pull requests run two independent review checks:
 - `security-review` scans the repository for exposed secrets and fails on critical dependency vulnerabilities.
 - `ui-ux-review` builds and launches the WinUI app, exercises the primary **Scan LAN** action, verifies critical accessible controls, and posts a current screenshot artifact on the pull request.
 
-The UI check requires a self-hosted Windows x64 runner because GitHub-hosted Windows runners do not provide an interactive desktop for native UI automation. Use an ephemeral VM runner that is destroyed after every job and isolated from internal networks, because pull-request code is untrusted. Start the runner in a logged-in desktop session, not as a Windows service, and assign it the custom `ui-review` label. The workflow sets `FINGVIBE_UI_REVIEW=1`, which confines the smoke-test scan to the local loopback network.
+The UI check requires a self-hosted Windows x64 runner because GitHub-hosted Windows runners do not provide an interactive desktop for native UI automation. It runs automatically only for same-repository pull requests from trusted collaborators; fork pull requests are not executed on the runner. Use an ephemeral VM runner that is destroyed after every job and isolated from internal networks. Start the runner in a logged-in desktop session, not as a Windows service, and assign it the custom `ui-review` label. The workflow sets `FINGVIBE_UI_REVIEW=1`, which confines the smoke-test scan to the local loopback network.
 
 After the runner is online and both workflows have run at least once, configure both as required checks:
 
