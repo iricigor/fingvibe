@@ -129,8 +129,13 @@
             </Grid.ColumnDefinitions>
             <Button x:Name="ScanButton"
                     Click="ScanButton_Click"
-                    Content="Scan LAN"
-                    Style="{ThemeResource AccentButtonStyle}" />
+                    AutomationProperties.Name="Scan LAN"
+                    Style="{ThemeResource AccentButtonStyle}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE72C;" />
+                    <TextBlock Text="Scan LAN" />
+                </StackPanel>
+            </Button>
             <Button x:Name="CancelButton"
                     Grid.Column="1"
                     Click="CancelButton_Click"
@@ -157,6 +162,7 @@
                 CornerRadius="8">
             <Grid>
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -191,7 +197,13 @@
                         <ComboBoxItem Content="Alive only" />
                     </ComboBox>
                 </Grid>
-                <Grid Grid.Row="1" Padding="12,4" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
+                <TextBlock x:Name="SnapshotStatusText"
+                           Grid.Row="1"
+                           Margin="16,0,16,8"
+                           TextWrapping="Wrap"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           Visibility="Collapsed" />
+                <Grid Grid.Row="2" Padding="12,4" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="1.5*" />
                         <ColumnDefinition Width="1.25*" />
@@ -233,7 +245,7 @@
                         </StackPanel>
                     </Button>
                 </Grid>
-                <ListView x:Name="ResultsList" Grid.Row="2" SelectionMode="Single"
+                <ListView x:Name="ResultsList" Grid.Row="3" SelectionMode="Single"
                           IsItemClickEnabled="False" AutomationProperties.Name="Scan results">
                     <ListView.Resources>
                         <ResourceDictionary>
@@ -353,7 +365,7 @@
                     </ListView.ItemTemplate>
                 </ListView>
                 <TextBlock x:Name="EmptyResultsText"
-                           Grid.Row="2"
+                           Grid.Row="3"
                            Text="Select Scan LAN to probe every address on the detected subnet."
                            HorizontalAlignment="Center"
                            VerticalAlignment="Center"
