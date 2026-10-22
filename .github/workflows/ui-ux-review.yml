@@ -1,0 +1,105 @@
+name: UI/UX review
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: ui-ux-review-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ui-ux-review:
+    name: ui-ux-review
+    runs-on: [self-hosted, Windows, X64, ui-review]
+    env:
+      FINGVIBE_UI_REVIEW: "1"
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Test networking core
+        run: dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj --configuration Release
+
+      - name: Publish review build
+        shell: pwsh
+        run: |
+          msbuild src\FingVibe.App\FingVibe.App.csproj `
+            /restore `
+            /target:Publish `
+            /property:Configuration=Release `
+            /property:Platform=x64 `
+            /property:RuntimeIdentifier=win-x64 `
+            /property:SelfContained=true `
+            /property:PublishDir="${{ github.workspace }}\artifacts\ui-review-app\"
+
+      - name: Exercise primary UI and capture screenshot
+        shell: pwsh
+        run: |
+          .\.github\scripts\Invoke-UiReview.ps1 `
+            -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
+            -ScreenshotPath "${{ github.workspace }}\artifacts\ui-review\fingvibe-ui-review.png"
+
+      - name: Upload UI review screenshot
+        id: screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: fingvibe-ui-review-pr-${{ github.event.pull_request.number || github.run_number }}
+          path: artifacts\ui-review\fingvibe-ui-review.png
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Add screenshot link to pull request
+        if: >
+          github.event_name == 'pull_request'
+          && github.event.pull_request.head.repo.full_name == github.repository
+          && github.actor != 'dependabot[bot]'
+        env:
+          ARTIFACT_URL: ${{ steps.screenshot.outputs.artifact-url }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: pwsh
+        run: |
+          $marker = "<!-- fingvibe-ui-review -->"
+          $body = @"
+          $marker
+          ## UI/UX review screenshot
+
+          The automated reviewer launched FingVibe, exercised **Scan LAN**, and captured the resulting UI.
+
+          [View or download the current app screenshot]($env:ARTIFACT_URL)
+
+          The screenshot artifact expires after 14 days. A missing screenshot or broken primary interaction fails the ``ui-ux-review`` check.
+          "@
+
+          $comments = gh api `
+            "repos/$env:GITHUB_REPOSITORY/issues/$env:PR_NUMBER/comments" `
+            --paginate | ConvertFrom-Json
+          $existing = $comments |
+            Where-Object { $_.user.login -eq "github-actions[bot]" -and $_.body.Contains($marker) } |
+            Select-Object -First 1
+
+          if ($existing) {
+            @{ body = $body } |
+              ConvertTo-Json |
+              gh api --method PATCH `
+                "repos/$env:GITHUB_REPOSITORY/issues/comments/$($existing.id)" `
+                --input -
+          } else {
+            gh pr comment $env:PR_NUMBER --body $body
+          }
+
+          "Screenshot artifact: $env:ARTIFACT_URL" >> $env:GITHUB_STEP_SUMMARY

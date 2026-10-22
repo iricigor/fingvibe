@@ -1,0 +1,72 @@
+name: Security review
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-review-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security-review:
+    name: security-review
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source and history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan for exposed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore FingVibe.sln -p:EnableWindowsTargeting=true
+
+      - name: Fail on critical dependency vulnerabilities
+        shell: pwsh
+        run: |
+          $report = dotnet list "${{ github.workspace }}/FingVibe.sln" package `
+            --vulnerable `
+            --include-transitive `
+            --format json
+          $report | Set-Content dependency-vulnerabilities.json
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Dependency vulnerability analysis failed."
+          }
+
+          $json = $report | ConvertFrom-Json
+          $critical = @(
+            $json.projects.frameworks.topLevelPackages
+            $json.projects.frameworks.transitivePackages
+          ) |
+            Where-Object { $_.vulnerabilities.severity -contains "Critical" }
+
+          if ($critical.Count -gt 0) {
+            $critical | ConvertTo-Json -Depth 10 | Write-Host
+            throw "Critical dependency vulnerabilities were detected."
+          }
+
+          "No critical dependency vulnerabilities detected." >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload dependency report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-vulnerability-report
+          path: dependency-vulnerabilities.json
+          if-no-files-found: warn
+          retention-days: 14
