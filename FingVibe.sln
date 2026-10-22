@@ -1,0 +1,44 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FingVibe.Core", "src\FingVibe.Core\FingVibe.Core.csproj", "{78B60B4D-1249-4D24-B951-1E241EB8EDE8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FingVibe.App", "src\FingVibe.App\FingVibe.App.csproj", "{E9856EAE-611C-42BE-9A73-FE823AE641BF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FingVibe.Core.Tests", "tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj", "{53B93AE0-BE67-4977-95A9-C7BB2FC7C598}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{78B60B4D-1249-4D24-B951-1E241EB8EDE8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{78B60B4D-1249-4D24-B951-1E241EB8EDE8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{78B60B4D-1249-4D24-B951-1E241EB8EDE8}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{78B60B4D-1249-4D24-B951-1E241EB8EDE8}.Debug|x64.Build.0 = Debug|Any CPU
+		{78B60B4D-1249-4D24-B951-1E241EB8EDE8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{78B60B4D-1249-4D24-B951-1E241EB8EDE8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{78B60B4D-1249-4D24-B951-1E241EB8EDE8}.Release|x64.ActiveCfg = Release|Any CPU
+		{78B60B4D-1249-4D24-B951-1E241EB8EDE8}.Release|x64.Build.0 = Release|Any CPU
+		{E9856EAE-611C-42BE-9A73-FE823AE641BF}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{E9856EAE-611C-42BE-9A73-FE823AE641BF}.Debug|Any CPU.Build.0 = Debug|x64
+		{E9856EAE-611C-42BE-9A73-FE823AE641BF}.Debug|x64.ActiveCfg = Debug|x64
+		{E9856EAE-611C-42BE-9A73-FE823AE641BF}.Debug|x64.Build.0 = Debug|x64
+		{E9856EAE-611C-42BE-9A73-FE823AE641BF}.Release|Any CPU.ActiveCfg = Release|x64
+		{E9856EAE-611C-42BE-9A73-FE823AE641BF}.Release|Any CPU.Build.0 = Release|x64
+		{E9856EAE-611C-42BE-9A73-FE823AE641BF}.Release|x64.ActiveCfg = Release|x64
+		{E9856EAE-611C-42BE-9A73-FE823AE641BF}.Release|x64.Build.0 = Release|x64
+		{53B93AE0-BE67-4977-95A9-C7BB2FC7C598}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{53B93AE0-BE67-4977-95A9-C7BB2FC7C598}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{53B93AE0-BE67-4977-95A9-C7BB2FC7C598}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{53B93AE0-BE67-4977-95A9-C7BB2FC7C598}.Debug|x64.Build.0 = Debug|Any CPU
+		{53B93AE0-BE67-4977-95A9-C7BB2FC7C598}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{53B93AE0-BE67-4977-95A9-C7BB2FC7C598}.Release|Any CPU.Build.0 = Release|Any CPU
+		{53B93AE0-BE67-4977-95A9-C7BB2FC7C598}.Release|x64.ActiveCfg = Release|Any CPU
+		{53B93AE0-BE67-4977-95A9-C7BB2FC7C598}.Release|x64.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

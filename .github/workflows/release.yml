@@ -1,0 +1,69 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Set release version
+        id: version
+        shell: pwsh
+        run: |
+          "number=1.0.${{ github.run_number }}" >> $env:GITHUB_OUTPUT
+          "tag=v1.0.${{ github.run_number }}" >> $env:GITHUB_OUTPUT
+
+      - name: Test networking core
+        run: dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj --configuration Release
+
+      - name: Publish Windows x64 app
+        shell: pwsh
+        run: |
+          msbuild src\FingVibe.App\FingVibe.App.csproj `
+            /restore `
+            /target:Publish `
+            /property:Configuration=Release `
+            /property:Platform=x64 `
+            /property:RuntimeIdentifier=win-x64 `
+            /property:SelfContained=true `
+            /property:Version=${{ steps.version.outputs.number }} `
+            /property:PublishDir="${{ github.workspace }}\artifacts\fingvibe-win-x64\"
+
+      - name: Create release archive
+        shell: pwsh
+        run: Compress-Archive -Path artifacts\fingvibe-win-x64\* -DestinationPath artifacts\FingVibe-${{ steps.version.outputs.number }}-win-x64.zip
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          $tag = "${{ steps.version.outputs.tag }}"
+          $archive = "artifacts\FingVibe-${{ steps.version.outputs.number }}-win-x64.zip"
+          if (gh release view $tag 2>$null) {
+            gh release upload $tag $archive --clobber
+          } else {
+            gh release create $tag $archive `
+              --target "${{ github.sha }}" `
+              --title "FingVibe ${{ steps.version.outputs.number }}" `
+              --generate-notes
+          }
