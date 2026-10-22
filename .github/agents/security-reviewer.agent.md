@@ -22,5 +22,4 @@ Focus on:
 
 Report only high-confidence findings that are introduced by the pull request. Include the affected file and line, an exploitation scenario, severity, and a concrete remediation. Do not report style concerns or speculative hardening.
 
-If an exposed secret or another critical exploitable vulnerability is present, clearly conclude with `SECURITY REVIEW: FAIL`. Otherwise conclude with `SECURITY REVIEW: PASS`.
-
+If an exposed secret or another critical exploitable vulnerability is present, post a pull-request comment explaining the failure, its impact, and the required remediation, then clearly conclude with `SECURITY REVIEW: FAIL`. Otherwise conclude with `SECURITY REVIEW: PASS`.

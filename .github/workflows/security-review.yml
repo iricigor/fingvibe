@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 concurrency:
   group: security-review-${{ github.event.pull_request.number || github.ref }}
@@ -23,6 +24,7 @@ jobs:
           fetch-depth: 0
 
       - name: Scan for exposed secrets
+        id: secrets
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -33,9 +35,11 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Restore dependencies
+        id: restore
         run: dotnet restore FingVibe.sln -p:EnableWindowsTargeting=true
 
       - name: Fail on critical dependency vulnerabilities
+        id: dependencies
         shell: pwsh
         run: |
           $report = dotnet list "${{ github.workspace }}/FingVibe.sln" package `
@@ -70,3 +74,83 @@ jobs:
           path: dependency-vulnerabilities.json
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Explain security review failure
+        if: >
+          failure()
+          && github.event_name == 'pull_request'
+          && github.event.pull_request.head.repo.full_name == github.repository
+          && github.actor != 'dependabot[bot]'
+        env:
+          DEPENDENCY_OUTCOME: ${{ steps.dependencies.outcome }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RESTORE_OUTCOME: ${{ steps.restore.outcome }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SECRET_OUTCOME: ${{ steps.secrets.outcome }}
+        shell: pwsh
+        run: |
+          $reasons = [System.Collections.Generic.List[string]]::new()
+          if ($env:SECRET_OUTCOME -eq "failure") {
+            $reasons.Add("- The exposed-secret scan found a potential credential or secret. Review the redacted Gitleaks annotations and rotate any real credential before removing it from the branch.")
+          }
+          if ($env:RESTORE_OUTCOME -eq "failure") {
+            $reasons.Add("- Dependency restore failed, so vulnerability analysis could not run.")
+          }
+          if ($env:DEPENDENCY_OUTCOME -eq "failure") {
+            $reasons.Add("- Dependency analysis failed or found at least one package with a **Critical** vulnerability. Download the dependency report from the workflow run for package details.")
+          }
+          if ($reasons.Count -eq 0) {
+            $reasons.Add("- The security workflow failed unexpectedly. Inspect the failed step in the workflow run.")
+          }
+
+          $marker = "<!-- fingvibe-security-review-failure -->"
+          $body = @"
+          $marker
+          ## Security review failed
+
+          $($reasons -join "`n")
+
+          [Open the failed security review run]($env:RUN_URL)
+          "@
+
+          $comments = gh api `
+            "repos/$env:GITHUB_REPOSITORY/issues/$env:PR_NUMBER/comments" `
+            --paginate | ConvertFrom-Json
+          $existing = $comments |
+            Where-Object { $_.user.login -eq "github-actions[bot]" -and $_.body.Contains($marker) } |
+            Select-Object -First 1
+
+          if ($existing) {
+            @{ body = $body } |
+              ConvertTo-Json |
+              gh api --method PATCH `
+                "repos/$env:GITHUB_REPOSITORY/issues/comments/$($existing.id)" `
+                --input -
+          } else {
+            gh pr comment $env:PR_NUMBER --body $body
+          }
+
+      - name: Clear resolved security failure comment
+        if: >
+          success()
+          && github.event_name == 'pull_request'
+          && github.event.pull_request.head.repo.full_name == github.repository
+          && github.actor != 'dependabot[bot]'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: pwsh
+        run: |
+          $marker = "<!-- fingvibe-security-review-failure -->"
+          $comments = gh api `
+            "repos/$env:GITHUB_REPOSITORY/issues/$env:PR_NUMBER/comments" `
+            --paginate | ConvertFrom-Json
+          $existing = $comments |
+            Where-Object { $_.user.login -eq "github-actions[bot]" -and $_.body.Contains($marker) } |
+            Select-Object -First 1
+          if ($existing) {
+            gh api --method DELETE `
+              "repos/$env:GITHUB_REPOSITORY/issues/comments/$($existing.id)"
+          }

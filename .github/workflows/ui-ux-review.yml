@@ -32,9 +32,11 @@ jobs:
         uses: microsoft/setup-msbuild@v2
 
       - name: Test networking core
+        id: tests
         run: dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj --configuration Release
 
       - name: Publish review build
+        id: publish
         shell: pwsh
         run: |
           msbuild src\FingVibe.App\FingVibe.App.csproj `
@@ -47,6 +49,7 @@ jobs:
             /property:PublishDir="${{ github.workspace }}\artifacts\ui-review-app\"
 
       - name: Exercise primary UI and capture screenshot
+        id: smoke
         shell: pwsh
         run: |
           .\.github\scripts\Invoke-UiReview.ps1 `
@@ -63,6 +66,7 @@ jobs:
           retention-days: 14
 
       - name: Add screenshot link to pull request
+        id: pr-comment
         if: >
           github.event_name == 'pull_request'
           && github.event.pull_request.head.repo.full_name == github.repository
@@ -103,3 +107,91 @@ jobs:
           }
 
           "Screenshot artifact: $env:ARTIFACT_URL" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Explain UI/UX review failure
+        if: >
+          failure()
+          && github.event_name == 'pull_request'
+          && github.event.pull_request.head.repo.full_name == github.repository
+          && github.actor != 'dependabot[bot]'
+        env:
+          COMMENT_OUTCOME: ${{ steps.pr-comment.outcome }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PUBLISH_OUTCOME: ${{ steps.publish.outcome }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SCREENSHOT_OUTCOME: ${{ steps.screenshot.outcome }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+          TEST_OUTCOME: ${{ steps.tests.outcome }}
+        shell: pwsh
+        run: |
+          $reasons = [System.Collections.Generic.List[string]]::new()
+          if ($env:TEST_OUTCOME -eq "failure") {
+            $reasons.Add("- Core tests failed, so the primary application behavior is not safe to review.")
+          }
+          if ($env:PUBLISH_OUTCOME -eq "failure") {
+            $reasons.Add("- The WinUI application could not be built and published.")
+          }
+          if ($env:SMOKE_OUTCOME -eq "failure") {
+            $reasons.Add("- The app failed its native UI smoke test. It may not launch or render, a critical accessible control may be missing, the Scan LAN interaction may be broken, or a valid screenshot could not be captured.")
+          }
+          if ($env:SCREENSHOT_OUTCOME -eq "failure") {
+            $reasons.Add("- The UI screenshot could not be uploaded as a workflow artifact.")
+          }
+          if ($env:COMMENT_OUTCOME -eq "failure") {
+            $reasons.Add("- The screenshot was captured, but its pull-request comment could not be created or updated.")
+          }
+          if ($reasons.Count -eq 0) {
+            $reasons.Add("- The UI/UX workflow failed unexpectedly. Inspect the failed step in the workflow run.")
+          }
+
+          $marker = "<!-- fingvibe-ui-review-failure -->"
+          $body = @"
+          $marker
+          ## UI/UX review failed
+
+          $($reasons -join "`n")
+
+          [Open the failed UI/UX review run]($env:RUN_URL)
+          "@
+
+          $comments = gh api `
+            "repos/$env:GITHUB_REPOSITORY/issues/$env:PR_NUMBER/comments" `
+            --paginate | ConvertFrom-Json
+          $existing = $comments |
+            Where-Object { $_.user.login -eq "github-actions[bot]" -and $_.body.Contains($marker) } |
+            Select-Object -First 1
+
+          if ($existing) {
+            @{ body = $body } |
+              ConvertTo-Json |
+              gh api --method PATCH `
+                "repos/$env:GITHUB_REPOSITORY/issues/comments/$($existing.id)" `
+                --input -
+          } else {
+            gh pr comment $env:PR_NUMBER --body $body
+          }
+
+      - name: Clear resolved UI/UX failure comment
+        if: >
+          success()
+          && github.event_name == 'pull_request'
+          && github.event.pull_request.head.repo.full_name == github.repository
+          && github.actor != 'dependabot[bot]'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: pwsh
+        run: |
+          $marker = "<!-- fingvibe-ui-review-failure -->"
+          $comments = gh api `
+            "repos/$env:GITHUB_REPOSITORY/issues/$env:PR_NUMBER/comments" `
+            --paginate | ConvertFrom-Json
+          $existing = $comments |
+            Where-Object { $_.user.login -eq "github-actions[bot]" -and $_.body.Contains($marker) } |
+            Select-Object -First 1
+          if ($existing) {
+            gh api --method DELETE `
+              "repos/$env:GITHUB_REPOSITORY/issues/comments/$($existing.id)"
+          }

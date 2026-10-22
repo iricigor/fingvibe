@@ -26,5 +26,4 @@ Check:
 
 Report only actionable regressions introduced by the pull request. Include the affected file and line when source changes caused the issue.
 
-If the app cannot launch or render, the primary scan workflow is broken, a critical control is inaccessible, or a screenshot cannot be produced and posted, clearly conclude with `UI/UX REVIEW: FAIL`. Otherwise conclude with `UI/UX REVIEW: PASS`.
-
+If the app cannot launch or render, the primary scan workflow is broken, a critical control is inaccessible, or a screenshot cannot be produced and posted, post a pull-request comment explaining the failure and the required remediation, then clearly conclude with `UI/UX REVIEW: FAIL`. Otherwise conclude with `UI/UX REVIEW: PASS`.
