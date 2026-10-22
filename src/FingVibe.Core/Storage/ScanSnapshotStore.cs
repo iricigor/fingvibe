@@ -54,6 +54,7 @@ public sealed class ScanSnapshotStore
 
         if (document is null
             || document.Version != CurrentVersion
+            || document.CompletedAt == default
             || document.Results is null
             || !TryGetPrefixLength(document.Subnet, out _))
         {
@@ -64,7 +65,8 @@ public sealed class ScanSnapshotStore
         {
             var results = document.Results.Select(result =>
             {
-                if (!IPAddress.TryParse(result.Address, out var address)
+                if (result is null
+                    || !IPAddress.TryParse(result.Address, out var address)
                     || address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork
                     || !Enum.IsDefined(result.Status)
                     || result.OpenPorts is null)
@@ -80,7 +82,15 @@ public sealed class ScanSnapshotStore
                     result.DeviceName,
                     result.MacAddress is null ? null : PhysicalAddress.Parse(result.MacAddress),
                     result.VendorName ?? "Unknown",
-                    result.OpenPorts.Select(port => new OpenPort(port.Port, port.ServiceName ?? string.Empty)).ToArray());
+                    result.OpenPorts.Select(port =>
+                    {
+                        if (port is null || port.Port is < 1 or > 65_535)
+                        {
+                            throw new InvalidDataException("The saved scan cache contains invalid port details.");
+                        }
+
+                        return new OpenPort(port.Port, port.ServiceName ?? string.Empty);
+                    }).ToArray());
             }).ToArray();
 
             return new ScanSnapshot(document.Subnet, document.CompletedAt, results);

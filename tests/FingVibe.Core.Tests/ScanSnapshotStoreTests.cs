@@ -89,6 +89,27 @@ public sealed class ScanSnapshotStoreTests
         }
     }
 
+    [Fact]
+    public async Task LoadAsync_RejectsCacheWithNullDeviceEntry()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "cache.json");
+
+        try
+        {
+            await File.WriteAllTextAsync(
+                path,
+                """{"version":1,"subnet":"192.168.1.0/24","completedAt":"2026-10-22T21:30:00Z","results":[null]}""");
+
+            await Assert.ThrowsAsync<InvalidDataException>(() => new ScanSnapshotStore(path).LoadAsync());
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
     [Theory]
     [InlineData(0, "0 seconds")]
     [InlineData(1, "1 second")]
@@ -108,5 +129,11 @@ public sealed class ScanSnapshotStoreTests
     public void FormatAge_ClampsFutureTimestampsToZeroSeconds()
     {
         Assert.Equal("0 seconds", ScanAgeFormatter.FormatAge(TimeSpan.FromSeconds(-1)));
+    }
+
+    [Fact]
+    public void FormatAge_DoesNotDisplayFractionalUnits()
+    {
+        Assert.Equal("1 second", ScanAgeFormatter.FormatAge(TimeSpan.FromMilliseconds(1_999)));
     }
 }
