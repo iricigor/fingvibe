@@ -67,14 +67,18 @@ public sealed class LanScannerService
             stopwatch.Stop();
             cancellationToken.ThrowIfCancellationRequested();
 
-            return reply.Status == IPStatus.Success
-                ? new ScanResult(address, HostStatus.Alive, reply.RoundtripTime, stopwatch.Elapsed)
-                : new ScanResult(address, HostStatus.Unreachable, null, stopwatch.Elapsed);
+            if (reply.Status != IPStatus.Success)
+            {
+                return new ScanResult(address, HostStatus.Unreachable, null, null, stopwatch.Elapsed);
+            }
+
+            var macAddress = MacAddressResolver.TryResolve(address);
+            return new ScanResult(address, HostStatus.Alive, reply.RoundtripTime, macAddress, stopwatch.Elapsed);
         }
         catch (PingException)
         {
             stopwatch.Stop();
-            return new ScanResult(address, HostStatus.Unreachable, null, stopwatch.Elapsed);
+            return new ScanResult(address, HostStatus.Unreachable, null, null, stopwatch.Elapsed);
         }
     }
 }

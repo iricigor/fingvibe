@@ -12,6 +12,7 @@ public sealed record ScanResult(
     IPAddress Address,
     HostStatus Status,
     long? RoundtripTimeMilliseconds,
+    string? MacAddress,
     TimeSpan ProbeDuration)
 {
     public string AddressText => Address.ToString();
@@ -21,6 +22,8 @@ public sealed record ScanResult(
     public string RoundtripText => RoundtripTimeMilliseconds is long milliseconds
         ? $"{milliseconds} ms"
         : "-";
+
+    public string MacAddressText => MacAddress ?? "-";
 }
 
 public readonly record struct ScanProgress(int Completed, int Total);
