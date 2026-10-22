@@ -183,7 +183,7 @@
                         <ComboBoxItem Content="Alive only" />
                     </ComboBox>
                 </Grid>
-                <Grid Grid.Row="1" Padding="8,4" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
+                <Grid Grid.Row="1" Padding="12,4" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="1.5*" />
                         <ColumnDefinition Width="1.25*" />
@@ -193,38 +193,78 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="1.5*" />
                     </Grid.ColumnDefinitions>
-                    <TextBlock Text="Name" FontWeight="SemiBold" />
-                    <Button Grid.Column="1" Tag="Address" Click="SortHeader_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left">
+                    <TextBlock Text="Name" FontWeight="SemiBold" FontSize="12" Margin="0,6" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Tag="Address" Click="SortHeader_Click"
+                            Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by IP address">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <TextBlock Text="IP address" FontWeight="SemiBold" />
                             <TextBlock x:Name="AddressSortGlyph" />
                         </StackPanel>
                     </Button>
-                    <TextBlock Grid.Column="2" Text="Vendor" FontWeight="SemiBold" />
-                    <TextBlock Grid.Column="3" Text="Open ports" FontWeight="SemiBold" />
-                    <Button Grid.Column="4" Tag="Status" Click="SortHeader_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left">
+                    <TextBlock Grid.Column="2" Text="Vendor" FontWeight="SemiBold" FontSize="12" Margin="0,6" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="3" Text="Open ports" FontWeight="SemiBold" FontSize="12" Margin="0,6" VerticalAlignment="Center" />
+                    <Button Grid.Column="4" Tag="Status" Click="SortHeader_Click"
+                            Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by status">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <TextBlock Text="Status" FontWeight="SemiBold" />
                             <TextBlock x:Name="StatusSortGlyph" />
                         </StackPanel>
                     </Button>
-                    <Button Grid.Column="5" Tag="Response" Click="SortHeader_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left">
+                    <Button Grid.Column="5" Tag="Response" Click="SortHeader_Click" HorizontalContentAlignment="Right"
+                            Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by response time">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <TextBlock Text="Response" FontWeight="SemiBold" />
                             <TextBlock x:Name="ResponseSortGlyph" />
                         </StackPanel>
                     </Button>
-                    <Button Grid.Column="6" Tag="MacAddress" Click="SortHeader_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left">
+                    <Button Grid.Column="6" Tag="MacAddress" Click="SortHeader_Click"
+                            Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by MAC address">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <TextBlock Text="MAC address" FontWeight="SemiBold" />
                             <TextBlock x:Name="MacAddressSortGlyph" />
                         </StackPanel>
                     </Button>
                 </Grid>
-                <ListView x:Name="ResultsList" Grid.Row="2">
+                <ListView x:Name="ResultsList" Grid.Row="2" SelectionMode="Single"
+                          IsItemClickEnabled="False" AutomationProperties.Name="Scan results">
+                    <ListView.Resources>
+                        <ResourceDictionary>
+                            <ResourceDictionary.ThemeDictionaries>
+                                <ResourceDictionary x:Key="Light">
+                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="#DBEAFE" />
+                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="#BFDBFE" />
+                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="#BFDBFE" />
+                                </ResourceDictionary>
+                                <ResourceDictionary x:Key="Dark">
+                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="#243F65" />
+                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="#2C4D7B" />
+                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="#2C4D7B" />
+                                </ResourceDictionary>
+                                <ResourceDictionary x:Key="HighContrast">
+                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="{ThemeResource SystemColorHighlightColor}" />
+                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="{ThemeResource SystemColorHighlightColor}" />
+                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="{ThemeResource SystemColorHighlightColor}" />
+                                </ResourceDictionary>
+                            </ResourceDictionary.ThemeDictionaries>
+                        </ResourceDictionary>
+                    </ListView.Resources>
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="MinHeight" Value="32" />
+                            <Setter Property="Padding" Value="0" />
+                            <Setter Property="Margin" Value="0" />
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        </Style>
+                    </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="models:ScanResult">
-                            <Grid Padding="8,5">
+                        <DataTemplate x:DataType="local:ScanResultRow">
+                            <Grid Padding="12,3" MinHeight="32">
+                                <Grid.Resources>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="FontSize" Value="12" />
+                                        <Setter Property="VerticalAlignment" Value="Center" />
+                                    </Style>
+                                </Grid.Resources>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="1.5*" />
                                     <ColumnDefinition Width="1.25*" />
@@ -234,12 +274,20 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="1.5*" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="{x:Bind NameText}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Grid.Column="1" Text="{x:Bind AddressText}" />
+                                <TextBlock Text="{x:Bind Result.NameText}" TextTrimming="CharacterEllipsis"
+                                           Margin="0,0,8,0" Opacity="{x:Bind NameOpacity}"
+                                           ToolTipService.ToolTip="{x:Bind Result.NameText}" />
+                                <TextBlock Grid.Column="1" FontFamily="Consolas" TextTrimming="CharacterEllipsis"
+                                           ToolTipService.ToolTip="{x:Bind Result.AddressText}"
+                                           AutomationProperties.Name="{x:Bind Result.AddressText}">
+                                    <Run Text="{x:Bind AddressPrefix}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><Run Text="{x:Bind AddressHost}" FontWeight="SemiBold" />
+                                </TextBlock>
                                 <TextBlock Grid.Column="2"
-                                           Text="{x:Bind VendorText}"
+                                           Text="{x:Bind Result.VendorText}"
+                                           Opacity="{x:Bind VendorOpacity}" Margin="0,0,8,0"
+                                           ToolTipService.ToolTip="{x:Bind Result.VendorText}"
                                            TextTrimming="CharacterEllipsis" />
-                                <ItemsControl Grid.Column="3" ItemsSource="{x:Bind OpenPortItems}">
+                                <ItemsControl Grid.Column="3" ItemsSource="{x:Bind Result.OpenPortItems}" VerticalAlignment="Center">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <StackPanel Orientation="Horizontal" Spacing="8" />
@@ -256,12 +304,42 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                               <TextBlock Grid.Column="5" Text="{x:Bind RoundtripText}" />
-                               <TextBlock Grid.Column="4"
-                                          Text="{x:Bind StatusText}"
-                                          Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                                          FontWeight="SemiBold" />
-                               <TextBlock Grid.Column="6" Text="{x:Bind MacAddressText}" FontFamily="Consolas" />
+                                <Border Grid.Column="4" Visibility="{x:Bind IsOnline}" Padding="8,3" CornerRadius="10"
+                                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                                        Background="{ThemeResource ScannerOnlineBackgroundBrush}">
+                                    <TextBlock Text="{x:Bind StatusLabel}" FontWeight="SemiBold"
+                                               Foreground="{ThemeResource ScannerOnlineForegroundBrush}" />
+                                </Border>
+                                <Border Grid.Column="4" Visibility="{x:Bind IsOffline}" Padding="8,3" CornerRadius="10"
+                                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                                        Background="{ThemeResource ScannerOfflineBackgroundBrush}"
+                                        ToolTipService.ToolTip="No ICMP response; the device may be offline or blocking probes.">
+                                    <TextBlock Text="{x:Bind StatusLabel}" FontWeight="SemiBold"
+                                               Foreground="{ThemeResource ScannerOfflineForegroundBrush}" />
+                                </Border>
+                                <Grid Grid.Column="5" Margin="0,0,8,0" Height="24" VerticalAlignment="Center"
+                                      ToolTipService.ToolTip="Relative to responding hosts in this scan: green is fastest, red is slowest.">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="44" />
+                                    </Grid.ColumnDefinitions>
+                                    <ProgressBar Minimum="0" Maximum="100" Value="{x:Bind LatencyFill, Mode=OneWay}"
+                                                 Visibility="{x:Bind HasLatency}" Height="8" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                 AutomationProperties.Name="{x:Bind LatencyLabel}">
+                                        <ProgressBar.Foreground>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                <GradientStop Color="#22C55E" Offset="0" />
+                                                <GradientStop Color="{Binding LatencyFraction, Converter={StaticResource LatencyColorConverter}}" Offset="1" />
+                                            </LinearGradientBrush>
+                                        </ProgressBar.Foreground>
+                                    </ProgressBar>
+                                    <TextBlock Grid.Column="1" Text="{x:Bind LatencyLabel}" FontFamily="Consolas" TextAlignment="Right" />
+                                </Grid>
+                                <TextBlock Grid.Column="6" FontFamily="Consolas" TextTrimming="CharacterEllipsis"
+                                           ToolTipService.ToolTip="{x:Bind Result.MacAddressText}"
+                                           AutomationProperties.Name="{x:Bind Result.MacAddressText}">
+                                    <Run Text="{x:Bind MacOui}" Foreground="{ThemeResource ScannerMacOuiBrush}" FontWeight="SemiBold" /><Run Text="{x:Bind MacNic}" Foreground="{ThemeResource ScannerMacNicBrush}" FontWeight="SemiBold" />
+                                </TextBlock>
                            </Grid>
                         </DataTemplate>
                     </ListView.ItemTemplate>

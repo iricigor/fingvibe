@@ -236,6 +236,18 @@ try {
         throw "Invoking 'Scan LAN' did not enter or complete the expected scanning state."
     }
 
+    $resultsDeadline = [DateTime]::UtcNow.AddSeconds(30)
+    while (-not (Find-NamedElement -Root $root -Name "Online") -and
+           -not (Find-NamedElement -Root $root -Name "Offline") -and
+           [DateTime]::UtcNow -lt $resultsDeadline) {
+        Start-Sleep -Milliseconds 250
+    }
+
+    if (-not (Find-NamedElement -Root $root -Name "Online") -and
+        -not (Find-NamedElement -Root $root -Name "Offline")) {
+        throw "The scan did not render a result with an accessible Online or Offline badge."
+    }
+
     Save-WindowScreenshot -WindowHandle $process.MainWindowHandle -Path $ScreenshotPath
 
     if ($cancelButton.Current.IsEnabled) {
