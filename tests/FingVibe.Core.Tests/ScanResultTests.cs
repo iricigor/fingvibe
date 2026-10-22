@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.NetworkInformation;
 using FingVibe.Core.Models;
 using Xunit;
 
@@ -10,13 +11,20 @@ public sealed class ScanResultTests
         IPAddress.Parse("192.168.1.42"),
         HostStatus.Alive,
         17,
-        "AA-BB-CC-DD-EE-FF",
-        TimeSpan.FromMilliseconds(20));
+        TimeSpan.FromMilliseconds(20),
+        "office-printer",
+        PhysicalAddress.Parse("AABBCCDDEEFF"),
+        "Example Devices",
+        [new OpenPort(443, "HTTPS")]);
 
     [Theory]
     [InlineData("")]
     [InlineData("  ")]
+    [InlineData("PRINTER")]
     [InlineData("192.168.1")]
+    [InlineData("example devices")]
+    [InlineData("443")]
+    [InlineData("https")]
     [InlineData("ALIVE")]
     [InlineData("17 ms")]
     [InlineData("bb-cc")]

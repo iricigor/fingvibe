@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.NetworkInformation;
 
 namespace FingVibe.Core.Models;
 
@@ -12,10 +13,15 @@ public sealed record ScanResult(
     IPAddress Address,
     HostStatus Status,
     long? RoundtripTimeMilliseconds,
-    string? MacAddress,
-    TimeSpan ProbeDuration)
+    TimeSpan ProbeDuration,
+    string? DeviceName = null,
+    PhysicalAddress? MacAddress = null,
+    string VendorName = "Unknown",
+    IReadOnlyList<OpenPort>? OpenPorts = null)
 {
     public string AddressText => Address.ToString();
+
+    public string NameText => string.IsNullOrWhiteSpace(DeviceName) ? AddressText : DeviceName;
 
     public string StatusText => Status == HostStatus.Alive ? "Alive" : "Unreachable";
 
@@ -23,7 +29,13 @@ public sealed record ScanResult(
         ? $"{milliseconds} ms"
         : "-";
 
-    public string MacAddressText => MacAddress ?? "-";
+    public string VendorText => Status == HostStatus.Alive ? VendorName : "-";
+
+    public IReadOnlyList<OpenPort> OpenPortItems => OpenPorts ?? [];
+
+    public string MacAddressText => MacAddress is null
+        ? "-"
+        : string.Join("-", MacAddress.GetAddressBytes().Select(value => value.ToString("X2")));
 
     public bool MatchesFilter(string? filter)
     {
@@ -33,11 +45,20 @@ public sealed record ScanResult(
         }
 
         var searchText = filter.Trim();
-        return AddressText.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+        return NameText.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || AddressText.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || VendorText.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || OpenPortItems.Any(port =>
+                port.AccessibleLabel.Contains(searchText, StringComparison.OrdinalIgnoreCase))
             || StatusText.Contains(searchText, StringComparison.OrdinalIgnoreCase)
             || RoundtripText.Contains(searchText, StringComparison.OrdinalIgnoreCase)
             || MacAddressText.Contains(searchText, StringComparison.OrdinalIgnoreCase);
     }
+}
+
+public sealed record OpenPort(int Port, string ServiceName)
+{
+    public string AccessibleLabel => $"{Port} {ServiceName}";
 }
 
 public readonly record struct ScanProgress(int Completed, int Total);
