@@ -15,7 +15,7 @@ concurrency:
 jobs:
   ui-ux-review:
     name: ui-ux-review
-    runs-on: [self-hosted, Windows, X64, ui-review]
+    runs-on: windows-2025
     env:
       FINGVIBE_UI_REVIEW: "1"
 

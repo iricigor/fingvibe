@@ -44,9 +44,9 @@ Pull requests run two independent review checks:
 - `security-review` scans the repository for exposed secrets and fails on critical dependency vulnerabilities.
 - `ui-ux-review` builds and launches the WinUI app, exercises the primary **Scan LAN** action, verifies critical accessible controls, and posts a current screenshot artifact on the pull request.
 
-The UI check requires a self-hosted Windows x64 runner because GitHub-hosted Windows runners do not provide an interactive desktop for native UI automation. Use an ephemeral VM runner that is destroyed after every job and isolated from internal networks, because pull-request code is untrusted. Start the runner in a logged-in desktop session, not as a Windows service, and assign it the custom `ui-review` label. The workflow sets `FINGVIBE_UI_REVIEW=1`, which confines the smoke-test scan to the local loopback network.
+The UI check runs on GitHub's `windows-2025` image and uses its preinstalled WinAppDriver to launch and automate the native application. The workflow sets `FINGVIBE_UI_REVIEW=1`, which confines the smoke-test scan to the local loopback network and keeps the hosted-runner review deterministic.
 
-After the runner is online and both workflows have run at least once, configure both as required checks:
+After both workflows have run at least once, configure them as required checks:
 
 1. Open **Settings > Rules > Rulesets** and create or edit the branch ruleset for `main`.
 2. Enable **Require status checks to pass**.
