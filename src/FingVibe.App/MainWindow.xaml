@@ -165,6 +165,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                         <FontIcon Glyph="&#xE71C;" FontSize="16" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
@@ -174,11 +175,18 @@
                                    VerticalAlignment="Center"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </StackPanel>
-                    <ComboBox x:Name="ResultFilter"
+                    <TextBox x:Name="ResultSearchBox"
                               Grid.Column="1"
+                              Width="220"
+                              VerticalAlignment="Bottom"
+                              PlaceholderText="Filter"
+                              AutomationProperties.Name="Filter scan results"
+                              TextChanged="ResultSearchBox_TextChanged" />
+                    <ComboBox x:Name="StatusFilter"
+                              Grid.Column="2"
                               MinWidth="150"
                               Header="Show"
-                              SelectionChanged="ResultFilter_SelectionChanged">
+                              SelectionChanged="StatusFilter_SelectionChanged">
                         <ComboBoxItem Content="All hosts" />
                         <ComboBoxItem Content="Alive only" />
                     </ComboBox>
