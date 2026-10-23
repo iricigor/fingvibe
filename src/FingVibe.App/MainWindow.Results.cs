@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using FingVibe.Core.Formatting;
 using FingVibe.Core.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;

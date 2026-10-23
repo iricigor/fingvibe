@@ -73,20 +73,7 @@ public sealed partial class MainWindow
             ScanStatusText.Text =
                 $"Complete in {stopwatch.Elapsed.TotalSeconds:N1}s - {summary.Alive:N0} alive, {summary.Unreachable:N0} unreachable";
 
-            var snapshot = new ScanSnapshot(
-                network.Cidr,
-                DateTimeOffset.UtcNow,
-                _allResults.Select(row => row.Result).ToArray());
-            _lastCompletedScan = snapshot;
-            try
-            {
-                await _snapshotStore.SaveAsync(snapshot);
-                ShowSavedSnapshotStatus(snapshot);
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
-            {
-                ShowSnapshotError("The completed scan could not be saved.");
-            }
+            await SaveCompletedScanAsync(network, _allResults);
         }
         catch (OperationCanceledException)
         {

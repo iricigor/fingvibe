@@ -49,6 +49,24 @@ public sealed partial class MainWindow
         }
     }
 
+    private async Task SaveCompletedScanAsync(LanNetwork network, IEnumerable<ScanResultRow> results)
+    {
+        var snapshot = new ScanSnapshot(
+            network.Cidr,
+            DateTimeOffset.UtcNow,
+            results.Select(row => row.Result).ToArray());
+        _lastCompletedScan = snapshot;
+        try
+        {
+            await _snapshotStore.SaveAsync(snapshot);
+            ShowSavedSnapshotStatus(snapshot);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        {
+            ShowSnapshotError("The completed scan could not be saved.");
+        }
+    }
+
     private void ShowSavedSnapshotStatus(ScanSnapshot snapshot)
     {
         _lastCompletedScan = snapshot;
