@@ -30,6 +30,12 @@ public sealed partial class MainWindow
 
     private void StatusFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (StatusFilter.SelectedIndex < 0)
+        {
+            StatusFilter.SelectedItem = e.RemovedItems.Count > 0 ? e.RemovedItems[0] : StatusFilter.Items[0];
+            return;
+        }
+
         RefreshVisibleResults();
     }
 
