@@ -542,9 +542,11 @@
                                                         <Run Text="{x:Bind MacOui}" Foreground="{ThemeResource ScannerMacOuiBrush}" FontWeight="SemiBold" /><Run Text="{x:Bind MacNic}" Foreground="{ThemeResource ScannerMacNicBrush}" FontWeight="SemiBold" />
                                                     </TextBlock>
                                                     <TextBlock Grid.Column="7" Text="{x:Bind OperatingSystemText, Mode=OneWay}" Margin="0,0,12,0"
+                                                               Opacity="{x:Bind OperatingSystemOpacity, Mode=OneWay}"
                                                                Visibility="{x:Bind Columns.OperatingSystem.IsVisible, Mode=OneWay}" TextTrimming="CharacterEllipsis"
                                                                ToolTipService.ToolTip="{x:Bind OperatingSystemSource, Mode=OneWay}" />
                                                     <TextBlock Grid.Column="8" Text="{x:Bind DeviceTypeText, Mode=OneWay}" Margin="0,0,12,0"
+                                                               Opacity="{x:Bind DeviceTypeOpacity, Mode=OneWay}"
                                                                Visibility="{x:Bind Columns.Type.IsVisible, Mode=OneWay}" TextTrimming="CharacterEllipsis"
                                                                ToolTipService.ToolTip="{x:Bind DeviceTypeSource, Mode=OneWay}" />
                                                 </Grid>

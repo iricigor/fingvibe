@@ -69,6 +69,8 @@ public sealed partial class MainWindow
         ToolTipService.SetToolTip(DeviceTypeIcon, row.IconSource);
         DeviceOsText.Text = row.OperatingSystemText;
         DeviceTypeValueText.Text = row.DeviceTypeText;
+        DeviceOsText.Opacity = row.OperatingSystemOpacity;
+        DeviceTypeValueText.Opacity = row.DeviceTypeOpacity;
         ToolTipService.SetToolTip(DeviceOsText, row.OperatingSystemSource);
         ToolTipService.SetToolTip(DeviceTypeValueText, row.DeviceTypeSource);
         DeviceOsEvidenceText.Text = row.OperatingSystemSource;

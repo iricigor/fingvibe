@@ -77,6 +77,8 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public string StatusLabel => IsOnline ? "Online" : "Offline";
     public double NameOpacity => NameText == Result.AddressText ? 0.65 : 1;
     public double VendorOpacity => Result.VendorText is "Unknown" or "-" ? 0.65 : 1;
+    public double OperatingSystemOpacity => OperatingSystem == DeviceOperatingSystem.Unknown ? 0.65 : 1;
+    public double DeviceTypeOpacity => Type == DeviceType.Unknown ? 0.65 : 1;
     public bool HasLatency => IsOnline && Result.RoundtripTimeMilliseconds is >= 0;
     public string LatencyLabel => HasLatency ? Result.RoundtripText : "-";
     public double LatencyFraction { get; private set; }
@@ -100,7 +102,8 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         {
             nameof(ClassificationOverride), nameof(OperatingSystem), nameof(Type), nameof(Icon),
             nameof(OperatingSystemText), nameof(DeviceTypeText), nameof(OperatingSystemSource),
-            nameof(DeviceTypeSource), nameof(IconGlyph), nameof(IconSource)
+            nameof(DeviceTypeSource), nameof(IconGlyph), nameof(IconSource),
+            nameof(OperatingSystemOpacity), nameof(DeviceTypeOpacity)
         })
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));

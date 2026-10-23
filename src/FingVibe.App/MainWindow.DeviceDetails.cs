@@ -32,6 +32,7 @@ public sealed partial class MainWindow
         DeviceAddressText.Text = result.AddressText;
         DeviceMacText.Text = result.MacAddressText;
         DeviceVendorText.Text = result.VendorText;
+        DeviceVendorText.Opacity = row.VendorOpacity;
         DeviceStatusText.Text = row.IsOnline ? "Online" : "Offline (no ICMP response)";
         DeviceResponseText.Text = result.RoundtripText;
         DeviceProbeText.Text = $"{result.ProbeDuration.TotalMilliseconds:N0} ms";

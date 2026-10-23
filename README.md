@@ -49,7 +49,7 @@ The Devices toolbar has a Fluent inset **All / Alive** segmented switch, built w
 
 ### Device identification
 
-Devices show a native Segoe Fluent device icon beside their name. The **OS** and **Device type** columns can be sorted, resized, or hidden in Settings. Both detected and manually selected classifications are included in text filtering. Device details show the identification evidence and whether a value is user-selected.
+Devices show a native Segoe Fluent device icon beside their name. The **OS** and **Device type** columns can be sorted, resized, or hidden in Settings. Both detected and manually selected classifications are included in text filtering. Device details show the identification evidence and whether a value is user-selected. Unknown OS, device type, and vendor values use muted text in both the list and details.
 
 Identification is best-effort and local. SSDP discovery uses the selected interface, and one shared multicast DNS-SD discovery window follows service announcements through SRV, TXT, and IPv4 address records to collect models without confusing proxy responses with the responding device. It listens for multicast replies as well as requested unicast replies. SSDP `SERVER` advertisements and bounded HTTP/SSH banner reads on already-open ports can identify OS-specific platform information. Merely running SSH, SMB, nginx, or Apache is not OS proof. The computer running the scanner is identified directly from its OS, and the selected interface's configured gateway is identified as a router.
 

@@ -58,6 +58,55 @@ public sealed class ScanResultRowTests
         Assert.Equal("router.local", row.NameText);
     }
 
+    [Theory]
+    [InlineData(DeviceOperatingSystem.Unknown, DeviceType.Unknown, 0.65, 0.65)]
+    [InlineData(DeviceOperatingSystem.Windows, DeviceType.Computer, 1, 1)]
+    [InlineData(DeviceOperatingSystem.Unknown, DeviceType.Phone, 0.65, 1)]
+    [InlineData(DeviceOperatingSystem.Android, DeviceType.Unknown, 1, 0.65)]
+    [InlineData(DeviceOperatingSystem.Other, DeviceType.SmartDevice, 1, 1)]
+    public void ClassificationOpacity_MutesOnlyUnknownValues(
+        DeviceOperatingSystem os, DeviceType type, double osOpacity, double typeOpacity)
+    {
+        var row = new ScanResultRow(CreateRow().Result with
+        {
+            Classification = new(os, type)
+        }, 24);
+
+        Assert.Equal(osOpacity, row.OperatingSystemOpacity);
+        Assert.Equal(typeOpacity, row.DeviceTypeOpacity);
+    }
+
+    [Fact]
+    public void ClassificationOpacity_UpdatesWhenOverridesAreSavedAndReset()
+    {
+        var row = CreateRow();
+        var notifications = new List<string?>();
+        row.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+
+        row.SetClassificationOverride(new(DeviceOperatingSystem.Android, DeviceType.Phone));
+
+        Assert.Equal(1, row.OperatingSystemOpacity);
+        Assert.Equal(1, row.DeviceTypeOpacity);
+        Assert.Contains(nameof(ScanResultRow.OperatingSystemOpacity), notifications);
+        Assert.Contains(nameof(ScanResultRow.DeviceTypeOpacity), notifications);
+
+        row.SetClassificationOverride(null);
+
+        Assert.Equal(0.65, row.OperatingSystemOpacity);
+        Assert.Equal(0.65, row.DeviceTypeOpacity);
+
+        var detected = new ScanResultRow(row.Result with
+        {
+            Classification = new(DeviceOperatingSystem.Android, DeviceType.Phone)
+        }, 24);
+        detected.SetClassificationOverride(new(DeviceOperatingSystem.Unknown, DeviceType.Unknown));
+        Assert.Equal(0.65, detected.OperatingSystemOpacity);
+        Assert.Equal(0.65, detected.DeviceTypeOpacity);
+        detected.SetClassificationOverride(null);
+        Assert.Equal(1, detected.OperatingSystemOpacity);
+        Assert.Equal(1, detected.DeviceTypeOpacity);
+    }
+
     [Fact]
     public void ClassificationOverrides_AreIndependentOfAutomaticEvidenceAndResettable()
     {
@@ -102,6 +151,8 @@ public sealed class ScanResultRowTests
         }, 24);
         Assert.Equal("Android (likely)", row.OperatingSystemText);
         Assert.Equal("TV/media device (likely)", row.DeviceTypeText);
+        Assert.Equal(1, row.OperatingSystemOpacity);
+        Assert.Equal(1, row.DeviceTypeOpacity);
         row.SetClassificationOverride(new(DeviceOperatingSystem.Android, DeviceType.MediaDevice));
         Assert.Equal("Android", row.OperatingSystemText);
         Assert.Equal("TV/media device", row.DeviceTypeText);
