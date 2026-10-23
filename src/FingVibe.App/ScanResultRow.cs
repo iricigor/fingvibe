@@ -40,8 +40,12 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         _classificationOverride?.OperatingSystem ?? Result.DetectedClassification.OperatingSystem;
     public DeviceType Type => _classificationOverride?.Type ?? Result.DetectedClassification.Type;
     public DeviceType Icon => _classificationOverride?.Icon ?? Type;
-    public string OperatingSystemText => OperatingSystem.Label();
-    public string DeviceTypeText => Type.Label();
+    public string OperatingSystemText => OperatingSystem.Label()
+        + (_classificationOverride?.OperatingSystem is null && Result.DetectedClassification.OperatingSystemIsInferred
+            ? " (likely)" : string.Empty);
+    public string DeviceTypeText => Type.Label()
+        + (_classificationOverride?.Type is null && Result.DetectedClassification.TypeIsInferred
+            ? " (likely)" : string.Empty);
     public string OperatingSystemSource => _classificationOverride?.OperatingSystem is not null
         ? $"User-selected. Automatic: {Result.DetectedClassification.OperatingSystem.Label()}. {Result.DetectedClassification.OperatingSystemEvidence}"
         : Result.DetectedClassification.OperatingSystemEvidence;

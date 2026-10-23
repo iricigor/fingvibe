@@ -26,7 +26,7 @@ public sealed class SsdpDiscoveryService
         {
             Timeout = TimeSpan.FromSeconds(2)
         };
-        _discoveryWindow = discoveryWindow ?? TimeSpan.FromMilliseconds(900);
+        _discoveryWindow = discoveryWindow ?? TimeSpan.FromMilliseconds(1500);
     }
 
     public async Task<IReadOnlyDictionary<IPAddress, string>> DiscoverNamesAsync(
@@ -48,9 +48,10 @@ public sealed class SsdpDiscoveryService
             .ToDictionary(pair => pair.Key, pair => pair.Name!);
 
     public async Task<IReadOnlyDictionary<IPAddress, IReadOnlyList<SsdpDeviceInfo>>> DiscoverDevicesAsync(
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IPAddress? localAddress = null)
     {
-        var locations = await DiscoverLocationsAsync(cancellationToken).ConfigureAwait(false);
+        var locations = await DiscoverLocationsAsync(cancellationToken, localAddress).ConfigureAwait(false);
         var devices = new ConcurrentDictionary<IPAddress, ConcurrentDictionary<Uri, SsdpDeviceInfo>>();
 
         await Parallel.ForEachAsync(
@@ -75,7 +76,7 @@ public sealed class SsdpDiscoveryService
     }
 
     private async Task<IReadOnlyList<SsdpDeviceLocation>> DiscoverLocationsAsync(
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, IPAddress? localAddress)
     {
         const string request =
             "M-SEARCH * HTTP/1.1\r\n" +
@@ -84,7 +85,7 @@ public sealed class SsdpDiscoveryService
             "MX: 1\r\n" +
             "ST: ssdp:all\r\n\r\n";
 
-        using var client = new UdpClient(AddressFamily.InterNetwork);
+        using var client = new UdpClient(new IPEndPoint(localAddress ?? IPAddress.Any, 0));
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(_discoveryWindow);
         var payload = Encoding.ASCII.GetBytes(request);
@@ -92,7 +93,12 @@ public sealed class SsdpDiscoveryService
 
         try
         {
-            await client.SendAsync(payload, MulticastEndpoint, cancellationToken).ConfigureAwait(false);
+            if (localAddress is not null)
+            {
+                client.Client.SetSocketOption(SocketOptionLevel.IP, SocketOptionName.MulticastInterface,
+                    localAddress.GetAddressBytes());
+            }
+            await client.SendAsync(payload, MulticastEndpoint, timeout.Token).ConfigureAwait(false);
             while (true)
             {
                 var response = await client.ReceiveAsync(timeout.Token).ConfigureAwait(false);
@@ -120,6 +126,9 @@ public sealed class SsdpDiscoveryService
         SsdpDeviceLocation device,
         CancellationToken cancellationToken)
     {
+        var advertised = new SsdpDeviceInfo(null, null, null, null, device.Server);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(2));
         try
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, device.Location);
@@ -127,39 +136,60 @@ public sealed class SsdpDiscoveryService
             using var response = await _httpClient.SendAsync(
                 request,
                 HttpCompletionOption.ResponseHeadersRead,
-                cancellationToken).ConfigureAwait(false);
+                timeout.Token).ConfigureAwait(false);
             if (response.RequestMessage?.RequestUri is not { } finalLocation ||
                 !IsAllowedLocation(finalLocation, device.Address))
             {
-                return null;
+                return advertised;
             }
 
             response.EnsureSuccessStatusCode();
 
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            using var reader = XmlReader.Create(
-                stream,
-                new XmlReaderSettings
-                {
-                    Async = true,
-                    DtdProcessing = DtdProcessing.Prohibit,
-                    MaxCharactersInDocument = 1_000_000
-                });
-            var document = await XDocument.LoadAsync(reader, LoadOptions.None, cancellationToken).ConfigureAwait(false);
-            return ParseDeviceDescription(document, device.Server);
+            await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token).ConfigureAwait(false);
+            return await ReadDescriptionAsync(stream, device.Server, timeout.Token).ConfigureAwait(false)
+                ?? advertised;
         }
         catch (HttpRequestException)
         {
-            return null;
+            return advertised;
         }
-        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            return null;
+            return advertised;
         }
         catch (XmlException)
         {
-            return null;
+            return advertised;
         }
+        catch (IOException)
+        {
+            return advertised;
+        }
+    }
+
+    internal static async Task<SsdpDeviceInfo?> ReadDescriptionAsync(
+        Stream stream, string? server, CancellationToken cancellationToken)
+    {
+        using var content = new MemoryStream();
+        var buffer = new byte[8192];
+        int read;
+        while ((read = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) != 0)
+        {
+            if (content.Length + read > 1_000_000)
+            {
+                throw new XmlException("The UPnP device description exceeds the discovery size limit.");
+            }
+            content.Write(buffer, 0, read);
+        }
+        content.Position = 0;
+        using var reader = XmlReader.Create(content, new XmlReaderSettings
+        {
+            Async = true,
+            DtdProcessing = DtdProcessing.Prohibit,
+            MaxCharactersInDocument = 1_000_000
+        });
+        var document = await XDocument.LoadAsync(reader, LoadOptions.None, cancellationToken).ConfigureAwait(false);
+        return ParseDeviceDescription(document, server);
     }
 
     internal static SsdpDeviceInfo? ParseDeviceDescription(XDocument document, string? server)

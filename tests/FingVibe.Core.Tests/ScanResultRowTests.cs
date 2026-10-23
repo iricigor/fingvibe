@@ -92,6 +92,24 @@ public sealed class ScanResultRowTests
     }
 
     [Fact]
+    public void InferredClassifications_AreVisiblyMarkedUntilManuallyOverridden()
+    {
+        var row = new ScanResultRow(CreateRow().Result with
+        {
+            Classification = new(DeviceOperatingSystem.Android, DeviceType.MediaDevice,
+                "Discovered Android hostname.", "Media product identity.",
+                OperatingSystemIsInferred: true, TypeIsInferred: true)
+        }, 24);
+        Assert.Equal("Android (likely)", row.OperatingSystemText);
+        Assert.Equal("TV/media device (likely)", row.DeviceTypeText);
+        row.SetClassificationOverride(new(DeviceOperatingSystem.Android, DeviceType.MediaDevice));
+        Assert.Equal("Android", row.OperatingSystemText);
+        Assert.Equal("TV/media device", row.DeviceTypeText);
+        row.SetClassificationOverride(null);
+        Assert.Equal("Android (likely)", row.OperatingSystemText);
+    }
+
+    [Fact]
     public void ClassificationChoices_SurviveAddressChangeWhenReappliedByMac()
     {
         var mac = PhysicalAddress.Parse("001122334455");

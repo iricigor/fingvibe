@@ -29,7 +29,9 @@ public sealed record DeviceClassification(
     DeviceOperatingSystem OperatingSystem = DeviceOperatingSystem.Unknown,
     DeviceType Type = DeviceType.Unknown,
     string OperatingSystemEvidence = "No reliable OS evidence advertised.",
-    string TypeEvidence = "No reliable device-type evidence advertised.")
+    string TypeEvidence = "No reliable device-type evidence advertised.",
+    bool OperatingSystemIsInferred = false,
+    bool TypeIsInferred = false)
 {
     public static DeviceClassification Unknown { get; } = new();
 }

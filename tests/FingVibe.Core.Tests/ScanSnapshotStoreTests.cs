@@ -29,7 +29,8 @@ public sealed class ScanSnapshotStoreTests
                     "Example Devices",
                     [new OpenPort(443, "HTTPS")],
                     new DeviceClassification(DeviceOperatingSystem.Linux, DeviceType.Printer,
-                        "SSDP SERVER advertises Linux.", "UPnP device type: Printer.")),
+                        "SSDP SERVER advertises Linux.", "Printer manufacturer and TCP 9100.",
+                        TypeIsInferred: true)),
                 new ScanResult(
                     IPAddress.Parse("192.168.1.43"),
                     HostStatus.Unreachable,

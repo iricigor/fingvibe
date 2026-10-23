@@ -1,5 +1,7 @@
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Xml.Linq;
+using System.Xml;
 using FingVibe.Core.Models;
 using FingVibe.Core.Networking;
 using Xunit;
@@ -71,11 +73,13 @@ public sealed class DeviceClassifierTests
     }
 
     [Fact]
-    public void VendorNameAndHostname_DoNotDetermineClassification()
+    public void ConflictingProductIdentities_DoNotDetermineClassification()
     {
         var result = DeviceClassifier.Classify(new("Windows Android Linux MacBook iPhone",
             null, "Apple Samsung Microsoft", "Printer", null), null);
-        Assert.Equal(DeviceClassification.Unknown, result);
+        Assert.Equal(DeviceOperatingSystem.Unknown, result.OperatingSystem);
+        Assert.Equal(DeviceType.Unknown, result.Type);
+        Assert.Contains("Conflicting", result.OperatingSystemEvidence);
     }
 
     [Fact]
@@ -137,6 +141,170 @@ public sealed class DeviceClassifierTests
         Assert.Equal(DeviceType.Unknown, conflict.Type);
         Assert.Equal(DeviceOperatingSystem.Unknown, conflict.OperatingSystem);
         Assert.Contains("Conflicting", conflict.TypeEvidence);
+    }
+
+    [Fact]
+    public void StorageProductIdentity_RecognizesMyCloudWithoutGuessingOs()
+    {
+        var result = DeviceClassifier.ClassifyAdvertisements([], null,
+            "WDMyCloud", "WESTERN DIGITAL", [new(22, "SSH"), new(445, "SMB")]);
+        Assert.Equal(DeviceType.Storage, result.Type);
+        Assert.True(result.TypeIsInferred);
+        Assert.Equal(DeviceOperatingSystem.Unknown, result.OperatingSystem);
+        Assert.Contains("WESTERN DIGITAL", result.TypeEvidence);
+    }
+
+    [Theory]
+    [InlineData(127, true, DeviceOperatingSystem.Windows)]
+    [InlineData(128, true, DeviceOperatingSystem.Windows)]
+    [InlineData(64, true, DeviceOperatingSystem.Unknown)]
+    [InlineData(129, true, DeviceOperatingSystem.Unknown)]
+    [InlineData(128, false, DeviceOperatingSystem.Unknown)]
+    [InlineData(0, true, DeviceOperatingSystem.Unknown)]
+    public void WindowsHeuristic_RequiresBothObservedWindowsStyleTtlAndSmb(
+        int ttl, bool smb, DeviceOperatingSystem expected)
+    {
+        var result = DeviceClassifier.ClassifyAdvertisements([], null,
+            openPorts: smb ? [new(445, "SMB")] : [], responseTtl: ttl);
+        Assert.Equal(expected, result.OperatingSystem);
+        Assert.Equal(expected == DeviceOperatingSystem.Windows, result.OperatingSystemIsInferred);
+        if (expected == DeviceOperatingSystem.Windows)
+        {
+            Assert.Equal(DeviceType.Computer, result.Type);
+            Assert.True(result.TypeIsInferred);
+            Assert.Contains($"TTL {ttl}", result.OperatingSystemEvidence);
+        }
+    }
+
+    [Fact]
+    public void WindowsHeuristic_DoesNotOverrideNasIdentityOrContradictoryEvidence()
+    {
+        var nas = DeviceClassifier.ClassifyAdvertisements([], null, "WDMyCloud", "WESTERN DIGITAL",
+            [new(445, "SMB")], responseTtl: 128);
+        Assert.Equal(DeviceType.Storage, nas.Type);
+        Assert.Equal(DeviceOperatingSystem.Unknown, nas.OperatingSystem);
+        var conflict = DeviceClassifier.ClassifyAdvertisements([], null, openPorts: [new(445, "SMB")],
+            banners: [new("HTTP", "Linux Windows")], responseTtl: 128);
+        Assert.Equal(DeviceOperatingSystem.Unknown, conflict.OperatingSystem);
+    }
+
+    [Fact]
+    public async Task UpnpDescription_ReadIsSizeBoundedAndCancellable()
+    {
+        using var oversized = new MemoryStream(new byte[1_000_001]);
+        await Assert.ThrowsAsync<XmlException>(() =>
+            SsdpDiscoveryService.ReadDescriptionAsync(oversized, "Linux", CancellationToken.None));
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        using var content = new MemoryStream();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            SsdpDiscoveryService.ReadDescriptionAsync(content, "Linux", cancellation.Token));
+    }
+
+    [Theory]
+    [InlineData("Philips Lighting BV")]
+    [InlineData("Signify Netherlands B.V.")]
+    [InlineData("Tuya Smart Inc.")]
+    public void SmartHomeVendors_ProvideExplicitlyInferredDeviceType(string vendor)
+    {
+        var result = DeviceClassifier.ClassifyAdvertisements([], null,
+            "bridge.local", vendor, [new(80, "HTTP"), new(443, "HTTPS")]);
+        Assert.Equal(DeviceType.SmartDevice, result.Type);
+        Assert.True(result.TypeIsInferred);
+        Assert.Equal(DeviceOperatingSystem.Unknown, result.OperatingSystem);
+    }
+
+    [Theory]
+    [InlineData("TP-Link Systems Inc.")]
+    [InlineData("Amazon Technologies Inc.")]
+    [InlineData("Apple, Inc.")]
+    [InlineData("Private/Randomized")]
+    public void GeneralPurposeVendorAndOpenPorts_DoNotInventAnOsOrDeviceType(string vendor)
+    {
+        var result = DeviceClassifier.ClassifyAdvertisements([], null,
+            "device.local", vendor, [new(22, "SSH"), new(445, "SMB"), new(80, "HTTP")]);
+        Assert.Equal(DeviceClassification.Unknown, result);
+    }
+
+    [Theory]
+    [InlineData("Android-2.local", DeviceOperatingSystem.Android)]
+    [InlineData("Android_ABC123.local", DeviceOperatingSystem.Android)]
+    [InlineData("iPhone.local", DeviceOperatingSystem.IOS)]
+    [InlineData("MacBook-Pro.local", DeviceOperatingSystem.MacOS)]
+    public void OsSpecificDiscoveredNames_AreHintsNotDefinitiveOsEvidence(
+        string name, DeviceOperatingSystem expected)
+    {
+        var result = DeviceClassifier.ClassifyAdvertisements([], null, name);
+        Assert.Equal(expected, result.OperatingSystem);
+        Assert.True(result.OperatingSystemIsInferred);
+        Assert.Contains("Likely", result.OperatingSystemEvidence);
+        if (expected == DeviceOperatingSystem.Android)
+        {
+            Assert.Equal(DeviceType.Unknown, result.Type);
+        }
+    }
+
+    [Theory]
+    [InlineData("HTTP", "Microsoft-IIS/10.0", DeviceOperatingSystem.Windows)]
+    [InlineData("HTTP", "Microsoft-HTTPAPI/2.0", DeviceOperatingSystem.Windows)]
+    [InlineData("SSH", "SSH-2.0-OpenSSH_for_Windows_9.5", DeviceOperatingSystem.Windows)]
+    [InlineData("SSH", "SSH-2.0-OpenSSH_9.2p1 Debian-2", DeviceOperatingSystem.Linux)]
+    [InlineData("HTTP", "Apache/2.4.52 (Ubuntu)", DeviceOperatingSystem.Linux)]
+    [InlineData("HTTP", "nginx/1.22", DeviceOperatingSystem.Unknown)]
+    [InlineData("SSH", "SSH-2.0-OpenSSH_9.5", DeviceOperatingSystem.Unknown)]
+    public void ServiceBanners_RequirePlatformSpecificContent(
+        string source, string value, DeviceOperatingSystem expected)
+    {
+        var result = DeviceClassifier.ClassifyAdvertisements([], null, banners: [new(source, value)]);
+        Assert.Equal(expected, result.OperatingSystem);
+    }
+
+    [Fact]
+    public void AndroidTvService_DoesNotDependOnItsHostnameOrManufacturer()
+    {
+        var result = DeviceClassifier.Classify(null, new(["_androidtvremote2._tcp.local"]));
+        Assert.Equal(DeviceOperatingSystem.Android, result.OperatingSystem);
+        Assert.Equal(DeviceType.MediaDevice, result.Type);
+    }
+
+    [Fact]
+    public void LocalComputerAndGateway_AreIdentifiedFromNetworkContext()
+    {
+        var network = new LanNetwork("Example", IPAddress.Parse("192.0.2.10"),
+            IPAddress.Parse("192.0.2.0"), 24, true, IPAddress.Parse("192.0.2.1"));
+        var local = DeviceClassifier.ApplyNetworkContext(DeviceClassification.Unknown,
+            network.LocalAddress, network);
+        var expected = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? DeviceOperatingSystem.Windows
+            : RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? DeviceOperatingSystem.MacOS
+            : RuntimeInformation.IsOSPlatform(OSPlatform.Linux) ? DeviceOperatingSystem.Linux
+            : DeviceOperatingSystem.Other;
+        Assert.Equal(expected, local.OperatingSystem);
+        Assert.Equal(DeviceType.Computer, local.Type);
+        Assert.False(local.OperatingSystemIsInferred);
+        Assert.False(local.TypeIsInferred);
+
+        var gateway = DeviceClassifier.ApplyNetworkContext(DeviceClassification.Unknown,
+            network.GatewayAddress!, network);
+        Assert.Equal(DeviceType.Router, gateway.Type);
+        Assert.Equal(DeviceOperatingSystem.Unknown, gateway.OperatingSystem);
+        Assert.Equal(DeviceClassification.Unknown, DeviceClassifier.ApplyNetworkContext(
+            DeviceClassification.Unknown, IPAddress.Parse("192.0.2.2"), network));
+    }
+
+    [Fact]
+    public void Fallbacks_DoNotOverwriteExplicitOrConflictingEvidence()
+    {
+        var explicitPrinter = DeviceClassifier.ClassifyAdvertisements(
+            [new(null, "urn:schemas-upnp-org:device:Printer:1", null, null, "Linux/5")], null,
+            "Android-2.local", "Philips Lighting BV");
+        Assert.Equal(DeviceType.Printer, explicitPrinter.Type);
+        Assert.Equal(DeviceOperatingSystem.Linux, explicitPrinter.OperatingSystem);
+        Assert.False(explicitPrinter.TypeIsInferred);
+
+        var conflict = DeviceClassifier.ClassifyAdvertisements([], null, "Android-2.local",
+            banners: [new("HTTP", "Linux Windows")]);
+        Assert.Equal(DeviceOperatingSystem.Unknown, conflict.OperatingSystem);
+        Assert.Contains("Conflicting", conflict.OperatingSystemEvidence);
     }
 
     [Fact]

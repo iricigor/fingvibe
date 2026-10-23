@@ -20,11 +20,11 @@ public sealed class ScanResultEnricherTests
             new PortScannerService(TimeSpan.Zero),
             new MacAddressResolver(),
             new IeeeVendorRegistry(),
-            new MdnsDeviceDiscoveryService(TimeSpan.Zero));
+            new ServiceBannerProbe(TimeSpan.Zero));
 
         var result = await enricher.EnrichAsync(
             address,
-            Task.FromResult<IReadOnlyDictionary<IPAddress, IReadOnlyList<SsdpDeviceInfo>>>(names),
+            Task.FromResult(new ScanDiscovery(names, new Dictionary<IPAddress, MdnsDeviceInfo>())),
             CancellationToken.None);
 
         Assert.Equal("Living Room TV", result.DeviceName);

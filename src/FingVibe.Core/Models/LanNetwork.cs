@@ -7,7 +7,8 @@ public sealed record LanNetwork(
     IPAddress LocalAddress,
     IPAddress NetworkAddress,
     int PrefixLength,
-    bool HasGateway)
+    bool HasGateway,
+    IPAddress? GatewayAddress = null)
 {
     public string Cidr => $"{NetworkAddress}/{PrefixLength}";
 

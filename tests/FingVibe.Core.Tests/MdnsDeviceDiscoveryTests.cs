@@ -72,12 +72,87 @@ public sealed class MdnsDeviceDiscoveryTests
     }
 
     [Fact]
+    public void FollowUpQueries_PreserveUtf8InstanceLabels()
+    {
+        var instance = "Office \u00E9._ipp._tcp.local";
+        var query = DeviceNameResolver.CreateDnsQuery(instance, 33, requestUnicast: false);
+        var offset = 12;
+        Assert.Equal(instance, DeviceNameResolver.ReadDnsName(query, ref offset));
+    }
+
+    [Fact]
+    public void Parser_StoresOneTxtRecordWithAllFields()
+    {
+        var records = MdnsDeviceDiscoveryService.ParseRecords(Packet(
+            ("TV._googlecast._tcp.local", 16, Txt("md=Chromecast").Concat(Txt("fn=Living Room")).ToArray())));
+        var record = Assert.Single(records);
+        Assert.Equal("Chromecast", record.Text!["md"]);
+        Assert.Equal("Living Room", record.Text["fn"]);
+    }
+
+    [Fact]
+    public void Discovery_ResolvesPtrSrvTxtAndAddressAcrossPackets()
+    {
+        var records = MdnsDeviceDiscoveryService.ParseRecords(Packet(
+            ("_googlecast._tcp.local", 12, Name("Living Room._googlecast._tcp.local")))).ToList();
+        Assert.Contains(("Living Room._googlecast._tcp.local", 33),
+            MdnsDeviceDiscoveryService.GetFollowUpQueries(records[0]));
+        Assert.Contains(("Living Room._googlecast._tcp.local", 16),
+            MdnsDeviceDiscoveryService.GetFollowUpQueries(records[0]));
+
+        records.AddRange(MdnsDeviceDiscoveryService.ParseRecords(Packet(
+            ("Living Room._googlecast._tcp.local", 33,
+                new byte[] { 0, 0, 0, 0, 31, 73 }.Concat(Name("living-room.local")).ToArray()),
+            ("Living Room._googlecast._tcp.local", 16, Txt("md=Chromecast")))));
+        Assert.Empty(MdnsDeviceDiscoveryService.BuildDeviceMap(records));
+        records.AddRange(MdnsDeviceDiscoveryService.ParseRecords(Packet(
+            ("living-room.local", 1, IPAddress.Parse("192.0.2.20").GetAddressBytes()))));
+
+        var info = MdnsDeviceDiscoveryService.BuildDeviceMap(records)[IPAddress.Parse("192.0.2.20")];
+        Assert.Equal("Chromecast", info.Model);
+        Assert.Equal("living-room.local", info.HostName);
+        Assert.Equal("_googlecast._tcp.local", Assert.Single(info.Services));
+        Assert.Contains(("living-room.local", 1),
+            MdnsDeviceDiscoveryService.GetFollowUpQueries(records.Single(record => record.Type == 33)));
+    }
+
+    [Fact]
+    public void Discovery_AssociatesModelsWithAdvertisedHostNotPacketSender()
+    {
+        var records = MdnsDeviceDiscoveryService.ParseRecords(Packet(
+            ("mac.local", 1, IPAddress.Parse("192.0.2.10").GetAddressBytes()),
+            ("tv.local", 1, IPAddress.Parse("192.0.2.20").GetAddressBytes()),
+            ("mac._device-info._tcp.local", 16, Txt("model=Macmini9,1")),
+            ("tv._device-info._tcp.local", 16, Txt("model=AppleTV6,2"))));
+        var devices = MdnsDeviceDiscoveryService.BuildDeviceMap(records);
+        Assert.Equal("Macmini9,1", devices[IPAddress.Parse("192.0.2.10")].Model);
+        Assert.Equal("AppleTV6,2", devices[IPAddress.Parse("192.0.2.20")].Model);
+        Assert.False(devices[IPAddress.Parse("192.0.2.10")].HasConflictingModels);
+        Assert.Contains(("mac._device-info._tcp.local", 16),
+            MdnsDeviceDiscoveryService.GetFollowUpQueries(records[0]));
+    }
+
+    [Fact]
+    public void Discovery_MatchesDeviceInfoToServiceInstanceWhenHostLabelDiffers()
+    {
+        var records = MdnsDeviceDiscoveryService.ParseRecords(Packet(
+            ("office-mac.local", 1, IPAddress.Parse("192.0.2.10").GetAddressBytes()),
+            ("Office Computer._smb._tcp.local", 33,
+                new byte[] { 0, 0, 0, 0, 1, 189 }.Concat(Name("office-mac.local")).ToArray()),
+            ("Office Computer._device-info._tcp.local", 16, Txt("model=Macmini9,1"))));
+        var devices = MdnsDeviceDiscoveryService.BuildDeviceMap(records);
+        Assert.Equal("Macmini9,1", devices[IPAddress.Parse("192.0.2.10")].Model);
+        Assert.Contains(("Office Computer._device-info._tcp.local", 16),
+            MdnsDeviceDiscoveryService.GetFollowUpQueries(records[1]));
+    }
+
+    [Fact]
     public async Task Discovery_PropagatesCancellation()
     {
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            new MdnsDeviceDiscoveryService().DiscoverAsync(IPAddress.Loopback, cancellation.Token));
+            new MdnsDeviceDiscoveryService().DiscoverNetworkAsync(IPAddress.Loopback, cancellation.Token));
     }
 
     private static byte[] Name(string name) => name.Split('.')
