@@ -54,8 +54,8 @@ function Show-UiReviewCaptureScenario {
     $sentinel = switch ($Scenario) {
         "Overview" { "Online devices" }
         "Network" { "Public IP address" }
-        "People" { "People will be available in a future version." }
-        "Rooms" { "Rooms will be available in a future version." }
+        "People" { "Search people" }
+        "Rooms" { "Search rooms" }
         "Settings" { "Window backdrop" }
         default { throw "No navigation is implemented for capture scenario '$Scenario'." }
     }

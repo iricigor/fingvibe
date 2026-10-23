@@ -46,6 +46,7 @@ public sealed partial class MainWindow
             }
 
             RefreshVisibleResults();
+            UpdatePeopleRoomsPages();
             ShowSavedSnapshotStatus(snapshot);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
@@ -79,7 +80,9 @@ public sealed partial class MainWindow
                 : null;
         var classificationOverride = result.MacAddress is { } mac
             && _classificationOverrides.TryGetValue(mac.ToString(), out var saved) ? saved : null;
-        return new ScanResultRow(result, prefixLength, customName, classificationOverride);
+        var row = new ScanResultRow(result, prefixLength, customName, classificationOverride);
+        ApplyPeopleRoomAssignments(row);
+        return row;
     }
 
     private async Task SaveCompletedScanAsync(LanNetwork network, IEnumerable<ScanResultRow> results)

@@ -191,8 +191,8 @@ try {
                     "control-Scan additional ports" { $script:currentPage -eq "DeviceDetails" }
                     "control-Online devices" { $script:currentPage -eq "Overview" }
                     "control-Public IP address" { $script:currentPage -eq "Network" }
-                    "control-People will be available in a future version." { $script:currentPage -eq "People" }
-                    "control-Rooms will be available in a future version." { $script:currentPage -eq "Rooms" }
+                    "control-Search people" { $script:currentPage -eq "People" }
+                    "control-Search rooms" { $script:currentPage -eq "Rooms" }
                     "control-Window backdrop" { $script:currentPage -eq "Settings" }
                     default { throw "Unexpected control '$id'." }
                 }

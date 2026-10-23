@@ -50,12 +50,12 @@
                         <FontIcon Glyph="&#xE772;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Content="People" Tag="People">
+                <NavigationViewItem x:Name="PeopleNavItem" Content="People" Tag="People">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE716;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem Content="Rooms" Tag="Rooms">
+                <NavigationViewItem x:Name="RoomsNavItem" Content="Rooms" Tag="Rooms">
                     <NavigationViewItem.Icon>
                         <FontIcon Glyph="&#xE707;" />
                     </NavigationViewItem.Icon>
@@ -397,8 +397,21 @@
                                 </local:StatusFilterControl>
                             </Grid>
                             <StackPanel Grid.Row="1" Margin="16,0,16,8" Spacing="4">
-                                <CheckBox x:Name="OpenPortsFilter" Content="Only devices with open ports"
-                                          Checked="OpenPortsFilter_Changed" Unchecked="OpenPortsFilter_Changed" />
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox x:Name="OpenPortsFilter" Content="Only devices with open ports"
+                                              Checked="OpenPortsFilter_Changed" Unchecked="OpenPortsFilter_Changed" />
+                                    <ComboBox x:Name="PersonFilter" Grid.Column="1" Width="150"
+                                              AutomationProperties.Name="Filter by person"
+                                              SelectionChanged="PeopleRoomFilter_SelectionChanged" />
+                                    <ComboBox x:Name="RoomFilter" Grid.Column="2" Width="150"
+                                              AutomationProperties.Name="Filter by room"
+                                              SelectionChanged="PeopleRoomFilter_SelectionChanged" />
+                                </Grid>
                                 <TextBlock x:Name="SnapshotStatusText"
                                        TextWrapping="Wrap"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -425,6 +438,8 @@
                                             <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Mac.EffectiveWidth), Mode=OneWay}" />
                                             <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.OperatingSystem.EffectiveWidth), Mode=OneWay}" />
                                             <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Type.EffectiveWidth), Mode=OneWay}" />
+                                            <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Person.EffectiveWidth), Mode=OneWay}" />
+                                            <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Room.EffectiveWidth), Mode=OneWay}" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <Grid Visibility="{x:Bind Columns.Name.IsVisible, Mode=OneWay}">
@@ -499,6 +514,14 @@
                                             </Button>
                                             <local:ColumnResizeGrip Column="{x:Bind Columns.Type}" AutomationProperties.Name="{x:Bind Columns.Type.ResizeLabel}" />
                                         </Grid>
+                                        <Grid Grid.Column="9" Visibility="{x:Bind Columns.Person.IsVisible, Mode=OneWay}">
+                                            <TextBlock Text="Person" FontWeight="SemiBold" FontSize="12" Margin="0,6,12,6" VerticalAlignment="Center" />
+                                            <local:ColumnResizeGrip Column="{x:Bind Columns.Person}" AutomationProperties.Name="{x:Bind Columns.Person.ResizeLabel}" />
+                                        </Grid>
+                                        <Grid Grid.Column="10" Visibility="{x:Bind Columns.Room.IsVisible, Mode=OneWay}">
+                                            <TextBlock Text="Room" FontWeight="SemiBold" FontSize="12" Margin="0,6,12,6" VerticalAlignment="Center" />
+                                            <local:ColumnResizeGrip Column="{x:Bind Columns.Room}" AutomationProperties.Name="{x:Bind Columns.Room.ResizeLabel}" />
+                                        </Grid>
                                     </Grid>
                                     <ListView x:Name="ResultsList" Grid.Row="1" SelectionMode="Single"
                                               IsItemClickEnabled="True" ItemClick="ResultsList_ItemClick"
@@ -552,6 +575,8 @@
                                                         <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Mac.EffectiveWidth), Mode=OneWay}" />
                                                         <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.OperatingSystem.EffectiveWidth), Mode=OneWay}" />
                                                         <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Type.EffectiveWidth), Mode=OneWay}" />
+                                                        <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Person.EffectiveWidth), Mode=OneWay}" />
+                                                        <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Room.EffectiveWidth), Mode=OneWay}" />
                                                         <ColumnDefinition Width="*" />
                                                     </Grid.ColumnDefinitions>
                                                     <Grid Margin="0,0,12,0" ColumnSpacing="8"
@@ -648,6 +673,20 @@
                                                                Opacity="{x:Bind DeviceTypeOpacity, Mode=OneWay}"
                                                                Visibility="{x:Bind Columns.Type.IsVisible, Mode=OneWay}" TextTrimming="CharacterEllipsis"
                                                                ToolTipService.ToolTip="{x:Bind DeviceTypeSource, Mode=OneWay}" />
+                                                    <Button Grid.Column="9" Content="{x:Bind PersonShortName, Mode=OneWay}" Padding="6,1"
+                                                            MinHeight="22" MinWidth="0" HorizontalAlignment="Left"
+                                                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                                            BorderBrush="{ThemeResource ScannerCardBorderBrush}" BorderThickness="1"
+                                                            Visibility="{x:Bind Columns.Person.IsVisible, Mode=OneWay}"
+                                                            ToolTipService.ToolTip="{x:Bind PersonFullName, Mode=OneWay}"
+                                                            AutomationProperties.Name="{x:Bind PersonFullName, Mode=OneWay}" />
+                                                    <Button Grid.Column="10" Content="{x:Bind RoomShortName, Mode=OneWay}" Padding="6,1"
+                                                            MinHeight="22" MinWidth="0" HorizontalAlignment="Left"
+                                                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                                            BorderBrush="{ThemeResource ScannerCardBorderBrush}" BorderThickness="1"
+                                                            Visibility="{x:Bind Columns.Room.IsVisible, Mode=OneWay}"
+                                                            ToolTipService.ToolTip="{x:Bind RoomFullName, Mode=OneWay}"
+                                                            AutomationProperties.Name="{x:Bind RoomFullName, Mode=OneWay}" />
                                                 </Grid>
                                             </DataTemplate>
                                         </ListView.ItemTemplate>
@@ -721,6 +760,22 @@
                                 <TextBlock x:Name="DeviceTypeValueText" FontWeight="SemiBold" TextWrapping="Wrap" />
                             </StackPanel>
                         </Grid>
+                        <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Assignments" FontWeight="SemiBold" />
+                                <Grid ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <ComboBox x:Name="DevicePersonPicker" Header="Person" SelectionChanged="DevicePersonPicker_SelectionChanged" />
+                                    <ComboBox x:Name="DeviceRoomPicker" Grid.Column="1" Header="Room" SelectionChanged="DeviceRoomPicker_SelectionChanged" />
+                                </Grid>
+                                <TextBlock x:Name="DeviceAssignmentStatusText" TextWrapping="Wrap"
+                                           AutomationProperties.LiveSetting="Polite"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Border>
                         <Border Style="{StaticResource ScannerSummaryCardStyle}">
                             <Grid ColumnSpacing="24" RowSpacing="16">
                                 <Grid.ColumnDefinitions>
@@ -815,18 +870,308 @@
                 </ScrollViewer>
 
                 <!-- People -->
-                <StackPanel x:Name="PeoplePage" Grid.Row="1" Margin="24,0,24,24" Spacing="12" Visibility="Collapsed">
-                    <TextBlock Text="People" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
-                    <TextBlock Text="People will be available in a future version."
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                </StackPanel>
+                <ScrollViewer x:Name="PeoplePage" Grid.Row="1" Visibility="Collapsed">
+                    <StackPanel Margin="24,0,24,24" Spacing="12">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="People" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+                                <TextBlock Text="Manage people and manually assign devices; response counts describe the last scan, not human presence."
+                                           TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                            <Button x:Name="AddPersonButton" Grid.Column="1" Content="Add person"
+                                    VerticalAlignment="Center" Click="AddPersonButton_Click" />
+                        </Grid>
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="PeopleSearchBox" Width="260" HorizontalAlignment="Left"
+                                     PlaceholderText="Search people" AutomationProperties.Name="Search people"
+                                     TextChanged="PeopleSearchBox_TextChanged" />
+                            <TextBlock x:Name="PeopleStatusText" Grid.Column="1" VerticalAlignment="Center"
+                                       TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush" />
+                        </Grid>
+                        <Border x:Name="PeopleTableBorder" Style="{StaticResource ScannerSummaryCardStyle}" Padding="0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <Grid Padding="12,8" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="130" />
+                                        <ColumnDefinition Width="160" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Short name" FontWeight="SemiBold" />
+                                    <TextBlock Grid.Column="1" Text="Name" FontWeight="SemiBold" />
+                                    <TextBlock Grid.Column="2" Text="Devices" FontWeight="SemiBold" />
+                                    <TextBlock Grid.Column="3" Text="Last scan" FontWeight="SemiBold" />
+                                </Grid>
+                                <ListView x:Name="PeopleList" Grid.Row="1" IsItemClickEnabled="True"
+                                          ItemClick="PeopleList_ItemClick" AutomationProperties.Name="People">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate x:DataType="local:ManagedPersonListRow">
+                                            <Grid Padding="12,4" MinHeight="36">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="80" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="130" />
+                                                    <ColumnDefinition Width="160" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{x:Bind Person.ShortName}" FontWeight="SemiBold" />
+                                                <TextBlock Grid.Column="1" Text="{x:Bind Person.Name}" TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Grid.Column="2" Text="{x:Bind DeviceCountText}" />
+                                                                <TextBlock Grid.Column="3" Text="{x:Bind RespondedCountText}" />
+                                                <Button Grid.Column="4" Content="More" Tag="{x:Bind Person.Id}"
+                                                        AutomationProperties.Name="{x:Bind ActionsLabel}"
+                                                        Click="PersonActionsButton_Click" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </Grid>
+                        </Border>
+                        <StackPanel x:Name="PeopleEmptyState" Spacing="8" HorizontalAlignment="Center"
+                                    Margin="0,36" Visibility="Collapsed">
+                            <TextBlock x:Name="PeopleEmptyText" Text="No people yet" FontSize="20"
+                                       FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            <TextBlock Text="Add people to assign devices to the people who use them."
+                                       TextWrapping="Wrap" TextAlignment="Center"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <Button Content="Add person" Click="AddPersonButton_Click" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
 
                 <!-- Rooms -->
-                <StackPanel x:Name="RoomsPage" Grid.Row="1" Margin="24,0,24,24" Spacing="12" Visibility="Collapsed">
-                    <TextBlock Text="Rooms" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
-                    <TextBlock Text="Rooms will be available in a future version."
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                </StackPanel>
+                <ScrollViewer x:Name="RoomsPage" Grid.Row="1" Visibility="Collapsed">
+                    <StackPanel Margin="24,0,24,24" Spacing="12">
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Rooms" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+                                <TextBlock Text="Manage manually assigned device locations; response counts describe the last scan, not detected presence."
+                                           TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                            <Button x:Name="AddRoomButton" Grid.Column="1" Content="Add room"
+                                    VerticalAlignment="Center" Click="AddRoomButton_Click" />
+                        </Grid>
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="RoomsSearchBox" Width="260" HorizontalAlignment="Left"
+                                     PlaceholderText="Search rooms" AutomationProperties.Name="Search rooms"
+                                     TextChanged="RoomsSearchBox_TextChanged" />
+                            <TextBlock x:Name="RoomsStatusText" Grid.Column="1" VerticalAlignment="Center"
+                                       TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Grid>
+                        <Border x:Name="RoomsTableBorder" Style="{StaticResource ScannerSummaryCardStyle}" Padding="0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <Grid Padding="12,8" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="130" />
+                                        <ColumnDefinition Width="160" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Short name" FontWeight="SemiBold" />
+                                    <TextBlock Grid.Column="1" Text="Name" FontWeight="SemiBold" />
+                                    <TextBlock Grid.Column="2" Text="Devices" FontWeight="SemiBold" />
+                                    <TextBlock Grid.Column="3" Text="Last scan" FontWeight="SemiBold" />
+                                </Grid>
+                                <ListView x:Name="RoomsList" Grid.Row="1" IsItemClickEnabled="True"
+                                          ItemClick="RoomsList_ItemClick" AutomationProperties.Name="Rooms">
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate x:DataType="local:ManagedRoomListRow">
+                                            <Grid Padding="12,4" MinHeight="36">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="80" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="130" />
+                                                    <ColumnDefinition Width="160" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{x:Bind Room.ShortName}" FontWeight="SemiBold" />
+                                                <TextBlock Grid.Column="1" Text="{x:Bind Room.Name}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Column="2" Text="{x:Bind DeviceCountText}" />
+                                                <TextBlock Grid.Column="3" Text="{x:Bind RespondedCountText}" />
+                                                <Button Grid.Column="4" Content="More" Tag="{x:Bind Room.Id}"
+                                                        AutomationProperties.Name="{x:Bind ActionsLabel}"
+                                                        Click="RoomActionsButton_Click" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </Grid>
+                        </Border>
+                        <StackPanel x:Name="RoomsEmptyState" Spacing="8" HorizontalAlignment="Center"
+                                    Margin="0,36" Visibility="Collapsed">
+                            <TextBlock x:Name="RoomsEmptyText" Text="No rooms yet" FontSize="20"
+                                       FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            <TextBlock Text="Add rooms to record manually assigned device locations."
+                                       TextWrapping="Wrap" TextAlignment="Center"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <Button Content="Add room" Click="AddRoomButton_Click" HorizontalAlignment="Center" />
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <ScrollViewer x:Name="PersonDetailPage" Grid.Row="1" Visibility="Collapsed">
+                    <StackPanel Margin="24,0,24,24" Spacing="16">
+                        <Button Click="BackToPeopleButton_Click" AutomationProperties.Name="Back to people">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE72B;" FontSize="14" />
+                                <TextBlock Text="People" />
+                            </StackPanel>
+                        </Button>
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Padding="12,6" CornerRadius="8" Background="{ThemeResource ControlFillColorDefaultBrush}">
+                                <TextBlock x:Name="PersonDetailShortName" FontSize="18" FontWeight="SemiBold" />
+                            </Border>
+                            <TextBlock x:Name="PersonDetailName" Grid.Column="1" FontSize="28"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            <Button x:Name="EditPersonDetailButton" Grid.Column="2" Content="Edit" Click="EditPersonButton_Click" />
+                            <Button x:Name="DeletePersonDetailButton" Grid.Column="3" Content="Delete" Click="DeletePersonButton_Click" />
+                        </Grid>
+                        <TextBlock x:Name="PersonDetailNotes" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush" />
+                        <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                            <StackPanel Spacing="4">
+                                <TextBlock x:Name="PersonDeviceCountText" FontWeight="SemiBold" />
+                                <TextBlock x:Name="PersonRespondedCountText"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Border>
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Assigned devices" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                            <Button x:Name="AssignPersonDevicesButton" Grid.Column="1" Content="Assign devices" Click="AssignPersonDeviceButton_Click" />
+                        </Grid>
+                        <TextBlock x:Name="PersonAssignedDevicesEmptyText" Text="No devices assigned."
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <ListView x:Name="PersonAssignedDevicesList" IsItemClickEnabled="True"
+                                  ItemClick="AssignedPersonDevice_ItemClick" AutomationProperties.Name="Assigned devices">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="local:AssignedDeviceListRow">
+                                    <Grid Padding="8,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="160" />
+                                            <ColumnDefinition Width="160" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{x:Bind NameText}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Text="{x:Bind AddressText}" FontFamily="Consolas" />
+                                        <TextBlock Grid.Column="2" Text="{x:Bind MacAddressText}" FontFamily="Consolas" />
+                                        <Button Grid.Column="3" Content="Unassign" Tag="{x:Bind MacAddress}"
+                                                Click="UnassignPersonDeviceButton_Click" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                        <TextBlock x:Name="PersonDetailStatusText" TextWrapping="Wrap"
+                                   AutomationProperties.LiveSetting="Polite"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </ScrollViewer>
+
+                <ScrollViewer x:Name="RoomDetailPage" Grid.Row="1" Visibility="Collapsed">
+                    <StackPanel Margin="24,0,24,24" Spacing="16">
+                        <Button Click="BackToRoomsButton_Click" AutomationProperties.Name="Back to rooms">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE72B;" FontSize="14" />
+                                <TextBlock Text="Rooms" />
+                            </StackPanel>
+                        </Button>
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Border Padding="12,6" CornerRadius="8" Background="{ThemeResource ControlFillColorDefaultBrush}">
+                                <TextBlock x:Name="RoomDetailShortName" FontSize="18" FontWeight="SemiBold" />
+                            </Border>
+                            <TextBlock x:Name="RoomDetailName" Grid.Column="1" FontSize="28"
+                                       VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                            <Button x:Name="EditRoomDetailButton" Grid.Column="2" Content="Edit" Click="EditRoomButton_Click" />
+                            <Button x:Name="DeleteRoomDetailButton" Grid.Column="3" Content="Delete" Click="DeleteRoomButton_Click" />
+                        </Grid>
+                        <TextBlock x:Name="RoomDetailNotes" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                            <StackPanel Spacing="4">
+                                <TextBlock x:Name="RoomDeviceCountText" FontWeight="SemiBold" />
+                                <TextBlock x:Name="RoomRespondedCountText"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Border>
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Assigned devices" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                            <Button x:Name="AssignRoomDevicesButton" Grid.Column="1" Content="Assign devices" Click="AssignRoomDeviceButton_Click" />
+                        </Grid>
+                        <TextBlock x:Name="RoomAssignedDevicesEmptyText" Text="No devices assigned."
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <ListView x:Name="RoomAssignedDevicesList" IsItemClickEnabled="True"
+                                  ItemClick="AssignedRoomDevice_ItemClick" AutomationProperties.Name="Assigned devices">
+                            <ListView.ItemTemplate>
+                                <DataTemplate x:DataType="local:AssignedDeviceListRow">
+                                    <Grid Padding="8,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="160" />
+                                            <ColumnDefinition Width="160" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{x:Bind NameText}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Text="{x:Bind AddressText}" FontFamily="Consolas" />
+                                        <TextBlock Grid.Column="2" Text="{x:Bind MacAddressText}" FontFamily="Consolas" />
+                                        <Button Grid.Column="3" Content="Unassign" Tag="{x:Bind MacAddress}"
+                                                Click="UnassignRoomDeviceButton_Click" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListView.ItemTemplate>
+                        </ListView>
+                        <TextBlock x:Name="RoomDetailStatusText" TextWrapping="Wrap"
+                                   AutomationProperties.LiveSetting="Polite"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </ScrollViewer>
 
                 <!-- Settings -->
                 <ScrollViewer x:Name="SettingsPage" Grid.Row="1" Visibility="Collapsed">

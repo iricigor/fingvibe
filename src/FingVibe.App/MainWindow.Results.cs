@@ -120,7 +120,14 @@ public sealed partial class MainWindow
         new DeviceResultFilter(
             StatusFilter.SelectedIndex == 1,
             OpenPortsFilter.IsChecked == true,
-            ResultSearchBox.Text).Matches(row);
+            ResultSearchBox.Text,
+            SelectedFilterChoice(PersonFilter)?.Id,
+            SelectedFilterChoice(RoomFilter)?.Id,
+            SelectedFilterChoice(PersonFilter)?.Unassigned == true,
+            SelectedFilterChoice(RoomFilter)?.Unassigned == true).Matches(row);
+
+    private static FilterChoice? SelectedFilterChoice(ComboBox picker) =>
+        (picker?.SelectedItem as ComboBoxItem)?.Tag as FilterChoice;
 
     private void InsertSorted(ScanResultRow result)
     {

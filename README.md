@@ -17,6 +17,8 @@ Captured from the native app in UI-review mode using the local loopback host, no
 - Overview subnet-size badge and Network details explaining every IPv4 prefix, address capacity, and private, public, or special-purpose scope
 - ISP-based network identity with a Network page showing public and local addresses plus approximate public-IP location (or **Unknown**)
 - Device details page opened by clicking a device in the Devices table
+- Local People and Rooms management with editable short names, assignments, searchable compact tables, and last-scan response summaries
+- Independent person and room assignments saved by discovered MAC address, with short-name badges and full-name device filters
 - Offline, evidence-backed OS and device-type detection with built-in Fluent icons and saved manual corrections
 - Resizable Devices table columns and a Settings column selector (kept for the current session)
 - Live appearance settings: Solid, Mica, Mica Alt, or Acrylic backdrops, plus Standard Light, Warm Light, Standard Dark, and True Black (OLED) themes
@@ -73,6 +75,12 @@ For otherwise unidentified SMB hosts, an observed ICMP response TTL of 127 or 12
 Device details keep the OS, type, and icon visible above the network information and port-scan action. Expand **Identification evidence and corrections** below the network details to inspect the evidence, choose an operating system, device type, and/or a built-in icon, then select **Save identification**. **Automatic** restores detection for an individual field; **Use automatic detection** clears all three saved choices. The icon follows the effective device type unless an explicit icon is selected. Available types include Computer, Phone, Tablet, Router/access point, Printer, TV/media device, NAS/storage, Game console, IoT/smart device, and Unknown. Categories without reliable discovery evidence can be assigned manually; OS also offers Other.
 
 Corrections are stored separately from automatic evidence in `%LOCALAPPDATA%\FingVibe\device-classifications.json`, keyed by MAC address, and apply after rescans, IP changes, and restarts. Saving requires a discovered MAC address. Private/randomized MACs may change and therefore lose their association with saved corrections. Load/save errors are shown in details; a failed load disables edits rather than overwriting existing corrections. Completed scan snapshots preserve automatic evidence and inferred-value markers. Older snapshots remain readable, but are not re-enriched when opening a new build: run **Scan LAN** again to collect current detection evidence.
+
+### People and rooms
+
+The **People** and **Rooms** pages manage manually named people and locations. Each entry has a full name, a unique 1–3-character short name within its category, and optional notes. Device details can assign one person and one room independently; either can remain unassigned. The Devices table shows short-name badges in optional **Person** and **Room** columns, while filters and search match both short and full names. Hover over a badge or keyboard-focus it to access its full-name tooltip and accessible label.
+
+People, rooms, and their assignments are saved separately from scan snapshots in `%LOCALAPPDATA%\FingVibe\people-rooms.json`. Assignments require a discovered six-byte MAC address and never use an IP address alone. Private or randomized MAC addresses may change, so their assignments are only retained when the same MAC is observed again. Deleting a person or room clears only that category's assignments; it does not delete devices or scan history. Last-scan response counts report devices that answered ICMP during the displayed scan, not human presence; no response does not prove a device is powered off. Load and save errors are displayed, and a failed load disables changes to protect the saved file.
 
 ## Test
 

@@ -60,4 +60,20 @@ public sealed class DeviceResultFilterTests
         Assert.True(new DeviceResultFilter(true, true, search).Matches(row));
         Assert.False(new DeviceResultFilter(true, true, search).Matches(Row(HostStatus.Alive, false)));
     }
+
+    [Fact]
+    public void PeopleAndRoomAssignments_AreSearchableAndFilterIndependently()
+    {
+        var personId = Guid.NewGuid();
+        var roomId = Guid.NewGuid();
+        var row = Row(HostStatus.Alive, true);
+        row.SetPeopleRoomAssignments(personId, "AL", "Alex", roomId, "LR", "Living room");
+
+        Assert.True(new DeviceResultFilter(false, false, "AL").Matches(row));
+        Assert.True(new DeviceResultFilter(false, false, "Living room").Matches(row));
+        Assert.True(new DeviceResultFilter(false, false, "", PersonId: personId).Matches(row));
+        Assert.True(new DeviceResultFilter(false, false, "", RoomId: roomId).Matches(row));
+        Assert.False(new DeviceResultFilter(false, false, "", PersonId: Guid.NewGuid()).Matches(row));
+        Assert.False(new DeviceResultFilter(false, false, "", UnassignedPersonOnly: true).Matches(row));
+    }
 }
