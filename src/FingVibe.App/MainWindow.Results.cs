@@ -108,7 +108,8 @@ public sealed partial class MainWindow
 
     private bool ShouldShow(ScanResultRow row) =>
         (StatusFilter.SelectedIndex != 1 || row.IsOnline)
-        && row.Result.MatchesFilter(ResultSearchBox.Text);
+        && (row.NameText.Contains(ResultSearchBox.Text.Trim(), StringComparison.OrdinalIgnoreCase)
+            || row.Result.MatchesFilter(ResultSearchBox.Text));
 
     private void InsertSorted(ScanResultRow result)
     {

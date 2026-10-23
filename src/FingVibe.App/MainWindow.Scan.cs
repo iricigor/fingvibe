@@ -43,7 +43,7 @@ public sealed partial class MainWindow
 
         var resultProgress = new Progress<ScanResult>(result =>
         {
-            var row = new ScanResultRow(result, network.PrefixLength);
+            var row = CreateResultRow(result, network.PrefixLength);
             _allResults.Add(row);
             UpdateLatencyRange(row);
             if (ShouldShow(row))

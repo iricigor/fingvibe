@@ -5,7 +5,9 @@ namespace FingVibe.App;
 
 public sealed class ScanResultRow : INotifyPropertyChanged
 {
-    public ScanResultRow(ScanResult result, int prefixLength)
+    private string? _customName;
+
+    public ScanResultRow(ScanResult result, int prefixLength, string? customName = null)
     {
         if (prefixLength is < 0 or > 32)
         {
@@ -13,6 +15,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         }
 
         Result = result;
+        _customName = string.IsNullOrWhiteSpace(customName) ? null : customName.Trim();
         var octets = result.AddressText.Split('.');
         // Only dim complete network octets; a partially masked octet also identifies hosts.
         var prefixOctets = octets.Length == 4 ? Math.Min(prefixLength / 8, 3) : 0;
@@ -26,8 +29,9 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         MacNic = result.MacAddress?.GetAddressBytes().Length == 6 ? mac[8..] : string.Empty;
     }
 
-    public ScanResult Result { get; }
+    public ScanResult Result { get; private set; }
     public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
+    public string NameText => _customName ?? Result.NameText;
     public string AddressPrefix { get; }
     public string AddressHost { get; }
     public string MacOui { get; }
@@ -35,7 +39,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public bool IsOnline => Result.Status == HostStatus.Alive;
     public bool IsOffline => !IsOnline;
     public string StatusLabel => IsOnline ? "Online" : "Offline";
-    public double NameOpacity => Result.NameText == Result.AddressText ? 0.65 : 1;
+    public double NameOpacity => NameText == Result.AddressText ? 0.65 : 1;
     public double VendorOpacity => Result.VendorText is "Unknown" or "-" ? 0.65 : 1;
     public bool HasLatency => IsOnline && Result.RoundtripTimeMilliseconds is >= 0;
     public string LatencyLabel => HasLatency ? Result.RoundtripText : "-";
@@ -43,6 +47,19 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public double LatencyFill => HasLatency ? 20 + (80 * LatencyFraction) : 0;
 
     public event PropertyChangedEventHandler? PropertyChanged;
+
+    public void SetCustomName(string? customName)
+    {
+        _customName = string.IsNullOrWhiteSpace(customName) ? null : customName.Trim();
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NameText)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NameOpacity)));
+    }
+
+    public void UpdateOpenPorts(IReadOnlyList<OpenPort> openPorts)
+    {
+        Result = Result with { OpenPorts = openPorts };
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Result)));
+    }
 
     public void UpdateLatencyRange(long minimum, long maximum)
     {

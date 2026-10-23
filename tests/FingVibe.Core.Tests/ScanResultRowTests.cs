@@ -45,6 +45,20 @@ public sealed class ScanResultRowTests
     }
 
     [Fact]
+    public void CustomName_OverridesDisplayWithoutChangingDiscoveredName()
+    {
+        var discovered = CreateRow();
+        var row = new ScanResultRow(discovered.Result with { DeviceName = "router.local" }, 24, "Kitchen router");
+
+        Assert.Equal("Kitchen router", row.NameText);
+        Assert.Equal("router.local", row.Result.NameText);
+
+        row.SetCustomName(null);
+
+        Assert.Equal("router.local", row.NameText);
+    }
+
+    [Fact]
     public void MacParts_PreserveAllBytesAndSeparators()
     {
         var row = CreateRow();

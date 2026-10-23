@@ -32,6 +32,7 @@ public sealed partial class MainWindow : Window
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(settingsItem, "Settings");
         }
 
+        await RestoreDeviceNameOverridesAsync();
         await RestoreSavedScanAsync();
         await InitializeNetworkAsync();
     }

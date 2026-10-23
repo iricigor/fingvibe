@@ -11,6 +11,12 @@ public sealed partial class MainWindow
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "FingVibe",
         "latest-scan.json"));
+    private readonly DeviceNameOverrideStore _deviceNameOverrideStore = new(Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "FingVibe",
+        "device-names.json"));
+    private Dictionary<string, string> _deviceNameOverrides = new(StringComparer.OrdinalIgnoreCase);
+    private bool _deviceNameOverridesUnavailable;
     private bool _hasRestoredSnapshot;
     private ScanSnapshot? _lastCompletedScan;
 
@@ -35,7 +41,7 @@ public sealed partial class MainWindow
             _maximumLatency = 0;
             foreach (var result in snapshot.Results)
             {
-                var row = new ScanResultRow(result, prefixLength);
+                var row = CreateResultRow(result, prefixLength);
                 _allResults.Add(row);
                 UpdateLatencyRange(row);
             }
@@ -47,6 +53,32 @@ public sealed partial class MainWindow
         {
             ShowSnapshotError("The saved scan could not be loaded. Scan LAN to create a new snapshot.");
         }
+    }
+
+    private async Task RestoreDeviceNameOverridesAsync()
+    {
+        try
+        {
+            var savedNames = await _deviceNameOverrideStore.LoadAsync();
+            _deviceNameOverrides = savedNames.ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value,
+                StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            _deviceNameOverrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            _deviceNameOverridesUnavailable = true;
+        }
+    }
+
+    private ScanResultRow CreateResultRow(ScanResult result, int prefixLength)
+    {
+        var customName = result.MacAddress is { } macAddress
+            && _deviceNameOverrides.TryGetValue(macAddress.ToString(), out var name)
+                ? name
+                : null;
+        return new ScanResultRow(result, prefixLength, customName);
     }
 
     private async Task SaveCompletedScanAsync(LanNetwork network, IEnumerable<ScanResultRow> results)
