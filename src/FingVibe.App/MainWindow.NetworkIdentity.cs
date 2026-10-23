@@ -22,8 +22,8 @@ public sealed partial class MainWindow
                 new(
                     "UI review loopback",
                     IPAddress.Loopback,
-                    IPAddress.Parse("127.0.0.0"),
-                    24,
+                    IPAddress.Loopback,
+                    32,
                     false)
             }
             : _networkDiscovery.GetAvailableNetworks();
