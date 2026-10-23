@@ -9,6 +9,7 @@ public sealed partial class MainWindow
 {
     private readonly PortScannerService _portScanner = new();
     private ScanResultRow? _selectedDeviceRow;
+    private bool _isSavingDeviceNameOverride;
 
     private void ResultsList_ItemClick(object sender, ItemClickEventArgs e)
     {
@@ -24,8 +25,12 @@ public sealed partial class MainWindow
             && _deviceNameOverrides.TryGetValue(macAddress.ToString(), out var customName)
                 ? customName
                 : string.Empty;
-        DeviceNameSaveButton.IsEnabled = result.MacAddress is not null && !_deviceNameOverridesUnavailable;
-        DeviceNameResetButton.IsEnabled = result.MacAddress is not null && !_deviceNameOverridesUnavailable;
+        DeviceNameSaveButton.IsEnabled = result.MacAddress is not null
+            && !_deviceNameOverridesUnavailable
+            && !_isSavingDeviceNameOverride;
+        DeviceNameResetButton.IsEnabled = result.MacAddress is not null
+            && !_deviceNameOverridesUnavailable
+            && !_isSavingDeviceNameOverride;
         DeviceNameStatusText.Text = _deviceNameOverridesUnavailable
             ? "Saved custom names could not be loaded."
             : string.Empty;
@@ -57,7 +62,10 @@ public sealed partial class MainWindow
 
     private async Task SaveDeviceNameOverrideAsync(string? customName)
     {
-        if (_deviceNameOverridesUnavailable || _selectedDeviceRow?.Result.MacAddress is not { } macAddress)
+        var row = _selectedDeviceRow;
+        if (_deviceNameOverridesUnavailable
+            || _isSavingDeviceNameOverride
+            || row?.Result.MacAddress is not { } macAddress)
         {
             return;
         }
@@ -72,22 +80,42 @@ public sealed partial class MainWindow
             updatedNames[macAddress.ToString()] = customName;
         }
 
+        _isSavingDeviceNameOverride = true;
+        DeviceNameSaveButton.IsEnabled = false;
+        DeviceNameResetButton.IsEnabled = false;
         try
         {
             await _deviceNameOverrideStore.SaveAsync(updatedNames);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
         {
-            DeviceNameStatusText.Text = "The custom name could not be saved.";
+            if (ReferenceEquals(_selectedDeviceRow, row))
+            {
+                DeviceNameStatusText.Text = "The custom name could not be saved.";
+            }
+
             return;
+        }
+        finally
+        {
+            _isSavingDeviceNameOverride = false;
+            if (_selectedDeviceRow is { } selectedRow)
+            {
+                var canEdit = selectedRow.Result.MacAddress is not null && !_deviceNameOverridesUnavailable;
+                DeviceNameSaveButton.IsEnabled = canEdit;
+                DeviceNameResetButton.IsEnabled = canEdit;
+            }
         }
 
         _deviceNameOverrides = updatedNames;
-        _selectedDeviceRow.SetCustomName(customName);
-        DeviceTitleText.Text = _selectedDeviceRow.NameText;
-        DeviceNameInput.Text = customName ?? string.Empty;
-        DeviceNameStatusText.Text = customName is null ? "Using discovered name." : "Custom name saved.";
+        row.SetCustomName(customName);
         RefreshVisibleResults();
+        if (ReferenceEquals(_selectedDeviceRow, row))
+        {
+            DeviceTitleText.Text = row.NameText;
+            DeviceNameInput.Text = customName ?? string.Empty;
+            DeviceNameStatusText.Text = customName is null ? "Using discovered name." : "Custom name saved.";
+        }
     }
 
     private async void DevicePortScanButton_Click(object sender, RoutedEventArgs e)
@@ -109,9 +137,12 @@ public sealed partial class MainWindow
                 .OrderBy(port => port.Port)
                 .ToArray();
             row.UpdateOpenPorts(openPorts);
-            DevicePortsList.ItemsSource = openPorts;
-            DeviceNoPortsText.Visibility = openPorts.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
-            DevicePortScanStatusText.Text = $"{additionalPorts.Count} additional open port(s) found.";
+            if (ReferenceEquals(_selectedDeviceRow, row))
+            {
+                DevicePortsList.ItemsSource = openPorts;
+                DeviceNoPortsText.Visibility = openPorts.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+                DevicePortScanStatusText.Text = $"{additionalPorts.Count} additional open port(s) found.";
+            }
         }
         finally
         {
