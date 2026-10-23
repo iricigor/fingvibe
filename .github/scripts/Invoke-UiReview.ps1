@@ -4,7 +4,9 @@ param(
     [string] $AppPath,
 
     [Parameter(Mandatory)]
-    [string] $ScreenshotPath,
+    [string] $ScreenshotDirectory,
+
+    [string] $CapturePlanPath,
 
     [string] $WinAppDriverPath =
         "${env:ProgramFiles(x86)}\Windows Application Driver\WinAppDriver.exe"
@@ -12,6 +14,14 @@ param(
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "UiReviewScreenshot.ps1")
+. (Join-Path $PSScriptRoot "UiReviewScenarios.ps1")
+. (Join-Path $PSScriptRoot "UiReviewNavigation.ps1")
+$capturePlan = if ($CapturePlanPath) {
+    @(Read-UiReviewCapturePlan -Path $CapturePlanPath)
+}
+else {
+    @(Get-UiReviewCapturePlan -RepositoryPath (Get-Location).Path)
+}
 
 $serverUrl = "http://127.0.0.1:4723"
 $sessionId = $null
@@ -339,11 +349,33 @@ try {
     $null = Find-WebDriverElement -Using xpath -Value "//*[@Name='Online']"
     Assert-StatusFilterSelection -SelectedId $aliveHosts -UnselectedId $allHosts
 
-    Save-UiReviewWindowScreenshot -WindowHandle $windowHandle -Path $ScreenshotPath
-
     if (Get-WebDriverElementEnabled -ElementId $elements["Cancel"]) {
         Invoke-WebDriverElement -ElementId $elements["Cancel"]
     }
+    $scanStoppedDeadline = [DateTime]::UtcNow.AddSeconds(15)
+    while (-not (Get-WebDriverElementEnabled -ElementId $elements["Scan LAN"])) {
+        if ([DateTime]::UtcNow -ge $scanStoppedDeadline) {
+            throw "The scan did not stop within 15 seconds before capturing the required views."
+        }
+        Start-Sleep -Milliseconds 100
+    }
+
+    $captureDirectory = [System.IO.Path]::GetFullPath($ScreenshotDirectory)
+    $null = New-Item -ItemType Directory -Path $captureDirectory -Force
+    foreach ($capture in $capturePlan) {
+        Write-Host "Capturing $($capture.Label): $($capture.Reasons -join ' ')"
+        try {
+            Show-UiReviewCaptureScenario -Scenario $capture.Scenario
+            $path = Join-Path $captureDirectory $capture.FileName
+            Save-UiReviewWindowScreenshot -WindowHandle $windowHandle -Path $path
+        }
+        catch {
+            throw "Required capture '$($capture.Label)' failed: $($_.Exception.Message)"
+        }
+    }
+    # Publish a manifest only after every required view/state was verified and captured.
+    ConvertTo-Json -InputObject @($capturePlan) -Depth 5 |
+        Set-Content -LiteralPath (Join-Path $captureDirectory "capture-manifest.json") -Encoding utf8
 
     $succeeded = $true
 }
@@ -387,4 +419,4 @@ finally {
     }
 }
 
-Write-Host "UI smoke test passed and screenshot saved to '$ScreenshotPath'."
+Write-Host "UI smoke test passed and $($capturePlan.Count) required screenshot(s) captured."
