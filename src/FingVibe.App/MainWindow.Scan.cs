@@ -20,6 +20,15 @@ public sealed partial class MainWindow
             return;
         }
 
+        if (!_networkActivityCoordinator.TryAcquire(NetworkActivityKind.LanScan, out var activityLease))
+        {
+            ScanStatusText.Text = _networkActivityCoordinator.ActiveKind == NetworkActivityKind.InternetSpeedTest
+                ? "A Cloudflare speed test is active or stopping. Wait for it to finish before starting a LAN scan."
+                : "Another network measurement is in progress. Wait for it to finish before retrying.";
+            return;
+        }
+
+        using var scanActivity = activityLease;
         _allResults.Clear();
         _visibleResults.Clear();
         _minimumLatency = long.MaxValue;

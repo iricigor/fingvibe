@@ -60,6 +60,11 @@
                         <FontIcon Glyph="&#xE707;" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <NavigationViewItem x:Name="ToolsNavItem" Content="Tools" Tag="Tools">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE90F;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
             </NavigationView.MenuItems>
 
             <Grid Background="Transparent">
@@ -827,6 +832,9 @@
                     <TextBlock Text="Rooms will be available in a future version."
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
+
+                <!-- Tools -->
+                <local:ToolsPage x:Name="ToolsPage" Grid.Row="1" Visibility="Collapsed" />
 
                 <!-- Settings -->
                 <ScrollViewer x:Name="SettingsPage" Grid.Row="1" Visibility="Collapsed">

@@ -59,12 +59,15 @@ try {
     Assert-Throws { Get-UiReviewCapturePlan $repository -BaseRevision "missing-ref" } "*failed with exit code*"
 
     Test-Change @{ "README.md" = "Documentation" } @("Devices") "Documentation-only"
-    foreach ($scenario in @("Overview", "Network", "DeviceDetails", "People", "Rooms", "Settings", "Devices")) {
+    foreach ($scenario in @("Overview", "Network", "DeviceDetails", "People", "Rooms", "Tools", "SpeedTest", "Settings", "Devices")) {
         $page = $UiReviewScenarios[$scenario].Page
         $changed = $xaml.Replace("Text=`"$page`"", "Text=`"Changed $page`"")
         $expected = @("Devices")
-        if ($scenario -ne "Devices") { $expected += $scenario }
-        else { $expected += "DevicesEmpty" }
+        foreach ($pageScenario in $UiReviewScenarios.Keys) {
+            if ($UiReviewScenarios[$pageScenario].Page -eq $page -and $pageScenario -ne "Devices") {
+                $expected += $pageScenario
+            }
+        }
         Test-Change @{ "src\FingVibe.App\MainWindow.xaml" = $changed } $expected "Page-local $scenario"
     }
     $changed = $xaml.Replace('Text="OverviewPage"', 'Text="New overview"').Replace('Text="NetworkPage"', 'Text="New network"')
@@ -168,6 +171,7 @@ try {
             if (-not $script:brokenNavigation) { $script:currentPage = $ElementId.Substring(5) }
         }
         elseif ($ElementId -eq "online-row") { $script:currentPage = "DeviceDetails" }
+        elseif ($ElementId -eq "control-Speed test") { $script:currentPage = "SpeedTest" }
         else { throw "Unexpected click '$ElementId'." }
     }
     function Invoke-WebDriverRequest([string] $Method, [string] $Endpoint, [hashtable] $Body) {
@@ -193,6 +197,8 @@ try {
                     "control-Public IP address" { $script:currentPage -eq "Network" }
                     "control-People will be available in a future version." { $script:currentPage -eq "People" }
                     "control-Rooms will be available in a future version." { $script:currentPage -eq "Rooms" }
+                    "control-Speed test" { $script:currentPage -eq "Tools" }
+                    "control-Start Cloudflare speed test" { $script:currentPage -eq "SpeedTest" }
                     "control-Window backdrop" { $script:currentPage -eq "Settings" }
                     default { throw "Unexpected control '$id'." }
                 }

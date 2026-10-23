@@ -17,6 +17,7 @@ function Show-UiReviewCaptureScenario {
     $menu = switch ($Scenario) {
         "DeviceDetails" { "Devices" }
         "DevicesEmpty" { "Devices" }
+        "SpeedTest" { "Tools" }
         default { $Scenario }
     }
     $menuId = Assert-VisibleUiReviewElement -Using xpath -Value "//ListItem[@Name='$menu']"
@@ -56,8 +57,16 @@ function Show-UiReviewCaptureScenario {
         "Network" { "Public IP address" }
         "People" { "People will be available in a future version." }
         "Rooms" { "Rooms will be available in a future version." }
+        "Tools" { "Speed test" }
+        "SpeedTest" { "Speed test" }
         "Settings" { "Window backdrop" }
         default { throw "No navigation is implemented for capture scenario '$Scenario'." }
     }
     $null = Assert-VisibleUiReviewElement -Value $sentinel
+
+    if ($Scenario -eq "SpeedTest") {
+        $cardId = Assert-VisibleUiReviewElement -Value "Speed test"
+        Invoke-WebDriverElement -ElementId $cardId
+        $null = Assert-VisibleUiReviewElement -Value "Start Cloudflare speed test"
+    }
 }

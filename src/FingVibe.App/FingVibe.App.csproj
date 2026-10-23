@@ -24,4 +24,10 @@
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.9169" />
     <ProjectReference Include="..\FingVibe.Core\FingVibe.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="Assets\SpeedTest\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
 </Project>

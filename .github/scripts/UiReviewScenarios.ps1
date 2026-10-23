@@ -5,6 +5,8 @@ $UiReviewScenarios = [ordered]@{
     DeviceDetails = @{ Label = "Device details - selected online device"; FileName = "fingvibe-device-details.png"; Page = "DevicePage" }
     People = @{ Label = "People"; FileName = "fingvibe-people.png"; Page = "PeoplePage" }
     Rooms = @{ Label = "Rooms"; FileName = "fingvibe-rooms.png"; Page = "RoomsPage" }
+    Tools = @{ Label = "Tools"; FileName = "fingvibe-tools.png"; Page = "ToolsPage" }
+    SpeedTest = @{ Label = "Speed test"; FileName = "fingvibe-speed-test.png"; Page = "ToolsPage" }
     Settings = @{ Label = "Settings - appearance and columns"; FileName = "fingvibe-settings.png"; Page = "SettingsPage" }
     DevicesEmpty = @{ Label = "Devices - no matching hosts"; FileName = "fingvibe-devices-empty.png"; Page = "DevicesPage" }
 }

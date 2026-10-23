@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
@@ -5,12 +7,18 @@ namespace FingVibe.App;
 
 public sealed partial class MainWindow : Window
 {
+    private readonly NetworkActivityCoordinator _networkActivityCoordinator = new();
+    private bool _allowWindowClose;
+    private bool _closingAfterSpeedTest;
+
     private static readonly bool IsUiReview =
         Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW") == "1";
 
     public MainWindow()
     {
         InitializeComponent();
+        ToolsPage.ActivityCoordinator = _networkActivityCoordinator;
+        this.AppWindow.Closing += MainWindow_Closing;
         InitializeAppearance();
         InitializeClassificationPickers();
 
@@ -22,6 +30,35 @@ public sealed partial class MainWindow : Window
     }
 
     public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
+
+    private async void MainWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
+    {
+        if (_allowWindowClose || !ToolsPage.HasActiveTest)
+        {
+            return;
+        }
+
+        args.Cancel = true;
+        if (_closingAfterSpeedTest)
+        {
+            return;
+        }
+
+        _closingAfterSpeedTest = true;
+        try
+        {
+            await ToolsPage.StopForWindowCloseAsync();
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine(exception);
+        }
+        finally
+        {
+            _allowWindowClose = true;
+            sender.Close();
+        }
+    }
 
     private async void RootGrid_Loaded(object sender, RoutedEventArgs e)
     {
@@ -66,14 +103,20 @@ public sealed partial class MainWindow : Window
         "Devices" => DevicesPage,
         "People" => PeoplePage,
         "Rooms" => RoomsPage,
+        "Tools" => ToolsPage,
         _ => OverviewPage
     };
 
     private void ShowPage(UIElement page)
     {
+        if (ToolsPage.Visibility == Visibility.Visible && page != ToolsPage)
+        {
+            _ = ToolsPage.StopForNavigationAsync();
+        }
+
         foreach (var candidate in new UIElement[]
                  {
-                     OverviewPage, NetworkPage, DevicesPage, DevicePage, PeoplePage, RoomsPage, SettingsPage
+                     OverviewPage, NetworkPage, DevicesPage, DevicePage, PeoplePage, RoomsPage, ToolsPage, SettingsPage
                  })
         {
             candidate.Visibility = candidate == page ? Visibility.Visible : Visibility.Collapsed;
