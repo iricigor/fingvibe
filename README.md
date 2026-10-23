@@ -2,6 +2,12 @@
 
 FingVibe is a native Windows 11 LAN scanner built with C# and WinUI 3. It detects active IPv4 network interfaces, shows the machine address and subnet, and probes every usable address concurrently.
 
+## Start page
+
+![FingVibe Overview showing network identity, scan freshness, actionable device summaries, and network setup](docs/screenshots/overview.png)
+
+Captured from the native app in UI-review mode using the local loopback host, not a real LAN.
+
 ## Features
 
 - Native WinUI 3 desktop UI with no embedded web content
