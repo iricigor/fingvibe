@@ -417,6 +417,7 @@
                                                         <ColumnDefinition Width="*" />
                                                     </Grid.ColumnDefinitions>
                                                     <TextBlock Text="{x:Bind NameText, Mode=OneWay}" TextTrimming="CharacterEllipsis"
+                                                               FontFamily="Segoe UI Emoji"
                                                                Margin="0,0,12,0" Opacity="{x:Bind NameOpacity}"
                                                                Visibility="{x:Bind Columns.Name.IsVisible, Mode=OneWay}"
                                                                ToolTipService.ToolTip="{x:Bind NameText, Mode=OneWay}" />
@@ -518,26 +519,32 @@
                                 <TextBlock Text="Devices" />
                             </StackPanel>
                         </Button>
-                        <TextBlock x:Name="DeviceTitleText" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" TextWrapping="Wrap" />
-                        <Grid ColumnSpacing="8">
+                        <Grid ColumnSpacing="8" Margin="0,0,0,8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <TextBox x:Name="DeviceNameInput"
-                                     Header="Custom device name"
-                                     PlaceholderText="Enter a custom name"
-                                     MaxLength="64" />
+                                     AutomationProperties.Name="Device name"
+                                     PlaceholderText="Edit device name"
+                                     TextWrapping="Wrap"
+                                     MaxLength="64"
+                                     FontSize="28"
+                                     FontFamily="Segoe UI Emoji"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     Padding="0"
+                                     TextChanged="DeviceNameInput_TextChanged" />
                             <Button x:Name="DeviceNameSaveButton"
                                     Grid.Column="1"
-                                    Content="Save name"
-                                    VerticalAlignment="Bottom"
+                                    Content="Save"
+                                    VerticalAlignment="Center"
                                     Click="DeviceNameSaveButton_Click" />
                             <Button x:Name="DeviceNameResetButton"
                                     Grid.Column="2"
-                                    Content="Reset"
-                                    VerticalAlignment="Bottom"
+                                    Content="Use discovered name"
+                                    VerticalAlignment="Center"
                                     Click="DeviceNameResetButton_Click" />
                         </Grid>
                         <TextBlock x:Name="DeviceNameStatusText"

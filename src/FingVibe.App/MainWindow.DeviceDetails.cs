@@ -20,20 +20,15 @@ public sealed partial class MainWindow
 
         _selectedDeviceRow = row;
         var result = row.Result;
-        DeviceTitleText.Text = row.NameText;
         DeviceNameInput.Text = result.MacAddress is { } macAddress
             && _deviceNameOverrides.TryGetValue(macAddress.ToString(), out var customName)
                 ? customName
-                : string.Empty;
-        DeviceNameSaveButton.IsEnabled = result.MacAddress is not null
-            && !_deviceNameOverridesUnavailable
-            && !_isSavingDeviceNameOverride;
-        DeviceNameResetButton.IsEnabled = result.MacAddress is not null
-            && !_deviceNameOverridesUnavailable
-            && !_isSavingDeviceNameOverride;
+                : row.NameText;
+        DeviceNameSaveButton.Content = "Save";
         DeviceNameStatusText.Text = _deviceNameOverridesUnavailable
             ? "Saved custom names could not be loaded."
             : string.Empty;
+        UpdateDeviceNameActions();
         DeviceAddressText.Text = result.AddressText;
         DeviceMacText.Text = result.MacAddressText;
         DeviceVendorText.Text = result.VendorText;
@@ -46,11 +41,17 @@ public sealed partial class MainWindow
         ShowPage(DevicePage);
     }
 
+    private void DeviceNameInput_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        DeviceNameSaveButton.Content = "Save";
+        UpdateDeviceNameActions();
+    }
+
     private async void DeviceNameSaveButton_Click(object sender, RoutedEventArgs e)
     {
         if (string.IsNullOrWhiteSpace(DeviceNameInput.Text))
         {
-            DeviceNameStatusText.Text = "Enter a custom name, or reset it to use the discovered name.";
+            DeviceNameStatusText.Text = "A device name cannot be empty.";
             return;
         }
 
@@ -59,6 +60,36 @@ public sealed partial class MainWindow
 
     private async void DeviceNameResetButton_Click(object sender, RoutedEventArgs e) =>
         await SaveDeviceNameOverrideAsync(null);
+
+    private void UpdateDeviceNameActions()
+    {
+        var row = _selectedDeviceRow;
+        if (row is null)
+        {
+            DeviceNameSaveButton.IsEnabled = false;
+            DeviceNameResetButton.IsEnabled = false;
+            return;
+        }
+
+        var macAddress = row.Result.MacAddress;
+        string? savedName = null;
+        var hasCustomName = macAddress is not null
+            && _deviceNameOverrides.TryGetValue(macAddress.ToString(), out savedName);
+        var currentName = savedName ?? row.Result.NameText;
+        var inputName = DeviceNameInput.Text.Trim();
+
+        DeviceNameSaveButton.IsEnabled = macAddress is not null
+            && !_deviceNameOverridesUnavailable
+            && !_isSavingDeviceNameOverride
+            && !string.IsNullOrWhiteSpace(inputName)
+            && !string.Equals(inputName, currentName, StringComparison.Ordinal);
+        DeviceNameResetButton.IsEnabled = hasCustomName
+            && !_deviceNameOverridesUnavailable
+            && !_isSavingDeviceNameOverride;
+        ToolTipService.SetToolTip(
+            DeviceNameResetButton,
+            hasCustomName ? $"Revert to discovered name: {row.Result.NameText}" : null);
+    }
 
     private async Task SaveDeviceNameOverrideAsync(string? customName)
     {
@@ -81,8 +112,7 @@ public sealed partial class MainWindow
         }
 
         _isSavingDeviceNameOverride = true;
-        DeviceNameSaveButton.IsEnabled = false;
-        DeviceNameResetButton.IsEnabled = false;
+        UpdateDeviceNameActions();
         try
         {
             await _deviceNameOverrideStore.SaveAsync(updatedNames);
@@ -99,12 +129,7 @@ public sealed partial class MainWindow
         finally
         {
             _isSavingDeviceNameOverride = false;
-            if (_selectedDeviceRow is { } selectedRow)
-            {
-                var canEdit = selectedRow.Result.MacAddress is not null && !_deviceNameOverridesUnavailable;
-                DeviceNameSaveButton.IsEnabled = canEdit;
-                DeviceNameResetButton.IsEnabled = canEdit;
-            }
+            UpdateDeviceNameActions();
         }
 
         _deviceNameOverrides = updatedNames;
@@ -112,9 +137,10 @@ public sealed partial class MainWindow
         RefreshVisibleResults();
         if (ReferenceEquals(_selectedDeviceRow, row))
         {
-            DeviceTitleText.Text = row.NameText;
-            DeviceNameInput.Text = customName ?? string.Empty;
-            DeviceNameStatusText.Text = customName is null ? "Using discovered name." : "Custom name saved.";
+            DeviceNameInput.Text = row.NameText;
+            DeviceNameSaveButton.Content = customName is null ? "✓ Reverted" : "✓ Saved";
+            DeviceNameStatusText.Text = string.Empty;
+            UpdateDeviceNameActions();
         }
     }
 
