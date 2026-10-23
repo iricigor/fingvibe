@@ -416,10 +416,11 @@
                                                         <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Mac.EffectiveWidth), Mode=OneWay}" />
                                                         <ColumnDefinition Width="*" />
                                                     </Grid.ColumnDefinitions>
-                                                    <TextBlock Text="{x:Bind Result.NameText}" TextTrimming="CharacterEllipsis"
+                                                    <TextBlock Text="{x:Bind NameText, Mode=OneWay}" TextTrimming="CharacterEllipsis"
+                                                               FontFamily="Segoe UI Emoji"
                                                                Margin="0,0,12,0" Opacity="{x:Bind NameOpacity}"
                                                                Visibility="{x:Bind Columns.Name.IsVisible, Mode=OneWay}"
-                                                               ToolTipService.ToolTip="{x:Bind Result.NameText}" />
+                                                               ToolTipService.ToolTip="{x:Bind NameText, Mode=OneWay}" />
                                                     <TextBlock Grid.Column="1" FontFamily="Consolas" TextTrimming="CharacterEllipsis"
                                                                Margin="0,0,12,0"
                                                                Visibility="{x:Bind Columns.Address.IsVisible, Mode=OneWay}"
@@ -433,7 +434,7 @@
                                                                Visibility="{x:Bind Columns.Vendor.IsVisible, Mode=OneWay}"
                                                                ToolTipService.ToolTip="{x:Bind Result.VendorText}"
                                                                TextTrimming="CharacterEllipsis" />
-                                                    <ItemsControl Grid.Column="3" ItemsSource="{x:Bind Result.OpenPortItems}" VerticalAlignment="Center"
+                                                    <ItemsControl Grid.Column="3" ItemsSource="{x:Bind Result.OpenPortItems, Mode=OneWay}" VerticalAlignment="Center"
                                                                   Margin="0,0,12,0"
                                                                   Visibility="{x:Bind Columns.Ports.IsVisible, Mode=OneWay}">
                                                         <ItemsControl.ItemsPanel>
@@ -518,7 +519,36 @@
                                 <TextBlock Text="Devices" />
                             </StackPanel>
                         </Button>
-                        <TextBlock x:Name="DeviceTitleText" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" TextWrapping="Wrap" />
+                        <Grid ColumnSpacing="8" Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="DeviceNameInput"
+                                     AutomationProperties.Name="Device name"
+                                     PlaceholderText="Edit device name"
+                                     TextWrapping="Wrap"
+                                     MaxLength="64"
+                                     FontSize="28"
+                                     FontFamily="Segoe UI Emoji"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     Padding="0"
+                                     TextChanged="DeviceNameInput_TextChanged" />
+                            <Button x:Name="DeviceNameSaveButton"
+                                    Grid.Column="1"
+                                    Content="Save"
+                                    VerticalAlignment="Center"
+                                    Click="DeviceNameSaveButton_Click" />
+                            <Button x:Name="DeviceNameResetButton"
+                                    Grid.Column="2"
+                                    Content="Use discovered name"
+                                    VerticalAlignment="Center"
+                                    Click="DeviceNameResetButton_Click" />
+                        </Grid>
+                        <TextBlock x:Name="DeviceNameStatusText"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <Border Style="{StaticResource ScannerSummaryCardStyle}">
                             <Grid ColumnSpacing="24" RowSpacing="16">
                                 <Grid.ColumnDefinitions>
@@ -559,6 +589,12 @@
                                     <TextBlock Text="Open ports" FontWeight="SemiBold" />
                                     <TextBlock x:Name="DeviceNoPortsText"
                                                Text="No open ports detected."
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <Button x:Name="DevicePortScanButton"
+                                            Content="Scan additional ports"
+                                            HorizontalAlignment="Left"
+                                            Click="DevicePortScanButton_Click" />
+                                    <TextBlock x:Name="DevicePortScanStatusText"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                     <ItemsControl x:Name="DevicePortsList">
                                         <ItemsControl.ItemTemplate>

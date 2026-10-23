@@ -134,4 +134,12 @@ public sealed class DeviceEnrichmentTests
                 $"{port.Key} {port.Value}",
                 new OpenPort(port.Key, port.Value).AccessibleLabel));
     }
+
+    [Fact]
+    public void AdditionalPortDefinitions_AreBoundedAndDoNotRepeatCommonPorts()
+    {
+        Assert.InRange(PortScannerService.AdditionalPorts.Count, 1, 32);
+        Assert.Empty(PortScannerService.CommonPorts.Keys.Intersect(PortScannerService.AdditionalPorts.Keys));
+        Assert.All(PortScannerService.AdditionalPorts.Keys, port => Assert.InRange(port, 1, 65_535));
+    }
 }
