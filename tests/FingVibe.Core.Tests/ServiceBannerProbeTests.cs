@@ -21,6 +21,23 @@ public sealed class ServiceBannerProbeTests
     }
 
     [Fact]
+    public async Task Probe_ZeroTimeoutDoesNotConnectAndStillPropagatesCancellation()
+    {
+        using var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        var probe = new ServiceBannerProbe(TimeSpan.Zero);
+
+        Assert.Null(await probe.ProbePortAsync(IPAddress.Loopback, port, true, CancellationToken.None));
+        Assert.False(listener.Pending());
+
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            probe.ProbePortAsync(IPAddress.Loopback, port, true, cancellation.Token));
+    }
+
+    [Fact]
     public async Task Probe_ReadsFragmentedSshAfterPreambleWithoutWaitingForDisconnect()
     {
         using var listener = new TcpListener(IPAddress.Loopback, 0);

@@ -25,6 +25,11 @@ public sealed class ServiceBannerProbe
         IPAddress address, int port, bool ssh, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (_timeout == TimeSpan.Zero)
+        {
+            return null;
+        }
+
         using var client = new TcpClient(address.AddressFamily);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(_timeout);
