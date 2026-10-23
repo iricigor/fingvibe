@@ -9,11 +9,8 @@ public sealed class LanScannerService
 {
     private readonly int _timeoutMilliseconds;
     private readonly int _maximumConcurrency;
-    private readonly DeviceNameResolver _nameResolver;
     private readonly SsdpDiscoveryService _ssdpDiscovery;
-    private readonly PortScannerService _portScanner;
-    private readonly MacAddressResolver _macAddressResolver;
-    private readonly IeeeVendorRegistry _vendorRegistry;
+    private readonly IScanResultEnricher _resultEnricher;
 
     public LanScannerService(
         int timeoutMilliseconds = 700,
@@ -22,17 +19,19 @@ public sealed class LanScannerService
         SsdpDiscoveryService? ssdpDiscovery = null,
         PortScannerService? portScanner = null,
         MacAddressResolver? macAddressResolver = null,
-        IeeeVendorRegistry? vendorRegistry = null)
+        IeeeVendorRegistry? vendorRegistry = null,
+        IScanResultEnricher? resultEnricher = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timeoutMilliseconds);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumConcurrency);
         _timeoutMilliseconds = timeoutMilliseconds;
         _maximumConcurrency = maximumConcurrency;
-        _nameResolver = nameResolver ?? new DeviceNameResolver();
         _ssdpDiscovery = ssdpDiscovery ?? new SsdpDiscoveryService();
-        _portScanner = portScanner ?? new PortScannerService();
-        _macAddressResolver = macAddressResolver ?? new MacAddressResolver();
-        _vendorRegistry = vendorRegistry ?? new IeeeVendorRegistry();
+        _resultEnricher = resultEnricher ?? new ScanResultEnricher(
+            nameResolver,
+            portScanner,
+            macAddressResolver,
+            vendorRegistry);
     }
 
     public async Task<ScanSummary> ScanAsync(
@@ -103,22 +102,19 @@ public sealed class LanScannerService
             await enrichmentSlots.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                var portsTask = _portScanner.ScanAsync(address, cancellationToken);
-                var macAddress = _macAddressResolver.Resolve(address);
-                var vendorTask = _vendorRegistry.ResolveAsync(macAddress, cancellationToken);
-                var ssdpNames = await ssdpNamesTask.ConfigureAwait(false);
-                var nameTask = _nameResolver.ResolveAsync(address, ssdpNames, cancellationToken);
-                await Task.WhenAll(portsTask, vendorTask, nameTask).ConfigureAwait(false);
+                var enrichment = await _resultEnricher
+                    .EnrichAsync(address, ssdpNamesTask, cancellationToken)
+                    .ConfigureAwait(false);
 
                 return new ScanResult(
                     address,
                     HostStatus.Alive,
                     reply.RoundtripTime,
                     stopwatch.Elapsed,
-                    nameTask.Result,
-                    macAddress,
-                    vendorTask.Result,
-                    portsTask.Result);
+                    enrichment.DeviceName,
+                    enrichment.MacAddress,
+                    enrichment.VendorName,
+                    enrichment.OpenPorts);
             }
             finally
             {
