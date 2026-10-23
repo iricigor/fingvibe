@@ -149,13 +149,20 @@ function Assert-StatusFilterSelection {
         [string] $UnselectedId
     )
 
-    $selected = Invoke-WebDriverRequest -Method Get `
-        -Endpoint "/session/$sessionId/element/$SelectedId/selected"
-    $unselected = Invoke-WebDriverRequest -Method Get `
-        -Endpoint "/session/$sessionId/element/$UnselectedId/selected"
-    if (-not $selected.value -or $unselected.value) {
-        throw "The All / Alive switch did not preserve mutually exclusive selection."
-    }
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+        $selected = Invoke-WebDriverRequest -Method Get `
+            -Endpoint "/session/$sessionId/element/$SelectedId/selected"
+        $unselected = Invoke-WebDriverRequest -Method Get `
+            -Endpoint "/session/$sessionId/element/$UnselectedId/selected"
+        if ($selected.value -and -not $unselected.value) {
+            return
+        }
+
+        Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $deadline)
+
+    throw "The All / Alive switch did not preserve mutually exclusive selection (expected selected: $($selected.value), expected unselected: $($unselected.value))."
 }
 
 function Assert-StatusFilterLayout {
