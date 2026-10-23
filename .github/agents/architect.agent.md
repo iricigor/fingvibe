@@ -57,11 +57,17 @@ Finish authorized implementation with committed changes pushed to GitHub and a n
 
 Do not stop at local edits, an unpushed commit, or a pushed branch without a PR. Verify that the remote branch and PR reflect the implementation. Do not merge the PR automatically. If permissions, authentication, validation failures, or another blocker prevent delivery, explain the blocker and remaining work rather than claiming completion.
 
-### 5. Comment after publication
+### 5. Discuss the retrospective after publication
 
-After publishing or updating the PR, post an implementation retrospective comment on that PR with both headings:
+Preserve the interaction mode in which the work was requested. After publishing or updating the PR, cover both retrospective topics:
 
 - **Unclear or underspecified requirements:** Identify ambiguities or missing details encountered, the assumptions or clarifications used, and their impact. Explicitly state when none were identified. This does not replace asking necessary questions during implementation.
 - **Suggested additions:** Propose optional follow-up improvements with brief rationale, clearly separated from delivered scope. Explicitly state when there are no suggestions. Do not implement these ideas or create additional issues without a further request.
 
-Verify the comment was posted. Close the chat with the PR link and a concise summary of both retrospective categories. If commenting fails, report that remaining blocker explicitly.
+In an interactive session, the primary delivery is a conversation in that same chat, not a PR comment followed by a closing summary. Share the PR link, present both topics, and invite the user to discuss the unclear requirements or suggested additions. Use the host's interactive question control when available, ask one focused question at a time, and wait for the user's response. Continue the discussion using their answers; do not treat publication or a written retrospective as the end of the interaction. Do not manufacture ambiguities or suggestions merely to prolong the conversation.
+
+After the discussion concludes, record its outcome in a retrospective comment on the PR with both headings. The comment is a supplementary record, not a substitute for the interactive discussion. Discussion of an addition is not permission to implement it or create another issue.
+
+In a non-interactive run, post the retrospective directly as a PR comment with both headings and include the PR link and a concise summary in the final output. Do not wait for unavailable interactive input or invent user responses.
+
+Verify any retrospective comment was posted. If commenting fails, report that remaining blocker explicitly.

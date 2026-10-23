@@ -52,8 +52,14 @@ After selecting Architect:
 >
 > **Architect:** Implements the agreed scope, validates it, commits and pushes the changes, and opens or updates a GitHub PR linked to the issue. It does not merge the PR.
 >
-> **Architect:** Posts a PR comment covering **Unclear or underspecified requirements** and **Suggested additions**, then shares the PR link and a short summary in chat. Optional additions remain proposals unless separately requested.
+> **Architect:** Shares the PR link and discusses **Unclear or underspecified requirements** and **Suggested additions** here in the interactive session. Asks one focused question at a time and waits for the user's answers rather than ending with a PR comment.
+>
+> **User:** Discusses an ambiguity or a suggested addition, or indicates that no further discussion is needed.
+>
+> **Architect:** Continues the discussion, then records its outcome in a supplementary retrospective PR comment. Optional additions remain proposals unless separately requested.
 
-Material uncertainties must be clarified during the work, not left only for the final retrospective. If no ambiguities or useful additions were found, the comment says so explicitly.
+Interactive discussion is the primary intent: Architect preserves the interactive nature of the session through the retrospective. A PR comment is a record of that conversation, not its replacement. In a non-interactive run, Architect instead posts the retrospective directly on the PR and summarizes it in the final output without waiting for unavailable input.
+
+Material uncertainties must be clarified during the work, not left only for the final retrospective. If no ambiguities or useful additions were found, Architect says so explicitly rather than inventing discussion points.
 
 The selection syntax and profile fields follow GitHub's [app customization guide](https://docs.github.com/en/copilot/how-tos/github-copilot-app/customize-github-copilot-app#using-custom-agents) and [custom-agent configuration reference](https://docs.github.com/en/copilot/reference/custom-agents-configuration). CLI invocation can also be checked with `copilot --help` and `copilot help commands`. Local smoke checks do not establish picker discovery or write permissions in every host; verify those in the intended session.
