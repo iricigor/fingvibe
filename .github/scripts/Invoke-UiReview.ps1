@@ -17,6 +17,7 @@ $serverUrl = "http://127.0.0.1:4723"
 $sessionId = $null
 $driverProcess = $null
 $succeeded = $false
+$reviewStartedAt = Get-Date
 $logDirectory = if ($env:RUNNER_TEMP) {
     $env:RUNNER_TEMP
 }
@@ -267,6 +268,18 @@ finally {
     }
 
     if (-not $succeeded) {
+        try {
+            Get-WinEvent -FilterHashtable @{
+                LogName = "Application"
+                ProviderName = @(".NET Runtime", "Application Error")
+                StartTime = $reviewStartedAt
+            } -ErrorAction Stop |
+                Where-Object { $_.Message -like "*FingVibe.App*" } |
+                ForEach-Object { Write-Host $_.Message }
+        }
+        catch {
+            Write-Warning "No application crash events were available: $($_.Exception.Message)"
+        }
         if (Test-Path -LiteralPath $standardOutputPath) {
             Get-Content -LiteralPath $standardOutputPath | Write-Host
         }
