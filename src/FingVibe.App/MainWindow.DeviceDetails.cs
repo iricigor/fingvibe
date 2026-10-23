@@ -38,8 +38,10 @@ public sealed partial class MainWindow
         DevicePortsList.ItemsSource = result.OpenPortItems;
         DeviceNoPortsText.Visibility = result.OpenPortItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         DevicePortScanStatusText.Text = string.Empty;
+        DeviceIdentificationEditor.IsExpanded = false;
         UpdateClassificationDetails();
         ShowPage(DevicePage);
+        DevicePage.ChangeView(null, 0, null, disableAnimation: true);
     }
 
     private void DeviceNameInput_TextChanged(object sender, TextChangedEventArgs e)

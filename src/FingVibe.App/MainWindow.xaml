@@ -602,35 +602,24 @@
                         </Grid>
                         <TextBlock x:Name="DeviceNameStatusText"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <Border Style="{StaticResource ScannerSummaryCardStyle}">
-                            <StackPanel Spacing="12">
-                                <StackPanel Orientation="Horizontal" Spacing="12">
-                                    <FontIcon x:Name="DeviceTypeIcon" FontFamily="Segoe Fluent Icons" FontSize="28" />
-                                    <TextBlock Text="Device identification" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                                </StackPanel>
-                                <TextBlock x:Name="DeviceOsText" FontWeight="SemiBold" />
-                                <TextBlock x:Name="DeviceOsEvidenceText" TextWrapping="Wrap"
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon x:Name="DeviceTypeIcon" FontFamily="Segoe Fluent Icons" FontSize="28" />
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <TextBlock Text="Operating system"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <ComboBox x:Name="DeviceOsPicker" Header="Operating system" MinWidth="220"
-                                          SelectionChanged="ClassificationPicker_SelectionChanged" />
-                                <TextBlock x:Name="DeviceTypeValueText" FontWeight="SemiBold" />
-                                <TextBlock x:Name="DeviceTypeEvidenceText" TextWrapping="Wrap"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <ComboBox x:Name="DeviceTypePicker" Header="Device type" MinWidth="220"
-                                          SelectionChanged="ClassificationPicker_SelectionChanged" />
-                                <ComboBox x:Name="DeviceIconPicker" Header="Device icon" MinWidth="220"
-                                          SelectionChanged="ClassificationPicker_SelectionChanged" />
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Button x:Name="DeviceClassificationSaveButton" Content="Save identification"
-                                            Click="DeviceClassificationSaveButton_Click" />
-                                    <Button x:Name="DeviceClassificationResetButton" Content="Use automatic detection"
-                                            Click="DeviceClassificationResetButton_Click" />
-                                </StackPanel>
-                                <TextBlock x:Name="DeviceClassificationStatusText" TextWrapping="Wrap"
-                                           AutomationProperties.LiveSetting="Polite"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock x:Name="DeviceOsText" FontWeight="SemiBold" TextWrapping="Wrap" />
                             </StackPanel>
-                        </Border>
+                            <StackPanel Grid.Column="2" Spacing="2">
+                                <TextBlock Text="Device type"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock x:Name="DeviceTypeValueText" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
                         <Border Style="{StaticResource ScannerSummaryCardStyle}">
                             <Grid ColumnSpacing="24" RowSpacing="16">
                                 <Grid.ColumnDefinitions>
@@ -694,6 +683,33 @@
                                 </StackPanel>
                             </Grid>
                         </Border>
+                        <Expander x:Name="DeviceIdentificationEditor"
+                                  Header="Identification evidence and corrections"
+                                  HorizontalAlignment="Stretch"
+                                  HorizontalContentAlignment="Stretch"
+                                  IsExpanded="False">
+                            <StackPanel Spacing="12">
+                                <TextBlock x:Name="DeviceOsEvidenceText" TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <ComboBox x:Name="DeviceOsPicker" Header="Operating system" MinWidth="220"
+                                          SelectionChanged="ClassificationPicker_SelectionChanged" />
+                                <TextBlock x:Name="DeviceTypeEvidenceText" TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <ComboBox x:Name="DeviceTypePicker" Header="Device type" MinWidth="220"
+                                          SelectionChanged="ClassificationPicker_SelectionChanged" />
+                                <ComboBox x:Name="DeviceIconPicker" Header="Device icon" MinWidth="220"
+                                          SelectionChanged="ClassificationPicker_SelectionChanged" />
+                                <StackPanel Spacing="8">
+                                    <Button x:Name="DeviceClassificationSaveButton" Content="Save identification"
+                                            Click="DeviceClassificationSaveButton_Click" />
+                                    <Button x:Name="DeviceClassificationResetButton" Content="Use automatic detection"
+                                            Click="DeviceClassificationResetButton_Click" />
+                                </StackPanel>
+                                <TextBlock x:Name="DeviceClassificationStatusText" TextWrapping="Wrap"
+                                           AutomationProperties.LiveSetting="Polite"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Expander>
                     </StackPanel>
                 </ScrollViewer>
 
