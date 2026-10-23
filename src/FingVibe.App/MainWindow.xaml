@@ -275,14 +275,37 @@
                                          PlaceholderText="Filter"
                                          AutomationProperties.Name="Filter scan results"
                                          TextChanged="ResultSearchBox_TextChanged" />
-                                <ComboBox x:Name="StatusFilter"
-                                          Grid.Column="2"
-                                          MinWidth="135"
-                                          Header="Show"
-                                          SelectionChanged="StatusFilter_SelectionChanged">
-                                    <ComboBoxItem Content="All hosts" />
-                                    <ComboBoxItem Content="Alive only" />
-                                </ComboBox>
+                                <ListBox x:Name="StatusFilter"
+                                         Grid.Column="2"
+                                         VerticalAlignment="Bottom"
+                                         Padding="0"
+                                         CornerRadius="0"
+                                         BorderThickness="1"
+                                         BorderBrush="{ThemeResource ScannerCardBorderBrush}"
+                                         SelectionMode="Single"
+                                         SingleSelectionFollowsFocus="True"
+                                         AutomationProperties.Name="Show hosts"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                         ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                         SelectionChanged="StatusFilter_SelectionChanged">
+                                    <ListBox.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ListBox.ItemsPanel>
+                                    <ListBox.ItemContainerStyle>
+                                        <Style TargetType="ListBoxItem">
+                                            <Setter Property="MinWidth" Value="62" />
+                                            <Setter Property="MinHeight" Value="32" />
+                                            <Setter Property="Padding" Value="14,5" />
+                                            <Setter Property="CornerRadius" Value="0" />
+                                            <Setter Property="HorizontalContentAlignment" Value="Center" />
+                                            <Setter Property="UseSystemFocusVisuals" Value="True" />
+                                        </Style>
+                                    </ListBox.ItemContainerStyle>
+                                    <ListBoxItem Content="All" AutomationProperties.Name="All" />
+                                    <ListBoxItem Content="Alive" AutomationProperties.Name="Alive" />
+                                </ListBox>
                             </Grid>
                             <TextBlock x:Name="SnapshotStatusText"
                                        Grid.Row="1"

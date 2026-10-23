@@ -140,6 +140,24 @@ function Invoke-WebDriverElement {
         -Body @{ }
 }
 
+function Assert-StatusFilterSelection {
+    param(
+        [Parameter(Mandatory)]
+        [string] $SelectedId,
+
+        [Parameter(Mandatory)]
+        [string] $UnselectedId
+    )
+
+    $selected = Invoke-WebDriverRequest -Method Get `
+        -Endpoint "/session/$sessionId/element/$SelectedId/selected"
+    $unselected = Invoke-WebDriverRequest -Method Get `
+        -Endpoint "/session/$sessionId/element/$UnselectedId/selected"
+    if (-not $selected.value -or $unselected.value) {
+        throw "The All / Alive switch did not preserve mutually exclusive selection."
+    }
+}
+
 if (-not (Test-Path -LiteralPath $AppPath -PathType Leaf)) {
     throw "The published application was not found at '$AppPath'."
 }
@@ -239,6 +257,23 @@ try {
         -Value "//ListItem[@Name='Devices']"
     Invoke-WebDriverElement -ElementId $devicesMenuItem
 
+    $allHosts = Find-WebDriverElement -Using xpath -Value "//List[@Name='Show hosts']/ListItem[@Name='All']"
+    $aliveHosts = Find-WebDriverElement -Using xpath -Value "//List[@Name='Show hosts']/ListItem[@Name='Alive']"
+    Assert-StatusFilterSelection -SelectedId $allHosts -UnselectedId $aliveHosts
+    Invoke-WebDriverElement -ElementId $aliveHosts
+    Assert-StatusFilterSelection -SelectedId $aliveHosts -UnselectedId $allHosts
+    Invoke-WebDriverElement -ElementId $aliveHosts
+    Assert-StatusFilterSelection -SelectedId $aliveHosts -UnselectedId $allHosts
+
+    $null = Invoke-WebDriverRequest -Method Post `
+        -Endpoint "/session/$sessionId/element/$aliveHosts/value" `
+        -Body @{ value = @([string] [char] 0xE012) }
+    Assert-StatusFilterSelection -SelectedId $allHosts -UnselectedId $aliveHosts
+    $null = Invoke-WebDriverRequest -Method Post `
+        -Endpoint "/session/$sessionId/element/$allHosts/value" `
+        -Body @{ value = @([string] [char] 0xE014) }
+    Assert-StatusFilterSelection -SelectedId $aliveHosts -UnselectedId $allHosts
+
     $result = Find-WebDriverElement `
         -Using xpath `
         -Value "//*[@Name='Online' or @Name='Offline']" `
@@ -247,6 +282,17 @@ try {
     if (-not $result) {
         throw "The scan did not render a result with an accessible Online or Offline badge."
     }
+
+    $search = Find-WebDriverElement -Using name -Value "Filter scan results"
+    $null = Invoke-WebDriverRequest -Method Post `
+        -Endpoint "/session/$sessionId/element/$search/value" `
+        -Body @{ value = @("fingvibe-no-matching-host") }
+    $null = Find-WebDriverElement -Using name -Value "No hosts match the current filter."
+    $null = Invoke-WebDriverRequest -Method Post `
+        -Endpoint "/session/$sessionId/element/$search/clear" `
+        -Body @{ }
+    $null = Find-WebDriverElement -Using xpath -Value "//*[@Name='Online']"
+    Assert-StatusFilterSelection -SelectedId $aliveHosts -UnselectedId $allHosts
 
     Save-UiReviewWindowScreenshot -WindowHandle $windowHandle -Path $ScreenshotPath
 
