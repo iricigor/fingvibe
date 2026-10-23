@@ -349,7 +349,16 @@ try {
     $null = Find-WebDriverElement -Using xpath -Value "//*[@Name='Online']"
     Assert-StatusFilterSelection -SelectedId $aliveHosts -UnselectedId $allHosts
 
-    $null = Find-WebDriverElement -Using xpath -Value "//*[starts-with(@Name, 'Complete in ')]" -TimeoutSeconds 30
+    if (Get-WebDriverElementEnabled -ElementId $elements["Cancel"]) {
+        Invoke-WebDriverElement -ElementId $elements["Cancel"]
+    }
+    $scanStoppedDeadline = [DateTime]::UtcNow.AddSeconds(15)
+    while (-not (Get-WebDriverElementEnabled -ElementId $elements["Scan LAN"])) {
+        if ([DateTime]::UtcNow -ge $scanStoppedDeadline) {
+            throw "The scan did not stop within 15 seconds before capturing the required views."
+        }
+        Start-Sleep -Milliseconds 100
+    }
 
     $captureDirectory = [System.IO.Path]::GetFullPath($ScreenshotDirectory)
     $null = New-Item -ItemType Directory -Path $captureDirectory -Force
