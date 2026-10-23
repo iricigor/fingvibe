@@ -5,14 +5,6 @@
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
     <WindowsSdkPackageVersion>10.0.19041.38</WindowsSdkPackageVersion>
     <RootNamespace>FingVibe.App</RootNamespace>
-    <AssemblyTitle>FingVibe</AssemblyTitle>
-    <Product>FingVibe</Product>
-    <Company>Igor (iricigor)</Company>
-    <Authors>Igor (iricigor)</Authors>
-    <Description>Native Windows LAN scanner</Description>
-    <PackageProjectUrl>https://igor.iric.online</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/iricigor/fingvibe</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\Scanner.ico</ApplicationIcon>
     <Platforms>x64</Platforms>
@@ -27,7 +19,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Update="PUBLISHER.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260921001" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.9169" />
     <ProjectReference Include="..\FingVibe.Core\FingVibe.Core.csproj" />

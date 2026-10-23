@@ -40,10 +40,6 @@ jobs:
             /property:Version=0.0.${{ github.run_number }} `
             /property:PublishDir="${{ github.workspace }}\artifacts\fingvibe-win-x64\"
 
-      - name: Verify published publisher information
-        shell: pwsh
-        run: .\tests\PublishedMetadata.Tests.ps1 -PublishDirectory artifacts\fingvibe-win-x64
-
       - name: Upload runnable app
         id: upload
         uses: actions/upload-artifact@v4

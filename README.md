@@ -54,14 +54,6 @@ dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj
 
 Every pull request uploads a `fingvibe-win-x64-pr-*` artifact from the **Actions** run. Every push to `main` publishes a GitHub Release tagged `v1.0.<run number>` with a self-contained Windows x64 ZIP.
 
-Extract the ZIP and run `FingVibe.App.exe`. The app's Windows **Properties > Details** identify the product as **FingVibe** and the company as **Igor (iricigor)**. The included `PUBLISHER.txt` identifies the author/publisher and links to the [publisher website](https://igor.iric.online) and [project repository](https://github.com/iricigor/fingvibe). This metadata does not indicate digital signing or a verified publisher; the app remains unpackaged.
-
-Both distribution workflows verify the executable and assembly metadata and the included publisher information before uploading. To run the same check on a local publish:
-
-```powershell
-pwsh -File tests\PublishedMetadata.Tests.ps1 -PublishDirectory artifacts\fingvibe-win-x64
-```
-
 ## Pull request review gates
 
 Pull requests run two independent review checks:
