@@ -131,20 +131,27 @@
                                                      Padding="0,4"
                                                      Click="ViewNetworkButton_Click" />
                                 </StackPanel>
-                                <StackPanel x:Name="NetworkSizeBadge"
-                                            Grid.Column="1"
-                                            VerticalAlignment="Center"
-                                            Visibility="Collapsed"
-                                            Spacing="2">
-                                    <TextBlock x:Name="NetworkSizeBadgeText"
-                                               FontSize="40"
-                                               FontWeight="SemiBold"
-                                               HorizontalAlignment="Center"
-                                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
-                                    <TextBlock x:Name="NetworkSizeBadgeLabel"
-                                               HorizontalAlignment="Center"
-                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                </StackPanel>
+                                <Border x:Name="NetworkSizeBadge"
+                                        Grid.Column="1"
+                                        MinWidth="88"
+                                        Padding="16,8"
+                                        VerticalAlignment="Center"
+                                        Visibility="Collapsed"
+                                        Background="{ThemeResource ControlFillColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource ScannerCardBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock x:Name="NetworkSizeBadgeText"
+                                                   FontSize="40"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Center"
+                                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                        <TextBlock x:Name="NetworkSizeBadgeLabel"
+                                                   HorizontalAlignment="Center"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                </Border>
                             </Grid>
                         </Border>
                         <Grid ColumnSpacing="16" RowSpacing="16">
