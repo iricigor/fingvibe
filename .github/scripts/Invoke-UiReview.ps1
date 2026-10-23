@@ -26,6 +26,10 @@ else {
 }
 $standardOutputPath = Join-Path $logDirectory "fingvibe-winappdriver.stdout.log"
 $standardErrorPath = Join-Path $logDirectory "fingvibe-winappdriver.stderr.log"
+$startupLogPath = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-ui-review-startup.log"
+if (Test-Path -LiteralPath $startupLogPath) {
+    Remove-Item -LiteralPath $startupLogPath
+}
 
 function Invoke-WebDriverRequest {
     param(
@@ -268,6 +272,9 @@ finally {
     }
 
     if (-not $succeeded) {
+        if (Test-Path -LiteralPath $startupLogPath) {
+            Get-Content -LiteralPath $startupLogPath | Write-Host
+        }
         try {
             Get-WinEvent -FilterHashtable @{
                 LogName = "Application"
