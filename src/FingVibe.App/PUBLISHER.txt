@@ -1,0 +1,7 @@
+FingVibe
+Author / publisher: Igor (iricigor)
+Publisher website: https://igor.iric.online
+Project repository: https://github.com/iricigor/fingvibe
+
+This publisher information identifies the project's author. It does not
+indicate digital signing or a verified publisher.
