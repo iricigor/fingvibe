@@ -117,16 +117,43 @@
                     <StackPanel Margin="24,0,24,24" Spacing="16">
                         <TextBlock Text="Overview" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
                         <Border Style="{StaticResource ScannerSummaryCardStyle}">
-                            <StackPanel Spacing="4">
-                                <TextBlock Text="Network" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                <TextBlock x:Name="NetworkNameText"
-                                           Text="Detecting network..."
-                                           Style="{ThemeResource SubtitleTextBlockStyle}"
-                                           TextWrapping="Wrap" />
-                                <HyperlinkButton Content="View network details"
-                                                 Padding="0,4"
-                                                 Click="ViewNetworkButton_Click" />
-                            </StackPanel>
+                            <Grid ColumnSpacing="24">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Network" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock x:Name="NetworkNameText"
+                                               Text="Detecting network..."
+                                               Style="{ThemeResource SubtitleTextBlockStyle}"
+                                               TextWrapping="Wrap" />
+                                    <HyperlinkButton Content="View network details"
+                                                     Padding="0,4"
+                                                     Click="ViewNetworkButton_Click" />
+                                </StackPanel>
+                                <Border x:Name="NetworkSizeBadge"
+                                        Grid.Column="1"
+                                        MinWidth="88"
+                                        Padding="16,8"
+                                        VerticalAlignment="Center"
+                                        Visibility="Collapsed"
+                                        Background="{ThemeResource ControlFillColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource ScannerCardBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="8">
+                                    <StackPanel Spacing="2">
+                                        <TextBlock x:Name="NetworkSizeBadgeText"
+                                                   FontSize="40"
+                                                   FontWeight="SemiBold"
+                                                   HorizontalAlignment="Center"
+                                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                        <TextBlock x:Name="NetworkSizeBadgeLabel"
+                                                   HorizontalAlignment="Center"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
                         </Border>
                         <Grid ColumnSpacing="16" RowSpacing="16">
                             <Grid.ColumnDefinitions>
@@ -236,6 +263,47 @@
                                 <TextBlock Grid.Row="4"
                                            Grid.ColumnSpan="2"
                                            Text="Public IP, ISP, and location details are retrieved from ipwho.is, which receives your public IP as part of the request."
+                                           TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </Grid>
+                        </Border>
+                        <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                            <Grid ColumnSpacing="24" RowSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Network size" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="SubnetSizeText" Text="Unavailable" FontSize="18" TextWrapping="Wrap" />
+                                    <TextBlock x:Name="SubnetMaskText" Text="Masked bits: unavailable"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Text="A, B, and C compare subnet sizes, not historical address classes."
+                                               TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="4">
+                                    <TextBlock Text="Address capacity" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="SubnetAddressCountText" Text="Unavailable"
+                                               FontSize="18" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                                    <TextBlock Text="Subnet capacity, not discovered devices or the scan limit. M means millions, rounded to two significant digits."
+                                               TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.ColumnSpan="2" Spacing="4">
+                                    <TextBlock Text="Address scope" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="SubnetScopeText" Text="Unavailable" FontSize="18" TextWrapping="Wrap" />
+                                    <TextBlock Text="Private blocks: 10.0.0.0/8, 172.16.0.0/12, and 192.168.0.0/16. Standard-size means /8, /16, or /24; other private subnet sizes are also valid. Special-purpose ranges are identified separately from public scope."
+                                               TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <TextBlock Grid.Row="2" Grid.ColumnSpan="2"
+                                           Text="Ordinary subnets reserve their network and broadcast addresses (not the gateway); the reserved suffix is omitted for /16 and larger networks. /31 assumes a point-to-point link with both addresses usable; /32 is a single host. /0 covers all IPv4 space, including special-purpose ranges, rather than an ordinary usable subnet."
                                            TextWrapping="Wrap"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </Grid>
