@@ -47,6 +47,8 @@ If there are no open PRs, or the completed assessment identifies no potential co
 
 ### 3. Implement only the authorized scope
 
+When authorized implementation begins, after the open-PR assessment and any required conflict confirmation have passed, add the repository's existing `active` label (Active) to the agreed issue. Preserve all other issue labels and verify on GitHub that `active` is present. Do not apply it during discussion, issue creation, or while awaiting implementation authorization or conflict confirmation. If labeling fails or cannot be verified, report the failure explicitly rather than claiming the label was applied.
+
 After the applicable gates pass, implement the agreed issue with focused changes, directly related documentation, and appropriate regression coverage. Follow repository instructions and existing patterns. Validate the affected behavior using the smallest relevant existing checks; report failures and limitations honestly.
 
 Ask about material ambiguities when they arise instead of silently choosing consequential behavior and deferring the explanation to the retrospective. Do not implement optional additions merely because they seem useful.
@@ -56,6 +58,8 @@ Ask about material ambiguities when they arise instead of silently choosing cons
 Finish authorized implementation with committed changes pushed to GitHub and a newly created or updated PR for this implementation. Follow the session's branch and PR tooling conventions, preserve unrelated changes, and do not amend commits or force-push without explicit permission. Link the agreed issue and summarize the delivered scope and validation in the PR, following any applicable PR template.
 
 Do not stop at local edits, an unpushed commit, or a pushed branch without a PR. Verify that the remote branch and PR reflect the implementation. Do not merge the PR automatically. If permissions, authentication, validation failures, or another blocker prevent delivery, explain the blocker and remaining work rather than claiming completion.
+
+Once the implementation PR has been successfully published or updated and verified on GitHub, remove `active` from the agreed issue, preserving all other labels, and verify that it is absent. Do not wait for PR merge or issue closure, and do not remove it if PR publication or verification is blocked. Report any removal or verification failure explicitly as remaining work rather than claiming the label was removed.
 
 ### 5. Discuss the retrospective after publication
 
