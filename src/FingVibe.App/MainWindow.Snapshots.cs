@@ -77,7 +77,9 @@ public sealed partial class MainWindow
             && _deviceNameOverrides.TryGetValue(macAddress.ToString(), out var name)
                 ? name
                 : null;
-        return new ScanResultRow(result, prefixLength, customName);
+        var classificationOverride = result.MacAddress is { } mac
+            && _classificationOverrides.TryGetValue(mac.ToString(), out var saved) ? saved : null;
+        return new ScanResultRow(result, prefixLength, customName, classificationOverride);
     }
 
     private async Task SaveCompletedScanAsync(LanNetwork network, IEnumerable<ScanResultRow> results)

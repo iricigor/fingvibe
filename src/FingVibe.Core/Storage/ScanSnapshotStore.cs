@@ -69,7 +69,11 @@ public sealed class ScanSnapshotStore
                     || !IPAddress.TryParse(result.Address, out var address)
                     || address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork
                     || !Enum.IsDefined(result.Status)
-                    || result.OpenPorts is null)
+                    || result.OpenPorts is null
+                    || (result.Classification is { } classification &&
+                        (!Enum.IsDefined(classification.OperatingSystem) || !Enum.IsDefined(classification.Type)
+                        || string.IsNullOrWhiteSpace(classification.OperatingSystemEvidence)
+                        || string.IsNullOrWhiteSpace(classification.TypeEvidence))))
                 {
                     throw new InvalidDataException("The saved scan cache contains invalid device details.");
                 }
@@ -90,7 +94,8 @@ public sealed class ScanSnapshotStore
                         }
 
                         return new OpenPort(port.Port, port.ServiceName ?? string.Empty);
-                    }).ToArray());
+                    }).ToArray(),
+                    result.Classification);
             }).ToArray();
 
             return new ScanSnapshot(document.Subnet, document.CompletedAt, results);
@@ -125,7 +130,8 @@ public sealed class ScanSnapshotStore
                 result.DeviceName,
                 result.MacAddress?.ToString(),
                 result.VendorName,
-                result.OpenPortItems.Select(port => new CachedOpenPort(port.Port, port.ServiceName)).ToArray()))
+                result.OpenPortItems.Select(port => new CachedOpenPort(port.Port, port.ServiceName)).ToArray(),
+                result.Classification))
                 .ToArray());
 
         try
@@ -184,7 +190,8 @@ public sealed class ScanSnapshotStore
         string? DeviceName,
         string? MacAddress,
         string? VendorName,
-        CachedOpenPort[]? OpenPorts);
+        CachedOpenPort[]? OpenPorts,
+        DeviceClassification? Classification = null);
 
     private sealed record CachedOpenPort(int Port, string? ServiceName);
 }

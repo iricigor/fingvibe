@@ -12,6 +12,7 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         InitializeAppearance();
+        InitializeClassificationPickers();
 
         ResultsList.ItemsSource = _visibleResults;
         StatusFilter.SelectedIndex = 0;
@@ -31,6 +32,7 @@ public sealed partial class MainWindow : Window
         }
 
         await RestoreDeviceNameOverridesAsync();
+        await RestoreClassificationOverridesAsync();
         await RestoreSavedScanAsync();
         await InitializeNetworkAsync();
     }

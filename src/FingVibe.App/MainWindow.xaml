@@ -423,6 +423,8 @@
                                             <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Status.EffectiveWidth), Mode=OneWay}" />
                                             <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Response.EffectiveWidth), Mode=OneWay}" />
                                             <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Mac.EffectiveWidth), Mode=OneWay}" />
+                                            <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.OperatingSystem.EffectiveWidth), Mode=OneWay}" />
+                                            <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Type.EffectiveWidth), Mode=OneWay}" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <Grid Visibility="{x:Bind Columns.Name.IsVisible, Mode=OneWay}">
@@ -477,6 +479,26 @@
                                             </Button>
                                             <local:ColumnResizeGrip Column="{x:Bind Columns.Mac}" AutomationProperties.Name="{x:Bind Columns.Mac.ResizeLabel}" />
                                         </Grid>
+                                        <Grid Grid.Column="7" Visibility="{x:Bind Columns.OperatingSystem.IsVisible, Mode=OneWay}">
+                                            <Button Tag="OperatingSystem" Click="SortHeader_Click" Margin="0,0,12,0"
+                                                    Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by operating system">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Text="OS" FontWeight="SemiBold" />
+                                                    <TextBlock x:Name="OperatingSystemSortGlyph" />
+                                                </StackPanel>
+                                            </Button>
+                                            <local:ColumnResizeGrip Column="{x:Bind Columns.OperatingSystem}" AutomationProperties.Name="{x:Bind Columns.OperatingSystem.ResizeLabel}" />
+                                        </Grid>
+                                        <Grid Grid.Column="8" Visibility="{x:Bind Columns.Type.IsVisible, Mode=OneWay}">
+                                            <Button Tag="DeviceType" Click="SortHeader_Click" Margin="0,0,12,0"
+                                                    Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by device type">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Text="Device type" FontWeight="SemiBold" />
+                                                    <TextBlock x:Name="DeviceTypeSortGlyph" />
+                                                </StackPanel>
+                                            </Button>
+                                            <local:ColumnResizeGrip Column="{x:Bind Columns.Type}" AutomationProperties.Name="{x:Bind Columns.Type.ResizeLabel}" />
+                                        </Grid>
                                     </Grid>
                                     <ListView x:Name="ResultsList" Grid.Row="1" SelectionMode="Single"
                                               IsItemClickEnabled="True" ItemClick="ResultsList_ItemClick"
@@ -528,13 +550,23 @@
                                                         <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Status.EffectiveWidth), Mode=OneWay}" />
                                                         <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Response.EffectiveWidth), Mode=OneWay}" />
                                                         <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Mac.EffectiveWidth), Mode=OneWay}" />
+                                                        <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.OperatingSystem.EffectiveWidth), Mode=OneWay}" />
+                                                        <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Type.EffectiveWidth), Mode=OneWay}" />
                                                         <ColumnDefinition Width="*" />
                                                     </Grid.ColumnDefinitions>
-                                                    <TextBlock Text="{x:Bind NameText, Mode=OneWay}" TextTrimming="CharacterEllipsis"
-                                                               FontFamily="Segoe UI Emoji"
-                                                               Margin="0,0,12,0" Opacity="{x:Bind NameOpacity}"
-                                                               Visibility="{x:Bind Columns.Name.IsVisible, Mode=OneWay}"
-                                                               ToolTipService.ToolTip="{x:Bind NameText, Mode=OneWay}" />
+                                                    <Grid Margin="0,0,12,0" ColumnSpacing="8"
+                                                          Visibility="{x:Bind Columns.Name.IsVisible, Mode=OneWay}">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="20" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <FontIcon Glyph="{x:Bind IconGlyph, Mode=OneWay}" FontFamily="Segoe Fluent Icons" FontSize="16"
+                                                                  ToolTipService.ToolTip="{x:Bind IconSource, Mode=OneWay}"
+                                                                  AutomationProperties.Name="{x:Bind IconSource, Mode=OneWay}" />
+                                                        <TextBlock Grid.Column="1" Text="{x:Bind NameText, Mode=OneWay}" TextTrimming="CharacterEllipsis"
+                                                                   FontFamily="Segoe UI Emoji" Opacity="{x:Bind NameOpacity, Mode=OneWay}"
+                                                                   ToolTipService.ToolTip="{x:Bind NameText, Mode=OneWay}" />
+                                                    </Grid>
                                                     <TextBlock Grid.Column="1" FontFamily="Consolas" TextTrimming="CharacterEllipsis"
                                                                Margin="0,0,12,0"
                                                                Visibility="{x:Bind Columns.Address.IsVisible, Mode=OneWay}"
@@ -608,6 +640,14 @@
                                                                AutomationProperties.Name="{x:Bind Result.MacAddressText}">
                                                         <Run Text="{x:Bind MacOui}" Foreground="{ThemeResource ScannerMacOuiBrush}" FontWeight="SemiBold" /><Run Text="{x:Bind MacNic}" Foreground="{ThemeResource ScannerMacNicBrush}" FontWeight="SemiBold" />
                                                     </TextBlock>
+                                                    <TextBlock Grid.Column="7" Text="{x:Bind OperatingSystemText, Mode=OneWay}" Margin="0,0,12,0"
+                                                               Opacity="{x:Bind OperatingSystemOpacity, Mode=OneWay}"
+                                                               Visibility="{x:Bind Columns.OperatingSystem.IsVisible, Mode=OneWay}" TextTrimming="CharacterEllipsis"
+                                                               ToolTipService.ToolTip="{x:Bind OperatingSystemSource, Mode=OneWay}" />
+                                                    <TextBlock Grid.Column="8" Text="{x:Bind DeviceTypeText, Mode=OneWay}" Margin="0,0,12,0"
+                                                               Opacity="{x:Bind DeviceTypeOpacity, Mode=OneWay}"
+                                                               Visibility="{x:Bind Columns.Type.IsVisible, Mode=OneWay}" TextTrimming="CharacterEllipsis"
+                                                               ToolTipService.ToolTip="{x:Bind DeviceTypeSource, Mode=OneWay}" />
                                                 </Grid>
                                             </DataTemplate>
                                         </ListView.ItemTemplate>
@@ -663,6 +703,24 @@
                         </Grid>
                         <TextBlock x:Name="DeviceNameStatusText"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Grid ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon x:Name="DeviceTypeIcon" FontFamily="Segoe Fluent Icons" FontSize="28" />
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <TextBlock Text="Operating system"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock x:Name="DeviceOsText" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2" Spacing="2">
+                                <TextBlock Text="Device type"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock x:Name="DeviceTypeValueText" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
                         <Border Style="{StaticResource ScannerSummaryCardStyle}">
                             <Grid ColumnSpacing="24" RowSpacing="16">
                                 <Grid.ColumnDefinitions>
@@ -726,6 +784,33 @@
                                 </StackPanel>
                             </Grid>
                         </Border>
+                        <Expander x:Name="DeviceIdentificationEditor"
+                                  Header="Identification evidence and corrections"
+                                  HorizontalAlignment="Stretch"
+                                  HorizontalContentAlignment="Stretch"
+                                  IsExpanded="False">
+                            <StackPanel Spacing="12">
+                                <TextBlock x:Name="DeviceOsEvidenceText" TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <ComboBox x:Name="DeviceOsPicker" Header="Operating system" MinWidth="220"
+                                          SelectionChanged="ClassificationPicker_SelectionChanged" />
+                                <TextBlock x:Name="DeviceTypeEvidenceText" TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <ComboBox x:Name="DeviceTypePicker" Header="Device type" MinWidth="220"
+                                          SelectionChanged="ClassificationPicker_SelectionChanged" />
+                                <ComboBox x:Name="DeviceIconPicker" Header="Device icon" MinWidth="220"
+                                          SelectionChanged="ClassificationPicker_SelectionChanged" />
+                                <StackPanel Spacing="8">
+                                    <Button x:Name="DeviceClassificationSaveButton" Content="Save identification"
+                                            Click="DeviceClassificationSaveButton_Click" />
+                                    <Button x:Name="DeviceClassificationResetButton" Content="Use automatic detection"
+                                            Click="DeviceClassificationResetButton_Click" />
+                                </StackPanel>
+                                <TextBlock x:Name="DeviceClassificationStatusText" TextWrapping="Wrap"
+                                           AutomationProperties.LiveSetting="Polite"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Expander>
                     </StackPanel>
                 </ScrollViewer>
 

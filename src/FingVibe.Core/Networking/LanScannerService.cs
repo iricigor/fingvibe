@@ -10,6 +10,7 @@ public sealed class LanScannerService
     private readonly int _timeoutMilliseconds;
     private readonly int _maximumConcurrency;
     private readonly SsdpDiscoveryService _ssdpDiscovery;
+    private readonly MdnsDeviceDiscoveryService _mdnsDiscovery;
     private readonly IScanResultEnricher _resultEnricher;
 
     public LanScannerService(
@@ -20,13 +21,15 @@ public sealed class LanScannerService
         PortScannerService? portScanner = null,
         MacAddressResolver? macAddressResolver = null,
         IeeeVendorRegistry? vendorRegistry = null,
-        IScanResultEnricher? resultEnricher = null)
+        IScanResultEnricher? resultEnricher = null,
+        MdnsDeviceDiscoveryService? mdnsDiscovery = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timeoutMilliseconds);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumConcurrency);
         _timeoutMilliseconds = timeoutMilliseconds;
         _maximumConcurrency = maximumConcurrency;
         _ssdpDiscovery = ssdpDiscovery ?? new SsdpDiscoveryService();
+        _mdnsDiscovery = mdnsDiscovery ?? new MdnsDeviceDiscoveryService();
         _resultEnricher = resultEnricher ?? new ScanResultEnricher(
             nameResolver,
             portScanner,
@@ -47,7 +50,7 @@ public sealed class LanScannerService
         var addresses = SubnetCalculator.EnumerateUsableHosts(network.NetworkAddress, network.PrefixLength);
         var completed = 0;
         var alive = 0;
-        var ssdpNamesTask = _ssdpDiscovery.DiscoverNamesAsync(cancellationToken);
+        var discoveryTask = DiscoverAsync(network.LocalAddress, cancellationToken);
         using var enrichmentSlots = new SemaphoreSlim(32, 32);
 
         await Parallel.ForEachAsync(
@@ -61,7 +64,8 @@ public sealed class LanScannerService
             {
                 var result = await ProbeAsync(
                     address,
-                    ssdpNamesTask,
+                    network,
+                    discoveryTask,
                     enrichmentSlots,
                     token).ConfigureAwait(false);
                 if (result.Status == HostStatus.Alive)
@@ -74,13 +78,22 @@ public sealed class LanScannerService
                 scanProgress?.Report(new ScanProgress(completedCount, total));
             }).ConfigureAwait(false);
 
-        await ssdpNamesTask.ConfigureAwait(false);
+        await discoveryTask.ConfigureAwait(false);
         return new ScanSummary(total, alive, total - alive);
+    }
+
+    private async Task<ScanDiscovery> DiscoverAsync(IPAddress localAddress, CancellationToken cancellationToken)
+    {
+        var ssdp = _ssdpDiscovery.DiscoverDevicesAsync(cancellationToken, localAddress);
+        var mdns = _mdnsDiscovery.DiscoverNetworkAsync(localAddress, cancellationToken);
+        await Task.WhenAll(ssdp, mdns).ConfigureAwait(false);
+        return new ScanDiscovery(ssdp.Result, mdns.Result);
     }
 
     private async Task<ScanResult> ProbeAsync(
         IPAddress address,
-        Task<IReadOnlyDictionary<IPAddress, string>> ssdpNamesTask,
+        LanNetwork network,
+        Task<ScanDiscovery> discoveryTask,
         SemaphoreSlim enrichmentSlots,
         CancellationToken cancellationToken)
     {
@@ -102,8 +115,9 @@ public sealed class LanScannerService
             await enrichmentSlots.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
+                var responseTtl = address.Equals(network.GatewayAddress) ? null : reply.Options?.Ttl;
                 var enrichment = await _resultEnricher
-                    .EnrichAsync(address, ssdpNamesTask, cancellationToken)
+                    .EnrichAsync(address, discoveryTask, cancellationToken, responseTtl)
                     .ConfigureAwait(false);
 
                 return new ScanResult(
@@ -114,7 +128,9 @@ public sealed class LanScannerService
                     enrichment.DeviceName,
                     enrichment.MacAddress,
                     enrichment.VendorName,
-                    enrichment.OpenPorts);
+                    enrichment.OpenPorts,
+                    DeviceClassifier.ApplyNetworkContext(
+                        enrichment.Classification ?? DeviceClassification.Unknown, address, network));
             }
             finally
             {

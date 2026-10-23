@@ -10,24 +10,28 @@ public sealed class ScanResultEnricherTests
     public async Task EnrichAsync_PreservesDiscoveredSsdpNameAndReturnsEnrichmentData()
     {
         var address = IPAddress.IPv6Loopback;
-        var names = new Dictionary<IPAddress, string>
+        var names = new Dictionary<IPAddress, IReadOnlyList<SsdpDeviceInfo>>
         {
-            [address] = "Living Room TV"
+            [address] = [new("Living Room TV", "urn:schemas-upnp-org:device:MediaRenderer:1",
+                null, null, "Linux/5.0 UPnP/1.0")]
         };
         var enricher = new ScanResultEnricher(
             new DeviceNameResolver(TimeSpan.Zero),
             new PortScannerService(TimeSpan.Zero),
             new MacAddressResolver(),
-            new IeeeVendorRegistry());
+            new IeeeVendorRegistry(),
+            new ServiceBannerProbe(TimeSpan.Zero));
 
         var result = await enricher.EnrichAsync(
             address,
-            Task.FromResult<IReadOnlyDictionary<IPAddress, string>>(names),
+            Task.FromResult(new ScanDiscovery(names, new Dictionary<IPAddress, MdnsDeviceInfo>())),
             CancellationToken.None);
 
         Assert.Equal("Living Room TV", result.DeviceName);
         Assert.Null(result.MacAddress);
         Assert.Equal("Unknown", result.VendorName);
+        Assert.Equal(Models.DeviceOperatingSystem.Linux, result.Classification!.OperatingSystem);
+        Assert.Equal(Models.DeviceType.MediaDevice, result.Classification.Type);
         Assert.All(
             result.OpenPorts,
             port => Assert.Equal(PortScannerService.CommonPorts[port.Port], port.ServiceName));

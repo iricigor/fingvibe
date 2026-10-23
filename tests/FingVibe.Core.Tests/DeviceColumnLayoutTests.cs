@@ -31,6 +31,21 @@ public sealed class DeviceColumnLayoutTests
     }
 
     [Fact]
+    public void ClassificationColumns_CanBeHiddenResizedAndReset()
+    {
+        var layout = new DeviceColumnLayout();
+        Assert.Contains(layout.OperatingSystem, layout.All);
+        Assert.Contains(layout.Type, layout.All);
+        layout.OperatingSystem.IsVisible = false;
+        layout.Type.Width = 250;
+        Assert.Equal(0, layout.OperatingSystem.EffectiveWidth);
+        Assert.Equal(250, layout.Type.EffectiveWidth);
+        layout.Reset();
+        Assert.True(layout.OperatingSystem.IsVisible);
+        Assert.Equal(layout.Type.DefaultWidth, layout.Type.Width);
+    }
+
+    [Fact]
     public void AddressColumn_CannotBeHidden()
     {
         var layout = new DeviceColumnLayout();

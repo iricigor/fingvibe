@@ -32,13 +32,17 @@ public sealed partial class MainWindow
         DeviceAddressText.Text = result.AddressText;
         DeviceMacText.Text = result.MacAddressText;
         DeviceVendorText.Text = result.VendorText;
+        DeviceVendorText.Opacity = row.VendorOpacity;
         DeviceStatusText.Text = row.IsOnline ? "Online" : "Offline (no ICMP response)";
         DeviceResponseText.Text = result.RoundtripText;
         DeviceProbeText.Text = $"{result.ProbeDuration.TotalMilliseconds:N0} ms";
         DevicePortsList.ItemsSource = result.OpenPortItems;
         DeviceNoPortsText.Visibility = result.OpenPortItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         DevicePortScanStatusText.Text = string.Empty;
+        DeviceIdentificationEditor.IsExpanded = false;
+        UpdateClassificationDetails();
         ShowPage(DevicePage);
+        DevicePage.ChangeView(null, 0, null, disableAnimation: true);
     }
 
     private void DeviceNameInput_TextChanged(object sender, TextChangedEventArgs e)

@@ -26,7 +26,9 @@ public sealed class DeviceNameResolver
     public async Task<string?> ResolveAsync(
         IPAddress address,
         IReadOnlyDictionary<IPAddress, string> ssdpNames,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? advertisedMdnsName = null,
+        bool queryMdns = true)
     {
         var candidates = new List<DeviceNameCandidate>();
         if (ssdpNames.TryGetValue(address, out var ssdpName))
@@ -35,7 +37,9 @@ public sealed class DeviceNameResolver
         }
 
         var reverseDns = ResolveReverseDnsAsync(address, cancellationToken);
-        var mdns = ResolveMdnsAsync(address, cancellationToken);
+        var mdns = advertisedMdnsName is not null || !queryMdns
+            ? Task.FromResult(advertisedMdnsName)
+            : ResolveMdnsAsync(address, cancellationToken);
         var netBios = ResolveNetBiosAsync(address, cancellationToken);
         await Task.WhenAll(reverseDns, mdns, netBios).ConfigureAwait(false);
 
@@ -214,7 +218,7 @@ public sealed class DeviceNameResolver
         return null;
     }
 
-    internal static byte[] CreateDnsQuery(string name, ushort recordType)
+    internal static byte[] CreateDnsQuery(string name, ushort recordType, bool requestUnicast = true)
     {
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream);
@@ -225,7 +229,7 @@ public sealed class DeviceNameResolver
 
         foreach (var label in name.Split('.'))
         {
-            var bytes = Encoding.ASCII.GetBytes(label);
+            var bytes = Encoding.UTF8.GetBytes(label);
             writer.Write((byte)bytes.Length);
             writer.Write(bytes);
         }
@@ -233,7 +237,7 @@ public sealed class DeviceNameResolver
         writer.Write((byte)0);
         writer.Write((byte)(recordType >> 8));
         writer.Write((byte)recordType);
-        writer.Write((byte)0x80);
+        writer.Write(requestUnicast ? (byte)0x80 : (byte)0);
         writer.Write((byte)0x01);
         return stream.ToArray();
     }
@@ -289,14 +293,15 @@ public sealed class DeviceNameResolver
         return null;
     }
 
-    private static string? ReadDnsName(byte[] packet, ref int offset)
+    internal static string? ReadDnsName(byte[] packet, ref int offset)
     {
         var labels = new List<string>();
         var position = offset;
         var jumped = false;
         var hops = 0;
+        var nameLength = 1;
 
-        while (position < packet.Length && hops++ < packet.Length)
+        while (position < packet.Length && hops++ < 128)
         {
             var length = packet[position++];
             if (length == 0)
@@ -327,11 +332,16 @@ public sealed class DeviceNameResolver
                 continue;
             }
 
-            if (position + length > packet.Length)
+            if (length > 63 || position + length > packet.Length)
             {
                 return null;
             }
 
+            nameLength += length + 1;
+            if (nameLength > 255)
+            {
+                return null;
+            }
             labels.Add(Encoding.UTF8.GetString(packet, position, length));
             position += length;
         }

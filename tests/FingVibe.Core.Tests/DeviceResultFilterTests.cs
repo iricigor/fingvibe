@@ -47,4 +47,17 @@ public sealed class DeviceResultFilterTests
 
         Assert.True(filter.Matches(row));
     }
+
+    [Theory]
+    [InlineData("Android")]
+    [InlineData("Phone")]
+    public void ClassificationOverrides_RemainSearchableWithPortFilter(string search)
+    {
+        var row = Row(HostStatus.Alive, true);
+        row.SetClassificationOverride(new DeviceClassificationOverride(
+            DeviceOperatingSystem.Android, DeviceType.Phone));
+
+        Assert.True(new DeviceResultFilter(true, true, search).Matches(row));
+        Assert.False(new DeviceResultFilter(true, true, search).Matches(Row(HostStatus.Alive, false)));
+    }
 }

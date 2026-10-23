@@ -5,6 +5,5 @@ public sealed record DeviceResultFilter(bool AliveOnly, bool OpenPortsOnly, stri
     public bool Matches(ScanResultRow row) =>
         (!AliveOnly || row.IsOnline)
         && (!OpenPortsOnly || row.Result.OpenPortItems.Count > 0)
-        && (row.NameText.Contains(SearchText.Trim(), StringComparison.OrdinalIgnoreCase)
-            || row.Result.MatchesFilter(SearchText));
+        && row.MatchesFilter(SearchText);
 }
