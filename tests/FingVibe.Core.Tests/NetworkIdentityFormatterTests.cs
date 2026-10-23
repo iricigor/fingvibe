@@ -47,4 +47,23 @@ public sealed class NetworkIdentityFormatterTests
 
         Assert.Equal("ISP unavailable, 192.168.0.0/24", summary);
     }
+
+    [Theory]
+    [InlineData("Novi Sad", "Vojvodina", "Serbia", "Novi Sad, Vojvodina, Serbia")]
+    [InlineData(" ", null, "Serbia", "Serbia")]
+    [InlineData("Belgrade", "belgrade", "Serbia", "Belgrade, Serbia")]
+    public void FormatLocation_JoinsDistinctNonEmptyParts(
+        string? city,
+        string? region,
+        string? country,
+        string expected)
+    {
+        Assert.Equal(expected, NetworkIdentityFormatter.FormatLocation(city, region, country));
+    }
+
+    [Fact]
+    public void FormatLocation_ReturnsNullWithoutParts()
+    {
+        Assert.Null(NetworkIdentityFormatter.FormatLocation(null, "", " "));
+    }
 }

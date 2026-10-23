@@ -49,8 +49,17 @@ public sealed class PublicNetworkIdentityService
             throw new InvalidOperationException("The public network lookup did not return an ISP name.");
         }
 
-        return new PublicNetworkIdentity(publicAddress, ispElement.GetString()!.Trim());
+        var location = NetworkIdentityFormatter.FormatLocation(
+            GetOptionalString(root, "city"),
+            GetOptionalString(root, "region"),
+            GetOptionalString(root, "country"));
+        return new PublicNetworkIdentity(publicAddress, ispElement.GetString()!.Trim(), location);
     }
+
+    private static string? GetOptionalString(JsonElement element, string propertyName) =>
+        element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
 
     private static HttpClient CreateHttpClient() =>
         new()

@@ -10,367 +10,614 @@
     Title="FingVibe LAN Scanner">
 
     <Grid x:Name="RootGrid" Loaded="RootGrid_Loaded" Background="{ThemeResource ScannerPageBackgroundBrush}">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-
-        <StackPanel Margin="32,28,32,18" Orientation="Horizontal" Spacing="14">
-            <Border Width="48"
-                    Height="48"
-                    Background="{ThemeResource AccentFillColorDefaultBrush}"
-                    CornerRadius="12">
-                <FontIcon Glyph="&#xE8FE;" FontSize="24" Foreground="White" />
-            </Border>
-            <StackPanel VerticalAlignment="Center" Spacing="2">
-                <TextBlock Text="FingVibe" Style="{ThemeResource TitleTextBlockStyle}" />
-                <TextBlock Text="Fast, native LAN discovery for Windows 11"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            </StackPanel>
-        </StackPanel>
-
-        <Border Grid.Row="1"
-                Margin="32,0,32,16"
-                Padding="20"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource ScannerCardBorderBrush}"
-                BorderThickness="1"
-                CornerRadius="8">
-            <Grid ColumnSpacing="24" RowSpacing="10">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-
-                <TextBlock Grid.ColumnSpan="2" Text="Detected network" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                <ComboBox x:Name="NetworkPicker"
-                          Grid.Row="1"
-                          Grid.ColumnSpan="2"
-                          Margin="0,4,0,0"
-                          HorizontalAlignment="Stretch"
-                          SelectionChanged="NetworkPicker_SelectionChanged" />
-                <Expander x:Name="NetworkDetailsExpander"
-                          Grid.Row="2"
-                          Grid.ColumnSpan="2"
-                          Margin="0,8,0,0">
-                    <Expander.Header>
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE968;"
-                                      FontSize="16"
-                                      Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
-                            <TextBlock x:Name="NetworkIdentityText"
-                                       Text="Detecting network identity..."
-                                       FontSize="18"
-                                       FontWeight="SemiBold"
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Expander.Header>
-                    <Grid Padding="0,12,0,4" ColumnSpacing="24" RowSpacing="16">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
-                        <StackPanel Spacing="2">
-                            <TextBlock Text="Public IP address" FontWeight="SemiBold" />
-                            <TextBlock x:Name="PublicAddressText" Text="Detecting..." FontSize="16" />
-                            <TextBlock Text="The address visible to websites and internet services."
-                                       TextWrapping="Wrap"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="1" Spacing="2">
-                            <TextBlock Text="ISP name" FontWeight="SemiBold" />
-                            <TextBlock x:Name="IspNameText" Text="Detecting..." FontSize="16" />
-                            <TextBlock Text="The internet provider associated with the public IP address."
-                                       TextWrapping="Wrap"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        </StackPanel>
-                        <StackPanel Grid.Row="1" Spacing="2">
-                            <TextBlock Text="Machine IPv4 address" FontWeight="SemiBold" />
-                            <TextBlock x:Name="MachineAddressText" Text="Detecting..." FontSize="16" />
-                            <TextBlock Text="This computer's address on the selected local network."
-                                       TextWrapping="Wrap"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        </StackPanel>
-                        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">
-                            <TextBlock Text="LAN address" FontWeight="SemiBold" />
-                            <TextBlock x:Name="LanAddressText" Text="Detecting..." FontSize="16" />
-                            <TextBlock Text="The local subnet and prefix currently selected for scanning."
-                                       TextWrapping="Wrap"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        </StackPanel>
-                        <TextBlock Grid.Row="2"
-                                   Grid.ColumnSpan="2"
-                                   Text="Public IP and ISP details are retrieved from ipwho.is, which receives your public IP as part of the request."
-                                   TextWrapping="Wrap"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    </Grid>
-                </Expander>
-            </Grid>
-        </Border>
-
-        <Grid Grid.Row="2" Margin="32,0,32,16" ColumnSpacing="12">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-            <Button x:Name="ScanButton"
-                    Click="ScanButton_Click"
-                    AutomationProperties.Name="Scan LAN"
-                    Style="{ThemeResource AccentButtonStyle}">
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <FontIcon Glyph="&#xE72C;" />
-                    <TextBlock Text="Scan LAN" />
+        <NavigationView x:Name="MainNavigation"
+                        PaneDisplayMode="Left"
+                        IsPaneToggleButtonVisible="False"
+                        IsBackButtonVisible="Collapsed"
+                        IsSettingsVisible="True"
+                        IsTitleBarAutoPaddingEnabled="False"
+                        OpenPaneLength="220"
+                        AutomationProperties.Name="Main menu"
+                        ItemInvoked="MainNavigation_ItemInvoked"
+                        SelectionChanged="MainNavigation_SelectionChanged">
+            <NavigationView.PaneHeader>
+                <StackPanel Margin="12,16,12,12" Orientation="Horizontal" Spacing="10">
+                    <Border Width="36"
+                            Height="36"
+                            Background="{ThemeResource AccentFillColorDefaultBrush}"
+                            CornerRadius="9">
+                        <FontIcon Glyph="&#xE8FE;" FontSize="18" Foreground="White" />
+                    </Border>
+                    <TextBlock Text="FingVibe"
+                               VerticalAlignment="Center"
+                               Style="{ThemeResource SubtitleTextBlockStyle}" />
                 </StackPanel>
-            </Button>
-            <Button x:Name="CancelButton"
-                    Grid.Column="1"
-                    Click="CancelButton_Click"
-                    Content="Cancel"
-                    IsEnabled="False" />
-            <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="4">
-                <TextBlock x:Name="ScanStatusText"
-                           Text="Ready"
-                           HorizontalAlignment="Right"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <ProgressBar x:Name="ScanProgressBar"
-                             Minimum="0"
-                             Maximum="1"
-                             Value="0"
-                             Height="4" />
-            </StackPanel>
-        </Grid>
+            </NavigationView.PaneHeader>
+            <NavigationView.MenuItems>
+                <NavigationViewItem x:Name="OverviewNavItem" Content="Overview" Tag="Overview">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE9D2;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="NetworkNavItem" Content="Network" Tag="Network">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE968;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="DevicesNavItem" Content="Devices" Tag="Devices">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE772;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="People" Tag="People">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE716;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem Content="Rooms" Tag="Rooms">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE707;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
 
-        <Border Grid.Row="3"
-                Margin="32,0,32,28"
-                Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                BorderBrush="{ThemeResource ScannerCardBorderBrush}"
-                BorderThickness="1"
-                CornerRadius="8">
-            <Grid>
+            <Grid Background="{ThemeResource ScannerPageBackgroundBrush}">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
-                <Grid Padding="16,10" ColumnSpacing="12">
+
+                <Grid x:Name="ScanBar" Margin="28,24,28,16" ColumnSpacing="12">
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <FontIcon Glyph="&#xE71C;" FontSize="16" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
-                        <TextBlock Text="Scan results" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                        <TextBlock x:Name="ResultCountText"
-                                   Text="0 hosts"
-                                   VerticalAlignment="Center"
+                    <ComboBox x:Name="NetworkPicker"
+                              Width="340"
+                              Header="Detected network"
+                              SelectionChanged="NetworkPicker_SelectionChanged" />
+                    <Button x:Name="ScanButton"
+                            Grid.Column="1"
+                            VerticalAlignment="Bottom"
+                            Click="ScanButton_Click"
+                            AutomationProperties.Name="Scan LAN"
+                            Style="{ThemeResource AccentButtonStyle}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE72C;" />
+                            <TextBlock Text="Scan LAN" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="CancelButton"
+                            Grid.Column="2"
+                            VerticalAlignment="Bottom"
+                            Click="CancelButton_Click"
+                            Content="Cancel"
+                            IsEnabled="False" />
+                    <StackPanel Grid.Column="3" VerticalAlignment="Bottom" Spacing="4" Margin="0,0,0,4">
+                        <TextBlock x:Name="ScanStatusText"
+                                   Text="Ready"
+                                   HorizontalAlignment="Right"
+                                   TextTrimming="CharacterEllipsis"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <ProgressBar x:Name="ScanProgressBar"
+                                     Minimum="0"
+                                     Maximum="1"
+                                     Value="0"
+                                     Height="4" />
                     </StackPanel>
-                    <TextBox x:Name="ResultSearchBox"
-                              Grid.Column="1"
-                              Width="220"
-                              VerticalAlignment="Bottom"
-                              PlaceholderText="Filter"
-                              AutomationProperties.Name="Filter scan results"
-                              TextChanged="ResultSearchBox_TextChanged" />
-                    <ComboBox x:Name="StatusFilter"
-                              Grid.Column="2"
-                              MinWidth="150"
-                              Header="Show"
-                              SelectionChanged="StatusFilter_SelectionChanged">
-                        <ComboBoxItem Content="All hosts" />
-                        <ComboBoxItem Content="Alive only" />
-                    </ComboBox>
                 </Grid>
-                <TextBlock x:Name="SnapshotStatusText"
-                           Grid.Row="1"
-                           Margin="16,0,16,8"
-                           TextWrapping="Wrap"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                           Visibility="Collapsed" />
-                <Grid Grid.Row="2" Padding="12,4" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="1.5*" />
-                        <ColumnDefinition Width="1.25*" />
-                        <ColumnDefinition Width="1.5*" />
-                        <ColumnDefinition Width="2*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="1.5*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="Name" FontWeight="SemiBold" FontSize="12" Margin="0,6" VerticalAlignment="Center" />
-                    <Button Grid.Column="1" Tag="Address" Click="SortHeader_Click"
-                            Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by IP address">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBlock Text="IP address" FontWeight="SemiBold" />
-                            <TextBlock x:Name="AddressSortGlyph" />
-                        </StackPanel>
-                    </Button>
-                    <TextBlock Grid.Column="2" Text="Vendor" FontWeight="SemiBold" FontSize="12" Margin="0,6" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="3" Text="Open ports" FontWeight="SemiBold" FontSize="12" Margin="0,6" VerticalAlignment="Center" />
-                    <Button Grid.Column="4" Tag="Status" Click="SortHeader_Click"
-                            Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by status">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBlock Text="Status" FontWeight="SemiBold" />
-                            <TextBlock x:Name="StatusSortGlyph" />
-                        </StackPanel>
-                    </Button>
-                    <Button Grid.Column="5" Tag="Response" Click="SortHeader_Click" HorizontalContentAlignment="Right"
-                            Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by response time">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBlock Text="Response" FontWeight="SemiBold" />
-                            <TextBlock x:Name="ResponseSortGlyph" />
-                        </StackPanel>
-                    </Button>
-                    <Button Grid.Column="6" Tag="MacAddress" Click="SortHeader_Click"
-                            Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by MAC address">
-                        <StackPanel Orientation="Horizontal" Spacing="6">
-                            <TextBlock Text="MAC address" FontWeight="SemiBold" />
-                            <TextBlock x:Name="MacAddressSortGlyph" />
-                        </StackPanel>
-                    </Button>
-                </Grid>
-                <ListView x:Name="ResultsList" Grid.Row="3" SelectionMode="Single"
-                          IsItemClickEnabled="False" AutomationProperties.Name="Scan results">
-                    <ListView.Resources>
-                        <ResourceDictionary>
-                            <ResourceDictionary.ThemeDictionaries>
-                                <ResourceDictionary x:Key="Light">
-                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="#DBEAFE" />
-                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="#BFDBFE" />
-                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="#BFDBFE" />
-                                </ResourceDictionary>
-                                <ResourceDictionary x:Key="Dark">
-                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="#243F65" />
-                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="#2C4D7B" />
-                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="#2C4D7B" />
-                                </ResourceDictionary>
-                                <ResourceDictionary x:Key="HighContrast">
-                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="{ThemeResource SystemColorHighlightColor}" />
-                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="{ThemeResource SystemColorHighlightColor}" />
-                                    <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="{ThemeResource SystemColorHighlightColor}" />
-                                </ResourceDictionary>
-                            </ResourceDictionary.ThemeDictionaries>
-                        </ResourceDictionary>
-                    </ListView.Resources>
-                    <ListView.ItemContainerStyle>
-                        <Style TargetType="ListViewItem">
-                            <Setter Property="MinHeight" Value="32" />
-                            <Setter Property="Padding" Value="0" />
-                            <Setter Property="Margin" Value="0" />
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                        </Style>
-                    </ListView.ItemContainerStyle>
-                    <ListView.ItemTemplate>
-                        <DataTemplate x:DataType="local:ScanResultRow">
-                            <Grid Padding="12,3" MinHeight="32">
-                                <Grid.Resources>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="FontSize" Value="12" />
-                                        <Setter Property="VerticalAlignment" Value="Center" />
-                                    </Style>
-                                </Grid.Resources>
+
+                <!-- Overview -->
+                <ScrollViewer x:Name="OverviewPage" Grid.Row="1">
+                    <StackPanel Margin="28,0,28,28" Spacing="16">
+                        <TextBlock Text="Overview" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+                        <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="Network" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock x:Name="NetworkNameText"
+                                           Text="Detecting network..."
+                                           Style="{ThemeResource SubtitleTextBlockStyle}"
+                                           TextWrapping="Wrap" />
+                                <HyperlinkButton Content="View network details"
+                                                 Padding="0,4"
+                                                 Click="ViewNetworkButton_Click" />
+                            </StackPanel>
+                        </Border>
+                        <Grid ColumnSpacing="16" RowSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Online devices" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock x:Name="OnlineDevicesText" Text="-" Style="{ThemeResource TitleTextBlockStyle}"
+                                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="1" Style="{StaticResource ScannerSummaryCardStyle}">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Offline addresses" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock x:Name="OfflineAddressesText" Text="-" Style="{ThemeResource TitleTextBlockStyle}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Row="1" Style="{StaticResource ScannerSummaryCardStyle}">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Devices with open ports" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock x:Name="OpenPortDevicesText" Text="-" Style="{ThemeResource TitleTextBlockStyle}" />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource ScannerSummaryCardStyle}">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="Last scan" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock x:Name="LastScanText" Text="Not scanned yet" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                                    <TextBlock x:Name="LastScanDetailText"
+                                               TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                        <Button Content="View devices" Click="ViewDevicesButton_Click" />
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Network -->
+                <ScrollViewer x:Name="NetworkPage" Grid.Row="1" Visibility="Collapsed">
+                    <StackPanel Margin="28,0,28,28" Spacing="16">
+                        <TextBlock Text="Network" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+                        <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                            <Grid ColumnSpacing="24" RowSpacing="16">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="1.5*" />
-                                    <ColumnDefinition Width="1.25*" />
-                                    <ColumnDefinition Width="1.5*" />
-                                    <ColumnDefinition Width="2*" />
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="1.5*" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="{x:Bind Result.NameText}" TextTrimming="CharacterEllipsis"
-                                           Margin="0,0,8,0" Opacity="{x:Bind NameOpacity}"
-                                           ToolTipService.ToolTip="{x:Bind Result.NameText}" />
-                                <TextBlock Grid.Column="1" FontFamily="Consolas" TextTrimming="CharacterEllipsis"
-                                           ToolTipService.ToolTip="{x:Bind Result.AddressText}"
-                                           AutomationProperties.Name="{x:Bind Result.AddressText}">
-                                    <Run Text="{x:Bind AddressPrefix}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><Run Text="{x:Bind AddressHost}" FontWeight="SemiBold" />
-                                </TextBlock>
-                                <TextBlock Grid.Column="2"
-                                           Text="{x:Bind Result.VendorText}"
-                                           Opacity="{x:Bind VendorOpacity}" Margin="0,0,8,0"
-                                           ToolTipService.ToolTip="{x:Bind Result.VendorText}"
-                                           TextTrimming="CharacterEllipsis" />
-                                <ItemsControl Grid.Column="3" ItemsSource="{x:Bind Result.OpenPortItems}" VerticalAlignment="Center">
-                                    <ItemsControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <StackPanel Orientation="Horizontal" Spacing="8" />
-                                        </ItemsPanelTemplate>
-                                    </ItemsControl.ItemsPanel>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE968;"
+                                              FontSize="16"
+                                              Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                    <TextBlock x:Name="NetworkIdentityText"
+                                               Text="Detecting network identity..."
+                                               FontSize="18"
+                                               FontWeight="SemiBold"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Spacing="2">
+                                    <TextBlock Text="Public IP address" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="PublicAddressText" Text="Detecting..." FontSize="16" IsTextSelectionEnabled="True" />
+                                    <TextBlock Text="The address visible to websites and internet services."
+                                               TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">
+                                    <TextBlock Text="ISP name" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="IspNameText" Text="Detecting..." FontSize="16" IsTextSelectionEnabled="True" />
+                                    <TextBlock Text="The internet provider associated with the public IP address."
+                                               TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="2" Spacing="2">
+                                    <TextBlock Text="Machine IPv4 address" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="MachineAddressText" Text="Detecting..." FontSize="16" IsTextSelectionEnabled="True" />
+                                    <TextBlock Text="This computer's address on the selected local network."
+                                               TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="2" Grid.Column="1" Spacing="2">
+                                    <TextBlock Text="LAN address" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="LanAddressText" Text="Detecting..." FontSize="16" IsTextSelectionEnabled="True" />
+                                    <TextBlock Text="The local subnet and prefix currently selected for scanning."
+                                               TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="3" Spacing="2">
+                                    <TextBlock Text="Location" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="LocationText" Text="Detecting..." FontSize="16" IsTextSelectionEnabled="True" />
+                                    <TextBlock Text="Approximate location of the public IP address. It may differ from the physical location."
+                                               TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <TextBlock Grid.Row="4"
+                                           Grid.ColumnSpan="2"
+                                           Text="Public IP, ISP, and location details are retrieved from ipwho.is, which receives your public IP as part of the request."
+                                           TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- Devices -->
+                <Grid x:Name="DevicesPage" Grid.Row="1" Margin="28,0,28,28" Visibility="Collapsed">
+                    <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource ScannerCardBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid Padding="16,10" ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                    <FontIcon Glyph="&#xE772;" FontSize="16" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                    <TextBlock Text="Devices" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                                    <TextBlock x:Name="ResultCountText"
+                                               Text="0 hosts"
+                                               VerticalAlignment="Center"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                                <TextBox x:Name="ResultSearchBox"
+                                         Grid.Column="1"
+                                         Width="220"
+                                         VerticalAlignment="Bottom"
+                                         PlaceholderText="Filter"
+                                         AutomationProperties.Name="Filter scan results"
+                                         TextChanged="ResultSearchBox_TextChanged" />
+                                <ComboBox x:Name="StatusFilter"
+                                          Grid.Column="2"
+                                          MinWidth="150"
+                                          Header="Show"
+                                          SelectionChanged="StatusFilter_SelectionChanged">
+                                    <ComboBoxItem Content="All hosts" />
+                                    <ComboBoxItem Content="Alive only" />
+                                </ComboBox>
+                            </Grid>
+                            <TextBlock x:Name="SnapshotStatusText"
+                                       Grid.Row="1"
+                                       Margin="16,0,16,8"
+                                       TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       Visibility="Collapsed" />
+                            <ScrollViewer Grid.Row="2"
+                                          HorizontalScrollMode="Auto"
+                                          HorizontalScrollBarVisibility="Auto"
+                                          VerticalScrollMode="Disabled"
+                                          VerticalScrollBarVisibility="Disabled">
+                                <Grid MinWidth="{x:Bind local:DeviceColumnLayoutHelpers.ToTableWidth(Columns.TotalWidth), Mode=OneWay}">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="*" />
+                                    </Grid.RowDefinitions>
+                                    <Grid Padding="12,4" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Name.EffectiveWidth), Mode=OneWay}" />
+                                            <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Address.EffectiveWidth), Mode=OneWay}" />
+                                            <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Vendor.EffectiveWidth), Mode=OneWay}" />
+                                            <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Ports.EffectiveWidth), Mode=OneWay}" />
+                                            <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Status.EffectiveWidth), Mode=OneWay}" />
+                                            <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Response.EffectiveWidth), Mode=OneWay}" />
+                                            <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Mac.EffectiveWidth), Mode=OneWay}" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid Visibility="{x:Bind Columns.Name.IsVisible, Mode=OneWay}">
+                                            <TextBlock Text="Name" FontWeight="SemiBold" FontSize="12" Margin="0,6,12,6" VerticalAlignment="Center" />
+                                            <local:ColumnResizeGrip Column="{x:Bind Columns.Name}" AutomationProperties.Name="{x:Bind Columns.Name.ResizeLabel}" />
+                                        </Grid>
+                                        <Grid Grid.Column="1" Visibility="{x:Bind Columns.Address.IsVisible, Mode=OneWay}">
+                                            <Button Tag="Address" Click="SortHeader_Click" Margin="0,0,12,0"
+                                                    Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by IP address">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Text="IP address" FontWeight="SemiBold" />
+                                                    <TextBlock x:Name="AddressSortGlyph" />
+                                                </StackPanel>
+                                            </Button>
+                                            <local:ColumnResizeGrip Column="{x:Bind Columns.Address}" AutomationProperties.Name="{x:Bind Columns.Address.ResizeLabel}" />
+                                        </Grid>
+                                        <Grid Grid.Column="2" Visibility="{x:Bind Columns.Vendor.IsVisible, Mode=OneWay}">
+                                            <TextBlock Text="Vendor" FontWeight="SemiBold" FontSize="12" Margin="0,6,12,6" VerticalAlignment="Center" />
+                                            <local:ColumnResizeGrip Column="{x:Bind Columns.Vendor}" AutomationProperties.Name="{x:Bind Columns.Vendor.ResizeLabel}" />
+                                        </Grid>
+                                        <Grid Grid.Column="3" Visibility="{x:Bind Columns.Ports.IsVisible, Mode=OneWay}">
+                                            <TextBlock Text="Open ports" FontWeight="SemiBold" FontSize="12" Margin="0,6,12,6" VerticalAlignment="Center" />
+                                            <local:ColumnResizeGrip Column="{x:Bind Columns.Ports}" AutomationProperties.Name="{x:Bind Columns.Ports.ResizeLabel}" />
+                                        </Grid>
+                                        <Grid Grid.Column="4" Visibility="{x:Bind Columns.Status.IsVisible, Mode=OneWay}">
+                                            <Button Tag="Status" Click="SortHeader_Click" Margin="0,0,12,0"
+                                                    Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by status">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Text="Status" FontWeight="SemiBold" />
+                                                    <TextBlock x:Name="StatusSortGlyph" />
+                                                </StackPanel>
+                                            </Button>
+                                            <local:ColumnResizeGrip Column="{x:Bind Columns.Status}" AutomationProperties.Name="{x:Bind Columns.Status.ResizeLabel}" />
+                                        </Grid>
+                                        <Grid Grid.Column="5" Visibility="{x:Bind Columns.Response.IsVisible, Mode=OneWay}">
+                                            <Button Tag="Response" Click="SortHeader_Click" Margin="0,0,12,0" HorizontalContentAlignment="Right"
+                                                    Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by response time">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Text="Response" FontWeight="SemiBold" />
+                                                    <TextBlock x:Name="ResponseSortGlyph" />
+                                                </StackPanel>
+                                            </Button>
+                                            <local:ColumnResizeGrip Column="{x:Bind Columns.Response}" AutomationProperties.Name="{x:Bind Columns.Response.ResizeLabel}" />
+                                        </Grid>
+                                        <Grid Grid.Column="6" Visibility="{x:Bind Columns.Mac.IsVisible, Mode=OneWay}">
+                                            <Button Tag="MacAddress" Click="SortHeader_Click" Margin="0,0,12,0"
+                                                    Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by MAC address">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Text="MAC address" FontWeight="SemiBold" />
+                                                    <TextBlock x:Name="MacAddressSortGlyph" />
+                                                </StackPanel>
+                                            </Button>
+                                            <local:ColumnResizeGrip Column="{x:Bind Columns.Mac}" AutomationProperties.Name="{x:Bind Columns.Mac.ResizeLabel}" />
+                                        </Grid>
+                                    </Grid>
+                                    <ListView x:Name="ResultsList" Grid.Row="1" SelectionMode="Single"
+                                              IsItemClickEnabled="True" ItemClick="ResultsList_ItemClick"
+                                              AutomationProperties.Name="Scan results">
+                                        <ListView.Resources>
+                                            <ResourceDictionary>
+                                                <ResourceDictionary.ThemeDictionaries>
+                                                    <ResourceDictionary x:Key="Light">
+                                                        <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="#DBEAFE" />
+                                                        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="#BFDBFE" />
+                                                        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="#BFDBFE" />
+                                                    </ResourceDictionary>
+                                                    <ResourceDictionary x:Key="Dark">
+                                                        <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="#243F65" />
+                                                        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="#2C4D7B" />
+                                                        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="#2C4D7B" />
+                                                    </ResourceDictionary>
+                                                    <ResourceDictionary x:Key="HighContrast">
+                                                        <SolidColorBrush x:Key="ListViewItemBackgroundSelected" Color="{ThemeResource SystemColorHighlightColor}" />
+                                                        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPointerOver" Color="{ThemeResource SystemColorHighlightColor}" />
+                                                        <SolidColorBrush x:Key="ListViewItemBackgroundSelectedPressed" Color="{ThemeResource SystemColorHighlightColor}" />
+                                                    </ResourceDictionary>
+                                                </ResourceDictionary.ThemeDictionaries>
+                                            </ResourceDictionary>
+                                        </ListView.Resources>
+                                        <ListView.ItemContainerStyle>
+                                            <Style TargetType="ListViewItem">
+                                                <Setter Property="MinHeight" Value="32" />
+                                                <Setter Property="Padding" Value="0" />
+                                                <Setter Property="Margin" Value="0" />
+                                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                            </Style>
+                                        </ListView.ItemContainerStyle>
+                                        <ListView.ItemTemplate>
+                                            <DataTemplate x:DataType="local:ScanResultRow">
+                                                <Grid Padding="12,3" MinHeight="32">
+                                                    <Grid.Resources>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="FontSize" Value="12" />
+                                                            <Setter Property="VerticalAlignment" Value="Center" />
+                                                        </Style>
+                                                    </Grid.Resources>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Name.EffectiveWidth), Mode=OneWay}" />
+                                                        <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Address.EffectiveWidth), Mode=OneWay}" />
+                                                        <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Vendor.EffectiveWidth), Mode=OneWay}" />
+                                                        <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Ports.EffectiveWidth), Mode=OneWay}" />
+                                                        <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Status.EffectiveWidth), Mode=OneWay}" />
+                                                        <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Response.EffectiveWidth), Mode=OneWay}" />
+                                                        <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Mac.EffectiveWidth), Mode=OneWay}" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{x:Bind Result.NameText}" TextTrimming="CharacterEllipsis"
+                                                               Margin="0,0,12,0" Opacity="{x:Bind NameOpacity}"
+                                                               Visibility="{x:Bind Columns.Name.IsVisible, Mode=OneWay}"
+                                                               ToolTipService.ToolTip="{x:Bind Result.NameText}" />
+                                                    <TextBlock Grid.Column="1" FontFamily="Consolas" TextTrimming="CharacterEllipsis"
+                                                               Margin="0,0,12,0"
+                                                               Visibility="{x:Bind Columns.Address.IsVisible, Mode=OneWay}"
+                                                               ToolTipService.ToolTip="{x:Bind Result.AddressText}"
+                                                               AutomationProperties.Name="{x:Bind Result.AddressText}">
+                                                        <Run Text="{x:Bind AddressPrefix}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><Run Text="{x:Bind AddressHost}" FontWeight="SemiBold" />
+                                                    </TextBlock>
+                                                    <TextBlock Grid.Column="2"
+                                                               Text="{x:Bind Result.VendorText}"
+                                                               Opacity="{x:Bind VendorOpacity}" Margin="0,0,12,0"
+                                                               Visibility="{x:Bind Columns.Vendor.IsVisible, Mode=OneWay}"
+                                                               ToolTipService.ToolTip="{x:Bind Result.VendorText}"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <ItemsControl Grid.Column="3" ItemsSource="{x:Bind Result.OpenPortItems}" VerticalAlignment="Center"
+                                                                  Margin="0,0,12,0"
+                                                                  Visibility="{x:Bind Columns.Ports.IsVisible, Mode=OneWay}">
+                                                        <ItemsControl.ItemsPanel>
+                                                            <ItemsPanelTemplate>
+                                                                <StackPanel Orientation="Horizontal" Spacing="8" />
+                                                            </ItemsPanelTemplate>
+                                                        </ItemsControl.ItemsPanel>
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate x:DataType="models:OpenPort">
+                                                                <FontIcon FontFamily="Segoe Fluent Icons"
+                                                                          FontSize="16"
+                                                                          Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                                                          Glyph="{Binding Port, Converter={StaticResource PortIconGlyphConverter}}"
+                                                                          AutomationProperties.Name="{Binding AccessibleLabel}"
+                                                                          ToolTipService.ToolTip="{Binding AccessibleLabel}" />
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <Grid Grid.Column="4" Visibility="{x:Bind Columns.Status.IsVisible, Mode=OneWay}">
+                                                        <Border Visibility="{x:Bind IsOnline}" Padding="8,3" CornerRadius="10"
+                                                                HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                                Background="{ThemeResource ScannerOnlineBackgroundBrush}">
+                                                            <TextBlock Text="{x:Bind StatusLabel}" FontWeight="SemiBold"
+                                                                       Foreground="{ThemeResource ScannerOnlineForegroundBrush}" />
+                                                        </Border>
+                                                        <Border Visibility="{x:Bind IsOffline}" Padding="8,3" CornerRadius="10"
+                                                                HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                                Background="{ThemeResource ScannerOfflineBackgroundBrush}"
+                                                                ToolTipService.ToolTip="No ICMP response; the device may be offline or blocking probes.">
+                                                            <TextBlock Text="{x:Bind StatusLabel}" FontWeight="SemiBold"
+                                                                       Foreground="{ThemeResource ScannerOfflineForegroundBrush}" />
+                                                        </Border>
+                                                    </Grid>
+                                                    <Grid Grid.Column="5" Margin="0,0,12,0" Height="24" VerticalAlignment="Center"
+                                                          Visibility="{x:Bind Columns.Response.IsVisible, Mode=OneWay}"
+                                                          ToolTipService.ToolTip="Relative to responding hosts in this scan: green is fastest, red is slowest.">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="44" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <ProgressBar Minimum="0" Maximum="100" Value="{x:Bind LatencyFill, Mode=OneWay}"
+                                                                     Visibility="{x:Bind HasLatency}" Height="8" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                                     AutomationProperties.Name="{x:Bind LatencyLabel}">
+                                                            <ProgressBar.Foreground>
+                                                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                                    <GradientStop Color="#22C55E" Offset="0" />
+                                                                    <GradientStop Color="{Binding LatencyFraction, Converter={StaticResource LatencyColorConverter}}" Offset="1" />
+                                                                </LinearGradientBrush>
+                                                            </ProgressBar.Foreground>
+                                                        </ProgressBar>
+                                                        <TextBlock Grid.Column="1" Text="{x:Bind LatencyLabel}" FontFamily="Consolas" TextAlignment="Right" />
+                                                    </Grid>
+                                                    <TextBlock Grid.Column="6" FontFamily="Consolas" TextTrimming="CharacterEllipsis"
+                                                               Margin="0,0,12,0"
+                                                               Visibility="{x:Bind Columns.Mac.IsVisible, Mode=OneWay}"
+                                                               ToolTipService.ToolTip="{x:Bind Result.MacAddressText}"
+                                                               AutomationProperties.Name="{x:Bind Result.MacAddressText}">
+                                                        <Run Text="{x:Bind MacOui}" Foreground="{ThemeResource ScannerMacOuiBrush}" FontWeight="SemiBold" /><Run Text="{x:Bind MacNic}" Foreground="{ThemeResource ScannerMacNicBrush}" FontWeight="SemiBold" />
+                                                    </TextBlock>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListView.ItemTemplate>
+                                    </ListView>
+                                </Grid>
+                            </ScrollViewer>
+                            <TextBlock x:Name="EmptyResultsText"
+                                       Grid.Row="2"
+                                       Text="Select Scan LAN to probe every address on the detected subnet."
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- Device details -->
+                <ScrollViewer x:Name="DevicePage" Grid.Row="1" Visibility="Collapsed">
+                    <StackPanel Margin="28,0,28,28" Spacing="16">
+                        <Button Click="BackToDevicesButton_Click" AutomationProperties.Name="Back to devices">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE72B;" FontSize="14" />
+                                <TextBlock Text="Devices" />
+                            </StackPanel>
+                        </Button>
+                        <TextBlock x:Name="DeviceTitleText" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" TextWrapping="Wrap" />
+                        <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                            <Grid ColumnSpacing="24" RowSpacing="16">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <StackPanel Spacing="2">
+                                    <TextBlock Text="IP address" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="DeviceAddressText" FontSize="16" FontFamily="Consolas" IsTextSelectionEnabled="True" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Spacing="2">
+                                    <TextBlock Text="MAC address" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="DeviceMacText" FontSize="16" FontFamily="Consolas" IsTextSelectionEnabled="True" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Spacing="2">
+                                    <TextBlock Text="Vendor" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="DeviceVendorText" FontSize="16" IsTextSelectionEnabled="True" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">
+                                    <TextBlock Text="Status" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="DeviceStatusText" FontSize="16" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="2" Spacing="2">
+                                    <TextBlock Text="Response" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="DeviceResponseText" FontSize="16" FontFamily="Consolas" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="2" Grid.Column="1" Spacing="2">
+                                    <TextBlock Text="Probe duration" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="DeviceProbeText" FontSize="16" FontFamily="Consolas" />
+                                </StackPanel>
+                                <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Spacing="6">
+                                    <TextBlock Text="Open ports" FontWeight="SemiBold" />
+                                    <TextBlock x:Name="DeviceNoPortsText"
+                                               Text="No open ports detected."
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <ItemsControl x:Name="DevicePortsList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="models:OpenPort">
+                                                <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,2">
+                                                    <FontIcon FontFamily="Segoe Fluent Icons"
+                                                              FontSize="16"
+                                                              Foreground="{ThemeResource SystemFillColorSuccessBrush}"
+                                                              Glyph="{Binding Port, Converter={StaticResource PortIconGlyphConverter}}" />
+                                                    <TextBlock Text="{x:Bind AccessibleLabel}" FontSize="14" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Grid>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- People -->
+                <StackPanel x:Name="PeoplePage" Grid.Row="1" Margin="28,0,28,28" Spacing="12" Visibility="Collapsed">
+                    <TextBlock Text="People" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+                    <TextBlock Text="People will be available in a future version."
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+
+                <!-- Rooms -->
+                <StackPanel x:Name="RoomsPage" Grid.Row="1" Margin="28,0,28,28" Spacing="12" Visibility="Collapsed">
+                    <TextBlock Text="Rooms" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+                    <TextBlock Text="Rooms will be available in a future version."
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+
+                <!-- Settings -->
+                <ScrollViewer x:Name="SettingsPage" Grid.Row="1" Visibility="Collapsed">
+                    <StackPanel Margin="28,0,28,28" Spacing="16">
+                        <TextBlock Text="Settings" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+                        <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                            <StackPanel Spacing="8">
+                                <TextBlock Text="Devices table columns" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                                <TextBlock Text="Choose which columns appear on the Devices page. Column choices and widths last until FingVibe closes."
+                                           TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <ItemsControl ItemsSource="{x:Bind Columns.All}" Margin="0,4,0,0">
                                     <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="models:OpenPort">
-                                            <FontIcon FontFamily="Segoe Fluent Icons"
-                                                      FontSize="16"
-                                                      Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                                                      Glyph="{Binding Port, Converter={StaticResource PortIconGlyphConverter}}"
-                                                      AutomationProperties.Name="{Binding AccessibleLabel}"
-                                                      ToolTipService.ToolTip="{Binding AccessibleLabel}" />
+                                        <DataTemplate x:DataType="local:DeviceColumn">
+                                            <CheckBox Content="{x:Bind Header}"
+                                                      IsChecked="{x:Bind IsVisible, Mode=TwoWay}"
+                                                      IsEnabled="{x:Bind CanHide}" />
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <Border Grid.Column="4" Visibility="{x:Bind IsOnline}" Padding="8,3" CornerRadius="10"
-                                        HorizontalAlignment="Left" VerticalAlignment="Center"
-                                        Background="{ThemeResource ScannerOnlineBackgroundBrush}">
-                                    <TextBlock Text="{x:Bind StatusLabel}" FontWeight="SemiBold"
-                                               Foreground="{ThemeResource ScannerOnlineForegroundBrush}" />
-                                </Border>
-                                <Border Grid.Column="4" Visibility="{x:Bind IsOffline}" Padding="8,3" CornerRadius="10"
-                                        HorizontalAlignment="Left" VerticalAlignment="Center"
-                                        Background="{ThemeResource ScannerOfflineBackgroundBrush}"
-                                        ToolTipService.ToolTip="No ICMP response; the device may be offline or blocking probes.">
-                                    <TextBlock Text="{x:Bind StatusLabel}" FontWeight="SemiBold"
-                                               Foreground="{ThemeResource ScannerOfflineForegroundBrush}" />
-                                </Border>
-                                <Grid Grid.Column="5" Margin="0,0,8,0" Height="24" VerticalAlignment="Center"
-                                      ToolTipService.ToolTip="Relative to responding hosts in this scan: green is fastest, red is slowest.">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="44" />
-                                    </Grid.ColumnDefinitions>
-                                    <ProgressBar Minimum="0" Maximum="100" Value="{x:Bind LatencyFill, Mode=OneWay}"
-                                                 Visibility="{x:Bind HasLatency}" Height="8" Margin="0,0,6,0" VerticalAlignment="Center"
-                                                 AutomationProperties.Name="{x:Bind LatencyLabel}">
-                                        <ProgressBar.Foreground>
-                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                                <GradientStop Color="#22C55E" Offset="0" />
-                                                <GradientStop Color="{Binding LatencyFraction, Converter={StaticResource LatencyColorConverter}}" Offset="1" />
-                                            </LinearGradientBrush>
-                                        </ProgressBar.Foreground>
-                                    </ProgressBar>
-                                    <TextBlock Grid.Column="1" Text="{x:Bind LatencyLabel}" FontFamily="Consolas" TextAlignment="Right" />
-                                </Grid>
-                                <TextBlock Grid.Column="6" FontFamily="Consolas" TextTrimming="CharacterEllipsis"
-                                           ToolTipService.ToolTip="{x:Bind Result.MacAddressText}"
-                                           AutomationProperties.Name="{x:Bind Result.MacAddressText}">
-                                    <Run Text="{x:Bind MacOui}" Foreground="{ThemeResource ScannerMacOuiBrush}" FontWeight="SemiBold" /><Run Text="{x:Bind MacNic}" Foreground="{ThemeResource ScannerMacNicBrush}" FontWeight="SemiBold" />
-                                </TextBlock>
-                           </Grid>
-                        </DataTemplate>
-                    </ListView.ItemTemplate>
-                </ListView>
-                <TextBlock x:Name="EmptyResultsText"
-                           Grid.Row="3"
-                           Text="Select Scan LAN to probe every address on the detected subnet."
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="IP address is always shown so every device remains identifiable."
+                                           TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <Button Content="Reset columns" Click="ResetColumnsButton_Click" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
             </Grid>
-        </Border>
+        </NavigationView>
     </Grid>
 </Window>

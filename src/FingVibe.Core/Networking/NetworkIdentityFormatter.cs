@@ -21,4 +21,14 @@ public static class NetworkIdentityFormatter
         var deviceLabel = onlineDeviceCount == 1 ? "device" : "devices";
         return $"{summary}, {onlineDeviceCount:N0} online {deviceLabel}";
     }
+
+    public static string? FormatLocation(params string?[] parts)
+    {
+        var distinctParts = parts
+            .Where(part => !string.IsNullOrWhiteSpace(part))
+            .Select(part => part!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return distinctParts.Length == 0 ? null : string.Join(", ", distinctParts);
+    }
 }
