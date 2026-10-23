@@ -122,11 +122,20 @@ try {
             $publishedPath = Join-Path $repository "fingvibe-ui-review-pages\ui-review\pr-123\run-456\$($capture.FileName)"
             if (-not (Test-Path -LiteralPath $publishedPath)) { throw "Missing published capture $($capture.Scenario)." }
             $url = "https://test.github.io/repo/ui-review/pr-123/run-456/$($capture.FileName)"
-            if (-not $comment.Contains($url) -or -not $comment.Contains($capture.Label) -or
-                -not $comment.Contains($capture.Reasons[0])) {
-                throw "PR comment must include every capture's label, explanation, and inline image."
+            $heading = "### $($capture.Label)"
+            $image = "[![$($capture.Label)]($url)]($url)"
+            if ([regex]::Matches($comment, [regex]::Escape($image)).Count -ne 1 -or
+                [regex]::Matches($comment, [regex]::Escape($heading)).Count -ne 1) {
+                throw "PR comment must include every capture's heading and inline image exactly once."
+            }
+            foreach ($reason in $capture.Reasons) {
+                if ($comment.Contains($reason)) {
+                    throw "Detailed selection reasons belong in the capture plan and logs, not the screenshot comment."
+                }
             }
         }
+        $savedPlan = @(Read-UiReviewCapturePlan $planPath)
+        Assert-Equal $savedPlan[0].Reasons $plan[0].Reasons "Keep detailed reasons in the capture manifest"
         if (-not $comment.Contains("<!-- fingvibe-ui-review -->")) { throw "Missing stable comment marker." }
         Remove-Item -LiteralPath (Join-Path $repository $plan[1].FileName)
         Assert-Throws {

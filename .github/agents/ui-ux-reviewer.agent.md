@@ -15,7 +15,7 @@ Build and run the application. Exercise the primary user journey affected by the
 
 Always capture a current Devices screenshot after the scan/filter smoke test. Additionally navigate to and capture every view affected by the pull request, including relevant distinct states needed to demonstrate the change. Verify the intended view and controls are visible before each capture. If the pull request does not change UI, Devices alone is sufficient. Never reuse an old screenshot or substitute Devices for an affected view.
 
-Post all captures in the pull request with descriptive view/state labels and an explanation of how they relate to the changes. The automated pipeline selects scenarios from the PR diff and records its reasons in the capture plan and comment. Shared or unrecognized application changes conservatively capture all supported scenarios. Extend the scenario selection, navigation, and tests when adding a new view or a state not covered by the existing scenarios. A required view/state that cannot be reached, verified, or captured fails the review with an actionable explanation.
+Post all captures in the pull request with descriptive view/state labels. Keep the screenshot comment concise; do not repeat file-by-file selection reasons under the images. The automated pipeline selects scenarios from the PR diff and records its detailed reasons in the capture plan and workflow logs. Shared or unrecognized application changes conservatively capture all supported scenarios. Extend the scenario selection, navigation, and tests when adding a new view or a state not covered by the existing scenarios. A required view/state that cannot be reached, verified, or captured fails the review with an actionable explanation.
 
 Check:
 

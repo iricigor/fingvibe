@@ -150,11 +150,6 @@ foreach ($capture in $captures) {
     $imageUrl = "https://$owner.github.io/$repositoryName/ui-review/pr-$PullRequestNumber/run-$RunId/$($capture.FileName)"
     $body.Add("")
     $body.Add("### $($capture.Label)")
-    # Reasons contain repository paths; keep them literal in Markdown.
-    foreach ($reason in $capture.Reasons) {
-        $escapedReason = [System.Net.WebUtility]::HtmlEncode($reason)
-        $body.Add("<pre>$escapedReason</pre>")
-    }
     $body.Add("")
     $body.Add("[![$($capture.Label)]($imageUrl)]($imageUrl)")
     Write-Host "Published $($capture.Label): $imageUrl"
