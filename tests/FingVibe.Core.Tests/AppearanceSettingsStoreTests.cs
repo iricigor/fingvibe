@@ -15,6 +15,16 @@ public sealed class AppearanceSettingsStoreTests : IDisposable
         Assert.Equal(new AppearanceSettings(), new AppearanceSettingsStore(FilePath).Load());
     }
 
+    [Theory]
+    [InlineData(ThemeVariant.StandardLight)]
+    [InlineData(ThemeVariant.StandardDark)]
+    public void Load_MissingFile_UsesSystemThemeWithoutSaving(ThemeVariant systemTheme)
+    {
+        Assert.Equal(new AppearanceSettings(Theme: systemTheme),
+            new AppearanceSettingsStore(FilePath).Load(systemTheme));
+        Assert.False(File.Exists(FilePath));
+    }
+
     [Fact]
     public void SaveAndLoad_PreservesEveryBackdropAndTheme()
     {
@@ -26,6 +36,8 @@ public sealed class AppearanceSettingsStoreTests : IDisposable
                 new AppearanceSettingsStore(FilePath).Save(settings);
 
                 Assert.Equal(settings, new AppearanceSettingsStore(FilePath).Load());
+                Assert.Equal(settings, new AppearanceSettingsStore(FilePath).Load(ThemeVariant.StandardLight));
+                Assert.Equal(settings, new AppearanceSettingsStore(FilePath).Load(ThemeVariant.StandardDark));
                 Assert.Single(Directory.GetFiles(_directory));
             }
         }
@@ -41,6 +53,36 @@ public sealed class AppearanceSettingsStoreTests : IDisposable
         File.WriteAllText(FilePath, json);
 
         Assert.Equal(new AppearanceSettings(), new AppearanceSettingsStore(FilePath).Load());
+        Assert.Equal(new AppearanceSettings(Theme: ThemeVariant.StandardDark),
+            new AppearanceSettingsStore(FilePath).Load(ThemeVariant.StandardDark));
+        Assert.Equal(json, File.ReadAllText(FilePath));
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"backdrop\":\"Mica\"}")]
+    [InlineData("{\"backdrop\":\"Mica\",\"theme\":null}")]
+    [InlineData("{\"backdrop\":\"Mica\",\"theme\":99}")]
+    public void Load_MissingOrInvalidTheme_UsesSystemThemeAndPreservesBackdrop(string json)
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(FilePath, json);
+        var backdrop = json == "{}" ? WindowBackdrop.Solid : WindowBackdrop.Mica;
+
+        foreach (var systemTheme in new[] { ThemeVariant.StandardLight, ThemeVariant.StandardDark })
+        {
+            Assert.Equal(new AppearanceSettings(backdrop, systemTheme),
+                new AppearanceSettingsStore(FilePath).Load(systemTheme));
+        }
+
+        Assert.Equal(json, File.ReadAllText(FilePath));
+    }
+
+    [Fact]
+    public void Load_InvalidDefaultTheme_Throws()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new AppearanceSettingsStore(FilePath).Load((ThemeVariant)99));
     }
 
     [Fact]

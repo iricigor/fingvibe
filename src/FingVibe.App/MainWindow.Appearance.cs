@@ -26,7 +26,9 @@ public sealed partial class MainWindow
     {
         _appearance = IsUiReview
             ? new AppearanceSettings(Theme: ThemeVariant.StandardDark)
-            : _appearanceStore.Load();
+            : _appearanceStore.Load(Application.Current.RequestedTheme == ApplicationTheme.Dark
+                ? ThemeVariant.StandardDark
+                : ThemeVariant.StandardLight);
         BackdropPicker.SelectedIndex = (int)_appearance.Backdrop;
         ThemePicker.SelectedIndex = (int)_appearance.Theme;
         ApplyAppearance();

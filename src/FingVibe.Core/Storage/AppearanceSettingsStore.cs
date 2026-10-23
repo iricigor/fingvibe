@@ -20,22 +20,31 @@ public sealed class AppearanceSettingsStore
         _filePath = filePath;
     }
 
-    public AppearanceSettings Load()
+    public AppearanceSettings Load(ThemeVariant defaultTheme = ThemeVariant.StandardLight)
     {
+        if (!Enum.IsDefined(defaultTheme))
+        {
+            throw new ArgumentOutOfRangeException(nameof(defaultTheme));
+        }
+
         try
         {
-            var settings = JsonSerializer.Deserialize<AppearanceSettings>(File.ReadAllText(_filePath), JsonOptions);
+            var settings = JsonSerializer.Deserialize<StoredAppearanceSettings>(File.ReadAllText(_filePath), JsonOptions);
             return settings is null
-                ? new AppearanceSettings()
+                ? new AppearanceSettings(Theme: defaultTheme)
                 : new AppearanceSettings(
                     Enum.IsDefined(settings.Backdrop) ? settings.Backdrop : WindowBackdrop.Solid,
-                    Enum.IsDefined(settings.Theme) ? settings.Theme : ThemeVariant.StandardLight);
+                    settings.Theme is { } theme && Enum.IsDefined(theme) ? theme : defaultTheme);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
         {
-            return new AppearanceSettings();
+            return new AppearanceSettings(Theme: defaultTheme);
         }
     }
+
+    private sealed record StoredAppearanceSettings(
+        WindowBackdrop Backdrop = WindowBackdrop.Solid,
+        ThemeVariant? Theme = null);
 
     public void Save(AppearanceSettings settings)
     {
