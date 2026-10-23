@@ -7,8 +7,8 @@ $ErrorActionPreference = "Stop"
 
 try {
     $zip = Get-Item -LiteralPath $ZipPath
-    if ($zip.PSIsContainer -or $zip.Name -notlike "FingVibe-*-win-x64.zip") {
-        throw "Select a FingVibe release ZIP named FingVibe-<version>-win-x64.zip."
+    if ($zip.PSIsContainer -or $zip.Name -notlike "FingVibe-*.zip") {
+        throw "Select a FingVibe ZIP whose name matches FingVibe-*.zip."
     }
 
     if (Get-Process | Where-Object ProcessName -eq "FingVibe.App") {

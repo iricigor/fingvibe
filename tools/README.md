@@ -31,7 +31,7 @@ then close FingVibe. Right-click the ZIP and choose
 **Show more options > Send to > Install FingVibe**. On Windows versions using
 the classic context menu, choose **Send to > Install FingVibe** directly.
 
-Select one ZIP at a time. Its name must match `FingVibe-*-win-x64.zip`.
+Select one ZIP at a time. Its name must match `FingVibe-*.zip`.
 The script uses the selected file, not the newest file in Downloads. Updates
 overwrite matching installed files; they do not delete obsolete files or change
 the app's saved settings. Errors stay visible until you press Enter.
