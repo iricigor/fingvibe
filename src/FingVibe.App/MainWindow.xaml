@@ -61,7 +61,7 @@
                 </NavigationViewItem>
             </NavigationView.MenuItems>
 
-            <Grid Background="{ThemeResource ScannerPageBackgroundBrush}">
+            <Grid Background="Transparent">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
@@ -633,6 +633,37 @@
                 <ScrollViewer x:Name="SettingsPage" Grid.Row="1" Visibility="Collapsed">
                     <StackPanel Margin="24,0,24,24" Spacing="16">
                         <TextBlock Text="Settings" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+                        <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Appearance" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                                <ComboBox x:Name="BackdropPicker"
+                                          Header="Window backdrop"
+                                          MinWidth="240"
+                                          SelectionChanged="AppearancePicker_SelectionChanged">
+                                    <ComboBoxItem Content="Solid" />
+                                    <ComboBoxItem Content="Mica" />
+                                    <ComboBoxItem Content="Mica Alt" />
+                                    <ComboBoxItem Content="Acrylic" />
+                                </ComboBox>
+                                <TextBlock x:Name="BackdropStatus"
+                                           TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <ComboBox x:Name="ThemePicker"
+                                          Header="Theme"
+                                          MinWidth="240"
+                                          SelectionChanged="AppearancePicker_SelectionChanged">
+                                    <ComboBoxItem Content="Standard Light" />
+                                    <ComboBoxItem Content="Warm Light" />
+                                    <ComboBoxItem Content="Standard Dark" />
+                                    <ComboBoxItem Content="True Black (OLED)" />
+                                </ComboBox>
+                                <TextBlock x:Name="AppearanceSaveStatus"
+                                           Text="Appearance saved automatically."
+                                           TextWrapping="Wrap"
+                                           AutomationProperties.LiveSetting="Polite"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Border>
                         <Border Style="{StaticResource ScannerSummaryCardStyle}">
                             <StackPanel Spacing="8">
                                 <TextBlock Text="Devices table columns" Style="{ThemeResource SubtitleTextBlockStyle}" />

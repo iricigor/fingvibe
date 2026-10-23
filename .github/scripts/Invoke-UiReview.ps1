@@ -17,6 +17,7 @@ $serverUrl = "http://127.0.0.1:4723"
 $sessionId = $null
 $driverProcess = $null
 $succeeded = $false
+$reviewStartedAt = Get-Date
 $logDirectory = if ($env:RUNNER_TEMP) {
     $env:RUNNER_TEMP
 }
@@ -25,6 +26,10 @@ else {
 }
 $standardOutputPath = Join-Path $logDirectory "fingvibe-winappdriver.stdout.log"
 $standardErrorPath = Join-Path $logDirectory "fingvibe-winappdriver.stderr.log"
+$startupLogPath = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-ui-review-startup.log"
+if (Test-Path -LiteralPath $startupLogPath) {
+    Remove-Item -LiteralPath $startupLogPath
+}
 
 function Invoke-WebDriverRequest {
     param(
@@ -267,6 +272,21 @@ finally {
     }
 
     if (-not $succeeded) {
+        if (Test-Path -LiteralPath $startupLogPath) {
+            Get-Content -LiteralPath $startupLogPath | Write-Host
+        }
+        try {
+            Get-WinEvent -FilterHashtable @{
+                LogName = "Application"
+                ProviderName = @(".NET Runtime", "Application Error")
+                StartTime = $reviewStartedAt
+            } -ErrorAction Stop |
+                Where-Object { $_.Message -like "*FingVibe.App*" } |
+                ForEach-Object { Write-Host $_.Message }
+        }
+        catch {
+            Write-Warning "No application crash events were available: $($_.Exception.Message)"
+        }
         if (Test-Path -LiteralPath $standardOutputPath) {
             Get-Content -LiteralPath $standardOutputPath | Write-Host
         }

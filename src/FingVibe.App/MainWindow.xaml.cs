@@ -11,10 +11,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        if (IsUiReview)
-        {
-            RootGrid.RequestedTheme = ElementTheme.Dark;
-        }
+        InitializeAppearance();
 
         ResultsList.ItemsSource = _visibleResults;
         StatusFilter.SelectedIndex = 0;
