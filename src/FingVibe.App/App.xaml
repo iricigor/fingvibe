@@ -10,6 +10,11 @@
             </ResourceDictionary.MergedDictionaries>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+                    <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ControlFillColorDefaultBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ControlFillColorSecondaryBrush" Color="#F0F2F5" />
+                    <SolidColorBrush x:Key="ControlFillColorTertiaryBrush" Color="#E5E8ED" />
                     <SolidColorBrush x:Key="ScannerPageBackgroundBrush" Color="#F6F7F9" />
                     <SolidColorBrush x:Key="ScannerHeaderBackgroundBrush" Color="#ECEFF3" />
                     <SolidColorBrush x:Key="ScannerCardBorderBrush" Color="#D5DAE2" />
@@ -21,6 +26,11 @@
                     <SolidColorBrush x:Key="ScannerOfflineForegroundBrush" Color="#475569" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+                    <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="#1B1E24" />
+                    <SolidColorBrush x:Key="ControlFillColorDefaultBrush" Color="#292D35" />
+                    <SolidColorBrush x:Key="ControlFillColorSecondaryBrush" Color="#343944" />
+                    <SolidColorBrush x:Key="ControlFillColorTertiaryBrush" Color="#20242B" />
                     <SolidColorBrush x:Key="ScannerPageBackgroundBrush" Color="#111318" />
                     <SolidColorBrush x:Key="ScannerHeaderBackgroundBrush" Color="#20242B" />
                     <SolidColorBrush x:Key="ScannerCardBorderBrush" Color="#3A414B" />
@@ -32,6 +42,7 @@
                     <SolidColorBrush x:Key="ScannerOfflineForegroundBrush" Color="#CBD5E1" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush x:Key="NavigationViewContentBackground" Color="{ThemeResource SystemColorWindowColor}" />
                     <SolidColorBrush x:Key="ScannerPageBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
                     <SolidColorBrush x:Key="ScannerHeaderBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
                     <SolidColorBrush x:Key="ScannerCardBorderBrush" Color="{ThemeResource SystemColorWindowTextColor}" />

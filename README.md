@@ -11,6 +11,7 @@ FingVibe is a native Windows 11 LAN scanner built with C# and WinUI 3. It detect
 - ISP-based network identity with a Network page showing public and local addresses plus approximate public-IP location (or **Unknown**)
 - Device details page opened by clicking a device in the Devices table
 - Resizable Devices table columns and a Settings column selector (kept for the current session)
+- Live appearance settings: Solid, Mica, Mica Alt, or Acrylic backdrops, plus Standard Light, Warm Light, Standard Dark, and True Black (OLED) themes
 - Parallel ICMP scanning with up to 256 concurrent probes
 - Device names from UPnP/SSDP, mDNS, reverse DNS, and NetBIOS
 - MAC vendor lookup using locally cached IEEE registries, including private/randomized detection
@@ -36,6 +37,8 @@ dotnet run --project src\FingVibe.App\FingVibe.App.csproj -p:Platform=x64
 ```
 
 The scanner uses ICMP echo requests. Firewall rules and devices configured not to answer ICMP can cause an active host to appear unreachable. On first use, vendor detection downloads the official IEEE MA-L, MA-M, and MA-S registries and caches them under the current user's local application data for 30 days.
+
+Appearance choices in **Settings** apply immediately and are saved to `%LOCALAPPDATA%\FingVibe\appearance.json` for the next launch. Unsupported backdrop materials fall back to a solid theme background without discarding your selection. Material rendering also follows Windows transparency settings; Windows high contrast uses system colors instead.
 
 Public IP and ISP details are retrieved from `ipwho.is`. This optional display depends on internet access and sends the connection's public IP to that provider as part of the HTTPS request. LAN discovery and scanning continue to work when the lookup is unavailable.
 
