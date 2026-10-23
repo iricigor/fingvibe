@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using FingVibe.Core.Formatting;
 using FingVibe.Core.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -112,10 +111,14 @@ public sealed partial class MainWindow
         }
     }
 
+    private void OpenPortsFilter_Changed(object sender, RoutedEventArgs e) =>
+        RefreshVisibleResults();
+
     private bool ShouldShow(ScanResultRow row) =>
-        (StatusFilter.SelectedIndex != 1 || row.IsOnline)
-        && (row.NameText.Contains(ResultSearchBox.Text.Trim(), StringComparison.OrdinalIgnoreCase)
-            || row.Result.MatchesFilter(ResultSearchBox.Text));
+        new DeviceResultFilter(
+            StatusFilter.SelectedIndex == 1,
+            OpenPortsFilter.IsChecked == true,
+            ResultSearchBox.Text).Matches(row);
 
     private void InsertSorted(ScanResultRow result)
     {
@@ -195,37 +198,6 @@ public sealed partial class MainWindow
     private string GetSortGlyph(ResultSortColumn column) =>
         _sortColumn == column ? (_sortAscending ? "\u2191" : "\u2193") : string.Empty;
 
-    private void UpdateOverview()
-    {
-        if (OnlineDevicesText is null)
-        {
-            return;
-        }
-
-        var hasResults = _allResults.Count > 0;
-        OnlineDevicesText.Text = hasResults ? _allResults.Count(row => row.IsOnline).ToString("N0") : "-";
-        OfflineAddressesText.Text = hasResults ? _allResults.Count(row => row.IsOffline).ToString("N0") : "-";
-        OpenPortDevicesText.Text = hasResults
-            ? _allResults.Count(row => row.Result.OpenPortItems.Count > 0).ToString("N0")
-            : "-";
-
-        if (_isScanning)
-        {
-            LastScanText.Text = "Scan in progress";
-            LastScanDetailText.Text = string.Empty;
-        }
-        else if (_lastCompletedScan is { } scan)
-        {
-            LastScanText.Text = $"{ScanAgeFormatter.FormatAge(DateTimeOffset.UtcNow - scan.CompletedAt)} ago";
-            LastScanDetailText.Text = $"{scan.Subnet} · completed {scan.CompletedAt.ToLocalTime():g}";
-        }
-        else
-        {
-            LastScanText.Text = "Not scanned yet";
-            LastScanDetailText.Text = string.Empty;
-        }
-    }
-
     private void UpdateEmptyState()
     {
         if (EmptyResultsText is null)
@@ -246,6 +218,10 @@ public sealed partial class MainWindow
         else if (!string.IsNullOrWhiteSpace(ResultSearchBox.Text))
         {
             EmptyResultsText.Text = "No hosts match the current filter.";
+        }
+        else if (OpenPortsFilter.IsChecked == true)
+        {
+            EmptyResultsText.Text = "No devices with open ports match the current filters.";
         }
         else if (StatusFilter.SelectedIndex == 1)
         {

@@ -25,7 +25,8 @@ public sealed partial class MainWindow
         _minimumLatency = long.MaxValue;
         _maximumLatency = 0;
         _onlineDeviceCount = null;
-        SnapshotStatusText.Text = $"Current scan results for {network.Cidr}";
+        _displayedScan = new OverviewScanContext(network.Cidr, DateTimeOffset.UtcNow, ScanDisplayStatus.Scanning);
+        SnapshotStatusText.Text = _displayedScan.Describe(network.Cidr);
         SnapshotStatusText.Visibility = Visibility.Visible;
         UpdateNetworkIdentity();
         _isScanning = true;
@@ -33,6 +34,8 @@ public sealed partial class MainWindow
         ScanButton.IsEnabled = false;
         NetworkPicker.IsEnabled = false;
         CancelButton.IsEnabled = true;
+        CancelButton.Visibility = Visibility.Visible;
+        ScanProgressBar.Visibility = Visibility.Visible;
         _scanCancellation = new CancellationTokenSource();
 
         var total = SubnetCalculator.GetUsableHostCount(network.PrefixLength);
@@ -77,10 +80,14 @@ public sealed partial class MainWindow
         }
         catch (OperationCanceledException)
         {
+            _displayedScan = _displayedScan with { Status = ScanDisplayStatus.Cancelled };
+            SnapshotStatusText.Text = $"{_displayedScan.Freshness(DateTimeOffset.UtcNow)}. {_displayedScan.Describe(network.Cidr)}";
             ScanStatusText.Text = $"Cancelled after {_allResults.Count:N0} results";
         }
         catch (InvalidOperationException exception)
         {
+            _displayedScan = _displayedScan with { Status = ScanDisplayStatus.Failed, FailureMessage = exception.Message };
+            SnapshotStatusText.Text = _displayedScan.Describe(network.Cidr);
             EmptyResultsText.Text = exception.Message;
             EmptyResultsText.Visibility = Visibility.Visible;
             ScanStatusText.Text = "Unable to scan this subnet";
@@ -94,6 +101,8 @@ public sealed partial class MainWindow
             ScanButton.IsEnabled = true;
             NetworkPicker.IsEnabled = true;
             CancelButton.IsEnabled = false;
+            CancelButton.Visibility = Visibility.Collapsed;
+            ScanProgressBar.Visibility = Visibility.Collapsed;
         }
     }
 

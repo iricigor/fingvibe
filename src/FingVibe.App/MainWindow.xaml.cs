@@ -17,6 +17,7 @@ public sealed partial class MainWindow : Window
         StatusFilter.SelectedIndex = 0;
         UpdateSortGlyphs();
         MainNavigation.SelectedItem = OverviewNavItem;
+        InitializeOverview();
     }
 
     public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
@@ -83,9 +84,6 @@ public sealed partial class MainWindow : Window
 
     private void ViewNetworkButton_Click(object sender, RoutedEventArgs e) =>
         MainNavigation.SelectedItem = NetworkNavItem;
-
-    private void ViewDevicesButton_Click(object sender, RoutedEventArgs e) =>
-        MainNavigation.SelectedItem = DevicesNavItem;
 
     private void BackToDevicesButton_Click(object sender, RoutedEventArgs e) =>
         ShowPage(DevicesPage);
