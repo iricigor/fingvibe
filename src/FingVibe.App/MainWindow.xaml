@@ -11,8 +11,8 @@
 
     <Grid x:Name="RootGrid" Loaded="RootGrid_Loaded" Background="{ThemeResource ScannerPageBackgroundBrush}">
         <NavigationView x:Name="MainNavigation"
-                        PaneDisplayMode="Left"
-                        IsPaneToggleButtonVisible="False"
+                        PaneDisplayMode="Auto"
+                        IsPaneToggleButtonVisible="True"
                         IsBackButtonVisible="Collapsed"
                         IsSettingsVisible="True"
                         IsTitleBarAutoPaddingEnabled="False"
@@ -67,15 +67,17 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <Grid x:Name="ScanBar" Margin="28,24,28,16" ColumnSpacing="12">
+                <Grid x:Name="ScanBar" Margin="24,16,24,16" ColumnSpacing="12">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="2*" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <ComboBox x:Name="NetworkPicker"
-                              Width="340"
+                              MinWidth="150"
+                              MaxWidth="360"
+                              HorizontalAlignment="Stretch"
                               Header="Detected network"
                               SelectionChanged="NetworkPicker_SelectionChanged" />
                     <Button x:Name="ScanButton"
@@ -95,7 +97,7 @@
                             Click="CancelButton_Click"
                             Content="Cancel"
                             IsEnabled="False" />
-                    <StackPanel Grid.Column="3" VerticalAlignment="Bottom" Spacing="4" Margin="0,0,0,4">
+                    <StackPanel Grid.Column="3" MinWidth="100" VerticalAlignment="Bottom" Spacing="4" Margin="0,0,0,4">
                         <TextBlock x:Name="ScanStatusText"
                                    Text="Ready"
                                    HorizontalAlignment="Right"
@@ -111,7 +113,7 @@
 
                 <!-- Overview -->
                 <ScrollViewer x:Name="OverviewPage" Grid.Row="1">
-                    <StackPanel Margin="28,0,28,28" Spacing="16">
+                    <StackPanel Margin="24,0,24,24" Spacing="16">
                         <TextBlock Text="Overview" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
                         <Border Style="{StaticResource ScannerSummaryCardStyle}">
                             <StackPanel Spacing="4">
@@ -169,7 +171,7 @@
 
                 <!-- Network -->
                 <ScrollViewer x:Name="NetworkPage" Grid.Row="1" Visibility="Collapsed">
-                    <StackPanel Margin="28,0,28,28" Spacing="16">
+                    <StackPanel Margin="24,0,24,24" Spacing="16">
                         <TextBlock Text="Network" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
                         <Border Style="{StaticResource ScannerSummaryCardStyle}">
                             <Grid ColumnSpacing="24" RowSpacing="16">
@@ -241,7 +243,7 @@
                 </ScrollViewer>
 
                 <!-- Devices -->
-                <Grid x:Name="DevicesPage" Grid.Row="1" Margin="28,0,28,28" Visibility="Collapsed">
+                <Grid x:Name="DevicesPage" Grid.Row="1" Margin="24,0,24,24" Visibility="Collapsed">
                     <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                             BorderBrush="{ThemeResource ScannerCardBorderBrush}"
                             BorderThickness="1"
@@ -268,14 +270,14 @@
                                 </StackPanel>
                                 <TextBox x:Name="ResultSearchBox"
                                          Grid.Column="1"
-                                         Width="220"
+                                         Width="180"
                                          VerticalAlignment="Bottom"
                                          PlaceholderText="Filter"
                                          AutomationProperties.Name="Filter scan results"
                                          TextChanged="ResultSearchBox_TextChanged" />
                                 <ComboBox x:Name="StatusFilter"
                                           Grid.Column="2"
-                                          MinWidth="150"
+                                          MinWidth="135"
                                           Header="Show"
                                           SelectionChanged="StatusFilter_SelectionChanged">
                                     <ComboBoxItem Content="All hosts" />
@@ -388,10 +390,11 @@
                                         </ListView.Resources>
                                         <ListView.ItemContainerStyle>
                                             <Style TargetType="ListViewItem">
-                                                <Setter Property="MinHeight" Value="32" />
+                                                <Setter Property="MinHeight" Value="34" />
                                                 <Setter Property="Padding" Value="0" />
                                                 <Setter Property="Margin" Value="0" />
                                                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                                <Setter Property="UseSystemFocusVisuals" Value="True" />
                                             </Style>
                                         </ListView.ItemContainerStyle>
                                         <ListView.ItemTemplate>
@@ -508,7 +511,7 @@
 
                 <!-- Device details -->
                 <ScrollViewer x:Name="DevicePage" Grid.Row="1" Visibility="Collapsed">
-                    <StackPanel Margin="28,0,28,28" Spacing="16">
+                    <StackPanel Margin="24,0,24,24" Spacing="16">
                         <Button Click="BackToDevicesButton_Click" AutomationProperties.Name="Back to devices">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <FontIcon Glyph="&#xE72B;" FontSize="14" />
@@ -577,14 +580,14 @@
                 </ScrollViewer>
 
                 <!-- People -->
-                <StackPanel x:Name="PeoplePage" Grid.Row="1" Margin="28,0,28,28" Spacing="12" Visibility="Collapsed">
+                <StackPanel x:Name="PeoplePage" Grid.Row="1" Margin="24,0,24,24" Spacing="12" Visibility="Collapsed">
                     <TextBlock Text="People" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
                     <TextBlock Text="People will be available in a future version."
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
 
                 <!-- Rooms -->
-                <StackPanel x:Name="RoomsPage" Grid.Row="1" Margin="28,0,28,28" Spacing="12" Visibility="Collapsed">
+                <StackPanel x:Name="RoomsPage" Grid.Row="1" Margin="24,0,24,24" Spacing="12" Visibility="Collapsed">
                     <TextBlock Text="Rooms" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
                     <TextBlock Text="Rooms will be available in a future version."
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -592,7 +595,7 @@
 
                 <!-- Settings -->
                 <ScrollViewer x:Name="SettingsPage" Grid.Row="1" Visibility="Collapsed">
-                    <StackPanel Margin="28,0,28,28" Spacing="16">
+                    <StackPanel Margin="24,0,24,24" Spacing="16">
                         <TextBlock Text="Settings" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
                         <Border Style="{StaticResource ScannerSummaryCardStyle}">
                             <StackPanel Spacing="8">
