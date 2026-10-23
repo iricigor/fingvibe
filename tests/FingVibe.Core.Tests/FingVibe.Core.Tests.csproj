@@ -22,5 +22,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\src\FingVibe.App\ScanResultRow.cs" Link="ScanResultRow.cs" />
+    <Compile Include="..\..\src\FingVibe.App\DeviceColumns.cs" Link="DeviceColumns.cs" />
   </ItemGroup>
 </Project>

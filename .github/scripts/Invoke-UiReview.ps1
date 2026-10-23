@@ -229,6 +229,11 @@ try {
         throw "Invoking 'Scan LAN' did not enter or complete the expected scanning state."
     }
 
+    $devicesMenuItem = Find-WebDriverElement `
+        -Using xpath `
+        -Value "//ListItem[@Name='Devices']"
+    Invoke-WebDriverElement -ElementId $devicesMenuItem
+
     $result = Find-WebDriverElement `
         -Using xpath `
         -Value "//*[@Name='Online' or @Name='Offline']" `

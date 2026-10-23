@@ -28,6 +28,50 @@ public sealed class PublicNetworkIdentityServiceTests
     }
 
     [Fact]
+    public async Task GetAsync_ParsesLocation()
+    {
+        const string response = """
+            {
+              "success": true,
+              "ip": "203.0.113.10",
+              "city": "Belgrade",
+              "region": "Belgrade",
+              "country": "Serbia",
+              "connection": {
+                "isp": "Example ISP"
+              }
+            }
+            """;
+        var service = CreateService(HttpStatusCode.OK, response);
+
+        var identity = await service.GetAsync();
+
+        Assert.Equal("Belgrade, Serbia", identity.Location);
+        Assert.Equal("Belgrade, Serbia", identity.LocationText);
+    }
+
+    [Fact]
+    public async Task GetAsync_ReportsUnknownLocationWhenMissing()
+    {
+        const string response = """
+            {
+              "success": true,
+              "ip": "203.0.113.10",
+              "city": "",
+              "connection": {
+                "isp": "Example ISP"
+              }
+            }
+            """;
+        var service = CreateService(HttpStatusCode.OK, response);
+
+        var identity = await service.GetAsync();
+
+        Assert.Null(identity.Location);
+        Assert.Equal("Unknown", identity.LocationText);
+    }
+
+    [Fact]
     public async Task GetAsync_RejectsUnsuccessfulProviderResponse()
     {
         const string response = """

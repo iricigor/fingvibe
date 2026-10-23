@@ -27,6 +27,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     }
 
     public ScanResult Result { get; }
+    public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
     public string AddressPrefix { get; }
     public string AddressHost { get; }
     public string MacOui { get; }

@@ -44,6 +44,7 @@ public sealed partial class MainWindow : Window
     private bool _sortAscending = true;
     private bool _isScanning;
     private bool _hasRestoredSnapshot;
+    private ScanSnapshot? _lastCompletedScan;
 
     public MainWindow()
     {
@@ -56,10 +57,19 @@ public sealed partial class MainWindow : Window
         ResultsList.ItemsSource = _visibleResults;
         StatusFilter.SelectedIndex = 0;
         UpdateSortGlyphs();
+        MainNavigation.SelectedItem = OverviewNavItem;
     }
+
+    public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
 
     private async void RootGrid_Loaded(object sender, RoutedEventArgs e)
     {
+        if (MainNavigation.SettingsItem is NavigationViewItem settingsItem)
+        {
+            settingsItem.Content = "Settings";
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(settingsItem, "Settings");
+        }
+
         await RestoreSavedScanAsync();
 
         var networks = IsUiReview
@@ -79,8 +89,10 @@ public sealed partial class MainWindow : Window
         if (networks.Count == 0)
         {
             NetworkIdentityText.Text = "No active IPv4 network";
+            NetworkNameText.Text = "No active IPv4 network";
             PublicAddressText.Text = "Unavailable";
             IspNameText.Text = "Unavailable";
+            LocationText.Text = PublicNetworkIdentity.UnknownLocation;
             MachineAddressText.Text = "No active IPv4 interface";
             LanAddressText.Text = "Unavailable";
             ScanStatusText.Text = "Connect to a LAN to scan";
@@ -94,9 +106,9 @@ public sealed partial class MainWindow : Window
         {
             _publicIdentity = new PublicNetworkIdentity(
                 IPAddress.Parse("203.0.113.10"),
-                "UI review ISP");
-            PublicAddressText.Text = _publicIdentity.PublicAddress.ToString();
-            IspNameText.Text = _publicIdentity.IspName;
+                "UI review ISP",
+                "Example City, Example Country");
+            ShowPublicNetworkIdentity(_publicIdentity);
             UpdateNetworkIdentity();
             return;
         }
@@ -123,8 +135,7 @@ public sealed partial class MainWindow : Window
         try
         {
             _publicIdentity = await _publicNetworkIdentity.GetAsync();
-            PublicAddressText.Text = _publicIdentity.PublicAddress.ToString();
-            IspNameText.Text = _publicIdentity.IspName;
+            ShowPublicNetworkIdentity(_publicIdentity);
         }
         catch (HttpRequestException)
         {
@@ -146,11 +157,19 @@ public sealed partial class MainWindow : Window
         UpdateNetworkIdentity();
     }
 
+    private void ShowPublicNetworkIdentity(PublicNetworkIdentity identity)
+    {
+        PublicAddressText.Text = identity.PublicAddress.ToString();
+        IspNameText.Text = identity.IspName;
+        LocationText.Text = identity.LocationText;
+    }
+
     private void ShowPublicNetworkIdentityUnavailable()
     {
         _publicIdentity = null;
         PublicAddressText.Text = "Unavailable";
         IspNameText.Text = "Unavailable";
+        LocationText.Text = PublicNetworkIdentity.UnknownLocation;
     }
 
     private void UpdateNetworkIdentity()
@@ -164,6 +183,7 @@ public sealed partial class MainWindow : Window
             network,
             _publicIdentity,
             _onlineDeviceCount);
+        NetworkNameText.Text = NetworkIdentityFormatter.FormatSummary(network, _publicIdentity);
     }
 
     private async void ScanButton_Click(object sender, RoutedEventArgs e)
@@ -230,6 +250,7 @@ public sealed partial class MainWindow : Window
                 network.Cidr,
                 DateTimeOffset.UtcNow,
                 _allResults.Select(row => row.Result).ToArray());
+            _lastCompletedScan = snapshot;
             try
             {
                 await _snapshotStore.SaveAsync(snapshot);
@@ -306,10 +327,12 @@ public sealed partial class MainWindow : Window
 
     private void ShowSavedSnapshotStatus(ScanSnapshot snapshot)
     {
+        _lastCompletedScan = snapshot;
         var age = ScanAgeFormatter.FormatAge(DateTimeOffset.UtcNow - snapshot.CompletedAt);
         var completedAt = snapshot.CompletedAt.ToLocalTime().ToString("g");
         SnapshotStatusText.Text = $"Saved results for {snapshot.Subnet} · {age} old · completed {completedAt}";
         SnapshotStatusText.Visibility = Visibility.Visible;
+        UpdateOverview();
     }
 
     private void ShowSnapshotError(string message)
@@ -483,6 +506,116 @@ public sealed partial class MainWindow : Window
     private string GetSortGlyph(ResultSortColumn column) =>
         _sortColumn == column ? (_sortAscending ? "\u2191" : "\u2193") : string.Empty;
 
+    private void MainNavigation_SelectionChanged(
+        NavigationView sender,
+        NavigationViewSelectionChangedEventArgs args)
+    {
+        if (args.IsSettingsSelected)
+        {
+            ShowPage(SettingsPage);
+        }
+        else if (args.SelectedItem is NavigationViewItem { Tag: string tag })
+        {
+            ShowPage(GetPage(tag));
+        }
+    }
+
+    private void MainNavigation_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
+    {
+        // Re-invoking the selected Devices item returns from a device page without a selection change.
+        if (args.InvokedItemContainer == DevicesNavItem && DevicePage.Visibility == Visibility.Visible)
+        {
+            ShowPage(DevicesPage);
+        }
+    }
+
+    private UIElement GetPage(string tag) => tag switch
+    {
+        "Network" => NetworkPage,
+        "Devices" => DevicesPage,
+        "People" => PeoplePage,
+        "Rooms" => RoomsPage,
+        _ => OverviewPage
+    };
+
+    private void ShowPage(UIElement page)
+    {
+        foreach (var candidate in new UIElement[]
+                 {
+                     OverviewPage, NetworkPage, DevicesPage, DevicePage, PeoplePage, RoomsPage, SettingsPage
+                 })
+        {
+            candidate.Visibility = candidate == page ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        ScanBar.Visibility = page == OverviewPage || page == NetworkPage || page == DevicesPage || page == DevicePage
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void ViewNetworkButton_Click(object sender, RoutedEventArgs e) =>
+        MainNavigation.SelectedItem = NetworkNavItem;
+
+    private void ViewDevicesButton_Click(object sender, RoutedEventArgs e) =>
+        MainNavigation.SelectedItem = DevicesNavItem;
+
+    private void BackToDevicesButton_Click(object sender, RoutedEventArgs e) =>
+        ShowPage(DevicesPage);
+
+    private void ResetColumnsButton_Click(object sender, RoutedEventArgs e) =>
+        Columns.Reset();
+
+    private void ResultsList_ItemClick(object sender, ItemClickEventArgs e)
+    {
+        if (e.ClickedItem is not ScanResultRow row)
+        {
+            return;
+        }
+
+        var result = row.Result;
+        DeviceTitleText.Text = result.NameText;
+        DeviceAddressText.Text = result.AddressText;
+        DeviceMacText.Text = result.MacAddressText;
+        DeviceVendorText.Text = result.VendorText;
+        DeviceStatusText.Text = row.IsOnline ? "Online" : "Offline (no ICMP response)";
+        DeviceResponseText.Text = result.RoundtripText;
+        DeviceProbeText.Text = $"{result.ProbeDuration.TotalMilliseconds:N0} ms";
+        DevicePortsList.ItemsSource = result.OpenPortItems;
+        DeviceNoPortsText.Visibility = result.OpenPortItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        ShowPage(DevicePage);
+    }
+
+    private void UpdateOverview()
+    {
+        if (OnlineDevicesText is null)
+        {
+            return;
+        }
+
+        var hasResults = _allResults.Count > 0;
+        OnlineDevicesText.Text = hasResults ? _allResults.Count(row => row.IsOnline).ToString("N0") : "-";
+        OfflineAddressesText.Text = hasResults ? _allResults.Count(row => row.IsOffline).ToString("N0") : "-";
+        OpenPortDevicesText.Text = hasResults
+            ? _allResults.Count(row => row.Result.OpenPortItems.Count > 0).ToString("N0")
+            : "-";
+
+        if (_isScanning)
+        {
+            LastScanText.Text = "Scan in progress";
+            LastScanDetailText.Text = string.Empty;
+        }
+        else if (_lastCompletedScan is { } scan)
+        {
+            LastScanText.Text = $"{ScanAgeFormatter.FormatAge(DateTimeOffset.UtcNow - scan.CompletedAt)} ago";
+            LastScanDetailText.Text = $"{scan.Subnet} · completed {scan.CompletedAt.ToLocalTime():g}";
+        }
+        else
+        {
+            LastScanText.Text = "Not scanned yet";
+            LastScanDetailText.Text = string.Empty;
+        }
+    }
+
     private void UpdateEmptyState()
     {
         if (EmptyResultsText is null)
@@ -492,6 +625,7 @@ public sealed partial class MainWindow : Window
 
         ResultCountText.Text = $"{_visibleResults.Count:N0} {(_visibleResults.Count == 1 ? "host" : "hosts")}";
         EmptyResultsText.Visibility = _visibleResults.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        UpdateOverview();
 
         if (_allResults.Count == 0)
         {
