@@ -13,7 +13,9 @@ Review the pull request as a UI/UX and accessibility specialist for this native 
 
 Build and run the application. Exercise the primary user journey affected by the pull request, preferring newly added or changed functionality. Inspect the rendered state rather than relying only on XAML source.
 
-Always capture a current screenshot of the running application and post it in the pull request. The screenshot should show the changed functionality when possible. If the pull request does not change UI, show the primary application screen after a smoke test. Never reuse an old screenshot.
+Always capture a current Devices screenshot after the scan/filter smoke test. Additionally navigate to and capture every view affected by the pull request, including relevant distinct states needed to demonstrate the change. Verify the intended view and controls are visible before each capture. If the pull request does not change UI, Devices alone is sufficient. Never reuse an old screenshot or substitute Devices for an affected view.
+
+Post all captures in the pull request with descriptive view/state labels and an explanation of how they relate to the changes. The automated pipeline selects scenarios from the PR diff and records its reasons in the capture plan and comment. Shared or unrecognized application changes conservatively capture all supported scenarios. Extend the scenario selection, navigation, and tests when adding a new view or a state not covered by the existing scenarios. A required view/state that cannot be reached, verified, or captured fails the review with an actionable explanation.
 
 Check:
 
