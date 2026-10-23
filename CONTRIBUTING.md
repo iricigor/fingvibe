@@ -46,11 +46,11 @@ After selecting Architect:
 >
 > **User:** Implement this issue.
 >
-> **Architect:** Checks all current open PRs, including drafts, against the planned changes. With no potential conflicts, proceeds without redundant confirmation. If there is a potential conflict, explains the affected PRs and components and waits for an additional explicit confirmation. An incomplete or failed assessment also requires confirmation.
+> **Architect:** Checks all current open PRs, including drafts, and all other open issues labeled `active` against the planned changes, with complete pagination. Reads active issues' scope and relevant discussion to assess concurrent work even when no PR exists. With no potential conflicts, proceeds without redundant confirmation. If there is a potential conflict, explains the affected issues, PRs, and components and waits for an additional explicit confirmation. An incomplete or failed assessment, including insufficient information in an active issue, also requires confirmation.
 >
 > **User, only if another confirmation is needed:** Proceed despite the conflicts you identified.
 >
-> **Architect:** Implements the agreed scope, validates it, commits and pushes the changes, and opens or updates a GitHub PR linked to the issue. It does not merge the PR.
+> **Architect:** Adds the repository's existing `active` label (Active) to the issue and verifies it, then implements the agreed scope, validates it, commits and pushes the changes, and opens or updates a GitHub PR linked to the issue. Once the remote branch and PR are verified, removes `active` from the issue and verifies its absence without waiting for merge or issue closure. It does not merge the PR.
 >
 > **Architect:** Shares the PR link and discusses **Unclear or underspecified requirements** and **Suggested additions** here in the interactive session. Asks one focused question at a time and waits for the user's answers rather than ending with a PR comment.
 >
@@ -59,6 +59,10 @@ After selecting Architect:
 > **Architect:** Continues the discussion, then records its outcome in a supplementary retrospective PR comment. Optional additions remain proposals unless separately requested.
 
 Interactive discussion is the primary intent: Architect preserves the interactive nature of the session through the retrospective. A PR comment is a record of that conversation, not its replacement. In a non-interactive run, Architect instead posts the retrospective directly on the PR and summarizes it in the final output without waiting for unavailable input.
+
+The Active label tracks authorized implementation, not discussion or review. It is not applied during issue creation or while awaiting implementation authorization or conflict confirmation. Label changes preserve unrelated labels and reuse the existing lowercase `active` label. If PR publication or verification is blocked, the label remains; any label operation or verification failure must be reported explicitly.
+
+The conflict assessment excludes the current implementation issue and distinguishes its own PR from competing work. It considers affected components, shared contracts, dependencies, intended behavior, and structural changes, not just filenames. Having no open PRs does not bypass the active-issue check.
 
 Material uncertainties must be clarified during the work, not left only for the final retrospective. If no ambiguities or useful additions were found, Architect says so explicitly rather than inventing discussion points.
 
