@@ -18,7 +18,6 @@ public sealed partial class MainWindow
     private Dictionary<string, string> _deviceNameOverrides = new(StringComparer.OrdinalIgnoreCase);
     private bool _deviceNameOverridesUnavailable;
     private bool _hasRestoredSnapshot;
-    private ScanSnapshot? _lastCompletedScan;
 
     private async Task RestoreSavedScanAsync()
     {
@@ -89,7 +88,8 @@ public sealed partial class MainWindow
             network.Cidr,
             DateTimeOffset.UtcNow,
             results.Select(row => row.Result).ToArray());
-        _lastCompletedScan = snapshot;
+        _displayedScan = new OverviewScanContext(snapshot.Subnet, snapshot.CompletedAt, ScanDisplayStatus.Completed);
+        UpdateOverview();
         try
         {
             await _snapshotStore.SaveAsync(snapshot);
@@ -103,7 +103,7 @@ public sealed partial class MainWindow
 
     private void ShowSavedSnapshotStatus(ScanSnapshot snapshot)
     {
-        _lastCompletedScan = snapshot;
+        _displayedScan = new OverviewScanContext(snapshot.Subnet, snapshot.CompletedAt, ScanDisplayStatus.Completed);
         var age = ScanAgeFormatter.FormatAge(DateTimeOffset.UtcNow - snapshot.CompletedAt);
         var completedAt = snapshot.CompletedAt.ToLocalTime().ToString("g");
         SnapshotStatusText.Text = $"Saved results for {snapshot.Subnet} · {age} old · completed {completedAt}";
@@ -113,7 +113,9 @@ public sealed partial class MainWindow
 
     private void ShowSnapshotError(string message)
     {
-        SnapshotStatusText.Text = message;
+        SnapshotStatusText.Text = _displayedScan is { } scan
+            ? $"{message} {scan.Describe((NetworkPicker.SelectedItem as LanNetwork)?.Cidr)}"
+            : message;
         SnapshotStatusText.Visibility = Visibility.Visible;
     }
 }

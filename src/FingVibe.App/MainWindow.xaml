@@ -69,11 +69,14 @@
                 </Grid.RowDefinitions>
 
                 <Grid x:Name="ScanBar" Margin="24,16,24,16" ColumnSpacing="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="2*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <ComboBox x:Name="NetworkPicker"
                               MinWidth="150"
@@ -97,23 +100,26 @@
                             VerticalAlignment="Bottom"
                             Click="CancelButton_Click"
                             Content="Cancel"
+                            Visibility="Collapsed"
                             IsEnabled="False" />
-                    <StackPanel Grid.Column="3" MinWidth="100" VerticalAlignment="Bottom" Spacing="4" Margin="0,0,0,4">
+                    <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Spacing="4" Margin="0,8,0,0">
                         <TextBlock x:Name="ScanStatusText"
                                    Text="Ready"
-                                   HorizontalAlignment="Right"
+                                   TextWrapping="Wrap"
                                    TextTrimming="CharacterEllipsis"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <ProgressBar x:Name="ScanProgressBar"
                                      Minimum="0"
                                      Maximum="1"
                                      Value="0"
+                                     Visibility="Collapsed"
                                      Height="4" />
                     </StackPanel>
                 </Grid>
 
                 <!-- Overview -->
-                <ScrollViewer x:Name="OverviewPage" Grid.Row="1">
+                <ScrollViewer x:Name="OverviewPage" Grid.Row="1" SizeChanged="OverviewPage_SizeChanged"
+                              HorizontalScrollBarVisibility="Disabled">
                     <StackPanel Margin="24,0,24,24" Spacing="16">
                         <TextBlock Text="Overview" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
                         <Border Style="{StaticResource ScannerSummaryCardStyle}">
@@ -128,6 +134,11 @@
                                                Text="Detecting network..."
                                                Style="{ThemeResource SubtitleTextBlockStyle}"
                                                TextWrapping="Wrap" />
+                                    <TextBlock x:Name="OverviewNetworkDetailText" TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock x:Name="OverviewFreshnessText" Text="Not scanned yet"
+                                               TextWrapping="Wrap"
+                                               Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
                                     <HyperlinkButton Content="View network details"
                                                      Padding="0,4"
                                                      Click="ViewNetworkButton_Click" />
@@ -155,7 +166,9 @@
                                 </Border>
                             </Grid>
                         </Border>
-                        <Grid ColumnSpacing="16" RowSpacing="16">
+                        <TextBlock x:Name="OverviewResultsContextText" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Grid x:Name="OverviewMetricsGrid" ColumnSpacing="16">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="*" />
@@ -164,36 +177,52 @@
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-                            <Border Style="{StaticResource ScannerSummaryCardStyle}">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="Online devices" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock x:Name="OnlineDevicesText" Text="-" Style="{ThemeResource TitleTextBlockStyle}"
+                            <Button x:Name="OnlineDevicesCard" Click="OnlineDevicesCard_Click"
+                                    Style="{StaticResource ScannerSummaryButtonStyle}"
+                                    AutomationProperties.Name="See online devices">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="Online devices" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock x:Name="OnlineDevicesText" Text="Not scanned" Style="{ThemeResource TitleTextBlockStyle}"
                                                Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
-                                </StackPanel>
-                            </Border>
-                            <Border Grid.Column="1" Style="{StaticResource ScannerSummaryCardStyle}">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="Offline addresses" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock x:Name="OfflineAddressesText" Text="-" Style="{ThemeResource TitleTextBlockStyle}" />
-                                </StackPanel>
-                            </Border>
-                            <Border Grid.Row="1" Style="{StaticResource ScannerSummaryCardStyle}">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="Devices with open ports" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock x:Name="OpenPortDevicesText" Text="-" Style="{ThemeResource TitleTextBlockStyle}" />
-                                </StackPanel>
-                            </Border>
-                            <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource ScannerSummaryCardStyle}">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Text="Last scan" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                    <TextBlock x:Name="LastScanText" Text="Not scanned yet" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                                    <TextBlock x:Name="LastScanDetailText"
-                                               TextWrapping="Wrap"
+                                    <TextBlock Text="Devices that answered this scan." TextWrapping="Wrap"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Text="See online devices &#x2192;" TextWrapping="Wrap" />
                                 </StackPanel>
-                            </Border>
+                            </Button>
+                            <Button x:Name="OpenPortDevicesCard" Grid.Column="1" Click="OpenPortDevicesCard_Click"
+                                    Style="{StaticResource ScannerSummaryButtonStyle}"
+                                    AutomationProperties.Name="See devices with open ports">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="Devices with open ports" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock x:Name="OpenPortDevicesText" Text="Not scanned" Style="{ThemeResource TitleTextBlockStyle}" />
+                                    <TextBlock Text="Observed services, not a security verdict." TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Text="See devices with open ports &#x2192;" TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Button>
                         </Grid>
-                        <Button Content="View devices" Click="ViewDevicesButton_Click" />
+                        <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="Network setup" FontWeight="SemiBold" />
+                                <TextBlock x:Name="OverviewSetupText" Text="Detecting network..." TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <HyperlinkButton Content="View network details" Padding="0,4"
+                                                 Click="ViewNetworkButton_Click" />
+                            </StackPanel>
+                        </Border>
+                        <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                            <StackPanel Spacing="4">
+                                <TextBlock Text="About FingVibe" FontWeight="SemiBold" />
+                                <TextBlock Text="Open-source network discovery, by Igor." TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <HyperlinkButton Content="GitHub repository &#x2197;" Padding="0,4"
+                                                 NavigateUri="https://github.com/iricigor/fingvibe"
+                                                 AutomationProperties.Name="GitHub repository (opens in browser)" />
+                                <HyperlinkButton Content="Creator's website &#x2197;" Padding="0,4"
+                                                 NavigateUri="https://igor.iric.online"
+                                                 AutomationProperties.Name="Creator's website (opens in browser)" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </ScrollViewer>
 
@@ -367,12 +396,14 @@
                                     <toolkit:SegmentedItem Content="Alive" AutomationProperties.Name="Alive" />
                                 </local:StatusFilterControl>
                             </Grid>
-                            <TextBlock x:Name="SnapshotStatusText"
-                                       Grid.Row="1"
-                                       Margin="16,0,16,8"
+                            <StackPanel Grid.Row="1" Margin="16,0,16,8" Spacing="4">
+                                <CheckBox x:Name="OpenPortsFilter" Content="Only devices with open ports"
+                                          Checked="OpenPortsFilter_Changed" Unchecked="OpenPortsFilter_Changed" />
+                                <TextBlock x:Name="SnapshotStatusText"
                                        TextWrapping="Wrap"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        Visibility="Collapsed" />
+                            </StackPanel>
                             <ScrollViewer Grid.Row="2"
                                           HorizontalScrollMode="Auto"
                                           HorizontalScrollBarVisibility="Auto"

@@ -22,8 +22,8 @@ public sealed partial class MainWindow
                 new(
                     "UI review loopback",
                     IPAddress.Loopback,
-                    IPAddress.Parse("127.0.0.0"),
-                    24,
+                    IPAddress.Loopback,
+                    32,
                     false)
             }
             : _networkDiscovery.GetAvailableNetworks();
@@ -34,6 +34,7 @@ public sealed partial class MainWindow
         {
             NetworkIdentityText.Text = "No active IPv4 network";
             NetworkNameText.Text = "No active IPv4 network";
+            OverviewNetworkDetailText.Text = string.Empty;
             PublicAddressText.Text = "Unavailable";
             IspNameText.Text = "Unavailable";
             LocationText.Text = PublicNetworkIdentity.UnknownLocation;
@@ -41,6 +42,7 @@ public sealed partial class MainWindow
             LanAddressText.Text = "Unavailable";
             ScanStatusText.Text = "Connect to a LAN to scan";
             ScanButton.IsEnabled = false;
+            UpdateOverview();
             return;
         }
 
@@ -69,6 +71,7 @@ public sealed partial class MainWindow
             SubnetMaskText.Text = "Masked bits: unavailable";
             SubnetAddressCountText.Text = "Unavailable";
             SubnetScopeText.Text = "Unavailable";
+            UpdateOverview();
             return;
         }
 
@@ -86,7 +89,7 @@ public sealed partial class MainWindow
         SubnetScopeText.Text = subnet.Scope;
         _onlineDeviceCount = null;
         UpdateNetworkIdentity();
-        ScanStatusText.Text = $"{SubnetCalculator.GetUsableHostCount(network.PrefixLength):N0} addresses ready";
+        UpdateOverview();
     }
 
     private async Task LoadPublicNetworkIdentityAsync()
@@ -142,6 +145,9 @@ public sealed partial class MainWindow
             network,
             _publicIdentity,
             _onlineDeviceCount);
-        NetworkNameText.Text = NetworkIdentityFormatter.FormatSummary(network, _publicIdentity);
+        NetworkNameText.Text = network.InterfaceName;
+        OverviewNetworkDetailText.Text = _publicIdentity is { } identity
+            ? $"{network.Cidr} - ISP: {identity.IspName}"
+            : network.Cidr;
     }
 }

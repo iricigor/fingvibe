@@ -270,7 +270,7 @@ try {
     Initialize-UiReviewWindow -WindowHandle $windowHandle
 
     $elements = @{}
-    foreach ($expectedName in @("FingVibe", "Detected network", "Scan LAN", "Cancel")) {
+    foreach ($expectedName in @("FingVibe", "Detected network", "Scan LAN")) {
         $elements[$expectedName] = Find-WebDriverElement -Using name -Value $expectedName
     }
 
@@ -283,14 +283,15 @@ try {
     $interactionDeadline = [DateTime]::UtcNow.AddSeconds(10)
     $scanEnteredExpectedState = $false
     do {
-        if (Get-WebDriverElementEnabled -ElementId $elements["Cancel"]) {
+        if (-not (Get-WebDriverElementEnabled -ElementId $elements["Scan LAN"])) {
+            $null = Assert-VisibleUiReviewElement -Value "Cancel"
             $scanEnteredExpectedState = $true
             break
         }
 
         $completion = Find-WebDriverElement `
             -Using xpath `
-            -Value "//*[starts-with(@Name, 'Complete in ')]" `
+            -Value "//*[starts-with(@Name, 'Updated ')]" `
             -TimeoutSeconds 1 `
             -Optional
         if ($completion) {
@@ -349,16 +350,39 @@ try {
     $null = Find-WebDriverElement -Using xpath -Value "//*[@Name='Online']"
     Assert-StatusFilterSelection -SelectedId $aliveHosts -UnselectedId $allHosts
 
-    if (Get-WebDriverElementEnabled -ElementId $elements["Cancel"]) {
-        Invoke-WebDriverElement -ElementId $elements["Cancel"]
-    }
-    $scanStoppedDeadline = [DateTime]::UtcNow.AddSeconds(15)
+    $scanStoppedDeadline = [DateTime]::UtcNow.AddSeconds(60)
     while (-not (Get-WebDriverElementEnabled -ElementId $elements["Scan LAN"])) {
         if ([DateTime]::UtcNow -ge $scanStoppedDeadline) {
-            throw "The scan did not stop within 15 seconds before capturing the required views."
+            throw "The scan did not complete within 60 seconds before capturing the required views."
         }
         Start-Sleep -Milliseconds 100
     }
+
+    # Summary navigation must replace stale filters and leave its port filter visible and reversible.
+    $portsFilter = Assert-VisibleUiReviewElement -Value "Only devices with open ports"
+    $null = Invoke-WebDriverRequest -Method Post `
+        -Endpoint "/session/$sessionId/element/$search/value" `
+        -Body @{ value = @("fingvibe-no-matching-host") }
+    $overview = Find-WebDriverElement -Using xpath -Value "//ListItem[@Name='Overview']"
+    Invoke-WebDriverElement -ElementId $overview
+    $portsCard = Assert-VisibleUiReviewElement -Value "See devices with open ports"
+    Invoke-WebDriverElement -ElementId $portsCard
+    Assert-StatusFilterSelection -SelectedId $allHosts -UnselectedId $aliveHosts
+    $checked = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$portsFilter/selected"
+    if (-not $checked.value) { throw "The open-port summary did not enable the visible port filter." }
+    $searchValue = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$search/text"
+    if ($searchValue.value) { throw "Summary navigation did not clear the stale text filter." }
+
+    Invoke-WebDriverElement -ElementId $overview
+    $onlineCard = Assert-VisibleUiReviewElement -Value "See online devices"
+    $null = Invoke-WebDriverRequest -Method Post `
+        -Endpoint "/session/$sessionId/element/$onlineCard/value" `
+        -Body @{ value = @([string] [char] 0xE007) }
+    $null = Assert-VisibleUiReviewElement -Value "Only devices with open ports"
+    Assert-StatusFilterSelection -SelectedId $aliveHosts -UnselectedId $allHosts
+    $checked = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$portsFilter/selected"
+    if ($checked.value) { throw "The online summary retained a stale port filter." }
+    $null = Assert-VisibleUiReviewElement -Value "Online"
 
     $captureDirectory = [System.IO.Path]::GetFullPath($ScreenshotDirectory)
     $null = New-Item -ItemType Directory -Path $captureDirectory -Force

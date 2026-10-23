@@ -167,6 +167,7 @@ public sealed partial class MainWindow
                 .OrderBy(port => port.Port)
                 .ToArray();
             row.UpdateOpenPorts(openPorts);
+            RefreshVisibleResults();
             if (ReferenceEquals(_selectedDeviceRow, row))
             {
                 DevicePortsList.ItemsSource = openPorts;
