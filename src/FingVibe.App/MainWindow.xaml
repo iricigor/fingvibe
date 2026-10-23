@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:FingVibe.App"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:models="using:FingVibe.Core.Models"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
@@ -275,37 +276,28 @@
                                          PlaceholderText="Filter"
                                          AutomationProperties.Name="Filter scan results"
                                          TextChanged="ResultSearchBox_TextChanged" />
-                                <ListBox x:Name="StatusFilter"
+                                <local:StatusFilterControl x:Name="StatusFilter"
                                          Grid.Column="2"
                                          VerticalAlignment="Bottom"
-                                         Padding="0"
-                                         CornerRadius="0"
+                                         Padding="4"
+                                         CornerRadius="20"
                                          BorderThickness="1"
-                                         BorderBrush="{ThemeResource ScannerCardBorderBrush}"
+                                         BorderBrush="{ThemeResource StatusFilterBorderBrush}"
+                                         Background="{ThemeResource StatusFilterContainerBrush}"
+                                         Style="{StaticResource DefaultSegmentedStyle}"
+                                         ItemContainerStyle="{StaticResource StatusFilterItemStyle}"
                                          SelectionMode="Single"
                                          SingleSelectionFollowsFocus="True"
                                          AutomationProperties.Name="Show hosts"
-                                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                                         ScrollViewer.VerticalScrollBarVisibility="Disabled"
                                          SelectionChanged="StatusFilter_SelectionChanged">
-                                    <ListBox.ItemsPanel>
+                                    <local:StatusFilterControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <StackPanel Orientation="Horizontal" />
+                                            <toolkit:EqualPanel Spacing="4" />
                                         </ItemsPanelTemplate>
-                                    </ListBox.ItemsPanel>
-                                    <ListBox.ItemContainerStyle>
-                                        <Style TargetType="ListBoxItem">
-                                            <Setter Property="MinWidth" Value="62" />
-                                            <Setter Property="MinHeight" Value="32" />
-                                            <Setter Property="Padding" Value="14,5" />
-                                            <Setter Property="CornerRadius" Value="0" />
-                                            <Setter Property="HorizontalContentAlignment" Value="Center" />
-                                            <Setter Property="UseSystemFocusVisuals" Value="True" />
-                                        </Style>
-                                    </ListBox.ItemContainerStyle>
-                                    <ListBoxItem Content="All" AutomationProperties.Name="All" />
-                                    <ListBoxItem Content="Alive" AutomationProperties.Name="Alive" />
-                                </ListBox>
+                                    </local:StatusFilterControl.ItemsPanel>
+                                    <toolkit:SegmentedItem Content="All" AutomationProperties.Name="All" />
+                                    <toolkit:SegmentedItem Content="Alive" AutomationProperties.Name="Alive" />
+                                </local:StatusFilterControl>
                             </Grid>
                             <TextBlock x:Name="SnapshotStatusText"
                                        Grid.Row="1"

@@ -1,0 +1,132 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls">
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="ms-appx:///CommunityToolkit.WinUI.Controls.Segmented/Segmented/Segmented.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="StatusFilterContainerBrush" Color="#F0FAFA" />
+            <SolidColorBrush x:Key="StatusFilterBorderBrush" Color="#377C80" />
+            <SolidColorBrush x:Key="StatusFilterBackgroundBrush" Color="#DDF3F4" />
+            <SolidColorBrush x:Key="StatusFilterHoverBrush" Color="#C6E9EB" />
+            <SolidColorBrush x:Key="StatusFilterPressedBrush" Color="#ADDADD" />
+            <SolidColorBrush x:Key="StatusFilterForegroundBrush" Color="#164E52" />
+            <SolidColorBrush x:Key="StatusFilterHoverForegroundBrush" Color="#164E52" />
+            <SolidColorBrush x:Key="StatusFilterSelectedHoverForegroundBrush" Color="White" />
+            <SolidColorBrush x:Key="StatusFilterSelectedBrush" Color="#165C63" />
+            <SolidColorBrush x:Key="StatusFilterSelectedHoverBrush" Color="#1D7078" />
+            <SolidColorBrush x:Key="StatusFilterSelectedPressedBrush" Color="#10474D" />
+            <SolidColorBrush x:Key="StatusFilterSelectedForegroundBrush" Color="White" />
+            <SolidColorBrush x:Key="StatusFilterDisabledForegroundBrush" Color="#66797A" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Default">
+            <SolidColorBrush x:Key="StatusFilterContainerBrush" Color="#142C30" />
+            <SolidColorBrush x:Key="StatusFilterBorderBrush" Color="#70B8BE" />
+            <SolidColorBrush x:Key="StatusFilterBackgroundBrush" Color="#C7E8EB" />
+            <SolidColorBrush x:Key="StatusFilterHoverBrush" Color="#DEF3F4" />
+            <SolidColorBrush x:Key="StatusFilterPressedBrush" Color="#A9D8DC" />
+            <SolidColorBrush x:Key="StatusFilterForegroundBrush" Color="#123F44" />
+            <SolidColorBrush x:Key="StatusFilterHoverForegroundBrush" Color="#123F44" />
+            <SolidColorBrush x:Key="StatusFilterSelectedHoverForegroundBrush" Color="White" />
+            <SolidColorBrush x:Key="StatusFilterSelectedBrush" Color="#205F67" />
+            <SolidColorBrush x:Key="StatusFilterSelectedHoverBrush" Color="#29737C" />
+            <SolidColorBrush x:Key="StatusFilterSelectedPressedBrush" Color="#174A52" />
+            <SolidColorBrush x:Key="StatusFilterSelectedForegroundBrush" Color="White" />
+            <SolidColorBrush x:Key="StatusFilterDisabledForegroundBrush" Color="#809C9F" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="HighContrast">
+            <SolidColorBrush x:Key="StatusFilterContainerBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="StatusFilterBorderBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="StatusFilterBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="StatusFilterHoverBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="StatusFilterPressedBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="StatusFilterForegroundBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="StatusFilterHoverForegroundBrush" Color="{ThemeResource SystemColorHighlightTextColor}" />
+            <SolidColorBrush x:Key="StatusFilterSelectedHoverForegroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="StatusFilterSelectedBrush" Color="{ThemeResource SystemColorHighlightColor}" />
+            <SolidColorBrush x:Key="StatusFilterSelectedHoverBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="StatusFilterSelectedPressedBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="StatusFilterSelectedForegroundBrush" Color="{ThemeResource SystemColorHighlightTextColor}" />
+            <SolidColorBrush x:Key="StatusFilterDisabledForegroundBrush" Color="{ThemeResource SystemColorGrayTextColor}" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+    <Style x:Key="StatusFilterItemStyle" TargetType="toolkit:SegmentedItem"
+           BasedOn="{StaticResource DefaultSegmentedItemStyle}">
+        <Setter Property="MinWidth" Value="64" />
+        <Setter Property="MinHeight" Value="30" />
+        <Setter Property="Padding" Value="14,4" />
+        <Setter Property="CornerRadius" Value="15" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Background" Value="{ThemeResource StatusFilterBackgroundBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource StatusFilterForegroundBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource StatusFilterBorderBrush}" />
+        <Setter Property="FocusVisualMargin" Value="1" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="toolkit:SegmentedItem">
+                    <Grid x:Name="Segment"
+                          Background="{TemplateBinding Background}"
+                          BorderBrush="{TemplateBinding BorderBrush}"
+                          BorderThickness="{TemplateBinding BorderThickness}"
+                          CornerRadius="{TemplateBinding CornerRadius}"
+                          Control.IsTemplateFocusTarget="True">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="Segment.Background" Value="{ThemeResource StatusFilterHoverBrush}" />
+                                        <Setter Target="Label.Foreground" Value="{ThemeResource StatusFilterHoverForegroundBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Pressed">
+                                    <VisualState.Setters>
+                                        <Setter Target="Segment.Background" Value="{ThemeResource StatusFilterPressedBrush}" />
+                                        <Setter Target="Label.Foreground" Value="{ThemeResource StatusFilterHoverForegroundBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="Selected">
+                                    <VisualState.Setters>
+                                        <Setter Target="Segment.Background" Value="{ThemeResource StatusFilterSelectedBrush}" />
+                                        <Setter Target="Label.Foreground" Value="{ThemeResource StatusFilterSelectedForegroundBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="PointerOverSelected">
+                                    <VisualState.Setters>
+                                        <Setter Target="Segment.Background" Value="{ThemeResource StatusFilterSelectedHoverBrush}" />
+                                        <Setter Target="Label.Foreground" Value="{ThemeResource StatusFilterSelectedHoverForegroundBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="PressedSelected">
+                                    <VisualState.Setters>
+                                        <Setter Target="Segment.Background" Value="{ThemeResource StatusFilterSelectedPressedBrush}" />
+                                        <Setter Target="Label.Foreground" Value="{ThemeResource StatusFilterSelectedHoverForegroundBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                            <VisualStateGroup x:Name="DisabledStates">
+                                <VisualState x:Name="Enabled" />
+                                <VisualState x:Name="Disabled">
+                                    <VisualState.Setters>
+                                        <Setter Target="Segment.Opacity" Value="0.55" />
+                                        <Setter Target="Label.Foreground" Value="{ThemeResource StatusFilterDisabledForegroundBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <ContentPresenter x:Name="Label"
+                                          Content="{TemplateBinding Content}"
+                                          Foreground="{TemplateBinding Foreground}"
+                                          FontSize="{TemplateBinding FontSize}"
+                                          FontWeight="{TemplateBinding FontWeight}"
+                                          Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+</ResourceDictionary>

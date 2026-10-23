@@ -158,6 +158,42 @@ function Assert-StatusFilterSelection {
     }
 }
 
+function Assert-StatusFilterLayout {
+    param(
+        [Parameter(Mandatory)][string] $FilterId,
+        [Parameter(Mandatory)][string] $AllId,
+        [Parameter(Mandatory)][string] $AliveId,
+        [Parameter(Mandatory)][string] $SearchId
+    )
+
+    $bounds = @{}
+    foreach ($id in @($FilterId, $AllId, $AliveId, $SearchId)) {
+        $location = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$id/location"
+        $size = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$id/size"
+        $bounds[$id] = @{
+            X = $location.value.x
+            Y = $location.value.y
+            Width = $size.value.width
+            Height = $size.value.height
+        }
+    }
+
+    $filter = $bounds[$FilterId]
+    $all = $bounds[$AllId]
+    $alive = $bounds[$AliveId]
+    $search = $bounds[$SearchId]
+    if ([Math]::Abs($all.Width - $alive.Width) -gt 1 -or
+        [Math]::Abs($all.Height - $alive.Height) -gt 1 -or
+        [Math]::Abs($all.Y - $alive.Y) -gt 1 -or
+        $all.X + $all.Width -ge $alive.X -or
+        $all.X -le $filter.X -or $all.Y -le $filter.Y -or
+        $alive.X + $alive.Width -ge $filter.X + $filter.Width -or
+        $alive.Y + $alive.Height -ge $filter.Y + $filter.Height -or
+        $search.X + $search.Width -ge $filter.X) {
+        throw "The rounded status filter must have equal, separated, inset segments without overlapping search."
+    }
+}
+
 if (-not (Test-Path -LiteralPath $AppPath -PathType Leaf)) {
     throw "The published application was not found at '$AppPath'."
 }
@@ -259,6 +295,9 @@ try {
 
     $allHosts = Find-WebDriverElement -Using xpath -Value "//List[@Name='Show hosts']/ListItem[@Name='All']"
     $aliveHosts = Find-WebDriverElement -Using xpath -Value "//List[@Name='Show hosts']/ListItem[@Name='Alive']"
+    $statusFilter = Find-WebDriverElement -Using name -Value "Show hosts"
+    $search = Find-WebDriverElement -Using name -Value "Filter scan results"
+    Assert-StatusFilterLayout -FilterId $statusFilter -AllId $allHosts -AliveId $aliveHosts -SearchId $search
     Assert-StatusFilterSelection -SelectedId $allHosts -UnselectedId $aliveHosts
     Invoke-WebDriverElement -ElementId $aliveHosts
     Assert-StatusFilterSelection -SelectedId $aliveHosts -UnselectedId $allHosts
@@ -283,7 +322,6 @@ try {
         throw "The scan did not render a result with an accessible Online or Offline badge."
     }
 
-    $search = Find-WebDriverElement -Using name -Value "Filter scan results"
     $null = Invoke-WebDriverRequest -Method Post `
         -Endpoint "/session/$sessionId/element/$search/value" `
         -Body @{ value = @("fingvibe-no-matching-host") }
