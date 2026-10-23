@@ -279,8 +279,8 @@
                                 <local:StatusFilterControl x:Name="StatusFilter"
                                          Grid.Column="2"
                                          VerticalAlignment="Bottom"
-                                         Padding="4"
-                                         CornerRadius="20"
+                                         Padding="3"
+                                         CornerRadius="9"
                                          BorderThickness="1"
                                          BorderBrush="{ThemeResource StatusFilterBorderBrush}"
                                          Background="{ThemeResource StatusFilterContainerBrush}"
@@ -292,7 +292,7 @@
                                          SelectionChanged="StatusFilter_SelectionChanged">
                                     <local:StatusFilterControl.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <toolkit:EqualPanel Spacing="4" />
+                                            <toolkit:EqualPanel Spacing="3" />
                                         </ItemsPanelTemplate>
                                     </local:StatusFilterControl.ItemsPanel>
                                     <toolkit:SegmentedItem Content="All" AutomationProperties.Name="All" />

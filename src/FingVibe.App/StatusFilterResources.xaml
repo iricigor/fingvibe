@@ -7,38 +7,44 @@
     </ResourceDictionary.MergedDictionaries>
     <ResourceDictionary.ThemeDictionaries>
         <ResourceDictionary x:Key="Light">
-            <SolidColorBrush x:Key="StatusFilterContainerBrush" Color="#F0FAFA" />
-            <SolidColorBrush x:Key="StatusFilterBorderBrush" Color="#377C80" />
-            <SolidColorBrush x:Key="StatusFilterBackgroundBrush" Color="#DDF3F4" />
-            <SolidColorBrush x:Key="StatusFilterHoverBrush" Color="#C6E9EB" />
-            <SolidColorBrush x:Key="StatusFilterPressedBrush" Color="#ADDADD" />
-            <SolidColorBrush x:Key="StatusFilterForegroundBrush" Color="#164E52" />
-            <SolidColorBrush x:Key="StatusFilterHoverForegroundBrush" Color="#164E52" />
-            <SolidColorBrush x:Key="StatusFilterSelectedHoverForegroundBrush" Color="White" />
-            <SolidColorBrush x:Key="StatusFilterSelectedBrush" Color="#165C63" />
-            <SolidColorBrush x:Key="StatusFilterSelectedHoverBrush" Color="#1D7078" />
-            <SolidColorBrush x:Key="StatusFilterSelectedPressedBrush" Color="#10474D" />
-            <SolidColorBrush x:Key="StatusFilterSelectedForegroundBrush" Color="White" />
-            <SolidColorBrush x:Key="StatusFilterDisabledForegroundBrush" Color="#66797A" />
+            <SolidColorBrush x:Key="StatusFilterContainerBrush" Color="#E9EDF3" />
+            <SolidColorBrush x:Key="StatusFilterBorderBrush" Color="#CCD5E0" />
+            <SolidColorBrush x:Key="StatusFilterItemBorderBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="StatusFilterSelectedBorderBrush" Color="#E0E4EB" />
+            <SolidColorBrush x:Key="StatusFilterBackgroundBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="StatusFilterHoverBrush" Color="#DCE3ED" />
+            <SolidColorBrush x:Key="StatusFilterPressedBrush" Color="#CED8E6" />
+            <SolidColorBrush x:Key="StatusFilterForegroundBrush" Color="#233245" />
+            <SolidColorBrush x:Key="StatusFilterHoverForegroundBrush" Color="#233245" />
+            <SolidColorBrush x:Key="StatusFilterSelectedHoverForegroundBrush" Color="#285FCA" />
+            <SolidColorBrush x:Key="StatusFilterSelectedBrush" Color="#FFFFFF" />
+            <SolidColorBrush x:Key="StatusFilterSelectedHoverBrush" Color="#F6F9FF" />
+            <SolidColorBrush x:Key="StatusFilterSelectedPressedBrush" Color="#E6EDF8" />
+            <SolidColorBrush x:Key="StatusFilterSelectedForegroundBrush" Color="#285FCA" />
+            <SolidColorBrush x:Key="StatusFilterDisabledForegroundBrush" Color="#6E7785" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Default">
-            <SolidColorBrush x:Key="StatusFilterContainerBrush" Color="#142C30" />
-            <SolidColorBrush x:Key="StatusFilterBorderBrush" Color="#70B8BE" />
-            <SolidColorBrush x:Key="StatusFilterBackgroundBrush" Color="#C7E8EB" />
-            <SolidColorBrush x:Key="StatusFilterHoverBrush" Color="#DEF3F4" />
-            <SolidColorBrush x:Key="StatusFilterPressedBrush" Color="#A9D8DC" />
-            <SolidColorBrush x:Key="StatusFilterForegroundBrush" Color="#123F44" />
-            <SolidColorBrush x:Key="StatusFilterHoverForegroundBrush" Color="#123F44" />
-            <SolidColorBrush x:Key="StatusFilterSelectedHoverForegroundBrush" Color="White" />
-            <SolidColorBrush x:Key="StatusFilterSelectedBrush" Color="#205F67" />
-            <SolidColorBrush x:Key="StatusFilterSelectedHoverBrush" Color="#29737C" />
-            <SolidColorBrush x:Key="StatusFilterSelectedPressedBrush" Color="#174A52" />
-            <SolidColorBrush x:Key="StatusFilterSelectedForegroundBrush" Color="White" />
-            <SolidColorBrush x:Key="StatusFilterDisabledForegroundBrush" Color="#809C9F" />
+            <SolidColorBrush x:Key="StatusFilterContainerBrush" Color="#151920" />
+            <SolidColorBrush x:Key="StatusFilterBorderBrush" Color="#515B6B" />
+            <SolidColorBrush x:Key="StatusFilterItemBorderBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="StatusFilterSelectedBorderBrush" Color="#343B47" />
+            <SolidColorBrush x:Key="StatusFilterBackgroundBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="StatusFilterHoverBrush" Color="#202733" />
+            <SolidColorBrush x:Key="StatusFilterPressedBrush" Color="#2D3644" />
+            <SolidColorBrush x:Key="StatusFilterForegroundBrush" Color="#EEF2F7" />
+            <SolidColorBrush x:Key="StatusFilterHoverForegroundBrush" Color="#EEF2F7" />
+            <SolidColorBrush x:Key="StatusFilterSelectedHoverForegroundBrush" Color="#A5C6FF" />
+            <SolidColorBrush x:Key="StatusFilterSelectedBrush" Color="#242831" />
+            <SolidColorBrush x:Key="StatusFilterSelectedHoverBrush" Color="#2E3541" />
+            <SolidColorBrush x:Key="StatusFilterSelectedPressedBrush" Color="#1E2430" />
+            <SolidColorBrush x:Key="StatusFilterSelectedForegroundBrush" Color="#A5C6FF" />
+            <SolidColorBrush x:Key="StatusFilterDisabledForegroundBrush" Color="#8993A1" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast">
             <SolidColorBrush x:Key="StatusFilterContainerBrush" Color="{ThemeResource SystemColorWindowColor}" />
             <SolidColorBrush x:Key="StatusFilterBorderBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+            <SolidColorBrush x:Key="StatusFilterItemBorderBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="StatusFilterSelectedBorderBrush" Color="{ThemeResource SystemColorHighlightColor}" />
             <SolidColorBrush x:Key="StatusFilterBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
             <SolidColorBrush x:Key="StatusFilterHoverBrush" Color="{ThemeResource SystemColorHighlightColor}" />
             <SolidColorBrush x:Key="StatusFilterPressedBrush" Color="{ThemeResource SystemColorHighlightColor}" />
@@ -55,13 +61,13 @@
     <Style x:Key="StatusFilterItemStyle" TargetType="toolkit:SegmentedItem"
            BasedOn="{StaticResource DefaultSegmentedItemStyle}">
         <Setter Property="MinWidth" Value="64" />
-        <Setter Property="MinHeight" Value="30" />
-        <Setter Property="Padding" Value="14,4" />
-        <Setter Property="CornerRadius" Value="15" />
+        <Setter Property="MinHeight" Value="26" />
+        <Setter Property="Padding" Value="12,3" />
+        <Setter Property="CornerRadius" Value="6" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Background" Value="{ThemeResource StatusFilterBackgroundBrush}" />
         <Setter Property="Foreground" Value="{ThemeResource StatusFilterForegroundBrush}" />
-        <Setter Property="BorderBrush" Value="{ThemeResource StatusFilterBorderBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource StatusFilterItemBorderBrush}" />
         <Setter Property="FocusVisualMargin" Value="1" />
         <Setter Property="Template">
             <Setter.Value>
@@ -90,18 +96,24 @@
                                 <VisualState x:Name="Selected">
                                     <VisualState.Setters>
                                         <Setter Target="Segment.Background" Value="{ThemeResource StatusFilterSelectedBrush}" />
+                                        <Setter Target="Segment.BorderBrush" Value="{ThemeResource StatusFilterSelectedBorderBrush}" />
+                                        <Setter Target="Segment.Translation" Value="0,0,2" />
                                         <Setter Target="Label.Foreground" Value="{ThemeResource StatusFilterSelectedForegroundBrush}" />
                                     </VisualState.Setters>
                                 </VisualState>
                                 <VisualState x:Name="PointerOverSelected">
                                     <VisualState.Setters>
                                         <Setter Target="Segment.Background" Value="{ThemeResource StatusFilterSelectedHoverBrush}" />
+                                        <Setter Target="Segment.BorderBrush" Value="{ThemeResource StatusFilterSelectedBorderBrush}" />
+                                        <Setter Target="Segment.Translation" Value="0,0,3" />
                                         <Setter Target="Label.Foreground" Value="{ThemeResource StatusFilterSelectedHoverForegroundBrush}" />
                                     </VisualState.Setters>
                                 </VisualState>
                                 <VisualState x:Name="PressedSelected">
                                     <VisualState.Setters>
                                         <Setter Target="Segment.Background" Value="{ThemeResource StatusFilterSelectedPressedBrush}" />
+                                        <Setter Target="Segment.BorderBrush" Value="{ThemeResource StatusFilterSelectedBorderBrush}" />
+                                        <Setter Target="Segment.Translation" Value="0,0,1" />
                                         <Setter Target="Label.Foreground" Value="{ThemeResource StatusFilterSelectedHoverForegroundBrush}" />
                                     </VisualState.Setters>
                                 </VisualState>
@@ -116,6 +128,9 @@
                                 </VisualState>
                             </VisualStateGroup>
                         </VisualStateManager.VisualStateGroups>
+                        <Grid.Shadow>
+                            <ThemeShadow />
+                        </Grid.Shadow>
                         <ContentPresenter x:Name="Label"
                                           Content="{TemplateBinding Content}"
                                           Foreground="{TemplateBinding Foreground}"
