@@ -64,11 +64,26 @@ public sealed partial class MainWindow
     {
         if (NetworkPicker.SelectedItem is not LanNetwork network)
         {
+            NetworkSizeBadge.Visibility = Visibility.Collapsed;
+            SubnetSizeText.Text = "Unavailable";
+            SubnetMaskText.Text = "Masked bits: unavailable";
+            SubnetAddressCountText.Text = "Unavailable";
+            SubnetScopeText.Text = "Unavailable";
             return;
         }
 
         MachineAddressText.Text = network.LocalAddress.ToString();
         LanAddressText.Text = network.Cidr;
+        var subnet = SubnetDescriptionFormatter.Format(network.LocalAddress, network.PrefixLength);
+        NetworkSizeBadgeText.Text = subnet.Badge;
+        NetworkSizeBadgeLabel.Text = subnet.BadgeLabel;
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(
+            NetworkSizeBadgeText, $"{subnet.Size}. {subnet.Mask}");
+        NetworkSizeBadge.Visibility = Visibility.Visible;
+        SubnetSizeText.Text = subnet.Size;
+        SubnetMaskText.Text = subnet.Mask;
+        SubnetAddressCountText.Text = subnet.AddressCount;
+        SubnetScopeText.Text = subnet.Scope;
         _onlineDeviceCount = null;
         UpdateNetworkIdentity();
         ScanStatusText.Text = $"{SubnetCalculator.GetUsableHostCount(network.PrefixLength):N0} addresses ready";
