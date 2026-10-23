@@ -13,7 +13,9 @@ public sealed partial class MainWindow
         Address,
         Status,
         Response,
-        MacAddress
+        MacAddress,
+        OperatingSystem,
+        DeviceType
     }
 
     private readonly List<ScanResultRow> _allResults = [];
@@ -114,8 +116,7 @@ public sealed partial class MainWindow
 
     private bool ShouldShow(ScanResultRow row) =>
         (StatusFilter.SelectedIndex != 1 || row.IsOnline)
-        && (row.NameText.Contains(ResultSearchBox.Text.Trim(), StringComparison.OrdinalIgnoreCase)
-            || row.Result.MatchesFilter(ResultSearchBox.Text));
+        && row.MatchesFilter(ResultSearchBox.Text);
 
     private void InsertSorted(ScanResultRow result)
     {
@@ -143,6 +144,10 @@ public sealed partial class MainWindow
         var right = rightRow.Result;
         var comparison = _sortColumn switch
         {
+            ResultSortColumn.OperatingSystem => string.Compare(leftRow.OperatingSystemText,
+                rightRow.OperatingSystemText, StringComparison.OrdinalIgnoreCase),
+            ResultSortColumn.DeviceType => string.Compare(leftRow.DeviceTypeText,
+                rightRow.DeviceTypeText, StringComparison.OrdinalIgnoreCase),
             ResultSortColumn.Address => CompareAddresses(left.Address, right.Address),
             ResultSortColumn.Status => left.Status.CompareTo(right.Status),
             ResultSortColumn.Response => Nullable.Compare(
@@ -190,6 +195,8 @@ public sealed partial class MainWindow
         StatusSortGlyph.Text = GetSortGlyph(ResultSortColumn.Status);
         ResponseSortGlyph.Text = GetSortGlyph(ResultSortColumn.Response);
         MacAddressSortGlyph.Text = GetSortGlyph(ResultSortColumn.MacAddress);
+        OperatingSystemSortGlyph.Text = GetSortGlyph(ResultSortColumn.OperatingSystem);
+        DeviceTypeSortGlyph.Text = GetSortGlyph(ResultSortColumn.DeviceType);
     }
 
     private string GetSortGlyph(ResultSortColumn column) =>

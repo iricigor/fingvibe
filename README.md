@@ -10,6 +10,7 @@ FingVibe is a native Windows 11 LAN scanner built with C# and WinUI 3. It detect
 - Automatic local IPv4 and CIDR discovery
 - ISP-based network identity with a Network page showing public and local addresses plus approximate public-IP location (or **Unknown**)
 - Device details page opened by clicking a device in the Devices table
+- Offline, evidence-backed OS and device-type detection with built-in Fluent icons and saved manual corrections
 - Resizable Devices table columns and a Settings column selector (kept for the current session)
 - Live appearance settings: Solid, Mica, Mica Alt, or Acrylic backdrops, plus Standard Light, Warm Light, Standard Dark, and True Black (OLED) themes
 - Parallel ICMP scanning with up to 256 concurrent probes
@@ -45,6 +46,16 @@ Public IP and ISP details are retrieved from `ipwho.is`. This optional display d
 Results dim complete network-prefix octets using the scanned subnet's CIDR; partially masked octets remain emphasized because they also identify hosts. Latency bars update as responses arrive and keep the same scale when filtering or sorting. Missing responses show a dash, not a performance bar. "Offline" means no ICMP response, not proof that a device is powered off. Select a row with the pointer or keyboard to highlight it; sorting preserves the selection. Hover over service icons for port numbers and service names.
 
 The Devices toolbar has a Fluent inset **All / Alive** segmented switch, built with the Windows Community Toolkit `Segmented` control. A neutral recessed track surrounds a raised, softly rounded selected surface with blue accent text; the unselected option blends into the track. Colors adapt to light, dark, and Windows high-contrast themes. **All** is selected initially; **Alive** shows only online hosts. Both options combine with the text filter and apply to incoming scan results and saved results. Tab to the switch and use the Left/Right arrow keys to change the selection.
+
+### Device identification
+
+Devices show a native Segoe Fluent device icon beside their name. The **OS** and **Device type** columns can be sorted, resized, or hidden in Settings. Both detected and manually selected classifications are included in text filtering. Device details show the identification evidence and whether a value is user-selected.
+
+Identification is best-effort and local: SSDP `SERVER` advertisements can identify Windows, Android, Linux, macOS, or iOS/iPadOS; UPnP device descriptions and bounded unicast DNS-SD queries provide device-type and model clues. Explicit device types/models outweigh service-only clues. Unsupported or conflicting evidence stays **Unknown**. A vendor, hostname, SSH port, or SMB port alone is not OS proof. Devices that do not answer discovery queries may remain Unknown even when online. No fingerprinting cloud API is contacted; the existing vendor-registry downloads and optional public-network lookup are unchanged.
+
+In device details, choose an operating system, device type, and/or a built-in icon, then select **Save identification**. **Automatic** restores detection for an individual field; **Use automatic detection** clears all three saved choices. The icon follows the effective device type unless an explicit icon is selected. Available types include Computer, Phone, Tablet, Router/access point, Printer, TV/media device, NAS/storage, Game console, IoT/smart device, and Unknown. Categories without reliable discovery evidence can be assigned manually; OS also offers Other.
+
+Corrections are stored separately from automatic evidence in `%LOCALAPPDATA%\FingVibe\device-classifications.json`, keyed by MAC address, and apply after rescans, IP changes, and restarts. Saving requires a discovered MAC address. Private/randomized MACs may change and therefore lose their association with saved corrections. Load/save errors are shown in details; a failed load disables edits rather than overwriting existing corrections. Completed scan snapshots preserve automatic evidence, and older snapshots remain readable with Unknown identification.
 
 ## Test
 

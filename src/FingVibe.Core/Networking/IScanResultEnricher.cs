@@ -8,7 +8,7 @@ public interface IScanResultEnricher
 {
     Task<ScanEnrichment> EnrichAsync(
         IPAddress address,
-        Task<IReadOnlyDictionary<IPAddress, string>> ssdpNamesTask,
+        Task<IReadOnlyDictionary<IPAddress, IReadOnlyList<SsdpDeviceInfo>>> ssdpDevicesTask,
         CancellationToken cancellationToken);
 }
 
@@ -16,4 +16,5 @@ public sealed record ScanEnrichment(
     string? DeviceName,
     PhysicalAddress? MacAddress,
     string VendorName,
-    IReadOnlyList<OpenPort> OpenPorts);
+    IReadOnlyList<OpenPort> OpenPorts,
+    DeviceClassification? Classification = null);

@@ -289,7 +289,7 @@ public sealed class DeviceNameResolver
         return null;
     }
 
-    private static string? ReadDnsName(byte[] packet, ref int offset)
+    internal static string? ReadDnsName(byte[] packet, ref int offset)
     {
         var labels = new List<string>();
         var position = offset;
@@ -327,7 +327,7 @@ public sealed class DeviceNameResolver
                 continue;
             }
 
-            if (position + length > packet.Length)
+            if (length > 63 || position + length > packet.Length)
             {
                 return null;
             }

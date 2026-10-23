@@ -47,7 +47,7 @@ public sealed class LanScannerService
         var addresses = SubnetCalculator.EnumerateUsableHosts(network.NetworkAddress, network.PrefixLength);
         var completed = 0;
         var alive = 0;
-        var ssdpNamesTask = _ssdpDiscovery.DiscoverNamesAsync(cancellationToken);
+        var ssdpNamesTask = _ssdpDiscovery.DiscoverDevicesAsync(cancellationToken);
         using var enrichmentSlots = new SemaphoreSlim(32, 32);
 
         await Parallel.ForEachAsync(
@@ -80,7 +80,7 @@ public sealed class LanScannerService
 
     private async Task<ScanResult> ProbeAsync(
         IPAddress address,
-        Task<IReadOnlyDictionary<IPAddress, string>> ssdpNamesTask,
+        Task<IReadOnlyDictionary<IPAddress, IReadOnlyList<SsdpDeviceInfo>>> ssdpNamesTask,
         SemaphoreSlim enrichmentSlots,
         CancellationToken cancellationToken)
     {
@@ -114,7 +114,8 @@ public sealed class LanScannerService
                     enrichment.DeviceName,
                     enrichment.MacAddress,
                     enrichment.VendorName,
-                    enrichment.OpenPorts);
+                    enrichment.OpenPorts,
+                    enrichment.Classification);
             }
             finally
             {

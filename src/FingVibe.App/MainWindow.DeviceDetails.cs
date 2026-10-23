@@ -38,6 +38,7 @@ public sealed partial class MainWindow
         DevicePortsList.ItemsSource = result.OpenPortItems;
         DeviceNoPortsText.Visibility = result.OpenPortItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         DevicePortScanStatusText.Text = string.Empty;
+        UpdateClassificationDetails();
         ShowPage(DevicePage);
     }
 

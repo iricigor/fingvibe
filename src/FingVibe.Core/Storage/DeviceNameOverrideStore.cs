@@ -126,7 +126,7 @@ public sealed class DeviceNameOverrideStore
         }
     }
 
-    private static string NormalizeMacAddress(string macAddress)
+    internal static string NormalizeMacAddress(string macAddress)
     {
         if (string.IsNullOrWhiteSpace(macAddress))
         {

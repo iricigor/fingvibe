@@ -27,7 +27,9 @@ public sealed class ScanSnapshotStoreTests
                     "office-printer",
                     PhysicalAddress.Parse("AABBCCDDEEFF"),
                     "Example Devices",
-                    [new OpenPort(443, "HTTPS")]),
+                    [new OpenPort(443, "HTTPS")],
+                    new DeviceClassification(DeviceOperatingSystem.Linux, DeviceType.Printer,
+                        "SSDP SERVER advertises Linux.", "UPnP device type: Printer.")),
                 new ScanResult(
                     IPAddress.Parse("192.168.1.43"),
                     HostStatus.Unreachable,
@@ -55,6 +57,29 @@ public sealed class ScanSnapshotStoreTests
             Assert.Equal(snapshot.Results[1].Status, loaded.Results[1].Status);
             Assert.Equal(snapshot.Results[1].ProbeDuration, loaded.Results[1].ProbeDuration);
             Assert.Equal(new OpenPort(443, "HTTPS"), Assert.Single(loaded.Results[0].OpenPortItems));
+            Assert.Equal(snapshot.Results[0].Classification, loaded.Results[0].Classification);
+            Assert.Equal(DeviceClassification.Unknown, loaded.Results[1].DetectedClassification);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task LoadAsync_OlderSnapshotWithoutClassificationRemainsReadable()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "cache.json");
+        try
+        {
+            await File.WriteAllTextAsync(path, """
+                {"version":1,"subnet":"192.168.1.0/24","completedAt":"2026-10-22T21:30:00Z",
+                 "results":[{"address":"192.168.1.1","status":0,"probeDuration":"00:00:00","openPorts":[]}]}
+                """);
+            var loaded = await new ScanSnapshotStore(path).LoadAsync();
+            Assert.Equal(DeviceClassification.Unknown, Assert.Single(loaded!.Results).DetectedClassification);
         }
         finally
         {

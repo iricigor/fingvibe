@@ -32,8 +32,26 @@ public sealed class SsdpDiscoveryService
     public async Task<IReadOnlyDictionary<IPAddress, string>> DiscoverNamesAsync(
         CancellationToken cancellationToken)
     {
+        var devices = await DiscoverDevicesAsync(cancellationToken).ConfigureAwait(false);
+        return GetDisplayNames(devices);
+    }
+
+    internal static IReadOnlyDictionary<IPAddress, string> GetDisplayNames(
+        IReadOnlyDictionary<IPAddress, IReadOnlyList<SsdpDeviceInfo>> devices) =>
+        devices.Select(pair => new
+            {
+                pair.Key,
+                Name = pair.Value.Select(device => device.FriendlyName)
+                    .FirstOrDefault(name => !string.IsNullOrWhiteSpace(name))
+            })
+            .Where(pair => pair.Name is not null)
+            .ToDictionary(pair => pair.Key, pair => pair.Name!);
+
+    public async Task<IReadOnlyDictionary<IPAddress, IReadOnlyList<SsdpDeviceInfo>>> DiscoverDevicesAsync(
+        CancellationToken cancellationToken)
+    {
         var locations = await DiscoverLocationsAsync(cancellationToken).ConfigureAwait(false);
-        var names = new ConcurrentDictionary<IPAddress, string>();
+        var devices = new ConcurrentDictionary<IPAddress, ConcurrentDictionary<Uri, SsdpDeviceInfo>>();
 
         await Parallel.ForEachAsync(
             locations,
@@ -44,14 +62,16 @@ public sealed class SsdpDiscoveryService
             },
             async (device, token) =>
             {
-                var friendlyName = await GetFriendlyNameAsync(device, token).ConfigureAwait(false);
-                if (!string.IsNullOrWhiteSpace(friendlyName))
+                var info = await GetDeviceInfoAsync(device, token).ConfigureAwait(false);
+                if (info is not null)
                 {
-                    names.TryAdd(device.Address, friendlyName);
+                    devices.GetOrAdd(device.Address, _ => new()).TryAdd(device.Location, info);
                 }
             }).ConfigureAwait(false);
 
-        return names;
+        return devices.ToDictionary(pair => pair.Key,
+            pair => (IReadOnlyList<SsdpDeviceInfo>)pair.Value.OrderBy(device => device.Key.AbsoluteUri,
+                StringComparer.Ordinal).Select(device => device.Value).ToArray());
     }
 
     private async Task<IReadOnlyList<SsdpDeviceLocation>> DiscoverLocationsAsync(
@@ -68,7 +88,7 @@ public sealed class SsdpDiscoveryService
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(_discoveryWindow);
         var payload = Encoding.ASCII.GetBytes(request);
-        var locations = new Dictionary<Uri, IPAddress>();
+        var locations = new Dictionary<Uri, SsdpDeviceLocation>();
 
         try
         {
@@ -80,15 +100,15 @@ public sealed class SsdpDiscoveryService
                 if (Uri.TryCreate(location, UriKind.Absolute, out var uri) &&
                     IsAllowedLocation(uri, response.RemoteEndPoint.Address))
                 {
-                    locations.TryAdd(uri, response.RemoteEndPoint.Address);
+                    locations.TryAdd(uri, new SsdpDeviceLocation(
+                        response.RemoteEndPoint.Address, uri,
+                        GetHeader(Encoding.UTF8.GetString(response.Buffer), "SERVER")));
                 }
             }
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            return locations
-                .Select(pair => new SsdpDeviceLocation(pair.Value, pair.Key))
-                .ToArray();
+            return locations.Values.ToArray();
         }
         catch (SocketException)
         {
@@ -96,7 +116,7 @@ public sealed class SsdpDiscoveryService
         }
     }
 
-    private async Task<string?> GetFriendlyNameAsync(
+    private async Task<SsdpDeviceInfo?> GetDeviceInfoAsync(
         SsdpDeviceLocation device,
         CancellationToken cancellationToken)
     {
@@ -126,10 +146,7 @@ public sealed class SsdpDiscoveryService
                     MaxCharactersInDocument = 1_000_000
                 });
             var document = await XDocument.LoadAsync(reader, LoadOptions.None, cancellationToken).ConfigureAwait(false);
-            return document
-                .Descendants()
-                .FirstOrDefault(element => element.Name.LocalName == "friendlyName")
-                ?.Value;
+            return ParseDeviceDescription(document, device.Server);
         }
         catch (HttpRequestException)
         {
@@ -143,6 +160,20 @@ public sealed class SsdpDiscoveryService
         {
             return null;
         }
+    }
+
+    internal static SsdpDeviceInfo? ParseDeviceDescription(XDocument document, string? server)
+    {
+        var device = document.Root?.Elements().FirstOrDefault(element => element.Name.LocalName == "device");
+        if (device is null)
+        {
+            return null;
+        }
+
+        string? Field(string name) => device.Elements()
+            .FirstOrDefault(element => element.Name.LocalName == name)?.Value.Trim();
+        return new SsdpDeviceInfo(
+            Field("friendlyName"), Field("deviceType"), Field("manufacturer"), Field("modelName"), server);
     }
 
     private static bool IsAllowedLocation(Uri location, IPAddress respondingAddress)
@@ -167,5 +198,5 @@ public sealed class SsdpDiscoveryService
         return null;
     }
 
-    private sealed record SsdpDeviceLocation(IPAddress Address, Uri Location);
+    private sealed record SsdpDeviceLocation(IPAddress Address, Uri Location, string? Server);
 }
