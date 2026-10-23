@@ -21,9 +21,9 @@ public sealed class NetworkDiscoveryService
     private static IEnumerable<LanNetwork> CreateNetworks(NetworkInterface networkInterface)
     {
         var properties = networkInterface.GetIPProperties();
-        var hasGateway = properties.GatewayAddresses.Any(gateway =>
+        var gatewayAddress = properties.GatewayAddresses.FirstOrDefault(gateway =>
             gateway.Address.AddressFamily == AddressFamily.InterNetwork
-            && !gateway.Address.Equals(System.Net.IPAddress.Any));
+            && !gateway.Address.Equals(System.Net.IPAddress.Any))?.Address;
 
         foreach (var unicastAddress in properties.UnicastAddresses)
         {
@@ -39,7 +39,8 @@ public sealed class NetworkDiscoveryService
                 unicastAddress.Address,
                 SubnetCalculator.GetNetworkAddress(unicastAddress.Address, prefixLength),
                 prefixLength,
-                hasGateway);
+                gatewayAddress is not null,
+                gatewayAddress);
         }
     }
 

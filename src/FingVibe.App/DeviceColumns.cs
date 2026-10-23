@@ -73,7 +73,7 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
 
     public DeviceColumnLayout()
     {
-        All = [Name, Address, Vendor, Ports, Status, Response, Mac];
+        All = [Name, Address, Vendor, Ports, Status, Response, Mac, OperatingSystem, Type];
         foreach (var column in All)
         {
             column.PropertyChanged += (_, args) =>
@@ -95,6 +95,8 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
     public DeviceColumn Status { get; } = new("Status", "Status", 90);
     public DeviceColumn Response { get; } = new("Response", "Response", 130);
     public DeviceColumn Mac { get; } = new("Mac", "MAC address", 150);
+    public DeviceColumn OperatingSystem { get; } = new("OperatingSystem", "OS", 120);
+    public DeviceColumn Type { get; } = new("Type", "Device type", 150);
 
     public IReadOnlyList<DeviceColumn> All { get; }
 

@@ -17,8 +17,10 @@ public sealed record ScanResult(
     string? DeviceName = null,
     PhysicalAddress? MacAddress = null,
     string VendorName = "Unknown",
-    IReadOnlyList<OpenPort>? OpenPorts = null)
+    IReadOnlyList<OpenPort>? OpenPorts = null,
+    DeviceClassification? Classification = null)
 {
+    public DeviceClassification DetectedClassification => Classification ?? DeviceClassification.Unknown;
     public string AddressText => Address.ToString();
 
     public string NameText => string.IsNullOrWhiteSpace(DeviceName) ? AddressText : DeviceName;
@@ -48,6 +50,8 @@ public sealed record ScanResult(
         return NameText.Contains(searchText, StringComparison.OrdinalIgnoreCase)
             || AddressText.Contains(searchText, StringComparison.OrdinalIgnoreCase)
             || VendorText.Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || DetectedClassification.OperatingSystem.Label().Contains(searchText, StringComparison.OrdinalIgnoreCase)
+            || DetectedClassification.Type.Label().Contains(searchText, StringComparison.OrdinalIgnoreCase)
             || OpenPortItems.Any(port =>
                 port.AccessibleLabel.Contains(searchText, StringComparison.OrdinalIgnoreCase))
             || StatusText.Contains(searchText, StringComparison.OrdinalIgnoreCase)

@@ -74,6 +74,14 @@ public sealed class DeviceEnrichmentTests
     }
 
     [Fact]
+    public void MdnsQuery_RequestsMulticastRepliesWhenSharingStandardPort()
+    {
+        var query = DeviceNameResolver.CreateDnsQuery("_ipp._tcp.local", 12, requestUnicast: false);
+        Assert.Equal(0, query[^2]);
+        Assert.Equal(1, query[^1]);
+    }
+
+    [Fact]
     public void MdnsParser_ReadsPtrHostName()
     {
         byte[] response =
