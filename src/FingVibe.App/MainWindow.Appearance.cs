@@ -17,6 +17,7 @@ public sealed partial class MainWindow
         "FingVibe",
         "appearance.json"));
     private readonly AccessibilitySettings _accessibilitySettings = new();
+    private readonly UISettings _uiSettings = new();
     private AppearanceSettings _appearance = new();
     private bool _appearanceReady;
     private bool _appearanceClosed;
@@ -30,15 +31,16 @@ public sealed partial class MainWindow
         ThemePicker.SelectedIndex = (int)_appearance.Theme;
         ApplyAppearance();
         _appearanceReady = true;
-        _accessibilitySettings.HighContrastChanged += Appearance_HighContrastChanged;
+        // HighContrastChanged requires a CoreWindow, which WinUI desktop windows do not have.
+        _uiSettings.ColorValuesChanged += Appearance_ColorValuesChanged;
         Closed += (_, _) =>
         {
             _appearanceClosed = true;
-            _accessibilitySettings.HighContrastChanged -= Appearance_HighContrastChanged;
+            _uiSettings.ColorValuesChanged -= Appearance_ColorValuesChanged;
         };
     }
 
-    private void Appearance_HighContrastChanged(AccessibilitySettings sender, object args)
+    private void Appearance_ColorValuesChanged(UISettings sender, object args)
     {
         DispatcherQueue.TryEnqueue(() =>
         {
