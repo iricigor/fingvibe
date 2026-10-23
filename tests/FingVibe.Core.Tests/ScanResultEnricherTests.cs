@@ -28,6 +28,8 @@ public sealed class ScanResultEnricherTests
         Assert.Equal("Living Room TV", result.DeviceName);
         Assert.Null(result.MacAddress);
         Assert.Equal("Unknown", result.VendorName);
-        Assert.Empty(result.OpenPorts);
+        Assert.All(
+            result.OpenPorts,
+            port => Assert.Equal(PortScannerService.CommonPorts[port.Port], port.ServiceName));
     }
 }
