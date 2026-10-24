@@ -17,6 +17,8 @@ function Show-UiReviewCaptureScenario {
     $menu = switch ($Scenario) {
         "DeviceDetails" { "Devices" }
         "DevicesEmpty" { "Devices" }
+        "PersonDetails" { "People" }
+        "RoomDetails" { "Rooms" }
         default { $Scenario }
     }
     $menuId = Assert-VisibleUiReviewElement -Using xpath -Value "//ListItem[@Name='$menu']"
@@ -48,6 +50,19 @@ function Show-UiReviewCaptureScenario {
                 -Body @{ value = @("fingvibe-no-matching-host") }
             $null = Assert-VisibleUiReviewElement -Value "No hosts match the current filter."
         }
+        return
+    }
+
+    if ($Scenario -in @("PersonDetails", "RoomDetails")) {
+        $listName = $menu
+        $fixtureName = if ($Scenario -eq "PersonDetails") { "UI review person" } else { "UI review room" }
+        $rowId = Assert-VisibleUiReviewElement -Using xpath `
+            -Value "//List[@Name='$listName']/ListItem[.//*[@Name='$fixtureName']]"
+        Invoke-WebDriverElement -ElementId $rowId
+        $backName = if ($Scenario -eq "PersonDetails") { "Back to people" } else { "Back to rooms" }
+        $null = Assert-VisibleUiReviewElement -Value $backName
+        $null = Assert-VisibleUiReviewElement -Value "Assigned devices"
+        $null = Assert-VisibleUiReviewElement -Value "Assign devices"
         return
     }
 

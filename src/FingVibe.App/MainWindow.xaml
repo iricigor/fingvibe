@@ -895,7 +895,7 @@
                                      TextChanged="PeopleSearchBox_TextChanged" />
                             <TextBlock x:Name="PeopleStatusText" Grid.Column="1" VerticalAlignment="Center"
                                        TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush" />
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </Grid>
                         <Border x:Name="PeopleTableBorder" Style="{StaticResource ScannerSummaryCardStyle}" Padding="0">
                             <Grid>
@@ -1061,7 +1061,7 @@
                             <Button x:Name="DeletePersonDetailButton" Grid.Column="3" Content="Delete" Click="DeletePersonButton_Click" />
                         </Grid>
                         <TextBlock x:Name="PersonDetailNotes" TextWrapping="Wrap"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush" />
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <Border Style="{StaticResource ScannerSummaryCardStyle}">
                             <StackPanel Spacing="4">
                                 <TextBlock x:Name="PersonDeviceCountText" FontWeight="SemiBold" />

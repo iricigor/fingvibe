@@ -59,7 +59,7 @@ try {
     Assert-Throws { Get-UiReviewCapturePlan $repository -BaseRevision "missing-ref" } "*failed with exit code*"
 
     Test-Change @{ "README.md" = "Documentation" } @("Devices") "Documentation-only"
-    foreach ($scenario in @("Overview", "Network", "DeviceDetails", "People", "Rooms", "Settings", "Devices")) {
+    foreach ($scenario in @("Overview", "Network", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails", "Settings", "Devices")) {
         $page = $UiReviewScenarios[$scenario].Page
         $changed = $xaml.Replace("Text=`"$page`"", "Text=`"Changed $page`"")
         $expected = @("Devices")
@@ -82,6 +82,16 @@ try {
     Test-Change @{ "src\FingVibe.App\MainWindow.Results.cs" = "changed" } `
         @("Devices", "Settings", "DevicesEmpty") "Results and empty state"
     Test-Change @{ "src\FingVibe.App\App.xaml" = "changed" } @($UiReviewScenarios.Keys) "Shared theme"
+    $applicationXaml = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\MainWindow.xaml") -Raw
+    $applicationDocument = [System.Xml.XmlDocument]::new()
+    $applicationDocument.LoadXml($applicationXaml)
+    foreach ($attribute in $applicationDocument.SelectNodes("//@*")) {
+        if ($attribute.Value.StartsWith("{ThemeResource ") -and -not $attribute.Value.EndsWith("}")) {
+            throw "Unclosed ThemeResource expression on $($attribute.OwnerElement.Name).$($attribute.Name)."
+        }
+    }
+    Test-Change @{ "src\FingVibe.App\MainWindow.xaml" = $applicationXaml } `
+        @($UiReviewScenarios.Keys) "Actual application pages all have capture scenarios"
     Test-Change @{ "src\FingVibe.Core\NewModel.cs" = "changed" } @($UiReviewScenarios.Keys) "Unrecognized app dependency"
     Test-Change @{ ".github\scripts\UiReviewNavigation.ps1" = "changed" } @($UiReviewScenarios.Keys) "Pipeline self-coverage"
 
@@ -159,6 +169,8 @@ try {
         if ($Using -eq "xpath") {
             if ($Value -match "^//ListItem\[@Name='(.+)'\]$") { return "menu-$($Matches[1])" }
             if ($Value -eq "//List[@Name='Scan results']/ListItem[.//*[@Name='Online']][1]") { return "online-row" }
+            if ($Value -eq "//List[@Name='People']/ListItem[.//*[@Name='UI review person']]") { return "person-row" }
+            if ($Value -eq "//List[@Name='Rooms']/ListItem[.//*[@Name='UI review room']]") { return "room-row" }
             throw "Unexpected XPath '$Value'."
         }
         return "control-$Value"
@@ -168,6 +180,8 @@ try {
             if (-not $script:brokenNavigation) { $script:currentPage = $ElementId.Substring(5) }
         }
         elseif ($ElementId -eq "online-row") { $script:currentPage = "DeviceDetails" }
+        elseif ($ElementId -eq "person-row") { $script:currentPage = "PersonDetails" }
+        elseif ($ElementId -eq "room-row") { $script:currentPage = "RoomDetails" }
         else { throw "Unexpected click '$ElementId'." }
     }
     function Invoke-WebDriverRequest([string] $Method, [string] $Endpoint, [hashtable] $Body) {
@@ -185,6 +199,8 @@ try {
                     "control-Filter scan results" { $script:currentPage -eq "Devices" }
                     "control-Online" { $script:currentPage -eq "Devices" -and -not $script:empty }
                     "online-row" { $script:currentPage -eq "Devices" -and -not $script:empty }
+                    "person-row" { $script:currentPage -eq "People" }
+                    "room-row" { $script:currentPage -eq "Rooms" }
                     "control-No hosts match the current filter." { $script:currentPage -eq "Devices" -and $script:empty }
                     "control-Back to devices" { $script:currentPage -eq "DeviceDetails" }
                     "control-Device name" { $script:currentPage -eq "DeviceDetails" }
@@ -193,6 +209,10 @@ try {
                     "control-Public IP address" { $script:currentPage -eq "Network" }
                     "control-Search people" { $script:currentPage -eq "People" }
                     "control-Search rooms" { $script:currentPage -eq "Rooms" }
+                    "control-Back to people" { $script:currentPage -eq "PersonDetails" }
+                    "control-Back to rooms" { $script:currentPage -eq "RoomDetails" }
+                    "control-Assigned devices" { $script:currentPage -in @("PersonDetails", "RoomDetails") }
+                    "control-Assign devices" { $script:currentPage -in @("PersonDetails", "RoomDetails") }
                     "control-Window backdrop" { $script:currentPage -eq "Settings" }
                     default { throw "Unexpected control '$id'." }
                 }
@@ -209,6 +229,11 @@ try {
     Assert-Equal $script:empty $false "Returning from empty results restores the baseline"
     $script:hiddenControl = "control-Public IP address"
     Assert-Throws { Show-UiReviewCaptureScenario "Network" } "*not visible*"
+    $script:hiddenControl = ""
+    foreach ($scenario in @("PersonDetails", "RoomDetails")) {
+        $script:hiddenControl = "control-Assign devices"
+        Assert-Throws { Show-UiReviewCaptureScenario $scenario } "*not visible*"
+    }
     $script:hiddenControl = ""
     $script:brokenNavigation = $true
     Assert-Throws { Show-UiReviewCaptureScenario "Overview" } "*Navigation did not select*"

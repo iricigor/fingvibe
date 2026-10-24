@@ -26,7 +26,11 @@ public sealed partial class MainWindow
     {
         try
         {
-            _peopleRooms = await _peopleRoomsStore.LoadAsync();
+            _peopleRooms = IsUiReview
+                ? new PeopleRoomsData(
+                    [new ManagedPerson(Guid.Parse("db958652-55aa-409f-afca-d60c68081574"), "UI review person", "UI")],
+                    [new ManagedRoom(Guid.Parse("db958652-55aa-409f-afca-d60c68081575"), "UI review room", "UI")])
+                : await _peopleRoomsStore.LoadAsync();
             SetPeopleRoomsStatus("People and rooms are saved locally.");
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
@@ -605,7 +609,10 @@ public sealed partial class MainWindow
         try
         {
             var updated = update(_peopleRooms);
-            await _peopleRoomsStore.SaveAsync(updated);
+            if (!IsUiReview)
+            {
+                await _peopleRoomsStore.SaveAsync(updated);
+            }
             _peopleRooms = updated;
             foreach (var row in _allResults)
             {
