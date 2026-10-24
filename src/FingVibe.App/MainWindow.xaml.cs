@@ -56,7 +56,7 @@ public sealed partial class MainWindow : Window
         finally
         {
             _allowWindowClose = true;
-            sender.Close();
+            Close();
         }
     }
 
