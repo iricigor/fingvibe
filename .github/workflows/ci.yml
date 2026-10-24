@@ -207,6 +207,13 @@ jobs:
             -BaseRevision $env:BASE_REVISION -HeadRevision $env:HEAD_REVISION `
             -AdditionalScenarios $env:ADDITIONAL_SCENARIOS
 
+      - name: Test sidebar navigation and appearance
+        shell: powershell
+        run: |
+          .\tests\SidebarNavigation.Tests.ps1 `
+            -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
+            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-review\sidebar"
+
       - name: Exercise primary UI and capture required views
         id: smoke
         shell: pwsh

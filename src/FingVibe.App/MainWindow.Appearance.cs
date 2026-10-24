@@ -32,6 +32,9 @@ public sealed partial class MainWindow
         BackdropPicker.SelectedIndex = (int)_appearance.Backdrop;
         ThemePicker.SelectedIndex = (int)_appearance.Theme;
         ApplyAppearance();
+        MainNavigation.PaneOpening += (_, _) => UpdateNavigationPaneBackground(isPaneOpen: true);
+        MainNavigation.PaneClosing += (_, _) => UpdateNavigationPaneBackground(isPaneOpen: false);
+        MainNavigation.DisplayModeChanged += (_, _) => UpdateNavigationPaneBackground(MainNavigation.IsPaneOpen);
         _appearanceReady = true;
         // HighContrastChanged requires a CoreWindow, which WinUI desktop windows do not have.
         _uiSettings.ColorValuesChanged += Appearance_ColorValuesChanged;
@@ -64,6 +67,10 @@ public sealed partial class MainWindow
             (WindowBackdrop)BackdropPicker.SelectedIndex,
             (ThemeVariant)ThemePicker.SelectedIndex);
         ApplyAppearance();
+        if (IsUiReview)
+        {
+            return;
+        }
         try
         {
             _appearanceStore.Save(_appearance);
@@ -89,12 +96,33 @@ public sealed partial class MainWindow
         RootGrid.RequestedTheme = palette.IsDark ? ElementTheme.Dark : ElementTheme.Light;
 
         var hasBackdrop = ApplyWindowBackdrop();
-        SetAppearanceBrush(resources, "ScannerPageBackgroundBrush", palette.Page, hasBackdrop ? (byte)0 : (byte)255);
+        UpdateNavigationPaneBackground(MainNavigation.IsPaneOpen);
         BackdropStatus.Text = _accessibilitySettings.HighContrast
             ? "High contrast is active; Windows system colors are used instead of materials."
             : _appearance.Backdrop != WindowBackdrop.Solid && !hasBackdrop
                 ? "This material is unavailable. A solid background is used; your choice is kept."
                 : "Changes are previewed immediately. Material effects also depend on Windows transparency settings.";
+    }
+
+    private void UpdateNavigationPaneBackground(bool isPaneOpen)
+    {
+        var brush = (SolidColorBrush)MainNavigation.Resources["NavigationViewDefaultPaneBackground"];
+        var isOverlay = isPaneOpen && MainNavigation.DisplayMode != NavigationViewDisplayMode.Expanded;
+        // Only overlay panes need an opaque surface so page content cannot bleed through the menu.
+        if (_accessibilitySettings.HighContrast)
+        {
+            brush.Color = isOverlay ? _uiSettings.GetColorValue(UIColorType.Background) : Color.FromArgb(0, 0, 0, 0);
+        }
+        else
+        {
+            var palette = AppearancePalette.For(_appearance.Theme);
+            var resources = (ResourceDictionary)Application.Current.Resources.ThemeDictionaries[
+                palette.IsDark ? "Dark" : "Light"];
+            SetAppearanceBrush(resources, "ScannerPageBackgroundBrush", palette.Page,
+                isOverlay || SystemBackdrop is null ? (byte)255 : (byte)0);
+            SetAppearanceBrush(MainNavigation.Resources, "NavigationViewDefaultPaneBackground",
+                palette.Page, isOverlay ? (byte)255 : (byte)0);
+        }
     }
 
     private bool ApplyWindowBackdrop()
