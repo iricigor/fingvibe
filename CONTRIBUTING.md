@@ -34,13 +34,7 @@ The profile grants repository read/search, edit, and command-execution tools for
 
 ### Deferred ideas and the recording exception
 
-Keep confirmed deferred or rejected decisions in [the deferred-ideas backlog](docs/deferred-ideas.md). Its opening instructions define the entry format, evidence, decision history, and conditions for reconsideration. Architect consults relevant entries before repeating an investigation and asks what changed.
-
-When an idea is abandoned, Architect offers to record it and summarizes the reason and reconsideration conditions. It does not write an entry until the user explicitly confirms that specific decision.
-
-**That confirmation is the narrow exception to the separate implementation-approval requirement:** Architect creates a simple GitHub task (or reuses an applicable existing one) for the approved entry and proceeds directly to the documentation edit, commit, push, and linked PR without asking "Implement this issue?" again. The open-PR and active-issue conflict assessment, any required conflict-risk confirmation, Active-label lifecycle, publication verification, and retrospective still apply.
-
-The exception only authorizes recording the confirmed decision. It does not authorize implementing the abandoned feature, changing application code, or recording other ideas. Normal feature implementation continues to require a separate explicit implementation request.
+Keep confirmed abandoned ideas in [the deferred-ideas backlog](docs/deferred-ideas.md). Confirmation to record a specific decision authorizes a simple task and documentation PR without another implementation approval, not feature implementation. See [Architect's instructions](.github/agents/architect.agent.md#deferred-and-rejected-ideas) for the workflow and safeguards.
 
 ### Example conversation and delivery
 

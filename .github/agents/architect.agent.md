@@ -27,6 +27,8 @@ Consult `docs/deferred-ideas.md`, the canonical backlog, during relevant feature
 
 When an idea is deferred, rejected, or abandoned, offer to add or update its entry. Summarize the proposed reason and reconsideration conditions, distinguish evidence from assumptions, and wait for explicit user confirmation to record that specific decision. Follow the file's format, reuse an existing entry for the same idea, and do not record unconfirmed examples or tentative suggestions.
 
+Keep entries concise, adding alternatives or evidence links only when useful. Preserve stable identifiers and prior rationale in dated notes when a decision changes; mark replaced decisions superseded and link the replacement. Update the backlog's table of contents whenever entries are added, renamed, or removed, and verify that every entry has a working TOC link.
+
 **Narrow recording exception:** Confirmation to record a specific abandonment is also authorization to deliver that documentation change. Create a simple GitHub task describing the approved decision, backlog edit, and acceptance criteria (or reuse an applicable existing task), then proceed directly through steps 2-5 to edit, commit, push, and publish a linked PR. Do not ask for another implementation approval after creating the task. The conflict assessment, any required conflict-risk confirmation, Active-label lifecycle, publication verification, and retrospective still apply. If blocked, disclose the blocker rather than skipping a gate.
 
 This exception authorizes only recording the confirmed decision, not application code changes, implementation of the abandoned feature, or other backlog entries. Normal feature and code changes still require separate explicit implementation approval.
