@@ -35,7 +35,13 @@ jobs:
       - name: Test networking core
         run: dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj --configuration Release
 
+      - name: Test ISP logo build configuration
+        shell: pwsh
+        run: .\tests\LogoDevConfiguration.Tests.ps1
+
       - name: Publish Windows x64 app
+        env:
+          LOGO_DEV_PUBLISHABLE_KEY: ${{ secrets.LOGO_DEV_PUBLISHABLE_KEY }}
         shell: pwsh
         run: |
           msbuild src\FingVibe.App\FingVibe.App.csproj `
@@ -45,6 +51,7 @@ jobs:
             /property:Platform=x64 `
             /property:RuntimeIdentifier=win-x64 `
             /property:SelfContained=true `
+            /property:SatelliteResourceLanguages= `
             /property:Version=${{ steps.version.outputs.number }} `
             /property:BuildKind=Release `
             /property:BuildCommit=${{ github.sha }} `

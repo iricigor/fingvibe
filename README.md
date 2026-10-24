@@ -11,7 +11,7 @@ Captured from the native app in UI-review mode using the local loopback host, no
 ## Features
 
 - Native WinUI 3 desktop UI; WebView2 is restricted to the local Cloudflare speed-test host
-- Fixed left navigation with Overview, Network, Devices, People, Rooms, Tools, and Settings pages
+- Adaptive Windows Settings-style left navigation with colored icons, Overview, Network, Devices, People, Rooms, and bottom-pinned Tools and Settings
 - [Manual Cloudflare internet speed test](docs/speed-test.md) in Tools, with native results and a per-run data-use disclosure
 - Overview with local network identity, scan freshness, actionable online/open-port summaries, compact network setup, and project links
 - Automatic local IPv4 and CIDR discovery
@@ -27,8 +27,8 @@ Captured from the native app in UI-review mode using the local loopback host, no
 - Device names from UPnP/SSDP, mDNS, reverse DNS, and NetBIOS
 - MAC vendor lookup using locally cached IEEE registries, including private/randomized detection
 - Bounded probes for common TCP services with compact Fluent port icons
-- Live progress, cancellation, filtering, and sortable per-host results
-- Compact results with subnet-aware IP emphasis, online/offline badges, and two-tone MAC addresses
+- Live progress, cancellation, filtering, and sortable per-device results
+- Compact results with subnet-aware IP emphasis, online badges, and two-tone MAC addresses
 - Numeric latency labels with green-to-red bars scaled across responding hosts (20% for fastest, 100% for slowest; equal times remain green at 20%)
 - MAC address discovery for reachable devices when available
 - Pull request build artifacts for Windows x64
@@ -47,11 +47,11 @@ dotnet restore FingVibe.sln
 dotnet run --project src\FingVibe.App\FingVibe.App.csproj -p:Platform=x64
 ```
 
-The scanner uses ICMP echo requests. Firewall rules and devices configured not to answer ICMP can cause an active host to appear unreachable. On first use, vendor detection downloads the official IEEE MA-L, MA-M, and MA-S registries and caches them under the current user's local application data for 30 days.
+The scanner uses ICMP echo requests. Firewall rules and devices configured not to answer ICMP can prevent an active device from appearing in the results. On first use, vendor detection downloads the official IEEE MA-L, MA-M, and MA-S registries and caches them under the current user's local application data for 30 days.
 
-Overview shows the selected interface as the network name, with subnet and available ISP information beneath it. The freshness indicator describes the displayed scan, not continuous monitoring, and refreshes periodically. Restored or partial results retain their subnet and observation time; selecting another network explicitly identifies results from a different scan target. Cancel and progress appear only during a scan. Before the first scan, Overview provides guidance rather than unknown counts.
+Overview shows the selected interface as the network name, with subnet and available ISP information beneath it. The freshness indicator describes the displayed scan, not continuous monitoring, and refreshes periodically. Displayed results retain their subnet and observation time; selecting another network explicitly identifies results from a different scan target. Cancel and progress appear only during a scan. Before the first scan, Overview provides guidance rather than unknown counts.
 
-Select the online-device or open-port summary card to open the corresponding Devices results. This clears stale search/summary filters; the visible **Only devices with open ports** checkbox can be cleared to return to other results and combines with text search and **All / Alive**. Open ports describe observed services, not a security verdict. Overview does not count unused addresses as offline devices or track device history. The compact **About FingVibe** card opens **Tools > About FingVibe** directly. About is also available from the Tools landing page and contains version/build details and links to the repository and creator's website (opened in the external browser).
+Select the online-device or open-port summary card to open the corresponding Devices results. This clears stale search/summary filters; the visible **With open ports** checkbox can be cleared to return to other devices and combines with text search and People/Rooms filters. Open ports describe observed services, not a security verdict. Overview does not count unused addresses as offline devices or track device history. The compact **About FingVibe** card opens **Tools > About FingVibe** directly. About is also available from the Tools landing page and contains version/build details and links to the repository and creator's website (opened in the external browser).
 
 The running version is visible near the top of Overview and in the window title. Official release builds have no ribbon. PR artifacts show their PR number and an amber diagonal **TEST BUILD** ribbon; local builds show **DEV**, and manually dispatched non-PR CI builds show **TEST**. Click or keyboard-activate the ribbon to acknowledge it until the app closes. The title and About details retain the build identity after acknowledgment. The ribbon occupies reserved space below the native title bar so it cannot cover page controls, and uses system colors in Windows high contrast.
 
@@ -63,11 +63,17 @@ Without a saved theme preference, FingVibe starts with Standard Light or Standar
 
 Public IP and ISP details are retrieved from `ipwho.is`. This optional display depends on internet access and sends the connection's public IP to that provider as part of the HTTPS request. LAN discovery and scanning continue to work when the lookup is unavailable.
 
+Configured builds also show an ISP logo on the Network page, loaded asynchronously from Logo.dev using the original ISP name. Logo.dev receives that name and the caller's public IP, but no LAN addresses, device inventory, or scan results. Missing configuration, unavailable images, and failed or slow requests leave a generic network icon; the ISP text and scanning remain available. Name matching selects the provider's top result and can identify the wrong brand. UI-review mode never requests logos. See [ISP logo configuration](docs/isp-logos.md) for build setup and provider limitations.
+
 The Overview network card shows A, B, or C for /8, /16, or /24 sizes; other sizes show their CIDR prefix. Network details explain all prefixes from /0 through /32, including class-size multiples/divisions and point-to-point or single-host networks. Counts below one million are exact; larger counts use M with two significant digits. Ordinary subnet counts exclude network/broadcast addresses, with a reserved suffix for /17 through /30; /31 assumes point-to-point use and /32 identifies one host. These capacity figures do not change the scanner's 65,534-address safety limit. Scope checks cover the whole subnet, distinguish private and special-purpose ranges (including APIPA/link-local), and flag mixed scopes. "Standard-size private" means a private /8, /16, or /24 subnet, not that other private prefix lengths are invalid.
 
-Results dim complete network-prefix octets using the scanned subnet's CIDR; partially masked octets remain emphasized because they also identify hosts. Latency bars update as responses arrive and keep the same scale when filtering or sorting. Missing responses show a dash, not a performance bar. "Offline" means no ICMP response, not proof that a device is powered off. Select a row with the pointer or keyboard to highlight it; sorting preserves the selection. Hover over service icons for port numbers and service names.
+Results dim complete network-prefix octets using the scanned subnet's CIDR; partially masked octets remain emphasized because they also identify hosts. Latency bars share one scale across the displayed scan's responding devices and keep that scale when filtering or sorting. Outside a scan, select a row with the pointer or keyboard to highlight it; sorting preserves the selection. Hover over service icons for port numbers and service names.
 
-The Devices toolbar has a Fluent inset **All / Alive** segmented switch, built with the Windows Community Toolkit `Segmented` control. A neutral recessed track surrounds a raised, softly rounded selected surface with blue accent text; the unselected option blends into the track. Colors adapt to light, dark, and Windows high-contrast themes. **All** is selected initially; **Alive** shows only online hosts. Both options combine with the text filter and apply to incoming scan results and saved results. Tab to the switch and use the Left/Right arrow keys to change the selection.
+Devices shows only responding devices, including when restoring older snapshots; unused or nonresponding addresses do not receive table rows. The shared network picker is left-aligned, and the Devices header consolidates scan freshness, network-target warnings, and scan/save errors into one status line. **Search devices**, People, Rooms, and **With open ports** are grouped in an adaptive toolbar that wraps at narrower widths. Filtered counts show visible versus total devices.
+
+Starting a scan keeps the displayed list visible and scrollable but prevents opening device details by pointer or keyboard. Results are collected separately and replace the list only when the scan succeeds; cancellation or failure retains the displayed results and reports the outcome explicitly. Progress continues to count all checked addresses. This refresh behavior adds no timeline, per-device previous-check state, or new discovery probes.
+
+The expanded sidebar uses a 280px Windows Settings-style layout with colored navigation icons and a FingVibe header. The sidebar and main page share one background, including when a backdrop material is selected. Collapsing the pane keeps an icon rail; narrow windows use native overlay navigation, with Tools above Settings at the bottom. While an overlay is open, both backgrounds temporarily use the same solid theme color to keep the menu readable without a contrasting pane tint; closing it restores the selected material. Windows high contrast replaces decorative icon colors with system colors.
 
 ### Device identification
 
@@ -95,18 +101,34 @@ People, rooms, and their assignments are saved separately from scan snapshots in
 dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj
 ```
 
+On an interactive Windows desktop at least 1024 logical pixels wide, run the native sidebar regression checks against a built application:
+
+```powershell
+powershell.exe -NoProfile -File tests\SidebarNavigation.Tests.ps1 `
+    -AppPath "<absolute path to FingVibe.App.exe>" `
+    -ScreenshotDirectory "$env:TEMP\FingVibe-sidebar-review"
+```
+
+These checks use Windows UI Automation without WinAppDriver or Developer Mode. They launch a separate app in deterministic UI-review mode, verify page routing and expanded/compact/overlay navigation, compare solid sidebar/page background pixels in all four themes, and save full-window captures for each backdrop. They also verify retained devices during refresh/cancellation, filtered counts, and non-overlapping device filters at wide and narrow widths, restoring the original scan snapshot afterward. The expanded test adapts to the monitor width (up to 1280 logical pixels), with a maximum window height of 720 logical pixels; pass `-ExpandedWindowWidth 1024` to reproduce the hosted runner's 1024x720 viewport on a larger desktop. All layout assertions remain enabled. UI-review mode previews appearance changes without saving them. Verify Windows high contrast separately using the system accessibility settings.
+
 ## Download builds
 
-Every pull request uploads a `fingvibe-win-x64-pr-*` artifact from the **Actions** run. Every push to `main` publishes a GitHub Release tagged `v1.0.<run number>` with a self-contained Windows x64 ZIP.
+Local and pull request build/publish outputs retain only English (`en`) managed satellite resources through the application's `SatelliteResourceLanguages` setting. Neutral resources, including dependencies' default English strings, remain included. Official releases retain all available languages: the release workflow overrides the setting with an empty global MSBuild property (`/property:SatelliteResourceLanguages=`), disabling this filter. Both workflows use the Release configuration, so the configuration name alone does not determine language filtering. This does not force the runtime UI culture to English or filter Windows App SDK native/PRI resources in the self-contained deployment. When checking the result locally, start with clean build and publish output directories: previously copied language folders are not removed by changing this setting.
+
+Pull requests affecting application code or validation infrastructure upload a `fingvibe-win-x64-pr-*` artifact from the **Pull request build** Actions run. Each successful same-repository build posts a new artifact-link comment, preserving earlier comments and links (artifacts expire after 14 days). Artifact names include the run attempt, so reruns do not replace earlier downloads. Documentation-only and ordinary test-only changes do not publish an app. Every push to `main` publishes a GitHub Release tagged `v1.0.<run number>` with a self-contained Windows x64 ZIP.
 
 Keep the extracted app files together: `Assets\Scanner.ico` supplies the running window's title-bar and taskbar icon. The executable also embeds the same icon for File Explorer.
 
 ## Pull request review gates
 
-Pull requests run two independent review checks:
+Pull requests expose two review checks:
 
 - `security-review` scans the repository for exposed secrets and fails on critical dependency vulnerabilities.
-- `ui-ux-review` builds and launches the WinUI app, exercises the primary **Scan LAN** action, verifies critical accessible controls, and embeds fresh screenshots of Devices and the affected views/states on the pull request.
+- `ui-ux-review` launches the tested WinUI app, exercises the primary **Scan LAN** action, verifies critical accessible controls, and embeds fresh screenshots of Devices and the affected views/states on the pull request.
+
+The **Pull request build** workflow coordinates change planning, core/script tests, one Windows publish, native UI validation, and publication. Build and UI validation depend on the same successful test job; UI validation downloads the runnable artifact from that run rather than rebuilding it. UI-review mode is enabled only at runtime, so the downloaded app remains the normal executable. Superseded runs on the same PR are cancelled. Documentation-only changes skip tests/build/capture, while ordinary test-only changes run the regression tests without publishing or launching the app. Changes to the interactive screenshot regression tests run the native UI path as well. Workflows still start for every PR, and the `ui-ux-review` gate reports intentional skips or prerequisite failures rather than leaving a required check pending. Security scanning remains independent and runs on every PR.
+
+Manual runs of **Pull request build** force tests, build, and UI validation, including optional `additional_scenarios`. Read-only jobs execute tests, build, and UI automation without write permissions or persisted Git credentials. Separate publishing jobs receive only the content/comment writes they need. Fork and untrusted-contributor restrictions remain in place; Dependabot runs do not post comments.
 
 The UI check runs on GitHub's `windows-2025` image and uses its preinstalled WinAppDriver to launch and automate the native application in dark theme. It also exercises overview-card navigation (including keyboard activation), clearing stale filters and enabling/disabling the visible open-port filter. It runs automatically only for same-repository pull requests from trusted collaborators; fork pull requests are not executed. The workflow sets `FINGVIBE_UI_REVIEW=1`, which confines the smoke-test scan to the single loopback host `127.0.0.1/32`, allowing real discovery and enrichment to finish before capturing the hosted-runner review.
 
@@ -114,9 +136,11 @@ Before exercising the UI, the capture script restores and centers the applicatio
 
 The Windows screenshot regression tests deliberately place a patterned window off-screen and then oversize it. They verify that capture rejects clipping, fits the window on-screen, and preserves all four corner markers in a PNG whose dimensions match the complete window. Run them on an interactive Windows desktop with `pwsh -File tests\UiReviewScreenshot.Tests.ps1`.
 
-The capture plan always includes **Devices** after its scan/filter smoke test. The PR's merge-base diff selects additional views: page-local XAML changes select that page; device-details and network-identity code select their respective views; results/filter/column changes include the empty-results state and Settings. Shared layout, other application/core changes, and review-pipeline changes conservatively select all supported scenarios. Nonvisual documentation/test-only changes keep just Devices. Each capture verifies the selected navigation item and visible page-specific controls; required navigation or capture failures stop the review instead of silently showing the wrong page.
+When UI review runs, the capture plan always includes **Devices** after its scan/filter smoke test. The PR's merge-base diff selects additional views: page-local XAML changes select that page; device-details and network-identity code select their respective views; results/filter/column changes include the empty-results state and Settings. Tools/speed-test changes select **Tools** and **Speed test**, so a change adding that feature produces exactly those two screenshots plus Devices. Navigation-menu changes are demonstrated in Devices instead of capturing every existing page. Shared window layout and theme/appearance changes still select all scenarios; other application/core and review-pipeline changes use the Devices baseline unless a page-specific rule applies. New views must have explicit capture/navigation rules rather than silently falling back to unrelated screenshots.
 
-The workflow logs selection reasons and uploads the capture plan, completed manifest, and all PNGs together. Its existing PR comment is updated with labeled images, without repeating the detailed file-by-file selection reasons. Manual runs can request extra scenarios through the comma-separated `additional_scenarios` input: `Overview`, `Network`, `DeviceDetails`, `People`, `PersonDetails`, `Rooms`, `RoomDetails`, `Tools`, `SpeedTest`, `Settings`, and `DevicesEmpty`. People and Rooms captures use in-memory review records instead of loading or changing saved user data. New pages or required states must be added to the scenario catalog, selection, navigation, and regression tests. Run the scenario regression tests with `pwsh -File tests\UiReviewScenarios.Tests.ps1`.
+Navigation verification is independent of screenshot selection: every supported scenario is exercised, even when only Devices is captured. Existing scan/filter, overview navigation, People/Rooms suggestions, and assignment smoke tests remain enabled. Each capture verifies the selected navigation item and visible page-specific controls; required navigation or capture failures stop the review instead of silently showing the wrong page.
+
+The workflow logs selection reasons and uploads the capture plan, completed manifest, and all PNGs together. Available partial captures, WinAppDriver output, startup/crash diagnostics, and the smoke-test transcript are retained on failure; a completed manifest is written only after all required checks pass. Its existing PR screenshot comment is updated with labeled images, without repeating the detailed file-by-file selection reasons. Security/UI failure comments are still updated and cleared when resolved; only build-artifact comments are append-only. Manual runs can request extra scenarios through the comma-separated `additional_scenarios` input: `Overview`, `Network`, `DeviceDetails`, `People`, `PersonDetails`, `Rooms`, `RoomDetails`, `Tools`, `SpeedTest`, `Settings`, and `DevicesEmpty`. People and Rooms captures use in-memory review records instead of loading or changing saved user data. New pages or required states must be added to the scenario catalog, selection, navigation, and regression tests. Run the scenario regression tests with `pwsh -File tests\UiReviewScenarios.Tests.ps1`, and validation-planning/comment/gate regression tests with `pwsh -File tests\PrValidation.Tests.ps1`.
 
 The workflow publishes screenshots to the `gh-pages` branch so the bot can embed the PNGs directly in its review comment. After the workflow creates that branch for the first time, open **Settings > Pages**, choose **Deploy from a branch**, select `gh-pages` and `/ (root)`, then save. Published image URLs use `https://<owner>.github.io/<repository>/ui-review/pr-<number>/run-<run-id>/<filename>.png`, keeping captures from different runs separate.
 

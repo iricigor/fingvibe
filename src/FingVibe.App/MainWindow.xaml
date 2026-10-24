@@ -4,7 +4,6 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:FingVibe.App"
-    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:models="using:FingVibe.Core.Models"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
@@ -17,54 +16,120 @@
                         IsBackButtonVisible="Collapsed"
                         IsSettingsVisible="True"
                         IsTitleBarAutoPaddingEnabled="False"
-                        OpenPaneLength="220"
+                        OpenPaneLength="280"
                         AutomationProperties.Name="Main menu"
                         ItemInvoked="MainNavigation_ItemInvoked"
                         SelectionChanged="MainNavigation_SelectionChanged">
-            <NavigationView.PaneHeader>
-                <StackPanel Margin="12,16,12,12" Orientation="Horizontal" Spacing="10">
-                    <Border Width="36"
-                            Height="36"
+            <NavigationView.Resources>
+                <ResourceDictionary>
+                    <ResourceDictionary.ThemeDictionaries>
+                        <ResourceDictionary x:Key="Light">
+                            <Style x:Key="SidebarOverviewIconStyle" TargetType="FontIcon">
+                                <Setter Property="Foreground" Value="#C45D16" />
+                            </Style>
+                            <Style x:Key="SidebarNetworkIconStyle" TargetType="FontIcon">
+                                <Setter Property="Foreground" Value="#0078B8" />
+                            </Style>
+                            <Style x:Key="SidebarDevicesIconStyle" TargetType="FontIcon">
+                                <Setter Property="Foreground" Value="#6253C4" />
+                            </Style>
+                            <Style x:Key="SidebarPeopleIconStyle" TargetType="FontIcon">
+                                <Setter Property="Foreground" Value="#008575" />
+                            </Style>
+                            <Style x:Key="SidebarRoomsIconStyle" TargetType="FontIcon">
+                                <Setter Property="Foreground" Value="#B34177" />
+                            </Style>
+                            <Style x:Key="SidebarToolsIconStyle" TargetType="FontIcon">
+                                <Setter Property="Foreground" Value="#9A6700" />
+                            </Style>
+                        </ResourceDictionary>
+                        <ResourceDictionary x:Key="Dark">
+                            <Style x:Key="SidebarOverviewIconStyle" TargetType="FontIcon">
+                                <Setter Property="Foreground" Value="#FFAB66" />
+                            </Style>
+                            <Style x:Key="SidebarNetworkIconStyle" TargetType="FontIcon">
+                                <Setter Property="Foreground" Value="#60CDFF" />
+                            </Style>
+                            <Style x:Key="SidebarDevicesIconStyle" TargetType="FontIcon">
+                                <Setter Property="Foreground" Value="#B4A0FF" />
+                            </Style>
+                            <Style x:Key="SidebarPeopleIconStyle" TargetType="FontIcon">
+                                <Setter Property="Foreground" Value="#5BD6C3" />
+                            </Style>
+                            <Style x:Key="SidebarRoomsIconStyle" TargetType="FontIcon">
+                                <Setter Property="Foreground" Value="#F093BE" />
+                            </Style>
+                            <Style x:Key="SidebarToolsIconStyle" TargetType="FontIcon">
+                                <Setter Property="Foreground" Value="#F9CF58" />
+                            </Style>
+                        </ResourceDictionary>
+                        <ResourceDictionary x:Key="HighContrast">
+                            <!-- Inherit native selected/hover foregrounds instead of fixing a decorative color. -->
+                            <Style x:Key="SidebarOverviewIconStyle" TargetType="FontIcon" />
+                            <Style x:Key="SidebarNetworkIconStyle" TargetType="FontIcon" />
+                            <Style x:Key="SidebarDevicesIconStyle" TargetType="FontIcon" />
+                            <Style x:Key="SidebarPeopleIconStyle" TargetType="FontIcon" />
+                            <Style x:Key="SidebarRoomsIconStyle" TargetType="FontIcon" />
+                            <Style x:Key="SidebarToolsIconStyle" TargetType="FontIcon" />
+                        </ResourceDictionary>
+                    </ResourceDictionary.ThemeDictionaries>
+                    <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="Transparent" />
+                    <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="Transparent" />
+                    <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
+                    <Thickness x:Key="NavigationViewBorderThickness">0</Thickness>
+                    <Thickness x:Key="NavigationViewContentGridBorderThickness">0</Thickness>
+                    <Thickness x:Key="NavigationViewMinimalContentGridBorderThickness">0</Thickness>
+                    <CornerRadius x:Key="NavigationViewContentGridCornerRadius">0</CornerRadius>
+                    <Thickness x:Key="NavigationViewItemMargin">4,2</Thickness>
+                    <x:Double x:Key="NavigationViewItemOnLeftMinHeight">40</x:Double>
+                </ResourceDictionary>
+            </NavigationView.Resources>
+            <NavigationView.PaneCustomContent>
+                <StackPanel Margin="12,16,12,24" Orientation="Horizontal" Spacing="12"
+                            Visibility="{x:Bind MainNavigation.IsPaneOpen, Mode=OneWay}">
+                    <Border Width="48"
+                            Height="48"
                             Background="{ThemeResource AccentFillColorDefaultBrush}"
-                            CornerRadius="9">
-                        <FontIcon Glyph="&#xE8FE;" FontSize="18" Foreground="White" />
+                            CornerRadius="12">
+                        <FontIcon Glyph="&#xE8FE;" FontSize="24" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
                     </Border>
-                    <TextBlock Text="FingVibe"
-                               VerticalAlignment="Center"
-                               Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <StackPanel VerticalAlignment="Center" Spacing="2">
+                        <TextBlock Text="FingVibe" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <TextBlock Text="LAN scanner" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
                 </StackPanel>
-            </NavigationView.PaneHeader>
+            </NavigationView.PaneCustomContent>
             <NavigationView.MenuItems>
                 <NavigationViewItem x:Name="OverviewNavItem" Content="Overview" Tag="Overview">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE9D2;" />
+                        <FontIcon Glyph="&#xE9D2;" Style="{ThemeResource SidebarOverviewIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="NetworkNavItem" Content="Network" Tag="Network">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE968;" />
+                        <FontIcon Glyph="&#xE968;" Style="{ThemeResource SidebarNetworkIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="DevicesNavItem" Content="Devices" Tag="Devices">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE772;" />
+                        <FontIcon Glyph="&#xE772;" Style="{ThemeResource SidebarDevicesIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="PeopleNavItem" Content="People" Tag="People">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE716;" />
+                        <FontIcon Glyph="&#xE716;" Style="{ThemeResource SidebarPeopleIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="RoomsNavItem" Content="Rooms" Tag="Rooms">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE707;" />
+                        <FontIcon Glyph="&#xE707;" Style="{ThemeResource SidebarRoomsIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
             <NavigationView.FooterMenuItems>
                 <NavigationViewItem x:Name="ToolsNavItem" Content="Tools" Tag="Tools">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE90F;" />
+                        <FontIcon Glyph="&#xE90F;" Style="{ThemeResource SidebarToolsIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.FooterMenuItems>
@@ -108,7 +173,7 @@
                     <ComboBox x:Name="NetworkPicker"
                               MinWidth="150"
                               MaxWidth="360"
-                              HorizontalAlignment="Stretch"
+                              HorizontalAlignment="Left"
                               Header="Detected network"
                               SelectionChanged="NetworkPicker_SelectionChanged" />
                     <Button x:Name="ScanButton"
@@ -290,7 +355,20 @@
                                 </StackPanel>
                                 <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">
                                     <TextBlock Text="ISP name" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="IspNameText" Text="Detecting..." FontSize="16" IsTextSelectionEnabled="True" />
+                                    <Grid ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid Width="32" Height="32" VerticalAlignment="Center"
+                                              AutomationProperties.AccessibilityView="Raw">
+                                            <FontIcon x:Name="IspLogoFallback" Glyph="&#xE968;" FontSize="24"
+                                                      Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            <Image x:Name="IspLogoImage" Stretch="Uniform" Visibility="Collapsed" />
+                                        </Grid>
+                                        <TextBlock x:Name="IspNameText" Grid.Column="1" Text="Detecting..." FontSize="16"
+                                                   TextWrapping="Wrap" VerticalAlignment="Center" IsTextSelectionEnabled="True" />
+                                    </Grid>
                                     <TextBlock Text="The internet provider associated with the public IP address."
                                                TextWrapping="Wrap"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -318,7 +396,7 @@
                                 </StackPanel>
                                 <TextBlock Grid.Row="4"
                                            Grid.ColumnSpan="2"
-                                           Text="Public IP, ISP, and location details are retrieved from ipwho.is, which receives your public IP as part of the request."
+                                           Text="Public IP, ISP, and location details are retrieved from ipwho.is, which receives your public IP as part of the request. When configured, ISP logos are loaded from Logo.dev, which receives the ISP name and your public IP, but no LAN addresses, device inventory, or scan results."
                                            TextWrapping="Wrap"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </Grid>
@@ -380,69 +458,47 @@
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
                             <Grid Padding="16,10" ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
                                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                     <FontIcon Glyph="&#xE772;" FontSize="16" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
                                     <TextBlock Text="Devices" Style="{ThemeResource SubtitleTextBlockStyle}" />
                                     <TextBlock x:Name="ResultCountText"
-                                               Text="0 hosts"
+                                               Text="0 devices"
                                                VerticalAlignment="Center"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </StackPanel>
-                                <TextBox x:Name="ResultSearchBox"
-                                         Grid.Column="1"
-                                         Width="180"
-                                         VerticalAlignment="Bottom"
-                                         PlaceholderText="Filter"
-                                         AutomationProperties.Name="Filter scan results"
-                                         TextChanged="ResultSearchBox_TextChanged" />
-                                <local:StatusFilterControl x:Name="StatusFilter"
-                                         Grid.Column="2"
-                                         VerticalAlignment="Bottom"
-                                         Padding="3"
-                                         CornerRadius="9"
-                                         BorderThickness="1"
-                                         BorderBrush="{ThemeResource StatusFilterBorderBrush}"
-                                         Background="{ThemeResource StatusFilterContainerBrush}"
-                                         Style="{StaticResource DefaultSegmentedStyle}"
-                                         ItemContainerStyle="{StaticResource StatusFilterItemStyle}"
-                                         SelectionMode="Single"
-                                         SingleSelectionFollowsFocus="True"
-                                         AutomationProperties.Name="Show hosts"
-                                         SelectionChanged="StatusFilter_SelectionChanged">
-                                    <local:StatusFilterControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <toolkit:EqualPanel Spacing="3" />
-                                        </ItemsPanelTemplate>
-                                    </local:StatusFilterControl.ItemsPanel>
-                                    <toolkit:SegmentedItem Content="All" AutomationProperties.Name="All" />
-                                    <toolkit:SegmentedItem Content="Alive" AutomationProperties.Name="Alive" />
-                                </local:StatusFilterControl>
                             </Grid>
-                            <StackPanel Grid.Row="1" Margin="16,0,16,8" Spacing="4">
-                                <Grid ColumnSpacing="8">
+                            <StackPanel Grid.Row="1" Margin="16,0,16,8" Spacing="8">
+                                <TextBlock x:Name="SnapshotStatusText"
+                                           TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Visibility="Collapsed" />
+                                <Grid x:Name="DeviceFilters" ColumnSpacing="8" RowSpacing="8"
+                                      SizeChanged="DeviceFilters_SizeChanged">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <CheckBox x:Name="OpenPortsFilter" Content="Only devices with open ports"
-                                              Checked="OpenPortsFilter_Changed" Unchecked="OpenPortsFilter_Changed" />
-                                    <ComboBox x:Name="PersonFilter" Grid.Column="1" Width="150"
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBox x:Name="ResultSearchBox"
+                                             PlaceholderText="Search devices"
+                                             AutomationProperties.Name="Search devices"
+                                             TextChanged="ResultSearchBox_TextChanged" />
+                                    <ComboBox x:Name="PersonFilter" Grid.Column="1" HorizontalAlignment="Stretch"
                                               AutomationProperties.Name="Filter by person"
                                               SelectionChanged="PeopleRoomFilter_SelectionChanged" />
-                                    <ComboBox x:Name="RoomFilter" Grid.Column="2" Width="150"
+                                    <ComboBox x:Name="RoomFilter" Grid.Column="2" HorizontalAlignment="Stretch"
                                               AutomationProperties.Name="Filter by room"
                                               SelectionChanged="PeopleRoomFilter_SelectionChanged" />
+                                    <CheckBox x:Name="OpenPortsFilter" Grid.Column="3" Content="With open ports"
+                                              Checked="OpenPortsFilter_Changed" Unchecked="OpenPortsFilter_Changed" />
                                 </Grid>
-                                <TextBlock x:Name="SnapshotStatusText"
-                                       TextWrapping="Wrap"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       Visibility="Collapsed" />
                             </StackPanel>
                             <ScrollViewer Grid.Row="2"
                                           HorizontalScrollMode="Auto"

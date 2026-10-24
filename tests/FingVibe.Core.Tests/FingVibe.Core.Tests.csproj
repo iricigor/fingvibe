@@ -23,8 +23,10 @@
   <ItemGroup>
     <Compile Include="..\..\src\FingVibe.App\BuildIdentity.cs" Link="BuildIdentity.cs" />
     <Compile Include="..\..\src\FingVibe.App\ScanResultRow.cs" Link="ScanResultRow.cs" />
+    <Compile Include="..\..\src\FingVibe.App\ScanResultBuffer.cs" Link="ScanResultBuffer.cs" />
     <Compile Include="..\..\src\FingVibe.App\DeviceColumns.cs" Link="DeviceColumns.cs" />
     <Compile Include="..\..\src\FingVibe.App\AppearancePalette.cs" Link="AppearancePalette.cs" />
+    <Compile Include="..\..\src\FingVibe.App\IspLogoSession.cs" Link="IspLogoSession.cs" />
     <Compile Include="..\..\src\FingVibe.App\OverviewScanContext.cs" Link="OverviewScanContext.cs" />
     <Compile Include="..\..\src\FingVibe.App\DeviceResultFilter.cs" Link="DeviceResultFilter.cs" />
     <Compile Include="..\..\src\FingVibe.App\Tools\NetworkActivityCoordinator.cs" Link="NetworkActivityCoordinator.cs" />

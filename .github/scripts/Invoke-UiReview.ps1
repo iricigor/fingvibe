@@ -28,12 +28,8 @@ $sessionId = $null
 $driverProcess = $null
 $succeeded = $false
 $reviewStartedAt = Get-Date
-$logDirectory = if ($env:RUNNER_TEMP) {
-    $env:RUNNER_TEMP
-}
-else {
-    [System.IO.Path]::GetTempPath()
-}
+$logDirectory = [System.IO.Path]::GetFullPath($ScreenshotDirectory)
+$null = New-Item -ItemType Directory -Path $logDirectory -Force
 $standardOutputPath = Join-Path $logDirectory "fingvibe-winappdriver.stdout.log"
 $standardErrorPath = Join-Path $logDirectory "fingvibe-winappdriver.stderr.log"
 $startupLogPath = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-ui-review-startup.log"
@@ -218,67 +214,6 @@ function Test-UiReviewNameSuggestion {
     Invoke-WebDriverElement -ElementId $cancel
 }
 
-function Assert-StatusFilterSelection {
-    param(
-        [Parameter(Mandatory)]
-        [string] $SelectedId,
-
-        [Parameter(Mandatory)]
-        [string] $UnselectedId
-    )
-
-    $deadline = [DateTime]::UtcNow.AddSeconds(5)
-    do {
-        $selected = Invoke-WebDriverRequest -Method Get `
-            -Endpoint "/session/$sessionId/element/$SelectedId/selected"
-        $unselected = Invoke-WebDriverRequest -Method Get `
-            -Endpoint "/session/$sessionId/element/$UnselectedId/selected"
-        if ($selected.value -and -not $unselected.value) {
-            return
-        }
-
-        Start-Sleep -Milliseconds 100
-    } while ([DateTime]::UtcNow -lt $deadline)
-
-    throw "The All / Alive switch did not preserve mutually exclusive selection (expected selected: $($selected.value), expected unselected: $($unselected.value))."
-}
-
-function Assert-StatusFilterLayout {
-    param(
-        [Parameter(Mandatory)][string] $FilterId,
-        [Parameter(Mandatory)][string] $AllId,
-        [Parameter(Mandatory)][string] $AliveId,
-        [Parameter(Mandatory)][string] $SearchId
-    )
-
-    $bounds = @{}
-    foreach ($id in @($FilterId, $AllId, $AliveId, $SearchId)) {
-        $location = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$id/location"
-        $size = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$id/size"
-        $bounds[$id] = @{
-            X = $location.value.x
-            Y = $location.value.y
-            Width = $size.value.width
-            Height = $size.value.height
-        }
-    }
-
-    $filter = $bounds[$FilterId]
-    $all = $bounds[$AllId]
-    $alive = $bounds[$AliveId]
-    $search = $bounds[$SearchId]
-    if ([Math]::Abs($all.Width - $alive.Width) -gt 1 -or
-        [Math]::Abs($all.Height - $alive.Height) -gt 1 -or
-        [Math]::Abs($all.Y - $alive.Y) -gt 1 -or
-        $all.X + $all.Width -ge $alive.X -or
-        $all.X -le $filter.X -or $all.Y -le $filter.Y -or
-        $alive.X + $alive.Width -ge $filter.X + $filter.Width -or
-        $alive.Y + $alive.Height -ge $filter.Y + $filter.Height -or
-        $search.X + $search.Width -ge $filter.X) {
-        throw "The rounded status filter must have equal, separated, inset segments without overlapping search."
-    }
-}
-
 if (-not (Test-Path -LiteralPath $AppPath -PathType Leaf)) {
     throw "The published application was not found at '$AppPath'."
 }
@@ -379,44 +314,56 @@ try {
         -Value "//ListItem[@Name='Devices']"
     Invoke-WebDriverElement -ElementId $devicesMenuItem
 
-    $allHosts = Find-WebDriverElement -Using xpath -Value "//List[@Name='Show hosts']/ListItem[@Name='All']"
-    $aliveHosts = Find-WebDriverElement -Using xpath -Value "//List[@Name='Show hosts']/ListItem[@Name='Alive']"
-    $statusFilter = Find-WebDriverElement -Using name -Value "Show hosts"
-    $search = Find-WebDriverElement -Using name -Value "Filter scan results"
-    Assert-StatusFilterLayout -FilterId $statusFilter -AllId $allHosts -AliveId $aliveHosts -SearchId $search
-    Assert-StatusFilterSelection -SelectedId $allHosts -UnselectedId $aliveHosts
-    Invoke-WebDriverElement -ElementId $aliveHosts
-    Assert-StatusFilterSelection -SelectedId $aliveHosts -UnselectedId $allHosts
-    Invoke-WebDriverElement -ElementId $aliveHosts
-    Assert-StatusFilterSelection -SelectedId $aliveHosts -UnselectedId $allHosts
+    $search = Assert-VisibleUiReviewElement -Value "Search devices"
+    $removedSwitch = Find-WebDriverElement -Using name -Value "Show hosts" -TimeoutSeconds 1 -Optional
+    if ($removedSwitch) { throw "The removed All / Alive switch is still present." }
 
-    $null = Invoke-WebDriverRequest -Method Post `
-        -Endpoint "/session/$sessionId/element/$aliveHosts/value" `
-        -Body @{ value = @([string] [char] 0xE012) }
-    Assert-StatusFilterSelection -SelectedId $allHosts -UnselectedId $aliveHosts
-    $null = Invoke-WebDriverRequest -Method Post `
-        -Endpoint "/session/$sessionId/element/$allHosts/value" `
-        -Body @{ value = @([string] [char] 0xE014) }
-    Assert-StatusFilterSelection -SelectedId $aliveHosts -UnselectedId $allHosts
-
-    $result = Find-WebDriverElement `
-        -Using xpath `
-        -Value "//*[@Name='Online' or @Name='Offline']" `
-        -TimeoutSeconds 30 `
-        -Optional
-    if (-not $result) {
-        throw "The scan did not render a result with an accessible Online or Offline badge."
+    $scanStoppedDeadline = [DateTime]::UtcNow.AddSeconds(60)
+    while (-not (Get-WebDriverElementEnabled -ElementId $elements["Scan LAN"])) {
+        if ([DateTime]::UtcNow -ge $scanStoppedDeadline) {
+            throw "The scan did not complete within 60 seconds."
+        }
+        Start-Sleep -Milliseconds 100
     }
+    $null = Assert-VisibleUiReviewElement -Value "Online"
+    $offline = Find-WebDriverElement -Using name -Value "Offline" -TimeoutSeconds 1 -Optional
+    if ($offline) { throw "Nonresponding addresses must not appear in Devices." }
+
+    $retainedRow = Assert-VisibleUiReviewElement -Using xpath `
+        -Value "//List[@Name='Scan results']/ListItem[.//*[@Name='Online']][1]"
+    Invoke-WebDriverElement -ElementId $elements["Scan LAN"]
+    if (Get-WebDriverElementEnabled -ElementId $elements["Scan LAN"]) {
+        throw "The refresh ended before retained-list interaction could be verified."
+    }
+    $null = Assert-VisibleUiReviewElement -Value "Online"
+    $null = Assert-VisibleUiReviewElement -Using xpath `
+        -Value "//*[contains(@Name, 'Displaying retained results')]"
+    Invoke-WebDriverElement -ElementId $retainedRow
+    $null = Invoke-WebDriverRequest -Method Post `
+        -Endpoint "/session/$sessionId/element/$retainedRow/value" `
+        -Body @{ value = @([string] [char] 0xE007) }
+    $null = Assert-VisibleUiReviewElement -Value "Search devices"
+    $details = Find-WebDriverElement -Using name -Value "Back to devices" -TimeoutSeconds 1 -Optional
+    if ($details) { throw "A retained row opened device details during scanning." }
+    if (-not (Get-WebDriverElementEnabled -ElementId $elements["Scan LAN"])) {
+        $cancel = Assert-VisibleUiReviewElement -Value "Cancel"
+        Invoke-WebDriverElement -ElementId $cancel
+    }
+    $scanStoppedDeadline = [DateTime]::UtcNow.AddSeconds(60)
+    while (-not (Get-WebDriverElementEnabled -ElementId $elements["Scan LAN"])) {
+        if ([DateTime]::UtcNow -ge $scanStoppedDeadline) { throw "The refresh did not stop." }
+        Start-Sleep -Milliseconds 100
+    }
+    $null = Assert-VisibleUiReviewElement -Value "Online"
 
     $null = Invoke-WebDriverRequest -Method Post `
         -Endpoint "/session/$sessionId/element/$search/value" `
         -Body @{ value = @("fingvibe-no-matching-host") }
-    $null = Find-WebDriverElement -Using name -Value "No hosts match the current filter."
+    $null = Find-WebDriverElement -Using name -Value "No devices match the current filter."
     $null = Invoke-WebDriverRequest -Method Post `
         -Endpoint "/session/$sessionId/element/$search/clear" `
         -Body @{ }
     $null = Find-WebDriverElement -Using xpath -Value "//*[@Name='Online']"
-    Assert-StatusFilterSelection -SelectedId $aliveHosts -UnselectedId $allHosts
 
     $scanStoppedDeadline = [DateTime]::UtcNow.AddSeconds(60)
     while (-not (Get-WebDriverElementEnabled -ElementId $elements["Scan LAN"])) {
@@ -427,7 +374,7 @@ try {
     }
 
     # Summary navigation must replace stale filters and leave its port filter visible and reversible.
-    $portsFilter = Assert-VisibleUiReviewElement -Value "Only devices with open ports"
+    $portsFilter = Assert-VisibleUiReviewElement -Value "With open ports"
     $null = Invoke-WebDriverRequest -Method Post `
         -Endpoint "/session/$sessionId/element/$search/value" `
         -Body @{ value = @("fingvibe-no-matching-host") }
@@ -435,7 +382,6 @@ try {
     Invoke-WebDriverElement -ElementId $overview
     $portsCard = Assert-VisibleUiReviewElement -Value "See devices with open ports"
     Invoke-WebDriverElement -ElementId $portsCard
-    Assert-StatusFilterSelection -SelectedId $allHosts -UnselectedId $aliveHosts
     $checked = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$portsFilter/selected"
     if (-not $checked.value) { throw "The open-port summary did not enable the visible port filter." }
     $searchValue = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$search/text"
@@ -446,8 +392,7 @@ try {
     $null = Invoke-WebDriverRequest -Method Post `
         -Endpoint "/session/$sessionId/element/$onlineCard/value" `
         -Body @{ value = @([string] [char] 0xE007) }
-    $null = Assert-VisibleUiReviewElement -Value "Only devices with open ports"
-    Assert-StatusFilterSelection -SelectedId $aliveHosts -UnselectedId $allHosts
+    $null = Assert-VisibleUiReviewElement -Value "With open ports"
     $checked = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$portsFilter/selected"
     if ($checked.value) { throw "The online summary retained a stale port filter." }
     $null = Assert-VisibleUiReviewElement -Value "Online"
@@ -465,6 +410,7 @@ try {
             throw "Required capture '$($capture.Label)' failed: $($_.Exception.Message)"
         }
     }
+    Test-UiReviewNavigation
     Test-UiReviewNameSuggestion "Person" "Igor" "Iric" "II"
     Test-UiReviewNameSuggestion "Room" "Living" "Room" "LR"
     Write-Host "People and Rooms native short-name suggestion regression tests passed."
@@ -503,6 +449,7 @@ finally {
 
     if (-not $succeeded) {
         if (Test-Path -LiteralPath $startupLogPath) {
+            Copy-Item -LiteralPath $startupLogPath -Destination $logDirectory -Force
             Get-Content -LiteralPath $startupLogPath | Write-Host
         }
         try {
@@ -512,7 +459,9 @@ finally {
                 StartTime = $reviewStartedAt
             } -ErrorAction Stop |
                 Where-Object { $_.Message -like "*FingVibe.App*" } |
-                ForEach-Object { Write-Host $_.Message }
+                ForEach-Object { $_.Message } |
+                Tee-Object -FilePath (Join-Path $logDirectory "application-crashes.log") |
+                Write-Host
         }
         catch {
             Write-Warning "No application crash events were available: $($_.Exception.Message)"

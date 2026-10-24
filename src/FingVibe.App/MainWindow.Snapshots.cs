@@ -1,4 +1,3 @@
-using FingVibe.Core.Formatting;
 using FingVibe.Core.Models;
 using FingVibe.Core.Storage;
 using Microsoft.UI.Xaml;
@@ -18,6 +17,7 @@ public sealed partial class MainWindow
     private Dictionary<string, string> _deviceNameOverrides = new(StringComparer.OrdinalIgnoreCase);
     private bool _deviceNameOverridesUnavailable;
     private bool _hasRestoredSnapshot;
+    private string? _snapshotError;
 
     private async Task RestoreSavedScanAsync()
     {
@@ -38,7 +38,7 @@ public sealed partial class MainWindow
             var prefixLength = int.Parse(snapshot.Subnet[(snapshot.Subnet.LastIndexOf('/') + 1)..]);
             _minimumLatency = long.MaxValue;
             _maximumLatency = 0;
-            foreach (var result in snapshot.Results)
+            foreach (var result in snapshot.Results.Where(result => result.Status == HostStatus.Alive))
             {
                 var row = CreateResultRow(result, prefixLength);
                 _allResults.Add(row);
@@ -112,18 +112,13 @@ public sealed partial class MainWindow
     private void ShowSavedSnapshotStatus(ScanSnapshot snapshot)
     {
         _displayedScan = new OverviewScanContext(snapshot.Subnet, snapshot.CompletedAt, ScanDisplayStatus.Completed);
-        var age = ScanAgeFormatter.FormatAge(DateTimeOffset.UtcNow - snapshot.CompletedAt);
-        var completedAt = snapshot.CompletedAt.ToLocalTime().ToString("g");
-        SnapshotStatusText.Text = $"Saved results for {snapshot.Subnet} · {age} old · completed {completedAt}";
-        SnapshotStatusText.Visibility = Visibility.Visible;
+        _snapshotError = null;
         UpdateOverview();
     }
 
     private void ShowSnapshotError(string message)
     {
-        SnapshotStatusText.Text = _displayedScan is { } scan
-            ? $"{message} {scan.Describe((NetworkPicker.SelectedItem as LanNetwork)?.Cidr)}"
-            : message;
-        SnapshotStatusText.Visibility = Visibility.Visible;
+        _snapshotError = message;
+        UpdateScanStatus();
     }
 }

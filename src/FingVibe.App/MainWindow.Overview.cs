@@ -36,7 +36,6 @@ public sealed partial class MainWindow
     private void ShowOverviewDevices(bool openPortsOnly)
     {
         ResultSearchBox.Text = string.Empty;
-        StatusFilter.SelectedIndex = openPortsOnly ? 0 : 1;
         OpenPortsFilter.IsChecked = openPortsOnly;
         RefreshVisibleResults();
         MainNavigation.SelectedItem = DevicesNavItem;
@@ -74,11 +73,6 @@ public sealed partial class MainWindow
             ? "No active IPv4 network."
             : $"Interface: {network.InterfaceName}\nThis computer: {network.LocalAddress}\nSubnet: {network.Cidr}";
 
-        if (!_isScanning)
-        {
-            ScanStatusText.Text = _displayedScan is { } displayed
-                ? $"{freshness} - {displayed.Subnet}"
-                : network is null ? "Connect to a LAN to scan" : "Ready for your first scan";
-        }
+        UpdateScanStatus();
     }
 }
