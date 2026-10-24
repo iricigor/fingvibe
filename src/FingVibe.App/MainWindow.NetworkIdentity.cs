@@ -121,22 +121,34 @@ public sealed partial class MainWindow
 
     private void ShowPublicNetworkIdentity(PublicNetworkIdentity identity)
     {
+        if (_networkIdentityClosed)
+        {
+            return;
+        }
+
         PublicAddressText.Text = identity.PublicAddress.ToString();
         IspNameText.Text = identity.IspName;
         LocationText.Text = identity.LocationText;
+        UpdateIspLogo(identity.IspName);
     }
 
     private void ShowPublicNetworkIdentityUnavailable()
     {
+        if (_networkIdentityClosed)
+        {
+            return;
+        }
+
         _publicIdentity = null;
         PublicAddressText.Text = "Unavailable";
         IspNameText.Text = "Unavailable";
         LocationText.Text = PublicNetworkIdentity.UnknownLocation;
+        UpdateIspLogo(null);
     }
 
     private void UpdateNetworkIdentity()
     {
-        if (NetworkPicker.SelectedItem is not LanNetwork network)
+        if (_networkIdentityClosed || NetworkPicker.SelectedItem is not LanNetwork network)
         {
             return;
         }
