@@ -270,7 +270,20 @@
                                 </StackPanel>
                                 <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">
                                     <TextBlock Text="ISP name" FontWeight="SemiBold" />
-                                    <TextBlock x:Name="IspNameText" Text="Detecting..." FontSize="16" IsTextSelectionEnabled="True" />
+                                    <Grid ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid Width="32" Height="32" VerticalAlignment="Center"
+                                              AutomationProperties.AccessibilityView="Raw">
+                                            <FontIcon x:Name="IspLogoFallback" Glyph="&#xE968;" FontSize="24"
+                                                      Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            <Image x:Name="IspLogoImage" Stretch="Uniform" Visibility="Collapsed" />
+                                        </Grid>
+                                        <TextBlock x:Name="IspNameText" Grid.Column="1" Text="Detecting..." FontSize="16"
+                                                   TextWrapping="Wrap" VerticalAlignment="Center" IsTextSelectionEnabled="True" />
+                                    </Grid>
                                     <TextBlock Text="The internet provider associated with the public IP address."
                                                TextWrapping="Wrap"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -298,7 +311,7 @@
                                 </StackPanel>
                                 <TextBlock Grid.Row="4"
                                            Grid.ColumnSpan="2"
-                                           Text="Public IP, ISP, and location details are retrieved from ipwho.is, which receives your public IP as part of the request."
+                                           Text="Public IP, ISP, and location details are retrieved from ipwho.is, which receives your public IP as part of the request. When configured, ISP logos are loaded from Logo.dev, which receives the ISP name and your public IP, but no LAN addresses, device inventory, or scan results."
                                            TextWrapping="Wrap"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </Grid>

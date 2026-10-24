@@ -72,6 +72,10 @@ jobs:
         shell: pwsh
         run: .\tests\PrValidation.Tests.ps1
 
+      - name: Test ISP logo build configuration
+        shell: pwsh
+        run: .\tests\LogoDevConfiguration.Tests.ps1
+
   build:
     needs: [changes, tests]
     if: needs.changes.outputs.build == 'true'
