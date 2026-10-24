@@ -96,6 +96,8 @@ foreach ($pattern in @(
     'FINGVIBE_UI_REVIEW: "1"',
     'artifact-ids: \$\{\{ needs.build.outputs.artifact-id \}\}',
     'merge-multiple: true',
+    'name: fingvibe-win-x64-pr-.*-attempt-\$\{\{ github.run_attempt \}\}',
+    'name: fingvibe-ui-review-pr-.*-attempt-\$\{\{ github.run_attempt \}\}',
     'Publish-PrComment.ps1 -Mode Append',
     '(?s)workflow_dispatch:\s+inputs:\s+additional_scenarios:',
     '(?s)permissions:\s+contents: read\s+concurrency:',
@@ -105,6 +107,39 @@ foreach ($pattern in @(
 }
 if (Test-Path (Join-Path $PSScriptRoot "..\.github\workflows\ui-ux-review.yml")) {
     throw "UI validation must not also run in a second PR workflow."
+}
+
+$smokeMatch = [regex]::Match($workflow, '(?s)- name: Exercise primary UI and capture required views.*?run: \|\r?\n(.*?)\r?\n      - name: Upload UI review')
+if (-not $smokeMatch.Success) { throw "UI smoke-test wrapper was not found." }
+$smoke = [scriptblock]::Create(($smokeMatch.Groups[1].Value -replace '(?m)^          ', '' -replace '\$\{\{ github.workspace \}\}', '$env:GITHUB_WORKSPACE'))
+$fixture = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-smoke-failure-$([Guid]::NewGuid())"
+$savedWorkspace = $env:GITHUB_WORKSPACE
+try {
+    $null = New-Item -ItemType Directory -Path (Join-Path $fixture ".github\scripts") -Force
+    $null = New-Item -ItemType Directory -Path (Join-Path $fixture "artifacts\ui-review") -Force
+    @'
+param($AppPath, $ScreenshotDirectory, $CapturePlanPath)
+"partial screenshot" | Set-Content (Join-Path $ScreenshotDirectory "partial.png")
+"driver failure details" | Set-Content (Join-Path $ScreenshotDirectory "driver.log")
+throw "Simulated native smoke failure"
+'@ | Set-Content (Join-Path $fixture ".github\scripts\Invoke-UiReview.ps1")
+    $env:GITHUB_WORKSPACE = $fixture
+    Push-Location $fixture
+    try {
+        Assert-Throws { & $smoke } "*Simulated native smoke failure*"
+        foreach ($file in @("partial.png", "driver.log", "smoke-test.log")) {
+            if (-not (Test-Path -LiteralPath (Join-Path $fixture "artifacts\ui-review\$file"))) {
+                throw "Failure diagnostics must retain $file."
+            }
+        }
+        $transcript = Get-Content (Join-Path $fixture "artifacts\ui-review\smoke-test.log") -Raw
+        if (-not $transcript.Contains("Simulated native smoke failure")) { throw "The failure transcript must retain the original error." }
+    } finally {
+        Pop-Location
+    }
+} finally {
+    $env:GITHUB_WORKSPACE = $savedWorkspace
+    Remove-Item -LiteralPath $fixture -Recurse -Force
 }
 
 $gateMatch = [regex]::Match($workflow, '(?s)- name: Report validation result.*?run: \|\r?\n(.*)$')
