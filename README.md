@@ -91,7 +91,7 @@ People, rooms, and their assignments are saved separately from scan snapshots in
 dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj
 ```
 
-On an interactive Windows desktop at least 1280 logical pixels wide, run the native sidebar regression checks against a built application:
+On an interactive Windows desktop at least 1024 logical pixels wide, run the native sidebar regression checks against a built application:
 
 ```powershell
 powershell.exe -NoProfile -File tests\SidebarNavigation.Tests.ps1 `
@@ -99,7 +99,7 @@ powershell.exe -NoProfile -File tests\SidebarNavigation.Tests.ps1 `
     -ScreenshotDirectory "$env:TEMP\FingVibe-sidebar-review"
 ```
 
-These checks use Windows UI Automation without WinAppDriver or Developer Mode. They launch a separate app in deterministic UI-review mode, verify page routing and expanded/compact/overlay navigation, compare solid sidebar/page background pixels in all four themes, and save full-window captures for each backdrop. UI-review mode previews appearance changes without saving them. Verify Windows high contrast separately using the system accessibility settings.
+These checks use Windows UI Automation without WinAppDriver or Developer Mode. They launch a separate app in deterministic UI-review mode, verify page routing and expanded/compact/overlay navigation, compare solid sidebar/page background pixels in all four themes, and save full-window captures for each backdrop. The expanded test adapts to the monitor width (up to 1280 logical pixels), with a maximum window height of 720 logical pixels; pass `-ExpandedWindowWidth 1024` to reproduce the hosted runner's 1024x720 viewport on a larger desktop. All layout assertions remain enabled. UI-review mode previews appearance changes without saving them. Verify Windows high contrast separately using the system accessibility settings.
 
 ## Download builds
 

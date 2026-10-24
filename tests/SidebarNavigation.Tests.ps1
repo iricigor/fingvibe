@@ -4,7 +4,10 @@ param(
     [string] $AppPath,
 
     [Parameter(Mandatory)]
-    [string] $ScreenshotDirectory
+    [string] $ScreenshotDirectory,
+
+    [ValidateRange(1024, 1280)]
+    [int] $ExpandedWindowWidth = 1280
 )
 
 $ErrorActionPreference = "Stop"
@@ -107,7 +110,8 @@ function Set-SidebarWindowWidth([int] $LogicalWidth) {
     $area = [System.Windows.Forms.Screen]::FromHandle($windowHandle).WorkingArea
     if ($width -gt $area.Width) { throw "This test requires a desktop at least $LogicalWidth logical pixels wide." }
     if (-not [UiReviewNativeWindow]::SetWindowPos(
-            $windowHandle, [IntPtr]::Zero, $area.Left, $bounds.Top, $width, $bounds.Height, 0x0044)) {
+            $windowHandle, [IntPtr]::Zero, $area.Left, $bounds.Top, $width,
+            [Math]::Min($bounds.Height, [int] (720 * $scale)), 0x0044)) {
         throw [System.ComponentModel.Win32Exception]::new()
     }
     Start-Sleep -Milliseconds 750
@@ -141,7 +145,12 @@ try {
     Initialize-UiReviewWindow $windowHandle
     $scale = [UiReviewNativeWindow]::GetDpiForWindow($windowHandle) / 96.0
 
-    Set-SidebarWindowWidth 1280
+    $area = [System.Windows.Forms.Screen]::FromHandle($windowHandle).WorkingArea
+    $availableWidth = [int] [Math]::Floor($area.Width / $scale)
+    $expandedWidth = [Math]::Min($ExpandedWindowWidth, $availableWidth)
+    if ($expandedWidth -lt 1024) { throw "Expanded sidebar checks require a desktop at least 1024 logical pixels wide." }
+    Write-Host "Testing expanded navigation at $expandedWidth logical pixels, within the available $availableWidth."
+    Set-SidebarWindowWidth $expandedWidth
     $null = Find-SidebarElement Name FingVibe
     $null = Find-SidebarElement Name "LAN scanner"
     foreach ($page in @(
