@@ -84,6 +84,8 @@ dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj
 
 Every pull request uploads a `fingvibe-win-x64-pr-*` artifact from the **Actions** run. Every push to `main` publishes a GitHub Release tagged `v1.0.<run number>` with a self-contained Windows x64 ZIP.
 
+Keep the extracted app files together: `Assets\Scanner.ico` supplies the running window's title-bar and taskbar icon. The executable also embeds the same icon for File Explorer.
+
 ## Pull request review gates
 
 Pull requests run two independent review checks:
