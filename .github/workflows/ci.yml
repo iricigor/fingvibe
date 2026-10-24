@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       additional_scenarios:
-        description: "Extra captures (comma-separated): Overview, Network, DeviceDetails, People, PersonDetails, Rooms, RoomDetails, Tools, SpeedTest, Settings, DevicesEmpty"
+        description: "Extra captures (comma-separated): Overview, Network, DeviceDetails, People, PersonDetails, Rooms, RoomDetails, Tools, SpeedTest, About, Settings, DevicesEmpty"
         type: string
         required: false
 

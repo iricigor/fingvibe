@@ -8,6 +8,7 @@ $UiReviewScenarios = [ordered]@{
     Rooms = @{ Label = "Rooms"; FileName = "fingvibe-rooms.png"; Page = "RoomsPage" }
     Tools = @{ Label = "Tools"; FileName = "fingvibe-tools.png"; Page = "ToolsPage" }
     SpeedTest = @{ Label = "Speed test"; FileName = "fingvibe-speed-test.png"; Page = "ToolsPage" }
+    About = @{ Label = "About FingVibe"; FileName = "fingvibe-about.png"; Page = "ToolsPage" }
     RoomDetails = @{ Label = "Room details"; FileName = "fingvibe-room-details.png"; Page = "RoomDetailPage" }
     Settings = @{ Label = "Settings - appearance and columns"; FileName = "fingvibe-settings.png"; Page = "SettingsPage" }
     DevicesEmpty = @{ Label = "Devices - no matching hosts"; FileName = "fingvibe-devices-empty.png"; Page = "DevicesPage" }
@@ -101,11 +102,14 @@ function Get-UiReviewCapturePlan {
                 Add-Scenarios @("Devices", "DevicesEmpty", "Settings") "$path changed results, filtering, or table controls."
             }
             elseif ($path -match '^src/FingVibe.App/.+Page\.xaml$' -and
-                [System.IO.Path]::GetFileName($path) -notin @("ToolsPage.xaml", "SpeedTestPage.xaml")) {
+                [System.IO.Path]::GetFileName($path) -notin @("ToolsPage.xaml", "SpeedTestPage.xaml", "AboutPage.xaml")) {
                 throw "View '$path' has no selection rule. Extend the scenario catalog, selection, navigation, and tests."
             }
+            elseif ($path -match '^src/FingVibe.App/Tools/AboutPage\.xaml(\.cs)?$') {
+                Add-Scenarios @("Tools", "About") "$path changed About FingVibe."
+            }
             elseif ($path -match '^src/FingVibe.App/(Tools/|Assets/SpeedTest/)') {
-                Add-Scenarios @("Tools", "SpeedTest") "$path changed Tools or the speed test."
+                Add-Scenarios @("Tools", "SpeedTest", "About") "$path changed Tools or the speed test."
             }
             elseif ($path -match '^src/FingVibe.App/(MainWindow.PeopleRooms.cs|ManagedPeopleRoomsRows.cs)$') {
                 Add-Scenarios @("People", "PersonDetails", "Rooms", "RoomDetails", "DeviceDetails") "$path changed people, rooms, or assignments."
