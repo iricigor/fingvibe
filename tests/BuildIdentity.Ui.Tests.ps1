@@ -55,14 +55,23 @@ function Select-Page {
     param([string] $Name)
     $condition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::NameProperty, $Name)
-    $elements = $script:root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition)
-    foreach ($element in $elements) {
-        $pattern = $null
-        if ($element.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref] $pattern)) {
-            $pattern.Select()
-            Start-Sleep -Milliseconds 300
-            return
+    for ($attempt = 0; $attempt -lt 2; $attempt++) {
+        $elements = $script:root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        foreach ($element in $elements) {
+            $pattern = $null
+            if ($element.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref] $pattern)) {
+                $pattern.Select()
+                Start-Sleep -Milliseconds 300
+                return
+            }
         }
+        if ($attempt -eq 1) { break }
+        $toggleCondition = [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "TogglePaneButton")
+        $toggle = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $toggleCondition)
+        if ($null -eq $toggle) { throw "Navigation toggle is unavailable for page: $Name" }
+        $toggle.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        Start-Sleep -Milliseconds 300
     }
     throw "Missing selectable page: $Name"
 }
