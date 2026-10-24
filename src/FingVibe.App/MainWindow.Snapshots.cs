@@ -74,6 +74,11 @@ public sealed partial class MainWindow
 
     private ScanResultRow CreateResultRow(ScanResult result, int prefixLength)
     {
+        if (IsUiReview && System.Net.IPAddress.IsLoopback(result.Address))
+        {
+            result = result with { MacAddress = System.Net.NetworkInformation.PhysicalAddress.Parse("020000000001") };
+        }
+
         var customName = result.MacAddress is { } macAddress
             && _deviceNameOverrides.TryGetValue(macAddress.ToString(), out var name)
                 ? name

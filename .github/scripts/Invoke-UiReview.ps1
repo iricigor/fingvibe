@@ -150,6 +150,19 @@ function Invoke-WebDriverElement {
         -Body @{ }
 }
 
+function Set-UiReviewAssignment {
+    param([string] $Category, [string] $Label, [string] $Status)
+    $picker = Assert-VisibleUiReviewElement -Using xpath -Value "//ComboBox[@Name='$Category']"
+    Invoke-WebDriverElement -ElementId $picker
+    $item = Assert-VisibleUiReviewElement -Using xpath -Value "//ListItem[@Name='$Label']"
+    Invoke-WebDriverElement -ElementId $item
+    $null = Assert-VisibleUiReviewElement -Value $Status
+    $selected = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$picker/text"
+    if ($selected.value -ne $Label) {
+        throw "$Category assignment must remain selected: expected '$Label', got '$($selected.value)'."
+    }
+}
+
 function Assert-StatusFilterSelection {
     param(
         [Parameter(Mandatory)]
@@ -397,6 +410,13 @@ try {
             throw "Required capture '$($capture.Label)' failed: $($_.Exception.Message)"
         }
     }
+    Show-UiReviewCaptureScenario -Scenario "DeviceDetails"
+    Set-UiReviewAssignment "Room" "UI · UI review room" "Room assignment saved."
+    Set-UiReviewAssignment "Person" "UI · UI review person" "Person assignment saved."
+    Set-UiReviewAssignment "Room" "Unassigned" "Room assignment saved."
+    Set-UiReviewAssignment "Person" "Unassigned" "Person assignment saved."
+    Write-Host "People and Rooms native assignment regression tests passed."
+
     # Publish a manifest only after every required view/state was verified and captured.
     ConvertTo-Json -InputObject @($capturePlan) -Depth 5 |
         Set-Content -LiteralPath (Join-Path $captureDirectory "capture-manifest.json") -Encoding utf8

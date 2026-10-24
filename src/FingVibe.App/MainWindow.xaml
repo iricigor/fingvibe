@@ -768,8 +768,8 @@
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <ComboBox x:Name="DevicePersonPicker" Header="Person" SelectionChanged="DevicePersonPicker_SelectionChanged" />
-                                    <ComboBox x:Name="DeviceRoomPicker" Grid.Column="1" Header="Room" SelectionChanged="DeviceRoomPicker_SelectionChanged" />
+                                    <ComboBox x:Name="DevicePersonPicker" Header="Person" AutomationProperties.Name="Person" SelectionChanged="DevicePersonPicker_SelectionChanged" />
+                                    <ComboBox x:Name="DeviceRoomPicker" Grid.Column="1" Header="Room" AutomationProperties.Name="Room" SelectionChanged="DeviceRoomPicker_SelectionChanged" />
                                 </Grid>
                                 <TextBlock x:Name="DeviceAssignmentStatusText" TextWrapping="Wrap"
                                            AutomationProperties.LiveSetting="Polite"
