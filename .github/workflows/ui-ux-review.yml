@@ -86,7 +86,21 @@ jobs:
             /property:Platform=x64 `
             /property:RuntimeIdentifier=win-x64 `
             /property:SelfContained=true `
+            /property:Version=0.0.${{ github.run_number }} `
+            /property:BuildKind=${{ github.event_name == 'pull_request' && 'PullRequest' || 'Test' }} `
+            /property:PullRequestNumber=${{ github.event.pull_request.number }} `
+            /property:BuildCommit=${{ github.sha }} `
+            /property:BuildUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" `
             /property:PublishDir="${{ github.workspace }}\artifacts\ui-review-app\"
+
+      - name: Verify build identity and About navigation
+        shell: pwsh
+        run: |
+          .\tests\BuildIdentity.Ui.Tests.ps1 `
+            -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
+            -Version "0.0.${{ github.run_number }}" `
+            -BuildKind "${{ github.event_name == 'pull_request' && 'PullRequest' || 'Test' }}" `
+            -PullRequestNumber ${{ github.event.pull_request.number || 0 }}
 
       - name: Exercise primary UI and capture required views
         id: smoke

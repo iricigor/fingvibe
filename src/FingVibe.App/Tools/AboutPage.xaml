@@ -1,0 +1,35 @@
+<UserControl
+    x:Class="FingVibe.App.AboutPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="24,0,24,24" Spacing="16">
+            <Button Content="&#x2190; Tools" Click="Back_Click"
+                    AutomationProperties.Name="Back to Tools" />
+            <TextBlock x:Name="PageHeading" Text="About FingVibe"
+                       Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
+                       IsTabStop="True" />
+            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="FingVibe LAN Scanner" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <TextBlock x:Name="VersionText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                    <TextBlock x:Name="BuildKindText" TextWrapping="Wrap" />
+                    <TextBlock Text="Open-source network discovery, by Igor." TextWrapping="Wrap" />
+                    <TextBlock x:Name="CommitText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                    <HyperlinkButton x:Name="PullRequestLink" Content="Pull request &#x2197;"
+                                     HorizontalAlignment="Left" Padding="0,4"
+                                     AutomationProperties.Name="Pull request (opens in browser)" />
+                    <HyperlinkButton x:Name="BuildLink" Content="Build run &#x2197;"
+                                     HorizontalAlignment="Left" Padding="0,4"
+                                     AutomationProperties.Name="Build run (opens in browser)" />
+                    <HyperlinkButton Content="GitHub repository &#x2197;" Padding="0,4"
+                                     NavigateUri="https://github.com/iricigor/fingvibe"
+                                     AutomationProperties.Name="GitHub repository (opens in browser)" />
+                    <HyperlinkButton Content="Creator's website &#x2197;" Padding="0,4"
+                                     NavigateUri="https://igor.iric.online"
+                                     AutomationProperties.Name="Creator's website (opens in browser)" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

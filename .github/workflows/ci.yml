@@ -41,6 +41,10 @@ jobs:
             /property:RuntimeIdentifier=win-x64 `
             /property:SelfContained=true `
             /property:Version=0.0.${{ github.run_number }} `
+            /property:BuildKind=${{ github.event_name == 'pull_request' && 'PullRequest' || 'Test' }} `
+            /property:PullRequestNumber=${{ github.event.pull_request.number }} `
+            /property:BuildCommit=${{ github.sha }} `
+            /property:BuildUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" `
             /property:PublishDir="${{ github.workspace }}\artifacts\fingvibe-win-x64\"
 
       - name: Verify published application icons
