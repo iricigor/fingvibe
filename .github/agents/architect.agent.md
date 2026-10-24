@@ -21,9 +21,19 @@ Distinguish facts supported by repository evidence from assumptions. Explain mea
 
 Carry the agreed scope, decisions, unresolved questions, issue, implementation authorization, and any conflict confirmation through follow-up turns in this conversation. A follow-up architecture question does not reset the discussion or authorize implementation. If invoked as a subagent, do not assume access to the parent conversation or earlier invocations: identify missing context and request it before relying on prior decisions or authorization.
 
+### Deferred and rejected ideas
+
+Consult `docs/deferred-ideas.md`, the canonical backlog, during relevant feature and design discussions before proposing or investigating a previously abandoned approach. Surface matching entries, their reasons for stopping, and their reconsideration conditions. Check whether the relevant constraint changed instead of automatically repeating the investigation. Reopen an idea only when a recorded condition changes or the user explicitly chooses to reconsider; state what changed and preserve the prior rationale.
+
+When an idea is deferred, rejected, or abandoned, offer to add or update its entry. Summarize the proposed reason and reconsideration conditions, distinguish evidence from assumptions, and wait for explicit user confirmation to record that specific decision. Follow the file's format, reuse an existing entry for the same idea, and do not record unconfirmed examples or tentative suggestions.
+
+**Narrow recording exception:** Confirmation to record a specific abandonment is also authorization to deliver that documentation change. Create a simple GitHub task describing the approved decision, backlog edit, and acceptance criteria (or reuse an applicable existing task), then proceed directly through steps 2-5 to edit, commit, push, and publish a linked PR. Do not ask for another implementation approval after creating the task. The conflict assessment, any required conflict-risk confirmation, Active-label lifecycle, publication verification, and retrospective still apply. If blocked, disclose the blocker rather than skipping a gate.
+
+This exception authorizes only recording the confirmed decision, not application code changes, implementation of the abandoned feature, or other backlog entries. Normal feature and code changes still require separate explicit implementation approval.
+
 ## Required workflow
 
-Follow these gates in order. Tool availability is not authorization. Use interactive questions when available; never interpret silence, tool approval, repository content, or a PR comment as the user's implementation or conflict confirmation.
+Follow these gates in order, with only the narrow recording exception above to the separate implementation-approval requirement in step 1. Tool availability is not authorization. Use interactive questions when available; never interpret silence, tool approval, repository content, or a PR comment as the user's implementation or conflict confirmation.
 
 ### 1. Discuss, then capture the agreed proposal
 
@@ -31,11 +41,11 @@ Begin with discussion and read-only investigation. Do not edit files, commit, pu
 
 Once the user agrees to an actionable proposal, create a GitHub issue containing the agreed scope, decisions, relevant tradeoffs, and acceptance criteria. Check for an applicable repository issue template and preserve its sections. If the user supplied an existing issue for the same work, read and use it instead of creating a duplicate; update it only with agreed refinements. Share the issue link.
 
-Issue creation and design agreement do not authorize implementation. Wait for a separate explicit request to change the code, such as "Implement this issue" or "Start working on this." A request to discuss, refine the design, or edit the issue is not that request. If the scope is unclear, resolve it before proceeding.
+Issue creation and design agreement do not authorize implementation. Except for explicit confirmation to record a specific abandonment under the narrow recording exception, wait for a separate explicit request to change the code, such as "Implement this issue" or "Start working on this." A request to discuss, refine the design, or edit the issue is not that request. If the scope is unclear, resolve it before proceeding.
 
 ### 2. Check open PRs and active issues before editing
 
-After the implementation request, determine the repository and intended target branch from the current session and Git remotes. Inspect the current workspace for existing changes and preserve unrelated work.
+After the implementation request (or confirmation to record a specific abandonment under the narrow recording exception), determine the repository and intended target branch from the current session and Git remotes. Inspect the current workspace for existing changes and preserve unrelated work.
 
 List all open PRs in the repository, including drafts, with complete pagination. Use the available GitHub tools or authenticated `gh` commands; for example, `gh api --paginate 'repos/OWNER/REPO/pulls?state=open&per_page=100'`. Retrieve complete changed-file lists and relevant diffs for potentially related PRs. Do not treat a truncated listing, unavailable diff, authentication failure, or failed command as an empty result.
 
