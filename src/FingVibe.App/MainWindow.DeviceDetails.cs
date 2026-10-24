@@ -13,11 +13,14 @@ public sealed partial class MainWindow
 
     private void ResultsList_ItemClick(object sender, ItemClickEventArgs e)
     {
-        if (e.ClickedItem is not ScanResultRow row)
+        if (e.ClickedItem is ScanResultRow row)
         {
-            return;
+            ShowDeviceDetails(row);
         }
+    }
 
+    private void ShowDeviceDetails(ScanResultRow row)
+    {
         _selectedDeviceRow = row;
         var result = row.Result;
         DeviceNameInput.Text = result.MacAddress is { } macAddress
@@ -41,6 +44,8 @@ public sealed partial class MainWindow
         DevicePortScanStatusText.Text = string.Empty;
         DeviceIdentificationEditor.IsExpanded = false;
         UpdateClassificationDetails();
+        UpdateDeviceAssignmentPickers();
+        MainNavigation.SelectedItem = DevicesNavItem;
         ShowPage(DevicePage);
         DevicePage.ChangeView(null, 0, null, disableAnimation: true);
     }

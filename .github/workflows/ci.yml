@@ -27,6 +27,9 @@ jobs:
       - name: Test networking core
         run: dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj --configuration Release
 
+      - name: Test speed-test bridge
+        run: node --test tests\SpeedTestHost.Tests.cjs
+
       - name: Publish Windows x64 app
         shell: pwsh
         run: |

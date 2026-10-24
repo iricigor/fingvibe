@@ -1,0 +1,31 @@
+<UserControl
+    x:Class="FingVibe.App.ToolsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:FingVibe.App">
+    <Grid>
+        <ScrollViewer x:Name="ToolsLanding" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="24,0,24,24" Spacing="16">
+                <TextBlock Text="Tools" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+                <Button x:Name="SpeedTestCard"
+                        Click="SpeedTestCard_Click"
+                        Style="{StaticResource ScannerSummaryButtonStyle}"
+                        AutomationProperties.Name="Speed test">
+                    <StackPanel Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <FontIcon Glyph="&#xE9D9;" />
+                            <TextBlock Text="Speed test" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        </StackPanel>
+                        <TextBlock Text="Measure this PC's internet connection with Cloudflare."
+                                   TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="Open speed test &#x2192;" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </ScrollViewer>
+        <local:SpeedTestPage x:Name="SpeedTestView"
+                             Visibility="Collapsed"
+                             BackRequested="SpeedTestView_BackRequested" />
+    </Grid>
+</UserControl>

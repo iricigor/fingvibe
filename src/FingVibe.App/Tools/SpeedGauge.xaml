@@ -1,0 +1,48 @@
+<UserControl
+    x:Class="FingVibe.App.SpeedGauge"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Border Style="{StaticResource ScannerSummaryCardStyle}">
+        <StackPanel Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="8" HorizontalAlignment="Center">
+                <FontIcon x:Name="DirectionIcon" Glyph="&#xE896;" FontSize="18"
+                          Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                <TextBlock x:Name="TitleText" Text="Download" FontWeight="SemiBold" />
+            </StackPanel>
+            <TextBlock x:Name="StateText" Text="Waiting for measurements" HorizontalAlignment="Center"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Viewbox MaxWidth="300" Stretch="Uniform">
+                <Grid Width="260" Height="155" AutomationProperties.AccessibilityView="Raw">
+                    <Path Data="M 30,125 A 100,100 0 0 1 230,125"
+                          Stroke="{ThemeResource ControlStrongStrokeColorDefaultBrush}"
+                          StrokeThickness="12" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                    <Path Data="M 30,125 A 100,100 0 0 1 230,125"
+                          Stroke="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                          StrokeThickness="2" Opacity="0.65" />
+                    <Path Data="M 30,125 L 40,125 M 49,66 L 57,72 M 99,30 L 102,40 M 161,30 L 158,40 M 211,66 L 203,72 M 230,125 L 220,125"
+                          Stroke="{ThemeResource TextFillColorPrimaryBrush}" StrokeThickness="2" />
+                    <Line X1="130" Y1="125" X2="130" Y2="43"
+                          Stroke="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                          StrokeThickness="4" StrokeEndLineCap="Round">
+                        <Line.RenderTransform>
+                            <RotateTransform x:Name="Needle" CenterX="130" CenterY="125" Angle="-90" />
+                        </Line.RenderTransform>
+                    </Line>
+                    <Ellipse Width="18" Height="18" Margin="0,116,0,0"
+                             HorizontalAlignment="Center" VerticalAlignment="Top"
+                             Fill="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                    <TextBlock Text="1" Margin="24,138,0,0" FontSize="11" />
+                    <TextBlock Text="100k" Margin="0,138,17,0" HorizontalAlignment="Right" FontSize="11" />
+                </Grid>
+            </Viewbox>
+            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Center">
+                <TextBlock x:Name="ValueText" Text="--" FontSize="32" FontWeight="SemiBold" />
+                <TextBlock Text="Mbps" VerticalAlignment="Bottom" Margin="0,0,0,5"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+            <TextBlock Text="Log scale: 1 / 10 / 100 / 1k / 10k / 100k Mbps"
+                       FontSize="11" TextWrapping="Wrap" TextAlignment="Center"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+    </Border>
+</UserControl>

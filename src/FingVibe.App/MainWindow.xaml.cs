@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
@@ -5,6 +7,10 @@ namespace FingVibe.App;
 
 public sealed partial class MainWindow : Window
 {
+    private readonly NetworkActivityCoordinator _networkActivityCoordinator = new();
+    private bool _allowWindowClose;
+    private bool _closingAfterSpeedTest;
+
     private static readonly bool IsUiReview =
         Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW") == "1";
 
@@ -12,8 +18,11 @@ public sealed partial class MainWindow : Window
     {
         InitializeComponent();
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Scanner.ico"));
+        ToolsPage.ActivityCoordinator = _networkActivityCoordinator;
+        this.AppWindow.Closing += MainWindow_Closing;
         InitializeAppearance();
         InitializeClassificationPickers();
+        InitializePeopleRoomsViews();
 
         ResultsList.ItemsSource = _visibleResults;
         StatusFilter.SelectedIndex = 0;
@@ -23,6 +32,35 @@ public sealed partial class MainWindow : Window
     }
 
     public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
+
+    private async void MainWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
+    {
+        if (_allowWindowClose || !ToolsPage.HasActiveTest)
+        {
+            return;
+        }
+
+        args.Cancel = true;
+        if (_closingAfterSpeedTest)
+        {
+            return;
+        }
+
+        _closingAfterSpeedTest = true;
+        try
+        {
+            await ToolsPage.StopForWindowCloseAsync();
+        }
+        catch (Exception exception)
+        {
+            Debug.WriteLine(exception);
+        }
+        finally
+        {
+            _allowWindowClose = true;
+            Close();
+        }
+    }
 
     private async void RootGrid_Loaded(object sender, RoutedEventArgs e)
     {
@@ -34,6 +72,7 @@ public sealed partial class MainWindow : Window
 
         await RestoreDeviceNameOverridesAsync();
         await RestoreClassificationOverridesAsync();
+        await RestorePeopleRoomsAsync();
         await RestoreSavedScanAsync();
         await InitializeNetworkAsync();
     }
@@ -59,6 +98,14 @@ public sealed partial class MainWindow : Window
         {
             ShowPage(DevicesPage);
         }
+        else if (args.InvokedItemContainer == PeopleNavItem && PersonDetailPage.Visibility == Visibility.Visible)
+        {
+            ShowPage(PeoplePage);
+        }
+        else if (args.InvokedItemContainer == RoomsNavItem && RoomDetailPage.Visibility == Visibility.Visible)
+        {
+            ShowPage(RoomsPage);
+        }
     }
 
     private UIElement GetPage(string tag) => tag switch
@@ -67,14 +114,21 @@ public sealed partial class MainWindow : Window
         "Devices" => DevicesPage,
         "People" => PeoplePage,
         "Rooms" => RoomsPage,
+        "Tools" => ToolsPage,
         _ => OverviewPage
     };
 
     private void ShowPage(UIElement page)
     {
+        if (ToolsPage.Visibility == Visibility.Visible && page != ToolsPage)
+        {
+            _ = ToolsPage.StopForNavigationAsync();
+        }
+
         foreach (var candidate in new UIElement[]
                  {
-                     OverviewPage, NetworkPage, DevicesPage, DevicePage, PeoplePage, RoomsPage, SettingsPage
+                     OverviewPage, NetworkPage, DevicesPage, DevicePage, PeoplePage, RoomsPage,
+                     PersonDetailPage, RoomDetailPage, ToolsPage, SettingsPage
                  })
         {
             candidate.Visibility = candidate == page ? Visibility.Visible : Visibility.Collapsed;

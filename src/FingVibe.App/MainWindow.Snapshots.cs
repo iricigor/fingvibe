@@ -46,6 +46,7 @@ public sealed partial class MainWindow
             }
 
             RefreshVisibleResults();
+            UpdatePeopleRoomsPages();
             ShowSavedSnapshotStatus(snapshot);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
@@ -73,13 +74,20 @@ public sealed partial class MainWindow
 
     private ScanResultRow CreateResultRow(ScanResult result, int prefixLength)
     {
+        if (IsUiReview && System.Net.IPAddress.IsLoopback(result.Address))
+        {
+            result = result with { MacAddress = System.Net.NetworkInformation.PhysicalAddress.Parse("020000000001") };
+        }
+
         var customName = result.MacAddress is { } macAddress
             && _deviceNameOverrides.TryGetValue(macAddress.ToString(), out var name)
                 ? name
                 : null;
         var classificationOverride = result.MacAddress is { } mac
             && _classificationOverrides.TryGetValue(mac.ToString(), out var saved) ? saved : null;
-        return new ScanResultRow(result, prefixLength, customName, classificationOverride);
+        var row = new ScanResultRow(result, prefixLength, customName, classificationOverride);
+        ApplyPeopleRoomAssignments(row);
+        return row;
     }
 
     private async Task SaveCompletedScanAsync(LanNetwork network, IEnumerable<ScanResultRow> results)

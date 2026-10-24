@@ -150,6 +150,74 @@ function Invoke-WebDriverElement {
         -Body @{ }
 }
 
+function Set-UiReviewAssignment {
+    param([string] $Category, [string] $Label, [string] $Status)
+    $picker = Assert-VisibleUiReviewElement -Using xpath -Value "//ComboBox[@Name='$Category']"
+    Invoke-WebDriverElement -ElementId $picker
+    $item = Assert-VisibleUiReviewElement -Using xpath -Value "//ListItem[@Name='$Label']"
+    Invoke-WebDriverElement -ElementId $item
+    $null = Assert-VisibleUiReviewElement -Value $Status
+    Assert-UiReviewAssignment $Category $Label
+}
+
+function Assert-UiReviewAssignment {
+    param([string] $Category, [string] $Label)
+    $picker = Assert-VisibleUiReviewElement -Using xpath -Value "//ComboBox[@Name='$Category']"
+    Invoke-WebDriverElement -ElementId $picker
+    $item = Assert-VisibleUiReviewElement -Using xpath -Value "//ListItem[@Name='$Label']"
+    $selected = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$item/selected"
+    if (-not $selected.value) {
+        throw "$Category assignment '$Label' did not remain selected."
+    }
+    Invoke-WebDriverElement -ElementId $picker
+}
+
+function Assert-UiReviewText {
+    param([string] $ElementId, [string] $Expected)
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+        $text = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$ElementId/text"
+        if ($text.value -ceq $Expected) { return }
+        Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "Expected text '$Expected', got '$($text.value)'."
+}
+
+function Test-UiReviewNameSuggestion {
+    param([string] $Category, [string] $FirstWord, [string] $SecondWord, [string] $Initials)
+    Show-UiReviewCaptureScenario -Scenario $(if ($Category -eq "Person") { "People" } else { "Rooms" })
+    $add = Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@AutomationId='Add${Category}Button']"
+    Invoke-WebDriverElement -ElementId $add
+    $name = Assert-VisibleUiReviewElement -Value "Full name"
+    $shortName = Assert-VisibleUiReviewElement -Value "Short name"
+    Invoke-WebDriverElement -ElementId $name
+    $null = Invoke-WebDriverRequest -Method Post -Endpoint "/session/$sessionId/element/$name/value" `
+        -Body @{ value = @($FirstWord) }
+    Assert-UiReviewText $name $FirstWord
+    Assert-UiReviewText $shortName $Initials.Substring(0, 1)
+    $null = Invoke-WebDriverRequest -Method Post -Endpoint "/session/$sessionId/element/$name/value" `
+        -Body @{ value = @(" " + $SecondWord.Substring(0, 1)) }
+    Assert-UiReviewText $name ($FirstWord + " " + $SecondWord.Substring(0, 1))
+    Assert-UiReviewText $shortName $Initials
+    $null = Invoke-WebDriverRequest -Method Post -Endpoint "/session/$sessionId/element/$name/value" `
+        -Body @{ value = @($SecondWord.Substring(1) + " Third") }
+    Assert-UiReviewText $name "$FirstWord $SecondWord Third"
+    Assert-UiReviewText $shortName $Initials
+    Invoke-WebDriverElement -ElementId $shortName
+    $null = Invoke-WebDriverRequest -Method Post -Endpoint "/session/$sessionId/element/$shortName/clear" -Body @{}
+    Assert-UiReviewText $shortName ""
+    $null = Invoke-WebDriverRequest -Method Post -Endpoint "/session/$sessionId/element/$shortName/value" `
+        -Body @{ value = @("ZZ") }
+    Assert-UiReviewText $shortName "ZZ"
+    Invoke-WebDriverElement -ElementId $name
+    $null = Invoke-WebDriverRequest -Method Post -Endpoint "/session/$sessionId/element/$name/value" `
+        -Body @{ value = @([string] [char] 0xE010, " Fourth") }
+    Assert-UiReviewText $name "$FirstWord $SecondWord Third Fourth"
+    Assert-UiReviewText $shortName "ZZ"
+    $cancel = Assert-VisibleUiReviewElement -Value "Cancel"
+    Invoke-WebDriverElement -ElementId $cancel
+}
+
 function Assert-StatusFilterSelection {
     param(
         [Parameter(Mandatory)]
@@ -397,6 +465,21 @@ try {
             throw "Required capture '$($capture.Label)' failed: $($_.Exception.Message)"
         }
     }
+    Test-UiReviewNameSuggestion "Person" "Igor" "Iric" "II"
+    Test-UiReviewNameSuggestion "Room" "Living" "Room" "LR"
+    Write-Host "People and Rooms native short-name suggestion regression tests passed."
+    Show-UiReviewCaptureScenario -Scenario "DeviceDetails"
+    Set-UiReviewAssignment "Room" "UI · UI review room" "Room assignment saved."
+    Set-UiReviewAssignment "Person" "UI · UI review person" "Person assignment saved."
+    Assert-UiReviewAssignment "Room" "UI · UI review room"
+    Set-UiReviewAssignment "Room" "Unassigned" "Room assignment saved."
+    Assert-UiReviewAssignment "Person" "UI · UI review person"
+    Set-UiReviewAssignment "Person" "Unassigned" "Person assignment saved."
+    Show-UiReviewCaptureScenario -Scenario "DeviceDetails"
+    Assert-UiReviewAssignment "Room" "Unassigned"
+    Assert-UiReviewAssignment "Person" "Unassigned"
+    Write-Host "People and Rooms native assignment regression tests passed."
+
     # Publish a manifest only after every required view/state was verified and captured.
     ConvertTo-Json -InputObject @($capturePlan) -Depth 5 |
         Set-Content -LiteralPath (Join-Path $captureDirectory "capture-manifest.json") -Encoding utf8
