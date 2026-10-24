@@ -42,7 +42,9 @@ function Show-UiReviewCaptureScenario {
             Invoke-WebDriverElement -ElementId $rowId
             $null = Assert-VisibleUiReviewElement -Value "Back to devices"
             $null = Assert-VisibleUiReviewElement -Value "Device name"
-            $null = Assert-VisibleUiReviewElement -Value "Scan additional ports"
+            $null = Assert-VisibleUiReviewElement -Value "Assignments"
+            # The assignment card moves the port action below the initial viewport.
+            $null = Find-WebDriverElement -Using name -Value "Scan additional ports"
         }
         elseif ($Scenario -eq "DevicesEmpty") {
             $null = Invoke-WebDriverRequest -Method Post `

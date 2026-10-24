@@ -204,6 +204,7 @@ try {
                     "control-No hosts match the current filter." { $script:currentPage -eq "Devices" -and $script:empty }
                     "control-Back to devices" { $script:currentPage -eq "DeviceDetails" }
                     "control-Device name" { $script:currentPage -eq "DeviceDetails" }
+                    "control-Assignments" { $script:currentPage -eq "DeviceDetails" }
                     "control-Scan additional ports" { $script:currentPage -eq "DeviceDetails" }
                     "control-Online devices" { $script:currentPage -eq "Overview" }
                     "control-Public IP address" { $script:currentPage -eq "Network" }
@@ -229,6 +230,11 @@ try {
     Assert-Equal $script:empty $false "Returning from empty results restores the baseline"
     $script:hiddenControl = "control-Public IP address"
     Assert-Throws { Show-UiReviewCaptureScenario "Network" } "*not visible*"
+    $script:hiddenControl = ""
+    $script:hiddenControl = "control-Scan additional ports"
+    Show-UiReviewCaptureScenario "DeviceDetails"
+    $script:hiddenControl = "control-Assignments"
+    Assert-Throws { Show-UiReviewCaptureScenario "DeviceDetails" } "*not visible*"
     $script:hiddenControl = ""
     foreach ($scenario in @("PersonDetails", "RoomDetails")) {
         $script:hiddenControl = "control-Assign devices"
