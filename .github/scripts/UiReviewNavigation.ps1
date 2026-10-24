@@ -18,6 +18,8 @@ function Show-UiReviewCaptureScenario {
         "DeviceDetails" { "Devices" }
         "DevicesEmpty" { "Devices" }
         "SpeedTest" { "Tools" }
+        "PersonDetails" { "People" }
+        "RoomDetails" { "Rooms" }
         default { $Scenario }
     }
     $menuId = Assert-VisibleUiReviewElement -Using xpath -Value "//ListItem[@Name='$menu']"
@@ -41,7 +43,9 @@ function Show-UiReviewCaptureScenario {
             Invoke-WebDriverElement -ElementId $rowId
             $null = Assert-VisibleUiReviewElement -Value "Back to devices"
             $null = Assert-VisibleUiReviewElement -Value "Device name"
-            $null = Assert-VisibleUiReviewElement -Value "Scan additional ports"
+            $null = Assert-VisibleUiReviewElement -Value "Assignments"
+            # The assignment card moves the port action below the initial viewport.
+            $null = Find-WebDriverElement -Using name -Value "Scan additional ports"
         }
         elseif ($Scenario -eq "DevicesEmpty") {
             $null = Invoke-WebDriverRequest -Method Post `
@@ -52,13 +56,26 @@ function Show-UiReviewCaptureScenario {
         return
     }
 
+    if ($Scenario -in @("PersonDetails", "RoomDetails")) {
+        $listName = $menu
+        $fixtureName = if ($Scenario -eq "PersonDetails") { "UI review person" } else { "UI review room" }
+        $rowId = Assert-VisibleUiReviewElement -Using xpath `
+            -Value "//List[@Name='$listName']/ListItem[.//*[@Name='$fixtureName']]"
+        Invoke-WebDriverElement -ElementId $rowId
+        $backName = if ($Scenario -eq "PersonDetails") { "Back to people" } else { "Back to rooms" }
+        $null = Assert-VisibleUiReviewElement -Value $backName
+        $null = Assert-VisibleUiReviewElement -Value "Assigned devices"
+        $null = Assert-VisibleUiReviewElement -Value "Assign devices"
+        return
+    }
+
     $sentinel = switch ($Scenario) {
         "Overview" { "Online devices" }
         "Network" { "Public IP address" }
-        "People" { "People will be available in a future version." }
-        "Rooms" { "Rooms will be available in a future version." }
         "Tools" { "Speed test" }
         "SpeedTest" { "Speed test" }
+        "People" { "Search people" }
+        "Rooms" { "Search rooms" }
         "Settings" { "Window backdrop" }
         default { throw "No navigation is implemented for capture scenario '$Scenario'." }
     }

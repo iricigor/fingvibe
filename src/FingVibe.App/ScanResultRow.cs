@@ -7,6 +7,12 @@ public sealed class ScanResultRow : INotifyPropertyChanged
 {
     private string? _customName;
     private DeviceClassificationOverride? _classificationOverride;
+    private Guid? _personId;
+    private string? _personShortName;
+    private string? _personName;
+    private Guid? _roomId;
+    private string? _roomShortName;
+    private string? _roomName;
 
     public ScanResultRow(ScanResult result, int prefixLength, string? customName = null,
         DeviceClassificationOverride? classificationOverride = null)
@@ -72,6 +78,14 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public string AddressHost { get; }
     public string MacOui { get; }
     public string MacNic { get; }
+    public Guid? PersonId => _personId;
+    public Guid? RoomId => _roomId;
+    public string PersonShortName => _personShortName ?? "-";
+    public string PersonFullName => _personName ?? "Unassigned";
+    public string RoomShortName => _roomShortName ?? "-";
+    public string RoomFullName => _roomName ?? "Unassigned";
+    public double PersonOpacity => _personId is null ? 0.65 : 1;
+    public double RoomOpacity => _roomId is null ? 0.65 : 1;
     public bool IsOnline => Result.Status == HostStatus.Alive;
     public bool IsOffline => !IsOnline;
     public string StatusLabel => IsOnline ? "Online" : "Offline";
@@ -90,6 +104,10 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     {
         var search = filter?.Trim() ?? string.Empty;
         return NameText.Contains(search, StringComparison.OrdinalIgnoreCase)
+            || (_personShortName?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (_personName?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (_roomShortName?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
+            || (_roomName?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
             || OperatingSystemText.Contains(search, StringComparison.OrdinalIgnoreCase)
             || DeviceTypeText.Contains(search, StringComparison.OrdinalIgnoreCase)
             || Result.MatchesFilter(filter);
@@ -115,6 +133,30 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         _customName = string.IsNullOrWhiteSpace(customName) ? null : customName.Trim();
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NameText)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NameOpacity)));
+    }
+
+    public void SetPeopleRoomAssignments(
+        Guid? personId,
+        string? personShortName,
+        string? personName,
+        Guid? roomId,
+        string? roomShortName,
+        string? roomName)
+    {
+        _personId = personId;
+        _personShortName = personShortName;
+        _personName = personName;
+        _roomId = roomId;
+        _roomShortName = roomShortName;
+        _roomName = roomName;
+        foreach (var property in new[]
+        {
+            nameof(PersonId), nameof(PersonShortName), nameof(PersonFullName), nameof(PersonOpacity),
+            nameof(RoomId), nameof(RoomShortName), nameof(RoomFullName), nameof(RoomOpacity)
+        })
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
+        }
     }
 
     public void UpdateOpenPorts(IReadOnlyList<OpenPort> openPorts)

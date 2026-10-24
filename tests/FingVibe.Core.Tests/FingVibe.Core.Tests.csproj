@@ -29,5 +29,6 @@
     <Compile Include="..\..\src\FingVibe.App\Tools\NetworkActivityCoordinator.cs" Link="NetworkActivityCoordinator.cs" />
     <Compile Include="..\..\src\FingVibe.App\Tools\SpeedTestBridgeMessage.cs" Link="SpeedTestBridgeMessage.cs" />
     <Compile Include="..\..\src\FingVibe.App\Tools\SpeedTestSessionState.cs" Link="SpeedTestSessionState.cs" />
+    <Compile Include="..\..\src\FingVibe.App\ManagedPeopleRoomsRows.cs" Link="ManagedPeopleRoomsRows.cs" />
   </ItemGroup>
 </Project>

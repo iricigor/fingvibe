@@ -18,6 +18,8 @@ Captured from the native app in UI-review mode using the local loopback host, no
 - Overview subnet-size badge and Network details explaining every IPv4 prefix, address capacity, and private, public, or special-purpose scope
 - ISP-based network identity with a Network page showing public and local addresses plus approximate public-IP location (or **Unknown**)
 - Device details page opened by clicking a device in the Devices table
+- Local People and Rooms management with editable short names, assignments, searchable compact tables, and last-scan response summaries
+- Independent person and room assignments saved by discovered MAC address, with short-name badges and full-name device filters
 - Offline, evidence-backed OS and device-type detection with built-in Fluent icons and saved manual corrections
 - Resizable Devices table columns and a Settings column selector (kept for the current session)
 - Live appearance settings: Solid, Mica, Mica Alt, or Acrylic backdrops, plus Standard Light, Warm Light, Standard Dark, and True Black (OLED) themes
@@ -75,6 +77,12 @@ Device details keep the OS, type, and icon visible above the network information
 
 Corrections are stored separately from automatic evidence in `%LOCALAPPDATA%\FingVibe\device-classifications.json`, keyed by MAC address, and apply after rescans, IP changes, and restarts. Saving requires a discovered MAC address. Private/randomized MACs may change and therefore lose their association with saved corrections. Load/save errors are shown in details; a failed load disables edits rather than overwriting existing corrections. Completed scan snapshots preserve automatic evidence and inferred-value markers. Older snapshots remain readable, but are not re-enriched when opening a new build: run **Scan LAN** again to collect current detection evidence.
 
+### People and rooms
+
+The **People** and **Rooms** pages manage manually named people and locations. Each entry has a full name, a unique 1–3-character short name within its category, and optional notes. New entries suggest initials from the first two words as you type (`Igor` → `I`, `Igor Iric` → `II`, `Living Room` → `LR`); editing the short name manually stops automatic updates. Device details can assign one person and one room independently; either can remain unassigned. The Devices table shows plain short-name text in optional **Person** and **Room** columns, with muted dashes for unassigned values, while filters and search match both short and full names. Hover over a short name or keyboard-focus it to access its full-name tooltip and accessible label.
+
+People, rooms, and their assignments are saved separately from scan snapshots in `%LOCALAPPDATA%\FingVibe\people-rooms.json`. Assignments require a discovered six-byte MAC address and never use an IP address alone. Private or randomized MAC addresses may change, so their assignments are only retained when the same MAC is observed again. Deleting a person or room clears only that category's assignments; it does not delete devices or scan history. Last-scan response counts report devices that answered ICMP during the displayed scan, not human presence; no response does not prove a device is powered off. Load and save errors are displayed, and a failed load disables changes to protect the saved file.
+
 ## Test
 
 ```powershell
@@ -100,7 +108,7 @@ The Windows screenshot regression tests deliberately place a patterned window of
 
 The capture plan always includes **Devices** after its scan/filter smoke test. The PR's merge-base diff selects additional views: page-local XAML changes select that page; device-details and network-identity code select their respective views; results/filter/column changes include the empty-results state and Settings. Shared layout, other application/core changes, and review-pipeline changes conservatively select all supported scenarios. Nonvisual documentation/test-only changes keep just Devices. Each capture verifies the selected navigation item and visible page-specific controls; required navigation or capture failures stop the review instead of silently showing the wrong page.
 
-The workflow logs selection reasons and uploads the capture plan, completed manifest, and all PNGs together. Its existing PR comment is updated with labeled images, without repeating the detailed file-by-file selection reasons. Manual runs can request extra scenarios through the comma-separated `additional_scenarios` input: `Overview`, `Network`, `DeviceDetails`, `People`, `Rooms`, `Tools`, `SpeedTest`, `Settings`, and `DevicesEmpty`. New pages or required states must be added to the scenario catalog, selection, navigation, and regression tests. Run the scenario regression tests with `pwsh -File tests\UiReviewScenarios.Tests.ps1`.
+The workflow logs selection reasons and uploads the capture plan, completed manifest, and all PNGs together. Its existing PR comment is updated with labeled images, without repeating the detailed file-by-file selection reasons. Manual runs can request extra scenarios through the comma-separated `additional_scenarios` input: `Overview`, `Network`, `DeviceDetails`, `People`, `PersonDetails`, `Rooms`, `RoomDetails`, `Tools`, `SpeedTest`, `Settings`, and `DevicesEmpty`. People and Rooms captures use in-memory review records instead of loading or changing saved user data. New pages or required states must be added to the scenario catalog, selection, navigation, and regression tests. Run the scenario regression tests with `pwsh -File tests\UiReviewScenarios.Tests.ps1`.
 
 The workflow publishes screenshots to the `gh-pages` branch so the bot can embed the PNGs directly in its review comment. After the workflow creates that branch for the first time, open **Settings > Pages**, choose **Deploy from a branch**, select `gh-pages` and `/ (root)`, then save. Published image URLs use `https://<owner>.github.io/<repository>/ui-review/pr-<number>/run-<run-id>/<filename>.png`, keeping captures from different runs separate.
 
