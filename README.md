@@ -93,6 +93,8 @@ dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj
 
 Pull requests affecting application code or validation infrastructure upload a `fingvibe-win-x64-pr-*` artifact from the **Pull request build** Actions run. Each successful same-repository build posts a new artifact-link comment, preserving earlier comments and links (artifacts expire after 14 days). Documentation-only and test-only changes do not publish an app. Every push to `main` publishes a GitHub Release tagged `v1.0.<run number>` with a self-contained Windows x64 ZIP.
 
+Keep the extracted app files together: `Assets\Scanner.ico` supplies the running window's title-bar and taskbar icon. The executable also embeds the same icon for File Explorer.
+
 ## Pull request review gates
 
 Pull requests expose two review checks:
