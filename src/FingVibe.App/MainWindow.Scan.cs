@@ -12,6 +12,26 @@ public sealed partial class MainWindow
         : new LanScannerService();
     private CancellationTokenSource? _scanCancellation;
     private bool _isScanning;
+    private string? _scanMessage;
+
+    private void UpdateScanStatus()
+    {
+        if (SnapshotStatusText is null)
+        {
+            return;
+        }
+
+        var network = NetworkPicker.SelectedItem as LanNetwork;
+        var context = _displayedScan is { } scan
+            ? $"{scan.Freshness(DateTimeOffset.UtcNow)} · {scan.Subnet}"
+                + (scan.Subnet != network?.Cidr ? $" · These results are not for the selected scan target ({network?.Cidr ?? "none"})." : string.Empty)
+            : network is null ? "Connect to a LAN to scan" : "Ready for your first scan";
+        var status = string.Join(" · ", new[] { _scanMessage, _snapshotError, context }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+        ScanStatusText.Text = status;
+        SnapshotStatusText.Text = status;
+        SnapshotStatusText.Visibility = Visibility.Visible;
+    }
 
     private async void ScanButton_Click(object sender, RoutedEventArgs e)
     {
@@ -22,23 +42,17 @@ public sealed partial class MainWindow
 
         if (!_networkActivityCoordinator.TryAcquire(NetworkActivityKind.LanScan, out var activityLease))
         {
-            ScanStatusText.Text = _networkActivityCoordinator.ActiveKind == NetworkActivityKind.InternetSpeedTest
+            _scanMessage = _networkActivityCoordinator.ActiveKind == NetworkActivityKind.InternetSpeedTest
                 ? "A Cloudflare speed test is active or stopping. Wait for it to finish before starting a LAN scan."
                 : "Another network measurement is in progress. Wait for it to finish before retrying.";
+            UpdateScanStatus();
             return;
         }
 
         using var scanActivity = activityLease;
-        _allResults.Clear();
-        _visibleResults.Clear();
-        _minimumLatency = long.MaxValue;
-        _maximumLatency = 0;
-        _onlineDeviceCount = null;
-        _displayedScan = new OverviewScanContext(network.Cidr, DateTimeOffset.UtcNow, ScanDisplayStatus.Scanning);
-        SnapshotStatusText.Text = _displayedScan.Describe(network.Cidr);
-        SnapshotStatusText.Visibility = Visibility.Visible;
-        UpdateNetworkIdentity();
         _isScanning = true;
+        ResultsList.IsItemClickEnabled = false;
+        ResultsList.SelectionMode = Microsoft.UI.Xaml.Controls.ListViewSelectionMode.None;
         UpdateEmptyState();
         ScanButton.IsEnabled = false;
         NetworkPicker.IsEnabled = false;
@@ -50,25 +64,22 @@ public sealed partial class MainWindow
         var total = SubnetCalculator.GetUsableHostCount(network.PrefixLength);
         ScanProgressBar.Maximum = total;
         ScanProgressBar.Value = 0;
-        ScanStatusText.Text = $"Scanning 0 of {total:N0}";
+        var retainedResults = _displayedScan is not null ? " · Displaying retained results" : string.Empty;
+        _scanMessage = $"Scanning 0/{total:N0} addresses{retainedResults}";
+        UpdateScanStatus();
         var stopwatch = Stopwatch.StartNew();
 
-        var resultProgress = new Progress<ScanResult>(result =>
-        {
-            var row = CreateResultRow(result, network.PrefixLength);
-            _allResults.Add(row);
-            UpdateLatencyRange(row);
-            if (ShouldShow(row))
-            {
-                InsertSorted(row);
-            }
-
-            UpdateEmptyState();
-        });
+        var resultProgress = new ScanResultBuffer();
+        var cancellation = _scanCancellation;
         var scanProgress = new Progress<ScanProgress>(progress =>
         {
+            if (!_isScanning || _scanCancellation != cancellation || cancellation.IsCancellationRequested)
+            {
+                return;
+            }
             ScanProgressBar.Value = progress.Completed;
-            ScanStatusText.Text = $"Scanning {progress.Completed:N0} of {progress.Total:N0}";
+            _scanMessage = $"Scanning {progress.Completed:N0}/{progress.Total:N0} addresses{retainedResults}";
+            UpdateScanStatus();
         });
 
         try
@@ -80,30 +91,36 @@ public sealed partial class MainWindow
                 _scanCancellation.Token);
 
             stopwatch.Stop();
+            _allResults.Clear();
+            _minimumLatency = long.MaxValue;
+            _maximumLatency = 0;
+            foreach (var result in resultProgress.Results)
+            {
+                var row = CreateResultRow(result, network.PrefixLength);
+                _allResults.Add(row);
+                UpdateLatencyRange(row);
+            }
+            RefreshVisibleResults();
             _onlineDeviceCount = summary.Alive;
             UpdateNetworkIdentity();
-            ScanStatusText.Text =
-                $"Complete in {stopwatch.Elapsed.TotalSeconds:N1}s - {summary.Alive:N0} alive, {summary.Unreachable:N0} unreachable";
+            _scanMessage =
+                $"Complete in {stopwatch.Elapsed.TotalSeconds:N1}s - {summary.Alive:N0} {(summary.Alive == 1 ? "device" : "devices")}";
 
             await SaveCompletedScanAsync(network, _allResults);
         }
         catch (OperationCanceledException)
         {
-            _displayedScan = _displayedScan with { Status = ScanDisplayStatus.Cancelled };
-            SnapshotStatusText.Text = $"{_displayedScan.Freshness(DateTimeOffset.UtcNow)}. {_displayedScan.Describe(network.Cidr)}";
-            ScanStatusText.Text = $"Cancelled after {_allResults.Count:N0} results";
+            _scanMessage = $"Scan of {network.Cidr} cancelled{retainedResults}";
         }
         catch (InvalidOperationException exception)
         {
-            _displayedScan = _displayedScan with { Status = ScanDisplayStatus.Failed, FailureMessage = exception.Message };
-            SnapshotStatusText.Text = _displayedScan.Describe(network.Cidr);
-            EmptyResultsText.Text = exception.Message;
-            EmptyResultsText.Visibility = Visibility.Visible;
-            ScanStatusText.Text = "Unable to scan this subnet";
+            _scanMessage = $"Unable to scan {network.Cidr}: {exception.Message}{retainedResults}";
         }
         finally
         {
             _isScanning = false;
+            ResultsList.IsItemClickEnabled = true;
+            ResultsList.SelectionMode = Microsoft.UI.Xaml.Controls.ListViewSelectionMode.Single;
             UpdateEmptyState();
             UpdatePeopleRoomsPages();
             _scanCancellation.Dispose();
@@ -120,6 +137,7 @@ public sealed partial class MainWindow
     {
         _scanCancellation?.Cancel();
         CancelButton.IsEnabled = false;
-        ScanStatusText.Text = "Cancelling...";
+        _scanMessage = "Cancelling..." + (_displayedScan is not null ? " · Displaying retained results" : string.Empty);
+        UpdateScanStatus();
     }
 }

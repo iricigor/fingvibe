@@ -29,15 +29,25 @@ public sealed partial class MainWindow
         RefreshVisibleResults();
     }
 
-    private void StatusFilter_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void DeviceFilters_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        if (StatusFilter.SelectedIndex < 0)
+        var columns = e.NewSize.Width >= 850 ? 4 : e.NewSize.Width >= 480 ? 2 : 1;
+        var rows = 4 / columns;
+        if (DeviceFilters.RowDefinitions.Count != rows)
         {
-            StatusFilter.SelectedItem = e.RemovedItems.Count > 0 ? e.RemovedItems[0] : StatusFilter.Items[0];
-            return;
+            DeviceFilters.RowDefinitions.Clear();
+            for (var row = 0; row < rows; row++)
+            {
+                DeviceFilters.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            }
         }
-
-        RefreshVisibleResults();
+        FrameworkElement[] filters = [ResultSearchBox, PersonFilter, RoomFilter, OpenPortsFilter];
+        for (var index = 0; index < filters.Length; index++)
+        {
+            Grid.SetRow(filters[index], index / columns);
+            Grid.SetColumn(filters[index], index % columns * (4 / columns));
+            Grid.SetColumnSpan(filters[index], 4 / columns);
+        }
     }
 
     private void SortHeader_Click(object sender, RoutedEventArgs e)
@@ -118,7 +128,7 @@ public sealed partial class MainWindow
 
     private bool ShouldShow(ScanResultRow row) =>
         new DeviceResultFilter(
-            StatusFilter.SelectedIndex == 1,
+            true,
             OpenPortsFilter.IsChecked == true,
             ResultSearchBox.Text,
             SelectedFilterChoice(PersonFilter)?.Id,
@@ -128,26 +138,6 @@ public sealed partial class MainWindow
 
     private static FilterChoice? SelectedFilterChoice(ComboBox picker) =>
         (picker?.SelectedItem as ComboBoxItem)?.Tag as FilterChoice;
-
-    private void InsertSorted(ScanResultRow result)
-    {
-        var low = 0;
-        var high = _visibleResults.Count;
-        while (low < high)
-        {
-            var middle = low + ((high - low) / 2);
-            if (CompareResults(_visibleResults[middle], result) <= 0)
-            {
-                low = middle + 1;
-            }
-            else
-            {
-                high = middle;
-            }
-        }
-
-        _visibleResults.Insert(low, result);
-    }
 
     private int CompareResults(ScanResultRow leftRow, ScanResultRow rightRow)
     {
@@ -220,7 +210,10 @@ public sealed partial class MainWindow
             return;
         }
 
-        ResultCountText.Text = $"{_visibleResults.Count:N0} {(_visibleResults.Count == 1 ? "host" : "hosts")}";
+        var total = _allResults.Count(row => row.IsOnline);
+        ResultCountText.Text = _visibleResults.Count == total
+            ? $"{total:N0} {(total == 1 ? "device" : "devices")}"
+            : $"{_visibleResults.Count:N0} of {total:N0} devices";
         EmptyResultsText.Visibility = _visibleResults.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         UpdateOverview();
 
@@ -228,19 +221,21 @@ public sealed partial class MainWindow
         {
             EmptyResultsText.Text = _isScanning
                 ? "Waiting for scan results..."
-                : "Select Scan LAN to probe every address on the detected subnet.";
+                : _displayedScan is null
+                    ? "Select Scan LAN to discover devices on the detected subnet."
+                    : "No devices answered this scan; active devices may block ICMP.";
         }
         else if (!string.IsNullOrWhiteSpace(ResultSearchBox.Text))
         {
-            EmptyResultsText.Text = "No hosts match the current filter.";
+            EmptyResultsText.Text = "No devices match the current filter.";
         }
         else if (OpenPortsFilter.IsChecked == true)
         {
             EmptyResultsText.Text = "No devices with open ports match the current filters.";
         }
-        else if (StatusFilter.SelectedIndex == 1)
+        else
         {
-            EmptyResultsText.Text = "No alive hosts found in the current results.";
+            EmptyResultsText.Text = "No devices match the current filters.";
         }
     }
 }

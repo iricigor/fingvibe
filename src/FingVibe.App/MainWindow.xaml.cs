@@ -26,7 +26,6 @@ public sealed partial class MainWindow : Window
         InitializePeopleRoomsViews();
 
         ResultsList.ItemsSource = _visibleResults;
-        StatusFilter.SelectedIndex = 0;
         UpdateSortGlyphs();
         MainNavigation.SelectedItem = OverviewNavItem;
         InitializeOverview();
@@ -138,6 +137,7 @@ public sealed partial class MainWindow : Window
         ScanBar.Visibility = page == OverviewPage || page == NetworkPage || page == DevicesPage || page == DevicePage
             ? Visibility.Visible
             : Visibility.Collapsed;
+        ScanStatusText.Visibility = page == DevicesPage ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void ViewNetworkButton_Click(object sender, RoutedEventArgs e) =>
