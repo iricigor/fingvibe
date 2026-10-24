@@ -61,6 +61,13 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
+            <NavigationView.FooterMenuItems>
+                <NavigationViewItem x:Name="ToolsNavItem" Content="Tools" Tag="Tools">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE90F;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.FooterMenuItems>
 
             <Grid Background="Transparent">
                 <Grid.RowDefinitions>
@@ -1170,6 +1177,9 @@
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </StackPanel>
                 </ScrollViewer>
+
+                <!-- Tools -->
+                <local:ToolsPage x:Name="ToolsPage" Grid.Row="1" Visibility="Collapsed" />
 
                 <!-- Settings -->
                 <ScrollViewer x:Name="SettingsPage" Grid.Row="1" Visibility="Collapsed">

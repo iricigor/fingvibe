@@ -17,6 +17,7 @@ function Show-UiReviewCaptureScenario {
     $menu = switch ($Scenario) {
         "DeviceDetails" { "Devices" }
         "DevicesEmpty" { "Devices" }
+        "SpeedTest" { "Tools" }
         "PersonDetails" { "People" }
         "RoomDetails" { "Rooms" }
         default { $Scenario }
@@ -71,10 +72,18 @@ function Show-UiReviewCaptureScenario {
     $sentinel = switch ($Scenario) {
         "Overview" { "Online devices" }
         "Network" { "Public IP address" }
+        "Tools" { "Speed test" }
+        "SpeedTest" { "Speed test" }
         "People" { "Search people" }
         "Rooms" { "Search rooms" }
         "Settings" { "Window backdrop" }
         default { throw "No navigation is implemented for capture scenario '$Scenario'." }
     }
     $null = Assert-VisibleUiReviewElement -Value $sentinel
+
+    if ($Scenario -eq "SpeedTest") {
+        $cardId = Assert-VisibleUiReviewElement -Value "Speed test"
+        Invoke-WebDriverElement -ElementId $cardId
+        $null = Assert-VisibleUiReviewElement -Value "Start Cloudflare speed test"
+    }
 }

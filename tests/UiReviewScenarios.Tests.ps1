@@ -59,12 +59,15 @@ try {
     Assert-Throws { Get-UiReviewCapturePlan $repository -BaseRevision "missing-ref" } "*failed with exit code*"
 
     Test-Change @{ "README.md" = "Documentation" } @("Devices") "Documentation-only"
-    foreach ($scenario in @("Overview", "Network", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails", "Settings", "Devices")) {
+    foreach ($scenario in @("Overview", "Network", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails", "Tools", "SpeedTest", "Settings", "Devices")) {
         $page = $UiReviewScenarios[$scenario].Page
         $changed = $xaml.Replace("Text=`"$page`"", "Text=`"Changed $page`"")
         $expected = @("Devices")
-        if ($scenario -ne "Devices") { $expected += $scenario }
-        else { $expected += "DevicesEmpty" }
+        foreach ($pageScenario in $UiReviewScenarios.Keys) {
+            if ($UiReviewScenarios[$pageScenario].Page -eq $page -and $pageScenario -ne "Devices") {
+                $expected += $pageScenario
+            }
+        }
         Test-Change @{ "src\FingVibe.App\MainWindow.xaml" = $changed } $expected "Page-local $scenario"
     }
     $changed = $xaml.Replace('Text="OverviewPage"', 'Text="New overview"').Replace('Text="NetworkPage"', 'Text="New network"')
@@ -180,6 +183,7 @@ try {
             if (-not $script:brokenNavigation) { $script:currentPage = $ElementId.Substring(5) }
         }
         elseif ($ElementId -eq "online-row") { $script:currentPage = "DeviceDetails" }
+        elseif ($ElementId -eq "control-Speed test") { $script:currentPage = "SpeedTest" }
         elseif ($ElementId -eq "person-row") { $script:currentPage = "PersonDetails" }
         elseif ($ElementId -eq "room-row") { $script:currentPage = "RoomDetails" }
         else { throw "Unexpected click '$ElementId'." }
@@ -208,6 +212,8 @@ try {
                     "control-Scan additional ports" { $script:currentPage -eq "DeviceDetails" }
                     "control-Online devices" { $script:currentPage -eq "Overview" }
                     "control-Public IP address" { $script:currentPage -eq "Network" }
+                    "control-Speed test" { $script:currentPage -eq "Tools" }
+                    "control-Start Cloudflare speed test" { $script:currentPage -eq "SpeedTest" }
                     "control-Search people" { $script:currentPage -eq "People" }
                     "control-Search rooms" { $script:currentPage -eq "Rooms" }
                     "control-Back to people" { $script:currentPage -eq "PersonDetails" }

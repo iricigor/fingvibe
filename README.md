@@ -10,8 +10,9 @@ Captured from the native app in UI-review mode using the local loopback host, no
 
 ## Features
 
-- Native WinUI 3 desktop UI with no embedded web content
-- Fixed left navigation with Overview, Network, Devices, People, Rooms, and Settings pages
+- Native WinUI 3 desktop UI; WebView2 is restricted to the local Cloudflare speed-test host
+- Fixed left navigation with Overview, Network, Devices, People, Rooms, Tools, and Settings pages
+- [Manual Cloudflare internet speed test](docs/speed-test.md) in Tools, with native results and a per-run data-use disclosure
 - Overview with local network identity, scan freshness, actionable online/open-port summaries, compact network setup, and project links
 - Automatic local IPv4 and CIDR discovery
 - Overview subnet-size badge and Network details explaining every IPv4 prefix, address capacity, and private, public, or special-purpose scope
@@ -107,7 +108,7 @@ The Windows screenshot regression tests deliberately place a patterned window of
 
 The capture plan always includes **Devices** after its scan/filter smoke test. The PR's merge-base diff selects additional views: page-local XAML changes select that page; device-details and network-identity code select their respective views; results/filter/column changes include the empty-results state and Settings. Shared layout, other application/core changes, and review-pipeline changes conservatively select all supported scenarios. Nonvisual documentation/test-only changes keep just Devices. Each capture verifies the selected navigation item and visible page-specific controls; required navigation or capture failures stop the review instead of silently showing the wrong page.
 
-The workflow logs selection reasons and uploads the capture plan, completed manifest, and all PNGs together. Its existing PR comment is updated with labeled images, without repeating the detailed file-by-file selection reasons. Manual runs can request extra scenarios through the comma-separated `additional_scenarios` input: `Overview`, `Network`, `DeviceDetails`, `People`, `PersonDetails`, `Rooms`, `RoomDetails`, `Settings`, and `DevicesEmpty`. People and Rooms captures use in-memory review records instead of loading or changing saved user data. New pages or required states must be added to the scenario catalog, selection, navigation, and regression tests. Run the scenario regression tests with `pwsh -File tests\UiReviewScenarios.Tests.ps1`.
+The workflow logs selection reasons and uploads the capture plan, completed manifest, and all PNGs together. Its existing PR comment is updated with labeled images, without repeating the detailed file-by-file selection reasons. Manual runs can request extra scenarios through the comma-separated `additional_scenarios` input: `Overview`, `Network`, `DeviceDetails`, `People`, `PersonDetails`, `Rooms`, `RoomDetails`, `Tools`, `SpeedTest`, `Settings`, and `DevicesEmpty`. People and Rooms captures use in-memory review records instead of loading or changing saved user data. New pages or required states must be added to the scenario catalog, selection, navigation, and regression tests. Run the scenario regression tests with `pwsh -File tests\UiReviewScenarios.Tests.ps1`.
 
 The workflow publishes screenshots to the `gh-pages` branch so the bot can embed the PNGs directly in its review comment. After the workflow creates that branch for the first time, open **Settings > Pages**, choose **Deploy from a branch**, select `gh-pages` and `/ (root)`, then save. Published image URLs use `https://<owner>.github.io/<repository>/ui-review/pr-<number>/run-<run-id>/<filename>.png`, keeping captures from different runs separate.
 
