@@ -36,6 +36,7 @@ $plan = Get-PrValidationChanges -Manual
 Assert-Equal @($plan.Tests, $plan.Build, $plan.Ui) @($true, $true, $true) "Manual validation"
 
 $publisher = Join-Path $PSScriptRoot "..\.github\scripts\Publish-PrComment.ps1"
+$savedExitCode = $global:LASTEXITCODE
 $global:PrValidationGhState = @{
     Calls = [System.Collections.Generic.List[string]]::new()
     CommandFails = $false
@@ -80,6 +81,7 @@ try {
 } finally {
     Remove-Item Function:\gh
     Remove-Variable PrValidationGhState -Scope Global
+    $global:LASTEXITCODE = $savedExitCode
 }
 
 $workflow = Get-Content (Join-Path $PSScriptRoot "..\.github\workflows\ci.yml") -Raw
