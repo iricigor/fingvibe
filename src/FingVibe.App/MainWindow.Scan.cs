@@ -96,6 +96,7 @@ public sealed partial class MainWindow
         {
             _isScanning = false;
             UpdateEmptyState();
+            UpdatePeopleRoomsPages();
             _scanCancellation.Dispose();
             _scanCancellation = null;
             ScanButton.IsEnabled = true;

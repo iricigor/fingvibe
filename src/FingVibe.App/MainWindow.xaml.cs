@@ -13,6 +13,7 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         InitializeAppearance();
         InitializeClassificationPickers();
+        InitializePeopleRoomsViews();
 
         ResultsList.ItemsSource = _visibleResults;
         StatusFilter.SelectedIndex = 0;
@@ -33,6 +34,7 @@ public sealed partial class MainWindow : Window
 
         await RestoreDeviceNameOverridesAsync();
         await RestoreClassificationOverridesAsync();
+        await RestorePeopleRoomsAsync();
         await RestoreSavedScanAsync();
         await InitializeNetworkAsync();
     }
@@ -58,6 +60,14 @@ public sealed partial class MainWindow : Window
         {
             ShowPage(DevicesPage);
         }
+        else if (args.InvokedItemContainer == PeopleNavItem && PersonDetailPage.Visibility == Visibility.Visible)
+        {
+            ShowPage(PeoplePage);
+        }
+        else if (args.InvokedItemContainer == RoomsNavItem && RoomDetailPage.Visibility == Visibility.Visible)
+        {
+            ShowPage(RoomsPage);
+        }
     }
 
     private UIElement GetPage(string tag) => tag switch
@@ -73,7 +83,8 @@ public sealed partial class MainWindow : Window
     {
         foreach (var candidate in new UIElement[]
                  {
-                     OverviewPage, NetworkPage, DevicesPage, DevicePage, PeoplePage, RoomsPage, SettingsPage
+                     OverviewPage, NetworkPage, DevicesPage, DevicePage, PeoplePage, RoomsPage,
+                     PersonDetailPage, RoomDetailPage, SettingsPage
                  })
         {
             candidate.Visibility = candidate == page ? Visibility.Visible : Visibility.Collapsed;

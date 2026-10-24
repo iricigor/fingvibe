@@ -26,5 +26,6 @@
     <Compile Include="..\..\src\FingVibe.App\AppearancePalette.cs" Link="AppearancePalette.cs" />
     <Compile Include="..\..\src\FingVibe.App\OverviewScanContext.cs" Link="OverviewScanContext.cs" />
     <Compile Include="..\..\src\FingVibe.App\DeviceResultFilter.cs" Link="DeviceResultFilter.cs" />
+    <Compile Include="..\..\src\FingVibe.App\ManagedPeopleRoomsRows.cs" Link="ManagedPeopleRoomsRows.cs" />
   </ItemGroup>
 </Project>

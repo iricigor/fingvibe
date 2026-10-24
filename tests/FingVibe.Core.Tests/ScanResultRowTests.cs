@@ -45,6 +45,35 @@ public sealed class ScanResultRowTests
     }
 
     [Fact]
+    public void AssignmentOpacity_MutesOnlyUnassignedValuesAndNotifiesOnChanges()
+    {
+        var row = CreateRow();
+        var notifications = new List<string?>();
+        row.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+
+        Assert.Equal("-", row.PersonShortName);
+        Assert.Equal("-", row.RoomShortName);
+        Assert.Equal(0.65, row.PersonOpacity);
+        Assert.Equal(0.65, row.RoomOpacity);
+
+        var personId = Guid.NewGuid();
+        row.SetPeopleRoomAssignments(personId, "II", "Igor Iric", null, null, null);
+        Assert.Equal(1, row.PersonOpacity);
+        Assert.Equal(0.65, row.RoomOpacity);
+        Assert.Contains(nameof(ScanResultRow.PersonOpacity), notifications);
+        Assert.Contains(nameof(ScanResultRow.RoomOpacity), notifications);
+
+        notifications.Clear();
+        row.SetPeopleRoomAssignments(null, null, null, Guid.NewGuid(), "LR", "Living Room");
+        Assert.Equal(0.65, row.PersonOpacity);
+        Assert.Equal(1, row.RoomOpacity);
+        Assert.Equal("-", row.PersonShortName);
+        Assert.Equal("Living Room", row.RoomFullName);
+        Assert.Contains(nameof(ScanResultRow.PersonOpacity), notifications);
+        Assert.Contains(nameof(ScanResultRow.RoomOpacity), notifications);
+    }
+
+    [Fact]
     public void CustomName_OverridesDisplayWithoutChangingDiscoveredName()
     {
         var discovered = CreateRow();
