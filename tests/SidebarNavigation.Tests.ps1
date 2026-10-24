@@ -123,6 +123,74 @@ function Switch-SidebarPane {
     Start-Sleep -Milliseconds 500
 }
 
+function Wait-DeviceScan {
+    $deadline = [DateTime]::UtcNow.AddSeconds(30)
+    while (-not (Find-SidebarElement AutomationId ScanButton).Current.IsEnabled) {
+        if ([DateTime]::UtcNow -ge $deadline) { throw "The device scan did not stop." }
+        Start-Sleep -Milliseconds 50
+    }
+}
+
+function Test-DeviceRefresh {
+    $snapshotPath = Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "FingVibe\latest-scan.json"
+    $snapshot = if (Test-Path -LiteralPath $snapshotPath) { [IO.File]::ReadAllBytes($snapshotPath) } else { $null }
+    try {
+        Set-SidebarWindowWidth $expandedWidth
+        Select-SidebarPage Devices "Search devices"
+        $scan = Find-SidebarElement AutomationId ScanButton
+        $scan.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        Wait-DeviceScan
+        if ((Find-SidebarElement AutomationId ResultCountText).Current.Name -ne "1 device") {
+            throw "The loopback scan must display exactly one device."
+        }
+        $search = (Find-SidebarElement AutomationId ResultSearchBox).GetCurrentPattern(
+            [System.Windows.Automation.ValuePattern]::Pattern)
+        $search.SetValue("fingvibe-no-matching-device")
+        Start-Sleep -Milliseconds 200
+        if ((Find-SidebarElement AutomationId ResultCountText).Current.Name -ne "0 of 1 devices") {
+            throw "Filtered device counts must include the unfiltered total."
+        }
+        $search.SetValue("")
+        $scan.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        if ($scan.Current.IsEnabled) { throw "The refresh ended before retained results could be verified." }
+        if ((Find-SidebarElement AutomationId ResultCountText).Current.Name -ne "1 device" -or
+            (Find-SidebarElement AutomationId SnapshotStatusText).Current.Name -notlike "*Displaying retained results*") {
+            throw "Refresh must retain the displayed devices and explain their status."
+        }
+        (Find-SidebarElement Name Cancel).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        Wait-DeviceScan
+        if ((Find-SidebarElement AutomationId ResultCountText).Current.Name -ne "1 device" -or
+            (Find-SidebarElement AutomationId SnapshotStatusText).Current.Name -notlike "*cancelled*") {
+            throw "Cancellation must preserve the displayed devices and report its outcome."
+        }
+        foreach ($width in @($expandedWidth, 1000, 640)) {
+            Set-SidebarWindowWidth $width
+            $filters = @("ResultSearchBox", "PersonFilter", "RoomFilter", "OpenPortsFilter") |
+                ForEach-Object { Find-SidebarElement AutomationId $_ }
+            for ($index = 0; $index -lt $filters.Count; $index++) {
+                $bounds = $filters[$index].Current.BoundingRectangle
+                if ($bounds.Width -le 0) { throw "A filter has no visible width at $width." }
+                for ($other = 0; $other -lt $index; $other++) {
+                    $intersection = [System.Windows.Rect]::Intersect($bounds, $filters[$other].Current.BoundingRectangle)
+                    if (-not $intersection.IsEmpty -and $intersection.Width -gt 0 -and $intersection.Height -gt 0) {
+                        throw "Device filters overlap at $width logical pixels."
+                    }
+                }
+            }
+        }
+        Write-Host "Device refresh/cancellation, filtered counts, and responsive filter bounds passed."
+    }
+    finally {
+        try {
+            if ($scan) { Wait-DeviceScan }
+        }
+        finally {
+            if ($null -ne $snapshot) { [IO.File]::WriteAllBytes($snapshotPath, $snapshot) }
+            elseif (Test-Path -LiteralPath $snapshotPath) { Remove-Item -LiteralPath $snapshotPath }
+        }
+    }
+}
+
 $savedReviewMode = $env:FINGVIBE_UI_REVIEW
 $process = $null
 $previousContext = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext([IntPtr]::new(-4))
@@ -155,7 +223,7 @@ try {
     $null = Find-SidebarElement Name "LAN scanner"
     foreach ($page in @(
         @("Network", "Public IP address"),
-        @("Devices", "Filter scan results"),
+        @("Devices", "Search devices"),
         @("Rooms", "Search rooms"),
         @("Tools", "Speed test"),
         @("Settings", "Window backdrop"),
@@ -199,7 +267,7 @@ try {
     $network.SetFocus()
     [SidebarReviewKeyboard]::Tap(0x28)
     [SidebarReviewKeyboard]::Tap(0x0D)
-    $null = Find-SidebarElement Name "Filter scan results"
+    $null = Find-SidebarElement Name "Search devices"
     Start-Sleep -Milliseconds 350
     Save-SidebarAppearance "sidebar-compact"
     Switch-SidebarPane
@@ -212,6 +280,7 @@ try {
         Select-SidebarPage People "Search people"
     }
     Write-Host "Sidebar navigation, expanded/compact/overlay layouts, and matching solid backgrounds in all four themes passed; material captures saved."
+    Test-DeviceRefresh
 }
 finally {
     if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id }

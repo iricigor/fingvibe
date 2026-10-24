@@ -40,7 +40,7 @@ function Show-UiReviewCaptureScenario {
     if (-not $selected.value) { throw "Navigation did not select '$menu'." }
 
     if ($menu -eq "Devices") {
-        $searchId = Assert-VisibleUiReviewElement -Value "Filter scan results"
+        $searchId = Assert-VisibleUiReviewElement -Value "Search devices"
         $null = Invoke-WebDriverRequest -Method Post `
             -Endpoint "/session/$sessionId/element/$searchId/clear" -Body @{}
         $null = Assert-VisibleUiReviewElement -Value "Online"
@@ -58,7 +58,7 @@ function Show-UiReviewCaptureScenario {
             $null = Invoke-WebDriverRequest -Method Post `
                 -Endpoint "/session/$sessionId/element/$searchId/value" `
                 -Body @{ value = @("fingvibe-no-matching-host") }
-            $null = Assert-VisibleUiReviewElement -Value "No hosts match the current filter."
+            $null = Assert-VisibleUiReviewElement -Value "No devices match the current filter."
         }
         return
     }

@@ -240,12 +240,12 @@ try {
             "displayed" {
                 if ($id -like "menu-*") { return @{ value = $true } }
                 $visible = switch ($id) {
-                    "control-Filter scan results" { $script:currentPage -eq "Devices" }
+                    "control-Search devices" { $script:currentPage -eq "Devices" }
                     "control-Online" { $script:currentPage -eq "Devices" -and -not $script:empty }
                     "online-row" { $script:currentPage -eq "Devices" -and -not $script:empty }
                     "person-row" { $script:currentPage -eq "People" }
                     "room-row" { $script:currentPage -eq "Rooms" }
-                    "control-No hosts match the current filter." { $script:currentPage -eq "Devices" -and $script:empty }
+                    "control-No devices match the current filter." { $script:currentPage -eq "Devices" -and $script:empty }
                     "control-Back to devices" { $script:currentPage -eq "DeviceDetails" }
                     "control-Device name" { $script:currentPage -eq "DeviceDetails" }
                     "control-Assignments" { $script:currentPage -eq "DeviceDetails" }

@@ -4,7 +4,6 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:local="using:FingVibe.App"
-    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
     xmlns:models="using:FingVibe.Core.Models"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
@@ -154,7 +153,7 @@
                     <ComboBox x:Name="NetworkPicker"
                               MinWidth="150"
                               MaxWidth="360"
-                              HorizontalAlignment="Stretch"
+                              HorizontalAlignment="Left"
                               Header="Detected network"
                               SelectionChanged="NetworkPicker_SelectionChanged" />
                     <Button x:Name="ScanButton"
@@ -439,69 +438,47 @@
                                 <RowDefinition Height="*" />
                             </Grid.RowDefinitions>
                             <Grid Padding="16,10" ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
                                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                     <FontIcon Glyph="&#xE772;" FontSize="16" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
                                     <TextBlock Text="Devices" Style="{ThemeResource SubtitleTextBlockStyle}" />
                                     <TextBlock x:Name="ResultCountText"
-                                               Text="0 hosts"
+                                               Text="0 devices"
                                                VerticalAlignment="Center"
                                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </StackPanel>
-                                <TextBox x:Name="ResultSearchBox"
-                                         Grid.Column="1"
-                                         Width="180"
-                                         VerticalAlignment="Bottom"
-                                         PlaceholderText="Filter"
-                                         AutomationProperties.Name="Filter scan results"
-                                         TextChanged="ResultSearchBox_TextChanged" />
-                                <local:StatusFilterControl x:Name="StatusFilter"
-                                         Grid.Column="2"
-                                         VerticalAlignment="Bottom"
-                                         Padding="3"
-                                         CornerRadius="9"
-                                         BorderThickness="1"
-                                         BorderBrush="{ThemeResource StatusFilterBorderBrush}"
-                                         Background="{ThemeResource StatusFilterContainerBrush}"
-                                         Style="{StaticResource DefaultSegmentedStyle}"
-                                         ItemContainerStyle="{StaticResource StatusFilterItemStyle}"
-                                         SelectionMode="Single"
-                                         SingleSelectionFollowsFocus="True"
-                                         AutomationProperties.Name="Show hosts"
-                                         SelectionChanged="StatusFilter_SelectionChanged">
-                                    <local:StatusFilterControl.ItemsPanel>
-                                        <ItemsPanelTemplate>
-                                            <toolkit:EqualPanel Spacing="3" />
-                                        </ItemsPanelTemplate>
-                                    </local:StatusFilterControl.ItemsPanel>
-                                    <toolkit:SegmentedItem Content="All" AutomationProperties.Name="All" />
-                                    <toolkit:SegmentedItem Content="Alive" AutomationProperties.Name="Alive" />
-                                </local:StatusFilterControl>
                             </Grid>
-                            <StackPanel Grid.Row="1" Margin="16,0,16,8" Spacing="4">
-                                <Grid ColumnSpacing="8">
+                            <StackPanel Grid.Row="1" Margin="16,0,16,8" Spacing="8">
+                                <TextBlock x:Name="SnapshotStatusText"
+                                           TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           Visibility="Collapsed" />
+                                <Grid x:Name="DeviceFilters" ColumnSpacing="8" RowSpacing="8"
+                                      SizeChanged="DeviceFilters_SizeChanged">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <CheckBox x:Name="OpenPortsFilter" Content="Only devices with open ports"
-                                              Checked="OpenPortsFilter_Changed" Unchecked="OpenPortsFilter_Changed" />
-                                    <ComboBox x:Name="PersonFilter" Grid.Column="1" Width="150"
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBox x:Name="ResultSearchBox"
+                                             PlaceholderText="Search devices"
+                                             AutomationProperties.Name="Search devices"
+                                             TextChanged="ResultSearchBox_TextChanged" />
+                                    <ComboBox x:Name="PersonFilter" Grid.Column="1" HorizontalAlignment="Stretch"
                                               AutomationProperties.Name="Filter by person"
                                               SelectionChanged="PeopleRoomFilter_SelectionChanged" />
-                                    <ComboBox x:Name="RoomFilter" Grid.Column="2" Width="150"
+                                    <ComboBox x:Name="RoomFilter" Grid.Column="2" HorizontalAlignment="Stretch"
                                               AutomationProperties.Name="Filter by room"
                                               SelectionChanged="PeopleRoomFilter_SelectionChanged" />
+                                    <CheckBox x:Name="OpenPortsFilter" Grid.Column="3" Content="With open ports"
+                                              Checked="OpenPortsFilter_Changed" Unchecked="OpenPortsFilter_Changed" />
                                 </Grid>
-                                <TextBlock x:Name="SnapshotStatusText"
-                                       TextWrapping="Wrap"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       Visibility="Collapsed" />
                             </StackPanel>
                             <ScrollViewer Grid.Row="2"
                                           HorizontalScrollMode="Auto"

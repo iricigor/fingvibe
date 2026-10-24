@@ -21,6 +21,11 @@ public sealed partial class MainWindow
 
     private void ShowDeviceDetails(ScanResultRow row)
     {
+        if (_isScanning)
+        {
+            return;
+        }
+
         _selectedDeviceRow = row;
         var result = row.Result;
         DeviceNameInput.Text = result.MacAddress is { } macAddress
