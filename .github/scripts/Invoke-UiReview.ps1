@@ -193,21 +193,26 @@ function Test-UiReviewNameSuggestion {
     Invoke-WebDriverElement -ElementId $name
     $null = Invoke-WebDriverRequest -Method Post -Endpoint "/session/$sessionId/element/$name/value" `
         -Body @{ value = @($FirstWord) }
+    Assert-UiReviewText $name $FirstWord
     Assert-UiReviewText $shortName $Initials.Substring(0, 1)
     $null = Invoke-WebDriverRequest -Method Post -Endpoint "/session/$sessionId/element/$name/value" `
         -Body @{ value = @(" " + $SecondWord.Substring(0, 1)) }
+    Assert-UiReviewText $name ($FirstWord + " " + $SecondWord.Substring(0, 1))
     Assert-UiReviewText $shortName $Initials
     $null = Invoke-WebDriverRequest -Method Post -Endpoint "/session/$sessionId/element/$name/value" `
         -Body @{ value = @($SecondWord.Substring(1) + " Third") }
+    Assert-UiReviewText $name "$FirstWord $SecondWord Third"
     Assert-UiReviewText $shortName $Initials
     Invoke-WebDriverElement -ElementId $shortName
     $null = Invoke-WebDriverRequest -Method Post -Endpoint "/session/$sessionId/element/$shortName/clear" -Body @{}
+    Assert-UiReviewText $shortName ""
     $null = Invoke-WebDriverRequest -Method Post -Endpoint "/session/$sessionId/element/$shortName/value" `
         -Body @{ value = @("ZZ") }
     Assert-UiReviewText $shortName "ZZ"
     Invoke-WebDriverElement -ElementId $name
     $null = Invoke-WebDriverRequest -Method Post -Endpoint "/session/$sessionId/element/$name/value" `
-        -Body @{ value = @(" Fourth") }
+        -Body @{ value = @([string] [char] 0xE010, " Fourth") }
+    Assert-UiReviewText $name "$FirstWord $SecondWord Third Fourth"
     Assert-UiReviewText $shortName "ZZ"
     $cancel = Assert-VisibleUiReviewElement -Value "Cancel"
     Invoke-WebDriverElement -ElementId $cancel
