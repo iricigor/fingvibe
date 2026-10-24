@@ -10,9 +10,9 @@ The pinned engine's `pause()` aborts the active latency or bandwidth fetch throu
 
 ## Live gauge
 
-The native gauge shows provisional download/upload estimates from the official engine's `onResultsChange` callback and bandwidth getters. Updates arrive after intermediate measurements, not as a continuous stream. The needle interpolates between estimates over 250 ms when Windows animations are enabled; it does not synthesize measurements or completion percentages. Its labeled linear scale starts at 100 Mbps and expands by factors of ten for faster connections.
+Separate native download and upload gauges show provisional estimates from the official engine's `onResultsChange` callback and bandwidth getters. Updates arrive after intermediate measurements, not as a continuous stream. Both gauges use a fixed logarithmic scale from 1 to 100,000 Mbps (zero and sub-1 Mbps readings sit at the left end; larger readings saturate the needle but retain their exact numeric value). Tick marks represent 1, 10, 100, 1k, 10k, and 100k Mbps. The scale never changes during a run. Cards stack on narrow windows.
 
-Latency and phase changes clear the prior estimate. Cancellation, errors, completion, and navigation stop the animation and clear provisional values; the idle gauge never displays a completed result as a live reading. Final results remain separate. Bridge samples are validated for the current run, positive finite bandwidth, and download/upload phase.
+Needles smoothly approach the latest estimate from their current displayed position, without overshoot or animation restarts, when Windows animations are enabled. Numeric values remain the actual estimates, not interpolated data. Intermediate latency phases and switching directions retain each gauge's estimate and mark it as the latest provisional value, avoiding repeated returns to zero between rounds. Cancellation, errors, completion, and navigation stop the animation and clear provisional values. Final results remain separate. Bridge samples are validated for the current run, positive finite bandwidth, and download/upload phase.
 
 Azure testing is deferred; the payload generator below is preparation only.
 
