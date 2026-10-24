@@ -34,6 +34,7 @@ function detach(runId, currentEngine, pause) {
   currentEngine.onError = () => {};
   currentEngine.onFinish = () => {};
   currentEngine.onPhaseChange = () => {};
+  currentEngine.onResultsChange = () => {};
   if (pause) currentEngine.pause();
 }
 
@@ -53,10 +54,23 @@ function start(runId) {
 
   try {
     const currentEngine = new SpeedTest({ autoStart: false });
+    let currentPhase = null;
     engine = currentEngine;
     currentEngine.onPhaseChange = ({ measurement }) => {
       if (activeRunId === runId && engine === currentEngine) {
+        currentPhase = measurement.type;
         post({ kind: "progress", runId, phase: measurement.type });
+      }
+    };
+    currentEngine.onResultsChange = ({ type }) => {
+      if (activeRunId !== runId || engine !== currentEngine || type !== currentPhase) return;
+      if (type !== "download" && type !== "upload") return;
+
+      const bps = type === "download"
+        ? currentEngine.results.getDownloadBandwidth()
+        : currentEngine.results.getUploadBandwidth();
+      if (Number.isFinite(bps) && bps > 0) {
+        post({ kind: "sample", runId, phase: type, bps });
       }
     };
     currentEngine.onError = (message, status) => {

@@ -8,6 +8,14 @@ Before every run, the native UI discloses internet data use and result reporting
 
 The pinned engine's `pause()` aborts the active latency or bandwidth fetch through its `AbortController`, and clears the bandwidth retry timer. FingVibe uses only the engine's pausable latency/download/upload measurements, detaches callbacks on cancellation, and keeps the scan-coordination lease until the cancellation call has completed. Navigation away and window close use the same stop path. A cancelled run is never rendered as a completed result.
 
+## Live gauge
+
+The native gauge shows provisional download/upload estimates from the official engine's `onResultsChange` callback and bandwidth getters. Updates arrive after intermediate measurements, not as a continuous stream. The needle interpolates between estimates over 250 ms when Windows animations are enabled; it does not synthesize measurements or completion percentages. Its labeled linear scale starts at 100 Mbps and expands by factors of ten for faster connections.
+
+Latency and phase changes clear the prior estimate. Cancellation, errors, completion, and navigation stop the animation and clear provisional values; the idle gauge never displays a completed result as a live reading. Final results remain separate. Bridge samples are validated for the current run, positive finite bandwidth, and download/upload phase.
+
+Azure testing is deferred; the payload generator below is preparation only.
+
 ## Preparing an Azure download payload
 
 Azure download measurement is not implemented yet. The intended extension runs Cloudflare first, then a separate Azure download measurement from the same Start action, keeping the two providers' results distinct.

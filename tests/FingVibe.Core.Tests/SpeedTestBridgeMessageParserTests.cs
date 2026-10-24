@@ -9,6 +9,8 @@ public sealed class SpeedTestBridgeMessageParserTests
 
     [Theory]
     [InlineData("""{"kind":"progress","runId":"test-run-1","phase":"download"}""", "progress")]
+    [InlineData("""{"kind":"sample","runId":"test-run-1","phase":"download","bps":125000000}""", "sample")]
+    [InlineData("""{"kind":"sample","runId":"test-run-1","phase":"upload","bps":80000000}""", "sample")]
     [InlineData("""{"kind":"cancelled","runId":"test-run-1"}""", "cancelled")]
     [InlineData("""{"kind":"error","runId":"test-run-1","category":"rate-limited","message":"HTTP 429","status":429}""", "error")]
     [InlineData("""{"kind":"result","runId":"test-run-1","downloadBps":125000000,"uploadBps":80000000,"latencyMs":12.5,"location":null}""", "result")]
@@ -31,6 +33,13 @@ public sealed class SpeedTestBridgeMessageParserTests
     [InlineData("""{"kind":"cancelled","runId":"test-run-1","nativeMethod":"evil"}""")]
     [InlineData("""{"kind":"cancelled","kind":"result","runId":"test-run-1"}""")]
     [InlineData("""not json""")]
+    [InlineData("""{"kind":"sample","runId":"old-run","phase":"download","bps":1}""")]
+    [InlineData("""{"kind":"sample","runId":"test-run-1","phase":"latency","bps":1}""")]
+    [InlineData("""{"kind":"sample","runId":"test-run-1","phase":"download","bps":0}""")]
+    [InlineData("""{"kind":"sample","runId":"test-run-1","phase":"upload","bps":-1}""")]
+    [InlineData("""{"kind":"sample","runId":"test-run-1","phase":"download","bps":1e999}""")]
+    [InlineData("""{"kind":"sample","runId":"test-run-1","phase":"download","bps":"100"}""")]
+    [InlineData("""{"kind":"sample","runId":"test-run-1","phase":"download","bps":1,"extra":true}""")]
     public void RejectsMalformedStaleOrOutOfContractMessages(string payload)
     {
         Assert.False(SpeedTestBridgeMessageParser.TryParse(payload, RunId, out _));

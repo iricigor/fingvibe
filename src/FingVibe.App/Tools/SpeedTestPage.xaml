@@ -35,6 +35,48 @@
                                  Height="5"
                                  AutomationProperties.Name="Cloudflare speed test progress" />
                 </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="StartTestButton"
+                            Content="Start test"
+                            Click="StartTestButton_Click"
+                            Style="{ThemeResource AccentButtonStyle}"
+                            AutomationProperties.Name="Start Cloudflare speed test" />
+                    <Button x:Name="CancelTestButton"
+                            Content="Cancel"
+                            Click="CancelTestButton_Click"
+                            IsEnabled="False"
+                            AutomationProperties.Name="Cancel Cloudflare speed test" />
+                </StackPanel>
+                <Border x:Name="LiveGaugeCard"
+                        Style="{StaticResource ScannerSummaryCardStyle}">
+                    <StackPanel Spacing="8" HorizontalAlignment="Center">
+                        <TextBlock x:Name="GaugePhaseText" Text="Waiting for measurements"
+                                   HorizontalAlignment="Center" />
+                        <Grid Width="240" Height="140" AutomationProperties.AccessibilityView="Raw">
+                            <Path Data="M 20,120 A 100,100 0 0 1 220,120"
+                                  Stroke="{ThemeResource TextFillColorSecondaryBrush}"
+                                  StrokeThickness="8" />
+                            <Line X1="120" Y1="120" X2="120" Y2="28"
+                                  Stroke="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                  StrokeThickness="4">
+                                <Line.RenderTransform>
+                                    <RotateTransform x:Name="GaugeNeedle" CenterX="120" CenterY="120" Angle="-90" />
+                                </Line.RenderTransform>
+                            </Line>
+                            <Ellipse Width="12" Height="12" Margin="0,114,0,0"
+                                     HorizontalAlignment="Center" VerticalAlignment="Top"
+                                     Fill="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                        </Grid>
+                        <TextBlock x:Name="GaugeValueText" Text="-- Mbps"
+                                   FontSize="28" FontWeight="SemiBold" HorizontalAlignment="Center"
+                                   AutomationProperties.Name="Provisional Cloudflare speed" />
+                        <TextBlock x:Name="GaugeScaleText" Text="Scale: 0-100 Mbps"
+                                   HorizontalAlignment="Center" />
+                        <TextBlock Text="Provisional estimate; updates after measurements, not continuously."
+                                   TextWrapping="Wrap" HorizontalAlignment="Center"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Border>
                 <Border x:Name="ResultsCard"
                         Style="{StaticResource ScannerSummaryCardStyle}"
                         Visibility="Collapsed">
@@ -83,18 +125,6 @@
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </StackPanel>
                 </Border>
-                <StackPanel Orientation="Horizontal" Spacing="8">
-                    <Button x:Name="StartTestButton"
-                            Content="Start test"
-                            Click="StartTestButton_Click"
-                            Style="{ThemeResource AccentButtonStyle}"
-                            AutomationProperties.Name="Start Cloudflare speed test" />
-                    <Button x:Name="CancelTestButton"
-                            Content="Cancel"
-                            Click="CancelTestButton_Click"
-                            IsEnabled="False"
-                            AutomationProperties.Name="Cancel Cloudflare speed test" />
-                </StackPanel>
             </StackPanel>
         </ScrollViewer>
         <WebView2 x:Name="EngineWebView"

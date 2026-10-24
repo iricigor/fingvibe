@@ -76,6 +76,7 @@ internal sealed class SpeedTestSessionState
 
         switch (message.Kind)
         {
+            case "sample":
             case "progress":
                 return true;
             case "result":

@@ -6,6 +6,23 @@ namespace FingVibe.Core.Tests;
 public sealed class SpeedTestSessionStateTests
 {
     [Fact]
+    public void SamplesCannotCompleteCancelledOrStaleRuns()
+    {
+        var session = new SpeedTestSessionState();
+        var sample = new SpeedTestBridgeMessage("sample", "first", Phase: "download", Bps: 100);
+        Assert.False(session.Apply(sample));
+        Assert.True(session.TryStart("first"));
+        Assert.True(session.Apply(sample));
+        Assert.Equal(SpeedTestSessionStatus.Running, session.Status);
+        Assert.True(session.RequestCancellation("first"));
+        Assert.False(session.Apply(sample));
+        Assert.True(session.Apply(new SpeedTestBridgeMessage("cancelled", "first")));
+        Assert.False(session.Apply(sample));
+        Assert.True(session.TryStart("second"));
+        Assert.False(session.Apply(sample));
+    }
+
+    [Fact]
     public void ProgressAndSuccessfulResultCompleteOnlyTheCurrentRun()
     {
         var session = new SpeedTestSessionState();

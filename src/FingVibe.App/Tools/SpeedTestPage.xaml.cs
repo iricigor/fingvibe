@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Animation;
 using Microsoft.Web.WebView2.Core;
 
 namespace FingVibe.App;
@@ -20,6 +21,9 @@ public sealed partial class SpeedTestPage : UserControl
     private Task? _cancellationTask;
     private string? _cancellationRunId;
     private bool _enginePageLoaded;
+    private string? _gaugePhase;
+    private double _gaugeMaximumMbps = 100;
+    private Storyboard? _gaugeAnimation;
 
     public SpeedTestPage()
     {
@@ -291,7 +295,17 @@ public sealed partial class SpeedTestPage : UserControl
 
         switch (message.Kind)
         {
+            case "sample":
+                if (message.Phase == _gaugePhase)
+                {
+                    ShowGaugeSample(message.Bps!.Value);
+                }
+                break;
             case "progress":
+                if (message.Phase != _gaugePhase)
+                {
+                    ResetGauge(message.Phase);
+                }
                 StatusText.Text = message.Phase switch
                 {
                     "latency" => "Measuring HTTP latency...",
@@ -481,10 +495,69 @@ public sealed partial class SpeedTestPage : UserControl
         StartTestButton.IsEnabled = !isRunning;
         CancelTestButton.IsEnabled = isRunning && !cancelling;
         TestProgress.Visibility = isRunning ? Visibility.Visible : Visibility.Collapsed;
+        LiveGaugeCard.Visibility = cancelling ? Visibility.Collapsed : Visibility.Visible;
+        if (!isRunning || cancelling)
+        {
+            ResetGauge();
+            GaugePhaseText.Text = "No active measurement";
+        }
+    }
+
+    private void ResetGauge(string? phase = null)
+    {
+        _gaugeAnimation?.Stop();
+        _gaugeAnimation = null;
+        GaugeNeedle.Angle = -90;
+        _gaugePhase = phase;
+        _gaugeMaximumMbps = 100;
+        GaugePhaseText.Text = phase switch
+        {
+            "download" => "Download - provisional",
+            "upload" => "Upload - provisional",
+            "latency" or "latencyUnderLoad" => "Measuring latency",
+            _ => "Waiting for measurements"
+        };
+        GaugeValueText.Text = "-- Mbps";
+        AutomationProperties.SetName(GaugeValueText, "Provisional Cloudflare speed: no sample");
+        GaugeScaleText.Text = "Scale: 0-100 Mbps";
+    }
+
+    private void ShowGaugeSample(double bps)
+    {
+        var mbps = bps / 1_000_000;
+        while (mbps > _gaugeMaximumMbps)
+        {
+            _gaugeMaximumMbps *= 10;
+        }
+
+        var angle = -90 + 180 * (mbps / _gaugeMaximumMbps);
+        var previousAngle = GaugeNeedle.Angle;
+        _gaugeAnimation?.Stop();
+        GaugeNeedle.Angle = angle;
+        if (new Windows.UI.ViewManagement.UISettings().AnimationsEnabled)
+        {
+            var animation = new DoubleAnimation
+            {
+                From = previousAngle,
+                To = angle,
+                Duration = new Duration(TimeSpan.FromMilliseconds(250)),
+                EnableDependentAnimation = true
+            };
+            Storyboard.SetTarget(animation, GaugeNeedle);
+            Storyboard.SetTargetProperty(animation, "Angle");
+            _gaugeAnimation = new Storyboard();
+            _gaugeAnimation.Children.Add(animation);
+            _gaugeAnimation.Begin();
+        }
+
+        GaugeValueText.Text = $"{mbps.ToString("0.##", CultureInfo.CurrentCulture)} Mbps";
+        AutomationProperties.SetName(GaugeValueText, $"{GaugePhaseText.Text}: {GaugeValueText.Text}");
+        GaugeScaleText.Text = $"Scale: 0-{_gaugeMaximumMbps.ToString("N0", CultureInfo.CurrentCulture)} Mbps";
     }
 
     private void ResetResults()
     {
+        ResetGauge();
         ResultsCard.Visibility = Visibility.Collapsed;
         DownloadResultText.Text = "—";
         UploadResultText.Text = "—";

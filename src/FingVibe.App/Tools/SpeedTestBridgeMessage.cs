@@ -12,7 +12,8 @@ internal sealed record SpeedTestBridgeMessage(
     double? DownloadBps = null,
     double? UploadBps = null,
     double? LatencyMs = null,
-    string? Location = null);
+    string? Location = null,
+    double? Bps = null);
 
 internal static class SpeedTestBridgeMessageParser
 {
@@ -48,6 +49,18 @@ internal static class SpeedTestBridgeMessageParser
 
             switch (kind)
             {
+                case "sample":
+                    if (!HasOnlyProperties(root, "kind", "runId", "phase", "bps")
+                        || !TryReadString(root, "phase", out var samplePhase)
+                        || samplePhase is not ("download" or "upload")
+                        || !TryReadPositiveNumber(root, "bps", out var bps))
+                    {
+                        return false;
+                    }
+
+                    message = new SpeedTestBridgeMessage(kind, runId, Phase: samplePhase, Bps: bps);
+                    return true;
+
                 case "progress":
                     if (!HasOnlyProperties(root, "kind", "runId", "phase")
                         || !TryReadString(root, "phase", out var phase)
