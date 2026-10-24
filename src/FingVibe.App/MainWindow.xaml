@@ -140,7 +140,11 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <Grid ColumnSpacing="0">
+                <Grid x:Name="BuildHeader" SizeChanged="BuildHeader_SizeChanged">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
@@ -160,54 +164,54 @@
                             <TextBlock x:Name="BuildRibbonText" FontWeight="SemiBold" FontSize="13" />
                         </Button>
                     </Canvas>
-                <Grid x:Name="ScanBar" Margin="24,16,24,16" ColumnSpacing="12" VerticalAlignment="Top">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <ComboBox x:Name="NetworkPicker"
-                              MinWidth="150"
-                              MaxWidth="360"
-                              HorizontalAlignment="Left"
-                              Header="Detected network"
-                              SelectionChanged="NetworkPicker_SelectionChanged" />
-                    <Button x:Name="ScanButton"
-                            Grid.Column="1"
-                            VerticalAlignment="Bottom"
-                            Click="ScanButton_Click"
-                            AutomationProperties.Name="Scan LAN"
-                            Style="{ThemeResource AccentButtonStyle}">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE72C;" />
-                            <TextBlock Text="Scan LAN" />
+                    <Grid x:Name="ScanBar" Margin="24,16,24,16" ColumnSpacing="12" VerticalAlignment="Top">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="NetworkPicker"
+                                  MinWidth="150"
+                                  MaxWidth="360"
+                                  HorizontalAlignment="Left"
+                                  Header="Detected network"
+                                  SelectionChanged="NetworkPicker_SelectionChanged" />
+                        <Button x:Name="ScanButton"
+                                Grid.Column="1"
+                                VerticalAlignment="Bottom"
+                                Click="ScanButton_Click"
+                                AutomationProperties.Name="Scan LAN"
+                                Style="{ThemeResource AccentButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <FontIcon Glyph="&#xE72C;" />
+                                <TextBlock Text="Scan LAN" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="CancelButton"
+                                Grid.Column="2"
+                                VerticalAlignment="Bottom"
+                                Click="CancelButton_Click"
+                                Content="Cancel"
+                                Visibility="Collapsed"
+                                IsEnabled="False" />
+                        <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Spacing="4" Margin="0,8,0,0">
+                            <TextBlock x:Name="ScanStatusText"
+                                       Text="Ready"
+                                       TextWrapping="Wrap"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <ProgressBar x:Name="ScanProgressBar"
+                                         Minimum="0"
+                                         Maximum="1"
+                                         Value="0"
+                                         Visibility="Collapsed"
+                                         Height="4" />
                         </StackPanel>
-                    </Button>
-                    <Button x:Name="CancelButton"
-                            Grid.Column="2"
-                            VerticalAlignment="Bottom"
-                            Click="CancelButton_Click"
-                            Content="Cancel"
-                            Visibility="Collapsed"
-                            IsEnabled="False" />
-                    <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Spacing="4" Margin="0,8,0,0">
-                        <TextBlock x:Name="ScanStatusText"
-                                   Text="Ready"
-                                   TextWrapping="Wrap"
-                                   TextTrimming="CharacterEllipsis"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <ProgressBar x:Name="ScanProgressBar"
-                                     Minimum="0"
-                                     Maximum="1"
-                                     Value="0"
-                                     Visibility="Collapsed"
-                                     Height="4" />
-                    </StackPanel>
-                </Grid>
+                    </Grid>
                 </Grid>
 
                 <!-- Overview -->

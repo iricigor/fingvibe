@@ -20,11 +20,11 @@ public sealed partial class ToolsPage : UserControl
 
     public async Task StopForNavigationAsync()
     {
-        await SpeedTestView.StopForNavigationAsync();
-        SpeedTestView.ResetForNavigation();
         SpeedTestView.Visibility = Visibility.Collapsed;
         AboutView.Visibility = Visibility.Collapsed;
         ToolsLanding.Visibility = Visibility.Visible;
+        await SpeedTestView.StopForNavigationAsync();
+        SpeedTestView.ResetForNavigation();
     }
 
     public Task StopForWindowCloseAsync() => SpeedTestView.StopForWindowCloseAsync();

@@ -12,6 +12,22 @@ if ($BuildKind -eq "PullRequest" -and $PullRequestNumber -le 0) {
     throw "PullRequest builds require a positive PullRequestNumber."
 }
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+public static class BuildIdentityReviewKeyboard
+{
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte key, byte scan, uint flags, UIntPtr extra);
+
+    public static void Tap(byte key)
+    {
+        keybd_event(key, 0, 0, UIntPtr.Zero);
+        keybd_event(key, 0, 2, UIntPtr.Zero);
+    }
+}
+"@
 $previousReview = $env:FINGVIBE_UI_REVIEW
 $env:FINGVIBE_UI_REVIEW = "1"
 
@@ -76,6 +92,13 @@ try {
             if ($process.HasExited) { throw "App exited with code $($process.ExitCode)." }
         } while ($process.MainWindowHandle -eq 0 -and [DateTime]::UtcNow -lt $deadline)
         if ($process.MainWindowHandle -eq 0) { throw "App did not open a window." }
+        [BuildIdentityReviewKeyboard]::Tap(0x12)
+        $deadline = [DateTime]::UtcNow.AddSeconds(5)
+        do {
+            $null = [UiReviewNativeWindow]::SetForegroundWindow($process.MainWindowHandle)
+            Start-Sleep -Milliseconds 100
+        } while ([UiReviewNativeWindow]::GetForegroundWindow() -ne $process.MainWindowHandle `
+            -and [DateTime]::UtcNow -lt $deadline)
         Initialize-UiReviewWindow -WindowHandle $process.MainWindowHandle
         $script:root = [System.Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
         if ($root.Current.Name -ne $title) { throw "Incorrect title: $($root.Current.Name)" }
@@ -100,6 +123,8 @@ try {
             Start-Sleep -Milliseconds 400
             $scan = Find-Element "Scan LAN" ([System.Windows.Automation.ControlType]::Button)
             if ($scan.Current.IsOffscreen) { throw "Scan control is hidden at 640x480." }
+            $versionElement = Find-Element "v$Version - $label" ([System.Windows.Automation.ControlType]::Text)
+            if ($versionElement.Current.IsOffscreen) { throw "Version is not visible at 640x480." }
             if ($activation -eq "keyboard") {
                 $ribbon.SetFocus()
                 [System.Windows.Forms.SendKeys]::SendWait(" ")
@@ -128,6 +153,9 @@ try {
         $null = Find-Element "v$Version" ([System.Windows.Automation.ControlType]::Text)
         $null = Find-Element $label ([System.Windows.Automation.ControlType]::Text)
         Invoke-Button "Back to Tools"
+        Invoke-Button "About FingVibe"
+        $null = Find-Element "Back to Tools" ([System.Windows.Automation.ControlType]::Button)
+        Select-Page "Overview"
         Invoke-Button "About FingVibe"
         $null = Find-Element "Back to Tools" ([System.Windows.Automation.ControlType]::Button)
         Stop-Process -Id $process.Id
