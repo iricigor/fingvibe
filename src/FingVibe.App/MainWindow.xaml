@@ -673,17 +673,15 @@
                                                                Opacity="{x:Bind DeviceTypeOpacity, Mode=OneWay}"
                                                                Visibility="{x:Bind Columns.Type.IsVisible, Mode=OneWay}" TextTrimming="CharacterEllipsis"
                                                                ToolTipService.ToolTip="{x:Bind DeviceTypeSource, Mode=OneWay}" />
-                                                    <Button Grid.Column="9" Content="{x:Bind PersonShortName, Mode=OneWay}" Padding="6,1"
-                                                            MinHeight="22" MinWidth="0" HorizontalAlignment="Left"
-                                                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                                                            BorderBrush="{ThemeResource ScannerCardBorderBrush}" BorderThickness="1"
+                                                    <Button Grid.Column="9" Content="{x:Bind PersonShortName, Mode=OneWay}"
+                                                            Style="{StaticResource ScannerAssignmentTextStyle}"
+                                                            Opacity="{x:Bind PersonOpacity, Mode=OneWay}"
                                                             Visibility="{x:Bind Columns.Person.IsVisible, Mode=OneWay}"
                                                             ToolTipService.ToolTip="{x:Bind PersonFullName, Mode=OneWay}"
                                                             AutomationProperties.Name="{x:Bind PersonFullName, Mode=OneWay}" />
-                                                    <Button Grid.Column="10" Content="{x:Bind RoomShortName, Mode=OneWay}" Padding="6,1"
-                                                            MinHeight="22" MinWidth="0" HorizontalAlignment="Left"
-                                                            Background="{ThemeResource ControlFillColorSecondaryBrush}"
-                                                            BorderBrush="{ThemeResource ScannerCardBorderBrush}" BorderThickness="1"
+                                                    <Button Grid.Column="10" Content="{x:Bind RoomShortName, Mode=OneWay}"
+                                                            Style="{StaticResource ScannerAssignmentTextStyle}"
+                                                            Opacity="{x:Bind RoomOpacity, Mode=OneWay}"
                                                             Visibility="{x:Bind Columns.Room.IsVisible, Mode=OneWay}"
                                                             ToolTipService.ToolTip="{x:Bind RoomFullName, Mode=OneWay}"
                                                             AutomationProperties.Name="{x:Bind RoomFullName, Mode=OneWay}" />

@@ -84,6 +84,8 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public string PersonFullName => _personName ?? "Unassigned";
     public string RoomShortName => _roomShortName ?? "-";
     public string RoomFullName => _roomName ?? "Unassigned";
+    public double PersonOpacity => _personId is null ? 0.65 : 1;
+    public double RoomOpacity => _roomId is null ? 0.65 : 1;
     public bool IsOnline => Result.Status == HostStatus.Alive;
     public bool IsOffline => !IsOnline;
     public string StatusLabel => IsOnline ? "Online" : "Offline";
@@ -149,8 +151,8 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         _roomName = roomName;
         foreach (var property in new[]
         {
-            nameof(PersonId), nameof(PersonShortName), nameof(PersonFullName),
-            nameof(RoomId), nameof(RoomShortName), nameof(RoomFullName)
+            nameof(PersonId), nameof(PersonShortName), nameof(PersonFullName), nameof(PersonOpacity),
+            nameof(RoomId), nameof(RoomShortName), nameof(RoomFullName), nameof(RoomOpacity)
         })
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
