@@ -12,6 +12,13 @@ function Assert-VisibleUiReviewElement {
     }
 }
 
+function Test-UiReviewNavigation {
+    foreach ($scenario in $UiReviewScenarios.Keys) {
+        Write-Host "Verifying navigation: $scenario"
+        Show-UiReviewCaptureScenario -Scenario $scenario
+    }
+}
+
 function Show-UiReviewCaptureScenario {
     param([Parameter(Mandatory)][string] $Scenario)
     $menu = switch ($Scenario) {

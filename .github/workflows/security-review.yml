@@ -6,7 +6,6 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
 
 concurrency:
   group: security-review-${{ github.event.pull_request.number || github.ref }}
@@ -16,12 +15,17 @@ jobs:
   security-review:
     name: security-review
     runs-on: windows-latest
+    outputs:
+      secrets: ${{ steps.secrets.outcome }}
+      restore: ${{ steps.restore.outcome }}
+      dependencies: ${{ steps.dependencies.outcome }}
 
     steps:
       - name: Check out source and history
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Scan for exposed secrets
         id: secrets
@@ -103,19 +107,32 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  security-feedback:
+    needs: security-review
+    if: >
+      !cancelled()
+      && github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]'
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check out comment publisher
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
       - name: Explain security review failure
-        if: >
-          failure()
-          && github.event_name == 'pull_request'
-          && github.event.pull_request.head.repo.full_name == github.repository
-          && github.actor != 'dependabot[bot]'
+        if: needs.security-review.result == 'failure'
         env:
-          DEPENDENCY_OUTCOME: ${{ steps.dependencies.outcome }}
+          DEPENDENCY_OUTCOME: ${{ needs.security-review.outputs.dependencies }}
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          RESTORE_OUTCOME: ${{ steps.restore.outcome }}
+          RESTORE_OUTCOME: ${{ needs.security-review.outputs.restore }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          SECRET_OUTCOME: ${{ steps.secrets.outcome }}
+          SECRET_OUTCOME: ${{ needs.security-review.outputs.secrets }}
         shell: pwsh
         run: |
           $reasons = [System.Collections.Generic.List[string]]::new()
@@ -142,43 +159,15 @@ jobs:
           [Open the failed security review run]($env:RUN_URL)
           "@
 
-          $comments = gh api `
-            "repos/$env:GITHUB_REPOSITORY/issues/$env:PR_NUMBER/comments" `
-            --paginate | ConvertFrom-Json
-          $existing = $comments |
-            Where-Object { $_.user.login -eq "github-actions[bot]" -and $_.body.Contains($marker) } |
-            Select-Object -First 1
-
-          if ($existing) {
-            @{ body = $body } |
-              ConvertTo-Json |
-              gh api --method PATCH `
-                "repos/$env:GITHUB_REPOSITORY/issues/comments/$($existing.id)" `
-                --input -
-          } else {
-            gh pr comment $env:PR_NUMBER --body $body
-          }
+          .\.github\scripts\Publish-PrComment.ps1 -PullRequestNumber $env:PR_NUMBER `
+            -Repository $env:GITHUB_REPOSITORY -Marker $marker -Body $body
 
       - name: Clear resolved security failure comment
-        if: >
-          success()
-          && github.event_name == 'pull_request'
-          && github.event.pull_request.head.repo.full_name == github.repository
-          && github.actor != 'dependabot[bot]'
-        continue-on-error: true
+        if: needs.security-review.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         shell: pwsh
         run: |
-          $marker = "<!-- fingvibe-security-review-failure -->"
-          $comments = gh api `
-            "repos/$env:GITHUB_REPOSITORY/issues/$env:PR_NUMBER/comments" `
-            --paginate | ConvertFrom-Json
-          $existing = $comments |
-            Where-Object { $_.user.login -eq "github-actions[bot]" -and $_.body.Contains($marker) } |
-            Select-Object -First 1
-          if ($existing) {
-            gh api --method DELETE `
-              "repos/$env:GITHUB_REPOSITORY/issues/comments/$($existing.id)"
-          }
+          .\.github\scripts\Publish-PrComment.ps1 -Mode Remove -PullRequestNumber $env:PR_NUMBER `
+            -Repository $env:GITHUB_REPOSITORY -Marker "<!-- fingvibe-security-review-failure -->"

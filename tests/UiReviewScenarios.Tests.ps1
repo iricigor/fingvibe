@@ -78,6 +78,20 @@ try {
     } "*NewPage*has no capture scenario*"
     Test-Change @{ "src\FingVibe.App\MainWindow.xaml" = $xaml.Replace('<Window ', '<Window Title="Shared" ') } `
         @($UiReviewScenarios.Keys) "Shared layout"
+    $navigation = '<NavigationView><NavigationView.MenuItems><NavigationViewItem Content="Tools" /></NavigationView.MenuItems></NavigationView>'
+    $navigationXaml = $xaml.Replace('<Grid x:Name="RootGrid">', "<Grid x:Name=`"RootGrid`">$navigation")
+    # The existing navigation container is part of the shell; only its menu entries are excluded.
+    Test-Change @{ "src\FingVibe.App\MainWindow.xaml" = $navigationXaml } `
+        @($UiReviewScenarios.Keys) "New shared navigation container"
+    $null = Invoke-UiReviewGit $repository @("checkout", "--quiet", "--detach", $base)
+    $navigationBase = $xaml.Replace('<Grid x:Name="RootGrid">', '<Grid x:Name="RootGrid"><NavigationView />')
+    Set-Content -LiteralPath $xamlPath -Value $navigationBase
+    $null = Invoke-UiReviewGit $repository @("add", ".")
+    $null = Invoke-UiReviewGit $repository @("commit", "--quiet", "-m", "Existing navigation")
+    $originalBase = $base
+    $base = Invoke-UiReviewGit $repository @("rev-parse", "HEAD")
+    Test-Change @{ "src\FingVibe.App\MainWindow.xaml" = $navigationXaml } @("Devices") "Menu-only change"
+    $base = $originalBase
     Test-Change @{ "src\FingVibe.App\MainWindow.DeviceDetails.cs" = "changed" } `
         @("Devices", "DeviceDetails") "Device details code"
     Test-Change @{ "src\FingVibe.App\MainWindow.NetworkIdentity.cs" = "changed" } `
@@ -95,8 +109,34 @@ try {
     }
     Test-Change @{ "src\FingVibe.App\MainWindow.xaml" = $applicationXaml } `
         @($UiReviewScenarios.Keys) "Actual application pages all have capture scenarios"
-    Test-Change @{ "src\FingVibe.Core\NewModel.cs" = "changed" } @($UiReviewScenarios.Keys) "Unrecognized app dependency"
-    Test-Change @{ ".github\scripts\UiReviewNavigation.ps1" = "changed" } @($UiReviewScenarios.Keys) "Pipeline self-coverage"
+    Test-Change @{ "src\FingVibe.Core\NewModel.cs" = "changed" } @("Devices") "Core dependency baseline"
+    Test-Change @{ ".github\scripts\UiReviewNavigation.ps1" = "changed" } @("Devices") "Pipeline baseline"
+    Test-Change @{ "src\FingVibe.App\MainWindow.xaml.cs" = "changed" } @("Devices") "Shell code baseline"
+    Test-Change @{ "src\FingVibe.App\Tools\SpeedTestPage.xaml" = "changed" } @("Devices", "Tools", "SpeedTest") "Tools views"
+    Assert-Throws {
+        Test-Change @{ "src\FingVibe.App\Tools\UnknownPage.xaml" = "changed" } @() "Unsupported extracted page"
+    } "*has no selection rule*"
+    $base = Invoke-UiReviewGit $repository @("rev-parse", "$originalBase")
+    $oldXaml = $navigationBase.Replace('<Grid x:Name="ToolsPage"><TextBlock Text="ToolsPage" /></Grid>', '')
+    $null = Invoke-UiReviewGit $repository @("checkout", "--quiet", "--detach", $base)
+    Set-Content -LiteralPath $xamlPath -Value $oldXaml
+    $null = Invoke-UiReviewGit $repository @("add", ".")
+    $null = Invoke-UiReviewGit $repository @("commit", "--quiet", "-m", "Before Tools")
+    $base = Invoke-UiReviewGit $repository @("rev-parse", "HEAD")
+    Test-Change @{
+        "src\FingVibe.App\MainWindow.xaml" = $navigationXaml.Replace('<Grid x:Name="ToolsPage">', '<!-- Tools --><Grid x:Name="ToolsPage">')
+        "src\FingVibe.App\MainWindow.xaml.cs" = "Tools routing"
+        "src\FingVibe.App\MainWindow.Scan.cs" = "Activity coordination"
+        "src\FingVibe.App\FingVibe.App.csproj" = "WebView2 dependency"
+        "src\FingVibe.App\Tools\ToolsPage.xaml" = "Tools"
+        "src\FingVibe.App\Tools\SpeedTestPage.xaml" = "Speed test"
+        "src\FingVibe.App\Assets\SpeedTest\speedtest.js" = "engine"
+        ".github\scripts\UiReviewScenarios.ps1" = "New scenarios"
+        ".github\scripts\UiReviewNavigation.ps1" = "New navigation"
+        "tests\UiReviewScenarios.Tests.ps1" = "New tests"
+        "README.md" = "Tools documentation"
+    } @("Devices", "Tools", "SpeedTest") "PR 57 equivalent selects exactly three captures"
+    $base = $originalBase
 
     $planPath = Join-Path $repository "plan.json"
     $plan = @(Get-UiReviewCapturePlan $repository -AdditionalScenarios @("Network"))
@@ -234,7 +274,9 @@ try {
     }
     Show-UiReviewCaptureScenario "Devices"
     Assert-Equal $script:empty $false "Returning from empty results restores the baseline"
+    Test-UiReviewNavigation
     $script:hiddenControl = "control-Public IP address"
+    Assert-Throws { Test-UiReviewNavigation } "*not visible*"
     Assert-Throws { Show-UiReviewCaptureScenario "Network" } "*not visible*"
     $script:hiddenControl = ""
     $script:hiddenControl = "control-Scan additional ports"
