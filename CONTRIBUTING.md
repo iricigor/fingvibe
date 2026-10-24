@@ -32,6 +32,10 @@ Typing "Architect, what do you think about...?" alone does not select or switch 
 
 The profile grants repository read/search, edit, and command-execution tools for its full workflow. Its discussion-first and confirmation gates are behavioral instructions, not a read-only security sandbox. Normal host permissions still apply. A host without issue, push, PR, or comment permissions cannot complete delivery; Architect must disclose the limitation rather than claim success.
 
+### Deferred ideas and the recording exception
+
+Keep confirmed abandoned ideas in [the deferred-ideas backlog](docs/deferred-ideas.md). Confirmation to record a specific decision authorizes a simple task and documentation PR without another implementation approval, not feature implementation. See [Architect's instructions](.github/agents/architect.agent.md#deferred-and-rejected-ideas) for the workflow and safeguards.
+
 ### Example conversation and delivery
 
 After selecting Architect:
