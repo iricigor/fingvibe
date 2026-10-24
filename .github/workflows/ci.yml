@@ -3,18 +3,87 @@ name: Pull request build
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      additional_scenarios:
+        description: "Extra captures (comma-separated): Overview, Network, DeviceDetails, People, PersonDetails, Rooms, RoomDetails, Tools, SpeedTest, Settings, DevicesEmpty"
+        type: string
+        required: false
 
 permissions:
   contents: read
-  pull-requests: write
+
+concurrency:
+  group: pr-validation-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  changes:
     runs-on: windows-latest
+    outputs:
+      tests: ${{ steps.changes.outputs.tests }}
+      build: ${{ steps.changes.outputs.build }}
+      ui: ${{ steps.changes.outputs.ui }}
+    steps:
+      - name: Check out source and history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
+      - name: Select validation work
+        id: changes
+        env:
+          BASE_REVISION: ${{ github.event.pull_request.base.sha }}
+          HEAD_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        shell: pwsh
+        run: |
+          .\.github\scripts\Get-PrValidationChanges.ps1 `
+            -BaseRevision $env:BASE_REVISION -HeadRevision $env:HEAD_REVISION `
+            -Manual:($env:EVENT_NAME -eq "workflow_dispatch")
+
+  tests:
+    name: core-tests
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    runs-on: windows-latest
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Test networking core
+        run: dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj --configuration Release
+
+      - name: Test speed-test bridge
+        run: node --test tests\SpeedTestHost.Tests.cjs
+
+      - name: Test scenario selection, navigation, and publishing
+        shell: pwsh
+        run: .\tests\UiReviewScenarios.Tests.ps1
+
+      - name: Test validation planning and comments
+        shell: pwsh
+        run: .\tests\PrValidation.Tests.ps1
+
+  build:
+    needs: [changes, tests]
+    if: needs.changes.outputs.build == 'true'
+    runs-on: windows-latest
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      artifact-url: ${{ steps.upload.outputs.artifact-url }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
@@ -23,12 +92,6 @@ jobs:
 
       - name: Set up MSBuild
         uses: microsoft/setup-msbuild@v2
-
-      - name: Test networking core
-        run: dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj --configuration Release
-
-      - name: Test speed-test bridge
-        run: node --test tests\SpeedTestHost.Tests.cjs
 
       - name: Publish Windows x64 app
         shell: pwsh
@@ -42,6 +105,7 @@ jobs:
             /property:SelfContained=true `
             /property:Version=0.0.${{ github.run_number }} `
             /property:PublishDir="${{ github.workspace }}\artifacts\fingvibe-win-x64\"
+          if ($LASTEXITCODE -ne 0) { throw "Windows app publish failed." }
 
       - name: Verify published application icons
         shell: pwsh
@@ -51,19 +115,35 @@ jobs:
         id: upload
         uses: actions/upload-artifact@v4
         with:
-          name: fingvibe-win-x64-pr-${{ github.event.pull_request.number || github.run_number }}
+          name: fingvibe-win-x64-pr-${{ github.event.pull_request.number || github.run_number }}-attempt-${{ github.run_attempt }}
           path: artifacts\fingvibe-win-x64
           if-no-files-found: error
           retention-days: 14
 
-      - name: Post artifact link on pull request
-        if: >
-          github.event_name == 'pull_request'
-          && github.event.pull_request.head.repo.full_name == github.repository
+  build-comment:
+    needs: build
+    if: >
+      github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]'
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check out comment publisher
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Post a new artifact link on pull request
         env:
-          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+          ARTIFACT_URL: ${{ needs.build.outputs.artifact-url }}
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          RUN_NUMBER: ${{ github.run_number }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
         shell: pwsh
         run: |
           $marker = "<!-- fingvibe-pr-artifact -->"
@@ -73,22 +153,209 @@ jobs:
 
           [Download the Windows x64 executable artifact]($env:ARTIFACT_URL)
 
-          Unzip the download and run ``FingVibe.App.exe``. The artifact expires after 14 days.
+          Build [$env:RUN_NUMBER, attempt $env:RUN_ATTEMPT]($env:RUN_URL). Unzip the download and run ``FingVibe.App.exe``. The artifact expires after 14 days.
           "@
+          .\.github\scripts\Publish-PrComment.ps1 -Mode Append `
+            -PullRequestNumber $env:PR_NUMBER -Repository $env:GITHUB_REPOSITORY -Marker $marker -Body $body
 
-          $comments = gh api `
-            "repos/$env:GITHUB_REPOSITORY/issues/$env:PR_NUMBER/comments" `
-            --paginate | ConvertFrom-Json
-          $existing = $comments |
-            Where-Object { $_.user.login -eq "github-actions[bot]" -and $_.body.Contains($marker) } |
-            Select-Object -First 1
+  ui-capture:
+    needs: [changes, build]
+    if: >
+      needs.changes.outputs.ui == 'true'
+      && (
+        github.event_name == 'workflow_dispatch'
+        || (
+          github.event.pull_request.head.repo.full_name == github.repository
+          && (
+            contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
+            || github.event.pull_request.user.login == 'Copilot'
+          )
+        )
+      )
+    runs-on: windows-2025
+    env:
+      FINGVIBE_UI_REVIEW: "1"
+    steps:
+      - name: Check out source and history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
-          if ($existing) {
-            @{ body = $body } |
-              ConvertTo-Json |
-              gh api --method PATCH `
-                "repos/$env:GITHUB_REPOSITORY/issues/comments/$($existing.id)" `
-                --input -
+      - name: Download the tested app
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          merge-multiple: true
+          path: artifacts\ui-review-app
+
+      - name: Test full-window screenshot capture
+        id: capture-tests
+        shell: pwsh
+        run: .\tests\UiReviewScreenshot.Tests.ps1
+
+      - name: Select changed views and states
+        id: plan
+        env:
+          BASE_REVISION: ${{ github.event.pull_request.base.sha }}
+          HEAD_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+          ADDITIONAL_SCENARIOS: ${{ inputs.additional_scenarios }}
+        shell: pwsh
+        run: |
+          .\.github\scripts\Select-UiReviewScenarios.ps1 `
+            -PlanPath "${{ github.workspace }}\artifacts\ui-review\capture-plan.json" `
+            -BaseRevision $env:BASE_REVISION -HeadRevision $env:HEAD_REVISION `
+            -AdditionalScenarios $env:ADDITIONAL_SCENARIOS
+
+      - name: Exercise primary UI and capture required views
+        id: smoke
+        shell: pwsh
+        run: |
+          Start-Transcript -Path "artifacts\ui-review\smoke-test.log"
+          try {
+            .\.github\scripts\Invoke-UiReview.ps1 `
+              -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
+              -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-review" `
+              -CapturePlanPath "${{ github.workspace }}\artifacts\ui-review\capture-plan.json"
+          } catch {
+            Write-Host $_
+            throw
+          } finally {
+            Stop-Transcript
+          }
+
+      - name: Upload UI review captures and diagnostics
+        id: screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fingvibe-ui-review-pr-${{ github.event.pull_request.number || github.run_number }}-attempt-${{ github.run_attempt }}
+          path: artifacts\ui-review\
+          if-no-files-found: warn
+          retention-days: 14
+
+  ui-publish:
+    needs: [changes, tests, build, ui-capture]
+    if: >
+      !cancelled()
+      && needs.changes.outputs.ui == 'true'
+      && github.event_name == 'pull_request'
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]'
+      && (
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
+        || github.event.pull_request.user.login == 'Copilot'
+      )
+    runs-on: windows-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Check out publishers
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Download completed captures
+        if: needs.ui-capture.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: fingvibe-ui-review-pr-${{ github.event.pull_request.number }}-attempt-${{ github.run_attempt }}
+          path: artifacts\ui-review
+
+      - name: Publish screenshots for inline review
+        id: pages
+        if: needs.ui-capture.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: pwsh
+        run: |
+          .\.github\scripts\Publish-UiReviewScreenshot.ps1 `
+            -ManifestPath "${{ github.workspace }}\artifacts\ui-review\capture-manifest.json" `
+            -PullRequestNumber $env:PR_NUMBER -Repository $env:GITHUB_REPOSITORY -RunId $env:GITHUB_RUN_ID
+
+      - name: Add screenshots to pull request
+        id: pr-comment
+        if: needs.ui-capture.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMENT_BODY_PATH: ${{ steps.pages.outputs.body-path }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: pwsh
+        run: |
+          $body = Get-Content -LiteralPath $env:COMMENT_BODY_PATH -Raw
+          .\.github\scripts\Publish-PrComment.ps1 -PullRequestNumber $env:PR_NUMBER `
+            -Repository $env:GITHUB_REPOSITORY -Marker "<!-- fingvibe-ui-review -->" -Body $body
+          $body >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Explain UI/UX review failure
+        if: failure() || needs.tests.result == 'failure' || needs.build.result == 'failure' || needs.ui-capture.result == 'failure'
+        env:
+          TEST_RESULT: ${{ needs.tests.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          CAPTURE_RESULT: ${{ needs.ui-capture.result }}
+          PAGES_OUTCOME: ${{ steps.pages.outcome }}
+          COMMENT_OUTCOME: ${{ steps.pr-comment.outcome }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        shell: pwsh
+        run: |
+          $reasons = [System.Collections.Generic.List[string]]::new()
+          if ($env:TEST_RESULT -eq "failure") { $reasons.Add("- Regression tests failed; build and UI validation could not proceed.") }
+          if ($env:BUILD_RESULT -eq "failure") { $reasons.Add("- The Windows app could not be published or its runnable artifact could not be uploaded.") }
+          if ($env:CAPTURE_RESULT -eq "failure") { $reasons.Add("- Native UI validation or capture failed. Inspect the failed step and download available capture plans, screenshots, and diagnostic logs from this run.") }
+          if ($env:PAGES_OUTCOME -eq "failure") { $reasons.Add("- Screenshot download/publication failed; see the run's diagnostic artifacts.") }
+          if ($env:COMMENT_OUTCOME -eq "failure") { $reasons.Add("- Screenshots were published, but their PR comment could not be posted.") }
+          if ($reasons.Count -eq 0) { $reasons.Add("- Review publication failed unexpectedly. Inspect the failed workflow step.") }
+          $marker = "<!-- fingvibe-ui-review-failure -->"
+          $body = "$marker`n## UI/UX review failed`n`n$($reasons -join "`n")`n`n[Open the failed validation run]($env:RUN_URL)"
+          .\.github\scripts\Publish-PrComment.ps1 -PullRequestNumber $env:PR_NUMBER `
+            -Repository $env:GITHUB_REPOSITORY -Marker $marker -Body $body
+
+      - name: Clear resolved UI/UX failure comment
+        if: success() && needs.ui-capture.result == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        shell: pwsh
+        run: |
+          .\.github\scripts\Publish-PrComment.ps1 -Mode Remove -PullRequestNumber $env:PR_NUMBER `
+            -Repository $env:GITHUB_REPOSITORY -Marker "<!-- fingvibe-ui-review-failure -->"
+
+  ui-ux-review:
+    name: ui-ux-review
+    needs: [changes, tests, build, ui-capture, ui-publish]
+    if: always()
+    runs-on: windows-latest
+    steps:
+      - name: Report validation result
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          TEST_RESULT: ${{ needs.tests.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          UI_REQUIRED: ${{ needs.changes.outputs.ui }}
+          CAPTURE_RESULT: ${{ needs.ui-capture.result }}
+          PUBLISH_RESULT: ${{ needs.ui-publish.result }}
+          TRUSTED: ${{ github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && (contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) || github.event.pull_request.user.login == 'Copilot')) }}
+          EVENT_NAME: ${{ github.event_name }}
+        shell: pwsh
+        run: |
+          if ($env:CHANGES_RESULT -ne "success") { throw "Validation planning failed or was cancelled." }
+          if ($env:TEST_RESULT -notin @("success", "skipped") -or $env:BUILD_RESULT -notin @("success", "skipped")) {
+            throw "Prerequisite tests/build did not pass."
+          }
+          if ($env:UI_REQUIRED -ne "true") {
+            "Native UI review is not required for documentation/test-only changes." >> $env:GITHUB_STEP_SUMMARY
+          } elseif ($env:TRUSTED -ne "true") {
+            "Native UI review was not run: fork/untrusted PR restrictions are preserved." >> $env:GITHUB_STEP_SUMMARY
           } else {
-            gh pr comment $env:PR_NUMBER --body $body
+            if ($env:TEST_RESULT -ne "success" -or $env:BUILD_RESULT -ne "success" -or $env:CAPTURE_RESULT -ne "success") {
+              throw "Required build, tests, or native UI validation did not complete successfully."
+            }
+            if ($env:EVENT_NAME -eq "pull_request" -and $env:PUBLISH_RESULT -ne "success") {
+              throw "Required screenshot publication/commenting did not complete successfully."
+            }
+            "Native UI review passed using the tested build artifact." >> $env:GITHUB_STEP_SUMMARY
           }

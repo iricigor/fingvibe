@@ -28,12 +28,8 @@ $sessionId = $null
 $driverProcess = $null
 $succeeded = $false
 $reviewStartedAt = Get-Date
-$logDirectory = if ($env:RUNNER_TEMP) {
-    $env:RUNNER_TEMP
-}
-else {
-    [System.IO.Path]::GetTempPath()
-}
+$logDirectory = [System.IO.Path]::GetFullPath($ScreenshotDirectory)
+$null = New-Item -ItemType Directory -Path $logDirectory -Force
 $standardOutputPath = Join-Path $logDirectory "fingvibe-winappdriver.stdout.log"
 $standardErrorPath = Join-Path $logDirectory "fingvibe-winappdriver.stderr.log"
 $startupLogPath = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-ui-review-startup.log"
@@ -465,6 +461,7 @@ try {
             throw "Required capture '$($capture.Label)' failed: $($_.Exception.Message)"
         }
     }
+    Test-UiReviewNavigation
     Test-UiReviewNameSuggestion "Person" "Igor" "Iric" "II"
     Test-UiReviewNameSuggestion "Room" "Living" "Room" "LR"
     Write-Host "People and Rooms native short-name suggestion regression tests passed."
@@ -503,6 +500,7 @@ finally {
 
     if (-not $succeeded) {
         if (Test-Path -LiteralPath $startupLogPath) {
+            Copy-Item -LiteralPath $startupLogPath -Destination $logDirectory -Force
             Get-Content -LiteralPath $startupLogPath | Write-Host
         }
         try {
@@ -512,7 +510,9 @@ finally {
                 StartTime = $reviewStartedAt
             } -ErrorAction Stop |
                 Where-Object { $_.Message -like "*FingVibe.App*" } |
-                ForEach-Object { Write-Host $_.Message }
+                ForEach-Object { $_.Message } |
+                Tee-Object -FilePath (Join-Path $logDirectory "application-crashes.log") |
+                Write-Host
         }
         catch {
             Write-Warning "No application crash events were available: $($_.Exception.Message)"

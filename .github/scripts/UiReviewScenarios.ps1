@@ -55,6 +55,9 @@ function Get-UiReviewCapturePlan {
                 foreach ($revision in @($mergeBase, $HeadRevision)) {
                     $document = [System.Xml.XmlDocument]::new()
                     $document.LoadXml((Invoke-UiReviewGit $RepositoryPath @("show", "${revision}:$path")) -join "`n")
+                    foreach ($comment in @($document.SelectNodes("//comment()"))) {
+                        $null = $comment.ParentNode.RemoveChild($comment)
+                    }
                     foreach ($node in $document.SelectNodes("//*[@*[local-name()='Name']]")) {
                         $name = $node.GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml")
                         if ($name -like "*Page" -and $name -notin $UiReviewScenarios.Values.Page) {
@@ -77,9 +80,15 @@ function Get-UiReviewCapturePlan {
                         $node = $document.SelectSingleNode("//*[@*[local-name()='Name']='$page']")
                         if ($node) { $null = $node.ParentNode.RemoveChild($node) }
                     }
+                    foreach ($node in @($document.SelectNodes("//*[local-name()='NavigationView.MenuItems' or local-name()='NavigationView.FooterMenuItems' or local-name()='NavigationView.PaneHeader' or local-name()='NavigationView.PaneFooter']"))) {
+                        $null = $node.ParentNode.RemoveChild($node)
+                    }
+                    foreach ($node in $document.SelectNodes("//*[not(node())]")) {
+                        $node.IsEmpty = $true
+                    }
                 }
                 if ($documents[0].OuterXml -cne $documents[1].OuterXml) {
-                    Add-Scenarios @($UiReviewScenarios.Keys) "$path changed shared navigation or layout."
+                    Add-Scenarios @($UiReviewScenarios.Keys) "$path changed shared window layout."
                 }
             }
             elseif ($path -eq "src/FingVibe.App/MainWindow.DeviceDetails.cs") {
@@ -91,8 +100,27 @@ function Get-UiReviewCapturePlan {
             elseif ($path -match '^src/FingVibe.App/(MainWindow.Results.cs|StatusFilter.*|DeviceColumn.*|ColumnResizeGrip.cs)$') {
                 Add-Scenarios @("Devices", "DevicesEmpty", "Settings") "$path changed results, filtering, or table controls."
             }
-            elseif ($path -match '^src/|^\.github/(scripts/.*UiReview.*\.ps1|workflows/ui-ux-review\.yml|agents/ui-ux-reviewer\.agent\.md)$') {
-                Add-Scenarios @($UiReviewScenarios.Keys) "$path may affect multiple views; capture all supported scenarios."
+            elseif ($path -match '^src/FingVibe.App/.+Page\.xaml$' -and
+                [System.IO.Path]::GetFileName($path) -notin @("ToolsPage.xaml", "SpeedTestPage.xaml")) {
+                throw "View '$path' has no selection rule. Extend the scenario catalog, selection, navigation, and tests."
+            }
+            elseif ($path -match '^src/FingVibe.App/(Tools/|Assets/SpeedTest/)') {
+                Add-Scenarios @("Tools", "SpeedTest") "$path changed Tools or the speed test."
+            }
+            elseif ($path -match '^src/FingVibe.App/(MainWindow.PeopleRooms.cs|ManagedPeopleRoomsRows.cs)$') {
+                Add-Scenarios @("People", "PersonDetails", "Rooms", "RoomDetails", "DeviceDetails") "$path changed people, rooms, or assignments."
+            }
+            elseif ($path -match '^src/FingVibe.App/(MainWindow.Overview.cs|OverviewScanContext.cs)$') {
+                Add-Scenarios @("Overview") "$path changed the scan summary."
+            }
+            elseif ($path -eq "src/FingVibe.App/MainWindow.DeviceClassification.cs") {
+                Add-Scenarios @("DeviceDetails") "$path changed device identification controls."
+            }
+            elseif ($path -match '^src/FingVibe.App/(App.xaml|AppearancePalette.cs|MainWindow.Appearance.cs)$') {
+                Add-Scenarios @($UiReviewScenarios.Keys) "$path changed shared theme or appearance."
+            }
+            elseif ($path -match '^src/|^\.github/(scripts/|workflows/|agents/ui-ux-reviewer\.agent\.md)') {
+                Add-Scenarios @("Devices") "$path uses the Devices baseline; navigation smoke tests still cover every supported scenario."
             }
         }
     }
