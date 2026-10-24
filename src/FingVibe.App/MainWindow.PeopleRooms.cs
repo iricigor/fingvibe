@@ -1,5 +1,6 @@
 using System.Globalization;
 using FingVibe.Core.Models;
+using FingVibe.Core.Networking;
 using FingVibe.Core.Storage;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -932,7 +933,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        if (tag is string "add")
+        if (tag is "add")
         {
             UpdateDeviceAssignmentPickers();
             var person = await ShowPersonEditorAsync(null);
@@ -955,7 +956,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        if (tag is string "add")
+        if (tag is "add")
         {
             UpdateDeviceAssignmentPickers();
             var room = await ShowRoomEditorAsync(null);
