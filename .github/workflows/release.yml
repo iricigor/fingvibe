@@ -45,6 +45,7 @@ jobs:
             /property:Platform=x64 `
             /property:RuntimeIdentifier=win-x64 `
             /property:SelfContained=true `
+            /property:SatelliteResourceLanguages= `
             /property:Version=${{ steps.version.outputs.number }} `
             /property:PublishDir="${{ github.workspace }}\artifacts\fingvibe-win-x64\"
 
