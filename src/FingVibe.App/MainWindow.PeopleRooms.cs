@@ -388,7 +388,7 @@ public sealed partial class MainWindow
             dialog.IsPrimaryButtonEnabled = message is null;
         }
 
-        nameBox.TextChanged += (_, _) =>
+        nameBox.TextChanging += (_, _) =>
         {
             if (!manuallyEditedShortName && existing is null)
             {
@@ -399,7 +399,7 @@ public sealed partial class MainWindow
 
             Validate();
         };
-        shortNameBox.TextChanged += (_, _) =>
+        shortNameBox.TextChanging += (_, _) =>
         {
             if (!applyingSuggestion)
             {
@@ -497,7 +497,7 @@ public sealed partial class MainWindow
             dialog.IsPrimaryButtonEnabled = message is null;
         }
 
-        nameBox.TextChanged += (_, _) =>
+        nameBox.TextChanging += (_, _) =>
         {
             if (!manuallyEditedShortName && existing is null)
             {
@@ -508,7 +508,7 @@ public sealed partial class MainWindow
 
             Validate();
         };
-        shortNameBox.TextChanged += (_, _) =>
+        shortNameBox.TextChanging += (_, _) =>
         {
             if (!applyingSuggestion)
             {
@@ -574,6 +574,8 @@ public sealed partial class MainWindow
         TextBox notesBox,
         TextBlock validation)
     {
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(nameBox, "Full name");
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(shortNameBox, "Short name");
         var content = new StackPanel { Spacing = 10, MinWidth = 320 };
         content.Children.Add(nameBox);
         content.Children.Add(shortNameBox);
@@ -594,7 +596,7 @@ public sealed partial class MainWindow
     {
         var initials = name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Select(word => StringInfo.GetNextTextElement(word))
-            .Take(3)
+            .Take(2)
             .Select(initial => initial.ToUpperInvariant());
         return string.Concat(initials);
     }
@@ -909,9 +911,22 @@ public sealed partial class MainWindow
         string addLabel,
         IEnumerable<(Guid Id, string Label)> values)
     {
+        var options = values.OrderBy(item => item.Label, StringComparer.OrdinalIgnoreCase).ToArray();
+        var existing = picker.Items.OfType<ComboBoxItem>().ToArray();
+        if (existing.Length == options.Length + 2
+            && existing[0].Tag is "unassigned"
+            && existing[^1].Tag is "add"
+            && Equals(existing[^1].Content, addLabel)
+            && options.Select((option, index) =>
+                Equals(existing[index + 1].Tag, option.Id)
+                && Equals(existing[index + 1].Content, option.Label)).All(matches => matches))
+        {
+            return;
+        }
+
         picker.Items.Clear();
         picker.Items.Add(new ComboBoxItem { Content = "Unassigned", Tag = "unassigned" });
-        foreach (var (id, label) in values.OrderBy(item => item.Label, StringComparer.OrdinalIgnoreCase))
+        foreach (var (id, label) in options)
         {
             picker.Items.Add(new ComboBoxItem { Content = label, Tag = id });
         }
@@ -932,6 +947,10 @@ public sealed partial class MainWindow
         {
             return;
         }
+
+        // Let ComboBox finish committing its selection before refreshing it or opening a dialog.
+        await Task.Yield();
+        picker.IsDropDownOpen = false;
 
         if (tag is "add")
         {
@@ -955,6 +974,9 @@ public sealed partial class MainWindow
         {
             return;
         }
+
+        await Task.Yield();
+        picker.IsDropDownOpen = false;
 
         if (tag is "add")
         {
