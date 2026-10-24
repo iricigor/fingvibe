@@ -17,6 +17,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        InitializeBuildIdentity();
         InitializeIspLogo();
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Scanner.ico"));
         ToolsPage.ActivityCoordinator = _networkActivityCoordinator;

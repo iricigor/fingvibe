@@ -25,9 +25,13 @@ function Show-UiReviewCaptureScenario {
         "DeviceDetails" { "Devices" }
         "DevicesEmpty" { "Devices" }
         "SpeedTest" { "Tools" }
+        "About" { "Tools" }
         "PersonDetails" { "People" }
         "RoomDetails" { "Rooms" }
         default { $Scenario }
+    }
+    if ($menu -eq "Tools") {
+        Show-UiReviewCaptureScenario -Scenario "Overview"
     }
     $menuId = Assert-VisibleUiReviewElement -Using xpath -Value "//ListItem[@Name='$menu']"
     Invoke-WebDriverElement -ElementId $menuId
@@ -81,6 +85,7 @@ function Show-UiReviewCaptureScenario {
         "Network" { "Public IP address" }
         "Tools" { "Speed test" }
         "SpeedTest" { "Speed test" }
+        "About" { "About FingVibe" }
         "People" { "Search people" }
         "Rooms" { "Search rooms" }
         "Settings" { "Window backdrop" }
@@ -92,5 +97,11 @@ function Show-UiReviewCaptureScenario {
         $cardId = Assert-VisibleUiReviewElement -Value "Speed test"
         Invoke-WebDriverElement -ElementId $cardId
         $null = Assert-VisibleUiReviewElement -Value "Start Cloudflare speed test"
+    }
+    elseif ($Scenario -eq "About") {
+        $cardId = Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@Name='About FingVibe']"
+        Invoke-WebDriverElement -ElementId $cardId
+        $null = Assert-VisibleUiReviewElement -Value "Back to Tools"
+        $null = Assert-VisibleUiReviewElement -Value "FingVibe LAN Scanner"
     }
 }

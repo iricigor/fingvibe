@@ -94,6 +94,7 @@ public sealed partial class MainWindow
         SetAppearanceBrush(resources, "ControlFillColorSecondaryBrush", palette.Hover);
         SetAppearanceBrush(resources, "ControlFillColorTertiaryBrush", palette.Pressed);
         RootGrid.RequestedTheme = palette.IsDark ? ElementTheme.Dark : ElementTheme.Light;
+        UpdateBuildRibbonColors();
 
         var hasBackdrop = ApplyWindowBackdrop();
         UpdateNavigationPaneBackground(MainNavigation.IsPaneOpen);

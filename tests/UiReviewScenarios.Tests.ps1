@@ -112,7 +112,9 @@ try {
     Test-Change @{ "src\FingVibe.Core\NewModel.cs" = "changed" } @("Devices") "Core dependency baseline"
     Test-Change @{ ".github\scripts\UiReviewNavigation.ps1" = "changed" } @("Devices") "Pipeline baseline"
     Test-Change @{ "src\FingVibe.App\MainWindow.xaml.cs" = "changed" } @("Devices") "Shell code baseline"
-    Test-Change @{ "src\FingVibe.App\Tools\SpeedTestPage.xaml" = "changed" } @("Devices", "Tools", "SpeedTest") "Tools views"
+    Test-Change @{ "src\FingVibe.App\Tools\SpeedTestPage.xaml" = "changed" } @("Devices", "Tools", "SpeedTest", "About") "Tools views"
+    Test-Change @{ "src\FingVibe.App\Tools\AboutPage.xaml" = "changed" } @("Devices", "Tools", "About") "About view"
+    Test-Change @{ "src\FingVibe.App\Tools\AboutPage.xaml.cs" = "changed" } @("Devices", "Tools", "About") "About behavior"
     Assert-Throws {
         Test-Change @{ "src\FingVibe.App\Tools\UnknownPage.xaml" = "changed" } @() "Unsupported extracted page"
     } "*has no selection rule*"
@@ -135,7 +137,7 @@ try {
         ".github\scripts\UiReviewNavigation.ps1" = "New navigation"
         "tests\UiReviewScenarios.Tests.ps1" = "New tests"
         "README.md" = "Tools documentation"
-    } @("Devices", "Tools", "SpeedTest") "PR 57 equivalent selects exactly three captures"
+    } @("Devices", "Tools", "SpeedTest", "About") "Tools structural changes include About"
     $base = $originalBase
 
     $planPath = Join-Path $repository "plan.json"
@@ -214,6 +216,7 @@ try {
             if ($Value -eq "//List[@Name='Scan results']/ListItem[.//*[@Name='Online']][1]") { return "online-row" }
             if ($Value -eq "//List[@Name='People']/ListItem[.//*[@Name='UI review person']]") { return "person-row" }
             if ($Value -eq "//List[@Name='Rooms']/ListItem[.//*[@Name='UI review room']]") { return "room-row" }
+            if ($Value -eq "//Button[@Name='About FingVibe']") { return "control-About FingVibe" }
             throw "Unexpected XPath '$Value'."
         }
         return "control-$Value"
@@ -224,6 +227,7 @@ try {
         }
         elseif ($ElementId -eq "online-row") { $script:currentPage = "DeviceDetails" }
         elseif ($ElementId -eq "control-Speed test") { $script:currentPage = "SpeedTest" }
+        elseif ($ElementId -eq "control-About FingVibe") { $script:currentPage = "About" }
         elseif ($ElementId -eq "person-row") { $script:currentPage = "PersonDetails" }
         elseif ($ElementId -eq "room-row") { $script:currentPage = "RoomDetails" }
         else { throw "Unexpected click '$ElementId'." }
@@ -254,6 +258,9 @@ try {
                     "control-Public IP address" { $script:currentPage -eq "Network" }
                     "control-Speed test" { $script:currentPage -eq "Tools" }
                     "control-Start Cloudflare speed test" { $script:currentPage -eq "SpeedTest" }
+                    "control-About FingVibe" { $script:currentPage -eq "Tools" }
+                    "control-Back to Tools" { $script:currentPage -eq "About" }
+                    "control-FingVibe LAN Scanner" { $script:currentPage -eq "About" }
                     "control-Search people" { $script:currentPage -eq "People" }
                     "control-Search rooms" { $script:currentPage -eq "Rooms" }
                     "control-Back to people" { $script:currentPage -eq "PersonDetails" }

@@ -22,10 +22,23 @@
                         <TextBlock Text="Open speed test &#x2192;" />
                     </StackPanel>
                 </Button>
+                <Button x:Name="AboutCard"
+                        Click="AboutCard_Click"
+                        Style="{StaticResource ScannerSummaryButtonStyle}"
+                        AutomationProperties.Name="About FingVibe">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="About FingVibe" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <TextBlock Text="App version, build details, and creator information."
+                                   TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="Open About FingVibe &#x2192;" />
+                    </StackPanel>
+                </Button>
             </StackPanel>
         </ScrollViewer>
         <local:SpeedTestPage x:Name="SpeedTestView"
                              Visibility="Collapsed"
                              BackRequested="SpeedTestView_BackRequested" />
+        <local:AboutPage x:Name="AboutView" Visibility="Collapsed" BackRequested="AboutView_BackRequested" />
     </Grid>
 </UserControl>

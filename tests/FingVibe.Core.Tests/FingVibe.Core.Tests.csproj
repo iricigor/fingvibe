@@ -21,6 +21,7 @@
     <ProjectReference Include="..\..\src\FingVibe.Core\FingVibe.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\..\src\FingVibe.App\BuildIdentity.cs" Link="BuildIdentity.cs" />
     <Compile Include="..\..\src\FingVibe.App\ScanResultRow.cs" Link="ScanResultRow.cs" />
     <Compile Include="..\..\src\FingVibe.App\ScanResultBuffer.cs" Link="ScanResultBuffer.cs" />
     <Compile Include="..\..\src\FingVibe.App\DeviceColumns.cs" Link="DeviceColumns.cs" />

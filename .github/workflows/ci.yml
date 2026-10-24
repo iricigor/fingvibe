@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       additional_scenarios:
-        description: "Extra captures (comma-separated): Overview, Network, DeviceDetails, People, PersonDetails, Rooms, RoomDetails, Tools, SpeedTest, Settings, DevicesEmpty"
+        description: "Extra captures (comma-separated): Overview, Network, DeviceDetails, People, PersonDetails, Rooms, RoomDetails, Tools, SpeedTest, About, Settings, DevicesEmpty"
         type: string
         required: false
 
@@ -108,6 +108,10 @@ jobs:
             /property:RuntimeIdentifier=win-x64 `
             /property:SelfContained=true `
             /property:Version=0.0.${{ github.run_number }} `
+            /property:BuildKind=${{ github.event_name == 'pull_request' && 'PullRequest' || 'Test' }} `
+            /property:PullRequestNumber=${{ github.event.pull_request.number }} `
+            /property:BuildCommit=${{ github.sha }} `
+            /property:BuildUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" `
             /property:PublishDir="${{ github.workspace }}\artifacts\fingvibe-win-x64\"
           if ($LASTEXITCODE -ne 0) { throw "Windows app publish failed." }
 
@@ -217,6 +221,15 @@ jobs:
           .\tests\SidebarNavigation.Tests.ps1 `
             -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
             -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-review\sidebar"
+
+      - name: Verify build identity and About navigation
+        shell: pwsh
+        run: |
+          .\tests\BuildIdentity.Ui.Tests.ps1 `
+            -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
+            -Version "0.0.${{ github.run_number }}" `
+            -BuildKind "${{ github.event_name == 'pull_request' && 'PullRequest' || 'Test' }}" `
+            -PullRequestNumber ${{ github.event.pull_request.number || 0 }}
 
       - name: Exercise primary UI and capture required views
         id: smoke

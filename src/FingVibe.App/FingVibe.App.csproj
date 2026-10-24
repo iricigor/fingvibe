@@ -17,7 +17,15 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <BuildKind Condition="'$(BuildKind)' == ''">Development</BuildKind>
   </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="BuildKind" Value="$(BuildKind)" />
+    <AssemblyMetadata Include="PullRequestNumber" Value="$(PullRequestNumber)" />
+    <AssemblyMetadata Include="BuildCommit" Value="$(BuildCommit)" />
+    <AssemblyMetadata Include="BuildUrl" Value="$(BuildUrl)" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260921001" />
