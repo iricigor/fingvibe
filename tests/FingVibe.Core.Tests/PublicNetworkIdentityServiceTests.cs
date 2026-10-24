@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using FingVibe.App;
 using FingVibe.Core.Networking;
 using Xunit;
 
@@ -25,6 +26,32 @@ public sealed class PublicNetworkIdentityServiceTests
 
         Assert.Equal(IPAddress.Parse("203.0.113.10"), identity.PublicAddress);
         Assert.Equal("Example ISP", identity.IspName);
+    }
+
+    [Fact]
+    public async Task GetAsync_TMobileCzechIdentityFlowsUnchangedIntoLogoRequest()
+    {
+        const string response = """
+            {
+              "success": true,
+              "ip": "203.0.113.10",
+              "connection": {
+                "isp": "T-Mobile Czech Republic a.s."
+              }
+            }
+            """;
+        var service = CreateService(HttpStatusCode.OK, response);
+
+        var identity = await service.GetAsync();
+        using var session = new IspLogoSession();
+        Assert.True(session.Update(identity.IspName, "pk_test_not_a_real_key"));
+        var request = Assert.IsType<IspLogoSession.Request>(session.Current);
+
+        Assert.Equal("T-Mobile Czech Republic a.s.", identity.IspName);
+        Assert.Equal("https://img.logo.dev/name/T-Mobile%20Czech%20Republic%20a.s."
+            + "?token=pk_test_not_a_real_key&format=png&size=128&fallback=404", request.Uri.AbsoluteUri);
+        Assert.False(session.Update(identity.IspName, "pk_test_not_a_real_key"));
+        Assert.Same(request, session.Current);
     }
 
     [Fact]

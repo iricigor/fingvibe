@@ -45,4 +45,6 @@ References: [keys](https://www.logo.dev/docs/platform/api-keys), [name matching]
 
 Run `dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj --filter FullyQualifiedName~IspLogoSession` and `pwsh -File tests\LogoDevConfiguration.Tests.ps1`. The tests use dummy keys and do not contact Logo.dev. UI-review fixtures always disable logo requests even in a configured build.
 
+The network identity-to-logo regression uses the maintainer's ISP name, `T-Mobile Czech Republic a.s.`, with a mocked ipwho.is response, documentation-only IP `203.0.113.10`, and a dummy publishable key. Request reuse, cancellation, timeout, and keyless cases also exercise this name. No actual subscriber IP, location, or real key is committed. Include `FullyQualifiedName~PublicNetworkIdentityService` in the test filter to cover the parsed identity-to-request path.
+
 For live verification, launch a configured build on a connection reporting `T-Mobile Czech Republic a.s.`, open Network, and inspect the logo alongside the unchanged name. Check light/dark appearance and display scaling. Also check a keyless build, offline/invalid-key/missing-image scenarios, and a delayed request while starting a LAN scan. Do not put token-bearing URLs into screenshots or diagnostics.

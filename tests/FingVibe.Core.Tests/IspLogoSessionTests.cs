@@ -6,14 +6,15 @@ namespace FingVibe.Core.Tests;
 public sealed class IspLogoSessionTests
 {
     private const string TestKey = "pk_test_not_a_real_key";
+    private const string CurrentIsp = "T-Mobile Czech Republic a.s.";
 
     [Theory]
     [InlineData(null, TestKey)]
     [InlineData("", TestKey)]
     [InlineData(" ", TestKey)]
-    [InlineData("Example ISP", null)]
-    [InlineData("Example ISP", "")]
-    [InlineData("Example ISP", " ")]
+    [InlineData(CurrentIsp, null)]
+    [InlineData(CurrentIsp, "")]
+    [InlineData(CurrentIsp, " ")]
     public void MissingIdentityOrKey_DoesNotStartRequest(string? name, string? key)
     {
         using var session = new IspLogoSession();
@@ -46,9 +47,9 @@ public sealed class IspLogoSessionTests
     public void RepeatedIdentity_ReusesRequestInsteadOfRetryingOrRefreshing()
     {
         using var session = new IspLogoSession();
-        Assert.True(session.Update("Example ISP", TestKey));
+        Assert.True(session.Update(CurrentIsp, TestKey));
         var request = Assert.IsType<IspLogoSession.Request>(session.Current);
-        Assert.False(session.Update("Example ISP", TestKey));
+        Assert.False(session.Update(CurrentIsp, TestKey));
         Assert.Same(request, session.Current);
         Assert.True(session.IsCurrent(request));
     }
@@ -57,7 +58,7 @@ public sealed class IspLogoSessionTests
     public void ChangedIdentity_CancelsOldRequestAndRejectsStaleCompletion()
     {
         using var session = new IspLogoSession();
-        session.Update("First ISP", TestKey);
+        session.Update(CurrentIsp, TestKey);
         var first = Assert.IsType<IspLogoSession.Request>(session.Current);
         session.Update("Second ISP", TestKey);
         Assert.True(first.CancellationToken.IsCancellationRequested);
@@ -98,14 +99,14 @@ public sealed class IspLogoSessionTests
     public async Task PendingRequest_IsBoundedToFiveSecondsWithoutRetry()
     {
         using var session = new IspLogoSession();
-        session.Update("Slow ISP", TestKey);
+        session.Update(CurrentIsp, TestKey);
         var request = Assert.IsType<IspLogoSession.Request>(session.Current);
         Assert.False(request.CancellationToken.IsCancellationRequested);
         var cancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var registration = request.CancellationToken.Register(() => cancelled.SetResult());
         await cancelled.Task.WaitAsync(TimeSpan.FromSeconds(8));
         Assert.True(request.CancellationToken.IsCancellationRequested);
-        Assert.False(session.Update("Slow ISP", TestKey));
+        Assert.False(session.Update(CurrentIsp, TestKey));
         Assert.Same(request, session.Current);
     }
 }
