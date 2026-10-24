@@ -11,7 +11,7 @@ Captured from the native app in UI-review mode using the local loopback host, no
 ## Features
 
 - Native WinUI 3 desktop UI; WebView2 is restricted to the local Cloudflare speed-test host
-- Fixed left navigation with Overview, Network, Devices, People, Rooms, Tools, and Settings pages
+- Adaptive Windows Settings-style left navigation with colored icons, Overview, Network, Devices, People, Rooms, and bottom-pinned Tools and Settings
 - [Manual Cloudflare internet speed test](docs/speed-test.md) in Tools, with native results and a per-run data-use disclosure
 - Overview with local network identity, scan freshness, actionable online/open-port summaries, compact network setup, and project links
 - Automatic local IPv4 and CIDR discovery
@@ -65,6 +65,8 @@ Results dim complete network-prefix octets using the scanned subnet's CIDR; part
 
 The Devices toolbar has a Fluent inset **All / Alive** segmented switch, built with the Windows Community Toolkit `Segmented` control. A neutral recessed track surrounds a raised, softly rounded selected surface with blue accent text; the unselected option blends into the track. Colors adapt to light, dark, and Windows high-contrast themes. **All** is selected initially; **Alive** shows only online hosts. Both options combine with the text filter and apply to incoming scan results and saved results. Tab to the switch and use the Left/Right arrow keys to change the selection.
 
+The expanded sidebar uses a 280px Windows Settings-style layout with colored navigation icons and a FingVibe header. The sidebar and main page share one background, including when a backdrop material is selected. Collapsing the pane keeps an icon rail; narrow windows use native overlay navigation, with Tools above Settings at the bottom. While an overlay is open, both backgrounds temporarily use the same solid theme color to keep the menu readable without a contrasting pane tint; closing it restores the selected material. Windows high contrast replaces decorative icon colors with system colors.
+
 ### Device identification
 
 Devices show a native Segoe Fluent device icon beside their name. The **OS** and **Device type** columns can be sorted, resized, or hidden in Settings. Both detected and manually selected classifications are included in text filtering. Device details show the identification evidence and whether a value is user-selected. Unknown OS, device type, and vendor values use muted text in both the list and details.
@@ -90,6 +92,16 @@ People, rooms, and their assignments are saved separately from scan snapshots in
 ```powershell
 dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj
 ```
+
+On an interactive Windows desktop at least 1024 logical pixels wide, run the native sidebar regression checks against a built application:
+
+```powershell
+powershell.exe -NoProfile -File tests\SidebarNavigation.Tests.ps1 `
+    -AppPath "<absolute path to FingVibe.App.exe>" `
+    -ScreenshotDirectory "$env:TEMP\FingVibe-sidebar-review"
+```
+
+These checks use Windows UI Automation without WinAppDriver or Developer Mode. They launch a separate app in deterministic UI-review mode, verify page routing and expanded/compact/overlay navigation, compare solid sidebar/page background pixels in all four themes, and save full-window captures for each backdrop. The expanded test adapts to the monitor width (up to 1280 logical pixels), with a maximum window height of 720 logical pixels; pass `-ExpandedWindowWidth 1024` to reproduce the hosted runner's 1024x720 viewport on a larger desktop. All layout assertions remain enabled. UI-review mode previews appearance changes without saving them. Verify Windows high contrast separately using the system accessibility settings.
 
 ## Download builds
 
