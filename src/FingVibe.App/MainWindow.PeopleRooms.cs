@@ -593,7 +593,7 @@ public sealed partial class MainWindow
     private static string SuggestShortName(string name)
     {
         var initials = name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .Select(StringInfo.GetNextTextElement)
+            .Select(word => StringInfo.GetNextTextElement(word))
             .Take(3)
             .Select(initial => initial.ToUpperInvariant());
         return string.Concat(initials);
