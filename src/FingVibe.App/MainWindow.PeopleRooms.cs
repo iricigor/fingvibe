@@ -384,7 +384,13 @@ public sealed partial class MainWindow
         }
 
         var nameBox = new TextBox { Header = "Full name", Text = existing?.Name ?? string.Empty };
-        var shortNameBox = new TextBox { Header = "Short name", Text = existing?.ShortName ?? string.Empty, MaxLength = 12 };
+        var shortNameBox = new TextBox
+        {
+            Header = "Short name",
+            Text = existing?.ShortName ?? string.Empty,
+            MaxLength = 12,
+            FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe UI Emoji")
+        };
         var notesBox = new TextBox
         {
             Header = "Notes (optional)",

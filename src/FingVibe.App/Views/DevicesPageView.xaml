@@ -322,6 +322,7 @@
                                                 AutomationProperties.Name="{x:Bind PersonFullName, Mode=OneWay}" />
                                         <Button Grid.Column="10" Content="{x:Bind RoomShortName, Mode=OneWay}"
                                                 Style="{StaticResource ScannerAssignmentTextStyle}"
+                                                FontFamily="Segoe UI Emoji"
                                                 Opacity="{x:Bind RoomOpacity, Mode=OneWay}"
                                                 Visibility="{x:Bind Columns.Room.IsVisible, Mode=OneWay}"
                                                 ToolTipService.ToolTip="{x:Bind RoomFullName, Mode=OneWay}"
