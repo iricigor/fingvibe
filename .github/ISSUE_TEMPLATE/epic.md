@@ -1,7 +1,7 @@
 ---
-name: Epic
+name: 🔥 Epic
 about: Organize an agreed goal into linked child tasks.
-title: ""
+title: "🔥 Epic: "
 labels: "type:epic"
 assignees: ""
 ---

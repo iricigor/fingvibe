@@ -10,10 +10,13 @@ Use the four templates in GitHub's new-issue chooser:
 
 | Template | Purpose | Initial label |
 | --- | --- | --- |
-| Epic | Agreed larger goal, success criteria, decisions, and child checklist | `type:epic` |
-| Implementation task | Bounded scope, acceptance criteria, dependencies, validation, and proposed size/priority | `type:task` |
-| Bug report | Version, Windows version, reproduction, expected/actual behavior, optional redacted evidence | `bug` |
-| Feature request | Problem/use case, desired outcome, optional solution | `enhancement` |
+| 🔥 Epic | Agreed larger goal, success criteria, decisions, and child checklist | `type:epic` |
+| 🛠️ Task | Bounded scope, acceptance criteria, dependencies, validation, and proposed size/priority | `type:task` |
+| 🪲 Bug | Version, Windows version, reproduction, expected/actual behavior, optional redacted evidence | `bug` |
+| ✨ Feature | Problem/use case, desired outcome, optional solution | `enhancement` |
+
+New issue titles default to the template's emoji and type followed by a colon
+and space, for example `🔥 Epic: `. Existing issue titles are unchanged.
 
 Intake requires no estimates or implementation plans. A human triages it.
 A small report/request can be refined **in place** with the task sections and
