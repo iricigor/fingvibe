@@ -62,7 +62,7 @@
                                         <ColumnDefinition Width="160" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{x:Bind Room.ShortName}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{x:Bind Room.ShortName}" FontFamily="Segoe UI Emoji" FontWeight="SemiBold" />
                                     <TextBlock Grid.Column="1" Text="{x:Bind Room.Name}" TextTrimming="CharacterEllipsis" />
                                     <TextBlock Grid.Column="2" Text="{x:Bind DeviceCountText}" />
                                     <TextBlock Grid.Column="3" Text="{x:Bind RespondedCountText}" />

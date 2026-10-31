@@ -20,7 +20,7 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <Border Padding="12,6" CornerRadius="8" Background="{ThemeResource ControlFillColorDefaultBrush}">
-                    <TextBlock x:Name="RoomDetailShortName" FontSize="18" FontWeight="SemiBold" />
+                    <TextBlock x:Name="RoomDetailShortName" FontFamily="Segoe UI Emoji" FontSize="18" FontWeight="SemiBold" />
                 </Border>
                 <TextBlock x:Name="RoomDetailName" Grid.Column="1" FontSize="28"
                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
