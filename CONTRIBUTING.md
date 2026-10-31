@@ -12,9 +12,14 @@ Current ownership boundaries:
 - `MainWindow.NetworkIdentity.cs` owns local network selection and public/local network identity display.
 - `MainWindow.Snapshots.cs` owns snapshot restoration, persistence status, and saved-scan state.
 - `MainWindow.DeviceDetails.cs` owns the selected-device details view.
+- `MainWindow.PeopleRooms.cs` owns People/Rooms persistence and assignment orchestration across pages.
+- `Views/*PageView.xaml(.cs)` owns each page's visual tree, child controls, local layout, and UI request events. Child controls stay private; the shell supplies display data and handles requests through focused page APIs.
+- `MainWindow.xaml` owns navigation and the shared scan/build header, and composes the page controls. `Tools/ToolsPage.xaml(.cs)` continues to own Tools navigation and lifecycle forwarding.
 - `LanScannerService` owns scan orchestration and probe lifecycle. `IScanResultEnricher` and `ScanResultEnricher` own device name, vendor, MAC, and port enrichment.
 
 Keep page-specific layout and state with the page when adding or substantially changing a page. Limit shell changes to route registration and top-level wiring. Add regression tests alongside the module whose behavior they cover, and avoid unrelated formatting or cleanup in parallel pull requests.
+
+Extracted pages have separate WinUI XAML namescopes and compiled-binding roots. Preserve automation names/IDs and shared `DeviceColumnLayout.Current` bindings when changing page boundaries. Update the page-to-scenario rules in `.github/scripts/UiReviewScenarios.ps1` and their regression tests whenever a view is added or renamed.
 
 ## Architecture discussions with Architect
 

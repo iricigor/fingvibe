@@ -16,7 +16,7 @@ public sealed partial class MainWindow
 
     private void UpdateScanStatus()
     {
-        if (SnapshotStatusText is null)
+        if (DevicesPage is null)
         {
             return;
         }
@@ -29,8 +29,7 @@ public sealed partial class MainWindow
         var status = string.Join(" · ", new[] { _scanMessage, _snapshotError, context }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
         ScanStatusText.Text = status;
-        SnapshotStatusText.Text = status;
-        SnapshotStatusText.Visibility = Visibility.Visible;
+        DevicesPage.ShowScanStatus(status);
     }
 
     private async void ScanButton_Click(object sender, RoutedEventArgs e)
@@ -51,8 +50,7 @@ public sealed partial class MainWindow
 
         using var scanActivity = activityLease;
         _isScanning = true;
-        ResultsList.IsItemClickEnabled = false;
-        ResultsList.SelectionMode = Microsoft.UI.Xaml.Controls.ListViewSelectionMode.None;
+        DevicesPage.SetInteractionsEnabled(false);
         UpdateEmptyState();
         ScanButton.IsEnabled = false;
         NetworkPicker.IsEnabled = false;
@@ -119,8 +117,7 @@ public sealed partial class MainWindow
         finally
         {
             _isScanning = false;
-            ResultsList.IsItemClickEnabled = true;
-            ResultsList.SelectionMode = Microsoft.UI.Xaml.Controls.ListViewSelectionMode.Single;
+            DevicesPage.SetInteractionsEnabled(true);
             UpdateEmptyState();
             UpdatePeopleRoomsPages();
             _scanCancellation.Dispose();

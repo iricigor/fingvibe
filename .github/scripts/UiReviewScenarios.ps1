@@ -92,6 +92,24 @@ function Get-UiReviewCapturePlan {
                     Add-Scenarios @($UiReviewScenarios.Keys) "$path changed shared window layout."
                 }
             }
+            elseif ($path -match '^src/FingVibe.App/Views/([^/]+)\.xaml(\.cs)?$') {
+                $viewScenarios = @{
+                    OverviewPageView = @("Overview")
+                    NetworkPageView = @("Network")
+                    DevicesPageView = @("Devices", "DevicesEmpty", "Settings")
+                    DeviceDetailsPageView = @("DeviceDetails")
+                    PeoplePageView = @("People", "PersonDetails", "DeviceDetails")
+                    RoomsPageView = @("Rooms", "RoomDetails", "DeviceDetails")
+                    PersonDetailsPageView = @("PersonDetails", "People", "DeviceDetails")
+                    RoomDetailsPageView = @("RoomDetails", "Rooms", "DeviceDetails")
+                    SettingsPageView = @($UiReviewScenarios.Keys)
+                }
+                $view = $Matches[1]
+                if (-not $viewScenarios.ContainsKey($view)) {
+                    throw "View '$path' has no selection rule. Extend the scenario catalog, selection, navigation, and tests."
+                }
+                Add-Scenarios $viewScenarios[$view] "$path changed page layout or behavior."
+            }
             elseif ($path -eq "src/FingVibe.App/MainWindow.DeviceDetails.cs") {
                 Add-Scenarios @("DeviceDetails") "$path changed device details behavior."
             }
