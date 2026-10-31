@@ -1,6 +1,7 @@
 using FingVibe.Core.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 
 namespace FingVibe.App.Views;
 
@@ -90,28 +91,96 @@ public sealed partial class DevicesPageView : UserControl
 
     private void DeviceFilters_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        var columns = e.NewSize.Width >= 850 ? 4 : e.NewSize.Width >= 480 ? 2 : 1;
-        var rows = 4 / columns;
-        if (DeviceFilters.RowDefinitions.Count != rows)
+        const double optionWidth = 180;
+        const double spacing = 8;
+        var inline = e.NewSize.Width >= 800;
+        Grid.SetRow(DeviceFilterOptions, inline ? 0 : 1);
+        Grid.SetColumn(DeviceFilterOptions, inline ? 1 : 0);
+        Grid.SetColumnSpan(DeviceFilterOptions, inline ? 1 : 2);
+        Grid.SetColumnSpan(ResultSearchBox, inline ? 1 : 2);
+        var columns = inline ? 3 : Math.Clamp((int)((e.NewSize.Width + spacing) / (optionWidth + spacing)), 1, 3);
+        var rows = (3 + columns - 1) / columns;
+        if (DeviceFilterOptions.ColumnDefinitions.Count != columns)
         {
-            DeviceFilters.RowDefinitions.Clear();
-            for (var row = 0; row < rows; row++)
+            DeviceFilterOptions.ColumnDefinitions.Clear();
+            for (var column = 0; column < columns; column++)
             {
-                DeviceFilters.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                DeviceFilterOptions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(optionWidth) });
             }
         }
-        FrameworkElement[] filters = [ResultSearchBox, PersonFilter, RoomFilter, OpenPortsFilter];
+        if (DeviceFilterOptions.RowDefinitions.Count != rows)
+        {
+            DeviceFilterOptions.RowDefinitions.Clear();
+            for (var row = 0; row < rows; row++)
+            {
+                DeviceFilterOptions.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            }
+        }
+        FrameworkElement[] filters = [PersonFilter, RoomFilter, OpenPortsFilterContainer];
         for (var index = 0; index < filters.Length; index++)
         {
             Grid.SetRow(filters[index], index / columns);
-            Grid.SetColumn(filters[index], index % columns * (4 / columns));
-            Grid.SetColumnSpan(filters[index], 4 / columns);
+            Grid.SetColumn(filters[index], index % columns);
+        }
+    }
+
+    private void ResultsList_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
+    {
+        if (args.Item is ScanResultRow row)
+        {
+            row.IsPointerOver = false;
+            row.IsSelected = ReferenceEquals(ResultsList.SelectedItem, row);
+            args.ItemContainer.RemoveHandler(PointerEnteredEvent, new PointerEventHandler(ResultRow_PointerEntered));
+            args.ItemContainer.RemoveHandler(PointerExitedEvent, new PointerEventHandler(ResultRow_PointerExited));
+            if (!args.InRecycleQueue)
+            {
+                args.ItemContainer.AddHandler(PointerEnteredEvent, new PointerEventHandler(ResultRow_PointerEntered), true);
+                args.ItemContainer.AddHandler(PointerExitedEvent, new PointerEventHandler(ResultRow_PointerExited), true);
+            }
+        }
+    }
+
+    private void ResultsList_SelectionChanged(object sender, SelectionChangedEventArgs args)
+    {
+        foreach (var row in args.RemovedItems.OfType<ScanResultRow>())
+        {
+            row.IsSelected = false;
+        }
+        foreach (var row in args.AddedItems.OfType<ScanResultRow>())
+        {
+            row.IsSelected = true;
+        }
+    }
+
+    private void ResultRow_PointerEntered(object sender, PointerRoutedEventArgs args)
+    {
+        if (sender is ListViewItem container && ResultsList.ItemFromContainer(container) is ScanResultRow row)
+        {
+            row.IsPointerOver = true;
+        }
+    }
+
+    private void ResultRow_PointerExited(object sender, PointerRoutedEventArgs args)
+    {
+        if (sender is ListViewItem container && ResultsList.ItemFromContainer(container) is ScanResultRow row)
+        {
+            row.IsPointerOver = false;
         }
     }
 
     private void ResultSearchBox_TextChanged(object sender, TextChangedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
     private void PeopleRoomFilter_SelectionChanged(object sender, SelectionChangedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
     private void OpenPortsFilter_Changed(object sender, RoutedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
+
+    private void OpenPortsFilterContainer_Tapped(object sender, TappedRoutedEventArgs args)
+    {
+        if (ReferenceEquals(args.OriginalSource, OpenPortsFilterContainer))
+        {
+            OpenPortsFilter.IsChecked = !OpenPortsOnly;
+            OpenPortsFilter.Focus(FocusState.Pointer);
+            args.Handled = true;
+        }
+    }
 
     private void SortHeader_Click(object sender, RoutedEventArgs e)
     {

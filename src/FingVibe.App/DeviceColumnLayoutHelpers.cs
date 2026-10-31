@@ -8,5 +8,7 @@ public static class DeviceColumnLayoutHelpers
 
     public static GridLength ToGridLength(double width) => new(width);
 
+    public static Visibility ToVisibility(bool visible) => visible ? Visibility.Visible : Visibility.Collapsed;
+
     public static double ToTableWidth(double totalColumnWidth) => totalColumnWidth + TableHorizontalPadding;
 }

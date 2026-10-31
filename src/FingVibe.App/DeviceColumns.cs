@@ -8,6 +8,7 @@ public sealed class DeviceColumn : INotifyPropertyChanged
 
     private double _width;
     private bool _isVisible = true;
+    private bool _hasFollowingVisibleColumn;
 
     public DeviceColumn(string key, string header, double defaultWidth, bool canHide = true)
     {
@@ -62,6 +63,21 @@ public sealed class DeviceColumn : INotifyPropertyChanged
 
     public double EffectiveWidth => IsVisible ? Width : 0;
 
+    public bool HasFollowingVisibleColumn
+    {
+        get => _hasFollowingVisibleColumn;
+        internal set
+        {
+            if (_hasFollowingVisibleColumn == value)
+            {
+                return;
+            }
+
+            _hasFollowingVisibleColumn = value;
+            OnPropertyChanged(nameof(HasFollowingVisibleColumn));
+        }
+    }
+
     private void OnPropertyChanged(string propertyName) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }
@@ -82,8 +98,13 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
                 {
                     PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TotalWidth)));
                 }
+                if (args.PropertyName == nameof(DeviceColumn.IsVisible))
+                {
+                    UpdateSeparators();
+                }
             };
         }
+        UpdateSeparators();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -93,7 +114,7 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
     public DeviceColumn Vendor { get; } = new("Vendor", "Vendor", 160);
     public DeviceColumn Ports { get; } = new("Ports", "Open ports", 150);
     public DeviceColumn Status { get; } = new("Status", "Status", 90);
-    public DeviceColumn Response { get; } = new("Response", "Response", 130);
+    public DeviceColumn Response { get; } = new("Response", "Response", 100);
     public DeviceColumn Mac { get; } = new("Mac", "MAC address", 150);
     public DeviceColumn OperatingSystem { get; } = new("OperatingSystem", "OS", 120);
     public DeviceColumn Type { get; } = new("Type", "Device type", 150);
@@ -106,6 +127,16 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
 
     public DeviceColumn? Find(string? key) =>
         All.FirstOrDefault(column => string.Equals(column.Key, key, StringComparison.Ordinal));
+
+    private void UpdateSeparators()
+    {
+        var hasFollowingVisibleColumn = false;
+        for (var index = All.Count - 1; index >= 0; index--)
+        {
+            All[index].HasFollowingVisibleColumn = hasFollowingVisibleColumn;
+            hasFollowingVisibleColumn |= All[index].IsVisible;
+        }
+    }
 
     public void Reset()
     {

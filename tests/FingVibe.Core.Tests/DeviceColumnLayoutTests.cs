@@ -6,6 +6,51 @@ namespace FingVibe.Core.Tests;
 public sealed class DeviceColumnLayoutTests
 {
     [Fact]
+    public void Response_DefaultWidthIsCompactAndCanBeResized()
+    {
+        var layout = new DeviceColumnLayout();
+
+        Assert.Equal(100, layout.Response.Width);
+        layout.Response.Width = 160;
+        Assert.Equal(160, layout.Response.Width);
+        layout.Reset();
+        Assert.Equal(100, layout.Response.Width);
+    }
+
+    [Fact]
+    public void LastVisibleColumn_HasNoSeparatorButRemainsResizable()
+    {
+        var layout = new DeviceColumnLayout();
+        Assert.False(layout.Room.HasFollowingVisibleColumn);
+        Assert.True(layout.Person.HasFollowingVisibleColumn);
+        var changed = new List<string?>();
+        layout.Person.PropertyChanged += (_, args) => changed.Add(args.PropertyName);
+
+        layout.Room.IsVisible = false;
+
+        Assert.False(layout.Person.HasFollowingVisibleColumn);
+        Assert.Contains(nameof(DeviceColumn.HasFollowingVisibleColumn), changed);
+        layout.Person.Width = 120;
+        Assert.Equal(120, layout.Person.Width);
+        layout.Reset();
+        Assert.True(layout.Person.HasFollowingVisibleColumn);
+        Assert.False(layout.Room.HasFollowingVisibleColumn);
+    }
+
+    [Fact]
+    public void OnlyAddressVisible_HasNoTrailingSeparator()
+    {
+        var layout = new DeviceColumnLayout();
+        foreach (var column in layout.All)
+        {
+            column.IsVisible = false;
+        }
+
+        Assert.True(layout.Address.IsVisible);
+        Assert.False(layout.Address.HasFollowingVisibleColumn);
+    }
+
+    [Fact]
     public void Width_IsClampedToMinimum()
     {
         var layout = new DeviceColumnLayout();

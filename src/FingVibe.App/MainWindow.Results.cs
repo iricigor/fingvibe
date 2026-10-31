@@ -64,8 +64,10 @@ public sealed partial class MainWindow
         sortedResults.Sort(CompareResults);
 
         _visibleResults.Clear();
-        foreach (var result in sortedResults)
+        for (var index = 0; index < sortedResults.Count; index++)
         {
+            var result = sortedResults[index];
+            result.IsAlternateRow = index % 2 == 1;
             _visibleResults.Add(result);
         }
 

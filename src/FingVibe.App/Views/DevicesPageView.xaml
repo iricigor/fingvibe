@@ -34,13 +34,9 @@
                           SizeChanged="DeviceFilters_SizeChanged">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
@@ -48,14 +44,31 @@
                                  PlaceholderText="Search devices"
                                  AutomationProperties.Name="Search devices"
                                  TextChanged="ResultSearchBox_TextChanged" />
-                        <ComboBox x:Name="PersonFilter" Grid.Column="1" HorizontalAlignment="Stretch"
-                                  AutomationProperties.Name="Filter by person"
-                                  SelectionChanged="PeopleRoomFilter_SelectionChanged" />
-                        <ComboBox x:Name="RoomFilter" Grid.Column="2" HorizontalAlignment="Stretch"
-                                  AutomationProperties.Name="Filter by room"
-                                  SelectionChanged="PeopleRoomFilter_SelectionChanged" />
-                        <CheckBox x:Name="OpenPortsFilter" Grid.Column="3" Content="With open ports"
-                                  Checked="OpenPortsFilter_Changed" Unchecked="OpenPortsFilter_Changed" />
+                        <Grid x:Name="DeviceFilterOptions" Grid.Column="1" ColumnSpacing="8" RowSpacing="8"
+                              HorizontalAlignment="Left">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="180" />
+                                <ColumnDefinition Width="180" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <ComboBox x:Name="PersonFilter" Width="180" HorizontalAlignment="Left"
+                                      AutomationProperties.Name="Filter by person"
+                                      SelectionChanged="PeopleRoomFilter_SelectionChanged" />
+                            <ComboBox x:Name="RoomFilter" Grid.Column="1" Width="180" HorizontalAlignment="Left"
+                                      AutomationProperties.Name="Filter by room"
+                                      SelectionChanged="PeopleRoomFilter_SelectionChanged" />
+                            <Border x:Name="OpenPortsFilterContainer" Grid.Column="2" Width="180" Height="32"
+                                    Padding="10,0" Background="{ThemeResource ControlFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                    BorderThickness="1" CornerRadius="4" Tapped="OpenPortsFilterContainer_Tapped">
+                                <CheckBox x:Name="OpenPortsFilter" Content="With open ports"
+                                          HorizontalAlignment="Stretch" MinHeight="0"
+                                          Checked="OpenPortsFilter_Changed" Unchecked="OpenPortsFilter_Changed" />
+                            </Border>
+                        </Grid>
                     </Grid>
                 </StackPanel>
                 <ScrollViewer Grid.Row="2"
@@ -68,7 +81,8 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <Grid Padding="12,4" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
+                        <Grid Padding="12,4" Background="{ThemeResource ScannerHeaderBackgroundBrush}"
+                              BorderBrush="{ThemeResource ScannerCardBorderBrush}" BorderThickness="0,0,0,1">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Name.EffectiveWidth), Mode=OneWay}" />
                                 <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Address.EffectiveWidth), Mode=OneWay}" />
@@ -85,7 +99,8 @@
                             </Grid.ColumnDefinitions>
                             <Grid Visibility="{x:Bind Columns.Name.IsVisible, Mode=OneWay}">
                                 <TextBlock Text="Name" FontWeight="SemiBold" FontSize="12" Margin="0,6,12,6" VerticalAlignment="Center" />
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.Name}" AutomationProperties.Name="{x:Bind Columns.Name.ResizeLabel}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.Name}" AutomationProperties.Name="{x:Bind Columns.Name.ResizeLabel}"
+                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Name.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="1" Visibility="{x:Bind Columns.Address.IsVisible, Mode=OneWay}">
                                 <Button Tag="Address" Click="SortHeader_Click" Margin="0,0,12,0"
@@ -95,15 +110,18 @@
                                         <TextBlock x:Name="AddressSortGlyph" />
                                     </StackPanel>
                                 </Button>
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.Address}" AutomationProperties.Name="{x:Bind Columns.Address.ResizeLabel}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.Address}" AutomationProperties.Name="{x:Bind Columns.Address.ResizeLabel}"
+                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Address.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="2" Visibility="{x:Bind Columns.Vendor.IsVisible, Mode=OneWay}">
                                 <TextBlock Text="Vendor" FontWeight="SemiBold" FontSize="12" Margin="0,6,12,6" VerticalAlignment="Center" />
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.Vendor}" AutomationProperties.Name="{x:Bind Columns.Vendor.ResizeLabel}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.Vendor}" AutomationProperties.Name="{x:Bind Columns.Vendor.ResizeLabel}"
+                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Vendor.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="3" Visibility="{x:Bind Columns.Ports.IsVisible, Mode=OneWay}">
                                 <TextBlock Text="Open ports" FontWeight="SemiBold" FontSize="12" Margin="0,6,12,6" VerticalAlignment="Center" />
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.Ports}" AutomationProperties.Name="{x:Bind Columns.Ports.ResizeLabel}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.Ports}" AutomationProperties.Name="{x:Bind Columns.Ports.ResizeLabel}"
+                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Ports.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="4" Visibility="{x:Bind Columns.Status.IsVisible, Mode=OneWay}">
                                 <Button Tag="Status" Click="SortHeader_Click" Margin="0,0,12,0"
@@ -113,7 +131,8 @@
                                         <TextBlock x:Name="StatusSortGlyph" />
                                     </StackPanel>
                                 </Button>
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.Status}" AutomationProperties.Name="{x:Bind Columns.Status.ResizeLabel}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.Status}" AutomationProperties.Name="{x:Bind Columns.Status.ResizeLabel}"
+                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Status.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="5" Visibility="{x:Bind Columns.Response.IsVisible, Mode=OneWay}">
                                 <Button Tag="Response" Click="SortHeader_Click" Margin="0,0,12,0" HorizontalContentAlignment="Right"
@@ -123,7 +142,8 @@
                                         <TextBlock x:Name="ResponseSortGlyph" />
                                     </StackPanel>
                                 </Button>
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.Response}" AutomationProperties.Name="{x:Bind Columns.Response.ResizeLabel}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.Response}" AutomationProperties.Name="{x:Bind Columns.Response.ResizeLabel}"
+                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Response.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="6" Visibility="{x:Bind Columns.Mac.IsVisible, Mode=OneWay}">
                                 <Button Tag="MacAddress" Click="SortHeader_Click" Margin="0,0,12,0"
@@ -133,7 +153,8 @@
                                         <TextBlock x:Name="MacAddressSortGlyph" />
                                     </StackPanel>
                                 </Button>
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.Mac}" AutomationProperties.Name="{x:Bind Columns.Mac.ResizeLabel}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.Mac}" AutomationProperties.Name="{x:Bind Columns.Mac.ResizeLabel}"
+                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Mac.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="7" Visibility="{x:Bind Columns.OperatingSystem.IsVisible, Mode=OneWay}">
                                 <Button Tag="OperatingSystem" Click="SortHeader_Click" Margin="0,0,12,0"
@@ -143,7 +164,8 @@
                                         <TextBlock x:Name="OperatingSystemSortGlyph" />
                                     </StackPanel>
                                 </Button>
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.OperatingSystem}" AutomationProperties.Name="{x:Bind Columns.OperatingSystem.ResizeLabel}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.OperatingSystem}" AutomationProperties.Name="{x:Bind Columns.OperatingSystem.ResizeLabel}"
+                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.OperatingSystem.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="8" Visibility="{x:Bind Columns.Type.IsVisible, Mode=OneWay}">
                                 <Button Tag="DeviceType" Click="SortHeader_Click" Margin="0,0,12,0"
@@ -153,19 +175,24 @@
                                         <TextBlock x:Name="DeviceTypeSortGlyph" />
                                     </StackPanel>
                                 </Button>
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.Type}" AutomationProperties.Name="{x:Bind Columns.Type.ResizeLabel}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.Type}" AutomationProperties.Name="{x:Bind Columns.Type.ResizeLabel}"
+                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Type.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="9" Visibility="{x:Bind Columns.Person.IsVisible, Mode=OneWay}">
                                 <TextBlock Text="Person" FontWeight="SemiBold" FontSize="12" Margin="0,6,12,6" VerticalAlignment="Center" />
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.Person}" AutomationProperties.Name="{x:Bind Columns.Person.ResizeLabel}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.Person}" AutomationProperties.Name="{x:Bind Columns.Person.ResizeLabel}"
+                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Person.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="10" Visibility="{x:Bind Columns.Room.IsVisible, Mode=OneWay}">
                                 <TextBlock Text="Room" FontWeight="SemiBold" FontSize="12" Margin="0,6,12,6" VerticalAlignment="Center" />
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.Room}" AutomationProperties.Name="{x:Bind Columns.Room.ResizeLabel}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.Room}" AutomationProperties.Name="{x:Bind Columns.Room.ResizeLabel}"
+                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Room.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                         </Grid>
                         <ListView x:Name="ResultsList" Grid.Row="1" SelectionMode="Single"
                                   IsItemClickEnabled="True" ItemClick="ResultsList_ItemClick"
+                                  ContainerContentChanging="ResultsList_ContainerContentChanging"
+                                  SelectionChanged="ResultsList_SelectionChanged"
                                   AutomationProperties.Name="Scan results">
                             <ListView.Resources>
                                 <ResourceDictionary>
@@ -195,11 +222,13 @@
                                     <Setter Property="Margin" Value="0" />
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                     <Setter Property="UseSystemFocusVisuals" Value="True" />
+                                    <Setter Property="Background" Value="Transparent" />
                                 </Style>
                             </ListView.ItemContainerStyle>
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="local:ScanResultRow">
-                                    <Grid Padding="12,3" MinHeight="32">
+                                    <Grid Padding="12,3" MinHeight="34"
+                                          Background="{x:Bind HasStripe, Mode=OneWay, Converter={StaticResource ResultRowBackgroundConverter}}">
                                         <Grid.Resources>
                                             <Style TargetType="TextBlock">
                                                 <Setter Property="FontSize" Value="12" />
@@ -283,12 +312,14 @@
                                         <Grid Grid.Column="5" Margin="0,0,12,0" Height="24" VerticalAlignment="Center"
                                               Visibility="{x:Bind Columns.Response.IsVisible, Mode=OneWay}"
                                               ToolTipService.ToolTip="Relative to responding hosts in this scan: green is fastest, red is slowest.">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="44" />
-                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="*" />
+                                                <RowDefinition Height="4" />
+                                            </Grid.RowDefinitions>
+                                            <TextBlock Text="{x:Bind LatencyLabel}" FontFamily="Consolas" TextAlignment="Right"
+                                                       VerticalAlignment="Top" />
                                             <ProgressBar Minimum="0" Maximum="100" Value="{x:Bind LatencyFill, Mode=OneWay}"
-                                                         Visibility="{x:Bind HasLatency}" Height="8" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                         Grid.Row="1" Visibility="{x:Bind HasLatency}" Height="4" VerticalAlignment="Center"
                                                          AutomationProperties.Name="{x:Bind LatencyLabel}">
                                                 <ProgressBar.Foreground>
                                                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
@@ -297,7 +328,6 @@
                                                     </LinearGradientBrush>
                                                 </ProgressBar.Foreground>
                                             </ProgressBar>
-                                            <TextBlock Grid.Column="1" Text="{x:Bind LatencyLabel}" FontFamily="Consolas" TextAlignment="Right" />
                                         </Grid>
                                         <TextBlock Grid.Column="6" FontFamily="Consolas" TextTrimming="CharacterEllipsis"
                                                    Margin="0,0,12,0"

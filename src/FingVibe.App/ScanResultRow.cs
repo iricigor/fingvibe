@@ -13,6 +13,9 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     private Guid? _roomId;
     private string? _roomShortName;
     private string? _roomName;
+    private bool _isAlternateRow;
+    private bool _isSelected;
+    private bool _isPointerOver;
 
     public ScanResultRow(ScanResult result, int prefixLength, string? customName = null,
         DeviceClassificationOverride? classificationOverride = null)
@@ -97,6 +100,51 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public string LatencyLabel => HasLatency ? Result.RoundtripText : "-";
     public double LatencyFraction { get; private set; }
     public double LatencyFill => HasLatency ? 20 + (80 * LatencyFraction) : 0;
+
+    public bool IsAlternateRow
+    {
+        get => _isAlternateRow;
+        set
+        {
+            if (_isAlternateRow == value)
+            {
+                return;
+            }
+            _isAlternateRow = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsAlternateRow)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasStripe)));
+        }
+    }
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected == value)
+            {
+                return;
+            }
+            _isSelected = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasStripe)));
+        }
+    }
+
+    public bool IsPointerOver
+    {
+        get => _isPointerOver;
+        set
+        {
+            if (_isPointerOver == value)
+            {
+                return;
+            }
+            _isPointerOver = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(HasStripe)));
+        }
+    }
+
+    public bool HasStripe => IsAlternateRow && !IsSelected && !IsPointerOver;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

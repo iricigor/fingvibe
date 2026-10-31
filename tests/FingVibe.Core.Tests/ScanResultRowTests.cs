@@ -8,6 +8,45 @@ namespace FingVibe.Core.Tests;
 
 public sealed class ScanResultRowTests
 {
+    [Fact]
+    public void AlternateRow_NotifiesOnlyWhenVisibleParityChanges()
+    {
+        var row = new ScanResultRow(new ScanResult(
+            System.Net.IPAddress.Parse("192.0.2.1"), HostStatus.Alive, 2, TimeSpan.FromMilliseconds(2)), 24);
+        var changes = new List<string?>();
+        row.PropertyChanged += (_, args) => changes.Add(args.PropertyName);
+
+        Assert.False(row.IsAlternateRow);
+        row.IsAlternateRow = true;
+        row.IsAlternateRow = true;
+        row.IsAlternateRow = false;
+
+        Assert.Equal(new[]
+        {
+            nameof(ScanResultRow.IsAlternateRow), nameof(ScanResultRow.HasStripe),
+            nameof(ScanResultRow.IsAlternateRow), nameof(ScanResultRow.HasStripe)
+        }, changes);
+    }
+
+    [Fact]
+    public void Stripe_YieldsToHoverAndSelection()
+    {
+        var row = new ScanResultRow(new ScanResult(
+            System.Net.IPAddress.Parse("192.0.2.1"), HostStatus.Alive, 2, TimeSpan.FromMilliseconds(2)), 24)
+        {
+            IsAlternateRow = true
+        };
+
+        Assert.True(row.HasStripe);
+        row.IsPointerOver = true;
+        Assert.False(row.HasStripe);
+        row.IsSelected = true;
+        row.IsPointerOver = false;
+        Assert.False(row.HasStripe);
+        row.IsSelected = false;
+        Assert.True(row.HasStripe);
+    }
+
     [Theory]
     [InlineData(24, "192.168.0.", "100")]
     [InlineData(16, "192.168.", "0.100")]

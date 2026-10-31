@@ -132,7 +132,8 @@ function Wait-DeviceScan {
 }
 
 function Test-DeviceRefresh {
-    $snapshotPath = Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "FingVibe\latest-scan.json"
+    $snapshotPath = if ($env:FINGVIBE_UI_REVIEW_SNAPSHOT) { $env:FINGVIBE_UI_REVIEW_SNAPSHOT }
+        else { Join-Path ([Environment]::GetFolderPath("LocalApplicationData")) "FingVibe\latest-scan.json" }
     $snapshot = if (Test-Path -LiteralPath $snapshotPath) { [IO.File]::ReadAllBytes($snapshotPath) } else { $null }
     try {
         Set-SidebarWindowWidth $expandedWidth
