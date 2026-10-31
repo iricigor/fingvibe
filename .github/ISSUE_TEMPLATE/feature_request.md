@@ -1,7 +1,7 @@
 ---
-name: Feature request
+name: ✨ Feature
 about: Explain a user need or desired outcome.
-title: ""
+title: "✨ Feature: "
 labels: "enhancement"
 assignees: ""
 ---

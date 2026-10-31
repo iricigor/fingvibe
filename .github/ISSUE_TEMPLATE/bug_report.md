@@ -1,7 +1,7 @@
 ---
-name: Bug report
+name: 🪲 Bug
 about: Report a reproducible problem with FingVibe.
-title: ""
+title: "🪲 Bug: "
 labels: "bug"
 assignees: ""
 ---
