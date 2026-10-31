@@ -1,0 +1,89 @@
+<UserControl
+    x:Class="FingVibe.App.Views.PeoplePageView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:FingVibe.App"
+    xmlns:models="using:FingVibe.Core.Models">
+    <ScrollViewer x:Name="PeoplePage">
+        <StackPanel Margin="24,0,24,24" Spacing="12">
+            <Grid ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="People" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+                    <TextBlock Text="Manage people and manually assign devices; response counts describe the last scan, not human presence."
+                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+                <Button x:Name="AddPersonButton" Grid.Column="1" Content="Add person"
+                        VerticalAlignment="Center" Click="AddPersonButton_Click" />
+            </Grid>
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="PeopleSearchBox" Width="260" HorizontalAlignment="Left"
+                         PlaceholderText="Search people" AutomationProperties.Name="Search people"
+                         TextChanged="PeopleSearchBox_TextChanged" />
+                <TextBlock x:Name="PeopleStatusText" Grid.Column="1" VerticalAlignment="Center"
+                           TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Grid>
+            <Border x:Name="PeopleTableBorder" Style="{StaticResource ScannerSummaryCardStyle}" Padding="0">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid Padding="12,8" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="80" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Short name" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="1" Text="Name" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="2" Text="Devices" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="3" Text="Last scan" FontWeight="SemiBold" />
+                    </Grid>
+                    <ListView x:Name="PeopleList" Grid.Row="1" IsItemClickEnabled="True"
+                              ItemClick="PeopleList_ItemClick" AutomationProperties.Name="People">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:ManagedPersonListRow">
+                                <Grid Padding="12,4" MinHeight="36">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="80" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="130" />
+                                        <ColumnDefinition Width="160" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="{x:Bind Person.ShortName}" FontWeight="SemiBold" />
+                                    <TextBlock Grid.Column="1" Text="{x:Bind Person.Name}" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Grid.Column="2" Text="{x:Bind DeviceCountText}" />
+                                                    <TextBlock Grid.Column="3" Text="{x:Bind RespondedCountText}" />
+                                    <Button Grid.Column="4" Content="More" Tag="{x:Bind Person.Id}"
+                                            AutomationProperties.Name="{x:Bind ActionsLabel}"
+                                            Click="PersonActionsButton_Click" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+            </Border>
+            <StackPanel x:Name="PeopleEmptyState" Spacing="8" HorizontalAlignment="Center"
+                        Margin="0,36" Visibility="Collapsed">
+                <TextBlock x:Name="PeopleEmptyText" Text="No people yet" FontSize="20"
+                           FontWeight="SemiBold" HorizontalAlignment="Center" />
+                <TextBlock Text="Add people to assign devices to the people who use them."
+                           TextWrapping="Wrap" TextAlignment="Center"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Button Content="Add person" Click="AddPersonButton_Click" HorizontalAlignment="Center" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

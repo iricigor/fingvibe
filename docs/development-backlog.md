@@ -53,8 +53,9 @@ Blocked can accompany active or review to describe a retained claim, but not
 ready. No lifecycle label means intake/planning or completed work; actual
 closure/merge state distinguishes them. Do not invent `status:done`.
 
-The existing `active` label is removed after PR publication and verification,
-not after merge. For this lifecycle, move to `status:review` at that handoff.
+The existing `active` label is removed after the final PR is verified ready for
+review, not after opening the initial WIP draft or after merge. For this
+lifecycle, move to `status:review` at that handoff.
 It is also removed when implementation explicitly stops and relinquishment
 is verified. Architect still requires separate implementation authorization,
 conflict assessment, and any required risk confirmation; readiness does not
@@ -126,7 +127,7 @@ transition is not permission to dispatch.
 | New issue | Reporter | Appropriate template | Type/intent only; unclaimed | None |
 | Approve pickup | Human | Bounded complete scope, size/priority, approval recorded | Ready; unclaimed | None |
 | Claim/start | Serialized dispatcher | Eligible, unpaused, empty slot, state re-read | Remove ready; active; persist owner/run claim | Reserve 1 |
-| Publish verified PR | Implementer/publisher | PR and remote branch verified and linked | Remove active; review; retain owner/claim | Retain 1 |
+| Finalize verified ready PR | Implementer/publisher | Final PR and remote branch verified and linked; no longer WIP/draft | Remove active; review; retain owner/claim | Retain 1 |
 | Checks fail / changes requested | Reviewer reports; implementer resumes existing run or authorized replacement | Same approved scope, no concurrent worker | Review while waiting; active instead when implementation resumes | Retain 1 |
 | Block implementation/review | Owner or human | Reason and recovery action recorded | Add blocked; retain active/review and claim | Retain 1 |
 | Block unclaimed backlog | Human or dependency reconciliation | No run/claim/PR | Remove ready; blocked | None |

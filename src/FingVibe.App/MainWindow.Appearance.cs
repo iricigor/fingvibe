@@ -29,8 +29,7 @@ public sealed partial class MainWindow
             : _appearanceStore.Load(Application.Current.RequestedTheme == ApplicationTheme.Dark
                 ? ThemeVariant.StandardDark
                 : ThemeVariant.StandardLight);
-        BackdropPicker.SelectedIndex = (int)_appearance.Backdrop;
-        ThemePicker.SelectedIndex = (int)_appearance.Theme;
+        SettingsPage.SetAppearance(_appearance);
         ApplyAppearance();
         MainNavigation.PaneOpening += (_, _) => UpdateNavigationPaneBackground(isPaneOpen: true);
         MainNavigation.PaneClosing += (_, _) => UpdateNavigationPaneBackground(isPaneOpen: false);
@@ -58,14 +57,14 @@ public sealed partial class MainWindow
 
     private void AppearancePicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!_appearanceReady || BackdropPicker.SelectedIndex < 0 || ThemePicker.SelectedIndex < 0)
+        if (!_appearanceReady || SettingsPage.BackdropIndex < 0 || SettingsPage.ThemeIndex < 0)
         {
             return;
         }
 
         _appearance = new AppearanceSettings(
-            (WindowBackdrop)BackdropPicker.SelectedIndex,
-            (ThemeVariant)ThemePicker.SelectedIndex);
+            (WindowBackdrop)SettingsPage.BackdropIndex,
+            (ThemeVariant)SettingsPage.ThemeIndex);
         ApplyAppearance();
         if (IsUiReview)
         {
@@ -74,11 +73,11 @@ public sealed partial class MainWindow
         try
         {
             _appearanceStore.Save(_appearance);
-            AppearanceSaveStatus.Text = "Appearance saved automatically.";
+            SettingsPage.SaveStatus = "Appearance saved automatically.";
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            AppearanceSaveStatus.Text = "Appearance applied, but could not be saved for the next launch.";
+            SettingsPage.SaveStatus = "Appearance applied, but could not be saved for the next launch.";
         }
     }
 
@@ -98,7 +97,7 @@ public sealed partial class MainWindow
 
         var hasBackdrop = ApplyWindowBackdrop();
         UpdateNavigationPaneBackground(MainNavigation.IsPaneOpen);
-        BackdropStatus.Text = _accessibilitySettings.HighContrast
+        SettingsPage.MaterialStatus = _accessibilitySettings.HighContrast
             ? "High contrast is active; Windows system colors are used instead of materials."
             : _appearance.Backdrop != WindowBackdrop.Solid && !hasBackdrop
                 ? "This material is unavailable. A solid background is used; your choice is kept."

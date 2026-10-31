@@ -24,36 +24,14 @@ public sealed partial class MainWindow
     private ResultSortColumn _sortColumn = ResultSortColumn.Address;
     private bool _sortAscending = true;
 
-    private void ResultSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    private void DeviceFiltersChanged(object? sender, EventArgs e)
     {
         RefreshVisibleResults();
     }
 
-    private void DeviceFilters_SizeChanged(object sender, SizeChangedEventArgs e)
+    private void DeviceSortRequested(object? sender, string columnName)
     {
-        var columns = e.NewSize.Width >= 850 ? 4 : e.NewSize.Width >= 480 ? 2 : 1;
-        var rows = 4 / columns;
-        if (DeviceFilters.RowDefinitions.Count != rows)
-        {
-            DeviceFilters.RowDefinitions.Clear();
-            for (var row = 0; row < rows; row++)
-            {
-                DeviceFilters.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            }
-        }
-        FrameworkElement[] filters = [ResultSearchBox, PersonFilter, RoomFilter, OpenPortsFilter];
-        for (var index = 0; index < filters.Length; index++)
-        {
-            Grid.SetRow(filters[index], index / columns);
-            Grid.SetColumn(filters[index], index % columns * (4 / columns));
-            Grid.SetColumnSpan(filters[index], 4 / columns);
-        }
-    }
-
-    private void SortHeader_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not Button { Tag: string columnName }
-            || !Enum.TryParse(columnName, out ResultSortColumn column))
+        if (!Enum.TryParse(columnName, out ResultSortColumn column))
         {
             return;
         }
@@ -74,12 +52,12 @@ public sealed partial class MainWindow
 
     private void RefreshVisibleResults()
     {
-        if (ResultsList is null)
+        if (DevicesPage is null)
         {
             return;
         }
 
-        var selectedResult = ResultsList.SelectedItem;
+        var selectedResult = DevicesPage.SelectedResult;
         var sortedResults = _allResults
             .Where(ShouldShow)
             .ToList();
@@ -93,7 +71,7 @@ public sealed partial class MainWindow
 
         if (selectedResult is ScanResultRow selectedRow && _visibleResults.Contains(selectedRow))
         {
-            ResultsList.SelectedItem = selectedRow;
+            DevicesPage.SelectedResult = selectedRow;
         }
 
         UpdateEmptyState();
@@ -123,21 +101,15 @@ public sealed partial class MainWindow
         }
     }
 
-    private void OpenPortsFilter_Changed(object sender, RoutedEventArgs e) =>
-        RefreshVisibleResults();
-
     private bool ShouldShow(ScanResultRow row) =>
         new DeviceResultFilter(
             true,
-            OpenPortsFilter.IsChecked == true,
-            ResultSearchBox.Text,
-            SelectedFilterChoice(PersonFilter)?.Id,
-            SelectedFilterChoice(RoomFilter)?.Id,
-            SelectedFilterChoice(PersonFilter)?.Unassigned == true,
-            SelectedFilterChoice(RoomFilter)?.Unassigned == true).Matches(row);
-
-    private static FilterChoice? SelectedFilterChoice(ComboBox picker) =>
-        (picker?.SelectedItem as ComboBoxItem)?.Tag as FilterChoice;
+            DevicesPage.OpenPortsOnly,
+            DevicesPage.SearchText,
+            DevicesPage.PersonChoice?.Id,
+            DevicesPage.RoomChoice?.Id,
+            DevicesPage.PersonChoice?.Unassigned == true,
+            DevicesPage.RoomChoice?.Unassigned == true).Matches(row);
 
     private int CompareResults(ScanResultRow leftRow, ScanResultRow rightRow)
     {
@@ -187,17 +159,18 @@ public sealed partial class MainWindow
 
     private void UpdateSortGlyphs()
     {
-        if (AddressSortGlyph is null)
+        if (DevicesPage is null)
         {
             return;
         }
 
-        AddressSortGlyph.Text = GetSortGlyph(ResultSortColumn.Address);
-        StatusSortGlyph.Text = GetSortGlyph(ResultSortColumn.Status);
-        ResponseSortGlyph.Text = GetSortGlyph(ResultSortColumn.Response);
-        MacAddressSortGlyph.Text = GetSortGlyph(ResultSortColumn.MacAddress);
-        OperatingSystemSortGlyph.Text = GetSortGlyph(ResultSortColumn.OperatingSystem);
-        DeviceTypeSortGlyph.Text = GetSortGlyph(ResultSortColumn.DeviceType);
+        DevicesPage.ShowSort(
+            GetSortGlyph(ResultSortColumn.Address),
+            GetSortGlyph(ResultSortColumn.Status),
+            GetSortGlyph(ResultSortColumn.Response),
+            GetSortGlyph(ResultSortColumn.MacAddress),
+            GetSortGlyph(ResultSortColumn.OperatingSystem),
+            GetSortGlyph(ResultSortColumn.DeviceType));
     }
 
     private string GetSortGlyph(ResultSortColumn column) =>
@@ -205,37 +178,38 @@ public sealed partial class MainWindow
 
     private void UpdateEmptyState()
     {
-        if (EmptyResultsText is null)
+        if (DevicesPage is null)
         {
             return;
         }
 
         var total = _allResults.Count(row => row.IsOnline);
-        ResultCountText.Text = _visibleResults.Count == total
+        var count = _visibleResults.Count == total
             ? $"{total:N0} {(total == 1 ? "device" : "devices")}"
             : $"{_visibleResults.Count:N0} of {total:N0} devices";
-        EmptyResultsText.Visibility = _visibleResults.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         UpdateOverview();
 
+        string emptyMessage;
         if (_allResults.Count == 0)
         {
-            EmptyResultsText.Text = _isScanning
+            emptyMessage = _isScanning
                 ? "Waiting for scan results..."
                 : _displayedScan is null
                     ? "Select Scan LAN to discover devices on the detected subnet."
                     : "No devices answered this scan; active devices may block ICMP.";
         }
-        else if (!string.IsNullOrWhiteSpace(ResultSearchBox.Text))
+        else if (!string.IsNullOrWhiteSpace(DevicesPage.SearchText))
         {
-            EmptyResultsText.Text = "No devices match the current filter.";
+            emptyMessage = "No devices match the current filter.";
         }
-        else if (OpenPortsFilter.IsChecked == true)
+        else if (DevicesPage.OpenPortsOnly)
         {
-            EmptyResultsText.Text = "No devices with open ports match the current filters.";
+            emptyMessage = "No devices with open ports match the current filters.";
         }
         else
         {
-            EmptyResultsText.Text = "No devices match the current filters.";
+            emptyMessage = "No devices match the current filters.";
         }
+        DevicesPage.ShowSummary(count, emptyMessage, _visibleResults.Count == 0);
     }
 }

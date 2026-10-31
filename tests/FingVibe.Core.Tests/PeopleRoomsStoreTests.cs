@@ -6,13 +6,15 @@ namespace FingVibe.Core.Tests;
 
 public sealed class PeopleRoomsStoreTests
 {
-    [Fact]
-    public async Task SaveAndLoadAsync_PreservesPeopleRoomsAndMacAssignments()
+    [Theory]
+    [InlineData("LR")]
+    [InlineData("\u0030\uFE0F\u20E3")]
+    public async Task SaveAndLoadAsync_PreservesPeopleRoomsAndMacAssignments(string roomShortName)
     {
         var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         var store = new PeopleRoomsStore(Path.Combine(directory, "people-rooms.json"));
         var person = new ManagedPerson(Guid.NewGuid(), "Alex", "AL");
-        var room = new ManagedRoom(Guid.NewGuid(), "Living room", "LR");
+        var room = new ManagedRoom(Guid.NewGuid(), "Living room", roomShortName);
         var data = new PeopleRoomsData([person], [room])
             .AssignPerson("aa:bb:cc:dd:ee:ff", person.Id)
             .AssignRoom("AABBCCDDEEFF", room.Id);
@@ -60,6 +62,9 @@ public sealed class PeopleRoomsStoreTests
         Assert.NotNull(PeopleRoomsData.ValidateShortName("LONG"));
         Assert.Null(PeopleRoomsData.ValidateShortName("😀"));
         Assert.Null(PeopleRoomsData.ValidateShortName("👨‍👩‍👧‍👦"));
+        Assert.Null(PeopleRoomsData.ValidateShortName("\u0030\uFE0F\u20E3"));
+        Assert.Null(PeopleRoomsData.ValidateShortName("\u0030\uFE0F\u20E3AB"));
+        Assert.NotNull(PeopleRoomsData.ValidateShortName("\u0030\uFE0F\u20E3ABC"));
         Assert.Throws<ArgumentException>(() => new PeopleRoomsData(
             [new ManagedPerson(Guid.NewGuid(), "Alex", "AL"), new ManagedPerson(Guid.NewGuid(), "Avery", "al")]));
         var sharedCategoryNamesAreAllowed = new PeopleRoomsData(

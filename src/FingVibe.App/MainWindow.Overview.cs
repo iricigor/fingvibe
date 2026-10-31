@@ -17,16 +17,6 @@ public sealed partial class MainWindow
         UpdateOverview();
     }
 
-    private void OverviewPage_SizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        var compact = e.NewSize.Width - 48 < 600;
-        OverviewMetricsGrid.RowSpacing = compact ? 16 : 0;
-        Grid.SetColumn(OpenPortDevicesCard, compact ? 0 : 1);
-        Grid.SetRow(OpenPortDevicesCard, compact ? 1 : 0);
-        Grid.SetColumnSpan(OnlineDevicesCard, compact ? 2 : 1);
-        Grid.SetColumnSpan(OpenPortDevicesCard, compact ? 2 : 1);
-    }
-
     private void OnlineDevicesCard_Click(object sender, RoutedEventArgs e) =>
         ShowOverviewDevices(openPortsOnly: false);
 
@@ -35,44 +25,42 @@ public sealed partial class MainWindow
 
     private void ShowOverviewDevices(bool openPortsOnly)
     {
-        ResultSearchBox.Text = string.Empty;
-        OpenPortsFilter.IsChecked = openPortsOnly;
+        DevicesPage.SearchText = string.Empty;
+        DevicesPage.OpenPortsOnly = openPortsOnly;
         RefreshVisibleResults();
         MainNavigation.SelectedItem = DevicesNavItem;
         ShowPage(DevicesPage);
-        ResultsList.Focus(FocusState.Programmatic);
+        DevicesPage.FocusResults();
     }
 
     private void UpdateOverview()
     {
-        if (OnlineDevicesText is null)
+        if (OverviewPage is null)
         {
             return;
         }
 
         var network = NetworkPicker.SelectedItem as LanNetwork;
         var hasScan = _displayedScan is not null;
-        OnlineDevicesText.Text = hasScan ? _allResults.Count(row => row.IsOnline).ToString("N0") : "Not scanned";
-        OpenPortDevicesText.Text = hasScan
+        var online = hasScan ? _allResults.Count(row => row.IsOnline).ToString("N0") : "Not scanned";
+        var openPorts = hasScan
             ? _allResults.Count(row => row.Result.OpenPortItems.Count > 0).ToString("N0")
             : "Not scanned";
-        OnlineDevicesCard.IsEnabled = hasScan;
-        OpenPortDevicesCard.IsEnabled = hasScan;
-
         var freshness = _displayedScan?.Freshness(DateTimeOffset.UtcNow) ?? "Not scanned yet";
-        OverviewFreshnessText.Text = _displayedScan is { } context && context.Subnet != network?.Cidr
+        freshness = _displayedScan is { } context && context.Subnet != network?.Cidr
             ? $"{freshness} ({context.Subnet})"
             : freshness;
-        OverviewResultsContextText.Text = _displayedScan is { } scan
+        var resultsContext = _displayedScan is { } scan
             ? $"{scan.Describe(network?.Cidr)}{(!_isScanning && _allResults.Count > 0 && !_allResults.Any(row => row.IsOnline) ? " No devices answered this scan; active devices may block ICMP." : string.Empty)}"
             : network is null
                 ? "Connect to an IPv4 network to scan for devices."
                 : "Run your first scan to discover devices.";
 
-        OverviewSetupText.Text = network is null
+        var setup = network is null
             ? "No active IPv4 network."
             : $"Interface: {network.InterfaceName}\nThis computer: {network.LocalAddress}\nSubnet: {network.Cidr}";
 
+        OverviewPage.ShowScan(online, openPorts, hasScan, freshness, resultsContext, setup);
         UpdateScanStatus();
     }
 }

@@ -115,6 +115,78 @@ try {
     Test-Change @{ "src\FingVibe.App\Tools\SpeedTestPage.xaml" = "changed" } @("Devices", "Tools", "SpeedTest", "About") "Tools views"
     Test-Change @{ "src\FingVibe.App\Tools\AboutPage.xaml" = "changed" } @("Devices", "Tools", "About") "About view"
     Test-Change @{ "src\FingVibe.App\Tools\AboutPage.xaml.cs" = "changed" } @("Devices", "Tools", "About") "About behavior"
+    $viewScenarios = @{
+        OverviewPageView = @("Devices", "Overview")
+        NetworkPageView = @("Devices", "Network")
+        DevicesPageView = @("Devices", "Settings", "DevicesEmpty")
+        DeviceDetailsPageView = @("Devices", "DeviceDetails")
+        PeoplePageView = @("Devices", "DeviceDetails", "People", "PersonDetails")
+        RoomsPageView = @("Devices", "DeviceDetails", "Rooms", "RoomDetails")
+        PersonDetailsPageView = @("Devices", "DeviceDetails", "People", "PersonDetails")
+        RoomDetailsPageView = @("Devices", "DeviceDetails", "Rooms", "RoomDetails")
+        SettingsPageView = @($UiReviewScenarios.Keys)
+    }
+    $pageViews = @{
+        OverviewPage = "OverviewPageView"
+        NetworkPage = "NetworkPageView"
+        DevicesPage = "DevicesPageView"
+        DevicePage = "DeviceDetailsPageView"
+        PeoplePage = "PeoplePageView"
+        RoomsPage = "RoomsPageView"
+        PersonDetailPage = "PersonDetailsPageView"
+        RoomDetailPage = "RoomDetailsPageView"
+        SettingsPage = "SettingsPageView"
+    }
+    $appDirectory = Join-Path $PSScriptRoot "..\src\FingVibe.App"
+    $shellCode = (Get-ChildItem (Join-Path $appDirectory "MainWindow*.cs") |
+        ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
+    foreach ($page in $pageViews.Keys) {
+        $view = $pageViews[$page]
+        $node = $applicationDocument.SelectSingleNode("//*[@*[local-name()='Name']='$page']")
+        if ($node.LocalName -cne $view -or $node.ChildNodes.Count -ne 0) {
+            throw "$page must be composed as $view without inline page content."
+        }
+        $viewDocument = [System.Xml.XmlDocument]::new()
+        $viewDocument.Load((Join-Path $appDirectory "Views\$view.xaml"))
+        if ($viewDocument.DocumentElement.LocalName -cne "UserControl" -or
+            $viewDocument.DocumentElement.GetAttribute("Class", "http://schemas.microsoft.com/winfx/2006/xaml") -cne "FingVibe.App.Views.$view") {
+            throw "$view must have its own UserControl namescope and class."
+        }
+        $viewCode = Get-Content (Join-Path $appDirectory "Views\$view.xaml.cs") -Raw
+        if ($viewCode -match '(?m)^\s*(public|internal)\s+(TextBlock|TextBox|ComboBox|Button|ListView|ScrollViewer|Grid|Image|FontIcon|Expander)\??\s+\w+\s*(\{|=>)') {
+            throw "$view must not expose its child controls."
+        }
+        foreach ($child in $viewDocument.SelectNodes("//*[@*[local-name()='Name']]")) {
+            $childName = $child.GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml")
+            if ($childName -ne $page -and $shellCode -match "\b$([regex]::Escape($childName))\b") {
+                throw "Shell code must use $view APIs, not the child control $childName."
+            }
+        }
+        foreach ($attribute in $viewDocument.SelectNodes("//@*")) {
+            if ($attribute.Value.StartsWith("{ThemeResource ") -and -not $attribute.Value.EndsWith("}")) {
+                throw "Unclosed ThemeResource in $view."
+            }
+            if ($attribute.LocalName -in @("Click", "ItemClick", "TextChanged", "SelectionChanged", "SizeChanged") -and
+                $viewCode -notmatch "\b$([regex]::Escape($attribute.Value))\s*\(") {
+                throw "$view must own handler $($attribute.Value)."
+            }
+        }
+    }
+    foreach ($view in @("DevicesPageView", "SettingsPageView")) {
+        $viewCode = Get-Content (Join-Path $appDirectory "Views\$view.xaml.cs") -Raw
+        if ($viewCode -notmatch 'DeviceColumnLayout Columns => DeviceColumnLayout.Current') {
+            throw "$view must bind the shared table column layout."
+        }
+    }
+    foreach ($view in $viewScenarios.Keys) {
+        foreach ($extension in @("xaml", "xaml.cs")) {
+            Test-Change @{ "src\FingVibe.App\Views\$view.$extension" = "changed" } `
+                $viewScenarios[$view] "Extracted $view $extension"
+        }
+    }
+    Assert-Throws {
+        Test-Change @{ "src\FingVibe.App\Views\UnknownPageView.xaml" = "changed" } @() "Unsupported page view"
+    } "*has no selection rule*"
     Assert-Throws {
         Test-Change @{ "src\FingVibe.App\Tools\UnknownPage.xaml" = "changed" } @() "Unsupported extracted page"
     } "*has no selection rule*"
