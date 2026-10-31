@@ -18,6 +18,8 @@ public static class DevicesReviewInput
     [DllImport("user32.dll")]
     public static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int index);
+    [DllImport("user32.dll")]
     private static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extra);
     [DllImport("user32.dll")]
     private static extern void keybd_event(byte key, byte scan, uint flags, UIntPtr extra);
@@ -28,6 +30,11 @@ public static class DevicesReviewInput
     public static void Click() {
         mouse_event(2, 0, 0, 0, UIntPtr.Zero);
         mouse_event(4, 0, 0, 0, UIntPtr.Zero);
+    }
+    public static void MoveTo(int x, int y) {
+        uint absoluteX = (uint)((long)(x - GetSystemMetrics(76)) * 65535 / (GetSystemMetrics(78) - 1));
+        uint absoluteY = (uint)((long)(y - GetSystemMetrics(77)) * 65535 / (GetSystemMetrics(79) - 1));
+        mouse_event(0xC001, absoluteX, absoluteY, 0, UIntPtr.Zero);
     }
 }
 "@
@@ -97,6 +104,7 @@ function Get-FilterBounds($Element) {
 }
 
 function Focus-DeviceWindow {
+    if ([UiReviewNativeWindow]::GetForegroundWindow() -eq $windowHandle) { return }
     $deadline = [DateTime]::UtcNow.AddSeconds(5)
     do {
         [DevicesReviewInput]::Tap(0x12)
@@ -107,10 +115,12 @@ function Focus-DeviceWindow {
     throw "Device review window could not be brought to the foreground."
 }
 
-function Save-DeviceCapture([string] $Name) {
+function Save-DeviceCapture([string] $Name, [switch] $KeepPointer) {
     $bounds = Get-UiReviewWindowBounds $windowHandle
-    $null = [DevicesReviewInput]::SetCursorPos(
-        [int]($bounds.Left + $bounds.Width / 2), [int]($bounds.Top + 12 * $scale))
+    if (-not $KeepPointer) {
+        [DevicesReviewInput]::MoveTo(
+            [int]($bounds.Left + $bounds.Width / 2), [int]($bounds.Top + 50 * $scale))
+    }
     Focus-DeviceWindow
     Start-Sleep -Milliseconds 200
     $path = Join-Path $ScreenshotDirectory "$Name.png"
@@ -121,7 +131,7 @@ function Save-DeviceCapture([string] $Name) {
 function Get-RowColor($Bitmap, $Row) {
     $bounds = Get-UiReviewWindowBounds $windowHandle
     $rowBounds = $Row.Current.BoundingRectangle
-    $Bitmap.GetPixel([int]($rowBounds.Left - $bounds.Left + 5 * $scale),
+    $Bitmap.GetPixel([int]($rowBounds.Left - $bounds.Left + 8 * $scale),
         [int]($rowBounds.Top - $bounds.Top + $rowBounds.Height / 2)).ToArgb()
 }
 
@@ -160,11 +170,13 @@ try {
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
     $fixture = Join-Path (Resolve-Path -LiteralPath $ScreenshotDirectory).Path "devices-fixture-$([Guid]::NewGuid().ToString('N')).json"
     $results = @(1..80 | ForEach-Object {
-        @{
+        $device = @{
             address = "192.0.2.$_"; status = 0; roundtripTimeMilliseconds = $_ * 2
             probeDuration = "00:00:00.002"; deviceName = "Fixture device $('{0:D2}' -f $_)"
-            vendorName = "Fixture vendor"; openPorts = @(@{ port = 443; serviceName = "HTTPS" })
+            vendorName = "Fixture vendor"; openPorts = @()
         }
+        if ($_ % 2 -eq 0) { $device.openPorts = @(@{ port = 443; serviceName = "HTTPS" }) }
+        $device
     })
     @{ version = 1; subnet = "192.0.2.0/24"; completedAt = [DateTimeOffset]::UtcNow.ToString("O"); results = $results } |
         ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $fixture -Encoding UTF8
@@ -220,6 +232,18 @@ try {
     if ($toggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
         throw "Clicking the open-ports component outside its label must toggle it."
     }
+    if ((Find-DeviceElement ResultCountText).Current.Name -ne "40 of 80 devices") { throw "Open-ports filter did not apply." }
+    $component = Get-FilterBounds $checkbox
+    $null = [DevicesReviewInput]::SetCursorPos([int]($component.Left + 5 * $scale), [int]($component.Top + $component.Height / 2))
+    [DevicesReviewInput]::Click()
+    Start-Sleep -Milliseconds 200
+    if ($toggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off) {
+        throw "Clicking the bordered component's padding must also toggle it."
+    }
+    $checkbox.SetFocus()
+    [DevicesReviewInput]::Tap(0x20)
+    Start-Sleep -Milliseconds 200
+    if ($toggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) { throw "Keyboard checkbox toggle regressed." }
     $toggle.Toggle()
     $search = (Find-DeviceElement ResultSearchBox).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
     $search.SetValue("no-matching-fixture")
@@ -253,18 +277,126 @@ try {
     $search.SetValue("")
     Start-Sleep -Milliseconds 250
     $rows = @(Get-DeviceRows)
+    $progressCondition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+        [System.Windows.Automation.ControlType]::ProgressBar)
+    $bar = $rows[0].FindFirst([System.Windows.Automation.TreeScope]::Descendants, $progressCondition)
+    if (-not $bar) { throw "Response bar was not found." }
+    $labelCondition = [System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::Text),
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, $bar.Current.Name))
+    $label = $rows[0].FindFirst([System.Windows.Automation.TreeScope]::Descendants, $labelCondition)
+    if (-not $label -or $label.Current.BoundingRectangle.Bottom -gt $bar.Current.BoundingRectangle.Top -or
+        $bar.Current.BoundingRectangle.Width / $scale -gt 100) {
+        throw "Response must use a readable number above a compact bar."
+    }
+    $rowBounds = $rows[1].Current.BoundingRectangle
+    Focus-DeviceWindow
+    [DevicesReviewInput]::MoveTo([int]($rowBounds.Left + 100 * $scale),
+        [int]($rowBounds.Top + $rowBounds.Height / 2))
+    Start-Sleep -Milliseconds 250
+    $path = Save-DeviceCapture "devices-hover" -KeepPointer
+    $bitmap = [System.Drawing.Bitmap]::new($path)
+    try {
+        if ((Get-RowColor $bitmap $rows[1]) -eq (Get-RowColor $bitmap $rows[3])) {
+            throw "Hover must override the alternate background."
+        }
+    }
+    finally { $bitmap.Dispose() }
+    $null = Save-DeviceCapture "devices-hover-cleared"
     $selection = $rows[1].GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
     $selection.Select()
     $path = Save-DeviceCapture "devices-selected"
     $bitmap = [System.Drawing.Bitmap]::new($path)
     try {
-        if ((Get-RowColor $bitmap $rows[1]) -eq (Get-RowColor $bitmap $rows[3])) {
+        $selectedColor = Get-RowColor $bitmap $rows[1]
+        if ($selectedColor -eq (Get-RowColor $bitmap $rows[3])) {
             throw "Selection must override the alternate background."
         }
     }
     finally { $bitmap.Dispose() }
-    $selection.RemoveFromSelection()
-    Write-Host "Device filter sizing/toggle/search, four-theme full-width stripes, recycling, filtering and selection passed."
+    $sort = [System.Windows.Automation.TreeWalker]::ControlViewWalker.GetParent((Find-DeviceElement AddressSortGlyph))
+    while ($sort -and $sort.Current.ControlType -ne [System.Windows.Automation.ControlType]::Button) {
+        $sort = [System.Windows.Automation.TreeWalker]::ControlViewWalker.GetParent($sort)
+    }
+    if (-not $sort) { throw "Address sort button was not found." }
+    $sort.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Start-Sleep -Milliseconds 250
+    $listSelection = (Find-DeviceElement ResultsList).GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern)
+    $selected = @($listSelection.Current.GetSelection())
+    if ($selected.Count -ne 1) { throw "Sorting must preserve selection." }
+    $selected[0].GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView()
+    Start-Sleep -Milliseconds 250
+    $selected = @($listSelection.Current.GetSelection())
+    $nameCondition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::NameProperty, "Fixture device 02")
+    if (-not $selected[0].FindFirst([System.Windows.Automation.TreeScope]::Descendants, $nameCondition)) {
+        throw "Sorting changed the selected device."
+    }
+    $path = Save-DeviceCapture "devices-selected-recycled"
+    $bitmap = [System.Drawing.Bitmap]::new($path)
+    try {
+        if ((Get-RowColor $bitmap $selected[0]) -ne $selectedColor) {
+            throw "A selected row's background must survive sorting and container recycling."
+        }
+    }
+    finally { $bitmap.Dispose() }
+    $selected[0].GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).RemoveFromSelection()
+    $scroll.SetScrollPercent(-1, 0)
+    Assert-DeviceStripes "devices-sorted"
+    $sort.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Start-Sleep -Milliseconds 250
+    $rows = @(Get-DeviceRows)
+    $rows[0].SetFocus()
+    [DevicesReviewInput]::Tap(0x28)
+    Start-Sleep -Milliseconds 250
+    $selected = @($listSelection.Current.GetSelection())
+    if ($selected.Count -ne 1 -or -not $selected[0].Current.HasKeyboardFocus) {
+        throw "Keyboard navigation must focus and select a device row."
+    }
+    $null = Save-DeviceCapture "devices-keyboard-focus"
+    $area = [System.Windows.Forms.Screen]::FromHandle($windowHandle).WorkingArea
+    if ($area.Width / $scale -ge 1880) {
+        Set-DeviceWidth 1880
+        $grips = @("Resize Person column", "Resize Room column") | ForEach-Object {
+            $condition = [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::NameProperty, $_)
+            $grip = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+            if (-not $grip -or $grip.Current.IsOffscreen) { throw "Header grip '$_' was not visible." }
+            $grip
+        }
+        $path = Save-DeviceCapture "devices-wide-header"
+        $bitmap = [System.Drawing.Bitmap]::new($path)
+        try {
+            $windowBounds = Get-UiReviewWindowBounds $windowHandle
+            for ($index = 0; $index -lt $grips.Count; $index++) {
+                $bounds = $grips[$index].Current.BoundingRectangle
+                $left = $bounds.Left - $windowBounds.Left
+                $y = [int]($bounds.Top - $windowBounds.Top + $bounds.Height / 2)
+                $background = $bitmap.GetPixel([int]($left - 1), $y).ToArgb()
+                $center = $left + $bounds.Width / 2
+                $hasLine = @([Math]::Floor($center), [Math]::Ceiling($center)) |
+                    Where-Object { $bitmap.GetPixel([int]$_, $y).ToArgb() -ne $background }
+                if (($index -eq 0 -and -not $hasLine) -or ($index -eq 1 -and $hasLine)) {
+                    throw "Only the final visible header divider should be absent."
+                }
+            }
+        }
+        finally { $bitmap.Dispose() }
+        $left = $grips[1].Current.BoundingRectangle.Left
+        $grips[1].SetFocus()
+        [DevicesReviewInput]::Tap(0x27)
+        Start-Sleep -Milliseconds 200
+        if ([Math]::Abs($grips[1].Current.BoundingRectangle.Left - $left - 8 * $scale) -gt 1) {
+            throw "The final column must remain keyboard-resizable without a divider."
+        }
+        Write-Host "Full-header pixel check and final-column keyboard resizing passed."
+    }
+    else { Write-Host "Full-header pixel check not run: desktop is narrower than 1880 logical pixels." }
+    Write-Host "Device toolbar, compact response, four-theme stripes, recycling, sorting/filtering, hover, selection and keyboard checks passed."
 }
 finally {
     if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id }

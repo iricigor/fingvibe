@@ -53,4 +53,19 @@ public sealed class AppearancePaletteTests
             Assert.InRange(difference, 0, 32);
         }
     }
+
+    [Theory]
+    [InlineData(ThemeVariant.StandardLight, 0xF5F7FAu)]
+    [InlineData(ThemeVariant.WarmLight, 0xFFF5E7u)]
+    [InlineData(ThemeVariant.StandardDark, 0x22262Du)]
+    [InlineData(ThemeVariant.OledDark, 0x101010u)]
+    public void AlternateRow_IsMoreDistinctThanInitialPreview(ThemeVariant theme, uint initialPreview)
+    {
+        var palette = AppearancePalette.For(theme);
+        var channels = new[] { 0, 8, 16 };
+        int Distance(uint color) => channels.Sum(shift =>
+            Math.Abs((int)((palette.Card >> shift) & 255) - (int)((color >> shift) & 255)));
+
+        Assert.True(Distance(palette.AlternateRow) > Distance(initialPreview));
+    }
 }

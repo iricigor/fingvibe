@@ -35,9 +35,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        IspLogoImage.Source = null;
-        IspLogoImage.Visibility = Visibility.Collapsed;
-        IspLogoFallback.Visibility = Visibility.Visible;
+        NetworkPage.ShowLogo(null);
         if (_ispLogoSession.Current is { } request)
         {
             _ = LoadIspLogoAsync(request);
@@ -82,9 +80,7 @@ public sealed partial class MainWindow
                 return;
             }
 
-            IspLogoImage.Source = bitmap;
-            IspLogoFallback.Visibility = Visibility.Collapsed;
-            IspLogoImage.Visibility = Visibility.Visible;
+            NetworkPage.ShowLogo(bitmap);
         }
         catch (OperationCanceledException)
         {

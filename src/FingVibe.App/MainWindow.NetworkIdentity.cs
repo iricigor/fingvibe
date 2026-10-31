@@ -32,14 +32,10 @@ public sealed partial class MainWindow
 
         if (networks.Count == 0)
         {
-            NetworkIdentityText.Text = "No active IPv4 network";
-            NetworkNameText.Text = "No active IPv4 network";
-            OverviewNetworkDetailText.Text = string.Empty;
-            PublicAddressText.Text = "Unavailable";
-            IspNameText.Text = "Unavailable";
-            LocationText.Text = PublicNetworkIdentity.UnknownLocation;
-            MachineAddressText.Text = "No active IPv4 interface";
-            LanAddressText.Text = "Unavailable";
+            NetworkPage.ShowSummary("No active IPv4 network");
+            OverviewPage.ShowNetwork("No active IPv4 network", string.Empty);
+            NetworkPage.ShowPublicIdentity(null);
+            NetworkPage.ShowLocalNetwork(null);
             ScanStatusText.Text = "Connect to a LAN to scan";
             ScanButton.IsEnabled = false;
             UpdateOverview();
@@ -64,29 +60,15 @@ public sealed partial class MainWindow
 
     private void NetworkPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        var selectedNetwork = NetworkPicker.SelectedItem as LanNetwork;
+        OverviewPage.ShowSubnet(selectedNetwork);
+        NetworkPage.ShowLocalNetwork(selectedNetwork);
         if (NetworkPicker.SelectedItem is not LanNetwork network)
         {
-            NetworkSizeBadge.Visibility = Visibility.Collapsed;
-            SubnetSizeText.Text = "Unavailable";
-            SubnetMaskText.Text = "Masked bits: unavailable";
-            SubnetAddressCountText.Text = "Unavailable";
-            SubnetScopeText.Text = "Unavailable";
             UpdateOverview();
             return;
         }
 
-        MachineAddressText.Text = network.LocalAddress.ToString();
-        LanAddressText.Text = network.Cidr;
-        var subnet = SubnetDescriptionFormatter.Format(network.LocalAddress, network.PrefixLength);
-        NetworkSizeBadgeText.Text = subnet.Badge;
-        NetworkSizeBadgeLabel.Text = subnet.BadgeLabel;
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(
-            NetworkSizeBadgeText, $"{subnet.Size}. {subnet.Mask}");
-        NetworkSizeBadge.Visibility = Visibility.Visible;
-        SubnetSizeText.Text = subnet.Size;
-        SubnetMaskText.Text = subnet.Mask;
-        SubnetAddressCountText.Text = subnet.AddressCount;
-        SubnetScopeText.Text = subnet.Scope;
         _onlineDeviceCount = null;
         UpdateNetworkIdentity();
         UpdateOverview();
@@ -126,9 +108,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        PublicAddressText.Text = identity.PublicAddress.ToString();
-        IspNameText.Text = identity.IspName;
-        LocationText.Text = identity.LocationText;
+        NetworkPage.ShowPublicIdentity(identity);
         UpdateIspLogo(identity.IspName);
     }
 
@@ -140,9 +120,7 @@ public sealed partial class MainWindow
         }
 
         _publicIdentity = null;
-        PublicAddressText.Text = "Unavailable";
-        IspNameText.Text = "Unavailable";
-        LocationText.Text = PublicNetworkIdentity.UnknownLocation;
+        NetworkPage.ShowPublicIdentity(null);
         UpdateIspLogo(null);
     }
 
@@ -153,13 +131,12 @@ public sealed partial class MainWindow
             return;
         }
 
-        NetworkIdentityText.Text = NetworkIdentityFormatter.FormatSummary(
+        NetworkPage.ShowSummary(NetworkIdentityFormatter.FormatSummary(
             network,
             _publicIdentity,
-            _onlineDeviceCount);
-        NetworkNameText.Text = network.InterfaceName;
-        OverviewNetworkDetailText.Text = _publicIdentity is { } identity
+            _onlineDeviceCount));
+        OverviewPage.ShowNetwork(network.InterfaceName, _publicIdentity is { } identity
             ? $"{network.Cidr} - ISP: {identity.IspName}"
-            : network.Cidr;
+            : network.Cidr);
     }
 }

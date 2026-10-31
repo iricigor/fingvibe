@@ -1,4 +1,4 @@
-name: Security review
+name: 🛡️ Security review
 
 on:
   pull_request:

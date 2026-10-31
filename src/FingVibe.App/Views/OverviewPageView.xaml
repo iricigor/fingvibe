@@ -1,0 +1,113 @@
+<UserControl
+    x:Class="FingVibe.App.Views.OverviewPageView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:FingVibe.App"
+    xmlns:models="using:FingVibe.Core.Models">
+    <ScrollViewer x:Name="OverviewPage" SizeChanged="OverviewPage_SizeChanged"
+                  HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="24,0,24,24" Spacing="16">
+            <TextBlock Text="Overview" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+            <TextBlock x:Name="OverviewVersionText" TextWrapping="Wrap"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                <Grid ColumnSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Network" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock x:Name="NetworkNameText"
+                                   Text="Detecting network..."
+                                   Style="{ThemeResource SubtitleTextBlockStyle}"
+                                   TextWrapping="Wrap" />
+                        <TextBlock x:Name="OverviewNetworkDetailText" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock x:Name="OverviewFreshnessText" Text="Not scanned yet"
+                                   TextWrapping="Wrap"
+                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                        <HyperlinkButton Content="View network details"
+                                         Padding="0,4"
+                                         Click="ViewNetworkButton_Click" />
+                    </StackPanel>
+                    <Border x:Name="NetworkSizeBadge"
+                            Grid.Column="1"
+                            MinWidth="88"
+                            Padding="16,8"
+                            VerticalAlignment="Center"
+                            Visibility="Collapsed"
+                            Background="{ThemeResource ControlFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource ScannerCardBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="8">
+                        <StackPanel Spacing="2">
+                            <TextBlock x:Name="NetworkSizeBadgeText"
+                                       FontSize="40"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                            <TextBlock x:Name="NetworkSizeBadgeLabel"
+                                       HorizontalAlignment="Center"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Border>
+            <TextBlock x:Name="OverviewResultsContextText" TextWrapping="Wrap"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Grid x:Name="OverviewMetricsGrid" ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Button x:Name="OnlineDevicesCard" Click="OnlineDevicesCard_Click"
+                        Style="{StaticResource ScannerSummaryButtonStyle}"
+                        AutomationProperties.Name="See online devices">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Online devices" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock x:Name="OnlineDevicesText" Text="Not scanned" Style="{ThemeResource TitleTextBlockStyle}"
+                                   Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                        <TextBlock Text="Devices that answered this scan." TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="See online devices &#x2192;" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="OpenPortDevicesCard" Grid.Column="1" Click="OpenPortDevicesCard_Click"
+                        Style="{StaticResource ScannerSummaryButtonStyle}"
+                        AutomationProperties.Name="See devices with open ports">
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="Devices with open ports" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock x:Name="OpenPortDevicesText" Text="Not scanned" Style="{ThemeResource TitleTextBlockStyle}" />
+                        <TextBlock Text="Observed services, not a security verdict." TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="See devices with open ports &#x2192;" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Button>
+            </Grid>
+            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="Network setup" FontWeight="SemiBold" />
+                    <TextBlock x:Name="OverviewSetupText" Text="Detecting network..." TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <HyperlinkButton Content="View network details" Padding="0,4"
+                                     Click="ViewNetworkButton_Click" />
+                </StackPanel>
+            </Border>
+            <Button Style="{StaticResource ScannerSummaryButtonStyle}"
+                    Click="AboutFingVibe_Click" AutomationProperties.Name="About FingVibe">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="About FingVibe" FontWeight="SemiBold" />
+                    <TextBlock Text="Open-source network discovery, by Igor." TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock x:Name="AboutVersionText" TextWrapping="Wrap" />
+                    <TextBlock Text="About FingVibe &#x2192;" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
