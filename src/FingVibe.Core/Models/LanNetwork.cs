@@ -8,7 +8,8 @@ public sealed record LanNetwork(
     IPAddress NetworkAddress,
     int PrefixLength,
     bool HasGateway,
-    IPAddress? GatewayAddress = null)
+    IPAddress? GatewayAddress = null,
+    string? InterfaceId = null)
 {
     public string Cidr => $"{NetworkAddress}/{PrefixLength}";
 

@@ -22,6 +22,15 @@
                         <TextBlock Text="Open speed test &#x2192;" />
                     </StackPanel>
                 </Button>
+                <Button x:Name="TroubleshootingCard" Click="TroubleshootingCard_Click"
+                        Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="Network troubleshooting">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Network troubleshooting" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <TextBlock Text="Check local addresses, internet IPs, traceroute, and DNS on request."
+                                   TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="Open network troubleshooting &#x2192;" />
+                    </StackPanel>
+                </Button>
                 <Button x:Name="AboutCard"
                         Click="AboutCard_Click"
                         Style="{StaticResource ScannerSummaryButtonStyle}"
@@ -40,5 +49,7 @@
                              Visibility="Collapsed"
                              BackRequested="SpeedTestView_BackRequested" />
         <local:AboutPage x:Name="AboutView" Visibility="Collapsed" BackRequested="AboutView_BackRequested" />
+        <local:NetworkTroubleshootingPage x:Name="TroubleshootingView" Visibility="Collapsed"
+                                          BackRequested="TroubleshootingView_BackRequested" />
     </Grid>
 </UserControl>

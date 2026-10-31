@@ -1,3 +1,4 @@
+using FingVibe.Core.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
@@ -13,21 +14,42 @@ public sealed partial class ToolsPage : UserControl
     internal NetworkActivityCoordinator? ActivityCoordinator
     {
         get => SpeedTestView.ActivityCoordinator;
-        set => SpeedTestView.ActivityCoordinator = value;
+        set
+        {
+            SpeedTestView.ActivityCoordinator = value;
+            TroubleshootingView.ActivityCoordinator = value;
+        }
     }
 
-    public bool HasActiveTest => SpeedTestView.HasActiveTest;
+    public bool HasActiveTest => SpeedTestView.HasActiveTest || TroubleshootingView.HasActiveTest;
+
+    public void SetNetworkContext(LanNetwork? network) => TroubleshootingView.SetNetworkContext(network);
 
     public async Task StopForNavigationAsync()
     {
         SpeedTestView.Visibility = Visibility.Collapsed;
         AboutView.Visibility = Visibility.Collapsed;
+        TroubleshootingView.Visibility = Visibility.Collapsed;
         ToolsLanding.Visibility = Visibility.Visible;
-        await SpeedTestView.StopForNavigationAsync();
+        await Task.WhenAll(SpeedTestView.StopForNavigationAsync(), TroubleshootingView.StopForNavigationAsync());
         SpeedTestView.ResetForNavigation();
     }
 
-    public Task StopForWindowCloseAsync() => SpeedTestView.StopForWindowCloseAsync();
+    public Task StopForWindowCloseAsync() => Task.WhenAll(
+        SpeedTestView.StopForWindowCloseAsync(), TroubleshootingView.StopForWindowCloseAsync());
+
+    private async void TroubleshootingCard_Click(object sender, RoutedEventArgs e)
+    {
+        ToolsLanding.Visibility = Visibility.Collapsed;
+        TroubleshootingView.Visibility = Visibility.Visible;
+        await TroubleshootingView.OpenAsync();
+    }
+
+    private async void TroubleshootingView_BackRequested(object? sender, EventArgs e)
+    {
+        await StopForNavigationAsync();
+        TroubleshootingCard.Focus(FocusState.Programmatic);
+    }
 
     private void SpeedTestCard_Click(object sender, RoutedEventArgs e)
     {

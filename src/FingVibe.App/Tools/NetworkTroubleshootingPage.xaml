@@ -1,0 +1,92 @@
+<UserControl
+    x:Class="FingVibe.App.NetworkTroubleshootingPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer x:Name="TroubleshootingScroll" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="24,0,24,24" Spacing="12">
+            <Button Content="Back to Tools" Click="BackButton_Click" AutomationProperties.Name="Back to Tools" />
+            <TextBlock Text="Network troubleshooting" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" MinWidth="200" MaxWidth="560" /><ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ComboBox x:Name="AdapterPicker" Header="LAN adapter context" HorizontalAlignment="Stretch"
+                          SelectionChanged="AdapterPicker_SelectionChanged" AutomationProperties.Name="Troubleshooting LAN adapter" />
+                <Button x:Name="RefreshButton" Grid.Column="1" Content="Refresh adapters" Click="RefreshButton_Click" VerticalAlignment="Bottom" />
+            </Grid>
+            <TextBlock x:Name="ContextText" TextWrapping="Wrap" />
+            <TextBlock Text="Windows chooses routes and DNS settings. Selecting an adapter does not bind probes to it; VPNs and multiple adapters can change the path."
+                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <TextBox x:Name="WanInput" Header="Optional router WAN IPv4 address" MaxWidth="440" HorizontalAlignment="Left"
+                     PlaceholderText="Leave blank if unknown" TextChanged="WanInput_TextChanged" AutomationProperties.Name="Router WAN IPv4 address" />
+            <TextBlock x:Name="SettingsStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+            <Expander Header="How to find the router WAN address" HorizontalAlignment="Stretch">
+                <TextBlock x:Name="WanHelp" TextWrapping="Wrap" />
+            </Expander>
+            <TextBlock Text="On Run, ICMP probes go to local checkpoints and both public IPs, a trace goes toward 1.1.1.1, and DNS queries for example.com use Windows DNS and UDP port 53 on Cloudflare and Google. Providers see your public source IP and query. No router credentials or new public-IP lookup are requested."
+                       TextWrapping="Wrap" FontSize="12" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button x:Name="RunButton" Content="Run checks" Click="RunButton_Click" AutomationProperties.Name="Run network troubleshooting" />
+                <Button x:Name="CancelRunButton" Content="Cancel" IsEnabled="False" Click="CancelButton_Click" AutomationProperties.Name="Cancel network troubleshooting" />
+                <ProgressRing x:Name="RunProgress" IsActive="False" Width="24" Height="24" />
+            </StackPanel>
+            <TextBlock x:Name="ProgressText" Text="Ready. No checks have run." TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+            <TextBlock Text="Illustrative network diagram - logical checkpoints, not discovered physical topology" TextWrapping="Wrap" />
+            <ScrollViewer x:Name="DiagramScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                <Grid MinWidth="920" Padding="8">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="190" /><ColumnDefinition Width="28" /><ColumnDefinition Width="190" />
+                        <ColumnDefinition Width="28" /><ColumnDefinition Width="160" /><ColumnDefinition Width="28" />
+                        <ColumnDefinition Width="80" /><ColumnDefinition Width="28" /><ColumnDefinition Width="190" />
+                    </Grid.ColumnDefinitions>
+                    <Grid Grid.ColumnSpan="3" Margin="0,0,0,8" Opacity="0.65">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="190" /><ColumnDefinition Width="28" /><ColumnDefinition Width="190" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="24" /></Grid.RowDefinitions>
+                        <StackPanel Grid.ColumnSpan="3">
+                            <TextBlock Text="LAN peers: computers / phone / printer" TextAlignment="Center" />
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="24" Margin="0,8">
+                                <FontIcon Glyph="&#xE7F4;" /><FontIcon Glyph="&#xE8EA;" /><FontIcon Glyph="&#xE749;" />
+                            </StackPanel>
+                            <TextBlock Text="Schematic connection to router" TextAlignment="Center" />
+                        </StackPanel>
+                        <Border Grid.Row="1" Grid.Column="2" Width="1" Background="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </Grid>
+                    <StackPanel x:Name="PcNode" Grid.Row="1" Grid.Column="0" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="--" VerticalAlignment="Center" />
+                    <StackPanel x:Name="RouterNode" Grid.Row="1" Grid.Column="2" />
+                    <TextBlock Grid.Row="1" Grid.Column="3" Text="--" VerticalAlignment="Center" />
+                    <StackPanel x:Name="HopNode" Grid.Row="1" Grid.Column="4" />
+                    <TextBlock Grid.Row="1" Grid.Column="5" Text="--" VerticalAlignment="Center" />
+                    <StackPanel Grid.Row="1" Grid.Column="6" VerticalAlignment="Center" Spacing="8">
+                        <FontIcon Glyph="&#xE774;" FontSize="40" /><TextBlock Text="Internet" TextAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Grid.Row="1" Grid.Column="7" Text="--" VerticalAlignment="Center" />
+                    <StackPanel Grid.Row="1" Grid.Column="8" Spacing="20">
+                        <StackPanel x:Name="CloudflareNode" /><StackPanel x:Name="GoogleNode" />
+                    </StackPanel>
+                </Grid>
+            </ScrollViewer>
+            <StackPanel Spacing="0" AutomationProperties.Name="Network status summary">
+                <Border x:Name="SummaryBanner" Padding="12" CornerRadius="4,4,0,0">
+                    <TextBlock x:Name="SummaryTitle" FontWeight="SemiBold" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                </Border>
+                <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" Padding="12" CornerRadius="0,0,4,4">
+                    <TextBlock x:Name="SummaryExplanation" TextWrapping="Wrap" />
+                </Border>
+            </StackPanel>
+            <TextBlock Text="Detailed checkpoint diagnostics" Style="{ThemeResource SubtitleTextBlockStyle}" />
+            <StackPanel x:Name="DiagnosticsPanel" Spacing="6" />
+            <Expander Header="Traceroute details toward 1.1.1.1" HorizontalAlignment="Stretch">
+                <StackPanel Spacing="8">
+                    <TextBlock x:Name="TraceStatus" Text="Not run." TextWrapping="Wrap" />
+                    <StackPanel x:Name="TracePanel" Spacing="6" />
+                </StackPanel>
+            </Expander>
+            <TextBlock Text="Loopback and self-ping do not verify the cable or Wi-Fi. Hop 2 is only an observed responder, not necessarily the router's configured upstream gateway. An unanswered intermediate hop is not evidence of failure if later hops respond. Optional WAN probes can fail while internet access works. Public egress IP is not router WAN IP: double NAT, carrier-grade NAT, or VPN/proxy routing can make them differ."
+                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
