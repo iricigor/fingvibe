@@ -10,14 +10,42 @@ describe state; they do not enforce authorization, locking, or merge protection.
 development-environment task groups. Its completed child
 [#80](https://github.com/iricigor/fingvibe/issues/80), delivered in
 [PR #84](https://github.com/iricigor/fingvibe/pull/84), established this contract.
-Its next child [task #93](https://github.com/iricigor/fingvibe/issues/93) proposes
-decomposing the remaining work into bounded implementation tasks.
+Its child [task #93](https://github.com/iricigor/fingvibe/issues/93) decomposes
+the remaining work into the following bounded task proposals.
 
-Epic parentage is recorded through GitHub sub-issues as well as the checklist;
-task #93 separately records #80 as its delivered prerequisite. The next task
-does not implement the development loop or approve generated work for pickup.
-Scope, size, priority, readiness, merge/release policy, and activation retain
-their human approval requirements.
+Every task below is a **direct native child of Epic #92**, as well as an entry
+in its checklist. Each separately depends on #93's verified planning delivery;
+the table lists additional prerequisites, not priority order. Task #93 itself
+records #80 as its delivered prerequisite.
+
+| Group | Task proposal | Additional prerequisites | Proposed size |
+| --- | --- | --- | --- |
+| 2: Pickup | [#96: Eligibility and WIP reconciliation](https://github.com/iricigor/fingvibe/issues/96) | #80 (delivered) | small |
+| 2: Pickup | [#97: Serialized claims and human pause](https://github.com/iricigor/fingvibe/issues/97) | #96 | small |
+| 2: Pickup | [#98: Supported Copilot invocation](https://github.com/iricigor/fingvibe/issues/98) | #97 | small |
+| 2: Pickup | [#99: Handoff, recovery, and WIP release](https://github.com/iricigor/fingvibe/issues/99) | #98 | small |
+| 3: Baseline | [#100: Approved product/WinUI rubric](https://github.com/iricigor/fingvibe/issues/100) | #80 (delivered) | small |
+| 4: UI review | [#101: Current-revision capture provenance](https://github.com/iricigor/fingvibe/issues/101) | #80 (delivered) | small |
+| 4: UI review | [#102: Substantive rendered-layout gate](https://github.com/iricigor/fingvibe/issues/102) | #100, #101 | small |
+| 5: PO review | [#103: Acceptance and scope gate](https://github.com/iricigor/fingvibe/issues/103) | #100 | small |
+| 6: Merge | [#104: Human merge/release-policy decision](https://github.com/iricigor/fingvibe/issues/104) | #80 (delivered), #100 | micro |
+| 6: Merge | [#105: Main protection and trusted checks](https://github.com/iricigor/fingvibe/issues/105) | #102, #103, #104 | small |
+| 6: Merge | [#106: Policy-gated auto-merge integration](https://github.com/iricigor/fingvibe/issues/106) | #99, #105 | small |
+| 7: Enable | [#107: One approved end-to-end trial](https://github.com/iricigor/fingvibe/issues/107) | #106 | small |
+| 7: Enable | [#108: Human activation approval/control](https://github.com/iricigor/fingvibe/issues/108) | #107 | micro |
+
+All priorities are proposed **normal**. The generated tasks have only
+`type:task`: size, priority, readiness, assignment, and execution remain
+unapproved. Planning delivery does not implement or activate the loop.
+Each task records acceptance/failure criteria, owning components, validation,
+and required human decisions/access.
+
+The release-on-`main` decision belongs to #104. If the approved policy requires
+release-workflow changes, merge enablement stays blocked until a separately
+bounded, human-approved child of #92 delivers them; this plan does not assume
+permission to change release behavior. Product standards, scope, estimates,
+readiness, repository access, trial work, and activation retain their human
+approval requirements.
 
 ## Intake and planning
 
