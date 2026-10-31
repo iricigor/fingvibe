@@ -23,16 +23,13 @@ public sealed partial class MainWindow : Window
         ToolsPage.ActivityCoordinator = _networkActivityCoordinator;
         this.AppWindow.Closing += MainWindow_Closing;
         InitializeAppearance();
-        InitializeClassificationPickers();
         InitializePeopleRoomsViews();
 
-        ResultsList.ItemsSource = _visibleResults;
+        DevicesPage.SetResults(_visibleResults);
         UpdateSortGlyphs();
         MainNavigation.SelectedItem = OverviewNavItem;
         InitializeOverview();
     }
-
-    public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
 
     private async void MainWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
     {
@@ -146,8 +143,5 @@ public sealed partial class MainWindow : Window
 
     private void BackToDevicesButton_Click(object sender, RoutedEventArgs e) =>
         ShowPage(DevicesPage);
-
-    private void ResetColumnsButton_Click(object sender, RoutedEventArgs e) =>
-        Columns.Reset();
 
 }

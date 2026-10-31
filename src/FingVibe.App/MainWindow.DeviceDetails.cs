@@ -11,13 +11,7 @@ public sealed partial class MainWindow
     private ScanResultRow? _selectedDeviceRow;
     private bool _isSavingDeviceNameOverride;
 
-    private void ResultsList_ItemClick(object sender, ItemClickEventArgs e)
-    {
-        if (e.ClickedItem is ScanResultRow row)
-        {
-            ShowDeviceDetails(row);
-        }
-    }
+    private void DeviceRequested(object? sender, ScanResultRow row) => ShowDeviceDetails(row);
 
     private void ShowDeviceDetails(ScanResultRow row)
     {
@@ -28,48 +22,38 @@ public sealed partial class MainWindow
 
         _selectedDeviceRow = row;
         var result = row.Result;
-        DeviceNameInput.Text = result.MacAddress is { } macAddress
+        DevicePage.NameInput = result.MacAddress is { } macAddress
             && _deviceNameOverrides.TryGetValue(macAddress.ToString(), out var customName)
                 ? customName
                 : row.NameText;
-        DeviceNameSaveButton.Content = "Save";
-        DeviceNameStatusText.Text = _deviceNameOverridesUnavailable
+        DevicePage.NameSaveLabel = "Save";
+        DevicePage.NameStatus = _deviceNameOverridesUnavailable
             ? "Saved custom names could not be loaded."
             : string.Empty;
         UpdateDeviceNameActions();
-        DeviceAddressText.Text = result.AddressText;
-        DeviceMacText.Text = result.MacAddressText;
-        DeviceVendorText.Text = result.VendorText;
-        DeviceVendorText.Opacity = row.VendorOpacity;
-        DeviceStatusText.Text = row.IsOnline ? "Online" : "Offline (no ICMP response)";
-        DeviceResponseText.Text = result.RoundtripText;
-        DeviceProbeText.Text = $"{result.ProbeDuration.TotalMilliseconds:N0} ms";
-        DevicePortsList.ItemsSource = result.OpenPortItems;
-        DeviceNoPortsText.Visibility = result.OpenPortItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        DevicePortScanStatusText.Text = string.Empty;
-        DeviceIdentificationEditor.IsExpanded = false;
+        DevicePage.ShowDevice(row);
         UpdateClassificationDetails();
         UpdateDeviceAssignmentPickers();
         MainNavigation.SelectedItem = DevicesNavItem;
         ShowPage(DevicePage);
-        DevicePage.ChangeView(null, 0, null, disableAnimation: true);
+        DevicePage.ResetScroll();
     }
 
     private void DeviceNameInput_TextChanged(object sender, TextChangedEventArgs e)
     {
-        DeviceNameSaveButton.Content = "Save";
+        DevicePage.NameSaveLabel = "Save";
         UpdateDeviceNameActions();
     }
 
     private async void DeviceNameSaveButton_Click(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(DeviceNameInput.Text))
+        if (string.IsNullOrWhiteSpace(DevicePage.NameInput))
         {
-            DeviceNameStatusText.Text = "A device name cannot be empty.";
+            DevicePage.NameStatus = "A device name cannot be empty.";
             return;
         }
 
-        await SaveDeviceNameOverrideAsync(DeviceNameInput.Text.Trim());
+        await SaveDeviceNameOverrideAsync(DevicePage.NameInput.Trim());
     }
 
     private async void DeviceNameResetButton_Click(object sender, RoutedEventArgs e) =>
@@ -80,8 +64,7 @@ public sealed partial class MainWindow
         var row = _selectedDeviceRow;
         if (row is null)
         {
-            DeviceNameSaveButton.IsEnabled = false;
-            DeviceNameResetButton.IsEnabled = false;
+            DevicePage.SetNameActions(false, false, null);
             return;
         }
 
@@ -90,18 +73,17 @@ public sealed partial class MainWindow
         var hasCustomName = macAddress is not null
             && _deviceNameOverrides.TryGetValue(macAddress.ToString(), out savedName);
         var currentName = savedName ?? row.Result.NameText;
-        var inputName = DeviceNameInput.Text.Trim();
+        var inputName = DevicePage.NameInput.Trim();
 
-        DeviceNameSaveButton.IsEnabled = macAddress is not null
+        var canSave = macAddress is not null
             && !_deviceNameOverridesUnavailable
             && !_isSavingDeviceNameOverride
             && !string.IsNullOrWhiteSpace(inputName)
             && !string.Equals(inputName, currentName, StringComparison.Ordinal);
-        DeviceNameResetButton.IsEnabled = hasCustomName
+        var canReset = hasCustomName
             && !_deviceNameOverridesUnavailable
             && !_isSavingDeviceNameOverride;
-        ToolTipService.SetToolTip(
-            DeviceNameResetButton,
+        DevicePage.SetNameActions(canSave, canReset,
             hasCustomName ? $"Revert to discovered name: {row.Result.NameText}" : null);
     }
 
@@ -135,7 +117,7 @@ public sealed partial class MainWindow
         {
             if (ReferenceEquals(_selectedDeviceRow, row))
             {
-                DeviceNameStatusText.Text = "The custom name could not be saved.";
+                DevicePage.NameStatus = "The custom name could not be saved.";
             }
 
             return;
@@ -151,9 +133,9 @@ public sealed partial class MainWindow
         RefreshVisibleResults();
         if (ReferenceEquals(_selectedDeviceRow, row))
         {
-            DeviceNameInput.Text = row.NameText;
-            DeviceNameSaveButton.Content = customName is null ? "✓ Reverted" : "✓ Saved";
-            DeviceNameStatusText.Text = string.Empty;
+            DevicePage.NameInput = row.NameText;
+            DevicePage.NameSaveLabel = customName is null ? "✓ Reverted" : "✓ Saved";
+            DevicePage.NameStatus = string.Empty;
             UpdateDeviceNameActions();
         }
     }
@@ -165,8 +147,8 @@ public sealed partial class MainWindow
             return;
         }
 
-        DevicePortScanButton.IsEnabled = false;
-        DevicePortScanStatusText.Text = $"Scanning {PortScannerService.AdditionalPorts.Count} additional TCP ports...";
+        DevicePage.PortScanEnabled = false;
+        DevicePage.PortScanStatus = $"Scanning {PortScannerService.AdditionalPorts.Count} additional TCP ports...";
 
         try
         {
@@ -180,14 +162,13 @@ public sealed partial class MainWindow
             RefreshVisibleResults();
             if (ReferenceEquals(_selectedDeviceRow, row))
             {
-                DevicePortsList.ItemsSource = openPorts;
-                DeviceNoPortsText.Visibility = openPorts.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
-                DevicePortScanStatusText.Text = $"{additionalPorts.Count} additional open port(s) found.";
+                DevicePage.ShowPorts(openPorts);
+                DevicePage.PortScanStatus = $"{additionalPorts.Count} additional open port(s) found.";
             }
         }
         finally
         {
-            DevicePortScanButton.IsEnabled = true;
+            DevicePage.PortScanEnabled = true;
         }
     }
 }

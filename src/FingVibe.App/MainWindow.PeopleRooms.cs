@@ -2,6 +2,7 @@ using System.Globalization;
 using FingVibe.Core.Models;
 using FingVibe.Core.Networking;
 using FingVibe.Core.Storage;
+using FingVibe.App.Views;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
@@ -19,9 +20,6 @@ public sealed partial class MainWindow
     private ManagedRoom? _selectedRoom;
     private bool _peopleRoomsReady;
     private bool _peopleRoomsUnavailable;
-    private bool _updatingDeviceAssignmentPickers;
-
-    private sealed record FilterChoice(string Label, Guid? Id = null, bool All = false, bool Unassigned = false);
 
     private async Task RestorePeopleRoomsAsync()
     {
@@ -84,12 +82,12 @@ public sealed partial class MainWindow
 
     private void UpdatePeopleRoomsPages()
     {
-        if (PeopleList is null)
+        if (PeoplePage is null || RoomsPage is null || PersonDetailPage is null || RoomDetailPage is null)
         {
             return;
         }
 
-        var peopleSearch = PeopleSearchBox.Text.Trim();
+        var peopleSearch = PeoplePage.SearchText.Trim();
         var peopleRows = _peopleRooms.People
             .Where(person => MatchesSearch(person.ShortName, person.Name, peopleSearch))
             .Select(person =>
@@ -103,16 +101,12 @@ public sealed partial class MainWindow
                     LastScanResponseCount(respondedCount));
             })
             .ToArray();
-        PeopleList.ItemsSource = peopleRows;
-        PeopleTableBorder.Visibility = peopleRows.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-        PeopleEmptyState.Visibility = peopleRows.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
-        PeopleEmptyText.Text = _peopleRooms.People.Count == 0 ? "No people yet" : "No people match your search.";
-        AddPersonButton.IsEnabled = _peopleRoomsReady && !_peopleRoomsUnavailable;
-        EditPersonDetailButton.IsEnabled = _peopleRoomsReady && !_peopleRoomsUnavailable;
-        DeletePersonDetailButton.IsEnabled = _peopleRoomsReady && !_peopleRoomsUnavailable;
-        AssignPersonDevicesButton.IsEnabled = _peopleRoomsReady && !_peopleRoomsUnavailable;
+        var canEdit = _peopleRoomsReady && !_peopleRoomsUnavailable;
+        PeoplePage.ShowRows(peopleRows,
+            _peopleRooms.People.Count == 0 ? "No people yet" : "No people match your search.", canEdit);
+        PersonDetailPage.SetActionsEnabled(canEdit);
 
-        var roomsSearch = RoomsSearchBox.Text.Trim();
+        var roomsSearch = RoomsPage.SearchText.Trim();
         var roomRows = _peopleRooms.Rooms
             .Where(room => MatchesSearch(room.ShortName, room.Name, roomsSearch))
             .Select(room =>
@@ -126,14 +120,9 @@ public sealed partial class MainWindow
                     LastScanResponseCount(respondedCount));
             })
             .ToArray();
-        RoomsList.ItemsSource = roomRows;
-        RoomsTableBorder.Visibility = roomRows.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
-        RoomsEmptyState.Visibility = roomRows.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
-        RoomsEmptyText.Text = _peopleRooms.Rooms.Count == 0 ? "No rooms yet" : "No rooms match your search.";
-        AddRoomButton.IsEnabled = _peopleRoomsReady && !_peopleRoomsUnavailable;
-        EditRoomDetailButton.IsEnabled = _peopleRoomsReady && !_peopleRoomsUnavailable;
-        DeleteRoomDetailButton.IsEnabled = _peopleRoomsReady && !_peopleRoomsUnavailable;
-        AssignRoomDevicesButton.IsEnabled = _peopleRoomsReady && !_peopleRoomsUnavailable;
+        RoomsPage.ShowRows(roomRows,
+            _peopleRooms.Rooms.Count == 0 ? "No rooms yet" : "No rooms match your search.", canEdit);
+        RoomDetailPage.SetActionsEnabled(canEdit);
 
         UpdatePersonDetails();
         UpdateRoomDetails();
@@ -167,15 +156,11 @@ public sealed partial class MainWindow
 
         var assignedRows = GetAssignedDeviceRows(person.Id, null);
         var assignedCount = _peopleRooms.Assignments.Count(pair => pair.Value.PersonId == person.Id);
-        PersonDetailShortName.Text = person.ShortName;
-        PersonDetailName.Text = person.Name;
-        PersonDetailNotes.Text = person.Notes ?? string.Empty;
-        PersonDeviceCountText.Text = $"{assignedCount} {(assignedCount == 1 ? "device" : "devices")} assigned";
-        PersonRespondedCountText.Text = _allResults.Count == 0
+        var responses = _allResults.Count == 0
             ? "No scan yet."
             : $"{assignedRows.Count(row => row.ScanResult?.IsOnline == true)} devices responded in the last scan.";
-        PersonAssignedDevicesList.ItemsSource = assignedRows;
-        PersonAssignedDevicesEmptyText.Visibility = assignedCount == 0 ? Visibility.Visible : Visibility.Collapsed;
+        PersonDetailPage.ShowPerson(person, assignedRows,
+            $"{assignedCount} {(assignedCount == 1 ? "device" : "devices")} assigned", responses, assignedCount == 0);
     }
 
     private void UpdateRoomDetails()
@@ -187,75 +172,26 @@ public sealed partial class MainWindow
 
         var assignedRows = GetAssignedDeviceRows(null, room.Id);
         var assignedCount = _peopleRooms.Assignments.Count(pair => pair.Value.RoomId == room.Id);
-        RoomDetailShortName.Text = room.ShortName;
-        RoomDetailName.Text = room.Name;
-        RoomDetailNotes.Text = room.Notes ?? string.Empty;
-        RoomDeviceCountText.Text = $"{assignedCount} {(assignedCount == 1 ? "device" : "devices")} assigned";
-        RoomRespondedCountText.Text = _allResults.Count == 0
+        var responses = _allResults.Count == 0
             ? "No scan yet."
             : $"{assignedRows.Count(row => row.ScanResult?.IsOnline == true)} devices responded in the last scan.";
-        RoomAssignedDevicesList.ItemsSource = assignedRows;
-        RoomAssignedDevicesEmptyText.Visibility = assignedCount == 0 ? Visibility.Visible : Visibility.Collapsed;
+        RoomDetailPage.ShowRoom(room, assignedRows,
+            $"{assignedCount} {(assignedCount == 1 ? "device" : "devices")} assigned", responses, assignedCount == 0);
     }
 
     private void UpdatePeopleRoomFilters()
     {
-        if (PersonFilter is null || RoomFilter is null)
+        if (DevicesPage is null)
         {
             return;
         }
 
-        var selectedPerson = SelectedFilterChoice(PersonFilter);
-        var selectedRoom = SelectedFilterChoice(RoomFilter);
-        PersonFilter.Items.Clear();
-        PersonFilter.Items.Add(CreateFilterItem(new FilterChoice("All people", All: true)));
-        PersonFilter.Items.Add(CreateFilterItem(new FilterChoice("Unassigned", Unassigned: true)));
-        foreach (var person in _peopleRooms.People.OrderBy(item => item.ShortName, StringComparer.OrdinalIgnoreCase))
-        {
-            PersonFilter.Items.Add(CreateFilterItem(new FilterChoice($"{person.ShortName} · {person.Name}", person.Id)));
-        }
-
-        RoomFilter.Items.Clear();
-        RoomFilter.Items.Add(CreateFilterItem(new FilterChoice("All rooms", All: true)));
-        RoomFilter.Items.Add(CreateFilterItem(new FilterChoice("Unassigned", Unassigned: true)));
-        foreach (var room in _peopleRooms.Rooms.OrderBy(item => item.ShortName, StringComparer.OrdinalIgnoreCase))
-        {
-            RoomFilter.Items.Add(CreateFilterItem(new FilterChoice($"{room.ShortName} · {room.Name}", room.Id)));
-        }
-
-        SelectFilterChoice(PersonFilter, selectedPerson);
-        SelectFilterChoice(RoomFilter, selectedRoom);
+        DevicesPage.SetPeopleRoomFilters(
+            _peopleRooms.People.OrderBy(item => item.ShortName, StringComparer.OrdinalIgnoreCase)
+                .Select(person => (person.Id, $"{person.ShortName} · {person.Name}")),
+            _peopleRooms.Rooms.OrderBy(item => item.ShortName, StringComparer.OrdinalIgnoreCase)
+                .Select(room => (room.Id, $"{room.ShortName} · {room.Name}")));
     }
-
-    private static ComboBoxItem CreateFilterItem(FilterChoice choice) =>
-        new() { Content = choice.Label, Tag = choice };
-
-    private static void SelectFilterChoice(ComboBox picker, FilterChoice? selected)
-    {
-        var item = picker.Items.OfType<ComboBoxItem>().FirstOrDefault(candidate =>
-        {
-            if (candidate.Tag is not FilterChoice choice)
-            {
-                return false;
-            }
-
-            if (selected?.Unassigned == true)
-            {
-                return choice.Unassigned;
-            }
-
-            if (selected?.Id is { } id)
-            {
-                return choice.Id == id;
-            }
-
-            return choice.All;
-        });
-        picker.SelectedItem = item ?? picker.Items.OfType<ComboBoxItem>().First();
-    }
-
-    private void PeopleRoomFilter_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
-        RefreshVisibleResults();
 
     private void PeopleSearchBox_TextChanged(object sender, TextChangedEventArgs e) =>
         UpdatePeopleRoomsPages();
@@ -269,68 +205,50 @@ public sealed partial class MainWindow
     private void AddRoomButton_Click(object sender, RoutedEventArgs e) =>
         _ = ShowRoomEditorAsync(null);
 
-    private void PeopleList_ItemClick(object sender, ItemClickEventArgs e)
+    private void PersonRequested(object? sender, ManagedPerson person)
     {
-        if (e.ClickedItem is not ManagedPersonListRow row)
-        {
-            return;
-        }
-
-        _selectedPerson = row.Person;
+        _selectedPerson = person;
         UpdatePersonDetails();
         ShowPage(PersonDetailPage);
     }
 
-    private void RoomsList_ItemClick(object sender, ItemClickEventArgs e)
+    private void RoomRequested(object? sender, ManagedRoom room)
     {
-        if (e.ClickedItem is not ManagedRoomListRow row)
-        {
-            return;
-        }
-
-        _selectedRoom = row.Room;
+        _selectedRoom = room;
         UpdateRoomDetails();
         ShowPage(RoomDetailPage);
     }
 
-    private void PersonActionsButton_Click(object sender, RoutedEventArgs e)
+    private async void PersonEditRequested(object? sender, Guid id)
     {
-        if (sender is not Button { Tag: Guid id } button
-            || _peopleRooms.People.FirstOrDefault(person => person.Id == id) is not { } person)
+        if (_peopleRooms.People.FirstOrDefault(person => person.Id == id) is { } person)
         {
-            return;
+            await ShowPersonEditorAsync(person);
         }
-
-        var menu = new MenuFlyout();
-        var edit = new MenuFlyoutItem { Text = "Edit" };
-        edit.IsEnabled = _peopleRoomsReady && !_peopleRoomsUnavailable;
-        edit.Click += (_, _) => _ = ShowPersonEditorAsync(person);
-        var delete = new MenuFlyoutItem { Text = "Delete" };
-        delete.IsEnabled = _peopleRoomsReady && !_peopleRoomsUnavailable;
-        delete.Click += async (_, _) => await DeletePersonAsync(person);
-        menu.Items.Add(edit);
-        menu.Items.Add(delete);
-        menu.ShowAt(button);
     }
 
-    private void RoomActionsButton_Click(object sender, RoutedEventArgs e)
+    private async void PersonDeleteRequested(object? sender, Guid id)
     {
-        if (sender is not Button { Tag: Guid id } button
-            || _peopleRooms.Rooms.FirstOrDefault(room => room.Id == id) is not { } room)
+        if (_peopleRooms.People.FirstOrDefault(person => person.Id == id) is { } person)
         {
-            return;
+            await DeletePersonAsync(person);
         }
+    }
 
-        var menu = new MenuFlyout();
-        var edit = new MenuFlyoutItem { Text = "Edit" };
-        edit.IsEnabled = _peopleRoomsReady && !_peopleRoomsUnavailable;
-        edit.Click += (_, _) => _ = ShowRoomEditorAsync(room);
-        var delete = new MenuFlyoutItem { Text = "Delete" };
-        delete.IsEnabled = _peopleRoomsReady && !_peopleRoomsUnavailable;
-        delete.Click += async (_, _) => await DeleteRoomAsync(room);
-        menu.Items.Add(edit);
-        menu.Items.Add(delete);
-        menu.ShowAt(button);
+    private async void RoomEditRequested(object? sender, Guid id)
+    {
+        if (_peopleRooms.Rooms.FirstOrDefault(room => room.Id == id) is { } room)
+        {
+            await ShowRoomEditorAsync(room);
+        }
+    }
+
+    private async void RoomDeleteRequested(object? sender, Guid id)
+    {
+        if (_peopleRooms.Rooms.FirstOrDefault(room => room.Id == id) is { } room)
+        {
+            await DeleteRoomAsync(room);
+        }
     }
 
     private async void EditPersonButton_Click(object sender, RoutedEventArgs e)
@@ -647,29 +565,29 @@ public sealed partial class MainWindow
 
     private void SetPeopleRoomsStatus(string message)
     {
-        if (PeopleStatusText is not null)
+        if (PeoplePage is not null)
         {
-            PeopleStatusText.Text = message;
+            PeoplePage.Status = message;
         }
 
-        if (RoomsStatusText is not null)
+        if (RoomsPage is not null)
         {
-            RoomsStatusText.Text = message;
+            RoomsPage.Status = message;
         }
 
-        if (DeviceAssignmentStatusText is not null)
+        if (DevicePage is not null)
         {
-            DeviceAssignmentStatusText.Text = message;
+            DevicePage.AssignmentStatus = message;
         }
 
-        if (PersonDetailStatusText is not null)
+        if (PersonDetailPage is not null)
         {
-            PersonDetailStatusText.Text = message;
+            PersonDetailPage.Status = message;
         }
 
-        if (RoomDetailStatusText is not null)
+        if (RoomDetailPage is not null)
         {
-            RoomDetailStatusText.Text = message;
+            RoomDetailPage.Status = message;
         }
     }
 
@@ -802,18 +720,17 @@ public sealed partial class MainWindow
     {
         if (personCategory)
         {
-            PersonDetailStatusText.Text = message;
+            PersonDetailPage.Status = message;
         }
         else
         {
-            RoomDetailStatusText.Text = message;
+            RoomDetailPage.Status = message;
         }
     }
 
-    private async void UnassignPersonDeviceButton_Click(object sender, RoutedEventArgs e)
+    private async void PersonUnassignRequested(object? sender, string macAddress)
     {
-        if (!_peopleRoomsReady || _peopleRoomsUnavailable || _selectedPerson is not { } person
-            || sender is not Button { Tag: string macAddress })
+        if (!_peopleRoomsReady || _peopleRoomsUnavailable || _selectedPerson is null)
         {
             return;
         }
@@ -822,19 +739,18 @@ public sealed partial class MainWindow
         {
             if (await SavePeopleRoomsAsync(data => data.AssignPerson(macAddress, null)))
             {
-                PersonDetailStatusText.Text = "Device unassigned.";
+                PersonDetailPage.Status = "Device unassigned.";
             }
         }
         catch (FormatException)
         {
-            PersonDetailStatusText.Text = "The device MAC address is invalid.";
+            PersonDetailPage.Status = "The device MAC address is invalid.";
         }
     }
 
-    private async void UnassignRoomDeviceButton_Click(object sender, RoutedEventArgs e)
+    private async void RoomUnassignRequested(object? sender, string macAddress)
     {
-        if (!_peopleRoomsReady || _peopleRoomsUnavailable || _selectedRoom is not { } room
-            || sender is not Button { Tag: string macAddress })
+        if (!_peopleRoomsReady || _peopleRoomsUnavailable || _selectedRoom is null)
         {
             return;
         }
@@ -843,28 +759,12 @@ public sealed partial class MainWindow
         {
             if (await SavePeopleRoomsAsync(data => data.AssignRoom(macAddress, null)))
             {
-                RoomDetailStatusText.Text = "Device unassigned.";
+                RoomDetailPage.Status = "Device unassigned.";
             }
         }
         catch (FormatException)
         {
-            RoomDetailStatusText.Text = "The device MAC address is invalid.";
-        }
-    }
-
-    private void AssignedPersonDevice_ItemClick(object sender, ItemClickEventArgs e)
-    {
-        if (e.ClickedItem is AssignedDeviceListRow { ScanResult: { } row })
-        {
-            ShowDeviceDetails(row);
-        }
-    }
-
-    private void AssignedRoomDevice_ItemClick(object sender, ItemClickEventArgs e)
-    {
-        if (e.ClickedItem is AssignedDeviceListRow { ScanResult: { } row })
-        {
-            ShowDeviceDetails(row);
+            RoomDetailPage.Status = "The device MAC address is invalid.";
         }
     }
 
@@ -874,25 +774,19 @@ public sealed partial class MainWindow
 
     private void UpdateDeviceAssignmentPickers()
     {
-        if (DevicePersonPicker is null || _selectedDeviceRow is null)
+        if (DevicePage is null || _selectedDeviceRow is null)
         {
             return;
         }
 
-        _updatingDeviceAssignmentPickers = true;
-        PopulateAssignmentPicker(DevicePersonPicker, "Add person…", _peopleRooms.People
-            .Select(person => (person.Id, $"{person.ShortName} · {person.Name}")));
-        PopulateAssignmentPicker(DeviceRoomPicker, "Add room…", _peopleRooms.Rooms
-            .Select(room => (room.Id, $"{room.ShortName} · {room.Name}")));
-
         var macAddress = _selectedDeviceRow.Result.MacAddress;
         var canAssign = macAddress?.GetAddressBytes().Length == 6
             && _peopleRoomsReady && !_peopleRoomsUnavailable;
-        DevicePersonPicker.IsEnabled = canAssign;
-        DeviceRoomPicker.IsEnabled = canAssign;
-        SelectAssignment(DevicePersonPicker, _selectedDeviceRow.PersonId);
-        SelectAssignment(DeviceRoomPicker, _selectedDeviceRow.RoomId);
-        DeviceAssignmentStatusText.Text = !_peopleRoomsReady
+        DevicePage.SetAssignments(
+            _peopleRooms.People.Select(person => (person.Id, $"{person.ShortName} · {person.Name}")),
+            _peopleRooms.Rooms.Select(room => (room.Id, $"{room.ShortName} · {room.Name}")),
+            _selectedDeviceRow.PersonId, _selectedDeviceRow.RoomId, canAssign);
+        DevicePage.AssignmentStatus = !_peopleRoomsReady
             ? "People and rooms are still loading; assignments are unavailable."
             : _peopleRoomsUnavailable
             ? "Saved people and rooms could not be loaded; assignments are disabled."
@@ -903,56 +797,11 @@ public sealed partial class MainWindow
                 : MacAddressResolver.IsPrivateOrRandomized(macAddress)
                     ? "This private/randomized MAC may change; its assignments will not transfer to another MAC."
                     : "Assignments are saved by MAC address and do not depend on scan snapshots.";
-        _updatingDeviceAssignmentPickers = false;
     }
 
-    private static void PopulateAssignmentPicker(
-        ComboBox picker,
-        string addLabel,
-        IEnumerable<(Guid Id, string Label)> values)
+    private async void DevicePersonAssignmentRequested(object? sender, DeviceAssignmentChoice choice)
     {
-        var options = values.OrderBy(item => item.Label, StringComparer.OrdinalIgnoreCase).ToArray();
-        var existing = picker.Items.OfType<ComboBoxItem>().ToArray();
-        if (existing.Length == options.Length + 2
-            && existing[0].Tag is "unassigned"
-            && existing[^1].Tag is "add"
-            && Equals(existing[^1].Content, addLabel)
-            && options.Select((option, index) =>
-                Equals(existing[index + 1].Tag, option.Id)
-                && Equals(existing[index + 1].Content, option.Label)).All(matches => matches))
-        {
-            return;
-        }
-
-        picker.Items.Clear();
-        picker.Items.Add(new ComboBoxItem { Content = "Unassigned", Tag = "unassigned" });
-        foreach (var (id, label) in options)
-        {
-            picker.Items.Add(new ComboBoxItem { Content = label, Tag = id });
-        }
-
-        picker.Items.Add(new ComboBoxItem { Content = addLabel, Tag = "add" });
-    }
-
-    private static void SelectAssignment(ComboBox picker, Guid? id)
-    {
-        picker.SelectedItem = picker.Items.OfType<ComboBoxItem>()
-            .FirstOrDefault(item => id is null ? Equals(item.Tag, "unassigned") : Equals(item.Tag, id));
-    }
-
-    private async void DevicePersonPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_updatingDeviceAssignmentPickers || sender is not ComboBox picker
-            || picker.SelectedItem is not ComboBoxItem { Tag: var tag })
-        {
-            return;
-        }
-
-        // Let ComboBox finish committing its selection before refreshing it or opening a dialog.
-        await Task.Yield();
-        picker.IsDropDownOpen = false;
-
-        if (tag is "add")
+        if (choice.AddNew)
         {
             UpdateDeviceAssignmentPickers();
             var person = await ShowPersonEditorAsync(null);
@@ -964,21 +813,12 @@ public sealed partial class MainWindow
             return;
         }
 
-        await SaveDevicePersonAssignmentAsync(tag is Guid id ? id : null);
+        await SaveDevicePersonAssignmentAsync(choice.Id);
     }
 
-    private async void DeviceRoomPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void DeviceRoomAssignmentRequested(object? sender, DeviceAssignmentChoice choice)
     {
-        if (_updatingDeviceAssignmentPickers || sender is not ComboBox picker
-            || picker.SelectedItem is not ComboBoxItem { Tag: var tag })
-        {
-            return;
-        }
-
-        await Task.Yield();
-        picker.IsDropDownOpen = false;
-
-        if (tag is "add")
+        if (choice.AddNew)
         {
             UpdateDeviceAssignmentPickers();
             var room = await ShowRoomEditorAsync(null);
@@ -990,7 +830,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        await SaveDeviceRoomAssignmentAsync(tag is Guid id ? id : null);
+        await SaveDeviceRoomAssignmentAsync(choice.Id);
     }
 
     private async Task SaveDevicePersonAssignmentAsync(Guid? personId)
@@ -1005,12 +845,12 @@ public sealed partial class MainWindow
         {
             if (await SavePeopleRoomsAsync(data => data.AssignPerson(mac.ToString(), personId)))
             {
-                DeviceAssignmentStatusText.Text = "Person assignment saved.";
+                DevicePage.AssignmentStatus = "Person assignment saved.";
             }
         }
         catch (Exception exception) when (exception is ArgumentException or FormatException)
         {
-            DeviceAssignmentStatusText.Text = "The person assignment could not be saved.";
+            DevicePage.AssignmentStatus = "The person assignment could not be saved.";
         }
     }
 
@@ -1026,12 +866,12 @@ public sealed partial class MainWindow
         {
             if (await SavePeopleRoomsAsync(data => data.AssignRoom(mac.ToString(), roomId)))
             {
-                DeviceAssignmentStatusText.Text = "Room assignment saved.";
+                DevicePage.AssignmentStatus = "Room assignment saved.";
             }
         }
         catch (Exception exception) when (exception is ArgumentException or FormatException)
         {
-            DeviceAssignmentStatusText.Text = "The room assignment could not be saved.";
+            DevicePage.AssignmentStatus = "The room assignment could not be saved.";
         }
     }
 }

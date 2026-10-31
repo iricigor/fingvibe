@@ -16,33 +16,6 @@ public sealed partial class MainWindow
     private bool _classificationOverridesUnavailable;
     private bool _isSavingClassification;
 
-    private void InitializeClassificationPickers()
-    {
-        DeviceOsPicker.Items.Add(new ComboBoxItem { Content = "Automatic" });
-        DeviceTypePicker.Items.Add(new ComboBoxItem { Content = "Automatic" });
-        DeviceIconPicker.Items.Add(new ComboBoxItem { Content = "Follow device type" });
-        foreach (var os in Enum.GetValues<DeviceOperatingSystem>())
-        {
-            DeviceOsPicker.Items.Add(new ComboBoxItem { Content = os.Label(), Tag = os });
-        }
-
-        foreach (var type in Enum.GetValues<DeviceType>())
-        {
-            DeviceTypePicker.Items.Add(new ComboBoxItem { Content = type.Label(), Tag = type });
-            var content = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
-            content.Children.Add(new FontIcon
-            {
-                Glyph = ScanResultRow.GetIconGlyph(type),
-                FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe Fluent Icons"),
-                FontSize = 16
-            });
-            content.Children.Add(new TextBlock { Text = type.Label() });
-            var item = new ComboBoxItem { Content = content, Tag = type };
-            Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(item, type.Label());
-            DeviceIconPicker.Items.Add(item);
-        }
-    }
-
     private async Task RestoreClassificationOverridesAsync()
     {
         try
@@ -64,21 +37,8 @@ public sealed partial class MainWindow
             return;
         }
 
-        DeviceTypeIcon.Glyph = row.IconGlyph;
-        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(DeviceTypeIcon, row.IconSource);
-        ToolTipService.SetToolTip(DeviceTypeIcon, row.IconSource);
-        DeviceOsText.Text = row.OperatingSystemText;
-        DeviceTypeValueText.Text = row.DeviceTypeText;
-        DeviceOsText.Opacity = row.OperatingSystemOpacity;
-        DeviceTypeValueText.Opacity = row.DeviceTypeOpacity;
-        ToolTipService.SetToolTip(DeviceOsText, row.OperatingSystemSource);
-        ToolTipService.SetToolTip(DeviceTypeValueText, row.DeviceTypeSource);
-        DeviceOsEvidenceText.Text = row.OperatingSystemSource;
-        DeviceTypeEvidenceText.Text = row.DeviceTypeSource;
-        SelectChoice(DeviceOsPicker, row.ClassificationOverride?.OperatingSystem);
-        SelectChoice(DeviceTypePicker, row.ClassificationOverride?.Type);
-        SelectChoice(DeviceIconPicker, row.ClassificationOverride?.Icon);
-        DeviceClassificationStatusText.Text = _classificationOverridesUnavailable
+        DevicePage.ShowClassification(row);
+        DevicePage.ClassificationStatus = _classificationOverridesUnavailable
             ? "Saved classifications could not be loaded. Changes are disabled to protect the saved file."
             : row.Result.MacAddress is null
                 ? "A MAC address is required to save corrections; IP addresses can change."
@@ -88,17 +48,6 @@ public sealed partial class MainWindow
         UpdateClassificationActions();
     }
 
-    private static void SelectChoice<T>(ComboBox picker, T? value) where T : struct
-    {
-        picker.SelectedItem = picker.Items.OfType<ComboBoxItem>()
-            .First(item => value is null ? item.Tag is null : item.Tag is T tag && tag.Equals(value.Value));
-    }
-
-    private DeviceClassificationOverride ReadClassificationChoices() => new(
-        (DeviceOsPicker.SelectedItem as ComboBoxItem)?.Tag as DeviceOperatingSystem?,
-        (DeviceTypePicker.SelectedItem as ComboBoxItem)?.Tag as DeviceType?,
-        (DeviceIconPicker.SelectedItem as ComboBoxItem)?.Tag as DeviceType?);
-
     private void ClassificationPicker_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
         UpdateClassificationActions();
 
@@ -106,17 +55,13 @@ public sealed partial class MainWindow
     {
         var enabled = _selectedDeviceRow?.Result.MacAddress is not null
             && !_classificationOverridesUnavailable && !_isSavingClassification;
-        DeviceOsPicker.IsEnabled = enabled;
-        DeviceTypePicker.IsEnabled = enabled;
-        DeviceIconPicker.IsEnabled = enabled;
-        var choices = ReadClassificationChoices();
+        var choices = DevicePage.ClassificationChoices;
         var current = _selectedDeviceRow?.ClassificationOverride ?? new DeviceClassificationOverride();
-        DeviceClassificationSaveButton.IsEnabled = enabled && choices != current;
-        DeviceClassificationResetButton.IsEnabled = enabled && !current.IsEmpty;
+        DevicePage.SetClassificationActions(enabled, enabled && choices != current, enabled && !current.IsEmpty);
     }
 
     private async void DeviceClassificationSaveButton_Click(object sender, RoutedEventArgs e) =>
-        await SaveClassificationOverrideAsync(ReadClassificationChoices());
+        await SaveClassificationOverrideAsync(DevicePage.ClassificationChoices);
 
     private async void DeviceClassificationResetButton_Click(object sender, RoutedEventArgs e) =>
         await SaveClassificationOverrideAsync(new DeviceClassificationOverride());
@@ -157,13 +102,13 @@ public sealed partial class MainWindow
             if (_selectedDeviceRow?.Result.MacAddress?.ToString() == key)
             {
                 UpdateClassificationDetails();
-                DeviceClassificationStatusText.Text = value.IsEmpty
+                DevicePage.ClassificationStatus = value.IsEmpty
                     ? "Automatic detection restored." : "Classification and icon choices saved.";
             }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or FormatException)
         {
-            DeviceClassificationStatusText.Text = $"Corrections for {row.NameText} could not be saved.";
+            DevicePage.ClassificationStatus = $"Corrections for {row.NameText} could not be saved.";
         }
         finally
         {
