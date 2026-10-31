@@ -4,6 +4,21 @@ This contract prepares issue intake and future scheduled pickup. It does not
 implement dispatch, agent invocation, review automation, or merging. Labels
 describe state; they do not enforce authorization, locking, or merge protection.
 
+## Development-environment planning
+
+[Epic #92](https://github.com/iricigor/fingvibe/issues/92) organizes the seven
+development-environment task groups. Its completed child
+[#80](https://github.com/iricigor/fingvibe/issues/80), delivered in
+[PR #84](https://github.com/iricigor/fingvibe/pull/84), established this contract.
+Its next child [task #93](https://github.com/iricigor/fingvibe/issues/93) proposes
+decomposing the remaining work into bounded implementation tasks.
+
+Epic parentage is recorded through GitHub sub-issues as well as the checklist;
+task #93 separately records #80 as its delivered prerequisite. The next task
+does not implement the development loop or approve generated work for pickup.
+Scope, size, priority, readiness, merge/release policy, and activation retain
+their human approval requirements.
+
 ## Intake and planning
 
 Use the four templates in GitHub's new-issue chooser:
