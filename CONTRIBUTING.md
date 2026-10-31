@@ -23,6 +23,11 @@ Extracted pages have separate WinUI XAML namescopes and compiled-binding roots. 
 
 ## Architecture discussions with Architect
 
+For issue intake, Epic/task templates, and the label/ownership contract for
+future scheduled work, see [Development backlog](docs/development-backlog.md).
+Intake is not execution approval. Publishing a PR ends `active` implementation
+but retains claimed work in `status:review` until verified delivery or recovery.
+
 The repository's `.github/agents/architect.agent.md` defines **Architect**, a discussion-first partner for architecture decisions and implementation tradeoffs. It is manually selected rather than automatically delegated based on task similarity.
 
 ### Selecting Architect
@@ -59,7 +64,7 @@ After selecting Architect:
 >
 > **User, only if another confirmation is needed:** Proceed despite the conflicts you identified.
 >
-> **Architect:** Adds the repository's existing `active` label (Active) to the issue and verifies it. Immediately pushes the session branch and opens a draft PR with `WIP` in the title and `Closes #<issue-number>` in the description, then verifies the draft and closing issue reference before implementation edits. Implements the agreed scope, validates it, commits and pushes the final changes, updates the same PR, removes `WIP`, and marks it ready for review. Once the final remote branch, ready PR, title, and closing issue reference are verified, removes `active` from the issue and verifies its absence without waiting for merge or issue closure. It does not merge the PR.
+> **Architect:** Adds the repository's existing `active` label (Active) to the issue and verifies it. Immediately pushes the session branch and opens a draft PR with `WIP` in the title and `Closes #<issue-number>` in the description, then verifies the draft and closing issue reference before implementation edits. Implements the agreed scope, validates it, commits and pushes the final changes, updates the same PR, removes `WIP`, and marks it ready for review. Once the final remote branch, ready PR, title, and closing issue reference are verified, adds `status:review`, removes `active`, and verifies both changes without waiting for merge or issue closure. Review retains the work-in-progress slot for future scheduled pickup. It does not merge the PR.
 >
 > **Architect:** Shares the PR link and discusses **Unclear or underspecified requirements** and **Suggested additions** here in the interactive session. Asks one focused question at a time and waits for the user's answers rather than ending with a PR comment.
 >

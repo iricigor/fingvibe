@@ -75,7 +75,7 @@ Finish authorized implementation by committing and pushing the final changes to 
 
 Do not stop at local edits, an unpushed commit, or a WIP draft PR. Verify that the remote branch and PR reflect the final implementation, the PR is no longer a draft, its title no longer contains `WIP`, and its closing issue reference is correct. Do not merge the PR automatically. If permissions, authentication, validation failures, or another blocker prevent delivery, keep or restore draft status and `WIP` in the title where possible, and explain the blocker and remaining work rather than claiming completion.
 
-Once the implementation PR has been successfully published or updated and verified on GitHub, remove `active` from the agreed issue, preserving all other labels, and verify that it is absent. Do not wait for PR merge or issue closure, and do not remove it if PR publication or verification is blocked. Report any removal or verification failure explicitly as remaining work rather than claiming the label was removed.
+Once the implementation PR has been successfully published or updated and verified on GitHub, add `status:review` and remove `active` from the agreed issue, preserving all other labels, and verify both changes. Follow the ownership/recovery contract in `docs/development-backlog.md`: PR publication does not release claimed work for scheduled pickup. Do not wait for PR merge or issue closure, and do not remove `active` if PR publication or verification is blocked. Report any label or verification failure explicitly as remaining work rather than claiming the transition succeeded.
 
 ### 5. Discuss the retrospective after publication
 
