@@ -18,6 +18,11 @@ Keep page-specific layout and state with the page when adding or substantially c
 
 ## Architecture discussions with Architect
 
+For issue intake, Epic/task templates, and the label/ownership contract for
+future scheduled work, see [Development backlog](docs/development-backlog.md).
+Intake is not execution approval. Publishing a PR ends `active` implementation
+but retains claimed work in `status:review` until verified delivery or recovery.
+
 The repository's `.github/agents/architect.agent.md` defines **Architect**, a discussion-first partner for architecture decisions and implementation tradeoffs. It is manually selected rather than automatically delegated based on task similarity.
 
 ### Selecting Architect
@@ -54,7 +59,7 @@ After selecting Architect:
 >
 > **User, only if another confirmation is needed:** Proceed despite the conflicts you identified.
 >
-> **Architect:** Adds the repository's existing `active` label (Active) to the issue and verifies it, then implements the agreed scope, validates it, commits and pushes the changes, and opens or updates a GitHub PR linked to the issue. Once the remote branch and PR are verified, removes `active` from the issue and verifies its absence without waiting for merge or issue closure. It does not merge the PR.
+> **Architect:** Adds the repository's existing `active` label (Active) to the issue and verifies it, then implements the agreed scope, validates it, commits and pushes the changes, and opens or updates a GitHub PR linked to the issue. Once the remote branch and PR are verified, adds `status:review`, removes `active`, and verifies both changes without waiting for merge or issue closure. Review retains the work-in-progress slot for future scheduled pickup. It does not merge the PR.
 >
 > **Architect:** Shares the PR link and discusses **Unclear or underspecified requirements** and **Suggested additions** here in the interactive session. Asks one focused question at a time and waits for the user's answers rather than ending with a PR comment.
 >

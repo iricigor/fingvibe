@@ -73,7 +73,7 @@ Finish authorized implementation with committed changes pushed to GitHub and a n
 
 Do not stop at local edits, an unpushed commit, or a pushed branch without a PR. Verify that the remote branch and PR reflect the implementation. Do not merge the PR automatically. If permissions, authentication, validation failures, or another blocker prevent delivery, explain the blocker and remaining work rather than claiming completion.
 
-Once the implementation PR has been successfully published or updated and verified on GitHub, remove `active` from the agreed issue, preserving all other labels, and verify that it is absent. Do not wait for PR merge or issue closure, and do not remove it if PR publication or verification is blocked. Report any removal or verification failure explicitly as remaining work rather than claiming the label was removed.
+Once the implementation PR has been successfully published or updated and verified on GitHub, add `status:review` and remove `active` from the agreed issue, preserving all other labels, and verify both changes. Follow the ownership/recovery contract in `docs/development-backlog.md`: PR publication does not release claimed work for scheduled pickup. Do not wait for PR merge or issue closure, and do not remove `active` if PR publication or verification is blocked. Report any label or verification failure explicitly as remaining work rather than claiming the transition succeeded.
 
 ### 5. Discuss the retrospective after publication
 
