@@ -81,7 +81,8 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <Grid Padding="12,4" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
+                        <Grid Padding="12,4" Background="{ThemeResource ScannerHeaderBackgroundBrush}"
+                              BorderBrush="{ThemeResource ScannerCardBorderBrush}" BorderThickness="0,0,0,1">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Name.EffectiveWidth), Mode=OneWay}" />
                                 <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Address.EffectiveWidth), Mode=OneWay}" />

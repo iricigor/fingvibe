@@ -161,6 +161,36 @@ function Assert-DeviceStripes([string] $Name) {
     finally { $bitmap.Dispose() }
 }
 
+function Assert-HeaderUnderline([string] $Theme) {
+    $rows = @(Get-DeviceRows)
+    $bounds = Get-UiReviewWindowBounds $windowHandle
+    $rowBounds = $rows[0].Current.BoundingRectangle
+    $bitmap = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "devices-$Theme.png"))
+    try {
+        $y = [int]($rowBounds.Top - $bounds.Top) - 1
+        $left = [int]($rowBounds.Left - $bounds.Left + 8 * $scale)
+        $right = [int]($rowBounds.Right - $bounds.Left - 6 * $scale)
+        $line = $bitmap.GetPixel($left, $y)
+        if ($line.ToArgb() -eq $bitmap.GetPixel($left, $y - 1).ToArgb()) {
+            throw "Header underline must be distinct and only one pixel thick in '$Theme'."
+        }
+        foreach ($x in $left..$right) {
+            if ($bitmap.GetPixel($x, $y).ToArgb() -ne $line.ToArgb()) {
+                throw "Header underline must span the full table width in '$Theme'."
+            }
+        }
+        $header = $bitmap.GetPixel($left, $y - 1)
+        $lineBrightness = [int]$line.R + [int]$line.G + [int]$line.B
+        $headerBrightness = [int]$header.R + [int]$header.G + [int]$header.B
+        $isLight = $Theme -in @("Standard Light", "Warm Light")
+        if (($isLight -and $lineBrightness -ge $headerBrightness) -or
+            (-not $isLight -and $lineBrightness -le $headerBrightness)) {
+            throw "Header underline must be darker in light themes and lighter in dark themes."
+        }
+    }
+    finally { $bitmap.Dispose() }
+}
+
 $savedReview = $env:FINGVIBE_UI_REVIEW
 $savedSnapshot = $env:FINGVIBE_UI_REVIEW_SNAPSHOT
 $process = $null
@@ -263,6 +293,7 @@ try {
         $picker.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse()
         Select-DevicePage DevicesNavItem
         Assert-DeviceStripes "devices-$theme"
+        Assert-HeaderUnderline $theme
     }
     $scroll = (Find-DeviceElement ResultsList).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     $scroll.SetScrollPercent(-1, 100)
@@ -396,7 +427,7 @@ try {
         Write-Host "Full-header pixel check and final-column keyboard resizing passed."
     }
     else { Write-Host "Full-header pixel check not run: desktop is narrower than 1880 logical pixels." }
-    Write-Host "Device toolbar, compact response, four-theme stripes, recycling, sorting/filtering, hover, selection and keyboard checks passed."
+    Write-Host "Device toolbar, compact response, four-theme stripes/header underline, recycling, sorting/filtering, hover, selection and keyboard checks passed."
 }
 finally {
     if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id }
