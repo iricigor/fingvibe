@@ -54,7 +54,7 @@ After selecting Architect:
 >
 > **User, only if another confirmation is needed:** Proceed despite the conflicts you identified.
 >
-> **Architect:** Adds the repository's existing `active` label (Active) to the issue and verifies it, then implements the agreed scope, validates it, commits and pushes the changes, and opens or updates a GitHub PR linked to the issue. Once the remote branch and PR are verified, removes `active` from the issue and verifies its absence without waiting for merge or issue closure. It does not merge the PR.
+> **Architect:** Adds the repository's existing `active` label (Active) to the issue and verifies it. Immediately pushes the session branch and opens a draft PR with `WIP` in the title and `Closes #<issue-number>` in the description, then verifies the draft and closing issue reference before implementation edits. Implements the agreed scope, validates it, commits and pushes the final changes, updates the same PR, removes `WIP`, and marks it ready for review. Once the final remote branch, ready PR, title, and closing issue reference are verified, removes `active` from the issue and verifies its absence without waiting for merge or issue closure. It does not merge the PR.
 >
 > **Architect:** Shares the PR link and discusses **Unclear or underspecified requirements** and **Suggested additions** here in the interactive session. Asks one focused question at a time and waits for the user's answers rather than ending with a PR comment.
 >
@@ -65,6 +65,8 @@ After selecting Architect:
 Interactive discussion is the primary intent: Architect preserves the interactive nature of the session through the retrospective. A PR comment is a record of that conversation, not its replacement. In a non-interactive run, Architect instead posts the retrospective directly on the PR and summarizes it in the final output without waiting for unavailable input.
 
 The Active label tracks authorized implementation, not discussion or review. It is not applied during issue creation or while awaiting implementation authorization or conflict confirmation. Label changes preserve unrelated labels and reuse the existing lowercase `active` label. If PR publication or verification is blocked, the label remains; any label operation or verification failure must be reported explicitly.
+
+The WIP draft PR makes authorized work visible before implementation edits, not before authorization or conflict checks. If the branch has no commits ahead of its target, Architect uses an empty bootstrap commit to open the draft without including unrelated changes. An existing PR for the same implementation is reused as a WIP draft rather than duplicated. A blocked draft creation or verification stops implementation; incomplete delivery keeps or restores the PR as a WIP draft where possible. The closing reference remains in the description so merging the ready PR closes the agreed issue.
 
 The conflict assessment excludes the current implementation issue and distinguishes its own PR from competing work. It considers affected components, shared contracts, dependencies, intended behavior, and structural changes, not just filenames. Having no open PRs does not bypass the active-issue check.
 
