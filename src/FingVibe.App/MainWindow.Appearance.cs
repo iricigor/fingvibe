@@ -94,6 +94,11 @@ public sealed partial class MainWindow
         SetAppearanceBrush(resources, "ControlFillColorSecondaryBrush", palette.Hover);
         SetAppearanceBrush(resources, "ControlFillColorTertiaryBrush", palette.Pressed);
         RootGrid.RequestedTheme = palette.IsDark ? ElementTheme.Dark : ElementTheme.Light;
+        var rowBackground = (ResultRowBackgroundConverter)Application.Current.Resources["ResultRowBackgroundConverter"];
+        rowBackground.AlternateBackground.Color = _accessibilitySettings.HighContrast
+            ? Color.FromArgb(0, 0, 0, 0)
+            : Color.FromArgb(255, (byte)(palette.AlternateRow >> 16),
+                (byte)(palette.AlternateRow >> 8), (byte)palette.AlternateRow);
         UpdateBuildRibbonColors();
 
         var hasBackdrop = ApplyWindowBackdrop();

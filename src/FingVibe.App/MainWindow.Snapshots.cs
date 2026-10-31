@@ -6,7 +6,10 @@ namespace FingVibe.App;
 
 public sealed partial class MainWindow
 {
-    private readonly ScanSnapshotStore _snapshotStore = new(Path.Combine(
+    private readonly ScanSnapshotStore _snapshotStore = new(
+        IsUiReview && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_SNAPSHOT") is { Length: > 0 } reviewSnapshot
+            ? reviewSnapshot
+            : Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "FingVibe",
         "latest-scan.json"));

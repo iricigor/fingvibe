@@ -1,4 +1,5 @@
 using Microsoft.UI.Input;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -23,6 +24,16 @@ public sealed class ColumnResizeGrip : Control
     }
 
     public DeviceColumn? Column { get; set; }
+
+    public static readonly DependencyProperty SeparatorVisibilityProperty = DependencyProperty.Register(
+        nameof(SeparatorVisibility), typeof(Visibility), typeof(ColumnResizeGrip),
+        new PropertyMetadata(Visibility.Visible));
+
+    public Visibility SeparatorVisibility
+    {
+        get => (Visibility)GetValue(SeparatorVisibilityProperty);
+        set => SetValue(SeparatorVisibilityProperty, value);
+    }
 
     protected override AutomationPeer OnCreateAutomationPeer() => new ColumnResizeGripAutomationPeer(this);
 

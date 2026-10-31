@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using FingVibe.Core.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 
 namespace FingVibe.App;
 
@@ -31,22 +32,73 @@ public sealed partial class MainWindow
 
     private void DeviceFilters_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        var columns = e.NewSize.Width >= 850 ? 4 : e.NewSize.Width >= 480 ? 2 : 1;
-        var rows = 4 / columns;
-        if (DeviceFilters.RowDefinitions.Count != rows)
+        const double optionWidth = 180;
+        const double spacing = 8;
+        var inline = e.NewSize.Width >= 800;
+        Grid.SetRow(DeviceFilterOptions, inline ? 0 : 1);
+        Grid.SetColumn(DeviceFilterOptions, inline ? 1 : 0);
+        Grid.SetColumnSpan(DeviceFilterOptions, inline ? 1 : 2);
+        Grid.SetColumnSpan(ResultSearchBox, inline ? 1 : 2);
+        var columns = inline ? 3 : Math.Clamp((int)((e.NewSize.Width + spacing) / (optionWidth + spacing)), 1, 3);
+        var rows = (3 + columns - 1) / columns;
+        if (DeviceFilterOptions.ColumnDefinitions.Count != columns)
         {
-            DeviceFilters.RowDefinitions.Clear();
-            for (var row = 0; row < rows; row++)
+            DeviceFilterOptions.ColumnDefinitions.Clear();
+            for (var column = 0; column < columns; column++)
             {
-                DeviceFilters.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+                DeviceFilterOptions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(optionWidth) });
             }
         }
-        FrameworkElement[] filters = [ResultSearchBox, PersonFilter, RoomFilter, OpenPortsFilter];
+        if (DeviceFilterOptions.RowDefinitions.Count != rows)
+        {
+            DeviceFilterOptions.RowDefinitions.Clear();
+            for (var row = 0; row < rows; row++)
+            {
+                DeviceFilterOptions.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            }
+        }
+        FrameworkElement[] filters = [PersonFilter, RoomFilter, OpenPortsFilterContainer];
         for (var index = 0; index < filters.Length; index++)
         {
             Grid.SetRow(filters[index], index / columns);
-            Grid.SetColumn(filters[index], index % columns * (4 / columns));
-            Grid.SetColumnSpan(filters[index], 4 / columns);
+            Grid.SetColumn(filters[index], index % columns);
+        }
+    }
+
+    private void ResultsList_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
+    {
+        if (args.Item is ScanResultRow row)
+        {
+            row.IsPointerOver = false;
+            row.IsSelected = !args.InRecycleQueue && args.ItemContainer.IsSelected;
+        }
+    }
+
+    private void ResultsList_SelectionChanged(object sender, SelectionChangedEventArgs args)
+    {
+        foreach (var row in args.RemovedItems.OfType<ScanResultRow>())
+        {
+            row.IsSelected = false;
+        }
+        foreach (var row in args.AddedItems.OfType<ScanResultRow>())
+        {
+            row.IsSelected = true;
+        }
+    }
+
+    private void ResultRow_PointerEntered(object sender, PointerRoutedEventArgs args)
+    {
+        if (sender is FrameworkElement { DataContext: ScanResultRow row })
+        {
+            row.IsPointerOver = true;
+        }
+    }
+
+    private void ResultRow_PointerExited(object sender, PointerRoutedEventArgs args)
+    {
+        if (sender is FrameworkElement { DataContext: ScanResultRow row })
+        {
+            row.IsPointerOver = false;
         }
     }
 
@@ -86,8 +138,10 @@ public sealed partial class MainWindow
         sortedResults.Sort(CompareResults);
 
         _visibleResults.Clear();
-        foreach (var result in sortedResults)
+        for (var index = 0; index < sortedResults.Count; index++)
         {
+            var result = sortedResults[index];
+            result.IsAlternateRow = index % 2 == 1;
             _visibleResults.Add(result);
         }
 
