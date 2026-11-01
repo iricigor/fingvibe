@@ -5,7 +5,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $project = Join-Path $PSScriptRoot "..\src\FingVibe.App\FingVibe.App.csproj"
-$format = "yyyy-MM-dd'T'HH:mm:ss'Z'"
+$format = "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'"
 $culture = [Globalization.CultureInfo]::InvariantCulture
 $styles = [Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal
 

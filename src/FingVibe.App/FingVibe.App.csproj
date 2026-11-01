@@ -18,7 +18,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <BuildKind Condition="'$(BuildKind)' == ''">Development</BuildKind>
-    <BuildTimestamp Condition="'$(BuildTimestamp)' == ''">$([System.DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", $([System.Globalization.CultureInfo]::InvariantCulture)))</BuildTimestamp>
+    <BuildTimestamp Condition="'$(BuildTimestamp)' == ''">$([System.DateTime]::UtcNow.ToString("o"))</BuildTimestamp>
   </PropertyGroup>
 
   <ItemGroup>
