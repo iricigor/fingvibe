@@ -343,6 +343,19 @@ try {
     $script:empty = $false
     $script:hiddenControl = ""
     $script:brokenNavigation = $false
+    $script:toolsScrollPercent = 0
+    $script:toolsScrollCalls = 0
+    $script:offscreenToolsCard = ""
+    function Get-UiReviewToolsScroll([string] $Name) {
+        $scroll = [pscustomobject]@{}
+        $scroll | Add-Member ScriptMethod SetScrollPercent {
+            param($Horizontal, $Vertical)
+            if ($Horizontal -ne -1) { throw "Tools scrolling must preserve horizontal position." }
+            $script:toolsScrollPercent = $Vertical
+            $script:toolsScrollCalls += 1
+        }
+        return $scroll
+    }
     function Find-WebDriverElement([string] $Using, [string] $Value) {
         if ($Using -eq "xpath") {
             if ($Value -match "^//ListItem\[@Name='(.+)'\]$") { return "menu-$($Matches[1])" }
@@ -350,6 +363,7 @@ try {
             if ($Value -eq "//List[@Name='People']/ListItem[.//*[@Name='UI review person']]") { return "person-row" }
             if ($Value -eq "//List[@Name='Rooms']/ListItem[.//*[@Name='UI review room']]") { return "room-row" }
             if ($Value -eq "//Button[@Name='About FingVibe']") { return "control-About FingVibe" }
+            if ($Value -eq "//Button[@Name='Speed test']") { return "control-Speed test" }
             if ($Value -eq "//Button[@Name='Network troubleshooting']") { return "control-Network troubleshooting" }
             if ($Value -eq "//Button[@Name='Import from Fing']") { return "control-Import from Fing" }
             throw "Unexpected XPath '$Value'."
@@ -413,7 +427,8 @@ try {
                     "control-Window backdrop" { $script:currentPage -eq "Settings" }
                     default { throw "Unexpected control '$id'." }
                 }
-                return @{ value = ($visible -and $id -ne $script:hiddenControl) }
+                $offscreen = $id -eq $script:offscreenToolsCard -and $script:toolsScrollPercent -lt 70
+                return @{ value = ($visible -and $id -ne $script:hiddenControl -and -not $offscreen) }
             }
         }
     }
@@ -425,6 +440,17 @@ try {
     Show-UiReviewCaptureScenario "Devices"
     Assert-Equal $script:empty $false "Returning from empty results restores the baseline"
     Test-UiReviewNavigation
+    Assert-Equal $script:toolsScrollCalls 0 "Visible Tools cards must not scroll"
+    $script:offscreenToolsCard = "control-About FingVibe"
+    Show-UiReviewCaptureScenario "About"
+    Assert-Equal $script:currentPage "About" "Offscreen About card navigation"
+    Assert-Equal $script:toolsScrollPercent 70 "Scroll until the Tools card is visible"
+    Assert-Equal $script:toolsScrollCalls 8 "Stop scrolling immediately after visibility"
+    $script:offscreenToolsCard = ""
+    $script:hiddenControl = "control-About FingVibe"
+    $callsBeforeFailure = $script:toolsScrollCalls
+    Assert-Throws { Show-UiReviewCaptureScenario "About" } "*not visible*"
+    Assert-Equal ($script:toolsScrollCalls - $callsBeforeFailure) 11 "Invisible Tools cards retain a bounded failure"
     $script:hiddenControl = "control-Public IP address"
     Assert-Throws { Test-UiReviewNavigation } "*not visible*"
     Assert-Throws { Show-UiReviewCaptureScenario "Network" } "*not visible*"
