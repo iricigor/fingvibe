@@ -7,6 +7,15 @@
         <ScrollViewer x:Name="ToolsLanding" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Margin="24,0,24,24" Spacing="16">
                 <TextBlock Text="Tools" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+                <Button x:Name="FingImportCard" Click="FingImportCard_Click"
+                        Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="Import from Fing">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Import from Fing" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <TextBlock Text="Review and import device names, details, and assignments from a Fing Excel export."
+                                   TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="Open Import from Fing &#x2192;" />
+                    </StackPanel>
+                </Button>
                 <Button x:Name="SpeedTestCard"
                         Click="SpeedTestCard_Click"
                         Style="{StaticResource ScannerSummaryButtonStyle}"
@@ -51,5 +60,8 @@
         <local:AboutPage x:Name="AboutView" Visibility="Collapsed" BackRequested="AboutView_BackRequested" />
         <local:NetworkTroubleshootingPage x:Name="TroubleshootingView" Visibility="Collapsed"
                                           BackRequested="TroubleshootingView_BackRequested" />
+        <local:FingImportPage x:Name="FingImportView" Visibility="Collapsed"
+                              BackRequested="FingImportView_BackRequested"
+                              ManagementRequested="FingImportView_ManagementRequested" />
     </Grid>
 </UserControl>

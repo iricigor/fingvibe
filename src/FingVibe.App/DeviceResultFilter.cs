@@ -7,11 +7,13 @@ public sealed record DeviceResultFilter(
     Guid? PersonId = null,
     Guid? RoomId = null,
     bool UnassignedPersonOnly = false,
-    bool UnassignedRoomOnly = false)
+    bool UnassignedRoomOnly = false,
+    FingVibe.Core.Models.InventoryDeviceStatus? Status = null)
 {
     public bool Matches(ScanResultRow row) =>
         (!AliveOnly || row.IsOnline)
-        && (!OpenPortsOnly || row.Result.OpenPortItems.Count > 0)
+        && (!OpenPortsOnly || row.OpenPortItems.Count > 0)
+        && (Status is null || row.Status == Status)
         && (PersonId is null || row.PersonId == PersonId)
         && (RoomId is null || row.RoomId == RoomId)
         && (!UnassignedPersonOnly || row.PersonId is null)

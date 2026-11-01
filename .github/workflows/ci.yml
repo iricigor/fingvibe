@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       additional_scenarios:
-        description: "Extra captures (comma-separated): Overview, Network, DeviceDetails, People, PersonDetails, Rooms, RoomDetails, Tools, SpeedTest, Troubleshooting, About, Settings, DevicesEmpty"
+        description: "Extra captures (comma-separated): Overview, Network, DeviceDetails, People, PersonDetails, Rooms, RoomDetails, Tools, SpeedTest, Troubleshooting, About, FingImport, Settings, DevicesEmpty"
         type: string
         required: false
 
@@ -237,6 +237,13 @@ jobs:
           .\tests\NetworkTroubleshooting.Ui.Tests.ps1 `
             -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
             -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-review\troubleshooting"
+
+      - name: Verify Fing import preview, management return, and inventory status
+        shell: pwsh
+        run: |
+          .\tests\FingImport.Ui.Tests.ps1 `
+            -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
+            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-review\fing-import"
 
       - name: Exercise primary UI and capture required views
         id: smoke

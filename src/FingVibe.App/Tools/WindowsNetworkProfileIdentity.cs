@@ -10,7 +10,7 @@ internal static class WindowsNetworkProfileIdentity
     public static Guid GetNetworkId(LanNetwork network)
     {
         if (!Guid.TryParse(network.InterfaceId, out var adapterId))
-            throw new InvalidOperationException("The selected adapter has no Windows adapter identifier; WAN persistence is unavailable.");
+            throw new InvalidOperationException("The selected adapter has no Windows adapter identifier; network-scoped persistence is unavailable.");
         var type = Type.GetTypeFromCLSID(new Guid("DCB00C01-570F-4A9B-8D69-199FDBA5723B"), throwOnError: true)
             ?? throw new InvalidOperationException("Windows Network List Manager is unavailable.");
         var manager = (INetworkListManager)(Activator.CreateInstance(type)
@@ -49,7 +49,7 @@ internal static class WindowsNetworkProfileIdentity
         var identities = connectedProfiles.Where(profile => profile.AdapterId == adapterId)
             .Select(profile => profile.NetworkId).Distinct().ToArray();
         if (adapterId == Guid.Empty || identities.Length != 1 || identities[0] == Guid.Empty)
-            throw new InvalidOperationException("Windows cannot uniquely identify this adapter's network. WAN persistence is unavailable; no other network's value will be reused.");
+            throw new InvalidOperationException("Windows cannot uniquely identify this adapter's network. Network-scoped persistence is unavailable; no other network's value will be reused.");
         return identities[0];
     }
 

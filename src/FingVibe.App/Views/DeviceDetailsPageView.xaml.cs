@@ -40,14 +40,24 @@ public sealed partial class DeviceDetailsPageView : UserControl
     internal void ShowDevice(ScanResultRow row)
     {
         var result = row.Result;
-        DeviceAddressText.Text = result.AddressText;
-        DeviceMacText.Text = result.MacAddressText;
-        DeviceVendorText.Text = result.VendorText;
+        DeviceAddressText.Text = row.AddressText;
+        DeviceMacText.Text = row.MacAddressText;
+        DeviceVendorText.Text = row.VendorText;
         DeviceVendorText.Opacity = row.VendorOpacity;
-        DeviceStatusText.Text = row.IsOnline ? "Online" : "Offline (no ICMP response)";
-        DeviceResponseText.Text = result.RoundtripText;
-        DeviceProbeText.Text = $"{result.ProbeDuration.TotalMilliseconds:N0} ms";
-        ShowPorts(result.OpenPortItems);
+        DeviceStatusText.Text = row.StatusContext;
+        DeviceResponseText.Text = row.LatencyLabel;
+        DeviceProbeText.Text = result is null ? "-" : $"{result.ProbeDuration.TotalMilliseconds:N0} ms";
+        DeviceHostnameText.Text = row.HostnameText;
+        DeviceAddressSourceText.Text = result is null ? "Historical IP from Fing; never observed locally."
+            : $"Last-known local address{(row.IsHistorical ? " (historical)" : string.Empty)}.";
+        DeviceImportedMetadataText.Text = row.ImportedMetadata is { } imported
+            ? $"Imported from Fing\nName: {imported.Name ?? "-"}\nHostname: {imported.Hostname ?? "-"}\n"
+                + $"Type: {imported.Type ?? "-"}\nBrand: {imported.Brand ?? "-"}\nFamily: {imported.Family ?? "-"}\n"
+                + $"Model: {imported.Model ?? "-"}\nOS: {imported.OperatingSystem ?? "-"} {imported.OperatingSystemVersion}\n"
+                + $"Historical imported IP: {imported.Address ?? "-"}"
+            : "No imported Fing metadata.";
+        DevicePortScanButton.IsEnabled = row.CanProbe;
+        ShowPorts(row.OpenPortItems);
         DevicePortScanStatusText.Text = string.Empty;
         DeviceIdentificationEditor.IsExpanded = false;
     }

@@ -21,8 +21,7 @@ public sealed partial class MainWindow
         }
 
         _selectedDeviceRow = row;
-        var result = row.Result;
-        DevicePage.NameInput = result.MacAddress is { } macAddress
+        DevicePage.NameInput = row.MacAddress is { } macAddress
             && _deviceNameOverrides.TryGetValue(macAddress.ToString(), out var customName)
                 ? customName
                 : row.NameText;
@@ -68,23 +67,25 @@ public sealed partial class MainWindow
             return;
         }
 
-        var macAddress = row.Result.MacAddress;
+        var macAddress = row.MacAddress;
         string? savedName = null;
         var hasCustomName = macAddress is not null
             && _deviceNameOverrides.TryGetValue(macAddress.ToString(), out savedName);
-        var currentName = savedName ?? row.Result.NameText;
+        var currentName = savedName ?? row.AutomaticName;
         var inputName = DevicePage.NameInput.Trim();
 
         var canSave = macAddress is not null
+            && _inventoryReady && !_inventoryUnavailable
             && !_deviceNameOverridesUnavailable
             && !_isSavingDeviceNameOverride
             && !string.IsNullOrWhiteSpace(inputName)
             && !string.Equals(inputName, currentName, StringComparison.Ordinal);
         var canReset = hasCustomName
+            && _inventoryReady && !_inventoryUnavailable
             && !_deviceNameOverridesUnavailable
             && !_isSavingDeviceNameOverride;
         DevicePage.SetNameActions(canSave, canReset,
-            hasCustomName ? $"Revert to discovered name: {row.Result.NameText}" : null);
+            hasCustomName ? $"Revert to imported name or discovered hostname: {row.AutomaticName}" : null);
     }
 
     private async Task SaveDeviceNameOverrideAsync(string? customName)
@@ -92,11 +93,14 @@ public sealed partial class MainWindow
         var row = _selectedDeviceRow;
         if (_deviceNameOverridesUnavailable
             || _isSavingDeviceNameOverride
-            || row?.Result.MacAddress is not { } macAddress)
+            || row?.MacAddress is not { } macAddress)
         {
             return;
         }
 
+        _isSavingDeviceNameOverride = true;
+        UpdateDeviceNameActions();
+        await _deviceDataSaveLock.WaitAsync();
         var updatedNames = new Dictionary<string, string>(_deviceNameOverrides, StringComparer.OrdinalIgnoreCase);
         if (customName is null)
         {
@@ -107,17 +111,15 @@ public sealed partial class MainWindow
             updatedNames[macAddress.ToString()] = customName;
         }
 
-        _isSavingDeviceNameOverride = true;
-        UpdateDeviceNameActions();
         try
         {
-            await _deviceNameOverrideStore.SaveAsync(updatedNames);
+            await PersistDeviceDataAsync(CurrentDeviceData with { Names = updatedNames });
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
         {
             if (ReferenceEquals(_selectedDeviceRow, row))
             {
-                DevicePage.NameStatus = "The custom name could not be saved.";
+                DevicePage.NameStatus = $"The custom name could not be saved: {exception.Message}";
             }
 
             return;
@@ -125,6 +127,7 @@ public sealed partial class MainWindow
         finally
         {
             _isSavingDeviceNameOverride = false;
+            _deviceDataSaveLock.Release();
             UpdateDeviceNameActions();
         }
 
@@ -142,8 +145,9 @@ public sealed partial class MainWindow
 
     private async void DevicePortScanButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_selectedDeviceRow is not { } row)
+        if (_selectedDeviceRow is not { CanProbe: true, Result: { } result } row)
         {
+            DevicePage.PortScanStatus = "A current local observation is required. Historical or Fing-only addresses are not probed.";
             return;
         }
 
@@ -152,8 +156,8 @@ public sealed partial class MainWindow
 
         try
         {
-            var additionalPorts = await _portScanner.ScanAdditionalAsync(row.Result.Address, CancellationToken.None);
-            var openPorts = row.Result.OpenPortItems
+            var additionalPorts = await _portScanner.ScanAdditionalAsync(result.Address, CancellationToken.None);
+            var openPorts = row.OpenPortItems
                 .Concat(additionalPorts)
                 .DistinctBy(port => port.Port)
                 .OrderBy(port => port.Port)
@@ -168,7 +172,7 @@ public sealed partial class MainWindow
         }
         finally
         {
-            DevicePage.PortScanEnabled = true;
+            DevicePage.PortScanEnabled = row.CanProbe;
         }
     }
 }

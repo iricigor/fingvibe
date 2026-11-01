@@ -18,6 +18,17 @@ public sealed partial class DevicesPageView : UserControl
 
     internal string SearchText { get => ResultSearchBox.Text; set => ResultSearchBox.Text = value; }
     internal bool OpenPortsOnly { get => OpenPortsFilter.IsChecked == true; set => OpenPortsFilter.IsChecked = value; }
+    internal InventoryDeviceStatus? StatusFilter
+    {
+        get => InventoryStatusFilter.SelectedIndex switch
+        {
+            1 => InventoryDeviceStatus.Online,
+            2 => InventoryDeviceStatus.Offline,
+            3 => InventoryDeviceStatus.FingOnly,
+            _ => null
+        };
+        set => InventoryStatusFilter.SelectedIndex = value is null ? 0 : (int)value + 1;
+    }
     internal ScanResultRow? SelectedResult
     {
         get => ResultsList.SelectedItem as ScanResultRow;
@@ -41,6 +52,8 @@ public sealed partial class DevicesPageView : UserControl
         EmptyResultsText.Text = emptyMessage;
         EmptyResultsText.Visibility = isEmpty ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    internal void ShowInventorySummary(string summary) => InventoryCountsText.Text = summary;
 
     internal void ShowScanStatus(string status)
     {
@@ -170,6 +183,7 @@ public sealed partial class DevicesPageView : UserControl
 
     private void ResultSearchBox_TextChanged(object sender, TextChangedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
     private void PeopleRoomFilter_SelectionChanged(object sender, SelectionChangedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
+    private void InventoryStatusFilter_SelectionChanged(object sender, SelectionChangedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
     private void OpenPortsFilter_Changed(object sender, RoutedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
 
     private void OpenPortsFilterContainer_Tapped(object sender, TappedRoutedEventArgs args)

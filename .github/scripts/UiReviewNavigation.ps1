@@ -27,6 +27,7 @@ function Show-UiReviewCaptureScenario {
         "SpeedTest" { "Tools" }
         "Troubleshooting" { "Tools" }
         "About" { "Tools" }
+        "FingImport" { "Tools" }
         "PersonDetails" { "People" }
         "RoomDetails" { "Rooms" }
         default { $Scenario }
@@ -88,6 +89,7 @@ function Show-UiReviewCaptureScenario {
         "SpeedTest" { "Speed test" }
         "Troubleshooting" { "Network troubleshooting" }
         "About" { "About FingVibe" }
+        "FingImport" { "Import from Fing" }
         "People" { "Search people" }
         "Rooms" { "Search rooms" }
         "Settings" { "Window backdrop" }
@@ -112,5 +114,14 @@ function Show-UiReviewCaptureScenario {
         Invoke-WebDriverElement -ElementId $cardId
         $null = Assert-VisibleUiReviewElement -Value "Back to Tools"
         $null = Assert-VisibleUiReviewElement -Value "FingVibe LAN Scanner"
+    }
+    elseif ($Scenario -eq "FingImport") {
+        $cardId = Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@Name='Import from Fing']"
+        Invoke-WebDriverElement -ElementId $cardId
+        $null = Assert-VisibleUiReviewElement -Value "Back to Tools"
+        $null = Assert-VisibleUiReviewElement -Value "Browse Fing export"
+        $null = Assert-VisibleUiReviewElement -Value "Analyze again"
+        $null = Find-WebDriverElement -Using name -Value "Import reviewed Fing changes"
+        $null = Find-WebDriverElement -Using name -Value "Fing import preview"
     }
 }

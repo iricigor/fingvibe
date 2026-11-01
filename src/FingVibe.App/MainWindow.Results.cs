@@ -81,7 +81,7 @@ public sealed partial class MainWindow
 
     private void UpdateLatencyRange(ScanResultRow row)
     {
-        if (!row.HasLatency || row.Result.RoundtripTimeMilliseconds is not long latency)
+        if (!row.HasLatency || row.Result?.RoundtripTimeMilliseconds is not long latency)
         {
             return;
         }
@@ -105,42 +105,50 @@ public sealed partial class MainWindow
 
     private bool ShouldShow(ScanResultRow row) =>
         new DeviceResultFilter(
-            true,
+            false,
             DevicesPage.OpenPortsOnly,
             DevicesPage.SearchText,
             DevicesPage.PersonChoice?.Id,
             DevicesPage.RoomChoice?.Id,
             DevicesPage.PersonChoice?.Unassigned == true,
-            DevicesPage.RoomChoice?.Unassigned == true).Matches(row);
+            DevicesPage.RoomChoice?.Unassigned == true,
+            DevicesPage.StatusFilter).Matches(row);
 
     private int CompareResults(ScanResultRow leftRow, ScanResultRow rightRow)
     {
-        var left = leftRow.Result;
-        var right = rightRow.Result;
         var comparison = _sortColumn switch
         {
             ResultSortColumn.OperatingSystem => string.Compare(leftRow.OperatingSystemText,
                 rightRow.OperatingSystemText, StringComparison.OrdinalIgnoreCase),
             ResultSortColumn.DeviceType => string.Compare(leftRow.DeviceTypeText,
                 rightRow.DeviceTypeText, StringComparison.OrdinalIgnoreCase),
-            ResultSortColumn.Address => CompareAddresses(left.Address, right.Address),
-            ResultSortColumn.Status => left.Status.CompareTo(right.Status),
+            ResultSortColumn.Address => CompareRowAddresses(leftRow, rightRow),
+            ResultSortColumn.Status => leftRow.Status.CompareTo(rightRow.Status),
             ResultSortColumn.Response => Nullable.Compare(
-                left.RoundtripTimeMilliseconds,
-                right.RoundtripTimeMilliseconds),
+                leftRow.LatencyMilliseconds,
+                rightRow.LatencyMilliseconds),
             ResultSortColumn.MacAddress => string.Compare(
-                left.MacAddressText,
-                right.MacAddressText,
+                leftRow.MacAddressText,
+                rightRow.MacAddressText,
                 StringComparison.OrdinalIgnoreCase),
             _ => 0
         };
 
         if (comparison == 0)
         {
-            comparison = CompareAddresses(left.Address, right.Address);
+            comparison = CompareRowAddresses(leftRow, rightRow);
+            if (comparison == 0)
+                comparison = string.Compare(leftRow.MacAddressText, rightRow.MacAddressText, StringComparison.Ordinal);
         }
 
         return _sortAscending ? comparison : -comparison;
+    }
+
+    private static int CompareRowAddresses(ScanResultRow left, ScanResultRow right)
+    {
+        var hasLeft = System.Net.IPAddress.TryParse(left.AddressText, out var leftAddress);
+        var hasRight = System.Net.IPAddress.TryParse(right.AddressText, out var rightAddress);
+        return hasLeft && hasRight ? CompareAddresses(leftAddress!, rightAddress!) : hasLeft.CompareTo(hasRight);
     }
 
     private static int CompareAddresses(System.Net.IPAddress left, System.Net.IPAddress right)
@@ -185,10 +193,12 @@ public sealed partial class MainWindow
             return;
         }
 
-        var total = _allResults.Count(row => row.IsOnline);
+        var total = _allResults.Count;
         var count = _visibleResults.Count == total
             ? $"{total:N0} {(total == 1 ? "device" : "devices")}"
             : $"{_visibleResults.Count:N0} of {total:N0} devices";
+        DevicesPage.ShowInventorySummary(
+            $"{_allResults.Count(row => row.IsOnline):N0} Online · {_allResults.Count(row => row.IsOffline):N0} Offline · {_allResults.Count(row => row.IsFingOnly):N0} Fing Only");
         UpdateOverview();
 
         string emptyMessage;

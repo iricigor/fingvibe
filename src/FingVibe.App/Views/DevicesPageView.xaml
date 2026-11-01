@@ -30,6 +30,16 @@
                                TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                Visibility="Collapsed" />
+                    <ComboBox x:Name="InventoryStatusFilter" SelectedIndex="0" Width="180"
+                              AutomationProperties.Name="Filter by device status"
+                              SelectionChanged="InventoryStatusFilter_SelectionChanged">
+                        <ComboBoxItem Content="All statuses" />
+                        <ComboBoxItem Content="Online" />
+                        <ComboBoxItem Content="Offline" />
+                        <ComboBoxItem Content="Fing Only" />
+                    </ComboBox>
+                    <TextBlock x:Name="InventoryCountsText" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <Grid x:Name="DeviceFilters" ColumnSpacing="8" RowSpacing="8"
                           SizeChanged="DeviceFilters_SizeChanged">
                         <Grid.ColumnDefinitions>
@@ -265,17 +275,17 @@
                                         <TextBlock Grid.Column="1" FontFamily="Consolas" TextTrimming="CharacterEllipsis"
                                                    Margin="0,0,12,0"
                                                    Visibility="{x:Bind Columns.Address.IsVisible, Mode=OneWay}"
-                                                   ToolTipService.ToolTip="{x:Bind Result.AddressText}"
-                                                   AutomationProperties.Name="{x:Bind Result.AddressText}">
+                                                   ToolTipService.ToolTip="{x:Bind AddressText}"
+                                                   AutomationProperties.Name="{x:Bind AddressText}">
                                             <Run Text="{x:Bind AddressPrefix}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><Run Text="{x:Bind AddressHost}" FontWeight="SemiBold" />
                                         </TextBlock>
                                         <TextBlock Grid.Column="2"
-                                                   Text="{x:Bind Result.VendorText}"
+                                                   Text="{x:Bind VendorText}"
                                                    Opacity="{x:Bind VendorOpacity}" Margin="0,0,12,0"
                                                    Visibility="{x:Bind Columns.Vendor.IsVisible, Mode=OneWay}"
-                                                   ToolTipService.ToolTip="{x:Bind Result.VendorText}"
+                                                   ToolTipService.ToolTip="{x:Bind VendorText}"
                                                    TextTrimming="CharacterEllipsis" />
-                                        <ItemsControl Grid.Column="3" ItemsSource="{x:Bind Result.OpenPortItems, Mode=OneWay}" VerticalAlignment="Center"
+                                        <ItemsControl Grid.Column="3" ItemsSource="{x:Bind OpenPortItems, Mode=OneWay}" VerticalAlignment="Center"
                                                       Margin="0,0,12,0"
                                                       Visibility="{x:Bind Columns.Ports.IsVisible, Mode=OneWay}">
                                             <ItemsControl.ItemsPanel>
@@ -294,7 +304,8 @@
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
-                                        <Grid Grid.Column="4" Visibility="{x:Bind Columns.Status.IsVisible, Mode=OneWay}">
+                                        <Grid Grid.Column="4" Visibility="{x:Bind Columns.Status.IsVisible, Mode=OneWay}"
+                                              ToolTipService.ToolTip="{x:Bind StatusContext}">
                                             <Border Visibility="{x:Bind IsOnline}" Padding="8,3" CornerRadius="10"
                                                     HorizontalAlignment="Left" VerticalAlignment="Center"
                                                     Background="{ThemeResource ScannerOnlineBackgroundBrush}">
@@ -303,11 +314,19 @@
                                             </Border>
                                             <Border Visibility="{x:Bind IsOffline}" Padding="8,3" CornerRadius="10"
                                                     HorizontalAlignment="Left" VerticalAlignment="Center"
-                                                    Background="{ThemeResource ScannerOfflineBackgroundBrush}"
-                                                    ToolTipService.ToolTip="No ICMP response; the device may be offline or blocking probes.">
+                                                    Background="{ThemeResource ScannerOfflineBackgroundBrush}">
                                                 <TextBlock Text="{x:Bind StatusLabel}" FontWeight="SemiBold"
                                                            Foreground="{ThemeResource ScannerOfflineForegroundBrush}" />
                                             </Border>
+                                            <Border Visibility="{x:Bind IsFingOnly}" Padding="8,3" CornerRadius="10"
+                                                    HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                    Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                                                <TextBlock Text="{x:Bind StatusLabel}" FontWeight="SemiBold"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            </Border>
+                                            <TextBlock Text="historical" FontSize="10" Margin="0,24,0,0"
+                                                       Visibility="{x:Bind IsHistorical}"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                         </Grid>
                                         <Grid Grid.Column="5" Margin="0,0,12,0" Height="24" VerticalAlignment="Center"
                                               Visibility="{x:Bind Columns.Response.IsVisible, Mode=OneWay}"
@@ -332,8 +351,8 @@
                                         <TextBlock Grid.Column="6" FontFamily="Consolas" TextTrimming="CharacterEllipsis"
                                                    Margin="0,0,12,0"
                                                    Visibility="{x:Bind Columns.Mac.IsVisible, Mode=OneWay}"
-                                                   ToolTipService.ToolTip="{x:Bind Result.MacAddressText}"
-                                                   AutomationProperties.Name="{x:Bind Result.MacAddressText}">
+                                                   ToolTipService.ToolTip="{x:Bind MacAddressText}"
+                                                   AutomationProperties.Name="{x:Bind MacAddressText}">
                                             <Run Text="{x:Bind MacOui}" Foreground="{ThemeResource ScannerMacOuiBrush}" FontWeight="SemiBold" /><Run Text="{x:Bind MacNic}" Foreground="{ThemeResource ScannerMacNicBrush}" FontWeight="SemiBold" />
                                         </TextBlock>
                                         <TextBlock Grid.Column="7" Text="{x:Bind OperatingSystemText, Mode=OneWay}" Margin="0,0,12,0"

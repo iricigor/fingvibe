@@ -60,7 +60,7 @@ public sealed class ScanResultRowTests
 
         Assert.Equal(network, row.AddressPrefix);
         Assert.Equal(host, row.AddressHost);
-        Assert.Equal(row.Result.AddressText, row.AddressPrefix + row.AddressHost);
+        Assert.Equal(row.AddressText, row.AddressPrefix + row.AddressHost);
     }
 
     [Theory]
@@ -73,8 +73,9 @@ public sealed class ScanResultRowTests
     public void FallbackNameAndUnknownVendor_AreMuted()
     {
         var fallback = CreateRow();
-        var named = new ScanResultRow(fallback.Result with { DeviceName = "Router", VendorName = "Vendor" }, 24);
-        var addressName = new ScanResultRow(fallback.Result with { DeviceName = fallback.Result.AddressText }, 24);
+        var result = Assert.IsType<ScanResult>(fallback.Result);
+        var named = new ScanResultRow(result with { DeviceName = "Router", VendorName = "Vendor" }, 24);
+        var addressName = new ScanResultRow(result with { DeviceName = fallback.AddressText }, 24);
 
         Assert.True(fallback.NameOpacity < 1);
         Assert.True(addressName.NameOpacity < 1);
@@ -116,10 +117,10 @@ public sealed class ScanResultRowTests
     public void CustomName_OverridesDisplayWithoutChangingDiscoveredName()
     {
         var discovered = CreateRow();
-        var row = new ScanResultRow(discovered.Result with { DeviceName = "router.local" }, 24, "Kitchen router");
+        var row = new ScanResultRow(Assert.IsType<ScanResult>(discovered.Result) with { DeviceName = "router.local" }, 24, "Kitchen router");
 
         Assert.Equal("Kitchen router", row.NameText);
-        Assert.Equal("router.local", row.Result.NameText);
+        Assert.Equal("router.local", row.HostnameText);
 
         row.SetCustomName(null);
 
@@ -135,7 +136,7 @@ public sealed class ScanResultRowTests
     public void ClassificationOpacity_MutesOnlyUnknownValues(
         DeviceOperatingSystem os, DeviceType type, double osOpacity, double typeOpacity)
     {
-        var row = new ScanResultRow(CreateRow().Result with
+        var row = new ScanResultRow(Assert.IsType<ScanResult>(CreateRow().Result) with
         {
             Classification = new(os, type)
         }, 24);
@@ -163,7 +164,7 @@ public sealed class ScanResultRowTests
         Assert.Equal(0.65, row.OperatingSystemOpacity);
         Assert.Equal(0.65, row.DeviceTypeOpacity);
 
-        var detected = new ScanResultRow(row.Result with
+        var detected = new ScanResultRow(Assert.IsType<ScanResult>(row.Result) with
         {
             Classification = new(DeviceOperatingSystem.Android, DeviceType.Phone)
         }, 24);
@@ -180,7 +181,7 @@ public sealed class ScanResultRowTests
     {
         var classification = new DeviceClassification(DeviceOperatingSystem.Linux, DeviceType.Printer,
             "SSDP SERVER advertises Linux.", "UPnP printer.");
-        var row = new ScanResultRow(CreateRow().Result with { Classification = classification }, 24);
+        var row = new ScanResultRow(Assert.IsType<ScanResult>(CreateRow().Result) with { Classification = classification }, 24);
         var notifications = new List<string?>();
         row.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
         var originalIcon = row.IconGlyph;
@@ -191,7 +192,7 @@ public sealed class ScanResultRowTests
         Assert.NotEqual(originalIcon, row.IconGlyph);
         Assert.Contains("User-selected", row.OperatingSystemSource);
         Assert.Contains("Linux", row.OperatingSystemSource);
-        Assert.Equal(classification, row.Result.Classification);
+        Assert.Equal(classification, Assert.IsType<ScanResult>(row.Result).Classification);
         Assert.Contains(nameof(ScanResultRow.IconGlyph), notifications);
         Assert.Contains(nameof(ScanResultRow.OperatingSystemText), notifications);
 
@@ -211,7 +212,7 @@ public sealed class ScanResultRowTests
     [Fact]
     public void InferredClassifications_AreVisiblyMarkedUntilManuallyOverridden()
     {
-        var row = new ScanResultRow(CreateRow().Result with
+        var row = new ScanResultRow(Assert.IsType<ScanResult>(CreateRow().Result) with
         {
             Classification = new(DeviceOperatingSystem.Android, DeviceType.MediaDevice,
                 "Discovered Android hostname.", "Media product identity.",
@@ -233,9 +234,9 @@ public sealed class ScanResultRowTests
     {
         var mac = PhysicalAddress.Parse("001122334455");
         var choice = new DeviceClassificationOverride(DeviceOperatingSystem.Android, DeviceType.Phone);
-        var first = new ScanResultRow(CreateRow().Result with { MacAddress = mac }, 24,
+        var first = new ScanResultRow(Assert.IsType<ScanResult>(CreateRow().Result) with { MacAddress = mac }, 24,
             classificationOverride: choice);
-        var second = new ScanResultRow(first.Result with { Address = IPAddress.Parse("192.168.0.101") }, 24,
+        var second = new ScanResultRow(Assert.IsType<ScanResult>(first.Result) with { Address = IPAddress.Parse("192.168.0.101") }, 24,
             classificationOverride: choice);
         Assert.Equal(first.OperatingSystemText, second.OperatingSystemText);
         Assert.Equal(first.IconGlyph, second.IconGlyph);
@@ -244,7 +245,7 @@ public sealed class ScanResultRowTests
     [Fact]
     public void Filter_FindsEffectiveAndDetectedClassifications()
     {
-        var row = new ScanResultRow(CreateRow().Result with
+        var row = new ScanResultRow(Assert.IsType<ScanResult>(CreateRow().Result) with
         {
             Classification = new(DeviceOperatingSystem.Linux, DeviceType.Storage)
         }, 24, classificationOverride: new(DeviceOperatingSystem.MacOS, DeviceType.GameConsole));
@@ -272,11 +273,11 @@ public sealed class ScanResultRowTests
     public void MacParts_PreserveAllBytesAndSeparators()
     {
         var row = CreateRow();
-        row = new ScanResultRow(row.Result with { MacAddress = PhysicalAddress.Parse("00-11-22-AB-CD-EF") }, 24);
+        row = new ScanResultRow(Assert.IsType<ScanResult>(row.Result) with { MacAddress = PhysicalAddress.Parse("00-11-22-AB-CD-EF") }, 24);
 
         Assert.Equal("00-11-22", row.MacOui);
         Assert.Equal("-AB-CD-EF", row.MacNic);
-        Assert.Equal(row.Result.MacAddressText, row.MacOui + row.MacNic);
+        Assert.Equal(row.MacAddressText, row.MacOui + row.MacNic);
         Assert.Equal("-", CreateRow().MacOui);
         Assert.Equal("", CreateRow().MacNic);
     }
