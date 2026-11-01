@@ -10,6 +10,7 @@ public sealed partial class MainWindow
     private readonly PortScannerService _portScanner = new();
     private readonly UdpServiceProbe _udpServiceProbe = new();
     private CancellationTokenSource? _devicePortScanCancellation;
+    private TaskCompletionSource? _devicePortScanCompletion;
     private ScanResultRow? _selectedDeviceRow;
     private bool _isSavingDeviceNameOverride;
 
@@ -173,10 +174,14 @@ public sealed partial class MainWindow
         using var activity = lease;
         using var cancellation = new CancellationTokenSource();
         _devicePortScanCancellation = cancellation;
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _devicePortScanCompletion = completion;
         var includeUdp = DevicePage.IncludeUdp;
         var tcpRunning = true;
         var udpRunning = includeUdp;
         var changed = false;
+        var tcpCompleted = 0;
+        var udpCompleted = 0;
         bool IsSelected() => ReferenceEquals(_selectedDeviceRow, row);
         DevicePage.SetPortScanRunning(true, row.CanProbe);
         NetworkPicker.IsEnabled = false;
@@ -185,12 +190,18 @@ public sealed partial class MainWindow
         var tcpProgress = new Progress<ScanProgress>(progress =>
         {
             if (IsSelected() && tcpRunning && !cancellation.IsCancellationRequested)
-                DevicePage.PortScanStatus = $"TCP: scanning {progress.Completed}/100 additional ports...";
+            {
+                tcpCompleted = Math.Max(tcpCompleted, progress.Completed);
+                DevicePage.PortScanStatus = $"TCP: scanning {tcpCompleted}/100 additional ports...";
+            }
         });
         var udpProgress = new Progress<ScanProgress>(progress =>
         {
             if (IsSelected() && udpRunning && !cancellation.IsCancellationRequested)
-                DevicePage.UdpScanStatus = $"UDP: checking {progress.Completed}/2 services...";
+            {
+                udpCompleted = Math.Max(udpCompleted, progress.Completed);
+                DevicePage.UdpScanStatus = $"UDP: checking {udpCompleted}/2 services...";
+            }
         });
         try
         {
@@ -211,6 +222,8 @@ public sealed partial class MainWindow
             _devicePortScanCancellation = null;
             NetworkPicker.IsEnabled = true;
             if (IsSelected()) DevicePage.SetPortScanRunning(false, row.CanProbe);
+            _devicePortScanCompletion = null;
+            completion.TrySetResult();
         }
 
         async Task ScanTcpAsync()
@@ -227,6 +240,7 @@ public sealed partial class MainWindow
                     DevicePage.ShowPorts(row.OpenPortItems);
                     DevicePage.PortScanStatus = $"TCP: complete (100/100); {ports.Count} additional open port(s) found.";
                 }
+
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
             {
@@ -267,5 +281,12 @@ public sealed partial class MainWindow
             }
             finally { udpRunning = false; }
         }
+    }
+
+    private async Task StopDevicePortScanAsync()
+    {
+        var completion = _devicePortScanCompletion;
+        _devicePortScanCancellation?.Cancel();
+        if (completion is not null) await completion.Task;
     }
 }

@@ -129,8 +129,11 @@ function Open-ServiceDetails {
     if (-not $row) { throw "The loopback scan did not provide an online fixture device." }
     $row.SetFocus()
     [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
-    Wait-ServiceState { (Find-ServiceControl "Back to devices" -ByName -Optional).Current.IsEnabled } "device details"
-    $scroll = (Find-ServiceControl DevicePage).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+    Wait-ServiceState {
+        $back = Find-ServiceControl "Back to devices" -ByName -Optional
+        $back -and -not $back.Current.IsOffscreen
+    } "device details"
+    $scroll = (Find-ServiceControl DeviceDetailsScroll).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     foreach ($percent in 0..20) {
         $scroll.SetScrollPercent(-1, $percent * 5)
         if (-not (Find-ServiceControl DeviceIncludeUdpCheckBox).Current.IsOffscreen) { return }
@@ -201,8 +204,17 @@ try {
     Wait-ServiceState { (Find-ServiceControl DeviceUdpScanStatus).Current.Name -like "UDP: canceled*" } "UDP cancellation"
     Wait-ServiceState { (Find-ServiceControl DevicePortScanButton).Current.Name -eq "Scan additional ports" } "cancellation cleanup"
     Save-ServiceEvidence "services-canceled"
+    $fixture.DnsMode = 0
+    Invoke-ServiceControl "Scan additional ports"
+    Select-ServicePage Overview
+    Wait-ServiceState { (Find-ServiceControl NetworkPicker).Current.IsEnabled } "navigation cancellation cleanup"
+    Open-ServiceDetails
+    $udp = (Find-ServiceControl DeviceIncludeUdpCheckBox).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+    if ($udp.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off) { throw "Returning to details must reset opt-in UDP." }
+    $udp.Toggle()
     $fixture.DnsMode = $fixture.NtpMode = 1
     Invoke-ServiceControl "Scan additional ports"
+    Wait-ServiceState { (Find-ServiceControl DeviceUdpScanStatus).Current.Name -like "*2 responded, 0 inconclusive, 0 error*" } "theme fixture confirmation"
     Wait-ServiceState { (Find-ServiceControl DevicePortScanButton).Current.Name -eq "Scan additional ports" } "theme fixture results"
     foreach ($theme in @("Standard Light", "Warm Light", "Standard Dark", "True Black (OLED)")) {
         Select-ServicePage Settings
@@ -217,6 +229,11 @@ try {
     if (@($saved.results[0].openPorts | Where-Object protocol -eq 1).Count -ne 2) {
         throw "Confirmed protocol-aware UDP endpoints were not saved."
     }
+    $fixture.DnsMode = $fixture.NtpMode = 0
+    (Find-ServiceControl DeviceIncludeUdpCheckBox).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
+    Invoke-ServiceControl "Scan additional ports"
+    $null = $process.CloseMainWindow()
+    if (-not $process.WaitForExit(5000)) { throw "Closing the window did not cancel and drain the additional scan." }
     Write-Host "Additional services native UI checks passed using loopback-only synthetic responders."
 }
 finally {

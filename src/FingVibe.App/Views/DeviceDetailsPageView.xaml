@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:FingVibe.App"
     xmlns:models="using:FingVibe.Core.Models">
-    <ScrollViewer x:Name="DevicePage">
+    <ScrollViewer x:Name="DevicePage" AutomationProperties.AutomationId="DeviceDetailsScroll">
         <StackPanel Margin="24,0,24,24" Spacing="16">
             <Button Click="BackToDevicesButton_Click" AutomationProperties.Name="Back to devices">
                 <StackPanel Orientation="Horizontal" Spacing="8">

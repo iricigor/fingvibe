@@ -9,7 +9,7 @@ public sealed partial class MainWindow : Window
 {
     private readonly NetworkActivityCoordinator _networkActivityCoordinator = new();
     private bool _allowWindowClose;
-    private bool _closingAfterSpeedTest;
+    private bool _closingAfterNetworkActivity;
 
     private static readonly bool IsUiReview =
         Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW") == "1";
@@ -34,20 +34,21 @@ public sealed partial class MainWindow : Window
 
     private async void MainWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
     {
-        if (_allowWindowClose || !ToolsPage.HasActiveTest)
+        if (_allowWindowClose || (!ToolsPage.HasActiveTest && _devicePortScanCancellation is null))
         {
             return;
         }
 
         args.Cancel = true;
-        if (_closingAfterSpeedTest)
+        if (_closingAfterNetworkActivity)
         {
             return;
         }
 
-        _closingAfterSpeedTest = true;
+        _closingAfterNetworkActivity = true;
         try
         {
+            await StopDevicePortScanAsync();
             await ToolsPage.StopForWindowCloseAsync();
         }
         catch (Exception exception)

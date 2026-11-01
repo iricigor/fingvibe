@@ -17,10 +17,10 @@ internal static class PortServiceIcons
             22 or 23 or 5985 or 5986 => "\uE756",
             53 => "\uE968",
             1883 or 8883 => "\uE701",
-            4222 or 4369 or 5671 or 5672 or 15672 or 61613 => "\uE8F1",
+            4222 or 4369 or 5671 or 5672 or 15672 or 61613 => "\uE8BD",
             6650 or 9092 => "\uE8AB",
             1433 or 1521 or 3050 or 3306 or 5432 or 6379 or 7474 or 7687 or 8529
-                or 9042 or 9160 or 11211 or 27017 or 28015 or 9200 => "\uE1D3",
+                or 9042 or 9160 or 11211 or 27017 or 28015 or 9200 => "\uEFC7",
             20 or 21 or 115 or 139 or 445 or 548 or 873 or 989 or 990 or 8384 => "\uE8B7",
             2049 or 3260 => "\uEDA2",
             3389 or 5800 or 5900 or 5901 or 5902 => "\uE7F8",
