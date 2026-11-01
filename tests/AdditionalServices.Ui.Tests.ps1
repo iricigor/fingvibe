@@ -149,14 +149,13 @@ function Open-ServiceDetails {
         $back = Find-ServiceControl "Back to devices" -ByName -Optional
         $back -and -not $back.Current.IsOffscreen
     } "device details"
-    $script:serviceScrollPercent = 0
     Show-ServiceScanSection
 }
 
 function Show-ServiceScanSection {
     $element = Find-ServiceControl DeviceDetailsScroll
     $scroll = $element.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-    for ($percent = $script:serviceScrollPercent; $percent -le 100; $percent += 5) {
+    for ($percent = 0; $percent -le 100; $percent += 5) {
         $scroll.SetScrollPercent(-1, $percent)
         Start-Sleep -Milliseconds 75
         $area = $element.Current.BoundingRectangle
@@ -168,7 +167,6 @@ function Show-ServiceScanSection {
         $heading = (Find-ServiceControl "UDP observations (silence is not an open or closed port)" -ByName).Current.BoundingRectangle
         if ($button.Width -gt 0 -and $heading.Width -gt 0 -and
             $button.Top -ge $top + 8 * $scale -and $heading.Bottom -le $bottom - 110 * $scale) {
-            $script:serviceScrollPercent = $percent
             return
         }
     }

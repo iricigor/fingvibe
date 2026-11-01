@@ -38,7 +38,7 @@ Select-ServicePage Devices
 if ($script:selections -ne 1) { throw "Navigation was not selected exactly once." }
 
 $process = [pscustomobject]@{ MainWindowHandle = [IntPtr]::new(1) }
-$script:serviceScrollPercent = 0
+$script:fixtureScrollPercent = 100
 $script:fixtureButtonPeer = [pscustomobject]@{ Current = [pscustomobject]@{
     BoundingRectangle = [System.Drawing.RectangleF]::new(312, 1000, 160, 32)
 } }
@@ -48,6 +48,7 @@ $script:fixtureHeadingPeer = [pscustomobject]@{ Current = [pscustomobject]@{
 $scroll = [pscustomobject]@{}
 $scroll | Add-Member ScriptMethod SetScrollPercent {
     param($Horizontal, $Vertical)
+    $script:fixtureScrollPercent = $Vertical
     $script:fixtureButtonPeer.Current.BoundingRectangle = [System.Drawing.RectangleF]::new(312, 1000 - $Vertical * 8, 160, 32)
     $script:fixtureHeadingPeer.Current.BoundingRectangle = [System.Drawing.RectangleF]::new(312, 1170 - $Vertical * 8, 600, 30)
 }
@@ -69,7 +70,10 @@ function Get-UiReviewWindowBounds {
     return [System.Drawing.Rectangle]::new(0, 0, 1024, 720)
 }
 Show-ServiceScanSection
-if ($script:serviceScrollPercent -ne 75 -or $script:fixtureHeadingPeer.Current.BoundingRectangle.Bottom -gt 602) {
+if ($script:fixtureScrollPercent -ne 75 -or $script:fixtureHeadingPeer.Current.BoundingRectangle.Bottom -gt 602) {
     throw "Offscreen automation bounds were mistaken for a visible physical viewport."
 }
+$scroll.SetScrollPercent(-1, 100)
+Show-ServiceScanSection
+if ($script:fixtureScrollPercent -ne 75) { throw "A stale scroll position was retained across changing results." }
 Write-Host "Additional service UI helper regression checks passed without desktop automation."
