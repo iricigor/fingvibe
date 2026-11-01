@@ -203,6 +203,16 @@ public sealed partial class MainWindow
                 DevicePage.UdpScanStatus = $"UDP: checking {udpCompleted}/2 services...";
             }
         });
+        var tcpResults = new Progress<OpenPort>(port =>
+        {
+            if (_devicePortScanCancellation != cancellation || !tcpRunning || cancellation.IsCancellationRequested)
+                return;
+            row.UpdateOpenPorts(row.OpenPortItems.Append(port).DistinctBy(item => item.Identity)
+                .OrderBy(item => item.Port).ThenBy(item => item.Protocol).ToArray());
+            changed = true;
+            RefreshVisibleResults();
+            if (IsSelected()) DevicePage.ShowPorts(row.OpenPortItems);
+        });
         try
         {
             await Task.WhenAll(ScanTcpAsync(), includeUdp ? CheckUdpAsync() : Task.CompletedTask);
@@ -230,7 +240,7 @@ public sealed partial class MainWindow
         {
             try
             {
-                var ports = await _portScanner.ScanAdditionalAsync(result.Address, cancellation.Token, network.LocalAddress, tcpProgress);
+                var ports = await _portScanner.ScanAdditionalAsync(result.Address, cancellation.Token, network.LocalAddress, tcpProgress, tcpResults);
                 row.UpdateOpenPorts(row.OpenPortItems.Concat(ports).DistinctBy(port => port.Identity)
                     .OrderBy(port => port.Port).ThenBy(port => port.Protocol).ToArray());
                 changed = true;

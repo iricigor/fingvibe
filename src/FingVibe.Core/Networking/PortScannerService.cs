@@ -145,15 +145,17 @@ public sealed class PortScannerService
         IPAddress address,
         CancellationToken cancellationToken,
         IPAddress? localAddress = null,
-        IProgress<ScanProgress>? progress = null)
+        IProgress<ScanProgress>? progress = null,
+        IProgress<OpenPort>? resultProgress = null)
     {
         return await RunAdditionalProbesAsync(
-            (port, token) => ProbeAsync(address, port, token, localAddress), cancellationToken, progress).ConfigureAwait(false);
+            (port, token) => ProbeAsync(address, port, token, localAddress), cancellationToken, progress, resultProgress).ConfigureAwait(false);
     }
 
     internal static async Task<IReadOnlyList<OpenPort>> RunAdditionalProbesAsync(
         Func<KeyValuePair<int, string>, CancellationToken, Task<OpenPort?>> probe,
-        CancellationToken cancellationToken, IProgress<ScanProgress>? progress = null)
+        CancellationToken cancellationToken, IProgress<ScanProgress>? progress = null,
+        IProgress<OpenPort>? resultProgress = null)
     {
         var results = new System.Collections.Concurrent.ConcurrentBag<OpenPort>();
         var completed = 0;
@@ -162,7 +164,10 @@ public sealed class PortScannerService
             async (port, token) =>
             {
                 if (await probe(port, token).ConfigureAwait(false) is { } openPort)
+                {
                     results.Add(openPort);
+                    resultProgress?.Report(openPort);
+                }
                 progress?.Report(new ScanProgress(Interlocked.Increment(ref completed), AdditionalPorts.Count));
             }).ConfigureAwait(false);
         return results.OrderBy(port => port.Port).ToArray();

@@ -13,6 +13,11 @@ public sealed class AdditionalPortScannerTests
         public void Report(ScanProgress value) => report(value);
     }
 
+    private sealed class EndpointProgress(Action<OpenPort> report) : IProgress<OpenPort>
+    {
+        public void Report(OpenPort value) => report(value);
+    }
+
     [Fact]
     public async Task AdditionalWorkersBoundConcurrencyAndReportAll100Ports()
     {
@@ -58,6 +63,24 @@ public sealed class AdditionalPortScannerTests
         cancel.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => scan.WaitAsync(TimeSpan.FromSeconds(1)));
         Assert.Equal(16, started);
+    }
+
+    [Fact]
+    public async Task CompletedEndpointIsReportedBeforeOtherProbesFinish()
+    {
+        using var cancel = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        var reported = new TaskCompletionSource<OpenPort>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var scan = PortScannerService.RunAdditionalProbesAsync(async (port, token) =>
+        {
+            if (port.Key == 1883) return new OpenPort(port.Key, port.Value);
+            await Task.Delay(Timeout.InfiniteTimeSpan, token);
+            return null;
+        }, cancel.Token, resultProgress: new EndpointProgress(port => reported.TrySetResult(port)));
+        var endpoint = await reported.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.Equal(1883, endpoint.Port);
+        Assert.False(scan.IsCompleted);
+        cancel.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => scan);
     }
 
     [Fact]

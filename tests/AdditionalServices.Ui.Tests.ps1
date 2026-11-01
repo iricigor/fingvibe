@@ -17,6 +17,7 @@ public sealed class AdditionalServicesFixture : IDisposable
     private UdpClient dns;
     private UdpClient ntp;
     private Task[] workers = new Task[0];
+    private Task tcpWorker = Task.CompletedTask;
     private volatile bool stopping;
     public volatile int DnsMode;
     public volatile int NtpMode;
@@ -30,15 +31,18 @@ public sealed class AdditionalServicesFixture : IDisposable
             dns = new UdpClient(new IPEndPoint(IPAddress.Loopback, 53));
             endpoint = "123/UDP";
             ntp = new UdpClient(new IPEndPoint(IPAddress.Loopback, 123));
-            endpoint = "1883/TCP";
-            tcp.Start();
-            workers = new[] { Accept(), Reply(dns, true), Reply(ntp, false) };
+            workers = new[] { Reply(dns, true), Reply(ntp, false) };
         }
         catch (SocketException exception)
         {
             Dispose();
             throw new InvalidOperationException("Cannot bind synthetic loopback " + endpoint + ": " + exception.Message, exception);
         }
+    }
+    public void StartTcp()
+    {
+        tcp.Start();
+        tcpWorker = Accept();
     }
     private async Task Accept()
     {
@@ -87,6 +91,7 @@ public sealed class AdditionalServicesFixture : IDisposable
         if (dns != null) dns.Dispose();
         if (ntp != null) ntp.Dispose();
         if (!Task.WaitAll(workers, 5000)) throw new TimeoutException("Fixture workers failed to stop.");
+        if (!tcpWorker.Wait(5000)) throw new TimeoutException("TCP fixture worker failed to stop.");
     }
 }
 "@
@@ -140,16 +145,29 @@ function Open-ServiceDetails {
         $back = Find-ServiceControl "Back to devices" -ByName -Optional
         $back -and -not $back.Current.IsOffscreen
     } "device details"
-    $scroll = (Find-ServiceControl DeviceDetailsScroll).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-    foreach ($percent in 0..20) {
-        $scroll.SetScrollPercent(-1, $percent * 5)
-        if (-not (Find-ServiceControl DeviceIncludeUdpCheckBox).Current.IsOffscreen) { return }
-        Start-Sleep -Milliseconds 50
-    }
-    throw "The additional-scan controls could not be scrolled into view."
+    $script:serviceScrollPercent = 0
+    Show-ServiceScanSection
 }
 
-function Save-ServiceEvidence([string] $Name) {
+function Show-ServiceScanSection {
+    $element = Find-ServiceControl DeviceDetailsScroll
+    $scroll = $element.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+    for ($percent = $script:serviceScrollPercent; $percent -le 100; $percent += 5) {
+        $scroll.SetScrollPercent(-1, $percent)
+        Start-Sleep -Milliseconds 75
+        $area = $element.Current.BoundingRectangle
+        $button = (Find-ServiceControl DevicePortScanButton).Current.BoundingRectangle
+        $heading = (Find-ServiceControl "UDP observations (silence is not an open or closed port)" -ByName).Current.BoundingRectangle
+        if ($button.Top -ge $area.Top + 8 -and $heading.Bottom -le $area.Bottom - 110) {
+            $script:serviceScrollPercent = $percent
+            return
+        }
+    }
+    throw "The scan action, progress, endpoints, and UDP observation section could not fit the viewport."
+}
+
+function Save-ServiceEvidence([string] $Name, [switch] $DevicesList) {
+    if (-not $DevicesList) { Show-ServiceScanSection }
     Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Name.png")
 }
 
@@ -188,19 +206,24 @@ try {
     Invoke-ServiceControl "Scan additional ports"
     Wait-ServiceState { (Find-ServiceControl DeviceTcpScanStatus).Current.Name -like "TCP: complete*" } "TCP-only completion"
     if ($fixture.DnsRequests -ne 0 -or $fixture.NtpRequests -ne 0) { throw "Default scanning sent UDP requests." }
-    $null = Find-ServiceControl "1883/TCP - MQTT" -ByName
+    if (Find-ServiceControl "1883/TCP - MQTT" -ByName -Optional) { throw "The TCP fixture unexpectedly responded before starting." }
     Wait-ServiceState { (Find-ServiceControl DevicePortScanButton).Current.Name -eq "Scan additional ports" } "usable TCP-only button"
+    $fixture.StartTcp()
     $udp.Toggle()
     Invoke-ServiceControl "Scan additional ports"
-    Wait-ServiceState { (Find-ServiceControl DeviceTcpScanStatus).Current.Name -like "TCP: complete*" } "TCP before UDP" 2
+    Wait-ServiceState { Find-ServiceControl "1883/TCP - MQTT" -ByName -Optional } "new TCP endpoint before UDP" 2
     if ((Find-ServiceControl DeviceUdpScanStatus).Current.Name -notlike "UDP: checking*") {
-        throw "Completed TCP results were not exposed while UDP was still pending."
+        throw "A newly completed TCP endpoint was not exposed while UDP was still pending."
     }
-    Save-ServiceEvidence "services-tcp-complete-udp-pending"
+    Save-ServiceEvidence "services-tcp-results-udp-pending"
+    if ((Find-ServiceControl DeviceUdpScanStatus).Current.Name -notlike "UDP: checking*") {
+        throw "UDP finished before the TCP-before-UDP screenshot was captured."
+    }
     Wait-ServiceState { (Find-ServiceControl DeviceUdpScanStatus).Current.Name -like "*0 responded, 2 inconclusive, 0 error*" } "inconclusive UDP"
     if ($fixture.DnsRequests -ne 1 -or $fixture.NtpRequests -ne 1) { throw "UDP must send only one request per service." }
     Save-ServiceEvidence "services-inconclusive"
     Wait-ServiceState { (Find-ServiceControl DevicePortScanButton).Current.Name -eq "Scan additional ports" } "scan cleanup"
+    if ((Find-ServiceControl DeviceTcpScanStatus).Current.Name -notlike "TCP: complete*") { throw "TCP completion was not independently reported." }
     $fixture.DnsMode = 1
     $fixture.NtpMode = 1
     Invoke-ServiceControl "Scan additional ports"
@@ -237,7 +260,7 @@ try {
         (Find-ServiceControl ThemePicker).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
         (Find-ServiceControl $theme -ByName).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
         Select-ServicePage Devices
-        Save-ServiceEvidence "services-list-$theme"
+        Save-ServiceEvidence "services-list-$theme" -DevicesList
         Open-ServiceDetails
         Save-ServiceEvidence "services-details-$theme"
     }

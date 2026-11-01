@@ -69,8 +69,9 @@ still checks only its original 10 TCP ports. The additional scan uses at most
 non-recursive DNS question to 53/UDP and one standard NTP client request to
 123/UDP on the selected device, bound to the selected interface. Both checks
 can run concurrently, with a 2-second deadline each, a 512-byte reply limit,
-and no retries. TCP results appear as soon as that phase finishes, without
-waiting for UDP; each protocol has its own progress/status. The same button
+and no retries. Confirmed TCP results appear individually as each connection
+finishes, without waiting for the remaining TCP probes or UDP; each protocol
+has its own progress/status. The same button
 becomes **Cancel additional scan** while running; leaving details also cancels.
 Completed results remain available and are saved locally, including when the
 other phase is canceled. Historical and imported-only addresses are not probed.
