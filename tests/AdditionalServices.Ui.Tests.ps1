@@ -155,9 +155,16 @@ function Open-ServiceDetails {
 function Show-ServiceScanSection {
     $element = Find-ServiceControl DeviceDetailsScroll
     $scroll = $element.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-    for ($percent = 0; $percent -le 100; $percent += 5) {
+    $center = [Math]::Clamp([int][Math]::Round($scroll.Current.VerticalScrollPercent), 0, 100)
+    $positions = [System.Collections.Generic.List[int]]::new()
+    $positions.Add($center)
+    foreach ($distance in 1..100) {
+        if ($center + $distance -le 100) { $positions.Add($center + $distance) }
+        if ($center - $distance -ge 0) { $positions.Add($center - $distance) }
+    }
+    foreach ($percent in $positions) {
         $scroll.SetScrollPercent(-1, $percent)
-        Start-Sleep -Milliseconds 75
+        Start-Sleep -Milliseconds 50
         $area = $element.Current.BoundingRectangle
         $window = Get-UiReviewWindowBounds $process.MainWindowHandle
         $scale = [UiReviewNativeWindow]::GetDpiForWindow($process.MainWindowHandle) / 96.0
