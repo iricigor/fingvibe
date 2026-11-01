@@ -106,10 +106,10 @@ function Find-ServiceControl([string] $Value, [switch] $ByName, [switch] $Option
     return $element
 }
 
-function Wait-ServiceState([scriptblock] $Condition, [string] $Description, [int] $Seconds = 10) {
+function Wait-ServiceState([scriptblock] $Predicate, [string] $Description, [int] $Seconds = 10) {
     $deadline = [DateTime]::UtcNow.AddSeconds($Seconds)
     do {
-        if (& $Condition) { return }
+        if (& $Predicate) { return }
         Start-Sleep -Milliseconds 50
     } while ([DateTime]::UtcNow -lt $deadline)
     throw "Timed out waiting for $Description."

@@ -68,6 +68,10 @@ jobs:
         shell: pwsh
         run: .\tests\UiReviewScenarios.Tests.ps1
 
+      - name: Test additional service UI helpers without desktop automation
+        shell: pwsh
+        run: .\tests\AdditionalServices.Script.Tests.ps1
+
       - name: Test validation planning and comments
         shell: pwsh
         run: .\tests\PrValidation.Tests.ps1
