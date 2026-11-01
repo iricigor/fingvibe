@@ -21,6 +21,16 @@ internal sealed class BuildIdentity
     public int? PullRequestNumber { get; }
     public string? Commit { get; }
     public Uri? BuildUri { get; }
+    public DateTimeOffset? BuildTimestamp { get; }
+    public string RibbonTimestampText => BuildTimestamp is { } timestamp
+        ? $"Built {timestamp.ToString("MMM d, HH:mm 'UTC'", CultureInfo.InvariantCulture)}"
+        : "Build time unavailable";
+    public string TimestampText => BuildTimestamp is { } timestamp
+        ? $"Built {timestamp.ToString("MMM d, yyyy, HH:mm:ss.FFFFFFF 'UTC'", CultureInfo.InvariantCulture)}"
+        : "Build time unavailable";
+    public string CommitText => Commit is null ? "Commit not recorded for this build." : $"Commit: {Commit}";
+    public string RibbonToolTip => $"{Summary}\n{TimestampText}\n{CommitText}\nAcknowledge this build (hide ribbon until the app closes)";
+    public string RibbonAccessibleName => $"Acknowledge {Label}; {TimestampText}; hide ribbon until the app closes";
     public Uri? PullRequestUri => PullRequestNumber is int number
         ? new Uri($"https://github.com/iricigor/fingvibe/pull/{number}")
         : null;
@@ -48,7 +58,8 @@ internal sealed class BuildIdentity
     public bool IsRibbonVisible => Kind != BuildKind.Release && !_acknowledged;
     private bool _acknowledged;
 
-    internal BuildIdentity(string? version, string? kind, string? pullRequest, string? commit, string? buildUrl)
+    internal BuildIdentity(string? version, string? kind, string? pullRequest, string? commit, string? buildUrl,
+        string? buildTimestamp = null)
     {
         Version = System.Version.TryParse(version?.Split('+')[0], out var parsedVersion)
             ? $"v{parsedVersion.Major}.{parsedVersion.Minor}.{Math.Max(0, parsedVersion.Build)}"
@@ -79,6 +90,17 @@ internal sealed class BuildIdentity
             Trace.TraceError("App version metadata is missing or invalid.");
         }
         Commit = string.IsNullOrWhiteSpace(commit) ? null : commit;
+        if (DateTimeOffset.TryParseExact(buildTimestamp,
+            ["yyyy-MM-dd'T'HH:mm:ss'Z'", "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'"],
+            CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+            out var timestamp))
+        {
+            BuildTimestamp = timestamp;
+        }
+        else if (!string.IsNullOrEmpty(buildTimestamp))
+        {
+            Trace.TraceError("Invalid build timestamp in app metadata; build time is unavailable.");
+        }
         if (!string.IsNullOrWhiteSpace(buildUrl))
         {
             if (Uri.TryCreate(buildUrl, UriKind.Absolute, out var uri)
@@ -103,6 +125,7 @@ internal sealed class BuildIdentity
         string? Read(string key) => metadata.GetValueOrDefault(key);
         return new BuildIdentity(
             assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
-            Read("BuildKind"), Read("PullRequestNumber"), Read("BuildCommit"), Read("BuildUrl"));
+            Read("BuildKind"), Read("PullRequestNumber"), Read("BuildCommit"), Read("BuildUrl"),
+            Read("BuildTimestamp"));
     }
 }
