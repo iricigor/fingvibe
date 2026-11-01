@@ -127,8 +127,12 @@ function Select-ServicePage([string] $Name) {
         [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
             [System.Windows.Automation.ControlType]::ListItem))
-    $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition).GetCurrentPattern(
-        [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Wait-ServiceState {
+        $item = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        if (-not $item) { return $false }
+        $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+        return $true
+    } "navigation to $Name"
     Start-Sleep -Milliseconds 200
 }
 
@@ -156,14 +160,19 @@ function Show-ServiceScanSection {
         $scroll.SetScrollPercent(-1, $percent)
         Start-Sleep -Milliseconds 75
         $area = $element.Current.BoundingRectangle
+        $window = Get-UiReviewWindowBounds $process.MainWindowHandle
+        $scale = [UiReviewNativeWindow]::GetDpiForWindow($process.MainWindowHandle) / 96.0
+        $top = [Math]::Max($area.Top, $window.Top + 190 * $scale)
+        $bottom = [Math]::Min($area.Bottom, $window.Bottom - 8 * $scale)
         $button = (Find-ServiceControl DevicePortScanButton).Current.BoundingRectangle
         $heading = (Find-ServiceControl "UDP observations (silence is not an open or closed port)" -ByName).Current.BoundingRectangle
-        if ($button.Top -ge $area.Top + 8 -and $heading.Bottom -le $area.Bottom - 110) {
+        if ($button.Width -gt 0 -and $heading.Width -gt 0 -and
+            $button.Top -ge $top + 8 * $scale -and $heading.Bottom -le $bottom - 110 * $scale) {
             $script:serviceScrollPercent = $percent
             return
         }
     }
-    throw "The scan action, progress, endpoints, and UDP observation section could not fit the viewport."
+    throw "The scan section could not fit the physical viewport: window=$window, scroll=$area, button=$button, observations=$heading."
 }
 
 function Save-ServiceEvidence([string] $Name, [switch] $DevicesList) {
@@ -259,6 +268,7 @@ try {
         Select-ServicePage Settings
         (Find-ServiceControl ThemePicker).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
         (Find-ServiceControl $theme -ByName).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+        (Find-ServiceControl ThemePicker).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse()
         Select-ServicePage Devices
         Save-ServiceEvidence "services-list-$theme" -DevicesList
         Open-ServiceDetails
