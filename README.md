@@ -32,13 +32,14 @@ not a real LAN. [Capture details](docs/screenshots/README.md).
 | 💻 **Identify** | Discover names through UPnP/SSDP, mDNS, reverse DNS, and NetBIOS; explore MAC vendors, evidence-backed OS/device types, and saved manual corrections. |
 | 🌐 **Inspect** | View common TCP services, device details, public/local network identity, and scan-wide latency bars. |
 | 👥 **Organize** | Assign people and rooms by MAC address; search, filter, sort, and resize device columns. |
+| **Import and retain** | Review a Fing Excel export in Tools; keep a persistent MAC-keyed inventory with Online, Offline, and Fing Only states. |
 | 🎨 **Personalize** | Choose four light/dark themes and Solid, Mica, Mica Alt, or Acrylic backdrops. |
 | ⚡ **Measure** | Run a [manual Cloudflare speed test](docs/speed-test.md) with native results and a per-run data-use disclosure. |
 
 ### Your first scan
 
 Select a network in the shared network picker, then choose **Scan LAN**.
-**Overview** summarizes the displayed scan; **Devices** shows responding hosts.
+**Overview** summarizes the displayed scan; **Devices** shows your persistent inventory.
 Click a device to inspect its addresses, identification evidence, and services.
 Hover over service icons for port numbers and names. Use search and the
 **People**, **Rooms**, and **With open ports** filters to narrow the list.
@@ -53,9 +54,10 @@ keeps the displayed results and reports the outcome. Freshness describes that
 scan, not ongoing background checks; switching networks identifies results
 from another target rather than silently relabeling them.
 
-**Scanning limitations:** Only devices answering ICMP appear; firewalls or silent
-devices can hide active hosts. Identification is best-effort, open ports are not
-a security verdict, and scan results are not continuous monitoring or device history.
+**Scanning limitations:** Only devices answering ICMP are locally discovered;
+firewalls or silent devices can hide active hosts. Previously observed and imported
+devices remain in the inventory. Identification is best-effort, open ports are not
+a security verdict, and scan results are not continuous monitoring or an event timeline.
 The scanner limits a target to 65,534 usable addresses. An **Unknown** or
 **(likely)** classification is intentional when evidence is absent or uncertain;
 you can inspect the evidence and save a correction instead of relying on a guess.
@@ -69,9 +71,17 @@ and [speed-test disclosure](docs/speed-test.md) for details.
 
 **Local data:** Saved scans, appearance preferences, identification corrections,
 and people/rooms data live under `%LOCALAPPDATA%\FingVibe`. Assignments and
-corrections require a discovered MAC address, not just an IP; randomized MACs
+corrections require a six-byte MAC address, not just an IP; randomized MACs
 can break those associations. Data stays separate from automatic scan evidence,
 and load/save errors are shown rather than silently overwriting a damaged file.
+
+**Tools → Import from Fing** accepts a local `.xlsx` export, previews additions
+and per-field conflicts, and preserves your customizations unless you explicitly
+replace them. Create missing people/rooms on their management pages and analyze
+again; import never creates entries automatically. **Fing Only** means never
+observed locally, and imported IPs do not establish online presence.
+See [inventory and import](docs/reference.md#inventory-and-fing-import) for status
+semantics, supported exports, and storage migration.
 
 ## 🚀 Run locally
 

@@ -1,4 +1,5 @@
 using FingVibe.Core.Models;
+using FingVibe.Core.Import;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
@@ -6,6 +7,9 @@ namespace FingVibe.App;
 
 public sealed partial class ToolsPage : UserControl
 {
+    private Action<string>? _showManagement;
+    private bool _resumeImport;
+
     public ToolsPage()
     {
         InitializeComponent();
@@ -23,6 +27,24 @@ public sealed partial class ToolsPage : UserControl
 
     public bool HasActiveTest => SpeedTestView.HasActiveTest || TroubleshootingView.HasActiveTest;
 
+    internal void ConfigureImport(Func<DeviceInventoryData> getData, Func<bool> canEdit,
+        Func<FingImportAnalysis, Task<string>> import, Action<string> showManagement, nint windowHandle)
+    {
+        _showManagement = showManagement;
+        FingImportView.Configure(getData, canEdit, import, windowHandle);
+    }
+
+    internal void InvalidateImportAnalysis(string reason) => FingImportView.InvalidateAnalysis(reason);
+
+    internal void Open()
+    {
+        if (_resumeImport)
+        {
+            _resumeImport = false;
+            ShowImport();
+        }
+    }
+
     public void SetNetworkContext(LanNetwork? network) => TroubleshootingView.SetNetworkContext(network);
 
     public async Task StopForNavigationAsync()
@@ -30,6 +52,7 @@ public sealed partial class ToolsPage : UserControl
         SpeedTestView.Visibility = Visibility.Collapsed;
         AboutView.Visibility = Visibility.Collapsed;
         TroubleshootingView.Visibility = Visibility.Collapsed;
+        FingImportView.Visibility = Visibility.Collapsed;
         ToolsLanding.Visibility = Visibility.Visible;
         await Task.WhenAll(SpeedTestView.StopForNavigationAsync(), TroubleshootingView.StopForNavigationAsync());
         SpeedTestView.ResetForNavigation();
@@ -78,5 +101,26 @@ public sealed partial class ToolsPage : UserControl
     {
         await StopForNavigationAsync();
         SpeedTestCard.Focus(FocusState.Programmatic);
+    }
+
+    private void ShowImport()
+    {
+        ToolsLanding.Visibility = Visibility.Collapsed;
+        FingImportView.Visibility = Visibility.Visible;
+        FingImportView.Open();
+    }
+
+    private void FingImportCard_Click(object sender, RoutedEventArgs e) => ShowImport();
+
+    private async void FingImportView_BackRequested(object? sender, EventArgs e)
+    {
+        await StopForNavigationAsync();
+        FingImportCard.Focus(FocusState.Programmatic);
+    }
+
+    private void FingImportView_ManagementRequested(object? sender, string category)
+    {
+        _resumeImport = true;
+        _showManagement?.Invoke(category);
     }
 }

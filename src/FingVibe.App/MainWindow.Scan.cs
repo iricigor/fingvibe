@@ -26,7 +26,7 @@ public sealed partial class MainWindow
             ? $"{scan.Freshness(DateTimeOffset.UtcNow)} · {scan.Subnet}"
                 + (scan.Subnet != network?.Cidr ? $" · These results are not for the selected scan target ({network?.Cidr ?? "none"})." : string.Empty)
             : network is null ? "Connect to a LAN to scan" : "Ready for your first scan";
-        var status = string.Join(" · ", new[] { _scanMessage, _snapshotError, context }
+        var status = string.Join(" · ", new[] { _scanMessage, _snapshotError, _inventoryError, context }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
         ScanStatusText.Text = status;
         DevicesPage.ShowScanStatus(status);
@@ -50,6 +50,7 @@ public sealed partial class MainWindow
 
         using var scanActivity = activityLease;
         _isScanning = true;
+        ToolsPage.InvalidateImportAnalysis("A scan started. Wait for it to finish and analyze again.");
         DevicesPage.SetInteractionsEnabled(false);
         UpdateEmptyState();
         ScanButton.IsEnabled = false;
@@ -82,29 +83,28 @@ public sealed partial class MainWindow
 
         try
         {
+            var networkId = GetScanNetworkIdentity(network);
             var summary = await _scanner.ScanAsync(
                 network,
                 resultProgress,
                 scanProgress,
                 _scanCancellation.Token);
+            var completedNetworkId = GetScanNetworkIdentity(network);
+            if (completedNetworkId != networkId)
+            {
+                networkId = null;
+                _inventoryError = "The Windows network profile changed during this scan. Observations are unscoped and no devices are marked Offline.";
+            }
 
             stopwatch.Stop();
-            _allResults.Clear();
-            _minimumLatency = long.MaxValue;
-            _maximumLatency = 0;
-            foreach (var result in resultProgress.Results)
-            {
-                var row = CreateResultRow(result, network.PrefixLength);
-                _allResults.Add(row);
-                UpdateLatencyRange(row);
-            }
-            RefreshVisibleResults();
             _onlineDeviceCount = summary.Alive;
             UpdateNetworkIdentity();
             _scanMessage =
                 $"Complete in {stopwatch.Elapsed.TotalSeconds:N1}s - {summary.Alive:N0} {(summary.Alive == 1 ? "device" : "devices")}";
 
-            await SaveCompletedScanAsync(network, _allResults);
+            var results = resultProgress.Results.Select(result => IsUiReview && System.Net.IPAddress.IsLoopback(result.Address)
+                ? result with { MacAddress = System.Net.NetworkInformation.PhysicalAddress.Parse("020000000001") } : result).ToArray();
+            await SaveCompletedScanAsync(network, results, networkId);
         }
         catch (OperationCanceledException)
         {

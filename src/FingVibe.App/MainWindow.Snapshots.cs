@@ -35,25 +35,21 @@ public sealed partial class MainWindow
             var snapshot = await _snapshotStore.LoadAsync();
             if (snapshot is null)
             {
+                RefreshInventoryRows();
                 return;
             }
 
-            var prefixLength = int.Parse(snapshot.Subnet[(snapshot.Subnet.LastIndexOf('/') + 1)..]);
-            _minimumLatency = long.MaxValue;
-            _maximumLatency = 0;
-            foreach (var result in snapshot.Results.Where(result => result.Status == HostStatus.Alive))
-            {
-                var row = CreateResultRow(result, prefixLength);
-                _allResults.Add(row);
-                UpdateLatencyRange(row);
-            }
-
-            RefreshVisibleResults();
+            _currentScanSnapshot = snapshot;
+            var missingObservations = snapshot.Results.Where(result => result.MacAddress is { } mac
+                && (!_inventory.Devices.TryGetValue(mac.ToString(), out var device) || device.Observations.Count == 0)).ToArray();
+            _inventory = _inventory.ObserveCompletedScan(null, snapshot with { Results = missingObservations }, historical: true);
+            RefreshInventoryRows();
             UpdatePeopleRoomsPages();
             ShowSavedSnapshotStatus(snapshot);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
         {
+            RefreshInventoryRows();
             ShowSnapshotError("The saved scan could not be loaded. Scan LAN to create a new snapshot.");
         }
     }
@@ -75,7 +71,7 @@ public sealed partial class MainWindow
         }
     }
 
-    private ScanResultRow CreateResultRow(ScanResult result, int prefixLength)
+    private ScanResultRow CreateResultRow(ScanResult result, int prefixLength, bool historical = false)
     {
         if (IsUiReview && System.Net.IPAddress.IsLoopback(result.Address))
         {
@@ -88,17 +84,36 @@ public sealed partial class MainWindow
                 : null;
         var classificationOverride = result.MacAddress is { } mac
             && _classificationOverrides.TryGetValue(mac.ToString(), out var saved) ? saved : null;
-        var row = new ScanResultRow(result, prefixLength, customName, classificationOverride);
+        var row = new ScanResultRow(result, prefixLength, customName, classificationOverride, historical);
         ApplyPeopleRoomAssignments(row);
         return row;
     }
 
-    private async Task SaveCompletedScanAsync(LanNetwork network, IEnumerable<ScanResultRow> results)
+    private async Task SaveCompletedScanAsync(LanNetwork network, IEnumerable<ScanResult> results, string? networkId)
     {
         var snapshot = new ScanSnapshot(
             network.Cidr,
             DateTimeOffset.UtcNow,
-            results.Select(row => row.Result).ToArray());
+            results.ToArray());
+        _currentScanSnapshot = snapshot;
+        _liveCompletedAt = snapshot.CompletedAt;
+        await _deviceDataSaveLock.WaitAsync();
+        try
+        {
+            var observed = CurrentDeviceData.ObserveCompletedScan(networkId, snapshot);
+            try
+            {
+                await PersistDeviceDataAsync(observed);
+                _inventoryError = networkId is null && !IsUiReview ? _inventoryError : null;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+            {
+                _inventory = observed;
+                _inventoryError = $"Scan completed, but inventory could not be saved: {exception.Message}";
+            }
+        }
+        finally { _deviceDataSaveLock.Release(); }
+        RefreshInventoryRows();
         _displayedScan = new OverviewScanContext(snapshot.Subnet, snapshot.CompletedAt, ScanDisplayStatus.Completed);
         UpdateOverview();
         try

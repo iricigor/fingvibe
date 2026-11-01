@@ -1,0 +1,155 @@
+<UserControl
+    x:Class="FingVibe.App.FingImportPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="ImportAnalyzedFileBackgroundBrush" Color="#215A3B" />
+                    <SolidColorBrush x:Key="ImportAnalyzedFileBorderBrush" Color="#449D68" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="ImportAnalyzedFileBackgroundBrush" Color="#CEECD7" />
+                    <SolidColorBrush x:Key="ImportAnalyzedFileBorderBrush" Color="#419A63" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush x:Key="ImportAnalyzedFileBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="ImportAnalyzedFileBorderBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+            <Style x:Key="ImportFieldChipStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource ControlFillColorDefaultBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="Padding" Value="6,2" />
+                <Setter Property="Margin" Value="0,0,6,0" />
+            </Style>
+            <Style x:Key="ImportConflictCountStyle" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{ThemeResource SystemFillColorCriticalBrush}" />
+            </Style>
+            <Style x:Key="ImportDeviceHeaderStyle" TargetType="Border">
+                <Setter Property="Background" Value="{ThemeResource ControlFillColorSecondaryBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="0,0,0,1" />
+                <Setter Property="CornerRadius" Value="7,7,0,0" />
+                <Setter Property="Padding" Value="16,6,16,2" />
+            </Style>
+            <Style x:Key="ImportFileLabelStyle" TargetType="Border">
+                <Setter Property="Padding" Value="6,2" />
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="1" />
+            </Style>
+            <Style x:Key="ImportAnalyzedFileLabelStyle" TargetType="Border" BasedOn="{StaticResource ImportFileLabelStyle}">
+                <Setter Property="Background" Value="{ThemeResource ImportAnalyzedFileBackgroundBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource ImportAnalyzedFileBorderBrush}" />
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <ScrollViewer x:Name="ImportScroll" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="24,0,24,24" Spacing="16">
+            <Button Content="&#x2190; Tools" Click="Back_Click" AutomationProperties.Name="Back to Tools" />
+            <TextBlock Text="Import from Fing" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+            <TextBlock Text="Bring your device names, details, and assignments into FingVibe. Review everything before importing."
+                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Expander x:Name="ExportHelpExpander" Header="How to export your devices from Fing" IsExpanded="False"
+                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                <StackPanel Spacing="8">
+                    <TextBlock x:Name="ExportHelpText" TextWrapping="Wrap" />
+                    <HyperlinkButton Content="Fing's export documentation" NavigateUri="https://help.fing.com/hc/en-us/articles/26652272065820-Network-View" />
+                </StackPanel>
+            </Expander>
+            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="1   Choose a file" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <Border x:Name="DropArea" AllowDrop="True" DragOver="File_DragOver" Drop="File_Drop"
+                            Padding="16" CornerRadius="6" BorderThickness="1"
+                            BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                            Background="{ThemeResource ControlFillColorDefaultBrush}"
+                            AutomationProperties.Name="Drop Fing Excel export here">
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="4" VerticalAlignment="Center">
+                                <Border x:Name="SelectedFileLabel" Style="{StaticResource ImportFileLabelStyle}">
+                                    <TextBlock x:Name="SelectedFileText" Text="Choose a Fing Excel export (.xlsx)" TextWrapping="Wrap" FontWeight="SemiBold" />
+                                </Border>
+                                <TextBlock Text="Or drag and drop one file here. Choosing a different file clears the previous analysis."
+                                           TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                            <Button x:Name="BrowseButton" Grid.Column="1" Content="Browse..." VerticalAlignment="Center"
+                                    Click="Browse_Click" AutomationProperties.Name="Browse Fing export" />
+                        </Grid>
+                    </Border>
+                    <TextBlock x:Name="FileStatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                <StackPanel Spacing="12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="2   Analysis" Style="{ThemeResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
+                        <Button x:Name="AnalyzeButton" Grid.Column="1" Content="Analyze again" Click="Analyze_Click" IsEnabled="False" />
+                    </Grid>
+                    <TextBlock x:Name="AnalysisCountsText" Text="Choose a file to analyze. Analysis does not change saved data."
+                               TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                    <StackPanel x:Name="AnalysisGroups" Spacing="8" />
+                    <TextBlock Text="Return here and analyze again after managing People or Rooms. Missing or ambiguous assignments are never imported."
+                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock x:Name="LimitationsText" TextWrapping="Wrap" FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="3   Changes and conflicts" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <StackPanel x:Name="SelectionActions" Orientation="Horizontal" Spacing="8" Visibility="Collapsed">
+                        <Button Content="Select all" Click="SelectAll_Click" />
+                        <Button Content="Deselect all" Click="DeselectAll_Click" />
+                    </StackPanel>
+                    <ListView x:Name="ChangesList" SelectionMode="None"
+                              HorizontalContentAlignment="Stretch" AutomationProperties.Name="Fing import preview">
+                    </ListView>
+                    <Expander x:Name="UnchangedExpander" Header="No changes" Visibility="Collapsed"
+                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <TextBlock x:Name="UnchangedText" TextWrapping="Wrap" FontFamily="Segoe UI Emoji" />
+                    </Expander>
+                    <Expander x:Name="CompletedExpander" Header="Imported this session" Visibility="Collapsed"
+                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <TextBlock x:Name="CompletedText" TextWrapping="Wrap" FontFamily="Segoe UI Emoji" />
+                    </Expander>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                <Grid ColumnSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="4" VerticalAlignment="Center">
+                        <TextBlock x:Name="ImportHeadingText" Text="Review your changes before importing" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock x:Name="ImportSummaryText" Text="All processing stays on this PC." TextWrapping="Wrap"
+                                   AutomationProperties.LiveSetting="Polite" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="Imports apply eligible changes using your keep/replace choices, not every Fing value."
+                                   TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Button x:Name="SelectionModeButton" Content="Select devices" Click="SelectionMode_Click" IsEnabled="False" />
+                        <Button x:Name="ImportButton" Content="Import all" IsEnabled="False"
+                                VerticalAlignment="Center" Click="Import_Click" Style="{StaticResource AccentButtonStyle}"
+                                AutomationProperties.Name="Import reviewed Fing changes" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

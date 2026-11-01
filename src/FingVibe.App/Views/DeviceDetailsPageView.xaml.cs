@@ -1,4 +1,5 @@
 using FingVibe.Core.Models;
+using FingVibe.Core.Import;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
@@ -40,14 +41,24 @@ public sealed partial class DeviceDetailsPageView : UserControl
     internal void ShowDevice(ScanResultRow row)
     {
         var result = row.Result;
-        DeviceAddressText.Text = result.AddressText;
-        DeviceMacText.Text = result.MacAddressText;
-        DeviceVendorText.Text = result.VendorText;
+        DeviceAddressText.Text = row.AddressText;
+        DeviceMacText.Text = row.MacAddressText;
+        DeviceVendorText.Text = row.VendorText;
         DeviceVendorText.Opacity = row.VendorOpacity;
-        DeviceStatusText.Text = row.IsOnline ? "Online" : "Offline (no ICMP response)";
-        DeviceResponseText.Text = result.RoundtripText;
-        DeviceProbeText.Text = $"{result.ProbeDuration.TotalMilliseconds:N0} ms";
-        ShowPorts(result.OpenPortItems);
+        DeviceStatusText.Text = row.StatusContext;
+        DeviceResponseText.Text = row.LatencyLabel;
+        DeviceProbeText.Text = result is null ? "-" : $"{result.ProbeDuration.TotalMilliseconds:N0} ms";
+        DeviceHostnameText.Text = row.HostnameText;
+        DeviceAddressSourceText.Text = result is null ? "Historical IP from Fing; never observed locally."
+            : $"Last-known local address{(row.IsHistorical ? " (historical)" : string.Empty)}.";
+        DeviceImportedMetadataText.Text = row.ImportedMetadata is { } imported
+            ? $"Imported from Fing\nName: {imported.Name ?? "-"}\nHostname: {imported.Hostname ?? "-"}\n"
+                + $"Type: {imported.Type ?? "-"}\nBrand: {imported.Brand ?? "-"}\nFamily: {imported.Family ?? "-"}\n"
+                + $"Model: {imported.Model ?? "-"}\nOS: {imported.OperatingSystem ?? "-"} {imported.OperatingSystemVersion}\n"
+                + $"Historical imported IP: {imported.Address ?? "-"}"
+            : "No imported Fing metadata.";
+        DevicePortScanButton.IsEnabled = row.CanProbe;
+        ShowPorts(row.OpenPortItems);
         DevicePortScanStatusText.Text = string.Empty;
         DeviceIdentificationEditor.IsExpanded = false;
     }
@@ -107,6 +118,12 @@ public sealed partial class DeviceDetailsPageView : UserControl
         ToolTipService.SetToolTip(DeviceTypeValueText, row.DeviceTypeSource);
         DeviceOsEvidenceText.Text = row.OperatingSystemSource;
         DeviceTypeEvidenceText.Text = row.DeviceTypeSource;
+        ((ComboBoxItem)DeviceOsPicker.Items[0]).Content = FingClassificationMapper.OperatingSystem(row.ImportedMetadata?.OperatingSystem) is not null
+            ? "Use imported Fing OS" : "Automatic";
+        ((ComboBoxItem)DeviceTypePicker.Items[0]).Content = FingClassificationMapper.Type(row.ImportedMetadata?.Type) is not null
+            ? "Use imported Fing type" : "Automatic";
+        DeviceClassificationResetButton.Content = row.ImportedMetadata is null
+            ? "Use automatic detection" : "Clear saved corrections";
         SelectChoice(DeviceOsPicker, row.ClassificationOverride?.OperatingSystem);
         SelectChoice(DeviceTypePicker, row.ClassificationOverride?.Type);
         SelectChoice(DeviceIconPicker, row.ClassificationOverride?.Icon);

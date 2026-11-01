@@ -40,9 +40,9 @@ public sealed partial class MainWindow
         DevicePage.ShowClassification(row);
         DevicePage.ClassificationStatus = _classificationOverridesUnavailable
             ? "Saved classifications could not be loaded. Changes are disabled to protect the saved file."
-            : row.Result.MacAddress is null
+            : row.MacAddress is null
                 ? "A MAC address is required to save corrections; IP addresses can change."
-                : MacAddressResolver.IsPrivateOrRandomized(row.Result.MacAddress)
+                : MacAddressResolver.IsPrivateOrRandomized(row.MacAddress)
                     ? "This MAC is private/randomized. Corrections apply only while the MAC stays the same."
                     : "Corrections are saved by MAC address and take precedence over automatic detection.";
         UpdateClassificationActions();
@@ -53,7 +53,8 @@ public sealed partial class MainWindow
 
     private void UpdateClassificationActions()
     {
-        var enabled = _selectedDeviceRow?.Result.MacAddress is not null
+        var enabled = _selectedDeviceRow?.MacAddress is not null
+            && _inventoryReady && !_inventoryUnavailable
             && !_classificationOverridesUnavailable && !_isSavingClassification;
         var choices = DevicePage.ClassificationChoices;
         var current = _selectedDeviceRow?.ClassificationOverride ?? new DeviceClassificationOverride();
@@ -69,11 +70,14 @@ public sealed partial class MainWindow
     private async Task SaveClassificationOverrideAsync(DeviceClassificationOverride value)
     {
         if (_classificationOverridesUnavailable || _isSavingClassification
-            || _selectedDeviceRow is not { } row || row.Result.MacAddress is not { } mac)
+            || _selectedDeviceRow is not { } row || row.MacAddress is not { } mac)
         {
             return;
         }
 
+        _isSavingClassification = true;
+        UpdateClassificationActions();
+        await _deviceDataSaveLock.WaitAsync();
         var updated = new Dictionary<string, DeviceClassificationOverride>(_classificationOverrides,
             StringComparer.OrdinalIgnoreCase);
         var key = mac.ToString();
@@ -86,33 +90,34 @@ public sealed partial class MainWindow
             updated[key] = value;
         }
 
-        _isSavingClassification = true;
-        UpdateClassificationActions();
         try
         {
-            await _classificationOverrideStore.SaveAsync(updated);
+            await PersistDeviceDataAsync(CurrentDeviceData with { Classifications = updated });
             _classificationOverrides = updated;
             foreach (var matching in _allResults.Append(row).Distinct()
-                .Where(item => item.Result.MacAddress?.ToString() == key))
+                .Where(item => item.MacAddress?.ToString() == key))
             {
                 matching.SetClassificationOverride(value.IsEmpty ? null : value);
             }
 
             RefreshVisibleResults();
-            if (_selectedDeviceRow?.Result.MacAddress?.ToString() == key)
+            if (_selectedDeviceRow?.MacAddress?.ToString() == key)
             {
                 UpdateClassificationDetails();
                 DevicePage.ClassificationStatus = value.IsEmpty
-                    ? "Automatic detection restored." : "Classification and icon choices saved.";
+                    ? row.ImportedMetadata is null ? "Automatic detection restored."
+                        : "Saved corrections cleared; imported data or automatic detection is now used."
+                    : "Classification and icon choices saved.";
             }
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or FormatException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or FormatException or InvalidOperationException)
         {
-            DevicePage.ClassificationStatus = $"Corrections for {row.NameText} could not be saved.";
+            DevicePage.ClassificationStatus = $"Corrections for {row.NameText} could not be saved: {exception.Message}";
         }
         finally
         {
             _isSavingClassification = false;
+            _deviceDataSaveLock.Release();
             UpdateClassificationActions();
         }
     }

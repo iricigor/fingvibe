@@ -27,6 +27,7 @@ public sealed partial class MainWindow
     {
         DevicesPage.SearchText = string.Empty;
         DevicesPage.OpenPortsOnly = openPortsOnly;
+        DevicesPage.StatusFilter = InventoryDeviceStatus.Online;
         RefreshVisibleResults();
         MainNavigation.SelectedItem = DevicesNavItem;
         ShowPage(DevicesPage);
@@ -42,16 +43,18 @@ public sealed partial class MainWindow
 
         var network = NetworkPicker.SelectedItem as LanNetwork;
         var hasScan = _displayedScan is not null;
-        var online = hasScan ? _allResults.Count(row => row.IsOnline).ToString("N0") : "Not scanned";
+        var scanResponses = _currentScanSnapshot?.Results.Where(result => result.Status == HostStatus.Alive).ToArray() ?? [];
+        var online = hasScan ? scanResponses.Length.ToString("N0") : "Not scanned";
         var openPorts = hasScan
-            ? _allResults.Count(row => row.Result.OpenPortItems.Count > 0).ToString("N0")
+            ? scanResponses.Count(result => result.OpenPortItems.Count > 0).ToString("N0")
             : "Not scanned";
         var freshness = _displayedScan?.Freshness(DateTimeOffset.UtcNow) ?? "Not scanned yet";
+        if (hasScan && _liveCompletedAt is null) freshness += " · historical snapshot";
         freshness = _displayedScan is { } context && context.Subnet != network?.Cidr
             ? $"{freshness} ({context.Subnet})"
             : freshness;
         var resultsContext = _displayedScan is { } scan
-            ? $"{scan.Describe(network?.Cidr)}{(!_isScanning && _allResults.Count > 0 && !_allResults.Any(row => row.IsOnline) ? " No devices answered this scan; active devices may block ICMP." : string.Empty)}"
+            ? $"{scan.Describe(network?.Cidr)}{(!_isScanning && scanResponses.Length == 0 ? " No devices answered this scan; active devices may block ICMP." : string.Empty)}"
             : network is null
                 ? "Connect to an IPv4 network to scan for devices."
                 : "Run your first scan to discover devices.";

@@ -22,7 +22,6 @@
                          AutomationProperties.Name="Device name"
                          PlaceholderText="Edit device name"
                          TextWrapping="Wrap"
-                         MaxLength="64"
                          FontSize="28"
                          FontFamily="Segoe UI Emoji"
                          Background="Transparent"
@@ -36,7 +35,7 @@
                         Click="DeviceNameSaveButton_Click" />
                 <Button x:Name="DeviceNameResetButton"
                         Grid.Column="2"
-                        Content="Use discovered name"
+                        Content="Use imported / discovered name"
                         VerticalAlignment="Center"
                         Click="DeviceNameResetButton_Click" />
             </Grid>
@@ -91,6 +90,7 @@
                     <StackPanel Spacing="2">
                         <TextBlock Text="IP address" FontWeight="SemiBold" />
                         <TextBlock x:Name="DeviceAddressText" FontSize="16" FontFamily="Consolas" IsTextSelectionEnabled="True" />
+                        <TextBlock x:Name="DeviceAddressSourceText" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Spacing="2">
                         <TextBlock Text="MAC address" FontWeight="SemiBold" />
@@ -138,6 +138,14 @@
                         </ItemsControl>
                     </StackPanel>
                 </Grid>
+            </Border>
+            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Hostname" FontWeight="SemiBold" />
+                    <TextBlock x:Name="DeviceHostnameText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                    <TextBlock x:Name="DeviceImportedMetadataText" TextWrapping="Wrap" IsTextSelectionEnabled="True"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
             </Border>
             <Expander x:Name="DeviceIdentificationEditor"
                       Header="Identification evidence and corrections"

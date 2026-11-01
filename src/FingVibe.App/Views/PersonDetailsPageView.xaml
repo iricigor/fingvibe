@@ -57,7 +57,11 @@
                                 <ColumnDefinition Width="160" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="{x:Bind NameText}" TextTrimming="CharacterEllipsis" />
+                            <StackPanel>
+                                <TextBlock Text="{x:Bind NameText}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{x:Bind StatusText}" ToolTipService.ToolTip="{x:Bind StatusContext}"
+                                           FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
                             <TextBlock Grid.Column="1" Text="{x:Bind AddressText}" FontFamily="Consolas" />
                             <TextBlock Grid.Column="2" Text="{x:Bind MacAddressText}" FontFamily="Consolas" />
                             <Button Grid.Column="3" Content="Unassign" Tag="{x:Bind MacAddress}"

@@ -10,6 +10,7 @@ Cloudflare speed-test host.
 - [Run locally and scan behavior](#run-locally)
 - [Device identification](#device-identification)
 - [People and rooms](#people-and-rooms)
+- [Inventory and Fing import](#inventory-and-fing-import)
 - [Tests](#test)
 - [Download builds](#download-builds)
 - [Pull request review gates](#pull-request-review-gates)
@@ -31,7 +32,7 @@ The scanner uses ICMP echo requests. Firewall rules and devices configured not t
 
 Overview shows the selected interface as the network name, with subnet and available ISP information beneath it. The freshness indicator describes the displayed scan, not continuous monitoring, and refreshes periodically. Displayed results retain their subnet and observation time; selecting another network explicitly identifies results from a different scan target. Cancel and progress appear only during a scan. Before the first scan, Overview provides guidance rather than unknown counts.
 
-Select the online-device or open-port summary card to open the corresponding Devices results. This clears stale search/summary filters; the visible **With open ports** checkbox can be cleared to return to other devices and combines with text search and People/Rooms filters. Open ports describe observed services, not a security verdict. Overview does not count unused addresses as offline devices or track device history. The compact **About FingVibe** card opens **Tools > About FingVibe** directly. About is also available from the Tools landing page and contains version/build details and links to the repository and creator's website (opened in the external browser).
+Select the online-device or open-port summary card to open the corresponding Devices results. This clears stale search/summary filters; the visible **With open ports** checkbox can be cleared to return to other devices and combines with text search and People/Rooms filters. Open ports describe observed services, not a security verdict. Overview does not count unused addresses as offline devices. Inventory retains local observations, not an event timeline. The compact **About FingVibe** card opens **Tools > About FingVibe** directly. About is also available from the Tools landing page and contains version/build details and links to the repository and creator's website (opened in the external browser).
 
 The running version is visible near the top of Overview and in the window title. Official release builds have no ribbon. PR artifacts show their PR number and an amber diagonal **TEST BUILD** ribbon; local builds show **DEV**, and manually dispatched non-PR CI builds show **TEST**. Click or keyboard-activate the ribbon to acknowledge it until the app closes. The title and About details retain the build identity after acknowledgment. The ribbon occupies reserved space below the native title bar so it cannot cover page controls, and uses system colors in Windows high contrast.
 
@@ -49,9 +50,9 @@ The Overview network card shows A, B, or C for /8, /16, or /24 sizes; other size
 
 Results dim complete network-prefix octets using the scanned subnet's CIDR; partially masked octets remain emphasized because they also identify hosts. Latency bars share one scale across the displayed scan's responding devices and keep that scale when filtering or sorting. Outside a scan, select a row with the pointer or keyboard to highlight it; sorting preserves the selection. Hover over service icons for port numbers and service names.
 
-Devices shows only responding devices, including when restoring older snapshots; unused or nonresponding addresses do not receive table rows. The shared network picker is left-aligned, and the Devices header consolidates scan freshness, network-target warnings, and scan/save errors into one status line. **Search devices** expands with the window; the People, Rooms, and bordered **With open ports** controls have equal fixed widths and wrap below search when space is limited. Filtered counts show visible versus total devices. Subtle theme-aware zebra stripes follow the displayed row order, with native hover, selection, and focus indicators taking precedence; decorative stripes are disabled in Windows high contrast. A 1px theme-aware line below the column headers separates them from the rows, using system colors in high contrast. The compact Response column places its numeric latency above a thin bar without changing the scan-wide latency scale. The final visible column has no trailing divider suggesting an extra column; its resize handle remains available.
+Devices shows the persistent inventory, including previously observed and imported-only devices. Unused addresses never become device records. The status filter distinguishes Online, Offline, and Fing Only; historical labels identify retained states, while the inventory summary is separate from scan response counts. The shared network picker is left-aligned, and the Devices header consolidates scan freshness, network-target warnings, and scan/save errors into one status line. **Search devices** expands with the window; the People, Rooms, and bordered **With open ports** controls have equal fixed widths and wrap below search when space is limited. Filtered counts show visible versus total devices. Subtle theme-aware zebra stripes follow the displayed row order, with native hover, selection, and focus indicators taking precedence; decorative stripes are disabled in Windows high contrast. A 1px theme-aware line below the column headers separates them from the rows, using system colors in high contrast. The compact Response column places its numeric latency above a thin bar without changing the scan-wide latency scale. The final visible column has no trailing divider suggesting an extra column; its resize handle remains available.
 
-Starting a scan keeps the displayed list visible and scrollable but prevents opening device details by pointer or keyboard. Results are collected separately and replace the list only when the scan succeeds; cancellation or failure retains the displayed results and reports the outcome explicitly. Progress continues to count all checked addresses. This refresh behavior adds no timeline, per-device previous-check state, or new discovery probes.
+Starting a scan keeps the displayed list visible and scrollable but prevents opening device details by pointer or keyboard. Results are collected separately and replace the list only when the scan succeeds; cancellation or failure retains the displayed results and reports the outcome explicitly. Progress continues to count all checked addresses. Completed scans update inventory observations and same-network absence; this adds no event timeline or new discovery probes.
 
 The expanded sidebar uses a 280px Windows Settings-style layout with colored navigation icons and a FingVibe header. The sidebar and main page share one background, including when a backdrop material is selected. Collapsing the pane keeps an icon rail; narrow windows use native overlay navigation, with Tools above Settings at the bottom. While an overlay is open, both backgrounds temporarily use the same solid theme color to keep the menu readable without a contrasting pane tint; closing it restores the selected material. Windows high contrast replaces decorative icon colors with system colors.
 
@@ -65,9 +66,9 @@ Explicit device types/models outweigh service-only clues. When explicit evidence
 
 For otherwise unidentified SMB hosts, an observed ICMP response TTL of 127 or 128 together with open TCP 445 can suggest **Windows (likely)** and **Computer (likely)**. This is a combined heuristic, not definitive OS fingerprinting: it does not apply to known routers, NAS appliances, smart devices, or contradictory OS evidence. TTL alone, SMB alone, and Linux/macOS-style TTL values do not produce an OS guess.
 
-Device details keep the OS, type, and icon visible above the network information and port-scan action. Expand **Identification evidence and corrections** below the network details to inspect the evidence, choose an operating system, device type, and/or a built-in icon, then select **Save identification**. **Automatic** restores detection for an individual field; **Use automatic detection** clears all three saved choices. The icon follows the effective device type unless an explicit icon is selected. Available types include Computer, Phone, Tablet, Router/access point, Printer, TV/media device, NAS/storage, Game console, IoT/smart device, and Unknown. Categories without reliable discovery evidence can be assigned manually; OS also offers Other.
+Device details keep the OS, type, and icon visible above the network information and port-scan action. Expand **Identification evidence and corrections** below the network details to inspect the evidence, choose an operating system, device type, and/or a built-in icon, then select **Save identification**. **Automatic** restores detection for an individual field when no mapped Fing metadata is available; otherwise that option explicitly says **Use imported Fing OS/type**. **Use automatic detection** (or **Clear saved corrections** for imported devices) clears all three saved choices, restoring the imported/automatic fallback without deleting imported metadata. The icon follows the effective device type unless an explicit icon is selected. Available types include Computer, Phone, Tablet, Router/access point, Printer, TV/media device, NAS/storage, Game console, IoT/smart device, and Unknown. Categories without reliable discovery evidence can be assigned manually; OS also offers Other.
 
-Corrections are stored separately from automatic evidence in `%LOCALAPPDATA%\FingVibe\device-classifications.json`, keyed by MAC address, and apply after rescans, IP changes, and restarts. Saving requires a discovered MAC address. Private/randomized MACs may change and therefore lose their association with saved corrections. Load/save errors are shown in details; a failed load disables edits rather than overwriting existing corrections. Completed scan snapshots preserve automatic evidence and inferred-value markers. Older snapshots remain readable, but are not re-enriched when opening a new build: run **Scan LAN** again to collect current detection evidence.
+Corrections are stored separately from automatic evidence within `%LOCALAPPDATA%\FingVibe\device-inventory.json`, keyed by MAC address, and apply after rescans, IP changes, and restarts. Existing `device-classifications.json` data is migrated without deleting or rewriting the legacy file. Saving requires a six-byte MAC address, including an imported MAC. Private/randomized MACs may change and therefore lose their association with saved corrections. Load/save errors are shown in details; a failed load disables edits rather than overwriting existing corrections. Completed scan snapshots preserve automatic evidence and inferred-value markers. Older snapshots remain readable, but are not re-enriched when opening a new build: run **Scan LAN** again to collect current detection evidence.
 
 ### People and rooms
 
@@ -75,7 +76,120 @@ Short-name limits count visible characters, so a multi-code-point emoji such as 
 
 The **People** and **Rooms** pages manage manually named people and locations. Each entry has a full name, a unique 1–3-character short name within its category, and optional notes. New entries suggest initials from the first two words as you type (`Igor` → `I`, `Igor Iric` → `II`, `Living Room` → `LR`); editing the short name manually stops automatic updates. Device details can assign one person and one room independently; either can remain unassigned. The Devices table shows plain short-name text in optional **Person** and **Room** columns, with muted dashes for unassigned values, while filters and search match both short and full names. Hover over a short name or keyboard-focus it to access its full-name tooltip and accessible label.
 
-People, rooms, and their assignments are saved separately from scan snapshots in `%LOCALAPPDATA%\FingVibe\people-rooms.json`. Assignments require a discovered six-byte MAC address and never use an IP address alone. Private or randomized MAC addresses may change, so their assignments are only retained when the same MAC is observed again. Deleting a person or room clears only that category's assignments; it does not delete devices or scan history. Last-scan response counts report devices that answered ICMP during the displayed scan, not human presence; no response does not prove a device is powered off. Load and save errors are displayed, and a failed load disables changes to protect the saved file.
+People, rooms, and their assignments are saved separately from scan snapshots within `%LOCALAPPDATA%\FingVibe\device-inventory.json`. Existing `people-rooms.json` data is migrated without deleting or rewriting the legacy file. Assignments require a six-byte MAC address, including an imported MAC, and never use an IP address alone. Private or randomized MAC addresses may change, so their assignments are only retained when the same MAC is observed again. Deleting a person or room clears only that category's assignments; it does not delete devices or scan history. Last-scan response counts report devices that answered ICMP during the displayed scan, not human presence; no response does not prove a device is powered off. Load and save errors are displayed, and a failed load disables changes to protect the saved file.
+
+## Inventory and Fing import
+
+**Tools > Import from Fing** accepts one local `.xlsx` workbook through Browse or
+drag-and-drop. Export help is collapsed initially. Fing's current
+[Network View documentation](https://help.fing.com/hc/en-us/articles/26652272065820-Network-View)
+describes the Web App's network Setup > Export > Send workflow, delivering an
+Excel spreadsheet by email. Desktop/mobile menus and availability vary with
+version and subscription; CSV, PDF, text exports, and arbitrary spreadsheets
+are not supported. The supported workbook has one Devices sheet and a MAC
+header, with the optional Name, Hostname, Type, Brand, Family, Model, OS,
+OS Version, Owner, Location, and IP columns. Limits are 10 MB compressed,
+64 MB uncompressed, and 20,000 device rows. Formulas are not executed or trusted.
+
+Analysis is read-only and groups People, Rooms, private/randomized MACs,
+skipped records/fields, and a combined **Device type / OS classification** warning
+group. People/Rooms groups have
+standard management buttons at the top-right of their cards and confirm when
+all referenced entries match or none are referenced.
+Expanded details identify affected devices by available name or formatted MAC,
+showing the first 10 per detail followed by an omitted-count notice when needed.
+Diagnostic references retain worksheet rows; skipped records without a retained
+device identity show their row instead. Counts remain complete and text wraps.
+The filename gains an Excel-inspired green chip and outline in every light/dark
+appearance after successful analysis and returns to
+neutral when analysis is cleared or invalidated; this does not approve every field.
+Windows high-contrast mode retains system colors.
+Excluded Fing data and historical-IP semantics appear as an informational note,
+not a warning. The separate **3 Changes and conflicts** container groups the preview by device/MAC, with compact additions,
+explicit before/after conflicts, and reasons for skipped fields; absent fields
+are omitted and unchanged devices are collapsed. Existing names, imported metadata, manual classifications,
+and assignments are kept unless their individual conflict choice is changed
+to Replace. Empty fields never erase saved data. Detailed Fing types and OS
+strings remain available in details even without a reliable category mapping;
+uncertain mappings produce warnings. Manual corrections take precedence over
+imported classifications, which take precedence over automatic detection.
+Name precedence is user name > imported name > local hostname > imported
+hostname > last-known local/imported IP; IP fallback names are subdued.
+
+Device-card headers have a subtle theme-aware background band and put bold names and MACs alongside normal-weight change counts;
+nonzero conflicts have a critical-color indicator. Compact rows group identity,
+hardware, operating-system/address, and assignment fields. Non-interactive label
+chips distinguish field names from values without creating false button actions.
+Labels, values, and conflict controls are center-aligned within each wrapping field unit.
+Device cards use 6-unit outer vertical padding and 2-unit padding on each side
+of the header/details join, with 4-unit spacing between detail rows.
+Names use Segoe UI Emoji for supported color emoji sequences, preserving their text.
+**Fing IP** is the historical exported address, used as display/search context and
+a final name fallback only; it never identifies a device or authorizes a probe.
+Private/locally administered MACs appear as informational notices, not warnings.
+Affected cards recommend leaving unrecognized devices unchecked in Select devices
+mode; they remain importable, and Import all still includes every eligible device.
+New devices containing only MAC/historical Fing IP receive a **Limited information**
+recommendation to skip them unless recognized. Useful metadata, assignment references,
+or existing saved information prevent that recommendation. It does not exclude
+devices automatically or disable importing them.
+Cards sort by conflicts, then additions, then skipped fields, all descending.
+Exact ties sort by MAC ascending; changing choices/importing refreshes the ordering.
+
+Owner matches a managed person's full name and Location a managed room's full
+name, after trimming and case-insensitive comparison. Exactly one match is
+required. Missing/ambiguous entries skip only that assignment field, not the
+device; use the management buttons, return to Tools, and Analyze again.
+Import does not create people/rooms, infer owners, import Group, or migrate
+Fing events/timestamps. Invalid MACs and all duplicate-MAC rows are skipped
+with explicit warnings. Devices sharing an IP remain distinct by MAC.
+
+Online means present in the latest completed local scan of the device's network;
+Offline means locally observed previously but absent from a subsequent
+successful scan of that same Windows network profile and subnet. Other-network,
+cancelled, and failed scans do not infer absence. When network identity is
+unavailable or changes during a scan, a warning is shown and absence is not
+inferred. Fing Only means the inventory has no local observation of the imported
+MAC, regardless of Fing's State field. First local discovery removes that state.
+After restart, retained Online/Offline observations are explicitly historical,
+not fresh presence. People/Rooms live-response summaries do not count imported
+or restored records. Overview continues to count actual responses from its
+displayed snapshot, not the full inventory. Historical/Fing-only addresses cannot
+start an additional port probe until a current local response exists.
+
+On Devices, the status filter sits directly beside text search in the filter bar;
+its semibold text and stronger theme-aware accent border distinguish it from the
+other filters, which retain responsive wrapping at narrower window widths.
+
+The new versioned `device-inventory.json` contains inventory, local observations,
+names, classification corrections, and People/Rooms in one atomic commit. It
+becomes authoritative after the first successful save; legacy `device-names.json`,
+`device-classifications.json`, and `people-rooms.json` are retained untouched.
+Available legacy snapshot observations are restored as historical with unknown
+network identity; unavailable older history is not invented. `latest-scan.json`
+and appearance settings keep their existing formats. Older app builds do not
+read the new inventory, and their legacy-file edits are not synchronized back
+after migration. Load failures disable changes rather than overwriting data.
+Use **Import device** to save one device or **Import all** for all eligible changes.
+**Select devices** switches to checkboxes and **Import selected (N)**, with
+Select all / Deselect all and Cancel selection. Selection starts empty; changing
+modes never saves or resets overwrite decisions. Every operation saves only its
+requested devices together, completely or not at all. Import all does not approve
+overwrites: all operations respect the preview's keep/replace choices.
+After success, the remaining preview refreshes and retains valid pending choices.
+**Imported this session** records saved progress; devices with preserved conflicts
+or skipped assignments retain their remaining items. Imported does not mean every
+Fing field was accepted. Save failures do not commit a partial batch.
+
+Changing the file, conflict choices, or relevant saved data invalidates or
+refreshes the preview. Import checks that the file bytes are unchanged and that
+the saved inventory revision still matches. Another app instance's committed
+changes cause an explicit stale-data error rather than an overwrite.
+
+`tests\FingImport.Ui.Tests.ps1 -AppPath "<absolute app path>"` exercises a fully
+synthetic preview, management return/re-analysis, completion, inventory counts,
+and status filtering on an interactive Windows desktop. UI-review mode keeps
+inventory edits in memory and never imports the user's private export.
 
 ## Test
 

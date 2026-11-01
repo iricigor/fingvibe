@@ -68,10 +68,11 @@ public sealed partial class MainWindow : Window
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(settingsItem, "Settings");
         }
 
-        await RestoreDeviceNameOverridesAsync();
-        await RestoreClassificationOverridesAsync();
-        await RestorePeopleRoomsAsync();
+        await RestoreInventoryAsync();
         await RestoreSavedScanAsync();
+        _inventoryReady = true;
+        UpdatePeopleRoomsPages();
+        UpdatePeopleRoomFilters();
         await InitializeNetworkAsync();
     }
 
@@ -136,6 +137,7 @@ public sealed partial class MainWindow : Window
             ? Visibility.Visible
             : Visibility.Collapsed;
         ScanStatusText.Visibility = page == DevicesPage ? Visibility.Collapsed : Visibility.Visible;
+        if (page == ToolsPage) ToolsPage.Open();
     }
 
     private void ViewNetworkButton_Click(object sender, RoutedEventArgs e) =>
