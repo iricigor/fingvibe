@@ -8,7 +8,12 @@ using FingVibe.Core.Models;
 namespace FingVibe.Core.Import;
 
 public sealed record FingDeviceRecord(int Row, string Mac, ImportedDeviceMetadata Metadata, string? Owner, string? Location);
-public sealed record FingExport(IReadOnlyList<FingDeviceRecord> Devices, IReadOnlyList<string> Warnings, int DeviceRows);
+public sealed record FingImportDiagnostic(string Category, string Message, int? Row = null);
+public sealed record FingExport(IReadOnlyList<FingDeviceRecord> Devices, IReadOnlyList<string> Warnings, int DeviceRows)
+{
+    public const string Limitations = "Fing State, Group, Alerted, timestamps, Network, and Log are not imported. Imported IPs are historical, not local observations.";
+    public IReadOnlyList<FingImportDiagnostic> Diagnostics { get; init; } = [];
+}
 
 public static class FingWorkbookReader
 {
@@ -45,6 +50,12 @@ public static class FingWorkbookReader
             if (rows.Length > MaximumRows + 1)
                 throw new InvalidDataException($"At most {MaximumRows:N0} device rows can be analyzed at once.");
             var warnings = new List<string>();
+            var diagnostics = new List<FingImportDiagnostic>();
+            void Warn(string category, string message, int? row = null)
+            {
+                diagnostics.Add(new(category, message, row));
+                warnings.Add(row is null ? message : $"Row {row}: {message}");
+            }
             var devices = new List<FingDeviceRecord>();
             var macRows = new Dictionary<string, List<int>>();
             Dictionary<string, string>? headers = null;
@@ -81,11 +92,11 @@ public static class FingWorkbookReader
                     if (bytes.All(value => value == 0) || (bytes[0] & 1) != 0)
                         throw new FormatException("A device must have a nonzero unicast MAC.");
                     if ((bytes[0] & 2) != 0)
-                        warnings.Add($"Row {rowNumber}: private/randomized MAC; links survive only while this MAC remains the same.");
+                        Warn("Private/randomized MACs", "private/randomized MAC; links survive only while this MAC remains the same.", rowNumber);
                 }
                 catch (FormatException)
                 {
-                    warnings.Add($"Row {rowNumber}: missing or invalid six-byte device MAC; record skipped.");
+                    Warn("Skipped records / fields", "missing or invalid six-byte device MAC; record skipped.", rowNumber);
                     continue;
                 }
                 if (!macRows.TryGetValue(mac, out var occurrences))
@@ -93,14 +104,14 @@ public static class FingWorkbookReader
                 occurrences.Add(rowNumber);
                 if (row.Elements(Spreadsheet + "c").Any(cell => cell.Element(Spreadsheet + "f") is not null))
                 {
-                    warnings.Add($"Row {rowNumber}: formulas are unsupported; the entire record is skipped.");
+                    Warn("Skipped records / fields", "formulas are unsupported; the entire record is skipped.", rowNumber);
                     continue;
                 }
                 var address = Get("IP");
                 if (address is not null && (!IPAddress.TryParse(address, out var parsed)
                     || parsed.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork))
                 {
-                    warnings.Add($"Row {rowNumber}: invalid IPv4 address skipped; the device's other fields remain eligible.");
+                    Warn("Skipped records / fields", "invalid IPv4 address skipped; the device's other fields remain eligible.", rowNumber);
                     address = null;
                 }
                 devices.Add(new(rowNumber, mac, new(Get("Name"), Get("Hostname"), Get("Type"), Get("Brand"),
@@ -114,13 +125,12 @@ public static class FingWorkbookReader
             };
             var unsupported = headers.Keys.Where(header => !supported.Contains(header)).ToArray();
             if (unsupported.Length > 0)
-                warnings.Add($"Unsupported columns skipped: {string.Join(", ", unsupported)}.");
+                Warn("Skipped records / fields", $"Unsupported columns skipped: {string.Join(", ", unsupported)}.");
             var duplicates = macRows.Where(pair => pair.Value.Count > 1).ToArray();
             foreach (var duplicate in duplicates)
-                warnings.Add($"Rows {string.Join(", ", duplicate.Value)}: duplicate MAC; all matching records skipped.");
+                Warn("Skipped records / fields", $"Rows {string.Join(", ", duplicate.Value)}: duplicate MAC; all matching records skipped.");
             var duplicateMacs = duplicates.Select(pair => pair.Key).ToHashSet();
-            warnings.Add("Fing State, Group, Alerted, timestamps, Network, and Log are not imported. Imported IPs are historical, not local observations.");
-            return new(devices.Where(device => !duplicateMacs.Contains(device.Mac)).ToArray(), warnings, deviceRows);
+            return new(devices.Where(device => !duplicateMacs.Contains(device.Mac)).ToArray(), warnings, deviceRows) { Diagnostics = diagnostics };
         }
         catch (Exception exception) when (exception is XmlException or InvalidOperationException or OverflowException)
         {

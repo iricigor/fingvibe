@@ -91,8 +91,13 @@ header, with the optional Name, Hostname, Type, Brand, Family, Model, OS,
 OS Version, Owner, Location, and IP columns. Limits are 10 MB compressed,
 64 MB uncompressed, and 20,000 device rows. Formulas are not executed or trusted.
 
-Analysis is read-only. Preview lists every proposed field change with its
-before/after values. Existing names, imported metadata, manual classifications,
+Analysis is read-only and groups People, Rooms, private/randomized MACs,
+skipped records/fields, and classification warnings. People/Rooms groups link
+to management and confirm when all referenced entries match or none are referenced.
+Excluded Fing data and historical-IP semantics appear as an informational note,
+not a warning. The preview groups changes by device/MAC, with compact additions,
+explicit before/after conflicts, and reasons for skipped fields; absent fields
+are omitted and unchanged devices are collapsed. Existing names, imported metadata, manual classifications,
 and assignments are kept unless their individual conflict choice is changed
 to Replace. Empty fields never erase saved data. Detailed Fing types and OS
 strings remain available in details even without a reliable category mapping;
@@ -131,7 +136,16 @@ network identity; unavailable older history is not invented. `latest-scan.json`
 and appearance settings keep their existing formats. Older app builds do not
 read the new inventory, and their legacy-file edits are not synchronized back
 after migration. Load failures disable changes rather than overwriting data.
-An import is saved completely or not at all; its summary reports the outcome.
+Use **Import device** to save one device or **Import all** for all eligible changes.
+**Select devices** switches to checkboxes and **Import selected (N)**, with
+Select all / Deselect all and Cancel selection. Selection starts empty; changing
+modes never saves or resets overwrite decisions. Every operation saves only its
+requested devices together, completely or not at all. Import all does not approve
+overwrites: all operations respect the preview's keep/replace choices.
+After success, the remaining preview refreshes and retains valid pending choices.
+**Imported this session** records saved progress; devices with preserved conflicts
+or skipped assignments retain their remaining items. Imported does not mean every
+Fing field was accepted. Save failures do not commit a partial batch.
 
 Changing the file, conflict choices, or relevant saved data invalidates or
 refreshes the preview. Import checks that the file bytes are unchanged and that

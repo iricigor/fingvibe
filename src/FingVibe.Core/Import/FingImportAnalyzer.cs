@@ -44,14 +44,27 @@ public sealed record FingImportAnalysis(
     Guid Revision, DeviceInventoryData Updated, IReadOnlyList<FingImportChange> Changes,
     IReadOnlyList<string> Warnings, int DeviceRows, int Matched, int Added)
 {
+    public IReadOnlyList<FingImportDiagnostic> Diagnostics { get; init; } = [];
+    public IReadOnlyList<FingAnalysisGroup> Groups { get; init; } = [];
+    public IReadOnlyList<FingDeviceChanges> Devices { get; init; } = [];
     public int AppliedFields => Changes.Count(change => change.Apply);
     public int SkippedFields => Changes.Count(change => !change.Apply);
     public bool CanImport => Added > 0 || AppliedFields > 0;
 }
 
+public sealed record FingAnalysisGroup(string Category, string Summary, IReadOnlyList<string> Details, bool HasWarnings);
+public sealed record FingDeviceChanges(string Mac, string Name, bool IsNew, IReadOnlyList<FingImportChange> Changes)
+{
+    public bool CanImport => IsNew || Changes.Any(change => change.Apply);
+    public string Summary => $"{Changes.Count(change => change.Apply && !change.Conflict)} additions · "
+        + $"{Changes.Count(change => change.Conflict && change.SkipReason is null)} conflicts · "
+        + $"{Changes.Count(change => change.SkipReason is not null)} skipped";
+}
+
 public static class FingImportAnalyzer
 {
-    public static FingImportAnalysis Analyze(FingExport export, DeviceInventoryData current, IReadOnlySet<string>? replacements = null)
+    public static FingImportAnalysis Analyze(FingExport export, DeviceInventoryData current, IReadOnlySet<string>? replacements = null,
+        IReadOnlySet<string>? selectedMacs = null)
     {
         var devices = current.Devices.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
         var names = current.Names.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
@@ -59,10 +72,20 @@ public static class FingImportAnalyzer
         var peopleRooms = current.PeopleRooms;
         var changes = new List<FingImportChange>();
         var warnings = export.Warnings.ToList();
+        var diagnostics = export.Diagnostics.Count > 0 ? export.Diagnostics.ToList()
+            : export.Warnings.Select(warning => new FingImportDiagnostic("Other warnings", warning)).ToList();
+        void Warn(string category, string message, int row)
+        {
+            diagnostics.Add(new(category, message, row));
+            warnings.Add($"Row {row}: {message}");
+        }
+        var deviceChanges = new List<FingDeviceChanges>();
         var matched = 0;
         var added = 0;
         foreach (var record in export.Devices)
         {
+            if (selectedMacs is not null && !selectedMacs.Contains(record.Mac)) continue;
+            var firstChange = changes.Count;
             var existing = devices.GetValueOrDefault(record.Mac);
             if (existing is null) added++; else matched++;
             var device = existing ?? new InventoryDevice(record.Mac, new(), []);
@@ -79,7 +102,7 @@ public static class FingImportAnalyzer
                 var conflict = !string.IsNullOrWhiteSpace(before);
                 var apply = skipReason is null && (!conflict || replacements?.Contains($"{record.Mac}:{field}") == true);
                 changes.Add(new(record.Mac, displayName, field, before, after, conflict, apply, skipReason));
-                if (skipReason is not null) warnings.Add($"Row {record.Row}: {skipReason}");
+                if (skipReason is not null) Warn(field is "Person" ? "People" : field is "Room" ? "Rooms" : "Skipped records / fields", skipReason, record.Row);
                 return apply;
             }
 
@@ -94,9 +117,9 @@ public static class FingImportAnalyzer
             if (Consider("Model", metadata.Model, incoming.Model)) metadata = metadata with { Model = incoming.Model };
             if (Consider("Imported IP", metadata.Address, incoming.Address)) metadata = metadata with { Address = incoming.Address };
             if (incoming.Type is not null && FingClassificationMapper.Type(incoming.Type) is null)
-                warnings.Add($"Row {record.Row}: type '{incoming.Type}' has no reliable category mapping; review the original Fing type in the preview.");
+                Warn("Classification", $"Type '{incoming.Type}' has no reliable category mapping; original Fing type is retained.", record.Row);
             if (incoming.OperatingSystem is not null && FingClassificationMapper.OperatingSystem(incoming.OperatingSystem) is null)
-                warnings.Add($"Row {record.Row}: OS '{incoming.OperatingSystem}' has no reliable mapping; review the original Fing OS in the preview.");
+                Warn("Classification", $"OS '{incoming.OperatingSystem}' has no reliable mapping; original Fing OS is retained.", record.Row);
             if (Consider("Type", metadata.Type, incoming.Type)) metadata = metadata with { Type = incoming.Type };
             if (Consider("OS", metadata.OperatingSystem, incoming.OperatingSystem))
                 metadata = metadata with { OperatingSystem = incoming.OperatingSystem };
@@ -139,6 +162,7 @@ public static class FingImportAnalyzer
                     peopleRooms = peopleRooms.AssignRoom(record.Mac, matches[0].Id);
             }
             devices[record.Mac] = device with { Imported = metadata };
+            deviceChanges.Add(new(record.Mac, displayName, existing is null, changes.Skip(firstChange).ToArray()));
         }
         return new(current.Revision, current with
         {
@@ -146,7 +170,44 @@ public static class FingImportAnalyzer
             Names = names,
             Classifications = classifications,
             PeopleRooms = peopleRooms
-        }, changes, warnings, export.DeviceRows, matched, added);
+        }, changes, warnings, export.DeviceRows, matched, added)
+        {
+            Diagnostics = diagnostics,
+            Devices = deviceChanges,
+            Groups = BuildGroups(export, current, diagnostics)
+        };
+    }
+
+    private static IReadOnlyList<FingAnalysisGroup> BuildGroups(FingExport export, DeviceInventoryData current,
+        IReadOnlyList<FingImportDiagnostic> diagnostics)
+    {
+        var groups = new List<FingAnalysisGroup>();
+        void Assignments(string category, IEnumerable<string?> references, IEnumerable<string> existing)
+        {
+            var names = references.Where(name => !string.IsNullOrWhiteSpace(name)).Select(name => name!.Trim())
+                .GroupBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray();
+            var saved = existing.ToArray();
+            var details = names.Select(group =>
+            {
+                var matches = saved.Count(name => EqualName(name, group.Key));
+                return $"{group.Key}: {(matches == 1 ? "matched" : matches == 0 ? "missing" : "ambiguous")} · {group.Count()} devices";
+            }).ToArray();
+            var missing = names.Count(group => saved.Count(name => EqualName(name, group.Key)) != 1);
+            var summary = names.Length == 0 ? $"No {category.ToLowerInvariant()} referenced in this export."
+                : missing == 0 ? $"All {names.Length} referenced {category.ToLowerInvariant()} match; no extra {category.ToLowerInvariant()} need adding."
+                : $"{names.Length - missing} matched · {missing} missing or ambiguous; assignments to these entries will be skipped.";
+            groups.Add(new(category, summary, details, missing > 0));
+        }
+        Assignments("People", export.Devices.Select(device => device.Owner), current.PeopleRooms.People.Select(person => person.Name));
+        Assignments("Rooms", export.Devices.Select(device => device.Location), current.PeopleRooms.Rooms.Select(room => room.Name));
+        foreach (var category in diagnostics.Where(item => item.Category is not ("People" or "Rooms")).GroupBy(item => item.Category))
+        {
+            var details = category.GroupBy(item => item.Message).Select(items =>
+                $"{items.Key} ({items.Count()} occurrences)"
+                + (items.Any(item => item.Row is not null) ? $" Rows: {string.Join(", ", items.Where(item => item.Row is not null).Select(item => item.Row))}" : "")).ToArray();
+            groups.Add(new(category.Key, $"{category.Count()} warnings", details, true));
+        }
+        return groups;
     }
 
     private static bool EqualName(string existing, string incoming) =>

@@ -17,6 +17,122 @@ public sealed class FingImportTests
     private static readonly DateTimeOffset Start = new(2026, 10, 1, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public void Analysis_GroupsRepeatedAssignmentReferencesAndProvidesPositiveConfirmation()
+    {
+        var room = new ManagedRoom(Guid.NewGuid(), "Bedroom", "BR");
+        var data = DeviceInventoryData.Empty with { PeopleRooms = new PeopleRoomsData(rooms: [room]) };
+        var export = new FingExport([
+            new(2, Mac, new(Name: "One"), null, " bedroom "),
+            new(3, "001122334456", new(Name: "Two"), null, "Bedroom")
+        ], [], 2);
+        var analysis = FingImportAnalyzer.Analyze(export, data);
+        Assert.Empty(analysis.Warnings);
+        var people = Assert.Single(analysis.Groups, group => group.Category == "People");
+        Assert.Contains("No people referenced", people.Summary);
+        var rooms = Assert.Single(analysis.Groups, group => group.Category == "Rooms");
+        Assert.False(rooms.HasWarnings);
+        Assert.Contains("no extra rooms", rooms.Summary);
+        Assert.Contains("2 devices", Assert.Single(rooms.Details));
+        Assert.Equal(2, analysis.Devices.Count);
+        Assert.All(analysis.Devices, device => Assert.True(device.CanImport));
+    }
+
+    [Fact]
+    public void Analysis_GroupsMissingNamesAndStructuredWarningsWithoutParsingMessages()
+    {
+        var export = new FingExport([
+            new(2, Mac, new(Type: "Controller"), "Alice", "Bedroom"),
+            new(3, "001122334456", new(Type: "Controller"), "alice", "Bedroom")
+        ], ["Arbitrary text"], 2)
+        { Diagnostics = [new("Private/randomized MACs", "Arbitrary text", 2)] };
+        var analysis = FingImportAnalyzer.Analyze(export, DeviceInventoryData.Empty);
+        Assert.Single(Assert.Single(analysis.Groups, group => group.Category == "People").Details);
+        Assert.True(Assert.Single(analysis.Groups, group => group.Category == "Rooms").HasWarnings);
+        Assert.Single(Assert.Single(analysis.Groups, group => group.Category == "Classification").Details);
+        Assert.Single(Assert.Single(analysis.Groups, group => group.Category == "Private/randomized MACs").Details);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Analysis_SelectedScopeCannotChangeUnselectedDevicesNamesCorrectionsOrAssignments(bool selectSecond)
+    {
+        const string second = "001122334456";
+        var person = new ManagedPerson(Guid.NewGuid(), "Alice", "A");
+        var room = new ManagedRoom(Guid.NewGuid(), "Bedroom", "BR");
+        var data = DeviceInventoryData.Empty with
+        {
+            Devices = new Dictionary<string, InventoryDevice>
+            {
+                [Mac] = new(Mac, new(Name: "Original"), []),
+                [second] = new(second, new(Name: "Original"), [])
+            },
+            Names = new Dictionary<string, string> { [Mac] = "Custom", [second] = "Custom" },
+            Classifications = new Dictionary<string, DeviceClassificationOverride>
+            {
+                [Mac] = new(DeviceOperatingSystem.Windows, DeviceType.Computer),
+                [second] = new(DeviceOperatingSystem.Windows, DeviceType.Computer)
+            },
+            PeopleRooms = new PeopleRoomsData([person], [room])
+        };
+        var export = new FingExport([
+            new(2, Mac, new(Name: "Incoming", Type: "Mobile", OperatingSystem: "Android"), "Alice", "Bedroom"),
+            new(3, second, new(Name: "Incoming", Type: "Mobile", OperatingSystem: "Android"), "Alice", "Bedroom")
+        ], [], 2);
+        var replacements = new HashSet<string>(new[] { Mac, second }.SelectMany(mac =>
+            new[] { "Name", "Device type correction", "OS correction" }.Select(field => $"{mac}:{field}")));
+        var selected = selectSecond ? second : Mac;
+        var untouched = selectSecond ? Mac : second;
+        var scoped = FingImportAnalyzer.Analyze(export, data, replacements, new HashSet<string> { selected });
+        Assert.Equal(selected, Assert.Single(scoped.Devices).Mac);
+        Assert.All(scoped.Changes, change => Assert.Equal(selected, change.Mac));
+        Assert.Equal(data.Devices[untouched], scoped.Updated.Devices[untouched]);
+        Assert.Equal(data.Names[untouched], scoped.Updated.Names[untouched]);
+        Assert.Equal(data.Classifications[untouched], scoped.Updated.Classifications[untouched]);
+        Assert.False(scoped.Updated.PeopleRooms.Assignments.ContainsKey(untouched));
+        Assert.Equal(person.Id, scoped.Updated.PeopleRooms.Assignments[selected].PersonId);
+        Assert.False(scoped.Updated.Names.ContainsKey(selected));
+        Assert.False(scoped.Updated.Classifications.ContainsKey(selected));
+        Assert.Equal(data.Revision, scoped.Revision);
+    }
+
+    [Fact]
+    public void Analysis_EmptySelectionDoesNothingAndBatchSelectionAddsOnlySelectedDevices()
+    {
+        var export = new FingExport([
+            new(2, Mac, new(Name: "One"), null, null),
+            new(3, "001122334456", new(Name: "Two"), null, null),
+            new(4, "001122334457", new(Name: "Three"), null, null)
+        ], [], 3);
+        var empty = FingImportAnalyzer.Analyze(export, DeviceInventoryData.Empty, selectedMacs: new HashSet<string>());
+        Assert.False(empty.CanImport);
+        Assert.Empty(empty.Updated.Devices);
+        var batch = FingImportAnalyzer.Analyze(export, DeviceInventoryData.Empty,
+            selectedMacs: new HashSet<string> { Mac, "001122334457" });
+        Assert.Equal(2, batch.Added);
+        Assert.False(batch.Updated.Devices.ContainsKey("001122334456"));
+        var remaining = FingImportAnalyzer.Analyze(export, batch.Updated);
+        Assert.Single(remaining.Devices, device => device.IsNew);
+        Assert.Equal(2, remaining.Devices.Count(device => device.Changes.Count == 0));
+    }
+
+    [Fact]
+    public void Analysis_PostImportKeepsUnresolvedFieldsAndDoesNotImplicitlyReplaceThem()
+    {
+        var data = DeviceInventoryData.Empty with { Names = new Dictionary<string, string> { [Mac] = "Custom" } };
+        var export = Export(new(Name: "Incoming", Model: "Model"), location: "Missing room");
+        var first = FingImportAnalyzer.Analyze(export, data);
+        var remaining = FingImportAnalyzer.Analyze(export, first.Updated);
+        Assert.False(remaining.CanImport);
+        Assert.Contains(remaining.Changes, change => change.Field == "Name" && !change.Apply && change.CanChoose);
+        Assert.Contains(remaining.Changes, change => change.Field == "Room" && !change.Apply && change.SkipReason is not null);
+        Assert.DoesNotContain(remaining.Changes, change => change.Field == "Model");
+        var replaced = FingImportAnalyzer.Analyze(export, first.Updated, new HashSet<string> { $"{Mac}:Name" });
+        Assert.True(replaced.CanImport);
+        Assert.Single(replaced.Changes, change => change.Apply);
+    }
+
+    [Fact]
     public void Workbook_ReadsFingSchemaSharedStringsAndUnicodeWithoutImportingEvents()
     {
         using var workbook = Workbook(
@@ -30,7 +146,8 @@ public sealed class FingImportTests
         Assert.Equal("Alice", device.Owner);
         Assert.Equal("Bedroom", device.Location);
         Assert.Equal("14", device.Metadata.OperatingSystemVersion);
-        Assert.Contains(export.Warnings, warning => warning.Contains("timestamps"));
+        Assert.Empty(export.Warnings);
+        Assert.Contains("timestamps", FingExport.Limitations);
     }
 
     [Fact]
@@ -266,6 +383,44 @@ public sealed class FingImportTests
         Assert.Equal("Fing Only", assigned.StatusText);
         Assert.Equal("Imported", assigned.NameText);
         Assert.False(imported.IsCurrentScanResponse);
+    }
+
+    [Fact]
+    public async Task SelectedBatchSaveFailureCommitsNothingAndSuccessfulRetryPreservesUnselectedData()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"fingvibe-selected-import-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "inventory.json");
+        try
+        {
+            var store = new DeviceInventoryStore(path);
+            var initial = await store.SaveAsync(DeviceInventoryData.Empty, Guid.Empty);
+            var export = new FingExport([
+                new(2, Mac, new(Name: "One"), null, null),
+                new(3, "001122334456", new(Name: "Two"), null, null),
+                new(4, "001122334457", new(Name: "Three"), null, null)
+            ], [], 3);
+            var batch = FingImportAnalyzer.Analyze(export, initial,
+                selectedMacs: new HashSet<string> { Mac, "001122334456" });
+            using (var heldLock = new FileStream(path + ".lock", FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                await Assert.ThrowsAsync<IOException>(() => store.SaveAsync(batch.Updated, batch.Revision));
+            Assert.Empty((await store.LoadAsync())!.Devices);
+            var committed = await store.SaveAsync(batch.Updated, batch.Revision);
+            var restored = (await store.LoadAsync())!;
+            Assert.Equal(2, restored.Devices.Count);
+            Assert.False(restored.Devices.ContainsKey("001122334457"));
+            var remaining = FingImportAnalyzer.Analyze(export, restored,
+                selectedMacs: new HashSet<string> { "001122334457" });
+            await Assert.ThrowsAsync<InvalidOperationException>(() => store.SaveAsync(remaining.Updated, initial.Revision));
+            Assert.Equal(committed.Revision, (await store.LoadAsync())!.Revision);
+            Assert.Equal(2, (await store.LoadAsync())!.Devices.Count);
+        }
+        finally
+        {
+            File.Delete(path);
+            File.Delete(path + ".lock");
+            Directory.Delete(directory);
+        }
     }
 
     [Fact]

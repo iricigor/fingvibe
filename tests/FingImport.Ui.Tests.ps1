@@ -100,6 +100,11 @@ try {
         throw "Synthetic import was not analyzed without local observations."
     }
     $null = Find-ImportControl "Fing import preview" ([System.Windows.Automation.ControlType]::List)
+    $null = Find-ImportControl "People — Review" ([System.Windows.Automation.ControlType]::Text)
+    $null = Find-ImportControl "Rooms — Review" ([System.Windows.Automation.ControlType]::Text)
+    if ((Find-ImportId LimitationsText).Current.Name -notlike "*Imported IPs are historical*") {
+        throw "Import limitations must be an informational note."
+    }
     Set-ImportScroll 100
     $importButton = Find-ImportControl "Import reviewed Fing changes" ([System.Windows.Automation.ControlType]::Button)
     $summaryBounds = (Find-ImportId ImportSummaryText).Current.BoundingRectangle
@@ -127,13 +132,55 @@ try {
     $importButton = Find-ImportControl "Import reviewed Fing changes" ([System.Windows.Automation.ControlType]::Button)
     if ($importButton.Current.IsEnabled) { throw "Returning from management must not authorize a stale analysis." }
     Invoke-ImportControl "Analyze again"
-    if ((Find-ImportId WarningsText).Current.Name -like "*Location 'Missing review room' is missing*") {
+    $null = Find-ImportControl "Rooms — OK" ([System.Windows.Automation.ControlType]::Text)
+    if ((Find-ImportId AnalysisCountsText).Current.Name -notlike "*3 warnings") {
         throw "Re-analysis must match the room manually created on its management page."
     }
+    Invoke-ImportControl "Select devices"
+    if ((Find-ImportControl "Import reviewed Fing changes" ([System.Windows.Automation.ControlType]::Button)).Current.IsEnabled) {
+        throw "Selection mode must start with no selected devices."
+    }
+    Invoke-ImportControl "Select all"
+    if ((Find-ImportId ImportButton).Current.Name -ne "Import reviewed Fing changes" -or
+        -not (Find-ImportId ImportButton).Current.IsEnabled) {
+        throw "Select all must enable batch import."
+    }
+    Invoke-ImportControl "Deselect all"
+    if ((Find-ImportId ImportButton).Current.IsEnabled) { throw "Deselect all must disable batch import." }
+    Invoke-ImportControl "Cancel selection"
+    $pendingChoice = Find-ImportControl "020000000001:Name" ([System.Windows.Automation.ControlType]::ComboBox)
+    $pendingChoice.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    (Find-ImportControl "Replace with Fing" ([System.Windows.Automation.ControlType]::ListItem)).
+        GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Start-Sleep -Milliseconds 350
+    Invoke-ImportControl "Import device 020000000002"
+    if ((Find-ImportId ImportSummaryText).Current.Name -notlike "Imported 1 new devices*") {
+        throw "Individual import must save only one device."
+    }
+    if ((Find-ImportId AnalysisCountsText).Current.Name -notlike "*2 new*") {
+        throw "Remaining preview must refresh after an individual import."
+    }
+    $pendingChoice = Find-ImportControl "020000000001:Name" ([System.Windows.Automation.ControlType]::ComboBox)
+    if ($pendingChoice.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()[0].Current.Name -ne "Replace with Fing") {
+        throw "An individual import must preserve another device's pending overwrite decision."
+    }
+    $pendingChoice.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    (Find-ImportControl "Keep existing" ([System.Windows.Automation.ControlType]::ListItem)).
+        GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Start-Sleep -Milliseconds 350
+    Invoke-ImportControl "Select devices"
+    (Find-ImportControl "Select 020000000001" ([System.Windows.Automation.ControlType]::CheckBox)).
+        GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
+    Start-Sleep -Milliseconds 200
     Set-ImportScroll 100
     Invoke-ImportControl "Import reviewed Fing changes"
+    if ((Find-ImportId ImportSummaryText).Current.Name -notlike "Imported 1 new devices*") {
+        throw "Selected import must save only the checked device."
+    }
+    Invoke-ImportControl "Cancel selection"
+    Invoke-ImportControl "Import reviewed Fing changes"
     if ((Find-ImportId ImportHeadingText).Current.Name -ne "Import complete" -or
-        (Find-ImportId ImportSummaryText).Current.Name -notlike "Imported 3 new devices*All changes saved locally.") {
+        (Find-ImportId ImportSummaryText).Current.Name -notlike "Imported 1 new devices*All changes saved locally.") {
         throw "The completion report must reflect the committed synthetic inventory."
     }
     if ((Find-ImportControl "Import reviewed Fing changes" ([System.Windows.Automation.ControlType]::Button)).Current.IsEnabled) {
@@ -163,6 +210,12 @@ try {
     (Find-ImportControl "Replace with Fing" ([System.Windows.Automation.ControlType]::ListItem)).
         GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
     Start-Sleep -Milliseconds 400
+    Invoke-ImportControl "Select devices"
+    Invoke-ImportControl "Cancel selection"
+    $choice = Find-ImportControl "020000000001:Name" ([System.Windows.Automation.ControlType]::ComboBox)
+    if ($choice.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()[0].Current.Name -ne "Replace with Fing") {
+        throw "Switching import modes must preserve overwrite choices."
+    }
     if (-not (Find-ImportControl "Import reviewed Fing changes" ([System.Windows.Automation.ControlType]::Button)).Current.IsEnabled) {
         throw "Explicit replacement must refresh the preview and enable the eligible name change."
     }
