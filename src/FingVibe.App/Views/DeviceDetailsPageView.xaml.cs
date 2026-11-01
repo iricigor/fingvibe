@@ -1,4 +1,5 @@
 using FingVibe.Core.Models;
+using FingVibe.Core.Import;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
@@ -117,6 +118,12 @@ public sealed partial class DeviceDetailsPageView : UserControl
         ToolTipService.SetToolTip(DeviceTypeValueText, row.DeviceTypeSource);
         DeviceOsEvidenceText.Text = row.OperatingSystemSource;
         DeviceTypeEvidenceText.Text = row.DeviceTypeSource;
+        ((ComboBoxItem)DeviceOsPicker.Items[0]).Content = FingClassificationMapper.OperatingSystem(row.ImportedMetadata?.OperatingSystem) is not null
+            ? "Use imported Fing OS" : "Automatic";
+        ((ComboBoxItem)DeviceTypePicker.Items[0]).Content = FingClassificationMapper.Type(row.ImportedMetadata?.Type) is not null
+            ? "Use imported Fing type" : "Automatic";
+        DeviceClassificationResetButton.Content = row.ImportedMetadata is null
+            ? "Use automatic detection" : "Clear saved corrections";
         SelectChoice(DeviceOsPicker, row.ClassificationOverride?.OperatingSystem);
         SelectChoice(DeviceTypePicker, row.ClassificationOverride?.Type);
         SelectChoice(DeviceIconPicker, row.ClassificationOverride?.Icon);

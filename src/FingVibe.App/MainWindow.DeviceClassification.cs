@@ -105,7 +105,9 @@ public sealed partial class MainWindow
             {
                 UpdateClassificationDetails();
                 DevicePage.ClassificationStatus = value.IsEmpty
-                    ? "Automatic detection restored." : "Classification and icon choices saved.";
+                    ? row.ImportedMetadata is null ? "Automatic detection restored."
+                        : "Saved corrections cleared; imported data or automatic detection is now used."
+                    : "Classification and icon choices saved.";
             }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or FormatException or InvalidOperationException)
