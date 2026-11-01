@@ -106,11 +106,12 @@ public sealed partial class DevicesPageView : UserControl
     {
         const double optionWidth = 180;
         const double spacing = 8;
-        var inline = e.NewSize.Width >= 800;
+        const double minimumSearchWidth = 120;
+        var inline = e.NewSize.Width >= minimumSearchWidth + (optionWidth + spacing) * 4;
         Grid.SetRow(DeviceFilterOptions, inline ? 0 : 1);
         Grid.SetColumn(DeviceFilterOptions, inline ? 1 : 0);
         Grid.SetColumnSpan(DeviceFilterOptions, inline ? 1 : 2);
-        Grid.SetColumnSpan(ResultSearchBox, inline ? 1 : 2);
+        Grid.SetColumnSpan(DeviceSearchFilters, inline ? 1 : 2);
         var columns = inline ? 3 : Math.Clamp((int)((e.NewSize.Width + spacing) / (optionWidth + spacing)), 1, 3);
         var rows = (3 + columns - 1) / columns;
         if (DeviceFilterOptions.ColumnDefinitions.Count != columns)

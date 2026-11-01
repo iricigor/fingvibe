@@ -63,6 +63,43 @@ function Set-ImportScroll([double] $Percent) {
     Start-Sleep -Milliseconds 300
 }
 
+function Set-ImportTheme([string] $Theme) {
+    Select-ImportPage Settings
+    $combo = Find-ImportId ThemePicker
+    $combo.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    (Find-ImportControl $Theme ([System.Windows.Automation.ControlType]::ListItem)).
+        GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    $combo.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse()
+    Start-Sleep -Milliseconds 500
+    Select-ImportPage Tools
+    Invoke-ImportControl "Import from Fing"
+}
+
+function Save-ImportFileChip([string] $Name) {
+    Set-ImportScroll 0
+    $filePath = Join-Path $ScreenshotDirectory "$Name.png"
+    Save-UiReviewWindowScreenshot $process.MainWindowHandle $filePath
+    $context = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext([IntPtr]::new(-4))
+    try {
+        $windowBounds = Get-UiReviewWindowBounds $process.MainWindowHandle
+        $fileBounds = (Find-ImportId SelectedFileText).Current.BoundingRectangle
+        $bitmap = [System.Drawing.Bitmap]::new($filePath)
+        try {
+            $x = [int]($fileBounds.Left - $windowBounds.Left - 3)
+            $y = [int]($fileBounds.Top - $windowBounds.Top - 1)
+            if ($fileBounds.IsEmpty -or $x -lt 0 -or $y -lt 0 -or $x -ge $bitmap.Width -or $y -ge $bitmap.Height) {
+                throw "The analyzed filename must be inside the captured window."
+            }
+            $pixel = $bitmap.GetPixel($x, $y)
+            if ([int]$pixel.G -le [int]$pixel.R + 20 -or [int]$pixel.G -le [int]$pixel.B + 20) {
+                throw "Successfully analyzed filename must have a clearly green background in $Name."
+            }
+        }
+        finally { $bitmap.Dispose() }
+    }
+    finally { $null = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext($context) }
+}
+
 try {
     # A nonexistent isolated snapshot plus UI-review mode prevents real inventory/snapshot writes.
     $env:FINGVIBE_UI_REVIEW = "1"
@@ -127,6 +164,7 @@ try {
         throw "Private-MAC guidance must explain how selection mode skips an unrecognized device."
     }
     $nameRow = Find-ImportId "ImportFields-020000000001-Name"
+    $deviceHeader = Find-ImportId "ImportHeader-020000000001"
     $nameValue = Find-ImportId "ImportValue-020000000001:Name"
     if (-not $nameValue.Current.Name.Contains("1$([char]0xFE0F)$([char]0x20E3)")) {
         throw "Imported name rendering must preserve the full emoji sequence."
@@ -160,6 +198,8 @@ try {
         Set-ImportScroll ($step * 5)
         $bounds = $nameRow.Current.BoundingRectangle
         if (-not $nameRow.Current.IsOffscreen -and
+            -not $deviceHeader.Current.IsOffscreen -and
+            $deviceHeader.Current.BoundingRectangle.Top -gt $root.Current.BoundingRectangle.Top + 180 -and
             $bounds.Top -gt $root.Current.BoundingRectangle.Top + 180 -and
             $bounds.Bottom -lt $root.Current.BoundingRectangle.Bottom - 30) { break }
     }
@@ -167,6 +207,13 @@ try {
     $valueBounds = $nameValue.Current.BoundingRectangle
     $choiceBounds = (Find-ImportControl "020000000001:Name" ([System.Windows.Automation.ControlType]::ComboBox)).Current.BoundingRectangle
     $valueCenter = $valueBounds.Top + $valueBounds.Height / 2
+    $headerBounds = $deviceHeader.Current.BoundingRectangle
+    $fieldBounds = $nameRow.Current.BoundingRectangle
+    $headerGap = $fieldBounds.Top - $headerBounds.Bottom
+    $scale = [UiReviewNativeWindow]::GetDpiForWindow($process.MainWindowHandle) / 96.0
+    if ($headerBounds.IsEmpty -or $fieldBounds.IsEmpty -or $headerGap -lt 0 -or $headerGap -gt 12 * $scale) {
+        throw "The device header and first detail row must have a compact join. Gap: $headerGap."
+    }
     if ($labelBounds.IsEmpty -or $valueBounds.IsEmpty -or $choiceBounds.IsEmpty -or
         [Math]::Abs(($labelBounds.Top + $labelBounds.Height / 2) - $valueCenter) -gt 1.5 -or
         [Math]::Abs(($choiceBounds.Top + $choiceBounds.Height / 2) - $valueCenter) -gt 1.5) {
@@ -220,24 +267,12 @@ try {
             finally { $bitmap.Dispose() }
         }
         finally { $null = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext($context) }
-        Set-ImportScroll 0
-        $filePath = Join-Path $ScreenshotDirectory "fing-import-analyzed-file.png"
-        Save-UiReviewWindowScreenshot $process.MainWindowHandle $filePath
-        $context = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext([IntPtr]::new(-4))
-        try {
-            $windowBounds = Get-UiReviewWindowBounds $process.MainWindowHandle
-            $fileBounds = (Find-ImportId SelectedFileText).Current.BoundingRectangle
-            $bitmap = [System.Drawing.Bitmap]::new($filePath)
-            try {
-                $pixel = $bitmap.GetPixel([int]($fileBounds.Left - $windowBounds.Left - 3),
-                    [int]($fileBounds.Top - $windowBounds.Top - 1))
-                if ([int]$pixel.G -le [int]$pixel.R + 2 -or [int]$pixel.G -le [int]$pixel.B + 2) {
-                    throw "Successfully analyzed filename must have a subtle green background."
-                }
-            }
-            finally { $bitmap.Dispose() }
+        Save-ImportFileChip "fing-import-analyzed-file"
+        foreach ($theme in @("Standard Light", "Warm Light", "True Black (OLED)")) {
+            Set-ImportTheme $theme
+            Save-ImportFileChip "fing-import-analyzed-file-$theme"
         }
-        finally { $null = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext($context) }
+        Set-ImportTheme "Standard Dark"
     }
     Set-ImportScroll 0
     (Find-ImportControl "Manage rooms" ([System.Windows.Automation.ControlType]::Button)).
@@ -318,6 +353,40 @@ try {
         throw "Imported-only records must not inflate online counts or disappear from Devices."
     }
     $status = Find-ImportControl "Filter by device status" ([System.Windows.Automation.ControlType]::ComboBox)
+    $area = [System.Windows.Forms.Screen]::FromHandle($process.MainWindowHandle).WorkingArea
+    foreach ($width in (@(1024, [Math]::Min(1280, $area.Width)) | Select-Object -Unique)) {
+        if (-not [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero,
+                $area.Left, $area.Top, $width, [Math]::Min(800, $area.Height), 0x0044)) {
+            throw [System.ComponentModel.Win32Exception]::new()
+        }
+        Start-Sleep -Milliseconds 350
+        $searchBounds = (Find-ImportControl "Search devices" ([System.Windows.Automation.ControlType]::Edit)).Current.BoundingRectangle
+        $statusBounds = $status.Current.BoundingRectangle
+        if ($searchBounds.IsEmpty -or $statusBounds.IsEmpty -or $status.Current.IsOffscreen -or
+            $statusBounds.Left -lt $searchBounds.Right -or
+            [Math]::Abs(($statusBounds.Top + $statusBounds.Height / 2) -
+                ($searchBounds.Top + $searchBounds.Height / 2)) -gt 1.5) {
+            throw "The device status filter must remain aligned directly beside search at width $width. Search: $searchBounds; status: $statusBounds."
+        }
+        if ($width -eq 1280) {
+            $previousBounds = $statusBounds
+            foreach ($filter in @(
+                (Find-ImportControl "Filter by person" ([System.Windows.Automation.ControlType]::ComboBox)),
+                (Find-ImportControl "Filter by room" ([System.Windows.Automation.ControlType]::ComboBox)),
+                (Find-ImportControl "With open ports" ([System.Windows.Automation.ControlType]::CheckBox)))) {
+                $bounds = $filter.Current.BoundingRectangle
+                if ($bounds.IsEmpty -or $filter.Current.IsOffscreen -or $bounds.Left -lt $previousBounds.Right -or
+                    [Math]::Abs(($bounds.Top + $bounds.Height / 2) -
+                        ($searchBounds.Top + $searchBounds.Height / 2)) -gt 1.5) {
+                    throw "All device filters must share the search/status row when the window is wide enough."
+                }
+                $previousBounds = $bounds
+            }
+        }
+    }
+    if ($ScreenshotDirectory) {
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "fing-import-device-filters.png")
+    }
     $status.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
     (Find-ImportControl "Offline" ([System.Windows.Automation.ControlType]::ListItem)).
         GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()

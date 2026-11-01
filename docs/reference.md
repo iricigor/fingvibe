@@ -100,8 +100,10 @@ Expanded details identify affected devices by available name or formatted MAC,
 showing the first 10 per detail followed by an omitted-count notice when needed.
 Diagnostic references retain worksheet rows; skipped records without a retained
 device identity show their row instead. Counts remain complete and text wraps.
-The filename gains a subtle green chip after successful analysis and returns to
+The filename gains an Excel-inspired green chip and outline in every light/dark
+appearance after successful analysis and returns to
 neutral when analysis is cleared or invalidated; this does not approve every field.
+Windows high-contrast mode retains system colors.
 Excluded Fing data and historical-IP semantics appear as an informational note,
 not a warning. The separate **3 Changes and conflicts** container groups the preview by device/MAC, with compact additions,
 explicit before/after conflicts, and reasons for skipped fields; absent fields
@@ -119,6 +121,8 @@ nonzero conflicts have a critical-color indicator. Compact rows group identity,
 hardware, operating-system/address, and assignment fields. Non-interactive label
 chips distinguish field names from values without creating false button actions.
 Labels, values, and conflict controls are center-aligned within each wrapping field unit.
+Device cards use 6-unit outer vertical padding and 2-unit padding on each side
+of the header/details join, with 4-unit spacing between detail rows.
 Names use Segoe UI Emoji for supported color emoji sequences, preserving their text.
 **Fing IP** is the historical exported address, used as display/search context and
 a final name fallback only; it never identifies a device or authorizes a probe.
@@ -152,6 +156,10 @@ not fresh presence. People/Rooms live-response summaries do not count imported
 or restored records. Overview continues to count actual responses from its
 displayed snapshot, not the full inventory. Historical/Fing-only addresses cannot
 start an additional port probe until a current local response exists.
+
+On Devices, the status filter sits directly beside text search in the filter bar;
+its semibold text and stronger theme-aware accent border distinguish it from the
+other filters, which retain responsive wrapping at narrower window widths.
 
 The new versioned `device-inventory.json` contains inventory, local observations,
 names, classification corrections, and People/Rooms in one atomic commit. It

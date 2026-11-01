@@ -306,7 +306,7 @@ public sealed partial class FingImportPage : UserControl
         foreach (var device in _analysis.Devices.Where(device => device.IsNew || device.Changes.Count > 0))
         {
             var card = new StackPanel();
-            var body = new StackPanel { Spacing = 8, Margin = new Thickness(16) };
+            var body = new StackPanel { Spacing = 4, Margin = new Thickness(16, 2, 16, 6) };
             var header = new Grid { ColumnSpacing = 12 };
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });

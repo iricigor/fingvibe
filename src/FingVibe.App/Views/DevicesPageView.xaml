@@ -30,14 +30,6 @@
                                TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                Visibility="Collapsed" />
-                    <ComboBox x:Name="InventoryStatusFilter" SelectedIndex="0" Width="180"
-                              AutomationProperties.Name="Filter by device status"
-                              SelectionChanged="InventoryStatusFilter_SelectionChanged">
-                        <ComboBoxItem Content="All statuses" />
-                        <ComboBoxItem Content="Online" />
-                        <ComboBoxItem Content="Offline" />
-                        <ComboBoxItem Content="Fing Only" />
-                    </ComboBox>
                     <TextBlock x:Name="InventoryCountsText" TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <Grid x:Name="DeviceFilters" ColumnSpacing="8" RowSpacing="8"
@@ -50,10 +42,26 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
-                        <TextBox x:Name="ResultSearchBox"
-                                 PlaceholderText="Search devices"
-                                 AutomationProperties.Name="Search devices"
-                                 TextChanged="ResultSearchBox_TextChanged" />
+                        <Grid x:Name="DeviceSearchFilters" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="ResultSearchBox"
+                                     PlaceholderText="Search devices"
+                                     AutomationProperties.Name="Search devices"
+                                     TextChanged="ResultSearchBox_TextChanged" />
+                            <ComboBox x:Name="InventoryStatusFilter" Grid.Column="1" SelectedIndex="0" Width="180"
+                                      FontWeight="SemiBold" BorderThickness="2"
+                                      BorderBrush="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                      AutomationProperties.Name="Filter by device status"
+                                      SelectionChanged="InventoryStatusFilter_SelectionChanged">
+                                <ComboBoxItem Content="All statuses" />
+                                <ComboBoxItem Content="Online" />
+                                <ComboBoxItem Content="Offline" />
+                                <ComboBoxItem Content="Fing Only" />
+                            </ComboBox>
+                        </Grid>
                         <Grid x:Name="DeviceFilterOptions" Grid.Column="1" ColumnSpacing="8" RowSpacing="8"
                               HorizontalAlignment="Left">
                             <Grid.ColumnDefinitions>
