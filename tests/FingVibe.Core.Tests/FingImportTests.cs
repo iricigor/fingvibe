@@ -133,6 +133,38 @@ public sealed class FingImportTests
     }
 
     [Fact]
+    public void ClassificationReplacementRequiresSelectingItsIncomingMetadataAndOsVersion()
+    {
+        var data = Observe(DeviceInventoryData.Empty);
+        data = data with
+        {
+            Devices = new Dictionary<string, InventoryDevice>
+            {
+                [Mac] = data.Devices[Mac] with { Imported = new(Type: "Laptop", OperatingSystem: "Windows", OperatingSystemVersion: "11") }
+            },
+            Classifications = new Dictionary<string, DeviceClassificationOverride>
+            {
+                [Mac] = new(DeviceOperatingSystem.Linux, DeviceType.Storage, DeviceType.Printer)
+            }
+        };
+        var export = Export(new(Type: "Mobile", OperatingSystem: "Android", OperatingSystemVersion: "14"));
+        var correctionsOnly = new HashSet<string> { $"{Mac}:Device type correction", $"{Mac}:OS correction", $"{Mac}:OS version" };
+        var kept = FingImportAnalyzer.Analyze(export, data, correctionsOnly);
+        Assert.Equal("Laptop", kept.Updated.Devices[Mac].Imported.Type);
+        Assert.Equal("11", kept.Updated.Devices[Mac].Imported.OperatingSystemVersion);
+        Assert.Equal(data.Classifications[Mac], kept.Updated.Classifications[Mac]);
+        Assert.Contains(kept.Changes, change => change.Field == "OS correction" && change.Incoming == "Android" && change.SkipReason is not null);
+        correctionsOnly.Add($"{Mac}:Type");
+        correctionsOnly.Add($"{Mac}:OS");
+        var replaced = FingImportAnalyzer.Analyze(export, data, correctionsOnly);
+        Assert.Equal("Mobile", replaced.Updated.Devices[Mac].Imported.Type);
+        Assert.Equal("14", replaced.Updated.Devices[Mac].Imported.OperatingSystemVersion);
+        Assert.Null(replaced.Updated.Classifications[Mac].Type);
+        Assert.Null(replaced.Updated.Classifications[Mac].OperatingSystem);
+        Assert.Equal(DeviceType.Printer, replaced.Updated.Classifications[Mac].Icon);
+    }
+
+    [Fact]
     public void BlankFieldsNeverClearMetadataOrAssignmentsAndGroupsAreNotAssignments()
     {
         var person = new ManagedPerson(Guid.NewGuid(), "Alice", "A");

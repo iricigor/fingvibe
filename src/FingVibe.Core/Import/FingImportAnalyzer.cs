@@ -106,12 +106,14 @@ public static class FingImportAnalyzer
             if (Consider("OS version", metadata.OperatingSystemVersion, incoming.OperatingSystemVersion, versionSkip))
                 metadata = metadata with { OperatingSystemVersion = incoming.OperatingSystemVersion };
             if (incoming.Type is not null && userClassification?.Type is { } selectedType
-                && FingClassificationMapper.Type(metadata.Type) is { } mappedType
-                && Consider("Device type correction", selectedType.Label(), mappedType.Label()))
+                && FingClassificationMapper.Type(incoming.Type) is { } mappedType && selectedType != mappedType
+                && Consider("Device type correction", selectedType.Label(), mappedType.Label(),
+                    metadata.Type != incoming.Type ? "The incoming type was not selected; its classification replacement is skipped." : null))
                 userClassification = userClassification with { Type = null };
             if (incoming.OperatingSystem is not null && userClassification?.OperatingSystem is { } selectedOs
-                && FingClassificationMapper.OperatingSystem(metadata.OperatingSystem) is { } mappedOs
-                && Consider("OS correction", selectedOs.Label(), mappedOs.Label()))
+                && FingClassificationMapper.OperatingSystem(incoming.OperatingSystem) is { } mappedOs && selectedOs != mappedOs
+                && Consider("OS correction", selectedOs.Label(), mappedOs.Label(),
+                    metadata.OperatingSystem != incoming.OperatingSystem ? "The incoming OS was not selected; its classification replacement is skipped." : null))
                 userClassification = userClassification with { OperatingSystem = null };
             if (userClassification is not null)
             {

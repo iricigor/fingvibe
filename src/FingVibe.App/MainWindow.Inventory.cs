@@ -45,6 +45,10 @@ public sealed partial class MainWindow
                     await RestoreDeviceNameOverridesAsync();
                     await RestoreClassificationOverridesAsync();
                 }
+                else
+                {
+                    _deviceNameOverrides["020000000001"] = "Review custom name";
+                }
                 await RestorePeopleRoomsAsync();
                 _inventoryUnavailable = _deviceNameOverridesUnavailable
                     || _classificationOverridesUnavailable || _peopleRoomsUnavailable;

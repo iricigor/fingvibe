@@ -116,10 +116,20 @@ try {
         GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Start-Sleep -Milliseconds 400
     $null = Find-ImportControl "Search rooms" ([System.Windows.Automation.ControlType]::Edit)
+    Invoke-ImportControl "Add room"
+    (Find-ImportControl "Full name" ([System.Windows.Automation.ControlType]::Edit)).
+        GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("Missing review room")
+    (Find-ImportControl "Short name" ([System.Windows.Automation.ControlType]::Edit)).
+        GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("MR")
+    Invoke-ImportControl "Save"
+    $null = Find-ImportControl "Missing review room" ([System.Windows.Automation.ControlType]::Text)
     Select-ImportPage Tools
     $importButton = Find-ImportControl "Import reviewed Fing changes" ([System.Windows.Automation.ControlType]::Button)
     if ($importButton.Current.IsEnabled) { throw "Returning from management must not authorize a stale analysis." }
     Invoke-ImportControl "Analyze again"
+    if ((Find-ImportId WarningsText).Current.Name -like "*Location 'Missing review room' is missing*") {
+        throw "Re-analysis must match the room manually created on its management page."
+    }
     Set-ImportScroll 100
     Invoke-ImportControl "Import reviewed Fing changes"
     if ((Find-ImportId ImportHeadingText).Current.Name -ne "Import complete" -or
@@ -147,6 +157,35 @@ try {
     Invoke-ImportControl "Analyze again"
     if ((Find-ImportControl "Import reviewed Fing changes" ([System.Windows.Automation.ControlType]::Button)).Current.IsEnabled) {
         throw "An unchanged export must not enable Import after re-analysis."
+    }
+    $choice = Find-ImportControl "020000000001:Name" ([System.Windows.Automation.ControlType]::ComboBox)
+    $choice.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    (Find-ImportControl "Replace with Fing" ([System.Windows.Automation.ControlType]::ListItem)).
+        GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Start-Sleep -Milliseconds 400
+    if (-not (Find-ImportControl "Import reviewed Fing changes" ([System.Windows.Automation.ControlType]::Button)).Current.IsEnabled) {
+        throw "Explicit replacement must refresh the preview and enable the eligible name change."
+    }
+    Set-ImportScroll 100
+    Invoke-ImportControl "Import reviewed Fing changes"
+    if ((Find-ImportId ImportSummaryText).Current.Name -notlike "Imported 0 new devices and 1 fields.*") {
+        throw "Explicit replacement must apply only the analyzed name change."
+    }
+    Select-ImportPage Devices
+    $status = Find-ImportControl "Filter by device status" ([System.Windows.Automation.ControlType]::ComboBox)
+    $status.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    (Find-ImportControl "All statuses" ([System.Windows.Automation.ControlType]::ListItem)).
+        GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    $search = Find-ImportControl "Search devices" ([System.Windows.Automation.ControlType]::Edit)
+    $search.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("Review custom name")
+    Start-Sleep -Milliseconds 250
+    if ((Find-ImportId ResultCountText).Current.Name -ne "0 of 3 devices") {
+        throw "The reviewed replacement did not remove the prior user name."
+    }
+    $search.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("Review workstation")
+    Start-Sleep -Milliseconds 250
+    if ((Find-ImportId ResultCountText).Current.Name -ne "1 of 3 devices") {
+        throw "The reviewed imported name was not displayed."
     }
     Write-Host "Fing import preview, management return, completion, inventory, and status UI checks passed."
 }
