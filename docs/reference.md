@@ -92,7 +92,8 @@ OS Version, Owner, Location, and IP columns. Limits are 10 MB compressed,
 64 MB uncompressed, and 20,000 device rows. Formulas are not executed or trusted.
 
 Analysis is read-only and groups People, Rooms, private/randomized MACs,
-skipped records/fields, and classification warnings. People/Rooms groups have
+skipped records/fields, and a combined **Device type / OS classification** warning
+group. People/Rooms groups have
 standard management buttons at the top-right of their cards and confirm when
 all referenced entries match or none are referenced.
 Excluded Fing data and historical-IP semantics appear as an informational note,

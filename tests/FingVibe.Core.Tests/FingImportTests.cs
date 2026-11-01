@@ -41,14 +41,17 @@ public sealed class FingImportTests
     public void Analysis_GroupsMissingNamesAndStructuredWarningsWithoutParsingMessages()
     {
         var export = new FingExport([
-            new(2, Mac, new(Type: "Controller"), "Alice", "Bedroom"),
+            new(2, Mac, new(Type: "Controller", OperatingSystem: "Unmapped OS"), "Alice", "Bedroom"),
             new(3, "001122334456", new(Type: "Controller"), "alice", "Bedroom")
         ], ["Arbitrary text"], 2)
         { Diagnostics = [new("Private/randomized MACs", "Arbitrary text", 2)] };
         var analysis = FingImportAnalyzer.Analyze(export, DeviceInventoryData.Empty);
         Assert.Single(Assert.Single(analysis.Groups, group => group.Category == "People").Details);
         Assert.True(Assert.Single(analysis.Groups, group => group.Category == "Rooms").HasWarnings);
-        Assert.Single(Assert.Single(analysis.Groups, group => group.Category == "Classification").Details);
+        var classification = Assert.Single(analysis.Groups, group => group.Category == "Device type / OS classification");
+        Assert.Equal(2, classification.Details.Count);
+        Assert.Contains(classification.Details, detail => detail.StartsWith("Type 'Controller'"));
+        Assert.Contains(classification.Details, detail => detail.StartsWith("OS 'Unmapped OS'"));
         Assert.Single(Assert.Single(analysis.Groups, group => group.Category == "Private/randomized MACs").Details);
     }
 

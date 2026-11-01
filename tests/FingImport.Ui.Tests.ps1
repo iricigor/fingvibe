@@ -103,6 +103,7 @@ try {
     $null = Find-ImportControl "People — Review" ([System.Windows.Automation.ControlType]::Text)
     $null = Find-ImportControl "Rooms — Review" ([System.Windows.Automation.ControlType]::Text)
     $null = Find-ImportControl "Private/randomized MACs — Information" ([System.Windows.Automation.ControlType]::Text)
+    $null = Find-ImportControl "Device type / OS classification — Review" ([System.Windows.Automation.ControlType]::Text)
     if ((Find-ImportId PrivateMacNotice-020000000001).Current.Name -notlike "*Import all includes every eligible device*") {
         throw "Private-MAC guidance must explain how selection mode skips an unrecognized device."
     }

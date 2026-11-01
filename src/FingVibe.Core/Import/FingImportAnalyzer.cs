@@ -120,9 +120,9 @@ public static class FingImportAnalyzer
             if (Consider("Model", metadata.Model, incoming.Model)) metadata = metadata with { Model = incoming.Model };
             if (Consider("Imported IP", metadata.Address, incoming.Address)) metadata = metadata with { Address = incoming.Address };
             if (incoming.Type is not null && FingClassificationMapper.Type(incoming.Type) is null)
-                Warn("Classification", $"Type '{incoming.Type}' has no reliable category mapping; original Fing type is retained.", record.Row);
+                Warn("Device type / OS classification", $"Type '{incoming.Type}' has no reliable category mapping; original Fing type is retained.", record.Row);
             if (incoming.OperatingSystem is not null && FingClassificationMapper.OperatingSystem(incoming.OperatingSystem) is null)
-                Warn("Classification", $"OS '{incoming.OperatingSystem}' has no reliable mapping; original Fing OS is retained.", record.Row);
+                Warn("Device type / OS classification", $"OS '{incoming.OperatingSystem}' has no reliable mapping; original Fing OS is retained.", record.Row);
             if (Consider("Type", metadata.Type, incoming.Type)) metadata = metadata with { Type = incoming.Type };
             if (Consider("OS", metadata.OperatingSystem, incoming.OperatingSystem))
                 metadata = metadata with { OperatingSystem = incoming.OperatingSystem };
