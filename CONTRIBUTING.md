@@ -1,5 +1,8 @@
 # Contributing
 
+For local builds, core/native regression checks, build identity, and CI review
+gates, see the [FingVibe reference](docs/reference.md#test).
+
 ## Parallel feature work
 
 Keep changes within the owning module whenever possible. Coordinate changes to shared models and contracts before editing them, and keep pull requests focused on one feature or structural refactor.
