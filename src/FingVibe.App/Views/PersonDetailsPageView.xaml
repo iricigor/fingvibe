@@ -20,7 +20,13 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <Border Padding="12,6" CornerRadius="8" Background="{ThemeResource ControlFillColorDefaultBrush}">
-                    <TextBlock x:Name="PersonDetailShortName" FontSize="18" FontWeight="SemiBold" />
+                    <StackPanel Spacing="6" HorizontalAlignment="Center">
+                        <FontIcon x:Name="PersonDetailIcon" FontFamily="Segoe Fluent Icons" FontSize="48"
+                                  Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                  AutomationProperties.AccessibilityView="Raw" />
+                        <TextBlock x:Name="PersonDetailShortName" FontSize="18" FontWeight="SemiBold"
+                                   HorizontalAlignment="Center" />
+                    </StackPanel>
                 </Border>
                 <TextBlock x:Name="PersonDetailName" Grid.Column="1" FontSize="28"
                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />

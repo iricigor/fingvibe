@@ -140,7 +140,7 @@ function Get-UiReviewCapturePlan {
             elseif ($path -match '^src/FingVibe.App/(Tools/|Assets/SpeedTest/)') {
                 Add-Scenarios @("Tools", "SpeedTest", "Troubleshooting", "About", "FingImport") "$path changed Tools or the speed test."
             }
-            elseif ($path -match '^src/FingVibe.App/(MainWindow.PeopleRooms.cs|ManagedPeopleRoomsRows.cs)$') {
+            elseif ($path -match '^src/FingVibe.App/(MainWindow.PeopleRooms.cs|ManagedPeopleRoomsRows.cs|PeopleRoomsIcons.cs|Views/PeopleRoomsIconPicker.cs)$') {
                 Add-Scenarios @("People", "PersonDetails", "Rooms", "RoomDetails", "DeviceDetails") "$path changed people, rooms, or assignments."
             }
             elseif ($path -match '^src/FingVibe.App/(MainWindow.Overview.cs|OverviewScanContext.cs)$') {

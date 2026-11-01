@@ -26,8 +26,8 @@ public sealed partial class MainWindow
         {
             _peopleRooms = IsUiReview
                 ? new PeopleRoomsData(
-                    [new ManagedPerson(Guid.Parse("db958652-55aa-409f-afca-d60c68081574"), "UI review person", "UI")],
-                    [new ManagedRoom(Guid.Parse("db958652-55aa-409f-afca-d60c68081575"), "UI review room", "UI")])
+                    [new ManagedPerson(Guid.Parse("db958652-55aa-409f-afca-d60c68081574"), "UI review person", "UI", IconId: "person-filled")],
+                    [new ManagedRoom(Guid.Parse("db958652-55aa-409f-afca-d60c68081575"), "UI review room", "UI", IconId: "garden")])
                 : await _peopleRoomsStore.LoadAsync();
             SetPeopleRoomsStatus("People and rooms are saved locally.");
         }
@@ -284,10 +284,11 @@ public sealed partial class MainWindow
             MinHeight = 72
         };
         var validation = new TextBlock { TextWrapping = TextWrapping.Wrap };
+        var iconPicker = PeopleRoomsIconPicker.Create(PeopleRoomsIcons.People, existing?.IconId);
         var manuallyEditedShortName = existing is not null;
         var applyingSuggestion = false;
         var dialog = CreateEditorDialog(existing is null ? "Add person" : "Edit person",
-            nameBox, shortNameBox, notesBox, validation);
+            nameBox, shortNameBox, notesBox, iconPicker, validation);
         ManagedPerson? saved = null;
 
         void Validate()
@@ -340,7 +341,8 @@ public sealed partial class MainWindow
 
                 var candidate = new ManagedPerson(
                     existing?.Id ?? Guid.NewGuid(), nameBox.Text.Trim(), shortNameBox.Text.Trim(),
-                    string.IsNullOrWhiteSpace(notesBox.Text) ? null : notesBox.Text.Trim());
+                    string.IsNullOrWhiteSpace(notesBox.Text) ? null : notesBox.Text.Trim(),
+                    iconPicker.SelectedValue as string ?? throw new ArgumentException("Choose a person icon."));
                 if (await SavePeopleRoomsAsync(current => new PeopleRoomsData(
                         current.People.Where(person => person.Id != existing?.Id).Append(candidate).ToArray(),
                         current.Rooms,
@@ -399,10 +401,11 @@ public sealed partial class MainWindow
             MinHeight = 72
         };
         var validation = new TextBlock { TextWrapping = TextWrapping.Wrap };
+        var iconPicker = PeopleRoomsIconPicker.Create(PeopleRoomsIcons.Rooms, existing?.IconId);
         var manuallyEditedShortName = existing is not null;
         var applyingSuggestion = false;
         var dialog = CreateEditorDialog(existing is null ? "Add room" : "Edit room",
-            nameBox, shortNameBox, notesBox, validation);
+            nameBox, shortNameBox, notesBox, iconPicker, validation);
         ManagedRoom? saved = null;
 
         void Validate()
@@ -455,7 +458,8 @@ public sealed partial class MainWindow
 
                 var candidate = new ManagedRoom(
                     existing?.Id ?? Guid.NewGuid(), nameBox.Text.Trim(), shortNameBox.Text.Trim(),
-                    string.IsNullOrWhiteSpace(notesBox.Text) ? null : notesBox.Text.Trim());
+                    string.IsNullOrWhiteSpace(notesBox.Text) ? null : notesBox.Text.Trim(),
+                    iconPicker.SelectedValue as string ?? throw new ArgumentException("Choose a room icon."));
                 if (await SavePeopleRoomsAsync(current => new PeopleRoomsData(
                         current.People,
                         current.Rooms.Where(room => room.Id != existing?.Id).Append(candidate).ToArray(),
@@ -495,6 +499,7 @@ public sealed partial class MainWindow
         TextBox nameBox,
         TextBox shortNameBox,
         TextBox notesBox,
+        ComboBox iconPicker,
         TextBlock validation)
     {
         Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(nameBox, "Full name");
@@ -502,6 +507,7 @@ public sealed partial class MainWindow
         var content = new StackPanel { Spacing = 10, MinWidth = 320 };
         content.Children.Add(nameBox);
         content.Children.Add(shortNameBox);
+        content.Children.Add(iconPicker);
         content.Children.Add(notesBox);
         content.Children.Add(validation);
         return new ContentDialog
