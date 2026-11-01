@@ -5,7 +5,13 @@
 Detailed usage, limitations, persistence, build identity, and contributor checks.
 For the optional internet speed test, see [Cloudflare speed test](speed-test.md).
 The desktop interface is native WinUI 3; WebView2 is restricted to the local
-Cloudflare speed-test host.
+Cloudflare speed-test host. Tools uses matching 48-DIP Segoe Fluent icons beside
+the names inside its existing landing buttons and beside individual page titles:
+a speedometer for Speed test, a repair wrench for Network troubleshooting, an
+information symbol for About FingVibe, and an import arrow for Import from Fing.
+The icons follow the theme's primary text color, including Windows high contrast;
+titles wrap at narrow widths. Icons are decorative, so button names and keyboard
+navigation remain unchanged.
 
 - [Run locally and scan behavior](#run-locally)
 - [Device identification](#device-identification)

@@ -6,9 +6,19 @@
         <StackPanel Margin="24,0,24,24" Spacing="16">
             <Button Content="&#x2190; Tools" Click="Back_Click"
                     AutomationProperties.Name="Back to Tools" />
-            <TextBlock x:Name="PageHeading" Text="About FingVibe"
-                       Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
-                       IsTabStop="True" />
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <FontIcon Glyph="&#xE946;" FontFamily="Segoe Fluent Icons"
+                          FontSize="48" Width="48" Height="48"
+                          Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                          IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                <TextBlock x:Name="PageHeading" Grid.Column="1" Text="About FingVibe"
+                           Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
+                           VerticalAlignment="Center" TextWrapping="Wrap" IsTabStop="True" />
+            </Grid>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="8">
                     <TextBlock Text="FingVibe LAN Scanner" Style="{ThemeResource SubtitleTextBlockStyle}" />

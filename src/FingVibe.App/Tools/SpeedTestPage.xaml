@@ -10,7 +10,18 @@
                         Click="BackButton_Click"
                         AutomationProperties.Name="Back to Tools"
                         HorizontalAlignment="Left" />
-                <TextBlock Text="Speed test" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <FontIcon Glyph="&#xEC4A;" FontFamily="Segoe Fluent Icons"
+                              FontSize="48" Width="48" Height="48"
+                              Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                              IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                    <TextBlock Grid.Column="1" Text="Speed test" Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
+                               VerticalAlignment="Center" TextWrapping="Wrap" />
+                </Grid>
                 <TextBlock Text="Measure this PC's internet connection using Cloudflare. Windows chooses the internet route; the LAN scanner's selected adapter is not used."
                            TextWrapping="Wrap"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
