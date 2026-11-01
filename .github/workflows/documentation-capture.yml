@@ -1,0 +1,67 @@
+name: Documentation screenshots
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Delivered release to capture (for example v1.0.51)"
+        type: string
+        default: v1.0.51
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - name: Check out capture helpers
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Download the selected released app
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          gh release download $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY `
+            --pattern "FingVibe-*-win-x64.zip" --dir artifacts\release
+          if ($LASTEXITCODE -ne 0) { throw "Release download failed." }
+          $archives = @(Get-ChildItem artifacts\release -Filter "*.zip")
+          if ($archives.Count -ne 1) { throw "Expected exactly one Windows x64 release archive." }
+          Expand-Archive -LiteralPath $archives[0].FullName -DestinationPath artifacts\app
+          $release = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY `
+            --json tagName,targetCommitish
+          if ($LASTEXITCODE -ne 0) { throw "Release provenance lookup failed." }
+          $null = New-Item -ItemType Directory -Path artifacts\documentation -Force
+          $release | Set-Content artifacts\documentation\release.json
+
+      - name: Prepare a large hosted desktop
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          Set-DisplayResolution -Width 1920 -Height 1440 -Force
+
+      - name: Capture ribbon-free tool pages with safe review data
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $apps = @(Get-ChildItem artifacts\app -Recurse -Filter FingVibe.App.exe)
+          if ($apps.Count -ne 1) { throw "Expected exactly one released FingVibe executable." }
+          .\.github\scripts\Capture-DocumentationScreenshots.ps1 `
+            -AppPath $apps[0].FullName `
+            -ScreenshotDirectory "${{ github.workspace }}\artifacts\documentation"
+
+      - name: Upload documentation screenshots and provenance
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fingvibe-documentation-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: artifacts\documentation
+          if-no-files-found: error
+          retention-days: 14
