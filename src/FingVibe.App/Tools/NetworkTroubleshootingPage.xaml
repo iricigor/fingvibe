@@ -30,17 +30,17 @@
                         <TextBlock Text="On Run, ICMP probes go to local checkpoints and both public IPs, a trace goes toward 1.1.1.1, and DNS queries for example.com use Windows DNS and UDP port 53 on Cloudflare and Google. Providers see your public source IP and query. No router credentials or new public-IP lookup are requested."
                                    TextWrapping="Wrap" FontSize="12" />
                     </Expander>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Network path and status" Style="{ThemeResource SubtitleTextBlockStyle}" />
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button x:Name="RunButton" Content="Run checks" Click="RunButton_Click" AutomationProperties.Name="Run network troubleshooting" />
                         <Button x:Name="CancelRunButton" Content="Cancel" IsEnabled="False" Click="CancelButton_Click" AutomationProperties.Name="Cancel network troubleshooting" />
                         <ProgressRing x:Name="RunProgress" IsActive="False" Width="24" Height="24" />
                     </StackPanel>
                     <TextBlock x:Name="ProgressText" Text="Ready. No checks have run." TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
-                </StackPanel>
-            </Border>
-            <Border Style="{StaticResource ScannerSummaryCardStyle}">
-                <StackPanel Spacing="12">
-                    <TextBlock Text="Network path and status" Style="{ThemeResource SubtitleTextBlockStyle}" />
                     <TextBlock Text="Illustrative network diagram - logical checkpoints, not discovered physical topology" TextWrapping="Wrap" />
                     <ScrollViewer x:Name="DiagramScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
                         <Canvas Width="1170" Height="270" Margin="8">

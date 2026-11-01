@@ -421,12 +421,12 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
 
     private static string PortLabel(DiagnosticCheckpoint checkpoint) => checkpoint switch
     {
-        DiagnosticCheckpoint.Loopback => "Loopback (left)",
-        DiagnosticCheckpoint.LocalAddress => "LAN IP (right)",
-        DiagnosticCheckpoint.Gateway => "LAN IP (left)",
-        DiagnosticCheckpoint.RouterWan => "WAN IP (right)",
-        DiagnosticCheckpoint.CloudflarePing or DiagnosticCheckpoint.GooglePing => "IP ping (left)",
-        DiagnosticCheckpoint.CloudflareDns or DiagnosticCheckpoint.GoogleDns => "DNS (right)",
+        DiagnosticCheckpoint.Loopback => "Loopback",
+        DiagnosticCheckpoint.LocalAddress => "LAN IP",
+        DiagnosticCheckpoint.Gateway => "LAN IP",
+        DiagnosticCheckpoint.RouterWan => "WAN IP",
+        DiagnosticCheckpoint.CloudflarePing or DiagnosticCheckpoint.GooglePing => "IP ping",
+        DiagnosticCheckpoint.CloudflareDns or DiagnosticCheckpoint.GoogleDns => "DNS",
         _ => "Hop-2 response"
     };
 

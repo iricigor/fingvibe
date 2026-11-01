@@ -9,6 +9,8 @@ The page separates **Connection and checks**, **Network path and status**,
 **Detailed checkpoint diagnostics**, and **Traceroute** into bordered cards.
 Network-request disclosure and interpretation notes are expandable within
 their relevant cards.
+**Run checks**, **Cancel**, and run progress appear near the top of the
+**Network path and status** card, above the diagram.
 
 ## Checks and network requests
 
@@ -81,6 +83,8 @@ failed/unanswered checks fill it red,
 with textual results. Direct-DNS ports show the resolver IP, not the resolved
 hostname's address. Hop 2 shows its observed responder IP, or **Not observed**;
 an unavailable optional WAN address is **Not supplied**.
+Port descriptions use concise names such as **Loopback**, **LAN IP**,
+**WAN IP**, **IP ping**, and **DNS**, without left/right suffixes.
 Detailed hop and traceroute text shows **Responder** first and labels
 **Trace target** separately, so `1.1.1.1` is not mistaken for the responding
 upstream router. A destination actually reached at hop 2 remains an observed

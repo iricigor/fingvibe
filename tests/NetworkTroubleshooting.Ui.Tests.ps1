@@ -7,6 +7,12 @@ param(
 $ErrorActionPreference = "Stop"
 $diagramDocument = [System.Xml.XmlDocument]::new()
 $diagramDocument.Load((Join-Path $PSScriptRoot "..\src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml"))
+$diagramCard = $diagramDocument.SelectSingleNode("//*[local-name()='Border'][.//*[@*[local-name()='Name']='DiagramScroll']]")
+foreach ($name in @("RunButton", "CancelRunButton", "RunProgress", "ProgressText")) {
+    if (-not $diagramCard.SelectSingleNode(".//*[@*[local-name()='Name']='$name']")) {
+        throw "Run controls and progress must belong to the diagram card: $name."
+    }
+}
 $connectors = @($diagramDocument.SelectNodes("//*[local-name()='Canvas']/*[local-name()='Path']"))
 if ($connectors.Count -ne 8 -or @($connectors | Where-Object { $_.GetAttribute("Data") -match '\bQ' }).Count -ne 4 -or
     $diagramDocument.SelectNodes("//*[local-name()='Polyline']").Count -ne 0) {
@@ -142,6 +148,13 @@ try {
     }
     if (-not $scroll.Current.VerticallyScrollable) { throw "Troubleshooting page must scroll at ordinary window sizes." }
     Show-Controls @("Network path and status", "Ready / not tested")
+    $run = Find-Control "Run network troubleshooting" ([System.Windows.Automation.ControlType]::Button)
+    $pathHeading = Find-Control "Network path and status" ([System.Windows.Automation.ControlType]::Text)
+    $illustration = Find-Control "Illustrative network diagram - logical checkpoints, not discovered physical topology" ([System.Windows.Automation.ControlType]::Text)
+    if ($run.Current.IsOffscreen -or $run.Current.BoundingRectangle.Top -le $pathHeading.Current.BoundingRectangle.Bottom -or
+        $run.Current.BoundingRectangle.Bottom -ge $illustration.Current.BoundingRectangle.Top) {
+        throw "Run checks must be visible near the top of the diagram card, below its heading and above the illustration."
+    }
     if ($ScreenshotDirectory) {
         Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "troubleshooting-diagram.png")
         $bitmap = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "troubleshooting-diagram.png"))
@@ -195,6 +208,12 @@ try {
         if ((Find-Address $checkpoint).Current.Name -ne $expectedAddresses[$checkpoint]) {
             throw "Diagram $checkpoint uses the wrong target/responder address."
         }
+        $condition = [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DiagramCheckpoint$checkpoint")
+        $description = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        if (-not $description) { throw "Missing port description: $checkpoint." }
+        $text = $description.GetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern).DocumentRange.GetText(-1)
+        if ($text -match '\((left|right)\)') { throw "Visible port descriptions must not include left/right suffixes: $checkpoint." }
     }
     Show-Controls @("Network path and status", "Ready / not tested")
     $local = (Find-Address LocalAddress).Current.BoundingRectangle

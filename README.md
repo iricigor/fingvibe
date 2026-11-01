@@ -13,7 +13,6 @@ Captured from the native app in UI-review mode using the local loopback host, no
 - Native WinUI 3 desktop UI; WebView2 is restricted to the local Cloudflare speed-test host
 - Adaptive Windows Settings-style left navigation with colored icons, Overview, Network, Devices, People, Rooms, and bottom-pinned Tools and Settings
 - [Manual Cloudflare internet speed test](docs/speed-test.md) in Tools, with native results and a per-run data-use disclosure
-- [Manual network troubleshooting](docs/network-troubleshooting.md) in Tools, with separate IP/DNS outcomes, bounded traceroute, an illustrative checkpoint diagram, and per-network optional router WAN settings
 - Overview with local network identity, scan freshness, actionable online/open-port summaries, compact network setup, and project links
 - Automatic local IPv4 and CIDR discovery
 - Overview subnet-size badge and Network details explaining every IPv4 prefix, address capacity, and private, public, or special-purpose scope
