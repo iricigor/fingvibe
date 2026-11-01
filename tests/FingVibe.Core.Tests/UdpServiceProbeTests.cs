@@ -42,6 +42,20 @@ public sealed class UdpServiceProbeTests
         Assert.Contains($"response code {code}", observation.Detail);
     }
 
+    [Fact]
+    public async Task Dns_MinimalMatchingErrorReplyConfirmsResponse()
+    {
+        var observation = await RespondAsync(53, query =>
+        {
+            var reply = new byte[12];
+            query.AsSpan(0, 2).CopyTo(reply);
+            reply[2] = 0x80;
+            reply[3] = 1;
+            return reply;
+        });
+        Assert.Equal(UdpServiceState.Responded, observation.State);
+    }
+
     [Theory]
     [InlineData("transaction")]
     [InlineData("question")]
@@ -102,7 +116,6 @@ public sealed class UdpServiceProbeTests
     [InlineData("version")]
     [InlineData("short")]
     [InlineData("kiss-of-death")]
-    [InlineData("unsynchronized")]
     [InlineData("stratum")]
     [InlineData("timestamps")]
     public async Task Ntp_InvalidOrUnusableReplyIsAnExplicitError(string fault)
@@ -117,13 +130,37 @@ public sealed class UdpServiceProbeTests
                 case "version": reply[0] = 0x14; break;
                 case "short": return reply[..47];
                 case "kiss-of-death": reply[1] = 0; break;
-                case "unsynchronized": reply[0] |= 0xC0; break;
-                case "stratum": reply[1] = 16; break;
+                case "stratum": reply[1] = 17; break;
                 case "timestamps": Array.Clear(reply, 32, 16); break;
             }
             return reply;
         });
         Assert.Equal(UdpServiceState.Error, result.State);
+    }
+
+    [Theory]
+    [InlineData("kiss-of-death")]
+    [InlineData("unsynchronized")]
+    public async Task Ntp_ValidStatusReplyConfirmsServiceButNotUsableTime(string status)
+    {
+        var result = await RespondAsync(123, query =>
+        {
+            var reply = NtpReply(query);
+            if (status == "kiss-of-death")
+            {
+                reply[1] = 0;
+                System.Text.Encoding.ASCII.GetBytes("RATE").CopyTo(reply, 12);
+            }
+            else
+            {
+                reply[0] |= 0xC0;
+                reply[1] = 16;
+                Array.Clear(reply, 32, 16);
+            }
+            return reply;
+        });
+        Assert.Equal(UdpServiceState.Responded, result.State);
+        Assert.Contains(status == "kiss-of-death" ? "no usable time" : "not a usable clock", result.Detail);
     }
 
     [Fact]

@@ -126,10 +126,14 @@ internal static class DiagnosticDnsPacket
             throw new InvalidDataException("DNS name compression loop.");
         }
 
-        if (packet.Length < 12 || Word(0) != id || (Word(2) & 0xF800) != 0x8000 || Word(4) != 1)
+        if (packet.Length < 12 || Word(0) != id || (Word(2) & 0xF840) != 0x8000)
             throw new InvalidDataException("Unexpected DNS response header or transaction.");
         if ((Word(2) & 0x0200) != 0) throw new InvalidDataException("DNS response truncated; TCP fallback is not tested.");
         if (!allowErrorResponse && (Word(2) & 15) != 0) throw new InvalidDataException($"Resolver returned DNS error code {Word(2) & 15}.");
+        if (allowErrorResponse && (Word(2) & 15) != 0 && Word(4) == 0
+            && Word(6) == 0 && Word(8) == 0 && Word(10) == 0 && packet.Length == 12)
+            return [];
+        if (Word(4) != 1) throw new InvalidDataException("DNS response does not echo one matching question.");
         var offset = 12;
         if (!Name(ref offset).Equals(hostname, StringComparison.OrdinalIgnoreCase) || Word(offset) != 1 || Word(offset + 2) != 1)
             throw new InvalidDataException("DNS question does not match the query.");

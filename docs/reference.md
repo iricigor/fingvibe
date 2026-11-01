@@ -79,8 +79,10 @@ Only a matching valid reply confirms a responding UDP endpoint; valid DNS error
 replies count as responses, not successful name resolution. UDP observations
 are shown separately: **Responded**, **No response - inconclusive**, or **Error**
 with details. Silence never establishes open/closed/filtered and does not add
-an endpoint to the open-port filter or summary. Malformed replies, NTP
-kiss-of-death/unsynchronized responses, and operational failures are errors.
+an endpoint to the open-port filter or summary. Malformed replies and
+operational failures are errors. Matching valid NTP kiss-of-death or
+unsynchronized replies confirm that the service responded, but their details
+explicitly warn that no usable time was supplied; no retry is sent.
 These small read-only requests can still trigger device logs or security alerts.
 
 Endpoint labels include protocol, for example **1883/TCP - MQTT** or

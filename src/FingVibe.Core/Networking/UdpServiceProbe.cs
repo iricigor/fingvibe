@@ -59,8 +59,7 @@ public sealed class UdpServiceProbe
             }
             else
             {
-                ValidateNtpResponse(response, request);
-                detail = "Matching valid NTP server reply.";
+                detail = ValidateNtpResponse(response, request);
             }
             return new(servicePort, name, UdpServiceState.Responded, detail);
         }
@@ -85,16 +84,24 @@ public sealed class UdpServiceProbe
         return request;
     }
 
-    internal static void ValidateNtpResponse(byte[] response, byte[] request)
+    internal static string ValidateNtpResponse(byte[] response, byte[] request)
     {
         if (response.Length != 48 || (response[0] & 7) != 4 || ((response[0] >> 3) & 7) is not (3 or 4)
             || !response.AsSpan(24, 8).SequenceEqual(request.AsSpan(40, 8)))
             throw new InvalidDataException("NTP response length, server mode, version, or origin timestamp does not match.");
         if (response[1] == 0)
-            throw new InvalidDataException("NTP server returned a kiss-of-death response; no retry is sent.");
-        if ((response[0] >> 6) == 3 || response[1] > 15
-            || BinaryPrimitives.ReadUInt64BigEndian(response.AsSpan(32)) == 0
+        {
+            if (response.AsSpan(12, 4).ContainsAnyExceptInRange((byte)'A', (byte)'Z'))
+                throw new InvalidDataException("NTP kiss-of-death response has an invalid reference code.");
+            return $"NTP responded with kiss-of-death code {System.Text.Encoding.ASCII.GetString(response, 12, 4)}; no usable time or retry.";
+        }
+        if (response[1] > 16)
+            throw new InvalidDataException("NTP response has an invalid stratum.");
+        if ((response[0] >> 6) == 3 || response[1] == 16)
+            return "Matching NTP reply; server reports unsynchronized time, not a usable clock.";
+        if (BinaryPrimitives.ReadUInt64BigEndian(response.AsSpan(32)) == 0
             || BinaryPrimitives.ReadUInt64BigEndian(response.AsSpan(40)) == 0)
-            throw new InvalidDataException("NTP server is unsynchronized or returned invalid timestamps/stratum.");
+            throw new InvalidDataException("NTP server returned invalid timestamps.");
+        return "Matching valid NTP server reply.";
     }
 }
