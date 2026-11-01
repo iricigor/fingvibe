@@ -95,8 +95,7 @@ public static class FingImportAnalyzer
             var metadata = device.Imported;
             var incoming = record.Metadata;
             var userClassification = classifications.GetValueOrDefault(record.Mac);
-            var displayName = names.GetValueOrDefault(record.Mac) ?? metadata.Name
-                ?? device.LatestObservation?.Hostname ?? metadata.Hostname ?? incoming.Name ?? incoming.Hostname ?? record.Mac;
+            var displayName = DisplayName(record, current);
 
             bool Consider(string field, string? before, string? after, string? skipReason = null)
             {
@@ -190,15 +189,30 @@ public static class FingImportAnalyzer
         IReadOnlyList<FingImportDiagnostic> diagnostics)
     {
         var groups = new List<FingAnalysisGroup>();
-        void Assignments(string category, IEnumerable<string?> references, IEnumerable<string> existing)
+        var recordsByRow = export.Devices.ToLookup(record => record.Row);
+        string Identify(FingDeviceRecord record)
         {
-            var names = references.Where(name => !string.IsNullOrWhiteSpace(name)).Select(name => name!.Trim())
-                .GroupBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray();
+            var name = DisplayName(record, current);
+            return string.Equals(name.Trim().Replace("-", "").Replace(":", ""), record.Mac, StringComparison.OrdinalIgnoreCase)
+                ? string.Join("-", System.Net.NetworkInformation.PhysicalAddress.Parse(record.Mac).GetAddressBytes().Select(value => value.ToString("X2")))
+                : name;
+        }
+        static string DeviceList(IEnumerable<string> references)
+        {
+            var devices = references.ToArray();
+            return string.Join(", ", devices.Take(10))
+                + (devices.Length > 10 ? $"; and {devices.Length - 10} more not shown" : "");
+        }
+        void Assignments(string category, Func<FingDeviceRecord, string?> reference, IEnumerable<string> existing)
+        {
+            var names = export.Devices.Where(record => !string.IsNullOrWhiteSpace(reference(record)))
+                .GroupBy(record => reference(record)!.Trim(), StringComparer.OrdinalIgnoreCase).ToArray();
             var saved = existing.ToArray();
             var details = names.Select(group =>
             {
                 var matches = saved.Count(name => EqualName(name, group.Key));
-                return $"{group.Key}: {(matches == 1 ? "matched" : matches == 0 ? "missing" : "ambiguous")} · {group.Count()} devices";
+                return $"{group.Key}: {(matches == 1 ? "matched" : matches == 0 ? "missing" : "ambiguous")} · {group.Count()} devices"
+                    + $"{Environment.NewLine}Devices: {DeviceList(group.Select(Identify))}";
             }).ToArray();
             var missing = names.Count(group => saved.Count(name => EqualName(name, group.Key)) != 1);
             var summary = names.Length == 0 ? $"No {category.ToLowerInvariant()} referenced in this export."
@@ -206,17 +220,31 @@ public static class FingImportAnalyzer
                 : $"{names.Length - missing} matched · {missing} missing or ambiguous; assignments to these entries will be skipped.";
             groups.Add(new(category, summary, details, missing > 0));
         }
-        Assignments("People", export.Devices.Select(device => device.Owner), current.PeopleRooms.People.Select(person => person.Name));
-        Assignments("Rooms", export.Devices.Select(device => device.Location), current.PeopleRooms.Rooms.Select(room => room.Name));
+        Assignments("People", device => device.Owner, current.PeopleRooms.People.Select(person => person.Name));
+        Assignments("Rooms", device => device.Location, current.PeopleRooms.Rooms.Select(room => room.Name));
         foreach (var category in diagnostics.Where(item => item.Category is not ("People" or "Rooms")).GroupBy(item => item.Category))
         {
             var details = category.GroupBy(item => item.Message).Select(items =>
-                $"{items.Key} ({items.Count()} occurrences)"
-                + (items.Any(item => item.Row is not null) ? $" Rows: {string.Join(", ", items.Where(item => item.Row is not null).Select(item => item.Row))}" : "")).ToArray();
+            {
+                var references = items.Where(item => item.Row is not null).Select(item => item.Row!.Value).Distinct()
+                    .SelectMany(row => recordsByRow[row].Any()
+                        ? recordsByRow[row].Select(record => $"{Identify(record)} (row {row})")
+                        : [$"Row {row} (device unavailable)"]).ToArray();
+                return $"{items.Key} ({items.Count()} occurrences)"
+                    + (references.Length > 0 ? $"{Environment.NewLine}Devices / records: {DeviceList(references)}" : "");
+            }).ToArray();
             var hasWarnings = category.Any(item => item.IsWarning);
             groups.Add(new(category.Key, $"{category.Count()} {(hasWarnings ? "warnings" : "notices")}", details, hasWarnings));
         }
         return groups;
+    }
+
+    private static string DisplayName(FingDeviceRecord record, DeviceInventoryData current)
+    {
+        var device = current.Devices.GetValueOrDefault(record.Mac);
+        return current.Names.GetValueOrDefault(record.Mac) ?? device?.Imported.Name
+            ?? device?.LatestObservation?.Hostname ?? device?.Imported.Hostname
+            ?? record.Metadata.Name ?? record.Metadata.Hostname ?? record.Mac;
     }
 
     private static bool EqualName(string existing, string incoming) =>

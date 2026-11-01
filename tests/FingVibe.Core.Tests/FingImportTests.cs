@@ -33,8 +33,80 @@ public sealed class FingImportTests
         Assert.False(rooms.HasWarnings);
         Assert.Contains("no extra rooms", rooms.Summary);
         Assert.Contains("2 devices", Assert.Single(rooms.Details));
+        Assert.Contains("Devices: One, Two", Assert.Single(rooms.Details));
         Assert.Equal(2, analysis.Devices.Count);
         Assert.All(analysis.Devices, device => Assert.True(device.CanImport));
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(10)]
+    [InlineData(11)]
+    [InlineData(13)]
+    public void Analysis_DetailDeviceListsKeepFullCountsAndShowAtMostTenReferences(int count)
+    {
+        var records = Enumerable.Range(1, count).Select(index =>
+            new FingDeviceRecord(index + 1, $"001122{index:X6}", new(Name: $"Device-{index:D2}", Type: "Controller"), "Alice", "Bedroom")).ToArray();
+        var export = new FingExport(records, [], count)
+        {
+            Diagnostics = records.Select(record => new FingImportDiagnostic("Private/randomized MACs", "Private notice", record.Row, false)).ToArray()
+        };
+        var analysis = FingImportAnalyzer.Analyze(export, DeviceInventoryData.Empty);
+        foreach (var category in new[] { "People", "Rooms", "Private/randomized MACs", "Device type / OS classification" })
+        {
+            var group = Assert.Single(analysis.Groups, group => group.Category == category);
+            var detail = Assert.Single(group.Details);
+            Assert.Contains($"{count} {(category is "People" or "Rooms" ? "devices" : "occurrences")}", detail);
+            Assert.Contains($"Device-{Math.Min(10, count):D2}", detail);
+            Assert.DoesNotContain("Device-11", detail);
+            if (count > 10) Assert.EndsWith($"; and {count - 10} more not shown", detail);
+            else Assert.DoesNotContain("more not shown", detail);
+        }
+    }
+
+    [Fact]
+    public void Analysis_DetailsPreferSavedNamesAndUseFormattedMacWhenUnnamed()
+    {
+        var records = new FingDeviceRecord[]
+        {
+            new(2, Mac, new(Name: "Incoming"), "Alice", "Bedroom"),
+            new(3, "001122334456", new(), "Alice", "Bedroom"),
+            new(4, "001122334457", new(Name: "00:11:22:33:44:57"), "Alice", "Bedroom"),
+            new(5, "001122334458", new(Hostname: "host.local"), "Alice", "Bedroom")
+        };
+        var data = DeviceInventoryData.Empty with { Names = new Dictionary<string, string> { [Mac] = "Saved name" } };
+        var export = new FingExport(records, [], records.Length)
+        {
+            Diagnostics = records.Select(record => new FingImportDiagnostic("Private/randomized MACs", "Notice", record.Row, false)).ToArray()
+        };
+        var analysis = FingImportAnalyzer.Analyze(export, data);
+        foreach (var category in new[] { "People", "Rooms", "Private/randomized MACs" })
+        {
+            var detail = Assert.Single(Assert.Single(analysis.Groups, group => group.Category == category).Details);
+            Assert.Contains("Saved name", detail);
+            Assert.DoesNotContain("Incoming", detail);
+            Assert.Contains("00-11-22-33-44-56", detail);
+            Assert.Contains("00-11-22-33-44-57", detail);
+            Assert.Contains("host.local", detail);
+        }
+    }
+
+    [Fact]
+    public void Analysis_DetailsBoundSkippedRowReferencesWithoutInventingDeviceIdentities()
+    {
+        var export = new FingExport([], [], 13)
+        {
+            Diagnostics = Enumerable.Range(2, 13).Select(row =>
+                new FingImportDiagnostic("Skipped records / fields", "Invalid MAC", row)).ToArray()
+        };
+        var group = Assert.Single(FingImportAnalyzer.Analyze(export, DeviceInventoryData.Empty).Groups,
+            group => group.Category == "Skipped records / fields");
+        Assert.Equal("13 warnings", group.Summary);
+        var detail = Assert.Single(group.Details);
+        Assert.Contains("Row 2 (device unavailable)", detail);
+        Assert.Contains("Row 11 (device unavailable)", detail);
+        Assert.DoesNotContain("Row 12", detail);
+        Assert.EndsWith("; and 3 more not shown", detail);
     }
 
     [Fact]

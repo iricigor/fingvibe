@@ -65,7 +65,12 @@ public sealed partial class FingImportPage : UserControl
                     new(4, "020000000003", new(Name: "Review controller", Hostname: "controller.local", Type: "Controller", Address: "192.0.2.20"), "Missing review person", null)
                 ], [], 3)
             {
-                Diagnostics = [new("Private/randomized MACs", "Synthetic preview: locally administered MACs may change.", IsWarning: false)]
+                Diagnostics =
+                [
+                    new("Private/randomized MACs", "Synthetic preview: locally administered MACs may change.", 2, false),
+                    new("Private/randomized MACs", "Synthetic preview: locally administered MACs may change.", 3, false),
+                    new("Private/randomized MACs", "Synthetic preview: locally administered MACs may change.", 4, false)
+                ]
             };
             AnalyzeCurrent();
         }
@@ -268,13 +273,19 @@ public sealed partial class FingImportPage : UserControl
             }
             if (group.Details.Count > 0)
             {
-                body.Children.Add(new Expander
+                var details = Text(string.Join(Environment.NewLine + Environment.NewLine, group.Details));
+                details.FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe UI Emoji");
+                details.IsColorFontEnabled = true;
+                AutomationProperties.SetAutomationId(details, $"AnalysisDetails-{group.Category}");
+                var expander = new Expander
                 {
                     Header = $"Details ({group.Details.Count})",
                     HorizontalAlignment = HorizontalAlignment.Stretch,
                     HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                    Content = Text(string.Join(Environment.NewLine, group.Details))
-                });
+                    Content = details
+                };
+                AutomationProperties.SetAutomationId(expander, $"AnalysisDetailsExpander-{group.Category}");
+                body.Children.Add(expander);
             }
             var panel = new StackPanel { Spacing = 6 };
             panel.Children.Add(header);

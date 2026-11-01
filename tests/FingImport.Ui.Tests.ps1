@@ -103,10 +103,26 @@ try {
         throw "The filename success chip must reflect successful analysis."
     }
     $null = Find-ImportControl "Fing import preview" ([System.Windows.Automation.ControlType]::List)
+    $null = Find-ImportControl "3   Changes and conflicts" ([System.Windows.Automation.ControlType]::Text)
     $null = Find-ImportControl "People — Review" ([System.Windows.Automation.ControlType]::Text)
     $null = Find-ImportControl "Rooms — Review" ([System.Windows.Automation.ControlType]::Text)
     $null = Find-ImportControl "Private/randomized MACs — Information" ([System.Windows.Automation.ControlType]::Text)
     $null = Find-ImportControl "Device type / OS classification — Review" ([System.Windows.Automation.ControlType]::Text)
+    foreach ($category in @("People", "Rooms", "Private/randomized MACs", "Device type / OS classification")) {
+        $expander = Find-ImportId "AnalysisDetailsExpander-$category"
+        $pattern = $expander.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+        $pattern.Expand()
+        Start-Sleep -Milliseconds 250
+        $detail = (Find-ImportId "AnalysisDetails-$category").Current.Name
+        $expected = if ($category -eq "Rooms") { "Review speaker" }
+            elseif ($category -eq "Private/randomized MACs") { "Review speaker (row 3)" }
+            else { "Review controller" }
+        if (-not $detail.Contains($expected)) {
+            throw "$category analysis details must identify the affected device."
+        }
+        $pattern.Collapse()
+        Start-Sleep -Milliseconds 250
+    }
     if ((Find-ImportId PrivateMacNotice-020000000001).Current.Name -notlike "*Import all includes every eligible device*") {
         throw "Private-MAC guidance must explain how selection mode skips an unrecognized device."
     }

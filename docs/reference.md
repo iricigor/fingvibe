@@ -96,10 +96,14 @@ skipped records/fields, and a combined **Device type / OS classification** warni
 group. People/Rooms groups have
 standard management buttons at the top-right of their cards and confirm when
 all referenced entries match or none are referenced.
+Expanded details identify affected devices by available name or formatted MAC,
+showing the first 10 per detail followed by an omitted-count notice when needed.
+Diagnostic references retain worksheet rows; skipped records without a retained
+device identity show their row instead. Counts remain complete and text wraps.
 The filename gains a subtle green chip after successful analysis and returns to
 neutral when analysis is cleared or invalidated; this does not approve every field.
 Excluded Fing data and historical-IP semantics appear as an informational note,
-not a warning. The preview groups changes by device/MAC, with compact additions,
+not a warning. The separate **3 Changes and conflicts** container groups the preview by device/MAC, with compact additions,
 explicit before/after conflicts, and reasons for skipped fields; absent fields
 are omitted and unchanged devices are collapsed. Existing names, imported metadata, manual classifications,
 and assignments are kept unless their individual conflict choice is changed

@@ -88,7 +88,11 @@
                                TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock x:Name="LimitationsText" TextWrapping="Wrap" FontSize="12"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Text="Changes and conflicts" FontWeight="SemiBold" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="3   Changes and conflicts" Style="{ThemeResource SubtitleTextBlockStyle}" />
                     <StackPanel x:Name="SelectionActions" Orientation="Horizontal" Spacing="8" Visibility="Collapsed">
                         <Button Content="Select all" Click="SelectAll_Click" />
                         <Button Content="Deselect all" Click="DeselectAll_Click" />
