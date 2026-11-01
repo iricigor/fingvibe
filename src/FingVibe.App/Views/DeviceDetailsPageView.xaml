@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:FingVibe.App"
     xmlns:models="using:FingVibe.Core.Models">
-    <ScrollViewer x:Name="DevicePage">
+    <ScrollViewer x:Name="DevicePage" AutomationProperties.AutomationId="DeviceDetailsScroll">
         <StackPanel Margin="24,0,24,24" Spacing="16">
             <Button Click="BackToDevicesButton_Click" AutomationProperties.Name="Back to devices">
                 <StackPanel Orientation="Horizontal" Spacing="8">
@@ -113,7 +113,7 @@
                         <TextBlock x:Name="DeviceProbeText" FontSize="16" FontFamily="Consolas" />
                     </StackPanel>
                     <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Spacing="6">
-                        <TextBlock Text="Open ports" FontWeight="SemiBold" />
+                        <TextBlock Text="Confirmed open/responding endpoints" FontWeight="SemiBold" />
                         <TextBlock x:Name="DeviceNoPortsText"
                                    Text="No open ports detected."
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -121,18 +121,39 @@
                                 Content="Scan additional ports"
                                 HorizontalAlignment="Left"
                                 Click="DevicePortScanButton_Click" />
+                        <CheckBox x:Name="DeviceIncludeUdpCheckBox" Content="Include UDP service checks"
+                                  IsChecked="False" AutomationProperties.AutomationId="DeviceIncludeUdpCheckBox"
+                                  ToolTipService.ToolTip="Send one read-only DNS and NTP request. Silence is inconclusive." />
                         <TextBlock x:Name="DevicePortScanStatusText"
+                                   TextWrapping="Wrap" AutomationProperties.AutomationId="DeviceTcpScanStatus"
+                                   AutomationProperties.LiveSetting="Polite"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock x:Name="DeviceUdpScanStatusText"
+                                   TextWrapping="Wrap" AutomationProperties.AutomationId="DeviceUdpScanStatus"
+                                   AutomationProperties.LiveSetting="Polite"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <ItemsControl x:Name="DevicePortsList">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="models:OpenPort">
-                                    <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,2">
+                                    <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,2"
+                                                ToolTipService.ToolTip="{x:Bind AccessibleLabel}"
+                                                AutomationProperties.Name="{x:Bind AccessibleLabel}">
                                         <FontIcon FontFamily="Segoe Fluent Icons"
                                                   FontSize="16"
                                                   Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                                                  Glyph="{Binding Port, Converter={StaticResource PortIconGlyphConverter}}" />
+                                                  Glyph="{Binding Converter={StaticResource PortIconGlyphConverter}}" />
                                         <TextBlock Text="{x:Bind AccessibleLabel}" FontSize="14" />
                                     </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                        <TextBlock Text="UDP observations (silence is not an open or closed port)"
+                                   TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <ItemsControl x:Name="DeviceUdpObservationsList">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:UdpServiceObservation">
+                                    <TextBlock Text="{x:Bind AccessibleLabel}" TextWrapping="Wrap" Margin="0,2"
+                                               AutomationProperties.Name="{x:Bind AccessibleLabel}" />
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>

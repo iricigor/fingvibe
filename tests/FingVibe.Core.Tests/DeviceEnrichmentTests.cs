@@ -139,14 +139,18 @@ public sealed class DeviceEnrichmentTests
         Assert.All(
             PortScannerService.CommonPorts,
             port => Assert.Equal(
-                $"{port.Key} {port.Value}",
+                $"{port.Key}/TCP - {port.Value}",
                 new OpenPort(port.Key, port.Value).AccessibleLabel));
     }
 
     [Fact]
     public void AdditionalPortDefinitions_AreBoundedAndDoNotRepeatCommonPorts()
     {
-        Assert.InRange(PortScannerService.AdditionalPorts.Count, 1, 32);
+        Assert.Equal(100, PortScannerService.AdditionalPorts.Count);
+        int[] original = [21, 23, 25, 110, 135, 139, 143, 389, 465, 587, 993, 995,
+            1433, 1521, 1883, 3306, 3389, 5432, 5672, 5900, 6379, 8000, 8443, 8883];
+        Assert.All(original, port => Assert.Contains(port, PortScannerService.AdditionalPorts.Keys));
+        Assert.All(PortScannerService.AdditionalPorts.Values, name => Assert.False(string.IsNullOrWhiteSpace(name)));
         Assert.Empty(PortScannerService.CommonPorts.Keys.Intersect(PortScannerService.AdditionalPorts.Keys));
         Assert.All(PortScannerService.AdditionalPorts.Keys, port => Assert.InRange(port, 1, 65_535));
     }

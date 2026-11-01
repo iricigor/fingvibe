@@ -134,6 +134,47 @@ public sealed partial class MainWindow
         UpdateOverview();
     }
 
+    private async Task SaveDeviceProbeResultsAsync(ScanResult result)
+    {
+        var errors = new List<string>();
+        await _deviceDataSaveLock.WaitAsync();
+        try
+        {
+            if (result.MacAddress is { } mac && CurrentDeviceData.Devices.TryGetValue(mac.ToString(), out var device)
+                && device.LatestObservation is { } latest && latest.Address == result.AddressText)
+            {
+                var devices = CurrentDeviceData.Devices.ToDictionary(pair => pair.Key, pair => pair.Value);
+                devices[mac.ToString()] = device with
+                {
+                    Observations = device.Observations.Select(item => ReferenceEquals(item, latest)
+                        ? item with { Ports = result.OpenPortItems, UdpObservations = result.UdpObservationItems } : item).ToArray()
+                };
+                var updated = CurrentDeviceData with { Devices = devices };
+                try { await PersistDeviceDataAsync(updated); }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+                {
+                    _inventory = updated;
+                    errors.Add($"Inventory: {exception.Message}");
+                }
+            }
+            if (_currentScanSnapshot is { } snapshot)
+            {
+                _currentScanSnapshot = snapshot with
+                {
+                    Results = snapshot.Results.Select(item => item.Address.Equals(result.Address) ? result : item).ToArray()
+                };
+                try { await _snapshotStore.SaveAsync(_currentScanSnapshot); }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
+                {
+                    errors.Add($"Snapshot: {exception.Message}");
+                }
+            }
+        }
+        finally { _deviceDataSaveLock.Release(); }
+        UpdateOverview();
+        if (errors.Count > 0) throw new IOException(string.Join(" ", errors));
+    }
+
     private void ShowSnapshotError(string message)
     {
         _snapshotError = message;

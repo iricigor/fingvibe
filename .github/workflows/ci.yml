@@ -68,6 +68,10 @@ jobs:
         shell: pwsh
         run: .\tests\UiReviewScenarios.Tests.ps1
 
+      - name: Test additional service UI helpers without desktop automation
+        shell: pwsh
+        run: .\tests\AdditionalServices.Script.Tests.ps1
+
       - name: Test validation planning and comments
         shell: pwsh
         run: .\tests\PrValidation.Tests.ps1
@@ -260,6 +264,13 @@ jobs:
           .\tests\FingImport.Ui.Tests.ps1 `
             -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
             -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-review\fing-import"
+
+      - name: Verify additional TCP and opt-in UDP service checks
+        shell: pwsh
+        run: |
+          .\tests\AdditionalServices.Ui.Tests.ps1 `
+            -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
+            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-review\additional-services"
 
       - name: Exercise primary UI and capture required views
         id: smoke

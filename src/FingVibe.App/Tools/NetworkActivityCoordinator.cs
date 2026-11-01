@@ -4,7 +4,8 @@ internal enum NetworkActivityKind
 {
     LanScan,
     InternetSpeedTest,
-    NetworkTroubleshooting
+    NetworkTroubleshooting,
+    DeviceServiceScan
 }
 
 internal sealed class NetworkActivityCoordinator

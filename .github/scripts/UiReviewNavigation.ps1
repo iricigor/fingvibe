@@ -19,6 +19,46 @@ function Test-UiReviewNavigation {
     }
 }
 
+function Get-UiReviewToolsScroll {
+    param([Parameter(Mandatory)][string] $Name)
+    Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+    $root = [System.Windows.Automation.AutomationElement]::FromHandle($windowHandle)
+    $condition = [System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, $Name),
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::Button))
+    $element = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+    if (-not $element) { throw "Missing Tools card '$Name'." }
+    $walker = [System.Windows.Automation.TreeWalker]::ControlViewWalker
+    while ($element -and $element -ne $root) {
+        $pattern = $null
+        if ($element.TryGetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern, [ref]$pattern) -and
+            $pattern.Current.VerticallyScrollable) {
+            return $pattern
+        }
+        $element = $walker.GetParent($element)
+    }
+    throw "No vertically scrollable container for Tools card '$Name'."
+}
+
+function Show-UiReviewToolsCard {
+    param([Parameter(Mandatory)][string] $Name)
+    $id = Find-WebDriverElement -Using xpath -Value "//Button[@Name='$Name']"
+    $response = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$id/displayed"
+    if (-not $response.value) {
+        $scroll = Get-UiReviewToolsScroll -Name $Name
+        for ($percent = 0; $percent -le 100; $percent += 10) {
+            $scroll.SetScrollPercent(-1, $percent)
+            Start-Sleep -Milliseconds 100
+            $response = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$id/displayed"
+            if ($response.value) { break }
+        }
+    }
+    return Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@Name='$Name']"
+}
+
 function Show-UiReviewCaptureScenario {
     param([Parameter(Mandatory)][string] $Scenario)
     $menu = switch ($Scenario) {
@@ -95,7 +135,12 @@ function Show-UiReviewCaptureScenario {
         "Settings" { "Window backdrop" }
         default { throw "No navigation is implemented for capture scenario '$Scenario'." }
     }
-    $null = Assert-VisibleUiReviewElement -Value $sentinel
+    if ($menu -eq "Tools") {
+        $null = Show-UiReviewToolsCard -Name $sentinel
+    }
+    else {
+        $null = Assert-VisibleUiReviewElement -Value $sentinel
+    }
 
     if ($Scenario -eq "SpeedTest") {
         $cardId = Assert-VisibleUiReviewElement -Value "Speed test"

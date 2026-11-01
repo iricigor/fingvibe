@@ -77,15 +77,36 @@ public sealed class ScanSnapshotStoreTests
         {
             await File.WriteAllTextAsync(path, """
                 {"version":1,"subnet":"192.168.1.0/24","completedAt":"2026-10-22T21:30:00Z",
-                 "results":[{"address":"192.168.1.1","status":0,"probeDuration":"00:00:00","openPorts":[]}]}
+                 "results":[{"address":"192.168.1.1","status":0,"probeDuration":"00:00:00","openPorts":[{"port":53,"serviceName":"DNS"}]}]}
                 """);
             var loaded = await new ScanSnapshotStore(path).LoadAsync();
             Assert.Equal(DeviceClassification.Unknown, Assert.Single(loaded!.Results).DetectedClassification);
+            Assert.Equal(EndpointProtocol.Tcp, Assert.Single(loaded.Results[0].OpenPortItems).Protocol);
+            Assert.Empty(loaded.Results[0].UdpObservationItems);
         }
         finally
         {
             Directory.Delete(directory, recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task ProtocolsAndUdpObservationsRoundTripSeparately()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        var store = new ScanSnapshotStore(Path.Combine(directory, "latest-scan.json"));
+        var result = new ScanResult(IPAddress.Loopback, HostStatus.Alive, 1, TimeSpan.Zero,
+            OpenPorts: [new(53, "DNS"), new(53, "DNS", EndpointProtocol.Udp)],
+            UdpObservations: [new(53, "DNS", UdpServiceState.Responded, "Valid reply."),
+                new(123, "NTP", UdpServiceState.NoResponse, "Deadline expired.")]);
+        try
+        {
+            await store.SaveAsync(new("127.0.0.1/32", DateTimeOffset.UtcNow, [result]));
+            var loaded = Assert.Single((await store.LoadAsync())!.Results);
+            Assert.Equal(result.OpenPortItems, loaded.OpenPortItems);
+            Assert.Equal(result.UdpObservationItems, loaded.UdpObservationItems);
+        }
+        finally { Directory.Delete(directory, recursive: true); }
     }
 
     [Fact]

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Text.Json.Serialization;
 
 namespace FingVibe.Core.Models;
 
@@ -18,7 +19,8 @@ public sealed record ScanResult(
     PhysicalAddress? MacAddress = null,
     string VendorName = "Unknown",
     IReadOnlyList<OpenPort>? OpenPorts = null,
-    DeviceClassification? Classification = null)
+    DeviceClassification? Classification = null,
+    IReadOnlyList<UdpServiceObservation>? UdpObservations = null)
 {
     public DeviceClassification DetectedClassification => Classification ?? DeviceClassification.Unknown;
     public string AddressText => Address.ToString();
@@ -34,6 +36,7 @@ public sealed record ScanResult(
     public string VendorText => Status == HostStatus.Alive ? VendorName : "-";
 
     public IReadOnlyList<OpenPort> OpenPortItems => OpenPorts ?? [];
+    public IReadOnlyList<UdpServiceObservation> UdpObservationItems => UdpObservations ?? [];
 
     public string MacAddressText => MacAddress is null
         ? "-"
@@ -60,9 +63,34 @@ public sealed record ScanResult(
     }
 }
 
-public sealed record OpenPort(int Port, string ServiceName)
+public enum EndpointProtocol
 {
-    public string AccessibleLabel => $"{Port} {ServiceName}";
+    Tcp,
+    Udp
+}
+
+public sealed record OpenPort(int Port, string ServiceName, EndpointProtocol Protocol = EndpointProtocol.Tcp)
+{
+    [JsonIgnore]
+    public (EndpointProtocol Protocol, int Port) Identity => (Protocol, Port);
+    public string AccessibleLabel => $"{Port}/{Protocol.ToString().ToUpperInvariant()} - {ServiceName}";
+}
+
+public enum UdpServiceState
+{
+    Responded,
+    NoResponse,
+    Error
+}
+
+public sealed record UdpServiceObservation(int Port, string ServiceName, UdpServiceState State, string Detail)
+{
+    public string AccessibleLabel => $"{Port}/UDP - {ServiceName}: {State switch
+    {
+        UdpServiceState.Responded => "Responded",
+        UdpServiceState.NoResponse => "No response - inconclusive",
+        _ => "Error"
+    }}. {Detail}";
 }
 
 public readonly record struct ScanProgress(int Completed, int Total);

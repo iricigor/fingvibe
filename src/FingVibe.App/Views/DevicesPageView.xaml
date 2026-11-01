@@ -306,7 +306,7 @@
                                                     <FontIcon FontFamily="Segoe Fluent Icons"
                                                               FontSize="16"
                                                               Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                                                              Glyph="{Binding Port, Converter={StaticResource PortIconGlyphConverter}}"
+                                                              Glyph="{Binding Converter={StaticResource PortIconGlyphConverter}}"
                                                               AutomationProperties.Name="{Binding AccessibleLabel}"
                                                               ToolTipService.ToolTip="{Binding AccessibleLabel}" />
                                                 </DataTemplate>
