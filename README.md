@@ -1,6 +1,6 @@
-<img align="right" src="docs/branding/network-radar.png" alt="FingVibe network radar logo" width="128" height="128">
-
 # FingVibe
+
+<img align="right" src="docs/branding/network-radar.png" alt="FingVibe network radar logo" width="128" height="128">
 
 **Discover your LAN. Get to know your devices.**
 
