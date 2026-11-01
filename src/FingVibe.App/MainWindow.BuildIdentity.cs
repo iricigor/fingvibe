@@ -14,7 +14,10 @@ public sealed partial class MainWindow
         Title = build.WindowTitle;
         OverviewPage.ShowBuild(build.Summary);
         BuildRibbonText.Text = build.RibbonText;
-        AutomationProperties.SetName(BuildRibbon, $"Acknowledge {build.Label}; hide ribbon until the app closes");
+        BuildRibbonTimestampText.Text = build.RibbonTimestampText;
+        ToolTipService.SetToolTip(BuildRibbon, build.RibbonToolTip);
+        AutomationProperties.SetHelpText(BuildRibbon, build.RibbonToolTip);
+        AutomationProperties.SetName(BuildRibbon, build.RibbonAccessibleName);
         BuildRibbonArea.Visibility = build.IsRibbonVisible ? Visibility.Visible : Visibility.Collapsed;
         UpdateBuildHeaderLayout();
     }

@@ -13,7 +13,8 @@ public sealed partial class AboutPage : UserControl
         var build = BuildIdentity.Current;
         VersionText.Text = build.Version;
         BuildKindText.Text = build.Label;
-        CommitText.Text = build.Commit is null ? "Commit not recorded for this build." : $"Commit: {build.Commit}";
+        BuildTimestampText.Text = build.TimestampText;
+        CommitText.Text = build.CommitText;
         PullRequestLink.NavigateUri = build.PullRequestUri;
         PullRequestLink.Visibility = build.PullRequestUri is null ? Visibility.Collapsed : Visibility.Visible;
         BuildLink.NavigateUri = build.BuildUri;

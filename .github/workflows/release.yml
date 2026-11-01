@@ -40,10 +40,13 @@ jobs:
         run: .\tests\LogoDevConfiguration.Tests.ps1
 
       - name: Publish Windows x64 app
+        id: publish
         env:
           LOGO_DEV_PUBLISHABLE_KEY: ${{ secrets.LOGO_DEV_PUBLISHABLE_KEY }}
         shell: pwsh
         run: |
+          $buildTimestamp = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", [Globalization.CultureInfo]::InvariantCulture)
+          "build-timestamp=$buildTimestamp" >> $env:GITHUB_OUTPUT
           msbuild src\FingVibe.App\FingVibe.App.csproj `
             /restore `
             /target:Publish `
@@ -55,12 +58,17 @@ jobs:
             /property:Version=${{ steps.version.outputs.number }} `
             /property:BuildKind=Release `
             /property:BuildCommit=${{ github.sha }} `
+            /property:BuildTimestamp="$buildTimestamp" `
             /property:BuildUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" `
             /property:PublishDir="${{ github.workspace }}\artifacts\fingvibe-win-x64\"
 
       - name: Verify published application icons
         shell: pwsh
         run: .\tests\ApplicationIcon.Tests.ps1 -AppDirectory "${{ github.workspace }}\artifacts\fingvibe-win-x64"
+
+      - name: Verify published build timestamp
+        shell: pwsh
+        run: .\tests\BuildIdentity.Metadata.Tests.ps1 -AppDirectory "${{ github.workspace }}\artifacts\fingvibe-win-x64" -BuildTimestamp "${{ steps.publish.outputs.build-timestamp }}"
 
       - name: Create release archive
         shell: pwsh

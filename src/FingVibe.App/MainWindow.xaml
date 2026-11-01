@@ -149,19 +149,24 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <Canvas x:Name="BuildRibbonArea" Grid.Column="1" Width="240" Height="150"
+                    <Canvas x:Name="BuildRibbonArea" Grid.Column="1" Width="280" Height="180"
                             Visibility="Collapsed">
                         <Canvas.Clip>
-                            <RectangleGeometry Rect="0,0,240,150" />
+                            <RectangleGeometry Rect="0,0,280,180" />
                         </Canvas.Clip>
-                        <Button x:Name="BuildRibbon" Canvas.Left="5" Canvas.Top="47"
-                                Width="280" Height="36" CornerRadius="0"
+                        <Button x:Name="BuildRibbon" Canvas.Left="5" Canvas.Top="55"
+                                Width="320" Height="60" CornerRadius="0" Padding="12,6"
                                 RenderTransformOrigin="0.5,0.5" Click="BuildRibbon_Click"
                                 ToolTipService.ToolTip="Acknowledge this build (hide ribbon until the app closes)">
                             <Button.RenderTransform>
                                 <RotateTransform Angle="35" />
                             </Button.RenderTransform>
-                            <TextBlock x:Name="BuildRibbonText" FontWeight="SemiBold" FontSize="13" />
+                            <StackPanel Spacing="2" HorizontalAlignment="Center">
+                                <TextBlock x:Name="BuildRibbonText" FontWeight="SemiBold" FontSize="13"
+                                           HorizontalAlignment="Center" />
+                                <TextBlock x:Name="BuildRibbonTimestampText" FontSize="12"
+                                           HorizontalAlignment="Center" />
+                            </StackPanel>
                         </Button>
                     </Canvas>
                     <Grid x:Name="ScanBar" Margin="24,16,24,16" ColumnSpacing="12" VerticalAlignment="Top">
