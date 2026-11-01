@@ -1,6 +1,9 @@
 name: Documentation screenshots
 
 on:
+  push:
+    branches: [iricigor-scaling-engine]
+    paths: [.github/workflows/documentation-capture.yml]
   workflow_dispatch:
     inputs:
       release_tag:
@@ -25,7 +28,7 @@ jobs:
       - name: Download the selected released app
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_TAG: ${{ inputs.release_tag || 'v1.0.51' }}
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
