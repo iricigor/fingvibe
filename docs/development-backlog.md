@@ -61,12 +61,25 @@ Use the four templates in GitHub's new-issue chooser:
 New issue titles default to the template's emoji and type followed by a colon
 and space, for example `🔥 Epic: `. Existing issue titles are unchanged.
 
+Every repository issue must either be an Epic labeled `type:epic` or be a
+direct native GitHub sub-issue of an issue labeled `type:epic`. This includes
+bug and feature intake, not only issues refined into tasks. Identify the
+appropriate Epic, attach each non-Epic issue using GitHub's sub-issue
+relationship, and include it in the Epic's child checklist. Verify the native
+parent, its label, and the checklist entry on GitHub; a title or body link
+alone does not establish membership. Preserve valid existing parentage and
+obtain human approval before moving issues between Epics. If the appropriate
+Epic is unclear, ask the human before choosing or creating one. Report failed
+attachment or verification as an intake blocker. This rule does not authorize
+bulk migration of existing issues or implementation of any child.
+
 Intake requires no estimates or implementation plans. A human triages it.
 A small report/request can be refined **in place** with the task sections and
 `type:task`, preserving its original `bug` or `enhancement` label. A larger
 request can lead to an Epic and linked tasks; preserve the source request and
 avoid obligatory duplicates. Attach children using GitHub sub-issues as well
-as the Epic checklist. Task dependencies are distinct from parentage and priority.
+as the Epic checklist, including the preserved source request unless it is
+itself an Epic. Task dependencies are distinct from parentage and priority.
 Use native blocking relationships where available and list them in the body;
 disagreement between the two must be resolved before execution.
 
