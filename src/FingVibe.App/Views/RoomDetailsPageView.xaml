@@ -70,7 +70,7 @@
                             </StackPanel>
                             <TextBlock Grid.Column="1" Text="{x:Bind AddressText}" FontFamily="Consolas" />
                             <TextBlock Grid.Column="2" Text="{x:Bind MacAddressText}" FontFamily="Consolas" />
-                            <Button Grid.Column="3" Content="Unassign" Tag="{x:Bind MacAddress}"
+                            <Button Grid.Column="3" Content="Unassign" Tag="{x:Bind IdentityKey}"
                                     Click="UnassignRoomDeviceButton_Click" />
                         </Grid>
                     </DataTemplate>

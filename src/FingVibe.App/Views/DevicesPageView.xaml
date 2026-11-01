@@ -60,6 +60,7 @@
                                 <ComboBoxItem Content="Online" />
                                 <ComboBoxItem Content="Offline" />
                                 <ComboBoxItem Content="Fing Only" />
+                                <ComboBoxItem Content="Unknown" />
                             </ComboBox>
                         </Grid>
                         <Grid x:Name="DeviceFilterOptions" Grid.Column="1" ColumnSpacing="8" RowSpacing="8"
@@ -283,9 +284,9 @@
                                         <TextBlock Grid.Column="1" FontFamily="Consolas" TextTrimming="CharacterEllipsis"
                                                    Margin="0,0,12,0"
                                                    Visibility="{x:Bind Columns.Address.IsVisible, Mode=OneWay}"
-                                                   ToolTipService.ToolTip="{x:Bind AddressText}"
-                                                   AutomationProperties.Name="{x:Bind AddressText}">
-                                            <Run Text="{x:Bind AddressPrefix}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><Run Text="{x:Bind AddressHost}" FontWeight="SemiBold" />
+                                                   ToolTipService.ToolTip="{x:Bind AddressText, Mode=OneWay}"
+                                                   AutomationProperties.Name="{x:Bind AddressText, Mode=OneWay}">
+                                            <Run Text="{x:Bind AddressPrefix, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><Run Text="{x:Bind AddressHost, Mode=OneWay}" FontWeight="SemiBold" />
                                         </TextBlock>
                                         <TextBlock Grid.Column="2"
                                                    Text="{x:Bind VendorText}"
@@ -332,9 +333,12 @@
                                                 <TextBlock Text="{x:Bind StatusLabel}" FontWeight="SemiBold"
                                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                             </Border>
-                                            <TextBlock Text="historical" FontSize="10" Margin="0,24,0,0"
-                                                       Visibility="{x:Bind IsHistorical}"
-                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            <Border Visibility="{x:Bind IsHistorical}" Padding="8,3" CornerRadius="10"
+                                                    HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                    Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                                                <TextBlock Text="{x:Bind StatusLabel}" FontWeight="SemiBold"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            </Border>
                                         </Grid>
                                         <Grid Grid.Column="5" Margin="0,0,12,0" Height="24" VerticalAlignment="Center"
                                               Visibility="{x:Bind Columns.Response.IsVisible, Mode=OneWay}"
@@ -343,10 +347,10 @@
                                                 <RowDefinition Height="*" />
                                                 <RowDefinition Height="4" />
                                             </Grid.RowDefinitions>
-                                            <TextBlock Text="{x:Bind LatencyLabel}" FontFamily="Consolas" TextAlignment="Right"
+                                            <TextBlock Text="{x:Bind LatencyLabel, Mode=OneWay}" FontFamily="Consolas" TextAlignment="Right"
                                                        VerticalAlignment="Top" />
                                             <ProgressBar Minimum="0" Maximum="100" Value="{x:Bind LatencyFill, Mode=OneWay}"
-                                                         Grid.Row="1" Visibility="{x:Bind HasLatency}" Height="4" VerticalAlignment="Center"
+                                                         Grid.Row="1" Visibility="{x:Bind HasLatency, Mode=OneWay}" Height="4" VerticalAlignment="Center"
                                                          AutomationProperties.Name="{x:Bind LatencyLabel}">
                                                 <ProgressBar.Foreground>
                                                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">

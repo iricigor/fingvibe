@@ -12,6 +12,7 @@ public sealed record DeviceAssignmentChoice(Guid? Id = null, bool AddNew = false
 public sealed partial class DeviceDetailsPageView : UserControl
 {
     private bool _updatingAssignments;
+    private bool _updatingAddresses;
 
     public DeviceDetailsPageView()
     {
@@ -29,6 +30,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
     public event RoutedEventHandler? ClassificationResetRequested;
     public event EventHandler<DeviceAssignmentChoice>? PersonAssignmentRequested;
     public event EventHandler<DeviceAssignmentChoice>? RoomAssignmentRequested;
+    public event EventHandler<string>? AddressRequested;
 
     internal string NameInput { get => DeviceNameInput.Text; set => DeviceNameInput.Text = value; }
     internal string NameSaveLabel { set => DeviceNameSaveButton.Content = value; }
@@ -41,6 +43,28 @@ public sealed partial class DeviceDetailsPageView : UserControl
 
     internal void ShowDevice(ScanResultRow row)
     {
+        _updatingAddresses = true;
+        try
+        {
+            DeviceAddressPicker.ItemsSource = row.CurrentConnections.Select(item => item.AddressText).ToArray();
+            DeviceAddressPicker.SelectedItem = row.AddressText;
+            DeviceAddressPicker.Visibility = row.CurrentConnections.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
+        }
+        finally { _updatingAddresses = false; }
+        ShowHistory(row);
+        ShowConnection(row);
+        DeviceIncludeUdpCheckBox.IsChecked = false;
+        DeviceIdentificationEditor.IsExpanded = false;
+    }
+
+    internal void ShowHistory(ScanResultRow row)
+    {
+        VirtualDeviceHistoryCard.Visibility = row.VirtualDevice is null ? Visibility.Collapsed : Visibility.Visible;
+        VirtualDeviceHistoryText.Text = row.ConnectionHistoryText;
+    }
+
+    internal void ShowConnection(ScanResultRow row)
+    {
         var result = row.Result;
         DeviceAddressText.Text = row.AddressText;
         DeviceMacText.Text = row.MacAddressText;
@@ -51,7 +75,8 @@ public sealed partial class DeviceDetailsPageView : UserControl
         DeviceProbeText.Text = result is null ? "-" : $"{result.ProbeDuration.TotalMilliseconds:N0} ms";
         DeviceHostnameText.Text = row.HostnameText;
         DeviceAddressSourceText.Text = result is null ? "Historical IP from Fing; never observed locally."
-            : $"Last-known local address{(row.IsHistorical ? " (historical)" : string.Empty)}.";
+            : row.IsCurrentScanResponse ? "Responded in the current local scan."
+            : "Last-known local address; not a current response.";
         DeviceImportedMetadataText.Text = row.ImportedMetadata is { } imported
             ? $"Imported from Fing\nName: {imported.Name ?? "-"}\nHostname: {imported.Hostname ?? "-"}\n"
                 + $"Type: {imported.Type ?? "-"}\nBrand: {imported.Brand ?? "-"}\nFamily: {imported.Family ?? "-"}\n"
@@ -59,12 +84,10 @@ public sealed partial class DeviceDetailsPageView : UserControl
                 + $"Historical imported IP: {imported.Address ?? "-"}"
             : "No imported Fing metadata.";
         SetPortScanRunning(false, row.CanProbe);
-        ShowPorts(row.OpenPortItems);
+        ShowPorts(row.Result?.OpenPortItems ?? []);
         ShowUdpObservations(row.Result?.UdpObservationItems ?? []);
-        DeviceIncludeUdpCheckBox.IsChecked = false;
         DevicePortScanStatusText.Text = string.Empty;
         DeviceUdpScanStatusText.Text = string.Empty;
-        DeviceIdentificationEditor.IsExpanded = false;
     }
 
     internal void ResetScroll() => DevicePage.ChangeView(null, 0, null, disableAnimation: true);
@@ -87,6 +110,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
         DevicePortScanButton.Content = running ? "Cancel additional scan" : "Scan additional ports";
         DevicePortScanButton.IsEnabled = running || canProbe;
         DeviceIncludeUdpCheckBox.IsEnabled = !running && canProbe;
+        DeviceAddressPicker.IsEnabled = !running && canProbe;
     }
 
     internal void ShowUdpObservations(IReadOnlyList<UdpServiceObservation> observations) =>
@@ -240,6 +264,11 @@ public sealed partial class DeviceDetailsPageView : UserControl
     private void DeviceNameSaveButton_Click(object sender, RoutedEventArgs e) => NameSaveRequested?.Invoke(this, e);
     private void DeviceNameResetButton_Click(object sender, RoutedEventArgs e) => NameResetRequested?.Invoke(this, e);
     private void DevicePortScanButton_Click(object sender, RoutedEventArgs e) => PortScanRequested?.Invoke(this, e);
+    private void DeviceAddressPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_updatingAddresses && DeviceAddressPicker.SelectedItem is string address)
+            AddressRequested?.Invoke(this, address);
+    }
     private void ClassificationPicker_SelectionChanged(object sender, SelectionChangedEventArgs e) => ClassificationChanged?.Invoke(this, e);
     private void DeviceClassificationSaveButton_Click(object sender, RoutedEventArgs e) => ClassificationSaveRequested?.Invoke(this, e);
     private void DeviceClassificationResetButton_Click(object sender, RoutedEventArgs e) => ClassificationResetRequested?.Invoke(this, e);

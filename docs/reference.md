@@ -106,7 +106,7 @@ GitHub Actions runners only, it temporarily stops Windows Time if running to
 release 123/UDP and restores the service afterward. The application itself
 needs no new administrator rights.
 
-Devices shows the persistent inventory, including previously observed and imported-only devices. Unused addresses never become device records. The status filter distinguishes Online, Offline, and Fing Only; historical labels identify retained states, while the inventory summary is separate from scan response counts. The shared network picker is left-aligned, and the Devices header consolidates scan freshness, network-target warnings, and scan/save errors into one status line. **Search devices** expands with the window; the People, Rooms, and bordered **With open ports** controls have equal fixed widths and wrap below search when space is limited. Filtered counts show visible versus total devices. Subtle theme-aware zebra stripes follow the displayed row order, with native hover, selection, and focus indicators taking precedence; decorative stripes are disabled in Windows high contrast. A 1px theme-aware line below the column headers separates them from the rows, using system colors in high contrast. The compact Response column places its numeric latency above a thin bar without changing the scan-wide latency scale. The final visible column has no trailing divider suggesting an extra column; its resize handle remains available.
+Devices shows the persistent inventory, including previously observed and imported-only devices. Unused addresses never become device records. The status filter distinguishes Online, Offline, Unknown, and Fing Only; retained observations without current scan evidence are Unknown, while last-seen information remains in details. The shared network picker is left-aligned, and the Devices header consolidates scan freshness, network-target warnings, and scan/save errors into one status line. **Search devices** expands with the window; the People, Rooms, and bordered **With open ports** controls have equal fixed widths and wrap below search when space is limited. Filtered counts show visible versus total devices. Subtle theme-aware zebra stripes follow the displayed row order, with native hover, selection, and focus indicators taking precedence; decorative stripes are disabled in Windows high contrast. A 1px theme-aware line below the column headers separates them from the rows, using system colors in high contrast. The compact Response column places its numeric latency above a thin bar without changing the scan-wide latency scale. The final visible column has no trailing divider suggesting an extra column; its resize handle remains available.
 
 Starting a scan keeps the displayed list visible and scrollable but prevents opening device details by pointer or keyboard. Results are collected separately and replace the list only when the scan succeeds; cancellation or failure retains the displayed results and reports the outcome explicitly. Progress continues to count all checked addresses. Completed scans update inventory observations and same-network absence; this adds no event timeline or new discovery probes.
 
@@ -125,6 +125,8 @@ For otherwise unidentified SMB hosts, an observed ICMP response TTL of 127 or 12
 Device details keep the OS, type, and icon visible above the network information and port-scan action. Expand **Identification evidence and corrections** below the network details to inspect the evidence, choose an operating system, device type, and/or a built-in icon, then select **Save identification**. **Automatic** restores detection for an individual field when no mapped Fing metadata is available; otherwise that option explicitly says **Use imported Fing OS/type**. **Use automatic detection** (or **Clear saved corrections** for imported devices) clears all three saved choices, restoring the imported/automatic fallback without deleting imported metadata. The icon follows the effective device type unless an explicit icon is selected. Available types include Computer, Phone, Tablet, Router/access point, Printer, TV/media device, NAS/storage, Game console, IoT/smart device, and Unknown. Categories without reliable discovery evidence can be assigned manually; OS also offers Other.
 
 Corrections are stored separately from automatic evidence within `%LOCALAPPDATA%\FingVibe\device-inventory.json`, keyed by MAC address, and apply after rescans, IP changes, and restarts. Existing `device-classifications.json` data is migrated without deleting or rewriting the legacy file. Saving requires a six-byte MAC address, including an imported MAC. Private/randomized MACs may change and therefore lose their association with saved corrections. Load/save errors are shown in details; a failed load disables edits rather than overwriting existing corrections. Completed scan snapshots preserve automatic evidence and inferred-value markers. Older snapshots remain readable, but are not re-enriched when opening a new build: run **Scan LAN** again to collect current detection evidence.
+
+For private-prefix virtual devices, corrections instead belong to the persistent virtual identity and follow its inferred MAC changes; underlying MAC-specific corrections are preserved separately.
 
 ### People and rooms
 
@@ -145,6 +147,8 @@ Short-name limits count visible characters, so a multi-code-point emoji such as 
 The **People** and **Rooms** pages manage manually named people and locations. Each entry has a full name, a unique 1–3-character short name within its category, and optional notes. New entries suggest initials from the first two words as you type (`Igor` → `I`, `Igor Iric` → `II`, `Living Room` → `LR`); editing the short name manually stops automatic updates. Device details can assign one person and one room independently; either can remain unassigned. The Devices table shows plain short-name text in optional **Person** and **Room** columns, with muted dashes for unassigned values, while filters and search match both short and full names. Hover over a short name or keyboard-focus it to access its full-name tooltip and accessible label.
 
 People, rooms, and their assignments are saved separately from scan snapshots within `%LOCALAPPDATA%\FingVibe\device-inventory.json`. Existing `people-rooms.json` data is migrated without deleting or rewriting the legacy file. Assignments require a six-byte MAC address, including an imported MAC, and never use an IP address alone. Private or randomized MAC addresses may change, so their assignments are only retained when the same MAC is observed again. Deleting a person or room clears only that category's assignments; it does not delete devices or scan history. Last-scan response counts report devices that answered ICMP during the displayed scan, not human presence; no response does not prove a device is powered off. Load and save errors are displayed, and a failed load disables changes to protect the saved file.
+
+Assignments edited on a private-prefix virtual device belong to its persistent identity and follow inferred MAC changes, rather than being copied to its member MACs.
 
 ## Inventory and Fing import
 
@@ -212,25 +216,74 @@ Import does not create people/rooms, infer owners, import Group, or migrate
 Fing events/timestamps. Invalid MACs and all duplicate-MAC rows are skipped
 with explicit warnings. Devices sharing an IP remain distinct by MAC.
 
-Online means present in the latest completed local scan of the device's network;
+Online means a response in this session's latest completed local scan;
 Offline means locally observed previously but absent from a subsequent
 successful scan of that same Windows network profile and subnet. Other-network,
 cancelled, and failed scans do not infer absence. When network identity is
 unavailable or changes during a scan, a warning is shown and absence is not
 inferred. Fing Only means the inventory has no local observation of the imported
 MAC, regardless of Fing's State field. First local discovery removes that state.
-After restart, retained Online/Offline observations are explicitly historical,
-not fresh presence. People/Rooms live-response summaries do not count imported
-or restored records. Overview continues to count actual responses from its
-displayed snapshot, not the full inventory. Historical/Fing-only addresses cannot
+After restart, retained observations are Unknown, not Online or freshly Offline.
+Observations outside the latest successful scan's network/subnet are also
+Unknown; their last-seen information is retained. A failed or cancelled refresh
+keeps the previous successful scan's evidence unchanged. People/Rooms
+live-response summaries do not count imported or restored records. Overview and
+Network Online counts count current device identities, not historical members
+or duplicate IPs for one MAC. Historical/Fing-only addresses cannot
 start an additional port probe until a current local response exists.
+
+### Private-prefix virtual devices
+
+Sparse, globally administered MACs with vendor exactly **Private** are eligible
+when they have no meaningful saved/imported name, hostname, device type, OS,
+family or model. An IP-only name is not identification. **Private** means an
+undisclosed IEEE registrant, not a randomized MAC or a known manufacturer.
+Locally administered/randomized MACs and meaningful MAC-specific metadata are
+not automatically grouped.
+
+On each successful scan of an identified Windows network profile and subnet,
+eligible MACs occupy persistent virtual devices named **Private D0-C9-07**,
+**Private D0-C9-07 -2**, etc. Each virtual device has at most one responding MAC,
+but that MAC can have several responding IPs. Known returning MACs are reserved
+first. New MACs take the lowest-numbered available device; only additional
+simultaneous responders beyond the existing capacity create another number.
+If previously associated MACs return together, the last-active member has
+preference, with MAC order as the deterministic tie-breaker; extra members use
+available/new slots. A returning MAC prefers its most recently used association.
+Numbers are retained when devices become Offline; they are not renumbered.
+Unscoped restored observations and unrelated network/subnet contexts are not
+used to infer an association.
+Previously unassociated eligible history in that same known context joins the
+lowest-numbered virtual device on a successful scan, with an inference notice
+and its original first/last-seen times. If only historical members exist, number
+1 is created Offline after that scan establishes their absence.
+
+Select a virtual-device row to edit its name, identification or Person/Room
+assignments; these belong to the virtual device and follow its MAC changes.
+Expand **MAC and address history** for full selectable MAC/IP pairs, first/last
+seen times, network/subnet, endpoint evidence and preserved MAC-specific data.
+Each numbered device keeps its own history. Association by prefix and available
+number is explicitly **inferred**, not proof of one physical device.
+Underlying full-MAC records and existing metadata/assignments remain intact;
+Fing imports still match full MACs, never virtual device names or prefixes.
+If meaningful MAC-specific identification arrives later, that record is shown
+normally while the virtual device's prior history is retained.
+
+When one MAC responds at multiple addresses, details offer **Current address
+to inspect / probe**. Ports and additional probes in details belong to that
+selected responding address; the list's port filter counts the device if any
+current address has an endpoint. IP changes do not create another identity.
+Search can find virtual devices through historical MACs and addresses.
 
 On Devices, the status filter sits directly beside text search in the filter bar;
 its semibold text and stronger theme-aware accent border distinguish it from the
 other filters, which retain responsive wrapping at narrower window widths.
 
-The new versioned `device-inventory.json` contains inventory, local observations,
-names, classification corrections, and People/Rooms in one atomic commit. It
+The version-2 `device-inventory.json` contains inventory, local observations,
+names, classification corrections, People/Rooms and persistent virtual devices
+in one atomic commit. Version-1 inventories remain readable and migrate on save.
+Older inventory-aware builds reject version 2 rather than silently dropping its
+virtual devices or multiple-address observations. It
 becomes authoritative after the first successful save; legacy `device-names.json`,
 `device-classifications.json`, and `people-rooms.json` are retained untouched.
 Available legacy snapshot observations are restored as historical with unknown

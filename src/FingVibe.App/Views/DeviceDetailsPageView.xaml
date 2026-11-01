@@ -41,6 +41,17 @@
             </Grid>
             <TextBlock x:Name="DeviceNameStatusText"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Border x:Name="VirtualDeviceHistoryCard" Style="{StaticResource ScannerSummaryCardStyle}" Visibility="Collapsed">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Virtual device" FontWeight="SemiBold" />
+                    <TextBlock Text="MACs are associated by private vendor prefix and the lowest available device number. This is an inference, not proof of one physical device. Names, identification and assignments follow this virtual device."
+                               TextWrapping="Wrap" />
+                    <Expander Header="MAC and address history" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <TextBlock x:Name="VirtualDeviceHistoryText" TextWrapping="Wrap" IsTextSelectionEnabled="True"
+                                   AutomationProperties.AutomationId="VirtualDeviceHistory" />
+                    </Expander>
+                </StackPanel>
+            </Border>
             <Grid ColumnSpacing="16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -91,6 +102,9 @@
                         <TextBlock Text="IP address" FontWeight="SemiBold" />
                         <TextBlock x:Name="DeviceAddressText" FontSize="16" FontFamily="Consolas" IsTextSelectionEnabled="True" />
                         <TextBlock x:Name="DeviceAddressSourceText" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <ComboBox x:Name="DeviceAddressPicker" Header="Current address to inspect / probe"
+                                  AutomationProperties.AutomationId="DeviceAddressPicker" Visibility="Collapsed"
+                                  SelectionChanged="DeviceAddressPicker_SelectionChanged" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Spacing="2">
                         <TextBlock Text="MAC address" FontWeight="SemiBold" />

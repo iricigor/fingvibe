@@ -198,7 +198,7 @@ public sealed partial class MainWindow
             ? $"{total:N0} {(total == 1 ? "device" : "devices")}"
             : $"{_visibleResults.Count:N0} of {total:N0} devices";
         DevicesPage.ShowInventorySummary(
-            $"{_allResults.Count(row => row.IsOnline):N0} Online · {_allResults.Count(row => row.IsOffline):N0} Offline · {_allResults.Count(row => row.IsFingOnly):N0} Fing Only");
+            $"{_allResults.Count(row => row.IsOnline):N0} Online · {_allResults.Count(row => row.IsOffline):N0} Offline · {_allResults.Count(row => row.IsHistorical):N0} Unknown · {_allResults.Count(row => row.IsFingOnly):N0} Fing Only");
         UpdateOverview();
 
         string emptyMessage;

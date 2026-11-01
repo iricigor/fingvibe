@@ -97,10 +97,8 @@ public sealed partial class MainWindow
             }
 
             stopwatch.Stop();
-            _onlineDeviceCount = summary.Alive;
-            UpdateNetworkIdentity();
             _scanMessage =
-                $"Complete in {stopwatch.Elapsed.TotalSeconds:N1}s - {summary.Alive:N0} {(summary.Alive == 1 ? "device" : "devices")}";
+                $"Complete in {stopwatch.Elapsed.TotalSeconds:N1}s - {summary.Alive:N0} responding {(summary.Alive == 1 ? "address" : "addresses")}";
 
             var results = resultProgress.Results.Select(result => IsUiReview && System.Net.IPAddress.IsLoopback(result.Address)
                 ? result with { MacAddress = System.Net.NetworkInformation.PhysicalAddress.Parse("020000000001") } : result).ToArray();

@@ -14,12 +14,12 @@ public sealed record ManagedRoomListRow(ManagedRoom Room, string DeviceCountText
     public string IconGlyph => PeopleRoomsIcons.Resolve(PeopleRoomsIcons.Rooms, Room.IconId).Glyph;
 }
 
-public sealed record AssignedDeviceListRow(string MacAddress, ScanResultRow? ScanResult)
+public sealed record AssignedDeviceListRow(string IdentityKey, ScanResultRow? ScanResult)
 {
     public string NameText => ScanResult?.NameText ?? "Not observed in the last scan";
     public string AddressText => ScanResult?.AddressText ?? "-";
     public string StatusText => ScanResult?.StatusLabel ?? "Historical assignment";
     public string StatusContext => ScanResult?.StatusContext ?? "No local observation or imported inventory record.";
     public string MacAddressText => ScanResult?.MacAddressText
-        ?? string.Join("-", Enumerable.Range(0, 6).Select(index => MacAddress.Substring(index * 2, 2)));
+        ?? string.Join("-", Enumerable.Range(0, 6).Select(index => IdentityKey.Substring(index * 2, 2)));
 }

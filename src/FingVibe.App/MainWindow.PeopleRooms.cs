@@ -56,8 +56,9 @@ public sealed partial class MainWindow
         Guid? roomId = null;
         string? roomShortName = null;
         string? roomName = null;
-        if (row.MacAddress is { } macAddress
-            && _peopleRooms.Assignments.TryGetValue(macAddress.ToString(), out var assignment))
+        var assignment = row.VirtualDevice is { } virtualDevice ? virtualDevice.Assignment
+            : row.MacAddress is { } macAddress ? _peopleRooms.Assignments.GetValueOrDefault(macAddress.ToString()) : null;
+        if (assignment is not null)
         {
             if (assignment.PersonId is { } assignedPersonId
                 && _peopleRooms.People.FirstOrDefault(person => person.Id == assignedPersonId) is { } person)
@@ -91,7 +92,7 @@ public sealed partial class MainWindow
             .Where(person => MatchesSearch(person.ShortName, person.Name, peopleSearch))
             .Select(person =>
             {
-                var assignedCount = _peopleRooms.Assignments.Count(pair => pair.Value.PersonId == person.Id);
+                var assignedCount = GetAssignedDeviceRows(person.Id, null).Count;
                 var respondedCount = GetAssignedDeviceRows(person.Id, null)
                     .Count(row => row.ScanResult?.IsCurrentScanResponse == true);
                 return new ManagedPersonListRow(
@@ -110,7 +111,7 @@ public sealed partial class MainWindow
             .Where(room => MatchesSearch(room.ShortName, room.Name, roomsSearch))
             .Select(room =>
             {
-                var assignedCount = _peopleRooms.Assignments.Count(pair => pair.Value.RoomId == room.Id);
+                var assignedCount = GetAssignedDeviceRows(null, room.Id).Count;
                 var respondedCount = GetAssignedDeviceRows(null, room.Id)
                     .Count(row => row.ScanResult?.IsCurrentScanResponse == true);
                 return new ManagedRoomListRow(
@@ -139,7 +140,15 @@ public sealed partial class MainWindow
             .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
             .Select(pair => new AssignedDeviceListRow(
                 pair.Key,
-                _allResults.FirstOrDefault(row => row.MacAddress?.ToString() == pair.Key)))
+                _allResults.FirstOrDefault(row => row.VirtualDevice is null && row.MacAddress?.ToString() == pair.Key)
+                    ?? (CurrentDeviceData.Devices.TryGetValue(pair.Key, out var device)
+                        ? new ScanResultRow(device, 0, _deviceNameOverrides.GetValueOrDefault(pair.Key),
+                            _classificationOverrides.GetValueOrDefault(pair.Key),
+                            historical: device.Status == InventoryDeviceStatus.Unknown) : null)))
+            .Concat(_allResults.Where(row => row.VirtualDevice?.Assignment is { } assignment
+                    && (personId is null || assignment.PersonId == personId)
+                    && (roomId is null || assignment.RoomId == roomId))
+                .Select(row => new AssignedDeviceListRow(row.IdentityKey, row)))
             .ToArray();
     }
 
@@ -154,7 +163,7 @@ public sealed partial class MainWindow
         }
 
         var assignedRows = GetAssignedDeviceRows(person.Id, null);
-        var assignedCount = _peopleRooms.Assignments.Count(pair => pair.Value.PersonId == person.Id);
+        var assignedCount = assignedRows.Count;
         var responses = _liveCompletedAt is null
             ? "No current local scan. Retained device states are historical."
             : $"{assignedRows.Count(row => row.ScanResult?.IsCurrentScanResponse == true)} devices responded in the current local scan.";
@@ -170,7 +179,7 @@ public sealed partial class MainWindow
         }
 
         var assignedRows = GetAssignedDeviceRows(null, room.Id);
-        var assignedCount = _peopleRooms.Assignments.Count(pair => pair.Value.RoomId == room.Id);
+        var assignedCount = assignedRows.Count;
         var responses = _liveCompletedAt is null
             ? "No current local scan. Retained device states are historical."
             : $"{assignedRows.Count(row => row.ScanResult?.IsCurrentScanResponse == true)} devices responded in the current local scan.";
@@ -541,10 +550,23 @@ public sealed partial class MainWindow
         try
         {
             var updated = update(_peopleRooms);
-            await PersistDeviceDataAsync(CurrentDeviceData with { PeopleRooms = updated });
+            await PersistDeviceDataAsync(CurrentDeviceData with
+            {
+                PeopleRooms = updated,
+                VirtualDevices = CurrentDeviceData.VirtualDevices.Select(device => device with
+                {
+                    Assignment = device.Assignment is not { } assignment ? null : assignment with
+                    {
+                        PersonId = updated.People.Any(person => person.Id == assignment.PersonId) ? assignment.PersonId : null,
+                        RoomId = updated.Rooms.Any(room => room.Id == assignment.RoomId) ? assignment.RoomId : null
+                    }
+                }).ToArray()
+            });
             _peopleRooms = updated;
             foreach (var row in _allResults)
             {
+                if (row.VirtualDevice is { } virtualDevice)
+                    row.UpdateVirtualDevice(CurrentDeviceData.VirtualDevices.First(device => device.Id == virtualDevice.Id));
                 ApplyPeopleRoomAssignments(row);
             }
 
@@ -672,7 +694,7 @@ public sealed partial class MainWindow
         }
 
         var available = _allResults.Where(row => row.MacAddress?.GetAddressBytes().Length == 6)
-            .DistinctBy(row => row.MacAddress!.ToString())
+            .DistinctBy(row => row.IdentityKey)
             .OrderBy(row => row.NameText, StringComparer.OrdinalIgnoreCase)
             .ToArray();
         if (available.Length == 0)
@@ -694,7 +716,7 @@ public sealed partial class MainWindow
         content.Children.Add(picker);
         content.Children.Add(new TextBlock
         {
-            Text = "Devices are associated by MAC address. A private or randomized MAC may change.",
+            Text = "Ordinary devices use their MAC address. Virtual-device assignments follow their inferred connections.",
             TextWrapping = TextWrapping.Wrap
         });
         var dialog = new ContentDialog
@@ -715,9 +737,7 @@ public sealed partial class MainWindow
 
         var personId = _selectedPerson?.Id;
         var roomId = _selectedRoom?.Id;
-        var saved = await SavePeopleRoomsAsync(data => personCategory
-            ? data.AssignPerson(macAddress.ToString(), personId)
-            : data.AssignRoom(macAddress.ToString(), roomId));
+        var saved = await SaveRowAssignmentAsync(selected, personCategory, personCategory ? personId : roomId);
         if (saved)
         {
             SetDetailStatus(personCategory, "Device assignment saved.");
@@ -745,6 +765,11 @@ public sealed partial class MainWindow
 
         try
         {
+            if (_allResults.FirstOrDefault(row => row.VirtualDevice is not null && row.IdentityKey == macAddress) is { } virtualRow)
+            {
+                if (await SaveRowAssignmentAsync(virtualRow, true, null)) PersonDetailPage.Status = "Device unassigned.";
+                return;
+            }
             if (await SavePeopleRoomsAsync(data => data.AssignPerson(macAddress, null)))
             {
                 PersonDetailPage.Status = "Device unassigned.";
@@ -765,6 +790,11 @@ public sealed partial class MainWindow
 
         try
         {
+            if (_allResults.FirstOrDefault(row => row.VirtualDevice is not null && row.IdentityKey == macAddress) is { } virtualRow)
+            {
+                if (await SaveRowAssignmentAsync(virtualRow, false, null)) RoomDetailPage.Status = "Device unassigned.";
+                return;
+            }
             if (await SavePeopleRoomsAsync(data => data.AssignRoom(macAddress, null)))
             {
                 RoomDetailPage.Status = "Device unassigned.";
@@ -798,6 +828,8 @@ public sealed partial class MainWindow
             ? "People and rooms are still loading; assignments are unavailable."
             : _peopleRoomsUnavailable
             ? "Saved people and rooms could not be loaded; assignments are disabled."
+            : _selectedDeviceRow.VirtualDevice is not null
+                ? "Assignments belong to this virtual device and follow its inferred MAC associations."
             : macAddress is null
                 ? "A valid six-byte MAC address is required to save assignments; IP addresses can change."
                 : macAddress.GetAddressBytes().Length != 6
@@ -813,9 +845,9 @@ public sealed partial class MainWindow
         {
             UpdateDeviceAssignmentPickers();
             var person = await ShowPersonEditorAsync(null);
-            if (person is not null && _selectedDeviceRow?.MacAddress is { } mac)
+            if (person is not null)
             {
-                await SavePeopleRoomsAsync(data => data.AssignPerson(mac.ToString(), person.Id));
+                await SaveDevicePersonAssignmentAsync(person.Id);
             }
 
             return;
@@ -830,9 +862,9 @@ public sealed partial class MainWindow
         {
             UpdateDeviceAssignmentPickers();
             var room = await ShowRoomEditorAsync(null);
-            if (room is not null && _selectedDeviceRow?.MacAddress is { } mac)
+            if (room is not null)
             {
-                await SavePeopleRoomsAsync(data => data.AssignRoom(mac.ToString(), room.Id));
+                await SaveDeviceRoomAssignmentAsync(room.Id);
             }
 
             return;
@@ -851,7 +883,7 @@ public sealed partial class MainWindow
 
         try
         {
-            if (await SavePeopleRoomsAsync(data => data.AssignPerson(mac.ToString(), personId)))
+            if (await SaveRowAssignmentAsync(_selectedDeviceRow, true, personId))
             {
                 DevicePage.AssignmentStatus = "Person assignment saved.";
             }
@@ -872,14 +904,40 @@ public sealed partial class MainWindow
 
         try
         {
-            if (await SavePeopleRoomsAsync(data => data.AssignRoom(mac.ToString(), roomId)))
+            if (await SaveRowAssignmentAsync(_selectedDeviceRow, false, roomId))
             {
                 DevicePage.AssignmentStatus = "Room assignment saved.";
             }
+
         }
         catch (Exception exception) when (exception is ArgumentException or FormatException)
         {
             DevicePage.AssignmentStatus = "The room assignment could not be saved.";
         }
+    }
+
+    private async Task<bool> SaveRowAssignmentAsync(ScanResultRow row, bool person, Guid? id)
+    {
+        if (row.VirtualDevice is null)
+            return await SavePeopleRoomsAsync(data => person
+                ? data.AssignPerson(row.IdentityKey, id) : data.AssignRoom(row.IdentityKey, id));
+        await _deviceDataSaveLock.WaitAsync();
+        try
+        {
+            await SaveVirtualDeviceAsync(row, device => device with
+            {
+                Assignment = person
+                    ? (device.Assignment ?? new()) with { PersonId = id }
+                    : (device.Assignment ?? new()) with { RoomId = id }
+            });
+            UpdateDeviceAssignmentPickers();
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+        {
+            SetPeopleRoomsStatus($"The virtual-device assignment could not be saved: {exception.Message}");
+            return false;
+        }
+        finally { _deviceDataSaveLock.Release(); }
     }
 }

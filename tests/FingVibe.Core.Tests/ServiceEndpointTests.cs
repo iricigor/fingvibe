@@ -71,7 +71,8 @@ public sealed class ServiceEndpointTests
             var restored = saved.LatestObservation!.ToScanResult(saved.Mac);
             Assert.Equal(result.OpenPortItems, restored.OpenPortItems);
             Assert.Equal(result.UdpObservationItems, restored.UdpObservationItems);
-            Assert.Equal(InventoryDeviceStatus.Online, saved.Status);
+            Assert.True(saved.LatestObservation.Present);
+            Assert.Equal(InventoryDeviceStatus.Unknown, saved.Status);
         }
         finally { Directory.Delete(directory, recursive: true); }
     }

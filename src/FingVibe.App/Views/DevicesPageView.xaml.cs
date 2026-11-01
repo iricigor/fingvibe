@@ -25,6 +25,7 @@ public sealed partial class DevicesPageView : UserControl
             1 => InventoryDeviceStatus.Online,
             2 => InventoryDeviceStatus.Offline,
             3 => InventoryDeviceStatus.FingOnly,
+            4 => InventoryDeviceStatus.Unknown,
             _ => null
         };
         set => InventoryStatusFilter.SelectedIndex = value is null ? 0 : (int)value + 1;

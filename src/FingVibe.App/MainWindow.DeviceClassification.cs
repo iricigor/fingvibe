@@ -40,6 +40,8 @@ public sealed partial class MainWindow
         DevicePage.ShowClassification(row);
         DevicePage.ClassificationStatus = _classificationOverridesUnavailable
             ? "Saved classifications could not be loaded. Changes are disabled to protect the saved file."
+            : row.VirtualDevice is not null
+                ? "Corrections belong to this virtual device and follow its inferred MAC associations."
             : row.MacAddress is null
                 ? "A MAC address is required to save corrections; IP addresses can change."
                 : MacAddressResolver.IsPrivateOrRandomized(row.MacAddress)
@@ -92,16 +94,19 @@ public sealed partial class MainWindow
 
         try
         {
-            await PersistDeviceDataAsync(CurrentDeviceData with { Classifications = updated });
-            _classificationOverrides = updated;
+            if (row.VirtualDevice is not null)
+                await SaveVirtualDeviceAsync(row, device => device with { Classification = value.IsEmpty ? null : value });
+            else
+                await PersistDeviceDataAsync(CurrentDeviceData with { Classifications = updated });
+            if (row.VirtualDevice is null) _classificationOverrides = updated;
             foreach (var matching in _allResults.Append(row).Distinct()
-                .Where(item => item.MacAddress?.ToString() == key))
+                .Where(item => item.IdentityKey == row.IdentityKey))
             {
                 matching.SetClassificationOverride(value.IsEmpty ? null : value);
             }
 
             RefreshVisibleResults();
-            if (_selectedDeviceRow?.MacAddress?.ToString() == key)
+            if (_selectedDeviceRow?.IdentityKey == row.IdentityKey)
             {
                 UpdateClassificationDetails();
                 DevicePage.ClassificationStatus = value.IsEmpty

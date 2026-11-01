@@ -115,18 +115,12 @@ public sealed partial class MainWindow
 
     private void RefreshInventoryRows(IEnumerable<ScanResult>? unkeyed = null)
     {
-        var selectedMac = DevicesPage.SelectedResult?.MacAddress?.ToString();
+        var selectedKey = DevicesPage.SelectedResult?.IdentityKey;
         _allResults.Clear();
         _minimumLatency = long.MaxValue;
         _maximumLatency = 0;
-        foreach (var device in _inventory.Devices.Values)
+        foreach (var row in ScanResultRow.CreateInventoryRows(CurrentDeviceData))
         {
-            var observation = device.LatestObservation;
-            var prefix = observation is null ? 0 : int.Parse(observation.Subnet.Split('/')[1]);
-            var row = new ScanResultRow(device, prefix, _deviceNameOverrides.GetValueOrDefault(device.Mac),
-                _classificationOverrides.GetValueOrDefault(device.Mac),
-                historical: observation is null || observation.LastChecked != _liveCompletedAt,
-                showLatency: observation?.LastSeen == _currentScanSnapshot?.CompletedAt);
             ApplyPeopleRoomAssignments(row);
             _allResults.Add(row);
             UpdateLatencyRange(row);
@@ -140,7 +134,27 @@ public sealed partial class MainWindow
             UpdateLatencyRange(row);
         }
         RefreshVisibleResults();
-        DevicesPage.SelectedResult = _allResults.FirstOrDefault(row => row.MacAddress?.ToString() == selectedMac);
+        DevicesPage.SelectedResult = _allResults.FirstOrDefault(row => row.IdentityKey == selectedKey);
+        _onlineDeviceCount = _liveCompletedAt is null ? null : _allResults.Count(row => row.IsOnline);
+        UpdateNetworkIdentity();
+        UpdatePeopleRoomsPages();
+    }
+
+    private async Task SaveVirtualDeviceAsync(ScanResultRow row, Func<PrivateVirtualDevice, PrivateVirtualDevice> update)
+    {
+        var id = row.VirtualDevice?.Id ?? throw new InvalidOperationException("A virtual device is required.");
+        var current = CurrentDeviceData.VirtualDevices.First(device => device.Id == id);
+        var updated = update(current);
+        await PersistDeviceDataAsync(CurrentDeviceData with
+        {
+            VirtualDevices = CurrentDeviceData.VirtualDevices.Select(device => device.Id == id ? updated : device).ToArray()
+        });
+        foreach (var matching in _allResults.Append(row).Distinct().Where(item => item.VirtualDevice?.Id == id))
+        {
+            matching.UpdateVirtualDevice(updated);
+            ApplyPeopleRoomAssignments(matching);
+        }
+        RefreshVisibleResults();
         UpdatePeopleRoomsPages();
     }
 
