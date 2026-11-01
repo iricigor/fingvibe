@@ -35,5 +35,6 @@
     <Compile Include="..\..\src\FingVibe.App\Tools\SpeedTestSessionState.cs" Link="SpeedTestSessionState.cs" />
     <Compile Include="..\..\src\FingVibe.App\Tools\SpeedGaugeMotion.cs" Link="SpeedGaugeMotion.cs" />
     <Compile Include="..\..\src\FingVibe.App\ManagedPeopleRoomsRows.cs" Link="ManagedPeopleRoomsRows.cs" />
+    <Compile Include="..\..\src\FingVibe.App\PeopleRoomsIcons.cs" Link="PeopleRoomsIcons.cs" />
   </ItemGroup>
 </Project>

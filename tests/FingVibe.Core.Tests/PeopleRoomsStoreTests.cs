@@ -13,8 +13,8 @@ public sealed class PeopleRoomsStoreTests
     {
         var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
         var store = new PeopleRoomsStore(Path.Combine(directory, "people-rooms.json"));
-        var person = new ManagedPerson(Guid.NewGuid(), "Alex", "AL");
-        var room = new ManagedRoom(Guid.NewGuid(), "Living room", roomShortName);
+        var person = new ManagedPerson(Guid.NewGuid(), "Alex", "AL", IconId: "profile");
+        var room = new ManagedRoom(Guid.NewGuid(), "Living room", roomShortName, IconId: "living-room");
         var data = new PeopleRoomsData([person], [room])
             .AssignPerson("aa:bb:cc:dd:ee:ff", person.Id)
             .AssignRoom("AABBCCDDEEFF", room.Id);

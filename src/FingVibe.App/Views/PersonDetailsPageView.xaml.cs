@@ -28,6 +28,7 @@ public sealed partial class PersonDetailsPageView : UserControl
         string count, string responses, bool isEmpty)
     {
         PersonDetailShortName.Text = person.ShortName;
+        PersonDetailIcon.Glyph = PeopleRoomsIcons.Resolve(PeopleRoomsIcons.People, person.IconId).Glyph;
         PersonDetailName.Text = person.Name;
         PersonDetailNotes.Text = person.Notes ?? string.Empty;
         PersonDeviceCountText.Text = count;

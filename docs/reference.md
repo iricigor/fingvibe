@@ -80,6 +80,18 @@ Corrections are stored separately from automatic evidence within `%LOCALAPPDATA%
 
 ### People and rooms
 
+Each person and room can select a predefined monochrome **Icon** in Add/Edit.
+People offers person silhouettes; Rooms offers room, home, bedroom (sleep),
+kitchen (cup), living room (TV), office (briefcase), garage (car), and garden
+(leaf) symbols. The selected icon appears at 16 DIP beside the name in the
+People/Rooms list and at 48 DIP above the short name in its detail header.
+Icons follow theme text colors, including high contrast, and do not replace
+names or accessible labels. They are decorative: assignments, device tables,
+assignment pickers, search, sorting, and response counts are unchanged.
+Choices are saved with each entry as stable IDs. Existing entries use a generic
+person or room icon; an unavailable saved ID displays the generic icon with a
+diagnostic and remains preserved unless a different choice is selected.
+
 Short-name limits count visible characters, so a multi-code-point emoji such as `0️⃣` counts as one. Room short-name inputs, the room list and details, and Devices room assignments use Segoe UI Emoji for consistent color-emoji rendering; saving preserves the original Unicode sequence.
 
 The **People** and **Rooms** pages manage manually named people and locations. Each entry has a full name, a unique 1–3-character short name within its category, and optional notes. New entries suggest initials from the first two words as you type (`Igor` → `I`, `Igor Iric` → `II`, `Living Room` → `LR`); editing the short name manually stops automatic updates. Device details can assign one person and one room independently; either can remain unassigned. The Devices table shows plain short-name text in optional **Person** and **Room** columns, with muted dashes for unassigned values, while filters and search match both short and full names. Hover over a short name or keyboard-focus it to access its full-name tooltip and accessible label.

@@ -5,11 +5,13 @@ namespace FingVibe.App;
 public sealed record ManagedPersonListRow(ManagedPerson Person, string DeviceCountText, string RespondedCountText)
 {
     public string ActionsLabel => $"Actions for {Person.Name}";
+    public string IconGlyph => PeopleRoomsIcons.Resolve(PeopleRoomsIcons.People, Person.IconId).Glyph;
 }
 
 public sealed record ManagedRoomListRow(ManagedRoom Room, string DeviceCountText, string RespondedCountText)
 {
     public string ActionsLabel => $"Actions for {Room.Name}";
+    public string IconGlyph => PeopleRoomsIcons.Resolve(PeopleRoomsIcons.Rooms, Room.IconId).Glyph;
 }
 
 public sealed record AssignedDeviceListRow(string MacAddress, ScanResultRow? ScanResult)

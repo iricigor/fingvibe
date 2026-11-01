@@ -3,9 +3,9 @@ using System.Globalization;
 
 namespace FingVibe.Core.Models;
 
-public sealed record ManagedPerson(Guid Id, string Name, string ShortName, string? Notes = null);
+public sealed record ManagedPerson(Guid Id, string Name, string ShortName, string? Notes = null, string? IconId = null);
 
-public sealed record ManagedRoom(Guid Id, string Name, string ShortName, string? Notes = null);
+public sealed record ManagedRoom(Guid Id, string Name, string ShortName, string? Notes = null, string? IconId = null);
 
 public sealed record DeviceAssignment(Guid? PersonId = null, Guid? RoomId = null);
 

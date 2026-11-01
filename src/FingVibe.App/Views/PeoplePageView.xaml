@@ -63,7 +63,16 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="{x:Bind Person.ShortName}" FontWeight="SemiBold" />
-                                    <TextBlock Grid.Column="1" Text="{x:Bind Person.Name}" TextTrimming="CharacterEllipsis" />
+                                    <Grid Grid.Column="1" ColumnSpacing="8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <FontIcon Glyph="{x:Bind IconGlyph}" FontFamily="Segoe Fluent Icons" FontSize="16"
+                                                  Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                                  AutomationProperties.AccessibilityView="Raw" />
+                                        <TextBlock Grid.Column="1" Text="{x:Bind Person.Name}" TextTrimming="CharacterEllipsis" />
+                                    </Grid>
                                                     <TextBlock Grid.Column="2" Text="{x:Bind DeviceCountText}" />
                                                     <TextBlock Grid.Column="3" Text="{x:Bind RespondedCountText}" />
                                     <Button Grid.Column="4" Content="More" Tag="{x:Bind Person.Id}"
