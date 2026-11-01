@@ -1,10 +1,11 @@
-# README logo proposals
+# README branding
 
-Three original FingVibe brand-mark proposals are available for selection in
-[PR #112](https://github.com/iricigor/fingvibe/pull/112). They do not replace the
+The user selected **Network radar** from three original FingVibe brand-mark
+proposals in [PR #112](https://github.com/iricigor/fingvibe/pull/112).
+These README assets do not replace the
 application's `Scanner.ico` or set a browser favicon.
 
-| 1. Network radar | 2. Connected devices | 3. Signal pulse |
+| 1. Network radar (selected) | 2. Connected devices | 3. Signal pulse |
 | --- | --- | --- |
 | <img src="network-radar.png" alt="Blue radar with teal sweep and colorful device nodes" width="128" height="128"> | <img src="connected-devices.png" alt="Teal hub connecting colorful computer, phone, storage, and media symbols" width="128" height="128"> | <img src="signal-pulse.png" alt="Teal network signal and amber pulse between blue nodes" width="128" height="128"> |
 | Emphasizes discovery. | Emphasizes the device inventory. | Emphasizes responsiveness and Vibe. |
@@ -14,9 +15,21 @@ The dark blue tile gives the colorful details consistent contrast on both
 GitHub light and dark backgrounds; the area outside the rounded tile is
 transparent. No fonts, external images, scripts, or remote resources are used.
 
-The README's final mark will display at **128x128**, right-aligned near its
-title, after the user explicitly selects an option. Until then, no proposal is
-silently treated as the selected logo.
+The selected mark displays at **128x128**, right-aligned near the README title.
+The other proposals are retained here for the design record; their original
+pre-selection previews are also preserved in the PR.
+
+The user requested these node-color changes to Network radar:
+
+| Original | Selected | HSL saturation | HSL lightness |
+| --- | --- | --- | --- |
+| Yellow `#ffc45c` | Red `#ff5c5c` | 100% (unchanged) | 68.04% (unchanged) |
+| Green `#4df0d3` | Green `#4df0d3` | Unchanged | Unchanged |
+| Red `#ff809a` | Light blue `#80d5ff` | 100% (unchanged) | 75.10% (unchanged) |
+| Purple `#bd9aff` | Yellow `#ffeb9a` | 100% (unchanged) | 80.20% (unchanged) |
+
+Only the three requested node hues changed; their saturation and lightness,
+the green node, the radar geometry, and the background remain unchanged.
 
 To regenerate a PNG, render its SVG at 256x256 with a transparent background
 using an SVG-capable renderer. Do not change the SVG's viewBox or stretch the
