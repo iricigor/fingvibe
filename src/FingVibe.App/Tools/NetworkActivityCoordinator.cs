@@ -3,7 +3,8 @@ namespace FingVibe.App;
 internal enum NetworkActivityKind
 {
     LanScan,
-    InternetSpeedTest
+    InternetSpeedTest,
+    NetworkTroubleshooting
 }
 
 internal sealed class NetworkActivityCoordinator

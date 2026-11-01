@@ -19,7 +19,7 @@ function Get-PrValidationChanges {
             $path -match '(^|/)([^/]+\.(sln|slnx|props|targets)|global\.json|[Nn]u[Gg]et\.[Cc]onfig)$') {
             $tests = $true
         }
-        if ($path -match '^(src/|tools/|tests/UiReviewScreenshot\.Tests\.ps1$|\.github/(scripts/|workflows/|agents/ui-ux-reviewer\.agent\.md))' -or
+        if ($path -match '^(src/|tools/|tests/(UiReviewScreenshot|NetworkTroubleshooting\.Ui)\.Tests\.ps1$|\.github/(scripts/|workflows/|agents/ui-ux-reviewer\.agent\.md))' -or
             $path -match '(^|/)([^/]+\.(sln|slnx|props|targets)|global\.json|[Nn]u[Gg]et\.[Cc]onfig)$') {
             $build = $true
             $ui = $true

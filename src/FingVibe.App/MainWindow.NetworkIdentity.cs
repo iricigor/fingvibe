@@ -61,6 +61,7 @@ public sealed partial class MainWindow
     private void NetworkPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         var selectedNetwork = NetworkPicker.SelectedItem as LanNetwork;
+        ToolsPage.SetNetworkContext(selectedNetwork);
         OverviewPage.ShowSubnet(selectedNetwork);
         NetworkPage.ShowLocalNetwork(selectedNetwork);
         if (NetworkPicker.SelectedItem is not LanNetwork network)

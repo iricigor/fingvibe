@@ -95,7 +95,7 @@ try {
     Test-Change @{ "src\FingVibe.App\MainWindow.DeviceDetails.cs" = "changed" } `
         @("Devices", "DeviceDetails") "Device details code"
     Test-Change @{ "src\FingVibe.App\MainWindow.NetworkIdentity.cs" = "changed" } `
-        @("Devices", "Overview", "Network") "Network identity code"
+        @("Devices", "Overview", "Network", "Troubleshooting") "Network identity code"
     Test-Change @{ "src\FingVibe.App\MainWindow.Results.cs" = "changed" } `
         @("Devices", "Settings", "DevicesEmpty") "Results and empty state"
     Test-Change @{ "src\FingVibe.App\App.xaml" = "changed" } @($UiReviewScenarios.Keys) "Shared theme"
@@ -112,7 +112,9 @@ try {
     Test-Change @{ "src\FingVibe.Core\NewModel.cs" = "changed" } @("Devices") "Core dependency baseline"
     Test-Change @{ ".github\scripts\UiReviewNavigation.ps1" = "changed" } @("Devices") "Pipeline baseline"
     Test-Change @{ "src\FingVibe.App\MainWindow.xaml.cs" = "changed" } @("Devices") "Shell code baseline"
-    Test-Change @{ "src\FingVibe.App\Tools\SpeedTestPage.xaml" = "changed" } @("Devices", "Tools", "SpeedTest", "About") "Tools views"
+    Test-Change @{ "src\FingVibe.App\Tools\SpeedTestPage.xaml" = "changed" } @("Devices", "Tools", "SpeedTest", "Troubleshooting", "About") "Tools views"
+    Test-Change @{ "src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml" = "changed" } @("Devices", "Tools", "Troubleshooting") "Troubleshooting view"
+    Test-Change @{ "src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml.cs" = "changed" } @("Devices", "Tools", "Troubleshooting") "Troubleshooting behavior"
     Test-Change @{ "src\FingVibe.App\Tools\AboutPage.xaml" = "changed" } @("Devices", "Tools", "About") "About view"
     Test-Change @{ "src\FingVibe.App\Tools\AboutPage.xaml.cs" = "changed" } @("Devices", "Tools", "About") "About behavior"
     $viewScenarios = @{
@@ -209,7 +211,7 @@ try {
         ".github\scripts\UiReviewNavigation.ps1" = "New navigation"
         "tests\UiReviewScenarios.Tests.ps1" = "New tests"
         "README.md" = "Tools documentation"
-    } @("Devices", "Tools", "SpeedTest", "About") "Tools structural changes include About"
+    } @("Devices", "Tools", "SpeedTest", "Troubleshooting", "About") "Tools structural changes include all tools"
     $base = $originalBase
 
     $planPath = Join-Path $repository "plan.json"
@@ -289,6 +291,7 @@ try {
             if ($Value -eq "//List[@Name='People']/ListItem[.//*[@Name='UI review person']]") { return "person-row" }
             if ($Value -eq "//List[@Name='Rooms']/ListItem[.//*[@Name='UI review room']]") { return "room-row" }
             if ($Value -eq "//Button[@Name='About FingVibe']") { return "control-About FingVibe" }
+            if ($Value -eq "//Button[@Name='Network troubleshooting']") { return "control-Network troubleshooting" }
             throw "Unexpected XPath '$Value'."
         }
         return "control-$Value"
@@ -300,6 +303,7 @@ try {
         elseif ($ElementId -eq "online-row") { $script:currentPage = "DeviceDetails" }
         elseif ($ElementId -eq "control-Speed test") { $script:currentPage = "SpeedTest" }
         elseif ($ElementId -eq "control-About FingVibe") { $script:currentPage = "About" }
+        elseif ($ElementId -eq "control-Network troubleshooting") { $script:currentPage = "Troubleshooting" }
         elseif ($ElementId -eq "person-row") { $script:currentPage = "PersonDetails" }
         elseif ($ElementId -eq "room-row") { $script:currentPage = "RoomDetails" }
         else { throw "Unexpected click '$ElementId'." }
@@ -331,7 +335,10 @@ try {
                     "control-Speed test" { $script:currentPage -eq "Tools" }
                     "control-Start Cloudflare speed test" { $script:currentPage -eq "SpeedTest" }
                     "control-About FingVibe" { $script:currentPage -eq "Tools" }
-                    "control-Back to Tools" { $script:currentPage -eq "About" }
+                    "control-Network troubleshooting" { $script:currentPage -eq "Tools" }
+                    "control-Run network troubleshooting" { $script:currentPage -eq "Troubleshooting" }
+                    "control-Router WAN IPv4 address" { $script:currentPage -eq "Troubleshooting" }
+                    "control-Back to Tools" { $script:currentPage -in @("About", "Troubleshooting") }
                     "control-FingVibe LAN Scanner" { $script:currentPage -eq "About" }
                     "control-Search people" { $script:currentPage -eq "People" }
                     "control-Search rooms" { $script:currentPage -eq "Rooms" }

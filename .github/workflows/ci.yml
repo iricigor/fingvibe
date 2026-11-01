@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       additional_scenarios:
-        description: "Extra captures (comma-separated): Overview, Network, DeviceDetails, People, PersonDetails, Rooms, RoomDetails, Tools, SpeedTest, About, Settings, DevicesEmpty"
+        description: "Extra captures (comma-separated): Overview, Network, DeviceDetails, People, PersonDetails, Rooms, RoomDetails, Tools, SpeedTest, Troubleshooting, About, Settings, DevicesEmpty"
         type: string
         required: false
 
@@ -230,6 +230,13 @@ jobs:
             -Version "0.0.${{ github.run_number }}" `
             -BuildKind "${{ github.event_name == 'pull_request' && 'PullRequest' || 'Test' }}" `
             -PullRequestNumber ${{ github.event.pull_request.number || 0 }}
+
+      - name: Verify network troubleshooting controls and privacy
+        shell: pwsh
+        run: |
+          .\tests\NetworkTroubleshooting.Ui.Tests.ps1 `
+            -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
+            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-review\troubleshooting"
 
       - name: Exercise primary UI and capture required views
         id: smoke

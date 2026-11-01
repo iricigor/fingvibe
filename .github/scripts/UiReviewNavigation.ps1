@@ -25,6 +25,7 @@ function Show-UiReviewCaptureScenario {
         "DeviceDetails" { "Devices" }
         "DevicesEmpty" { "Devices" }
         "SpeedTest" { "Tools" }
+        "Troubleshooting" { "Tools" }
         "About" { "Tools" }
         "PersonDetails" { "People" }
         "RoomDetails" { "Rooms" }
@@ -85,6 +86,7 @@ function Show-UiReviewCaptureScenario {
         "Network" { "Public IP address" }
         "Tools" { "Speed test" }
         "SpeedTest" { "Speed test" }
+        "Troubleshooting" { "Network troubleshooting" }
         "About" { "About FingVibe" }
         "People" { "Search people" }
         "Rooms" { "Search rooms" }
@@ -97,6 +99,13 @@ function Show-UiReviewCaptureScenario {
         $cardId = Assert-VisibleUiReviewElement -Value "Speed test"
         Invoke-WebDriverElement -ElementId $cardId
         $null = Assert-VisibleUiReviewElement -Value "Start Cloudflare speed test"
+    }
+    elseif ($Scenario -eq "Troubleshooting") {
+        $cardId = Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@Name='Network troubleshooting']"
+        Invoke-WebDriverElement -ElementId $cardId
+        $null = Assert-VisibleUiReviewElement -Value "Back to Tools"
+        $null = Assert-VisibleUiReviewElement -Value "Run network troubleshooting"
+        $null = Assert-VisibleUiReviewElement -Value "Router WAN IPv4 address"
     }
     elseif ($Scenario -eq "About") {
         $cardId = Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@Name='About FingVibe']"

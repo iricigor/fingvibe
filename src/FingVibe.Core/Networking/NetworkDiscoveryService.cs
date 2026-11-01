@@ -40,7 +40,8 @@ public sealed class NetworkDiscoveryService
                 SubnetCalculator.GetNetworkAddress(unicastAddress.Address, prefixLength),
                 prefixLength,
                 gatewayAddress is not null,
-                gatewayAddress);
+                gatewayAddress,
+                networkInterface.Id);
         }
     }
 
