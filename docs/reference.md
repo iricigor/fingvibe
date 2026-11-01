@@ -96,6 +96,8 @@ skipped records/fields, and a combined **Device type / OS classification** warni
 group. People/Rooms groups have
 standard management buttons at the top-right of their cards and confirm when
 all referenced entries match or none are referenced.
+The filename gains a subtle green chip after successful analysis and returns to
+neutral when analysis is cleared or invalidated; this does not approve every field.
 Excluded Fing data and historical-IP semantics appear as an informational note,
 not a warning. The preview groups changes by device/MAC, with compact additions,
 explicit before/after conflicts, and reasons for skipped fields; absent fields
@@ -112,6 +114,7 @@ Device-card headers have a subtle theme-aware background band and put bold names
 nonzero conflicts have a critical-color indicator. Compact rows group identity,
 hardware, operating-system/address, and assignment fields. Non-interactive label
 chips distinguish field names from values without creating false button actions.
+Labels, values, and conflict controls are center-aligned within each wrapping field unit.
 Names use Segoe UI Emoji for supported color emoji sequences, preserving their text.
 **Fing IP** is the historical exported address, used as display/search context and
 a final name fallback only; it never identifies a device or authorizes a probe.

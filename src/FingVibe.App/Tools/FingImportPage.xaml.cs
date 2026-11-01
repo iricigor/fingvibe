@@ -75,6 +75,7 @@ public sealed partial class FingImportPage : UserControl
     internal void InvalidateAnalysis(string reason)
     {
         _analysis = null;
+        SetFileAnalyzed(false);
         _replacements.Clear();
         ImportButton.IsEnabled = false;
         ChangesList.IsEnabled = false;
@@ -210,6 +211,7 @@ public sealed partial class FingImportPage : UserControl
             return;
         }
         _analysis = FingImportAnalyzer.Analyze(_export, _getData(), _replacements);
+        SetFileAnalyzed(true);
         AnalysisCountsText.Text = $"{_analysis.DeviceRows:N0} devices in export · {_analysis.Matched:N0} matched by MAC · "
             + $"{_analysis.Added:N0} new / Fing Only · {_analysis.Warnings.Count:N0} warnings";
         var validKeys = _analysis.Changes.Where(change => change.CanChoose).Select(change => change.Key).ToHashSet();
@@ -229,6 +231,12 @@ public sealed partial class FingImportPage : UserControl
         TextWrapping = TextWrapping.Wrap,
         FontWeight = heading ? FontWeights.SemiBold : FontWeights.Normal
     };
+
+    private void SetFileAnalyzed(bool analyzed)
+    {
+        SelectedFileLabel.Style = (Style)Resources[analyzed ? "ImportAnalyzedFileLabelStyle" : "ImportFileLabelStyle"];
+        AutomationProperties.SetHelpText(SelectedFileText, analyzed ? "File analyzed successfully." : "File analysis is not current.");
+    }
 
     private void RenderAnalysis()
     {
@@ -391,29 +399,48 @@ public sealed partial class FingImportPage : UserControl
         var paragraph = new Paragraph();
         foreach (var change in changes)
         {
-            if (paragraph.Inlines.Count > 0) paragraph.Inlines.Add(new Run { Text = "   " });
+            var field = new Grid { ColumnSpacing = 6, MinHeight = 32, Margin = new Thickness(0, 0, 12, 0) };
+            field.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            field.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             var label = Text(change.Field == "Imported IP" ? "Fing IP" : change.Field);
             label.FontSize = 12;
-            var chip = new Border { Style = (Style)Resources["ImportFieldChipStyle"], Child = label };
-            paragraph.Inlines.Add(new InlineUIContainer { Child = chip });
-            var value = new Run { Text = change.Conflict ? change.BeforeAfter : change.Incoming };
+            var chip = new Border { Style = (Style)Resources["ImportFieldChipStyle"], Margin = new Thickness(0),
+                Child = label, VerticalAlignment = VerticalAlignment.Center };
+            field.Children.Add(chip);
+            var value = Text((change.Conflict ? change.BeforeAfter : change.Incoming)
+                + (change.SkipReason is not null ? $" — Skipped: {change.SkipReason}" : ""));
+            value.VerticalAlignment = VerticalAlignment.Center;
+            value.IsTextSelectionEnabled = true;
+            value.IsColorFontEnabled = true;
+            AutomationProperties.SetAutomationId(value, $"ImportValue-{change.Key}");
             if (change.Field is "Name" or "Person" or "Room") value.FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe UI Emoji");
-            paragraph.Inlines.Add(value);
-            if (change.SkipReason is not null)
-                paragraph.Inlines.Add(new Run { Text = $" — Skipped: {change.SkipReason}" });
+            Grid.SetColumn(value, 1);
+            field.Children.Add(value);
             if (change.Field == "Imported IP")
                 ToolTipService.SetToolTip(chip, "Historical address from the Fing export, not a local observation or scan target.");
+            ComboBox? picker = null;
             if (change.CanChoose)
             {
-                paragraph.Inlines.Add(new Run { Text = " " });
-                var picker = new ComboBox { Tag = change.Key, MinWidth = 180 };
+                field.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                picker = new ComboBox { Tag = change.Key, MinWidth = 180, VerticalAlignment = VerticalAlignment.Center };
                 picker.Items.Add(new ComboBoxItem { Content = "Keep existing" });
                 picker.Items.Add(new ComboBoxItem { Content = "Replace with Fing" });
                 picker.SelectedIndex = change.ChoiceIndex;
                 AutomationProperties.SetName(picker, change.Key);
                 picker.SelectionChanged += Conflict_Changed;
-                paragraph.Inlines.Add(new InlineUIContainer { Child = picker });
+                Grid.SetColumn(picker, 2);
+                field.Children.Add(picker);
             }
+            void ConstrainValue()
+            {
+                if (row.ActualWidth <= 0) return;
+                value.MaxWidth = Math.Max(1, row.ActualWidth - field.Margin.Right - chip.ActualWidth
+                    - (picker?.ActualWidth ?? 0) - field.ColumnSpacing * (picker is null ? 1 : 2));
+            }
+            row.SizeChanged += (_, _) => ConstrainValue();
+            chip.SizeChanged += (_, _) => ConstrainValue();
+            if (picker is not null) picker.SizeChanged += (_, _) => ConstrainValue();
+            paragraph.Inlines.Add(new InlineUIContainer { Child = field });
         }
         row.Blocks.Add(paragraph);
         return row;

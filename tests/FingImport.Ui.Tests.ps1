@@ -99,6 +99,9 @@ try {
     if ((Find-ImportId AnalysisCountsText).Current.Name -notlike "3 devices in export*3 new*") {
         throw "Synthetic import was not analyzed without local observations."
     }
+    if ((Find-ImportId SelectedFileText).Current.HelpText -ne "File analyzed successfully.") {
+        throw "The filename success chip must reflect successful analysis."
+    }
     $null = Find-ImportControl "Fing import preview" ([System.Windows.Automation.ControlType]::List)
     $null = Find-ImportControl "People — Review" ([System.Windows.Automation.ControlType]::Text)
     $null = Find-ImportControl "Rooms — Review" ([System.Windows.Automation.ControlType]::Text)
@@ -108,8 +111,8 @@ try {
         throw "Private-MAC guidance must explain how selection mode skips an unrecognized device."
     }
     $nameRow = Find-ImportId "ImportFields-020000000001-Name"
-    $nameText = $nameRow.GetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern)
-    if (-not $nameText.DocumentRange.GetText(-1).Contains("1$([char]0xFE0F)$([char]0x20E3)")) {
+    $nameValue = Find-ImportId "ImportValue-020000000001:Name"
+    if (-not $nameValue.Current.Name.Contains("1$([char]0xFE0F)$([char]0x20E3)")) {
         throw "Imported name rendering must preserve the full emoji sequence."
     }
     $label = $nameRow.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
@@ -133,8 +136,25 @@ try {
             $buttonBounds.Left -lt $headingBounds.Right -or
             $buttonBounds.Top -gt $headingBounds.Top -or
             $buttonBounds.Bottom -lt $headingBounds.Bottom) {
-            throw "Manage $category must be a button at the right of its card's heading."
+            $scrollState = (Find-ImportId ImportScroll).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).Current
+            throw "Manage $category must be a button at the right of its card's heading. Button: $buttonBounds; heading: $headingBounds; vertical view: $($scrollState.VerticalViewSize)%."
         }
+    }
+    foreach ($step in 0..20) {
+        Set-ImportScroll ($step * 5)
+        $bounds = $nameRow.Current.BoundingRectangle
+        if (-not $nameRow.Current.IsOffscreen -and
+            $bounds.Top -gt $root.Current.BoundingRectangle.Top + 180 -and
+            $bounds.Bottom -lt $root.Current.BoundingRectangle.Bottom - 30) { break }
+    }
+    $labelBounds = $label.Current.BoundingRectangle
+    $valueBounds = $nameValue.Current.BoundingRectangle
+    $choiceBounds = (Find-ImportControl "020000000001:Name" ([System.Windows.Automation.ControlType]::ComboBox)).Current.BoundingRectangle
+    $valueCenter = $valueBounds.Top + $valueBounds.Height / 2
+    if ($labelBounds.IsEmpty -or $valueBounds.IsEmpty -or $choiceBounds.IsEmpty -or
+        [Math]::Abs(($labelBounds.Top + $labelBounds.Height / 2) - $valueCenter) -gt 1.5 -or
+        [Math]::Abs(($choiceBounds.Top + $choiceBounds.Height / 2) - $valueCenter) -gt 1.5) {
+        throw "Field labels, values, and overwrite controls must be vertically center-aligned."
     }
     if ((Find-ImportId LimitationsText).Current.Name -notlike "*Imported IPs are historical*") {
         throw "Import limitations must be an informational note."
@@ -184,6 +204,24 @@ try {
             finally { $bitmap.Dispose() }
         }
         finally { $null = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext($context) }
+        Set-ImportScroll 0
+        $filePath = Join-Path $ScreenshotDirectory "fing-import-analyzed-file.png"
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle $filePath
+        $context = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext([IntPtr]::new(-4))
+        try {
+            $windowBounds = Get-UiReviewWindowBounds $process.MainWindowHandle
+            $fileBounds = (Find-ImportId SelectedFileText).Current.BoundingRectangle
+            $bitmap = [System.Drawing.Bitmap]::new($filePath)
+            try {
+                $pixel = $bitmap.GetPixel([int]($fileBounds.Left - $windowBounds.Left - 3),
+                    [int]($fileBounds.Top - $windowBounds.Top - 1))
+                if ([int]$pixel.G -le [int]$pixel.R + 2 -or [int]$pixel.G -le [int]$pixel.B + 2) {
+                    throw "Successfully analyzed filename must have a subtle green background."
+                }
+            }
+            finally { $bitmap.Dispose() }
+        }
+        finally { $null = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext($context) }
     }
     Set-ImportScroll 0
     (Find-ImportControl "Manage rooms" ([System.Windows.Automation.ControlType]::Button)).
@@ -198,6 +236,9 @@ try {
     Invoke-ImportControl "Save"
     $null = Find-ImportControl "Missing review room" ([System.Windows.Automation.ControlType]::Text)
     Select-ImportPage Tools
+    if ((Find-ImportId SelectedFileText).Current.HelpText -ne "File analysis is not current.") {
+        throw "Invalidated analysis must reset the filename success state."
+    }
     $importButton = Find-ImportControl "Import reviewed Fing changes" ([System.Windows.Automation.ControlType]::Button)
     if ($importButton.Current.IsEnabled) { throw "Returning from management must not authorize a stale analysis." }
     Invoke-ImportControl "Analyze again"

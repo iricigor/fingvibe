@@ -21,6 +21,15 @@
             <Setter Property="CornerRadius" Value="7,7,0,0" />
             <Setter Property="Padding" Value="16,10" />
         </Style>
+        <Style x:Key="ImportFileLabelStyle" TargetType="Border">
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+        <Style x:Key="ImportAnalyzedFileLabelStyle" TargetType="Border" BasedOn="{StaticResource ImportFileLabelStyle}">
+            <Setter Property="Background" Value="{ThemeResource SystemFillColorSuccessBackgroundBrush}" />
+        </Style>
     </UserControl.Resources>
     <ScrollViewer x:Name="ImportScroll" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="24,0,24,24" Spacing="16">
@@ -49,7 +58,9 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Spacing="4" VerticalAlignment="Center">
-                                <TextBlock x:Name="SelectedFileText" Text="Choose a Fing Excel export (.xlsx)" TextWrapping="Wrap" FontWeight="SemiBold" />
+                                <Border x:Name="SelectedFileLabel" Style="{StaticResource ImportFileLabelStyle}">
+                                    <TextBlock x:Name="SelectedFileText" Text="Choose a Fing Excel export (.xlsx)" TextWrapping="Wrap" FontWeight="SemiBold" />
+                                </Border>
                                 <TextBlock Text="Or drag and drop one file here. Choosing a different file clears the previous analysis."
                                            TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
