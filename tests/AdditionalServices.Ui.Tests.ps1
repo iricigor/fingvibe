@@ -152,7 +152,7 @@ function Open-ServiceDetails {
     Show-ServiceScanSection
 }
 
-function Show-ServiceScanSection {
+function Show-ServiceScanSection([int] $ExtraSpace = 0) {
     $element = Find-ServiceControl DeviceDetailsScroll
     $scroll = $element.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     $center = [Math]::Clamp([int][Math]::Round($scroll.Current.VerticalScrollPercent), 0, 100)
@@ -173,7 +173,7 @@ function Show-ServiceScanSection {
         $button = (Find-ServiceControl DevicePortScanButton).Current.BoundingRectangle
         $heading = (Find-ServiceControl "UDP observations (silence is not an open or closed port)" -ByName).Current.BoundingRectangle
         if ($button.Width -gt 0 -and $heading.Width -gt 0 -and
-            $button.Top -ge $top + 8 * $scale -and $heading.Bottom -le $bottom - 110 * $scale) {
+            $button.Top -ge $top + 8 * $scale -and $heading.Bottom -le $bottom - (110 + $ExtraSpace) * $scale) {
             return
         }
     }
@@ -222,6 +222,7 @@ try {
     if ($fixture.DnsRequests -ne 0 -or $fixture.NtpRequests -ne 0) { throw "Default scanning sent UDP requests." }
     if (Find-ServiceControl "1883/TCP - MQTT" -ByName -Optional) { throw "The TCP fixture unexpectedly responded before starting." }
     Wait-ServiceState { (Find-ServiceControl DevicePortScanButton).Current.Name -eq "Scan additional ports" } "usable TCP-only button"
+    Show-ServiceScanSection -ExtraSpace 24
     $fixture.StartTcp()
     $udp.Toggle()
     Invoke-ServiceControl "Scan additional ports"

@@ -39,6 +39,7 @@ if ($script:selections -ne 1) { throw "Navigation was not selected exactly once.
 
 $process = [pscustomobject]@{ MainWindowHandle = [IntPtr]::new(1) }
 $script:fixtureScrollPercent = 100
+$script:fixtureScrollCalls = 0
 $script:fixtureButtonTop = 930
 $script:fixtureHeadingBottom = 1326
 $script:fixtureButtonPeer = [pscustomobject]@{ Current = [pscustomobject]@{
@@ -51,6 +52,7 @@ $scroll = [pscustomobject]@{ Current = [pscustomobject]@{ VerticalScrollPercent 
 $scroll | Add-Member ScriptMethod SetScrollPercent {
     param($Horizontal, $Vertical)
     $script:fixtureScrollPercent = $Vertical
+    $script:fixtureScrollCalls += 1
     $this.Current.VerticalScrollPercent = $Vertical
     $script:fixtureButtonPeer.Current.BoundingRectangle = [System.Drawing.RectangleF]::new(312, $script:fixtureButtonTop - $Vertical * 8, 160, 32)
     $script:fixtureHeadingPeer.Current.BoundingRectangle = [System.Drawing.RectangleF]::new(312, $script:fixtureHeadingBottom - 30 - $Vertical * 8, 600, 30)
@@ -83,4 +85,14 @@ if ($script:fixtureScrollPercent -ne 92) { throw "Scrolling did not adapt precis
 $scroll.SetScrollPercent(-1, 0)
 Show-ServiceScanSection
 if ($script:fixtureScrollPercent -ne 92) { throw "The narrow visible range was skipped by coarse scroll steps." }
+$script:fixtureHeadingBottom = $script:fixtureButtonTop + 344
+$scroll.SetScrollPercent(-1, 85)
+Show-ServiceScanSection -ExtraSpace 24
+if ($script:fixtureScrollPercent -ne 89) { throw "Early-result preparation did not reserve the next endpoint row." }
+$script:fixtureHeadingBottom += 24
+$callsBeforeCapture = $script:fixtureScrollCalls
+Show-ServiceScanSection
+if ($script:fixtureScrollCalls -ne $callsBeforeCapture + 1) {
+    throw "The early-result capture searched the viewport instead of using its prepared position."
+}
 Write-Host "Additional service UI helper regression checks passed without desktop automation."
