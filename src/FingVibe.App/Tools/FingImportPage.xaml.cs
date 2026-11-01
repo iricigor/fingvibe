@@ -24,7 +24,7 @@ public sealed partial class FingImportPage : UserControl
     private readonly HashSet<string> _replacements = [];
     private readonly HashSet<string> _selected = [];
     private readonly Dictionary<string, string> _completed = [];
-    private readonly List<HyperlinkButton> _managementLinks = [];
+    private readonly List<Button> _managementButtons = [];
     private bool _selectionMode;
     private bool _busy;
     private int _fileGeneration;
@@ -140,7 +140,7 @@ public sealed partial class FingImportPage : UserControl
         InvalidateAnalysis("A different file was selected.");
         ChangesList.Items.Clear();
         AnalysisGroups.Children.Clear();
-        _managementLinks.Clear();
+        _managementButtons.Clear();
         CompletedExpander.Visibility = UnchangedExpander.Visibility = Visibility.Collapsed;
         SelectedFileText.Text = file.Name;
         SetBusy(true);
@@ -232,21 +232,30 @@ public sealed partial class FingImportPage : UserControl
     private void RenderAnalysis()
     {
         AnalysisGroups.Children.Clear();
-        _managementLinks.Clear();
+        _managementButtons.Clear();
         foreach (var group in _analysis!.Groups)
         {
+            var header = new Grid { ColumnSpacing = 12 };
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var heading = Text(group.Category + (group.HasWarnings ? " — Review" : " — OK"), true);
+            heading.VerticalAlignment = VerticalAlignment.Center;
+            header.Children.Add(heading);
             var body = new StackPanel { Spacing = 6 };
             body.Children.Add(Text(group.Summary));
             if (group.Category is "People" or "Rooms")
             {
-                var link = new HyperlinkButton
+                var button = new Button
                 {
-                    Content = group.Category == "People" ? "Manage people →" : "Manage rooms →",
-                    Tag = group.Category
+                    Content = group.Category == "People" ? "Manage people" : "Manage rooms",
+                    Tag = group.Category,
+                    HorizontalAlignment = HorizontalAlignment.Right,
+                    VerticalAlignment = VerticalAlignment.Center
                 };
-                link.Click += Manage_Click;
-                _managementLinks.Add(link);
-                body.Children.Add(link);
+                button.Click += Manage_Click;
+                _managementButtons.Add(button);
+                Grid.SetColumn(button, 1);
+                header.Children.Add(button);
             }
             if (group.Details.Count > 0)
             {
@@ -259,7 +268,7 @@ public sealed partial class FingImportPage : UserControl
                 });
             }
             var panel = new StackPanel { Spacing = 6 };
-            panel.Children.Add(Text(group.Category + (group.HasWarnings ? " — Review" : " — OK"), true));
+            panel.Children.Add(header);
             panel.Children.Add(body);
             AnalysisGroups.Children.Add(new Border
             {
@@ -443,7 +452,7 @@ public sealed partial class FingImportPage : UserControl
         BrowseButton.IsEnabled = !busy;
         DropArea.AllowDrop = !busy;
         AnalyzeButton.IsEnabled = !busy && _export is not null;
-        foreach (var link in _managementLinks) link.IsEnabled = !busy;
+        foreach (var button in _managementButtons) button.IsEnabled = !busy;
         UpdateActions();
     }
 
@@ -454,7 +463,7 @@ public sealed partial class FingImportPage : UserControl
 
     private void Manage_Click(object sender, RoutedEventArgs e)
     {
-        if (!_busy && sender is HyperlinkButton { Tag: string category })
+        if (!_busy && sender is Button { Tag: string category })
         {
             InvalidateAnalysis("Return from management and analyze again against the updated entries.");
             ManagementRequested?.Invoke(this, category);

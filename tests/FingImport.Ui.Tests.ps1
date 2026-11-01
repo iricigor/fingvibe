@@ -102,6 +102,25 @@ try {
     $null = Find-ImportControl "Fing import preview" ([System.Windows.Automation.ControlType]::List)
     $null = Find-ImportControl "People — Review" ([System.Windows.Automation.ControlType]::Text)
     $null = Find-ImportControl "Rooms — Review" ([System.Windows.Automation.ControlType]::Text)
+    foreach ($category in @("people", "rooms")) {
+        $button = Find-ImportControl "Manage $category" ([System.Windows.Automation.ControlType]::Button)
+        $heading = Find-ImportControl "$((Get-Culture).TextInfo.ToTitleCase($category)) — Review" ([System.Windows.Automation.ControlType]::Text)
+        foreach ($step in 0..20) {
+            Set-ImportScroll ($step * 5)
+            $bounds = $button.Current.BoundingRectangle
+            if (-not $button.Current.IsOffscreen -and -not $heading.Current.IsOffscreen -and
+                $bounds.Top -gt $root.Current.BoundingRectangle.Top + 180 -and
+                $bounds.Bottom -lt $root.Current.BoundingRectangle.Bottom - 30) { break }
+        }
+        $buttonBounds = $button.Current.BoundingRectangle
+        $headingBounds = $heading.Current.BoundingRectangle
+        if ($buttonBounds.IsEmpty -or $headingBounds.IsEmpty -or
+            $buttonBounds.Left -lt $headingBounds.Right -or
+            $buttonBounds.Top -gt $headingBounds.Top -or
+            $buttonBounds.Bottom -lt $headingBounds.Bottom) {
+            throw "Manage $category must be a button at the right of its card's heading."
+        }
+    }
     if ((Find-ImportId LimitationsText).Current.Name -notlike "*Imported IPs are historical*") {
         throw "Import limitations must be an informational note."
     }
@@ -117,7 +136,7 @@ try {
         Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "fing-import-ready.png")
     }
     Set-ImportScroll 0
-    (Find-ImportControl "Manage rooms →" ([System.Windows.Automation.ControlType]::Hyperlink)).
+    (Find-ImportControl "Manage rooms" ([System.Windows.Automation.ControlType]::Button)).
         GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Start-Sleep -Milliseconds 400
     $null = Find-ImportControl "Search rooms" ([System.Windows.Automation.ControlType]::Edit)

@@ -92,8 +92,9 @@ OS Version, Owner, Location, and IP columns. Limits are 10 MB compressed,
 64 MB uncompressed, and 20,000 device rows. Formulas are not executed or trusted.
 
 Analysis is read-only and groups People, Rooms, private/randomized MACs,
-skipped records/fields, and classification warnings. People/Rooms groups link
-to management and confirm when all referenced entries match or none are referenced.
+skipped records/fields, and classification warnings. People/Rooms groups have
+standard management buttons at the top-right of their cards and confirm when
+all referenced entries match or none are referenced.
 Excluded Fing data and historical-IP semantics appear as an informational note,
 not a warning. The preview groups changes by device/MAC, with compact additions,
 explicit before/after conflicts, and reasons for skipped fields; absent fields
@@ -109,7 +110,7 @@ hostname > last-known local/imported IP; IP fallback names are subdued.
 Owner matches a managed person's full name and Location a managed room's full
 name, after trimming and case-insensitive comparison. Exactly one match is
 required. Missing/ambiguous entries skip only that assignment field, not the
-device; follow the management links, return to Tools, and Analyze again.
+device; use the management buttons, return to Tools, and Analyze again.
 Import does not create people/rooms, infer owners, import Group, or migrate
 Fing events/timestamps. Invalid MACs and all duplicate-MAC rows are skipped
 with explicit warnings. Devices sharing an IP remain distinct by MAC.
