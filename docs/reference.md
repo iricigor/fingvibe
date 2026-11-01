@@ -98,7 +98,10 @@ states, cancellation, saved protocol identity, and service icons in all four
 app themes. It uses synthetic loopback-only TCP/DNS/NTP responders and is wired
 into GitHub Actions UI capture. Run it only on a disposable interactive desktop,
 not a working user's desktop; it requires free loopback ports 1883/TCP, 53/UDP,
-and 123/UDP and fails explicitly when they are unavailable.
+and 123/UDP and fails explicitly when they are unavailable. On disposable
+GitHub Actions runners only, it temporarily stops Windows Time if running to
+release 123/UDP and restores the service afterward. The application itself
+needs no new administrator rights.
 
 Devices shows the persistent inventory, including previously observed and imported-only devices. Unused addresses never become device records. The status filter distinguishes Online, Offline, and Fing Only; historical labels identify retained states, while the inventory summary is separate from scan response counts. The shared network picker is left-aligned, and the Devices header consolidates scan freshness, network-target warnings, and scan/save errors into one status line. **Search devices** expands with the window; the People, Rooms, and bordered **With open ports** controls have equal fixed widths and wrap below search when space is limited. Filtered counts show visible versus total devices. Subtle theme-aware zebra stripes follow the displayed row order, with native hover, selection, and focus indicators taking precedence; decorative stripes are disabled in Windows high contrast. A 1px theme-aware line below the column headers separates them from the rows, using system colors in high contrast. The compact Response column places its numeric latency above a thin bar without changing the scan-wide latency scale. The final visible column has no trailing divider suggesting an extra column; its resize handle remains available.
 

@@ -24,14 +24,21 @@ public sealed class AdditionalServicesFixture : IDisposable
     public int NtpRequests;
     public void Start()
     {
+        string endpoint = "53/UDP";
         try
         {
             dns = new UdpClient(new IPEndPoint(IPAddress.Loopback, 53));
+            endpoint = "123/UDP";
             ntp = new UdpClient(new IPEndPoint(IPAddress.Loopback, 123));
+            endpoint = "1883/TCP";
             tcp.Start();
             workers = new[] { Accept(), Reply(dns, true), Reply(ntp, false) };
         }
-        catch (SocketException) { Dispose(); throw; }
+        catch (SocketException exception)
+        {
+            Dispose();
+            throw new InvalidOperationException("Cannot bind synthetic loopback " + endpoint + ": " + exception.Message, exception);
+        }
     }
     private async Task Accept()
     {
@@ -151,10 +158,19 @@ $previousSnapshot = $env:FINGVIBE_UI_REVIEW_SNAPSHOT
 $snapshot = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-services-$([Guid]::NewGuid().ToString('N')).json"
 $process = $null
 $fixture = $null
+$restartTimeService = $false
 try {
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
     $env:FINGVIBE_UI_REVIEW = "1"
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $snapshot
+    if ($env:GITHUB_ACTIONS -eq "true") {
+        Get-NetUDPEndpoint | Where-Object LocalPort -In 53, 123 |
+            Format-Table LocalAddress, LocalPort, OwningProcess
+        if ((Get-Service W32Time).Status -eq "Running") {
+            $restartTimeService = $true
+            Stop-Service W32Time
+        }
+    }
     $fixture = [AdditionalServicesFixture]::new()
     $fixture.Start()
     $process = Start-Process -FilePath $AppPath -PassThru
@@ -237,12 +253,21 @@ try {
     Write-Host "Additional services native UI checks passed using loopback-only synthetic responders."
 }
 finally {
-    if ($process -and -not $process.HasExited) {
-        $null = $process.CloseMainWindow()
-        if (-not $process.WaitForExit(5000)) { Stop-Process -Id $process.Id -Force }
+    try {
+        if ($process -and -not $process.HasExited) {
+            $null = $process.CloseMainWindow()
+            if (-not $process.WaitForExit(5000)) { Stop-Process -Id $process.Id -Force }
+        }
     }
-    if ($fixture) { $fixture.Dispose() }
-    if (Test-Path -LiteralPath $snapshot) { Remove-Item -LiteralPath $snapshot }
-    $env:FINGVIBE_UI_REVIEW = $previousReview
-    $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $previousSnapshot
+    finally {
+        try { if ($fixture) { $fixture.Dispose() } }
+        finally {
+            try { if ($restartTimeService) { Start-Service W32Time } }
+            finally {
+                if (Test-Path -LiteralPath $snapshot) { Remove-Item -LiteralPath $snapshot }
+                $env:FINGVIBE_UI_REVIEW = $previousReview
+                $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $previousSnapshot
+            }
+        }
+    }
 }

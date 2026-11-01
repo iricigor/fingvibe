@@ -240,7 +240,6 @@ public sealed partial class MainWindow
                     DevicePage.ShowPorts(row.OpenPortItems);
                     DevicePage.PortScanStatus = $"TCP: complete (100/100); {ports.Count} additional open port(s) found.";
                 }
-
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
             {

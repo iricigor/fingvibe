@@ -161,8 +161,7 @@ public sealed partial class MainWindow
             {
                 _currentScanSnapshot = snapshot with
                 {
-                    Results = snapshot.Results.Select(item => item.Address.Equals(result.Address)
-                        && Equals(item.MacAddress, result.MacAddress) ? result : item).ToArray()
+                    Results = snapshot.Results.Select(item => item.Address.Equals(result.Address) ? result : item).ToArray()
                 };
                 try { await _snapshotStore.SaveAsync(_currentScanSnapshot); }
                 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
