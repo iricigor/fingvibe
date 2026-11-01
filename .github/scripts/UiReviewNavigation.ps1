@@ -106,8 +106,9 @@ function Show-UiReviewCaptureScenario {
         $cardId = Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@Name='Network troubleshooting']"
         Invoke-WebDriverElement -ElementId $cardId
         $null = Assert-VisibleUiReviewElement -Value "Back to Tools"
-        $null = Assert-VisibleUiReviewElement -Value "Run network troubleshooting"
         $null = Assert-VisibleUiReviewElement -Value "Router WAN IPv4 address"
+        # The run action is below the initial viewport; native tests scroll to and verify it.
+        $null = Find-WebDriverElement -Using name -Value "Run network troubleshooting"
     }
     elseif ($Scenario -eq "About") {
         $cardId = Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@Name='About FingVibe']"

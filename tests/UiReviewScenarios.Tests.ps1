@@ -378,6 +378,10 @@ try {
     Show-UiReviewCaptureScenario "DeviceDetails"
     $script:hiddenControl = "control-Assignments"
     Assert-Throws { Show-UiReviewCaptureScenario "DeviceDetails" } "*not visible*"
+    $script:hiddenControl = "control-Run network troubleshooting"
+    Show-UiReviewCaptureScenario "Troubleshooting"
+    $script:hiddenControl = "control-Router WAN IPv4 address"
+    Assert-Throws { Show-UiReviewCaptureScenario "Troubleshooting" } "*not visible*"
     $script:hiddenControl = ""
     foreach ($scenario in @("PersonDetails", "RoomDetails")) {
         $script:hiddenControl = "control-Assign devices"
