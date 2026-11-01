@@ -261,6 +261,13 @@ jobs:
             -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
             -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-review\fing-import"
 
+      - name: Verify additional TCP and opt-in UDP service checks
+        shell: pwsh
+        run: |
+          .\tests\AdditionalServices.Ui.Tests.ps1 `
+            -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
+            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-review\additional-services"
+
       - name: Exercise primary UI and capture required views
         id: smoke
         shell: pwsh

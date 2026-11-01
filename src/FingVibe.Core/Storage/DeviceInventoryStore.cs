@@ -98,7 +98,10 @@ public sealed class DeviceInventoryStore
                     || string.IsNullOrWhiteSpace(observation.Classification.TypeEvidence)
                     || string.IsNullOrWhiteSpace(observation.Classification.OperatingSystemEvidence)
                     || observation.NetworkId is not null && string.IsNullOrWhiteSpace(observation.NetworkId)
-                    || observation.Ports.Any(port => port is null || port.Port is < 1 or > 65535)
+                    || observation.Ports.Any(port => port is null || port.Port is < 1 or > 65535 || !Enum.IsDefined(port.Protocol))
+                    || (observation.UdpObservations?.Any(item => item is null || item.Port is not (53 or 123)
+                        || !Enum.IsDefined(item.State) || string.IsNullOrWhiteSpace(item.ServiceName)
+                        || string.IsNullOrWhiteSpace(item.Detail)) ?? false)
                     || !identities.Add((observation.NetworkId, observation.Subnet))
                     || !ValidSubnet(observation.Subnet))
                     throw new InvalidDataException("The device inventory contains invalid local observations.");

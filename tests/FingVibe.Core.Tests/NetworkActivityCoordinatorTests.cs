@@ -12,6 +12,10 @@ public sealed class NetworkActivityCoordinatorTests
     [InlineData(nameof(NetworkActivityKind.LanScan), nameof(NetworkActivityKind.NetworkTroubleshooting))]
     [InlineData(nameof(NetworkActivityKind.NetworkTroubleshooting), nameof(NetworkActivityKind.InternetSpeedTest))]
     [InlineData(nameof(NetworkActivityKind.InternetSpeedTest), nameof(NetworkActivityKind.NetworkTroubleshooting))]
+    [InlineData(nameof(NetworkActivityKind.DeviceServiceScan), nameof(NetworkActivityKind.LanScan))]
+    [InlineData(nameof(NetworkActivityKind.DeviceServiceScan), nameof(NetworkActivityKind.InternetSpeedTest))]
+    [InlineData(nameof(NetworkActivityKind.DeviceServiceScan), nameof(NetworkActivityKind.NetworkTroubleshooting))]
+    [InlineData(nameof(NetworkActivityKind.LanScan), nameof(NetworkActivityKind.DeviceServiceScan))]
     public void ActiveNetworkActivityPreventsAnotherActivity(
         string activeName,
         string requestedName)

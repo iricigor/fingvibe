@@ -58,6 +58,48 @@ The Overview network card shows A, B, or C for /8, /16, or /24 sizes; other size
 
 Results dim complete network-prefix octets using the scanned subnet's CIDR; partially masked octets remain emphasized because they also identify hosts. Latency bars share one scale across the displayed scan's responding devices and keep that scale when filtering or sorting. Outside a scan, select a row with the pointer or keyboard to highlight it; sorting preserves the selection. Hover over service icons for port numbers and service names.
 
+In current device details, **Scan additional ports** checks a curated preset of
+exactly 100 additional TCP ports, covering file sharing/storage, remote access,
+mail, directory/authentication, databases/caches, messaging, web administration,
+home automation/media, infrastructure, and printing. The automatic LAN scan
+still checks only its original 10 TCP ports. The additional scan uses at most
+16 simultaneous connections with 400 ms per-connection deadlines.
+
+**Include UDP service checks** starts unchecked. Opting in sends only one
+non-recursive DNS question to 53/UDP and one standard NTP client request to
+123/UDP on the selected device, bound to the selected interface. Both checks
+can run concurrently, with a 2-second deadline each, a 512-byte reply limit,
+and no retries. TCP results appear as soon as that phase finishes, without
+waiting for UDP; each protocol has its own progress/status. The same button
+becomes **Cancel additional scan** while running; leaving details also cancels.
+Completed results remain available and are saved locally, including when the
+other phase is canceled. Historical and imported-only addresses are not probed.
+
+Only a matching valid reply confirms a responding UDP endpoint; valid DNS error
+replies count as responses, not successful name resolution. UDP observations
+are shown separately: **Responded**, **No response - inconclusive**, or **Error**
+with details. Silence never establishes open/closed/filtered and does not add
+an endpoint to the open-port filter or summary. Malformed replies, NTP
+kiss-of-death/unsynchronized responses, and operational failures are errors.
+These small read-only requests can still trigger device logs or security alerts.
+
+Endpoint labels include protocol, for example **1883/TCP - MQTT** or
+**123/UDP - NTP**, so TCP and UDP sharing a port number remain distinct.
+Monochrome service-family icons are shared by the list and details with
+descriptive tooltips and accessible names. Port names/icons describe common
+or likely uses, not verified products; MQTT never implies RabbitMQ. UDP
+observations are not used as TCP banner or device-classification evidence.
+Existing saved entries without a protocol retain their TCP meaning.
+
+`tests\AdditionalServices.Ui.Tests.ps1 -AppPath <published-exe>
+-ScreenshotDirectory <output-directory>` exercises the default/opt-in controls,
+independent progress, TCP-before-UDP completion, confirmed/inconclusive/error
+states, cancellation, saved protocol identity, and service icons in all four
+app themes. It uses synthetic loopback-only TCP/DNS/NTP responders and is wired
+into GitHub Actions UI capture. Run it only on a disposable interactive desktop,
+not a working user's desktop; it requires free loopback ports 1883/TCP, 53/UDP,
+and 123/UDP and fails explicitly when they are unavailable.
+
 Devices shows the persistent inventory, including previously observed and imported-only devices. Unused addresses never become device records. The status filter distinguishes Online, Offline, and Fing Only; historical labels identify retained states, while the inventory summary is separate from scan response counts. The shared network picker is left-aligned, and the Devices header consolidates scan freshness, network-target warnings, and scan/save errors into one status line. **Search devices** expands with the window; the People, Rooms, and bordered **With open ports** controls have equal fixed widths and wrap below search when space is limited. Filtered counts show visible versus total devices. Subtle theme-aware zebra stripes follow the displayed row order, with native hover, selection, and focus indicators taking precedence; decorative stripes are disabled in Windows high contrast. A 1px theme-aware line below the column headers separates them from the rows, using system colors in high contrast. The compact Response column places its numeric latency above a thin bar without changing the scan-wide latency scale. The final visible column has no trailing divider suggesting an extra column; its resize handle remains available.
 
 Starting a scan keeps the displayed list visible and scrollable but prevents opening device details by pointer or keyboard. Results are collected separately and replace the list only when the scan succeeds; cancellation or failure retains the displayed results and reports the outcome explicitly. Progress continues to count all checked addresses. Completed scans update inventory observations and same-network absence; this adds no event timeline or new discovery probes.

@@ -272,6 +272,12 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(OpenPortItems)));
     }
 
+    public void UpdateUdpObservations(IReadOnlyList<UdpServiceObservation> observations)
+    {
+        if (Result is null) throw new InvalidOperationException("Imported-only devices have no local probe result.");
+        Result = Result with { UdpObservations = observations };
+    }
+
     public void UpdateLatencyRange(long minimum, long maximum)
     {
         if (minimum < 0 || maximum < minimum)

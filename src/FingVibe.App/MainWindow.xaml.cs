@@ -24,6 +24,7 @@ public sealed partial class MainWindow : Window
         this.AppWindow.Closing += MainWindow_Closing;
         InitializeAppearance();
         InitializePeopleRoomsViews();
+        Closed += (_, _) => _devicePortScanCancellation?.Cancel();
 
         DevicesPage.SetResults(_visibleResults);
         UpdateSortGlyphs();
@@ -119,6 +120,8 @@ public sealed partial class MainWindow : Window
 
     private void ShowPage(UIElement page)
     {
+        if (page != DevicePage)
+            _devicePortScanCancellation?.Cancel();
         if (ToolsPage.Visibility == Visibility.Visible && page != ToolsPage)
         {
             _ = ToolsPage.StopForNavigationAsync();

@@ -15,7 +15,7 @@ public sealed class ServiceBannerProbe
     public async Task<IReadOnlyList<ServiceBanner>> ProbeAsync(
         IPAddress address, IReadOnlyList<OpenPort> ports, CancellationToken cancellationToken)
     {
-        var probes = ports.Where(port => port.Port is 22 or 80 or 8080)
+        var probes = ports.Where(port => port.Protocol == EndpointProtocol.Tcp && port.Port is 22 or 80 or 8080)
             .Select(port => ProbePortAsync(address, port.Port, port.Port == 22, cancellationToken));
         var results = await Task.WhenAll(probes).ConfigureAwait(false);
         return results.OfType<ServiceBanner>().ToArray();

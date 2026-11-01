@@ -86,7 +86,7 @@ internal static class DiagnosticDnsPacket
         return packet.ToArray();
     }
 
-    public static IPAddress[] ReadResponse(byte[] packet, ushort id, string hostname)
+    public static IPAddress[] ReadResponse(byte[] packet, ushort id, string hostname, bool allowErrorResponse = false)
     {
         int Word(int position)
         {
@@ -98,6 +98,7 @@ internal static class DiagnosticDnsPacket
             var labels = new List<string>();
             var cursor = position;
             var jumped = false;
+            var nameLength = 1;
             for (var count = 0; count < 128; count++)
             {
                 if (cursor >= packet.Length) throw new InvalidDataException("Truncated DNS name.");
@@ -117,6 +118,8 @@ internal static class DiagnosticDnsPacket
                     continue;
                 }
                 if (length > 63 || cursor + length > packet.Length) throw new InvalidDataException("Invalid DNS label.");
+                nameLength += length + 1;
+                if (nameLength > 255) throw new InvalidDataException("DNS name exceeds its length limit.");
                 labels.Add(System.Text.Encoding.ASCII.GetString(packet, cursor, length));
                 cursor += length;
             }
@@ -126,13 +129,15 @@ internal static class DiagnosticDnsPacket
         if (packet.Length < 12 || Word(0) != id || (Word(2) & 0xF800) != 0x8000 || Word(4) != 1)
             throw new InvalidDataException("Unexpected DNS response header or transaction.");
         if ((Word(2) & 0x0200) != 0) throw new InvalidDataException("DNS response truncated; TCP fallback is not tested.");
-        if ((Word(2) & 15) != 0) throw new InvalidDataException($"Resolver returned DNS error code {Word(2) & 15}.");
+        if (!allowErrorResponse && (Word(2) & 15) != 0) throw new InvalidDataException($"Resolver returned DNS error code {Word(2) & 15}.");
         var offset = 12;
         if (!Name(ref offset).Equals(hostname, StringComparison.OrdinalIgnoreCase) || Word(offset) != 1 || Word(offset + 2) != 1)
             throw new InvalidDataException("DNS question does not match the query.");
         offset += 4;
         var addresses = new List<IPAddress>();
-        for (var index = 0; index < Word(6); index++)
+        var answerCount = Word(6);
+        var recordCount = answerCount + Word(8) + Word(10);
+        for (var index = 0; index < recordCount; index++)
         {
             Name(ref offset);
             var type = Word(offset);
@@ -140,10 +145,45 @@ internal static class DiagnosticDnsPacket
             var length = Word(offset + 8);
             offset += 10;
             if (offset + length > packet.Length) throw new InvalidDataException("Truncated DNS answer.");
-            if (type == 1 && recordClass == 1 && length == 4)
+            if (type == 1 && recordClass == 1 && length != 4)
+                throw new InvalidDataException("Invalid DNS IPv4 record.");
+            if (type == 28 && recordClass == 1 && length != 16)
+                throw new InvalidDataException("Invalid DNS IPv6 record.");
+            var recordEnd = offset + length;
+            var dataOffset = offset;
+            switch (type)
+            {
+                case 2 or 5 or 12:
+                    Name(ref dataOffset);
+                    break;
+                case 6:
+                    Name(ref dataOffset);
+                    Name(ref dataOffset);
+                    dataOffset += 20;
+                    break;
+                case 15:
+                    dataOffset += 2;
+                    Name(ref dataOffset);
+                    break;
+                case 33:
+                    dataOffset += 6;
+                    Name(ref dataOffset);
+                    break;
+                case 16:
+                    while (dataOffset < recordEnd)
+                        dataOffset += packet[dataOffset] + 1;
+                    break;
+                default:
+                    dataOffset = recordEnd;
+                    break;
+            }
+            if (dataOffset != recordEnd)
+                throw new InvalidDataException("Invalid DNS record data length.");
+            if (index < answerCount && type == 1 && recordClass == 1 && length == 4)
                 addresses.Add(new IPAddress(packet.AsSpan(offset, 4)));
             offset += length;
         }
+        if (offset != packet.Length) throw new InvalidDataException("Unexpected trailing DNS data.");
         return addresses.ToArray();
     }
 }

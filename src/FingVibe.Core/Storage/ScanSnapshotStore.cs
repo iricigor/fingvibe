@@ -8,7 +8,7 @@ namespace FingVibe.Core.Storage;
 
 public sealed class ScanSnapshotStore
 {
-    private const int CurrentVersion = 1;
+    private const int CurrentVersion = 2;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -53,7 +53,7 @@ public sealed class ScanSnapshotStore
         }
 
         if (document is null
-            || document.Version != CurrentVersion
+            || document.Version is not (1 or CurrentVersion)
             || document.CompletedAt == default
             || document.Results is null
             || !TryGetPrefixLength(document.Subnet, out _))
@@ -70,6 +70,9 @@ public sealed class ScanSnapshotStore
                     || address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork
                     || !Enum.IsDefined(result.Status)
                     || result.OpenPorts is null
+                    || (result.UdpObservations?.Any(item => item is null || item.Port is not (53 or 123)
+                        || !Enum.IsDefined(item.State) || string.IsNullOrWhiteSpace(item.ServiceName)
+                        || string.IsNullOrWhiteSpace(item.Detail)) ?? false)
                     || (result.Classification is { } classification &&
                         (!Enum.IsDefined(classification.OperatingSystem) || !Enum.IsDefined(classification.Type)
                         || string.IsNullOrWhiteSpace(classification.OperatingSystemEvidence)
@@ -88,14 +91,15 @@ public sealed class ScanSnapshotStore
                     result.VendorName ?? "Unknown",
                     result.OpenPorts.Select(port =>
                     {
-                        if (port is null || port.Port is < 1 or > 65_535)
+                        if (port is null || port.Port is < 1 or > 65_535 || !Enum.IsDefined(port.Protocol))
                         {
                             throw new InvalidDataException("The saved scan cache contains invalid port details.");
                         }
 
-                        return new OpenPort(port.Port, port.ServiceName ?? string.Empty);
+                        return new OpenPort(port.Port, port.ServiceName ?? string.Empty, port.Protocol);
                     }).ToArray(),
-                    result.Classification);
+                    result.Classification,
+                    result.UdpObservations);
             }).ToArray();
 
             return new ScanSnapshot(document.Subnet, document.CompletedAt, results);
@@ -130,8 +134,9 @@ public sealed class ScanSnapshotStore
                 result.DeviceName,
                 result.MacAddress?.ToString(),
                 result.VendorName,
-                result.OpenPortItems.Select(port => new CachedOpenPort(port.Port, port.ServiceName)).ToArray(),
-                result.Classification))
+                result.OpenPortItems.Select(port => new CachedOpenPort(port.Port, port.ServiceName, port.Protocol)).ToArray(),
+                result.Classification,
+                result.UdpObservationItems))
                 .ToArray());
 
         try
@@ -191,7 +196,8 @@ public sealed class ScanSnapshotStore
         string? MacAddress,
         string? VendorName,
         CachedOpenPort[]? OpenPorts,
-        DeviceClassification? Classification = null);
+        DeviceClassification? Classification = null,
+        IReadOnlyList<UdpServiceObservation>? UdpObservations = null);
 
-    private sealed record CachedOpenPort(int Port, string? ServiceName);
+    private sealed record CachedOpenPort(int Port, string? ServiceName, EndpointProtocol Protocol = EndpointProtocol.Tcp);
 }

@@ -187,7 +187,7 @@ public static class DeviceClassifier
             Regex.IsMatch(identity, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant));
         bool Vendor(string name) => vendor.Contains(name, StringComparison.OrdinalIgnoreCase)
             || devices.Any(device => device.Manufacturer?.Contains(name, StringComparison.OrdinalIgnoreCase) == true);
-        bool HasPort(int port) => ports.Any(value => value.Port == port);
+        bool HasPort(int port) => ports.Any(value => value.Protocol == EndpointProtocol.Tcp && value.Port == port);
         var canUseWindowsHint = false;
 
         if (inferOperatingSystem)

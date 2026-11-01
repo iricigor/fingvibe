@@ -33,8 +33,9 @@ public sealed partial class DeviceDetailsPageView : UserControl
     internal string NameInput { get => DeviceNameInput.Text; set => DeviceNameInput.Text = value; }
     internal string NameSaveLabel { set => DeviceNameSaveButton.Content = value; }
     internal string NameStatus { set => DeviceNameStatusText.Text = value; }
-    internal string PortScanStatus { set => DevicePortScanStatusText.Text = value; }
-    internal bool PortScanEnabled { set => DevicePortScanButton.IsEnabled = value; }
+    internal string PortScanStatus { get => DevicePortScanStatusText.Text; set => DevicePortScanStatusText.Text = value; }
+    internal string UdpScanStatus { set => DeviceUdpScanStatusText.Text = value; }
+    internal bool IncludeUdp => DeviceIncludeUdpCheckBox.IsChecked == true;
     internal string ClassificationStatus { set => DeviceClassificationStatusText.Text = value; }
     internal string AssignmentStatus { set => DeviceAssignmentStatusText.Text = value; }
 
@@ -57,9 +58,12 @@ public sealed partial class DeviceDetailsPageView : UserControl
                 + $"Model: {imported.Model ?? "-"}\nOS: {imported.OperatingSystem ?? "-"} {imported.OperatingSystemVersion}\n"
                 + $"Historical imported IP: {imported.Address ?? "-"}"
             : "No imported Fing metadata.";
-        DevicePortScanButton.IsEnabled = row.CanProbe;
+        SetPortScanRunning(false, row.CanProbe);
         ShowPorts(row.OpenPortItems);
+        ShowUdpObservations(row.Result?.UdpObservationItems ?? []);
+        DeviceIncludeUdpCheckBox.IsChecked = false;
         DevicePortScanStatusText.Text = string.Empty;
+        DeviceUdpScanStatusText.Text = string.Empty;
         DeviceIdentificationEditor.IsExpanded = false;
     }
 
@@ -77,6 +81,16 @@ public sealed partial class DeviceDetailsPageView : UserControl
         DevicePortsList.ItemsSource = ports;
         DeviceNoPortsText.Visibility = ports.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    internal void SetPortScanRunning(bool running, bool canProbe)
+    {
+        DevicePortScanButton.Content = running ? "Cancel additional scan" : "Scan additional ports";
+        DevicePortScanButton.IsEnabled = running || canProbe;
+        DeviceIncludeUdpCheckBox.IsEnabled = !running && canProbe;
+    }
+
+    internal void ShowUdpObservations(IReadOnlyList<UdpServiceObservation> observations) =>
+        DeviceUdpObservationsList.ItemsSource = observations;
 
     private void InitializeClassificationPickers()
     {
