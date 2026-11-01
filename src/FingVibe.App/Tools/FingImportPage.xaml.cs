@@ -4,6 +4,7 @@ using FingVibe.Core.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Documents;
 using Windows.UI.Text;
 using Windows.ApplicationModel.DataTransfer;
 using Windows.Storage;
@@ -59,12 +60,12 @@ public sealed partial class FingImportPage : UserControl
             SelectedFileText.Text = "Synthetic Fing export.xlsx";
             _export = new FingExport(
                 [
-                    new(2, "020000000001", new(Name: "Review workstation", Type: "Desktop", OperatingSystem: "Windows"), null, null),
+                    new(2, "020000000001", new(Name: "1\uFE0F\u20E3 Review workstation", Type: "Desktop", OperatingSystem: "Windows"), null, null),
                     new(3, "020000000002", new(Name: "Review speaker", Type: "Speaker/Amp", Brand: "Example", Model: "Speaker", Address: "192.0.2.20"), null, "Missing review room"),
                     new(4, "020000000003", new(Name: "Review controller", Hostname: "controller.local", Type: "Controller", Address: "192.0.2.20"), "Missing review person", null)
-                ], ["Synthetic preview: private/randomized MACs may change."], 3)
+                ], [], 3)
             {
-                Diagnostics = [new("Private/randomized MACs", "Synthetic preview: private/randomized MACs may change.")]
+                Diagnostics = [new("Private/randomized MACs", "Synthetic preview: locally administered MACs may change.", IsWarning: false)]
             };
             AnalyzeCurrent();
         }
@@ -238,7 +239,7 @@ public sealed partial class FingImportPage : UserControl
             var header = new Grid { ColumnSpacing = 12 };
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            var heading = Text(group.Category + (group.HasWarnings ? " — Review" : " — OK"), true);
+            var heading = Text(group.Category + (group.HasWarnings ? " — Review" : group.Category is "People" or "Rooms" ? " — OK" : " — Information"), true);
             heading.VerticalAlignment = VerticalAlignment.Center;
             header.Children.Add(heading);
             var body = new StackPanel { Spacing = 6 };
@@ -285,14 +286,41 @@ public sealed partial class FingImportPage : UserControl
         if (_analysis is null) return;
         foreach (var device in _analysis.Devices.Where(device => device.IsNew || device.Changes.Count > 0))
         {
-            var card = new StackPanel { Spacing = 8 };
+            var card = new StackPanel();
+            var body = new StackPanel { Spacing = 8, Margin = new Thickness(16) };
             var header = new Grid { ColumnSpacing = 12 };
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            var identity = new StackPanel { Spacing = 4 };
-            identity.Children.Add(Text(device.Name, true));
-            identity.Children.Add(Text(string.Join("-", Enumerable.Range(0, 6).Select(index => device.Mac.Substring(index * 2, 2)))));
-            identity.Children.Add(Text((_completed.ContainsKey(device.Mac) ? "Imported with remaining items · " : "") + device.Summary));
+            var identity = new RichTextBlock { IsTextSelectionEnabled = true, IsColorFontEnabled = true, VerticalAlignment = VerticalAlignment.Center };
+            AutomationProperties.SetAutomationId(identity, $"ImportHeader-{device.Mac}");
+            var title = new Paragraph();
+            title.Inlines.Add(new Run
+            {
+                Text = device.Name,
+                FontWeight = FontWeights.Bold,
+                FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe UI Emoji")
+            });
+            title.Inlines.Add(new Run { Text = " · " });
+            title.Inlines.Add(new Run
+            {
+                Text = string.Join("-", Enumerable.Range(0, 6).Select(index => device.Mac.Substring(index * 2, 2))),
+                FontWeight = FontWeights.Bold
+            });
+            title.Inlines.Add(new Run { Text = $" · {device.AdditionCount} additions · " });
+            var conflicts = device.ConflictCount;
+            if (conflicts > 0)
+            {
+                var count = Text($"! {conflicts} conflicts");
+                count.Style = (Style)Resources["ImportConflictCountStyle"];
+                AutomationProperties.SetName(count, $"{device.Mac}: {conflicts} conflicts");
+                title.Inlines.Add(new InlineUIContainer { Child = count });
+            }
+            else
+                title.Inlines.Add(new Run { Text = "0 conflicts" });
+            title.Inlines.Add(new Run { Text = $" · {device.SkippedCount} skipped" });
+            if (_completed.ContainsKey(device.Mac))
+                title.Inlines.Add(new Run { Text = " · Imported with remaining items" });
+            identity.Blocks.Add(title);
             header.Children.Add(identity);
             FrameworkElement action;
             if (_selectionMode)
@@ -313,36 +341,35 @@ public sealed partial class FingImportPage : UserControl
             action.VerticalAlignment = VerticalAlignment.Top;
             Grid.SetColumn(action, 1);
             header.Children.Add(action);
-            card.Children.Add(header);
-            var additions = device.Changes.Where(change => !change.Conflict && change.SkipReason is null).ToArray();
-            foreach (var group in additions.GroupBy(change => change.Field switch
+            card.Children.Add(new Border { Style = (Style)Resources["ImportDeviceHeaderStyle"], Child = header });
+            card.Children.Add(body);
+            foreach (var fields in new[]
             {
-                "Brand" or "Family" or "Model" => "Hardware",
-                "OS" or "OS version" => "Operating system",
-                _ => change.Field
-            }))
-                card.Children.Add(Text(string.Join(" · ", group.Select(change => $"{change.Field}: {change.Incoming}"))));
-            foreach (var change in device.Changes.Where(change => change.Conflict || change.SkipReason is not null))
+                new[] { "Name", "Hostname" },
+                new[] { "Type", "Brand", "Family", "Model" },
+                new[] { "OS", "OS version", "Imported IP" },
+                new[] { "Person", "Room" },
+                new[] { "Device type correction", "OS correction" }
+            })
             {
-                var row = new StackPanel { Spacing = 4 };
-                row.Children.Add(Text(change.SkipReason is not null
-                    ? $"{change.Field}: {change.Incoming} — Skipped: {change.SkipReason}"
-                    : change.Conflict ? $"{change.Field}: {change.BeforeAfter}" : $"{change.Field}: {change.Incoming}"));
-                if (change.CanChoose)
-                {
-                    var picker = new ComboBox { Tag = change.Key, MinWidth = 180 };
-                    picker.Items.Add(new ComboBoxItem { Content = "Keep existing" });
-                    picker.Items.Add(new ComboBoxItem { Content = "Replace with Fing" });
-                    picker.SelectedIndex = change.ChoiceIndex;
-                    AutomationProperties.SetName(picker, change.Key);
-                    picker.SelectionChanged += Conflict_Changed;
-                    row.Children.Add(picker);
-                }
-                card.Children.Add(row);
+                var changes = fields.Select(field => device.Changes.FirstOrDefault(change => change.Field == field))
+                    .OfType<FingImportChange>().ToArray();
+                if (changes.Length > 0) body.Children.Add(FieldRow(changes, device.Mac));
+            }
+            if (device.HasPrivateMac || device.HasLimitedInformation)
+            {
+                var note = Text((device.HasLimitedInformation ? "Limited information: this export contains only a MAC address and historical Fing IP. " : "")
+                    + (device.HasPrivateMac ? "Private MAC address: this device uses a locally administered MAC, which may change. " : "")
+                    + "If you don't recognize this device, we recommend leaving it out of the import. "
+                    + "Use Select devices and leave it unchecked; Import all includes every eligible device.");
+                note.FontSize = 12;
+                AutomationProperties.SetAutomationId(note, $"{(device.HasPrivateMac ? "PrivateMacNotice" : "LimitedInformationNotice")}-{device.Mac}");
+                body.Children.Add(note);
             }
             ChangesList.Items.Add(new Border
             {
                 Style = (Style)Application.Current.Resources["ScannerSummaryCardStyle"],
+                Padding = new Thickness(0),
                 Margin = new Thickness(0, 4, 0, 4),
                 Child = card
             });
@@ -355,6 +382,41 @@ public sealed partial class FingImportPage : UserControl
         CompletedExpander.Header = $"Imported this session ({_completed.Count})";
         CompletedExpander.Visibility = _completed.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         DispatcherQueue.TryEnqueue(() => ImportScroll.ChangeView(null, offset, null, true));
+    }
+
+    private RichTextBlock FieldRow(IReadOnlyList<FingImportChange> changes, string mac)
+    {
+        var row = new RichTextBlock { IsTextSelectionEnabled = true, IsColorFontEnabled = true };
+        AutomationProperties.SetAutomationId(row, $"ImportFields-{mac}-{changes[0].Field}");
+        var paragraph = new Paragraph();
+        foreach (var change in changes)
+        {
+            if (paragraph.Inlines.Count > 0) paragraph.Inlines.Add(new Run { Text = "   " });
+            var label = Text(change.Field == "Imported IP" ? "Fing IP" : change.Field);
+            label.FontSize = 12;
+            var chip = new Border { Style = (Style)Resources["ImportFieldChipStyle"], Child = label };
+            paragraph.Inlines.Add(new InlineUIContainer { Child = chip });
+            var value = new Run { Text = change.Conflict ? change.BeforeAfter : change.Incoming };
+            if (change.Field is "Name" or "Person" or "Room") value.FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Segoe UI Emoji");
+            paragraph.Inlines.Add(value);
+            if (change.SkipReason is not null)
+                paragraph.Inlines.Add(new Run { Text = $" — Skipped: {change.SkipReason}" });
+            if (change.Field == "Imported IP")
+                ToolTipService.SetToolTip(chip, "Historical address from the Fing export, not a local observation or scan target.");
+            if (change.CanChoose)
+            {
+                paragraph.Inlines.Add(new Run { Text = " " });
+                var picker = new ComboBox { Tag = change.Key, MinWidth = 180 };
+                picker.Items.Add(new ComboBoxItem { Content = "Keep existing" });
+                picker.Items.Add(new ComboBoxItem { Content = "Replace with Fing" });
+                picker.SelectedIndex = change.ChoiceIndex;
+                AutomationProperties.SetName(picker, change.Key);
+                picker.SelectionChanged += Conflict_Changed;
+                paragraph.Inlines.Add(new InlineUIContainer { Child = picker });
+            }
+        }
+        row.Blocks.Add(paragraph);
+        return row;
     }
 
     private void UpdateActions()

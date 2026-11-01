@@ -8,7 +8,7 @@ using FingVibe.Core.Models;
 namespace FingVibe.Core.Import;
 
 public sealed record FingDeviceRecord(int Row, string Mac, ImportedDeviceMetadata Metadata, string? Owner, string? Location);
-public sealed record FingImportDiagnostic(string Category, string Message, int? Row = null);
+public sealed record FingImportDiagnostic(string Category, string Message, int? Row = null, bool IsWarning = true);
 public sealed record FingExport(IReadOnlyList<FingDeviceRecord> Devices, IReadOnlyList<string> Warnings, int DeviceRows)
 {
     public const string Limitations = "Fing State, Group, Alerted, timestamps, Network, and Log are not imported. Imported IPs are historical, not local observations.";
@@ -51,10 +51,10 @@ public static class FingWorkbookReader
                 throw new InvalidDataException($"At most {MaximumRows:N0} device rows can be analyzed at once.");
             var warnings = new List<string>();
             var diagnostics = new List<FingImportDiagnostic>();
-            void Warn(string category, string message, int? row = null)
+            void Warn(string category, string message, int? row = null, bool isWarning = true)
             {
-                diagnostics.Add(new(category, message, row));
-                warnings.Add(row is null ? message : $"Row {row}: {message}");
+                diagnostics.Add(new(category, message, row, isWarning));
+                if (isWarning) warnings.Add(row is null ? message : $"Row {row}: {message}");
             }
             var devices = new List<FingDeviceRecord>();
             var macRows = new Dictionary<string, List<int>>();
@@ -92,7 +92,7 @@ public static class FingWorkbookReader
                     if (bytes.All(value => value == 0) || (bytes[0] & 1) != 0)
                         throw new FormatException("A device must have a nonzero unicast MAC.");
                     if ((bytes[0] & 2) != 0)
-                        Warn("Private/randomized MACs", "private/randomized MAC; links survive only while this MAC remains the same.", rowNumber);
+                        Warn("Private/randomized MACs", "Locally administered MAC; it may change, but is not necessarily randomized.", rowNumber, isWarning: false);
                 }
                 catch (FormatException)
                 {

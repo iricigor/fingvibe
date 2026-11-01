@@ -55,10 +55,13 @@ public sealed record FingImportAnalysis(
 public sealed record FingAnalysisGroup(string Category, string Summary, IReadOnlyList<string> Details, bool HasWarnings);
 public sealed record FingDeviceChanges(string Mac, string Name, bool IsNew, IReadOnlyList<FingImportChange> Changes)
 {
+    public bool HasPrivateMac => (Convert.ToByte(Mac[..2], 16) & 2) != 0;
+    public bool HasLimitedInformation { get; init; }
     public bool CanImport => IsNew || Changes.Any(change => change.Apply);
-    public string Summary => $"{Changes.Count(change => change.Apply && !change.Conflict)} additions · "
-        + $"{Changes.Count(change => change.Conflict && change.SkipReason is null)} conflicts · "
-        + $"{Changes.Count(change => change.SkipReason is not null)} skipped";
+    public int AdditionCount => Changes.Count(change => change.Apply && !change.Conflict);
+    public int ConflictCount => Changes.Count(change => change.Conflict && change.SkipReason is null);
+    public int SkippedCount => Changes.Count(change => change.SkipReason is not null);
+    public string Summary => $"{AdditionCount} additions · {ConflictCount} conflicts · {SkippedCount} skipped";
 }
 
 public static class FingImportAnalyzer
@@ -162,7 +165,10 @@ public static class FingImportAnalyzer
                     peopleRooms = peopleRooms.AssignRoom(record.Mac, matches[0].Id);
             }
             devices[record.Mac] = device with { Imported = metadata };
-            deviceChanges.Add(new(record.Mac, displayName, existing is null, changes.Skip(firstChange).ToArray()));
+            deviceChanges.Add(new(record.Mac, displayName, existing is null, changes.Skip(firstChange).ToArray())
+            {
+                HasLimitedInformation = existing is null && HasOnlyAddress(record, current)
+            });
         }
         return new(current.Revision, current with
         {
@@ -173,7 +179,9 @@ public static class FingImportAnalyzer
         }, changes, warnings, export.DeviceRows, matched, added)
         {
             Diagnostics = diagnostics,
-            Devices = deviceChanges,
+            Devices = deviceChanges.OrderByDescending(device => device.ConflictCount)
+                .ThenByDescending(device => device.AdditionCount).ThenByDescending(device => device.SkippedCount)
+                .ThenBy(device => device.Mac, StringComparer.Ordinal).ToArray(),
             Groups = BuildGroups(export, current, diagnostics)
         };
     }
@@ -205,11 +213,29 @@ public static class FingImportAnalyzer
             var details = category.GroupBy(item => item.Message).Select(items =>
                 $"{items.Key} ({items.Count()} occurrences)"
                 + (items.Any(item => item.Row is not null) ? $" Rows: {string.Join(", ", items.Where(item => item.Row is not null).Select(item => item.Row))}" : "")).ToArray();
-            groups.Add(new(category.Key, $"{category.Count()} warnings", details, true));
+            var hasWarnings = category.Any(item => item.IsWarning);
+            groups.Add(new(category.Key, $"{category.Count()} {(hasWarnings ? "warnings" : "notices")}", details, hasWarnings));
         }
         return groups;
     }
 
     private static bool EqualName(string existing, string incoming) =>
         string.Equals(existing.Trim(), incoming.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    private static bool HasOnlyAddress(FingDeviceRecord record, DeviceInventoryData current)
+    {
+        bool MeaningfulName(string? value) => !string.IsNullOrWhiteSpace(value)
+            && !string.Equals(value.Trim().Replace("-", "").Replace(":", ""), record.Mac, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(value.Trim(), record.Metadata.Address, StringComparison.OrdinalIgnoreCase);
+        var metadata = record.Metadata;
+        var assignment = current.PeopleRooms.Assignments.GetValueOrDefault(record.Mac);
+        return metadata.Address is not null
+            && !MeaningfulName(metadata.Name) && !MeaningfulName(metadata.Hostname)
+            && !MeaningfulName(current.Names.GetValueOrDefault(record.Mac))
+            && (current.Classifications.GetValueOrDefault(record.Mac)?.IsEmpty ?? true)
+            && assignment?.PersonId is null && assignment?.RoomId is null
+            && new[] { metadata.Type, metadata.Brand, metadata.Family, metadata.Model,
+                metadata.OperatingSystem, metadata.OperatingSystemVersion, record.Owner, record.Location }
+                .All(string.IsNullOrWhiteSpace);
+    }
 }

@@ -107,6 +107,23 @@ imported classifications, which take precedence over automatic detection.
 Name precedence is user name > imported name > local hostname > imported
 hostname > last-known local/imported IP; IP fallback names are subdued.
 
+Device-card headers have a subtle theme-aware background band and put bold names and MACs alongside normal-weight change counts;
+nonzero conflicts have a critical-color indicator. Compact rows group identity,
+hardware, operating-system/address, and assignment fields. Non-interactive label
+chips distinguish field names from values without creating false button actions.
+Names use Segoe UI Emoji for supported color emoji sequences, preserving their text.
+**Fing IP** is the historical exported address, used as display/search context and
+a final name fallback only; it never identifies a device or authorizes a probe.
+Private/locally administered MACs appear as informational notices, not warnings.
+Affected cards recommend leaving unrecognized devices unchecked in Select devices
+mode; they remain importable, and Import all still includes every eligible device.
+New devices containing only MAC/historical Fing IP receive a **Limited information**
+recommendation to skip them unless recognized. Useful metadata, assignment references,
+or existing saved information prevent that recommendation. It does not exclude
+devices automatically or disable importing them.
+Cards sort by conflicts, then additions, then skipped fields, all descending.
+Exact ties sort by MAC ascending; changing choices/importing refreshes the ordering.
+
 Owner matches a managed person's full name and Location a managed room's full
 name, after trimming and case-insensitive comparison. Exactly one match is
 required. Missing/ambiguous entries skip only that assignment field, not the

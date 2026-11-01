@@ -166,8 +166,87 @@ public sealed class FingImportTests
         Assert.Equal(2, export.Devices.Count(device => device.Metadata.Address == "192.0.2.5"));
         Assert.Null(export.Devices[^1].Metadata.Address);
         Assert.Contains(export.Warnings, warning => warning.Contains("duplicate MAC"));
-        Assert.Contains(export.Warnings, warning => warning.Contains("private/randomized"));
+        Assert.Contains(export.Diagnostics, diagnostic => diagnostic.Category == "Private/randomized MACs" && !diagnostic.IsWarning);
         Assert.Contains(export.Warnings, warning => warning.Contains("invalid IPv4"));
+    }
+
+    [Fact]
+    public void DevicesSortByDescendingConflictsThenAdditionsThenSkipsThenAscendingMac()
+    {
+        var macs = Enumerable.Range(1, 6).Select(index => $"0011223344{index:00}").ToArray();
+        var current = DeviceInventoryData.Empty with
+        {
+            Devices = new Dictionary<string, InventoryDevice>
+            {
+                [macs[1]] = new(macs[1], new(Name: "Old"), []),
+                [macs[3]] = new(macs[3], new(Name: "Old", Model: "Old"), [])
+            }
+        };
+        var export = new FingExport([
+            new(2, macs[0], new(Name: "One"), null, null),
+            new(3, macs[1], new(Name: "Two", Brand: "Brand", Model: "Model"), null, null),
+            new(4, macs[2], new(Name: "Three", Brand: "Brand", Type: "Desktop"), null, "Missing room"),
+            new(5, macs[3], new(Name: "Four", Model: "Model"), null, null),
+            new(6, macs[5], new(Name: "Six", Brand: "Brand", Type: "Desktop"), null, null),
+            new(7, macs[4], new(Name: "Five", Brand: "Brand", Type: "Desktop"), null, null)
+        ], [], 6);
+        var analysis = FingImportAnalyzer.Analyze(export, current);
+        Assert.Equal(new[] { macs[3], macs[1], macs[2], macs[4], macs[5], macs[0] }, analysis.Devices.Select(device => device.Mac));
+        Assert.Equal(2, analysis.Devices[0].ConflictCount);
+        Assert.Equal(3, analysis.Devices[2].AdditionCount);
+        Assert.Equal(1, analysis.Devices[2].SkippedCount);
+        var committed = FingImportAnalyzer.Analyze(export, current, selectedMacs: new HashSet<string> { macs[0] }).Updated;
+        var remaining = FingImportAnalyzer.Analyze(export, committed);
+        Assert.Equal(macs[0], remaining.Devices[^1].Mac);
+        Assert.Equal(0, remaining.Devices[^1].AdditionCount);
+    }
+
+    [Fact]
+    public void AddressOnlyNewDevicesAreRecommendedForReviewButRemainImportable()
+    {
+        var export = Export(new(Address: "192.0.2.4"));
+        var analysis = FingImportAnalyzer.Analyze(export, DeviceInventoryData.Empty);
+        var device = Assert.Single(analysis.Devices);
+        Assert.True(device.HasLimitedInformation);
+        Assert.True(device.CanImport);
+        Assert.True(analysis.CanImport);
+        Assert.Equal("Imported IP", Assert.Single(device.Changes).Field);
+        Assert.Equal("192.0.2.4", analysis.Updated.Devices[Mac].Imported.Address);
+        Assert.False(Assert.Single(FingImportAnalyzer.Analyze(export, analysis.Updated).Devices).HasLimitedInformation);
+        var named = DeviceInventoryData.Empty with { Names = new Dictionary<string, string> { [Mac] = "Known device" } };
+        Assert.False(Assert.Single(FingImportAnalyzer.Analyze(export, named).Devices).HasLimitedInformation);
+    }
+
+    [Theory]
+    [InlineData("00-11-22-33-44-55", true)]
+    [InlineData("192.0.2.4", true)]
+    [InlineData("Device", false)]
+    public void LimitedInformationDoesNotTreatMacOrIpAsMeaningfulNames(string name, bool limited)
+    {
+        Assert.Equal(limited, Assert.Single(FingImportAnalyzer.Analyze(
+            Export(new(Name: name, Address: "192.0.2.4")), DeviceInventoryData.Empty).Devices).HasLimitedInformation);
+        Assert.False(Assert.Single(FingImportAnalyzer.Analyze(
+            Export(new(Name: name, Model: "Useful model", Address: "192.0.2.4")), DeviceInventoryData.Empty).Devices).HasLimitedInformation);
+        Assert.False(Assert.Single(FingImportAnalyzer.Analyze(
+            Export(new(Name: name, Address: "192.0.2.4"), owner: "Alice"), DeviceInventoryData.Empty).Devices).HasLimitedInformation);
+    }
+
+    [Fact]
+    public void PrivateMacsAreInformationalAndRemainImportable()
+    {
+        using var workbook = Workbook(["MAC", "Name"], ["020000000001", "1\uFE0F\u20E3 Device"]);
+        var export = FingWorkbookReader.Read(workbook);
+        Assert.Empty(export.Warnings);
+        Assert.False(Assert.Single(export.Diagnostics).IsWarning);
+        var analysis = FingImportAnalyzer.Analyze(export, DeviceInventoryData.Empty);
+        Assert.Empty(analysis.Warnings);
+        var group = Assert.Single(analysis.Groups, group => group.Category == "Private/randomized MACs");
+        Assert.False(group.HasWarnings);
+        Assert.Contains("notices", group.Summary);
+        var device = Assert.Single(analysis.Devices);
+        Assert.True(device.HasPrivateMac);
+        Assert.True(device.CanImport);
+        Assert.Equal("1\uFE0F\u20E3 Device", analysis.Updated.Devices[device.Mac].Imported.Name);
     }
 
     [Fact]

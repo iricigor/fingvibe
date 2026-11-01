@@ -2,6 +2,26 @@
     x:Class="FingVibe.App.FingImportPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style x:Key="ImportFieldChipStyle" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource ControlFillColorDefaultBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+        </Style>
+        <Style x:Key="ImportConflictCountStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{ThemeResource SystemFillColorCriticalBrush}" />
+        </Style>
+        <Style x:Key="ImportDeviceHeaderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{ThemeResource ControlFillColorSecondaryBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="CornerRadius" Value="7,7,0,0" />
+            <Setter Property="Padding" Value="16,10" />
+        </Style>
+    </UserControl.Resources>
     <ScrollViewer x:Name="ImportScroll" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="24,0,24,24" Spacing="16">
             <Button Content="&#x2190; Tools" Click="Back_Click" AutomationProperties.Name="Back to Tools" />
@@ -67,11 +87,11 @@
                     </ListView>
                     <Expander x:Name="UnchangedExpander" Header="No changes" Visibility="Collapsed"
                               HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                        <TextBlock x:Name="UnchangedText" TextWrapping="Wrap" />
+                        <TextBlock x:Name="UnchangedText" TextWrapping="Wrap" FontFamily="Segoe UI Emoji" />
                     </Expander>
                     <Expander x:Name="CompletedExpander" Header="Imported this session" Visibility="Collapsed"
                               HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                        <TextBlock x:Name="CompletedText" TextWrapping="Wrap" />
+                        <TextBlock x:Name="CompletedText" TextWrapping="Wrap" FontFamily="Segoe UI Emoji" />
                     </Expander>
                 </StackPanel>
             </Border>

@@ -102,6 +102,20 @@ try {
     $null = Find-ImportControl "Fing import preview" ([System.Windows.Automation.ControlType]::List)
     $null = Find-ImportControl "People — Review" ([System.Windows.Automation.ControlType]::Text)
     $null = Find-ImportControl "Rooms — Review" ([System.Windows.Automation.ControlType]::Text)
+    $null = Find-ImportControl "Private/randomized MACs — Information" ([System.Windows.Automation.ControlType]::Text)
+    if ((Find-ImportId PrivateMacNotice-020000000001).Current.Name -notlike "*Import all includes every eligible device*") {
+        throw "Private-MAC guidance must explain how selection mode skips an unrecognized device."
+    }
+    $nameRow = Find-ImportId "ImportFields-020000000001-Name"
+    $nameText = $nameRow.GetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern)
+    if (-not $nameText.DocumentRange.GetText(-1).Contains("1$([char]0xFE0F)$([char]0x20E3)")) {
+        throw "Imported name rendering must preserve the full emoji sequence."
+    }
+    $label = $nameRow.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty, "Name"))
+    if (-not $label -or $label.Current.ControlType -ne [System.Windows.Automation.ControlType]::Text -or $label.Current.IsKeyboardFocusable) {
+        throw "Field chips must expose text labels, not buttons or focusable actions."
+    }
     foreach ($category in @("people", "rooms")) {
         $button = Find-ImportControl "Manage $category" ([System.Windows.Automation.ControlType]::Button)
         $heading = Find-ImportControl "$((Get-Culture).TextInfo.ToTitleCase($category)) — Review" ([System.Windows.Automation.ControlType]::Text)
@@ -134,6 +148,41 @@ try {
     if ($ScreenshotDirectory) {
         $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
         Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "fing-import-ready.png")
+        foreach ($step in 0..20) {
+            Set-ImportScroll ($step * 5)
+            $bounds = $nameRow.Current.BoundingRectangle
+            if (-not $nameRow.Current.IsOffscreen -and
+                $bounds.Top -gt $root.Current.BoundingRectangle.Top + 180 -and
+                $bounds.Bottom -lt $root.Current.BoundingRectangle.Bottom - 30) { break }
+        }
+        $emojiPath = Join-Path $ScreenshotDirectory "fing-import-name-emoji.png"
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle $emojiPath
+        $context = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext([IntPtr]::new(-4))
+        try {
+            $windowBounds = Get-UiReviewWindowBounds $process.MainWindowHandle
+            $bounds = $nameRow.Current.BoundingRectangle
+            $bitmap = [System.Drawing.Bitmap]::new($emojiPath)
+            try {
+                $left = [int][Math]::Floor($bounds.Left - $windowBounds.Left)
+                $top = [int][Math]::Floor($bounds.Top - $windowBounds.Top)
+                $right = $left + [int][Math]::Min(350, $bounds.Width / 2)
+                $bottom = [int][Math]::Ceiling($bounds.Bottom - $windowBounds.Top)
+                if ($left -lt 0 -or $top -lt 0 -or $right -gt $bitmap.Width -or $bottom -gt $bitmap.Height) {
+                    throw "Emoji name row must be fully inside the captured window."
+                }
+                $coloredPixels = 0
+                for ($y = $top; $y -lt $bottom; $y++) {
+                    for ($x = $left; $x -lt $right; $x++) {
+                        $pixel = $bitmap.GetPixel($x, $y)
+                        $channels = @([int]$pixel.R, [int]$pixel.G, [int]$pixel.B) | Measure-Object -Minimum -Maximum
+                        if ($channels.Maximum - $channels.Minimum -gt 40) { $coloredPixels++ }
+                    }
+                }
+                if ($coloredPixels -lt 5) { throw "Name emoji rendered monochrome: only $coloredPixels colored pixels in the name region." }
+            }
+            finally { $bitmap.Dispose() }
+        }
+        finally { $null = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext($context) }
     }
     Set-ImportScroll 0
     (Find-ImportControl "Manage rooms" ([System.Windows.Automation.ControlType]::Button)).
@@ -152,7 +201,7 @@ try {
     if ($importButton.Current.IsEnabled) { throw "Returning from management must not authorize a stale analysis." }
     Invoke-ImportControl "Analyze again"
     $null = Find-ImportControl "Rooms — OK" ([System.Windows.Automation.ControlType]::Text)
-    if ((Find-ImportId AnalysisCountsText).Current.Name -notlike "*3 warnings") {
+    if ((Find-ImportId AnalysisCountsText).Current.Name -notlike "*2 warnings") {
         throw "Re-analysis must match the room manually created on its management page."
     }
     Invoke-ImportControl "Select devices"
