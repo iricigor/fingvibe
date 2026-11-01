@@ -478,11 +478,11 @@ public sealed class FingImportTests
         data = Observe(data);
         Assert.Equal(InventoryDeviceStatus.Online, data.Devices[Mac].Status);
         var different = data.ObserveCompletedScan("another-network", new("192.0.2.0/24", Start.AddMinutes(1), []));
-        Assert.Equal(InventoryDeviceStatus.Online, different.Devices[Mac].Status);
+        Assert.Equal(InventoryDeviceStatus.Unknown, different.Devices[Mac].Status);
         var unknownNetwork = data.ObserveCompletedScan(null, new("192.0.2.0/24", Start.AddMinutes(1), []));
-        Assert.Equal(InventoryDeviceStatus.Online, unknownNetwork.Devices[Mac].Status);
+        Assert.Equal(InventoryDeviceStatus.Unknown, unknownNetwork.Devices[Mac].Status);
         var differentSubnet = data.ObserveCompletedScan("network", new("198.51.100.0/24", Start.AddMinutes(1), []));
-        Assert.Equal(InventoryDeviceStatus.Online, differentSubnet.Devices[Mac].Status);
+        Assert.Equal(InventoryDeviceStatus.Unknown, differentSubnet.Devices[Mac].Status);
         var absent = data.ObserveCompletedScan("network", new("192.0.2.0/24", Start.AddMinutes(2), []));
         Assert.Equal(InventoryDeviceStatus.Offline, absent.Devices[Mac].Status);
         Assert.Equal("192.0.2.1", absent.Devices[Mac].LatestObservation!.Address);
@@ -496,7 +496,7 @@ public sealed class FingImportTests
     {
         var data = Observe(DeviceInventoryData.Empty);
         var restored = data.ObserveCompletedScan("network", new("192.0.2.0/24", Start.AddMinutes(1), []), historical: true);
-        Assert.Equal(InventoryDeviceStatus.Online, restored.Devices[Mac].Status);
+        Assert.Equal(InventoryDeviceStatus.Unknown, restored.Devices[Mac].Status);
         var row = new ScanResultRow(restored.Devices[Mac], 24);
         Assert.True(row.IsHistorical);
         Assert.False(row.IsCurrentScanResponse);

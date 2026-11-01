@@ -246,7 +246,8 @@
                         ClassificationSaveRequested="DeviceClassificationSaveButton_Click"
                         ClassificationResetRequested="DeviceClassificationResetButton_Click"
                         PersonAssignmentRequested="DevicePersonAssignmentRequested"
-                        RoomAssignmentRequested="DeviceRoomAssignmentRequested" />
+                        RoomAssignmentRequested="DeviceRoomAssignmentRequested"
+                        AddressRequested="DeviceAddressRequested" />
 
                 <!-- People -->
                 <views:PeoplePageView x:Name="PeoplePage" Grid.Row="1" Visibility="Collapsed"

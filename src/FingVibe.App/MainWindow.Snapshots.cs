@@ -140,21 +140,19 @@ public sealed partial class MainWindow
         await _deviceDataSaveLock.WaitAsync();
         try
         {
-            if (result.MacAddress is { } mac && CurrentDeviceData.Devices.TryGetValue(mac.ToString(), out var device)
-                && device.LatestObservation is { } latest && latest.Address == result.AddressText)
+            if (result.MacAddress?.GetAddressBytes().Length == 6)
             {
-                var devices = CurrentDeviceData.Devices.ToDictionary(pair => pair.Key, pair => pair.Value);
-                devices[mac.ToString()] = device with
-                {
-                    Observations = device.Observations.Select(item => ReferenceEquals(item, latest)
-                        ? item with { Ports = result.OpenPortItems, UdpObservations = result.UdpObservationItems } : item).ToArray()
-                };
-                var updated = CurrentDeviceData with { Devices = devices };
+                var updated = CurrentDeviceData.UpdateProbeResults(result);
                 try { await PersistDeviceDataAsync(updated); }
                 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
                 {
                     _inventory = updated;
                     errors.Add($"Inventory: {exception.Message}");
+                }
+                if (_selectedDeviceRow?.VirtualDevice is { } slot)
+                {
+                    _selectedDeviceRow.UpdateVirtualDevice(_inventory.VirtualDevices.First(item => item.Id == slot.Id));
+                    DevicePage.ShowHistory(_selectedDeviceRow);
                 }
             }
             if (_currentScanSnapshot is { } snapshot)

@@ -25,10 +25,7 @@ public sealed partial class MainWindow
         }
 
         _selectedDeviceRow = row;
-        DevicePage.NameInput = row.MacAddress is { } macAddress
-            && _deviceNameOverrides.TryGetValue(macAddress.ToString(), out var customName)
-                ? customName
-                : row.NameText;
+        DevicePage.NameInput = row.NameText;
         DevicePage.NameSaveLabel = "Save";
         DevicePage.NameStatus = _deviceNameOverridesUnavailable
             ? "Saved custom names could not be loaded."
@@ -73,8 +70,9 @@ public sealed partial class MainWindow
 
         var macAddress = row.MacAddress;
         string? savedName = null;
-        var hasCustomName = macAddress is not null
-            && _deviceNameOverrides.TryGetValue(macAddress.ToString(), out savedName);
+        var hasCustomName = row.VirtualDevice is { } virtualDevice
+            ? (savedName = virtualDevice.Name) is not null
+            : macAddress is not null && _deviceNameOverrides.TryGetValue(macAddress.ToString(), out savedName);
         var currentName = savedName ?? row.AutomaticName;
         var inputName = DevicePage.NameInput.Trim();
 
@@ -117,7 +115,10 @@ public sealed partial class MainWindow
 
         try
         {
-            await PersistDeviceDataAsync(CurrentDeviceData with { Names = updatedNames });
+            if (row.VirtualDevice is not null)
+                await SaveVirtualDeviceAsync(row, device => device with { Name = customName });
+            else
+                await PersistDeviceDataAsync(CurrentDeviceData with { Names = updatedNames });
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
         {
@@ -135,7 +136,7 @@ public sealed partial class MainWindow
             UpdateDeviceNameActions();
         }
 
-        _deviceNameOverrides = updatedNames;
+        if (row.VirtualDevice is null) _deviceNameOverrides = updatedNames;
         row.SetCustomName(customName);
         RefreshVisibleResults();
         if (ReferenceEquals(_selectedDeviceRow, row))
@@ -145,6 +146,16 @@ public sealed partial class MainWindow
             DevicePage.NameStatus = string.Empty;
             UpdateDeviceNameActions();
         }
+
+    }
+
+    private void DeviceAddressRequested(object? sender, string address)
+    {
+        if (_selectedDeviceRow is not { } row || _devicePortScanCancellation is not null) return;
+        row.SelectAddress(address);
+        UpdateLatencyRange(row);
+        DevicePage.ShowConnection(row);
+        RefreshVisibleResults();
     }
 
     private async void DevicePortScanButton_Click(object sender, RoutedEventArgs e)
@@ -163,6 +174,11 @@ public sealed partial class MainWindow
         if (NetworkPicker.SelectedItem is not LanNetwork network || _currentScanSnapshot?.Subnet != network.Cidr)
         {
             DevicePage.PortScanStatus = "Select the network used for this observation before probing its address.";
+            return;
+        }
+        if (row.VirtualDevice is { } virtualDevice && GetScanNetworkIdentity(network) != virtualDevice.NetworkId)
+        {
+            DevicePage.PortScanStatus = "The selected Windows network profile does not match this virtual device's current observation.";
             return;
         }
         if (!_networkActivityCoordinator.TryAcquire(NetworkActivityKind.DeviceServiceScan, out var lease))
@@ -207,11 +223,11 @@ public sealed partial class MainWindow
         {
             if (_devicePortScanCancellation != cancellation || !tcpRunning || cancellation.IsCancellationRequested)
                 return;
-            row.UpdateOpenPorts(row.OpenPortItems.Append(port).DistinctBy(item => item.Identity)
+            row.UpdateOpenPorts((row.Result?.OpenPortItems ?? []).Append(port).DistinctBy(item => item.Identity)
                 .OrderBy(item => item.Port).ThenBy(item => item.Protocol).ToArray());
             changed = true;
             RefreshVisibleResults();
-            if (IsSelected()) DevicePage.ShowPorts(row.OpenPortItems);
+            if (IsSelected()) DevicePage.ShowPorts(row.Result?.OpenPortItems ?? []);
         });
         try
         {
@@ -241,13 +257,13 @@ public sealed partial class MainWindow
             try
             {
                 var ports = await _portScanner.ScanAdditionalAsync(result.Address, cancellation.Token, network.LocalAddress, tcpProgress, tcpResults);
-                row.UpdateOpenPorts(row.OpenPortItems.Concat(ports).DistinctBy(port => port.Identity)
+                row.UpdateOpenPorts((row.Result?.OpenPortItems ?? []).Concat(ports).DistinctBy(port => port.Identity)
                     .OrderBy(port => port.Port).ThenBy(port => port.Protocol).ToArray());
                 changed = true;
                 RefreshVisibleResults();
                 if (IsSelected())
                 {
-                    DevicePage.ShowPorts(row.OpenPortItems);
+                    DevicePage.ShowPorts(row.Result?.OpenPortItems ?? []);
                     DevicePage.PortScanStatus = $"TCP: complete (100/100); {ports.Count} additional open port(s) found.";
                 }
             }
@@ -270,14 +286,14 @@ public sealed partial class MainWindow
                 row.UpdateUdpObservations(observations);
                 var responding = observations.Where(item => item.State == UdpServiceState.Responded)
                     .Select(item => new OpenPort(item.Port, item.ServiceName, EndpointProtocol.Udp));
-                row.UpdateOpenPorts(row.OpenPortItems.Where(port => port.Protocol != EndpointProtocol.Udp
+                row.UpdateOpenPorts((row.Result?.OpenPortItems ?? []).Where(port => port.Protocol != EndpointProtocol.Udp
                     || port.Port is not (53 or 123)).Concat(responding)
                     .DistinctBy(port => port.Identity).OrderBy(port => port.Port).ThenBy(port => port.Protocol).ToArray());
                 changed = true;
                 RefreshVisibleResults();
                 if (IsSelected())
                 {
-                    DevicePage.ShowPorts(row.OpenPortItems);
+                    DevicePage.ShowPorts(row.Result?.OpenPortItems ?? []);
                     DevicePage.ShowUdpObservations(observations);
                     DevicePage.UdpScanStatus = $"UDP: complete (2/2); {responding.Count()} responded, "
                         + $"{observations.Count(item => item.State == UdpServiceState.NoResponse)} inconclusive, "
