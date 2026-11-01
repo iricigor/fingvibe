@@ -12,6 +12,12 @@ their relevant cards.
 **Run checks**, **Cancel**, and run progress appear near the top of the
 **Network path and status** card, above the diagram.
 
+<a href="screenshots/network-troubleshooting.png"><img src="screenshots/network-troubleshooting.png" alt="FingVibe Network troubleshooting page with safe loopback adapter context and optional router WAN address" width="960"></a>
+
+Native UI-review capture using a loopback adapter, not a private LAN.
+Review mode disables diagnostic probes and WAN preference loading/saving.
+[Capture provenance and reproduction](screenshots/README.md#tool-screenshots).
+
 ## Checks and network requests
 
 The independent checkpoints are loopback (`127.0.0.1`), this PC's selected LAN
@@ -61,7 +67,18 @@ if it recreates or conflates profiles, FingVibe cannot establish a stronger
 physical-network identity. Router WAN addresses can change, so the field remains
 editable. Network changes cancel results and refresh the context.
 
-## Interpreting the illustration and status
+## LAN diagram
+
+<a href="screenshots/lan-diagram.png"><img src="screenshots/lan-diagram.png" alt="FingVibe LAN diagram showing illustrative peers, this PC, home router, and untested logical ports in review mode" width="960"></a>
+
+Native review-mode view of the diagram's **LAN portion**, scrolled to
+**Network path and status**. The viewport shows illustrative peers, this PC,
+and the home router; scroll the diagram horizontally to see the remaining
+upstream and public-provider checkpoints. Hollow ports and **Untested** labels
+are deliberate: this capture is not a successful diagnostic run or a real
+network map. [Capture details](screenshots/README.md#tool-screenshots).
+
+### Interpreting the illustration and status
 
 Gray LAN peers are shown above this PC and the router, schematically connected
 to the router with curved-corner elbow connector lines. The PC-to-router,
