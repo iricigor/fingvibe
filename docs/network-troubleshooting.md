@@ -5,6 +5,10 @@ select **Run checks**. Use **Refresh adapters** after changing connections.
 No diagnostic probes run automatically. Run is blocked while a LAN scan,
 Cloudflare speed test, or another diagnostic run is active or stopping.
 Cancel, Back, navigation, network changes, and window close stop probes safely.
+The page separates **Connection and checks**, **Network path and status**,
+**Detailed checkpoint diagnostics**, and **Traceroute** into bordered cards.
+Network-request disclosure and interpretation notes are expandable within
+their relevant cards.
 
 ## Checks and network requests
 
@@ -58,14 +62,30 @@ editable. Network changes cancel results and refresh the context.
 ## Interpreting the illustration and status
 
 Gray LAN peers are shown above this PC and the router, schematically connected
-to the router. Left/right logical ports show loopback/LAN IP on the PC,
+to the router with curved-corner elbow connector lines. The PC-to-router,
+router-to-hop-2, hop-2-to-globe, and globe-to-Google links are straight and
+horizontal; the Cloudflare branch also retains curved elbows.
+Left/right logical ports show loopback/LAN IP on the PC,
 LAN/WAN IP on the router, and IP ping/DNS on each provider. Hop 2 is only
 an observed responder; its ownership and relationship to the home router
 are unknown. The globe omits later route details. This is **not discovered
 physical topology**, real packet tracking, or continuous monitoring.
+Cloudflare sits above Google; Google's lower checkpoints align with the PC,
+router, and hop checkpoints rather than extending below the rest of the path.
 
-Responding checkpoints are green; failed/unanswered checks are red with
-textual results. Untested, unavailable, running, and cancelled checks have
+Ports are hollow circles before testing, with the checkpoint IPv4 beside each
+circle. The horizontal order is **left IP, left circle, device icon, right circle,
+right IP**, with IP text just below the straight line and labels/outcomes
+beneath their respective sides. Responses fill the circle green;
+failed/unanswered checks fill it red,
+with textual results. Direct-DNS ports show the resolver IP, not the resolved
+hostname's address. Hop 2 shows its observed responder IP, or **Not observed**;
+an unavailable optional WAN address is **Not supplied**.
+Detailed hop and traceroute text shows **Responder** first and labels
+**Trace target** separately, so `1.1.1.1` is not mistaken for the responding
+upstream router. A destination actually reached at hop 2 remains an observed
+destination response rather than a guessed router.
+Untested, unavailable, running, and cancelled checks stay hollow and have
 distinct neutral textual states. Windows high contrast uses system colors.
 The two-row status below the diagram explains the evidence and next action,
 not just a color. Ready, running, cancelled, errors, and insufficient evidence
@@ -91,7 +111,12 @@ connectivity tests, and probe-flow animation are outside this delivery.
 Core regression tests use injectable probes and temporary settings files; they
 do not depend on public endpoints. `tests\NetworkTroubleshooting.Ui.Tests.ps1
 -AppPath <built-exe>` checks the native Tools entry, visible WAN validation,
-review-mode privacy, navigation reset, and existing speed-test entry on an
-interactive Windows desktop. It launches its own app in UI-review mode, which
+section headings, checkpoint IP labels, provider alignment, straight main-path
+and curved branch geometry, review-mode privacy, navigation reset, and the
+existing speed-test entry on an interactive Windows desktop.
+It launches its own app in UI-review mode, which
 does not load/save WAN preferences or send diagnostic probes. Verify live
 Windows high contrast separately using system accessibility settings.
+With `-ScreenshotDirectory`, it also checks the rendered untested-circle
+outline and empty center next to the IP label, and the straight PC-to-router
+line above the IP text.

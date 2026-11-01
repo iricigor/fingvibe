@@ -1,6 +1,7 @@
 using System.Net;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using FingVibe.Core.Formatting;
 using FingVibe.Core.Models;
 using FingVibe.Core.Networking;
 using FingVibe.Core.Storage;
@@ -294,7 +295,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
 
     private static TextBlock HopText(TraceHop hop) => new()
     {
-        Text = $"Hop {hop.Number}: {Describe(hop.Observation)}",
+        Text = $"Hop {hop.Number}: {NetworkDiagnosticFormatter.Describe(hop.Observation)}",
         TextWrapping = TextWrapping.Wrap
     };
 
@@ -323,7 +324,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
         DiagnosticsPanel.Children.Clear();
         foreach (var observation in _observations.Values)
         {
-            var row = new TextBlock { Text = $"{Label(observation.Checkpoint)} - {Describe(observation)}", TextWrapping = TextWrapping.Wrap };
+            var row = new TextBlock { Text = $"{Label(observation.Checkpoint)} - {NetworkDiagnosticFormatter.Describe(observation)}", TextWrapping = TextWrapping.Wrap };
             AutomationProperties.SetName(row, row.Text);
             DiagnosticsPanel.Children.Add(row);
         }
@@ -347,29 +348,63 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
         panel.Children.Clear();
         panel.Spacing = 8;
         panel.Children.Add(new TextBlock { Text = title, TextAlignment = TextAlignment.Center, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold });
-        panel.Children.Add(new FontIcon { Glyph = glyph, FontSize = 36 });
-        var ports = new Grid { ColumnSpacing = 6 };
+        var device = new Grid { ColumnSpacing = 4 };
+        foreach (var width in new[] { new GridLength(1, GridUnitType.Star), new GridLength(14), new GridLength(44), new GridLength(14), new GridLength(1, GridUnitType.Star) })
+        {
+            device.ColumnDefinitions.Add(new ColumnDefinition { Width = width });
+        }
+        device.RowDefinitions.Add(new RowDefinition { Height = new GridLength(40) });
+        device.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        var icon = new FontIcon { Glyph = glyph, FontSize = 36 };
+        Grid.SetColumn(icon, 2);
+        device.Children.Add(icon);
+        var portForeground = new SolidColorBrush(_accessibility.HighContrast
+            ? _uiSettings.GetColorValue(UIColorType.Foreground)
+            : ActualTheme == ElementTheme.Dark ? Microsoft.UI.Colors.White : Microsoft.UI.Colors.Black);
         for (var index = 0; index < checkpoints.Length; index++)
         {
-            ports.ColumnDefinitions.Add(new ColumnDefinition());
             var checkpoint = checkpoints[index];
             if (!_observations.TryGetValue(checkpoint, out var observation)) continue;
             var kind = observation.State == DiagnosticState.Responded ? DiagnosticSummaryKind.Good
                 : observation.State is DiagnosticState.Unanswered or DiagnosticState.Error ? DiagnosticSummaryKind.Problem : DiagnosticSummaryKind.Neutral;
-            var text = new TextBlock
+            var address = NetworkDiagnosticFormatter.CheckpointAddress(observation);
+            var marker = new Microsoft.UI.Xaml.Shapes.Ellipse
+            {
+                Width = 14, Height = 14, StrokeThickness = 2,
+                Stroke = portForeground,
+                Fill = kind == DiagnosticSummaryKind.Neutral ? null
+                    : _accessibility.HighContrast ? portForeground : StatusBrush(kind),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            AutomationProperties.SetName(marker, $"{Label(checkpoint)} port: {observation.State}");
+            AutomationProperties.SetAutomationId(marker, $"DiagramPort{checkpoint}");
+            var left = index == 0;
+            var addressColumn = left ? 0 : 4;
+            Grid.SetColumn(marker, left ? 1 : 3);
+            device.Children.Add(marker);
+            var addressText = new TextBlock
+            {
+                Text = address, FontSize = 11, VerticalAlignment = VerticalAlignment.Bottom,
+                HorizontalAlignment = left ? HorizontalAlignment.Right : HorizontalAlignment.Left
+            };
+            AutomationProperties.SetAutomationId(addressText, $"DiagramAddress{checkpoint}");
+            Grid.SetColumn(addressText, addressColumn);
+            device.Children.Add(addressText);
+            var description = new TextBlock
             {
                 Text = $"{PortLabel(checkpoint)}\n{observation.State}",
-                TextWrapping = TextWrapping.Wrap, FontSize = 11, TextAlignment = TextAlignment.Center,
-                Foreground = _accessibility.HighContrast || kind == DiagnosticSummaryKind.Neutral
-                    ? (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"] : new SolidColorBrush(Microsoft.UI.Colors.White)
+                TextWrapping = TextWrapping.Wrap, FontSize = 11,
+                TextAlignment = left ? TextAlignment.Right : TextAlignment.Left
             };
-            var port = new Border { Child = text, Padding = new Thickness(4), CornerRadius = new CornerRadius(4), Background = StatusBrush(kind) };
-            ToolTipService.SetToolTip(port, Describe(observation));
-            AutomationProperties.SetName(port, $"{Label(checkpoint)}: {Describe(observation)}");
-            Grid.SetColumn(port, index);
-            ports.Children.Add(port);
+            AutomationProperties.SetAutomationId(description, $"DiagramCheckpoint{checkpoint}");
+            ToolTipService.SetToolTip(marker, NetworkDiagnosticFormatter.Describe(observation));
+            ToolTipService.SetToolTip(addressText, NetworkDiagnosticFormatter.Describe(observation));
+            AutomationProperties.SetName(description, $"{Label(checkpoint)}: {address}; {observation.State}");
+            Grid.SetRow(description, 1);
+            Grid.SetColumn(description, addressColumn);
+            device.Children.Add(description);
         }
-        panel.Children.Add(ports);
+        panel.Children.Add(device);
     }
 
     private Brush StatusBrush(DiagnosticSummaryKind kind)
@@ -383,11 +418,6 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
             _ => Color.FromArgb(255, 185, 28, 28)
         });
     }
-
-    private static string Describe(DiagnosticObservation observation) =>
-        $"{observation.Target} | {observation.State} | {observation.Detail}"
-        + (observation.RespondingAddress is { } address ? $" | response from {address}" : string.Empty)
-        + (observation.RoundtripMilliseconds is { } time ? $" | {time} ms" : string.Empty);
 
     private static string PortLabel(DiagnosticCheckpoint checkpoint) => checkpoint switch
     {

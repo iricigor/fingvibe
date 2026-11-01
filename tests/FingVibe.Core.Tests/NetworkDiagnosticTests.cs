@@ -108,6 +108,30 @@ public sealed class NetworkDiagnosticTests
     }
 
     [Fact]
+    public async Task ObservedHop2PreservesResponderRatherThanTraceTarget()
+    {
+        var report = await new NetworkDiagnosticService(new FakeProbes { Hop2Address = IPAddress.Parse("100.79.10.1") })
+            .RunAsync(Network, null, null, CancellationToken.None);
+        var hop2 = Find(report, DiagnosticCheckpoint.Hop2);
+        Assert.Equal(IPAddress.Parse("100.79.10.1"), hop2.RespondingAddress);
+        Assert.Equal("1.1.1.1", hop2.Target);
+        Assert.False(report.Hops[1].ReachedDestination);
+        Assert.Equal(hop2.RespondingAddress, report.Hops[1].Observation.RespondingAddress);
+    }
+
+    [Fact]
+    public async Task ActualDestinationResponseAtHop2IsNotReplacedByGuessedRouter()
+    {
+        var report = await new NetworkDiagnosticService(new FakeProbes
+        {
+            Hop2Address = NetworkDiagnosticService.Cloudflare, DestinationHop = 2
+        }).RunAsync(Network, null, null, CancellationToken.None);
+        Assert.Equal(2, report.Hops.Count);
+        Assert.True(report.TraceComplete);
+        Assert.Equal(NetworkDiagnosticService.Cloudflare, Find(report, DiagnosticCheckpoint.Hop2).RespondingAddress);
+    }
+
+    [Fact]
     public async Task CancellationStopsActiveProbeAndMarksUntestedCheckpointsCancelled()
     {
         using var cancellation = new CancellationTokenSource();
@@ -181,6 +205,7 @@ public sealed class NetworkDiagnosticTests
         public int DestinationHop { get; init; } = 3;
         public bool Block { get; init; }
         public bool BlockTrace { get; init; }
+        public IPAddress? Hop2Address { get; init; }
         public int PingCalls { get; private set; }
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public List<(DiagnosticCheckpoint Checkpoint, IPAddress? Resolver)> DnsCalls { get; } = [];
@@ -194,8 +219,9 @@ public sealed class NetworkDiagnosticTests
                 Started.TrySetResult();
                 await Task.Delay(Timeout.Infinite, cancellationToken);
             }
-            var responded = !isTrace || ttl != 2 && ReachDestination;
+            var responded = !isTrace || (ttl != 2 || Hop2Address is not null) && ReachDestination;
             var address = !isTrace || ttl >= DestinationHop ? target : IPAddress.Parse("192.168.1.1");
+            if (isTrace && ttl == 2 && Hop2Address is not null) address = Hop2Address;
             return new(checkpoint, target.ToString(), responded ? DiagnosticState.Responded : DiagnosticState.Unanswered,
                 responded ? "Response" : "TimedOut", responded ? address : null, responded ? 1 : null);
         }
