@@ -20,8 +20,11 @@ Identify affected components and the intended behavior change.
 
 ## Dependencies and parent Epic
 
-Link blocking issues (or write None). Link the parent Epic, if applicable,
-and attach this issue as a GitHub sub-issue; a link alone is not the relationship.
+Link blocking issues (or write None). Link the required parent Epic labeled
+`type:epic`, attach this issue as its direct native GitHub sub-issue, and add
+it to the Epic's child checklist. Verify the parent, its label, and the checklist;
+a body link alone does not establish membership. If the appropriate Epic is
+unclear, ask before choosing or creating one.
 
 ## Size and priority
 

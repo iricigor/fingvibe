@@ -27,3 +27,11 @@ and credentials before posting. Do not attach your local device inventory.
 
 No estimate or implementation plan is required. This report awaits triage;
 it is not automatically approved for agent execution.
+
+## Parent Epic
+
+Link the required parent Epic labeled `type:epic`, attach this issue as its
+direct native GitHub sub-issue, and add it to the Epic's child checklist.
+Verify the parent, its label, and the checklist; a body link alone does not
+establish membership. If the appropriate Epic is unclear, ask before choosing
+or creating one.
