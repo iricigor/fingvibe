@@ -10,7 +10,18 @@
                 <Button x:Name="FingImportCard" Click="FingImportCard_Click"
                         Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="Import from Fing">
                     <StackPanel Spacing="8">
-                        <TextBlock Text="Import from Fing" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE8B5;" FontFamily="Segoe Fluent Icons"
+                                      FontSize="48" Width="48" Height="48"
+                                      Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                            <TextBlock Grid.Column="1" Text="Import from Fing" Style="{ThemeResource SubtitleTextBlockStyle}"
+                                       VerticalAlignment="Center" TextWrapping="Wrap" />
+                        </Grid>
                         <TextBlock Text="Review and import device names, details, and assignments from a Fing Excel export."
                                    TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <TextBlock Text="Open Import from Fing &#x2192;" />
@@ -21,10 +32,18 @@
                         Style="{StaticResource ScannerSummaryButtonStyle}"
                         AutomationProperties.Name="Speed test">
                     <StackPanel Spacing="8">
-                        <StackPanel Orientation="Horizontal" Spacing="8">
-                            <FontIcon Glyph="&#xE9D9;" />
-                            <TextBlock Text="Speed test" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                        </StackPanel>
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xEC4A;" FontFamily="Segoe Fluent Icons"
+                                      FontSize="48" Width="48" Height="48"
+                                      Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                            <TextBlock Grid.Column="1" Text="Speed test" Style="{ThemeResource SubtitleTextBlockStyle}"
+                                       VerticalAlignment="Center" TextWrapping="Wrap" />
+                        </Grid>
                         <TextBlock Text="Measure this PC's internet connection with Cloudflare."
                                    TextWrapping="Wrap"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -34,7 +53,18 @@
                 <Button x:Name="TroubleshootingCard" Click="TroubleshootingCard_Click"
                         Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="Network troubleshooting">
                     <StackPanel Spacing="8">
-                        <TextBlock Text="Network troubleshooting" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE90F;" FontFamily="Segoe Fluent Icons"
+                                      FontSize="48" Width="48" Height="48"
+                                      Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                            <TextBlock Grid.Column="1" Text="Network troubleshooting" Style="{ThemeResource SubtitleTextBlockStyle}"
+                                       VerticalAlignment="Center" TextWrapping="Wrap" />
+                        </Grid>
                         <TextBlock Text="Check local addresses, internet IPs, traceroute, and DNS on request."
                                    TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <TextBlock Text="Open network troubleshooting &#x2192;" />
@@ -45,7 +75,18 @@
                         Style="{StaticResource ScannerSummaryButtonStyle}"
                         AutomationProperties.Name="About FingVibe">
                     <StackPanel Spacing="8">
-                        <TextBlock Text="About FingVibe" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE946;" FontFamily="Segoe Fluent Icons"
+                                      FontSize="48" Width="48" Height="48"
+                                      Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                            <TextBlock Grid.Column="1" Text="About FingVibe" Style="{ThemeResource SubtitleTextBlockStyle}"
+                                       VerticalAlignment="Center" TextWrapping="Wrap" />
+                        </Grid>
                         <TextBlock Text="App version, build details, and creator information."
                                    TextWrapping="Wrap"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />

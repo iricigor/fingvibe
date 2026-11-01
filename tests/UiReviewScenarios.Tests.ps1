@@ -144,6 +144,61 @@ try {
         SettingsPage = "SettingsPageView"
     }
     $appDirectory = Join-Path $PSScriptRoot "..\src\FingVibe.App"
+    $toolsDocument = [System.Xml.XmlDocument]::new()
+    $toolsDocument.Load((Join-Path $appDirectory "Tools\ToolsPage.xaml"))
+    $toolIcons = @(
+        @{ Page = "SpeedTestPage"; Title = "Speed test"; Card = "SpeedTestCard"; Click = "SpeedTestCard_Click"; Glyph = 0xEC4A },
+        @{ Page = "NetworkTroubleshootingPage"; Title = "Network troubleshooting"; Card = "TroubleshootingCard"; Click = "TroubleshootingCard_Click"; Glyph = 0xE90F },
+        @{ Page = "AboutPage"; Title = "About FingVibe"; Card = "AboutCard"; Click = "AboutCard_Click"; Glyph = 0xE946 },
+        @{ Page = "FingImportPage"; Title = "Import from Fing"; Card = "FingImportCard"; Click = "FingImportCard_Click"; Glyph = 0xE8B5 }
+    )
+    foreach ($tool in $toolIcons) {
+        $pageDocument = [System.Xml.XmlDocument]::new()
+        $pageDocument.Load((Join-Path $appDirectory "Tools\$($tool.Page).xaml"))
+        $card = $toolsDocument.SelectSingleNode("//*[@*[local-name()='Name']='$($tool.Card)']")
+        if ($card.LocalName -cne "Button" -or $card.GetAttribute("Click") -cne $tool.Click -or
+            $card.GetAttribute("AutomationProperties.Name") -cne $tool.Title -or
+            $card.SelectNodes(".//*[local-name()='Button' or local-name()='HyperlinkButton']").Count -ne 0) {
+            throw "$($tool.Title) must remain one landing button with its existing handler and accessible name."
+        }
+        $pageTitle = $pageDocument.SelectSingleNode("//*[local-name()='TextBlock' and @Text='$($tool.Title)' and @Style='{StaticResource ScannerPageTitleStyle}']")
+        $cardTitle = $card.SelectSingleNode(".//*[local-name()='TextBlock' and @Text='$($tool.Title)']")
+        foreach ($title in @($pageTitle, $cardTitle)) {
+            if (-not $title -or $title.GetAttribute("TextWrapping") -cne "Wrap" -or
+                $title.GetAttribute("Grid.Column") -cne "1" -or $title.GetAttribute("VerticalAlignment") -cne "Center") {
+                throw "$($tool.Title) must wrap and center beside its icon."
+            }
+            $header = $title.ParentNode
+            $columns = $header.SelectNodes("./*[local-name()='Grid.ColumnDefinitions']/*[local-name()='ColumnDefinition']")
+            if ($header.LocalName -cne "Grid" -or $header.GetAttribute("ColumnSpacing") -cne "12" -or
+                $columns.Count -ne 2 -or $columns[0].GetAttribute("Width") -cne "Auto" -or
+                $columns[1].GetAttribute("Width") -cne "*") {
+                throw "$($tool.Title) must reserve icon space and constrain the title for wrapping."
+            }
+            $icons = $header.SelectNodes("./*[local-name()='FontIcon']")
+            if ($icons.Count -ne 1) { throw "$($tool.Title) must have exactly one decorative header icon." }
+            $icon = $icons[0]
+            foreach ($attribute in @{
+                Glyph = [string][char]$tool.Glyph
+                FontFamily = "Segoe Fluent Icons"
+                FontSize = "48"
+                Width = "48"
+                Height = "48"
+                Foreground = "{ThemeResource TextFillColorPrimaryBrush}"
+                IsHitTestVisible = "False"
+                "AutomationProperties.AccessibilityView" = "Raw"
+            }.GetEnumerator()) {
+                if ($icon.GetAttribute($attribute.Key) -cne $attribute.Value) {
+                    throw "$($tool.Title) icon must use $($attribute.Key)=$($attribute.Value) on both surfaces."
+                }
+            }
+        }
+        if ($tool.Page -eq "AboutPage" -and
+            ($pageTitle.GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml") -cne "PageHeading" -or
+             $pageTitle.GetAttribute("IsTabStop") -cne "True")) {
+            throw "About must preserve its named, keyboard-focusable heading."
+        }
+    }
     $shellCode = (Get-ChildItem (Join-Path $appDirectory "MainWindow*.cs") |
         ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
     foreach ($page in $pageViews.Keys) {

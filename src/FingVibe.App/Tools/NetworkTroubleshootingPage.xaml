@@ -5,7 +5,18 @@
     <ScrollViewer x:Name="TroubleshootingScroll" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="24,0,24,24" Spacing="16">
             <Button Content="Back to Tools" Click="BackButton_Click" AutomationProperties.Name="Back to Tools" />
-            <TextBlock Text="Network troubleshooting" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <FontIcon Glyph="&#xE90F;" FontFamily="Segoe Fluent Icons"
+                          FontSize="48" Width="48" Height="48"
+                          Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                          IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                <TextBlock Grid.Column="1" Text="Network troubleshooting" Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
+                           VerticalAlignment="Center" TextWrapping="Wrap" />
+            </Grid>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="12">
                     <TextBlock Text="Connection and checks" Style="{ThemeResource SubtitleTextBlockStyle}" />
