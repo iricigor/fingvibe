@@ -9,17 +9,33 @@ $format = "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'"
 $culture = [Globalization.CultureInfo]::InvariantCulture
 $styles = [Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal
 
+function Read-BuildMetadata([string] $Json) {
+    # Preserve ISO strings verbatim; ConvertFrom-Json can turn them into DateTime values.
+    $document = [System.Text.Json.JsonDocument]::Parse($Json)
+    try {
+        $root = $document.RootElement
+        [pscustomobject]@{
+            Timestamp = $root.GetProperty("Properties").GetProperty("BuildTimestamp").GetString()
+            Stamps = @($root.GetProperty("Items").GetProperty("AssemblyMetadata").EnumerateArray() |
+                Where-Object { $_.GetProperty("Identity").GetString() -eq "BuildTimestamp" } |
+                ForEach-Object { $_.GetProperty("Value").GetString() })
+        }
+    }
+    finally {
+        $document.Dispose()
+    }
+}
+
 foreach ($kind in @("Development", "Test", "PullRequest", "Release")) {
     $before = [DateTimeOffset]::UtcNow.AddSeconds(-1)
     $output = & dotnet msbuild $project -nologo "-p:BuildKind=$kind" -getProperty:BuildTimestamp -getItem:AssemblyMetadata
     if ($LASTEXITCODE -ne 0) { throw "Could not evaluate $kind build timestamp metadata." }
-    $metadata = ($output -join "`n") | ConvertFrom-Json
-    $timestamp = [DateTimeOffset]::ParseExact($metadata.Properties.BuildTimestamp, $format, $culture, $styles)
+    $metadata = Read-BuildMetadata ($output -join "`n")
+    $timestamp = [DateTimeOffset]::ParseExact($metadata.Timestamp, $format, $culture, $styles)
     if ($timestamp -lt $before -or $timestamp -gt [DateTimeOffset]::UtcNow) {
         throw "$kind timestamp does not represent the actual UTC build time."
     }
-    $stamp = @($metadata.Items.AssemblyMetadata | Where-Object Identity -eq "BuildTimestamp")
-    if ($stamp.Count -ne 1 -or $stamp[0].Value -cne $metadata.Properties.BuildTimestamp) {
+    if ($metadata.Stamps.Count -ne 1 -or $metadata.Stamps[0] -cne $metadata.Timestamp) {
         throw "$kind does not embed its timestamp as assembly metadata."
     }
 }
@@ -27,9 +43,8 @@ foreach ($kind in @("Development", "Test", "PullRequest", "Release")) {
 $override = "2026-11-01T12:20:35.1234567Z"
 $output = & dotnet msbuild $project -nologo "-p:BuildTimestamp=$override" -getProperty:BuildTimestamp -getItem:AssemblyMetadata
 if ($LASTEXITCODE -ne 0) { throw "Could not evaluate explicit build timestamp override." }
-$metadata = ($output -join "`n") | ConvertFrom-Json
-$stamp = @($metadata.Items.AssemblyMetadata | Where-Object Identity -eq "BuildTimestamp")
-if ($metadata.Properties.BuildTimestamp -cne $override -or $stamp.Count -ne 1 -or $stamp[0].Value -cne $override) {
+$metadata = Read-BuildMetadata ($output -join "`n")
+if ($metadata.Timestamp -cne $override -or $metadata.Stamps.Count -ne 1 -or $metadata.Stamps[0] -cne $override) {
     throw "The explicit timestamp override was not preserved verbatim."
 }
 
