@@ -112,6 +112,21 @@ public sealed class BuildIdentityTests
     }
 
     [Theory]
+    [InlineData("1")]
+    [InlineData("12")]
+    [InlineData("123")]
+    [InlineData("1234")]
+    [InlineData("12345")]
+    [InlineData("123456")]
+    [InlineData("1234567")]
+    public void AcceptsOneToSevenFractionalDigits(string fraction)
+    {
+        var build = new BuildIdentity("1.0.0", "Test", null, null, null, $"2026-11-01T12:20:35.{fraction}Z");
+        Assert.NotNull(build.BuildTimestamp);
+        Assert.Equal($"Built Nov 1, 2026, 12:20:35.{fraction} UTC", build.TimestampText);
+    }
+
+    [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData(" ")]
@@ -119,6 +134,8 @@ public sealed class BuildIdentityTests
     [InlineData("2026-02-30T12:20:35Z")]
     [InlineData("2026-11-01T12:20:35")]
     [InlineData("2026-11-01T12:20:35+02:00")]
+    [InlineData("2026-11-01T12:20:35.Z")]
+    [InlineData("2026-11-01T12:20:35.12345678Z")]
     [InlineData("Nov 1, 2026")]
     public void ShowsUnavailableRatherThanInventingBuildTime(string? timestamp)
     {

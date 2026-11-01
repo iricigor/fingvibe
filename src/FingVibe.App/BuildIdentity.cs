@@ -14,6 +14,10 @@ internal enum BuildKind
 
 internal sealed class BuildIdentity
 {
+    private static readonly string[] TimestampFormats = Enumerable.Range(0, 8)
+        .Select(digits => "yyyy-MM-dd'T'HH:mm:ss" + (digits == 0 ? "" : "." + new string('f', digits)) + "'Z'")
+        .ToArray();
+
     public static BuildIdentity Current { get; } = FromAssembly(typeof(BuildIdentity).Assembly);
 
     public string Version { get; }
@@ -90,8 +94,7 @@ internal sealed class BuildIdentity
             Trace.TraceError("App version metadata is missing or invalid.");
         }
         Commit = string.IsNullOrWhiteSpace(commit) ? null : commit;
-        if (DateTimeOffset.TryParseExact(buildTimestamp,
-            ["yyyy-MM-dd'T'HH:mm:ss'Z'", "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'"],
+        if (DateTimeOffset.TryParseExact(buildTimestamp, TimestampFormats,
             CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
             out var timestamp))
         {

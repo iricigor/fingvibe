@@ -49,6 +49,20 @@ public static class BuildIdentityReviewKeyboard
     [DllImport("user32.dll")]
     private static extern void keybd_event(byte key, byte scan, uint flags, UIntPtr extra);
 
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetCursorPos(int x, int y);
+
+    [DllImport("user32.dll")]
+    private static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extra);
+
+    public static void Click(int x, int y)
+    {
+        if (!SetCursorPos(x, y))
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+        mouse_event(2, 0, 0, 0, UIntPtr.Zero);
+        mouse_event(4, 0, 0, 0, UIntPtr.Zero);
+    }
+
     public static void Tap(byte key)
     {
         keybd_event(key, 0, 0, UIntPtr.Zero);
@@ -136,8 +150,11 @@ $ribbonText = switch ($BuildKind) {
 $compactTimestamp = "Build time unavailable"
 $fullTimestamp = "Build time unavailable"
 if ($BuildTimestamp) {
+    $timestampFormats = @(0..7 | ForEach-Object {
+        "yyyy-MM-dd'T'HH:mm:ss" + $(if ($_ -eq 0) { "" } else { "." + ("f" * $_) }) + "'Z'"
+    })
     $timestamp = [DateTimeOffset]::ParseExact($BuildTimestamp,
-        [string[]]@("yyyy-MM-dd'T'HH:mm:ss'Z'", "yyyy-MM-dd'T'HH:mm:ss.FFFFFFF'Z'"),
+        [string[]]$timestampFormats,
         [Globalization.CultureInfo]::InvariantCulture,
         [Globalization.DateTimeStyles]::AssumeUniversal -bor [Globalization.DateTimeStyles]::AdjustToUniversal)
     $compactTimestamp = "Built " + $timestamp.ToString("MMM d, HH:mm 'UTC'", [Globalization.CultureInfo]::InvariantCulture)
@@ -148,7 +165,7 @@ $commitText = if ($BuildCommit) { "Commit: $BuildCommit" } else { "Commit not re
 $highContrastFlags = $null
 $process = $null
 try {
-    foreach ($activation in @("invoke", "keyboard")) {
+    foreach ($activation in @("invoke", "mouse", "keyboard")) {
         $process = Start-Process -FilePath $AppPath -PassThru
         $deadline = [DateTime]::UtcNow.AddSeconds(15)
         do {
@@ -205,6 +222,9 @@ try {
                 $highContrastFlags = [BuildIdentityReviewKeyboard]::GetHighContrastFlags()
                 [BuildIdentityReviewKeyboard]::SetHighContrastFlags($highContrastFlags -bor 1)
                 Start-Sleep -Seconds 2
+                if (([BuildIdentityReviewKeyboard]::GetHighContrastFlags() -band 1) -eq 0) {
+                    throw "High contrast did not activate on the CI desktop."
+                }
                 Assert-RibbonText
                 if ($ScreenshotDirectory) {
                     Save-UiReviewWindowScreenshot -WindowHandle $process.MainWindowHandle `
@@ -217,6 +237,12 @@ try {
             if ($activation -eq "keyboard") {
                 $ribbon.SetFocus()
                 [System.Windows.Forms.SendKeys]::SendWait(" ")
+                Start-Sleep -Milliseconds 300
+            } elseif ($activation -eq "mouse") {
+                $text = Find-Element $compactTimestamp ([System.Windows.Automation.ControlType]::Text)
+                $rectangle = $text.Current.BoundingRectangle
+                [BuildIdentityReviewKeyboard]::Click(
+                    [int]($rectangle.Left + $rectangle.Width / 2), [int]($rectangle.Top + $rectangle.Height / 2))
                 Start-Sleep -Milliseconds 300
             } else {
                 Invoke-Button $ribbonName
@@ -258,7 +284,7 @@ try {
         $process.WaitForExit()
         $process = $null
     }
-    Write-Host "$BuildKind title, version, visible timestamp, tooltip, ribbon lifetime, keyboard acknowledgment, narrow layout, and About navigation passed."
+    Write-Host "$BuildKind title, version, visible timestamp, tooltip, ribbon lifetime, mouse/keyboard acknowledgment, narrow layout, and About navigation passed."
 }
 finally {
     if ($null -ne $highContrastFlags) { [BuildIdentityReviewKeyboard]::SetHighContrastFlags($highContrastFlags) }
