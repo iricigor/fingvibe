@@ -12,6 +12,15 @@ their relevant cards.
 **Run checks**, **Cancel**, and run progress appear near the top of the
 **Network path and status** card, above the diagram.
 
+<a href="screenshots/network-troubleshooting.png"><img src="screenshots/network-troubleshooting.png" alt="FingVibe Network troubleshooting controls and complete network diagram, including LAN peers, this PC, router, upstream hop, internet, Cloudflare, and Google, with network-specific addresses redacted" width="1280"></a>
+
+User-supplied native screenshot showing **Connection and checks** together with
+the complete **Network path and status** diagram, without the top-right
+test-build ribbon. Network-specific LAN, subnet, gateway, and WAN addresses
+were redacted with the user's approval. This is the ready state: no diagnostic
+checks have run, and the diagram is illustrative, not discovered topology.
+[Capture provenance and reproduction](screenshots/README.md#tool-screenshots).
+
 ## Checks and network requests
 
 The independent checkpoints are loopback (`127.0.0.1`), this PC's selected LAN
@@ -61,7 +70,16 @@ if it recreates or conflates profiles, FingVibe cannot establish a stronger
 physical-network identity. Router WAN addresses can change, so the field remains
 editable. Network changes cancel results and refresh the context.
 
-## Interpreting the illustration and status
+## LAN diagram
+
+The screenshot above includes the complete diagram, from LAN peers and this PC
+through the router and upstream hop to the internet and both public providers.
+[Open the diagram and controls at full size](screenshots/network-troubleshooting.png).
+Hollow ports and **Untested** labels are deliberate: this capture is not a
+successful diagnostic run or a real network map.
+[Capture details](screenshots/README.md#tool-screenshots).
+
+### Interpreting the illustration and status
 
 Gray LAN peers are shown above this PC and the router, schematically connected
 to the router with curved-corner elbow connector lines. The PC-to-router,

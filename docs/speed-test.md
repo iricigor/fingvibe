@@ -1,5 +1,19 @@
 # Cloudflare speed test
 
+Open **Tools > Speed test** and select **Start test**. Review and confirm the
+data-use disclosure before measurements begin; use **Cancel** to stop a run.
+Download, upload, and HTTP latency describe this PC's internet connection,
+not throughput between LAN devices.
+
+<a href="screenshots/speed-test.png"><img src="screenshots/speed-test.png" alt="FingVibe Speed test page ready to start, with Cloudflare disclosure and download and upload cards awaiting measurements" width="680"></a>
+
+Native UI-review capture, cropped to the tool content to exclude the test-build
+ribbon. No live speed test was run and no measured results are implied.
+The gauges continue below this viewport.
+[Capture provenance and reproduction](screenshots/README.md#tool-screenshots).
+
+## Engine and privacy
+
 FingVibe bundles Cloudflare's official `@cloudflare/speedtest` browser engine at version **1.15.0**. The committed `src/FingVibe.App/Assets/SpeedTest/speedtest.js` was copied from the npm package; its SHA-256 is `49f86775d394bc2196b74fabd96bb2e331d707e0c899630613d2cee6cc211adb`. The package's MIT notice is included alongside the asset. The app does not load a mutable third-party script at runtime.
 
 The engine runs in a WebView2 page served from FingVibe's local virtual host. That page permits scripts only from its bundled assets and connections only to `https://speed.cloudflare.com`; it exposes no native host objects. The bridge accepts only validated messages from the exact local page and current test run. Cloudflare's default engine configuration is used with manual start, no packet-loss/TURN test, and the default `__results` reporting endpoint; bandwidth measurements use Cloudflare's `__down` and `__up` endpoints.

@@ -75,13 +75,24 @@ corrections require a six-byte MAC address, not just an IP; randomized MACs
 can break those associations. Data stays separate from automatic scan evidence,
 and load/save errors are shown rather than silently overwriting a damaged file.
 
-**Tools → Import from Fing** accepts a local `.xlsx` export, previews additions
+**Tools → [Import from Fing](docs/fing-import.md)** accepts a local `.xlsx` export, previews additions
 and per-field conflicts, and preserves your customizations unless you explicitly
 replace them. Create missing people/rooms on their management pages and analyze
 again; import never creates entries automatically. **Fing Only** means never
 observed locally, and imported IPs do not establish online presence.
 See [inventory and import](docs/reference.md#inventory-and-fing-import) for status
 semantics, supported exports, and storage migration.
+
+### Tools and guides
+
+Each guide includes a native screenshot with sample data or privacy redactions.
+
+| Tool | Guide |
+| --- | --- |
+| [Import from Fing](docs/fing-import.md) | Review an Excel export and choose which changes to keep. |
+| [Speed test](docs/speed-test.md) | Measure internet download, upload, and latency with Cloudflare. |
+| [Network troubleshooting](docs/network-troubleshooting.md) | Run ICMP, DNS, and traceroute checks; interpret the [LAN diagram](docs/network-troubleshooting.md#lan-diagram). |
+| [About FingVibe](docs/about.md) | Find the app version, build identity, and source links. |
 
 ## 🚀 Run locally
 
