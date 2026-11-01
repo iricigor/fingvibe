@@ -85,7 +85,7 @@ semantics, supported exports, and storage migration.
 
 ### Tools and guides
 
-Each guide includes a native screenshot with privacy-safe review data.
+Each guide includes a native screenshot with sample data or privacy redactions.
 
 | Tool | Guide |
 | --- | --- |

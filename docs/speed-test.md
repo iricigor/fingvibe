@@ -5,11 +5,11 @@ data-use disclosure before measurements begin; use **Cancel** to stop a run.
 Download, upload, and HTTP latency describe this PC's internet connection,
 not throughput between LAN devices.
 
-<a href="screenshots/speed-test.png"><img src="screenshots/speed-test.png" alt="FingVibe Speed test page ready to start, with Cloudflare disclosure and a download card awaiting measurements" width="960"></a>
+<a href="screenshots/speed-test.png"><img src="screenshots/speed-test.png" alt="FingVibe Speed test page ready to start, with Cloudflare disclosure and download and upload cards awaiting measurements" width="680"></a>
 
-Native UI-review capture in the ready state: no live speed test was run and
-no measured results are implied. The gauges and upload card continue below
-this viewport.
+Native UI-review capture, cropped to the tool content to exclude the test-build
+ribbon. No live speed test was run and no measured results are implied.
+The gauges continue below this viewport.
 [Capture provenance and reproduction](screenshots/README.md#tool-screenshots).
 
 ## Engine and privacy

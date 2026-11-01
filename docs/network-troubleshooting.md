@@ -12,10 +12,13 @@ their relevant cards.
 **Run checks**, **Cancel**, and run progress appear near the top of the
 **Network path and status** card, above the diagram.
 
-<a href="screenshots/network-troubleshooting.png"><img src="screenshots/network-troubleshooting.png" alt="FingVibe Network troubleshooting page with safe loopback adapter context and optional router WAN address" width="960"></a>
+<a href="screenshots/network-troubleshooting.png"><img src="screenshots/network-troubleshooting.png" alt="FingVibe Network troubleshooting controls and complete network diagram, including LAN peers, this PC, router, upstream hop, internet, Cloudflare, and Google, with network-specific addresses redacted" width="1280"></a>
 
-Native UI-review capture using a loopback adapter, not a private LAN.
-Review mode disables diagnostic probes and WAN preference loading/saving.
+User-supplied native screenshot showing **Connection and checks** together with
+the complete **Network path and status** diagram, without the top-right
+test-build ribbon. Network-specific LAN, subnet, gateway, and WAN addresses
+were redacted with the user's approval. This is the ready state: no diagnostic
+checks have run, and the diagram is illustrative, not discovered topology.
 [Capture provenance and reproduction](screenshots/README.md#tool-screenshots).
 
 ## Checks and network requests
@@ -69,14 +72,12 @@ editable. Network changes cancel results and refresh the context.
 
 ## LAN diagram
 
-<a href="screenshots/lan-diagram.png"><img src="screenshots/lan-diagram.png" alt="FingVibe LAN diagram showing illustrative peers, this PC, home router, and untested logical ports in review mode" width="960"></a>
-
-Native review-mode view of the diagram's **LAN portion**, scrolled to
-**Network path and status**. The viewport shows illustrative peers, this PC,
-and the home router; scroll the diagram horizontally to see the remaining
-upstream and public-provider checkpoints. Hollow ports and **Untested** labels
-are deliberate: this capture is not a successful diagnostic run or a real
-network map. [Capture details](screenshots/README.md#tool-screenshots).
+The screenshot above includes the complete diagram, from LAN peers and this PC
+through the router and upstream hop to the internet and both public providers.
+[Open the diagram and controls at full size](screenshots/network-troubleshooting.png).
+Hollow ports and **Untested** labels are deliberate: this capture is not a
+successful diagnostic run or a real network map.
+[Capture details](screenshots/README.md#tool-screenshots).
 
 ### Interpreting the illustration and status
 
