@@ -275,6 +275,9 @@ function Test-SettingsLayout {
     if ((Find-SidebarElement AutomationId NetworkNavItem).Current.BoundingRectangle.Width / $scale -lt 80) {
         Switch-SidebarPane
     }
+    $scroll = (Find-SidebarElement AutomationId SettingsPage).GetCurrentPattern(
+        [System.Windows.Automation.ScrollPattern]::Pattern)
+    if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
     $name = $checkboxes[0]
     $toggle = $name.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
     $toggle.Toggle()
