@@ -87,13 +87,13 @@ function Focus-SidebarWindow {
 }
 
 function Save-SidebarAppearance([string] $Name, [switch] $AssertMatchingSolid) {
-    $menuBounds = (Find-SidebarElement AutomationId NetworkNavItem).Current.BoundingRectangle
-    $windowBounds = Get-UiReviewWindowBounds $windowHandle
     $path = Join-Path $ScreenshotDirectory "$Name.png"
     Focus-SidebarWindow
     Start-Sleep -Milliseconds 250
     Save-UiReviewWindowScreenshot $windowHandle $path
     if (-not $AssertMatchingSolid) { return }
+    $menuBounds = (Find-SidebarElement AutomationId NetworkNavItem).Current.BoundingRectangle
+    $windowBounds = Get-UiReviewWindowBounds $windowHandle
     $bitmap = [System.Drawing.Bitmap]::new($path)
     try {
         $x = [int] ($menuBounds.Left - $windowBounds.Left + 80 * $scale)
@@ -217,6 +217,9 @@ function Test-SettingsLayout {
         if ($width -ge 640) { Save-SidebarAppearance "settings-layout-$width" }
     }
     Set-SidebarWindowWidth $expandedWidth
+    if ((Find-SidebarElement AutomationId NetworkNavItem).Current.BoundingRectangle.Width / $scale -lt 80) {
+        Switch-SidebarPane
+    }
     $name = $checkboxes[0]
     $toggle = $name.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
     $toggle.Toggle()

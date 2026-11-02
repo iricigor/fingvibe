@@ -1,6 +1,30 @@
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 & {
+    $sidebarAst = [System.Management.Automation.Language.Parser]::ParseFile(
+        (Join-Path $PSScriptRoot "SidebarNavigation.Tests.ps1"), [ref]$null, [ref]$null)
+    $save = $sidebarAst.Find({
+        param($node)
+        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+            $node.Name -eq "Save-SidebarAppearance"
+    }, $true)
+    if (-not $save) { throw "Missing sidebar screenshot helper." }
+    Invoke-Expression $save.Extent.Text
+    $ScreenshotDirectory = $env:TEMP
+    $windowHandle = [IntPtr]::new(1)
+    $captures = [System.Collections.Generic.List[string]]::new()
+    function Focus-SidebarWindow {}
+    function Start-Sleep { param([int] $Milliseconds) }
+    function Find-SidebarElement { throw "Narrow Settings captures must not require visible navigation items." }
+    function Get-UiReviewWindowBounds { throw "Background comparison bounds are not needed for a layout capture." }
+    function Save-UiReviewWindowScreenshot {
+        param($WindowHandle, [string] $Path)
+        $captures.Add($Path)
+    }
+    Save-SidebarAppearance "settings-layout-640"
+    if ($captures.Count -ne 1) { throw "The narrow Settings screenshot was not captured exactly once." }
+}
+& {
     . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
     $item = [pscustomobject]@{ Current = [pscustomobject]@{ Name = "Colorful"; IsOffscreen = $false } }
     $itemSelection = [pscustomobject]@{}
