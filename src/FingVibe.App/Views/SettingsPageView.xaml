@@ -24,7 +24,7 @@
                         <ComboBox x:Name="ModePicker"
                                   Header="Mode"
                                   HorizontalAlignment="Stretch"
-                                  SelectionChanged="AppearancePicker_SelectionChanged">
+                                  SelectionChanged="ModePicker_SelectionChanged">
                             <ComboBoxItem Content="Light" />
                             <ComboBoxItem Content="Dark" />
                         </ComboBox>

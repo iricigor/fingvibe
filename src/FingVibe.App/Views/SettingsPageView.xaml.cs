@@ -40,27 +40,29 @@ public sealed partial class SettingsPageView : UserControl
         }
     }
 
+    private void ModePicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        var styleIndex = ThemePicker.SelectedIndex;
+        var wasUpdating = _updatingAppearance;
+        _updatingAppearance = true;
+        try
+        {
+            // Replace the item so the selected display and automation name refresh together.
+            ThemePicker.Items[1] = new ComboBoxItem
+            {
+                Content = ModePicker.SelectedIndex == 1 ? "True Black (OLED)" : "Warm"
+            };
+            ThemePicker.SelectedIndex = styleIndex;
+        }
+        finally
+        {
+            _updatingAppearance = wasUpdating;
+        }
+        AppearancePicker_SelectionChanged(sender, e);
+    }
+
     private void AppearancePicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (ReferenceEquals(sender, ModePicker))
-        {
-            var styleIndex = ThemePicker.SelectedIndex;
-            var wasUpdating = _updatingAppearance;
-            _updatingAppearance = true;
-            try
-            {
-                // Replace the item so the selected display and automation name refresh together.
-                ThemePicker.Items[1] = new ComboBoxItem
-                {
-                    Content = ModePicker.SelectedIndex == 1 ? "True Black (OLED)" : "Warm"
-                };
-                ThemePicker.SelectedIndex = styleIndex;
-            }
-            finally
-            {
-                _updatingAppearance = wasUpdating;
-            }
-        }
         if (!_updatingAppearance && SelectedAppearance is not null)
         {
             AppearanceChanged?.Invoke(this, e);
