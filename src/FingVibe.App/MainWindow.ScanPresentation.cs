@@ -13,6 +13,8 @@ public sealed partial class MainWindow
 
     private void ScanHeader_SizeChanged(object sender, SizeChangedEventArgs e)
     {
+        ScanHeader.Margin = new Thickness(
+            MainNavigation.DisplayMode == NavigationViewDisplayMode.Minimal ? 72 : 24, 16, 224, 8);
         var narrow = ScanHeader.ActualWidth < 480;
         Grid.SetRow(NetworkPicker, narrow ? 1 : 0);
         Grid.SetColumn(NetworkPicker, narrow ? 0 : 1);
