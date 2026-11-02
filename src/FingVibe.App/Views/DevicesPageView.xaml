@@ -71,55 +71,55 @@
                     <Border Background="{ThemeResource ControlFillColorSecondaryBrush}"
                             BorderBrush="{ThemeResource ScannerCardBorderBrush}" BorderThickness="1"
                             CornerRadius="8" Padding="8">
-                    <Grid x:Name="DeviceFilters" ColumnSpacing="8" RowSpacing="8"
-                          SizeChanged="DeviceFilters_SizeChanged">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <Grid x:Name="DeviceSearchFilters" ColumnSpacing="8">
+                        <Grid x:Name="DeviceFilters" ColumnSpacing="8" RowSpacing="8"
+                              SizeChanged="DeviceFilters_SizeChanged">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBox x:Name="ResultSearchBox"
-                                     PlaceholderText="Search devices"
-                                     AutomationProperties.Name="Search devices"
-                                     TextChanged="ResultSearchBox_TextChanged" />
-                            <ComboBox x:Name="InventoryStatusFilter" Grid.Column="1" Style="{StaticResource FilterStyle}"
-                                      AutomationProperties.Name="Filter by device status"
-                                      SelectionChanged="InventoryStatusFilter_SelectionChanged" />
-                        </Grid>
-                        <Grid x:Name="DeviceFilterOptions" Grid.Column="1" ColumnSpacing="8" RowSpacing="8"
-                              HorizontalAlignment="Left">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="180" />
-                                <ColumnDefinition Width="180" />
-                                <ColumnDefinition Width="180" />
-                            </Grid.ColumnDefinitions>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-                            <ComboBox x:Name="PersonFilter" Style="{StaticResource FilterStyle}" HorizontalAlignment="Left"
-                                      AutomationProperties.Name="Filter by person"
-                                      SelectionChanged="PeopleRoomFilter_SelectionChanged" />
-                            <ComboBox x:Name="RoomFilter" Grid.Column="1" Style="{StaticResource FilterStyle}" HorizontalAlignment="Left"
-                                      AutomationProperties.Name="Filter by room"
-                                      SelectionChanged="PeopleRoomFilter_SelectionChanged" />
-                            <Border x:Name="OpenPortsFilterContainer" Grid.Column="2" Width="180" MinHeight="32"
-                                    Padding="10,0" Background="{ThemeResource ControlFillColorDefaultBrush}"
-                                    BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
-                                    BorderThickness="1" CornerRadius="4" Tapped="OpenPortsFilterContainer_Tapped">
-                                <CheckBox x:Name="OpenPortsFilter" Content="With open ports"
-                                          HorizontalAlignment="Stretch" MinHeight="0"
-                                          Checked="OpenPortsFilter_Changed" Unchecked="OpenPortsFilter_Changed" />
-                            </Border>
+                            <Grid x:Name="DeviceSearchFilters" ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="ResultSearchBox"
+                                         PlaceholderText="Search devices"
+                                         AutomationProperties.Name="Search devices"
+                                         TextChanged="ResultSearchBox_TextChanged" />
+                                <ComboBox x:Name="InventoryStatusFilter" Grid.Column="1" Style="{StaticResource FilterStyle}"
+                                          AutomationProperties.Name="Filter by device status"
+                                          SelectionChanged="InventoryStatusFilter_SelectionChanged" />
+                            </Grid>
+                            <Grid x:Name="DeviceFilterOptions" Grid.Column="1" ColumnSpacing="8" RowSpacing="8"
+                                  HorizontalAlignment="Left">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="180" />
+                                    <ColumnDefinition Width="180" />
+                                    <ColumnDefinition Width="180" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <ComboBox x:Name="PersonFilter" Style="{StaticResource FilterStyle}" HorizontalAlignment="Left"
+                                          AutomationProperties.Name="Filter by person"
+                                          SelectionChanged="PeopleRoomFilter_SelectionChanged" />
+                                <ComboBox x:Name="RoomFilter" Grid.Column="1" Style="{StaticResource FilterStyle}" HorizontalAlignment="Left"
+                                          AutomationProperties.Name="Filter by room"
+                                          SelectionChanged="PeopleRoomFilter_SelectionChanged" />
+                                <Border x:Name="OpenPortsFilterContainer" Grid.Column="2" Width="180" MinHeight="32"
+                                        Padding="10,0" Background="{ThemeResource ControlFillColorDefaultBrush}"
+                                        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                        BorderThickness="1" CornerRadius="4" Tapped="OpenPortsFilterContainer_Tapped">
+                                    <CheckBox x:Name="OpenPortsFilter" Content="With open ports"
+                                              HorizontalAlignment="Stretch" MinHeight="0"
+                                              Checked="OpenPortsFilter_Changed" Unchecked="OpenPortsFilter_Changed" />
+                                </Border>
+                            </Grid>
                         </Grid>
-                    </Grid>
                     </Border>
                 </StackPanel>
                 <ScrollViewer Grid.Row="1"
@@ -189,22 +189,22 @@
                                     <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibleStarWidth(Columns.Response.IsVisible), Mode=OneWay}" />
                                 </Grid.ColumnDefinitions>
                                 <Grid Visibility="{x:Bind Columns.Status.IsVisible, Mode=OneWay}">
-                                <Button Tag="Status" Click="SortHeader_Click" Margin="0,0,12,0"
-                                        Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by status">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <TextBlock Text="Status" FontWeight="SemiBold" />
-                                        <TextBlock x:Name="StatusSortGlyph" />
-                                    </StackPanel>
-                                </Button>
+                                    <Button Tag="Status" Click="SortHeader_Click" Margin="0,0,12,0"
+                                            Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by status">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="Status" FontWeight="SemiBold" />
+                                            <TextBlock x:Name="StatusSortGlyph" />
+                                        </StackPanel>
+                                    </Button>
                                 </Grid>
                                 <Grid Grid.Column="1" Visibility="{x:Bind Columns.Response.IsVisible, Mode=OneWay}">
-                                <Button Tag="Response" Click="SortHeader_Click" Margin="0,0,12,0" HorizontalContentAlignment="Right"
-                                        Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by response time">
-                                    <StackPanel Orientation="Horizontal" Spacing="6">
-                                        <TextBlock Text="Response" FontWeight="SemiBold" />
-                                        <TextBlock x:Name="ResponseSortGlyph" />
-                                    </StackPanel>
-                                </Button>
+                                    <Button Tag="Response" Click="SortHeader_Click" Margin="0,0,12,0" HorizontalContentAlignment="Right"
+                                            Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by response time">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="Response" FontWeight="SemiBold" />
+                                            <TextBlock x:Name="ResponseSortGlyph" />
+                                        </StackPanel>
+                                    </Button>
                                 </Grid>
                                 <local:ColumnResizeGrip x:Name="ConnectionResizeGrip" Grid.ColumnSpan="2"
                                                         Column="{x:Bind Columns.Connection, Mode=OneWay}" AutomationProperties.Name="{x:Bind Columns.Connection.ResizeLabel, Mode=OneWay}"
@@ -311,13 +311,13 @@
                                                       ToolTipService.ToolTip="{x:Bind IconSource, Mode=OneWay}"
                                                       AutomationProperties.Name="{x:Bind IconSource, Mode=OneWay}" />
                                             <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
-                                            <TextBlock x:Name="DeviceNameText" Text="{x:Bind NameText, Mode=OneWay}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"
-                                                       FontFamily="Segoe UI Emoji" Opacity="{x:Bind NameOpacity, Mode=OneWay}"
-                                                       ToolTipService.ToolTip="{x:Bind NameText, Mode=OneWay}" />
-                                            <TextBlock x:Name="DeviceTypeLabel" Text="{x:Bind local:DeviceColumnLayoutHelpers.MetadataText(DeviceTypeText), Mode=OneWay}"
-                                                       FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                       Visibility="{x:Bind Columns.Type.IsVisible, Mode=OneWay}" TextTrimming="CharacterEllipsis"
-                                                       ToolTipService.ToolTip="{x:Bind DeviceTypeSource, Mode=OneWay}" />
+                                                <TextBlock x:Name="DeviceNameText" Text="{x:Bind NameText, Mode=OneWay}" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"
+                                                           FontFamily="Segoe UI Emoji" Opacity="{x:Bind NameOpacity, Mode=OneWay}"
+                                                           ToolTipService.ToolTip="{x:Bind NameText, Mode=OneWay}" />
+                                                <TextBlock x:Name="DeviceTypeLabel" Text="{x:Bind local:DeviceColumnLayoutHelpers.MetadataText(DeviceTypeText), Mode=OneWay}"
+                                                           FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                           Visibility="{x:Bind Columns.Type.IsVisible, Mode=OneWay}" TextTrimming="CharacterEllipsis"
+                                                           ToolTipService.ToolTip="{x:Bind DeviceTypeSource, Mode=OneWay}" />
                                             </StackPanel>
                                         </Grid>
                                         <TextBlock Grid.Column="1" FontFamily="Consolas" TextTrimming="CharacterEllipsis"
@@ -358,65 +358,65 @@
                                                 <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibleStarWidth(Columns.Status.IsVisible), Mode=OneWay}" />
                                                 <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibleStarWidth(Columns.Response.IsVisible), Mode=OneWay}" />
                                             </Grid.ColumnDefinitions>
-                                        <Grid x:Name="DeviceStatusCell" Visibility="{x:Bind Columns.Status.IsVisible, Mode=OneWay}"
-                                              ToolTipService.ToolTip="{x:Bind StatusContext}">
-                                            <Border Visibility="{x:Bind IsOnline}" Padding="8,3" CornerRadius="10"
-                                                    HorizontalAlignment="Left" VerticalAlignment="Center"
-                                                    Background="{ThemeResource ScannerOnlineBackgroundBrush}">
-                                                <StackPanel Orientation="Horizontal" Spacing="5">
-                                                    <Ellipse Width="5" Height="5" Fill="{ThemeResource ScannerOnlineForegroundBrush}" />
-                                                    <TextBlock Text="{x:Bind StatusLabel}" FontSize="11" FontWeight="SemiBold"
-                                                               Foreground="{ThemeResource ScannerOnlineForegroundBrush}" />
-                                                </StackPanel>
-                                            </Border>
-                                            <Border Visibility="{x:Bind IsOffline}" Padding="8,3" CornerRadius="10"
-                                                    HorizontalAlignment="Left" VerticalAlignment="Center"
-                                                    Background="{ThemeResource ScannerOfflineBackgroundBrush}">
-                                                <StackPanel Orientation="Horizontal" Spacing="5">
-                                                    <Ellipse Width="5" Height="5" Fill="{ThemeResource ScannerOfflineForegroundBrush}" />
-                                                    <TextBlock Text="{x:Bind StatusLabel}" FontSize="11" FontWeight="SemiBold"
-                                                               Foreground="{ThemeResource ScannerOfflineForegroundBrush}" />
-                                                </StackPanel>
-                                            </Border>
-                                            <Border Visibility="{x:Bind IsFingOnly}" Padding="8,3" CornerRadius="10"
-                                                    HorizontalAlignment="Left" VerticalAlignment="Center"
-                                                    Background="{ThemeResource ScannerImportedBackgroundBrush}">
-                                                <StackPanel Orientation="Horizontal" Spacing="5">
-                                                    <Ellipse Width="5" Height="5" Fill="{ThemeResource ScannerImportedForegroundBrush}" />
-                                                    <TextBlock Text="{x:Bind StatusLabel}" FontSize="11" FontWeight="SemiBold"
-                                                               Foreground="{ThemeResource ScannerImportedForegroundBrush}" />
-                                                </StackPanel>
-                                            </Border>
-                                            <Border Visibility="{x:Bind IsHistorical}" Padding="8,3" CornerRadius="10"
-                                                    HorizontalAlignment="Left" VerticalAlignment="Center"
-                                                    Background="{ThemeResource ScannerOfflineBackgroundBrush}">
-                                                <StackPanel Orientation="Horizontal" Spacing="5">
-                                                    <Ellipse Width="5" Height="5" Fill="{ThemeResource ScannerOfflineForegroundBrush}" />
-                                                    <TextBlock Text="{x:Bind StatusLabel}" FontSize="11" FontWeight="SemiBold"
-                                                               Foreground="{ThemeResource ScannerOfflineForegroundBrush}" />
-                                                </StackPanel>
-                                            </Border>
-                                        </Grid>
-                                        <Grid x:Name="DeviceResponseCell" Grid.Column="1" Height="24" VerticalAlignment="Center"
-                                              Visibility="{x:Bind Columns.Response.IsVisible, Mode=OneWay}"
-                                              ToolTipService.ToolTip="Relative to responding hosts in this scan: green is fastest, red is slowest.">
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="*" />
-                                                <RowDefinition Height="4" />
-                                            </Grid.RowDefinitions>
-                                            <TextBlock x:Name="ResponseTimeText" Text="{x:Bind local:DeviceColumnLayoutHelpers.MetadataText(LatencyLabel), Mode=OneWay}" FontFamily="Consolas" TextAlignment="Right"
-                                                       VerticalAlignment="Top" />
-                                            <ProgressBar Minimum="0" Maximum="100" Value="{x:Bind LatencyFill, Mode=OneWay}"
-                                                         Grid.Row="1" Visibility="{x:Bind HasLatency, Mode=OneWay}" Height="4" VerticalAlignment="Center"
-                                                         AutomationProperties.Name="{x:Bind LatencyLabel}">
-                                                <ProgressBar.Foreground>
-                                                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
-                                                        <GradientStop Color="#22C55E" Offset="0" />
-                                                        <GradientStop Color="{Binding LatencyFraction, Converter={StaticResource LatencyColorConverter}}" Offset="1" />
-                                                    </LinearGradientBrush>
-                                                </ProgressBar.Foreground>
-                                            </ProgressBar>
-                                        </Grid>
+                                            <Grid x:Name="DeviceStatusCell" Visibility="{x:Bind Columns.Status.IsVisible, Mode=OneWay}"
+                                                  ToolTipService.ToolTip="{x:Bind StatusContext}">
+                                                <Border Visibility="{x:Bind IsOnline}" Padding="8,3" CornerRadius="10"
+                                                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                        Background="{ThemeResource ScannerOnlineBackgroundBrush}">
+                                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                                        <Ellipse Width="5" Height="5" Fill="{ThemeResource ScannerOnlineForegroundBrush}" />
+                                                        <TextBlock Text="{x:Bind StatusLabel}" FontSize="11" FontWeight="SemiBold"
+                                                                   Foreground="{ThemeResource ScannerOnlineForegroundBrush}" />
+                                                    </StackPanel>
+                                                </Border>
+                                                <Border Visibility="{x:Bind IsOffline}" Padding="8,3" CornerRadius="10"
+                                                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                        Background="{ThemeResource ScannerOfflineBackgroundBrush}">
+                                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                                        <Ellipse Width="5" Height="5" Fill="{ThemeResource ScannerOfflineForegroundBrush}" />
+                                                        <TextBlock Text="{x:Bind StatusLabel}" FontSize="11" FontWeight="SemiBold"
+                                                                   Foreground="{ThemeResource ScannerOfflineForegroundBrush}" />
+                                                    </StackPanel>
+                                                </Border>
+                                                <Border Visibility="{x:Bind IsFingOnly}" Padding="8,3" CornerRadius="10"
+                                                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                        Background="{ThemeResource ScannerImportedBackgroundBrush}">
+                                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                                        <Ellipse Width="5" Height="5" Fill="{ThemeResource ScannerImportedForegroundBrush}" />
+                                                        <TextBlock Text="{x:Bind StatusLabel}" FontSize="11" FontWeight="SemiBold"
+                                                                   Foreground="{ThemeResource ScannerImportedForegroundBrush}" />
+                                                    </StackPanel>
+                                                </Border>
+                                                <Border Visibility="{x:Bind IsHistorical}" Padding="8,3" CornerRadius="10"
+                                                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                        Background="{ThemeResource ScannerOfflineBackgroundBrush}">
+                                                    <StackPanel Orientation="Horizontal" Spacing="5">
+                                                        <Ellipse Width="5" Height="5" Fill="{ThemeResource ScannerOfflineForegroundBrush}" />
+                                                        <TextBlock Text="{x:Bind StatusLabel}" FontSize="11" FontWeight="SemiBold"
+                                                                   Foreground="{ThemeResource ScannerOfflineForegroundBrush}" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </Grid>
+                                            <Grid x:Name="DeviceResponseCell" Grid.Column="1" Height="24" VerticalAlignment="Center"
+                                                  Visibility="{x:Bind Columns.Response.IsVisible, Mode=OneWay}"
+                                                  ToolTipService.ToolTip="Relative to responding hosts in this scan: green is fastest, red is slowest.">
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="*" />
+                                                    <RowDefinition Height="4" />
+                                                </Grid.RowDefinitions>
+                                                <TextBlock x:Name="ResponseTimeText" Text="{x:Bind local:DeviceColumnLayoutHelpers.MetadataText(LatencyLabel), Mode=OneWay}" FontFamily="Consolas" TextAlignment="Right"
+                                                           VerticalAlignment="Top" />
+                                                <ProgressBar Minimum="0" Maximum="100" Value="{x:Bind LatencyFill, Mode=OneWay}"
+                                                             Grid.Row="1" Visibility="{x:Bind HasLatency, Mode=OneWay}" Height="4" VerticalAlignment="Center"
+                                                             AutomationProperties.Name="{x:Bind LatencyLabel}">
+                                                    <ProgressBar.Foreground>
+                                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                            <GradientStop Color="#22C55E" Offset="0" />
+                                                            <GradientStop Color="{Binding LatencyFraction, Converter={StaticResource LatencyColorConverter}}" Offset="1" />
+                                                        </LinearGradientBrush>
+                                                    </ProgressBar.Foreground>
+                                                </ProgressBar>
+                                            </Grid>
                                         </Grid>
                                         <TextBlock Grid.Column="5" FontFamily="Consolas" FontSize="11" TextTrimming="CharacterEllipsis"
                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"

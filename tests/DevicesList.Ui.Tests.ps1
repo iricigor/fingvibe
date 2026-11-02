@@ -403,6 +403,8 @@ try {
     if ((Find-DeviceElement ResultCountText).Current.Name -ne "0 of 80 devices") { throw "Search count regressed." }
     $search.SetValue("")
     Start-Sleep -Milliseconds 200
+    Set-DeviceFilterChoice InventoryStatusFilter Online
+    Set-DeviceFilterChoice RoomFilter Unassigned
     foreach ($theme in $UiReviewAppearanceThemes) {
         Select-DevicePage Settings
         Set-UiReviewTheme -Root $root -Theme $theme
@@ -410,6 +412,8 @@ try {
         Assert-DeviceStripes "devices-$theme"
         Assert-HeaderUnderline $theme
     }
+    Set-DeviceFilterChoice InventoryStatusFilter "All statuses"
+    Set-DeviceFilterChoice RoomFilter "All rooms"
     $scroll = (Find-DeviceElement ResultsList).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     $scroll.SetScrollPercent(-1, 100)
     Start-Sleep -Milliseconds 250

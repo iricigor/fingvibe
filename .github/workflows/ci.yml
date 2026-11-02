@@ -299,6 +299,13 @@ jobs:
             -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
             -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-review\sidebar"
 
+      - name: Verify Devices filters and conditional columns
+        shell: pwsh
+        run: |
+          .\tests\DevicesList.Ui.Tests.ps1 `
+            -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
+            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-review\devices"
+
       - name: Verify build identity and About navigation
         shell: pwsh
         run: |

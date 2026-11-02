@@ -222,11 +222,11 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public Guid? PersonId => _personId;
     public Guid? RoomId => _roomId;
     public string PersonShortName => _personId is null || string.IsNullOrWhiteSpace(_personShortName) ? "-" : _personShortName;
-    public string PersonFullName => _personName ?? "Unassigned";
+    public string PersonFullName => _personId is null || string.IsNullOrWhiteSpace(_personName) ? "Unassigned" : _personName;
     public string RoomShortName => _roomId is null || string.IsNullOrWhiteSpace(_roomShortName) ? "-" : _roomShortName;
-    public string RoomFullName => _roomName ?? "Unassigned";
-    public double PersonOpacity => _personId is null ? 0.65 : 1;
-    public double RoomOpacity => _roomId is null ? 0.65 : 1;
+    public string RoomFullName => _roomId is null || string.IsNullOrWhiteSpace(_roomName) ? "Unassigned" : _roomName;
+    public double PersonOpacity => _personId is null || string.IsNullOrWhiteSpace(_personShortName) ? 0.65 : 1;
+    public double RoomOpacity => _roomId is null || string.IsNullOrWhiteSpace(_roomShortName) ? 0.65 : 1;
     public InventoryDeviceStatus Status => VirtualDevice?.Status
         ?? (_historical && _inventoryDevice?.Status != InventoryDeviceStatus.FingOnly ? (InventoryDeviceStatus?)InventoryDeviceStatus.Unknown : null)
         ?? _inventoryDevice?.Status
@@ -243,7 +243,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
             ? $"{StatusLabel}{(IsHistorical ? " · historical" : string.Empty)} · {observation.Subnet} · last seen {observation.LastSeen:g}"
             : StatusLabel + (IsHistorical ? " · historical scan observation" : string.Empty);
     public double NameOpacity => NameText == AddressText || NameText == "-" ? 0.65 : 1;
-    public double VendorOpacity => VendorText is "Unknown" or "-" ? 0.65 : 1;
+    public double VendorOpacity => string.IsNullOrWhiteSpace(VendorText) || VendorText is "Unknown" or "-" ? 0.65 : 1;
     public double OperatingSystemOpacity => OperatingSystem == DeviceOperatingSystem.Unknown ? 0.65 : 1;
     public double DeviceTypeOpacity => Type == DeviceType.Unknown ? 0.65 : 1;
     public bool HasLatency => _showLatency && IsOnline && Result?.RoundtripTimeMilliseconds is >= 0;

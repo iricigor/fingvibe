@@ -93,6 +93,8 @@ public sealed class ScanResultRowTests
 
         Assert.Equal("-", row.PersonShortName);
         Assert.Equal("-", row.RoomShortName);
+        Assert.Equal("Unassigned", row.PersonFullName);
+        Assert.Equal("Unassigned", row.RoomFullName);
         Assert.Equal(0.65, row.PersonOpacity);
         Assert.Equal(0.65, row.RoomOpacity);
 
@@ -126,6 +128,8 @@ public sealed class ScanResultRowTests
         row.SetPeopleRoomAssignments(Guid.NewGuid(), "", "Person", Guid.NewGuid(), " ", "Room");
         Assert.Equal("-", row.PersonShortName);
         Assert.Equal("-", row.RoomShortName);
+        Assert.Equal(0.65, row.PersonOpacity);
+        Assert.Equal(0.65, row.RoomOpacity);
     }
 
     [Fact]

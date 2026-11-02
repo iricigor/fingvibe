@@ -228,11 +228,11 @@ function Test-SettingsLayout {
             }
         }
         foreach ($mandatory in @($checkboxes[0], $checkboxes[1])) {
-        if ($mandatory.Current.IsEnabled -or $mandatory.GetCurrentPattern(
-                [System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne
-                [System.Windows.Automation.ToggleState]::On) {
-            throw "Name and IP address must remain checked and mandatory."
-        }
+            if ($mandatory.Current.IsEnabled -or $mandatory.GetCurrentPattern(
+                    [System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne
+                    [System.Windows.Automation.ToggleState]::On) {
+                throw "Name and IP address must remain checked and mandatory."
+            }
         }
         if ($width -ge 640) { Save-SidebarAppearance "settings-layout-$width" }
     }
