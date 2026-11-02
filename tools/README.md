@@ -1,5 +1,12 @@
 # Install FingVibe from the right-click menu
 
+For normal installation and updates, prefer the release's unsigned
+`FingVibe-<version>-win-x64-Setup.exe`. It installs for the current user without
+administrator rights and provides shortcuts and a registered uninstaller.
+See [installer behavior and limitations](../docs/reference.md#download-builds).
+The ZIP script below remains a convenience for unmanaged copies. Do not use it
+to update an installer-managed copy; run the newer Setup instead.
+
 `Install-FingVibe.ps1` unblocks a selected release ZIP, extracts it to
 `%LOCALAPPDATA%\Programs\FingVibe`, and launches `FingVibe.App.exe`. It requires
 Windows PowerShell 5.1 or later and does not need administrator rights.

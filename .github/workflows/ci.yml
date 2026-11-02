@@ -84,6 +84,10 @@ jobs:
         shell: pwsh
         run: .\tests\BuildIdentity.Metadata.Tests.ps1
 
+      - name: Test installer packaging helpers
+        shell: pwsh
+        run: .\tests\Installer.Script.Tests.ps1
+
   build:
     needs: [changes, tests]
     if: needs.changes.outputs.build == 'true'
@@ -135,6 +139,35 @@ jobs:
       - name: Verify published build timestamp
         shell: pwsh
         run: .\tests\BuildIdentity.Metadata.Tests.ps1 -AppDirectory "${{ github.workspace }}\artifacts\fingvibe-win-x64" -BuildTimestamp "${{ steps.publish.outputs.build-timestamp }}"
+
+      - name: Build unsigned per-user installer
+        shell: pwsh
+        run: .\tools\New-Installer.ps1 -AppDirectory artifacts\fingvibe-win-x64 -Version "0.0.${{ github.run_number }}" -OutputDirectory artifacts\installer
+
+      - name: Verify installer lifecycle on disposable runner
+        shell: pwsh
+        run: |
+          .\tests\Installer.Lifecycle.Tests.ps1 `
+            -AppDirectory artifacts\fingvibe-win-x64 `
+            -InstallerPath "artifacts\installer\FingVibe-0.0.${{ github.run_number }}-win-x64-Setup.exe" `
+            -Version "0.0.${{ github.run_number }}" -LogDirectory artifacts\installer-logs
+
+      - name: Upload installer diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fingvibe-installer-logs-pr-${{ github.event.pull_request.number || github.run_number }}-attempt-${{ github.run_attempt }}
+          path: artifacts\installer-logs
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Upload tested installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: fingvibe-setup-win-x64-pr-${{ github.event.pull_request.number || github.run_number }}-attempt-${{ github.run_attempt }}
+          path: artifacts\installer\*-Setup.exe
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Upload runnable app
         id: upload
