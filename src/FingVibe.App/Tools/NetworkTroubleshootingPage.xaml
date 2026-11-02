@@ -88,7 +88,9 @@
                             </StackPanel>
                             <StackPanel x:Name="CloudflareNode" Canvas.Left="900" Canvas.Top="0" Width="250" />
                             <StackPanel x:Name="GoogleNode" Canvas.Left="900" Canvas.Top="150" Width="250" />
-                            <Ellipse x:Name="DiagramDot" Width="6" Height="6" Visibility="Collapsed"
+                            <Ellipse x:Name="DiagramDot" Width="8" Height="8" Visibility="Collapsed"
+                                     IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                            <Ellipse x:Name="DiagramEndpoint" Width="8" Height="8" Visibility="Collapsed"
                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
                             <Ellipse x:Name="DiagramPulse" StrokeThickness="2" Visibility="Collapsed"
                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />

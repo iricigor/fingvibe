@@ -107,10 +107,14 @@ Detailed hop and traceroute text shows **Responder** first and labels
 **Trace target** separately, so `1.1.1.1` is not mistaken for the responding
 upstream router. A destination actually reached at hop 2 remains an observed
 destination response rather than a guessed router.
-While checks run, one **6-DIP** dot illustrates the active request along the
-connector lines. It travels outward in a neutral color; a confirmed response
-pulses the corresponding **14-DIP** port and returns green. An unanswered check
-or error flashes red at the target and fades without a return journey. Each
+While checks run, one **8-DIP** dot illustrates the active request along the
+connector lines at a constant **480 DIPs/second** in either direction. Farther
+checkpoints take longer to reach; crossings behind icons count toward travel
+time but hide the moving dot rather than making it jump across the gaps.
+It travels outward in a neutral color. On a confirmed response, a separate
+endpoint dot grows from **8 to 18 DIPs and back** over **0.4 seconds** at the
+corresponding **14-DIP** port before the request dot returns green. An unanswered
+check or error pulses red at the target, then fades without a return journey. Each
 color describes that check, not general node availability. Ping and DNS remain
 separate. Loopback, self-ping, and Windows configured DNS pulse locally at the
 PC; configured DNS can be cached and has no known resolver path in this diagram.

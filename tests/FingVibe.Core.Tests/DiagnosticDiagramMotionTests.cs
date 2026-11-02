@@ -26,6 +26,10 @@ public sealed class DiagnosticDiagramMotionTests
         }, canvas.Elements().Where(element => element.Name.LocalName == "Path")
             .Take(5).Select(element => (string?)element.Attribute("Data")));
         Assert.Single(canvas.Elements(), element => (string?)element.Attribute(xaml + "Name") == "DiagramDot");
+        var endpoint = canvas.Elements().Single(element => (string?)element.Attribute(xaml + "Name") == "DiagramEndpoint");
+        Assert.Equal("Collapsed", (string?)endpoint.Attribute("Visibility"));
+        Assert.Equal("False", (string?)endpoint.Attribute("IsHitTestVisible"));
+        Assert.Equal("Raw", (string?)endpoint.Attribute("AutomationProperties.AccessibilityView"));
     }
 
     [Fact]
@@ -36,15 +40,17 @@ public sealed class DiagnosticDiagramMotionTests
         motion.Observe(DiagnosticCheckpoint.Gateway, DiagnosticState.Responded);
         motion.Observe(DiagnosticCheckpoint.GooglePing, DiagnosticState.Running);
         motion.Observe(DiagnosticCheckpoint.GooglePing, DiagnosticState.Unanswered);
-        Assert.Equal(6, DiagnosticDiagramMotion.DotSize);
+        Assert.Equal(8, DiagnosticDiagramMotion.DotSize);
         Assert.Equal(DiagnosticCheckpoint.Gateway, motion.Checkpoint);
         Assert.Equal(DiagnosticState.Running, motion.State);
         Assert.Equal(0, motion.Progress);
         motion.Advance(0.1);
         Assert.InRange(motion.Progress, 0.01, 0.99);
-        Advance(motion, 0.92);
+        Advance(motion, 2 * DiagnosticDiagramMotion.TravelTime(DiagnosticCheckpoint.Gateway)
+            + DiagnosticDiagramMotion.PulseSeconds - 0.1 + 0.02);
         Assert.Equal(DiagnosticCheckpoint.GooglePing, motion.Checkpoint);
-        Advance(motion, 0.9);
+        Advance(motion, DiagnosticDiagramMotion.TravelTime(DiagnosticCheckpoint.GooglePing)
+            + DiagnosticDiagramMotion.PulseSeconds + DiagnosticDiagramMotion.FadeSeconds + 0.1);
         Assert.False(motion.HasWork);
         Assert.Null(motion.Checkpoint);
     }
@@ -63,11 +69,11 @@ public sealed class DiagnosticDiagramMotionTests
         Assert.NotEqual(pulse, motion.Pulse);
         motion.Observe(DiagnosticCheckpoint.GooglePing, DiagnosticState.Responded);
         Assert.Equal(DiagnosticState.Responded, motion.State);
-        Advance(motion, 0.3);
+        Advance(motion, DiagnosticDiagramMotion.PulseSeconds + 0.2);
         Assert.InRange(motion.Progress, 0.01, 0.99);
         Assert.Equal(1, motion.Opacity);
         Assert.False(motion.ShowPulse);
-        Advance(motion, 0.3);
+        Advance(motion, motion.TravelSeconds);
         Assert.False(motion.HasWork);
     }
 
@@ -79,11 +85,12 @@ public sealed class DiagnosticDiagramMotionTests
         var motion = new DiagnosticDiagramMotion();
         motion.Observe(DiagnosticCheckpoint.CloudflareDns, DiagnosticState.Running);
         motion.Observe(DiagnosticCheckpoint.CloudflareDns, state);
-        Advance(motion, 0.6);
+        Advance(motion, DiagnosticDiagramMotion.TravelTime(DiagnosticCheckpoint.CloudflareDns)
+            + DiagnosticDiagramMotion.PulseSeconds + DiagnosticDiagramMotion.FadeSeconds / 2);
         Assert.Equal(state, motion.State);
         Assert.Equal(1, motion.Progress);
         Assert.InRange(motion.Opacity, 0.1, 0.9);
-        Advance(motion, 0.3);
+        Advance(motion, DiagnosticDiagramMotion.FadeSeconds);
         Assert.False(motion.HasWork);
     }
 
@@ -121,7 +128,7 @@ public sealed class DiagnosticDiagramMotionTests
         motion.Observe(DiagnosticCheckpoint.Hop2, DiagnosticState.Running);
         motion.Observe(DiagnosticCheckpoint.Hop2, DiagnosticState.Running);
         motion.Observe(DiagnosticCheckpoint.Hop2, DiagnosticState.Responded);
-        Advance(motion, 1.1);
+        Advance(motion, 2 * motion.TravelSeconds + DiagnosticDiagramMotion.PulseSeconds + 0.1);
         Assert.False(motion.HasWork);
     }
 
@@ -133,10 +140,12 @@ public sealed class DiagnosticDiagramMotionTests
         motion.Observe(DiagnosticCheckpoint.GooglePing, DiagnosticState.Responded);
         motion.Observe(DiagnosticCheckpoint.GoogleDns, DiagnosticState.Running);
         motion.Observe(DiagnosticCheckpoint.GoogleDns, DiagnosticState.Error);
-        Advance(motion, 0.6);
+        var travelTime = motion.TravelSeconds;
+        Advance(motion, travelTime + 0.2);
         Assert.Equal(DiagnosticCheckpoint.GooglePing, motion.Checkpoint);
         Assert.Equal(DiagnosticState.Responded, motion.State);
-        Advance(motion, 0.96);
+        Advance(motion, travelTime + DiagnosticDiagramMotion.PulseSeconds - 0.2 + 0.02);
+        Advance(motion, motion.TravelSeconds + 0.2);
         Assert.Equal(DiagnosticCheckpoint.GoogleDns, motion.Checkpoint);
         Assert.Equal(DiagnosticState.Error, motion.State);
         Assert.Equal(1, motion.Progress);
@@ -152,24 +161,88 @@ public sealed class DiagnosticDiagramMotionTests
     [InlineData(DiagnosticCheckpoint.CloudflareDns, 992, 55)]
     public void RoutesFollowConnectorsAndEndAtTheCorrectBranch(DiagnosticCheckpoint checkpoint, double x, double y)
     {
-        Assert.Equal((165d, 198d), DiagnosticDiagramMotion.Position(checkpoint, 0));
+        var start = DiagnosticDiagramMotion.Position(checkpoint, 0);
+        Assert.Equal((165d, 198d), (start.X, start.Y));
         var end = DiagnosticDiagramMotion.Position(checkpoint, 1);
         Assert.Equal(x, end.X, 6);
         Assert.Equal(y, end.Y, 6);
         var previousX = 0d;
         var previousY = 198d;
+        var stepDistance = DiagnosticDiagramMotion.TravelTime(checkpoint) * DiagnosticDiagramMotion.Speed / 1000;
         for (var index = 0; index <= 1000; index++)
         {
             var point = DiagnosticDiagramMotion.Position(checkpoint, index / 1000d);
             Assert.True(point.X >= previousX - 0.000001);
             Assert.True(point.Y <= previousY + 0.000001);
             Assert.InRange(point.Y, 55, 198);
-            Assert.False(point.X > 355 && point.X < 435, "Do not draw traffic over the router icon.");
-            Assert.False(point.X > 625 && point.X < 687, "Do not draw traffic over the hop icon.");
-            Assert.False(point.X > 825 && point.X < 865, "Do not draw traffic over the internet icon.");
+            Assert.InRange(Math.Sqrt(Math.Pow(point.X - (index == 0 ? 165 : previousX), 2)
+                + Math.Pow(point.Y - previousY, 2)), 0, stepDistance + 0.000001);
+            if (point.Visible)
+            {
+                Assert.False(point.X > 355 && point.X < 435, "Do not draw traffic over the router icon.");
+                Assert.False(point.X > 625 && point.X < 687, "Do not draw traffic over the hop icon.");
+                Assert.False(point.X > 825 && point.X < 865, "Do not draw traffic over the internet icon.");
+            }
             previousX = point.X;
             previousY = point.Y;
         }
+    }
+
+    [Theory]
+    [InlineData(DiagnosticCheckpoint.Gateway)]
+    [InlineData(DiagnosticCheckpoint.Hop2)]
+    [InlineData(DiagnosticCheckpoint.GooglePing)]
+    [InlineData(DiagnosticCheckpoint.CloudflareDns)]
+    public void TravelSpeedIsConstantAcrossRoutesAndFrameIntervals(DiagnosticCheckpoint checkpoint)
+    {
+        var motion = new DiagnosticDiagramMotion();
+        motion.Observe(checkpoint, DiagnosticState.Running);
+        motion.Advance(0.25);
+        var first = DiagnosticDiagramMotion.Position(checkpoint, motion.Progress);
+        Assert.Equal(165 + DiagnosticDiagramMotion.Speed * 0.25, first.X, 6);
+        Assert.Equal(198, first.Y, 6);
+        Assert.Equal(0.25 / motion.TravelSeconds, motion.Progress, 6);
+        motion.Advance(0.03);
+        var next = DiagnosticDiagramMotion.Position(checkpoint, motion.Progress);
+        Assert.Equal(DiagnosticDiagramMotion.Speed * 0.03, next.X - first.X, 6);
+    }
+
+    [Fact]
+    public void FartherTargetsTakeLongerAndIconGapsDoNotTeleport()
+    {
+        var gatewayTime = DiagnosticDiagramMotion.TravelTime(DiagnosticCheckpoint.Gateway);
+        var hopTime = DiagnosticDiagramMotion.TravelTime(DiagnosticCheckpoint.Hop2);
+        var googleTime = DiagnosticDiagramMotion.TravelTime(DiagnosticCheckpoint.GooglePing);
+        var cloudflareTime = DiagnosticDiagramMotion.TravelTime(DiagnosticCheckpoint.CloudflarePing);
+        Assert.Equal(190 / DiagnosticDiagramMotion.Speed, gatewayTime, 6);
+        Assert.Equal(460 / DiagnosticDiagramMotion.Speed, hopTime, 6);
+        Assert.Equal(820 / DiagnosticDiagramMotion.Speed, googleTime, 6);
+        Assert.True(gatewayTime < hopTime && hopTime < googleTime && googleTime < cloudflareTime);
+        var inRouter = DiagnosticDiagramMotion.Position(DiagnosticCheckpoint.GooglePing, (395d - 165) / 820);
+        Assert.Equal(395, inRouter.X, 6);
+        Assert.False(inRouter.Visible);
+    }
+
+    [Fact]
+    public void EndpointGrowsAndShrinksBeforeAConstantSpeedReturn()
+    {
+        var motion = new DiagnosticDiagramMotion();
+        motion.Observe(DiagnosticCheckpoint.GooglePing, DiagnosticState.Running);
+        motion.Observe(DiagnosticCheckpoint.GooglePing, DiagnosticState.Responded);
+        motion.Advance(motion.TravelSeconds);
+        Assert.True(motion.AtTarget);
+        Assert.True(motion.ShowPulse);
+        Assert.False(motion.Returning);
+        Assert.Equal(8, motion.EndpointSize, 6);
+        Advance(motion, DiagnosticDiagramMotion.PulseSeconds / 2);
+        Assert.Equal(18, motion.EndpointSize, 6);
+        Assert.Equal(1, motion.Progress);
+        Advance(motion, DiagnosticDiagramMotion.PulseSeconds / 2 + 0.1);
+        Assert.True(motion.Returning);
+        Assert.False(motion.ShowPulse);
+        Assert.Equal(8, motion.EndpointSize, 6);
+        var position = DiagnosticDiagramMotion.Position(DiagnosticCheckpoint.GooglePing, motion.Progress);
+        Assert.Equal(985 - DiagnosticDiagramMotion.Speed * 0.1, position.X, 6);
     }
 
     [Theory]

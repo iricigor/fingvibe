@@ -69,25 +69,32 @@ public sealed partial class NetworkTroubleshootingPage
             : state is DiagnosticState.Unanswered or DiagnosticState.Error ? StatusBrush(DiagnosticSummaryKind.Problem)
             : (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"];
         DiagramDot.Fill = brush;
+        DiagramEndpoint.Fill = brush;
         DiagramPulse.Stroke = brush;
         DiagramDot.Opacity = _diagramMotion.Opacity;
-        DiagramDot.Visibility = _diagramMotion.IsLocal ? Visibility.Collapsed : Visibility.Visible;
+        DiagramDot.Visibility = Visibility.Collapsed;
         Windows.Foundation.Point? target = _diagramPorts.TryGetValue(
             checkpoint == DiagnosticCheckpoint.ConfiguredDns ? DiagnosticCheckpoint.LocalAddress : checkpoint, out var port)
             && port.ActualWidth > 0
                 ? port.TransformToVisual(DiagramCanvas).TransformPoint(new(7, 7)) : null;
-        if (!_diagramMotion.IsLocal)
+        if (!_diagramMotion.IsLocal && (!_diagramMotion.AtTarget || _diagramMotion.Returning))
         {
             var position = DiagnosticDiagramMotion.Position(checkpoint, _diagramMotion.Progress);
-            if (_diagramMotion.AtTarget && _diagramMotion.Progress == 1 && target is { } endpoint)
-                position = (endpoint.X, endpoint.Y);
             Canvas.SetLeft(DiagramDot, position.X - DiagnosticDiagramMotion.DotSize / 2);
             Canvas.SetTop(DiagramDot, position.Y - DiagnosticDiagramMotion.DotSize / 2);
+            DiagramDot.Visibility = position.Visible ? Visibility.Visible : Visibility.Collapsed;
         }
         DiagramPulse.Visibility = Visibility.Collapsed;
+        DiagramEndpoint.Visibility = Visibility.Collapsed;
         if (_diagramMotion.ShowPulse && target is { } center)
         {
-            var size = 18 + 8 * _diagramMotion.Pulse;
+            var endpointSize = _diagramMotion.EndpointSize;
+            DiagramEndpoint.Width = DiagramEndpoint.Height = endpointSize;
+            DiagramEndpoint.Opacity = _diagramMotion.Opacity;
+            Canvas.SetLeft(DiagramEndpoint, center.X - endpointSize / 2);
+            Canvas.SetTop(DiagramEndpoint, center.Y - endpointSize / 2);
+            DiagramEndpoint.Visibility = Visibility.Visible;
+            var size = 18 + 14 * _diagramMotion.Pulse;
             DiagramPulse.Width = DiagramPulse.Height = size;
             DiagramPulse.Opacity = _diagramMotion.Opacity * (1 - 0.5 * _diagramMotion.Pulse);
             Canvas.SetLeft(DiagramPulse, center.X - size / 2);
@@ -101,7 +108,7 @@ public sealed partial class NetworkTroubleshootingPage
         _diagramTimer.Stop();
         _diagramClock.Reset();
         _diagramMotion.Reset();
-        DiagramDot.Visibility = DiagramPulse.Visibility = Visibility.Collapsed;
+        DiagramDot.Visibility = DiagramEndpoint.Visibility = DiagramPulse.Visibility = Visibility.Collapsed;
         _diagramDrained?.TrySetResult();
         _diagramDrained = null;
     }
