@@ -56,12 +56,6 @@ public sealed partial class DevicesPageView : UserControl
 
     internal void ShowInventorySummary(string summary) => InventoryCountsText.Text = summary;
 
-    internal void ShowScanStatus(string status)
-    {
-        SnapshotStatusText.Text = status;
-        SnapshotStatusText.Visibility = Visibility.Visible;
-    }
-
     internal void ShowSort(string address, string status, string response, string mac, string os, string type)
     {
         AddressSortGlyph.Text = address;

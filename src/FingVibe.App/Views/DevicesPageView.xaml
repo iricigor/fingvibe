@@ -5,31 +5,30 @@
     xmlns:local="using:FingVibe.App"
     xmlns:models="using:FingVibe.Core.Models">
     <Grid x:Name="DevicesPage" Margin="24,0,24,24">
-        <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid Margin="0,0,0,16" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="DevicesHeading" Text="Devices" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+            <TextBlock x:Name="ResultCountText" Grid.Column="1"
+                       Text="0 devices" VerticalAlignment="Center"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Grid>
+        <Border Grid.Row="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource ScannerCardBorderBrush}"
                 BorderThickness="1"
                 CornerRadius="8">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
-                <Grid Padding="16,10" ColumnSpacing="12">
-                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <FontIcon Glyph="&#xE772;" FontSize="16" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
-                        <TextBlock Text="Devices" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                        <TextBlock x:Name="ResultCountText"
-                                   Text="0 devices"
-                                   VerticalAlignment="Center"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    </StackPanel>
-                </Grid>
-                <StackPanel Grid.Row="1" Margin="16,0,16,8" Spacing="8">
-                    <TextBlock x:Name="SnapshotStatusText"
-                               TextWrapping="Wrap"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                               Visibility="Collapsed" />
+                <StackPanel Margin="16,16,16,8" Spacing="8">
                     <TextBlock x:Name="InventoryCountsText" TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <Grid x:Name="DeviceFilters" ColumnSpacing="8" RowSpacing="8"
@@ -90,7 +89,7 @@
                         </Grid>
                     </Grid>
                 </StackPanel>
-                <ScrollViewer Grid.Row="2"
+                <ScrollViewer Grid.Row="1"
                               HorizontalScrollMode="Auto"
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollMode="Disabled"

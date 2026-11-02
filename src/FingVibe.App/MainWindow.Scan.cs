@@ -24,12 +24,17 @@ public sealed partial class MainWindow
         var network = NetworkPicker.SelectedItem as LanNetwork;
         var context = _displayedScan is { } scan
             ? $"{scan.Freshness(DateTimeOffset.UtcNow)} · {scan.Subnet}"
-                + (scan.Subnet != network?.Cidr ? $" · These results are not for the selected scan target ({network?.Cidr ?? "none"})." : string.Empty)
             : network is null ? "Connect to a LAN to scan" : "Ready for your first scan";
-        var status = string.Join(" · ", new[] { _scanMessage, _snapshotError, _inventoryError, context }
+        var targetWarning = _displayedScan is { } displayed && displayed.Subnet != network?.Cidr
+            ? $"These results are not for the selected scan target ({network?.Cidr ?? "none"})."
+            : null;
+        ScanFreshnessText.Text = context;
+        var status = string.Join(" · ", new[] { _scanMessage, _snapshotError, _inventoryError, targetWarning }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
         ScanStatusText.Text = status;
-        DevicesPage.ShowScanStatus(status);
+        ScanStatusText.Visibility = string.IsNullOrWhiteSpace(status) ? Visibility.Collapsed : Visibility.Visible;
+        ScanMessages.Visibility = _isScanning || !string.IsNullOrWhiteSpace(status)
+            ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private async void ScanButton_Click(object sender, RoutedEventArgs e)
@@ -57,12 +62,13 @@ public sealed partial class MainWindow
         NetworkPicker.IsEnabled = false;
         CancelButton.IsEnabled = true;
         CancelButton.Visibility = Visibility.Visible;
-        ScanProgressBar.Visibility = Visibility.Visible;
+        ScanProgressArea.Visibility = Visibility.Visible;
         _scanCancellation = new CancellationTokenSource();
 
         var total = SubnetCalculator.GetUsableHostCount(network.PrefixLength);
         ScanProgressBar.Maximum = total;
         ScanProgressBar.Value = 0;
+        StartScanPulse();
         var retainedResults = _displayedScan is not null ? " · Displaying retained results" : string.Empty;
         _scanMessage = $"Scanning 0/{total:N0} addresses{retainedResults}";
         UpdateScanStatus();
@@ -77,6 +83,7 @@ public sealed partial class MainWindow
                 return;
             }
             ScanProgressBar.Value = progress.Completed;
+            UpdateScanPulseWidth();
             _scanMessage = $"Scanning {progress.Completed:N0}/{progress.Total:N0} addresses{retainedResults}";
             UpdateScanStatus();
         });
@@ -124,13 +131,15 @@ public sealed partial class MainWindow
             NetworkPicker.IsEnabled = true;
             CancelButton.IsEnabled = false;
             CancelButton.Visibility = Visibility.Collapsed;
-            ScanProgressBar.Visibility = Visibility.Collapsed;
+            ScanProgressArea.Visibility = Visibility.Collapsed;
+            StopScanPulse();
         }
     }
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)
     {
         _scanCancellation?.Cancel();
+        StopScanPulse();
         CancelButton.IsEnabled = false;
         _scanMessage = "Cancelling..." + (_displayedScan is not null ? " · Displaying retained results" : string.Empty);
         UpdateScanStatus();

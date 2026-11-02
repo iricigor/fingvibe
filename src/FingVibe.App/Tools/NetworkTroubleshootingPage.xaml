@@ -4,11 +4,11 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ScrollViewer x:Name="TroubleshootingScroll" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="24,0,24,24" Spacing="16">
-            <Button Content="Back to Tools" Click="BackButton_Click" AutomationProperties.Name="Back to Tools" />
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <FontIcon Glyph="&#xE90F;" FontFamily="Segoe Fluent Icons"
                           FontSize="48" Width="48" Height="48"
@@ -16,6 +16,8 @@
                           IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
                 <TextBlock Grid.Column="1" Text="Network troubleshooting" Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
                            VerticalAlignment="Center" TextWrapping="Wrap" />
+                <Button Grid.Column="2" Content="&#x2190; Tools" Click="BackButton_Click"
+                        AutomationProperties.Name="Back to Tools" VerticalAlignment="Center" />
             </Grid>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="12">
@@ -47,7 +49,8 @@
                 <StackPanel Spacing="12">
                     <TextBlock Text="Network path and status" Style="{ThemeResource SubtitleTextBlockStyle}" />
                     <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button x:Name="RunButton" Content="Run checks" Click="RunButton_Click" AutomationProperties.Name="Run network troubleshooting" />
+                        <Button x:Name="RunButton" Content="Run checks" Click="RunButton_Click"
+                                Style="{ThemeResource AccentButtonStyle}" AutomationProperties.Name="Run network troubleshooting" />
                         <Button x:Name="CancelRunButton" Content="Cancel" IsEnabled="False" Click="CancelButton_Click" AutomationProperties.Name="Cancel network troubleshooting" />
                         <ProgressRing x:Name="RunProgress" IsActive="False" Width="24" Height="24" />
                     </StackPanel>

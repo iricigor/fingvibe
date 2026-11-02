@@ -172,6 +172,31 @@ try {
         SettingsPage = "SettingsPageView"
     }
     $appDirectory = Join-Path $PSScriptRoot "..\src\FingVibe.App"
+    $shellDocument = [xml](Get-Content (Join-Path $appDirectory "MainWindow.xaml") -Raw)
+    $rootGrid = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='RootGrid']")
+    $ribbonArea = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='BuildRibbonArea']")
+    $navigation = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='MainNavigation']")
+    if ($ribbonArea.ParentNode -ne $rootGrid -or $navigation.ParentNode -ne $rootGrid -or
+        $rootGrid.LastChild -ne $ribbonArea) {
+        throw "The build ribbon must overlay navigation as a root sibling, outside the shared header layout."
+    }
+    $ribbon = $ribbonArea.SelectSingleNode(".//*[@*[local-name()='Name']='BuildRibbon']")
+    if ($ribbon.GetAttribute("UseSystemFocusVisuals") -cne "False" -or
+        $ribbon.GetAttribute("GotFocus") -cne "BuildRibbon_FocusChanged" -or
+        $ribbon.GetAttribute("LostFocus") -cne "BuildRibbon_FocusChanged") {
+        throw "The ribbon must use an in-button focus border rather than an unclipped native focus adorner."
+    }
+    $scanHeader = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='ScanHeader']")
+    foreach ($id in @("DetectedNetworkLabel", "NetworkPicker", "ScanFreshnessText")) {
+        $element = $scanHeader.SelectSingleNode(".//*[@*[local-name()='Name']='$id']")
+        if (-not $element -or $element.GetAttribute("VerticalAlignment") -cne "Center") {
+            throw "Shared network element '$id' must be centered in the shell header."
+        }
+    }
+    $progress = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='ScanProgressBar']")
+    if ($progress.GetAttribute("Height") -cne "6" -or $progress.GetAttribute("IsIndeterminate") -eq "True") {
+        throw "Scan progress must stay determinate with a 6-DIP line."
+    }
     $toolsDocument = [System.Xml.XmlDocument]::new()
     $toolsDocument.Load((Join-Path $appDirectory "Tools\ToolsPage.xaml"))
     $toolIcons = @(
@@ -183,6 +208,12 @@ try {
     foreach ($tool in $toolIcons) {
         $pageDocument = [System.Xml.XmlDocument]::new()
         $pageDocument.Load((Join-Path $appDirectory "Tools\$($tool.Page).xaml"))
+        if ($tool.Page -eq "NetworkTroubleshootingPage") {
+            $run = $pageDocument.SelectSingleNode("//*[@*[local-name()='Name']='RunButton']")
+            if ($run.GetAttribute("Style") -cne "{ThemeResource AccentButtonStyle}") {
+                throw "Run checks must use the existing primary-action accent style."
+            }
+        }
         $card = $toolsDocument.SelectSingleNode("//*[@*[local-name()='Name']='$($tool.Card)']")
         if ($card.LocalName -cne "Button" -or $card.GetAttribute("Click") -cne $tool.Click -or
             $card.GetAttribute("AutomationProperties.Name") -cne $tool.Title -or
@@ -198,10 +229,23 @@ try {
             }
             $header = $title.ParentNode
             $columns = $header.SelectNodes("./*[local-name()='Grid.ColumnDefinitions']/*[local-name()='ColumnDefinition']")
+            $isPageTitle = $title -eq $pageTitle
+            $expectedColumns = if ($isPageTitle) { 3 } else { 2 }
             if ($header.LocalName -cne "Grid" -or $header.GetAttribute("ColumnSpacing") -cne "12" -or
-                $columns.Count -ne 2 -or $columns[0].GetAttribute("Width") -cne "Auto" -or
+                $columns.Count -ne $expectedColumns -or $columns[0].GetAttribute("Width") -cne "Auto" -or
                 $columns[1].GetAttribute("Width") -cne "*") {
                 throw "$($tool.Title) must reserve icon space and constrain the title for wrapping."
+            }
+            if ($isPageTitle) {
+                $back = $header.SelectSingleNode("./*[local-name()='Button' and @AutomationProperties.Name='Back to Tools']")
+                if (-not $back -or $columns[2].GetAttribute("Width") -cne "Auto" -or
+                    $back.GetAttribute("Grid.Column") -cne "2" -or
+                    $back.GetAttribute("VerticalAlignment") -cne "Center" -or
+                    $back.GetAttribute("Content") -cne "$([char]0x2190) Tools" -or
+                    $pageDocument.SelectNodes("//*[local-name()='Button' and @AutomationProperties.Name='Back to Tools']").Count -ne 1 -or
+                    $back.HasAttribute("Style")) {
+                    throw "$($tool.Title) must have one neutral back action at the right of its title row."
+                }
             }
             $icons = $header.SelectNodes("./*[local-name()='FontIcon']")
             if ($icons.Count -ne 1) { throw "$($tool.Title) must have exactly one decorative header icon." }

@@ -19,31 +19,28 @@ public sealed partial class MainWindow
         AutomationProperties.SetHelpText(BuildRibbon, build.RibbonToolTip);
         AutomationProperties.SetName(BuildRibbon, build.RibbonAccessibleName);
         BuildRibbonArea.Visibility = build.IsRibbonVisible ? Visibility.Visible : Visibility.Collapsed;
-        UpdateBuildHeaderLayout();
     }
 
     private void BuildRibbon_Click(object sender, RoutedEventArgs e)
     {
         BuildIdentity.Current.Acknowledge();
         BuildRibbonArea.Visibility = Visibility.Collapsed;
-        UpdateBuildHeaderLayout();
         MainNavigation.Focus(FocusState.Programmatic);
-    }
-
-    private void BuildHeader_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateBuildHeaderLayout();
-
-    private void UpdateBuildHeaderLayout()
-    {
-        var hasRibbon = BuildRibbonArea.Visibility == Visibility.Visible;
-        var stackHeader = hasRibbon && BuildHeader.ActualWidth < 720;
-        Grid.SetRow(ScanBar, stackHeader ? 1 : 0);
-        Grid.SetColumnSpan(ScanBar, !hasRibbon || stackHeader ? 2 : 1);
     }
 
     private void AboutFingVibe_Click(object sender, RoutedEventArgs e)
     {
         MainNavigation.SelectedItem = ToolsNavItem;
         ToolsPage.ShowAbout();
+    }
+
+    private void BuildRibbon_FocusChanged(object sender, RoutedEventArgs e) => UpdateBuildRibbonFocusVisual();
+
+    private void UpdateBuildRibbonFocusVisual()
+    {
+        // Native focus adorners escape the rotated button's corner clip.
+        BuildRibbon.BorderBrush = BuildRibbon.Foreground;
+        BuildRibbon.BorderThickness = new Thickness(BuildRibbon.FocusState == FocusState.Unfocused ? 0 : 2);
     }
 
     private void UpdateBuildRibbonColors()
@@ -54,5 +51,6 @@ public sealed partial class MainWindow
         BuildRibbon.Foreground = new SolidColorBrush(_accessibilitySettings.HighContrast
             ? _uiSettings.GetColorValue(Windows.UI.ViewManagement.UIColorType.Foreground)
             : Color.FromArgb(255, 32, 24, 0));
+        UpdateBuildRibbonFocusVisual();
     }
 }

@@ -4,12 +4,11 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ScrollViewer HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="24,0,24,24" Spacing="16">
-            <Button Content="&#x2190; Tools" Click="Back_Click"
-                    AutomationProperties.Name="Back to Tools" />
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <FontIcon Glyph="&#xE946;" FontFamily="Segoe Fluent Icons"
                           FontSize="48" Width="48" Height="48"
@@ -18,6 +17,8 @@
                 <TextBlock x:Name="PageHeading" Grid.Column="1" Text="About FingVibe"
                            Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
                            VerticalAlignment="Center" TextWrapping="Wrap" IsTabStop="True" />
+                <Button Grid.Column="2" Content="&#x2190; Tools" Click="Back_Click"
+                        AutomationProperties.Name="Back to Tools" VerticalAlignment="Center" />
             </Grid>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="8">
