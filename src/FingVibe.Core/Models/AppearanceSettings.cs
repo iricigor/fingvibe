@@ -13,7 +13,9 @@ public enum ThemeVariant
     StandardLight,
     WarmLight,
     StandardDark,
-    OledDark
+    OledDark,
+    ColorfulLight,
+    ColorfulDark
 }
 
 public sealed record AppearanceSettings(

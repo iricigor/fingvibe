@@ -5,6 +5,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
+. (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
 Add-Type -TypeDefinition @"
 using System;
 using System.Net;
@@ -270,11 +271,9 @@ try {
     Invoke-ServiceControl "Scan additional ports"
     Wait-ServiceState { (Find-ServiceControl DeviceUdpScanStatus).Current.Name -like "*2 responded, 0 inconclusive, 0 error*" } "theme fixture confirmation"
     Wait-ServiceState { (Find-ServiceControl DevicePortScanButton).Current.Name -eq "Scan additional ports" } "theme fixture results"
-    foreach ($theme in @("Standard Light", "Warm Light", "Standard Dark", "True Black (OLED)")) {
+    foreach ($theme in $UiReviewAppearanceThemes) {
         Select-ServicePage Settings
-        (Find-ServiceControl ThemePicker).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
-        (Find-ServiceControl $theme -ByName).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-        (Find-ServiceControl ThemePicker).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse()
+        Set-UiReviewTheme -Root $root -Theme $theme
         Select-ServicePage Devices
         Save-ServiceEvidence "services-list-$theme" -DevicesList
         Open-ServiceDetails

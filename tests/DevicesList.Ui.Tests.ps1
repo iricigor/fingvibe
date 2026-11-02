@@ -9,6 +9,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
+. (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
 
 Add-Type -TypeDefinition @"
 using System;
@@ -182,7 +183,7 @@ function Assert-HeaderUnderline([string] $Theme) {
         $header = $bitmap.GetPixel($left, $y - 1)
         $lineBrightness = [int]$line.R + [int]$line.G + [int]$line.B
         $headerBrightness = [int]$header.R + [int]$header.G + [int]$header.B
-        $isLight = $Theme -in @("Standard Light", "Warm Light")
+        $isLight = $Theme -in @("Standard Light", "Warm Light", "Colorful Light")
         if (($isLight -and $lineBrightness -ge $headerBrightness) -or
             (-not $isLight -and $lineBrightness -le $headerBrightness)) {
             throw "Header underline must be darker in light themes and lighter in dark themes."
@@ -281,16 +282,9 @@ try {
     if ((Find-DeviceElement ResultCountText).Current.Name -ne "0 of 80 devices") { throw "Search count regressed." }
     $search.SetValue("")
     Start-Sleep -Milliseconds 200
-    foreach ($theme in @("Standard Light", "Warm Light", "Standard Dark", "True Black (OLED)")) {
+    foreach ($theme in $UiReviewAppearanceThemes) {
         Select-DevicePage Settings
-        $picker = Find-DeviceElement ThemePicker
-        $picker.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
-        $condition = [System.Windows.Automation.PropertyCondition]::new(
-            [System.Windows.Automation.AutomationElement]::NameProperty, $theme)
-        $choice = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
-        if (-not $choice) { throw "Theme '$theme' not found." }
-        $choice.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-        $picker.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse()
+        Set-UiReviewTheme -Root $root -Theme $theme
         Select-DevicePage DevicesNavItem
         Assert-DeviceStripes "devices-$theme"
         Assert-HeaderUnderline $theme

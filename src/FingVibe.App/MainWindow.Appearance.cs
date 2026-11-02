@@ -57,14 +57,12 @@ public sealed partial class MainWindow
 
     private void AppearancePicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!_appearanceReady || SettingsPage.BackdropIndex < 0 || SettingsPage.ThemeIndex < 0)
+        if (!_appearanceReady || SettingsPage.SelectedAppearance is not { } appearance)
         {
             return;
         }
 
-        _appearance = new AppearanceSettings(
-            (WindowBackdrop)SettingsPage.BackdropIndex,
-            (ThemeVariant)SettingsPage.ThemeIndex);
+        _appearance = appearance;
         ApplyAppearance();
         if (IsUiReview)
         {

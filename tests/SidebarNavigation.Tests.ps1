@@ -12,6 +12,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
+. (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
 
 Add-Type -TypeDefinition @"
 using System;
@@ -64,11 +65,12 @@ function Select-SidebarPage([string] $Name, [string] $Sentinel) {
 
 function Set-SidebarAppearance([string] $Picker, [string] $Choice) {
     Select-SidebarPage Settings "Window backdrop"
-    $combo = Find-SidebarElement AutomationId $Picker
-    $combo.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
-    $item = Find-SidebarElement Name $Choice
-    $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-    $combo.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse()
+    if ($Picker -eq "ThemePicker") {
+        Set-UiReviewTheme -Root $root -Theme $Choice
+    }
+    else {
+        Set-UiReviewAppearanceChoice -Root $root -Picker $Picker -Choice $Choice
+    }
     Start-Sleep -Milliseconds 500
     Select-SidebarPage People "Search people"
 }
@@ -121,6 +123,105 @@ function Switch-SidebarPane {
     $toggle = Find-SidebarElement AutomationId TogglePaneButton
     $toggle.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Start-Sleep -Milliseconds 500
+}
+
+function Test-SettingsLayout {
+    Set-SidebarWindowWidth $expandedWidth
+    Select-SidebarPage Settings "Window backdrop"
+    Set-UiReviewAppearanceChoice -Root $root -Picker BackdropPicker -Choice Solid
+    foreach ($style in @("Standard", "Warm", "Colorful")) {
+        Set-UiReviewAppearanceChoice -Root $root -Picker ModePicker -Choice Light
+        Set-UiReviewAppearanceChoice -Root $root -Picker ThemePicker -Choice $style
+        Set-UiReviewAppearanceChoice -Root $root -Picker ModePicker -Choice Dark
+        $expected = if ($style -eq "Warm") { "True Black (OLED)" } else { $style }
+        $picker = Find-SidebarElement AutomationId ThemePicker
+        $selection = $picker.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern)
+        if ($selection.GetCurrentSelection()[0].Current.Name -ne $expected) {
+            throw "Mode switching did not preserve/map theme '$style' to '$expected'."
+        }
+        Set-UiReviewAppearanceChoice -Root $root -Picker ModePicker -Choice Light
+        if ($selection.GetCurrentSelection()[0].Current.Name -ne $style) {
+            throw "Mode switching did not restore theme '$style'."
+        }
+    }
+    foreach ($theme in $UiReviewAppearanceThemes) {
+        Set-UiReviewTheme -Root $root -Theme $theme
+        Save-SidebarAppearance "settings-$theme"
+    }
+    foreach ($width in @($expandedWidth, 640, 480)) {
+        Set-SidebarWindowWidth $width
+        $scroll = (Find-SidebarElement AutomationId SettingsPage).GetCurrentPattern(
+            [System.Windows.Automation.ScrollPattern]::Pattern)
+        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
+        Start-Sleep -Milliseconds 200
+        $pickers = @("ModePicker", "ThemePicker", "BackdropPicker") |
+            ForEach-Object { (Find-SidebarElement AutomationId $_).Current.BoundingRectangle }
+        $inline = $width -eq $expandedWidth
+        if ($inline) {
+            if ([Math]::Abs($pickers[0].Top - $pickers[2].Top) -gt 2 * $scale -or
+                $pickers[0].Right -gt $pickers[1].Left -or $pickers[1].Right -gt $pickers[2].Left) {
+                throw "Appearance selectors must share a non-overlapping row at $width."
+            }
+        }
+        elseif ($pickers[0].Bottom -gt $pickers[1].Top -or $pickers[1].Bottom -gt $pickers[2].Top) {
+            throw "Appearance selectors must stack without overlap at $width."
+        }
+        $reset = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "ResetColumnsButton"))
+        if (-not $reset) { throw "Reset columns is missing." }
+        if ($inline -and ($reset.Current.IsOffscreen -or $scroll.Current.VerticallyScrollable)) {
+            throw "The complete Settings page must fit at $width x 720 without scrolling."
+        }
+        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
+        Start-Sleep -Milliseconds 200
+        $choices = Find-SidebarElement AutomationId ColumnChoices
+        $checkboxes = $choices.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::CheckBox))
+        $headers = @("Name", "IP address", "Vendor", "Open ports", "Status", "Response",
+            "MAC address", "OS", "Device type", "Person", "Room")
+        if ($checkboxes.Count -ne $headers.Count) { throw "Expected all eleven column choices at $width." }
+        $columns = if ($inline) { 3 } elseif ($width -eq 640) { 2 } else { 1 }
+        for ($index = 0; $index -lt $checkboxes.Count; $index++) {
+            $box = $checkboxes[$index]
+            if ($box.Current.Name -ne $headers[$index]) { throw "Column order changed at $width." }
+            $bounds = $box.Current.BoundingRectangle
+            $rowStart = $checkboxes[$index - $index % $columns].Current.BoundingRectangle
+            if ([Math]::Abs($bounds.Top - $rowStart.Top) -gt 2 * $scale) {
+                throw "Expected $columns columns at $width."
+            }
+            if ($index -ge $columns -and $bounds.Top -lt $checkboxes[$index - $columns].Current.BoundingRectangle.Bottom) {
+                throw "Column choices overlap vertically at $width."
+            }
+            if ($index % $columns -gt 0 -and $bounds.Left -lt $checkboxes[$index - 1].Current.BoundingRectangle.Right) {
+                throw "Column choices overlap horizontally at $width."
+            }
+        }
+        $ip = $checkboxes[1]
+        if ($ip.Current.IsEnabled -or $ip.GetCurrentPattern(
+                [System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne
+                [System.Windows.Automation.ToggleState]::On) {
+            throw "IP address must remain checked and mandatory."
+        }
+        if ($width -ge 640) { Save-SidebarAppearance "settings-layout-$width" }
+    }
+    Set-SidebarWindowWidth $expandedWidth
+    $name = Find-SidebarElement Name Name
+    $toggle = $name.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+    $toggle.Toggle()
+    if ($toggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off) {
+        throw "Column visibility did not update."
+    }
+    (Find-SidebarElement AutomationId ResetColumnsButton).GetCurrentPattern(
+        [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    if ($toggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
+        throw "Reset columns did not restore visibility."
+    }
+    Set-UiReviewTheme -Root $root -Theme "Standard Dark"
+    Select-SidebarPage People "Search people"
+    Write-Host "Settings mode/theme mapping, six palettes, responsive bounds, mandatory IP, and column reset passed."
 }
 
 function Wait-DeviceScan {
@@ -249,7 +350,8 @@ try {
         throw "Tools must remain pinned directly above Settings."
     }
     Save-SidebarAppearance "sidebar-expanded" -AssertMatchingSolid
-    foreach ($theme in @("Standard Light", "Warm Light", "Standard Dark", "True Black (OLED)")) {
+    Test-SettingsLayout
+    foreach ($theme in $UiReviewAppearanceThemes) {
         Set-SidebarAppearance ThemePicker $theme
         Save-SidebarAppearance "sidebar-$theme" -AssertMatchingSolid
     }
@@ -280,7 +382,7 @@ try {
         Save-SidebarAppearance "sidebar-overlay-$width" -AssertMatchingSolid
         Select-SidebarPage People "Search people"
     }
-    Write-Host "Sidebar navigation, expanded/compact/overlay layouts, and matching solid backgrounds in all four themes passed; material captures saved."
+    Write-Host "Sidebar navigation, expanded/compact/overlay layouts, and matching solid backgrounds in all six themes passed; material captures saved."
     Test-DeviceRefresh
 }
 finally {

@@ -5,6 +5,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
+. (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
@@ -65,11 +66,7 @@ function Set-ImportScroll([double] $Percent) {
 
 function Set-ImportTheme([string] $Theme) {
     Select-ImportPage Settings
-    $combo = Find-ImportId ThemePicker
-    $combo.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
-    (Find-ImportControl $Theme ([System.Windows.Automation.ControlType]::ListItem)).
-        GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-    $combo.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse()
+    Set-UiReviewTheme -Root $root -Theme $Theme
     Start-Sleep -Milliseconds 500
     Select-ImportPage Tools
     Invoke-ImportControl "Import from Fing"
@@ -268,7 +265,7 @@ try {
         }
         finally { $null = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext($context) }
         Save-ImportFileChip "fing-import-analyzed-file"
-        foreach ($theme in @("Standard Light", "Warm Light", "True Black (OLED)")) {
+        foreach ($theme in $UiReviewAppearanceThemes | Where-Object { $_ -ne "Standard Dark" }) {
             Set-ImportTheme $theme
             Save-ImportFileChip "fing-import-analyzed-file-$theme"
         }
