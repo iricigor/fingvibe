@@ -136,8 +136,10 @@ function Test-SettingsLayout {
         $expected = if ($style -eq "Warm") { "True Black (OLED)" } else { $style }
         $picker = Find-SidebarElement AutomationId ThemePicker
         $selection = $picker.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern)
-        if ($selection.Current.GetSelection()[0].Current.Name -ne $expected) {
-            throw "Mode switching did not preserve/map theme '$style' to '$expected'."
+        $actual = $selection.Current.GetSelection()[0].Current.Name
+        Save-SidebarAppearance "settings-mode-$style"
+        if ($actual -ne $expected) {
+            throw "Mode switching did not preserve/map theme '$style' to '$expected'; got '$actual'."
         }
         Set-UiReviewAppearanceChoice -Root $root -Picker ModePicker -Choice Light
         if ($selection.Current.GetSelection()[0].Current.Name -ne $style) {

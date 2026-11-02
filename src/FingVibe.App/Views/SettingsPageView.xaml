@@ -34,7 +34,7 @@
                                   HorizontalAlignment="Stretch"
                                   SelectionChanged="AppearancePicker_SelectionChanged">
                             <ComboBoxItem Content="Standard" />
-                            <ComboBoxItem x:Name="AlternativeTheme" Content="Warm" />
+                            <ComboBoxItem Content="Warm" />
                             <ComboBoxItem Content="Colorful" />
                         </ComboBox>
                         <ComboBox x:Name="BackdropPicker"

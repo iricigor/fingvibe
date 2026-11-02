@@ -44,7 +44,22 @@ public sealed partial class SettingsPageView : UserControl
     {
         if (ReferenceEquals(sender, ModePicker))
         {
-            AlternativeTheme.Content = ModePicker.SelectedIndex == 1 ? "True Black (OLED)" : "Warm";
+            var styleIndex = ThemePicker.SelectedIndex;
+            var wasUpdating = _updatingAppearance;
+            _updatingAppearance = true;
+            try
+            {
+                // Replace the item so the selected display and automation name refresh together.
+                ThemePicker.Items[1] = new ComboBoxItem
+                {
+                    Content = ModePicker.SelectedIndex == 1 ? "True Black (OLED)" : "Warm"
+                };
+                ThemePicker.SelectedIndex = styleIndex;
+            }
+            finally
+            {
+                _updatingAppearance = wasUpdating;
+            }
         }
         if (!_updatingAppearance && SelectedAppearance is not null)
         {
@@ -55,6 +70,7 @@ public sealed partial class SettingsPageView : UserControl
     private void AppearanceOptions_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         var inline = e.NewSize.Width >= 632;
+        AppearanceOptions.RowSpacing = inline ? 0 : 12;
         FrameworkElement[] pickers = [ModePicker, ThemePicker, BackdropPicker];
         for (var index = 0; index < pickers.Length; index++)
         {
@@ -67,6 +83,7 @@ public sealed partial class SettingsPageView : UserControl
     private void ColumnFooter_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         var inline = e.NewSize.Width >= 632;
+        ColumnFooter.RowSpacing = inline ? 0 : 8;
         Grid.SetColumnSpan(MandatoryColumnNote, inline ? 1 : 2);
         Grid.SetRow(ResetColumnsButton, inline ? 0 : 1);
         Grid.SetColumn(ResetColumnsButton, inline ? 1 : 0);
