@@ -89,12 +89,11 @@ jobs:
         run: .\tests\Installer.Script.Tests.ps1
 
   build:
-    needs: [changes, tests]
+    needs: changes
     if: needs.changes.outputs.build == 'true'
     runs-on: windows-latest
     outputs:
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
-      artifact-url: ${{ steps.upload.outputs.artifact-url }}
       build-timestamp: ${{ steps.publish.outputs.build-timestamp }}
     steps:
       - name: Check out source
@@ -140,6 +139,34 @@ jobs:
         shell: pwsh
         run: .\tests\BuildIdentity.Metadata.Tests.ps1 -AppDirectory "${{ github.workspace }}\artifacts\fingvibe-win-x64" -BuildTimestamp "${{ steps.publish.outputs.build-timestamp }}"
 
+      - name: Upload unvalidated payload for downstream checks
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: fingvibe-validation-payload-pr-${{ github.event.pull_request.number || github.run_number }}-attempt-${{ github.run_attempt }}
+          path: artifacts\fingvibe-win-x64
+          if-no-files-found: error
+          retention-days: 1
+
+  installer:
+    needs: [changes, tests, build]
+    if: needs.changes.outputs.build == 'true'
+    runs-on: windows-latest
+    outputs:
+      artifact-url: ${{ steps.upload.outputs.artifact-url }}
+    steps:
+      - name: Check out installer validation
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Download the published payload
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          merge-multiple: true
+          path: artifacts\fingvibe-win-x64
+
       - name: Build unsigned per-user installer
         shell: pwsh
         run: .\tools\New-Installer.ps1 -AppDirectory artifacts\fingvibe-win-x64 -Version "0.0.${{ github.run_number }}" -OutputDirectory artifacts\installer
@@ -179,7 +206,7 @@ jobs:
           retention-days: 14
 
   build-comment:
-    needs: build
+    needs: installer
     if: >
       github.event_name == 'pull_request'
       && github.event.pull_request.head.repo.full_name == github.repository
@@ -196,7 +223,7 @@ jobs:
 
       - name: Post a new artifact link on pull request
         env:
-          ARTIFACT_URL: ${{ needs.build.outputs.artifact-url }}
+          ARTIFACT_URL: ${{ needs.installer.outputs.artifact-url }}
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -217,7 +244,7 @@ jobs:
             -PullRequestNumber $env:PR_NUMBER -Repository $env:GITHUB_REPOSITORY -Marker $marker -Body $body
 
   ui-capture:
-    needs: [changes, build]
+    needs: [changes, tests, build]
     if: >
       needs.changes.outputs.ui == 'true'
       && (
@@ -240,7 +267,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Download the tested app
+      - name: Download the published payload
         uses: actions/download-artifact@v4
         with:
           artifact-ids: ${{ needs.build.outputs.artifact-id }}
@@ -333,7 +360,7 @@ jobs:
           retention-days: 14
 
   ui-publish:
-    needs: [changes, tests, build, ui-capture]
+    needs: [changes, tests, build, installer, ui-capture]
     if: >
       !cancelled()
       && needs.changes.outputs.ui == 'true'
@@ -355,7 +382,7 @@ jobs:
           persist-credentials: false
 
       - name: Download completed captures
-        if: needs.ui-capture.result == 'success'
+        if: needs.ui-capture.result == 'success' && needs.installer.result == 'success'
         uses: actions/download-artifact@v4
         with:
           name: fingvibe-ui-review-pr-${{ github.event.pull_request.number }}-attempt-${{ github.run_attempt }}
@@ -363,7 +390,7 @@ jobs:
 
       - name: Publish screenshots for inline review
         id: pages
-        if: needs.ui-capture.result == 'success'
+        if: needs.ui-capture.result == 'success' && needs.installer.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -375,7 +402,7 @@ jobs:
 
       - name: Add screenshots to pull request
         id: pr-comment
-        if: needs.ui-capture.result == 'success'
+        if: needs.ui-capture.result == 'success' && needs.installer.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           COMMENT_BODY_PATH: ${{ steps.pages.outputs.body-path }}
@@ -388,10 +415,11 @@ jobs:
           $body >> $env:GITHUB_STEP_SUMMARY
 
       - name: Explain UI/UX review failure
-        if: failure() || needs.tests.result == 'failure' || needs.build.result == 'failure' || needs.ui-capture.result == 'failure'
+        if: failure() || needs.tests.result == 'failure' || needs.build.result == 'failure' || needs.installer.result == 'failure' || needs.ui-capture.result == 'failure'
         env:
           TEST_RESULT: ${{ needs.tests.result }}
           BUILD_RESULT: ${{ needs.build.result }}
+          INSTALLER_RESULT: ${{ needs.installer.result }}
           CAPTURE_RESULT: ${{ needs.ui-capture.result }}
           PAGES_OUTCOME: ${{ steps.pages.outcome }}
           COMMENT_OUTCOME: ${{ steps.pr-comment.outcome }}
@@ -401,8 +429,9 @@ jobs:
         shell: pwsh
         run: |
           $reasons = [System.Collections.Generic.List[string]]::new()
-          if ($env:TEST_RESULT -eq "failure") { $reasons.Add("- Regression tests failed; build and UI validation could not proceed.") }
-          if ($env:BUILD_RESULT -eq "failure") { $reasons.Add("- The Windows app could not be published or its runnable artifact could not be uploaded.") }
+          if ($env:TEST_RESULT -eq "failure") { $reasons.Add("- Regression tests failed; installer and UI validation could not proceed. App publishing runs independently.") }
+          if ($env:BUILD_RESULT -eq "failure") { $reasons.Add("- The Windows app could not be published or its validation payload could not be uploaded.") }
+          if ($env:INSTALLER_RESULT -eq "failure") { $reasons.Add("- Installer packaging, lifecycle validation, or tested download publication failed. Inspect the installer job and its diagnostic logs.") }
           if ($env:CAPTURE_RESULT -eq "failure") { $reasons.Add("- Native UI validation or capture failed. Inspect the failed step and download available capture plans, screenshots, and diagnostic logs from this run.") }
           if ($env:PAGES_OUTCOME -eq "failure") { $reasons.Add("- Screenshot download/publication failed; see the run's diagnostic artifacts.") }
           if ($env:COMMENT_OUTCOME -eq "failure") { $reasons.Add("- Screenshots were published, but their PR comment could not be posted.") }
@@ -413,7 +442,7 @@ jobs:
             -Repository $env:GITHUB_REPOSITORY -Marker $marker -Body $body
 
       - name: Clear resolved UI/UX failure comment
-        if: success() && needs.ui-capture.result == 'success'
+        if: success() && needs.ui-capture.result == 'success' && needs.installer.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -424,7 +453,7 @@ jobs:
 
   ui-ux-review:
     name: ui-ux-review
-    needs: [changes, tests, build, ui-capture, ui-publish]
+    needs: [changes, tests, build, installer, ui-capture, ui-publish]
     if: always()
     runs-on: windows-latest
     steps:
@@ -433,6 +462,9 @@ jobs:
           CHANGES_RESULT: ${{ needs.changes.result }}
           TEST_RESULT: ${{ needs.tests.result }}
           BUILD_RESULT: ${{ needs.build.result }}
+          INSTALLER_RESULT: ${{ needs.installer.result }}
+          TEST_REQUIRED: ${{ needs.changes.outputs.tests }}
+          BUILD_REQUIRED: ${{ needs.changes.outputs.build }}
           UI_REQUIRED: ${{ needs.changes.outputs.ui }}
           CAPTURE_RESULT: ${{ needs.ui-capture.result }}
           PUBLISH_RESULT: ${{ needs.ui-publish.result }}
@@ -441,8 +473,16 @@ jobs:
         shell: pwsh
         run: |
           if ($env:CHANGES_RESULT -ne "success") { throw "Validation planning failed or was cancelled." }
-          if ($env:TEST_RESULT -notin @("success", "skipped") -or $env:BUILD_RESULT -notin @("success", "skipped")) {
+          if ($env:TEST_REQUIRED -notin @("true", "false") -or $env:BUILD_REQUIRED -notin @("true", "false") -or $env:UI_REQUIRED -notin @("true", "false")) {
+            throw "Validation planning returned missing or invalid requirements."
+          }
+          $expectedTests = if ($env:TEST_REQUIRED -eq "true") { "success" } else { "skipped" }
+          $expectedBuild = if ($env:BUILD_REQUIRED -eq "true") { "success" } else { "skipped" }
+          if ($env:TEST_RESULT -ne $expectedTests -or $env:BUILD_RESULT -ne $expectedBuild) {
             throw "Prerequisite tests/build did not pass."
+          }
+          if ($env:INSTALLER_RESULT -ne $expectedBuild) {
+            throw "Required installer validation/download publication did not complete successfully."
           }
           if ($env:UI_REQUIRED -ne "true") {
             "Native UI review is not required for documentation/test-only changes." >> $env:GITHUB_STEP_SUMMARY

@@ -102,13 +102,19 @@ if ($workflow -match 'SatelliteResourceLanguages') {
 Assert-Equal ([regex]::Matches($workflow, 'run: dotnet test ').Count) 1 "Run core tests once"
 Assert-Equal ([regex]::Matches($workflow, 'msbuild src\\FingVibe.App\\FingVibe.App.csproj').Count) 1 "Publish the app once"
 foreach ($pattern in @(
-    '(?s)  build:\s+needs: \[changes, tests\]',
-    '(?s)  ui-capture:\s+needs: \[changes, build\]',
+    '(?s)  tests:\s+name: core-tests\s+needs: changes',
+    '(?s)  build:\s+needs: changes',
+    '(?s)  installer:\s+needs: \[changes, tests, build\]',
+    '(?s)  ui-capture:\s+needs: \[changes, tests, build\]',
+    '(?s)  build-comment:\s+needs: installer',
+    '(?s)  ui-publish:\s+needs: \[changes, tests, build, installer, ui-capture\]',
+    '(?s)  ui-ux-review:\s+name: ui-ux-review\s+needs: \[changes, tests, build, installer, ui-capture, ui-publish\]',
     '(?s)name: Upload UI review captures and diagnostics\s+id: screenshot\s+if: always\(\)',
     'cancel-in-progress: true',
     'group: pr-validation-\$\{\{ github.event.pull_request.number \|\| github.ref \}\}',
     'FINGVIBE_UI_REVIEW: "1"',
     'artifact-ids: \$\{\{ needs.build.outputs.artifact-id \}\}',
+    'ARTIFACT_URL: \$\{\{ needs.installer.outputs.artifact-url \}\}',
     'merge-multiple: true',
     'name: fingvibe-win-x64-pr-.*-attempt-\$\{\{ github.run_attempt \}\}',
     'name: fingvibe-ui-review-pr-.*-attempt-\$\{\{ github.run_attempt \}\}',
@@ -121,6 +127,42 @@ foreach ($pattern in @(
 }
 if (Test-Path (Join-Path $PSScriptRoot "..\.github\workflows\ui-ux-review.yml")) {
     throw "UI validation must not also run in a second PR workflow."
+}
+
+function Get-WorkflowJob([string] $Name) {
+    $match = [regex]::Match($workflow, "(?ms)^  ${Name}:\r?`n.*?(?=^  [a-z][a-z-]*:\r?`n|\z)")
+    if (-not $match.Success) { throw "Workflow job '$Name' was not found." }
+    return $match.Value
+}
+
+$buildJob = Get-WorkflowJob build
+$installerJob = Get-WorkflowJob installer
+$captureJob = Get-WorkflowJob ui-capture
+$publishJob = Get-WorkflowJob ui-publish
+Assert-Equal ([regex]::Matches($workflow, 'artifact-ids: \$\{\{ needs.build.outputs.artifact-id \}\}').Count) 2 "Installer and UI consume the same payload ID"
+Assert-Equal ([regex]::Matches($buildJob, 'uses: actions/upload-artifact@v4').Count) 1 "Publish uploads only the transfer payload"
+if ($buildJob -notmatch '(?s)name: Upload unvalidated payload.*?id: upload.*?name: fingvibe-validation-payload-pr-.*-attempt-\$\{\{ github.run_attempt \}\}.*?retention-days: 1' -or
+    $buildJob -match 'New-Installer|Installer.Lifecycle|name: Upload runnable app|name: Upload tested installer') {
+    throw "Publishing must not advertise tested downloads or wait for installer validation."
+}
+foreach ($job in @($installerJob, $captureJob)) {
+    if ($job -notmatch 'uses: actions/download-artifact@v4' -or $job -match 'msbuild|/target:Publish') {
+        throw "Downstream validation must download the single published payload, not rebuild."
+    }
+}
+if ($installerJob -notmatch '(?s)Download the published payload.*?path: artifacts\\fingvibe-win-x64.*?New-Installer.ps1.*?Installer.Lifecycle.Tests.ps1.*?name: Upload tested installer.*?name: Upload runnable app\s+id: upload' -or
+    $installerJob -notmatch '(?s)name: Upload installer diagnostics\s+if: always\(\)') {
+    throw "Tested downloads must follow installer validation, retaining failure diagnostics."
+}
+foreach ($step in @("Download completed captures", "Publish screenshots for inline review", "Add screenshots to pull request")) {
+    if ($publishJob -notmatch ("(?s)name: " + [regex]::Escape($step) + "\s+(?:id: [^\r\n]+\s+)?if: needs.ui-capture.result == 'success' && needs.installer.result == 'success'")) {
+        throw "Screenshot publication must wait for successful UI and installer checks: $step"
+    }
+}
+if ($publishJob -notmatch 'INSTALLER_RESULT: \$\{\{ needs.installer.result \}\}' -or
+    $publishJob -notmatch "needs.installer.result == 'failure'" -or
+    $publishJob -notmatch 'Installer packaging, lifecycle validation, or tested download publication failed') {
+    throw "Installer failures must be explained by the existing failure publisher."
 }
 
 $smokeMatch = [regex]::Match($workflow, '(?s)- name: Exercise primary UI and capture required views.*?run: \|\r?\n(.*?)\r?\n      - name: Upload UI review')
@@ -159,7 +201,7 @@ throw "Simulated native smoke failure"
 $gateMatch = [regex]::Match($workflow, '(?s)- name: Report validation result.*?run: \|\r?\n(.*)$')
 if (-not $gateMatch.Success) { throw "Required UI gate script was not found." }
 $gate = [scriptblock]::Create(($gateMatch.Groups[1].Value -replace '(?m)^          ', ''))
-$names = @("CHANGES_RESULT", "TEST_RESULT", "BUILD_RESULT", "UI_REQUIRED", "CAPTURE_RESULT", "PUBLISH_RESULT", "TRUSTED", "EVENT_NAME", "GITHUB_STEP_SUMMARY")
+$names = @("CHANGES_RESULT", "TEST_RESULT", "BUILD_RESULT", "INSTALLER_RESULT", "TEST_REQUIRED", "BUILD_REQUIRED", "UI_REQUIRED", "CAPTURE_RESULT", "PUBLISH_RESULT", "TRUSTED", "EVENT_NAME", "GITHUB_STEP_SUMMARY")
 $saved = @{}
 $summary = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-gate-$([Guid]::NewGuid()).txt"
 try {
@@ -168,15 +210,28 @@ try {
     $env:CHANGES_RESULT = "success"
     $env:TEST_RESULT = "success"
     $env:BUILD_RESULT = "success"
+    $env:INSTALLER_RESULT = "success"
+    $env:TEST_REQUIRED = "true"
+    $env:BUILD_REQUIRED = "true"
     $env:UI_REQUIRED = "true"
     $env:CAPTURE_RESULT = "success"
     $env:PUBLISH_RESULT = "success"
     $env:TRUSTED = "true"
     $env:EVENT_NAME = "pull_request"
     & $gate
-    foreach ($result in @("failure", "cancelled", "skipped")) {
-        $env:CAPTURE_RESULT = $result
-        Assert-Throws { & $gate } "*native UI validation did not complete*"
+    foreach ($name in @("TEST_RESULT", "BUILD_RESULT", "INSTALLER_RESULT", "CAPTURE_RESULT", "PUBLISH_RESULT")) {
+        foreach ($result in @("failure", "cancelled", "skipped", "")) {
+            [Environment]::SetEnvironmentVariable($name, $result)
+            Assert-Throws { & $gate } "*did not*"
+        }
+        [Environment]::SetEnvironmentVariable($name, "success")
+    }
+    foreach ($name in @("TEST_REQUIRED", "BUILD_REQUIRED", "UI_REQUIRED")) {
+        foreach ($value in @("", "invalid")) {
+            [Environment]::SetEnvironmentVariable($name, $value)
+            Assert-Throws { & $gate } "*missing or invalid requirements*"
+        }
+        [Environment]::SetEnvironmentVariable($name, "true")
     }
     $env:CAPTURE_RESULT = "success"
     $env:PUBLISH_RESULT = "failure"
@@ -188,15 +243,31 @@ try {
     $env:TRUSTED = "false"
     $env:CAPTURE_RESULT = "skipped"
     & $gate
+    foreach ($result in @("failure", "cancelled", "skipped", "")) {
+        $env:INSTALLER_RESULT = $result
+        Assert-Throws { & $gate } "*installer validation/download publication did not complete*"
+    }
+    $env:INSTALLER_RESULT = "success"
     $env:TRUSTED = "true"
     $env:UI_REQUIRED = "false"
+    $env:TEST_REQUIRED = "false"
+    $env:BUILD_REQUIRED = "false"
     $env:TEST_RESULT = "skipped"
     $env:BUILD_RESULT = "skipped"
+    $env:INSTALLER_RESULT = "skipped"
+    $env:PUBLISH_RESULT = "skipped"
     & $gate
+    $env:TEST_REQUIRED = "true"
+    $env:TEST_RESULT = "success"
+    & $gate
+    $env:TEST_RESULT = "skipped"
+    Assert-Throws { & $gate } "*Prerequisite tests/build did not pass*"
     $env:TEST_RESULT = "failure"
     Assert-Throws { & $gate } "*Prerequisite tests/build did not pass*"
-    $env:CHANGES_RESULT = "failure"
-    Assert-Throws { & $gate } "*Validation planning failed*"
+    foreach ($result in @("failure", "cancelled", "skipped", "")) {
+        $env:CHANGES_RESULT = $result
+        Assert-Throws { & $gate } "*Validation planning failed*"
+    }
 } finally {
     foreach ($name in $names) { [Environment]::SetEnvironmentVariable($name, $saved[$name]) }
     if (Test-Path -LiteralPath $summary) { Remove-Item -LiteralPath $summary }
