@@ -27,12 +27,14 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     $expectedChoices = @(
         @("ModePicker=Light", "ThemePicker=Standard"),
         @("ModePicker=Light", "ThemePicker=Warm"),
-        @("ModePicker=Light", "ThemePicker=Colorful"),
+        @("ModePicker=Light", "ThemePicker=Colored"),
+        @("ModePicker=Light", "ThemePicker=Vivid"),
         @("ModePicker=Dark", "ThemePicker=Standard"),
         @("ModePicker=Dark", "ThemePicker=True Black (OLED)"),
-        @("ModePicker=Dark", "ThemePicker=Colorful")
+        @("ModePicker=Dark", "ThemePicker=Colored"),
+        @("ModePicker=Dark", "ThemePicker=Vivid")
     )
-    Assert-Equal $UiReviewAppearanceThemes.Count 6 "Every appearance variant has UI coverage"
+    Assert-Equal $UiReviewAppearanceThemes.Count 8 "Every appearance variant has UI coverage"
     for ($index = 0; $index -lt $UiReviewAppearanceThemes.Count; $index++) {
         $choices.Clear()
         Set-UiReviewTheme -Root ([pscustomobject]@{}) -Theme $UiReviewAppearanceThemes[$index]
@@ -127,6 +129,7 @@ try {
     Test-Change @{ "src\FingVibe.App\MainWindow.Results.cs" = "changed" } `
         @("Devices", "Settings", "DevicesEmpty") "Results and empty state"
     Test-Change @{ "src\FingVibe.App\App.xaml" = "changed" } @($UiReviewScenarios.Keys) "Shared theme"
+    Test-Change @{ "src\FingVibe.App\SurfaceTreatment.cs" = "changed" } @($UiReviewScenarios.Keys) "Shared visual styles"
     $applicationXaml = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\MainWindow.xaml") -Raw
     $applicationDocument = [System.Xml.XmlDocument]::new()
     $applicationDocument.LoadXml($applicationXaml)

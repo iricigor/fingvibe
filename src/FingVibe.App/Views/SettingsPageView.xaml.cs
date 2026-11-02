@@ -7,9 +7,9 @@ namespace FingVibe.App.Views;
 public sealed partial class SettingsPageView : UserControl
 {
     private static readonly ThemeVariant[] LightThemes =
-        [ThemeVariant.StandardLight, ThemeVariant.WarmLight, ThemeVariant.ColorfulLight];
+        [ThemeVariant.StandardLight, ThemeVariant.WarmLight, ThemeVariant.ColorfulLight, ThemeVariant.VividLight];
     private static readonly ThemeVariant[] DarkThemes =
-        [ThemeVariant.StandardDark, ThemeVariant.OledDark, ThemeVariant.ColorfulDark];
+        [ThemeVariant.StandardDark, ThemeVariant.OledDark, ThemeVariant.ColorfulDark, ThemeVariant.VividDark];
     private bool _updatingAppearance;
 
     public SettingsPageView() => InitializeComponent();
@@ -19,9 +19,11 @@ public sealed partial class SettingsPageView : UserControl
 
     private ThemeVariant[] ModeThemes => ModePicker.SelectedIndex == 1 ? DarkThemes : LightThemes;
     internal AppearanceSettings? SelectedAppearance =>
-        ModePicker.SelectedIndex < 0 || ThemePicker.SelectedIndex < 0 || BackdropPicker.SelectedIndex < 0
+        ModePicker.SelectedIndex < 0 || ThemePicker.SelectedIndex < 0
+            || VisualStylePicker.SelectedIndex < 0 || BackdropPicker.SelectedIndex < 0
             ? null
-            : new AppearanceSettings((WindowBackdrop)BackdropPicker.SelectedIndex, ModeThemes[ThemePicker.SelectedIndex]);
+            : new AppearanceSettings((WindowBackdrop)BackdropPicker.SelectedIndex,
+                ModeThemes[ThemePicker.SelectedIndex], (VisualStyle)VisualStylePicker.SelectedIndex);
     internal string SaveStatus { set => AppearanceSaveStatus.Text = value; }
     internal string MaterialStatus { set => BackdropStatus.Text = value; }
 
@@ -33,6 +35,7 @@ public sealed partial class SettingsPageView : UserControl
             ModePicker.SelectedIndex = Array.IndexOf(DarkThemes, appearance.Theme) >= 0 ? 1 : 0;
             ThemePicker.SelectedIndex = Array.IndexOf(ModeThemes, appearance.Theme);
             BackdropPicker.SelectedIndex = (int)appearance.Backdrop;
+            VisualStylePicker.SelectedIndex = (int)appearance.Style;
         }
         finally
         {
@@ -71,14 +74,14 @@ public sealed partial class SettingsPageView : UserControl
 
     private void AppearanceOptions_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        var inline = e.NewSize.Width >= 632;
-        AppearanceOptions.RowSpacing = inline ? 0 : 12;
-        FrameworkElement[] pickers = [ModePicker, ThemePicker, BackdropPicker];
+        var columns = e.NewSize.Width >= 840 ? 4 : e.NewSize.Width >= 408 ? 2 : 1;
+        AppearanceOptions.RowSpacing = columns == 4 ? 0 : 12;
+        FrameworkElement[] pickers = [ModePicker, ThemePicker, VisualStylePicker, BackdropPicker];
         for (var index = 0; index < pickers.Length; index++)
         {
-            Grid.SetRow(pickers[index], inline ? 0 : index);
-            Grid.SetColumn(pickers[index], inline ? index : 0);
-            Grid.SetColumnSpan(pickers[index], inline ? 1 : 3);
+            Grid.SetRow(pickers[index], index / columns);
+            Grid.SetColumn(pickers[index], index % columns * (4 / columns));
+            Grid.SetColumnSpan(pickers[index], 4 / columns);
         }
     }
 

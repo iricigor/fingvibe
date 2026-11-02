@@ -1,6 +1,6 @@
 $UiReviewAppearanceThemes = @(
-    "Standard Light", "Warm Light", "Colorful Light",
-    "Standard Dark", "True Black (OLED)", "Colorful Dark"
+    "Standard Light", "Warm Light", "Colored Light", "Vivid Light",
+    "Standard Dark", "True Black (OLED)", "Colored Dark", "Vivid Dark"
 )
 
 function Set-UiReviewAppearanceChoice {
@@ -43,16 +43,18 @@ function Set-UiReviewTheme {
     param(
         [Parameter(Mandatory)] $Root,
         [Parameter(Mandatory)]
-        [ValidateSet("Standard Light", "Warm Light", "Colorful Light", "Standard Dark", "True Black (OLED)", "Colorful Dark")]
+        [ValidateSet("Standard Light", "Warm Light", "Colored Light", "Vivid Light", "Standard Dark", "True Black (OLED)", "Colored Dark", "Vivid Dark")]
         [string] $Theme
     )
     $mode, $style = switch ($Theme) {
         "Standard Light" { "Light"; "Standard" }
         "Warm Light" { "Light"; "Warm" }
-        "Colorful Light" { "Light"; "Colorful" }
+        "Colored Light" { "Light"; "Colored" }
+        "Vivid Light" { "Light"; "Vivid" }
         "Standard Dark" { "Dark"; "Standard" }
         "True Black (OLED)" { "Dark"; "True Black (OLED)" }
-        "Colorful Dark" { "Dark"; "Colorful" }
+        "Colored Dark" { "Dark"; "Colored" }
+        "Vivid Dark" { "Dark"; "Vivid" }
     }
     Set-UiReviewAppearanceChoice -Root $Root -Picker ModePicker -Choice $mode
     Set-UiReviewAppearanceChoice -Root $Root -Picker ThemePicker -Choice $style

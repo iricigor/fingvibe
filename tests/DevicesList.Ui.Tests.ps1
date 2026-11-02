@@ -183,7 +183,7 @@ function Assert-HeaderUnderline([string] $Theme) {
         $header = $bitmap.GetPixel($left, $y - 1)
         $lineBrightness = [int]$line.R + [int]$line.G + [int]$line.B
         $headerBrightness = [int]$header.R + [int]$header.G + [int]$header.B
-        $isLight = $Theme -in @("Standard Light", "Warm Light", "Colorful Light")
+        $isLight = $Theme.EndsWith(" Light")
         if (($isLight -and $lineBrightness -ge $headerBrightness) -or
             (-not $isLight -and $lineBrightness -le $headerBrightness)) {
             throw "Header underline must be darker in light themes and lighter in dark themes."

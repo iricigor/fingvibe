@@ -15,8 +15,10 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -29,16 +31,27 @@
                             <ComboBoxItem Content="Dark" />
                         </ComboBox>
                         <ComboBox x:Name="ThemePicker"
-                                  Grid.Row="1" Grid.ColumnSpan="3"
+                                  Grid.Row="1" Grid.ColumnSpan="4"
                                   Header="Theme"
                                   HorizontalAlignment="Stretch"
                                   SelectionChanged="AppearancePicker_SelectionChanged">
                             <ComboBoxItem Content="Standard" />
                             <ComboBoxItem Content="Warm" />
-                            <ComboBoxItem Content="Colorful" />
+                            <ComboBoxItem Content="Colored" />
+                            <ComboBoxItem Content="Vivid" />
+                        </ComboBox>
+                        <ComboBox x:Name="VisualStylePicker"
+                                  Grid.Row="2" Grid.ColumnSpan="4"
+                                  Header="Visual style"
+                                  HorizontalAlignment="Stretch"
+                                  SelectionChanged="AppearancePicker_SelectionChanged">
+                            <ComboBoxItem Content="Standard" />
+                            <ComboBoxItem Content="Glass" />
+                            <ComboBoxItem Content="Clay" />
+                            <ComboBoxItem Content="Neumorphic" />
                         </ComboBox>
                         <ComboBox x:Name="BackdropPicker"
-                                  Grid.Row="2" Grid.ColumnSpan="3"
+                                  Grid.Row="3" Grid.ColumnSpan="4"
                                   Header="Window backdrop"
                                   HorizontalAlignment="Stretch"
                                   SelectionChanged="AppearancePicker_SelectionChanged">
@@ -48,6 +61,8 @@
                             <ComboBoxItem Content="Acrylic" />
                         </ComboBox>
                     </Grid>
+                    <TextBlock Text="Mode sets brightness; Theme sets colors; Visual style shapes surfaces; Window backdrop sets the background material."
+                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock x:Name="BackdropStatus"
                                TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />

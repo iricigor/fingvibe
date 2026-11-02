@@ -20,6 +20,7 @@
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
         </Grid>
         <Border Grid.Row="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                local:SurfaceTreatment.Kind="Card"
                 BorderBrush="{ThemeResource ScannerCardBorderBrush}"
                 BorderThickness="1"
                 CornerRadius="8">

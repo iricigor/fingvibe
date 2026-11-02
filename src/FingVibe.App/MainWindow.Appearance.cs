@@ -37,12 +37,17 @@ public sealed partial class MainWindow
         _appearanceReady = true;
         // HighContrastChanged requires a CoreWindow, which WinUI desktop windows do not have.
         _uiSettings.ColorValuesChanged += Appearance_ColorValuesChanged;
+        _uiSettings.AdvancedEffectsEnabledChanged += Appearance_AdvancedEffectsEnabledChanged;
         Closed += (_, _) =>
         {
             _appearanceClosed = true;
             _uiSettings.ColorValuesChanged -= Appearance_ColorValuesChanged;
+            _uiSettings.AdvancedEffectsEnabledChanged -= Appearance_AdvancedEffectsEnabledChanged;
         };
     }
+
+    private void Appearance_AdvancedEffectsEnabledChanged(UISettings sender, object args) =>
+        Appearance_ColorValuesChanged(sender, args);
 
     private void Appearance_ColorValuesChanged(UISettings sender, object args)
     {
@@ -100,8 +105,12 @@ public sealed partial class MainWindow
 
         var hasBackdrop = ApplyWindowBackdrop();
         UpdateNavigationPaneBackground(MainNavigation.IsPaneOpen);
+        SurfaceTreatment.Apply(_appearance, _accessibilitySettings.HighContrast, _uiSettings.AdvancedEffectsEnabled);
         SettingsPage.MaterialStatus = _accessibilitySettings.HighContrast
             ? "High contrast is active; Windows system colors are used instead of materials."
+            : !_uiSettings.AdvancedEffectsEnabled
+                && (_appearance.Style == VisualStyle.Glass || _appearance.Backdrop != WindowBackdrop.Solid)
+                ? "Windows transparency effects are off; opaque surfaces are used. Your choices are kept."
             : _appearance.Backdrop != WindowBackdrop.Solid && !hasBackdrop
                 ? "This material is unavailable. A solid background is used; your choice is kept."
                 : "Changes are previewed immediately. Material effects also depend on Windows transparency settings.";
@@ -134,7 +143,7 @@ public sealed partial class MainWindow
         {
             // Disconnect the old composition target before connecting a different material.
             SystemBackdrop = null;
-            if (_accessibilitySettings.HighContrast)
+            if (_accessibilitySettings.HighContrast || !_uiSettings.AdvancedEffectsEnabled)
             {
                 return false;
             }

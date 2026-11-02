@@ -34,7 +34,8 @@ public sealed class AppearanceSettingsStore
                 ? new AppearanceSettings(Theme: defaultTheme)
                 : new AppearanceSettings(
                     Enum.IsDefined(settings.Backdrop) ? settings.Backdrop : WindowBackdrop.Solid,
-                    settings.Theme is { } theme && Enum.IsDefined(theme) ? theme : defaultTheme);
+                    settings.Theme is { } theme && Enum.IsDefined(theme) ? theme : defaultTheme,
+                    Enum.IsDefined(settings.Style) ? settings.Style : VisualStyle.Standard);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
         {
@@ -44,12 +45,13 @@ public sealed class AppearanceSettingsStore
 
     private sealed record StoredAppearanceSettings(
         WindowBackdrop Backdrop = WindowBackdrop.Solid,
-        ThemeVariant? Theme = null);
+        ThemeVariant? Theme = null,
+        VisualStyle Style = VisualStyle.Standard);
 
     public void Save(AppearanceSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
-        if (!Enum.IsDefined(settings.Backdrop) || !Enum.IsDefined(settings.Theme))
+        if (!Enum.IsDefined(settings.Backdrop) || !Enum.IsDefined(settings.Theme) || !Enum.IsDefined(settings.Style))
         {
             throw new ArgumentException("The appearance settings are invalid.", nameof(settings));
         }

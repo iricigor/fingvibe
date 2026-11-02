@@ -155,7 +155,7 @@ function Test-SettingsLayout {
         Start-Sleep -Milliseconds 250
     }
     Set-UiReviewAppearanceChoice -Root $root -Picker BackdropPicker -Choice Solid
-    foreach ($style in @("Standard", "Warm", "Colorful")) {
+    foreach ($style in @("Standard", "Warm", "Colored", "Vivid")) {
         Set-UiReviewAppearanceChoice -Root $root -Picker ModePicker -Choice Light
         Set-UiReviewAppearanceChoice -Root $root -Picker ThemePicker -Choice $style
         Set-UiReviewAppearanceChoice -Root $root -Picker ModePicker -Choice Dark
@@ -174,33 +174,69 @@ function Test-SettingsLayout {
     }
     foreach ($theme in $UiReviewAppearanceThemes) {
         Set-UiReviewTheme -Root $root -Theme $theme
+        Set-UiReviewAppearanceChoice -Root $root -Picker VisualStylePicker -Choice Standard
+        Set-UiReviewAppearanceChoice -Root $root -Picker BackdropPicker -Choice Solid
         Save-SidebarAppearance "settings-$theme"
+        foreach ($visualStyle in @("Standard", "Glass", "Clay", "Neumorphic")) {
+            Set-UiReviewAppearanceChoice -Root $root -Picker VisualStylePicker -Choice $visualStyle
+            foreach ($backdrop in @("Solid", "Mica", "Mica Alt", "Acrylic")) {
+                Set-UiReviewAppearanceChoice -Root $root -Picker BackdropPicker -Choice $backdrop
+                $expectedMode, $expectedTheme = switch ($theme) {
+                    "Standard Light" { "Light"; "Standard" }
+                    "Warm Light" { "Light"; "Warm" }
+                    "Colored Light" { "Light"; "Colored" }
+                    "Vivid Light" { "Light"; "Vivid" }
+                    "Standard Dark" { "Dark"; "Standard" }
+                    "True Black (OLED)" { "Dark"; "True Black (OLED)" }
+                    "Colored Dark" { "Dark"; "Colored" }
+                    "Vivid Dark" { "Dark"; "Vivid" }
+                }
+                $expectedChoices = @{
+                    ModePicker = $expectedMode; ThemePicker = $expectedTheme
+                    VisualStylePicker = $visualStyle; BackdropPicker = $backdrop
+                }
+                foreach ($id in $expectedChoices.Keys) {
+                    $selected = (Find-SidebarElement AutomationId $id).GetCurrentPattern(
+                        [System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()
+                    if ($selected.Count -ne 1 -or $selected[0].Current.Name -ne $expectedChoices[$id]) {
+                        throw "Appearance settings are not independent: $theme / $visualStyle / $backdrop / $id."
+                    }
+                }
+            }
+            if ($theme -in @("Standard Light", "Standard Dark")) {
+                Set-UiReviewAppearanceChoice -Root $root -Picker BackdropPicker -Choice Solid
+                Save-SidebarAppearance "settings-$theme-$visualStyle"
+            }
+        }
     }
+    Set-UiReviewAppearanceChoice -Root $root -Picker VisualStylePicker -Choice Standard
+    Set-UiReviewAppearanceChoice -Root $root -Picker BackdropPicker -Choice Solid
     foreach ($width in @($expandedWidth, 640, 480)) {
         Set-SidebarWindowWidth $width
         $scroll = (Find-SidebarElement AutomationId SettingsPage).GetCurrentPattern(
             [System.Windows.Automation.ScrollPattern]::Pattern)
         if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
         Start-Sleep -Milliseconds 200
-        $pickers = @("ModePicker", "ThemePicker", "BackdropPicker") |
+        $pickers = @("ModePicker", "ThemePicker", "VisualStylePicker", "BackdropPicker") |
             ForEach-Object { (Find-SidebarElement AutomationId $_).Current.BoundingRectangle }
         $inline = $width -eq $expandedWidth
-        if ($inline) {
-            if ([Math]::Abs($pickers[0].Top - $pickers[2].Top) -gt 2 * $scale -or
-                $pickers[0].Right -gt $pickers[1].Left -or $pickers[1].Right -gt $pickers[2].Left) {
-                throw "Appearance selectors must share a non-overlapping row at $width."
+        $optionsWidth = (Find-SidebarElement AutomationId SettingsPage).Current.BoundingRectangle.Width / $scale - 82
+        $pickerColumns = if ($optionsWidth -ge 840) { 4 } elseif ($optionsWidth -ge 408) { 2 } else { 1 }
+        for ($index = 0; $index -lt $pickers.Count; $index++) {
+            if ($pickers[$index].Width -le 0) { throw "Appearance picker has no width at $width." }
+            if ($index % $pickerColumns -gt 0 -and
+                ([Math]::Abs($pickers[$index].Top - $pickers[$index - 1].Top) -gt 2 * $scale -or
+                $pickers[$index - 1].Right -gt $pickers[$index].Left)) {
+                throw "Appearance selectors must align without horizontal overlap at $width."
             }
-        }
-        elseif ($pickers[0].Bottom -gt $pickers[1].Top -or $pickers[1].Bottom -gt $pickers[2].Top) {
-            throw "Appearance selectors must stack without overlap at $width."
+            if ($index -ge $pickerColumns -and $pickers[$index - $pickerColumns].Bottom -gt $pickers[$index].Top) {
+                throw "Appearance selector rows overlap at $width."
+            }
         }
         $reset = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
             [System.Windows.Automation.PropertyCondition]::new(
                 [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "ResetColumnsButton"))
         if (-not $reset) { throw "Reset columns is missing." }
-        if ($inline -and ($reset.Current.IsOffscreen -or $scroll.Current.VerticallyScrollable)) {
-            throw "The complete Settings page must fit at $width x 720 without scrolling."
-        }
         if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
         Start-Sleep -Milliseconds 200
         $choices = Find-SidebarElement AutomationId SettingsPage
@@ -250,9 +286,12 @@ function Test-SettingsLayout {
     if ($toggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
         throw "Reset columns did not restore visibility."
     }
+    $scroll = (Find-SidebarElement AutomationId SettingsPage).GetCurrentPattern(
+        [System.Windows.Automation.ScrollPattern]::Pattern)
+    if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
     Set-UiReviewTheme -Root $root -Theme "Standard Dark"
     Select-SidebarPage People "Search people"
-    Write-Host "Settings mode/theme mapping, six palettes, responsive bounds, mandatory IP, and column reset passed."
+    Write-Host "Settings: 128 independent appearance combinations, eight palettes, four styles, responsive bounds, mandatory IP, and column reset passed."
 }
 
 function Wait-DeviceScan {
@@ -414,7 +453,7 @@ try {
         Save-SidebarAppearance "sidebar-overlay-$width" -AssertMatchingSolid
         Select-SidebarPage People "Search people"
     }
-    Write-Host "Sidebar navigation, expanded/compact/overlay layouts, and matching solid backgrounds in all six themes passed; material captures saved."
+    Write-Host "Sidebar navigation, expanded/compact/overlay layouts, and matching solid backgrounds in all eight themes passed; material captures saved."
     Test-DeviceRefresh
 }
 finally {

@@ -15,9 +15,20 @@ public enum ThemeVariant
     StandardDark,
     OledDark,
     ColorfulLight,
-    ColorfulDark
+    ColorfulDark,
+    VividLight,
+    VividDark
+}
+
+public enum VisualStyle
+{
+    Standard,
+    Glass,
+    Clay,
+    Neumorphic
 }
 
 public sealed record AppearanceSettings(
     WindowBackdrop Backdrop = WindowBackdrop.Solid,
-    ThemeVariant Theme = ThemeVariant.StandardLight);
+    ThemeVariant Theme = ThemeVariant.StandardLight,
+    VisualStyle Style = VisualStyle.Standard);

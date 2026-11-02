@@ -26,19 +26,22 @@ public sealed class AppearanceSettingsStoreTests : IDisposable
     }
 
     [Fact]
-    public void SaveAndLoad_PreservesEveryBackdropAndTheme()
+    public void SaveAndLoad_PreservesAll128AppearanceCombinations()
     {
         foreach (var backdrop in Enum.GetValues<WindowBackdrop>())
         {
             foreach (var theme in Enum.GetValues<ThemeVariant>())
             {
-                var settings = new AppearanceSettings(backdrop, theme);
-                new AppearanceSettingsStore(FilePath).Save(settings);
+                foreach (var style in Enum.GetValues<VisualStyle>())
+                {
+                    var settings = new AppearanceSettings(backdrop, theme, style);
+                    new AppearanceSettingsStore(FilePath).Save(settings);
 
-                Assert.Equal(settings, new AppearanceSettingsStore(FilePath).Load());
-                Assert.Equal(settings, new AppearanceSettingsStore(FilePath).Load(ThemeVariant.StandardLight));
-                Assert.Equal(settings, new AppearanceSettingsStore(FilePath).Load(ThemeVariant.StandardDark));
-                Assert.Single(Directory.GetFiles(_directory));
+                    Assert.Equal(settings, new AppearanceSettingsStore(FilePath).Load());
+                    Assert.Equal(settings, new AppearanceSettingsStore(FilePath).Load(ThemeVariant.StandardLight));
+                    Assert.Equal(settings, new AppearanceSettingsStore(FilePath).Load(ThemeVariant.StandardDark));
+                    Assert.Single(Directory.GetFiles(_directory));
+                }
             }
         }
     }
@@ -48,6 +51,8 @@ public sealed class AppearanceSettingsStoreTests : IDisposable
     [InlineData("WarmLight", 1, ThemeVariant.WarmLight)]
     [InlineData("StandardDark", 2, ThemeVariant.StandardDark)]
     [InlineData("OledDark", 3, ThemeVariant.OledDark)]
+    [InlineData("ColorfulLight", 4, ThemeVariant.ColorfulLight)]
+    [InlineData("ColorfulDark", 5, ThemeVariant.ColorfulDark)]
     public void Load_ExistingThemeValues_RemainCompatible(string name, int number, ThemeVariant expected)
     {
         Directory.CreateDirectory(_directory);
@@ -122,7 +127,33 @@ public sealed class AppearanceSettingsStoreTests : IDisposable
         store.Save(settings);
 
         Assert.Throws<ArgumentException>(() => store.Save(settings with { Theme = (ThemeVariant)99 }));
+        Assert.Throws<ArgumentException>(() => store.Save(settings with { Style = (VisualStyle)99 }));
+        Assert.Throws<ArgumentException>(() => store.Save(settings with { Backdrop = (WindowBackdrop)99 }));
         Assert.Equal(settings, store.Load());
+    }
+
+    [Fact]
+    public void Load_InvalidNumericStyle_PreservesThemeAndBackdrop()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(FilePath, "{\"backdrop\":\"Mica\",\"theme\":\"ColorfulDark\",\"style\":99}");
+
+        Assert.Equal(new AppearanceSettings(WindowBackdrop.Mica, ThemeVariant.ColorfulDark),
+            new AppearanceSettingsStore(FilePath).Load());
+    }
+
+    [Fact]
+    public void Load_NewPreferences_DoesNotRewriteDocument()
+    {
+        var settings = new AppearanceSettings(WindowBackdrop.Acrylic, ThemeVariant.VividDark, VisualStyle.Neumorphic);
+        var store = new AppearanceSettingsStore(FilePath);
+        store.Save(settings);
+        var json = File.ReadAllText(FilePath);
+
+        Assert.Equal(settings, store.Load());
+        Assert.Equal(json, File.ReadAllText(FilePath));
+        Assert.Contains("\"style\": \"Neumorphic\"", json);
+        Assert.Contains("\"theme\": \"VividDark\"", json);
     }
 
     public void Dispose()
