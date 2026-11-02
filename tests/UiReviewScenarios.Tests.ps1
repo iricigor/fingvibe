@@ -156,6 +156,12 @@ try {
         $rootGrid.LastChild -ne $ribbonArea) {
         throw "The build ribbon must overlay navigation as a root sibling, outside the shared header layout."
     }
+    $ribbon = $ribbonArea.SelectSingleNode(".//*[@*[local-name()='Name']='BuildRibbon']")
+    if ($ribbon.GetAttribute("UseSystemFocusVisuals") -cne "False" -or
+        $ribbon.GetAttribute("GotFocus") -cne "BuildRibbon_FocusChanged" -or
+        $ribbon.GetAttribute("LostFocus") -cne "BuildRibbon_FocusChanged") {
+        throw "The ribbon must use an in-button focus border rather than an unclipped native focus adorner."
+    }
     $scanHeader = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='ScanHeader']")
     foreach ($id in @("DetectedNetworkLabel", "NetworkPicker", "ScanFreshnessText")) {
         $element = $scanHeader.SelectSingleNode(".//*[@*[local-name()='Name']='$id']")

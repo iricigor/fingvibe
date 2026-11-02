@@ -292,6 +292,8 @@
             </Canvas.Clip>
             <Button x:Name="BuildRibbon" Canvas.Left="-90" Canvas.Top="23"
                     Width="440" Height="44" CornerRadius="0" Padding="12,2"
+                    UseSystemFocusVisuals="False" BorderThickness="0"
+                    GotFocus="BuildRibbon_FocusChanged" LostFocus="BuildRibbon_FocusChanged"
                     RenderTransformOrigin="0.5,0.5" Click="BuildRibbon_Click">
                 <Button.RenderTransform>
                     <RotateTransform Angle="35" />

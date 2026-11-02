@@ -34,6 +34,15 @@ public sealed partial class MainWindow
         ToolsPage.ShowAbout();
     }
 
+    private void BuildRibbon_FocusChanged(object sender, RoutedEventArgs e) => UpdateBuildRibbonFocusVisual();
+
+    private void UpdateBuildRibbonFocusVisual()
+    {
+        // Native focus adorners escape the rotated button's corner clip.
+        BuildRibbon.BorderBrush = BuildRibbon.Foreground;
+        BuildRibbon.BorderThickness = new Thickness(BuildRibbon.FocusState == FocusState.Unfocused ? 0 : 2);
+    }
+
     private void UpdateBuildRibbonColors()
     {
         BuildRibbon.Background = new SolidColorBrush(_accessibilitySettings.HighContrast
@@ -42,5 +51,6 @@ public sealed partial class MainWindow
         BuildRibbon.Foreground = new SolidColorBrush(_accessibilitySettings.HighContrast
             ? _uiSettings.GetColorValue(Windows.UI.ViewManagement.UIColorType.Foreground)
             : Color.FromArgb(255, 32, 24, 0));
+        UpdateBuildRibbonFocusVisual();
     }
 }
