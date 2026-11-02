@@ -104,6 +104,18 @@ function Assert-RibbonText {
     }
 }
 
+function Get-HeaderBounds {
+    $bounds = @{}
+    foreach ($id in @("NetworkPicker", "ScanButton", "ScanFreshnessText")) {
+        $condition = [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
+        $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        if (-not $element -or $element.Current.IsOffscreen) { throw "Shared header '$id' is missing." }
+        $bounds[$id] = $element.Current.BoundingRectangle
+    }
+    return $bounds
+}
+
 function Select-Page {
     param([string] $Name)
     $condition = [System.Windows.Automation.PropertyCondition]::new(
@@ -234,6 +246,8 @@ try {
                 $highContrastFlags = $null
                 Start-Sleep -Seconds 2
             }
+            $headerBefore = Get-HeaderBounds
+            $pageBefore = (Find-Element "v$Version - $label" ([System.Windows.Automation.ControlType]::Text)).Current.BoundingRectangle
             if ($activation -eq "keyboard") {
                 $ribbon.SetFocus()
                 [System.Windows.Forms.SendKeys]::SendWait(" ")
@@ -254,6 +268,14 @@ try {
                 throw "Ribbon remains visible after acknowledgment."
             }
             if ($root.Current.Name -ne $title) { throw "Acknowledgment changed the title." }
+            $headerAfter = Get-HeaderBounds
+            foreach ($id in $headerBefore.Keys) {
+                if ($headerBefore[$id] -ne $headerAfter[$id]) {
+                    throw "Acknowledging the ribbon moved or resized header '$id'."
+                }
+            }
+            $pageAfter = (Find-Element "v$Version - $label" ([System.Windows.Automation.ControlType]::Text)).Current.BoundingRectangle
+            if ($pageBefore -ne $pageAfter) { throw "Acknowledging the ribbon moved or resized the page." }
         } else {
             $condition = [System.Windows.Automation.PropertyCondition]::new(
                 [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "BuildRibbon")
@@ -264,7 +286,15 @@ try {
         }
 
         Invoke-Button "About FingVibe"
-        $null = Find-Element "Back to Tools" ([System.Windows.Automation.ControlType]::Button)
+        $back = Find-Element "Back to Tools" ([System.Windows.Automation.ControlType]::Button)
+        $heading = Find-Element "About FingVibe" ([System.Windows.Automation.ControlType]::Text)
+        $backBounds = $back.Current.BoundingRectangle
+        $headingBounds = $heading.Current.BoundingRectangle
+        if ($backBounds.Left -lt $headingBounds.Right -or
+            [Math]::Abs(($backBounds.Top + $backBounds.Height / 2) -
+                ($headingBounds.Top + $headingBounds.Height / 2)) -gt 3) {
+            throw "Back to Tools must be right of and vertically centered with the tool heading."
+        }
         $null = Find-Element "v$Version" ([System.Windows.Automation.ControlType]::Text)
         $null = Find-Element $label ([System.Windows.Automation.ControlType]::Text)
         $null = Find-Element $fullTimestamp ([System.Windows.Automation.ControlType]::Text)

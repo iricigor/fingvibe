@@ -6,14 +6,11 @@
     <Grid>
         <ScrollViewer HorizontalScrollBarVisibility="Disabled">
             <StackPanel Margin="24,0,24,24" Spacing="16">
-                <Button Content="Back to Tools"
-                        Click="BackButton_Click"
-                        AutomationProperties.Name="Back to Tools"
-                        HorizontalAlignment="Left" />
                 <Grid ColumnSpacing="12">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <FontIcon Glyph="&#xEC4A;" FontFamily="Segoe Fluent Icons"
                               FontSize="48" Width="48" Height="48"
@@ -21,6 +18,8 @@
                               IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
                     <TextBlock Grid.Column="1" Text="Speed test" Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
                                VerticalAlignment="Center" TextWrapping="Wrap" />
+                    <Button Grid.Column="2" Content="&#x2190; Tools" Click="BackButton_Click"
+                            AutomationProperties.Name="Back to Tools" VerticalAlignment="Center" />
                 </Grid>
                 <TextBlock Text="Measure this PC's internet connection using Cloudflare. Windows chooses the internet route; the LAN scanner's selected adapter is not used."
                            TextWrapping="Wrap"

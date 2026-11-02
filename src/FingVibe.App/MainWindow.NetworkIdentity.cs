@@ -36,7 +36,7 @@ public sealed partial class MainWindow
             OverviewPage.ShowNetwork("No active IPv4 network", string.Empty);
             NetworkPage.ShowPublicIdentity(null);
             NetworkPage.ShowLocalNetwork(null);
-            ScanStatusText.Text = "Connect to a LAN to scan";
+            UpdateScanStatus();
             ScanButton.IsEnabled = false;
             UpdateOverview();
             return;

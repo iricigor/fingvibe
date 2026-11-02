@@ -62,6 +62,25 @@ function Select-SidebarPage([string] $Name, [string] $Sentinel) {
     Start-Sleep -Milliseconds 350
 }
 
+function Assert-SharedNetworkHeader {
+    $elements = @("DetectedNetworkLabel", "NetworkPicker", "ScanFreshnessText") |
+        ForEach-Object { Find-SidebarElement AutomationId $_ }
+    $bounds = @($elements | ForEach-Object { $_.Current.BoundingRectangle })
+    for ($index = 1; $index -lt $bounds.Count; $index++) {
+        $previousCenter = $bounds[$index - 1].Top + $bounds[$index - 1].Height / 2
+        $center = $bounds[$index].Top + $bounds[$index].Height / 2
+        if ([Math]::Abs($center - $previousCenter) -gt 3 * $scale) {
+            throw "Shared network header elements must be vertically centered on one row."
+        }
+        if ($bounds[$index].Left -lt $bounds[$index - 1].Right) {
+            throw "Shared network header elements overlap."
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($elements[2].Current.Name)) {
+        throw "Shared network freshness must not disappear on any page."
+    }
+}
+
 function Set-SidebarAppearance([string] $Picker, [string] $Choice) {
     Select-SidebarPage Settings "Window backdrop"
     $combo = Find-SidebarElement AutomationId $Picker
@@ -155,13 +174,13 @@ function Test-DeviceRefresh {
         $scan.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
         if ($scan.Current.IsEnabled) { throw "The refresh ended before retained results could be verified." }
         if ((Find-SidebarElement AutomationId ResultCountText).Current.Name -ne "1 device" -or
-            (Find-SidebarElement AutomationId SnapshotStatusText).Current.Name -notlike "*Displaying retained results*") {
+            (Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "*Displaying retained results*") {
             throw "Refresh must retain the displayed devices and explain their status."
         }
         (Find-SidebarElement Name Cancel).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
         Wait-DeviceScan
         if ((Find-SidebarElement AutomationId ResultCountText).Current.Name -ne "1 device" -or
-            (Find-SidebarElement AutomationId SnapshotStatusText).Current.Name -notlike "*cancelled*") {
+            (Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "*cancelled*") {
             throw "Cancellation must preserve the displayed devices and report its outcome."
         }
         foreach ($width in @($expandedWidth, 1000, 640)) {
@@ -232,6 +251,7 @@ try {
         @("People", "Search people")
     )) {
         Select-SidebarPage $page[0] $page[1]
+        Assert-SharedNetworkHeader
     }
     $network = Find-SidebarElement AutomationId NetworkNavItem
     $menuBounds = $network.Current.BoundingRectangle

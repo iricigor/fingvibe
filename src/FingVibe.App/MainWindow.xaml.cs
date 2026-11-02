@@ -137,10 +137,6 @@ public sealed partial class MainWindow : Window
             candidate.Visibility = candidate == page ? Visibility.Visible : Visibility.Collapsed;
         }
 
-        ScanBar.Visibility = page == OverviewPage || page == NetworkPage || page == DevicesPage || page == DevicePage
-            ? Visibility.Visible
-            : Visibility.Collapsed;
-        ScanStatusText.Visibility = page == DevicesPage ? Visibility.Collapsed : Visibility.Visible;
         if (page == ToolsPage) ToolsPage.Open();
     }
 

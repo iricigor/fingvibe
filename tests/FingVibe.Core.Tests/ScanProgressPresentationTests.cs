@@ -1,0 +1,30 @@
+using FingVibe.App;
+using Xunit;
+
+namespace FingVibe.Core.Tests;
+
+public sealed class ScanProgressPresentationTests
+{
+    [Theory]
+    [InlineData(0, 254, 1000, 0)]
+    [InlineData(127, 254, 1000, 500)]
+    [InlineData(234, 254, 1016, 936)]
+    [InlineData(254, 254, 1000, 1000)]
+    [InlineData(300, 254, 1000, 1000)]
+    [InlineData(-1, 254, 1000, 0)]
+    [InlineData(0, 0, 1000, 0)]
+    [InlineData(127, 254, 0, 0)]
+    public void PulseIsConfinedToActualCompletedWidth(double completed, double maximum, double width, double expected)
+    {
+        Assert.Equal(expected, ScanProgressPresentation.FilledWidth(completed, maximum, width), 8);
+    }
+
+    [Fact]
+    public void PulseTravelsFromBeginningToReachedPointAndRepeats()
+    {
+        Assert.Equal(-0.25, ScanProgressPresentation.PulsePosition(TimeSpan.Zero), 8);
+        Assert.Equal(0.5, ScanProgressPresentation.PulsePosition(TimeSpan.FromSeconds(0.9)), 8);
+        Assert.InRange(ScanProgressPresentation.PulsePosition(TimeSpan.FromSeconds(1.799)), 1.24, 1.25);
+        Assert.Equal(-0.25, ScanProgressPresentation.PulsePosition(TimeSpan.FromSeconds(1.8)), 8);
+    }
+}

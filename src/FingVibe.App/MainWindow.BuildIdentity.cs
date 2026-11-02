@@ -19,25 +19,13 @@ public sealed partial class MainWindow
         AutomationProperties.SetHelpText(BuildRibbon, build.RibbonToolTip);
         AutomationProperties.SetName(BuildRibbon, build.RibbonAccessibleName);
         BuildRibbonArea.Visibility = build.IsRibbonVisible ? Visibility.Visible : Visibility.Collapsed;
-        UpdateBuildHeaderLayout();
     }
 
     private void BuildRibbon_Click(object sender, RoutedEventArgs e)
     {
         BuildIdentity.Current.Acknowledge();
         BuildRibbonArea.Visibility = Visibility.Collapsed;
-        UpdateBuildHeaderLayout();
         MainNavigation.Focus(FocusState.Programmatic);
-    }
-
-    private void BuildHeader_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateBuildHeaderLayout();
-
-    private void UpdateBuildHeaderLayout()
-    {
-        var hasRibbon = BuildRibbonArea.Visibility == Visibility.Visible;
-        var stackHeader = hasRibbon && BuildHeader.ActualWidth < 720;
-        Grid.SetRow(ScanBar, stackHeader ? 1 : 0);
-        Grid.SetColumnSpan(ScanBar, !hasRibbon || stackHeader ? 2 : 1);
     }
 
     private void AboutFingVibe_Click(object sender, RoutedEventArgs e)

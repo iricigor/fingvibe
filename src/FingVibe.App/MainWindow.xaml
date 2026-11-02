@@ -140,81 +140,76 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <Grid x:Name="BuildHeader" SizeChanged="BuildHeader_SizeChanged">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <Canvas x:Name="BuildRibbonArea" Grid.Column="1" Width="280" Height="180"
-                            Visibility="Collapsed">
-                        <Canvas.Clip>
-                            <RectangleGeometry Rect="0,0,280,180" />
-                        </Canvas.Clip>
-                        <Button x:Name="BuildRibbon" Canvas.Left="5" Canvas.Top="55"
-                                Width="320" Height="60" CornerRadius="0" Padding="12,6"
-                                RenderTransformOrigin="0.5,0.5" Click="BuildRibbon_Click"
-                                ToolTipService.ToolTip="Acknowledge this build (hide ribbon until the app closes)">
-                            <Button.RenderTransform>
-                                <RotateTransform Angle="35" />
-                            </Button.RenderTransform>
-                            <StackPanel Spacing="2" HorizontalAlignment="Center">
-                                <TextBlock x:Name="BuildRibbonText" FontWeight="SemiBold" FontSize="13"
-                                           HorizontalAlignment="Center" />
-                                <TextBlock x:Name="BuildRibbonTimestampText" FontSize="12"
-                                           HorizontalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
-                    </Canvas>
-                    <Grid x:Name="ScanBar" Margin="24,16,24,16" ColumnSpacing="12" VerticalAlignment="Top">
+                <Grid x:Name="ScanHeader" Margin="24,16,224,16" SizeChanged="ScanHeader_SizeChanged">
+                    <Grid x:Name="ScanBar" ColumnSpacing="12" RowSpacing="8" VerticalAlignment="Top">
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="DetectedNetworkLabel" Text="Detected network" VerticalAlignment="Center" />
                         <ComboBox x:Name="NetworkPicker"
+                                  Grid.Column="1"
                                   MinWidth="150"
                                   MaxWidth="360"
-                                  HorizontalAlignment="Left"
-                                  Header="Detected network"
+                                  HorizontalAlignment="Stretch"
+                                  VerticalAlignment="Center"
+                                  AutomationProperties.Name="Detected network"
                                   SelectionChanged="NetworkPicker_SelectionChanged" />
-                        <Button x:Name="ScanButton"
-                                Grid.Column="1"
-                                VerticalAlignment="Bottom"
-                                Click="ScanButton_Click"
-                                AutomationProperties.Name="Scan LAN"
-                                Style="{ThemeResource AccentButtonStyle}">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <FontIcon Glyph="&#xE72C;" />
-                                <TextBlock Text="Scan LAN" />
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="CancelButton"
-                                Grid.Column="2"
-                                VerticalAlignment="Bottom"
-                                Click="CancelButton_Click"
-                                Content="Cancel"
-                                Visibility="Collapsed"
-                                IsEnabled="False" />
-                        <StackPanel Grid.Row="1" Grid.ColumnSpan="3" Spacing="4" Margin="0,8,0,0">
+                        <TextBlock x:Name="ScanFreshnessText" Grid.Column="2" VerticalAlignment="Center"
+                                   TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <StackPanel x:Name="ScanActions" Grid.Row="1" Grid.ColumnSpan="3"
+                                    Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="ScanButton"
+                                    Click="ScanButton_Click"
+                                    AutomationProperties.Name="Scan LAN"
+                                    Style="{ThemeResource AccentButtonStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE72C;" />
+                                    <TextBlock Text="Scan LAN" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="CancelButton"
+                                    Click="CancelButton_Click"
+                                    Content="Cancel"
+                                    Visibility="Collapsed"
+                                    IsEnabled="False" />
+                        </StackPanel>
+                        <StackPanel x:Name="ScanMessages" Grid.Row="2" Grid.ColumnSpan="3" Spacing="8">
                             <TextBlock x:Name="ScanStatusText"
                                        Text="Ready"
                                        TextWrapping="Wrap"
                                        TextTrimming="CharacterEllipsis"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <ProgressBar x:Name="ScanProgressBar"
-                                         Minimum="0"
-                                         Maximum="1"
-                                         Value="0"
-                                         Visibility="Collapsed"
-                                         Height="4" />
+                            <Grid x:Name="ScanProgressArea" Visibility="Collapsed" Height="6"
+                                  SizeChanged="ScanProgressArea_SizeChanged">
+                                <ProgressBar x:Name="ScanProgressBar"
+                                             Minimum="0"
+                                             Maximum="1"
+                                             Value="0"
+                                             Height="6" VerticalAlignment="Stretch">
+                                    <ProgressBar.Resources>
+                                        <x:Double x:Key="ProgressBarThemeMinHeight">6</x:Double>
+                                    </ProgressBar.Resources>
+                                </ProgressBar>
+                                <Border x:Name="ScanPulse" HorizontalAlignment="Left" IsHitTestVisible="False"
+                                        AutomationProperties.AccessibilityView="Raw">
+                                    <Border.Background>
+                                        <LinearGradientBrush x:Name="ScanPulseBrush" StartPoint="0,0" EndPoint="1,0">
+                                            <GradientStop Color="Transparent" Offset="0" />
+                                            <GradientStop Color="#B3FFFFFF" Offset="0.5" />
+                                            <GradientStop Color="Transparent" Offset="1" />
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
+                            </Grid>
                         </StackPanel>
                     </Grid>
                 </Grid>
@@ -289,5 +284,24 @@
                         AppearanceChanged="AppearancePicker_SelectionChanged" />
             </Grid>
         </NavigationView>
+        <Canvas x:Name="BuildRibbonArea" Width="200" Height="124"
+                HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed">
+            <Canvas.Clip>
+                <RectangleGeometry Rect="0,0,200,124" />
+            </Canvas.Clip>
+            <Button x:Name="BuildRibbon" Canvas.Left="-90" Canvas.Top="23"
+                    Width="440" Height="44" CornerRadius="0" Padding="12,2"
+                    RenderTransformOrigin="0.5,0.5" Click="BuildRibbon_Click">
+                <Button.RenderTransform>
+                    <RotateTransform Angle="35" />
+                </Button.RenderTransform>
+                <StackPanel Spacing="0" HorizontalAlignment="Center">
+                    <TextBlock x:Name="BuildRibbonText" FontWeight="SemiBold" FontSize="11"
+                               HorizontalAlignment="Center" />
+                    <TextBlock x:Name="BuildRibbonTimestampText" FontSize="10"
+                               HorizontalAlignment="Center" />
+                </StackPanel>
+            </Button>
+        </Canvas>
     </Grid>
 </Window>

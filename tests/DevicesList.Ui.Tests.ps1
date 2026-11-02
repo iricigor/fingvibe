@@ -227,6 +227,12 @@ try {
     Set-DeviceWidth 1280
     Focus-DeviceWindow
     Select-DevicePage DevicesNavItem
+    $heading = (Find-DeviceElement DevicesHeading).Current.BoundingRectangle
+    $inventory = (Find-DeviceElement InventoryCountsText).Current.BoundingRectangle
+    if ($heading.Bottom -ge $inventory.Top -or
+        [Math]::Abs($inventory.Left - $heading.Left - 16 * $scale) -gt 2 * $scale) {
+        throw "Devices title must sit above the card contents, outside their 16-DIP inset."
+    }
     if ((Find-DeviceElement ResultCountText).Current.Name -ne "80 devices") { throw "Isolated fixture did not load." }
 
     $widths = @{}
