@@ -44,6 +44,25 @@ public sealed class AppearanceSettingsStoreTests : IDisposable
     }
 
     [Theory]
+    [InlineData("StandardLight", 0, ThemeVariant.StandardLight)]
+    [InlineData("WarmLight", 1, ThemeVariant.WarmLight)]
+    [InlineData("StandardDark", 2, ThemeVariant.StandardDark)]
+    [InlineData("OledDark", 3, ThemeVariant.OledDark)]
+    public void Load_ExistingThemeValues_RemainCompatible(string name, int number, ThemeVariant expected)
+    {
+        Directory.CreateDirectory(_directory);
+        foreach (var value in new[] { $"\"{name}\"", number.ToString(System.Globalization.CultureInfo.InvariantCulture) })
+        {
+            var json = $"{{\"backdrop\":\"Acrylic\",\"theme\":{value}}}";
+            File.WriteAllText(FilePath, json);
+
+            Assert.Equal(new AppearanceSettings(WindowBackdrop.Acrylic, expected),
+                new AppearanceSettingsStore(FilePath).Load());
+            Assert.Equal(json, File.ReadAllText(FilePath));
+        }
+    }
+
+    [Theory]
     [InlineData("{")]
     [InlineData("null")]
     [InlineData("{\"backdrop\":\"FutureMaterial\",\"theme\":\"FutureTheme\"}")]

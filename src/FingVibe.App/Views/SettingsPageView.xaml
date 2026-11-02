@@ -2,35 +2,55 @@
     x:Class="FingVibe.App.Views.SettingsPageView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:FingVibe.App"
-    xmlns:models="using:FingVibe.Core.Models">
+    xmlns:local="using:FingVibe.App">
     <ScrollViewer x:Name="SettingsPage">
         <StackPanel Margin="24,0,24,24" Spacing="16">
             <TextBlock Text="Settings" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="12">
                     <TextBlock Text="Appearance" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                    <ComboBox x:Name="BackdropPicker"
-                              Header="Window backdrop"
-                              MinWidth="240"
-                              SelectionChanged="AppearancePicker_SelectionChanged">
-                        <ComboBoxItem Content="Solid" />
-                        <ComboBoxItem Content="Mica" />
-                        <ComboBoxItem Content="Mica Alt" />
-                        <ComboBoxItem Content="Acrylic" />
-                    </ComboBox>
+                    <Grid x:Name="AppearanceOptions" ColumnSpacing="16" RowSpacing="12"
+                          SizeChanged="AppearanceOptions_SizeChanged">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <ComboBox x:Name="ModePicker"
+                                  Header="Mode"
+                                  HorizontalAlignment="Stretch"
+                                  SelectionChanged="ModePicker_SelectionChanged">
+                            <ComboBoxItem Content="Light" />
+                            <ComboBoxItem Content="Dark" />
+                        </ComboBox>
+                        <ComboBox x:Name="ThemePicker"
+                                  Grid.Row="1" Grid.ColumnSpan="3"
+                                  Header="Theme"
+                                  HorizontalAlignment="Stretch"
+                                  SelectionChanged="AppearancePicker_SelectionChanged">
+                            <ComboBoxItem Content="Standard" />
+                            <ComboBoxItem Content="Warm" />
+                            <ComboBoxItem Content="Colorful" />
+                        </ComboBox>
+                        <ComboBox x:Name="BackdropPicker"
+                                  Grid.Row="2" Grid.ColumnSpan="3"
+                                  Header="Window backdrop"
+                                  HorizontalAlignment="Stretch"
+                                  SelectionChanged="AppearancePicker_SelectionChanged">
+                            <ComboBoxItem Content="Solid" />
+                            <ComboBoxItem Content="Mica" />
+                            <ComboBoxItem Content="Mica Alt" />
+                            <ComboBoxItem Content="Acrylic" />
+                        </ComboBox>
+                    </Grid>
                     <TextBlock x:Name="BackdropStatus"
                                TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <ComboBox x:Name="ThemePicker"
-                              Header="Theme"
-                              MinWidth="240"
-                              SelectionChanged="AppearancePicker_SelectionChanged">
-                        <ComboBoxItem Content="Standard Light" />
-                        <ComboBoxItem Content="Warm Light" />
-                        <ComboBoxItem Content="Standard Dark" />
-                        <ComboBoxItem Content="True Black (OLED)" />
-                    </ComboBox>
                     <TextBlock x:Name="AppearanceSaveStatus"
                                Text="Appearance saved automatically."
                                TextWrapping="Wrap"
@@ -44,19 +64,42 @@
                     <TextBlock Text="Choose which columns appear on the Devices page. Column choices and widths last until FingVibe closes."
                                TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <ItemsControl ItemsSource="{x:Bind Columns.All}" Margin="0,4,0,0">
+                    <ItemsControl x:Name="ColumnChoices" ItemsSource="{x:Bind Columns.All}" Margin="0,4,0,0"
+                                  Loaded="ColumnChoices_Loaded" SizeChanged="ColumnChoices_SizeChanged">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <Grid ColumnSpacing="16" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate x:DataType="local:DeviceColumn">
-                                <CheckBox Content="{x:Bind Header}"
+                                <CheckBox AutomationProperties.Name="{x:Bind Header}"
+                                          HorizontalAlignment="Stretch"
                                           IsChecked="{x:Bind IsVisible, Mode=TwoWay}"
-                                          IsEnabled="{x:Bind CanHide}" />
+                                          IsEnabled="{x:Bind CanHide}">
+                                    <TextBlock Text="{x:Bind Header}" TextWrapping="Wrap" />
+                                </CheckBox>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <TextBlock Text="IP address is always shown so every device remains identifiable."
-                               TextWrapping="Wrap"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <Button Content="Reset columns" Click="ResetColumnsButton_Click" Margin="0,4,0,0" />
+                    <Grid x:Name="ColumnFooter" ColumnSpacing="16" RowSpacing="8" Margin="0,4,0,0"
+                          SizeChanged="ColumnFooter_SizeChanged">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="MandatoryColumnNote"
+                                   Grid.ColumnSpan="2"
+                                   Text="IP address is always shown so every device remains identifiable."
+                                   TextWrapping="Wrap" VerticalAlignment="Center"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Button x:Name="ResetColumnsButton" Grid.Row="1" Grid.ColumnSpan="2"
+                                Content="Reset columns" Click="ResetColumnsButton_Click" />
+                    </Grid>
                 </StackPanel>
             </Border>
         </StackPanel>
