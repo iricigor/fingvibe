@@ -56,26 +56,26 @@ public sealed class AppearancePaletteTests
                 - (int)((palette.AlternateRow >> shift) & 255));
             Assert.InRange(difference, 0, 32);
         }
+    }
 
-        [Theory]
-        [InlineData(ThemeVariant.ColorfulLight)]
-        [InlineData(ThemeVariant.ColorfulDark)]
-        public void ColorfulSurfaces_HaveReadableTextContrast(ThemeVariant theme)
+    [Theory]
+    [InlineData(ThemeVariant.ColorfulLight)]
+    [InlineData(ThemeVariant.ColorfulDark)]
+    public void ColorfulSurfaces_HaveReadableTextContrast(ThemeVariant theme)
+    {
+        var palette = AppearancePalette.For(theme);
+        foreach (var color in new[] { palette.Page, palette.Header, palette.Card, palette.Control,
+                     palette.Hover, palette.Pressed, palette.AlternateRow })
         {
-            var palette = AppearancePalette.For(theme);
-            foreach (var color in new[] { palette.Page, palette.Header, palette.Card, palette.Control,
-                         palette.Hover, palette.Pressed, palette.AlternateRow })
+            static double Linear(uint channel)
             {
-                static double Linear(uint channel)
-                {
-                    var value = channel / 255.0;
-                    return value <= 0.04045 ? value / 12.92 : Math.Pow((value + 0.055) / 1.055, 2.4);
-                }
-                var luminance = 0.2126 * Linear((color >> 16) & 255)
-                    + 0.7152 * Linear((color >> 8) & 255) + 0.0722 * Linear(color & 255);
-                var contrast = palette.IsDark ? 1.05 / (luminance + 0.05) : (luminance + 0.05) / 0.05;
-                Assert.True(contrast >= 7, $"Surface {color:X6} has primary text contrast {contrast:F2}:1.");
+                var value = channel / 255.0;
+                return value <= 0.04045 ? value / 12.92 : Math.Pow((value + 0.055) / 1.055, 2.4);
             }
+            var luminance = 0.2126 * Linear((color >> 16) & 255)
+                + 0.7152 * Linear((color >> 8) & 255) + 0.0722 * Linear(color & 255);
+            var contrast = palette.IsDark ? 1.05 / (luminance + 0.05) : (luminance + 0.05) / 0.05;
+            Assert.True(contrast >= 7, $"Surface {color:X6} has primary text contrast {contrast:F2}:1.");
         }
     }
 
