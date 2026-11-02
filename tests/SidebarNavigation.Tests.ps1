@@ -184,7 +184,7 @@ function Test-SettingsLayout {
         }
         if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
         Start-Sleep -Milliseconds 200
-        $choices = Find-SidebarElement AutomationId ColumnChoices
+        $choices = Find-SidebarElement AutomationId SettingsPage
         $checkboxes = $choices.FindAll([System.Windows.Automation.TreeScope]::Descendants,
             [System.Windows.Automation.PropertyCondition]::new(
                 [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
@@ -217,7 +217,7 @@ function Test-SettingsLayout {
         if ($width -ge 640) { Save-SidebarAppearance "settings-layout-$width" }
     }
     Set-SidebarWindowWidth $expandedWidth
-    $name = Find-SidebarElement Name Name
+    $name = $checkboxes[0]
     $toggle = $name.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
     $toggle.Toggle()
     if ($toggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off) {
