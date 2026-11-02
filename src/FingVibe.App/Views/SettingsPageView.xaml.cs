@@ -92,14 +92,40 @@ public sealed partial class SettingsPageView : UserControl
         Grid.SetColumnSpan(ResetColumnsButton, inline ? 1 : 2);
     }
 
-    private void ColumnChoices_SizeChanged(object sender, SizeChangedEventArgs e)
+    private void ColumnChoices_Loaded(object sender, RoutedEventArgs e) => UpdateColumnChoicesLayout();
+
+    private void ColumnChoices_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateColumnChoicesLayout();
+
+    private void UpdateColumnChoicesLayout()
     {
-        const double spacing = 16;
-        var columns = Math.Clamp((int)((e.NewSize.Width + spacing) / (200 + spacing)), 1, 3);
-        var width = Math.Max(0, Math.Floor((e.NewSize.Width - (columns - 1) * spacing) / columns));
-        for (var index = 0; index < Columns.All.Count; index++)
+        if (ColumnChoices.ItemsPanelRoot is not Grid panel)
         {
-            ((FrameworkElement)ColumnChoices.GetOrCreateElement(index)).Width = width;
+            return;
+        }
+        const double spacing = 16;
+        var columns = Math.Clamp((int)((ColumnChoices.ActualWidth + spacing) / (200 + spacing)), 1, 3);
+        var rows = (Columns.All.Count + columns - 1) / columns;
+        if (panel.ColumnDefinitions.Count != columns)
+        {
+            panel.ColumnDefinitions.Clear();
+            for (var column = 0; column < columns; column++)
+            {
+                panel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            }
+        }
+        if (panel.RowDefinitions.Count != rows)
+        {
+            panel.RowDefinitions.Clear();
+            for (var row = 0; row < rows; row++)
+            {
+                panel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            }
+        }
+        for (var index = 0; index < panel.Children.Count; index++)
+        {
+            var container = (FrameworkElement)panel.Children[index];
+            Grid.SetRow(container, index / columns);
+            Grid.SetColumn(container, index % columns);
         }
     }
 
