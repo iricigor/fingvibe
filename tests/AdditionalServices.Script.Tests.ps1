@@ -1,5 +1,36 @@
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+& {
+    . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
+    $item = [pscustomobject]@{ Current = [pscustomobject]@{ Name = "Colorful"; IsOffscreen = $false } }
+    $itemSelection = [pscustomobject]@{}
+    $itemSelection | Add-Member ScriptMethod Select {}
+    $item | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $itemSelection }
+    $selectionInfo = [pscustomobject]@{}
+    $selectionInfo | Add-Member ScriptMethod GetSelection { return ,@($item) }
+    foreach ($method in $selectionInfo.PSObject.Methods | Where-Object MemberType -eq ScriptMethod) {
+        if (-not [System.Windows.Automation.SelectionPattern+SelectionPatternInformation].GetMethod($method.Name)) {
+            throw "Selection mock uses an API not present in .NET UI Automation: $($method.Name)."
+        }
+    }
+    $selection = [pscustomobject]@{ Current = $selectionInfo }
+    $expand = [pscustomobject]@{}
+    $expand | Add-Member ScriptMethod Expand {}
+    $expand | Add-Member ScriptMethod Collapse {}
+    $combo = [pscustomobject]@{ Current = [pscustomobject]@{ IsOffscreen = $false } }
+    $combo | Add-Member ScriptMethod GetCurrentPattern {
+        param($Pattern)
+        if ($Pattern -eq [System.Windows.Automation.SelectionPattern]::Pattern) { return $selection }
+        return $expand
+    }
+    $appearanceRoot = [pscustomobject]@{}
+    $appearanceRoot | Add-Member ScriptMethod FindFirst {
+        param($Scope, $Condition)
+        if ($Condition -is [System.Windows.Automation.AndCondition]) { return $item }
+        return $combo
+    }
+    Set-UiReviewAppearanceChoice -Root $appearanceRoot -Picker ThemePicker -Choice Colorful
+}
 Add-Type -TypeDefinition @"
 using System;
 public static class UiReviewNativeWindow

@@ -32,7 +32,7 @@ function Set-UiReviewAppearanceChoice {
         $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
     }
     finally { $expand.Collapse() }
-    $selected = $combo.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).GetCurrentSelection()
+    $selected = $combo.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()
     if ($selected.Count -ne 1 -or $selected[0].Current.Name -ne $Choice) {
         throw "Appearance picker '$Picker' did not select '$Choice'."
     }
