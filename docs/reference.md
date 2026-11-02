@@ -334,7 +334,46 @@ These checks use Windows UI Automation without WinAppDriver or Developer Mode. T
 
 Local and pull request build/publish outputs retain only English (`en`) managed satellite resources through the application's `SatelliteResourceLanguages` setting. Neutral resources, including dependencies' default English strings, remain included. Official releases retain all available languages: the release workflow overrides the setting with an empty global MSBuild property (`/property:SatelliteResourceLanguages=`), disabling this filter. Both workflows use the Release configuration, so the configuration name alone does not determine language filtering. This does not force the runtime UI culture to English or filter Windows App SDK native/PRI resources in the self-contained deployment. When checking the result locally, start with clean build and publish output directories: previously copied language folders are not removed by changing this setting.
 
-Pull requests affecting application code or validation infrastructure upload a `fingvibe-win-x64-pr-*` artifact from the **🔨 Pull request build** Actions run. Each successful same-repository build posts a new artifact-link comment, preserving earlier comments and links (artifacts expire after 14 days). Artifact names include the run attempt, so reruns do not replace earlier downloads. Documentation-only and ordinary test-only changes do not publish an app. Every push to `main` publishes a GitHub Release tagged `v1.0.<run number>` with a self-contained Windows x64 ZIP.
+Pull requests affecting application code or validation infrastructure upload a `fingvibe-win-x64-pr-*` artifact from the **🔨 Pull request build** Actions run, plus a `fingvibe-setup-win-x64-pr-*` installer artifact. Each successful same-repository build posts a new runnable-app artifact-link comment, preserving earlier comments and links (artifacts expire after 14 days). Artifact names include the run attempt, so reruns do not replace earlier downloads. Documentation-only and ordinary test-only changes do not publish an app. Every push to `main` publishes a GitHub Release tagged `v1.0.<run number>` with a self-contained Windows x64 ZIP and `FingVibe-<version>-win-x64-Setup.exe`, both from the same published binaries.
+
+The unsigned Inno Setup installer supports Windows 11 x64 and installs only for
+the current user at `%LOCALAPPDATA%\Programs\FingVibe`, without requesting
+administrator rights. It adds a Start menu shortcut and a Windows **Installed
+apps** entry; a desktop shortcut is optional. Windows may show an unknown
+publisher or SmartScreen warning. No code signing or automatic updater is
+included; download only builds you trust.
+
+For manual updates, close FingVibe and run the newer installer. Setup refuses to
+install or uninstall while FingVibe is running and rejects downgrades. Existing
+files from the ZIP convenience script can be adopted in the same location.
+Upgrades remove obsolete files recorded in the previous installer's ownership
+manifest, not arbitrary directory contents. Unrecognized files from earlier
+ZIP/script installations are retained, even if they appear obsolete.
+Do not use the ZIP convenience script to update an installer-managed copy;
+use Setup so version registration and file ownership remain consistent.
+
+Uninstall through Windows **Installed apps**. Saved settings, inventory, and
+other user data in `%LOCALAPPDATA%\FingVibe` remain, as do unknown files in the
+installation directory. ZIP and installed copies share this per-user data;
+installation does not create an isolated profile.
+
+Contributor packaging uses Inno Setup 6 (`ISCC.exe`, preinstalled on the Windows
+GitHub runners). After publishing the app, run:
+
+```powershell
+.\tools\New-Installer.ps1 -AppDirectory artifacts\fingvibe-win-x64 `
+    -Version 1.0.123 -OutputDirectory artifacts\installer
+```
+
+`tests\Installer.Script.Tests.ps1` checks packaging helpers without installing or
+launching anything. `tests\Installer.Lifecycle.Tests.ps1` refuses to run outside a
+disposable GitHub-hosted runner. PR and release builds compile the actual
+installer and verify payload hashes, fresh installation, window launch,
+running-app blocking, ZIP/script adoption, upgrade cleanup, downgrade rejection,
+shortcuts, uninstall, and saved-data/unknown-file preservation. Test-only future
+version installers reuse the payload to exercise upgrades; they are not
+published. Installer logs are retained as Actions artifacts, including on failure.
+Any installer failure blocks release publication.
 
 Keep the extracted app files together: `Assets\Scanner.ico` supplies the running window's title-bar and taskbar icon. The executable also embeds the same icon for File Explorer.
 

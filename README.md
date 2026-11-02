@@ -12,8 +12,11 @@ by person and room in a colorful desktop interface.
 
 ## 📥 Download
 
-**[Download the latest Windows x64 release](https://github.com/iricigor/fingvibe/releases/latest)**,
-extract the ZIP, and launch `FingVibe.App.exe`. Keep all extracted files together.
+**[Download the latest Windows x64 release](https://github.com/iricigor/fingvibe/releases/latest)**.
+Run `FingVibe-<version>-win-x64-Setup.exe` to install for your Windows user without
+administrator rights, or extract the ZIP and launch `FingVibe.App.exe` directly.
+Keep all extracted files together. Downloads are unsigned, so Windows may show
+unknown-publisher or SmartScreen warnings.
 Official releases are self-contained; the .NET SDK is only needed to build from source.
 For PR artifacts and build identification, see the [build reference](docs/reference.md#download-builds).
 

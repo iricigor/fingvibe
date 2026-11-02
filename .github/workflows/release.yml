@@ -39,6 +39,10 @@ jobs:
         shell: pwsh
         run: .\tests\LogoDevConfiguration.Tests.ps1
 
+      - name: Test installer packaging helpers
+        shell: pwsh
+        run: .\tests\Installer.Script.Tests.ps1
+
       - name: Publish Windows x64 app
         id: publish
         env:
@@ -61,6 +65,7 @@ jobs:
             /property:BuildTimestamp="$buildTimestamp" `
             /property:BuildUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" `
             /property:PublishDir="${{ github.workspace }}\artifacts\fingvibe-win-x64\"
+          if ($LASTEXITCODE -ne 0) { throw "Windows app publish failed." }
 
       - name: Verify published application icons
         shell: pwsh
@@ -74,6 +79,27 @@ jobs:
         shell: pwsh
         run: Compress-Archive -Path artifacts\fingvibe-win-x64\* -DestinationPath artifacts\FingVibe-${{ steps.version.outputs.number }}-win-x64.zip
 
+      - name: Build unsigned per-user installer
+        shell: pwsh
+        run: .\tools\New-Installer.ps1 -AppDirectory artifacts\fingvibe-win-x64 -Version "${{ steps.version.outputs.number }}" -OutputDirectory artifacts\installer
+
+      - name: Verify installer lifecycle on disposable runner
+        shell: pwsh
+        run: |
+          .\tests\Installer.Lifecycle.Tests.ps1 `
+            -AppDirectory artifacts\fingvibe-win-x64 `
+            -InstallerPath "artifacts\installer\FingVibe-${{ steps.version.outputs.number }}-win-x64-Setup.exe" `
+            -Version "${{ steps.version.outputs.number }}" -LogDirectory artifacts\installer-logs
+
+      - name: Upload installer diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fingvibe-installer-logs-release-${{ github.run_number }}-attempt-${{ github.run_attempt }}
+          path: artifacts\installer-logs
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -81,11 +107,13 @@ jobs:
         run: |
           $tag = "${{ steps.version.outputs.tag }}"
           $archive = "artifacts\FingVibe-${{ steps.version.outputs.number }}-win-x64.zip"
+          $installer = "artifacts\installer\FingVibe-${{ steps.version.outputs.number }}-win-x64-Setup.exe"
           if (gh release view $tag 2>$null) {
-            gh release upload $tag $archive --clobber
+            gh release upload $tag $archive $installer --clobber
           } else {
-            gh release create $tag $archive `
+            gh release create $tag $archive $installer `
               --target "${{ github.sha }}" `
               --title "FingVibe ${{ steps.version.outputs.number }}" `
               --generate-notes
           }
+          if ($LASTEXITCODE -ne 0) { throw "Release publication failed." }
