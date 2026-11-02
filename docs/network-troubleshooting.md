@@ -4,7 +4,13 @@ Open **Tools > Network troubleshooting**, review the LAN adapter context, and
 select **Run checks**. Use **Refresh adapters** after changing connections.
 No diagnostic probes run automatically. Run is blocked while a LAN scan,
 Cloudflare speed test, or another diagnostic run is active or stopping.
-Cancel, Back, navigation, network changes, and window close stop probes safely.
+Cancel, Back, navigation, a changed selected network context, and window close
+stop probes safely. Windows network-status notifications that leave the selected
+adapter, IPv4/subnet, gateway, and network-profile identity unchanged preserve
+active checks, results, and animation. Notifications are coalesced, and an
+awaited cancellation cannot reset a newer run or selection. If context
+verification fails, the page stops active work and reports the error while
+retaining existing results as potentially stale.
 The page separates **Connection and checks**, **Network path and status**,
 **Detailed checkpoint diagnostics**, and **Traceroute** into bordered cards.
 Network-request disclosure and interpretation notes are expandable within
@@ -68,7 +74,10 @@ uniquely identify the network, persistence is explicitly unavailable and no
 other profile's value is reused. Windows controls profile identification;
 if it recreates or conflates profiles, FingVibe cannot establish a stronger
 physical-network identity. Router WAN addresses can change, so the field remains
-editable. Network changes cancel results and refresh the context.
+editable. A genuine selected-network context change cancels results and
+refreshes the context. Unrelated or duplicate Windows notifications do not.
+Deferred notifications from programmatic WAN loading or adapter selection do
+not masquerade as user edits and clear results.
 
 ## LAN diagram
 
@@ -107,6 +116,43 @@ Detailed hop and traceroute text shows **Responder** first and labels
 **Trace target** separately, so `1.1.1.1` is not mistaken for the responding
 upstream router. A destination actually reached at hop 2 remains an observed
 destination response rather than a guessed router.
+While checks run, up to two **8-DIP** dots illustrate requests and confirmed
+responses along the connector lines at a constant **480 DIPs/second** in either direction. Farther
+checkpoints take longer to reach; crossings behind icons count toward travel
+time but hide the moving dot rather than making it jump across the gaps.
+It travels outward in a neutral color. On a confirmed response, a separate
+endpoint dot grows from **8 to 18 DIPs and back** over **0.4 seconds** at the
+corresponding **14-DIP** port before the request dot returns green. An unanswered
+check or error pulses red at the target, then fades without a return journey. Each
+color describes that check, not general node availability. Ping and DNS remain
+separate. Loopback, self-ping, and Windows configured DNS pulse locally at the
+PC; configured DNS can be cached and has no known resolver path in this diagram.
+As a confirmed reply travels back toward the PC, the next neutral request can
+travel outward simultaneously. These are overlapping illustrations of adjacent
+checks, not extra probes or a second cycle of the same checkpoint. The next
+request continues from its current position when the preceding reply finishes.
+No green reply is shown for an untested, pending, unanswered, or errored check.
+
+Both the initial pass and replays use logical diagram order: local PC checks
+(including configured DNS), router LAN/WAN, **hop 2**, then Cloudflare and Google
+IP/DNS checkpoints. Actual probe execution is unchanged: traceroute still runs
+after IP/DNS tests. If an earlier logical checkpoint has no result yet, the
+illustration waits there, with an explicit waiting label, while probes continue.
+Unavailable checkpoints are skipped without inventing a response.
+LAN peers remain static. Short checks are queued for illustration without
+delaying network probes or the **Checks complete** status. Each run randomly
+chooses **3 to 5 total passes of the entire sequence**, including the initial
+pass; it does not repeat each checkpoint before moving to the next. Later
+passes replay recorded outcomes without sending traffic or retaining the
+network-activity lease. A separate illustration label shows the pass number
+and identifies recorded-result playback after checks finish. **Stop replay**
+stops only the illustration and leaves completed results intact; **Run checks**
+can start a fresh run without waiting for replay. Results have no expiry timer:
+they remain after the final pass until an intentional reset, such as a new run,
+WAN edit, adapter refresh/change, genuine context change, or reopening the page.
+Cancel, navigation, a genuine context change, unload, and close clear animation
+immediately. Windows' animation preference disables motion, and high contrast uses system colors.
+Motion is schematic, not real packet tracking or a measurement of response time.
 Untested, unavailable, running, and cancelled checks stay hollow and have
 distinct neutral textual states. Windows high contrast uses system colors.
 The two-row status below the diagram explains the evidence and next action,
@@ -125,13 +171,19 @@ separately. These probes do not identify an exact faulty device.
 
 **Public egress IP** is not necessarily router WAN IP: double NAT, carrier-grade
 NAT, or a VPN/proxy can make them differ. An optional WAN probe can fail even
-with working internet access. Automatic router-management discovery, HTTPS
-connectivity tests, and probe-flow animation are outside this delivery.
+with working internet access. Automatic router-management discovery and HTTPS
+connectivity tests are outside this delivery.
 
 ## Regression checks
 
 Core regression tests use injectable probes and temporary settings files; they
-do not depend on public endpoints. `tests\NetworkTroubleshooting.Ui.Tests.ps1
+do not depend on public endpoints. Deterministic diagram-motion tests cover
+short-check queuing, confirmed returns, unanswered/error fade-out, exact whole-
+sequence pass counts, simultaneous opposite-direction travel, first-pass/replay
+logical ordering and hop-2 waits, cancellation/reset, unchanged/changed context comparison,
+deferred WAN edits, stale asynchronous refresh guards, and connector geometry
+without network access or desktop automation.
+`tests\NetworkTroubleshooting.Ui.Tests.ps1
 -AppPath <built-exe>` checks the native Tools entry, visible WAN validation,
 section headings, checkpoint IP labels, provider alignment, straight main-path
 and curved branch geometry, review-mode privacy, navigation reset, and the

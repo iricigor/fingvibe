@@ -24,6 +24,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
     private readonly AccessibilitySettings _accessibility = new();
     private readonly UISettings _uiSettings = new();
     private readonly Dictionary<DiagnosticCheckpoint, DiagnosticObservation> _observations = [];
+    private readonly DiagnosticContextState _contextState = new();
     private CancellationTokenSource? _cancellation;
     private Task? _runTask;
     private LanNetwork? _network;
@@ -33,21 +34,30 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
     private bool _settingsLoaded;
     private bool _refreshing;
     private bool _open;
+    private bool _processingNetworkChange;
+    private bool _networkChangePending;
     private NetworkDiagnosticReport? _report;
     private static bool IsUiReview => Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW") == "1";
 
     public NetworkTroubleshootingPage()
     {
         InitializeComponent();
+        _diagramTimer.Tick += DiagramTimer_Tick;
         Loaded += (_, _) =>
         {
             _uiSettings.ColorValuesChanged += ColorsChanged;
+            if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 19041))
+                _uiSettings.AnimationsEnabledChanged += AnimationSettingsChanged;
             NetworkInformation.NetworkStatusChanged += NetworkChanged;
         };
         Unloaded += (_, _) =>
         {
             _uiSettings.ColorValuesChanged -= ColorsChanged;
+            if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 19041))
+                _uiSettings.AnimationsEnabledChanged -= AnimationSettingsChanged;
             NetworkInformation.NetworkStatusChanged -= NetworkChanged;
+            _contextState.Invalidate();
+            StopDiagramAnimation();
             _cancellation?.Cancel();
         };
         ActualThemeChanged += (_, _) => Render();
@@ -71,6 +81,8 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
     public async Task StopForNavigationAsync()
     {
         _open = false;
+        _contextState.Invalidate();
+        StopDiagramAnimation();
         _cancellation?.Cancel();
         if (_runTask is { } run) await run;
     }
@@ -81,15 +93,57 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
 
     private void NetworkChanged(object sender) => DispatcherQueue.TryEnqueue(async () =>
     {
-        if (!_open) return;
-        _cancellation?.Cancel();
-        if (_runTask is { } run) await run;
-        if (_open)
+        if (!_open || !IsLoaded || IsUiReview) return;
+        _networkChangePending = true;
+        if (_processingNetworkChange) return;
+        _processingNetworkChange = true;
+        try
         {
-            RefreshNetworks(_network);
-            ProgressText.Text = "Windows reported a network change. Context refreshed; run checks again.";
+            do
+            {
+                _networkChangePending = false;
+                await CheckNetworkContextAsync();
+            } while (_open && IsLoaded && _networkChangePending);
         }
+        finally { _processingNetworkChange = false; }
     });
+
+    private async Task CheckNetworkContextAsync()
+    {
+        var revision = _contextState.Revision;
+        try
+        {
+            var current = ReadCurrentNetworkContext();
+            if (DiagnosticContextState.Matches(_network, _networkId, current.Network, current.Profile)) return;
+            StopDiagramAnimation();
+            _cancellation?.Cancel();
+            if (_runTask is { IsCompleted: false } run)
+            {
+                await run;
+                if (!_open || !IsLoaded || revision != _contextState.Revision) return;
+                current = ReadCurrentNetworkContext();
+                if (DiagnosticContextState.Matches(_network, _networkId, current.Network, current.Profile)) return;
+            }
+            if (!_open || !IsLoaded || revision != _contextState.Revision) return;
+            RefreshNetworks(current.Network);
+            ProgressText.Text = "The selected network context changed. Context refreshed; run checks again.";
+        }
+        catch (Exception exception) when (exception is COMException or InvalidOperationException or InvalidCastException
+            or System.Net.NetworkInformation.NetworkInformationException or ArgumentException)
+        {
+            if (!_open || !IsLoaded || revision != _contextState.Revision) return;
+            StopDiagramAnimation();
+            _cancellation?.Cancel();
+            _settingsLoaded = false;
+            SettingsStatus.Text = $"Network change verification failed: {exception.Message} Existing results are retained but may be stale; refresh adapters before running again. WAN persistence is disabled until refreshed.";
+        }
+    }
+
+    private (LanNetwork? Network, Guid? Profile) ReadCurrentNetworkContext()
+    {
+        var current = DiagnosticContextState.Select(_discovery.GetAvailableNetworks(), _network);
+        return (current, current is null ? null : WindowsNetworkProfileIdentity.GetNetworkId(current));
+    }
 
     private void RefreshNetworks(LanNetwork? preferred)
     {
@@ -101,9 +155,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
                 : _discovery.GetAvailableNetworks();
             AdapterPicker.ItemsSource = networks;
             AdapterPicker.DisplayMemberPath = nameof(LanNetwork.DisplayLabel);
-            AdapterPicker.SelectedItem = networks.FirstOrDefault(item =>
-                item.InterfaceId == preferred?.InterfaceId && item.LocalAddress.Equals(preferred?.LocalAddress))
-                ?? networks.FirstOrDefault();
+            AdapterPicker.SelectedItem = DiagnosticContextState.Select(networks, preferred);
             ApplyNetwork(AdapterPicker.SelectedItem as LanNetwork);
         }
         catch (Exception exception) when (exception is System.Net.NetworkInformation.NetworkInformationException or InvalidOperationException)
@@ -141,7 +193,11 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
         {
             SettingsStatus.Text = $"WAN settings unavailable: {exception.Message} Edits will not overwrite saved settings.";
         }
-        finally { _updatingInput = false; }
+        finally
+        {
+            _contextState.RecordWanText(WanInput.Text);
+            _updatingInput = false;
+        }
         ContextText.Text = network is null ? "No active LAN adapter." : $"Selected: {network.DisplayLabel} - Gateway: {network.GatewayAddress?.ToString() ?? "unavailable"}";
         WanHelp.Text = $"Open your router administration page in a browser, usually http://{network?.GatewayAddress?.ToString() ?? "<gateway shown above>"}. Sign in there and find Internet, WAN, or Status. Copy the WAN/Internet IPv4 address, not the router LAN address. Never enter router credentials into FingVibe.";
         ResetResults();
@@ -149,14 +205,15 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
 
     private void AdapterPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!_refreshing && !HasActiveTest) ApplyNetwork(AdapterPicker.SelectedItem as LanNetwork);
+        var selected = AdapterPicker.SelectedItem as LanNetwork;
+        if (!_refreshing && !HasActiveTest && selected != _network) ApplyNetwork(selected);
     }
 
     private void RefreshButton_Click(object sender, RoutedEventArgs e) => RefreshNetworks(_network);
 
     private void WanInput_TextChanged(object sender, TextChangedEventArgs e)
     {
-        if (_updatingInput) return;
+        if (!_contextState.AcceptWanEdit(WanInput.Text, _updatingInput)) return;
         try
         {
             RouterWanAddress.Parse(WanInput.Text);
@@ -179,6 +236,8 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
 
     private void ResetResults()
     {
+        _contextState.Invalidate();
+        StopDiagramAnimation();
         _report = null;
         _observations.Clear();
         IPAddress? wan = null;
@@ -213,7 +272,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
             var current = _discovery.GetAvailableNetworks().FirstOrDefault(item =>
                 item.InterfaceId == _network?.InterfaceId && item.LocalAddress.Equals(_network?.LocalAddress));
             var currentId = current is null ? (Guid?)null : WindowsNetworkProfileIdentity.GetNetworkId(current);
-            if (current != _network || currentId != _networkId)
+            if (!DiagnosticContextState.Matches(_network, _networkId, current, currentId))
             {
                 RefreshNetworks(current);
                 ProgressText.Text = "Network context changed. Review the adapter and this network's WAN input, then run again.";
@@ -239,6 +298,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
         }
         ResetResults();
         _cancellation = new CancellationTokenSource();
+        BeginDiagramAnimation();
         SetRunning(true);
         _runTask = RunAsync(wan, lease, _cancellation);
     }
@@ -248,6 +308,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
         using (lease)
         {
             var started = DateTimeOffset.Now;
+            var completed = false;
             try
             {
                 ProgressText.Text = $"Checking - started {started:g}.";
@@ -255,6 +316,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
                 {
                     if (_cancellation != cancellation || cancellation.IsCancellationRequested) return;
                     _observations[observation.Checkpoint] = observation;
+                    ObserveDiagram(observation);
                     ProgressText.Text = $"{Label(observation.Checkpoint)}: {observation.Detail}";
                     Render();
                 });
@@ -266,7 +328,19 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
                     ProgressText.Text = $"Traceroute hop {hop.Number}: {hop.Observation.Detail}";
                 });
                 _report = await _service.RunAsync(_network, wan, progress, cancellation.Token, traceProgress);
-                foreach (var observation in _report.Observations) _observations[observation.Checkpoint] = observation;
+                foreach (var observation in _report.Observations)
+                {
+                    _observations[observation.Checkpoint] = observation;
+                    ObserveDiagram(observation);
+                }
+                Render();
+                if (cancellation.IsCancellationRequested)
+                    _report = _report with { Cancelled = true };
+                if (!_report.Cancelled)
+                {
+                    CompleteDiagramAnimation(_report);
+                    completed = true;
+                }
                 TracePanel.Children.Clear();
                 foreach (var hop in _report.Hops)
                     TracePanel.Children.Add(HopText(hop));
@@ -285,6 +359,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
             }
             finally
             {
+                if (!completed) StopDiagramAnimation();
                 _cancellation = null;
                 cancellation.Dispose();
                 SetRunning(false);
@@ -302,7 +377,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
     private void SetRunning(bool running)
     {
         RunButton.IsEnabled = !running;
-        CancelRunButton.IsEnabled = running;
+        UpdateAnimationCancelButton();
         AdapterPicker.IsEnabled = !running;
         RefreshButton.IsEnabled = !running;
         WanInput.IsEnabled = !running;
@@ -311,6 +386,8 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)
     {
+        StopDiagramAnimation();
+        if (_cancellation is null) return;
         _cancellation?.Cancel();
         CancelRunButton.IsEnabled = false;
         ProgressText.Text = "Cancelling; waiting for probes to stop safely...";
@@ -321,6 +398,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
     private void Render()
     {
         if (SummaryBanner is null) return;
+        _diagramPorts.Clear();
         DiagnosticsPanel.Children.Clear();
         foreach (var observation in _observations.Values)
         {
@@ -378,6 +456,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
             };
             AutomationProperties.SetName(marker, $"{Label(checkpoint)} port: {observation.State}");
             AutomationProperties.SetAutomationId(marker, $"DiagramPort{checkpoint}");
+            _diagramPorts[checkpoint] = marker;
             var left = index == 0;
             var addressColumn = left ? 0 : 4;
             Grid.SetColumn(marker, left ? 1 : 3);
