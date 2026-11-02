@@ -92,5 +92,16 @@ public sealed partial class SettingsPageView : UserControl
         Grid.SetColumnSpan(ResetColumnsButton, inline ? 1 : 2);
     }
 
+    private void ColumnChoices_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        const double spacing = 16;
+        var columns = Math.Clamp((int)((e.NewSize.Width + spacing) / (200 + spacing)), 1, 3);
+        var width = Math.Max(0, Math.Floor((e.NewSize.Width - (columns - 1) * spacing) / columns));
+        for (var index = 0; index < Columns.All.Count; index++)
+        {
+            ((FrameworkElement)ColumnChoices.GetOrCreateElement(index)).Width = width;
+        }
+    }
+
     private void ResetColumnsButton_Click(object sender, RoutedEventArgs e) => Columns.Reset();
 }

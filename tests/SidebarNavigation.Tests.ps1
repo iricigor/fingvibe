@@ -128,6 +128,13 @@ function Switch-SidebarPane {
 function Test-SettingsLayout {
     Set-SidebarWindowWidth $expandedWidth
     Select-SidebarPage Settings "Window backdrop"
+    $ribbon = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "BuildRibbon"))
+    if ($ribbon -and -not $ribbon.Current.IsOffscreen) {
+        $ribbon.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        Start-Sleep -Milliseconds 250
+    }
     Set-UiReviewAppearanceChoice -Root $root -Picker BackdropPicker -Choice Solid
     foreach ($style in @("Standard", "Warm", "Colorful")) {
         Set-UiReviewAppearanceChoice -Root $root -Picker ModePicker -Choice Light

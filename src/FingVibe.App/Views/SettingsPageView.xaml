@@ -64,11 +64,10 @@
                     <TextBlock Text="Choose which columns appear on the Devices page. Column choices and widths last until FingVibe closes."
                                TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <ItemsRepeater x:Name="ColumnChoices" ItemsSource="{x:Bind Columns.All}" Margin="0,4,0,0">
+                    <ItemsRepeater x:Name="ColumnChoices" ItemsSource="{x:Bind Columns.All}" Margin="0,4,0,0"
+                                   SizeChanged="ColumnChoices_SizeChanged">
                         <ItemsRepeater.Layout>
-                            <UniformGridLayout MinItemWidth="200" MinColumnSpacing="16"
-                                               MaximumRowsOrColumns="3" ItemsStretch="Fill"
-                                               Orientation="Horizontal" />
+                            <FlowLayout MinColumnSpacing="16" Orientation="Horizontal" />
                         </ItemsRepeater.Layout>
                         <ItemsRepeater.ItemTemplate>
                             <DataTemplate x:DataType="local:DeviceColumn">
