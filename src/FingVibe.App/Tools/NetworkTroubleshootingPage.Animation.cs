@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using FingVibe.Core.Models;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
@@ -14,12 +15,23 @@ public sealed partial class NetworkTroubleshootingPage
     private readonly DispatcherTimer _diagramTimer = new() { Interval = TimeSpan.FromMilliseconds(16) };
     private readonly Stopwatch _diagramClock = new();
     private readonly Dictionary<DiagnosticCheckpoint, Ellipse> _diagramPorts = [];
-    private TaskCompletionSource? _diagramDrained;
+    private bool _diagramPlaybackEnabled;
+
+    private void BeginDiagramAnimation()
+    {
+        _diagramPlaybackEnabled = _open && IsLoaded && _uiSettings.AnimationsEnabled;
+        if (_diagramPlaybackEnabled) _diagramMotion.BeginRun(Random.Shared.Next(3, 6));
+    }
 
     private void ObserveDiagram(DiagnosticObservation observation)
     {
-        if (!_open || !IsLoaded || !_uiSettings.AnimationsEnabled) return;
+        if (!_diagramPlaybackEnabled || !_open || !IsLoaded || !_uiSettings.AnimationsEnabled) return;
         _diagramMotion.Observe(observation.Checkpoint, observation.State);
+        StartDiagramTimer();
+    }
+
+    private void StartDiagramTimer()
+    {
         if (_diagramMotion.HasWork && !_diagramTimer.IsEnabled)
         {
             _diagramClock.Restart();
@@ -27,19 +39,15 @@ public sealed partial class NetworkTroubleshootingPage
         }
     }
 
-    private async Task DrainDiagramAsync(CancellationToken cancellationToken)
+    private void CompleteDiagramAnimation(NetworkDiagnosticReport report)
     {
-        if (!_diagramMotion.HasWork) return;
-        ProgressText.Text = "Checks finished; completing the illustrative request/response animation.";
-        _diagramDrained = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        try
-        {
-            await _diagramDrained.Task.WaitAsync(cancellationToken);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        if (!_diagramPlaybackEnabled || !_uiSettings.AnimationsEnabled)
         {
             StopDiagramAnimation();
+            return;
         }
+        _diagramMotion.CompleteRun(report.Observations);
+        StartDiagramTimer();
     }
 
     private void AnimationSettingsChanged(UISettings sender, object args) => DispatcherQueue.TryEnqueue(() =>
@@ -49,7 +57,7 @@ public sealed partial class NetworkTroubleshootingPage
 
     private void DiagramTimer_Tick(object? sender, object e)
     {
-        if (!_open || !IsLoaded || _cancellation is null || _cancellation.IsCancellationRequested
+        if (!_open || !IsLoaded || !_diagramPlaybackEnabled || _cancellation is { IsCancellationRequested: true }
             || !_uiSettings.AnimationsEnabled)
         {
             StopDiagramAnimation();
@@ -59,9 +67,13 @@ public sealed partial class NetworkTroubleshootingPage
         _diagramClock.Restart();
         if (_diagramMotion.Checkpoint is not { } checkpoint)
         {
-            StopDiagramAnimation();
+            PauseDiagramAnimation();
             return;
         }
+        var playbackText = $"Illustrative pass {_diagramMotion.PassNumber} of {_diagramMotion.TotalPasses}"
+            + (_cancellation is null ? " - recorded results; no network traffic." : " - not actual packet timing.");
+        if (DiagramPlaybackText.Text != playbackText) DiagramPlaybackText.Text = playbackText;
+        DiagramPlaybackText.Visibility = Visibility.Visible;
         var state = _diagramMotion.State;
         Brush brush = _accessibility.HighContrast
             ? new SolidColorBrush(_uiSettings.GetColorValue(UIColorType.Foreground))
@@ -105,11 +117,25 @@ public sealed partial class NetworkTroubleshootingPage
 
     private void StopDiagramAnimation()
     {
+        _diagramPlaybackEnabled = false;
+        _diagramMotion.Reset();
+        PauseDiagramAnimation();
+    }
+
+    private void PauseDiagramAnimation()
+    {
         _diagramTimer.Stop();
         _diagramClock.Reset();
-        _diagramMotion.Reset();
         DiagramDot.Visibility = DiagramEndpoint.Visibility = DiagramPulse.Visibility = Visibility.Collapsed;
-        _diagramDrained?.TrySetResult();
-        _diagramDrained = null;
+        DiagramPlaybackText.Visibility = Visibility.Collapsed;
+        UpdateAnimationCancelButton();
+    }
+
+    private void UpdateAnimationCancelButton()
+    {
+        var replay = _cancellation is null && _diagramMotion.HasWork;
+        CancelRunButton.IsEnabled = _cancellation is not null || replay;
+        CancelRunButton.Content = replay ? "Stop replay" : "Cancel";
+        AutomationProperties.SetName(CancelRunButton, replay ? "Stop diagnostic animation" : "Cancel network troubleshooting");
     }
 }

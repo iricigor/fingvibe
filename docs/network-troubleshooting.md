@@ -4,7 +4,13 @@ Open **Tools > Network troubleshooting**, review the LAN adapter context, and
 select **Run checks**. Use **Refresh adapters** after changing connections.
 No diagnostic probes run automatically. Run is blocked while a LAN scan,
 Cloudflare speed test, or another diagnostic run is active or stopping.
-Cancel, Back, navigation, network changes, and window close stop probes safely.
+Cancel, Back, navigation, a changed selected network context, and window close
+stop probes safely. Windows network-status notifications that leave the selected
+adapter, IPv4/subnet, gateway, and network-profile identity unchanged preserve
+active checks, results, and animation. Notifications are coalesced, and an
+awaited cancellation cannot reset a newer run or selection. If context
+verification fails, the page stops active work and reports the error while
+retaining existing results as potentially stale.
 The page separates **Connection and checks**, **Network path and status**,
 **Detailed checkpoint diagnostics**, and **Traceroute** into bordered cards.
 Network-request disclosure and interpretation notes are expandable within
@@ -68,7 +74,10 @@ uniquely identify the network, persistence is explicitly unavailable and no
 other profile's value is reused. Windows controls profile identification;
 if it recreates or conflates profiles, FingVibe cannot establish a stronger
 physical-network identity. Router WAN addresses can change, so the field remains
-editable. Network changes cancel results and refresh the context.
+editable. A genuine selected-network context change cancels results and
+refreshes the context. Unrelated or duplicate Windows notifications do not.
+Deferred notifications from programmatic WAN loading or adapter selection do
+not masquerade as user edits and clear results.
 
 ## LAN diagram
 
@@ -118,11 +127,19 @@ check or error pulses red at the target, then fades without a return journey. Ea
 color describes that check, not general node availability. Ping and DNS remain
 separate. Loopback, self-ping, and Windows configured DNS pulse locally at the
 PC; configured DNS can be cached and has no known resolver path in this diagram.
-LAN peers remain static. Short checks are briefly queued for illustration
-without delaying network probes; the page finishes those animations before
-showing completion. Idle and completed diagrams are still. Cancel, navigation,
-network changes, unload, and close clear animation immediately. Windows'
-animation preference disables motion, and high contrast uses system colors.
+LAN peers remain static. Short checks are queued for illustration without
+delaying network probes or the **Checks complete** status. Each run randomly
+chooses **3 to 5 total passes of the entire sequence**, including the initial
+pass; it does not repeat each checkpoint before moving to the next. Later
+passes replay recorded outcomes without sending traffic or retaining the
+network-activity lease. A separate illustration label shows the pass number
+and identifies recorded-result playback after checks finish. **Stop replay**
+stops only the illustration and leaves completed results intact; **Run checks**
+can start a fresh run without waiting for replay. Results have no expiry timer:
+they remain after the final pass until an intentional reset, such as a new run,
+WAN edit, adapter refresh/change, genuine context change, or reopening the page.
+Cancel, navigation, a genuine context change, unload, and close clear animation
+immediately. Windows' animation preference disables motion, and high contrast uses system colors.
 Motion is schematic, not real packet tracking or a measurement of response time.
 Untested, unavailable, running, and cancelled checks stay hollow and have
 distinct neutral textual states. Windows high contrast uses system colors.
@@ -149,8 +166,10 @@ connectivity tests are outside this delivery.
 
 Core regression tests use injectable probes and temporary settings files; they
 do not depend on public endpoints. Deterministic diagram-motion tests cover
-short-check queuing, confirmed returns, unanswered/error fade-out, cancellation
-reset, and connector geometry without network access or desktop automation.
+short-check queuing, confirmed returns, unanswered/error fade-out, exact whole-
+sequence pass counts, cancellation/reset, unchanged/changed context comparison,
+deferred WAN edits, stale asynchronous refresh guards, and connector geometry
+without network access or desktop automation.
 `tests\NetworkTroubleshooting.Ui.Tests.ps1
 -AppPath <built-exe>` checks the native Tools entry, visible WAN validation,
 section headings, checkpoint IP labels, provider alignment, straight main-path

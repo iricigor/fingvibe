@@ -11,8 +11,12 @@ internal sealed class DiagnosticDiagramMotion
     private static readonly Dictionary<DiagnosticCheckpoint, Span[]> Routes =
         Enum.GetValues<DiagnosticCheckpoint>().ToDictionary(checkpoint => checkpoint, CreateRoute);
     private readonly Queue<Entry> _queue = new();
+    private readonly List<Entry> _sequence = [];
     private double _elapsed;
     private double _pulseElapsed;
+    private bool _finished;
+    public int PassNumber { get; private set; } = 1;
+    public int TotalPasses { get; private set; } = 1;
 
     private readonly record struct Span(double X1, double Y1, double X2, double Y2, bool Visible)
     {
@@ -57,15 +61,40 @@ internal sealed class DiagnosticDiagramMotion
 
     public void Observe(DiagnosticCheckpoint checkpoint, DiagnosticState state)
     {
-        var entry = _queue.FirstOrDefault(item => item.Checkpoint == checkpoint);
+        var entry = _sequence.FirstOrDefault(item => item.Checkpoint == checkpoint);
         if (state == DiagnosticState.Running)
         {
-            if (entry is null) _queue.Enqueue(new(checkpoint));
+            if (entry is null)
+            {
+                entry = new(checkpoint);
+                _sequence.Add(entry);
+                _queue.Enqueue(entry);
+            }
         }
         else if (entry is not null)
         {
             entry.State = state;
         }
+    }
+
+    public void BeginRun(int totalPasses)
+    {
+        if (totalPasses is < 3 or > 5) throw new ArgumentOutOfRangeException(nameof(totalPasses));
+        Reset();
+        TotalPasses = totalPasses;
+    }
+
+    public void CompleteRun(IEnumerable<DiagnosticObservation> observations)
+    {
+        foreach (var observation in observations)
+        {
+            if (!CanReplay(observation.State)) continue;
+            if (!_sequence.Any(item => item.Checkpoint == observation.Checkpoint))
+                Observe(observation.Checkpoint, DiagnosticState.Running);
+            Observe(observation.Checkpoint, observation.State);
+        }
+        _finished = true;
+        if (!HasWork) StartNextPass();
     }
 
     public void Advance(double seconds)
@@ -83,15 +112,29 @@ internal sealed class DiagnosticDiagramMotion
             _queue.Dequeue();
             _elapsed = 0;
             _pulseElapsed = 0;
+            if (!HasWork) StartNextPass();
         }
     }
 
     public void Reset()
     {
         _queue.Clear();
+        _sequence.Clear();
         _elapsed = 0;
         _pulseElapsed = 0;
+        _finished = false;
+        PassNumber = TotalPasses = 1;
     }
+
+    private void StartNextPass()
+    {
+        if (!_finished || PassNumber >= TotalPasses) return;
+        foreach (var entry in _sequence.Where(item => CanReplay(item.State))) _queue.Enqueue(entry);
+        if (HasWork) PassNumber++;
+    }
+
+    private static bool CanReplay(DiagnosticState state) =>
+        state is DiagnosticState.Responded or DiagnosticState.Unanswered or DiagnosticState.Error;
 
     internal static double TravelTime(DiagnosticCheckpoint checkpoint) => checkpoint is
         DiagnosticCheckpoint.Loopback or DiagnosticCheckpoint.LocalAddress or DiagnosticCheckpoint.ConfiguredDns

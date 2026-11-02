@@ -52,6 +52,8 @@
                         <ProgressRing x:Name="RunProgress" IsActive="False" Width="24" Height="24" />
                     </StackPanel>
                     <TextBlock x:Name="ProgressText" Text="Ready. No checks have run." TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                    <TextBlock x:Name="DiagramPlaybackText" Visibility="Collapsed" TextWrapping="Wrap" FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock Text="Illustrative network diagram - logical checkpoints, not discovered physical topology" TextWrapping="Wrap"
                                ToolTipService.ToolTip="Motion illustrates diagnostic checks, not actual packets or timing."
                                AutomationProperties.HelpText="Motion illustrates diagnostic checks, not actual packets or timing." />
