@@ -39,15 +39,21 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
     public NetworkTroubleshootingPage()
     {
         InitializeComponent();
+        _diagramTimer.Tick += DiagramTimer_Tick;
         Loaded += (_, _) =>
         {
             _uiSettings.ColorValuesChanged += ColorsChanged;
+            if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 19041))
+                _uiSettings.AnimationsEnabledChanged += AnimationSettingsChanged;
             NetworkInformation.NetworkStatusChanged += NetworkChanged;
         };
         Unloaded += (_, _) =>
         {
             _uiSettings.ColorValuesChanged -= ColorsChanged;
+            if (OperatingSystem.IsWindowsVersionAtLeast(10, 0, 19041))
+                _uiSettings.AnimationsEnabledChanged -= AnimationSettingsChanged;
             NetworkInformation.NetworkStatusChanged -= NetworkChanged;
+            StopDiagramAnimation();
             _cancellation?.Cancel();
         };
         ActualThemeChanged += (_, _) => Render();
@@ -71,6 +77,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
     public async Task StopForNavigationAsync()
     {
         _open = false;
+        StopDiagramAnimation();
         _cancellation?.Cancel();
         if (_runTask is { } run) await run;
     }
@@ -82,6 +89,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
     private void NetworkChanged(object sender) => DispatcherQueue.TryEnqueue(async () =>
     {
         if (!_open) return;
+        StopDiagramAnimation();
         _cancellation?.Cancel();
         if (_runTask is { } run) await run;
         if (_open)
@@ -179,6 +187,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
 
     private void ResetResults()
     {
+        StopDiagramAnimation();
         _report = null;
         _observations.Clear();
         IPAddress? wan = null;
@@ -255,6 +264,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
                 {
                     if (_cancellation != cancellation || cancellation.IsCancellationRequested) return;
                     _observations[observation.Checkpoint] = observation;
+                    ObserveDiagram(observation);
                     ProgressText.Text = $"{Label(observation.Checkpoint)}: {observation.Detail}";
                     Render();
                 });
@@ -266,7 +276,16 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
                     ProgressText.Text = $"Traceroute hop {hop.Number}: {hop.Observation.Detail}";
                 });
                 _report = await _service.RunAsync(_network, wan, progress, cancellation.Token, traceProgress);
-                foreach (var observation in _report.Observations) _observations[observation.Checkpoint] = observation;
+                foreach (var observation in _report.Observations)
+                {
+                    _observations[observation.Checkpoint] = observation;
+                    ObserveDiagram(observation);
+                }
+                Render();
+                if (!_report.Cancelled)
+                    await DrainDiagramAsync(cancellation.Token);
+                if (cancellation.IsCancellationRequested)
+                    _report = _report with { Cancelled = true };
                 TracePanel.Children.Clear();
                 foreach (var hop in _report.Hops)
                     TracePanel.Children.Add(HopText(hop));
@@ -285,6 +304,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
             }
             finally
             {
+                StopDiagramAnimation();
                 _cancellation = null;
                 cancellation.Dispose();
                 SetRunning(false);
@@ -311,6 +331,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)
     {
+        StopDiagramAnimation();
         _cancellation?.Cancel();
         CancelRunButton.IsEnabled = false;
         ProgressText.Text = "Cancelling; waiting for probes to stop safely...";
@@ -321,6 +342,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
     private void Render()
     {
         if (SummaryBanner is null) return;
+        _diagramPorts.Clear();
         DiagnosticsPanel.Children.Clear();
         foreach (var observation in _observations.Values)
         {
@@ -378,6 +400,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
             };
             AutomationProperties.SetName(marker, $"{Label(checkpoint)} port: {observation.State}");
             AutomationProperties.SetAutomationId(marker, $"DiagramPort{checkpoint}");
+            _diagramPorts[checkpoint] = marker;
             var left = index == 0;
             var addressColumn = left ? 0 : 4;
             Grid.SetColumn(marker, left ? 1 : 3);

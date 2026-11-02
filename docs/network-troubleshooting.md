@@ -107,6 +107,19 @@ Detailed hop and traceroute text shows **Responder** first and labels
 **Trace target** separately, so `1.1.1.1` is not mistaken for the responding
 upstream router. A destination actually reached at hop 2 remains an observed
 destination response rather than a guessed router.
+While checks run, one **6-DIP** dot illustrates the active request along the
+connector lines. It travels outward in a neutral color; a confirmed response
+pulses the corresponding **14-DIP** port and returns green. An unanswered check
+or error flashes red at the target and fades without a return journey. Each
+color describes that check, not general node availability. Ping and DNS remain
+separate. Loopback, self-ping, and Windows configured DNS pulse locally at the
+PC; configured DNS can be cached and has no known resolver path in this diagram.
+LAN peers remain static. Short checks are briefly queued for illustration
+without delaying network probes; the page finishes those animations before
+showing completion. Idle and completed diagrams are still. Cancel, navigation,
+network changes, unload, and close clear animation immediately. Windows'
+animation preference disables motion, and high contrast uses system colors.
+Motion is schematic, not real packet tracking or a measurement of response time.
 Untested, unavailable, running, and cancelled checks stay hollow and have
 distinct neutral textual states. Windows high contrast uses system colors.
 The two-row status below the diagram explains the evidence and next action,
@@ -125,13 +138,16 @@ separately. These probes do not identify an exact faulty device.
 
 **Public egress IP** is not necessarily router WAN IP: double NAT, carrier-grade
 NAT, or a VPN/proxy can make them differ. An optional WAN probe can fail even
-with working internet access. Automatic router-management discovery, HTTPS
-connectivity tests, and probe-flow animation are outside this delivery.
+with working internet access. Automatic router-management discovery and HTTPS
+connectivity tests are outside this delivery.
 
 ## Regression checks
 
 Core regression tests use injectable probes and temporary settings files; they
-do not depend on public endpoints. `tests\NetworkTroubleshooting.Ui.Tests.ps1
+do not depend on public endpoints. Deterministic diagram-motion tests cover
+short-check queuing, confirmed returns, unanswered/error fade-out, cancellation
+reset, and connector geometry without network access or desktop automation.
+`tests\NetworkTroubleshooting.Ui.Tests.ps1
 -AppPath <built-exe>` checks the native Tools entry, visible WAN validation,
 section headings, checkpoint IP labels, provider alignment, straight main-path
 and curved branch geometry, review-mode privacy, navigation reset, and the

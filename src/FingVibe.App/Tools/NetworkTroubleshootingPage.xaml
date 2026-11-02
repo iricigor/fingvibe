@@ -52,9 +52,11 @@
                         <ProgressRing x:Name="RunProgress" IsActive="False" Width="24" Height="24" />
                     </StackPanel>
                     <TextBlock x:Name="ProgressText" Text="Ready. No checks have run." TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
-                    <TextBlock Text="Illustrative network diagram - logical checkpoints, not discovered physical topology" TextWrapping="Wrap" />
+                    <TextBlock Text="Illustrative network diagram - logical checkpoints, not discovered physical topology" TextWrapping="Wrap"
+                               ToolTipService.ToolTip="Motion illustrates diagnostic checks, not actual packets or timing."
+                               AutomationProperties.HelpText="Motion illustrates diagnostic checks, not actual packets or timing." />
                     <ScrollViewer x:Name="DiagramScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-                        <Canvas Width="1170" Height="270" Margin="8">
+                        <Canvas x:Name="DiagramCanvas" Width="1170" Height="270" Margin="8">
                             <Canvas.Resources>
                                 <Style TargetType="Path">
                                     <Setter Property="Stroke" Value="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -86,6 +88,10 @@
                             </StackPanel>
                             <StackPanel x:Name="CloudflareNode" Canvas.Left="900" Canvas.Top="0" Width="250" />
                             <StackPanel x:Name="GoogleNode" Canvas.Left="900" Canvas.Top="150" Width="250" />
+                            <Ellipse x:Name="DiagramDot" Width="6" Height="6" Visibility="Collapsed"
+                                     IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                            <Ellipse x:Name="DiagramPulse" StrokeThickness="2" Visibility="Collapsed"
+                                     IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
                         </Canvas>
                     </ScrollViewer>
                     <StackPanel Spacing="0" AutomationProperties.Name="Network status summary">
