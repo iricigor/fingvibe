@@ -26,6 +26,12 @@ public sealed class DiagnosticDiagramMotionTests
         }, canvas.Elements().Where(element => element.Name.LocalName == "Path")
             .Take(5).Select(element => (string?)element.Attribute("Data")));
         Assert.Single(canvas.Elements(), element => (string?)element.Attribute(xaml + "Name") == "DiagramDot");
+        var request = canvas.Elements().Single(element => (string?)element.Attribute(xaml + "Name") == "DiagramRequestDot");
+        Assert.Equal("8", (string?)request.Attribute("Width"));
+        Assert.Equal("8", (string?)request.Attribute("Height"));
+        Assert.Equal("Collapsed", (string?)request.Attribute("Visibility"));
+        Assert.Equal("False", (string?)request.Attribute("IsHitTestVisible"));
+        Assert.Equal("Raw", (string?)request.Attribute("AutomationProperties.AccessibilityView"));
         var endpoint = canvas.Elements().Single(element => (string?)element.Attribute(xaml + "Name") == "DiagramEndpoint");
         Assert.Equal("Collapsed", (string?)endpoint.Attribute("Visibility"));
         Assert.Equal("False", (string?)endpoint.Attribute("IsHitTestVisible"));
@@ -145,7 +151,7 @@ public sealed class DiagnosticDiagramMotionTests
         Assert.Equal(DiagnosticCheckpoint.GooglePing, motion.Checkpoint);
         Assert.Equal(DiagnosticState.Responded, motion.State);
         Advance(motion, travelTime + DiagnosticDiagramMotion.PulseSeconds - 0.2 + 0.02);
-        Advance(motion, motion.TravelSeconds + 0.2);
+        Advance(motion, 0.2);
         Assert.Equal(DiagnosticCheckpoint.GoogleDns, motion.Checkpoint);
         Assert.Equal(DiagnosticState.Error, motion.State);
         Assert.Equal(1, motion.Progress);
@@ -266,13 +272,13 @@ public sealed class DiagnosticDiagramMotionTests
     public void ReplaysTheWholeSequenceExactlyTheChosenTotalNumberOfTimes(int passes)
     {
         var motion = new DiagnosticDiagramMotion();
-        motion.BeginRun(passes);
         var results = new[]
         {
+            Observation(DiagnosticCheckpoint.Loopback, DiagnosticState.Responded),
             Observation(DiagnosticCheckpoint.Gateway, DiagnosticState.Responded),
-            Observation(DiagnosticCheckpoint.CloudflareDns, DiagnosticState.Unanswered),
-            Observation(DiagnosticCheckpoint.Loopback, DiagnosticState.Responded)
+            Observation(DiagnosticCheckpoint.CloudflareDns, DiagnosticState.Unanswered)
         };
+        motion.BeginRun(passes, results.Select(result => result with { State = DiagnosticState.Untested }));
         foreach (var result in results)
         {
             motion.Observe(result.Checkpoint, DiagnosticState.Running);
@@ -298,7 +304,7 @@ public sealed class DiagnosticDiagramMotionTests
     public void LiveQueueCanPauseBetweenChecksWithoutLosingTheFirstPassOrReplays()
     {
         var motion = new DiagnosticDiagramMotion();
-        motion.BeginRun(3);
+        motion.BeginRun(3, []);
         motion.Observe(DiagnosticCheckpoint.Loopback, DiagnosticState.Running);
         motion.Observe(DiagnosticCheckpoint.Loopback, DiagnosticState.Responded);
         Advance(motion, 1);
@@ -320,7 +326,7 @@ public sealed class DiagnosticDiagramMotionTests
     public void CompletingChecksDoesNotWaitForReplayAndMissingProgressStillGetsIllustrated()
     {
         var motion = new DiagnosticDiagramMotion();
-        motion.BeginRun(5);
+        motion.BeginRun(5, []);
         motion.CompleteRun([
             Observation(DiagnosticCheckpoint.GooglePing, DiagnosticState.Responded),
             Observation(DiagnosticCheckpoint.RouterWan, DiagnosticState.Unavailable),
@@ -336,7 +342,7 @@ public sealed class DiagnosticDiagramMotionTests
     public void StoppingReplayOrStartingANewRunDiscardsAllRemainingPasses()
     {
         var motion = new DiagnosticDiagramMotion();
-        motion.BeginRun(5);
+        motion.BeginRun(5, []);
         motion.CompleteRun([Observation(DiagnosticCheckpoint.Loopback, DiagnosticState.Responded)]);
         Advance(motion, 1);
         Assert.Equal(2, motion.PassNumber);
@@ -345,7 +351,7 @@ public sealed class DiagnosticDiagramMotionTests
         Assert.False(motion.HasWork);
         motion.Observe(DiagnosticCheckpoint.Loopback, DiagnosticState.Responded);
         Assert.False(motion.HasWork);
-        motion.BeginRun(3);
+        motion.BeginRun(3, []);
         Assert.Equal(3, motion.TotalPasses);
         Assert.Equal(1, motion.PassNumber);
         Assert.False(motion.HasWork);
@@ -356,7 +362,121 @@ public sealed class DiagnosticDiagramMotionTests
     [InlineData(2)]
     [InlineData(6)]
     public void RejectsPassCountsOutsideTheApprovedRange(int passes) =>
-        Assert.Throws<ArgumentOutOfRangeException>(() => new DiagnosticDiagramMotion().BeginRun(passes));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new DiagnosticDiagramMotion().BeginRun(passes, []));
+
+    [Fact]
+    public void ConfirmedReturnOverlapsTheNextRequestAtEqualOppositeSpeeds()
+    {
+        var motion = new DiagnosticDiagramMotion();
+        motion.BeginRun(3, [
+            Observation(DiagnosticCheckpoint.Gateway, DiagnosticState.Responded),
+            Observation(DiagnosticCheckpoint.Hop2, DiagnosticState.Responded)
+        ]);
+        var gatewayTravel = motion.TravelSeconds;
+        motion.Advance(gatewayTravel + DiagnosticDiagramMotion.PulseSeconds + 0.1);
+        Assert.True(motion.Returning);
+        Assert.Equal(DiagnosticCheckpoint.Gateway, motion.Checkpoint);
+        Assert.Equal(DiagnosticCheckpoint.Hop2, motion.RequestCheckpoint);
+        var reply = DiagnosticDiagramMotion.Position(motion.Checkpoint!.Value, motion.Progress);
+        var request = DiagnosticDiagramMotion.Position(motion.RequestCheckpoint!.Value, motion.RequestProgress);
+        motion.Advance(0.02);
+        var nextReply = DiagnosticDiagramMotion.Position(motion.Checkpoint.Value, motion.Progress);
+        var nextRequest = DiagnosticDiagramMotion.Position(motion.RequestCheckpoint!.Value, motion.RequestProgress);
+        Assert.Equal(-DiagnosticDiagramMotion.Speed * 0.02, nextReply.X - reply.X, 6);
+        Assert.Equal(DiagnosticDiagramMotion.Speed * 0.02, nextRequest.X - request.X, 6);
+        motion.Advance(gatewayTravel - 0.12 + 0.000001);
+        Assert.Equal(DiagnosticCheckpoint.Hop2, motion.Checkpoint);
+        Assert.Null(motion.RequestCheckpoint);
+        Assert.Equal(gatewayTravel / motion.TravelSeconds, motion.Progress, 6);
+        Assert.Equal(DiagnosticState.Running, motion.State);
+        motion.Reset();
+        Assert.Null(motion.RequestCheckpoint);
+        Assert.False(motion.HasWork);
+    }
+
+    [Theory]
+    [InlineData(DiagnosticState.Untested)]
+    [InlineData(DiagnosticState.Running)]
+    [InlineData(DiagnosticState.Unanswered)]
+    [InlineData(DiagnosticState.Error)]
+    public void PendingOrFailedChecksNeverProduceAReplyOrOverlap(DiagnosticState state)
+    {
+        var motion = new DiagnosticDiagramMotion();
+        motion.BeginRun(3, [
+            Observation(DiagnosticCheckpoint.Gateway, state),
+            Observation(DiagnosticCheckpoint.Hop2, DiagnosticState.Responded)
+        ]);
+        motion.Advance(motion.TravelSeconds + DiagnosticDiagramMotion.PulseSeconds + 0.1);
+        Assert.Equal(DiagnosticCheckpoint.Gateway, motion.Checkpoint);
+        Assert.False(motion.Returning);
+        Assert.Null(motion.RequestCheckpoint);
+    }
+
+    [Fact]
+    public void InitialPassWaitsForHop2AndEveryPassUsesLogicalRatherThanArrivalOrder()
+    {
+        var motion = new DiagnosticDiagramMotion();
+        var pending = new[]
+        {
+            Observation(DiagnosticCheckpoint.GooglePing, DiagnosticState.Untested),
+            Observation(DiagnosticCheckpoint.Hop2, DiagnosticState.Untested),
+            Observation(DiagnosticCheckpoint.Gateway, DiagnosticState.Untested)
+        };
+        motion.BeginRun(3, pending);
+        motion.Observe(DiagnosticCheckpoint.GooglePing, DiagnosticState.Responded);
+        motion.Observe(DiagnosticCheckpoint.Gateway, DiagnosticState.Responded);
+        Assert.Equal(DiagnosticCheckpoint.Gateway, motion.Checkpoint);
+        var visited = new List<(int Pass, DiagnosticCheckpoint? Checkpoint)> { (1, motion.Checkpoint) };
+        for (var index = 0; motion.Checkpoint != DiagnosticCheckpoint.Hop2 && index < 1000; index++)
+            motion.Advance(0.02);
+        Assert.Equal(DiagnosticCheckpoint.Hop2, motion.Checkpoint);
+        visited.Add((1, motion.Checkpoint));
+        Advance(motion, 10);
+        Assert.Equal(DiagnosticCheckpoint.Hop2, motion.Checkpoint);
+        Assert.Equal(DiagnosticState.Untested, motion.State);
+        Assert.Equal(1, motion.PassNumber);
+        Assert.True(motion.AtTarget);
+        Assert.False(motion.Returning);
+        Assert.Null(motion.RequestCheckpoint);
+        motion.Observe(DiagnosticCheckpoint.Hop2, DiagnosticState.Running);
+        Assert.Equal(DiagnosticState.Running, motion.State);
+        motion.Observe(DiagnosticCheckpoint.Hop2, DiagnosticState.Responded);
+        motion.CompleteRun(pending.Select(item => item with { State = DiagnosticState.Responded }));
+        for (var index = 0; motion.HasWork && index < 10000; index++)
+        {
+            var current = (motion.PassNumber, motion.Checkpoint);
+            if (visited[^1] != current) visited.Add(current);
+            motion.Advance(0.02);
+        }
+        Assert.False(motion.HasWork);
+        var order = new[] { DiagnosticCheckpoint.Gateway, DiagnosticCheckpoint.Hop2, DiagnosticCheckpoint.GooglePing };
+        Assert.Equal(Enumerable.Range(1, 3).SelectMany(pass =>
+            order.Select(checkpoint => (pass, (DiagnosticCheckpoint?)checkpoint))), visited);
+    }
+
+    [Fact]
+    public void UnavailableHop2DoesNotBlockProvidersOrCreateAFabricatedResponse()
+    {
+        var motion = new DiagnosticDiagramMotion();
+        var results = new[]
+        {
+            Observation(DiagnosticCheckpoint.GooglePing, DiagnosticState.Responded),
+            Observation(DiagnosticCheckpoint.Hop2, DiagnosticState.Unavailable),
+            Observation(DiagnosticCheckpoint.Gateway, DiagnosticState.Responded)
+        };
+        motion.BeginRun(3, results.Select(item => item with { State = DiagnosticState.Untested }));
+        motion.CompleteRun(results);
+        var providerPasses = new HashSet<int>();
+        for (var index = 0; motion.HasWork && index < 10000; index++)
+        {
+            if (motion.Checkpoint == DiagnosticCheckpoint.GooglePing) providerPasses.Add(motion.PassNumber);
+            Assert.NotEqual(DiagnosticCheckpoint.Hop2, motion.RequestCheckpoint);
+            if (motion.Checkpoint == DiagnosticCheckpoint.Hop2) Assert.False(motion.Returning);
+            motion.Advance(0.02);
+        }
+        Assert.False(motion.HasWork);
+        Assert.Equal(new[] { 1, 2, 3 }, providerPasses.Order());
+    }
 
     private static DiagnosticObservation Observation(DiagnosticCheckpoint checkpoint, DiagnosticState state) =>
         new(checkpoint, "test target", state, "test result");

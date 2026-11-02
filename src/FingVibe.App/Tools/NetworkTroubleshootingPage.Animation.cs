@@ -20,7 +20,11 @@ public sealed partial class NetworkTroubleshootingPage
     private void BeginDiagramAnimation()
     {
         _diagramPlaybackEnabled = _open && IsLoaded && _uiSettings.AnimationsEnabled;
-        if (_diagramPlaybackEnabled) _diagramMotion.BeginRun(Random.Shared.Next(3, 6));
+        if (_diagramPlaybackEnabled)
+        {
+            _diagramMotion.BeginRun(Random.Shared.Next(3, 6), _observations.Values);
+            StartDiagramTimer();
+        }
     }
 
     private void ObserveDiagram(DiagnosticObservation observation)
@@ -72,6 +76,8 @@ public sealed partial class NetworkTroubleshootingPage
         }
         var playbackText = $"Illustrative pass {_diagramMotion.PassNumber} of {_diagramMotion.TotalPasses}"
             + (_cancellation is null ? " - recorded results; no network traffic." : " - not actual packet timing.");
+        if (_diagramMotion.AtTarget && _diagramMotion.State is DiagnosticState.Running or DiagnosticState.Untested)
+            playbackText += $" Waiting for {Label(checkpoint)} result.";
         if (DiagramPlaybackText.Text != playbackText) DiagramPlaybackText.Text = playbackText;
         DiagramPlaybackText.Visibility = Visibility.Visible;
         var state = _diagramMotion.State;
@@ -85,6 +91,17 @@ public sealed partial class NetworkTroubleshootingPage
         DiagramPulse.Stroke = brush;
         DiagramDot.Opacity = _diagramMotion.Opacity;
         DiagramDot.Visibility = Visibility.Collapsed;
+        DiagramRequestDot.Visibility = Visibility.Collapsed;
+        if (_diagramMotion.RequestCheckpoint is { } request)
+        {
+            var position = DiagnosticDiagramMotion.Position(request, _diagramMotion.RequestProgress);
+            DiagramRequestDot.Fill = _accessibility.HighContrast
+                ? new SolidColorBrush(_uiSettings.GetColorValue(UIColorType.Foreground))
+                : (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"];
+            Canvas.SetLeft(DiagramRequestDot, position.X - DiagnosticDiagramMotion.DotSize / 2);
+            Canvas.SetTop(DiagramRequestDot, position.Y - DiagnosticDiagramMotion.DotSize / 2);
+            DiagramRequestDot.Visibility = position.Visible ? Visibility.Visible : Visibility.Collapsed;
+        }
         Windows.Foundation.Point? target = _diagramPorts.TryGetValue(
             checkpoint == DiagnosticCheckpoint.ConfiguredDns ? DiagnosticCheckpoint.LocalAddress : checkpoint, out var port)
             && port.ActualWidth > 0
@@ -126,7 +143,7 @@ public sealed partial class NetworkTroubleshootingPage
     {
         _diagramTimer.Stop();
         _diagramClock.Reset();
-        DiagramDot.Visibility = DiagramEndpoint.Visibility = DiagramPulse.Visibility = Visibility.Collapsed;
+        DiagramDot.Visibility = DiagramRequestDot.Visibility = DiagramEndpoint.Visibility = DiagramPulse.Visibility = Visibility.Collapsed;
         DiagramPlaybackText.Visibility = Visibility.Collapsed;
         UpdateAnimationCancelButton();
     }

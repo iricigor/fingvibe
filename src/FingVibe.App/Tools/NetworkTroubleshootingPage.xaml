@@ -92,6 +92,8 @@
                             <StackPanel x:Name="GoogleNode" Canvas.Left="900" Canvas.Top="150" Width="250" />
                             <Ellipse x:Name="DiagramDot" Width="8" Height="8" Visibility="Collapsed"
                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                            <Ellipse x:Name="DiagramRequestDot" Width="8" Height="8" Visibility="Collapsed"
+                                     IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
                             <Ellipse x:Name="DiagramEndpoint" Width="8" Height="8" Visibility="Collapsed"
                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
                             <Ellipse x:Name="DiagramPulse" StrokeThickness="2" Visibility="Collapsed"

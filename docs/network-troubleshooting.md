@@ -116,8 +116,8 @@ Detailed hop and traceroute text shows **Responder** first and labels
 **Trace target** separately, so `1.1.1.1` is not mistaken for the responding
 upstream router. A destination actually reached at hop 2 remains an observed
 destination response rather than a guessed router.
-While checks run, one **8-DIP** dot illustrates the active request along the
-connector lines at a constant **480 DIPs/second** in either direction. Farther
+While checks run, up to two **8-DIP** dots illustrate requests and confirmed
+responses along the connector lines at a constant **480 DIPs/second** in either direction. Farther
 checkpoints take longer to reach; crossings behind icons count toward travel
 time but hide the moving dot rather than making it jump across the gaps.
 It travels outward in a neutral color. On a confirmed response, a separate
@@ -127,6 +127,18 @@ check or error pulses red at the target, then fades without a return journey. Ea
 color describes that check, not general node availability. Ping and DNS remain
 separate. Loopback, self-ping, and Windows configured DNS pulse locally at the
 PC; configured DNS can be cached and has no known resolver path in this diagram.
+As a confirmed reply travels back toward the PC, the next neutral request can
+travel outward simultaneously. These are overlapping illustrations of adjacent
+checks, not extra probes or a second cycle of the same checkpoint. The next
+request continues from its current position when the preceding reply finishes.
+No green reply is shown for an untested, pending, unanswered, or errored check.
+
+Both the initial pass and replays use logical diagram order: local PC checks
+(including configured DNS), router LAN/WAN, **hop 2**, then Cloudflare and Google
+IP/DNS checkpoints. Actual probe execution is unchanged: traceroute still runs
+after IP/DNS tests. If an earlier logical checkpoint has no result yet, the
+illustration waits there, with an explicit waiting label, while probes continue.
+Unavailable checkpoints are skipped without inventing a response.
 LAN peers remain static. Short checks are queued for illustration without
 delaying network probes or the **Checks complete** status. Each run randomly
 chooses **3 to 5 total passes of the entire sequence**, including the initial
@@ -167,7 +179,8 @@ connectivity tests are outside this delivery.
 Core regression tests use injectable probes and temporary settings files; they
 do not depend on public endpoints. Deterministic diagram-motion tests cover
 short-check queuing, confirmed returns, unanswered/error fade-out, exact whole-
-sequence pass counts, cancellation/reset, unchanged/changed context comparison,
+sequence pass counts, simultaneous opposite-direction travel, first-pass/replay
+logical ordering and hop-2 waits, cancellation/reset, unchanged/changed context comparison,
 deferred WAN edits, stale asynchronous refresh guards, and connector geometry
 without network access or desktop automation.
 `tests\NetworkTroubleshooting.Ui.Tests.ps1

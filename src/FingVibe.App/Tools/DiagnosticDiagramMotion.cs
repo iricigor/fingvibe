@@ -14,6 +14,8 @@ internal sealed class DiagnosticDiagramMotion
     private readonly List<Entry> _sequence = [];
     private double _elapsed;
     private double _pulseElapsed;
+    private Entry? _request;
+    private double _requestElapsed;
     private bool _finished;
     public int PassNumber { get; private set; } = 1;
     public int TotalPasses { get; private set; } = 1;
@@ -39,11 +41,13 @@ internal sealed class DiagnosticDiagramMotion
     public bool AtTarget => HasWork && _elapsed >= TravelSeconds;
     public bool Returning => AtTarget && !IsLocal && State == DiagnosticState.Responded
         && _elapsed >= TravelSeconds + PulseSeconds;
+    public DiagnosticCheckpoint? RequestCheckpoint => Returning ? _request?.Checkpoint : null;
+    public double RequestProgress => _request is null ? 0 : _requestElapsed / TravelTime(_request.Checkpoint);
     public bool ShowPulse => HasWork && (IsLocal || AtTarget && !Returning);
-    public double Pulse => State == DiagnosticState.Running
+    public double Pulse => State is DiagnosticState.Running or DiagnosticState.Untested
         ? 0.5 - 0.5 * Math.Cos(_pulseElapsed * 2 * Math.PI / 0.9)
         : Math.Clamp((_elapsed - TravelSeconds) / PulseSeconds, 0, 1);
-    public double EndpointSize => DotSize + (State == DiagnosticState.Running
+    public double EndpointSize => DotSize + (State is DiagnosticState.Running or DiagnosticState.Untested
         ? 4 * Pulse : 10 * Math.Sin(Math.PI * Pulse));
     public double Opacity => State is DiagnosticState.Unanswered or DiagnosticState.Error
         ? 1 - Math.Clamp((_elapsed - TravelSeconds - PulseSeconds) / FadeSeconds, 0, 1) : 1;
@@ -70,6 +74,7 @@ internal sealed class DiagnosticDiagramMotion
                 _sequence.Add(entry);
                 _queue.Enqueue(entry);
             }
+            entry.State = state;
         }
         else if (entry is not null)
         {
@@ -77,20 +82,29 @@ internal sealed class DiagnosticDiagramMotion
         }
     }
 
-    public void BeginRun(int totalPasses)
+    public void BeginRun(int totalPasses, IEnumerable<DiagnosticObservation> checkpoints)
     {
         if (totalPasses is < 3 or > 5) throw new ArgumentOutOfRangeException(nameof(totalPasses));
         Reset();
         TotalPasses = totalPasses;
+        foreach (var observation in checkpoints.OrderBy(item => Order(item.Checkpoint)))
+        {
+            if (observation.State is DiagnosticState.Unavailable or DiagnosticState.Cancelled) continue;
+            var entry = new Entry(observation.Checkpoint) { State = observation.State };
+            _sequence.Add(entry);
+            _queue.Enqueue(entry);
+        }
     }
 
     public void CompleteRun(IEnumerable<DiagnosticObservation> observations)
     {
-        foreach (var observation in observations)
+        foreach (var observation in observations.OrderBy(item => Order(item.Checkpoint)))
         {
-            if (!CanReplay(observation.State)) continue;
             if (!_sequence.Any(item => item.Checkpoint == observation.Checkpoint))
+            {
+                if (!CanReplay(observation.State)) continue;
                 Observe(observation.Checkpoint, DiagnosticState.Running);
+            }
             Observe(observation.Checkpoint, observation.State);
         }
         _finished = true;
@@ -102,18 +116,52 @@ internal sealed class DiagnosticDiagramMotion
         if (!double.IsFinite(seconds) || seconds < 0)
             throw new ArgumentOutOfRangeException(nameof(seconds));
         if (!_queue.TryPeek(out var entry)) return;
+        if (entry.State is DiagnosticState.Unavailable or DiagnosticState.Cancelled)
+        {
+            FinishEntry();
+            return;
+        }
+        var previousElapsed = _elapsed;
+        var travel = TravelSeconds;
         _pulseElapsed += seconds;
         _elapsed += seconds;
-        if (entry.State == DiagnosticState.Running)
+        if (entry.State is DiagnosticState.Running or DiagnosticState.Untested)
             _elapsed = Math.Min(_elapsed, TravelSeconds);
-        else if (_elapsed >= TravelSeconds + PulseSeconds + (entry.State == DiagnosticState.Responded
+        if (Returning && _queue.Count > 1)
+        {
+            var next = _queue.ElementAt(1);
+            if (next.State is not (DiagnosticState.Unavailable or DiagnosticState.Cancelled)
+                && next.Checkpoint is not (DiagnosticCheckpoint.Loopback or DiagnosticCheckpoint.LocalAddress
+                    or DiagnosticCheckpoint.ConfiguredDns))
+            {
+                _request = next;
+                var returnStart = travel + PulseSeconds;
+                var secondsReturning = Math.Clamp(_elapsed - returnStart, 0, travel)
+                    - Math.Clamp(previousElapsed - returnStart, 0, travel);
+                _requestElapsed = Math.Min(TravelTime(next.Checkpoint), _requestElapsed + secondsReturning);
+            }
+            else
+            {
+                _request = null;
+                _requestElapsed = 0;
+            }
+        }
+        if (entry.State is not (DiagnosticState.Running or DiagnosticState.Untested)
+            && _elapsed >= TravelSeconds + PulseSeconds + (entry.State == DiagnosticState.Responded
             ? IsLocal ? 0 : TravelSeconds : FadeSeconds))
         {
-            _queue.Dequeue();
-            _elapsed = 0;
-            _pulseElapsed = 0;
-            if (!HasWork) StartNextPass();
+            FinishEntry();
         }
+    }
+
+    private void FinishEntry()
+    {
+        _queue.Dequeue();
+        _elapsed = _queue.TryPeek(out var next) && ReferenceEquals(next, _request) ? _requestElapsed : 0;
+        _pulseElapsed = 0;
+        _request = null;
+        _requestElapsed = 0;
+        if (!HasWork) StartNextPass();
     }
 
     public void Reset()
@@ -122,6 +170,8 @@ internal sealed class DiagnosticDiagramMotion
         _sequence.Clear();
         _elapsed = 0;
         _pulseElapsed = 0;
+        _request = null;
+        _requestElapsed = 0;
         _finished = false;
         PassNumber = TotalPasses = 1;
     }
@@ -129,12 +179,28 @@ internal sealed class DiagnosticDiagramMotion
     private void StartNextPass()
     {
         if (!_finished || PassNumber >= TotalPasses) return;
-        foreach (var entry in _sequence.Where(item => CanReplay(item.State))) _queue.Enqueue(entry);
+        foreach (var entry in _sequence.Where(item => CanReplay(item.State)).OrderBy(item => Order(item.Checkpoint)))
+            _queue.Enqueue(entry);
         if (HasWork) PassNumber++;
     }
 
     private static bool CanReplay(DiagnosticState state) =>
         state is DiagnosticState.Responded or DiagnosticState.Unanswered or DiagnosticState.Error;
+
+    private static int Order(DiagnosticCheckpoint checkpoint) => checkpoint switch
+    {
+        DiagnosticCheckpoint.Loopback => 0,
+        DiagnosticCheckpoint.LocalAddress => 1,
+        DiagnosticCheckpoint.ConfiguredDns => 2,
+        DiagnosticCheckpoint.Gateway => 3,
+        DiagnosticCheckpoint.RouterWan => 4,
+        DiagnosticCheckpoint.Hop2 => 5,
+        DiagnosticCheckpoint.CloudflarePing => 6,
+        DiagnosticCheckpoint.CloudflareDns => 7,
+        DiagnosticCheckpoint.GooglePing => 8,
+        DiagnosticCheckpoint.GoogleDns => 9,
+        _ => throw new ArgumentOutOfRangeException(nameof(checkpoint))
+    };
 
     internal static double TravelTime(DiagnosticCheckpoint checkpoint) => checkpoint is
         DiagnosticCheckpoint.Loopback or DiagnosticCheckpoint.LocalAddress or DiagnosticCheckpoint.ConfiguredDns
