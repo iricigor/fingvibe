@@ -140,8 +140,8 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <Grid x:Name="ScanHeader" Margin="24,16,224,16" SizeChanged="ScanHeader_SizeChanged">
-                    <Grid x:Name="ScanBar" ColumnSpacing="12" RowSpacing="8" VerticalAlignment="Top">
+                <Grid x:Name="ScanHeader" Margin="24,16,224,8" SizeChanged="ScanHeader_SizeChanged">
+                    <Grid x:Name="ScanBar" ColumnSpacing="12" VerticalAlignment="Top">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -166,7 +166,7 @@
                         <TextBlock x:Name="ScanFreshnessText" Grid.Column="2" VerticalAlignment="Center"
                                    TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <StackPanel x:Name="ScanActions" Grid.Row="1" Grid.ColumnSpan="3"
-                                    Orientation="Horizontal" Spacing="8">
+                                    Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
                             <Button x:Name="ScanButton"
                                     Click="ScanButton_Click"
                                     AutomationProperties.Name="Scan LAN"
@@ -182,7 +182,8 @@
                                     Visibility="Collapsed"
                                     IsEnabled="False" />
                         </StackPanel>
-                        <StackPanel x:Name="ScanMessages" Grid.Row="2" Grid.ColumnSpan="3" Spacing="8">
+                        <StackPanel x:Name="ScanMessages" Grid.Row="2" Grid.ColumnSpan="3" Spacing="8"
+                                    Margin="0,8,0,0" Visibility="Collapsed">
                             <TextBlock x:Name="ScanStatusText"
                                        Text="Ready"
                                        TextWrapping="Wrap"

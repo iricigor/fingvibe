@@ -20,6 +20,7 @@ public sealed partial class MainWindow
         Grid.SetRow(ScanFreshnessText, narrow ? 2 : 0);
         Grid.SetColumn(ScanFreshnessText, narrow ? 0 : 2);
         Grid.SetColumnSpan(ScanFreshnessText, narrow ? 3 : 1);
+        NetworkPicker.Margin = ScanFreshnessText.Margin = narrow ? new Thickness(0, 8, 0, 0) : new Thickness(0);
         Grid.SetRow(ScanActions, narrow ? 3 : 1);
         Grid.SetRow(ScanMessages, narrow ? 4 : 2);
     }

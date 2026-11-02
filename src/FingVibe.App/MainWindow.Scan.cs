@@ -33,6 +33,8 @@ public sealed partial class MainWindow
             .Where(value => !string.IsNullOrWhiteSpace(value)));
         ScanStatusText.Text = status;
         ScanStatusText.Visibility = string.IsNullOrWhiteSpace(status) ? Visibility.Collapsed : Visibility.Visible;
+        ScanMessages.Visibility = _isScanning || !string.IsNullOrWhiteSpace(status)
+            ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private async void ScanButton_Click(object sender, RoutedEventArgs e)
