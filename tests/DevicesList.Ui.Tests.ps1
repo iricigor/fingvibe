@@ -223,12 +223,15 @@ function Set-DeviceFilterChoice([string] $Id, [string] $Label) {
 
 function Assert-FilterPresentation([string] $Id, [string] $Category, [string] $Value = "") {
     $picker = Find-DeviceElement $Id
-    if (-not (Get-VisibleDeviceChild $picker Name $Category)) {
-        throw "Collapsed '$Id' must show category '$Category'."
+    $expected = if ($Value) { $Value } else {
+        switch ($Category) { Status { "All statuses" } Person { "All people" } Room { "All rooms" } }
     }
-    if ($Value -and -not (Get-VisibleDeviceChild $picker Name $Value)) {
-        throw "Collapsed '$Id' must show its selected value '$Value'."
+    $selected = @($picker.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection())
+    if ($selected.Count -ne 1 -or $selected[0].Current.Name -ne $expected) {
+        throw "Native '$Id' selection must announce '$expected'."
     }
+    # Native ComboBox automation exposes the selected option, not its faceplate visual tree.
+    $null = Save-DeviceCapture "devices-filter-$Category-$expected"
 }
 
 function Test-ConditionalDeviceColumns {
