@@ -274,6 +274,10 @@ jobs:
           merge-multiple: true
           path: artifacts\ui-review-app
 
+      - name: Prepare disposable desktop for wide Devices checks
+        shell: powershell
+        run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
+
       - name: Test full-window screenshot capture
         id: capture-tests
         shell: pwsh

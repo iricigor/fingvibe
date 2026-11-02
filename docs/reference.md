@@ -343,6 +343,13 @@ These checks use Windows UI Automation without WinAppDriver or Developer Mode. T
 
 `tests\DevicesList.Ui.Tests.ps1 -AppPath "<absolute path to FingVibe.App.exe>" -ScreenshotDirectory "<capture directory>"` checks the expanding search, equal 180px filter components, unrestricted/selected dropdown presentation, all four Status/Response combinations, Name/Type hierarchy, keyboard resizing, six-theme stripes/header contrast, sorting/filtering, container recycling, and native interaction indicators on an interactive desktop at least 1280 logical pixels wide. It uses an isolated 80-device snapshot through `FINGVIBE_UI_REVIEW_SNAPSHOT`, which is honored only in UI-review mode, and deletes that fixture afterward without modifying the user's saved scan or appearance. CI runs it on the disposable Windows UI-review runner and retains its screenshots in the review artifact; do not run it on a working user's desktop.
 
+For current-response/latency fixture checks, the Devices suite also sets
+`FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT=1`. This is honored only with UI-review
+mode and an explicit synthetic snapshot path; normal restored scans remain
+historical. CI prepares a 1920x1080 disposable desktop to exercise both wide
+and narrow viewports without clipping captures. No display settings are
+changed by the application or by local build/test commands.
+
 ## Download builds
 
 Local and pull request build/publish outputs retain only English (`en`) managed satellite resources through the application's `SatelliteResourceLanguages` setting. Neutral resources, including dependencies' default English strings, remain included. Official releases retain all available languages: the release workflow overrides the setting with an empty global MSBuild property (`/property:SatelliteResourceLanguages=`), disabling this filter. Both workflows use the Release configuration, so the configuration name alone does not determine language filtering. This does not force the runtime UI culture to English or filter Windows App SDK native/PRI resources in the self-contained deployment. When checking the result locally, start with clean build and publish output directories: previously copied language folders are not removed by changing this setting.

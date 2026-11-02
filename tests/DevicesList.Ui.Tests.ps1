@@ -288,6 +288,7 @@ function Test-ConditionalDeviceColumns {
 
 $savedReview = $env:FINGVIBE_UI_REVIEW
 $savedSnapshot = $env:FINGVIBE_UI_REVIEW_SNAPSHOT
+$savedCurrentSnapshot = $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT
 $process = $null
 $fixture = $null
 $previousContext = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext([IntPtr]::new(-4))
@@ -307,6 +308,7 @@ try {
         ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $fixture -Encoding UTF8
     $env:FINGVIBE_UI_REVIEW = "1"
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $fixture
+    $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT = "1"
     $process = Start-Process -FilePath (Resolve-Path -LiteralPath $AppPath).Path -PassThru
     $deadline = [DateTime]::UtcNow.AddSeconds(30)
     do {
@@ -552,6 +554,7 @@ finally {
     if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id }
     $env:FINGVIBE_UI_REVIEW = $savedReview
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $savedSnapshot
+    $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT = $savedCurrentSnapshot
     if ($fixture -and (Test-Path -LiteralPath $fixture)) { Remove-Item -LiteralPath $fixture }
     $null = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext($previousContext)
 }

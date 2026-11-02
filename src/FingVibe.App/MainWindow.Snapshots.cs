@@ -43,6 +43,13 @@ public sealed partial class MainWindow
             var missingObservations = snapshot.Results.Where(result => result.MacAddress is { } mac
                 && (!_inventory.Devices.TryGetValue(mac.ToString(), out var device) || device.Observations.Count == 0)).ToArray();
             _inventory = _inventory.ObserveCompletedScan(null, snapshot with { Results = missingObservations }, historical: true);
+            // Only explicit synthetic review fixtures can stand in for a current scan.
+            if (IsUiReview
+                && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT") == "1"
+                && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_SNAPSHOT") is { Length: > 0 })
+            {
+                _liveCompletedAt = snapshot.CompletedAt;
+            }
             RefreshInventoryRows();
             UpdatePeopleRoomsPages();
             ShowSavedSnapshotStatus(snapshot);
