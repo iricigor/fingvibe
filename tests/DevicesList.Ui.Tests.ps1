@@ -192,6 +192,100 @@ function Assert-HeaderUnderline([string] $Theme) {
     finally { $bitmap.Dispose() }
 }
 
+function Get-VisibleDeviceChild($Parent, [string] $Property, [string] $Value) {
+    $propertyId = if ($Property -eq "Name") {
+        [System.Windows.Automation.AutomationElement]::NameProperty
+    } else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
+    $condition = [System.Windows.Automation.PropertyCondition]::new($propertyId, $Value)
+    @($Parent.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition) |
+        Where-Object { -not $_.Current.IsOffscreen }) | Select-Object -First 1
+}
+
+function Set-DeviceFilterChoice([string] $Id, [string] $Label) {
+    $picker = Find-DeviceElement $Id
+    $expand = $picker.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+    $expand.Expand()
+    Start-Sleep -Milliseconds 150
+    $condition = [System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, $Label),
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::ListItem))
+    $choice = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+    if (-not $choice) { throw "Filter option '$Label' was not found in '$Id'." }
+    $choice.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    if ($expand.Current.ExpandCollapseState -ne [System.Windows.Automation.ExpandCollapseState]::Collapsed) {
+        $expand.Collapse()
+    }
+    Start-Sleep -Milliseconds 200
+}
+
+function Assert-FilterPresentation([string] $Id, [string] $Category, [string] $Value = "") {
+    $picker = Find-DeviceElement $Id
+    if (-not (Get-VisibleDeviceChild $picker Name $Category)) {
+        throw "Collapsed '$Id' must show category '$Category'."
+    }
+    if ($Value -and -not (Get-VisibleDeviceChild $picker Name $Value)) {
+        throw "Collapsed '$Id' must show its selected value '$Value'."
+    }
+}
+
+function Test-ConditionalDeviceColumns {
+    foreach ($case in @(
+        @{ Status = $true; Response = $true; Type = $true; Grip = "Status / response" },
+        @{ Status = $true; Response = $false; Type = $false; Grip = "Status" },
+        @{ Status = $false; Response = $true; Type = $true; Grip = "Response" },
+        @{ Status = $false; Response = $false; Type = $false; Grip = "" }
+    )) {
+        Select-DevicePage Settings
+        $choices = (Find-DeviceElement SettingsPage).FindAll(
+            [System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::CheckBox))
+        foreach ($entry in @(@("Status", $case.Status), @("Response", $case.Response), @("Device type", $case.Type))) {
+            $box = @($choices | Where-Object { $_.Current.Name -eq $entry[0] })[0]
+            if (-not $box) { throw "Column choice '$($entry[0])' not found." }
+            $toggle = $box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+            if (($toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On) -ne $entry[1]) {
+                $toggle.Toggle()
+            }
+        }
+        Select-DevicePage DevicesNavItem
+        $row = @(Get-DeviceRows)[0]
+        $status = Get-VisibleDeviceChild $row Name "Online"
+        $response = Get-VisibleDeviceChild $row AutomationId ResponseTimeText
+        $type = Get-VisibleDeviceChild $row AutomationId DeviceTypeLabel
+        if ([bool]$status -ne $case.Status -or [bool]$response -ne $case.Response -or [bool]$type -ne $case.Type) {
+            throw "Conditional column content does not match Settings: $($case | ConvertTo-Json -Compress)."
+        }
+        $grip = Get-VisibleDeviceChild $root AutomationId ConnectionResizeGrip
+        if ([bool]$grip -ne [bool]$case.Grip) { throw "Connection resize handle visibility is incorrect." }
+        if ($grip) {
+            if ($grip.Current.Name -ne "Resize $($case.Grip) column") { throw "Connection resize target is incorrect." }
+            $left = $grip.Current.BoundingRectangle.Left
+            $grip.SetFocus()
+            [DevicesReviewInput]::Tap(0x27)
+            Start-Sleep -Milliseconds 150
+            if ([Math]::Abs($grip.Current.BoundingRectangle.Left - $left - 8 * $scale) -gt 1) {
+                throw "Conditional connection column must resize by one keyboard step."
+            }
+        }
+        if ($type) {
+            $name = Get-VisibleDeviceChild $row AutomationId DeviceNameText
+            if ($type.Current.BoundingRectangle.Top -lt $name.Current.BoundingRectangle.Bottom -or
+                [Math]::Abs($type.Current.BoundingRectangle.Left - $name.Current.BoundingRectangle.Left) -gt $scale) {
+                throw "Device type must be a secondary line within the Name column."
+            }
+        }
+        $null = Save-DeviceCapture "devices-columns-$($case.Status)-$($case.Response)"
+    }
+    Select-DevicePage Settings
+    (Find-DeviceElement ResetColumnsButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Select-DevicePage DevicesNavItem
+}
+
 $savedReview = $env:FINGVIBE_UI_REVIEW
 $savedSnapshot = $env:FINGVIBE_UI_REVIEW_SNAPSHOT
 $process = $null
@@ -235,6 +329,27 @@ try {
         throw "Devices title must sit above the card contents, outside their 16-DIP inset."
     }
     if ((Find-DeviceElement ResultCountText).Current.Name -ne "80 devices") { throw "Isolated fixture did not load." }
+    Assert-FilterPresentation InventoryStatusFilter Status
+    Assert-FilterPresentation PersonFilter Person
+    Assert-FilterPresentation RoomFilter Room
+    Set-DeviceFilterChoice InventoryStatusFilter Online
+    Assert-FilterPresentation InventoryStatusFilter Status Online
+    $null = Save-DeviceCapture "devices-selected-status-filter"
+    Set-DeviceFilterChoice InventoryStatusFilter Unknown
+    Assert-FilterPresentation InventoryStatusFilter Status Unknown
+    if ((Find-DeviceElement ResultCountText).Current.Name -ne "0 of 80 devices") {
+        throw "Unknown remains a meaningful status filter."
+    }
+    Set-DeviceFilterChoice InventoryStatusFilter "All statuses"
+    Assert-FilterPresentation InventoryStatusFilter Status
+    Set-DeviceFilterChoice PersonFilter Unassigned
+    Assert-FilterPresentation PersonFilter Person Unassigned
+    Set-DeviceFilterChoice PersonFilter "All people"
+    Set-DeviceFilterChoice RoomFilter Unassigned
+    Assert-FilterPresentation RoomFilter Room Unassigned
+    Set-DeviceFilterChoice RoomFilter "All rooms"
+    if ((Find-DeviceElement ResultCountText).Current.Name -ne "80 devices") { throw "All options must reset filters." }
+    Test-ConditionalDeviceColumns
 
     $widths = @{}
     foreach ($width in @(1280, 1200, 1000, 640)) {
@@ -427,7 +542,7 @@ try {
         Write-Host "Full-header pixel check and final-column keyboard resizing passed."
     }
     else { Write-Host "Full-header pixel check not run: desktop is narrower than 1880 logical pixels." }
-    Write-Host "Device toolbar, compact response, four-theme stripes/header underline, recycling, sorting/filtering, hover, selection and keyboard checks passed."
+    Write-Host "Device toolbar/dropdowns, conditional columns, six-theme stripes/header underline, recycling, sorting/filtering, hover, selection and keyboard checks passed."
 }
 finally {
     if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id }

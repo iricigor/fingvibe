@@ -24,6 +24,8 @@
                     <SolidColorBrush x:Key="ScannerOnlineForegroundBrush" Color="#166534" />
                     <SolidColorBrush x:Key="ScannerOfflineBackgroundBrush" Color="#F3F4F6" />
                     <SolidColorBrush x:Key="ScannerOfflineForegroundBrush" Color="#475569" />
+                    <SolidColorBrush x:Key="ScannerImportedBackgroundBrush" Color="#22D49A28" />
+                    <SolidColorBrush x:Key="ScannerImportedForegroundBrush" Color="#785214" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
@@ -40,6 +42,8 @@
                     <SolidColorBrush x:Key="ScannerOnlineForegroundBrush" Color="#86EFAC" />
                     <SolidColorBrush x:Key="ScannerOfflineBackgroundBrush" Color="#293241" />
                     <SolidColorBrush x:Key="ScannerOfflineForegroundBrush" Color="#CBD5E1" />
+                    <SolidColorBrush x:Key="ScannerImportedBackgroundBrush" Color="#26E7B65A" />
+                    <SolidColorBrush x:Key="ScannerImportedForegroundBrush" Color="#F3D28B" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
                     <SolidColorBrush x:Key="NavigationViewContentBackground" Color="{ThemeResource SystemColorWindowColor}" />
@@ -52,6 +56,8 @@
                     <SolidColorBrush x:Key="ScannerOnlineForegroundBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                     <SolidColorBrush x:Key="ScannerOfflineBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
                     <SolidColorBrush x:Key="ScannerOfflineForegroundBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="ScannerImportedBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="ScannerImportedForegroundBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
             <local:PortIconGlyphConverter x:Key="PortIconGlyphConverter" />

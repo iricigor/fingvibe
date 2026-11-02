@@ -96,20 +96,28 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
             {
                 if (args.PropertyName == nameof(DeviceColumn.EffectiveWidth))
                 {
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Connection)));
                     PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TotalWidth)));
-                }
-                if (args.PropertyName == nameof(DeviceColumn.IsVisible))
-                {
                     UpdateSeparators();
                 }
             };
         }
+        _combinedConnection.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(DeviceColumn.EffectiveWidth))
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Connection)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TotalWidth)));
+            }
+        };
         UpdateSeparators();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    public DeviceColumn Name { get; } = new("Name", "Name", 170);
+    private readonly DeviceColumn _combinedConnection = new("Connection", "Status / response", 180);
+
+    public DeviceColumn Name { get; } = new("Name", "Name", 210, canHide: false);
     public DeviceColumn Address { get; } = new("Address", "IP address", 130, canHide: false);
     public DeviceColumn Vendor { get; } = new("Vendor", "Vendor", 160);
     public DeviceColumn Ports { get; } = new("Ports", "Open ports", 150);
@@ -123,23 +131,33 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
 
     public IReadOnlyList<DeviceColumn> All { get; }
 
-    public double TotalWidth => All.Sum(column => column.EffectiveWidth);
+    public DeviceColumn Connection => Status.IsVisible && Response.IsVisible
+        ? _combinedConnection : Status.IsVisible ? Status : Response;
+
+    private DeviceColumn[] TableColumns => [Name, Address, Vendor, Ports, Connection, Mac, OperatingSystem, Person, Room];
+
+    public double TotalWidth => TableColumns.Sum(column => column.EffectiveWidth);
 
     public DeviceColumn? Find(string? key) =>
         All.FirstOrDefault(column => string.Equals(column.Key, key, StringComparison.Ordinal));
 
     private void UpdateSeparators()
     {
+        Status.HasFollowingVisibleColumn = false;
+        Response.HasFollowingVisibleColumn = false;
+        Type.HasFollowingVisibleColumn = false;
+        var columns = TableColumns;
         var hasFollowingVisibleColumn = false;
-        for (var index = All.Count - 1; index >= 0; index--)
+        for (var index = columns.Length - 1; index >= 0; index--)
         {
-            All[index].HasFollowingVisibleColumn = hasFollowingVisibleColumn;
-            hasFollowingVisibleColumn |= All[index].IsVisible;
+            columns[index].HasFollowingVisibleColumn = hasFollowingVisibleColumn;
+            hasFollowingVisibleColumn |= columns[index].IsVisible;
         }
     }
 
     public void Reset()
     {
+        _combinedConnection.Width = _combinedConnection.DefaultWidth;
         foreach (var column in All)
         {
             column.Width = column.DefaultWidth;

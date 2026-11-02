@@ -114,6 +114,21 @@ public sealed class ScanResultRowTests
     }
 
     [Fact]
+    public void Assignments_IgnoreUnassignedStaleTextButPreserveAssignedDigitsAndEmoji()
+    {
+        var row = CreateRow();
+        row.SetPeopleRoomAssignments(null, "0", "Stale", null, "0", "Stale");
+        Assert.Equal("-", row.PersonShortName);
+        Assert.Equal("-", row.RoomShortName);
+        row.SetPeopleRoomAssignments(Guid.NewGuid(), "0", "Person", Guid.NewGuid(), "0\uFE0F\u20E3", "Ground floor");
+        Assert.Equal("0", row.PersonShortName);
+        Assert.Equal("0\uFE0F\u20E3", row.RoomShortName);
+        row.SetPeopleRoomAssignments(Guid.NewGuid(), "", "Person", Guid.NewGuid(), " ", "Room");
+        Assert.Equal("-", row.PersonShortName);
+        Assert.Equal("-", row.RoomShortName);
+    }
+
+    [Fact]
     public void CustomName_OverridesDisplayWithoutChangingDiscoveredName()
     {
         var discovered = CreateRow();

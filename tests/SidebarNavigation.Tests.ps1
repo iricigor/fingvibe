@@ -227,11 +227,12 @@ function Test-SettingsLayout {
                 throw "Column choices overlap horizontally at $width."
             }
         }
-        $ip = $checkboxes[1]
-        if ($ip.Current.IsEnabled -or $ip.GetCurrentPattern(
+        foreach ($mandatory in @($checkboxes[0], $checkboxes[1])) {
+        if ($mandatory.Current.IsEnabled -or $mandatory.GetCurrentPattern(
                 [System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne
                 [System.Windows.Automation.ToggleState]::On) {
-            throw "IP address must remain checked and mandatory."
+            throw "Name and IP address must remain checked and mandatory."
+        }
         }
         if ($width -ge 640) { Save-SidebarAppearance "settings-layout-$width" }
     }
@@ -239,8 +240,8 @@ function Test-SettingsLayout {
     if ((Find-SidebarElement AutomationId NetworkNavItem).Current.BoundingRectangle.Width / $scale -lt 80) {
         Switch-SidebarPane
     }
-    $name = $checkboxes[0]
-    $toggle = $name.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+    $vendor = $checkboxes[2]
+    $toggle = $vendor.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
     $toggle.Toggle()
     if ($toggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off) {
         throw "Column visibility did not update."
@@ -368,8 +369,8 @@ try {
     }
     $network = Find-SidebarElement AutomationId NetworkNavItem
     $menuBounds = $network.Current.BoundingRectangle
-    if ([Math]::Abs($menuBounds.Width / $scale - 264) -gt 4) {
-        throw "Expanded navigation rows must fit the 280px pane; got $($menuBounds.Width / $scale)px."
+    if ([Math]::Abs($menuBounds.Width / $scale - 200) -gt 4) {
+        throw "Expanded navigation rows must fit the 216px pane; got $($menuBounds.Width / $scale)px."
     }
     $settings = Find-SidebarElement Name Settings
     $tools = Find-SidebarElement AutomationId ToolsNavItem

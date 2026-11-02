@@ -38,7 +38,7 @@ public sealed class DeviceColumnLayoutTests
     }
 
     [Fact]
-    public void OnlyAddressVisible_HasNoTrailingSeparator()
+    public void MandatoryColumnsRemainVisible_WithNoTrailingSeparator()
     {
         var layout = new DeviceColumnLayout();
         foreach (var column in layout.All)
@@ -47,6 +47,8 @@ public sealed class DeviceColumnLayoutTests
         }
 
         Assert.True(layout.Address.IsVisible);
+        Assert.True(layout.Name.IsVisible);
+        Assert.True(layout.Name.HasFollowingVisibleColumn);
         Assert.False(layout.Address.HasFollowingVisibleColumn);
     }
 
@@ -76,18 +78,78 @@ public sealed class DeviceColumnLayoutTests
     }
 
     [Fact]
-    public void ClassificationColumns_CanBeHiddenResizedAndReset()
+    public void TypeVisibility_DoesNotAddAStandaloneColumn()
     {
         var layout = new DeviceColumnLayout();
         Assert.Contains(layout.OperatingSystem, layout.All);
         Assert.Contains(layout.Type, layout.All);
         layout.OperatingSystem.IsVisible = false;
+        var width = layout.TotalWidth;
+        layout.Type.IsVisible = false;
         layout.Type.Width = 250;
         Assert.Equal(0, layout.OperatingSystem.EffectiveWidth);
-        Assert.Equal(250, layout.Type.EffectiveWidth);
+        Assert.Equal(width, layout.TotalWidth);
         layout.Reset();
         Assert.True(layout.OperatingSystem.IsVisible);
         Assert.Equal(layout.Type.DefaultWidth, layout.Type.Width);
+    }
+
+    [Theory]
+    [InlineData(true, true, "Connection", 180)]
+    [InlineData(true, false, "Status", 90)]
+    [InlineData(false, true, "Response", 100)]
+    [InlineData(false, false, "Response", 0)]
+    public void Connection_UsesOnePhysicalColumnForEveryVisibilityCombination(
+        bool status, bool response, string key, double width)
+    {
+        var layout = new DeviceColumnLayout();
+        layout.Status.IsVisible = status;
+        layout.Response.IsVisible = response;
+        Assert.Equal(key, layout.Connection.Key);
+        Assert.Equal(width, layout.Connection.EffectiveWidth);
+        Assert.Equal(layout.Name.Width + layout.Address.Width + layout.Vendor.Width + layout.Ports.Width
+            + width + layout.Mac.Width + layout.OperatingSystem.Width + layout.Person.Width + layout.Room.Width,
+            layout.TotalWidth);
+    }
+
+    [Fact]
+    public void Connection_ResizesAndResetsWithoutLosingSingleMetricWidths()
+    {
+        var layout = new DeviceColumnLayout();
+        var changed = new List<string?>();
+        layout.PropertyChanged += (_, args) => changed.Add(args.PropertyName);
+        layout.Connection.Width = 220;
+        layout.Response.IsVisible = false;
+        layout.Connection.Width = 120;
+        layout.Response.IsVisible = true;
+        Assert.Equal(220, layout.Connection.Width);
+        Assert.Equal(120, layout.Status.Width);
+        Assert.Contains(nameof(DeviceColumnLayout.Connection), changed);
+        Assert.Contains(nameof(DeviceColumnLayout.TotalWidth), changed);
+        layout.Reset();
+        Assert.Equal(180, layout.Connection.Width);
+        Assert.Equal(90, layout.Status.Width);
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public void ConnectionSeparator_TracksPhysicalColumns(bool status, bool response)
+    {
+        var layout = new DeviceColumnLayout();
+        foreach (var column in new[] { layout.Mac, layout.OperatingSystem, layout.Person, layout.Room })
+        {
+            column.IsVisible = false;
+        }
+        layout.Status.IsVisible = status;
+        layout.Response.IsVisible = response;
+        Assert.False(layout.Connection.HasFollowingVisibleColumn);
+        Assert.True(layout.Ports.HasFollowingVisibleColumn);
+        layout.Status.IsVisible = false;
+        layout.Response.IsVisible = false;
+        Assert.False(layout.Ports.HasFollowingVisibleColumn);
+        Assert.False(layout.Type.HasFollowingVisibleColumn);
     }
 
     [Fact]
@@ -98,6 +160,9 @@ public sealed class DeviceColumnLayoutTests
         layout.Address.IsVisible = false;
 
         Assert.True(layout.Address.IsVisible);
+        layout.Name.IsVisible = false;
+        Assert.True(layout.Name.IsVisible);
+        Assert.False(layout.Name.CanHide);
     }
 
     [Fact]

@@ -5,11 +5,19 @@ using Microsoft.UI.Xaml.Input;
 
 namespace FingVibe.App.Views;
 
-internal sealed record PeopleRoomFilterChoice(string Label, Guid? Id = null, bool All = false, bool Unassigned = false);
-
 public sealed partial class DevicesPageView : UserControl
 {
-    public DevicesPageView() => InitializeComponent();
+    public DevicesPageView()
+    {
+        InitializeComponent();
+        InventoryStatusFilter.ItemsSource = new DeviceFilterChoice[]
+        {
+            new("Status", "All statuses", All: true),
+            new("Status", "Online"), new("Status", "Offline"),
+            new("Status", "Fing Only"), new("Status", "Unknown")
+        };
+        InventoryStatusFilter.SelectedIndex = 0;
+    }
 
     public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
     public event EventHandler? FiltersChanged;
@@ -35,8 +43,8 @@ public sealed partial class DevicesPageView : UserControl
         get => ResultsList.SelectedItem as ScanResultRow;
         set => ResultsList.SelectedItem = value;
     }
-    internal PeopleRoomFilterChoice? PersonChoice => SelectedFilterChoice(PersonFilter);
-    internal PeopleRoomFilterChoice? RoomChoice => SelectedFilterChoice(RoomFilter);
+    internal DeviceFilterChoice? PersonChoice => SelectedFilterChoice(PersonFilter);
+    internal DeviceFilterChoice? RoomChoice => SelectedFilterChoice(RoomFilter);
 
     internal void SetResults(IEnumerable<ScanResultRow> results) => ResultsList.ItemsSource = results;
     internal void FocusResults() => ResultsList.Focus(FocusState.Programmatic);
@@ -69,32 +77,28 @@ public sealed partial class DevicesPageView : UserControl
     internal void SetPeopleRoomFilters(IEnumerable<(Guid Id, string Label)> people,
         IEnumerable<(Guid Id, string Label)> rooms)
     {
-        PopulateFilter(PersonFilter, "All people", people);
-        PopulateFilter(RoomFilter, "All rooms", rooms);
+        PopulateFilter(PersonFilter, "Person", "All people", people);
+        PopulateFilter(RoomFilter, "Room", "All rooms", rooms);
     }
 
-    private static PeopleRoomFilterChoice? SelectedFilterChoice(ComboBox picker) =>
-        (picker.SelectedItem as ComboBoxItem)?.Tag as PeopleRoomFilterChoice;
+    private static DeviceFilterChoice? SelectedFilterChoice(ComboBox picker) =>
+        picker.SelectedItem as DeviceFilterChoice;
 
-    private static void PopulateFilter(ComboBox picker, string allLabel, IEnumerable<(Guid Id, string Label)> values)
+    private static void PopulateFilter(ComboBox picker, string category, string allLabel,
+        IEnumerable<(Guid Id, string Label)> values)
     {
         var selected = SelectedFilterChoice(picker);
-        picker.Items.Clear();
-        Add(new PeopleRoomFilterChoice(allLabel, All: true));
-        Add(new PeopleRoomFilterChoice("Unassigned", Unassigned: true));
-        foreach (var (id, label) in values)
+        var choices = new List<DeviceFilterChoice>
         {
-            Add(new PeopleRoomFilterChoice(label, id));
-        }
-
-        picker.SelectedItem = picker.Items.OfType<ComboBoxItem>().FirstOrDefault(candidate =>
-            candidate.Tag is PeopleRoomFilterChoice choice && (selected?.Unassigned == true
+            new(category, allLabel, All: true),
+            new(category, "Unassigned", Unassigned: true)
+        };
+        choices.AddRange(values.Select(value => new DeviceFilterChoice(category, value.Label, value.Id)));
+        picker.ItemsSource = choices;
+        picker.SelectedItem = choices.FirstOrDefault(choice => selected?.Unassigned == true
                 ? choice.Unassigned
-                : selected?.Id is { } id ? choice.Id == id : choice.All))
-            ?? picker.Items.OfType<ComboBoxItem>().First();
-
-        void Add(PeopleRoomFilterChoice choice) =>
-            picker.Items.Add(new ComboBoxItem { Content = choice.Label, Tag = choice });
+                : selected?.Id is { } id ? choice.Id == id : choice.All)
+            ?? choices[0];
     }
 
     private void DeviceFilters_SizeChanged(object sender, SizeChangedEventArgs e)

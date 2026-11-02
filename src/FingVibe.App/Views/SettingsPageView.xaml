@@ -94,7 +94,7 @@
                         </Grid.RowDefinitions>
                         <TextBlock x:Name="MandatoryColumnNote"
                                    Grid.ColumnSpan="2"
-                                   Text="IP address is always shown so every device remains identifiable."
+                                   Text="Name and IP address are always shown so every device remains identifiable."
                                    TextWrapping="Wrap" VerticalAlignment="Center"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <Button x:Name="ResetColumnsButton" Grid.Row="1" Grid.ColumnSpan="2"

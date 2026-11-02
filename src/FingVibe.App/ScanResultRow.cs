@@ -221,9 +221,9 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public string MacNic { get; }
     public Guid? PersonId => _personId;
     public Guid? RoomId => _roomId;
-    public string PersonShortName => _personShortName ?? "-";
+    public string PersonShortName => _personId is null || string.IsNullOrWhiteSpace(_personShortName) ? "-" : _personShortName;
     public string PersonFullName => _personName ?? "Unassigned";
-    public string RoomShortName => _roomShortName ?? "-";
+    public string RoomShortName => _roomId is null || string.IsNullOrWhiteSpace(_roomShortName) ? "-" : _roomShortName;
     public string RoomFullName => _roomName ?? "Unassigned";
     public double PersonOpacity => _personId is null ? 0.65 : 1;
     public double RoomOpacity => _roomId is null ? 0.65 : 1;
