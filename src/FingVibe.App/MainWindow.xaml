@@ -192,19 +192,20 @@
                                        Text="Ready"
                                        TextWrapping="Wrap"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <Grid x:Name="ScanProgressArea" Visibility="Collapsed" Height="8"
+                            <Grid x:Name="ScanProgressArea" Visibility="Collapsed" Height="10"
                                   SizeChanged="ScanProgressArea_SizeChanged">
                                 <ProgressBar x:Name="ScanProgressBar"
                                              Minimum="0"
                                              Maximum="1"
                                              Value="0"
-                                             Height="8" MinHeight="8" VerticalAlignment="Stretch"
+                                             Height="10" MinHeight="8" VerticalAlignment="Stretch"
                                              AutomationProperties.Name="Scan progress">
                                     <ProgressBar.Resources>
                                         <x:Double x:Key="ProgressBarMinHeight">8</x:Double>
                                     </ProgressBar.Resources>
                                 </ProgressBar>
-                                <Border x:Name="ScanPulse" HorizontalAlignment="Left" IsHitTestVisible="False"
+                                <Border x:Name="ScanPulse" Height="8" VerticalAlignment="Center"
+                                        HorizontalAlignment="Left" IsHitTestVisible="False"
                                         AutomationProperties.AccessibilityView="Raw">
                                     <Border.Background>
                                         <LinearGradientBrush x:Name="ScanPulseBrush" StartPoint="0,0" EndPoint="1,0">

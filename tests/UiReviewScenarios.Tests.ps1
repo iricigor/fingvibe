@@ -194,9 +194,9 @@ try {
         }
     }
     $progress = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='ScanProgressBar']")
-    if ($progress.GetAttribute("Height") -cne "8" -or $progress.GetAttribute("MinHeight") -cne "8" -or
+    if ($progress.GetAttribute("Height") -cne "10" -or $progress.GetAttribute("MinHeight") -cne "8" -or
         $progress.GetAttribute("IsIndeterminate") -eq "True") {
-        throw "Scan progress must set the native determinate indicator's MinHeight, not just its outer height, to 8 DIPs."
+        throw "Scan progress needs an 8-DIP native indicator and 10-DIP outer height to retain the high-contrast border."
     }
     $scan = $scanHeader.SelectSingleNode(".//*[@*[local-name()='Name']='ScanButton']")
     $cancel = $scanHeader.SelectSingleNode(".//*[@*[local-name()='Name']='CancelButton']")

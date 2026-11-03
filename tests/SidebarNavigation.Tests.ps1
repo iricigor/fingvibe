@@ -470,7 +470,7 @@ function Test-ScanPresentation {
                 }
                 if ($case[0] -ge 640) {
                     $path = Join-Path $ScreenshotDirectory "scan-$theme-$($case[0])-$($case[1])-$($case[2]).png"
-                    if ($case[2]) {
+                    if ($env:GITHUB_ACTIONS -eq "true") {
                         # Contrast changes can raise the runner's console over the foreground app.
                         if (-not [UiReviewNativeWindow]::SetWindowPos(
                                 $windowHandle, [IntPtr]::new(-1), 0, 0, 0, 0, 0x0053)) {
@@ -496,7 +496,7 @@ function Test-ScanPresentation {
                             if ($difference -gt 40) { $thickPixels++ }
                         }
                         if ($thickPixels -lt 7 * $scale) {
-                            throw "The completed segment must actually paint at least 7 of its 8 DIPs, not a thin line in an 8-DIP container."
+                            throw "The completed segment must actually paint at least 7 of its 8 DIPs, not just occupy a taller container."
                         }
                         if ($case[2]) {
                             Start-Sleep -Milliseconds 650
