@@ -92,11 +92,6 @@ function Get-DeviceRows {
 
 function Get-FilterBounds($Element) {
     $bounds = $Element.Current.BoundingRectangle
-    if ($Element.Current.ControlType -eq [System.Windows.Automation.ControlType]::ComboBox) {
-        # WinUI exposes the ComboBox's 4px outer focus margin in its automation bounds.
-        return [System.Windows.Rect]::new($bounds.X + 4 * $scale, $bounds.Y + 4 * $scale,
-            $bounds.Width - 8 * $scale, $bounds.Height - 8 * $scale)
-    }
     if ($Element.Current.AutomationId -eq "OpenPortsFilter") {
         return [System.Windows.Rect]::new($bounds.X - 11 * $scale, $bounds.Y - 4 * $scale,
             $bounds.Width + 22 * $scale, $bounds.Height + 8 * $scale)
