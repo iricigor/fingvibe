@@ -175,6 +175,14 @@ function Test-SettingsLayout {
     foreach ($theme in $UiReviewAppearanceThemes) {
         Set-UiReviewTheme -Root $root -Theme $theme
         Save-SidebarAppearance "settings-$theme"
+        $scroll = (Find-SidebarElement AutomationId SettingsPage).GetCurrentPattern(
+            [System.Windows.Automation.ScrollPattern]::Pattern)
+        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
+        Start-Sleep -Milliseconds 200
+        $null = Find-SidebarElement AutomationId VisibleColumnsHeading
+        $null = Find-SidebarElement AutomationId CombinedColumnsHeading
+        Save-SidebarAppearance "settings-grouped-columns-$theme"
+        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
     }
     foreach ($width in @($expandedWidth, 640, 480)) {
         Set-SidebarWindowWidth $width
@@ -201,8 +209,8 @@ function Test-SettingsLayout {
         if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
         Start-Sleep -Milliseconds 200
         $choices = Find-SidebarElement AutomationId SettingsPage
-        $headers = @("Name", "IP address", "Vendor", "Open ports", "Status", "Response",
-            "MAC address", "OS", "Device type", "Person", "Room")
+        $headers = @("Name", "IP address", "Vendor", "Device type", "MAC address", "Open ports",
+            "Status", "Response", "OS", "Person", "Room")
         $checkboxes = @($choices.FindAll([System.Windows.Automation.TreeScope]::Descendants,
             [System.Windows.Automation.PropertyCondition]::new(
                 [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
@@ -230,6 +238,24 @@ function Test-SettingsLayout {
                     [System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne
                     [System.Windows.Automation.ToggleState]::On) {
                 throw "Name and IP address must remain checked and mandatory."
+            }
+            if ($inline) {
+                $visibleHeading = (Find-SidebarElement AutomationId VisibleColumnsHeading).Current.BoundingRectangle
+                $combinedHeading = (Find-SidebarElement AutomationId CombinedColumnsHeading).Current.BoundingRectangle
+                $description = (Find-SidebarElement AutomationId CombinedColumnsDescription).Current.BoundingRectangle
+                $combinations = @("CombineNameType", "CombineAddresses", "CombineStatusResponse", "CombinePersonRoom") |
+                    ForEach-Object { (Find-SidebarElement AutomationId $_).Current.BoundingRectangle }
+                if ($visibleHeading.Bottom -gt $checkboxes[0].Current.BoundingRectangle.Top -or
+                    $checkboxes[-1].Current.BoundingRectangle.Bottom -ge $combinedHeading.Top -or
+                    $combinedHeading.Bottom -gt $description.Top -or $description.Bottom -gt $combinations[0].Top) {
+                    throw "Visibility and combination controls must have distinct, correctly ordered sections."
+                }
+                if ([Math]::Abs($combinations[0].Top - $combinations[1].Top) -gt 2 * $scale -or
+                    $combinations[0].Right -gt $combinations[1].Left -or
+                    $combinations[0].Bottom -gt $combinations[2].Top -or
+                    $combinations[2].Right -gt $combinations[3].Left) {
+                    throw "Combination choices must keep the approved two-column layout."
+                }
             }
         }
         if ($width -ge 640) { Save-SidebarAppearance "settings-layout-$width" }

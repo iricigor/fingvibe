@@ -17,6 +17,9 @@ public static class DeviceColumnLayoutHelpers
     public static string AssignmentText(Guid? id, string? value) =>
         id is null || string.IsNullOrWhiteSpace(value) ? "\u2014" : value;
 
+    public static string VisibilityChoiceLabel(string header, bool canHide) =>
+        canHide ? header : $"{header} (always shown)";
+
     public static Visibility ToVisibility(bool visible) => visible ? Visibility.Visible : Visibility.Collapsed;
     public static Visibility SecondaryTypeVisibility(bool merged, string value) =>
         ToVisibility(merged && !string.IsNullOrWhiteSpace(value) && value is not "Unknown" and not "-");
