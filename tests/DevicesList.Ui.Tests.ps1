@@ -66,6 +66,10 @@ function Select-DevicePage([string] $Id) {
     $element.GetCurrentPattern(
         [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
     Start-Sleep -Milliseconds 350
+    if ($Id -eq "Settings") {
+        $scroll = (Find-DeviceElement SettingsPage).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
+    }
 }
 
 function Set-DeviceWidth([int] $Width) {
@@ -284,6 +288,56 @@ function Test-ConditionalDeviceColumns {
     Select-DevicePage DevicesNavItem
 }
 
+function Set-ColumnOption([string] $Name, [bool] $Enabled) {
+    $condition = [System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, $Name),
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::CheckBox))
+    $box = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+    if (-not $box) { throw "Column option '$Name' is missing." }
+    $toggle = $box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+    if (($toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On) -ne $Enabled) {
+        $toggle.Toggle()
+    }
+}
+
+function Test-MergeOptions {
+    Set-DeviceWidth 1880
+    foreach ($merged in @($false, $true)) {
+        Select-DevicePage Settings
+        foreach ($label in @("Combine Name and Type", "Combine IP and MAC", "Combine Status and Response", "Combine Person and Room")) {
+            Set-ColumnOption $label $merged
+        }
+        Select-DevicePage DevicesNavItem
+        $row = @(Get-DeviceRows)[0]
+        $ip = Get-VisibleDeviceChild $row Name "192.0.2.1"
+        $mac = Get-VisibleDeviceChild $row Name "00-11-22-33-44-01"
+        if (-not $ip -or -not $mac) { throw "IP and MAC must both remain accessible." }
+        $stacked = $mac.Current.BoundingRectangle.Top -ge $ip.Current.BoundingRectangle.Bottom
+        if ($stacked -ne $merged) { throw "IP/MAC placement does not match the merge setting." }
+        $type = Get-VisibleDeviceChild $row AutomationId DeviceTypeLabel
+        if ([bool]$type -ne $merged) { throw "Name/Type merge setting was not applied." }
+        $responseGrip = Get-VisibleDeviceChild $root Name "Resize Response column"
+        if ([bool]$responseGrip -eq $merged) { throw "Separate Response must have its own resize boundary." }
+        $assignmentGrip = Get-VisibleDeviceChild $root Name "Resize Person / room column"
+        if ([bool]$assignmentGrip -ne $merged) { throw "Person/Room merge setting was not applied." }
+        if ($row.Current.BoundingRectangle.Height / $scale -gt 48) {
+            throw "Denser two-line rows must not exceed 48 DIPs."
+        }
+        $null = Save-DeviceCapture "devices-all-merges-$merged"
+    }
+    Select-DevicePage Settings
+    (Find-DeviceElement ResetColumnsButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Select-DevicePage DevicesNavItem
+    Set-DeviceWidth 1280
+    $unknownRow = @(Get-DeviceRows)[2]
+    if (Get-VisibleDeviceChild $unknownRow AutomationId DeviceTypeLabel) {
+        throw "An unknown type must not reserve a secondary Name line."
+    }
+}
+
 $savedReview = $env:FINGVIBE_UI_REVIEW
 $savedSnapshot = $env:FINGVIBE_UI_REVIEW_SNAPSHOT
 $savedCurrentSnapshot = $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT
@@ -298,6 +352,7 @@ try {
             address = "192.0.2.1"; status = 0; roundtripTimeMilliseconds = 12
             probeDuration = "00:00:00.002"; deviceName = "Fixture device 01"
             macAddress = "001122334401"; vendorName = "Example Devices"
+            classification = @{ type = 1 }
             openPorts = @(@{ port = 443; serviceName = "HTTPS" })
         },
         @{
@@ -414,19 +469,21 @@ try {
     Set-DeviceFilterChoice RoomFilter "All rooms"
     if ((Find-DeviceElement ResultCountText).Current.Name -ne "80 devices") { throw "All options must reset filters." }
     Test-ConditionalDeviceColumns
+    Test-MergeOptions
 
     $widths = @{}
     foreach ($width in @(1360, 1280, 1200, 1000, 640)) {
         Set-DeviceWidth $width
         $null = Save-DeviceCapture "devices-width-$width"
-        $filters = @("ResultSearchBox", "PersonFilter", "RoomFilter", "OpenPortsFilter") |
+        $filters = @("ResultSearchBox", "InventoryStatusFilter", "PersonFilter", "RoomFilter", "OpenPortsFilter") |
             ForEach-Object { Find-DeviceElement $_ }
         $widths[$width] = $filters[0].Current.BoundingRectangle.Width
         for ($index = 0; $index -lt $filters.Count; $index++) {
             $bounds = Get-FilterBounds $filters[$index]
             if ($bounds.Width -le 0) { throw "Filter has no width at $width." }
-            if ($index -gt 0 -and [Math]::Abs($bounds.Width / $scale - 180) -gt 1) {
-                throw "Filter $index must remain 180px wide at $width; got $($bounds.Width / $scale)px."
+            $expectedWidth = @(0, 210, 140, 140, 180)[$index]
+            if ($index -gt 0 -and [Math]::Abs($bounds.Width / $scale - $expectedWidth) -gt 1) {
+                throw "Filter $index must remain ${expectedWidth}px wide at $width; got $($bounds.Width / $scale)px."
             }
             foreach ($other in 0..($index - 1)) {
                 if ($index -eq 0) { break }

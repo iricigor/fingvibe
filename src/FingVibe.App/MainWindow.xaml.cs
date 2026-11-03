@@ -23,6 +23,7 @@ public sealed partial class MainWindow : Window
         ToolsPage.ActivityCoordinator = _networkActivityCoordinator;
         this.AppWindow.Closing += MainWindow_Closing;
         InitializeAppearance();
+        InitializeDeviceTableSettings();
         InitializePeopleRoomsViews();
         Closed += (_, _) => _devicePortScanCancellation?.Cancel();
 

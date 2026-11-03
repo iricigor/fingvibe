@@ -61,7 +61,7 @@
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="8">
                     <TextBlock Text="Devices table columns" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                    <TextBlock Text="Choose which columns appear on the Devices page. Column choices and widths last until FingVibe closes."
+                    <TextBlock Text="Choose which information appears and which columns share a compact presentation."
                                TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <ItemsControl x:Name="ColumnChoices" ItemsSource="{x:Bind Columns.All}" Margin="0,4,0,0"
@@ -82,6 +82,18 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                    <CheckBox x:Name="CombineNameType" Content="Combine Name and Type"
+                              IsChecked="{x:Bind Columns.CombineNameType, Mode=TwoWay}" />
+                    <CheckBox x:Name="CombineAddresses" Content="Combine IP and MAC"
+                              IsChecked="{x:Bind Columns.CombineAddresses, Mode=TwoWay}" />
+                    <CheckBox x:Name="CombineStatusResponse" Content="Combine Status and Response"
+                              IsChecked="{x:Bind Columns.CombineStatusResponse, Mode=TwoWay}" />
+                    <CheckBox x:Name="CombinePersonRoom" Content="Combine Person and Room"
+                              IsChecked="{x:Bind Columns.CombinePersonRoom, Mode=TwoWay}" />
+                    <TextBlock x:Name="TableSaveStatus"
+                               Text="Column visibility, combinations and widths are saved automatically."
+                               TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <Grid x:Name="ColumnFooter" ColumnSpacing="16" RowSpacing="8" Margin="0,4,0,0"
                           SizeChanged="ColumnFooter_SizeChanged">
                         <Grid.ColumnDefinitions>

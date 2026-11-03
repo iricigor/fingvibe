@@ -170,6 +170,9 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public string AutomaticName => VirtualDevice?.AutomaticName ?? _inventoryDevice?.Imported.Name
         ?? (HostnameText != "-" ? HostnameText : AddressText);
     public string VendorText => _inventoryDevice?.Imported.Brand ?? Result?.VendorName ?? "Unknown";
+    public string VendorDisplayText => VendorText == "Private/Randomized" ? "Private MAC" : VendorText;
+    public string VendorDescription => VendorText == "Private/Randomized"
+        ? "Locally administered address; manufacturer cannot be reliably determined." : VendorText;
     public IReadOnlyList<OpenPort> OpenPortItems => IsCurrentScanResponse && _inventoryDevice is not null
         ? CurrentConnections.SelectMany(item => item.OpenPortItems).DistinctBy(port => port.Identity)
             .OrderBy(port => port.Port).ThenBy(port => port.Protocol).ToArray()

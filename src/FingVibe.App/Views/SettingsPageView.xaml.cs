@@ -24,6 +24,7 @@ public sealed partial class SettingsPageView : UserControl
             : new AppearanceSettings((WindowBackdrop)BackdropPicker.SelectedIndex, ModeThemes[ThemePicker.SelectedIndex]);
     internal string SaveStatus { set => AppearanceSaveStatus.Text = value; }
     internal string MaterialStatus { set => BackdropStatus.Text = value; }
+    internal string ColumnSaveStatus { set => TableSaveStatus.Text = value; }
 
     internal void SetAppearance(AppearanceSettings appearance)
     {

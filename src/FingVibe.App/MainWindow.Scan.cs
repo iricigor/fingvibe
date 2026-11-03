@@ -91,6 +91,17 @@ public sealed partial class MainWindow
 
         try
         {
+            // The disposable UI test holds only its refresh until it has observed retained results.
+            if (IsUiReview && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_SCAN_HOLD") is { Length: > 0 } holdPath)
+            {
+                var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+                while (File.Exists(holdPath))
+                {
+                    if (DateTimeOffset.UtcNow >= deadline)
+                        throw new InvalidOperationException("The UI-review scan hold was not released within 30 seconds.");
+                    await Task.Delay(50, cancellation.Token);
+                }
+            }
             var networkId = GetScanNetworkIdentity(network);
             var summary = await _scanner.ScanAsync(
                 network,

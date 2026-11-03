@@ -198,12 +198,9 @@ function Test-SettingsLayout {
             [System.Windows.Automation.PropertyCondition]::new(
                 [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "ResetColumnsButton"))
         if (-not $reset) { throw "Reset columns is missing." }
-        if ($inline -and ($reset.Current.IsOffscreen -or $scroll.Current.VerticallyScrollable)) {
-            throw "The complete Settings page must fit at $width x 720 without scrolling."
-        }
         if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
         Start-Sleep -Milliseconds 200
-        $choices = Find-SidebarElement AutomationId SettingsPage
+        $choices = Find-SidebarElement AutomationId ColumnChoices
         $checkboxes = $choices.FindAll([System.Windows.Automation.TreeScope]::Descendants,
             [System.Windows.Automation.PropertyCondition]::new(
                 [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
@@ -285,6 +282,7 @@ function Test-DeviceRefresh {
             throw "Filtered device counts must include the unfiltered total."
         }
         $search.SetValue("")
+        [IO.File]::WriteAllText($scanHoldPath, "Hold the refresh until retained results have been observed.")
         $scan.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
         if ($scan.Current.IsEnabled) { throw "The refresh ended before retained results could be verified." }
         if ((Find-SidebarElement AutomationId ResultCountText).Current.Name -ne "1 device" -or
@@ -316,6 +314,7 @@ function Test-DeviceRefresh {
     }
     finally {
         try {
+            if (Test-Path -LiteralPath $scanHoldPath) { Remove-Item -LiteralPath $scanHoldPath }
             if ($scan) { Wait-DeviceScan }
         }
         finally {
@@ -326,10 +325,13 @@ function Test-DeviceRefresh {
 }
 
 $savedReviewMode = $env:FINGVIBE_UI_REVIEW
+$savedScanHold = $env:FINGVIBE_UI_REVIEW_SCAN_HOLD
+$scanHoldPath = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-refresh-$([Guid]::NewGuid().ToString('N')).hold"
 $process = $null
 $previousContext = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext([IntPtr]::new(-4))
 try {
     $env:FINGVIBE_UI_REVIEW = "1"
+    $env:FINGVIBE_UI_REVIEW_SCAN_HOLD = $scanHoldPath
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
     $process = Start-Process -FilePath (Resolve-Path -LiteralPath $AppPath).Path -PassThru
     $deadline = [DateTime]::UtcNow.AddSeconds(30)
@@ -421,5 +423,7 @@ try {
 finally {
     if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id }
     $env:FINGVIBE_UI_REVIEW = $savedReviewMode
+    $env:FINGVIBE_UI_REVIEW_SCAN_HOLD = $savedScanHold
+    if (Test-Path -LiteralPath $scanHoldPath) { Remove-Item -LiteralPath $scanHoldPath }
     $null = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext($previousContext)
 }

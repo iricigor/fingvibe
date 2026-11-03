@@ -79,6 +79,9 @@ public sealed partial class DevicesPageView : UserControl
         StatusSortGlyph.Text = status;
         ResponseSortGlyph.Text = response;
         MacAddressSortGlyph.Text = mac;
+        MergedMacAddressSortGlyph.Text = mac;
+        SeparateResponseSortGlyph.Text = response;
+        SeparateDeviceTypeSortGlyph.Text = type;
         OperatingSystemSortGlyph.Text = os;
         DeviceTypeSortGlyph.Text = type;
     }
@@ -112,22 +115,28 @@ public sealed partial class DevicesPageView : UserControl
 
     private void DeviceFilters_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        const double optionWidth = 180;
         const double spacing = 8;
         const double minimumSearchWidth = 120;
-        var inline = e.NewSize.Width >= minimumSearchWidth + (optionWidth + spacing) * 4;
+        double[] widths = [140, 140, 180];
+        var inline = e.NewSize.Width >= minimumSearchWidth + 210 + widths.Sum() + spacing * 4;
         Grid.SetRow(DeviceFilterOptions, inline ? 0 : 1);
         Grid.SetColumn(DeviceFilterOptions, inline ? 1 : 0);
         Grid.SetColumnSpan(DeviceFilterOptions, inline ? 1 : 2);
         Grid.SetColumnSpan(DeviceSearchFilters, inline ? 1 : 2);
-        var columns = inline ? 3 : Math.Clamp((int)((e.NewSize.Width + spacing) / (optionWidth + spacing)), 1, 3);
+        var columns = inline || e.NewSize.Width >= widths.Sum() + spacing * 2 ? 3
+            : e.NewSize.Width >= 180 + 140 + spacing ? 2 : 1;
         var rows = (3 + columns - 1) / columns;
         if (DeviceFilterOptions.ColumnDefinitions.Count != columns)
         {
             DeviceFilterOptions.ColumnDefinitions.Clear();
             for (var column = 0; column < columns; column++)
             {
-                DeviceFilterOptions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(optionWidth) });
+                DeviceFilterOptions.ColumnDefinitions.Add(new ColumnDefinition());
+            }
+            for (var column = 0; column < columns; column++)
+            {
+                DeviceFilterOptions.ColumnDefinitions[column].Width =
+                    new GridLength(widths.Where((_, index) => index % columns == column).Max());
             }
         }
         if (DeviceFilterOptions.RowDefinitions.Count != rows)

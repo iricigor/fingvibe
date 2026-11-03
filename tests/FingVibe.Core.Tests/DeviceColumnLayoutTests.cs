@@ -74,7 +74,7 @@ public sealed class DeviceColumnLayoutTests
 
         Assert.Equal(0, layout.Vendor.EffectiveWidth);
         Assert.Equal(total - layout.Vendor.Width, layout.TotalWidth);
-        Assert.Contains(nameof(DeviceColumnLayout.TotalWidth), changed);
+        Assert.Contains(null, changed);
     }
 
     [Fact]
@@ -107,8 +107,8 @@ public sealed class DeviceColumnLayoutTests
         layout.Response.IsVisible = response;
         Assert.Equal(key, layout.Connection.Key);
         Assert.Equal(width, layout.Connection.EffectiveWidth);
-        Assert.Equal(layout.Name.Width + layout.Address.Width + layout.Vendor.Width + layout.Ports.Width
-            + width + layout.Mac.Width + layout.OperatingSystem.Width + layout.Person.Width + layout.Room.Width,
+        Assert.Equal(layout.Name.Width + layout.Addresses.Width + layout.Vendor.Width + layout.Ports.Width
+            + width + layout.OperatingSystem.Width + layout.Person.Width + layout.Room.Width,
             layout.TotalWidth);
     }
 
@@ -124,8 +124,7 @@ public sealed class DeviceColumnLayoutTests
         layout.Response.IsVisible = true;
         Assert.Equal(220, layout.Connection.Width);
         Assert.Equal(120, layout.Status.Width);
-        Assert.Contains(nameof(DeviceColumnLayout.Connection), changed);
-        Assert.Contains(nameof(DeviceColumnLayout.TotalWidth), changed);
+        Assert.Contains(null, changed);
         layout.Reset();
         Assert.Equal(180, layout.Connection.Width);
         Assert.Equal(90, layout.Status.Width);
@@ -176,5 +175,61 @@ public sealed class DeviceColumnLayoutTests
 
         Assert.Equal(layout.Mac.DefaultWidth, layout.Mac.Width);
         Assert.True(layout.Ports.IsVisible);
+    }
+
+    [Fact]
+    public void EveryCombination_UsesExactlyTheDisplayedColumnWidths()
+    {
+        for (var flags = 0; flags < 1024; flags++)
+        {
+            var layout = new DeviceColumnLayout
+            {
+                CombineNameType = (flags & 1) != 0,
+                CombineAddresses = (flags & 2) != 0,
+                CombineStatusResponse = (flags & 4) != 0,
+                CombinePersonRoom = (flags & 8) != 0
+            };
+            layout.Type.IsVisible = (flags & 16) != 0;
+            layout.Mac.IsVisible = (flags & 32) != 0;
+            layout.Status.IsVisible = (flags & 64) != 0;
+            layout.Response.IsVisible = (flags & 128) != 0;
+            layout.Person.IsVisible = (flags & 256) != 0;
+            layout.Room.IsVisible = (flags & 512) != 0;
+            Assert.Equal(layout.Name.EffectiveWidth + layout.Addresses.EffectiveWidth
+                + layout.Vendor.EffectiveWidth + layout.Ports.EffectiveWidth + layout.Connection.EffectiveWidth
+                + layout.SeparateResponseWidth + layout.SeparateMacWidth + layout.OperatingSystem.EffectiveWidth
+                + layout.SeparateTypeWidth + layout.Assignments.EffectiveWidth + layout.SeparateRoomWidth, layout.TotalWidth);
+            Assert.Equal(layout.Type.IsVisible, layout.ShowMergedType || layout.ShowSeparateType);
+            Assert.Equal(layout.Mac.IsVisible, layout.ShowMergedMac || layout.ShowSeparateMac);
+            Assert.Equal(layout.Response.IsVisible, layout.ShowConnectionResponse || layout.ShowSeparateResponse);
+            Assert.Equal(layout.Room.IsVisible, layout.ShowAssignmentRoom || layout.ShowSeparateRoom);
+        }
+    }
+
+    [Fact]
+    public void CaptureRestore_PreservesEveryWidthVisibilityAndCombination()
+    {
+        var source = new DeviceColumnLayout
+        {
+            CombineNameType = false, CombineAddresses = false,
+            CombineStatusResponse = false, CombinePersonRoom = true
+        };
+        source.Name.Width = 237;
+        source.Mac.IsVisible = false;
+        source.Assignments.Width = 177;
+        source.Connection.Width = 103;
+        var restored = new DeviceColumnLayout();
+        restored.Restore(source.Capture());
+        Assert.Equal(source.Capture().Columns, restored.Capture().Columns);
+        Assert.False(restored.CombineNameType);
+        Assert.False(restored.CombineAddresses);
+        Assert.False(restored.CombineStatusResponse);
+        Assert.True(restored.CombinePersonRoom);
+        restored.Reset();
+        Assert.True(restored.CombineNameType);
+        Assert.True(restored.CombineAddresses);
+        Assert.True(restored.CombineStatusResponse);
+        Assert.False(restored.CombinePersonRoom);
+        Assert.Equal(restored.Name.DefaultWidth, restored.Name.Width);
     }
 }

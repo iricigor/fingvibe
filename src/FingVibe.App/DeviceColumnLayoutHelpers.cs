@@ -18,6 +18,8 @@ public static class DeviceColumnLayoutHelpers
         id is null || string.IsNullOrWhiteSpace(value) ? "\u2014" : value;
 
     public static Visibility ToVisibility(bool visible) => visible ? Visibility.Visible : Visibility.Collapsed;
+    public static Visibility SecondaryTypeVisibility(bool merged, string value) =>
+        ToVisibility(merged && !string.IsNullOrWhiteSpace(value) && value is not "Unknown" and not "-");
 
     public static double ToTableWidth(double totalColumnWidth) => totalColumnWidth + TableHorizontalPadding;
 }
