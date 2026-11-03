@@ -214,7 +214,7 @@ try {
     Select-ServicePage Devices
     Wait-ServiceState { (Find-ServiceControl "Scan LAN" -ByName -Optional).Current.IsEnabled } "scan readiness"
     Invoke-ServiceControl "Scan LAN"
-    Wait-ServiceState { (Find-ServiceControl "Scan LAN" -ByName).Current.IsEnabled -and (Test-Path $snapshot) } "loopback scan"
+    Wait-ServiceState { (Find-ServiceControl "Scan LAN" -ByName -Optional).Current.IsEnabled -and (Test-Path $snapshot) } "loopback scan"
     Open-ServiceDetails
     $udp = (Find-ServiceControl DeviceIncludeUdpCheckBox).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
     if ($udp.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off) { throw "UDP must start unchecked." }
