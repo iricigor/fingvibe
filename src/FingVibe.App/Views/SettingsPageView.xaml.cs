@@ -76,6 +76,15 @@ public sealed partial class SettingsPageView : UserControl
     {
         var columns = e.NewSize.Width >= 840 ? 4 : e.NewSize.Width >= 408 ? 2 : 1;
         AppearanceOptions.RowSpacing = columns == 4 ? 0 : 12;
+        var rows = 4 / columns;
+        if (AppearanceOptions.RowDefinitions.Count != rows)
+        {
+            AppearanceOptions.RowDefinitions.Clear();
+            for (var row = 0; row < rows; row++)
+            {
+                AppearanceOptions.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            }
+        }
         FrameworkElement[] pickers = [ModePicker, ThemePicker, VisualStylePicker, BackdropPicker];
         for (var index = 0; index < pickers.Length; index++)
         {
