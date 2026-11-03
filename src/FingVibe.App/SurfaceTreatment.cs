@@ -29,7 +29,8 @@ public sealed class SurfaceTreatment : DependencyObject
         "Kind", typeof(SurfaceKind), typeof(SurfaceTreatment),
         new PropertyMetadata(SurfaceKind.None, KindChanged));
 
-    private sealed record OriginalSurface(CornerRadius Corner, bool CanSetBackground, bool CanSetStroke);
+    private sealed record OriginalSurface(
+        CornerRadius Corner, Thickness StrokeWidth, bool CanSetBackground, bool CanSetStroke);
 
     public static SurfaceKind GetKind(DependencyObject target) => (SurfaceKind)target.GetValue(KindProperty);
     public static void SetKind(DependencyObject target, SurfaceKind value) => target.SetValue(KindProperty, value);
@@ -75,6 +76,7 @@ public sealed class SurfaceTreatment : DependencyObject
             var stroke = surface is Border ? Border.BorderBrushProperty : Control.BorderBrushProperty;
             return new OriginalSurface(
                 surface is Border border ? border.CornerRadius : ((Control)surface).CornerRadius,
+                surface is Border bordered ? bordered.BorderThickness : ((Control)surface).BorderThickness,
                 surface.ReadLocalValue(background) == DependencyProperty.UnsetValue,
                 surface.ReadLocalValue(stroke) == DependencyProperty.UnsetValue);
         });
@@ -94,11 +96,13 @@ public sealed class SurfaceTreatment : DependencyObject
         var backgroundProperty = element is Border ? Border.BackgroundProperty : Control.BackgroundProperty;
         var borderProperty = element is Border ? Border.BorderBrushProperty : Control.BorderBrushProperty;
         var cornerProperty = element is Border ? Border.CornerRadiusProperty : Control.CornerRadiusProperty;
+        var thicknessProperty = element is Border ? Border.BorderThicknessProperty : Control.BorderThicknessProperty;
         element.Shadow = null;
         ElementCompositionPreview.SetIsTranslationEnabled(element, true);
         element.Translation = Vector3.Zero;
         var original = Originals.GetValue(element, _ => throw new InvalidOperationException("Surface was not initialized."));
         element.SetValue(cornerProperty, original.Corner);
+        element.SetValue(thicknessProperty, original.StrokeWidth);
 
         if (_highContrast || _settings.Style == VisualStyle.Standard)
         {
@@ -123,13 +127,18 @@ public sealed class SurfaceTreatment : DependencyObject
             ? new AcrylicBrush
             {
                 TintColor = color,
-                TintOpacity = palette.IsDark ? 0.72 : 0.82,
+                TintOpacity = palette.IsDark ? 0.5 : 0.6,
+                TintLuminosityOpacity = palette.IsDark ? 0.75 : 0.85,
                 FallbackColor = color
             }
             : Gradient(color, ColorFromRgb(treatment.Bottom));
         var stroke = Gradient(ColorFromRgb(treatment.BorderTop), ColorFromRgb(treatment.BorderBottom));
         if (card || original.CanSetBackground) { element.SetValue(backgroundProperty, background); }
-        if (card || original.CanSetStroke) { element.SetValue(borderProperty, stroke); }
+        if (card || original.CanSetStroke)
+        {
+            element.SetValue(borderProperty, stroke);
+            element.SetValue(thicknessProperty, new Thickness(treatment.StrokeWidth));
+        }
         element.SetValue(cornerProperty, new CornerRadius(treatment.Radius));
         if (treatment.Elevation > 0)
         {

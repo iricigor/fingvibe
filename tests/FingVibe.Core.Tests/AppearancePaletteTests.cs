@@ -137,6 +137,38 @@ public sealed class AppearancePaletteTests
     }
 
     [Fact]
+    public void DecorativeStyles_HavePronouncedMaterialCuesInEveryTheme()
+    {
+        static int Distance(uint first, uint second) => new[] { 0, 8, 16 }.Sum(shift =>
+            Math.Abs((int)((first >> shift) & 255) - (int)((second >> shift) & 255)));
+
+        foreach (var theme in Enum.GetValues<ThemeVariant>())
+        {
+            var palette = AppearancePalette.For(theme);
+            foreach (var card in new[] { false, true })
+            {
+                var glass = SurfacePalette.For(palette, VisualStyle.Glass, card);
+                var clay = SurfacePalette.For(palette, VisualStyle.Clay, card);
+                var neumorphic = SurfacePalette.For(palette, VisualStyle.Neumorphic, card);
+
+                Assert.True(glass.Acrylic);
+                Assert.True(glass.Elevation > 0);
+                Assert.True(glass.StrokeWidth >= 2);
+                Assert.True(Distance(glass.BorderTop, glass.BorderBottom) >= 60);
+                Assert.True(clay.Radius >= (card ? 28 : 16));
+                Assert.True(clay.Elevation >= (card ? 32 : 8));
+                Assert.True(clay.StrokeWidth >= 3);
+                Assert.True(Distance(clay.Top, clay.Bottom) >= 40);
+                Assert.True(neumorphic.StrokeWidth >= 3);
+                Assert.True(Distance(neumorphic.Top, neumorphic.Bottom) >= 40);
+                Assert.True(Distance(neumorphic.BorderTop, neumorphic.BorderBottom) >= 120);
+                Assert.Equal(card, neumorphic.Top > neumorphic.Bottom);
+                Assert.Equal(card, neumorphic.BorderTop > neumorphic.BorderBottom);
+            }
+        }
+    }
+
+    [Fact]
     public void EverySurfaceGradient_KeepsReadablePrimaryText()
     {
         static double Linear(uint channel)
