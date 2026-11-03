@@ -126,7 +126,8 @@ function Assert-SharedNetworkHeader {
     }
     if ($bounds[2].Top -lt $bounds[1].Bottom -or
         [Math]::Abs($bounds[2].Left - $bounds[1].Left) -gt 2 * $scale) {
-        throw "Secondary freshness must sit immediately below the network selector."
+        Save-SidebarAppearance "header-layout-failure"
+        throw "Secondary freshness must sit immediately below the network selector. Picker=$($bounds[1]); freshness=$($bounds[2])."
     }
 }
 
