@@ -125,11 +125,13 @@ public sealed class SurfaceTreatment : DependencyObject
         var fillAlpha = _transparencyEnabled ? treatment.FillAlpha : (byte)255;
         Brush background = treatment.Top == treatment.Bottom
             ? new SolidColorBrush(ColorFromRgb(treatment.Top, fillAlpha))
-            : Gradient(ColorFromRgb(treatment.Top, fillAlpha), ColorFromRgb(treatment.Bottom, fillAlpha));
+            : Gradient(ColorFromRgb(treatment.Top, fillAlpha), ColorFromRgb(treatment.Bottom, fillAlpha),
+                treatment.Middle is { } middle ? ColorFromRgb(middle, fillAlpha) : null);
         Brush stroke = treatment.BorderTop == treatment.BorderBottom
             ? new SolidColorBrush(ColorFromRgb(treatment.BorderTop, treatment.BorderAlpha))
             : Gradient(ColorFromRgb(treatment.BorderTop, treatment.BorderAlpha),
-                ColorFromRgb(treatment.BorderBottom, treatment.BorderAlpha));
+                ColorFromRgb(treatment.BorderBottom, treatment.BorderAlpha),
+                treatment.BorderMiddle is { } borderMiddle ? ColorFromRgb(borderMiddle, treatment.BorderAlpha) : null);
         if (card || original.CanSetBackground) { element.SetValue(backgroundProperty, background); }
         if (card || original.CanSetStroke)
         {
@@ -147,14 +149,22 @@ public sealed class SurfaceTreatment : DependencyObject
     private static Color ColorFromRgb(uint value, byte alpha) =>
         Color.FromArgb(alpha, (byte)(value >> 16), (byte)(value >> 8), (byte)value);
 
-    private static LinearGradientBrush Gradient(Color start, Color end) => new()
+    private static LinearGradientBrush Gradient(Color start, Color end, Color? middle = null)
     {
-        StartPoint = new Point(0, 0),
-        EndPoint = new Point(1, 1),
-        GradientStops =
+        var brush = new LinearGradientBrush
         {
-            new GradientStop { Color = start, Offset = 0 },
-            new GradientStop { Color = end, Offset = 1 }
+            StartPoint = new Point(0, 0),
+            EndPoint = new Point(1, 1),
+            GradientStops =
+            {
+                new GradientStop { Color = start, Offset = 0 },
+                new GradientStop { Color = end, Offset = 1 }
+            }
+        };
+        if (middle is { } color)
+        {
+            brush.GradientStops.Insert(1, new GradientStop { Color = color, Offset = 0.45 });
         }
-    };
+        return brush;
+    }
 }

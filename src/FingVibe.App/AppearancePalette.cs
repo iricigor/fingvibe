@@ -20,21 +20,24 @@ internal sealed record AppearancePalette(
 
 internal sealed record SurfacePalette(
     uint Top, uint Bottom, uint BorderTop, uint BorderBottom, double Radius, float Elevation,
-    double StrokeWidth = 1, byte FillAlpha = 255, byte BorderAlpha = 255)
+    double StrokeWidth = 1, byte FillAlpha = 255, byte BorderAlpha = 255,
+    uint? Middle = null, uint? BorderMiddle = null)
 {
     public static SurfacePalette For(AppearancePalette palette, VisualStyle style, bool card)
     {
         var color = card ? palette.Card : palette.Control;
         var edge = palette.Border;
+        var clay = palette.IsDark ? Blend(color, 0x617DAB, 0.22) : Blend(color, palette.Header, 0.35);
         return style switch
         {
             VisualStyle.Standard => new(color, color, edge, edge, card ? 8 : 4, 0),
             VisualStyle.Glass => new(color, color, 0xFFFFFF, 0xFFFFFF,
                 card ? 20 : 10, card ? 4 : 0, FillAlpha: 160,
                 BorderAlpha: 77),
-            VisualStyle.Clay => new(Mix(color, 255, palette.IsDark ? 0.06 : 0.12), Mix(color, 0, 0.15),
-                Mix(color, 255, palette.IsDark ? 0.3 : 0.85), Mix(color, 0, 0.3),
-                card ? 28 : 16, card ? 32 : 8, StrokeWidth: 3),
+            VisualStyle.Clay => new(Mix(clay, 255, palette.IsDark ? 0.08 : 0.2), Mix(clay, 0, 0.12),
+                Mix(clay, 255, palette.IsDark ? 0.3 : 0.85), Mix(clay, 0, 0.2),
+                card ? 32 : 24, card ? 40 : 12, StrokeWidth: 3,
+                Middle: clay, BorderMiddle: Mix(clay, 255, palette.IsDark ? 0.06 : 0.2)),
             VisualStyle.Neumorphic when card => new(
                 Mix(palette.Page, 255, palette.IsDark ? 0.06 : 0.09), Mix(palette.Page, 0, 0.09),
                 Mix(palette.Page, 255, palette.IsDark ? 0.3 : 0.85), Mix(palette.Page, 0, 0.4),
@@ -47,12 +50,16 @@ internal sealed record SurfacePalette(
         };
     }
 
-    private static uint Mix(uint color, byte target, double amount)
+    private static uint Mix(uint color, byte target, double amount) =>
+        Blend(color, (uint)(target << 16 | target << 8 | target), amount);
+
+    private static uint Blend(uint color, uint target, double amount)
     {
         uint Channel(int shift)
         {
             var value = (color >> shift) & 255;
-            return (uint)Math.Round(value + (target - (double)value) * amount) << shift;
+            var destination = (target >> shift) & 255;
+            return (uint)Math.Round(value + (destination - (double)value) * amount) << shift;
         }
         return Channel(16) | Channel(8) | Channel(0);
     }

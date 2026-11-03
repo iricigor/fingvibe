@@ -123,6 +123,13 @@
                 <Setter Property="BorderThickness" Value="1" />
                 <Setter Property="CornerRadius" Value="8" />
             </Style>
+            <Style x:Key="ScannerFieldPanelStyle" TargetType="Border">
+                <Setter Property="local:SurfaceTreatment.Kind" Value="Control" />
+                <Setter Property="Background" Value="{ThemeResource ControlFillColorDefaultBrush}" />
+                <Setter Property="BorderBrush" Value="{ThemeResource ControlStrokeColorDefaultBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="4" />
+            </Style>
             <Style x:Key="ScannerPageTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource TitleTextBlockStyle}">
                 <Setter Property="Margin" Value="0,0,0,8" />
             </Style>

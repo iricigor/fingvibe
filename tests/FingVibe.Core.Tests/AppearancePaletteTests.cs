@@ -175,8 +175,8 @@ public sealed class AppearancePaletteTests
                 Assert.Equal(glass.Top, glass.Bottom);
                 Assert.Equal(card ? 4 : 0, glass.Elevation);
                 Assert.Equal(1, glass.StrokeWidth);
-                Assert.True(clay.Radius >= (card ? 28 : 16));
-                Assert.True(clay.Elevation >= (card ? 32 : 8));
+                Assert.Equal(card ? 32 : 24, clay.Radius);
+                Assert.Equal(card ? 40 : 12, clay.Elevation);
                 Assert.True(clay.StrokeWidth >= 3);
                 Assert.True(Distance(clay.Top, clay.Bottom) >= 40);
                 Assert.True(neumorphic.StrokeWidth >= 3);
@@ -204,13 +204,59 @@ public sealed class AppearancePaletteTests
                 foreach (var card in new[] { false, true })
                 {
                     var surface = SurfacePalette.For(palette, style, card);
-                    foreach (var color in new[] { surface.Top, surface.Bottom })
+                    foreach (var color in new[] { surface.Top, surface.Middle ?? surface.Top, surface.Bottom })
                     {
                         var luminance = 0.2126 * Linear((color >> 16) & 255)
                             + 0.7152 * Linear((color >> 8) & 255) + 0.0722 * Linear(color & 255);
                         var contrast = palette.IsDark ? 1.05 / (luminance + 0.05) : (luminance + 0.05) / 0.05;
                         Assert.True(contrast >= 7, $"{theme}/{style}/{card}: {color:X6} has contrast {contrast:F2}:1.");
                     }
+                }
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(ThemeVariant.StandardLight)]
+    [InlineData(ThemeVariant.WarmLight)]
+    [InlineData(ThemeVariant.StandardDark)]
+    [InlineData(ThemeVariant.OledDark)]
+    [InlineData(ThemeVariant.ColorfulLight)]
+    [InlineData(ThemeVariant.ColorfulDark)]
+    [InlineData(ThemeVariant.VividLight)]
+    [InlineData(ThemeVariant.VividDark)]
+    public void Clay_HasThreeStopSculptingAndAnInnerHighlight(ThemeVariant theme)
+    {
+        var palette = AppearancePalette.For(theme);
+        foreach (var card in new[] { false, true })
+        {
+            var surface = SurfacePalette.For(palette, VisualStyle.Clay, card);
+            Assert.NotNull(surface.Middle);
+            Assert.NotNull(surface.BorderMiddle);
+            Assert.True(surface.Top > surface.Middle);
+            Assert.True(surface.Middle > surface.Bottom);
+            Assert.True(surface.BorderTop > surface.BorderMiddle);
+            Assert.True(surface.BorderMiddle > surface.BorderBottom);
+            if (palette.IsDark)
+            {
+                var middle = surface.Middle.Value;
+                Assert.True((middle & 255) - ((middle >> 16) & 255) >= 15);
+            }
+        }
+    }
+
+    [Fact]
+    public void OtherStyles_RetainTheirOriginalStopStructure()
+    {
+        foreach (var theme in Enum.GetValues<ThemeVariant>())
+        {
+            foreach (var style in new[] { VisualStyle.Standard, VisualStyle.Glass, VisualStyle.Neumorphic })
+            {
+                foreach (var card in new[] { false, true })
+                {
+                    var surface = SurfacePalette.For(AppearancePalette.For(theme), style, card);
+                    Assert.Null(surface.Middle);
+                    Assert.Null(surface.BorderMiddle);
                 }
             }
         }

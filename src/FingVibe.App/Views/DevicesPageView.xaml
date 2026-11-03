@@ -80,9 +80,8 @@
                                       AutomationProperties.Name="Filter by room"
                                       SelectionChanged="PeopleRoomFilter_SelectionChanged" />
                             <Border x:Name="OpenPortsFilterContainer" Grid.Column="2" Width="180" Height="32"
-                                    Padding="10,0" Background="{ThemeResource ControlFillColorDefaultBrush}"
-                                    BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
-                                    BorderThickness="1" CornerRadius="4" Tapped="OpenPortsFilterContainer_Tapped">
+                                    Style="{StaticResource ScannerFieldPanelStyle}"
+                                    Padding="10,0" Tapped="OpenPortsFilterContainer_Tapped">
                                 <CheckBox x:Name="OpenPortsFilter" Content="With open ports"
                                           HorizontalAlignment="Stretch" MinHeight="0"
                                           Checked="OpenPortsFilter_Changed" Unchecked="OpenPortsFilter_Changed" />

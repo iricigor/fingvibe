@@ -279,6 +279,11 @@ function Test-SettingsLayout {
                         Select-SidebarPage Settings "Window backdrop"
                     }
                 }
+                elseif ($visualStyle -eq "Clay") {
+                    Select-SidebarPage Devices "Search devices"
+                    Save-SidebarAppearance "devices-$theme-$visualStyle"
+                    Select-SidebarPage Settings "Window backdrop"
+                }
             }
         }
     }
