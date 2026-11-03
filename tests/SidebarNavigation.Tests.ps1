@@ -404,6 +404,7 @@ function Test-ScanPresentation {
     $animations = $null
     try {
         foreach ($theme in $UiReviewAppearanceThemes) {
+            Set-SidebarWindowWidth $expandedWidth
             Select-SidebarPage Settings "Window backdrop"
             Set-UiReviewTheme -Root $root -Theme $theme
             Select-SidebarPage Devices "Search devices"
