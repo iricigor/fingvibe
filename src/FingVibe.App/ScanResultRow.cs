@@ -317,6 +317,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
             || AddressText.Contains(search, StringComparison.OrdinalIgnoreCase)
             || MacAddressText.Contains(search, StringComparison.OrdinalIgnoreCase)
             || VendorText.Contains(search, StringComparison.OrdinalIgnoreCase)
+            || VendorDisplayText.Contains(search, StringComparison.OrdinalIgnoreCase)
             || (ImportedMetadata?.Type?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
             || (ImportedMetadata?.OperatingSystem?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
             || (ImportedMetadata?.Family?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)

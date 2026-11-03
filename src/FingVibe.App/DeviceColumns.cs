@@ -234,7 +234,7 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
             if (settings.Columns.TryGetValue(column.Key, out var saved))
             {
                 column.Width = saved.Width;
-                column.IsVisible = saved.IsVisible;
+                if (All.Contains(column)) column.IsVisible = saved.IsVisible;
             }
         }
         CombineNameType = settings.CombineNameType;

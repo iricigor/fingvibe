@@ -9,6 +9,17 @@ namespace FingVibe.Core.Tests;
 public sealed class ScanResultRowTests
 {
     [Fact]
+    public void PrivateMacVendor_UsesSimplePresentationWithoutErasingEvidence()
+    {
+        var row = new ScanResultRow(new ScanResult(IPAddress.Parse("192.0.2.1"),
+            HostStatus.Alive, 2, TimeSpan.FromMilliseconds(2), VendorName: "Private/Randomized"), 24);
+        Assert.Equal("Private MAC", row.VendorDisplayText);
+        Assert.Equal("Private/Randomized", row.VendorText);
+        Assert.Contains("manufacturer cannot be reliably determined", row.VendorDescription);
+        Assert.True(row.MatchesFilter("Private MAC"));
+    }
+
+    [Fact]
     public void AlternateRow_NotifiesOnlyWhenVisibleParityChanges()
     {
         var row = new ScanResultRow(new ScanResult(

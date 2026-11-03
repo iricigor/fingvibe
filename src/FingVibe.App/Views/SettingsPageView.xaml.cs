@@ -93,6 +93,18 @@ public sealed partial class SettingsPageView : UserControl
         Grid.SetColumnSpan(ResetColumnsButton, inline ? 1 : 2);
     }
 
+    private void CombinationOptions_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var columns = e.NewSize.Width >= 560 ? 2 : 1;
+        FrameworkElement[] choices = [CombineNameType, CombineAddresses, CombineStatusResponse, CombinePersonRoom];
+        for (var index = 0; index < choices.Length; index++)
+        {
+            Grid.SetRow(choices[index], index / columns);
+            Grid.SetColumn(choices[index], index % columns);
+            Grid.SetColumnSpan(choices[index], columns == 1 ? 2 : 1);
+        }
+    }
+
     private void ColumnChoices_Loaded(object sender, RoutedEventArgs e) => UpdateColumnChoicesLayout();
 
     private void ColumnChoices_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateColumnChoicesLayout();

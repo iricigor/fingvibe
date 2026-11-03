@@ -46,6 +46,7 @@ public sealed class MacAddressResolver
         }
         try
         {
+            // MIB_IPNET_TABLE2 aligns its first 88-byte MIB_IPNET_ROW2 to an 8-byte boundary.
             var count = Marshal.ReadInt32(table);
             for (var index = 0; index < count; index++)
             {

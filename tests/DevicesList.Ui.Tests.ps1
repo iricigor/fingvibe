@@ -323,10 +323,11 @@ function Test-MergeOptions {
         if ([bool]$responseGrip -eq $merged) { throw "Separate Response must have its own resize boundary." }
         $assignmentGrip = Get-VisibleDeviceChild $root Name "Resize Person / room column"
         if ([bool]$assignmentGrip -ne $merged) { throw "Person/Room merge setting was not applied." }
-        if ($row.Current.BoundingRectangle.Height / $scale -gt 48) {
-            throw "Denser two-line rows must not exceed 48 DIPs."
-        }
         $null = Save-DeviceCapture "devices-all-merges-$merged"
+        $height = $row.Current.BoundingRectangle.Height / $scale
+        if ($height -gt 48) {
+            throw "Denser two-line rows must not exceed 48 DIPs; got $height with merges=$merged."
+        }
     }
     Select-DevicePage Settings
     (Find-DeviceElement ResetColumnsButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()

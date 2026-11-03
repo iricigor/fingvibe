@@ -9,8 +9,7 @@
         <DataTemplate x:Key="MacTemplate" x:DataType="local:ScanResultRow">
             <TextBlock FontFamily="Consolas" FontSize="11" TextTrimming="CharacterEllipsis"
                        ToolTipService.ToolTip="{x:Bind MacAddressText}" AutomationProperties.Name="{x:Bind MacAddressText}">
-                <Run Text="{x:Bind local:DeviceColumnLayoutHelpers.MetadataText(MacOui)}" Foreground="{ThemeResource ScannerMacOuiBrush}" />
-                <Run Text="{x:Bind MacNic}" Foreground="{ThemeResource ScannerMacNicBrush}" />
+                <Run Text="{x:Bind local:DeviceColumnLayoutHelpers.MetadataText(MacOui)}" Foreground="{ThemeResource ScannerMacOuiBrush}" /><Run Text="{x:Bind MacNic}" Foreground="{ThemeResource ScannerMacNicBrush}" />
             </TextBlock>
         </DataTemplate>
         <DataTemplate x:Key="ResponseTemplate" x:DataType="local:ScanResultRow">
@@ -523,6 +522,7 @@
                                         <TextBlock Text="Person:" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                    Visibility="{x:Bind Columns.ShowMergedRoom, Mode=OneWay}" />
                                         <Button Content="{x:Bind local:DeviceColumnLayoutHelpers.AssignmentText(PersonId, PersonShortName), Mode=OneWay}"
+                                                FontSize="12"
                                                 Style="{StaticResource ScannerAssignmentTextStyle}"
                                                 VerticalAlignment="Center"
                                                 Opacity="{x:Bind PersonOpacity, Mode=OneWay}"
@@ -534,6 +534,7 @@
                                             <TextBlock Text="Room:" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                        Visibility="{x:Bind Columns.ShowMergedRoom, Mode=OneWay}" />
                                             <Button Content="{x:Bind local:DeviceColumnLayoutHelpers.AssignmentText(RoomId, RoomShortName), Mode=OneWay}"
+                                                    FontSize="12"
                                                     Style="{StaticResource ScannerAssignmentTextStyle}" FontFamily="Segoe UI Emoji"
                                                     Opacity="{x:Bind RoomOpacity, Mode=OneWay}"
                                                     ToolTipService.ToolTip="{x:Bind RoomFullName, Mode=OneWay}"

@@ -15,7 +15,7 @@ public sealed class MacNeighborTests
     [InlineData(6, true)]
     [InlineData(7, false)]
     public void NeighborState_MustBeUsable(int state, bool expected) =>
-        Assert.Equal(expected, MacAddressResolver.IsUsableNeighbor([0x2a, 0x59, 0xf2, 0x71, 0x8b, 0x6b], state));
+        Assert.Equal(expected, MacAddressResolver.IsUsableNeighbor([0x02, 0x11, 0x22, 0x33, 0x44, 0x55], state));
 
     [Theory]
     [InlineData(new byte[] { 0, 0, 0, 0, 0, 0 })]

@@ -82,14 +82,34 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <CheckBox x:Name="CombineNameType" Content="Combine Name and Type"
-                              IsChecked="{x:Bind Columns.CombineNameType, Mode=TwoWay}" />
-                    <CheckBox x:Name="CombineAddresses" Content="Combine IP and MAC"
-                              IsChecked="{x:Bind Columns.CombineAddresses, Mode=TwoWay}" />
-                    <CheckBox x:Name="CombineStatusResponse" Content="Combine Status and Response"
-                              IsChecked="{x:Bind Columns.CombineStatusResponse, Mode=TwoWay}" />
-                    <CheckBox x:Name="CombinePersonRoom" Content="Combine Person and Room"
-                              IsChecked="{x:Bind Columns.CombinePersonRoom, Mode=TwoWay}" />
+                    <Grid x:Name="CombinationOptions" ColumnSpacing="16" SizeChanged="CombinationOptions_SizeChanged">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <CheckBox x:Name="CombineNameType" AutomationProperties.Name="Combine Name and Type"
+                                  IsChecked="{x:Bind Columns.CombineNameType, Mode=TwoWay}">
+                            <TextBlock Text="Combine Name and Type" TextWrapping="Wrap" />
+                        </CheckBox>
+                        <CheckBox x:Name="CombineAddresses" Grid.Row="1" AutomationProperties.Name="Combine IP and MAC"
+                                  IsChecked="{x:Bind Columns.CombineAddresses, Mode=TwoWay}">
+                            <TextBlock Text="Combine IP and MAC" TextWrapping="Wrap" />
+                        </CheckBox>
+                        <CheckBox x:Name="CombineStatusResponse" Grid.Row="2" AutomationProperties.Name="Combine Status and Response"
+                                  IsChecked="{x:Bind Columns.CombineStatusResponse, Mode=TwoWay}">
+                            <TextBlock Text="Combine Status and Response" TextWrapping="Wrap" />
+                        </CheckBox>
+                        <CheckBox x:Name="CombinePersonRoom" Grid.Row="3" AutomationProperties.Name="Combine Person and Room"
+                                  IsChecked="{x:Bind Columns.CombinePersonRoom, Mode=TwoWay}">
+                            <TextBlock Text="Combine Person and Room" TextWrapping="Wrap" />
+                        </CheckBox>
+                    </Grid>
                     <TextBlock x:Name="TableSaveStatus"
                                Text="Column visibility, combinations and widths are saved automatically."
                                TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
