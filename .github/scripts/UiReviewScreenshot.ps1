@@ -94,6 +94,38 @@ function Initialize-UiReviewWindow {
     }
 }
 
+function Assert-UiReviewBitmapContent {
+    param([Parameter(Mandatory)][System.Drawing.Bitmap] $Bitmap)
+
+    $colors = [System.Collections.Generic.HashSet[int]]::new()
+    $horizontalTransitions = 0
+    $verticalTransitions = 0
+    $previousRow = @{}
+    $xStep = [Math]::Max([int] ($Bitmap.Width / 80), 1)
+    $yStep = [Math]::Max([int] ($Bitmap.Height / 80), 1)
+    for ($y = 0; $y -lt $Bitmap.Height; $y += $yStep) {
+        $previousPixel = $null
+        for ($x = 0; $x -lt $Bitmap.Width; $x += $xStep) {
+            $pixel = $Bitmap.GetPixel($x, $y).ToArgb()
+            $null = $colors.Add($pixel)
+            if ($null -ne $previousPixel -and $pixel -ne $previousPixel) {
+                $horizontalTransitions++
+            }
+            if ($previousRow.ContainsKey($x) -and $pixel -ne $previousRow[$x]) {
+                $verticalTransitions++
+            }
+            $previousPixel = $pixel
+            $previousRow[$x] = $pixel
+        }
+    }
+
+    # High-contrast UIs can use only two colors; require spatial detail instead of a rich palette.
+    if ($colors.Count -lt 8 -and
+        ($colors.Count -lt 2 -or $horizontalTransitions -lt 16 -or $verticalTransitions -lt 16)) {
+        throw "The screenshot appears blank or failed to render (colors: $($colors.Count); horizontal transitions: $horizontalTransitions; vertical transitions: $verticalTransitions)."
+    }
+}
+
 function Save-UiReviewWindowScreenshot {
     param(
         [Parameter(Mandatory)][IntPtr] $WindowHandle,
@@ -125,21 +157,11 @@ function Save-UiReviewWindowScreenshot {
             throw "The review window moved, resized, or lost focus during capture."
         }
 
-        $colors = [System.Collections.Generic.HashSet[int]]::new()
-        $xStep = [Math]::Max([int] ($bitmap.Width / 20), 1)
-        $yStep = [Math]::Max([int] ($bitmap.Height / 20), 1)
-        for ($x = 0; $x -lt $bitmap.Width; $x += $xStep) {
-            for ($y = 0; $y -lt $bitmap.Height; $y += $yStep) {
-                $null = $colors.Add($bitmap.GetPixel($x, $y).ToArgb())
-            }
-        }
-        if ($colors.Count -lt 8) {
-            throw "The screenshot appears blank or failed to render."
-        }
-
         $directory = Split-Path -Parent ([System.IO.Path]::GetFullPath($Path))
         New-Item -ItemType Directory -Path $directory -Force | Out-Null
+        # Retain rejected captures as diagnostics rather than losing the image that failed validation.
         $bitmap.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
+        Assert-UiReviewBitmapContent -Bitmap $bitmap
         Write-Host "Captured complete window: $bounds; PNG: $($bitmap.Width)x$($bitmap.Height)."
     }
     finally {
