@@ -57,7 +57,7 @@
                     <TextBlock x:Name="ProgressText" Text="Ready. No checks have run." TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
                     <TextBlock x:Name="DiagramPlaybackText" Visibility="Collapsed" TextWrapping="Wrap" FontSize="12"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Text="Illustrative network diagram - logical checkpoints, not discovered physical topology" TextWrapping="Wrap"
+                    <TextBlock Text="Logical checks—not a physical network map." TextWrapping="Wrap"
                                ToolTipService.ToolTip="Motion illustrates diagnostic checks, not actual packets or timing."
                                AutomationProperties.HelpText="Motion illustrates diagnostic checks, not actual packets or timing." />
                     <ScrollViewer x:Name="DiagramScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
@@ -76,13 +76,13 @@
                             <Path x:Name="HopInternetConnector" Data="M687,198 H825" />
                             <Path x:Name="InternetGoogleConnector" Data="M865,198 H985" />
                             <Path Data="M885,198 V138 Q885,130 893,130 H984 Q992,130 992,122 V55" />
-                            <Path Data="M330,61 V74 Q330,82 338,82 H387 Q395,82 395,90 V178" Opacity="0.65" />
-                            <Path Data="M286,61 V74 Q286,82 294,82 H330" Opacity="0.65" />
-                            <Path Data="M374,61 V74 Q374,82 366,82 H330" Opacity="0.65" />
-                            <StackPanel Canvas.Left="205" Canvas.Top="8" Width="250" Opacity="0.65">
-                                <TextBlock Text="LAN peers: computers / phone / printer" TextAlignment="Center" />
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="24" Margin="0,8">
-                                    <FontIcon Glyph="&#xE7F4;" /><FontIcon Glyph="&#xE8EA;" /><FontIcon Glyph="&#xE749;" />
+                            <Path Data="M395,108 V178" Opacity="0.5" />
+                            <Path Data="M363,90 V100 Q363,108 371,108 H419 Q427,108 427,100 V90" Opacity="0.5" />
+                            <Path Data="M395,90 V108" Opacity="0.5" />
+                            <StackPanel x:Name="LanPeers" Canvas.Left="335" Canvas.Top="46" Width="120" Opacity="0.5">
+                                <TextBlock Text="LAN peers" FontSize="12" TextAlignment="Center" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="16" Margin="0,6">
+                                    <FontIcon Glyph="&#xE7F4;" FontSize="16" /><FontIcon Glyph="&#xE8EA;" FontSize="16" /><FontIcon Glyph="&#xE749;" FontSize="16" />
                                 </StackPanel>
                             </StackPanel>
                             <StackPanel x:Name="PcNode" Canvas.Left="0" Canvas.Top="150" Width="250" />
@@ -95,11 +95,15 @@
                             <StackPanel x:Name="GoogleNode" Canvas.Left="900" Canvas.Top="150" Width="250" />
                             <Ellipse x:Name="DiagramDot" Width="8" Height="8" Visibility="Collapsed"
                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
-                            <Ellipse x:Name="DiagramRequestDot" Width="8" Height="8" Visibility="Collapsed"
+                            <Ellipse x:Name="DiagramDot2" Width="8" Height="8" Visibility="Collapsed"
                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
-                            <Ellipse x:Name="DiagramEndpoint" Width="8" Height="8" Visibility="Collapsed"
+                            <Ellipse x:Name="DiagramDot3" Width="8" Height="8" Visibility="Collapsed"
                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
                             <Ellipse x:Name="DiagramPulse" StrokeThickness="2" Visibility="Collapsed"
+                                     IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                            <Ellipse x:Name="DiagramPulse2" StrokeThickness="2" Visibility="Collapsed"
+                                     IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                            <Ellipse x:Name="DiagramPulse3" StrokeThickness="2" Visibility="Collapsed"
                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
                         </Canvas>
                     </ScrollViewer>

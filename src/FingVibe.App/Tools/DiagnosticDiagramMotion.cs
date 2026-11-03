@@ -8,199 +8,159 @@ internal sealed class DiagnosticDiagramMotion
     internal const double Speed = 480;
     internal const double PulseSeconds = 0.4;
     internal const double FadeSeconds = 0.35;
+    internal const int DotCount = 3;
+    internal const double MinimumDelaySeconds = 0.2;
+    internal const double MaximumDelaySeconds = 1.6;
     private static readonly Dictionary<DiagnosticCheckpoint, Span[]> Routes =
         Enum.GetValues<DiagnosticCheckpoint>().ToDictionary(checkpoint => checkpoint, CreateRoute);
-    private readonly Queue<Entry> _queue = new();
-    private readonly List<Entry> _sequence = [];
-    private double _elapsed;
-    private double _pulseElapsed;
-    private Entry? _request;
-    private double _requestElapsed;
-    private bool _finished;
-    public int PassNumber { get; private set; } = 1;
-    public int TotalPasses { get; private set; } = 1;
+    private readonly Dictionary<DiagnosticCheckpoint, DiagnosticState> _states = [];
+    private readonly Random _random;
+    private bool _enabled;
+
+    public DiagnosticDiagramMotion(Random? random = null)
+    {
+        _random = random ?? Random.Shared;
+        Dots = Array.AsReadOnly(Enumerable.Range(0, DotCount).Select(_ => new Dot()).ToArray());
+    }
+
+    public IReadOnlyList<Dot> Dots { get; }
+    public bool HasWork => _enabled && _states.Values.Any(IsEligible);
 
     private readonly record struct Span(double X1, double Y1, double X2, double Y2, bool Visible)
     {
         public double Length => Math.Sqrt(Math.Pow(X2 - X1, 2) + Math.Pow(Y2 - Y1, 2));
     }
 
-    private sealed class Entry(DiagnosticCheckpoint checkpoint)
+    internal sealed class Dot
     {
-        public DiagnosticCheckpoint Checkpoint { get; } = checkpoint;
-        public DiagnosticState State { get; set; } = DiagnosticState.Running;
-    }
+        private double _elapsed;
+        private double _waitingElapsed;
+        private DiagnosticState? _result;
+        public DiagnosticCheckpoint? Checkpoint { get; private set; }
+        public double DelaySeconds { get; private set; }
+        public bool IsLocal => Checkpoint is DiagnosticCheckpoint.Loopback or DiagnosticCheckpoint.LocalAddress
+            or DiagnosticCheckpoint.ConfiguredDns;
+        public double TravelSeconds => Checkpoint is { } checkpoint ? TravelTime(checkpoint) : 0;
+        public DiagnosticState State => _result ?? DiagnosticState.Running;
+        public bool AtTarget => Checkpoint is not null && _elapsed >= TravelSeconds;
+        public bool Returning => AtTarget && !IsLocal && State == DiagnosticState.Responded
+            && _elapsed >= TravelSeconds + PulseSeconds;
+        public bool ShowPulse => AtTarget && !Returning;
+        public double Pulse => _result is null
+            ? 0.5 - 0.5 * Math.Cos(_waitingElapsed * 2 * Math.PI / 0.9)
+            : Math.Clamp((_elapsed - TravelSeconds) / PulseSeconds, 0, 1);
+        public double EndpointSize => DotSize + (_result is null ? 4 * Pulse : 10 * Math.Sin(Math.PI * Pulse));
+        public double Opacity => State is DiagnosticState.Unanswered or DiagnosticState.Error
+            ? 1 - Math.Clamp((_elapsed - TravelSeconds - PulseSeconds) / FadeSeconds, 0, 1) : 1;
+        public double Progress => Checkpoint is null ? 0 : !AtTarget ? _elapsed / TravelSeconds
+            : Returning ? 1 - Math.Clamp((_elapsed - TravelSeconds - PulseSeconds) / TravelSeconds, 0, 1) : 1;
 
-    public DiagnosticCheckpoint? Checkpoint => _queue.TryPeek(out var entry) ? entry.Checkpoint : null;
-    public bool HasWork => _queue.Count != 0;
-    public bool IsLocal => Checkpoint is DiagnosticCheckpoint.Loopback or DiagnosticCheckpoint.LocalAddress
-        or DiagnosticCheckpoint.ConfiguredDns;
-    public double TravelSeconds => Checkpoint is { } checkpoint ? TravelTime(checkpoint) : 0;
-    public DiagnosticState State => _elapsed < TravelSeconds || !_queue.TryPeek(out var entry)
-        ? DiagnosticState.Running : entry.State;
-    public bool AtTarget => HasWork && _elapsed >= TravelSeconds;
-    public bool Returning => AtTarget && !IsLocal && State == DiagnosticState.Responded
-        && _elapsed >= TravelSeconds + PulseSeconds;
-    public DiagnosticCheckpoint? RequestCheckpoint => Returning ? _request?.Checkpoint : null;
-    public double RequestProgress => _request is null ? 0 : _requestElapsed / TravelTime(_request.Checkpoint);
-    public bool ShowPulse => HasWork && (IsLocal || AtTarget && !Returning);
-    public double Pulse => State is DiagnosticState.Running or DiagnosticState.Untested
-        ? 0.5 - 0.5 * Math.Cos(_pulseElapsed * 2 * Math.PI / 0.9)
-        : Math.Clamp((_elapsed - TravelSeconds) / PulseSeconds, 0, 1);
-    public double EndpointSize => DotSize + (State is DiagnosticState.Running or DiagnosticState.Untested
-        ? 4 * Pulse : 10 * Math.Sin(Math.PI * Pulse));
-    public double Opacity => State is DiagnosticState.Unanswered or DiagnosticState.Error
-        ? 1 - Math.Clamp((_elapsed - TravelSeconds - PulseSeconds) / FadeSeconds, 0, 1) : 1;
-    public double Progress
-    {
-        get
+        internal void Schedule(Random random)
         {
-            if (!HasWork) return 0;
-            return _elapsed < TravelSeconds ? _elapsed / TravelSeconds
-                : State == DiagnosticState.Responded
-                    ? 1 - Math.Clamp((_elapsed - TravelSeconds - PulseSeconds) / TravelSeconds, 0, 1)
-                    : 1;
+            Reset();
+            DelaySeconds = MinimumDelaySeconds + random.NextDouble() * (MaximumDelaySeconds - MinimumDelaySeconds);
+        }
+
+        internal void Reset()
+        {
+            Checkpoint = null;
+            DelaySeconds = _elapsed = _waitingElapsed = 0;
+            _result = null;
+        }
+
+        internal void Advance(double seconds, IReadOnlyDictionary<DiagnosticCheckpoint, DiagnosticState> states, Random random)
+        {
+            while (true)
+            {
+                if (Checkpoint is null)
+                {
+                    if (seconds < DelaySeconds)
+                    {
+                        DelaySeconds -= seconds;
+                        return;
+                    }
+                    seconds -= DelaySeconds;
+                    DelaySeconds = 0;
+                    var candidates = states.Where(item => IsEligible(item.Value)).Select(item => item.Key).ToArray();
+                    if (candidates.Length == 0) return;
+                    Checkpoint = candidates[random.Next(candidates.Length)];
+                }
+                if (!states.TryGetValue(Checkpoint.Value, out var state) || !IsEligible(state))
+                {
+                    Schedule(random);
+                    continue;
+                }
+                var travel = TravelSeconds;
+                if (_elapsed < travel)
+                {
+                    var step = Math.Min(seconds, travel - _elapsed);
+                    _elapsed += step;
+                    seconds -= step;
+                    if (_elapsed < travel) return;
+                }
+                if (_result is null)
+                {
+                    if (state is DiagnosticState.Running or DiagnosticState.Untested)
+                    {
+                        _waitingElapsed += seconds;
+                        return;
+                    }
+                    _result = state;
+                }
+                var duration = travel + PulseSeconds
+                    + (State == DiagnosticState.Responded ? IsLocal ? 0 : travel : FadeSeconds);
+                var consumed = Math.Min(seconds, duration - _elapsed);
+                _elapsed += consumed;
+                seconds -= consumed;
+                if (_elapsed < duration) return;
+                Schedule(random);
+            }
         }
     }
 
     public void Observe(DiagnosticCheckpoint checkpoint, DiagnosticState state)
     {
-        var entry = _sequence.FirstOrDefault(item => item.Checkpoint == checkpoint);
-        if (state == DiagnosticState.Running)
-        {
-            if (entry is null)
-            {
-                entry = new(checkpoint);
-                _sequence.Add(entry);
-                _queue.Enqueue(entry);
-            }
-            entry.State = state;
-        }
-        else if (entry is not null)
-        {
-            entry.State = state;
-        }
+        if (_enabled) _states[checkpoint] = state;
     }
 
-    public void BeginRun(int totalPasses, IEnumerable<DiagnosticObservation> checkpoints)
+    public void BeginRun(IEnumerable<DiagnosticObservation> checkpoints)
     {
-        if (totalPasses is < 3 or > 5) throw new ArgumentOutOfRangeException(nameof(totalPasses));
         Reset();
-        TotalPasses = totalPasses;
-        foreach (var observation in checkpoints.OrderBy(item => Order(item.Checkpoint)))
-        {
-            if (observation.State is DiagnosticState.Unavailable or DiagnosticState.Cancelled) continue;
-            var entry = new Entry(observation.Checkpoint) { State = observation.State };
-            _sequence.Add(entry);
-            _queue.Enqueue(entry);
-        }
+        _enabled = true;
+        foreach (var observation in checkpoints) Observe(observation.Checkpoint, observation.State);
+        foreach (var dot in Dots) dot.Schedule(_random);
     }
 
     public void CompleteRun(IEnumerable<DiagnosticObservation> observations)
     {
-        foreach (var observation in observations.OrderBy(item => Order(item.Checkpoint)))
-        {
-            if (!_sequence.Any(item => item.Checkpoint == observation.Checkpoint))
-            {
-                if (!CanReplay(observation.State)) continue;
-                Observe(observation.Checkpoint, DiagnosticState.Running);
-            }
-            Observe(observation.Checkpoint, observation.State);
-        }
-        _finished = true;
-        if (!HasWork) StartNextPass();
+        if (!_enabled) return;
+        _states.Clear();
+        foreach (var observation in observations) Observe(observation.Checkpoint, observation.State);
+        Advance(0);
     }
 
     public void Advance(double seconds)
     {
         if (!double.IsFinite(seconds) || seconds < 0)
             throw new ArgumentOutOfRangeException(nameof(seconds));
-        if (!_queue.TryPeek(out var entry)) return;
-        if (entry.State is DiagnosticState.Unavailable or DiagnosticState.Cancelled)
+        if (!_enabled) return;
+        foreach (var dot in Dots)
         {
-            FinishEntry();
-            return;
+            if (HasWork) dot.Advance(seconds, _states, _random);
+            else dot.Reset();
         }
-        var previousElapsed = _elapsed;
-        var travel = TravelSeconds;
-        _pulseElapsed += seconds;
-        _elapsed += seconds;
-        if (entry.State is DiagnosticState.Running or DiagnosticState.Untested)
-            _elapsed = Math.Min(_elapsed, TravelSeconds);
-        if (Returning && _queue.Count > 1)
-        {
-            var next = _queue.ElementAt(1);
-            if (next.State is not (DiagnosticState.Unavailable or DiagnosticState.Cancelled)
-                && next.Checkpoint is not (DiagnosticCheckpoint.Loopback or DiagnosticCheckpoint.LocalAddress
-                    or DiagnosticCheckpoint.ConfiguredDns))
-            {
-                _request = next;
-                var returnStart = travel + PulseSeconds;
-                var secondsReturning = Math.Clamp(_elapsed - returnStart, 0, travel)
-                    - Math.Clamp(previousElapsed - returnStart, 0, travel);
-                _requestElapsed = Math.Min(TravelTime(next.Checkpoint), _requestElapsed + secondsReturning);
-            }
-            else
-            {
-                _request = null;
-                _requestElapsed = 0;
-            }
-        }
-        if (entry.State is not (DiagnosticState.Running or DiagnosticState.Untested)
-            && _elapsed >= TravelSeconds + PulseSeconds + (entry.State == DiagnosticState.Responded
-            ? IsLocal ? 0 : TravelSeconds : FadeSeconds))
-        {
-            FinishEntry();
-        }
-    }
-
-    private void FinishEntry()
-    {
-        _queue.Dequeue();
-        _elapsed = _queue.TryPeek(out var next) && ReferenceEquals(next, _request) ? _requestElapsed : 0;
-        _pulseElapsed = 0;
-        _request = null;
-        _requestElapsed = 0;
-        if (!HasWork) StartNextPass();
     }
 
     public void Reset()
     {
-        _queue.Clear();
-        _sequence.Clear();
-        _elapsed = 0;
-        _pulseElapsed = 0;
-        _request = null;
-        _requestElapsed = 0;
-        _finished = false;
-        PassNumber = TotalPasses = 1;
+        _enabled = false;
+        _states.Clear();
+        foreach (var dot in Dots) dot.Reset();
     }
 
-    private void StartNextPass()
-    {
-        if (!_finished || PassNumber >= TotalPasses) return;
-        foreach (var entry in _sequence.Where(item => CanReplay(item.State)).OrderBy(item => Order(item.Checkpoint)))
-            _queue.Enqueue(entry);
-        if (HasWork) PassNumber++;
-    }
-
-    private static bool CanReplay(DiagnosticState state) =>
-        state is DiagnosticState.Responded or DiagnosticState.Unanswered or DiagnosticState.Error;
-
-    private static int Order(DiagnosticCheckpoint checkpoint) => checkpoint switch
-    {
-        DiagnosticCheckpoint.Loopback => 0,
-        DiagnosticCheckpoint.LocalAddress => 1,
-        DiagnosticCheckpoint.ConfiguredDns => 2,
-        DiagnosticCheckpoint.Gateway => 3,
-        DiagnosticCheckpoint.RouterWan => 4,
-        DiagnosticCheckpoint.Hop2 => 5,
-        DiagnosticCheckpoint.CloudflarePing => 6,
-        DiagnosticCheckpoint.CloudflareDns => 7,
-        DiagnosticCheckpoint.GooglePing => 8,
-        DiagnosticCheckpoint.GoogleDns => 9,
-        _ => throw new ArgumentOutOfRangeException(nameof(checkpoint))
-    };
+    private static bool IsEligible(DiagnosticState state) =>
+        state is DiagnosticState.Untested or DiagnosticState.Running or DiagnosticState.Responded
+            or DiagnosticState.Unanswered or DiagnosticState.Error;
 
     internal static double TravelTime(DiagnosticCheckpoint checkpoint) => checkpoint is
         DiagnosticCheckpoint.Loopback or DiagnosticCheckpoint.LocalAddress or DiagnosticCheckpoint.ConfiguredDns
