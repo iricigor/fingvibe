@@ -124,8 +124,9 @@ function Assert-SharedNetworkHeader {
     if ([string]::IsNullOrWhiteSpace($elements[2].Current.Name)) {
         throw "Shared network freshness must not disappear on any page."
     }
+    # Native ComboBox automation includes a four-DIP outer focus margin.
     if ($bounds[2].Top -lt $bounds[1].Bottom -or
-        [Math]::Abs($bounds[2].Left - $bounds[1].Left) -gt 2 * $scale) {
+        [Math]::Abs($bounds[2].Left - $bounds[1].Left) -gt 5 * $scale) {
         Save-SidebarAppearance "header-layout-failure"
         throw "Secondary freshness must sit immediately below the network selector. Picker=$($bounds[1]); freshness=$($bounds[2])."
     }
