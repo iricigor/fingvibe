@@ -5,13 +5,22 @@ using Microsoft.UI.Xaml.Input;
 
 namespace FingVibe.App.Views;
 
-internal sealed record PeopleRoomFilterChoice(string Label, Guid? Id = null, bool All = false, bool Unassigned = false);
-
 public sealed partial class DevicesPageView : UserControl
 {
-    public DevicesPageView() => InitializeComponent();
+    public DevicesPageView()
+    {
+        InitializeComponent();
+        InventoryStatusFilter.ItemsSource = new DeviceFilterChoice[]
+        {
+            new("Status", "All statuses", All: true),
+            new("Status", "Online"), new("Status", "Offline"),
+            new("Status", "Fing Only"), new("Status", "Unknown")
+        };
+        InventoryStatusFilter.SelectedIndex = 0;
+    }
 
     public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
+    public event EventHandler<RoutedEventArgs>? ScanRequested;
     public event EventHandler? FiltersChanged;
     public event EventHandler<string>? SortRequested;
     public event EventHandler<ScanResultRow>? DeviceRequested;
@@ -35,8 +44,8 @@ public sealed partial class DevicesPageView : UserControl
         get => ResultsList.SelectedItem as ScanResultRow;
         set => ResultsList.SelectedItem = value;
     }
-    internal PeopleRoomFilterChoice? PersonChoice => SelectedFilterChoice(PersonFilter);
-    internal PeopleRoomFilterChoice? RoomChoice => SelectedFilterChoice(RoomFilter);
+    internal DeviceFilterChoice? PersonChoice => SelectedFilterChoice(PersonFilter);
+    internal DeviceFilterChoice? RoomChoice => SelectedFilterChoice(RoomFilter);
 
     internal void SetResults(IEnumerable<ScanResultRow> results) => ResultsList.ItemsSource = results;
     internal void FocusResults() => ResultsList.Focus(FocusState.Programmatic);
@@ -47,6 +56,8 @@ public sealed partial class DevicesPageView : UserControl
         ResultsList.SelectionMode = enabled ? ListViewSelectionMode.Single : ListViewSelectionMode.None;
     }
 
+    internal void SetScanEnabled(bool enabled) => ScanButton.IsEnabled = enabled;
+
     internal void ShowSummary(string count, string emptyMessage, bool isEmpty)
     {
         ResultCountText.Text = count;
@@ -56,12 +67,21 @@ public sealed partial class DevicesPageView : UserControl
 
     internal void ShowInventorySummary(string summary) => InventoryCountsText.Text = summary;
 
+    internal void ShowLastScan(ScanSnapshot? snapshot) =>
+        LastScanText.Text = snapshot is null
+            ? "Last scan: Never · Duration: —"
+            : $"Last scan: {snapshot.CompletedAt.ToLocalTime():g} · Duration: "
+                + (snapshot.Duration is { } duration ? $"{duration.TotalSeconds:N1} s" : "not recorded");
+
     internal void ShowSort(string address, string status, string response, string mac, string os, string type)
     {
         AddressSortGlyph.Text = address;
         StatusSortGlyph.Text = status;
         ResponseSortGlyph.Text = response;
         MacAddressSortGlyph.Text = mac;
+        MergedMacAddressSortGlyph.Text = mac;
+        SeparateResponseSortGlyph.Text = response;
+        SeparateDeviceTypeSortGlyph.Text = type;
         OperatingSystemSortGlyph.Text = os;
         DeviceTypeSortGlyph.Text = type;
     }
@@ -69,52 +89,54 @@ public sealed partial class DevicesPageView : UserControl
     internal void SetPeopleRoomFilters(IEnumerable<(Guid Id, string Label)> people,
         IEnumerable<(Guid Id, string Label)> rooms)
     {
-        PopulateFilter(PersonFilter, "All people", people);
-        PopulateFilter(RoomFilter, "All rooms", rooms);
+        PopulateFilter(PersonFilter, "Person", "All people", people);
+        PopulateFilter(RoomFilter, "Room", "All rooms", rooms);
     }
 
-    private static PeopleRoomFilterChoice? SelectedFilterChoice(ComboBox picker) =>
-        (picker.SelectedItem as ComboBoxItem)?.Tag as PeopleRoomFilterChoice;
+    private static DeviceFilterChoice? SelectedFilterChoice(ComboBox picker) =>
+        picker.SelectedItem as DeviceFilterChoice;
 
-    private static void PopulateFilter(ComboBox picker, string allLabel, IEnumerable<(Guid Id, string Label)> values)
+    private static void PopulateFilter(ComboBox picker, string category, string allLabel,
+        IEnumerable<(Guid Id, string Label)> values)
     {
         var selected = SelectedFilterChoice(picker);
-        picker.Items.Clear();
-        Add(new PeopleRoomFilterChoice(allLabel, All: true));
-        Add(new PeopleRoomFilterChoice("Unassigned", Unassigned: true));
-        foreach (var (id, label) in values)
+        var choices = new List<DeviceFilterChoice>
         {
-            Add(new PeopleRoomFilterChoice(label, id));
-        }
-
-        picker.SelectedItem = picker.Items.OfType<ComboBoxItem>().FirstOrDefault(candidate =>
-            candidate.Tag is PeopleRoomFilterChoice choice && (selected?.Unassigned == true
+            new(category, allLabel, All: true),
+            new(category, "Unassigned", Unassigned: true)
+        };
+        choices.AddRange(values.Select(value => new DeviceFilterChoice(category, value.Label, value.Id)));
+        picker.ItemsSource = choices;
+        picker.SelectedItem = choices.FirstOrDefault(choice => selected?.Unassigned == true
                 ? choice.Unassigned
-                : selected?.Id is { } id ? choice.Id == id : choice.All))
-            ?? picker.Items.OfType<ComboBoxItem>().First();
-
-        void Add(PeopleRoomFilterChoice choice) =>
-            picker.Items.Add(new ComboBoxItem { Content = choice.Label, Tag = choice });
+                : selected?.Id is { } id ? choice.Id == id : choice.All)
+            ?? choices[0];
     }
 
     private void DeviceFilters_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        const double optionWidth = 180;
         const double spacing = 8;
         const double minimumSearchWidth = 120;
-        var inline = e.NewSize.Width >= minimumSearchWidth + (optionWidth + spacing) * 4;
+        double[] widths = [140, 140, 180];
+        var inline = e.NewSize.Width >= minimumSearchWidth + 210 + widths.Sum() + spacing * 4;
         Grid.SetRow(DeviceFilterOptions, inline ? 0 : 1);
         Grid.SetColumn(DeviceFilterOptions, inline ? 1 : 0);
         Grid.SetColumnSpan(DeviceFilterOptions, inline ? 1 : 2);
         Grid.SetColumnSpan(DeviceSearchFilters, inline ? 1 : 2);
-        var columns = inline ? 3 : Math.Clamp((int)((e.NewSize.Width + spacing) / (optionWidth + spacing)), 1, 3);
+        var columns = inline || e.NewSize.Width >= widths.Sum() + spacing * 2 ? 3
+            : e.NewSize.Width >= 180 + 140 + spacing ? 2 : 1;
         var rows = (3 + columns - 1) / columns;
         if (DeviceFilterOptions.ColumnDefinitions.Count != columns)
         {
             DeviceFilterOptions.ColumnDefinitions.Clear();
             for (var column = 0; column < columns; column++)
             {
-                DeviceFilterOptions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(optionWidth) });
+                DeviceFilterOptions.ColumnDefinitions.Add(new ColumnDefinition());
+            }
+            for (var column = 0; column < columns; column++)
+            {
+                DeviceFilterOptions.ColumnDefinitions[column].Width =
+                    new GridLength(widths.Where((_, index) => index % columns == column).Max());
             }
         }
         if (DeviceFilterOptions.RowDefinitions.Count != rows)
@@ -131,6 +153,17 @@ public sealed partial class DevicesPageView : UserControl
             Grid.SetRow(filters[index], index / columns);
             Grid.SetColumn(filters[index], index % columns);
         }
+    }
+
+    private void DeviceSummary_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var inline = e.NewSize.Width >= 760;
+        Grid.SetRow(LastScanSeparator, inline ? 0 : 1);
+        Grid.SetRow(LastScanText, inline ? 0 : 1);
+        Grid.SetColumn(LastScanSeparator, inline ? 3 : 0);
+        Grid.SetColumn(LastScanText, inline ? 4 : 0);
+        Grid.SetColumnSpan(LastScanText, inline ? 1 : 5);
+        LastScanSeparator.Visibility = inline ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void ResultsList_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
@@ -178,6 +211,7 @@ public sealed partial class DevicesPageView : UserControl
     }
 
     private void ResultSearchBox_TextChanged(object sender, TextChangedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
+    private void ScanButton_Click(object sender, RoutedEventArgs e) => ScanRequested?.Invoke(this, e);
     private void PeopleRoomFilter_SelectionChanged(object sender, SelectionChangedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
     private void InventoryStatusFilter_SelectionChanged(object sender, SelectionChangedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
     private void OpenPortsFilter_Changed(object sender, RoutedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);

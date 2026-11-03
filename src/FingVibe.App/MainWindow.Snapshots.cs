@@ -40,9 +40,20 @@ public sealed partial class MainWindow
             }
 
             _currentScanSnapshot = snapshot;
+            var isCurrentReviewSnapshot = IsUiReview
+                && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT") == "1"
+                && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_SNAPSHOT") is { Length: > 0 };
             var missingObservations = snapshot.Results.Where(result => result.MacAddress is { } mac
                 && (!_inventory.Devices.TryGetValue(mac.ToString(), out var device) || device.Observations.Count == 0)).ToArray();
-            _inventory = _inventory.ObserveCompletedScan(null, snapshot with { Results = missingObservations }, historical: true);
+            _inventory = _inventory.ObserveCompletedScan(
+                isCurrentReviewSnapshot ? "ui-review-network" : null,
+                snapshot with { Results = missingObservations },
+                historical: !isCurrentReviewSnapshot);
+            // Only explicit synthetic review fixtures can stand in for a current scan.
+            if (isCurrentReviewSnapshot)
+            {
+                _liveCompletedAt = snapshot.CompletedAt;
+            }
             RefreshInventoryRows();
             UpdatePeopleRoomsPages();
             ShowSavedSnapshotStatus(snapshot);
@@ -89,12 +100,14 @@ public sealed partial class MainWindow
         return row;
     }
 
-    private async Task SaveCompletedScanAsync(LanNetwork network, IEnumerable<ScanResult> results, string? networkId)
+    private async Task SaveCompletedScanAsync(
+        LanNetwork network, IEnumerable<ScanResult> results, string? networkId, TimeSpan duration)
     {
         var snapshot = new ScanSnapshot(
             network.Cidr,
             DateTimeOffset.UtcNow,
-            results.ToArray());
+            results.ToArray(),
+            duration);
         _currentScanSnapshot = snapshot;
         _liveCompletedAt = snapshot.CompletedAt;
         await _deviceDataSaveLock.WaitAsync();

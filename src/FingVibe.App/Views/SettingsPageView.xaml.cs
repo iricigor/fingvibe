@@ -15,6 +15,9 @@ public sealed partial class SettingsPageView : UserControl
     public SettingsPageView() => InitializeComponent();
 
     public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
+    public IReadOnlyList<DeviceColumn> VisibilityChoices =>
+        [Columns.Name, Columns.Address, Columns.Vendor, Columns.Type, Columns.Mac, Columns.Ports,
+            Columns.Status, Columns.Response, Columns.OperatingSystem, Columns.Person, Columns.Room];
     public event SelectionChangedEventHandler? AppearanceChanged;
 
     private ThemeVariant[] ModeThemes => ModePicker.SelectedIndex == 1 ? DarkThemes : LightThemes;
@@ -24,6 +27,7 @@ public sealed partial class SettingsPageView : UserControl
             : new AppearanceSettings((WindowBackdrop)BackdropPicker.SelectedIndex, ModeThemes[ThemePicker.SelectedIndex]);
     internal string SaveStatus { set => AppearanceSaveStatus.Text = value; }
     internal string MaterialStatus { set => BackdropStatus.Text = value; }
+    internal string ColumnSaveStatus { set => TableSaveStatus.Text = value; }
 
     internal void SetAppearance(AppearanceSettings appearance)
     {
@@ -92,6 +96,18 @@ public sealed partial class SettingsPageView : UserControl
         Grid.SetColumnSpan(ResetColumnsButton, inline ? 1 : 2);
     }
 
+    private void CombinationOptions_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var columns = e.NewSize.Width >= 560 ? 2 : 1;
+        FrameworkElement[] choices = [CombineNameType, CombineAddresses, CombineStatusResponse, CombinePersonRoom];
+        for (var index = 0; index < choices.Length; index++)
+        {
+            Grid.SetRow(choices[index], index / columns);
+            Grid.SetColumn(choices[index], index % columns);
+            Grid.SetColumnSpan(choices[index], columns == 1 ? 2 : 1);
+        }
+    }
+
     private void ColumnChoices_Loaded(object sender, RoutedEventArgs e) => UpdateColumnChoicesLayout();
 
     private void ColumnChoices_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateColumnChoicesLayout();
@@ -104,7 +120,7 @@ public sealed partial class SettingsPageView : UserControl
         }
         const double spacing = 16;
         var columns = Math.Clamp((int)((ColumnChoices.ActualWidth + spacing) / (200 + spacing)), 1, 3);
-        var rows = (Columns.All.Count + columns - 1) / columns;
+        var rows = (VisibilityChoices.Count + columns - 1) / columns;
         if (panel.ColumnDefinitions.Count != columns)
         {
             panel.ColumnDefinitions.Clear();

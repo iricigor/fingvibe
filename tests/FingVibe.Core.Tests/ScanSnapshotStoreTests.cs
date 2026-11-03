@@ -36,7 +36,8 @@ public sealed class ScanSnapshotStoreTests
                     HostStatus.Unreachable,
                     null,
                     TimeSpan.FromMilliseconds(11))
-            ]);
+            ],
+            TimeSpan.FromSeconds(2.5));
 
         try
         {
@@ -46,6 +47,7 @@ public sealed class ScanSnapshotStoreTests
             Assert.NotNull(loaded);
             Assert.Equal(snapshot.Subnet, loaded.Subnet);
             Assert.Equal(snapshot.CompletedAt, loaded.CompletedAt);
+            Assert.Equal(snapshot.Duration, loaded.Duration);
             Assert.Equal(snapshot.Results.Count, loaded.Results.Count);
             Assert.Equal(snapshot.Results[0].Address, loaded.Results[0].Address);
             Assert.Equal(snapshot.Results[0].Status, loaded.Results[0].Status);
@@ -63,7 +65,7 @@ public sealed class ScanSnapshotStoreTests
         }
         finally
         {
-            Directory.Delete(directory, recursive: true);
+        Directory.Delete(directory, recursive: true);
         }
     }
 
@@ -81,6 +83,7 @@ public sealed class ScanSnapshotStoreTests
                 """);
             var loaded = await new ScanSnapshotStore(path).LoadAsync();
             Assert.Equal(DeviceClassification.Unknown, Assert.Single(loaded!.Results).DetectedClassification);
+            Assert.Null(loaded.Duration);
             Assert.Equal(EndpointProtocol.Tcp, Assert.Single(loaded.Results[0].OpenPortItems).Protocol);
             Assert.Empty(loaded.Results[0].UdpObservationItems);
         }
@@ -149,6 +152,26 @@ public sealed class ScanSnapshotStoreTests
                 path,
                 """{"version":1,"subnet":"192.168.1.0/24","completedAt":"2026-10-22T21:30:00Z","results":[null]}""");
 
+            await Assert.ThrowsAsync<InvalidDataException>(() => new ScanSnapshotStore(path).LoadAsync());
+        }
+            finally
+            {
+                Directory.Delete(directory, recursive: true);
+            }
+        }
+
+        [Fact]
+        public async Task LoadAsync_RejectsNegativeScanDuration()
+        {
+            var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            var path = Path.Combine(directory, "cache.json");
+        try
+        {
+            await File.WriteAllTextAsync(path, """
+                {"version":3,"subnet":"192.168.1.0/24","completedAt":"2026-10-22T21:30:00Z",
+                 "duration":"-00:00:01","results":[]}
+                """);
             await Assert.ThrowsAsync<InvalidDataException>(() => new ScanSnapshotStore(path).LoadAsync());
         }
         finally

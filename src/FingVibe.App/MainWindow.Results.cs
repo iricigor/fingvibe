@@ -199,6 +199,7 @@ public sealed partial class MainWindow
             : $"{_visibleResults.Count:N0} of {total:N0} devices";
         DevicesPage.ShowInventorySummary(
             $"{_allResults.Count(row => row.IsOnline):N0} Online · {_allResults.Count(row => row.IsOffline):N0} Offline · {_allResults.Count(row => row.IsHistorical):N0} Unknown · {_allResults.Count(row => row.IsFingOnly):N0} Fing Only");
+        DevicesPage.ShowLastScan(_currentScanSnapshot);
         UpdateOverview();
 
         string emptyMessage;

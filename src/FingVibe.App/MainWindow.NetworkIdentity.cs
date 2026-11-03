@@ -37,7 +37,7 @@ public sealed partial class MainWindow
             NetworkPage.ShowPublicIdentity(null);
             NetworkPage.ShowLocalNetwork(null);
             UpdateScanStatus();
-            ScanButton.IsEnabled = false;
+            DevicesPage.SetScanEnabled(false);
             UpdateOverview();
             return;
         }

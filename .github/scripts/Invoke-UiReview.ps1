@@ -33,6 +33,8 @@ $null = New-Item -ItemType Directory -Path $logDirectory -Force
 $standardOutputPath = Join-Path $logDirectory "fingvibe-winappdriver.stdout.log"
 $standardErrorPath = Join-Path $logDirectory "fingvibe-winappdriver.stderr.log"
 $startupLogPath = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-ui-review-startup.log"
+$savedScanHold = $env:FINGVIBE_UI_REVIEW_SCAN_HOLD
+$scanHoldPath = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-smoke-refresh-$([Guid]::NewGuid().ToString('N')).hold"
 if (Test-Path -LiteralPath $startupLogPath) {
     Remove-Item -LiteralPath $startupLogPath
 }
@@ -221,14 +223,14 @@ if (-not (Test-Path -LiteralPath $WinAppDriverPath -PathType Leaf)) {
     throw "WinAppDriver was not found at '$WinAppDriverPath'."
 }
 
-$driverProcess = Start-Process `
-    -FilePath $WinAppDriverPath `
-    -ArgumentList "127.0.0.1", "4723" `
-    -PassThru `
-    -RedirectStandardOutput $standardOutputPath `
-    -RedirectStandardError $standardErrorPath
-
 try {
+    $env:FINGVIBE_UI_REVIEW_SCAN_HOLD = $scanHoldPath
+    $driverProcess = Start-Process `
+        -FilePath $WinAppDriverPath `
+        -ArgumentList "127.0.0.1", "4723" `
+        -PassThru `
+        -RedirectStandardOutput $standardOutputPath `
+        -RedirectStandardError $standardErrorPath
     $deadline = [DateTime]::UtcNow.AddSeconds(30)
     do {
         if ($driverProcess.HasExited) {
@@ -273,9 +275,12 @@ try {
     Initialize-UiReviewWindow -WindowHandle $windowHandle
 
     $elements = @{}
-    foreach ($expectedName in @("FingVibe", "Detected network", "Scan LAN")) {
+    foreach ($expectedName in @("FingVibe", "Network:")) {
         $elements[$expectedName] = Find-WebDriverElement -Using name -Value $expectedName
     }
+    $devicesMenuItem = Find-WebDriverElement -Using xpath -Value "//ListItem[@Name='Devices']"
+    Invoke-WebDriverElement -ElementId $devicesMenuItem
+    $elements["Scan LAN"] = Assert-VisibleUiReviewElement -Value "Scan LAN"
 
     if (-not (Get-WebDriverElementEnabled -ElementId $elements["Scan LAN"])) {
         throw "The primary 'Scan LAN' action is disabled."
@@ -309,11 +314,6 @@ try {
         throw "Invoking 'Scan LAN' did not enter or complete the expected scanning state."
     }
 
-    $devicesMenuItem = Find-WebDriverElement `
-        -Using xpath `
-        -Value "//ListItem[@Name='Devices']"
-    Invoke-WebDriverElement -ElementId $devicesMenuItem
-
     $search = Assert-VisibleUiReviewElement -Value "Search devices"
     $removedSwitch = Find-WebDriverElement -Using name -Value "Show hosts" -TimeoutSeconds 1 -Optional
     if ($removedSwitch) { throw "The removed All / Alive switch is still present." }
@@ -331,6 +331,7 @@ try {
 
     $retainedRow = Assert-VisibleUiReviewElement -Using xpath `
         -Value "//List[@Name='Scan results']/ListItem[.//*[@Name='Online']][1]"
+    [IO.File]::WriteAllText($scanHoldPath, "Hold the refresh until retained-list interaction has been verified.")
     Invoke-WebDriverElement -ElementId $elements["Scan LAN"]
     if (Get-WebDriverElementEnabled -ElementId $elements["Scan LAN"]) {
         throw "The refresh ended before retained-list interaction could be verified."
@@ -349,6 +350,7 @@ try {
         $cancel = Assert-VisibleUiReviewElement -Value "Cancel"
         Invoke-WebDriverElement -ElementId $cancel
     }
+    Remove-Item -LiteralPath $scanHoldPath
     $scanStoppedDeadline = [DateTime]::UtcNow.AddSeconds(60)
     while (-not (Get-WebDriverElementEnabled -ElementId $elements["Scan LAN"])) {
         if ([DateTime]::UtcNow -ge $scanStoppedDeadline) { throw "The refresh did not stop." }
@@ -433,6 +435,8 @@ try {
     $succeeded = $true
 }
 finally {
+    if (Test-Path -LiteralPath $scanHoldPath) { Remove-Item -LiteralPath $scanHoldPath }
+    $env:FINGVIBE_UI_REVIEW_SCAN_HOLD = $savedScanHold
     if ($sessionId) {
         try {
             $null = Invoke-WebDriverRequest -Method Delete -Endpoint "/session/$sessionId"

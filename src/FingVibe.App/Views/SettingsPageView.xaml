@@ -61,10 +61,12 @@
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="8">
                     <TextBlock Text="Devices table columns" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                    <TextBlock Text="Choose which columns appear on the Devices page. Column choices and widths last until FingVibe closes."
+                    <TextBlock Text="Choose which information appears and which columns share a compact presentation."
                                TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <ItemsControl x:Name="ColumnChoices" ItemsSource="{x:Bind Columns.All}" Margin="0,4,0,0"
+                    <TextBlock x:Name="VisibleColumnsHeading" Text="Visible columns" FontSize="16" FontWeight="SemiBold"
+                               Margin="0,8,0,0" />
+                    <ItemsControl x:Name="ColumnChoices" ItemsSource="{x:Bind VisibilityChoices}"
                                   Loaded="ColumnChoices_Loaded" SizeChanged="ColumnChoices_SizeChanged">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -77,11 +79,47 @@
                                           HorizontalAlignment="Stretch"
                                           IsChecked="{x:Bind IsVisible, Mode=TwoWay}"
                                           IsEnabled="{x:Bind CanHide}">
-                                    <TextBlock Text="{x:Bind Header}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{x:Bind local:DeviceColumnLayoutHelpers.VisibilityChoiceLabel(Header, CanHide)}" TextWrapping="Wrap" />
                                 </CheckBox>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                    <Border Height="1" Background="{ThemeResource ScannerCardBorderBrush}" Margin="0,8,0,4" />
+                    <TextBlock x:Name="CombinedColumnsHeading" Text="Combined columns" FontSize="16" FontWeight="SemiBold" />
+                    <TextBlock x:Name="CombinedColumnsDescription" Text="Show each selected pair in one column instead of two."
+                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <Grid x:Name="CombinationOptions" ColumnSpacing="16" SizeChanged="CombinationOptions_SizeChanged">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <CheckBox x:Name="CombineNameType" AutomationProperties.Name="Combine Name and Type"
+                                  IsChecked="{x:Bind Columns.CombineNameType, Mode=TwoWay}">
+                            <TextBlock Text="Name + Device type" TextWrapping="Wrap" />
+                        </CheckBox>
+                        <CheckBox x:Name="CombineAddresses" Grid.Row="1" AutomationProperties.Name="Combine IP and MAC"
+                                  IsChecked="{x:Bind Columns.CombineAddresses, Mode=TwoWay}">
+                            <TextBlock Text="IP address + MAC address" TextWrapping="Wrap" />
+                        </CheckBox>
+                        <CheckBox x:Name="CombineStatusResponse" Grid.Row="2" AutomationProperties.Name="Combine Status and Response"
+                                  IsChecked="{x:Bind Columns.CombineStatusResponse, Mode=TwoWay}">
+                            <TextBlock Text="Status + Response" TextWrapping="Wrap" />
+                        </CheckBox>
+                        <CheckBox x:Name="CombinePersonRoom" Grid.Row="3" AutomationProperties.Name="Combine Person and Room"
+                                  IsChecked="{x:Bind Columns.CombinePersonRoom, Mode=TwoWay}">
+                            <TextBlock Text="Person + Room" TextWrapping="Wrap" />
+                        </CheckBox>
+                    </Grid>
+                    <TextBlock x:Name="TableSaveStatus"
+                               Text="Column visibility, combinations and widths are saved automatically."
+                               TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <Grid x:Name="ColumnFooter" ColumnSpacing="16" RowSpacing="8" Margin="0,4,0,0"
                           SizeChanged="ColumnFooter_SizeChanged">
                         <Grid.ColumnDefinitions>
@@ -94,7 +132,7 @@
                         </Grid.RowDefinitions>
                         <TextBlock x:Name="MandatoryColumnNote"
                                    Grid.ColumnSpan="2"
-                                   Text="IP address is always shown so every device remains identifiable."
+                                   Text="Name and IP address are always shown so every device remains identifiable."
                                    TextWrapping="Wrap" VerticalAlignment="Center"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <Button x:Name="ResetColumnsButton" Grid.Row="1" Grid.ColumnSpan="2"

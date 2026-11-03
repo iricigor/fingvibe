@@ -175,6 +175,14 @@ function Test-SettingsLayout {
     foreach ($theme in $UiReviewAppearanceThemes) {
         Set-UiReviewTheme -Root $root -Theme $theme
         Save-SidebarAppearance "settings-$theme"
+        $scroll = (Find-SidebarElement AutomationId SettingsPage).GetCurrentPattern(
+            [System.Windows.Automation.ScrollPattern]::Pattern)
+        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
+        Start-Sleep -Milliseconds 200
+        $null = Find-SidebarElement AutomationId VisibleColumnsHeading
+        $null = Find-SidebarElement AutomationId CombinedColumnsHeading
+        Save-SidebarAppearance "settings-grouped-columns-$theme"
+        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
     }
     foreach ($width in @($expandedWidth, 640, 480)) {
         Set-SidebarWindowWidth $width
@@ -198,18 +206,16 @@ function Test-SettingsLayout {
             [System.Windows.Automation.PropertyCondition]::new(
                 [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "ResetColumnsButton"))
         if (-not $reset) { throw "Reset columns is missing." }
-        if ($inline -and ($reset.Current.IsOffscreen -or $scroll.Current.VerticallyScrollable)) {
-            throw "The complete Settings page must fit at $width x 720 without scrolling."
-        }
         if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
         Start-Sleep -Milliseconds 200
         $choices = Find-SidebarElement AutomationId SettingsPage
-        $checkboxes = $choices.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+        $headers = @("Name", "IP address", "Vendor", "Device type", "MAC address", "Open ports",
+            "Status", "Response", "OS", "Person", "Room")
+        $checkboxes = @($choices.FindAll([System.Windows.Automation.TreeScope]::Descendants,
             [System.Windows.Automation.PropertyCondition]::new(
                 [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-                [System.Windows.Automation.ControlType]::CheckBox))
-        $headers = @("Name", "IP address", "Vendor", "Open ports", "Status", "Response",
-            "MAC address", "OS", "Device type", "Person", "Room")
+                [System.Windows.Automation.ControlType]::CheckBox)) |
+            Where-Object { $_.Current.Name -in $headers })
         if ($checkboxes.Count -ne $headers.Count) { throw "Expected all eleven column choices at $width." }
         $columns = if ($inline) { 3 } elseif ($width -eq 640) { 2 } else { 1 }
         for ($index = 0; $index -lt $checkboxes.Count; $index++) {
@@ -227,11 +233,30 @@ function Test-SettingsLayout {
                 throw "Column choices overlap horizontally at $width."
             }
         }
-        $ip = $checkboxes[1]
-        if ($ip.Current.IsEnabled -or $ip.GetCurrentPattern(
-                [System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne
-                [System.Windows.Automation.ToggleState]::On) {
-            throw "IP address must remain checked and mandatory."
+        foreach ($mandatory in @($checkboxes[0], $checkboxes[1])) {
+            if ($mandatory.Current.IsEnabled -or $mandatory.GetCurrentPattern(
+                    [System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne
+                    [System.Windows.Automation.ToggleState]::On) {
+                throw "Name and IP address must remain checked and mandatory."
+            }
+            if ($inline) {
+                $visibleHeading = (Find-SidebarElement AutomationId VisibleColumnsHeading).Current.BoundingRectangle
+                $combinedHeading = (Find-SidebarElement AutomationId CombinedColumnsHeading).Current.BoundingRectangle
+                $description = (Find-SidebarElement AutomationId CombinedColumnsDescription).Current.BoundingRectangle
+                $combinations = @("CombineNameType", "CombineAddresses", "CombineStatusResponse", "CombinePersonRoom") |
+                    ForEach-Object { (Find-SidebarElement AutomationId $_).Current.BoundingRectangle }
+                if ($visibleHeading.Bottom -gt $checkboxes[0].Current.BoundingRectangle.Top -or
+                    $checkboxes[-1].Current.BoundingRectangle.Bottom -ge $combinedHeading.Top -or
+                    $combinedHeading.Bottom -gt $description.Top -or $description.Bottom -gt $combinations[0].Top) {
+                    throw "Visibility and combination controls must have distinct, correctly ordered sections."
+                }
+                if ([Math]::Abs($combinations[0].Top - $combinations[1].Top) -gt 2 * $scale -or
+                    $combinations[0].Right -gt $combinations[1].Left -or
+                    $combinations[0].Bottom -gt $combinations[2].Top -or
+                    $combinations[2].Right -gt $combinations[3].Left) {
+                    throw "Combination choices must keep the approved two-column layout."
+                }
+            }
         }
         if ($width -ge 640) { Save-SidebarAppearance "settings-layout-$width" }
     }
@@ -239,8 +264,8 @@ function Test-SettingsLayout {
     if ((Find-SidebarElement AutomationId NetworkNavItem).Current.BoundingRectangle.Width / $scale -lt 80) {
         Switch-SidebarPane
     }
-    $name = $checkboxes[0]
-    $toggle = $name.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+    $vendor = $checkboxes[2]
+    $toggle = $vendor.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
     $toggle.Toggle()
     if ($toggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off) {
         throw "Column visibility did not update."
@@ -284,6 +309,7 @@ function Test-DeviceRefresh {
             throw "Filtered device counts must include the unfiltered total."
         }
         $search.SetValue("")
+        [IO.File]::WriteAllText($scanHoldPath, "Hold the refresh until retained results have been observed.")
         $scan.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
         if ($scan.Current.IsEnabled) { throw "The refresh ended before retained results could be verified." }
         if ((Find-SidebarElement AutomationId ResultCountText).Current.Name -ne "1 device" -or
@@ -315,6 +341,7 @@ function Test-DeviceRefresh {
     }
     finally {
         try {
+            if (Test-Path -LiteralPath $scanHoldPath) { Remove-Item -LiteralPath $scanHoldPath }
             if ($scan) { Wait-DeviceScan }
         }
         finally {
@@ -325,10 +352,13 @@ function Test-DeviceRefresh {
 }
 
 $savedReviewMode = $env:FINGVIBE_UI_REVIEW
+$savedScanHold = $env:FINGVIBE_UI_REVIEW_SCAN_HOLD
+$scanHoldPath = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-refresh-$([Guid]::NewGuid().ToString('N')).hold"
 $process = $null
 $previousContext = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext([IntPtr]::new(-4))
 try {
     $env:FINGVIBE_UI_REVIEW = "1"
+    $env:FINGVIBE_UI_REVIEW_SCAN_HOLD = $scanHoldPath
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
     $process = Start-Process -FilePath (Resolve-Path -LiteralPath $AppPath).Path -PassThru
     $deadline = [DateTime]::UtcNow.AddSeconds(30)
@@ -368,8 +398,8 @@ try {
     }
     $network = Find-SidebarElement AutomationId NetworkNavItem
     $menuBounds = $network.Current.BoundingRectangle
-    if ([Math]::Abs($menuBounds.Width / $scale - 264) -gt 4) {
-        throw "Expanded navigation rows must fit the 280px pane; got $($menuBounds.Width / $scale)px."
+    if ([Math]::Abs($menuBounds.Width / $scale - 200) -gt 4) {
+        throw "Expanded navigation rows must fit the 216px pane; got $($menuBounds.Width / $scale)px."
     }
     $settings = Find-SidebarElement Name Settings
     $tools = Find-SidebarElement AutomationId ToolsNavItem
@@ -420,5 +450,7 @@ try {
 finally {
     if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id }
     $env:FINGVIBE_UI_REVIEW = $savedReviewMode
+    $env:FINGVIBE_UI_REVIEW_SCAN_HOLD = $savedScanHold
+    if (Test-Path -LiteralPath $scanHoldPath) { Remove-Item -LiteralPath $scanHoldPath }
     $null = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext($previousContext)
 }

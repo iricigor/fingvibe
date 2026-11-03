@@ -66,6 +66,10 @@ function Select-DevicePage([string] $Id) {
     $element.GetCurrentPattern(
         [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
     Start-Sleep -Milliseconds 350
+    if ($Id -eq "Settings") {
+        $scroll = (Find-DeviceElement SettingsPage).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
+    }
 }
 
 function Set-DeviceWidth([int] $Width) {
@@ -92,11 +96,6 @@ function Get-DeviceRows {
 
 function Get-FilterBounds($Element) {
     $bounds = $Element.Current.BoundingRectangle
-    if ($Element.Current.ControlType -eq [System.Windows.Automation.ControlType]::ComboBox) {
-        # WinUI exposes the ComboBox's 4px outer focus margin in its automation bounds.
-        return [System.Windows.Rect]::new($bounds.X + 4 * $scale, $bounds.Y + 4 * $scale,
-            $bounds.Width - 8 * $scale, $bounds.Height - 8 * $scale)
-    }
     if ($Element.Current.AutomationId -eq "OpenPortsFilter") {
         return [System.Windows.Rect]::new($bounds.X - 11 * $scale, $bounds.Y - 4 * $scale,
             $bounds.Width + 22 * $scale, $bounds.Height + 8 * $scale)
@@ -192,27 +191,288 @@ function Assert-HeaderUnderline([string] $Theme) {
     finally { $bitmap.Dispose() }
 }
 
+function Get-VisibleDeviceChild($Parent, [string] $Property, [string] $Value) {
+    $propertyId = if ($Property -eq "Name") {
+        [System.Windows.Automation.AutomationElement]::NameProperty
+    } else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
+    $condition = [System.Windows.Automation.PropertyCondition]::new($propertyId, $Value)
+    @($Parent.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition) |
+        Where-Object { -not $_.Current.IsOffscreen }) | Select-Object -First 1
+}
+
+function Set-DeviceFilterChoice([string] $Id, [string] $Label) {
+    $picker = Find-DeviceElement $Id
+    $expand = $picker.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+    $expand.Expand()
+    Start-Sleep -Milliseconds 150
+    $condition = [System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, $Label),
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::ListItem))
+    $choice = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+    if (-not $choice) { throw "Filter option '$Label' was not found in '$Id'." }
+    $choice.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    if ($expand.Current.ExpandCollapseState -ne [System.Windows.Automation.ExpandCollapseState]::Collapsed) {
+        $expand.Collapse()
+    }
+    Start-Sleep -Milliseconds 200
+}
+
+function Assert-FilterPresentation([string] $Id, [string] $Category, [string] $Value = "") {
+    $picker = Find-DeviceElement $Id
+    $expected = if ($Value) { $Value } else {
+        switch ($Category) { Status { "All statuses" } Person { "All people" } Room { "All rooms" } }
+    }
+    $selected = @($picker.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection())
+    if ($selected.Count -ne 1 -or $selected[0].Current.Name -ne $expected) {
+        throw "Native '$Id' selection must announce '$expected'."
+    }
+    # Native ComboBox automation exposes the selected option, not its faceplate visual tree.
+    $null = Save-DeviceCapture "devices-filter-$Category-$expected"
+}
+
+function Test-ConditionalDeviceColumns {
+    foreach ($case in @(
+        @{ Status = $true; Response = $true; Type = $true; Grip = "Status / response" },
+        @{ Status = $true; Response = $false; Type = $false; Grip = "Status" },
+        @{ Status = $false; Response = $true; Type = $true; Grip = "Response" },
+        @{ Status = $false; Response = $false; Type = $false; Grip = "" }
+    )) {
+        Select-DevicePage Settings
+        $choices = (Find-DeviceElement SettingsPage).FindAll(
+            [System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::CheckBox))
+        foreach ($entry in @(@("Status", $case.Status), @("Response", $case.Response), @("Device type", $case.Type))) {
+            $box = @($choices | Where-Object { $_.Current.Name -eq $entry[0] })[0]
+            if (-not $box) { throw "Column choice '$($entry[0])' not found." }
+            $toggle = $box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+            if (($toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On) -ne $entry[1]) {
+                $toggle.Toggle()
+            }
+        }
+        Select-DevicePage DevicesNavItem
+        $row = @(Get-DeviceRows)[0]
+        $status = Get-VisibleDeviceChild $row Name "Online"
+        $response = Get-VisibleDeviceChild $row AutomationId ResponseTimeText
+        $type = Get-VisibleDeviceChild $row AutomationId DeviceTypeLabel
+        if ([bool]$status -ne $case.Status -or [bool]$response -ne $case.Response -or [bool]$type -ne $case.Type) {
+            throw "Conditional column content does not match Settings: $($case | ConvertTo-Json -Compress)."
+        }
+        $grip = Get-VisibleDeviceChild $root AutomationId ConnectionResizeGrip
+        if ([bool]$grip -ne [bool]$case.Grip) { throw "Connection resize handle visibility is incorrect." }
+        if ($grip) {
+            if ($grip.Current.Name -ne "Resize $($case.Grip) column") { throw "Connection resize target is incorrect." }
+            $left = $grip.Current.BoundingRectangle.Left
+            $grip.SetFocus()
+            [DevicesReviewInput]::Tap(0x27)
+            Start-Sleep -Milliseconds 150
+            if ([Math]::Abs($grip.Current.BoundingRectangle.Left - $left - 8 * $scale) -gt 1) {
+                throw "Conditional connection column must resize by one keyboard step."
+            }
+        }
+        if ($type) {
+            $name = Get-VisibleDeviceChild $row AutomationId DeviceNameText
+            if ($type.Current.BoundingRectangle.Top -lt $name.Current.BoundingRectangle.Bottom -or
+                [Math]::Abs($type.Current.BoundingRectangle.Left - $name.Current.BoundingRectangle.Left) -gt $scale) {
+                throw "Device type must be a secondary line within the Name column."
+            }
+            if ($case.Status -and $case.Response) {
+                $bar = $row.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.PropertyCondition]::new(
+                        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                        [System.Windows.Automation.ControlType]::ProgressBar))
+                $badgeBounds = $status.Current.BoundingRectangle
+                $timeBounds = $response.Current.BoundingRectangle
+                $barBounds = $bar.Current.BoundingRectangle
+                if ($badgeBounds.Left -ge $timeBounds.Right -or
+                    $badgeBounds.Bottom -gt $barBounds.Top -or $timeBounds.Bottom -gt $barBounds.Top -or
+                    $barBounds.Left -gt $badgeBounds.Left -or $barBounds.Right -lt $timeBounds.Right -or
+                    $barBounds.Width / $scale -lt 150) {
+                    throw "Combined connection must place status upper-left, time upper-right, and a shared full-width bar below both."
+                }
+            }
+        }
+        $null = Save-DeviceCapture "devices-columns-$($case.Status)-$($case.Response)"
+    }
+    Select-DevicePage Settings
+    (Find-DeviceElement ResetColumnsButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Select-DevicePage DevicesNavItem
+}
+
+function Set-ColumnOption([string] $Name, [bool] $Enabled) {
+    $condition = [System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, $Name),
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::CheckBox))
+    $box = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+    if (-not $box) { throw "Column option '$Name' is missing." }
+    $toggle = $box.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+    if (($toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On) -ne $Enabled) {
+        $toggle.Toggle()
+    }
+}
+
+function Test-MergeOptions {
+    Set-DeviceWidth 1880
+    foreach ($merged in @($false, $true)) {
+        Select-DevicePage Settings
+        foreach ($label in @("Combine Name and Type", "Combine IP and MAC", "Combine Status and Response", "Combine Person and Room")) {
+            Set-ColumnOption $label $merged
+        }
+        Select-DevicePage DevicesNavItem
+        $row = @(Get-DeviceRows)[0]
+        $ip = Get-VisibleDeviceChild $row Name "192.0.2.1"
+        $mac = Get-VisibleDeviceChild $row Name "00-11-22-33-44-01"
+        if (-not $ip -or -not $mac) { throw "IP and MAC must both remain accessible." }
+        $stacked = $mac.Current.BoundingRectangle.Top -ge $ip.Current.BoundingRectangle.Bottom
+        if ($stacked -ne $merged) { throw "IP/MAC placement does not match the merge setting." }
+        $type = Get-VisibleDeviceChild $row AutomationId DeviceTypeLabel
+        if ([bool]$type -ne $merged) { throw "Name/Type merge setting was not applied." }
+        $responseGrip = Get-VisibleDeviceChild $root Name "Resize Response column"
+        if ([bool]$responseGrip -eq $merged) { throw "Separate Response must have its own resize boundary." }
+        $assignmentGrip = Get-VisibleDeviceChild $root Name "Resize Person / room column"
+        if ([bool]$assignmentGrip -ne $merged) { throw "Person/Room merge setting was not applied." }
+        $null = Save-DeviceCapture "devices-all-merges-$merged"
+        $height = $row.Current.BoundingRectangle.Height / $scale
+        if ($height -gt 48) {
+            throw "Denser two-line rows must not exceed 48 DIPs; got $height with merges=$merged."
+        }
+    }
+    Select-DevicePage Settings
+    (Find-DeviceElement ResetColumnsButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Select-DevicePage DevicesNavItem
+    Set-DeviceWidth 1280
+    $unknownRow = @(Get-DeviceRows)[2]
+    if (Get-VisibleDeviceChild $unknownRow AutomationId DeviceTypeLabel) {
+        throw "An unknown type must not reserve a secondary Name line."
+    }
+}
+
+function Test-MergedAssignments {
+    Set-DeviceWidth 1880
+    Select-DevicePage Settings
+    Set-ColumnOption "Combine Person and Room" $true
+    Select-DevicePage DevicesNavItem
+    $initialRow = @(Get-DeviceRows)[0]
+    $empty = Get-VisibleDeviceChild $initialRow AutomationId MergedAssignmentsEmpty
+    if (-not $empty) { throw "Unassigned merged cell must show a single dash." }
+    $emptyBounds = $empty.Current.BoundingRectangle
+    $centerX = $emptyBounds.Left + $emptyBounds.Width / 2
+    foreach ($case in @(
+        @{ Person = $true; Room = $false },
+        @{ Person = $false; Room = $true },
+        @{ Person = $true; Room = $true },
+        @{ Person = $false; Room = $false }
+    )) {
+        $row = @(Get-DeviceRows)[0]
+        $row.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+        $row.SetFocus()
+        [DevicesReviewInput]::Tap(0x0D)
+        Start-Sleep -Milliseconds 250
+        $scroll = (Find-DeviceElement DeviceDetailsScroll).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
+        Set-DeviceFilterChoice DevicePersonPicker $(if ($case.Person) { "UI · UI review person" } else { "Unassigned" })
+        Set-DeviceFilterChoice DeviceRoomPicker $(if ($case.Room) { "UI · UI review room" } else { "Unassigned" })
+        Select-DevicePage DevicesNavItem
+        $row = @(Get-DeviceRows)[0]
+        $person = Get-VisibleDeviceChild $row AutomationId MergedPersonValue
+        $room = Get-VisibleDeviceChild $row AutomationId MergedRoomValue
+        $empty = Get-VisibleDeviceChild $row AutomationId MergedAssignmentsEmpty
+        if ([bool]$person -ne $case.Person -or [bool]$room -ne $case.Room -or
+            [bool]$empty -ne (-not $case.Person -and -not $case.Room)) {
+            throw "Merged assignments must omit missing lines and show one dash only when both are absent."
+        }
+        $bounds = @()
+        foreach ($entry in @(@($person, "Person: UI review person"), @($room, "Room: UI review room"))) {
+            if (-not $entry[0]) { continue }
+            if ($entry[0].Current.Name -ne $entry[1]) { throw "Assignment must announce its category and full name." }
+            $b = $entry[0].Current.BoundingRectangle
+            $bounds += $b
+            # The centered line includes a 12-DIP icon and a 4-DIP gap before the value.
+            if ([Math]::Abs($b.Left + $b.Width / 2 - 8 * $scale - $centerX) -gt 2 * $scale) {
+                throw "Each icon/value line must be horizontally centered."
+            }
+        }
+        if ($empty) { $bounds += $empty.Current.BoundingRectangle }
+        $top = ($bounds | Measure-Object Top -Minimum).Minimum
+        $bottom = ($bounds | Measure-Object Bottom -Maximum).Maximum
+        $rb = $row.Current.BoundingRectangle
+        if ([Math]::Abs(($top + $bottom) / 2 - ($rb.Top + $rb.Bottom) / 2) -gt 2 * $scale) {
+            throw "Merged assignment contents must be vertically centered."
+        }
+        if ($person -and $room -and $person.Current.BoundingRectangle.Bottom -gt $room.Current.BoundingRectangle.Top) {
+            throw "Two assignments must occupy separate stacked lines."
+        }
+        if ($rb.Height / $scale -gt 48) { throw "Merged assignments must not increase the row envelope." }
+        $null = Save-DeviceCapture "devices-assignments-$($case.Person)-$($case.Room)"
+    }
+    Select-DevicePage Settings
+    (Find-DeviceElement ResetColumnsButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Select-DevicePage DevicesNavItem
+    Set-DeviceWidth 1280
+}
+
 $savedReview = $env:FINGVIBE_UI_REVIEW
 $savedSnapshot = $env:FINGVIBE_UI_REVIEW_SNAPSHOT
+$savedCurrentSnapshot = $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT
 $process = $null
 $fixture = $null
 $previousContext = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext([IntPtr]::new(-4))
 try {
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
     $fixture = Join-Path (Resolve-Path -LiteralPath $ScreenshotDirectory).Path "devices-fixture-$([Guid]::NewGuid().ToString('N')).json"
-    $results = @(1..80 | ForEach-Object {
+    $results = @(
+        @{
+            address = "192.0.2.1"; status = 0; roundtripTimeMilliseconds = 12
+            probeDuration = "00:00:00.002"; deviceName = "Fixture device 01"
+            macAddress = "001122334401"; vendorName = "Example Devices"
+            classification = @{ type = 1 }
+            openPorts = @(@{ port = 443; serviceName = "HTTPS" })
+        },
+        @{
+            address = "192.0.2.2"; status = 0; roundtripTimeMilliseconds = 24
+            probeDuration = "00:00:00.002"; deviceName = "Kitchen display"
+            macAddress = "001122334402"; vendorName = "Example Devices"
+            openPorts = @(@{ port = 8009; serviceName = "Cast" })
+        },
+        @{
+            address = "192.0.2.3"; status = 0; roundtripTimeMilliseconds = 36
+            probeDuration = "00:00:00.002"; deviceName = $null
+            macAddress = "001122334403"; vendorName = "Unknown"; openPorts = @()
+        },
+        @{
+            address = "192.0.2.4"; status = 0; roundtripTimeMilliseconds = 48
+            probeDuration = "00:00:00.002"; deviceName = $null
+            macAddress = "001122334404"; vendorName = "Unknown"; openPorts = @()
+        },
+        @{
+            address = "192.0.2.5"; status = 0; roundtripTimeMilliseconds = 60
+            probeDuration = "00:00:00.002"; deviceName = $null
+            macAddress = "001122334405"; vendorName = "Private"; openPorts = @()
+        }
+    )
+    $results += @(6..80 | ForEach-Object {
         $device = @{
             address = "192.0.2.$_"; status = 0; roundtripTimeMilliseconds = $_ * 2
             probeDuration = "00:00:00.002"; deviceName = "Fixture device $('{0:D2}' -f $_)"
+            macAddress = "0011223344$('{0:X2}' -f $_)"
             vendorName = "Fixture vendor"; openPorts = @()
         }
         if ($_ % 2 -eq 0) { $device.openPorts = @(@{ port = 443; serviceName = "HTTPS" }) }
         $device
     })
-    @{ version = 1; subnet = "192.0.2.0/24"; completedAt = [DateTimeOffset]::UtcNow.ToString("O"); results = $results } |
+    @{ version = 3; subnet = "192.0.2.0/24"; completedAt = [DateTimeOffset]::UtcNow.ToString("O")
+       duration = "00:00:02.500"; results = $results } |
         ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $fixture -Encoding UTF8
     $env:FINGVIBE_UI_REVIEW = "1"
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $fixture
+    $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT = "1"
     $process = Start-Process -FilePath (Resolve-Path -LiteralPath $AppPath).Path -PassThru
     $deadline = [DateTime]::UtcNow.AddSeconds(30)
     do {
@@ -225,29 +485,86 @@ try {
     $root = [System.Windows.Automation.AutomationElement]::FromHandle($windowHandle)
     $null = [UiReviewNativeWindow]::ShowWindow($windowHandle, 9)
     $scale = [UiReviewNativeWindow]::GetDpiForWindow($windowHandle) / 96.0
+    Select-DevicePage OverviewNavItem
+    $scanButtonCondition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "ScanButton")
+    $scanButton = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $scanButtonCondition)
+    if ($scanButton -and -not $scanButton.Current.IsOffscreen) {
+        throw "Scan LAN must only be available on the Devices page."
+    }
     Set-DeviceWidth 1280
     Focus-DeviceWindow
     Select-DevicePage DevicesNavItem
+    $null = Find-DeviceElement ScanButton
+    $networkLabelCondition = [System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, "Network:"),
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::Text))
+    if (-not $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $networkLabelCondition)) {
+        throw "The shared network selector must be labeled 'Network:'."
+    }
     $heading = (Find-DeviceElement DevicesHeading).Current.BoundingRectangle
     $inventory = (Find-DeviceElement InventoryCountsText).Current.BoundingRectangle
+    $deviceCount = (Find-DeviceElement ResultCountText).Current.BoundingRectangle
+    $scanSummary = (Find-DeviceElement LastScanText).Current.BoundingRectangle
     if ($heading.Bottom -ge $inventory.Top -or
         [Math]::Abs($inventory.Left - $heading.Left - 16 * $scale) -gt 2 * $scale) {
         throw "Devices title must sit above the card contents, outside their 16-DIP inset."
     }
-    if ((Find-DeviceElement ResultCountText).Current.Name -ne "80 devices") { throw "Isolated fixture did not load." }
+    if ($heading.Bottom -ge $deviceCount.Top -or $heading.Bottom -ge $scanSummary.Top -or
+        [Math]::Abs($inventory.Top - $deviceCount.Top) -gt 2 * $scale -or
+        [Math]::Abs($inventory.Top - $scanSummary.Top) -gt 2 * $scale) {
+        throw "Device totals and scan metadata must share the summary line inside the card."
+    }
+    if ((Find-DeviceElement ResultCountText).Current.Name -ne "80 devices") { throw "Multi-device fixture did not load." }
+    if ((Find-DeviceElement LastScanText).Current.Name -notlike "Last scan:*Duration: 2.5 s") {
+        throw "The Devices summary must show the fixture's last scan time and duration."
+    }
+    if (-not $root.FindFirst(
+            [System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::NameProperty, "Private 00-11-22"))) {
+        throw "The screenshot fixture must include a virtual device."
+    }
+    Assert-FilterPresentation InventoryStatusFilter Status
+    Assert-FilterPresentation PersonFilter Person
+    Assert-FilterPresentation RoomFilter Room
+    Set-DeviceFilterChoice InventoryStatusFilter Online
+    Assert-FilterPresentation InventoryStatusFilter Status Online
+    $null = Save-DeviceCapture "devices-selected-status-filter"
+    Set-DeviceFilterChoice InventoryStatusFilter Unknown
+    Assert-FilterPresentation InventoryStatusFilter Status Unknown
+    if ((Find-DeviceElement ResultCountText).Current.Name -ne "0 of 80 devices") {
+        throw "Unknown remains a meaningful status filter."
+    }
+    Set-DeviceFilterChoice InventoryStatusFilter "All statuses"
+    Assert-FilterPresentation InventoryStatusFilter Status
+    Set-DeviceFilterChoice PersonFilter Unassigned
+    Assert-FilterPresentation PersonFilter Person Unassigned
+    Set-DeviceFilterChoice PersonFilter "All people"
+    Set-DeviceFilterChoice RoomFilter Unassigned
+    Assert-FilterPresentation RoomFilter Room Unassigned
+    Set-DeviceFilterChoice RoomFilter "All rooms"
+    if ((Find-DeviceElement ResultCountText).Current.Name -ne "80 devices") { throw "All options must reset filters." }
+    Test-ConditionalDeviceColumns
+    Test-MergeOptions
+    Test-MergedAssignments
 
     $widths = @{}
-    foreach ($width in @(1280, 1200, 1000, 640)) {
+    foreach ($width in @(1360, 1280, 1200, 1000, 640)) {
         Set-DeviceWidth $width
         $null = Save-DeviceCapture "devices-width-$width"
-        $filters = @("ResultSearchBox", "PersonFilter", "RoomFilter", "OpenPortsFilter") |
+        $filters = @("ResultSearchBox", "InventoryStatusFilter", "PersonFilter", "RoomFilter", "OpenPortsFilter") |
             ForEach-Object { Find-DeviceElement $_ }
         $widths[$width] = $filters[0].Current.BoundingRectangle.Width
         for ($index = 0; $index -lt $filters.Count; $index++) {
             $bounds = Get-FilterBounds $filters[$index]
             if ($bounds.Width -le 0) { throw "Filter has no width at $width." }
-            if ($index -gt 0 -and [Math]::Abs($bounds.Width / $scale - 180) -gt 1) {
-                throw "Filter $index must remain 180px wide at $width; got $($bounds.Width / $scale)px."
+            $expectedWidth = @(0, 210, 140, 140, 180)[$index]
+            if ($index -gt 0 -and [Math]::Abs($bounds.Width / $scale - $expectedWidth) -gt 1) {
+                throw "Filter $index must remain ${expectedWidth}px wide at $width; got $($bounds.Width / $scale)px."
             }
             foreach ($other in 0..($index - 1)) {
                 if ($index -eq 0) { break }
@@ -258,7 +575,10 @@ try {
             }
         }
     }
-    if ($widths[1280] -le $widths[1200]) { throw "Search does not expand with the window." }
+    # Compare widths within the inline layout, not across its wrapping breakpoint.
+    if ([Math]::Abs($widths[1360] - $widths[1280] - 80 * $scale) -gt 1) {
+        throw "Search must absorb the full 80-DIP window expansion."
+    }
     Set-DeviceWidth 1280
     $checkbox = Find-DeviceElement OpenPortsFilter
     $bounds = $checkbox.Current.BoundingRectangle
@@ -288,6 +608,8 @@ try {
     if ((Find-DeviceElement ResultCountText).Current.Name -ne "0 of 80 devices") { throw "Search count regressed." }
     $search.SetValue("")
     Start-Sleep -Milliseconds 200
+    Set-DeviceFilterChoice InventoryStatusFilter Online
+    Set-DeviceFilterChoice RoomFilter Unassigned
     foreach ($theme in $UiReviewAppearanceThemes) {
         Select-DevicePage Settings
         Set-UiReviewTheme -Root $root -Theme $theme
@@ -295,6 +617,8 @@ try {
         Assert-DeviceStripes "devices-$theme"
         Assert-HeaderUnderline $theme
     }
+    Set-DeviceFilterChoice InventoryStatusFilter "All statuses"
+    Set-DeviceFilterChoice RoomFilter "All rooms"
     $scroll = (Find-DeviceElement ResultsList).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     $scroll.SetScrollPercent(-1, 100)
     Start-Sleep -Milliseconds 250
@@ -321,8 +645,8 @@ try {
             [System.Windows.Automation.AutomationElement]::NameProperty, $bar.Current.Name))
     $label = $rows[0].FindFirst([System.Windows.Automation.TreeScope]::Descendants, $labelCondition)
     if (-not $label -or $label.Current.BoundingRectangle.Bottom -gt $bar.Current.BoundingRectangle.Top -or
-        $bar.Current.BoundingRectangle.Width / $scale -gt 100) {
-        throw "Response must use a readable number above a compact bar."
+        $bar.Current.BoundingRectangle.Width / $scale -lt 150) {
+        throw "Combined response must use a readable number above a shared full-width bar."
     }
     $rowBounds = $rows[1].Current.BoundingRectangle
     Focus-DeviceWindow
@@ -363,7 +687,7 @@ try {
     Start-Sleep -Milliseconds 250
     $selected = @($listSelection.Current.GetSelection())
     $nameCondition = [System.Windows.Automation.PropertyCondition]::new(
-        [System.Windows.Automation.AutomationElement]::NameProperty, "Fixture device 02")
+        [System.Windows.Automation.AutomationElement]::NameProperty, "Kitchen display")
     if (-not $selected[0].FindFirst([System.Windows.Automation.TreeScope]::Descendants, $nameCondition)) {
         throw "Sorting changed the selected device."
     }
@@ -427,12 +751,13 @@ try {
         Write-Host "Full-header pixel check and final-column keyboard resizing passed."
     }
     else { Write-Host "Full-header pixel check not run: desktop is narrower than 1880 logical pixels." }
-    Write-Host "Device toolbar, compact response, four-theme stripes/header underline, recycling, sorting/filtering, hover, selection and keyboard checks passed."
+    Write-Host "Device toolbar/dropdowns, conditional columns, six-theme stripes/header underline, recycling, sorting/filtering, hover, selection and keyboard checks passed."
 }
 finally {
     if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id }
     $env:FINGVIBE_UI_REVIEW = $savedReview
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $savedSnapshot
+    $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT = $savedCurrentSnapshot
     if ($fixture -and (Test-Path -LiteralPath $fixture)) { Remove-Item -LiteralPath $fixture }
     $null = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext($previousContext)
 }

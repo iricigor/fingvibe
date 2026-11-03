@@ -106,7 +106,7 @@ function Assert-RibbonText {
 
 function Get-HeaderBounds {
     $bounds = @{}
-    foreach ($id in @("NetworkPicker", "ScanButton", "ScanFreshnessText")) {
+    foreach ($id in @("NetworkPicker", "ScanFreshnessText")) {
         $condition = [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
         $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
@@ -220,17 +220,25 @@ try {
             $null = [UiReviewNativeWindow]::SetWindowPos(
                 $process.MainWindowHandle, [IntPtr]::Zero, $bounds.X, $bounds.Y, 640, 480, 0x0044)
             Start-Sleep -Milliseconds 400
+            $scanButtonCondition = [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "ScanButton")
+            $scanButton = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $scanButtonCondition)
+            if ($scanButton -and -not $scanButton.Current.IsOffscreen) {
+                throw "Scan LAN must not be available on Overview."
+            }
+            Select-Page "Devices"
             $scan = Find-Element "Scan LAN" ([System.Windows.Automation.ControlType]::Button)
-            if ($scan.Current.IsOffscreen) { throw "Scan control is hidden at 640x480." }
+            if ($scan.Current.IsOffscreen) { throw "Scan control is hidden on Devices at 640x480." }
             $toggleCondition = [System.Windows.Automation.PropertyCondition]::new(
                 [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "TogglePaneButton")
             $toggle = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $toggleCondition)
-            $networkLabel = Find-Element "Detected network" ([System.Windows.Automation.ControlType]::Text)
+            $networkLabel = Find-Element "Network:" ([System.Windows.Automation.ControlType]::Text)
             $overlap = [System.Windows.Rect]::Intersect(
                 $toggle.Current.BoundingRectangle, $networkLabel.Current.BoundingRectangle)
             if (-not $overlap.IsEmpty -and $overlap.Width -gt 0 -and $overlap.Height -gt 0) {
                 throw "The narrow shared header overlaps the navigation toggle."
             }
+            Select-Page "Overview"
             $versionElement = Find-Element "v$Version - $label" ([System.Windows.Automation.ControlType]::Text)
             if ($versionElement.Current.IsOffscreen) { throw "Version is not visible at 640x480." }
             Assert-RibbonText

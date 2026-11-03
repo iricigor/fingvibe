@@ -8,6 +8,47 @@ namespace FingVibe.Core.Tests;
 
 public sealed class ScanResultRowTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void MergedAssignments_TrackValuesAndAccessibleDescriptions(bool person, bool room)
+    {
+        var row = CreateRow();
+        var changes = new List<string?>();
+        row.PropertyChanged += (_, args) => changes.Add(args.PropertyName);
+        row.SetPeopleRoomAssignments(person ? Guid.NewGuid() : null, "0", "Person zero",
+            room ? Guid.NewGuid() : null, "0\uFE0F\u20E3", "Ground floor");
+
+        Assert.Equal(person, row.HasPersonAssignment);
+        Assert.Equal(room, row.HasRoomAssignment);
+        Assert.Equal(!person && !room, row.HasNoAssignments);
+        Assert.Equal(person ? "Person: Person zero" : "Person: Unassigned", row.PersonAssignmentDescription);
+        Assert.Equal(room ? "Room: Ground floor" : "Room: Unassigned", row.RoomAssignmentDescription);
+        foreach (var property in new[] { nameof(row.HasPersonAssignment), nameof(row.HasRoomAssignment),
+            nameof(row.HasNoAssignments), nameof(row.PersonAssignmentDescription), nameof(row.RoomAssignmentDescription) })
+            Assert.Contains(property, changes);
+
+        row.SetPeopleRoomAssignments(Guid.NewGuid(), "", "Person", Guid.NewGuid(), " ", "Room");
+        Assert.True(row.HasNoAssignments);
+        row.SetPeopleRoomAssignments(null, null, null, null, null, null);
+        Assert.True(row.HasNoAssignments);
+        Assert.Equal("Person: Unassigned", row.PersonAssignmentDescription);
+        Assert.Equal("Room: Unassigned", row.RoomAssignmentDescription);
+    }
+
+    [Fact]
+    public void PrivateMacVendor_UsesSimplePresentationWithoutErasingEvidence()
+    {
+        var row = new ScanResultRow(new ScanResult(IPAddress.Parse("192.0.2.1"),
+            HostStatus.Alive, 2, TimeSpan.FromMilliseconds(2), VendorName: "Private/Randomized"), 24);
+        Assert.Equal("Private MAC", row.VendorDisplayText);
+        Assert.Equal("Private/Randomized", row.VendorText);
+        Assert.Contains("manufacturer cannot be reliably determined", row.VendorDescription);
+        Assert.True(row.MatchesFilter("Private MAC"));
+    }
+
     [Fact]
     public void AlternateRow_NotifiesOnlyWhenVisibleParityChanges()
     {
@@ -93,6 +134,8 @@ public sealed class ScanResultRowTests
 
         Assert.Equal("-", row.PersonShortName);
         Assert.Equal("-", row.RoomShortName);
+        Assert.Equal("Unassigned", row.PersonFullName);
+        Assert.Equal("Unassigned", row.RoomFullName);
         Assert.Equal(0.65, row.PersonOpacity);
         Assert.Equal(0.65, row.RoomOpacity);
 
@@ -111,6 +154,23 @@ public sealed class ScanResultRowTests
         Assert.Equal("Living Room", row.RoomFullName);
         Assert.Contains(nameof(ScanResultRow.PersonOpacity), notifications);
         Assert.Contains(nameof(ScanResultRow.RoomOpacity), notifications);
+    }
+
+    [Fact]
+    public void Assignments_IgnoreUnassignedStaleTextButPreserveAssignedDigitsAndEmoji()
+    {
+        var row = CreateRow();
+        row.SetPeopleRoomAssignments(null, "0", "Stale", null, "0", "Stale");
+        Assert.Equal("-", row.PersonShortName);
+        Assert.Equal("-", row.RoomShortName);
+        row.SetPeopleRoomAssignments(Guid.NewGuid(), "0", "Person", Guid.NewGuid(), "0\uFE0F\u20E3", "Ground floor");
+        Assert.Equal("0", row.PersonShortName);
+        Assert.Equal("0\uFE0F\u20E3", row.RoomShortName);
+        row.SetPeopleRoomAssignments(Guid.NewGuid(), "", "Person", Guid.NewGuid(), " ", "Room");
+        Assert.Equal("-", row.PersonShortName);
+        Assert.Equal("-", row.RoomShortName);
+        Assert.Equal(0.65, row.PersonOpacity);
+        Assert.Equal(0.65, row.RoomOpacity);
     }
 
     [Fact]

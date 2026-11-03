@@ -211,6 +211,7 @@ try {
     Initialize-UiReviewWindow $process.MainWindowHandle
     $null = [UiReviewNativeWindow]::SetForegroundWindow($process.MainWindowHandle)
     $root = [System.Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
+    Select-ServicePage Devices
     Wait-ServiceState { (Find-ServiceControl "Scan LAN" -ByName -Optional).Current.IsEnabled } "scan readiness"
     Invoke-ServiceControl "Scan LAN"
     Wait-ServiceState { (Find-ServiceControl "Scan LAN" -ByName).Current.IsEnabled -and (Test-Path $snapshot) } "loopback scan"

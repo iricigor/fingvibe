@@ -170,6 +170,9 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public string AutomaticName => VirtualDevice?.AutomaticName ?? _inventoryDevice?.Imported.Name
         ?? (HostnameText != "-" ? HostnameText : AddressText);
     public string VendorText => _inventoryDevice?.Imported.Brand ?? Result?.VendorName ?? "Unknown";
+    public string VendorDisplayText => VendorText == "Private/Randomized" ? "Private MAC" : VendorText;
+    public string VendorDescription => VendorText == "Private/Randomized"
+        ? "Locally administered address; manufacturer cannot be reliably determined." : VendorText;
     public IReadOnlyList<OpenPort> OpenPortItems => IsCurrentScanResponse && _inventoryDevice is not null
         ? CurrentConnections.SelectMany(item => item.OpenPortItems).DistinctBy(port => port.Identity)
             .OrderBy(port => port.Port).ThenBy(port => port.Protocol).ToArray()
@@ -221,12 +224,17 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public string MacNic { get; }
     public Guid? PersonId => _personId;
     public Guid? RoomId => _roomId;
-    public string PersonShortName => _personShortName ?? "-";
-    public string PersonFullName => _personName ?? "Unassigned";
-    public string RoomShortName => _roomShortName ?? "-";
-    public string RoomFullName => _roomName ?? "Unassigned";
-    public double PersonOpacity => _personId is null ? 0.65 : 1;
-    public double RoomOpacity => _roomId is null ? 0.65 : 1;
+    public bool HasPersonAssignment => _personId is not null && !string.IsNullOrWhiteSpace(_personShortName);
+    public bool HasRoomAssignment => _roomId is not null && !string.IsNullOrWhiteSpace(_roomShortName);
+    public bool HasNoAssignments => !HasPersonAssignment && !HasRoomAssignment;
+    public string PersonAssignmentDescription => $"Person: {PersonFullName}";
+    public string RoomAssignmentDescription => $"Room: {RoomFullName}";
+    public string PersonShortName => _personId is null || string.IsNullOrWhiteSpace(_personShortName) ? "-" : _personShortName;
+    public string PersonFullName => _personId is null || string.IsNullOrWhiteSpace(_personName) ? "Unassigned" : _personName;
+    public string RoomShortName => _roomId is null || string.IsNullOrWhiteSpace(_roomShortName) ? "-" : _roomShortName;
+    public string RoomFullName => _roomId is null || string.IsNullOrWhiteSpace(_roomName) ? "Unassigned" : _roomName;
+    public double PersonOpacity => _personId is null || string.IsNullOrWhiteSpace(_personShortName) ? 0.65 : 1;
+    public double RoomOpacity => _roomId is null || string.IsNullOrWhiteSpace(_roomShortName) ? 0.65 : 1;
     public InventoryDeviceStatus Status => VirtualDevice?.Status
         ?? (_historical && _inventoryDevice?.Status != InventoryDeviceStatus.FingOnly ? (InventoryDeviceStatus?)InventoryDeviceStatus.Unknown : null)
         ?? _inventoryDevice?.Status
@@ -243,7 +251,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
             ? $"{StatusLabel}{(IsHistorical ? " · historical" : string.Empty)} · {observation.Subnet} · last seen {observation.LastSeen:g}"
             : StatusLabel + (IsHistorical ? " · historical scan observation" : string.Empty);
     public double NameOpacity => NameText == AddressText || NameText == "-" ? 0.65 : 1;
-    public double VendorOpacity => VendorText is "Unknown" or "-" ? 0.65 : 1;
+    public double VendorOpacity => string.IsNullOrWhiteSpace(VendorText) || VendorText is "Unknown" or "-" ? 0.65 : 1;
     public double OperatingSystemOpacity => OperatingSystem == DeviceOperatingSystem.Unknown ? 0.65 : 1;
     public double DeviceTypeOpacity => Type == DeviceType.Unknown ? 0.65 : 1;
     public bool HasLatency => _showLatency && IsOnline && Result?.RoundtripTimeMilliseconds is >= 0;
@@ -314,6 +322,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
             || AddressText.Contains(search, StringComparison.OrdinalIgnoreCase)
             || MacAddressText.Contains(search, StringComparison.OrdinalIgnoreCase)
             || VendorText.Contains(search, StringComparison.OrdinalIgnoreCase)
+            || VendorDisplayText.Contains(search, StringComparison.OrdinalIgnoreCase)
             || (ImportedMetadata?.Type?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
             || (ImportedMetadata?.OperatingSystem?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
             || (ImportedMetadata?.Family?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
@@ -362,7 +371,9 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         foreach (var property in new[]
         {
             nameof(PersonId), nameof(PersonShortName), nameof(PersonFullName), nameof(PersonOpacity),
-            nameof(RoomId), nameof(RoomShortName), nameof(RoomFullName), nameof(RoomOpacity)
+            nameof(RoomId), nameof(RoomShortName), nameof(RoomFullName), nameof(RoomOpacity),
+            nameof(HasPersonAssignment), nameof(HasRoomAssignment), nameof(HasNoAssignments),
+            nameof(PersonAssignmentDescription), nameof(RoomAssignmentDescription)
         })
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));

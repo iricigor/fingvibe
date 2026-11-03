@@ -29,6 +29,7 @@ public sealed partial class MainWindow
             ? $"These results are not for the selected scan target ({network?.Cidr ?? "none"})."
             : null;
         ScanFreshnessText.Text = context;
+        ScanActions.Visibility = _isScanning ? Visibility.Visible : Visibility.Collapsed;
         var status = string.Join(" · ", new[] { _scanMessage, _snapshotError, _inventoryError, targetWarning }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
         ScanStatusText.Text = status;
@@ -58,7 +59,7 @@ public sealed partial class MainWindow
         ToolsPage.InvalidateImportAnalysis("A scan started. Wait for it to finish and analyze again.");
         DevicesPage.SetInteractionsEnabled(false);
         UpdateEmptyState();
-        ScanButton.IsEnabled = false;
+        DevicesPage.SetScanEnabled(false);
         NetworkPicker.IsEnabled = false;
         CancelButton.IsEnabled = true;
         CancelButton.Visibility = Visibility.Visible;
@@ -90,6 +91,17 @@ public sealed partial class MainWindow
 
         try
         {
+            // The disposable UI test holds only its refresh until it has observed retained results.
+            if (IsUiReview && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_SCAN_HOLD") is { Length: > 0 } holdPath)
+            {
+                var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+                while (File.Exists(holdPath))
+                {
+                    if (DateTimeOffset.UtcNow >= deadline)
+                        throw new InvalidOperationException("The UI-review scan hold was not released within 30 seconds.");
+                    await Task.Delay(50, cancellation.Token);
+                }
+            }
             var networkId = GetScanNetworkIdentity(network);
             var summary = await _scanner.ScanAsync(
                 network,
@@ -109,7 +121,7 @@ public sealed partial class MainWindow
 
             var results = resultProgress.Results.Select(result => IsUiReview && System.Net.IPAddress.IsLoopback(result.Address)
                 ? result with { MacAddress = System.Net.NetworkInformation.PhysicalAddress.Parse("020000000001") } : result).ToArray();
-            await SaveCompletedScanAsync(network, results, networkId);
+            await SaveCompletedScanAsync(network, results, networkId, stopwatch.Elapsed);
         }
         catch (OperationCanceledException)
         {
@@ -127,12 +139,13 @@ public sealed partial class MainWindow
             UpdatePeopleRoomsPages();
             _scanCancellation.Dispose();
             _scanCancellation = null;
-            ScanButton.IsEnabled = true;
+            DevicesPage.SetScanEnabled(true);
             NetworkPicker.IsEnabled = true;
             CancelButton.IsEnabled = false;
             CancelButton.Visibility = Visibility.Collapsed;
             ScanProgressArea.Visibility = Visibility.Collapsed;
             StopScanPulse();
+            UpdateScanStatus();
         }
     }
 
