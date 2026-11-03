@@ -1,7 +1,7 @@
 ---
 name: 🛠️ Task
 about: Specify bounded work with acceptance criteria and validation.
-title: "🛠️ Task: "
+title: "🛠️ "
 labels: "type:task"
 assignees: ""
 ---
