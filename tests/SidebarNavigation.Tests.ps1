@@ -32,6 +32,8 @@ public static class SidebarReviewKeyboard
     private static extern bool SystemParametersInfo(uint action, uint parameter, ref HIGHCONTRAST value, uint flags);
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool SystemParametersInfo(uint action, uint parameter, ref int value, uint flags);
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SystemParametersInfo(uint action, uint parameter, IntPtr value, uint flags);
 
     public static uint GetHighContrastFlags()
     {
@@ -58,8 +60,7 @@ public static class SidebarReviewKeyboard
 
     public static void SetAnimations(bool enabled)
     {
-        int value = enabled ? 1 : 0;
-        if (!SystemParametersInfo(0x1043, 0, ref value, 2))
+        if (!SystemParametersInfo(0x1043, 0, new IntPtr(enabled ? 1 : 0), 2))
             throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
     }
 
