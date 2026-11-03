@@ -1,3 +1,10 @@
+# Issue titles
+
+For task issues, use the task emoji followed by a space and a descriptive
+title, for example `🛠️ Simplify task titles`. Do not include `Task:` in task
+titles; the `type:task` label identifies the issue type. Keep the existing
+title conventions for Epics, bugs, and feature requests.
+
 # Issue organization
 
 Every repository issue must either be an Epic labeled `type:epic` or be a

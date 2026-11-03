@@ -58,8 +58,12 @@ Use the four templates in GitHub's new-issue chooser:
 | 🪲 Bug | Version, Windows version, reproduction, expected/actual behavior, optional redacted evidence | `bug` |
 | ✨ Feature | Problem/use case, desired outcome, optional solution | `enhancement` |
 
-New issue titles default to the template's emoji and type followed by a colon
-and space, for example `🔥 Epic: `. Existing issue titles are unchanged.
+Task titles use the task emoji followed by a space and a descriptive title,
+for example `🛠️ Simplify task titles`, without `Task:`; the `type:task` label
+identifies the issue type. Existing open task titles have been normalized to
+this convention; closed issue titles are unchanged. Epic, bug, and feature
+titles retain the template's emoji and type followed by a colon and space,
+for example `🔥 Epic: `.
 
 Every repository issue must either be an Epic labeled `type:epic` or be a
 direct native GitHub sub-issue of an issue labeled `type:epic`. This includes
