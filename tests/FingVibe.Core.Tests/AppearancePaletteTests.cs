@@ -115,11 +115,28 @@ public sealed class AppearancePaletteTests
             Assert.Equal(4, treatments.Distinct().Count());
             Assert.Equal(palette.Card, treatments[0].Top);
             Assert.Equal(palette.Card, treatments[0].Bottom);
-            Assert.True(treatments[1].Acrylic);
-            Assert.False(treatments[2].Acrylic);
+            Assert.True(treatments[1].FillAlpha < 255);
+            Assert.Equal(255, treatments[2].FillAlpha);
             Assert.True(treatments[2].Radius > treatments[3].Radius);
             Assert.True(treatments[2].Elevation > treatments[3].Elevation);
             Assert.Equal(palette, AppearancePalette.For(theme));
+        }
+    }
+
+    [Fact]
+    public void OnlyGlass_UsesTranslucentFillsAndBorders()
+    {
+        foreach (var theme in Enum.GetValues<ThemeVariant>())
+        {
+            foreach (var style in new[] { VisualStyle.Standard, VisualStyle.Clay, VisualStyle.Neumorphic })
+            {
+                foreach (var card in new[] { false, true })
+                {
+                    var surface = SurfacePalette.For(AppearancePalette.For(theme), style, card);
+                    Assert.Equal(255, surface.FillAlpha);
+                    Assert.Equal(255, surface.BorderAlpha);
+                }
+            }
         }
     }
 
@@ -151,10 +168,13 @@ public sealed class AppearancePaletteTests
                 var clay = SurfacePalette.For(palette, VisualStyle.Clay, card);
                 var neumorphic = SurfacePalette.For(palette, VisualStyle.Neumorphic, card);
 
-                Assert.True(glass.Acrylic);
-                Assert.True(glass.Elevation > 0);
-                Assert.True(glass.StrokeWidth >= 2);
-                Assert.True(Distance(glass.BorderTop, glass.BorderBottom) >= 60);
+                Assert.Equal(160, glass.FillAlpha);
+                Assert.Equal(palette.IsDark ? 77 : 51, glass.BorderAlpha);
+                Assert.Equal(0xFFFFFFu, glass.BorderTop);
+                Assert.Equal(glass.BorderTop, glass.BorderBottom);
+                Assert.Equal(glass.Top, glass.Bottom);
+                Assert.Equal(card ? 4 : 0, glass.Elevation);
+                Assert.Equal(1, glass.StrokeWidth);
                 Assert.True(clay.Radius >= (card ? 28 : 16));
                 Assert.True(clay.Elevation >= (card ? 32 : 8));
                 Assert.True(clay.StrokeWidth >= 3);

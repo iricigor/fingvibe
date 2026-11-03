@@ -61,7 +61,7 @@
                             <ComboBoxItem Content="Acrylic" />
                         </ComboBox>
                     </Grid>
-                    <TextBlock Text="Mode sets brightness; Theme sets colors; Visual style shapes surfaces; Window backdrop sets the background material."
+                    <TextBlock Text="Mode sets brightness; Theme sets colors; Visual style shapes surfaces. Selecting Glass also selects Mica Alt; you can then choose any Window backdrop."
                                TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock x:Name="BackdropStatus"
                                TextWrapping="Wrap"

@@ -20,7 +20,7 @@ internal sealed record AppearancePalette(
 
 internal sealed record SurfacePalette(
     uint Top, uint Bottom, uint BorderTop, uint BorderBottom, double Radius, float Elevation,
-    bool Acrylic = false, double StrokeWidth = 1)
+    double StrokeWidth = 1, byte FillAlpha = 255, byte BorderAlpha = 255)
 {
     public static SurfacePalette For(AppearancePalette palette, VisualStyle style, bool card)
     {
@@ -29,9 +29,9 @@ internal sealed record SurfacePalette(
         return style switch
         {
             VisualStyle.Standard => new(color, color, edge, edge, card ? 8 : 4, 0),
-            VisualStyle.Glass => new(color, Mix(color, 0, 0.06),
-                Mix(edge, 255, palette.IsDark ? 0.65 : 0.95), Mix(edge, 255, 0.15),
-                card ? 20 : 10, card ? 12 : 4, true, 2),
+            VisualStyle.Glass => new(color, color, 0xFFFFFF, 0xFFFFFF,
+                card ? 20 : 10, card ? 4 : 0, FillAlpha: 160,
+                BorderAlpha: palette.IsDark ? (byte)77 : (byte)51),
             VisualStyle.Clay => new(Mix(color, 255, palette.IsDark ? 0.06 : 0.12), Mix(color, 0, 0.15),
                 Mix(color, 255, palette.IsDark ? 0.3 : 0.85), Mix(color, 0, 0.3),
                 card ? 28 : 16, card ? 32 : 8, StrokeWidth: 3),

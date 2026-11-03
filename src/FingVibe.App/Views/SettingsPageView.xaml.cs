@@ -68,6 +68,19 @@ public sealed partial class SettingsPageView : UserControl
     {
         if (!_updatingAppearance && SelectedAppearance is not null)
         {
+            if (ReferenceEquals(sender, VisualStylePicker)
+                && VisualStylePicker.SelectedIndex == (int)VisualStyle.Glass)
+            {
+                _updatingAppearance = true;
+                try
+                {
+                    BackdropPicker.SelectedIndex = (int)WindowBackdrop.MicaAlt;
+                }
+                finally
+                {
+                    _updatingAppearance = false;
+                }
+            }
             AppearanceChanged?.Invoke(this, e);
         }
     }

@@ -89,17 +89,22 @@ public sealed partial class MainWindow
         var palette = AppearancePalette.For(_appearance.Theme);
         var resources = (ResourceDictionary)Application.Current.Resources.ThemeDictionaries[
             palette.IsDark ? "Dark" : "Light"];
-        SetAppearanceBrush(resources, "ScannerHeaderBackgroundBrush", palette.Header);
-        SetAppearanceBrush(resources, "ScannerCardBorderBrush", palette.Border);
-        SetAppearanceBrush(resources, "CardBackgroundFillColorDefaultBrush", palette.Card);
-        SetAppearanceBrush(resources, "ControlFillColorDefaultBrush", palette.Control);
-        SetAppearanceBrush(resources, "ControlFillColorSecondaryBrush", palette.Hover);
-        SetAppearanceBrush(resources, "ControlFillColorTertiaryBrush", palette.Pressed);
+        var glass = _appearance.Style == VisualStyle.Glass
+            && !_accessibilitySettings.HighContrast && _uiSettings.AdvancedEffectsEnabled;
+        var surface = SurfacePalette.For(palette, _appearance.Style, card: true);
+        var fillAlpha = glass ? surface.FillAlpha : (byte)255;
+        SetAppearanceBrush(resources, "ScannerHeaderBackgroundBrush", palette.Header, fillAlpha);
+        SetAppearanceBrush(resources, "ScannerCardBorderBrush",
+            glass ? surface.BorderTop : palette.Border, glass ? surface.BorderAlpha : (byte)255);
+        SetAppearanceBrush(resources, "CardBackgroundFillColorDefaultBrush", palette.Card, fillAlpha);
+        SetAppearanceBrush(resources, "ControlFillColorDefaultBrush", palette.Control, fillAlpha);
+        SetAppearanceBrush(resources, "ControlFillColorSecondaryBrush", palette.Hover, glass ? (byte)200 : (byte)255);
+        SetAppearanceBrush(resources, "ControlFillColorTertiaryBrush", palette.Pressed, glass ? (byte)220 : (byte)255);
         RootGrid.RequestedTheme = palette.IsDark ? ElementTheme.Dark : ElementTheme.Light;
         var rowBackground = (ResultRowBackgroundConverter)Application.Current.Resources["ResultRowBackgroundConverter"];
         rowBackground.AlternateBackground.Color = _accessibilitySettings.HighContrast
             ? Color.FromArgb(0, 0, 0, 0)
-            : Color.FromArgb(255, (byte)(palette.AlternateRow >> 16),
+            : Color.FromArgb(glass ? (byte)80 : (byte)255, (byte)(palette.AlternateRow >> 16),
                 (byte)(palette.AlternateRow >> 8), (byte)palette.AlternateRow);
         UpdateBuildRibbonColors();
 
@@ -124,6 +129,7 @@ public sealed partial class MainWindow
         if (_accessibilitySettings.HighContrast)
         {
             brush.Color = isOverlay ? _uiSettings.GetColorValue(UIColorType.Background) : Color.FromArgb(0, 0, 0, 0);
+            SetAppearanceBrush(MainNavigation.Resources, "NavigationViewExpandedPaneBackground", 0, 0);
         }
         else
         {
@@ -132,8 +138,10 @@ public sealed partial class MainWindow
                 palette.IsDark ? "Dark" : "Light"];
             SetAppearanceBrush(resources, "ScannerPageBackgroundBrush", palette.Page,
                 isOverlay || SystemBackdrop is null ? (byte)255 : (byte)0);
-            SetAppearanceBrush(MainNavigation.Resources, "NavigationViewDefaultPaneBackground",
-                palette.Page, isOverlay ? (byte)255 : (byte)0);
+            var glass = _appearance.Style == VisualStyle.Glass && _uiSettings.AdvancedEffectsEnabled;
+            var paneAlpha = isOverlay ? (byte)255 : glass ? (byte)100 : (byte)0;
+            SetAppearanceBrush(MainNavigation.Resources, "NavigationViewDefaultPaneBackground", palette.Page, paneAlpha);
+            SetAppearanceBrush(MainNavigation.Resources, "NavigationViewExpandedPaneBackground", palette.Page, paneAlpha);
         }
     }
 

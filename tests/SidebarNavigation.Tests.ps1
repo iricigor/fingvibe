@@ -155,6 +155,31 @@ function Test-SettingsLayout {
         Start-Sleep -Milliseconds 250
     }
     Set-UiReviewAppearanceChoice -Root $root -Picker BackdropPicker -Choice Solid
+    Set-UiReviewAppearanceChoice -Root $root -Picker VisualStylePicker -Choice Standard
+    Set-UiReviewAppearanceChoice -Root $root -Picker VisualStylePicker -Choice Glass
+    $backdropPicker = Find-SidebarElement AutomationId BackdropPicker
+    $backdropSelection = $backdropPicker.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern)
+    if (-not $backdropPicker.Current.IsEnabled -or
+        $backdropSelection.Current.GetSelection()[0].Current.Name -ne "Mica Alt") {
+        throw "Entering Glass must select Mica Alt and leave the backdrop picker enabled."
+    }
+    Set-UiReviewAppearanceChoice -Root $root -Picker BackdropPicker -Choice Acrylic
+    Set-UiReviewAppearanceChoice -Root $root -Picker ModePicker -Choice Light
+    Set-UiReviewAppearanceChoice -Root $root -Picker ModePicker -Choice Dark
+    Set-UiReviewAppearanceChoice -Root $root -Picker ThemePicker -Choice Vivid
+    if ($backdropSelection.Current.GetSelection()[0].Current.Name -ne "Acrylic") {
+        throw "Changing mode/theme in Glass must preserve the user's backdrop override."
+    }
+    Set-UiReviewAppearanceChoice -Root $root -Picker VisualStylePicker -Choice Clay
+    if ($backdropSelection.Current.GetSelection()[0].Current.Name -ne "Acrylic") {
+        throw "Leaving Glass must preserve the user's backdrop override."
+    }
+    Set-UiReviewAppearanceChoice -Root $root -Picker VisualStylePicker -Choice Glass
+    if ($backdropSelection.Current.GetSelection()[0].Current.Name -ne "Mica Alt") {
+        throw "Re-entering Glass must select Mica Alt again."
+    }
+    Set-UiReviewAppearanceChoice -Root $root -Picker VisualStylePicker -Choice Standard
+    Set-UiReviewAppearanceChoice -Root $root -Picker BackdropPicker -Choice Solid
     foreach ($style in @("Standard", "Warm", "Colored", "Vivid")) {
         Set-UiReviewAppearanceChoice -Root $root -Picker ModePicker -Choice Light
         Set-UiReviewAppearanceChoice -Root $root -Picker ThemePicker -Choice $style
@@ -204,8 +229,13 @@ function Test-SettingsLayout {
                 }
             }
             if ($theme -in @("Standard Light", "Standard Dark")) {
-                Set-UiReviewAppearanceChoice -Root $root -Picker BackdropPicker -Choice Solid
+                $captureBackdrop = if ($visualStyle -eq "Glass") { "Mica Alt" } else { "Solid" }
+                Set-UiReviewAppearanceChoice -Root $root -Picker BackdropPicker -Choice $captureBackdrop
                 Save-SidebarAppearance "settings-$theme-$visualStyle"
+                if ($visualStyle -eq "Glass") {
+                    Set-UiReviewAppearanceChoice -Root $root -Picker BackdropPicker -Choice Acrylic
+                    Save-SidebarAppearance "settings-$theme-$visualStyle-Acrylic"
+                }
             }
         }
     }

@@ -122,17 +122,14 @@ public sealed class SurfaceTreatment : DependencyObject
         }
 
         var treatment = SurfacePalette.For(palette, _settings.Style, card);
-        var color = ColorFromRgb(treatment.Top);
-        Brush background = treatment.Acrylic && _transparencyEnabled
-            ? new AcrylicBrush
-            {
-                TintColor = color,
-                TintOpacity = palette.IsDark ? 0.5 : 0.6,
-                TintLuminosityOpacity = palette.IsDark ? 0.75 : 0.85,
-                FallbackColor = color
-            }
-            : Gradient(color, ColorFromRgb(treatment.Bottom));
-        var stroke = Gradient(ColorFromRgb(treatment.BorderTop), ColorFromRgb(treatment.BorderBottom));
+        var fillAlpha = _transparencyEnabled ? treatment.FillAlpha : (byte)255;
+        Brush background = treatment.Top == treatment.Bottom
+            ? new SolidColorBrush(ColorFromRgb(treatment.Top, fillAlpha))
+            : Gradient(ColorFromRgb(treatment.Top, fillAlpha), ColorFromRgb(treatment.Bottom, fillAlpha));
+        Brush stroke = treatment.BorderTop == treatment.BorderBottom
+            ? new SolidColorBrush(ColorFromRgb(treatment.BorderTop, treatment.BorderAlpha))
+            : Gradient(ColorFromRgb(treatment.BorderTop, treatment.BorderAlpha),
+                ColorFromRgb(treatment.BorderBottom, treatment.BorderAlpha));
         if (card || original.CanSetBackground) { element.SetValue(backgroundProperty, background); }
         if (card || original.CanSetStroke)
         {
@@ -147,8 +144,8 @@ public sealed class SurfaceTreatment : DependencyObject
         }
     }
 
-    private static Color ColorFromRgb(uint value) =>
-        Color.FromArgb(255, (byte)(value >> 16), (byte)(value >> 8), (byte)value);
+    private static Color ColorFromRgb(uint value, byte alpha) =>
+        Color.FromArgb(alpha, (byte)(value >> 16), (byte)(value >> 8), (byte)value);
 
     private static LinearGradientBrush Gradient(Color start, Color end) => new()
     {
