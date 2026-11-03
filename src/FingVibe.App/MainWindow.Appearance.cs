@@ -1,9 +1,11 @@
+using System.Numerics;
 using System.Runtime.InteropServices;
 using FingVibe.Core.Models;
 using FingVibe.Core.Storage;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Hosting;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI;
 using Windows.UI.ViewManagement;
@@ -93,7 +95,7 @@ public sealed partial class MainWindow
             && !_accessibilitySettings.HighContrast && _uiSettings.AdvancedEffectsEnabled;
         var surface = SurfacePalette.For(palette, _appearance.Style, card: true);
         var fillAlpha = glass ? surface.FillAlpha : (byte)255;
-        SetAppearanceBrush(resources, "ScannerHeaderBackgroundBrush", palette.Header, fillAlpha);
+        SetAppearanceBrush(resources, "ScannerHeaderBackgroundBrush", palette.Header, glass ? (byte)80 : (byte)255);
         SetAppearanceBrush(resources, "ScannerCardBorderBrush",
             glass ? surface.BorderTop : palette.Border, glass ? surface.BorderAlpha : (byte)255);
         SetAppearanceBrush(resources, "CardBackgroundFillColorDefaultBrush", palette.Card, fillAlpha);
@@ -109,6 +111,7 @@ public sealed partial class MainWindow
         UpdateBuildRibbonColors();
 
         var hasBackdrop = ApplyWindowBackdrop();
+        UpdateGlassBackdrop(glass && hasBackdrop, palette.IsDark);
         UpdateNavigationPaneBackground(MainNavigation.IsPaneOpen);
         SurfaceTreatment.Apply(_appearance, _accessibilitySettings.HighContrast, _uiSettings.AdvancedEffectsEnabled);
         SettingsPage.MaterialStatus = _accessibilitySettings.HighContrast
@@ -123,13 +126,18 @@ public sealed partial class MainWindow
 
     private void UpdateNavigationPaneBackground(bool isPaneOpen)
     {
-        var brush = (SolidColorBrush)MainNavigation.Resources["NavigationViewDefaultPaneBackground"];
         var isOverlay = isPaneOpen && MainNavigation.DisplayMode != NavigationViewDisplayMode.Expanded;
-        // Only overlay panes need an opaque surface so page content cannot bleed through the menu.
+        var glass = _appearance.Style == VisualStyle.Glass
+            && !_accessibilitySettings.HighContrast && _uiSettings.AdvancedEffectsEnabled;
+        GlassPaneOutline.Visibility = glass
+            && (isPaneOpen || MainNavigation.DisplayMode != NavigationViewDisplayMode.Minimal)
+            ? Visibility.Visible : Visibility.Collapsed;
+        GlassPaneOutline.Width = isPaneOpen ? MainNavigation.OpenPaneLength : MainNavigation.CompactPaneLength;
         if (_accessibilitySettings.HighContrast)
         {
-            brush.Color = isOverlay ? _uiSettings.GetColorValue(UIColorType.Background) : Color.FromArgb(0, 0, 0, 0);
-            SetAppearanceBrush(MainNavigation.Resources, "NavigationViewExpandedPaneBackground", 0, 0);
+            SetNavigationPaneBrush("NavigationViewDefaultPaneBackground",
+                isOverlay ? _uiSettings.GetColorValue(UIColorType.Background) : Color.FromArgb(0, 0, 0, 0), false);
+            SetNavigationPaneBrush("NavigationViewExpandedPaneBackground", Color.FromArgb(0, 0, 0, 0), false);
         }
         else
         {
@@ -138,10 +146,59 @@ public sealed partial class MainWindow
                 palette.IsDark ? "Dark" : "Light"];
             SetAppearanceBrush(resources, "ScannerPageBackgroundBrush", palette.Page,
                 isOverlay || SystemBackdrop is null ? (byte)255 : (byte)0);
-            var glass = _appearance.Style == VisualStyle.Glass && _uiSettings.AdvancedEffectsEnabled;
-            var paneAlpha = isOverlay ? (byte)255 : glass ? (byte)100 : (byte)0;
-            SetAppearanceBrush(MainNavigation.Resources, "NavigationViewDefaultPaneBackground", palette.Page, paneAlpha);
-            SetAppearanceBrush(MainNavigation.Resources, "NavigationViewExpandedPaneBackground", palette.Page, paneAlpha);
+            var paneAlpha = glass ? (byte)160 : isOverlay ? (byte)255 : (byte)0;
+            var color = Color.FromArgb(paneAlpha, (byte)(palette.Page >> 16),
+                (byte)(palette.Page >> 8), (byte)palette.Page);
+            SetNavigationPaneBrush("NavigationViewDefaultPaneBackground", color, glass && isOverlay);
+            SetNavigationPaneBrush("NavigationViewExpandedPaneBackground", color, false);
+        }
+    }
+
+    private void SetNavigationPaneBrush(string key, Color color, bool frosted)
+    {
+        var brush = (AcrylicBrush)MainNavigation.Resources[key];
+        brush.FallbackColor = color;
+        brush.TintColor = Color.FromArgb(255, color.R, color.G, color.B);
+        brush.TintOpacity = 0.65;
+        // Overlay menus need in-app blur to prevent page text showing through their labels.
+        brush.AlwaysUseFallback = !frosted;
+    }
+
+    private void UpdateGlassBackdrop(bool visible, bool dark)
+    {
+        GlassBackdrop.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        ElementCompositionPreview.SetElementChildVisual(GlassBackdrop, null);
+        if (!visible)
+        {
+            return;
+        }
+
+        var compositor = ElementCompositionPreview.GetElementVisual(GlassBackdrop).Compositor;
+        var layer = compositor.CreateContainerVisual();
+        layer.RelativeSizeAdjustment = Vector2.One;
+        layer.Clip = compositor.CreateInsetClip();
+        var alpha = dark ? (byte)90 : (byte)150;
+        AddGlow(0x8B6CE8, new Vector2(1.2f, 1.4f), new Vector3(-0.4f, -0.5f, 0));
+        AddGlow(0x29B8CF, new Vector2(1.1f, 1.5f), new Vector3(0.35f, -0.25f, 0));
+        AddGlow(0xECAB78, new Vector2(1.4f, 1.3f), new Vector3(-0.05f, 0.3f, 0));
+        ElementCompositionPreview.SetElementChildVisual(GlassBackdrop, layer);
+
+        void AddGlow(uint rgb, Vector2 size, Vector3 offset)
+        {
+            var brush = compositor.CreateRadialGradientBrush();
+            brush.CenterPoint = new Vector2(0.5f);
+            brush.EllipseRadius = new Vector2(0.5f);
+            brush.ColorStops.Add(compositor.CreateColorGradientStop(0, GlowColor(alpha)));
+            brush.ColorStops.Add(compositor.CreateColorGradientStop(0.5f, GlowColor((byte)(alpha / 2))));
+            brush.ColorStops.Add(compositor.CreateColorGradientStop(1, GlowColor(0)));
+            var glow = compositor.CreateSpriteVisual();
+            glow.RelativeSizeAdjustment = size;
+            glow.RelativeOffsetAdjustment = offset;
+            glow.Brush = brush;
+            layer.Children.InsertAtTop(glow);
+
+            Color GlowColor(byte opacity) =>
+                Color.FromArgb(opacity, (byte)(rgb >> 16), (byte)(rgb >> 8), (byte)rgb);
         }
     }
 

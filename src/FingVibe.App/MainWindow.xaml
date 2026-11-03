@@ -10,7 +10,10 @@
     Title="FingVibe LAN Scanner">
 
     <Grid x:Name="RootGrid" Loaded="RootGrid_Loaded" Background="{ThemeResource ScannerPageBackgroundBrush}">
+        <Grid x:Name="GlassBackdrop" IsHitTestVisible="False"
+              AutomationProperties.AccessibilityView="Raw" Visibility="Collapsed" />
         <NavigationView x:Name="MainNavigation"
+                        Background="Transparent"
                         PaneDisplayMode="Auto"
                         IsPaneToggleButtonVisible="True"
                         IsBackButtonVisible="Collapsed"
@@ -73,8 +76,10 @@
                             <Style x:Key="SidebarToolsIconStyle" TargetType="FontIcon" />
                         </ResourceDictionary>
                     </ResourceDictionary.ThemeDictionaries>
-                    <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="Transparent" />
-                    <SolidColorBrush x:Key="NavigationViewExpandedPaneBackground" Color="Transparent" />
+                    <AcrylicBrush x:Key="NavigationViewDefaultPaneBackground"
+                                  AlwaysUseFallback="True" FallbackColor="Transparent" />
+                    <AcrylicBrush x:Key="NavigationViewExpandedPaneBackground"
+                                  AlwaysUseFallback="True" FallbackColor="Transparent" />
                     <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
                     <Thickness x:Key="NavigationViewBorderThickness">0</Thickness>
                     <Thickness x:Key="NavigationViewContentGridBorderThickness">0</Thickness>
@@ -285,6 +290,9 @@
                         AppearanceChanged="AppearancePicker_SelectionChanged" />
             </Grid>
         </NavigationView>
+        <Border x:Name="GlassPaneOutline" BorderBrush="#4DFFFFFF" BorderThickness="1"
+                HorizontalAlignment="Left" IsHitTestVisible="False"
+                AutomationProperties.AccessibilityView="Raw" Visibility="Collapsed" />
         <Canvas x:Name="BuildRibbonArea" Width="200" Height="124"
                 HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed">
             <Canvas.Clip>

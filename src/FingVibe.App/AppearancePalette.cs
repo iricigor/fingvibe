@@ -31,7 +31,7 @@ internal sealed record SurfacePalette(
             VisualStyle.Standard => new(color, color, edge, edge, card ? 8 : 4, 0),
             VisualStyle.Glass => new(color, color, 0xFFFFFF, 0xFFFFFF,
                 card ? 20 : 10, card ? 4 : 0, FillAlpha: 160,
-                BorderAlpha: palette.IsDark ? (byte)77 : (byte)51),
+                BorderAlpha: 77),
             VisualStyle.Clay => new(Mix(color, 255, palette.IsDark ? 0.06 : 0.12), Mix(color, 0, 0.15),
                 Mix(color, 255, palette.IsDark ? 0.3 : 0.85), Mix(color, 0, 0.3),
                 card ? 28 : 16, card ? 32 : 8, StrokeWidth: 3),

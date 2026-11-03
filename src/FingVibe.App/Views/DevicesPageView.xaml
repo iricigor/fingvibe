@@ -90,7 +90,7 @@
                         </Grid>
                     </Grid>
                 </StackPanel>
-                <ScrollViewer Grid.Row="1"
+                <ScrollViewer Grid.Row="1" Background="Transparent"
                               HorizontalScrollMode="Auto"
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollMode="Disabled"
@@ -208,7 +208,7 @@
                                                         SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Room.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                         </Grid>
-                        <ListView x:Name="ResultsList" Grid.Row="1" SelectionMode="Single"
+                        <ListView x:Name="ResultsList" Grid.Row="1" SelectionMode="Single" Background="Transparent"
                                   IsItemClickEnabled="True" ItemClick="ResultsList_ItemClick"
                                   ContainerContentChanging="ResultsList_ContainerContentChanging"
                                   SelectionChanged="ResultsList_SelectionChanged"

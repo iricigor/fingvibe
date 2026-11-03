@@ -169,7 +169,7 @@ public sealed class AppearancePaletteTests
                 var neumorphic = SurfacePalette.For(palette, VisualStyle.Neumorphic, card);
 
                 Assert.Equal(160, glass.FillAlpha);
-                Assert.Equal(palette.IsDark ? 77 : 51, glass.BorderAlpha);
+                Assert.Equal(77, glass.BorderAlpha);
                 Assert.Equal(0xFFFFFFu, glass.BorderTop);
                 Assert.Equal(glass.BorderTop, glass.BorderBottom);
                 Assert.Equal(glass.Top, glass.Bottom);

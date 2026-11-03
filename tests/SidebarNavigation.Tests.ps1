@@ -125,6 +125,36 @@ function Save-SidebarAppearance([string] $Name, [switch] $AssertMatchingSolid) {
     finally { $bitmap.Dispose() }
 }
 
+function Assert-GlassDeviceSurface([string] $Name, [bool] $Dark) {
+    $bitmap = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "$Name.png"))
+    try {
+        function ColorDistance($first, $second) {
+            [Math]::Abs([int]$first.R - $second.R) +
+                [Math]::Abs([int]$first.G - $second.G) + [Math]::Abs([int]$first.B - $second.B)
+        }
+        $backgroundX = $bitmap.Width - [int](16 * $scale)
+        $backgroundTop = $bitmap.GetPixel($backgroundX, [int]($bitmap.Height * 0.4))
+        $backgroundBottom = $bitmap.GetPixel($backgroundX, [int]($bitmap.Height * 0.8))
+        if ((ColorDistance $backgroundTop $backgroundBottom) -lt 12) {
+            throw "Glass backdrop must have visible soft color variation in '$Name'."
+        }
+        $y = $bitmap.Height - [int](96 * $scale)
+        $background = $bitmap.GetPixel($backgroundX, $y)
+        $card = $bitmap.GetPixel(($bitmap.Width - [int](48 * $scale)), $y)
+        $tint = if ($Dark) { [System.Drawing.Color]::FromArgb(27, 30, 36) }
+            else { [System.Drawing.Color]::White }
+        $expected = [System.Drawing.Color]::FromArgb(
+            [int][Math]::Round(($tint.R * 160 + $background.R * 95) / 255),
+            [int][Math]::Round(($tint.G * 160 + $background.G * 95) / 255),
+            [int][Math]::Round(($tint.B * 160 + $background.B * 95) / 255))
+        if ((ColorDistance $card $expected) -gt 36 -or
+            ((ColorDistance $background $tint) -ge 24 -and (ColorDistance $card $tint) -lt 4)) {
+            throw "The Devices card must transmit its background through a 63%-opaque tint in '$Name'."
+        }
+    }
+    finally { $bitmap.Dispose() }
+}
+
 function Set-SidebarWindowWidth([int] $LogicalWidth) {
     $bounds = Get-UiReviewWindowBounds $windowHandle
     $width = [int] ($LogicalWidth * $scale)
@@ -233,8 +263,21 @@ function Test-SettingsLayout {
                 Set-UiReviewAppearanceChoice -Root $root -Picker BackdropPicker -Choice $captureBackdrop
                 Save-SidebarAppearance "settings-$theme-$visualStyle"
                 if ($visualStyle -eq "Glass") {
-                    Set-UiReviewAppearanceChoice -Root $root -Picker BackdropPicker -Choice Acrylic
-                    Save-SidebarAppearance "settings-$theme-$visualStyle-Acrylic"
+                    foreach ($material in @("Mica Alt", "Acrylic")) {
+                        Set-UiReviewAppearanceChoice -Root $root -Picker BackdropPicker -Choice $material
+                        Save-SidebarAppearance "settings-$theme-$visualStyle-$material"
+                        $status = (Find-SidebarElement AutomationId BackdropStatus).Current.Name
+                        Select-SidebarPage Devices "Search devices"
+                        $capture = "devices-$theme-$visualStyle-$material"
+                        Save-SidebarAppearance $capture
+                        if ($status -like "Changes are previewed immediately*") {
+                            Assert-GlassDeviceSurface $capture ($theme -eq "Standard Dark")
+                        }
+                        else {
+                            Write-Host "Glass pixel assertions unavailable: $status Capture: $capture"
+                        }
+                        Select-SidebarPage Settings "Window backdrop"
+                    }
                 }
             }
         }
