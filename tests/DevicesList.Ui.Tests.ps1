@@ -354,6 +354,70 @@ function Test-MergeOptions {
     }
 }
 
+function Test-MergedAssignments {
+    Set-DeviceWidth 1880
+    Select-DevicePage Settings
+    Set-ColumnOption "Combine Person and Room" $true
+    Select-DevicePage DevicesNavItem
+    $initialRow = @(Get-DeviceRows)[0]
+    $empty = Get-VisibleDeviceChild $initialRow AutomationId MergedAssignmentsEmpty
+    if (-not $empty) { throw "Unassigned merged cell must show a single dash." }
+    $emptyBounds = $empty.Current.BoundingRectangle
+    $centerX = $emptyBounds.Left + $emptyBounds.Width / 2
+    foreach ($case in @(
+        @{ Person = $true; Room = $false },
+        @{ Person = $false; Room = $true },
+        @{ Person = $true; Room = $true },
+        @{ Person = $false; Room = $false }
+    )) {
+        $row = @(Get-DeviceRows)[0]
+        $row.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+        $row.SetFocus()
+        [DevicesReviewInput]::Tap(0x0D)
+        Start-Sleep -Milliseconds 250
+        $scroll = (Find-DeviceElement DeviceDetailsScroll).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
+        Set-DeviceFilterChoice DevicePersonPicker $(if ($case.Person) { "UI · UI review person" } else { "Unassigned" })
+        Set-DeviceFilterChoice DeviceRoomPicker $(if ($case.Room) { "UI · UI review room" } else { "Unassigned" })
+        Select-DevicePage DevicesNavItem
+        $row = @(Get-DeviceRows)[0]
+        $person = Get-VisibleDeviceChild $row AutomationId MergedPersonValue
+        $room = Get-VisibleDeviceChild $row AutomationId MergedRoomValue
+        $empty = Get-VisibleDeviceChild $row AutomationId MergedAssignmentsEmpty
+        if ([bool]$person -ne $case.Person -or [bool]$room -ne $case.Room -or
+            [bool]$empty -ne (-not $case.Person -and -not $case.Room)) {
+            throw "Merged assignments must omit missing lines and show one dash only when both are absent."
+        }
+        $bounds = @()
+        foreach ($entry in @(@($person, "Person: UI review person"), @($room, "Room: UI review room"))) {
+            if (-not $entry[0]) { continue }
+            if ($entry[0].Current.Name -ne $entry[1]) { throw "Assignment must announce its category and full name." }
+            $b = $entry[0].Current.BoundingRectangle
+            $bounds += $b
+            # The centered line includes a 12-DIP icon and a 4-DIP gap before the value.
+            if ([Math]::Abs($b.Left + $b.Width / 2 - 8 * $scale - $centerX) -gt 2 * $scale) {
+                throw "Each icon/value line must be horizontally centered."
+            }
+        }
+        if ($empty) { $bounds += $empty.Current.BoundingRectangle }
+        $top = ($bounds | Measure-Object Top -Minimum).Minimum
+        $bottom = ($bounds | Measure-Object Bottom -Maximum).Maximum
+        $rb = $row.Current.BoundingRectangle
+        if ([Math]::Abs(($top + $bottom) / 2 - ($rb.Top + $rb.Bottom) / 2) -gt 2 * $scale) {
+            throw "Merged assignment contents must be vertically centered."
+        }
+        if ($person -and $room -and $person.Current.BoundingRectangle.Bottom -gt $room.Current.BoundingRectangle.Top) {
+            throw "Two assignments must occupy separate stacked lines."
+        }
+        if ($rb.Height / $scale -gt 48) { throw "Merged assignments must not increase the row envelope." }
+        $null = Save-DeviceCapture "devices-assignments-$($case.Person)-$($case.Room)"
+    }
+    Select-DevicePage Settings
+    (Find-DeviceElement ResetColumnsButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Select-DevicePage DevicesNavItem
+    Set-DeviceWidth 1280
+}
+
 $savedReview = $env:FINGVIBE_UI_REVIEW
 $savedSnapshot = $env:FINGVIBE_UI_REVIEW_SNAPSHOT
 $savedCurrentSnapshot = $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT
@@ -486,6 +550,7 @@ try {
     if ((Find-DeviceElement ResultCountText).Current.Name -ne "80 devices") { throw "All options must reset filters." }
     Test-ConditionalDeviceColumns
     Test-MergeOptions
+    Test-MergedAssignments
 
     $widths = @{}
     foreach ($width in @(1360, 1280, 1200, 1000, 640)) {

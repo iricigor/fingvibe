@@ -171,6 +171,8 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
     public bool ShowSeparateResponse => !CombineStatusResponse && Status.IsVisible && Response.IsVisible;
     public bool ShowConnectionResponse => Response.IsVisible && !ShowSeparateResponse;
     public bool ShowMergedRoom => CombinePersonRoom && Person.IsVisible && Room.IsVisible;
+    public bool ShowSeparatePerson => Person.IsVisible && !ShowMergedRoom;
+    public bool ShowRoomOnly => Room.IsVisible && !Person.IsVisible;
     public bool ShowSeparateRoom => !CombinePersonRoom && Room.IsVisible && Person.IsVisible;
     public bool ShowAssignmentPerson => Person.IsVisible;
     public bool ShowAssignmentRoom => Room.IsVisible && (CombinePersonRoom || !Person.IsVisible);

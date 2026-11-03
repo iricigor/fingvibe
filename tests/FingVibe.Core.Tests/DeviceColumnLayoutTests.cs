@@ -203,6 +203,9 @@ public sealed class DeviceColumnLayoutTests
             Assert.Equal(layout.Mac.IsVisible, layout.ShowMergedMac || layout.ShowSeparateMac);
             Assert.Equal(layout.Response.IsVisible, layout.ShowConnectionResponse || layout.ShowSeparateResponse);
             Assert.Equal(layout.Room.IsVisible, layout.ShowAssignmentRoom || layout.ShowSeparateRoom);
+            Assert.Equal(layout.Person.IsVisible, layout.ShowMergedRoom || layout.ShowSeparatePerson);
+            Assert.Equal(layout.Room.IsVisible, layout.ShowMergedRoom || layout.ShowRoomOnly || layout.ShowSeparateRoom);
+            Assert.False(layout.ShowMergedRoom && (layout.ShowSeparatePerson || layout.ShowRoomOnly || layout.ShowSeparateRoom));
         }
     }
 

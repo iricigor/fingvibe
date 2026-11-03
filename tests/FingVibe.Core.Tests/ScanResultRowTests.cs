@@ -8,6 +8,36 @@ namespace FingVibe.Core.Tests;
 
 public sealed class ScanResultRowTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void MergedAssignments_TrackValuesAndAccessibleDescriptions(bool person, bool room)
+    {
+        var row = CreateRow();
+        var changes = new List<string?>();
+        row.PropertyChanged += (_, args) => changes.Add(args.PropertyName);
+        row.SetPeopleRoomAssignments(person ? Guid.NewGuid() : null, "0", "Person zero",
+            room ? Guid.NewGuid() : null, "0\uFE0F\u20E3", "Ground floor");
+
+        Assert.Equal(person, row.HasPersonAssignment);
+        Assert.Equal(room, row.HasRoomAssignment);
+        Assert.Equal(!person && !room, row.HasNoAssignments);
+        Assert.Equal(person ? "Person: Person zero" : "Person: Unassigned", row.PersonAssignmentDescription);
+        Assert.Equal(room ? "Room: Ground floor" : "Room: Unassigned", row.RoomAssignmentDescription);
+        foreach (var property in new[] { nameof(row.HasPersonAssignment), nameof(row.HasRoomAssignment),
+            nameof(row.HasNoAssignments), nameof(row.PersonAssignmentDescription), nameof(row.RoomAssignmentDescription) })
+            Assert.Contains(property, changes);
+
+        row.SetPeopleRoomAssignments(Guid.NewGuid(), "", "Person", Guid.NewGuid(), " ", "Room");
+        Assert.True(row.HasNoAssignments);
+        row.SetPeopleRoomAssignments(null, null, null, null, null, null);
+        Assert.True(row.HasNoAssignments);
+        Assert.Equal("Person: Unassigned", row.PersonAssignmentDescription);
+        Assert.Equal("Room: Unassigned", row.RoomAssignmentDescription);
+    }
+
     [Fact]
     public void PrivateMacVendor_UsesSimplePresentationWithoutErasingEvidence()
     {

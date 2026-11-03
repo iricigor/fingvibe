@@ -224,6 +224,11 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public string MacNic { get; }
     public Guid? PersonId => _personId;
     public Guid? RoomId => _roomId;
+    public bool HasPersonAssignment => _personId is not null && !string.IsNullOrWhiteSpace(_personShortName);
+    public bool HasRoomAssignment => _roomId is not null && !string.IsNullOrWhiteSpace(_roomShortName);
+    public bool HasNoAssignments => !HasPersonAssignment && !HasRoomAssignment;
+    public string PersonAssignmentDescription => $"Person: {PersonFullName}";
+    public string RoomAssignmentDescription => $"Room: {RoomFullName}";
     public string PersonShortName => _personId is null || string.IsNullOrWhiteSpace(_personShortName) ? "-" : _personShortName;
     public string PersonFullName => _personId is null || string.IsNullOrWhiteSpace(_personName) ? "Unassigned" : _personName;
     public string RoomShortName => _roomId is null || string.IsNullOrWhiteSpace(_roomShortName) ? "-" : _roomShortName;
@@ -366,7 +371,9 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         foreach (var property in new[]
         {
             nameof(PersonId), nameof(PersonShortName), nameof(PersonFullName), nameof(PersonOpacity),
-            nameof(RoomId), nameof(RoomShortName), nameof(RoomFullName), nameof(RoomOpacity)
+            nameof(RoomId), nameof(RoomShortName), nameof(RoomFullName), nameof(RoomOpacity),
+            nameof(HasPersonAssignment), nameof(HasRoomAssignment), nameof(HasNoAssignments),
+            nameof(PersonAssignmentDescription), nameof(RoomAssignmentDescription)
         })
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
