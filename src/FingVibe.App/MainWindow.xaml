@@ -291,6 +291,7 @@
                 <RectangleGeometry Rect="0,0,200,124" />
             </Canvas.Clip>
             <Button x:Name="BuildRibbon" Canvas.Left="-90" Canvas.Top="23"
+                    local:SurfaceTreatment.Kind="None"
                     Width="440" Height="44" CornerRadius="0" Padding="12,2"
                     UseSystemFocusVisuals="False" BorderThickness="0"
                     GotFocus="BuildRibbon_FocusChanged" LostFocus="BuildRibbon_FocusChanged"
