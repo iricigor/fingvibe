@@ -238,6 +238,7 @@ try {
             if (-not $overlap.IsEmpty -and $overlap.Width -gt 0 -and $overlap.Height -gt 0) {
                 throw "The narrow shared header overlaps the navigation toggle."
             }
+            Select-Page "Overview"
             $versionElement = Find-Element "v$Version - $label" ([System.Windows.Automation.ControlType]::Text)
             if ($versionElement.Current.IsOffscreen) { throw "Version is not visible at 640x480." }
             Assert-RibbonText
