@@ -37,7 +37,6 @@ public sealed partial class MainWindow
             NetworkPage.ShowPublicIdentity(null);
             NetworkPage.ShowLocalNetwork(null);
             UpdateScanStatus();
-            DevicesPage.SetScanEnabled(false);
             UpdateOverview();
             return;
         }
@@ -66,6 +65,7 @@ public sealed partial class MainWindow
         NetworkPage.ShowLocalNetwork(selectedNetwork);
         if (NetworkPicker.SelectedItem is not LanNetwork network)
         {
+            UpdateScanStatus();
             UpdateOverview();
             return;
         }

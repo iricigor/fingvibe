@@ -15,16 +15,26 @@ public sealed partial class MainWindow
     {
         ScanHeader.Margin = new Thickness(
             MainNavigation.DisplayMode == NavigationViewDisplayMode.Minimal ? 72 : 24, 16, 224, 8);
-        var narrow = ScanHeader.ActualWidth < 480;
+        var textScale = _uiSettings.TextScaleFactor;
+        var narrow = ScanHeader.ActualWidth < 480 * textScale;
+        var stackedAction = ScanHeader.ActualWidth < 150 + 120 * textScale + 12;
+        ScanActions.MinWidth = Math.Min(120 * textScale, ScanHeader.ActualWidth);
+        ScanActions.MaxWidth = ScanHeader.ActualWidth;
         Grid.SetRow(NetworkPicker, narrow ? 1 : 0);
         Grid.SetColumn(NetworkPicker, narrow ? 0 : 1);
-        Grid.SetColumnSpan(NetworkPicker, narrow ? 3 : 1);
-        Grid.SetRow(ScanFreshnessText, narrow ? 2 : 0);
-        Grid.SetColumn(ScanFreshnessText, narrow ? 0 : 2);
-        Grid.SetColumnSpan(ScanFreshnessText, narrow ? 3 : 1);
-        NetworkPicker.Margin = ScanFreshnessText.Margin = narrow ? new Thickness(0, 8, 0, 0) : new Thickness(0);
-        Grid.SetRow(ScanActions, narrow ? 3 : 1);
+        Grid.SetColumnSpan(NetworkPicker, narrow && !stackedAction ? 2 : narrow ? 3 : 1);
+        NetworkPicker.Margin = narrow ? new Thickness(0, 4, 0, 0) : new Thickness(0);
+        Grid.SetRow(ScanFreshnessText, narrow ? 2 : 1);
+        Grid.SetColumn(ScanFreshnessText, narrow ? 0 : 1);
+        Grid.SetColumnSpan(ScanFreshnessText, narrow ? 3 : 2);
+        Grid.SetRow(ScanActions, stackedAction ? 3 : narrow ? 1 : 0);
+        Grid.SetColumn(ScanActions, stackedAction ? 0 : 2);
+        Grid.SetColumnSpan(ScanActions, stackedAction ? 3 : 1);
+        ScanActions.HorizontalAlignment = stackedAction ? HorizontalAlignment.Left : HorizontalAlignment.Right;
+        ScanActions.Margin = stackedAction ? new Thickness(0, 4, 0, 0) : new Thickness(0);
         Grid.SetRow(ScanMessages, narrow ? 4 : 2);
+        Grid.SetColumn(ScanMessages, narrow ? 0 : 1);
+        Grid.SetColumnSpan(ScanMessages, narrow ? 3 : 2);
     }
 
     private void StartScanPulse()

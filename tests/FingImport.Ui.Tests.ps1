@@ -345,7 +345,7 @@ try {
         throw "The committed preview must not be reusable."
     }
     Select-ImportPage Devices
-    if ((Find-ImportId ResultCountText).Current.Name -ne "3 devices" -or
+    if ((Find-ImportId ResultCountText).Current.Name -ne "Showing 3 devices" -or
         (Find-ImportId InventoryCountsText).Current.Name -notlike "0 Online*0 Offline*3 Fing Only") {
         throw "Imported-only records must not inflate online counts or disappear from Devices."
     }
@@ -388,7 +388,7 @@ try {
     (Find-ImportControl "Offline" ([System.Windows.Automation.ControlType]::ListItem)).
         GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
     Start-Sleep -Milliseconds 300
-    if ((Find-ImportId ResultCountText).Current.Name -ne "0 of 3 devices") {
+    if ((Find-ImportId ResultCountText).Current.Name -ne "Showing 0 of 3 devices") {
         throw "Fing Only must not be classified as Offline by filtering."
     }
     Select-ImportPage Tools
@@ -424,12 +424,12 @@ try {
     $search = Find-ImportControl "Search devices" ([System.Windows.Automation.ControlType]::Edit)
     $search.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("Review custom name")
     Start-Sleep -Milliseconds 250
-    if ((Find-ImportId ResultCountText).Current.Name -ne "0 of 3 devices") {
+    if ((Find-ImportId ResultCountText).Current.Name -ne "Showing 0 of 3 devices") {
         throw "The reviewed replacement did not remove the prior user name."
     }
     $search.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("Review workstation")
     Start-Sleep -Milliseconds 250
-    if ((Find-ImportId ResultCountText).Current.Name -ne "1 of 3 devices") {
+    if ((Find-ImportId ResultCountText).Current.Name -ne "Showing 1 of 3 devices") {
         throw "The reviewed imported name was not displayed."
     }
     Write-Host "Fing import preview, management return, completion, inventory, and status UI checks passed."

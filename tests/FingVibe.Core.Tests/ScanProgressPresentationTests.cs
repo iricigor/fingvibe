@@ -8,6 +8,8 @@ public sealed class ScanProgressPresentationTests
     [Theory]
     [InlineData(0, 254, 1000, 0)]
     [InlineData(127, 254, 1000, 500)]
+    [InlineData(5, 100, 1000, 50)]
+    [InlineData(90, 100, 1000, 900)]
     [InlineData(234, 254, 1016, 936)]
     [InlineData(254, 254, 1000, 1000)]
     [InlineData(300, 254, 1000, 1000)]

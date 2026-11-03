@@ -12,6 +12,7 @@ public sealed partial class MainWindow
         : new LanScannerService();
     private CancellationTokenSource? _scanCancellation;
     private bool _isScanning;
+    private bool _restoreScanActionFocus;
     private string? _scanMessage;
 
     private void UpdateScanStatus()
@@ -29,7 +30,10 @@ public sealed partial class MainWindow
             ? $"These results are not for the selected scan target ({network?.Cidr ?? "none"})."
             : null;
         ScanFreshnessText.Text = context;
-        ScanActions.Visibility = _isScanning ? Visibility.Visible : Visibility.Collapsed;
+        ScanActions.Visibility = _isScanning || DevicesPage.Visibility == Visibility.Visible
+            ? Visibility.Visible : Visibility.Collapsed;
+        ScanButton.Visibility = _isScanning ? Visibility.Collapsed : Visibility.Visible;
+        ScanButton.IsEnabled = !_isScanning && network is not null;
         var status = string.Join(" · ", new[] { _scanMessage, _snapshotError, _inventoryError, targetWarning }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
         ScanStatusText.Text = status;
@@ -55,11 +59,12 @@ public sealed partial class MainWindow
         }
 
         using var scanActivity = activityLease;
+        var focusScanAction = ScanButton.FocusState != FocusState.Unfocused;
         _isScanning = true;
         ToolsPage.InvalidateImportAnalysis("A scan started. Wait for it to finish and analyze again.");
         DevicesPage.SetInteractionsEnabled(false);
         UpdateEmptyState();
-        DevicesPage.SetScanEnabled(false);
+        ScanButton.IsEnabled = false;
         NetworkPicker.IsEnabled = false;
         CancelButton.IsEnabled = true;
         CancelButton.Visibility = Visibility.Visible;
@@ -73,6 +78,7 @@ public sealed partial class MainWindow
         var retainedResults = _displayedScan is not null ? " · Displaying retained results" : string.Empty;
         _scanMessage = $"Scanning 0/{total:N0} addresses{retainedResults}";
         UpdateScanStatus();
+        if (focusScanAction) CancelButton.Focus(FocusState.Programmatic);
         var stopwatch = Stopwatch.StartNew();
 
         var resultProgress = new ScanResultBuffer();
@@ -83,10 +89,7 @@ public sealed partial class MainWindow
             {
                 return;
             }
-            ScanProgressBar.Value = progress.Completed;
-            UpdateScanPulseWidth();
-            _scanMessage = $"Scanning {progress.Completed:N0}/{progress.Total:N0} addresses{retainedResults}";
-            UpdateScanStatus();
+            PresentScanProgress(progress, retainedResults);
         });
 
         try
@@ -94,6 +97,14 @@ public sealed partial class MainWindow
             // The disposable UI test holds only its refresh until it has observed retained results.
             if (IsUiReview && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_SCAN_HOLD") is { Length: > 0 } holdPath)
             {
+                var fixturePath = holdPath + ".progress";
+                if (File.Exists(holdPath) && File.Exists(fixturePath))
+                {
+                    var fixture = System.Text.Json.JsonSerializer.Deserialize<ScanProgress>(File.ReadAllText(fixturePath));
+                    if (fixture.Total <= 0 || fixture.Completed < 0 || fixture.Completed > fixture.Total)
+                        throw new InvalidOperationException("The UI-review progress fixture is invalid.");
+                    PresentScanProgress(fixture, retainedResults);
+                }
                 var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
                 while (File.Exists(holdPath))
                 {
@@ -101,6 +112,7 @@ public sealed partial class MainWindow
                         throw new InvalidOperationException("The UI-review scan hold was not released within 30 seconds.");
                     await Task.Delay(50, cancellation.Token);
                 }
+                PresentScanProgress(new ScanProgress(0, total), retainedResults);
             }
             var networkId = GetScanNetworkIdentity(network);
             var summary = await _scanner.ScanAsync(
@@ -133,24 +145,38 @@ public sealed partial class MainWindow
         }
         finally
         {
+            var restoreFocus = _restoreScanActionFocus || CancelButton.FocusState != FocusState.Unfocused;
+            _restoreScanActionFocus = false;
             _isScanning = false;
             DevicesPage.SetInteractionsEnabled(true);
             UpdateEmptyState();
             UpdatePeopleRoomsPages();
             _scanCancellation.Dispose();
             _scanCancellation = null;
-            DevicesPage.SetScanEnabled(true);
             NetworkPicker.IsEnabled = true;
             CancelButton.IsEnabled = false;
             CancelButton.Visibility = Visibility.Collapsed;
             ScanProgressArea.Visibility = Visibility.Collapsed;
             StopScanPulse();
             UpdateScanStatus();
+            if (restoreFocus && ScanButton.Visibility == Visibility.Visible
+                && ScanActions.Visibility == Visibility.Visible)
+                ScanButton.Focus(FocusState.Programmatic);
         }
+    }
+
+    private void PresentScanProgress(ScanProgress progress, string retainedResults)
+    {
+        ScanProgressBar.Maximum = progress.Total;
+        ScanProgressBar.Value = progress.Completed;
+        UpdateScanPulseWidth();
+        _scanMessage = $"Scanning {progress.Completed:N0}/{progress.Total:N0} addresses{retainedResults}";
+        UpdateScanStatus();
     }
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)
     {
+        _restoreScanActionFocus = CancelButton.FocusState != FocusState.Unfocused;
         _scanCancellation?.Cancel();
         StopScanPulse();
         CancelButton.IsEnabled = false;

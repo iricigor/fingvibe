@@ -195,8 +195,8 @@ public sealed partial class MainWindow
 
         var total = _allResults.Count;
         var count = _visibleResults.Count == total
-            ? $"{total:N0} {(total == 1 ? "device" : "devices")}"
-            : $"{_visibleResults.Count:N0} of {total:N0} devices";
+            ? $"Showing {total:N0} {(total == 1 ? "device" : "devices")}"
+            : $"Showing {_visibleResults.Count:N0} of {total:N0} devices";
         DevicesPage.ShowInventorySummary(
             $"{_allResults.Count(row => row.IsOnline):N0} Online · {_allResults.Count(row => row.IsOffline):N0} Offline · {_allResults.Count(row => row.IsHistorical):N0} Unknown · {_allResults.Count(row => row.IsFingOnly):N0} Fing Only");
         DevicesPage.ShowLastScan(_currentScanSnapshot);

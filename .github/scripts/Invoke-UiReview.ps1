@@ -137,6 +137,16 @@ function Get-WebDriverElementEnabled {
     return [bool] $response.value
 }
 
+function Wait-UiReviewScan {
+    $deadline = [DateTime]::UtcNow.AddSeconds(60)
+    do {
+        $scan = Find-WebDriverElement -Using name -Value "Scan LAN" -TimeoutSeconds 1 -Optional
+        if ($scan -and (Get-WebDriverElementEnabled -ElementId $scan)) { return $scan }
+        Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "The scan did not restore its idle action within 60 seconds."
+}
+
 function Invoke-WebDriverElement {
     param(
         [Parameter(Mandatory)]
@@ -291,8 +301,9 @@ try {
     $interactionDeadline = [DateTime]::UtcNow.AddSeconds(10)
     $scanEnteredExpectedState = $false
     do {
-        if (-not (Get-WebDriverElementEnabled -ElementId $elements["Scan LAN"])) {
-            $null = Assert-VisibleUiReviewElement -Value "Cancel"
+        $cancel = Find-WebDriverElement -Using name -Value "Cancel scan" -TimeoutSeconds 1 -Optional
+        if ($cancel) {
+            $null = Assert-VisibleUiReviewElement -Value "Cancel scan"
             $scanEnteredExpectedState = $true
             break
         }
@@ -318,13 +329,7 @@ try {
     $removedSwitch = Find-WebDriverElement -Using name -Value "Show hosts" -TimeoutSeconds 1 -Optional
     if ($removedSwitch) { throw "The removed All / Alive switch is still present." }
 
-    $scanStoppedDeadline = [DateTime]::UtcNow.AddSeconds(60)
-    while (-not (Get-WebDriverElementEnabled -ElementId $elements["Scan LAN"])) {
-        if ([DateTime]::UtcNow -ge $scanStoppedDeadline) {
-            throw "The scan did not complete within 60 seconds."
-        }
-        Start-Sleep -Milliseconds 100
-    }
+    $elements["Scan LAN"] = Wait-UiReviewScan
     $null = Assert-VisibleUiReviewElement -Value "Online"
     $offline = Find-WebDriverElement -Using name -Value "Offline" -TimeoutSeconds 1 -Optional
     if ($offline) { throw "Nonresponding addresses must not appear in Devices." }
@@ -333,9 +338,7 @@ try {
         -Value "//List[@Name='Scan results']/ListItem[.//*[@Name='Online']][1]"
     [IO.File]::WriteAllText($scanHoldPath, "Hold the refresh until retained-list interaction has been verified.")
     Invoke-WebDriverElement -ElementId $elements["Scan LAN"]
-    if (Get-WebDriverElementEnabled -ElementId $elements["Scan LAN"]) {
-        throw "The refresh ended before retained-list interaction could be verified."
-    }
+    $cancel = Assert-VisibleUiReviewElement -Value "Cancel scan"
     $null = Assert-VisibleUiReviewElement -Value "Online"
     $null = Assert-VisibleUiReviewElement -Using xpath `
         -Value "//*[contains(@Name, 'Displaying retained results')]"
@@ -346,16 +349,9 @@ try {
     $null = Assert-VisibleUiReviewElement -Value "Search devices"
     $details = Find-WebDriverElement -Using name -Value "Back to devices" -TimeoutSeconds 1 -Optional
     if ($details) { throw "A retained row opened device details during scanning." }
-    if (-not (Get-WebDriverElementEnabled -ElementId $elements["Scan LAN"])) {
-        $cancel = Assert-VisibleUiReviewElement -Value "Cancel"
-        Invoke-WebDriverElement -ElementId $cancel
-    }
+    Invoke-WebDriverElement -ElementId $cancel
     Remove-Item -LiteralPath $scanHoldPath
-    $scanStoppedDeadline = [DateTime]::UtcNow.AddSeconds(60)
-    while (-not (Get-WebDriverElementEnabled -ElementId $elements["Scan LAN"])) {
-        if ([DateTime]::UtcNow -ge $scanStoppedDeadline) { throw "The refresh did not stop." }
-        Start-Sleep -Milliseconds 100
-    }
+    $elements["Scan LAN"] = Wait-UiReviewScan
     $null = Assert-VisibleUiReviewElement -Value "Online"
 
     $null = Invoke-WebDriverRequest -Method Post `
@@ -367,13 +363,7 @@ try {
         -Body @{ }
     $null = Find-WebDriverElement -Using xpath -Value "//*[@Name='Online']"
 
-    $scanStoppedDeadline = [DateTime]::UtcNow.AddSeconds(60)
-    while (-not (Get-WebDriverElementEnabled -ElementId $elements["Scan LAN"])) {
-        if ([DateTime]::UtcNow -ge $scanStoppedDeadline) {
-            throw "The scan did not complete within 60 seconds before capturing the required views."
-        }
-        Start-Sleep -Milliseconds 100
-    }
+    $elements["Scan LAN"] = Wait-UiReviewScan
 
     # Summary navigation must replace stale filters and leave its port filter visible and reversible.
     $portsFilter = Assert-VisibleUiReviewElement -Value "With open ports"

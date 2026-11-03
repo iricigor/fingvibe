@@ -194,8 +194,24 @@ try {
         }
     }
     $progress = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='ScanProgressBar']")
-    if ($progress.GetAttribute("Height") -cne "6" -or $progress.GetAttribute("IsIndeterminate") -eq "True") {
-        throw "Scan progress must stay determinate with a 6-DIP line."
+    if ($progress.GetAttribute("Height") -cne "8" -or $progress.GetAttribute("MinHeight") -cne "8" -or
+        $progress.GetAttribute("IsIndeterminate") -eq "True") {
+        throw "Scan progress must set the native determinate indicator's MinHeight, not just its outer height, to 8 DIPs."
+    }
+    $scan = $scanHeader.SelectSingleNode(".//*[@*[local-name()='Name']='ScanButton']")
+    $cancel = $scanHeader.SelectSingleNode(".//*[@*[local-name()='Name']='CancelButton']")
+    if (-not $scan -or -not $cancel -or $scan.ParentNode -ne $cancel.ParentNode -or
+        $scan.ParentNode.LocalName -cne "Grid" -or $cancel.GetAttribute("AutomationProperties.Name") -cne "Cancel scan") {
+        throw "Scan LAN and Cancel scan must occupy the same shared-header slot with their existing automation IDs."
+    }
+    $devicesDocument = [xml](Get-Content (Join-Path $appDirectory "Views\DevicesPageView.xaml") -Raw)
+    if ($devicesDocument.SelectSingleNode("//*[@*[local-name()='Name']='ScanButton']")) {
+        throw "Devices must not duplicate the shared primary scan action."
+    }
+    $statusStyle = $devicesDocument.SelectSingleNode("//*[@*[local-name()='Key']='StatusFilterStyle']")
+    if ($statusStyle.SelectSingleNode("./*[local-name()='Setter' and @Property='BorderThickness']").GetAttribute("Value") -cne "1" -or
+        $statusStyle.SelectSingleNode("./*[local-name()='Setter' and @Property='BorderBrush']").GetAttribute("Value") -cne "{ThemeResource ControlStrongStrokeColorDefaultBrush}") {
+        throw "Status needs a subtle neutral stroke, distinct from an applied value and native accent focus."
     }
     $toolsDocument = [System.Xml.XmlDocument]::new()
     $toolsDocument.Load((Join-Path $appDirectory "Tools\ToolsPage.xaml"))
