@@ -549,7 +549,7 @@ try {
     Start-Sleep -Milliseconds 250
     $selected = @($listSelection.Current.GetSelection())
     $nameCondition = [System.Windows.Automation.PropertyCondition]::new(
-        [System.Windows.Automation.AutomationElement]::NameProperty, "Fixture device 02")
+        [System.Windows.Automation.AutomationElement]::NameProperty, "Kitchen display")
     if (-not $selected[0].FindFirst([System.Windows.Automation.TreeScope]::Descendants, $nameCondition)) {
         throw "Sorting changed the selected device."
     }
