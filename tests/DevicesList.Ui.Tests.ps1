@@ -293,16 +293,47 @@ $previousContext = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext([IntPtr]
 try {
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
     $fixture = Join-Path (Resolve-Path -LiteralPath $ScreenshotDirectory).Path "devices-fixture-$([Guid]::NewGuid().ToString('N')).json"
-    $results = @(1..80 | ForEach-Object {
+    $results = @(
+        @{
+            address = "192.0.2.1"; status = 0; roundtripTimeMilliseconds = 12
+            probeDuration = "00:00:00.002"; deviceName = "Fixture device 01"
+            macAddress = "001122334401"; vendorName = "Example Devices"
+            openPorts = @(@{ port = 443; serviceName = "HTTPS" })
+        },
+        @{
+            address = "192.0.2.2"; status = 0; roundtripTimeMilliseconds = 24
+            probeDuration = "00:00:00.002"; deviceName = "Kitchen display"
+            macAddress = "001122334402"; vendorName = "Example Devices"
+            openPorts = @(@{ port = 8009; serviceName = "Cast" })
+        },
+        @{
+            address = "192.0.2.3"; status = 0; roundtripTimeMilliseconds = 36
+            probeDuration = "00:00:00.002"; deviceName = $null
+            macAddress = "001122334403"; vendorName = "Unknown"; openPorts = @()
+        },
+        @{
+            address = "192.0.2.4"; status = 0; roundtripTimeMilliseconds = 48
+            probeDuration = "00:00:00.002"; deviceName = $null
+            macAddress = "001122334404"; vendorName = "Unknown"; openPorts = @()
+        },
+        @{
+            address = "192.0.2.5"; status = 0; roundtripTimeMilliseconds = 60
+            probeDuration = "00:00:00.002"; deviceName = $null
+            macAddress = "001122334405"; vendorName = "Private"; openPorts = @()
+        }
+    )
+    $results += @(6..80 | ForEach-Object {
         $device = @{
             address = "192.0.2.$_"; status = 0; roundtripTimeMilliseconds = $_ * 2
             probeDuration = "00:00:00.002"; deviceName = "Fixture device $('{0:D2}' -f $_)"
+            macAddress = "0011223344$('{0:X2}' -f $_)"
             vendorName = "Fixture vendor"; openPorts = @()
         }
         if ($_ % 2 -eq 0) { $device.openPorts = @(@{ port = 443; serviceName = "HTTPS" }) }
         $device
     })
-    @{ version = 1; subnet = "192.0.2.0/24"; completedAt = [DateTimeOffset]::UtcNow.ToString("O"); results = $results } |
+    @{ version = 3; subnet = "192.0.2.0/24"; completedAt = [DateTimeOffset]::UtcNow.ToString("O")
+       duration = "00:00:02.500"; results = $results } |
         ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $fixture -Encoding UTF8
     $env:FINGVIBE_UI_REVIEW = "1"
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $fixture
@@ -319,16 +350,49 @@ try {
     $root = [System.Windows.Automation.AutomationElement]::FromHandle($windowHandle)
     $null = [UiReviewNativeWindow]::ShowWindow($windowHandle, 9)
     $scale = [UiReviewNativeWindow]::GetDpiForWindow($windowHandle) / 96.0
+    Select-DevicePage OverviewNavItem
+    $scanButtonCondition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "ScanButton")
+    $scanButton = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $scanButtonCondition)
+    if ($scanButton -and -not $scanButton.Current.IsOffscreen) {
+        throw "Scan LAN must only be available on the Devices page."
+    }
     Set-DeviceWidth 1280
     Focus-DeviceWindow
     Select-DevicePage DevicesNavItem
+    $null = Find-DeviceElement ScanButton
+    $networkLabelCondition = [System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, "Network:"),
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::Text))
+    if (-not $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $networkLabelCondition)) {
+        throw "The shared network selector must be labeled 'Network:'."
+    }
     $heading = (Find-DeviceElement DevicesHeading).Current.BoundingRectangle
     $inventory = (Find-DeviceElement InventoryCountsText).Current.BoundingRectangle
+    $deviceCount = (Find-DeviceElement ResultCountText).Current.BoundingRectangle
+    $scanSummary = (Find-DeviceElement LastScanText).Current.BoundingRectangle
     if ($heading.Bottom -ge $inventory.Top -or
         [Math]::Abs($inventory.Left - $heading.Left - 16 * $scale) -gt 2 * $scale) {
         throw "Devices title must sit above the card contents, outside their 16-DIP inset."
     }
-    if ((Find-DeviceElement ResultCountText).Current.Name -ne "80 devices") { throw "Isolated fixture did not load." }
+    if ($heading.Bottom -ge $deviceCount.Top -or $heading.Bottom -ge $scanSummary.Top -or
+        [Math]::Abs($inventory.Top - $deviceCount.Top) -gt 2 * $scale -or
+        [Math]::Abs($inventory.Top - $scanSummary.Top) -gt 2 * $scale) {
+        throw "Device totals and scan metadata must share the summary line inside the card."
+    }
+    if ((Find-DeviceElement ResultCountText).Current.Name -ne "80 devices") { throw "Multi-device fixture did not load." }
+    if ((Find-DeviceElement LastScanText).Current.Name -notlike "Last scan:*Duration: 2.5 s") {
+        throw "The Devices summary must show the fixture's last scan time and duration."
+    }
+    if (-not $root.FindFirst(
+            [System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::NameProperty, "Private 00-11-22"))) {
+        throw "The screenshot fixture must include a virtual device."
+    }
     Assert-FilterPresentation InventoryStatusFilter Status
     Assert-FilterPresentation PersonFilter Person
     Assert-FilterPresentation RoomFilter Room

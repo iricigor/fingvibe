@@ -20,6 +20,7 @@ public sealed partial class DevicesPageView : UserControl
     }
 
     public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
+    public event EventHandler<RoutedEventArgs>? ScanRequested;
     public event EventHandler? FiltersChanged;
     public event EventHandler<string>? SortRequested;
     public event EventHandler<ScanResultRow>? DeviceRequested;
@@ -55,6 +56,8 @@ public sealed partial class DevicesPageView : UserControl
         ResultsList.SelectionMode = enabled ? ListViewSelectionMode.Single : ListViewSelectionMode.None;
     }
 
+    internal void SetScanEnabled(bool enabled) => ScanButton.IsEnabled = enabled;
+
     internal void ShowSummary(string count, string emptyMessage, bool isEmpty)
     {
         ResultCountText.Text = count;
@@ -63,6 +66,12 @@ public sealed partial class DevicesPageView : UserControl
     }
 
     internal void ShowInventorySummary(string summary) => InventoryCountsText.Text = summary;
+
+    internal void ShowLastScan(ScanSnapshot? snapshot) =>
+        LastScanText.Text = snapshot is null
+            ? "Last scan: Never · Duration: —"
+            : $"Last scan: {snapshot.CompletedAt.ToLocalTime():g} · Duration: "
+                + (snapshot.Duration is { } duration ? $"{duration.TotalSeconds:N1} s" : "not recorded");
 
     internal void ShowSort(string address, string status, string response, string mac, string os, string type)
     {
@@ -137,6 +146,17 @@ public sealed partial class DevicesPageView : UserControl
         }
     }
 
+    private void DeviceSummary_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var inline = e.NewSize.Width >= 760;
+        Grid.SetRow(LastScanSeparator, inline ? 0 : 1);
+        Grid.SetRow(LastScanText, inline ? 0 : 1);
+        Grid.SetColumn(LastScanSeparator, inline ? 3 : 0);
+        Grid.SetColumn(LastScanText, inline ? 4 : 0);
+        Grid.SetColumnSpan(LastScanText, inline ? 1 : 5);
+        LastScanSeparator.Visibility = inline ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     private void ResultsList_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
     {
         if (args.Item is ScanResultRow row)
@@ -182,6 +202,7 @@ public sealed partial class DevicesPageView : UserControl
     }
 
     private void ResultSearchBox_TextChanged(object sender, TextChangedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
+    private void ScanButton_Click(object sender, RoutedEventArgs e) => ScanRequested?.Invoke(this, e);
     private void PeopleRoomFilter_SelectionChanged(object sender, SelectionChangedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
     private void InventoryStatusFilter_SelectionChanged(object sender, SelectionChangedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
     private void OpenPortsFilter_Changed(object sender, RoutedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);

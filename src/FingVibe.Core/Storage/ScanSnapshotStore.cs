@@ -8,7 +8,7 @@ namespace FingVibe.Core.Storage;
 
 public sealed class ScanSnapshotStore
 {
-    private const int CurrentVersion = 2;
+    private const int CurrentVersion = 3;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -53,8 +53,9 @@ public sealed class ScanSnapshotStore
         }
 
         if (document is null
-            || document.Version is not (1 or CurrentVersion)
+            || document.Version is not (1 or 2 or CurrentVersion)
             || document.CompletedAt == default
+            || (document.Duration is { } duration && duration < TimeSpan.Zero)
             || document.Results is null
             || !TryGetPrefixLength(document.Subnet, out _))
         {
@@ -102,7 +103,7 @@ public sealed class ScanSnapshotStore
                     result.UdpObservations);
             }).ToArray();
 
-            return new ScanSnapshot(document.Subnet, document.CompletedAt, results);
+            return new ScanSnapshot(document.Subnet, document.CompletedAt, results, document.Duration);
         }
         catch (FormatException exception)
         {
@@ -137,7 +138,8 @@ public sealed class ScanSnapshotStore
                 result.OpenPortItems.Select(port => new CachedOpenPort(port.Port, port.ServiceName, port.Protocol)).ToArray(),
                 result.Classification,
                 result.UdpObservationItems))
-                .ToArray());
+                .ToArray(),
+            snapshot.Duration);
 
         try
         {
@@ -185,7 +187,8 @@ public sealed class ScanSnapshotStore
         int Version,
         string Subnet,
         DateTimeOffset CompletedAt,
-        CachedScanResult[]? Results);
+        CachedScanResult[]? Results,
+        TimeSpan? Duration = null);
 
     private sealed record CachedScanResult(
         string? Address,

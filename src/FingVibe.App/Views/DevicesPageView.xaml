@@ -40,6 +40,11 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style x:Key="StatusFilterStyle" TargetType="ComboBox" BasedOn="{StaticResource FilterStyle}">
+            <Setter Property="BorderBrush" Value="{ThemeResource AccentFillColorDefaultBrush}" />
+            <Setter Property="BorderThickness" Value="2" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
     </UserControl.Resources>
     <Grid x:Name="DevicesPage" Margin="24,0,24,24">
         <Grid.RowDefinitions>
@@ -52,9 +57,14 @@
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <TextBlock x:Name="DevicesHeading" Text="Devices" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
-            <TextBlock x:Name="ResultCountText" Grid.Column="1"
-                       Text="0 devices" VerticalAlignment="Center"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Button x:Name="ScanButton" Grid.Column="1" HorizontalAlignment="Right"
+                    Click="ScanButton_Click" AutomationProperties.Name="Scan LAN"
+                    Style="{ThemeResource AccentButtonStyle}">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE72C;" />
+                    <TextBlock Text="Scan LAN" />
+                </StackPanel>
+            </Button>
         </Grid>
         <Border Grid.Row="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource ScannerCardBorderBrush}"
@@ -66,8 +76,32 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
                 <StackPanel Margin="16,16,16,8" Spacing="8">
-                    <TextBlock x:Name="InventoryCountsText" TextWrapping="Wrap"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <Grid x:Name="DeviceSummary" ColumnSpacing="8" RowSpacing="4"
+                          SizeChanged="DeviceSummary_SizeChanged">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="InventoryCountsText" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Grid.Column="1" Text="·" VerticalAlignment="Center"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock x:Name="ResultCountText" Grid.Column="2" Text="0 devices"
+                                   VerticalAlignment="Center"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock x:Name="LastScanSeparator" Grid.Column="3" Text="·" VerticalAlignment="Center"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock x:Name="LastScanText" Grid.Column="4" Text="Last scan: Never · Duration: —"
+                                   TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </Grid>
                     <Border Background="{ThemeResource ControlFillColorSecondaryBrush}"
                             BorderBrush="{ThemeResource ScannerCardBorderBrush}" BorderThickness="1"
                             CornerRadius="8" Padding="8">
@@ -90,7 +124,7 @@
                                          PlaceholderText="Search devices"
                                          AutomationProperties.Name="Search devices"
                                          TextChanged="ResultSearchBox_TextChanged" />
-                                <ComboBox x:Name="InventoryStatusFilter" Grid.Column="1" Style="{StaticResource FilterStyle}"
+                                <ComboBox x:Name="InventoryStatusFilter" Grid.Column="1" Style="{StaticResource StatusFilterStyle}"
                                           AutomationProperties.Name="Filter by device status"
                                           SelectionChanged="InventoryStatusFilter_SelectionChanged" />
                             </Grid>
