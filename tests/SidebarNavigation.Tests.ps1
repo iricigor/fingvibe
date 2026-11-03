@@ -405,6 +405,7 @@ function Test-DeviceRefresh {
 function Test-ScanPresentation {
     $highContrast = $null
     $animations = $null
+    $captureTopmost = $false
     try {
         foreach ($theme in $UiReviewAppearanceThemes) {
             Set-SidebarWindowWidth $expandedWidth
@@ -469,6 +470,15 @@ function Test-ScanPresentation {
                 }
                 if ($case[0] -ge 640) {
                     $path = Join-Path $ScreenshotDirectory "scan-$theme-$($case[0])-$($case[1])-$($case[2]).png"
+                    if ($case[2]) {
+                        # Contrast changes can raise the runner's console over the foreground app.
+                        if (-not [UiReviewNativeWindow]::SetWindowPos(
+                                $windowHandle, [IntPtr]::new(-1), 0, 0, 0, 0, 0x0053)) {
+                            throw [System.ComponentModel.Win32Exception]::new()
+                        }
+                        $captureTopmost = $true
+                        Start-Sleep -Milliseconds 250
+                    }
                     Focus-SidebarWindow
                     Save-UiReviewWindowScreenshot $windowHandle $path
                     $bitmap = [System.Drawing.Bitmap]::new($path)
@@ -506,6 +516,13 @@ function Test-ScanPresentation {
                         }
                     }
                     finally { $bitmap.Dispose() }
+                    if ($captureTopmost) {
+                        if (-not [UiReviewNativeWindow]::SetWindowPos(
+                                $windowHandle, [IntPtr]::new(-2), 0, 0, 0, 0, 0x0053)) {
+                            throw [System.ComponentModel.Win32Exception]::new()
+                        }
+                        $captureTopmost = $false
+                    }
                 }
                 else {
                     Write-Host "480-DIP scan geometry/value/focus assertions enabled; capture helper requires at least 640 physical pixels."
@@ -537,6 +554,10 @@ function Test-ScanPresentation {
         if ($null -ne $animations) { [SidebarReviewKeyboard]::SetAnimations($animations) }
         if (Test-Path -LiteralPath $scanHoldPath) { Remove-Item -LiteralPath $scanHoldPath }
         if (Test-Path -LiteralPath ($scanHoldPath + ".progress")) { Remove-Item -LiteralPath ($scanHoldPath + ".progress") }
+        if ($captureTopmost -and -not [UiReviewNativeWindow]::SetWindowPos(
+                $windowHandle, [IntPtr]::new(-2), 0, 0, 0, 0, 0x0053)) {
+            throw [System.ComponentModel.Win32Exception]::new()
+        }
         Wait-DeviceScan
     }
 }
