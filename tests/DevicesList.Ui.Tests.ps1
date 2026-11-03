@@ -352,7 +352,7 @@ try {
     Test-ConditionalDeviceColumns
 
     $widths = @{}
-    foreach ($width in @(1280, 1200, 1000, 640)) {
+    foreach ($width in @(1360, 1280, 1200, 1000, 640)) {
         Set-DeviceWidth $width
         $null = Save-DeviceCapture "devices-width-$width"
         $filters = @("ResultSearchBox", "PersonFilter", "RoomFilter", "OpenPortsFilter") |
@@ -373,7 +373,10 @@ try {
             }
         }
     }
-    if ($widths[1280] -le $widths[1200]) { throw "Search does not expand with the window." }
+    # Compare widths within the inline layout, not across its wrapping breakpoint.
+    if ([Math]::Abs($widths[1360] - $widths[1280] - 80 * $scale) -gt 1) {
+        throw "Search must absorb the full 80-DIP window expansion."
+    }
     Set-DeviceWidth 1280
     $checkbox = Find-DeviceElement OpenPortsFilter
     $bounds = $checkbox.Current.BoundingRectangle
