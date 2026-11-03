@@ -433,13 +433,15 @@ function Test-ScanPresentation {
                 }
                 Set-SidebarWindowWidth $case[0]
                 $scan = Find-SidebarElement AutomationId ScanButton
-                $idleBounds = $scan.Current.BoundingRectangle
                 [IO.File]::WriteAllText($scanHoldPath + ".progress",
                     ('{"Completed":' + $case[1] + ',"Total":100}'))
                 [IO.File]::WriteAllText($scanHoldPath, "Hold synthetic progress for native geometry/pixel assertions.")
                 $scan.SetFocus()
+                Start-Sleep -Milliseconds 100
+                $idleBounds = $scan.Current.BoundingRectangle
                 $scan.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
                 $cancel = Find-SidebarElement AutomationId CancelButton
+                Start-Sleep -Milliseconds 400
                 if ($cancel.Current.Name -ne "Cancel scan" -or -not $cancel.Current.IsEnabled -or
                     (Find-SidebarElement AutomationId ScanButton -Optional)) {
                     throw "Exactly one usable scan action must be visible while scanning."
@@ -448,10 +450,9 @@ function Test-ScanPresentation {
                 if ([Math]::Abs($idleBounds.Left - $cancelBounds.Left) -gt $scale -or
                     [Math]::Abs($idleBounds.Top - $cancelBounds.Top) -gt $scale -or
                     [Math]::Abs($idleBounds.Width - $cancelBounds.Width) -gt $scale) {
-                    throw "Scan LAN and Cancel scan must share one fixed position and width."
+                    throw "Scan LAN and Cancel scan must share one fixed position and width. Idle=$idleBounds; active=$cancelBounds; theme=$theme; case=$case."
                 }
                 $bar = Find-SidebarElement AutomationId ScanProgressBar
-                Start-Sleep -Milliseconds 400
                 $value = $bar.GetCurrentPattern([System.Windows.Automation.RangeValuePattern]::Pattern).Current
                 if ($value.Value -ne $case[1] -or $value.Maximum -ne 100) {
                     throw "The native progress indicator must preserve the fixture's exact measured fraction."
