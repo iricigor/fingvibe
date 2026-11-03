@@ -280,6 +280,21 @@ function Test-ConditionalDeviceColumns {
                 [Math]::Abs($type.Current.BoundingRectangle.Left - $name.Current.BoundingRectangle.Left) -gt $scale) {
                 throw "Device type must be a secondary line within the Name column."
             }
+            if ($case.Status -and $case.Response) {
+                $bar = $row.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.PropertyCondition]::new(
+                        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                        [System.Windows.Automation.ControlType]::ProgressBar))
+                $badgeBounds = $status.Current.BoundingRectangle
+                $timeBounds = $response.Current.BoundingRectangle
+                $barBounds = $bar.Current.BoundingRectangle
+                if ($badgeBounds.Left -ge $timeBounds.Right -or
+                    $badgeBounds.Bottom -gt $barBounds.Top -or $timeBounds.Bottom -gt $barBounds.Top -or
+                    $barBounds.Left -gt $badgeBounds.Left -or $barBounds.Right -lt $timeBounds.Right -or
+                    $barBounds.Width / $scale -lt 150) {
+                    throw "Combined connection must place status upper-left, time upper-right, and a shared full-width bar below both."
+                }
+            }
         }
         $null = Save-DeviceCapture "devices-columns-$($case.Status)-$($case.Response)"
     }
@@ -565,8 +580,8 @@ try {
             [System.Windows.Automation.AutomationElement]::NameProperty, $bar.Current.Name))
     $label = $rows[0].FindFirst([System.Windows.Automation.TreeScope]::Descendants, $labelCondition)
     if (-not $label -or $label.Current.BoundingRectangle.Bottom -gt $bar.Current.BoundingRectangle.Top -or
-        $bar.Current.BoundingRectangle.Width / $scale -gt 100) {
-        throw "Response must use a readable number above a compact bar."
+        $bar.Current.BoundingRectangle.Width / $scale -lt 150) {
+        throw "Combined response must use a readable number above a shared full-width bar."
     }
     $rowBounds = $rows[1].Current.BoundingRectangle
     Focus-DeviceWindow

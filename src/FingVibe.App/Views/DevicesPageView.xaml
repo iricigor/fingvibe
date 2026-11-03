@@ -454,13 +454,14 @@
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
-                                        <Grid x:Name="ConnectionCell" Grid.Column="4" Margin="0,0,12,0"
-                                              Visibility="{x:Bind Columns.Connection.IsVisible, Mode=OneWay}">
+                                        <Grid x:Name="ConnectionCell" Grid.Column="4" Margin="0,0,12,0" MinHeight="26" VerticalAlignment="Center"
+                                              Visibility="{x:Bind Columns.Connection.IsVisible, Mode=OneWay}"
+                                              ToolTipService.ToolTip="Response bar is relative to responding hosts in this scan: green is fastest, red is slowest.">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibleStarWidth(Columns.Status.IsVisible), Mode=OneWay}" />
                                                 <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibleStarWidth(Columns.ShowConnectionResponse), Mode=OneWay}" />
                                             </Grid.ColumnDefinitions>
-                                            <Grid x:Name="DeviceStatusCell" Visibility="{x:Bind Columns.Status.IsVisible, Mode=OneWay}"
+                                            <Grid x:Name="DeviceStatusCell" Visibility="{x:Bind Columns.Status.IsVisible, Mode=OneWay}" VerticalAlignment="Top"
                                                   ToolTipService.ToolTip="{x:Bind StatusContext}">
                                                 <Border Visibility="{x:Bind IsOnline}" Padding="8,3" CornerRadius="10"
                                                         HorizontalAlignment="Left" VerticalAlignment="Center"
@@ -499,8 +500,8 @@
                                                     </StackPanel>
                                                 </Border>
                                             </Grid>
-                                            <ContentControl Grid.Column="1" Content="{x:Bind}" ContentTemplate="{StaticResource ResponseTemplate}"
-                                                            HorizontalContentAlignment="Stretch" VerticalAlignment="Center"
+                                            <ContentControl Grid.ColumnSpan="2" Content="{x:Bind}" ContentTemplate="{StaticResource ResponseTemplate}"
+                                                            HorizontalContentAlignment="Stretch" VerticalAlignment="Center" IsHitTestVisible="False"
                                                             Visibility="{x:Bind Columns.ShowConnectionResponse, Mode=OneWay}" />
                                         </Grid>
                                         <ContentControl Grid.Column="5" Content="{x:Bind}" ContentTemplate="{StaticResource ResponseTemplate}"
