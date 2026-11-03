@@ -14,9 +14,9 @@ foreach ($name in @("RunButton", "CancelRunButton", "RunProgress", "ProgressText
     }
 }
 $connectors = @($diagramDocument.SelectNodes("//*[local-name()='Canvas']/*[local-name()='Path']"))
-if ($connectors.Count -ne 8 -or @($connectors | Where-Object { $_.GetAttribute("Data") -match '\bQ' }).Count -ne 4 -or
+if ($connectors.Count -ne 8 -or @($connectors | Where-Object { $_.GetAttribute("Data") -match '\bQ' }).Count -ne 2 -or
     $diagramDocument.SelectNodes("//*[local-name()='Polyline']").Count -ne 0) {
-    throw "The four branch connectors must use explicit curved elbows, not square polyline corners."
+    throw "The provider and compact LAN-peer branches must use curved elbows, not square polyline corners."
 }
 foreach ($name in @("PcRouterConnector", "RouterHopConnector", "HopInternetConnector", "InternetGoogleConnector")) {
     $connector = $diagramDocument.SelectSingleNode("//*[@*[local-name()='Name']='$name']")
@@ -150,7 +150,8 @@ try {
     Show-Controls @("Network path and status", "Ready / not tested")
     $run = Find-Control "Run network troubleshooting" ([System.Windows.Automation.ControlType]::Button)
     $pathHeading = Find-Control "Network path and status" ([System.Windows.Automation.ControlType]::Text)
-    $illustration = Find-Control "Illustrative network diagram - logical checkpoints, not discovered physical topology" ([System.Windows.Automation.ControlType]::Text)
+    $illustration = Find-Control "Logical checks$([char]0x2014)not a physical network map." ([System.Windows.Automation.ControlType]::Text)
+    $null = Find-Control "LAN peers" ([System.Windows.Automation.ControlType]::Text)
     if ($run.Current.IsOffscreen -or $run.Current.BoundingRectangle.Top -le $pathHeading.Current.BoundingRectangle.Bottom -or
         $run.Current.BoundingRectangle.Bottom -ge $illustration.Current.BoundingRectangle.Top) {
         throw "Run checks must be visible near the top of the diagram card, below its heading and above the illustration."

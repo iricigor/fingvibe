@@ -90,8 +90,9 @@ successful diagnostic run or a real network map.
 
 ### Interpreting the illustration and status
 
-Gray LAN peers are shown above this PC and the router, schematically connected
-to the router with curved-corner elbow connector lines. The PC-to-router,
+The smaller, muted **LAN peers** group sits directly above the router,
+schematically connected to it with curved-corner elbow connector lines.
+The disclaimer reads **Logical checks—not a physical network map.** The PC-to-router,
 router-to-hop-2, hop-2-to-globe, and globe-to-Google links are straight and
 horizontal; the Cloudflare branch also retains curved elbows.
 Left/right logical ports show loopback/LAN IP on the PC,
@@ -116,39 +117,36 @@ Detailed hop and traceroute text shows **Responder** first and labels
 **Trace target** separately, so `1.1.1.1` is not mistaken for the responding
 upstream router. A destination actually reached at hop 2 remains an observed
 destination response rather than a guessed router.
-While checks run, up to two **8-DIP** dots illustrate requests and confirmed
+Three independently scheduled **8-DIP** dots illustrate requests and confirmed
 responses along the connector lines at a constant **480 DIPs/second** in either direction. Farther
 checkpoints take longer to reach; crossings behind icons count toward travel
 time but hide the moving dot rather than making it jump across the gaps.
-It travels outward in a neutral color. On a confirmed response, a separate
-endpoint dot grows from **8 to 18 DIPs and back** over **0.4 seconds** at the
+Each dot travels outward in a neutral color. On a confirmed response,
+it grows from **8 to 18 DIPs and back** over **0.4 seconds** at the
 corresponding **14-DIP** port before the request dot returns green. An unanswered
 check or error pulses red at the target, then fades without a return journey. Each
 color describes that check, not general node availability. Ping and DNS remain
 separate. Loopback, self-ping, and Windows configured DNS pulse locally at the
 PC; configured DNS can be cached and has no known resolver path in this diagram.
-As a confirmed reply travels back toward the PC, the next neutral request can
-travel outward simultaneously. These are overlapping illustrations of adjacent
-checks, not extra probes or a second cycle of the same checkpoint. The next
-request continues from its current position when the preceding reply finishes.
+Each dot waits a fresh random **0.2–1.6 seconds** before selecting a random
+available checkpoint, independently of the other dots. Delays and local/endpoint
+phases mean three travelling dots need not be visible at every instant.
+Requests and confirmed replies can travel in opposite directions simultaneously;
+multiple dots may choose the same checkpoint. These are illustrations, not extra probes.
 No green reply is shown for an untested, pending, unanswered, or errored check.
 
-Both the initial pass and replays use logical diagram order: local PC checks
-(including configured DNS), router LAN/WAN, **hop 2**, then Cloudflare and Google
-IP/DNS checkpoints. Actual probe execution is unchanged: traceroute still runs
-after IP/DNS tests. If an earlier logical checkpoint has no result yet, the
-illustration waits there, with an explicit waiting label, while probes continue.
-Unavailable checkpoints are skipped without inventing a response.
-LAN peers remain static. Short checks are queued for illustration without
-delaying network probes or the **Checks complete** status. Each run randomly
-chooses **3 to 5 total passes of the entire sequence**, including the initial
-pass; it does not repeat each checkpoint before moving to the next. Later
-passes replay recorded outcomes without sending traffic or retaining the
-network-activity lease. A separate illustration label shows the pass number
-and identifies recorded-result playback after checks finish. **Stop replay**
+Random destinations replace the former ordered, bounded sequence. Actual probe
+execution is unchanged: traceroute still runs after IP/DNS tests. A dot reaching
+a pending checkpoint waits there neutrally until its result arrives; other dots
+remain independent. Unavailable/cancelled checkpoints are skipped without
+inventing a response. LAN peers remain static.
+Animation does not delay network probes or the **Checks complete** status.
+After checks finish it continues **until stopped**, replaying recorded outcomes
+without sending traffic or retaining the network-activity lease. A separate
+illustration label identifies recorded-result playback after checks finish. **Stop replay**
 stops only the illustration and leaves completed results intact; **Run checks**
 can start a fresh run without waiting for replay. Results have no expiry timer:
-they remain after the final pass until an intentional reset, such as a new run,
+they remain after stopping replay until an intentional reset, such as a new run,
 WAN edit, adapter refresh/change, genuine context change, or reopening the page.
 Cancel, navigation, a genuine context change, unload, and close clear animation
 immediately. Windows' animation preference disables motion, and high contrast uses system colors.
