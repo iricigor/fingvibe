@@ -466,44 +466,49 @@ function Test-ScanPresentation {
                 if ($statusBounds.Top -lt $pickerBounds.Bottom -or $barBounds.Top -lt $statusBounds.Bottom) {
                     throw "Scan text and progress must stay together below the network selector."
                 }
-                $path = Join-Path $ScreenshotDirectory "scan-$theme-$($case[0])-$($case[1])-$($case[2]).png"
-                Focus-SidebarWindow
-                Save-UiReviewWindowScreenshot $windowHandle $path
-                $bitmap = [System.Drawing.Bitmap]::new($path)
-                try {
-                    $left = $barBounds.Left - $windowBounds.Left
-                    $top = $barBounds.Top - $windowBounds.Top
-                    $filledX = [int]($left + $barBounds.Width * $case[1] / 200)
-                    $emptyX = [int]($left + $barBounds.Width * 0.98)
-                    $thickPixels = 0
-                    for ($y = [int][Math]::Ceiling($top); $y -lt [Math]::Floor($top + $barBounds.Height); $y++) {
-                        $fill = $bitmap.GetPixel($filledX, $y)
-                        $empty = $bitmap.GetPixel($emptyX, $y)
-                        $difference = [Math]::Abs([int]$fill.R - $empty.R) +
-                            [Math]::Abs([int]$fill.G - $empty.G) + [Math]::Abs([int]$fill.B - $empty.B)
-                        if ($difference -gt 40) { $thickPixels++ }
-                    }
-                    if ($thickPixels -lt 7 * $scale) {
-                        throw "The completed segment must actually paint at least 7 of its 8 DIPs, not a thin line in an 8-DIP container."
-                    }
-                    if ($case[2]) {
-                        Start-Sleep -Milliseconds 650
-                        $staticPath = Join-Path $ScreenshotDirectory "scan-static-$($case[2]).png"
-                        Save-UiReviewWindowScreenshot $windowHandle $staticPath
-                        $static = [System.Drawing.Bitmap]::new($staticPath)
-                        try {
-                            for ($x = [int]($left + 2 * $scale); $x -lt $left + $barBounds.Width - 2 * $scale; $x++) {
-                                for ($y = [int][Math]::Ceiling($top); $y -lt [Math]::Floor($top + $barBounds.Height); $y++) {
-                                    if ($bitmap.GetPixel($x, $y).ToArgb() -ne $static.GetPixel($x, $y).ToArgb()) {
-                                        throw "Progress must be static with $($case[2]), not just visually dimmed."
+                if ($case[0] -ge 640) {
+                    $path = Join-Path $ScreenshotDirectory "scan-$theme-$($case[0])-$($case[1])-$($case[2]).png"
+                    Focus-SidebarWindow
+                    Save-UiReviewWindowScreenshot $windowHandle $path
+                    $bitmap = [System.Drawing.Bitmap]::new($path)
+                    try {
+                        $left = $barBounds.Left - $windowBounds.Left
+                        $top = $barBounds.Top - $windowBounds.Top
+                        $filledX = [int]($left + $barBounds.Width * $case[1] / 200)
+                        $emptyX = [int]($left + $barBounds.Width * 0.98)
+                        $thickPixels = 0
+                        for ($y = [int][Math]::Ceiling($top); $y -lt [Math]::Floor($top + $barBounds.Height); $y++) {
+                            $fill = $bitmap.GetPixel($filledX, $y)
+                            $empty = $bitmap.GetPixel($emptyX, $y)
+                            $difference = [Math]::Abs([int]$fill.R - $empty.R) +
+                                [Math]::Abs([int]$fill.G - $empty.G) + [Math]::Abs([int]$fill.B - $empty.B)
+                            if ($difference -gt 40) { $thickPixels++ }
+                        }
+                        if ($thickPixels -lt 7 * $scale) {
+                            throw "The completed segment must actually paint at least 7 of its 8 DIPs, not a thin line in an 8-DIP container."
+                        }
+                        if ($case[2]) {
+                            Start-Sleep -Milliseconds 650
+                            $staticPath = Join-Path $ScreenshotDirectory "scan-static-$($case[2]).png"
+                            Save-UiReviewWindowScreenshot $windowHandle $staticPath
+                            $static = [System.Drawing.Bitmap]::new($staticPath)
+                            try {
+                                for ($x = [int]($left + 2 * $scale); $x -lt $left + $barBounds.Width - 2 * $scale; $x++) {
+                                    for ($y = [int][Math]::Ceiling($top); $y -lt [Math]::Floor($top + $barBounds.Height); $y++) {
+                                        if ($bitmap.GetPixel($x, $y).ToArgb() -ne $static.GetPixel($x, $y).ToArgb()) {
+                                            throw "Progress must be static with $($case[2]), not just visually dimmed."
+                                        }
                                     }
                                 }
                             }
+                            finally { $static.Dispose() }
                         }
-                        finally { $static.Dispose() }
                     }
+                    finally { $bitmap.Dispose() }
                 }
-                finally { $bitmap.Dispose() }
+                else {
+                    Write-Host "480-DIP scan geometry/value/focus assertions enabled; capture helper requires at least 640 physical pixels."
+                }
                 $cancel.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
                 Wait-DeviceScan
                 $restored = Find-SidebarElement AutomationId ScanButton

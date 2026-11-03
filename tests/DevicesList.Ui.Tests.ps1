@@ -552,13 +552,18 @@ try {
     Test-MergeOptions
     Test-MergedAssignments
 
+    Set-DeviceFilterChoice PersonFilter "UI · UI review person"
+    Set-DeviceFilterChoice RoomFilter "UI · UI review room"
+    Assert-FilterPresentation PersonFilter Person "UI · UI review person"
+    Assert-FilterPresentation RoomFilter Room "UI · UI review room"
     $widths = @{}
     foreach ($width in @(1360, 1280, 1200, 1000, 640, 480)) {
         Set-DeviceWidth $width
-        $null = Save-DeviceCapture "devices-width-$width"
+        if ($width -ge 640) { $null = Save-DeviceCapture "devices-width-$width" }
         $filters = @("ResultSearchBox", "InventoryStatusFilter", "PersonFilter", "RoomFilter", "OpenPortsFilter") |
             ForEach-Object { Find-DeviceElement $_ }
         $widths[$width] = $filters[0].Current.BoundingRectangle.Width
+        if ($widths[$width] -lt 180 * $scale) { throw "Search must remain usable before filters wrap at $width." }
         for ($index = 0; $index -lt $filters.Count; $index++) {
             $bounds = Get-FilterBounds $filters[$index]
             if ($bounds.Width -le 0) { throw "Filter has no width at $width." }
@@ -580,6 +585,8 @@ try {
         throw "Search must absorb the full 80-DIP window expansion."
     }
     Set-DeviceWidth 1280
+    Set-DeviceFilterChoice PersonFilter "All people"
+    Set-DeviceFilterChoice RoomFilter "All rooms"
     $checkbox = Find-DeviceElement OpenPortsFilter
     $bounds = $checkbox.Current.BoundingRectangle
     $null = [DevicesReviewInput]::SetCursorPos([int]($bounds.Right - 8 * $scale), [int]($bounds.Top + $bounds.Height / 2))
