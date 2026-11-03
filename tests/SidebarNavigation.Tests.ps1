@@ -200,13 +200,14 @@ function Test-SettingsLayout {
         if (-not $reset) { throw "Reset columns is missing." }
         if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
         Start-Sleep -Milliseconds 200
-        $choices = Find-SidebarElement AutomationId ColumnChoices
-        $checkboxes = $choices.FindAll([System.Windows.Automation.TreeScope]::Descendants,
-            [System.Windows.Automation.PropertyCondition]::new(
-                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-                [System.Windows.Automation.ControlType]::CheckBox))
+        $choices = Find-SidebarElement AutomationId SettingsPage
         $headers = @("Name", "IP address", "Vendor", "Open ports", "Status", "Response",
             "MAC address", "OS", "Device type", "Person", "Room")
+        $checkboxes = @($choices.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::CheckBox)) |
+            Where-Object { $_.Current.Name -in $headers })
         if ($checkboxes.Count -ne $headers.Count) { throw "Expected all eleven column choices at $width." }
         $columns = if ($inline) { 3 } elseif ($width -eq 640) { 2 } else { 1 }
         for ($index = 0; $index -lt $checkboxes.Count; $index++) {
