@@ -1,5 +1,6 @@
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
+& (Join-Path $PSScriptRoot "UiReviewScreenshot.Content.Tests.ps1")
 
 function Assert-True {
     param([bool] $Condition, [string] $Message)

@@ -7,6 +7,8 @@ namespace FingVibe.App.Views;
 
 public sealed partial class DevicesPageView : UserControl
 {
+    private readonly Windows.UI.ViewManagement.UISettings _uiSettings = new();
+
     public DevicesPageView()
     {
         InitializeComponent();
@@ -20,7 +22,6 @@ public sealed partial class DevicesPageView : UserControl
     }
 
     public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
-    public event EventHandler<RoutedEventArgs>? ScanRequested;
     public event EventHandler? FiltersChanged;
     public event EventHandler<string>? SortRequested;
     public event EventHandler<ScanResultRow>? DeviceRequested;
@@ -56,8 +57,6 @@ public sealed partial class DevicesPageView : UserControl
         ResultsList.SelectionMode = enabled ? ListViewSelectionMode.Single : ListViewSelectionMode.None;
     }
 
-    internal void SetScanEnabled(bool enabled) => ScanButton.IsEnabled = enabled;
-
     internal void ShowSummary(string count, string emptyMessage, bool isEmpty)
     {
         ResultCountText.Text = count;
@@ -68,10 +67,8 @@ public sealed partial class DevicesPageView : UserControl
     internal void ShowInventorySummary(string summary) => InventoryCountsText.Text = summary;
 
     internal void ShowLastScan(ScanSnapshot? snapshot) =>
-        LastScanText.Text = snapshot is null
-            ? "Last scan: Never · Duration: —"
-            : $"Last scan: {snapshot.CompletedAt.ToLocalTime():g} · Duration: "
-                + (snapshot.Duration is { } duration ? $"{duration.TotalSeconds:N1} s" : "not recorded");
+        LastScanText.Text = "Duration: " + (snapshot?.Duration is { } duration
+            ? $"{duration.TotalSeconds:N1} s" : snapshot is null ? "—" : "not recorded");
 
     internal void ShowSort(string address, string status, string response, string mac, string os, string type)
     {
@@ -116,15 +113,29 @@ public sealed partial class DevicesPageView : UserControl
     private void DeviceFilters_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         const double spacing = 8;
-        const double minimumSearchWidth = 120;
-        double[] widths = [140, 140, 180];
-        var inline = e.NewSize.Width >= minimumSearchWidth + 210 + widths.Sum() + spacing * 4;
+        const double minimumSearchWidth = 180;
+        var textScale = _uiSettings.TextScaleFactor;
+        double[] widths = [Math.Min(140 * textScale, e.NewSize.Width),
+            Math.Min(140 * textScale, e.NewSize.Width), Math.Min(180 * textScale, e.NewSize.Width)];
+        var statusWidth = Math.Min(210 * textScale, e.NewSize.Width);
+        PersonFilter.Width = widths[0];
+        RoomFilter.Width = widths[1];
+        OpenPortsFilterContainer.Width = widths[2];
+        InventoryStatusFilter.Width = statusWidth;
+        var inline = e.NewSize.Width >= minimumSearchWidth + statusWidth + widths.Sum() + spacing * 4;
         Grid.SetRow(DeviceFilterOptions, inline ? 0 : 1);
         Grid.SetColumn(DeviceFilterOptions, inline ? 1 : 0);
         Grid.SetColumnSpan(DeviceFilterOptions, inline ? 1 : 2);
         Grid.SetColumnSpan(DeviceSearchFilters, inline ? 1 : 2);
+        DeviceFilters.RowSpacing = inline ? 0 : spacing;
+        var stackedSearch = e.NewSize.Width < minimumSearchWidth + statusWidth + spacing;
+        DeviceSearchFilters.RowSpacing = stackedSearch ? spacing : 0;
+        Grid.SetRow(InventoryStatusFilter, stackedSearch ? 1 : 0);
+        Grid.SetColumn(InventoryStatusFilter, stackedSearch ? 0 : 1);
+        Grid.SetColumnSpan(InventoryStatusFilter, stackedSearch ? 2 : 1);
+        Grid.SetColumnSpan(ResultSearchBox, stackedSearch ? 2 : 1);
         var columns = inline || e.NewSize.Width >= widths.Sum() + spacing * 2 ? 3
-            : e.NewSize.Width >= 180 + 140 + spacing ? 2 : 1;
+            : e.NewSize.Width >= widths[2] + widths[0] + spacing ? 2 : 1;
         var rows = (3 + columns - 1) / columns;
         if (DeviceFilterOptions.ColumnDefinitions.Count != columns)
         {
@@ -133,11 +144,11 @@ public sealed partial class DevicesPageView : UserControl
             {
                 DeviceFilterOptions.ColumnDefinitions.Add(new ColumnDefinition());
             }
-            for (var column = 0; column < columns; column++)
-            {
-                DeviceFilterOptions.ColumnDefinitions[column].Width =
-                    new GridLength(widths.Where((_, index) => index % columns == column).Max());
-            }
+        }
+        for (var column = 0; column < columns; column++)
+        {
+            DeviceFilterOptions.ColumnDefinitions[column].Width =
+                new GridLength(widths.Where((_, index) => index % columns == column).Max());
         }
         if (DeviceFilterOptions.RowDefinitions.Count != rows)
         {
@@ -157,13 +168,11 @@ public sealed partial class DevicesPageView : UserControl
 
     private void DeviceSummary_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        var inline = e.NewSize.Width >= 760;
-        Grid.SetRow(LastScanSeparator, inline ? 0 : 1);
-        Grid.SetRow(LastScanText, inline ? 0 : 1);
-        Grid.SetColumn(LastScanSeparator, inline ? 3 : 0);
-        Grid.SetColumn(LastScanText, inline ? 4 : 0);
-        Grid.SetColumnSpan(LastScanText, inline ? 1 : 5);
-        LastScanSeparator.Visibility = inline ? Visibility.Visible : Visibility.Collapsed;
+        var inline = e.NewSize.Width >= 760 * _uiSettings.TextScaleFactor;
+        Grid.SetRow(LastScanText, inline ? 0 : 2);
+        Grid.SetColumn(LastScanText, inline ? 1 : 0);
+        Grid.SetColumnSpan(LastScanText, inline ? 1 : 2);
+        LastScanText.Margin = inline ? new Thickness(0) : new Thickness(0, 4, 0, 0);
     }
 
     private void ResultsList_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
@@ -211,7 +220,6 @@ public sealed partial class DevicesPageView : UserControl
     }
 
     private void ResultSearchBox_TextChanged(object sender, TextChangedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
-    private void ScanButton_Click(object sender, RoutedEventArgs e) => ScanRequested?.Invoke(this, e);
     private void PeopleRoomFilter_SelectionChanged(object sender, SelectionChangedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
     private void InventoryStatusFilter_SelectionChanged(object sender, SelectionChangedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
     private void OpenPortsFilter_Changed(object sender, RoutedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);

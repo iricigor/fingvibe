@@ -139,6 +139,7 @@ public sealed partial class MainWindow : Window
         }
 
         if (page == ToolsPage) ToolsPage.Open();
+        UpdateScanStatus();
     }
 
     private void ViewNetworkButton_Click(object sender, RoutedEventArgs e) =>

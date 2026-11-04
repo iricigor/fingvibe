@@ -156,47 +156,56 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock x:Name="DetectedNetworkLabel" Text="Network:" VerticalAlignment="Center" />
                         <ComboBox x:Name="NetworkPicker"
                                   Grid.Column="1"
                                   MinWidth="150"
-                                  MaxWidth="360"
                                   HorizontalAlignment="Stretch"
                                   VerticalAlignment="Center"
                                   AutomationProperties.Name="Network"
                                   SelectionChanged="NetworkPicker_SelectionChanged" />
-                        <TextBlock x:Name="ScanFreshnessText" Grid.Column="2" VerticalAlignment="Center"
-                                   TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <StackPanel x:Name="ScanActions" Grid.Row="1" Grid.ColumnSpan="3"
-                                    Orientation="Horizontal" Spacing="8" Margin="0,8,0,0"
-                                    Visibility="Collapsed">
+                        <TextBlock x:Name="ScanFreshnessText" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center"
+                                   FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Grid x:Name="ScanActions" Grid.Column="2" MinWidth="120" Visibility="Collapsed">
+                            <Button x:Name="ScanButton"
+                                    HorizontalAlignment="Stretch"
+                                    Click="ScanButton_Click" AutomationProperties.Name="Scan LAN"
+                                    Style="{ThemeResource AccentButtonStyle}">
+                                <TextBlock Text="Scan LAN" TextWrapping="Wrap" />
+                            </Button>
                             <Button x:Name="CancelButton"
+                                    HorizontalAlignment="Stretch"
                                     Click="CancelButton_Click"
-                                    Content="Cancel"
+                                    AutomationProperties.Name="Cancel scan"
+                                    Style="{ThemeResource AccentButtonStyle}"
                                     Visibility="Collapsed"
-                                    IsEnabled="False" />
-                        </StackPanel>
-                        <StackPanel x:Name="ScanMessages" Grid.Row="2" Grid.ColumnSpan="3" Spacing="8"
-                                    Margin="0,8,0,0" Visibility="Collapsed">
+                                    IsEnabled="False">
+                                <TextBlock Text="Cancel scan" TextWrapping="Wrap" />
+                            </Button>
+                        </Grid>
+                        <StackPanel x:Name="ScanMessages" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Spacing="4"
+                                    Margin="0,4,0,0" Visibility="Collapsed">
                             <TextBlock x:Name="ScanStatusText"
                                        Text="Ready"
                                        TextWrapping="Wrap"
-                                       TextTrimming="CharacterEllipsis"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <Grid x:Name="ScanProgressArea" Visibility="Collapsed" Height="6"
+                            <Grid x:Name="ScanProgressArea" Visibility="Collapsed" Height="10"
                                   SizeChanged="ScanProgressArea_SizeChanged">
                                 <ProgressBar x:Name="ScanProgressBar"
                                              Minimum="0"
                                              Maximum="1"
                                              Value="0"
-                                             Height="6" VerticalAlignment="Stretch">
+                                             Height="10" MinHeight="8" VerticalAlignment="Stretch"
+                                             AutomationProperties.Name="Scan progress">
                                     <ProgressBar.Resources>
-                                        <x:Double x:Key="ProgressBarThemeMinHeight">6</x:Double>
+                                        <x:Double x:Key="ProgressBarMinHeight">8</x:Double>
                                     </ProgressBar.Resources>
                                 </ProgressBar>
-                                <Border x:Name="ScanPulse" HorizontalAlignment="Left" IsHitTestVisible="False"
+                                <Border x:Name="ScanPulse" Height="8" VerticalAlignment="Center"
+                                        HorizontalAlignment="Left" IsHitTestVisible="False"
                                         AutomationProperties.AccessibilityView="Raw">
                                     <Border.Background>
                                         <LinearGradientBrush x:Name="ScanPulseBrush" StartPoint="0,0" EndPoint="1,0">
@@ -223,7 +232,6 @@
 
                 <!-- Devices -->
                 <views:DevicesPageView x:Name="DevicesPage" Grid.Row="1" Visibility="Collapsed"
-                        ScanRequested="ScanButton_Click"
                         FiltersChanged="DeviceFiltersChanged"
                         SortRequested="DeviceSortRequested"
                         DeviceRequested="DeviceRequested" />
