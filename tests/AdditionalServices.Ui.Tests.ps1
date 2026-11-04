@@ -188,6 +188,7 @@ function Save-ServiceEvidence([string] $Name, [switch] $DevicesList) {
 
 function Open-IdentificationEditor {
     $edit = Find-ServiceControl "Edit device identification" -ByName
+    Wait-ServiceState { $edit.Current.IsEnabled } "identification read mode"
     $edit.SetFocus()
     Invoke-ServiceControl "Edit device identification"
     Wait-ServiceState {
