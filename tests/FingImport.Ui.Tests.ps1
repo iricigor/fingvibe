@@ -370,7 +370,7 @@ try {
             foreach ($filter in @(
                 (Find-ImportControl "Filter by person" ([System.Windows.Automation.ControlType]::ComboBox)),
                 (Find-ImportControl "Filter by room" ([System.Windows.Automation.ControlType]::ComboBox)),
-                (Find-ImportControl "With open ports" ([System.Windows.Automation.ControlType]::CheckBox)))) {
+                (Find-ImportControl "With open ports" ([System.Windows.Automation.ControlType]::Button)))) {
                 $bounds = $filter.Current.BoundingRectangle
                 if ($bounds.IsEmpty -or $filter.Current.IsOffscreen -or $bounds.Left -lt $previousBounds.Right -or
                     [Math]::Abs(($bounds.Top + $bounds.Height / 2) -
