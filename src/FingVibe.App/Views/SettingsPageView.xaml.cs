@@ -4,7 +4,7 @@ using Microsoft.UI.Xaml.Controls;
 
 namespace FingVibe.App.Views;
 
-public sealed partial class SettingsPageView : UserControl
+public sealed partial class SettingsPageView : UserControl, System.ComponentModel.INotifyPropertyChanged
 {
     private static readonly ThemeVariant[] LightThemes =
         [ThemeVariant.StandardLight, ThemeVariant.WarmLight, ThemeVariant.ColorfulLight];
@@ -12,7 +12,25 @@ public sealed partial class SettingsPageView : UserControl
         [ThemeVariant.StandardDark, ThemeVariant.OledDark, ThemeVariant.ColorfulDark];
     private bool _updatingAppearance;
 
-    public SettingsPageView() => InitializeComponent();
+    public SettingsPageView()
+    {
+        InitializeComponent();
+        Loaded += (_, _) => Columns.PropertyChanged += Columns_PropertyChanged;
+        Unloaded += (_, _) => Columns.PropertyChanged -= Columns_PropertyChanged;
+    }
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    public int DensityIndex
+    {
+        get => Columns.CompactRows ? 1 : 0;
+        set
+        {
+            if (value is 0 or 1) Columns.CompactRows = value == 1;
+        }
+    }
+
+    private void Columns_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) =>
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(DensityIndex)));
 
     public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
     public IReadOnlyList<DeviceColumn> VisibilityChoices =>
@@ -99,7 +117,7 @@ public sealed partial class SettingsPageView : UserControl
     private void CombinationOptions_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         var columns = e.NewSize.Width >= 560 ? 2 : 1;
-        FrameworkElement[] choices = [CombineNameType, CombineAddresses, CombineStatusResponse, CombinePersonRoom];
+        FrameworkElement[] choices = [CombineNameType, CombineAddresses, CombineStatusResponse, CombinePersonRoom, CombineVendorOs];
         for (var index = 0; index < choices.Length; index++)
         {
             Grid.SetRow(choices[index], index / columns);

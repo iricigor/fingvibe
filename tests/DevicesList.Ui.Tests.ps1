@@ -96,10 +96,6 @@ function Get-DeviceRows {
 
 function Get-FilterBounds($Element) {
     $bounds = $Element.Current.BoundingRectangle
-    if ($Element.Current.AutomationId -eq "OpenPortsFilter") {
-        return [System.Windows.Rect]::new($bounds.X - 11 * $scale, $bounds.Y - 4 * $scale,
-            $bounds.Width + 22 * $scale, $bounds.Height + 8 * $scale)
-    }
     return $bounds
 }
 
@@ -578,7 +574,7 @@ function Test-MergeOptions {
     Set-DeviceWidth 1880
     foreach ($merged in @($false, $true)) {
         Select-DevicePage Settings
-        foreach ($label in @("Combine Name and Type", "Combine IP and MAC", "Combine Status and Response", "Combine Person and Room")) {
+        foreach ($label in @("Combine Name and Type", "Combine IP and MAC", "Combine Status and Response", "Combine Person and Room", "Combine Vendor and OS")) {
             Set-ColumnOption $label $merged
         }
         Select-DevicePage DevicesNavItem
@@ -594,6 +590,11 @@ function Test-MergeOptions {
         if ([bool]$responseGrip -eq $merged) { throw "Separate Response must have its own resize boundary." }
         $assignmentGrip = Get-VisibleDeviceChild $root Name "Resize Person / room column"
         if ([bool]$assignmentGrip -ne $merged) { throw "Person/Room merge setting was not applied." }
+        $os = Get-VisibleDeviceChild $row AutomationId MergedOperatingSystemText
+        if ([bool]$os -ne $merged) { throw "Vendor/OS merge setting was not applied." }
+        if ($os -and $os.Current.Name -ne "Android (likely)") { throw "Merged OS must preserve inference qualifiers." }
+        $osGrip = Get-VisibleDeviceChild $root Name "Resize OS column"
+        if ([bool]$osGrip -eq $merged) { throw "Merged OS must not allocate a standalone column." }
         $null = Save-DeviceCapture "devices-all-merges-$merged"
         $height = $row.Current.BoundingRectangle.Height / $scale
         if ($height -gt 48) {
@@ -608,6 +609,104 @@ function Test-MergeOptions {
     if (Get-VisibleDeviceChild $unknownRow AutomationId DeviceTypeLabel) {
         throw "An unknown type must not reserve a secondary Name line."
     }
+}
+
+function Assert-ClearFiltersVisible([bool] $Expected) {
+    $link = Get-VisibleDeviceChild $root AutomationId ClearFiltersLink
+    if ([bool]$link -ne $Expected) { throw "Clear filters visibility must match active restrictions." }
+}
+
+function Clear-DeviceFilters {
+    (Find-DeviceElement ClearFiltersLink).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Start-Sleep -Milliseconds 200
+    Assert-ClearFiltersVisible $false
+    if ((Find-DeviceElement ResultCountText).Current.Name -ne "Showing 80 devices") {
+        throw "Clear filters must restore the full inventory."
+    }
+    foreach ($id in @("OnlineChip", "OfflineChip", "UnknownChip", "FingOnlyChip", "OpenPortsFilter")) {
+        if ((Find-DeviceElement $id).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne
+            [System.Windows.Automation.ToggleState]::Off) { throw "Clear filters left '$id' active." }
+    }
+}
+
+function Test-FilterChips {
+    Assert-ClearFiltersVisible $false
+    $search = (Find-DeviceElement ResultSearchBox).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+    foreach ($apply in @(
+        { $search.SetValue("Kitchen") },
+        { Set-DeviceFilterChoice InventoryStatusFilter Unknown },
+        { Set-DeviceFilterChoice PersonFilter Unassigned },
+        { Set-DeviceFilterChoice RoomFilter Unassigned },
+        { (Find-DeviceElement OpenPortsFilter).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle() }
+    )) {
+        & $apply
+        Assert-ClearFiltersVisible $true
+        Clear-DeviceFilters
+    }
+    $search.SetValue("Kitchen")
+    Set-DeviceFilterChoice PersonFilter Unassigned
+    Set-DeviceFilterChoice RoomFilter Unassigned
+    (Find-DeviceElement OpenPortsFilter).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
+    foreach ($case in @(@("OnlineChip", "Online", "1"), @("OfflineChip", "Offline", "0"),
+        @("UnknownChip", "Unknown", "0"), @("FingOnlyChip", "Fing Only", "0"))) {
+        $chip = Find-DeviceElement $case[0]
+        $chip.SetFocus()
+        [DevicesReviewInput]::Tap(0x20)
+        Start-Sleep -Milliseconds 200
+        $selection = (Find-DeviceElement InventoryStatusFilter).GetCurrentPattern(
+            [System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()
+        if ($selection[0].Current.Name -ne $case[1]) { throw "Summary chip/dropdown synchronization failed." }
+        if ($chip.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne
+            [System.Windows.Automation.ToggleState]::On) { throw "Summary chip must expose its selected state." }
+        if ($search.Current.Value -ne "Kitchen" -or
+            (Find-DeviceElement ResultCountText).Current.Name -ne "Showing $($case[2]) of 80 devices") {
+            throw "Summary shortcuts must retain other restrictions, including zero-match results."
+        }
+        if ((Find-DeviceElement OnlineChip).Current.Name -ne "80 Online") {
+            throw "Summary counts must retain their full-inventory meaning."
+        }
+    }
+    Set-DeviceFilterChoice InventoryStatusFilter Online
+    if ((Find-DeviceElement OnlineChip).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne
+        [System.Windows.Automation.ToggleState]::On) { throw "Dropdown must select the matching chip." }
+    Clear-DeviceFilters
+    $null = Save-DeviceCapture "devices-status-chips-cleared"
+}
+
+function Test-RowDensity {
+    Set-DeviceWidth 1880
+    $measurements = @{}
+    foreach ($density in @("Standard", "Compact")) {
+        Select-DevicePage Settings
+        Set-ColumnOption "Combine Vendor and OS" $true
+        Set-ColumnOption "Combine Person and Room" $true
+        Set-DeviceFilterChoice RowDensityPicker $density
+        Select-DevicePage DevicesNavItem
+        $rows = @(Get-DeviceRows)
+        $listBounds = (Find-DeviceElement ResultsList).Current.BoundingRectangle
+        $heights = @($rows | Select-Object -First 4 | ForEach-Object { $_.Current.BoundingRectangle.Height / $scale })
+        $fullyVisible = @($rows | Where-Object { $_.Current.BoundingRectangle.Bottom -le $listBounds.Bottom }).Count
+        $measurements[$density] = @{ heights = $heights; visibleRows = $fullyVisible }
+        foreach ($height in $heights) {
+            if ($density -eq "Compact" -and ($height -lt 38 -or $height -gt 40.5)) {
+                throw "Compact representative rows must render at approximately 38-40 DIPs, got $height."
+            }
+            if ($density -eq "Standard" -and $height -lt 44) { throw "Standard minimum height changed." }
+        }
+        $selected = $rows[0].GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
+        $selected.Select()
+        $null = Save-DeviceCapture "devices-density-$density"
+    }
+    if ($measurements.Compact.visibleRows -le $measurements.Standard.visibleRows) {
+        throw "Compact must display more complete rows at an identical viewport."
+    }
+    $measurements | ConvertTo-Json -Depth 4 |
+        Set-Content -LiteralPath (Join-Path $ScreenshotDirectory "devices-density-measurements.json")
+    Select-DevicePage Settings
+    Set-DeviceFilterChoice RowDensityPicker Standard
+    (Find-DeviceElement ResetColumnsButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Select-DevicePage DevicesNavItem
+    Set-DeviceWidth 1280
 }
 
 function Test-MergedAssignments {
@@ -695,7 +794,7 @@ try {
             probeDuration = "00:00:00.002"; deviceName = "Fixture device 01"
             macAddress = "001122334401"
             vendorName = "Example Devices with a deliberately long manufacturer name for hover inspection"
-            classification = @{ type = 1 }
+            classification = @{ type = 1; operatingSystem = 2; operatingSystemIsInferred = $true }
             openPorts = @(@{ port = 443; serviceName = "HTTPS" })
         },
         @{
@@ -778,7 +877,7 @@ try {
     }
     if ($heading.Bottom -ge $deviceCount.Top -or $heading.Bottom -ge $scanSummary.Top -or
         $deviceCount.Top -lt $inventory.Bottom -or
-        [Math]::Abs($inventory.Top - $scanSummary.Top) -gt 2 * $scale) {
+        [Math]::Abs(($inventory.Top + $inventory.Bottom - $scanSummary.Top - $scanSummary.Bottom) / 2) -gt 2 * $scale) {
         throw "Inventory totals must lead, filtered results need their own line, and duration stays secondary."
     }
     if ((Find-DeviceElement ResultCountText).Current.Name -ne "Showing 80 devices") { throw "Multi-device fixture did not load." }
@@ -811,8 +910,10 @@ try {
     Assert-FilterPresentation RoomFilter Room Unassigned
     Set-DeviceFilterChoice RoomFilter "All rooms"
     if ((Find-DeviceElement ResultCountText).Current.Name -ne "Showing 80 devices") { throw "All options must reset filters." }
+    Test-FilterChips
     Test-ConditionalDeviceColumns
     Test-MergeOptions
+    Test-RowDensity
     Test-MergedAssignments
     Test-CellPreviews
 

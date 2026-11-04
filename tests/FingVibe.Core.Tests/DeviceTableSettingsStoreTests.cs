@@ -21,7 +21,7 @@ public sealed class DeviceTableSettingsStoreTests : IDisposable
     {
         var store = new DeviceTableSettingsStore(FilePath);
         var settings = new DeviceTableSettings(new() { ["Name"] = new(230, true), ["Mac"] = new(160, false) },
-            false, false, false, true, false);
+            false, false, false, true, false, true, true);
         store.Save(settings);
         store.Save(settings);
         var loaded = Assert.IsType<DeviceTableSettings>(store.Load());
@@ -31,6 +31,8 @@ public sealed class DeviceTableSettingsStoreTests : IDisposable
         Assert.False(loaded.CombineStatusResponse);
         Assert.True(loaded.CombinePersonRoom);
         Assert.False(loaded.EnlargedCellPreviews);
+        Assert.True(loaded.CombineVendorOs);
+        Assert.True(loaded.CompactRows);
         Assert.Single(Directory.GetFiles(_directory));
     }
 
@@ -41,7 +43,10 @@ public sealed class DeviceTableSettingsStoreTests : IDisposable
     {
         Directory.CreateDirectory(_directory);
         File.WriteAllText(FilePath, json);
-        Assert.True(new DeviceTableSettingsStore(FilePath).Load()!.EnlargedCellPreviews);
+        var loaded = new DeviceTableSettingsStore(FilePath).Load()!;
+        Assert.True(loaded.EnlargedCellPreviews);
+        Assert.False(loaded.CombineVendorOs);
+        Assert.False(loaded.CompactRows);
     }
 
     [Theory]

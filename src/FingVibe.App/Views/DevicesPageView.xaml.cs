@@ -1,6 +1,8 @@
 using FingVibe.Core.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Input;
 
 namespace FingVibe.App.Views;
@@ -8,6 +10,7 @@ namespace FingVibe.App.Views;
 public sealed partial class DevicesPageView : UserControl
 {
     private readonly Windows.UI.ViewManagement.UISettings _uiSettings = new();
+    private bool _updatingFilters;
 
     public DevicesPageView()
     {
@@ -69,7 +72,19 @@ public sealed partial class DevicesPageView : UserControl
         EmptyResultsText.Visibility = isEmpty ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    internal void ShowInventorySummary(string summary) => InventoryCountsText.Text = summary;
+    internal void ShowInventorySummary(int online, int offline, int unknown, int fingOnly)
+    {
+        OnlineCountText.Text = $"{online:N0} Online";
+        OfflineCountText.Text = $"{offline:N0} Offline";
+        UnknownCountText.Text = $"{unknown:N0} Unknown";
+        FingOnlyCountText.Text = $"{fingOnly:N0} Fing Only";
+        AutomationProperties.SetName(OnlineChip, OnlineCountText.Text);
+        AutomationProperties.SetName(OfflineChip, OfflineCountText.Text);
+        AutomationProperties.SetName(UnknownChip, UnknownCountText.Text);
+        AutomationProperties.SetName(FingOnlyChip, FingOnlyCountText.Text);
+        AutomationProperties.SetName(InventoryCountsText,
+            $"{OnlineCountText.Text} · {OfflineCountText.Text} · {UnknownCountText.Text} · {FingOnlyCountText.Text}");
+    }
 
     internal void ShowLastScan(ScanSnapshot? snapshot) =>
         LastScanText.Text = "Duration: " + (snapshot?.Duration is { } duration
@@ -85,6 +100,7 @@ public sealed partial class DevicesPageView : UserControl
         SeparateResponseSortGlyph.Text = response;
         SeparateDeviceTypeSortGlyph.Text = type;
         OperatingSystemSortGlyph.Text = os;
+        MergedOperatingSystemSortGlyph.Text = os;
         DeviceTypeSortGlyph.Text = type;
     }
 
@@ -180,6 +196,19 @@ public sealed partial class DevicesPageView : UserControl
         LastScanText.Margin = inline ? new Thickness(0) : new Thickness(0, 4, 0, 0);
     }
 
+    private void InventoryCounts_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var columns = Math.Clamp((int)((e.NewSize.Width + 8) / (140 * _uiSettings.TextScaleFactor + 8)), 1, 4);
+        ToggleButton[] chips = [OnlineChip, OfflineChip, UnknownChip, FingOnlyChip];
+        for (var index = 0; index < InventoryCountsText.ColumnDefinitions.Count; index++)
+            InventoryCountsText.ColumnDefinitions[index].Width = new GridLength(index < columns ? 1 : 0, GridUnitType.Star);
+        for (var index = 0; index < chips.Length; index++)
+        {
+            Grid.SetRow(chips[index], index / columns);
+            Grid.SetColumn(chips[index], index % columns);
+        }
+    }
+
     private void ResultsList_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
     {
         if (_previewAnchor is { } anchor && FindAncestor<ListViewItem>(anchor) == args.ItemContainer)
@@ -227,19 +256,48 @@ public sealed partial class DevicesPageView : UserControl
         }
     }
 
-    private void ResultSearchBox_TextChanged(object sender, TextChangedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
-    private void PeopleRoomFilter_SelectionChanged(object sender, SelectionChangedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
-    private void InventoryStatusFilter_SelectionChanged(object sender, SelectionChangedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
-    private void OpenPortsFilter_Changed(object sender, RoutedEventArgs e) => FiltersChanged?.Invoke(this, EventArgs.Empty);
+    private void ResultSearchBox_TextChanged(object sender, TextChangedEventArgs e) => OnFiltersChanged();
+    private void PeopleRoomFilter_SelectionChanged(object sender, SelectionChangedEventArgs e) => OnFiltersChanged();
+    private void InventoryStatusFilter_SelectionChanged(object sender, SelectionChangedEventArgs e) => OnFiltersChanged();
+    private void OpenPortsFilter_Changed(object sender, RoutedEventArgs e) => OnFiltersChanged();
 
-    private void OpenPortsFilterContainer_Tapped(object sender, TappedRoutedEventArgs args)
+    private void OnFiltersChanged()
     {
-        if (ReferenceEquals(args.OriginalSource, OpenPortsFilterContainer))
+        if (_updatingFilters) return;
+        OnlineChip.IsChecked = InventoryStatusFilter.SelectedIndex == 1;
+        OfflineChip.IsChecked = InventoryStatusFilter.SelectedIndex == 2;
+        FingOnlyChip.IsChecked = InventoryStatusFilter.SelectedIndex == 3;
+        UnknownChip.IsChecked = InventoryStatusFilter.SelectedIndex == 4;
+        ClearFiltersLink.Visibility = !string.IsNullOrEmpty(SearchText) || StatusFilter is not null
+            || PersonChoice is { All: false } || RoomChoice is { All: false } || OpenPortsOnly
+                ? Visibility.Visible : Visibility.Collapsed;
+        FiltersChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void StatusChip_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is ToggleButton { Tag: string index })
         {
-            OpenPortsFilter.IsChecked = !OpenPortsOnly;
-            OpenPortsFilter.Focus(FocusState.Pointer);
-            args.Handled = true;
+            var selectedIndex = int.Parse(index, System.Globalization.CultureInfo.InvariantCulture);
+            if (InventoryStatusFilter.SelectedIndex == selectedIndex) OnFiltersChanged();
+            else InventoryStatusFilter.SelectedIndex = selectedIndex;
         }
+    }
+
+    private void ClearFilters_Click(object sender, RoutedEventArgs e)
+    {
+        _updatingFilters = true;
+        try
+        {
+            SearchText = string.Empty;
+            InventoryStatusFilter.SelectedIndex = 0;
+            PersonFilter.SelectedIndex = 0;
+            RoomFilter.SelectedIndex = 0;
+            OpenPortsOnly = false;
+        }
+        finally { _updatingFilters = false; }
+        ResultSearchBox.Focus(FocusState.Programmatic);
+        OnFiltersChanged();
     }
 
     private void SortHeader_Click(object sender, RoutedEventArgs e)

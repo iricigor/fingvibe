@@ -7,6 +7,9 @@ public static class DeviceColumnLayoutHelpers
     private const double TableHorizontalPadding = 24;
 
     public static GridLength ToGridLength(double width) => new(width);
+    public static Thickness RowPadding(bool compact) => new(12, compact ? 3 : 6, 12, compact ? 3 : 6);
+    public static string KnownMetadataText(string? value) =>
+        string.IsNullOrWhiteSpace(value) || value is "Unknown" or "-" ? string.Empty : value;
 
     public static GridLength ToVisibleStarWidth(bool visible) => visible
         ? new GridLength(1, GridUnitType.Star) : new GridLength(0);

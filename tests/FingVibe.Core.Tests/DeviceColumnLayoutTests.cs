@@ -6,6 +6,83 @@ namespace FingVibe.Core.Tests;
 public sealed class DeviceColumnLayoutTests
 {
     [Fact]
+    public void Density_DefaultsToStandardPersistsIndependentlyAndSurvivesColumnReset()
+    {
+        var layout = new DeviceColumnLayout();
+        Assert.False(layout.CompactRows);
+        Assert.False(layout.CombineVendorOs);
+        Assert.Equal(44, layout.RowMinimumHeight);
+        Assert.Equal(3, layout.RowSpacing);
+        var changes = 0;
+        layout.SettingsChanged += (_, _) => changes++;
+        layout.CompactRows = true;
+        layout.CompactRows = true;
+        Assert.Equal(1, changes);
+        Assert.Equal(38, layout.RowMinimumHeight);
+        Assert.Equal(1, layout.RowSpacing);
+        Assert.Equal(1, layout.AssignmentSpacing);
+        var restored = new DeviceColumnLayout();
+        restored.Restore(layout.Capture());
+        Assert.True(restored.CompactRows);
+        restored.Reset();
+        Assert.True(restored.CompactRows);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void VendorOs_MergesOnlyVisibleMembersAndPreservesIndependentWidths(bool vendor, bool os)
+    {
+        var layout = new DeviceColumnLayout();
+        layout.Vendor.Width = 210;
+        layout.OperatingSystem.Width = 140;
+        layout.CombineVendorOs = true;
+        layout.VendorOs.Width = 190;
+        layout.Vendor.IsVisible = vendor;
+        layout.OperatingSystem.IsVisible = os;
+        Assert.Equal(vendor && os, layout.ShowMergedOs);
+        Assert.Equal(os && !vendor, layout.ShowSeparateOs);
+        Assert.Equal(os && !vendor ? 140 : 0, layout.SeparateOsWidth);
+        Assert.Equal(vendor && os ? "VendorOs" : "Vendor", layout.VendorOs.Key);
+        Assert.Equal(layout.Name.EffectiveWidth + layout.Addresses.EffectiveWidth
+            + layout.VendorOs.EffectiveWidth + layout.Ports.EffectiveWidth + layout.Connection.EffectiveWidth
+            + layout.SeparateResponseWidth + layout.SeparateMacWidth + layout.SeparateOsWidth
+            + layout.SeparateTypeWidth + layout.Assignments.EffectiveWidth + layout.SeparateRoomWidth, layout.TotalWidth);
+
+        var restored = new DeviceColumnLayout();
+        restored.Restore(layout.Capture());
+        Assert.True(restored.CombineVendorOs);
+        Assert.Equal(layout.Capture().Columns, restored.Capture().Columns);
+        restored.Vendor.IsVisible = restored.OperatingSystem.IsVisible = true;
+        Assert.Equal(190, restored.VendorOs.Width);
+        restored.CombineVendorOs = false;
+        Assert.Equal(210, restored.Vendor.Width);
+        Assert.Equal(140, restored.OperatingSystem.Width);
+        restored.CombineVendorOs = true;
+        Assert.Equal(190, restored.VendorOs.Width);
+        restored.Reset();
+        Assert.False(restored.CombineVendorOs);
+        restored.CombineVendorOs = true;
+        Assert.Equal(160, restored.VendorOs.Width);
+    }
+
+    [Fact]
+    public void VendorOs_SeparatorTracksPhysicalColumnsWithoutEmptyOsAllocation()
+    {
+        var layout = new DeviceColumnLayout { CombineVendorOs = true };
+        foreach (var column in layout.All.Where(column =>
+            column.CanHide && column != layout.Vendor && column != layout.OperatingSystem))
+            column.IsVisible = false;
+        Assert.False(layout.VendorOs.HasFollowingVisibleColumn);
+        Assert.Equal(layout.Name.Width + layout.Addresses.Width + layout.VendorOs.Width, layout.TotalWidth);
+        layout.Vendor.IsVisible = false;
+        Assert.False(layout.OperatingSystem.HasFollowingVisibleColumn);
+        Assert.Equal(layout.Name.Width + layout.Addresses.Width + layout.OperatingSystem.Width, layout.TotalWidth);
+    }
+
+    [Fact]
     public void CellPreviewPreference_IsDefaultOnNotifiesAndSurvivesColumnReset()
     {
         var layout = new DeviceColumnLayout();

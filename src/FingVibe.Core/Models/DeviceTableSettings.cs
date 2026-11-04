@@ -8,4 +8,6 @@ public sealed record DeviceTableSettings(
     bool CombineAddresses = true,
     bool CombineStatusResponse = true,
     bool CombinePersonRoom = false,
-    bool EnlargedCellPreviews = true);
+    bool EnlargedCellPreviews = true,
+    bool CombineVendorOs = false,
+    bool CompactRows = false);

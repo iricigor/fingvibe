@@ -39,6 +39,8 @@ public sealed class PrivateVirtualDeviceTests
         var row = new ScanResultRow(reused, second, 24);
         Assert.Equal("192.0.2.2", row.AddressText);
         Assert.True(row.CanProbe);
+        Assert.True(row.IsVirtualIdentity);
+        Assert.Equal("Virtual device - inferred identity across changing MAC addresses.", row.VirtualIdentityDescription);
         Assert.Contains("D0-C9-07-00-00-01", row.ConnectionHistoryText);
         Assert.Contains("Inferred association", row.ConnectionHistoryText);
     }
@@ -134,6 +136,7 @@ public sealed class PrivateVirtualDeviceTests
         };
         rows = ScanResultRow.CreateInventoryRows(restored).ToArray();
         Assert.All(rows, row => Assert.Equal("Unknown", row.StatusLabel));
+        Assert.Equal(2, rows.Count(row => row.IsVirtualIdentity));
         Assert.DoesNotContain(rows, row => row.IsOnline || row.IsOffline || row.CanProbe);
     }
 
