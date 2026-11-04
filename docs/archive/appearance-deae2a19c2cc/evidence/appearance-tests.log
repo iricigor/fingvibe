@@ -1,0 +1,13 @@
+C:\Program Files\dotnet\sdk\8.0.427\Sdks\Microsoft.NET.Sdk\targets\Microsoft.PackageDependencyResolution.targets(266,5): error NETSDK1004: Assets file 'D:\a\fingvibe\fingvibe\artifacts\archive-source\tests\FingVibe.Core.Tests\obj\project.assets.json' not found. Run a NuGet package restore to generate this file. [D:\a\fingvibe\fingvibe\artifacts\archive-source\tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj]
+  Determining projects to restore...
+  Restored D:\a\fingvibe\fingvibe\artifacts\archive-source\src\FingVibe.Core\FingVibe.Core.csproj (in 93 ms).
+  Restored D:\a\fingvibe\fingvibe\artifacts\archive-source\tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj (in 4.43 sec).
+  FingVibe.Core -> D:\a\fingvibe\fingvibe\artifacts\archive-source\src\FingVibe.Core\bin\Release\net8.0\FingVibe.Core.dll
+  FingVibe.Core.Tests -> D:\a\fingvibe\fingvibe\artifacts\archive-source\tests\FingVibe.Core.Tests\bin\Release\net8.0\FingVibe.Core.Tests.dll
+Test run for D:\a\fingvibe\fingvibe\artifacts\archive-source\tests\FingVibe.Core.Tests\bin\Release\net8.0\FingVibe.Core.Tests.dll (.NETCoreApp,Version=v8.0)
+VSTest version 17.11.1 (x64)
+
+Starting test execution, please wait...
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    64, Skipped:     0, Total:    64, Duration: 241 ms - FingVibe.Core.Tests.dll (net8.0)

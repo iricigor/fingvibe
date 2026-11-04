@@ -47,6 +47,15 @@ def verify_gallery(source):
     manifest = json.loads(evidence.read_text(encoding="utf-8-sig"))
     require(manifest["sourceCommit"] == COMMIT, "Capture revision mismatch")
     require(manifest["sourceZipSha256"] == source["zipSha256"], "Capture ZIP mismatch")
+    validation = json.loads((ROOT / "evidence" / "validation.json").read_text())
+    require(validation["sourceCommit"] == COMMIT, "Validation revision mismatch")
+    require(validation["sourceZipSha256"] == source["zipSha256"], "Validation ZIP mismatch")
+    require(validation["captureRun"] == manifest["captureRun"], "Validation capture run mismatch")
+    require(validation["captureWorkflowCommit"] == manifest["captureWorkflowCommit"], "Validation workflow mismatch")
+    require(validation["runConclusion"] == validation["jobConclusion"] == "success", "Archive CI did not pass")
+    require(validation["appearanceTests"]["passed"] == 64 and validation["appearanceTests"]["failed"] == 0, "Appearance test evidence mismatch")
+    for section in ("appearanceTests", "build", "capture"):
+        require((ROOT / "evidence" / validation[section]["log"]).is_file(), f"Missing {section} log")
     require(manifest["fixture"] in source["files"], "Fixture is not from the source ZIP")
     with zipfile.ZipFile(ROOT / source["zip"]) as archive:
         require(hashlib.sha256(archive.read(manifest["fixture"])).hexdigest() == manifest["fixtureSha256"], "Fixture checksum mismatch")
@@ -75,6 +84,8 @@ def verify_gallery(source):
         require(item["backdrop"] == ("Mica Alt" if item["style"] == "Glass" else "Solid"), "Backdrop mismatch")
         require(bool(item["materialStatus"]) and bool(item["materialEvidence"]), "Missing material evidence")
     require(len(hashes) == 25, "Expected 25 unique images")
+    require(source["zipBytes"] == validation["sizes"]["sourceZipBytes"], "Recorded ZIP size mismatch")
+    require(total == validation["sizes"]["capturePngBytes"], "Recorded PNG size mismatch")
     for doc in (ROOT / "README.md", ROOT / "IMPLEMENTATION.md", ROOT / "gallery" / "README.md"):
         text = doc.read_text(encoding="utf-8")
         for target in re.findall(r"\]\(([^)]+)\)", text):
@@ -88,6 +99,7 @@ def verify_gallery(source):
     for name in names:
         require(gallery.count(f"(../screenshots/{name})") == 2, f"Gallery thumbnail must link to its local original: {name}")
     total_archive = sum(path.stat().st_size for path in ROOT.rglob("*") if path.is_file())
+    require(round(total_archive / 1024**2, 1) == validation["sizes"]["completeArchiveApproximatelyMiB"], "Recorded total archive size mismatch")
     print(f"Gallery verified: 24 matrix images + Settings, {total:,} PNG bytes; archive total {total_archive:,} bytes")
 
 

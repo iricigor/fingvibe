@@ -20,6 +20,8 @@ branch, approve unfinished design work, or publish a release.
 | Source ZIP | [fingvibe-source-deae2a19c2cc8218183f08b777347215b7fa31e6.zip](fingvibe-source-deae2a19c2cc8218183f08b777347215b7fa31e6.zip) |
 | ZIP SHA-256 | `fcd5df9c7fe7b6b2fd3fca7e53dface25fea9338368e55d6f29b18488d2848b2` |
 | ZIP size | 1,071,390 bytes (1.022 MiB) |
+| All 25 capture PNGs | 7,177,062 bytes (6.845 MiB) |
+| Complete archive directory | Approximately 8.6 MiB, measured including the ZIP, PNGs, all documents, manifests, scripts, and CI logs |
 | Tracked files | 237; paths and Git blob IDs in [source manifest](evidence/source-manifest.json) |
 
 The branch tip was explicitly checked against this agreed commit before
@@ -188,7 +190,24 @@ Existing capture helpers are loaded from the ZIP, not replaced with main's
 versions. Per-image provenance is required; older CI images were not substituted.
 
 Final extracted-source results, capture run, material observations, and sizes
-are recorded in the accompanying validation record before review.
+are recorded in the [validation record](evidence/validation.json).
+
+**Archive-specific validation passed** in
+[run 41923005913](https://github.com/iricigor/fingvibe/actions/runs/41923005913):
+64 focused appearance palette/settings tests, extracted-source Windows x64
+publish with zero warnings/errors, and all 25 captures. The
+[test log](evidence/appearance-tests.log), [build log](evidence/build.log), and
+[capture transcript](evidence/capture.log) are retained locally alongside the
+images. First attempts without restore reported missing `project.assets.json`;
+the normal tooling then restored dependencies and passed. The runner used
+Windows build 26100 at 96 DPI, with transparency enabled and high contrast off.
+No material fallback was reported; native material rendering is still
+Windows-managed rather than independently measured.
+
+The initial archive dispatch's capture/build job also passed, but the normal
+UI-review aggregate rejected deliberately skipped normal planning. The
+temporary hook was corrected and the complete extracted build/capture rerun
+successfully. Only the successful rerun's images are included in this archive.
 
 The original source revision also passed
 [CI run 41706787803](https://github.com/iricigor/fingvibe/actions/runs/41706787803)
@@ -204,6 +223,13 @@ visual/accessibility rubric. The archive does not add styling fixes. Native
 Mica/Acrylic/ThemeShadow rendering depends on OS support, transparency,
 composition, focus, and high contrast; a requested backdrop alone is not proof
 that its intended optical effect appeared.
+
+The fixture's historical devices display **Unknown**, not live Online status;
+response values and Overview's live counters are unavailable for the selected
+loopback target. The target-mismatch warning is expected and intentionally
+retained. At the fixed viewport, the rightmost Devices columns extend into
+horizontal scrolling. These captures preserve that prototype behavior rather
+than altering its layout or inventing scan results for a prettier image.
 
 The latest requested **Neumorphic uniform-base / stronger paired-shadow /
 debossed-input refinement was not implemented**. The unresolved design question

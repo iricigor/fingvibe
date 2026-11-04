@@ -1,0 +1,2 @@
+# Preserve generated CI diagnostics verbatim, including build-tool whitespace.
+*.log -text -whitespace
