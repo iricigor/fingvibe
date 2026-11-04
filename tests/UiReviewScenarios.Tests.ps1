@@ -129,6 +129,8 @@ try {
         @("Devices", "Overview", "Network", "Troubleshooting") "Network identity code"
     Test-Change @{ "src\FingVibe.App\MainWindow.Results.cs" = "changed" } `
         @("Devices", "Settings", "DevicesEmpty") "Results and empty state"
+    Test-Change @{ "src\FingVibe.App\DeviceResultFilter.cs" = "changed" } `
+        @("Devices", "Settings", "DevicesEmpty") "Multi-select matching and empty state"
     Test-Change @{ "src\FingVibe.App\App.xaml" = "changed" } @($UiReviewScenarios.Keys) "Shared theme"
     $applicationXaml = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\MainWindow.xaml") -Raw
     $applicationDocument = [System.Xml.XmlDocument]::new()

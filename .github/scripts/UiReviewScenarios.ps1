@@ -118,7 +118,7 @@ function Get-UiReviewCapturePlan {
             elseif ($path -eq "src/FingVibe.App/MainWindow.NetworkIdentity.cs") {
                 Add-Scenarios @("Overview", "Network", "Troubleshooting") "$path changed network identity."
             }
-            elseif ($path -match '^src/FingVibe.App/(MainWindow.Results.cs|StatusFilter.*|DeviceColumn.*|ColumnResizeGrip.cs)$') {
+            elseif ($path -match '^src/FingVibe.App/(MainWindow.Results.cs|DeviceResultFilter.cs|StatusFilter.*|DeviceColumn.*|ColumnResizeGrip.cs)$') {
                 Add-Scenarios @("Devices", "DevicesEmpty", "Settings") "$path changed results, filtering, or table controls."
             }
             elseif ($path -match '^src/FingVibe.App/.+Page\.xaml$' -and

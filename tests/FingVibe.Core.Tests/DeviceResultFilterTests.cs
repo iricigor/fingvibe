@@ -76,4 +76,101 @@ public sealed class DeviceResultFilterTests
         Assert.False(new DeviceResultFilter(false, false, "", PersonId: Guid.NewGuid()).Matches(row));
         Assert.False(new DeviceResultFilter(false, false, "", UnassignedPersonOnly: true).Matches(row));
     }
+
+    [Theory]
+    [InlineData(HostStatus.Alive, DeviceType.Phone, true)]
+    [InlineData(HostStatus.Unreachable, DeviceType.Tablet, true)]
+    [InlineData(HostStatus.Alive, DeviceType.Computer, false)]
+    [InlineData(HostStatus.Unreachable, DeviceType.Router, false)]
+    public void MultiSelect_UsesOrWithinAndBetweenCategories(HostStatus status, DeviceType type, bool expected)
+    {
+        var row = Row(status, true);
+        row.SetClassificationOverride(new(DeviceOperatingSystem.Android, type));
+        var filter = new DeviceResultFilter(false, true, "router")
+        {
+            Statuses = new HashSet<InventoryDeviceStatus> { InventoryDeviceStatus.Online, InventoryDeviceStatus.Offline },
+            Types = new HashSet<DeviceType> { DeviceType.Phone, DeviceType.Tablet },
+            OperatingSystems = new HashSet<DeviceOperatingSystem> { DeviceOperatingSystem.Android, DeviceOperatingSystem.IOS }
+        };
+        Assert.Equal(expected, filter.Matches(row));
+        Assert.False((filter with { SearchText = "missing" }).Matches(row));
+        Assert.False((filter with { OperatingSystems = new HashSet<DeviceOperatingSystem> { DeviceOperatingSystem.Windows } }).Matches(row));
+        Assert.False(filter.Matches(Row(status, false)));
+    }
+
+    [Fact]
+    public void MultiSelect_UnknownAndUnassignedCanCombineWithConcreteValues()
+    {
+        var person = Guid.NewGuid();
+        var room = Guid.NewGuid();
+        var filter = new DeviceResultFilter(false, false, "")
+        {
+            Types = new HashSet<DeviceType> { DeviceType.Unknown, DeviceType.Phone },
+            OperatingSystems = new HashSet<DeviceOperatingSystem> { DeviceOperatingSystem.Unknown, DeviceOperatingSystem.Android },
+            People = new HashSet<Guid?> { null, person },
+            Rooms = new HashSet<Guid?> { null, room }
+        };
+        var row = Row(HostStatus.Alive, false);
+        Assert.True(filter.Matches(row));
+        row.SetClassificationOverride(new(DeviceOperatingSystem.Android, DeviceType.Phone));
+        row.SetPeopleRoomAssignments(person, "A", "Alex", room, "K", "Kitchen");
+        Assert.True(filter.Matches(row));
+        row.SetPeopleRoomAssignments(Guid.NewGuid(), "B", "Blair", room, "K", "Kitchen");
+        Assert.False(filter.Matches(row));
+        row.SetPeopleRoomAssignments(person, "A", "Alex", Guid.NewGuid(), "L", "Living room");
+        Assert.False(filter.Matches(row));
+    }
+
+    [Fact]
+    public void ClassificationAndVendorFilters_UseEffectiveImportedAndOverriddenValues()
+    {
+        var row = new ScanResultRow(new InventoryDevice("001122334455",
+            new ImportedDeviceMetadata(Type: "Phone", OperatingSystem: "Android", Brand: "Imported vendor"), []), 24);
+        var imported = new DeviceResultFilter(false, false, "")
+        {
+            Statuses = new HashSet<InventoryDeviceStatus> { InventoryDeviceStatus.FingOnly, InventoryDeviceStatus.Unknown },
+            Types = new HashSet<DeviceType> { DeviceType.Phone },
+            OperatingSystems = new HashSet<DeviceOperatingSystem> { DeviceOperatingSystem.Android },
+            Vendors = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "IMPORTED VENDOR", "Other vendor" }
+        };
+        Assert.True(imported.Matches(row));
+        row.SetClassificationOverride(new(DeviceOperatingSystem.IOS, DeviceType.Tablet, Brand: "Corrected vendor"));
+        Assert.False(imported.Matches(row));
+        Assert.True((imported with
+        {
+            Types = new HashSet<DeviceType> { DeviceType.Tablet },
+            OperatingSystems = new HashSet<DeviceOperatingSystem> { DeviceOperatingSystem.IOS },
+            Vendors = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "Corrected vendor" }
+        }).Matches(row));
+    }
+
+    [Fact]
+    public void EmptyCategories_AreUnrestrictedAndCountOnlyActiveSecondaryCategories()
+    {
+        var row = Row(HostStatus.Alive, true);
+        var unrestricted = new DeviceResultFilter(false, false, "");
+        Assert.True(unrestricted.Matches(row));
+        Assert.False(unrestricted.HasRestrictions);
+        Assert.Equal(0, unrestricted.ActiveSecondaryCategoryCount);
+        var primaryOnly = unrestricted with
+        {
+            SearchText = "router",
+            Statuses = new HashSet<InventoryDeviceStatus> { InventoryDeviceStatus.Online, InventoryDeviceStatus.Offline }
+        };
+        Assert.True(primaryOnly.HasRestrictions);
+        Assert.Equal(0, primaryOnly.ActiveSecondaryCategoryCount);
+        var all = primaryOnly with
+        {
+            Types = new HashSet<DeviceType> { DeviceType.Unknown, DeviceType.Phone },
+            OperatingSystems = new HashSet<DeviceOperatingSystem> { DeviceOperatingSystem.Unknown },
+            Vendors = new HashSet<string> { "Unknown" },
+            People = new HashSet<Guid?> { null },
+            Rooms = new HashSet<Guid?> { null },
+            OpenPortsOnly = true
+        };
+        Assert.True(all.Matches(row));
+        Assert.Equal(6, all.ActiveSecondaryCategoryCount);
+        Assert.False((all with { Statuses = new HashSet<InventoryDeviceStatus> { InventoryDeviceStatus.FingOnly } }).Matches(row));
+        Assert.True((all with { Statuses = new HashSet<InventoryDeviceStatus>() }).Matches(row));
+    }
 }

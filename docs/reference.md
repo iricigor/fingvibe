@@ -166,17 +166,42 @@ needs no new administrator rights.
 
 Devices shows the persistent inventory, including previously observed and imported-only devices. Unused addresses never become device records. The status filter distinguishes Online, Offline, Unknown, and Fing Only; retained observations without current scan evidence are Unknown, while last-seen information remains in details. The Devices title sits above the rounded inventory card, matching Network's page-title styling. Inside the card, inventory status totals lead; **Showing N devices** or **Showing N of M devices** has its own secondary line. Smaller scan duration sits alongside the totals at wide widths and below the counts at narrow widths. Freshness and scan/save errors live only in the shared shell header rather than being repeated in the inventory card.
 
-The quiet filter row groups **Search devices**, Status, Person, Room, and **With open ports**, without an extra tinted enclosure. Status keeps a modest one-DIP stronger neutral stroke, distinct from an applied filter's accented value and native keyboard focus. Filter dropdowns retain 4-DIP rounded corners. Search expands with the window and keeps at least 180 DIPs before wrapping; Status moves below search when necessary and the other controls wrap cleanly. Dropdown widths grow with Windows text scaling, constrained by available space. An unrestricted dropdown shows its category only; an active filter shows **Category | Value** with an accented value and a full-value tooltip. Each remains one native dropdown with standard keyboard selection; choosing its All option clears the restriction, while Unassigned is an active filter. Filtered counts show visible versus total devices.
+The primary filter row contains **Search devices**, multi-select **Status**, and
+a far-right funnel. The funnel reveals **Device type**, **Operating system**,
+**Vendor**, **Person**, **Room**, and **Ports** in a wrapping second row, initially
+collapsed. Hiding that row preserves its restrictions; the funnel displays the
+number of active secondary categories, excluding Status and search.
+
+Category dropdowns contain native checkboxes and stay open while selecting
+multiple values. Selections combine with OR inside a category and AND between
+categories and search; no selections means no restriction. Person/Room include
+**Unassigned**, and type/OS include **Unknown**, selectable alongside other values.
+Type/OS match the effective classification shown in the table, including saved
+corrections and mapped Fing metadata; Vendor choices come from the full inventory,
+not just filtered results. Ports currently contains only **With open ports**.
+Selected values are retained across inventory/assignment refreshes, even if a
+selected value temporarily has no matching devices.
+
+Status retains its one-DIP stronger neutral stroke and 210-DIP width; secondary
+controls are 180 DIPs wide. Dropdowns retain 4-DIP corners, truncate long selected
+summaries with full-value tooltips, and grow with Windows text scaling subject to
+available space. Search expands with the window and retains 180 DIPs before
+Status wraps beneath it; secondary categories wrap independently. Native
+checkboxes expose keyboard focus and checked states, and the funnel announces
+expanded/collapsed state and active-category count. Filtered counts show visible
+versus total devices.
 
 Settings groups the Devices table options inside one card: **Visible columns** contains the eleven independent visibility choices; a subtle theme-aware divider separates **Combined columns**, its explanatory text and five independent combination switches. Name and IP are marked **always shown**. Both groups wrap at narrow widths without changing saved preferences. **Name/Type**, **IP/MAC** and **Status/Response** are combined by default; **Person/Room** and **Vendor/OS** are separate by default. Turning off a combination restores standalone columns. When only one member is visible, it occupies a normal column; when neither is visible, the group is omitted. **Name** and **IP address** remain mandatory. Combined columns have one resize boundary, retain each applicable sort action, and remember their widths separately from standalone columns. Type appears beneath Name only when known; IP appears above the two-color monospaced MAC. Combined Person/Room shows muted person/home icons beside assigned values, omits unassigned lines, and shows one muted `-` when both are unassigned. Two assigned values stack without increasing row height; each line is horizontally centered and the complete group vertically centered. Its header also stacks Person above Room. Category/full-name tooltips and accessible labels distinguish the assignments. Separate columns retain their existing presentation. Combined Status/Response overlaps the two metrics' horizontal footprints: status at the upper left, right-aligned time at the upper right, and one shared full-width response bar beneath both, retaining the scan-wide latency scale.
 
-The four inventory status totals are keyboard-accessible filter chips. Selecting
-one applies the existing single Status filter and stays synchronized with its
-dropdown, retaining search, Person, Room and open-port restrictions. Counts always
-describe the full inventory, including when the combined filters match nothing.
-**With open ports** is a native toggle chip with distinct checked and focus states.
+The four inventory status totals are keyboard-accessible filter chips. Toggling
+one adds or removes that status without replacing other selections, staying
+synchronized with the Status checkboxes and retaining every other restriction.
+Counts always describe the full inventory, including zero-match results.
 **Clear filters** appears whenever search or any restriction is active (including
-Unassigned); it resets all five filters without changing sorting or device data.
+hidden categories and Unassigned); it resets search and every category without
+changing sorting, device data, or the second row's visibility. Overview shortcuts
+clear stale restrictions before showing Online devices or Online devices with
+open ports.
 
 Opt-in **Vendor + OS** places vendor above known OS in secondary text, retaining
 inference qualifiers, the OS source tooltip and header sort action. Unknown OS
@@ -198,7 +223,7 @@ but leaves density and hover-preview preferences unchanged.
 
 Standard rows have 6-DIP vertical padding, 13px primary names/latencies and a 20px far-left type icon within the existing row envelope. Smaller monospaced MAC addresses use contrasting prefix/suffix colors; muted metadata preserves name hierarchy. Missing metadata uses a muted dash; the meaningful Unknown device status is not replaced. The vendor label **Private MAC** means a locally administered address, not a proven randomized address or known manufacturer; its tooltip explains the limitation. Unassigned People/Rooms cannot display stale labels, while valid assigned digits and emoji are preserved. Green Online, neutral Offline/Unknown, and amber Fing Only badges pair text with a dot. Subtle theme-aware zebra stripes follow the displayed row order, with native hover, selection, and focus indicators taking precedence; decorative stripes are disabled in Windows high contrast. A 1px theme-aware line below the contrasting column headers separates them from the rows, using system colors in high contrast. The final visible column has no trailing divider suggesting an extra column; its resize handle remains available.
 
-The Person/Room filter controls are 140 DIPs wide; Status is 210 DIPs (1.5 times their width). Selected values truncate with a full-value tooltip. Filters wrap together at narrow widths. IPv4 MAC enrichment first checks Windows' neighbor table for the exact IP on the route-selected interface, accepting only valid unicast six-byte addresses in usable states. If absent, it attempts `SendARP` once and rechecks the table. It never substitutes a gateway MAC or an unrelated interface's neighbor; a ping response can still lack a resolvable MAC.
+IPv4 MAC enrichment first checks Windows' neighbor table for the exact IP on the route-selected interface, accepting only valid unicast six-byte addresses in usable states. If absent, it attempts `SendARP` once and rechecks the table. It never substitutes a gateway MAC or an unrelated interface's neighbor; a ping response can still lack a resolvable MAC.
 
 Starting a scan keeps the displayed list visible and scrollable but prevents opening device details by pointer or keyboard. Results are collected separately and replace the list only when the scan succeeds; cancellation or failure retains the displayed results and reports the outcome explicitly. Progress continues to count all checked addresses. Completed scans update inventory observations and same-network absence; this adds no event timeline or new discovery probes.
 

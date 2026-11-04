@@ -25,7 +25,7 @@ public sealed partial class MainWindow
 
     private void ShowOverviewDevices(bool openPortsOnly)
     {
-        DevicesPage.SearchText = string.Empty;
+        DevicesPage.ClearFilters();
         DevicesPage.OpenPortsOnly = openPortsOnly;
         DevicesPage.StatusFilter = InventoryDeviceStatus.Online;
         RefreshVisibleResults();

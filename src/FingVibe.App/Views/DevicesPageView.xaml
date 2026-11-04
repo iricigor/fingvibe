@@ -45,42 +45,12 @@
                 </ProgressBar>
             </Grid>
         </DataTemplate>
-        <DataTemplate x:Key="FilterOptionTemplate" x:DataType="views:DeviceFilterChoice">
-            <TextBlock Text="{x:Bind Label}" TextTrimming="CharacterEllipsis" />
-        </DataTemplate>
-        <DataTemplate x:Key="FilterSelectionTemplate" x:DataType="views:DeviceFilterChoice">
-            <Grid ColumnSpacing="8" ToolTipService.ToolTip="{x:Bind Label}">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="{x:Bind Category}" FontWeight="SemiBold" />
-                <Border Grid.Column="1" Width="1" Margin="0,2"
-                        Background="{ThemeResource ScannerCardBorderBrush}"
-                        Visibility="{x:Bind IsActive}" />
-                <TextBlock Grid.Column="2" Text="{x:Bind Label}" TextTrimming="CharacterEllipsis"
-                           FontWeight="SemiBold" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
-                           Visibility="{x:Bind IsActive}" />
-            </Grid>
-        </DataTemplate>
-        <views:DeviceFilterTemplateSelector x:Key="FilterTemplateSelector"
-                                           OptionTemplate="{StaticResource FilterOptionTemplate}"
-                                           SelectionTemplate="{StaticResource FilterSelectionTemplate}" />
-        <Style x:Key="FilterStyle" TargetType="ComboBox">
+        <Style x:Key="FilterStyle" TargetType="DropDownButton">
             <Setter Property="Width" Value="140" />
             <Setter Property="CornerRadius" Value="4" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="ItemTemplateSelector" Value="{StaticResource FilterTemplateSelector}" />
-            <Setter Property="ItemContainerStyle">
-                <Setter.Value>
-                    <Style TargetType="ComboBoxItem">
-                        <Setter Property="AutomationProperties.Name" Value="{Binding Label}" />
-                    </Style>
-                </Setter.Value>
-            </Setter>
         </Style>
-        <Style x:Key="StatusFilterStyle" TargetType="ComboBox" BasedOn="{StaticResource FilterStyle}">
+        <Style x:Key="StatusFilterStyle" TargetType="DropDownButton" BasedOn="{StaticResource FilterStyle}">
             <Setter Property="Width" Value="210" />
             <Setter Property="BorderBrush" Value="{ThemeResource ControlStrongStrokeColorDefaultBrush}" />
             <Setter Property="BorderThickness" Value="1" />
@@ -178,14 +148,27 @@
                                          PlaceholderText="Search devices"
                                          AutomationProperties.Name="Search devices"
                                          TextChanged="ResultSearchBox_TextChanged" />
-                                <ComboBox x:Name="InventoryStatusFilter" Grid.Column="1" Style="{StaticResource StatusFilterStyle}"
-                                          HorizontalAlignment="Left"
-                                          AutomationProperties.Name="Filter by device status"
-                                          SelectionChanged="InventoryStatusFilter_SelectionChanged" />
+                                <DropDownButton x:Name="InventoryStatusFilter" Grid.Column="1"
+                                                Style="{StaticResource StatusFilterStyle}"
+                                                AutomationProperties.AutomationId="InventoryStatusFilter" />
                             </Grid>
-                            <Grid x:Name="DeviceFilterOptions" Grid.Column="1" ColumnSpacing="8" RowSpacing="8"
+                            <ToggleButton x:Name="FilterExpander" Grid.Column="1" MinWidth="40" MinHeight="32"
+                                          VerticalAlignment="Top" CornerRadius="4"
+                                          AutomationProperties.Name="Show additional device filters"
+                                          ToolTipService.ToolTip="Show or hide additional device filters"
+                                          Checked="FilterExpander_Changed" Unchecked="FilterExpander_Changed">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE71C;" FontSize="16" />
+                                    <TextBlock x:Name="ActiveFilterCount" Visibility="Collapsed" />
+                                </StackPanel>
+                            </ToggleButton>
+                            <Grid x:Name="DeviceFilterOptions" Grid.Row="1" Grid.ColumnSpan="2"
+                                  ColumnSpacing="8" RowSpacing="8" Visibility="Collapsed"
                                   HorizontalAlignment="Left">
                                 <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="180" />
+                                    <ColumnDefinition Width="180" />
+                                    <ColumnDefinition Width="180" />
                                     <ColumnDefinition Width="140" />
                                     <ColumnDefinition Width="140" />
                                     <ColumnDefinition Width="180" />
@@ -193,20 +176,24 @@
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
                                 </Grid.RowDefinitions>
-                                <ComboBox x:Name="PersonFilter" Style="{StaticResource FilterStyle}" HorizontalAlignment="Left"
-                                          AutomationProperties.Name="Filter by person"
-                                          SelectionChanged="PeopleRoomFilter_SelectionChanged" />
-                                <ComboBox x:Name="RoomFilter" Grid.Column="1" Style="{StaticResource FilterStyle}" HorizontalAlignment="Left"
-                                          AutomationProperties.Name="Filter by room"
-                                          SelectionChanged="PeopleRoomFilter_SelectionChanged" />
-                                <Border x:Name="OpenPortsFilterContainer" Grid.Column="2" Width="180">
-                                    <ToggleButton x:Name="OpenPortsFilter" MinHeight="32" Padding="10,4" CornerRadius="4"
-                                                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                                  AutomationProperties.Name="With open ports"
-                                                  Checked="OpenPortsFilter_Changed" Unchecked="OpenPortsFilter_Changed">
-                                        <TextBlock Text="With open ports" TextWrapping="Wrap" />
-                                    </ToggleButton>
-                                </Border>
+                                <DropDownButton x:Name="TypeFilter" Style="{StaticResource FilterStyle}" />
+                                <DropDownButton x:Name="OperatingSystemFilter" Grid.Column="1" Style="{StaticResource FilterStyle}" />
+                                <DropDownButton x:Name="VendorFilter" Grid.Column="2" Style="{StaticResource FilterStyle}" />
+                                <DropDownButton x:Name="PersonFilter" Grid.Column="3" Style="{StaticResource FilterStyle}" />
+                                <DropDownButton x:Name="RoomFilter" Grid.Column="4" Style="{StaticResource FilterStyle}" />
+                                <DropDownButton x:Name="PortsFilter" Grid.Column="5" Style="{StaticResource FilterStyle}">
+                                    <DropDownButton.Flyout>
+                                        <Flyout>
+                                            <StackPanel x:Name="PortsFilterChoices"
+                                                        AutomationProperties.Name="Ports choices"
+                                                        AutomationProperties.AccessibilityView="Content">
+                                                <CheckBox x:Name="OpenPortsFilter" Content="With open ports"
+                                                          AutomationProperties.Name="With open ports"
+                                                          Checked="OpenPortsFilter_Changed" Unchecked="OpenPortsFilter_Changed" />
+                                            </StackPanel>
+                                        </Flyout>
+                                    </DropDownButton.Flyout>
+                                </DropDownButton>
                             </Grid>
                         </Grid>
                     </Border>

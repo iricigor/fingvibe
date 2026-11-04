@@ -58,9 +58,11 @@ public sealed partial class MainWindow
         }
 
         var selectedResult = DevicesPage.SelectedResult;
+        DevicesPage.SetVendorFilters(_allResults.Select(row => row.VendorText));
+        var filter = DevicesPage.CreateFilter();
         foreach (var row in _allResults) row.SetSelectedNetwork(NetworkPicker.SelectedItem as LanNetwork);
         var sortedResults = _allResults
-            .Where(ShouldShow)
+            .Where(filter.Matches)
             .ToList();
         sortedResults.Sort(CompareResults);
 
@@ -103,17 +105,6 @@ public sealed partial class MainWindow
             row.UpdateLatencyRange(minimum, maximum);
         }
     }
-
-    private bool ShouldShow(ScanResultRow row) =>
-        new DeviceResultFilter(
-            false,
-            DevicesPage.OpenPortsOnly,
-            DevicesPage.SearchText,
-            DevicesPage.PersonChoice?.Id,
-            DevicesPage.RoomChoice?.Id,
-            DevicesPage.PersonChoice?.Unassigned == true,
-            DevicesPage.RoomChoice?.Unassigned == true,
-            DevicesPage.StatusFilter).Matches(row);
 
     private int CompareResults(ScanResultRow leftRow, ScanResultRow rightRow)
     {
