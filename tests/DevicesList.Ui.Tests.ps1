@@ -412,12 +412,12 @@ function Test-CellPreviews {
     $search.SetValue("")
     Start-Sleep -Milliseconds 150
     $row = @(Get-DeviceRows)[0]
-    if ($row.Current.HelpText -notlike "*IP address: 192.0.2.1*") {
+    if ($row.Current.HelpText -notlike "*IP address: 127.0.0.1*") {
         throw "Keyboard-focused rows must expose full-value accessible help."
     }
     $vendor = Get-VisibleDeviceChild $row Name $vendorValue
     $null = Assert-CellPreview $vendor $vendorValue "devices-full-vendor-preview"
-    foreach ($value in @("192.0.2.1", "00-11-22-33-44-01")) {
+    foreach ($value in @("127.0.0.1", "00-11-22-33-44-01")) {
         $cell = Get-VisibleDeviceChild $row Name $value
         Move-ToDeviceElement (Find-DeviceElement DevicesHeading)
         Move-ToDeviceElement $cell
@@ -579,7 +579,7 @@ function Test-MergeOptions {
         }
         Select-DevicePage DevicesNavItem
         $row = @(Get-DeviceRows)[0]
-        $ip = Get-VisibleDeviceChild $row Name "192.0.2.1"
+        $ip = Get-VisibleDeviceChild $row Name "127.0.0.1"
         $mac = Get-VisibleDeviceChild $row Name "00-11-22-33-44-01"
         if (-not $ip -or -not $mac) { throw "IP and MAC must both remain accessible." }
         $stacked = $mac.Current.BoundingRectangle.Top -ge $ip.Current.BoundingRectangle.Bottom
@@ -593,6 +593,10 @@ function Test-MergeOptions {
         $os = Get-VisibleDeviceChild $row AutomationId MergedOperatingSystemText
         if ([bool]$os -ne $merged) { throw "Vendor/OS merge setting was not applied." }
         if ($os -and $os.Current.Name -ne "Android (likely)") { throw "Merged OS must preserve inference qualifiers." }
+        if ($merged) {
+            $unknownOs = Get-VisibleDeviceChild (@(Get-DeviceRows)[1]) AutomationId MergedOperatingSystemText
+            if ($unknownOs -and $unknownOs.Current.Name) { throw "Unknown merged OS must remain blank, not a dash." }
+        }
         $osGrip = Get-VisibleDeviceChild $root Name "Resize OS column"
         if ([bool]$osGrip -eq $merged) { throw "Merged OS must not allocate a standalone column." }
         $null = Save-DeviceCapture "devices-all-merges-$merged"
@@ -694,6 +698,9 @@ function Test-RowDensity {
             if ($density -eq "Standard" -and $height -lt 44) { throw "Standard minimum height changed." }
         }
         $selected = $rows[0].GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
+        if ($density -eq "Compact" -and -not $selected.Current.IsSelected) {
+            throw "Changing density must preserve the selected device."
+        }
         $selected.Select()
         $null = Save-DeviceCapture "devices-density-$density"
     }
@@ -790,7 +797,7 @@ try {
     $fixture = Join-Path (Resolve-Path -LiteralPath $ScreenshotDirectory).Path "devices-fixture-$([Guid]::NewGuid().ToString('N')).json"
     $results = @(
         @{
-            address = "192.0.2.1"; status = 0; roundtripTimeMilliseconds = 12
+            address = "127.0.0.1"; status = 0; roundtripTimeMilliseconds = 12
             probeDuration = "00:00:00.002"; deviceName = "Fixture device 01"
             macAddress = "001122334401"
             vendorName = "Example Devices with a deliberately long manufacturer name for hover inspection"
@@ -798,30 +805,30 @@ try {
             openPorts = @(@{ port = 443; serviceName = "HTTPS" })
         },
         @{
-            address = "192.0.2.2"; status = 0; roundtripTimeMilliseconds = 24
+            address = "127.0.0.2"; status = 0; roundtripTimeMilliseconds = 24
             probeDuration = "00:00:00.002"; deviceName = "Kitchen display"
             macAddress = "001122334402"; vendorName = "Example Devices"
             openPorts = @(@{ port = 8009; serviceName = "Cast" })
         },
         @{
-            address = "192.0.2.3"; status = 0; roundtripTimeMilliseconds = 36
+            address = "127.0.0.3"; status = 0; roundtripTimeMilliseconds = 36
             probeDuration = "00:00:00.002"; deviceName = $null
             macAddress = "001122334403"; vendorName = "Unknown"; openPorts = @()
         },
         @{
-            address = "192.0.2.4"; status = 0; roundtripTimeMilliseconds = 48
+            address = "127.0.0.4"; status = 0; roundtripTimeMilliseconds = 48
             probeDuration = "00:00:00.002"; deviceName = $null
             macAddress = "001122334404"; vendorName = "Unknown"; openPorts = @()
         },
         @{
-            address = "192.0.2.5"; status = 0; roundtripTimeMilliseconds = 60
+            address = "127.0.0.5"; status = 0; roundtripTimeMilliseconds = 60
             probeDuration = "00:00:00.002"; deviceName = $null
             macAddress = "001122334405"; vendorName = "Private"; openPorts = @()
         }
     )
     $results += @(6..80 | ForEach-Object {
         $device = @{
-            address = "192.0.2.$_"; status = 0; roundtripTimeMilliseconds = $_ * 2
+            address = "127.0.0.$_"; status = 0; roundtripTimeMilliseconds = $_ * 2
             probeDuration = "00:00:00.002"; deviceName = "Fixture device $('{0:D2}' -f $_)"
             macAddress = "0011223344$('{0:X2}' -f $_)"
             vendorName = "Fixture vendor"; openPorts = @()
@@ -829,7 +836,7 @@ try {
         if ($_ % 2 -eq 0) { $device.openPorts = @(@{ port = 443; serviceName = "HTTPS" }) }
         $device
     })
-    @{ version = 3; subnet = "192.0.2.0/24"; completedAt = [DateTimeOffset]::UtcNow.ToString("O")
+    @{ version = 3; subnet = "127.0.0.0/24"; completedAt = [DateTimeOffset]::UtcNow.ToString("O")
        duration = "00:00:02.500"; results = $results } |
         ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $fixture -Encoding UTF8
     $env:FINGVIBE_UI_REVIEW = "1"
@@ -890,6 +897,12 @@ try {
                 [System.Windows.Automation.AutomationElement]::NameProperty, "Private 00-11-22"))) {
         throw "The screenshot fixture must include a virtual device."
     }
+    $virtualRow = @(Get-DeviceRows)[4]
+    if ($virtualRow.Current.HelpText -notlike "*Virtual device - inferred identity across changing MAC addresses.*" -or
+        -not (Get-VisibleDeviceChild $virtualRow AutomationId VirtualIdentityBadge) -or
+        (Get-VisibleDeviceChild (@(Get-DeviceRows)[0]) AutomationId VirtualIdentityBadge)) {
+        throw "Only inferred virtual identities must have the accessible stacked-device marker."
+    }
     Assert-FilterPresentation InventoryStatusFilter Status
     Assert-FilterPresentation PersonFilter Person
     Assert-FilterPresentation RoomFilter Room
@@ -925,6 +938,14 @@ try {
     foreach ($width in @(1360, 1280, 1200, 1000, 640, 480)) {
         Set-DeviceWidth $width
         if ($width -ge 640) { $null = Save-DeviceCapture "devices-width-$width" }
+        $chipBounds = @("OnlineChip", "OfflineChip", "UnknownChip", "FingOnlyChip") |
+            ForEach-Object { (Find-DeviceElement $_).Current.BoundingRectangle }
+        foreach ($bounds in $chipBounds) {
+            if ($bounds.Left -lt $root.Current.BoundingRectangle.Left -or
+                $bounds.Right -gt $root.Current.BoundingRectangle.Right) {
+                throw "Summary chips must wrap inside the viewport at $width."
+            }
+        }
         $filters = @("ResultSearchBox", "InventoryStatusFilter", "PersonFilter", "RoomFilter", "OpenPortsFilter") |
             ForEach-Object { Find-DeviceElement $_ }
         $widths[$width] = $filters[0].Current.BoundingRectangle.Width

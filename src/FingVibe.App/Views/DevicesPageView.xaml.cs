@@ -200,8 +200,19 @@ public sealed partial class DevicesPageView : UserControl
     {
         var columns = Math.Clamp((int)((e.NewSize.Width + 8) / (140 * _uiSettings.TextScaleFactor + 8)), 1, 4);
         ToggleButton[] chips = [OnlineChip, OfflineChip, UnknownChip, FingOnlyChip];
-        for (var index = 0; index < InventoryCountsText.ColumnDefinitions.Count; index++)
-            InventoryCountsText.ColumnDefinitions[index].Width = new GridLength(index < columns ? 1 : 0, GridUnitType.Star);
+        var rows = (chips.Length + columns - 1) / columns;
+        if (InventoryCountsText.RowDefinitions.Count != rows)
+        {
+            InventoryCountsText.RowDefinitions.Clear();
+            for (var row = 0; row < rows; row++)
+                InventoryCountsText.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        }
+        if (InventoryCountsText.ColumnDefinitions.Count != columns)
+        {
+            InventoryCountsText.ColumnDefinitions.Clear();
+            for (var column = 0; column < columns; column++)
+                InventoryCountsText.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        }
         for (var index = 0; index < chips.Length; index++)
         {
             Grid.SetRow(chips[index], index / columns);

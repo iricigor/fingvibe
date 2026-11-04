@@ -132,9 +132,6 @@
                             </Grid.ColumnDefinitions>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
                             <ToggleButton x:Name="OnlineChip" Tag="1" Click="StatusChip_Click" HorizontalAlignment="Stretch">
                                 <TextBlock x:Name="OnlineCountText" Text="0 Online" TextWrapping="Wrap" />
