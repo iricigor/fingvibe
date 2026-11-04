@@ -203,6 +203,8 @@ function Get-VisibleDeviceChild($Parent, [string] $Property, [string] $Value) {
 function Move-ToDeviceElement($Element) {
     $b = $Element.Current.BoundingRectangle
     [DevicesReviewInput]::MoveTo([int]($b.Left + $b.Width / 2), [int]($b.Top + $b.Height / 2))
+    # Let the desktop process intermediate moves instead of coalescing an exit and re-entry.
+    Start-Sleep -Milliseconds 75
 }
 
 function Assert-NoCellPreview {
@@ -213,6 +215,7 @@ function Assert-NoCellPreview {
 
 function Assert-CellPreview($Cell, [string] $Value, [string] $Capture) {
     Write-Host "Checking full-value preview '$Value' at $($Cell.Current.BoundingRectangle)."
+    Move-ToDeviceElement (Find-DeviceElement DevicesHeading)
     Move-ToDeviceElement $Cell
     Start-Sleep -Milliseconds 750
     $preview = Find-DeviceElement CellPreviewText
@@ -288,6 +291,7 @@ function Test-CellPreviews {
     $toggle.Toggle()
     Select-DevicePage DevicesNavItem
     $name = Get-VisibleDeviceChild (@(Get-DeviceRows)[0]) AutomationId DeviceNameText
+    Move-ToDeviceElement (Find-DeviceElement DevicesHeading)
     Move-ToDeviceElement $name
     Start-Sleep -Milliseconds 800
     Assert-NoCellPreview
