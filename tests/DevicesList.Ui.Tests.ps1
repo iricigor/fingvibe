@@ -654,8 +654,11 @@ function Test-FilterChips {
     foreach ($case in @(@("OnlineChip", "Online", "1"), @("OfflineChip", "Offline", "0"),
         @("UnknownChip", "Unknown", "0"), @("FingOnlyChip", "Fing Only", "0"))) {
         $chip = Find-DeviceElement $case[0]
-        $chip.SetFocus()
-        [DevicesReviewInput]::Tap(0x20)
+        if ($case[0] -in @("OnlineChip", "OfflineChip")) {
+            $chip.SetFocus()
+            [DevicesReviewInput]::Tap(0x20)
+        }
+        else { $chip.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle() }
         Start-Sleep -Milliseconds 200
         $selection = (Find-DeviceElement InventoryStatusFilter).GetCurrentPattern(
             [System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()

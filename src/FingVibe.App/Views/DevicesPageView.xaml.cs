@@ -11,6 +11,7 @@ public sealed partial class DevicesPageView : UserControl
 {
     private readonly Windows.UI.ViewManagement.UISettings _uiSettings = new();
     private bool _updatingFilters;
+    private bool _updatingStatusChips;
 
     public DevicesPageView()
     {
@@ -275,18 +276,24 @@ public sealed partial class DevicesPageView : UserControl
     private void OnFiltersChanged()
     {
         if (_updatingFilters) return;
-        OnlineChip.IsChecked = InventoryStatusFilter.SelectedIndex == 1;
-        OfflineChip.IsChecked = InventoryStatusFilter.SelectedIndex == 2;
-        FingOnlyChip.IsChecked = InventoryStatusFilter.SelectedIndex == 3;
-        UnknownChip.IsChecked = InventoryStatusFilter.SelectedIndex == 4;
+        _updatingStatusChips = true;
+        try
+        {
+            OnlineChip.IsChecked = InventoryStatusFilter.SelectedIndex == 1;
+            OfflineChip.IsChecked = InventoryStatusFilter.SelectedIndex == 2;
+            FingOnlyChip.IsChecked = InventoryStatusFilter.SelectedIndex == 3;
+            UnknownChip.IsChecked = InventoryStatusFilter.SelectedIndex == 4;
+        }
+        finally { _updatingStatusChips = false; }
         ClearFiltersLink.Visibility = !string.IsNullOrEmpty(SearchText) || StatusFilter is not null
             || PersonChoice is { All: false } || RoomChoice is { All: false } || OpenPortsOnly
                 ? Visibility.Visible : Visibility.Collapsed;
         FiltersChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    private void StatusChip_Click(object sender, RoutedEventArgs e)
+    private void StatusChip_Changed(object sender, RoutedEventArgs e)
     {
+        if (_updatingStatusChips) return;
         if (sender is ToggleButton { Tag: string index })
         {
             var selectedIndex = int.Parse(index, System.Globalization.CultureInfo.InvariantCulture);

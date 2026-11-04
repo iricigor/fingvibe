@@ -133,16 +133,16 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-                            <ToggleButton x:Name="OnlineChip" Tag="1" Click="StatusChip_Click" HorizontalAlignment="Stretch">
+                            <ToggleButton x:Name="OnlineChip" Tag="1" Checked="StatusChip_Changed" Unchecked="StatusChip_Changed" HorizontalAlignment="Stretch">
                                 <TextBlock x:Name="OnlineCountText" Text="0 Online" TextWrapping="Wrap" />
                             </ToggleButton>
-                            <ToggleButton x:Name="OfflineChip" Grid.Column="1" Tag="2" Click="StatusChip_Click" HorizontalAlignment="Stretch">
+                            <ToggleButton x:Name="OfflineChip" Grid.Column="1" Tag="2" Checked="StatusChip_Changed" Unchecked="StatusChip_Changed" HorizontalAlignment="Stretch">
                                 <TextBlock x:Name="OfflineCountText" Text="0 Offline" TextWrapping="Wrap" />
                             </ToggleButton>
-                            <ToggleButton x:Name="UnknownChip" Grid.Column="2" Tag="4" Click="StatusChip_Click" HorizontalAlignment="Stretch">
+                            <ToggleButton x:Name="UnknownChip" Grid.Column="2" Tag="4" Checked="StatusChip_Changed" Unchecked="StatusChip_Changed" HorizontalAlignment="Stretch">
                                 <TextBlock x:Name="UnknownCountText" Text="0 Unknown" TextWrapping="Wrap" />
                             </ToggleButton>
-                            <ToggleButton x:Name="FingOnlyChip" Grid.Column="3" Tag="3" Click="StatusChip_Click" HorizontalAlignment="Stretch">
+                            <ToggleButton x:Name="FingOnlyChip" Grid.Column="3" Tag="3" Checked="StatusChip_Changed" Unchecked="StatusChip_Changed" HorizontalAlignment="Stretch">
                                 <TextBlock x:Name="FingOnlyCountText" Text="0 Fing Only" TextWrapping="Wrap" />
                             </ToggleButton>
                         </Grid>
