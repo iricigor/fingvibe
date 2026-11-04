@@ -341,6 +341,10 @@ function Test-CellPreviews {
     Move-ToDeviceElement (Find-DeviceElement DevicesHeading)
     Set-DeviceWidth 480
     $name = Get-VisibleDeviceChild (@(Get-DeviceRows)[0]) AutomationId DeviceNameText
+    $null = Assert-CellPreview $name "Fixture device 01" ""
+    Move-ToDeviceElement (Find-DeviceElement DevicesHeading)
+    Set-DeviceWidth 640
+    $name = Get-VisibleDeviceChild (@(Get-DeviceRows)[0]) AutomationId DeviceNameText
     $null = Assert-CellPreview $name "Fixture device 01" "devices-narrow-preview"
     Move-ToDeviceElement (Find-DeviceElement DevicesHeading)
     Set-DeviceWidth 1280
@@ -926,7 +930,11 @@ catch {
     Write-Host $_
     Write-Host $_.ScriptStackTrace
     if ($windowHandle -and $process -and -not $process.HasExited) {
-        $null = Save-DeviceCapture "devices-failure" -KeepPointer
+        $failureBounds = Get-UiReviewWindowBounds $windowHandle
+        if ($failureBounds.Width -ge 640 -and $failureBounds.Height -ge 480) {
+            $null = Save-DeviceCapture "devices-failure" -KeepPointer
+        }
+        else { Write-Host "Failure window $failureBounds is below the screenshot helper's minimum; retaining its automation tree." }
         $root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
             [System.Windows.Automation.Condition]::TrueCondition) | ForEach-Object {
                 "$($_.Current.AutomationId) | $($_.Current.Name) | offscreen=$($_.Current.IsOffscreen) | $($_.Current.BoundingRectangle)"
