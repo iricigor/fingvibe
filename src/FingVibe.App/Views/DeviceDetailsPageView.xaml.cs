@@ -127,6 +127,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
                 var panel = new Grid { ColumnSpacing = 8 };
                 panel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 panel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                panel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 var icon = new FontIcon
                 {
                     Glyph = PortServiceIcons.Glyph(port), FontFamily = new FontFamily("Segoe Fluent Icons"),
@@ -135,18 +136,21 @@ public sealed partial class DeviceDetailsPageView : UserControl
                 AutomationProperties.SetName(icon, port.AccessibleLabel);
                 ToolTipService.SetToolTip(icon, port.AccessibleLabel);
                 panel.Children.Add(icon);
-                var content = new StackPanel { Spacing = 4 };
-                content.Children.Add(new DeviceDetailValue { Label = port.AccessibleLabel, Value = endpoint.Value });
+                var content = new DeviceDetailValue { Label = port.AccessibleLabel, Value = endpoint.Value };
+                Grid.SetColumn(content, 1);
+                panel.Children.Add(content);
                 if (endpoint.HasBrowserAction)
                 {
-                    var browser = new Button { Content = endpoint.BrowserLabel, Tag = port };
+                    var browser = new Button
+                    {
+                        Content = endpoint.BrowserLabel, Tag = port, VerticalAlignment = VerticalAlignment.Center
+                    };
                     AutomationProperties.SetName(browser, $"{endpoint.BrowserLabel}: {endpoint.Value}");
                     ToolTipService.SetToolTip(browser, endpoint.BrowserUri!.AbsoluteUri);
                     browser.Click += Browser_Click;
-                    content.Children.Add(browser);
+                    Grid.SetColumn(browser, 2);
+                    panel.Children.Add(browser);
                 }
-                Grid.SetColumn(content, 1);
-                panel.Children.Add(content);
                 DevicePortsList.Children.Add(panel);
             }
         }
@@ -164,14 +168,17 @@ public sealed partial class DeviceDetailsPageView : UserControl
         }
         try
         {
-            DeviceBrowserStatusText.Text = await Launcher.LaunchUriAsync(uri)
+            var launched = await Launcher.LaunchUriAsync(uri);
+            if (!ReferenceEquals(_row, row)) return;
+            DeviceBrowserStatusText.Text = launched
                 ? $"Opened {uri.AbsoluteUri} in your browser."
                 : $"Could not open {uri.AbsoluteUri}. Check your default browser.";
         }
         catch (Exception exception) when (exception is System.Runtime.InteropServices.COMException
             or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
         {
-            DeviceBrowserStatusText.Text = $"Could not open {uri.AbsoluteUri}: {exception.Message}";
+            if (ReferenceEquals(_row, row))
+                DeviceBrowserStatusText.Text = $"Could not open {uri.AbsoluteUri}: {exception.Message}";
         }
     }
 

@@ -172,13 +172,13 @@ function Show-ServiceScanSection([int] $ExtraSpace = 0) {
         $top = [Math]::Max($area.Top, $window.Top + 190 * $scale)
         $bottom = [Math]::Min($area.Bottom, $window.Bottom - 8 * $scale)
         $button = (Find-ServiceControl DevicePortScanButton).Current.BoundingRectangle
-        $heading = (Find-ServiceControl "UDP observations (silence is not an open or closed port)" -ByName).Current.BoundingRectangle
+        $heading = (Find-ServiceControl DeviceIncludeUdpCheckBox).Current.BoundingRectangle
         if ($button.Width -gt 0 -and $heading.Width -gt 0 -and
             $button.Top -ge $top + 8 * $scale -and $heading.Bottom -le $bottom - (110 + $ExtraSpace) * $scale) {
             return
         }
     }
-    throw "The scan section could not fit the physical viewport: window=$window, scroll=$area, button=$button, observations=$heading."
+    throw "The scan controls could not fit the physical viewport: window=$window, scroll=$area, button=$button, UDP option=$heading."
 }
 
 function Save-ServiceEvidence([string] $Name, [switch] $DevicesList) {
@@ -201,7 +201,7 @@ function Test-DeviceDetailsEditing {
     $copy = Find-ServiceControl "Copy IP address" -ByName
     $copy.SetFocus()
     Write-Host "Copy focus: $([System.Windows.Automation.AutomationElement]::FocusedElement.Current.Name); bounds: $($copy.Current.BoundingRectangle)."
-    Wait-ServiceState { -not $copy.Current.IsOffscreen } "keyboard-accessible copy action"
+    Wait-ServiceState { -not $copy.Current.IsOffscreen -and $copy.Current.BoundingRectangle.Width -ge 30 } "keyboard-accessible copy action"
     $before = $copy.Current.BoundingRectangle
     [System.Windows.Forms.SendKeys]::SendWait(" ")
     Wait-ServiceState { [System.Windows.Forms.Clipboard]::GetText() -eq "127.0.0.1" } "value-only clipboard contents"
@@ -229,6 +229,7 @@ function Test-DeviceDetailsEditing {
     Wait-ServiceState { (Find-ServiceControl "Edit device identification" -ByName).Current.IsEnabled } "identification save"
     $modelCopy = Find-ServiceControl "Copy Model" -ByName
     $modelCopy.SetFocus()
+    Wait-ServiceState { -not $modelCopy.Current.IsOffscreen -and $modelCopy.Current.BoundingRectangle.Width -ge 30 } "saved metadata copy focus"
     [System.Windows.Forms.SendKeys]::SendWait(" ")
     Wait-ServiceState { [System.Windows.Forms.Clipboard]::GetText() -eq "Synthetic Model" } "saved metadata copy"
     [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
@@ -259,12 +260,6 @@ function Test-DeviceDetailsEditing {
         if ($scroll.Current.HorizontallyScrollable) { throw "Narrow details require horizontal scrolling." }
         Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-identification-narrow.png")
         Invoke-ServiceControl Cancel
-    }
-    catch {
-        if ($process -and -not $process.HasExited -and $process.MainWindowHandle -ne 0) {
-            Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "services-failure.png")
-        }
-        throw
     }
     finally {
         $null = [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero,
@@ -367,6 +362,10 @@ try {
         Save-ServiceEvidence "services-list-$theme" -DevicesList
         Open-ServiceDetails
         Save-ServiceEvidence "services-details-$theme"
+        $endpointCopy = Find-ServiceControl "Copy 1883/TCP - MQTT" -ByName
+        $endpointCopy.SetFocus()
+        Wait-ServiceState { -not $endpointCopy.Current.IsOffscreen -and $endpointCopy.Current.BoundingRectangle.Width -ge 30 } "endpoint capture focus"
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "services-endpoints-$theme.png")
         (Find-ServiceControl "Edit device identification" -ByName).SetFocus()
         Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-identification-$theme.png")
     }
@@ -380,6 +379,12 @@ try {
     $null = $process.CloseMainWindow()
     if (-not $process.WaitForExit(5000)) { throw "Closing the window did not cancel and drain the additional scan." }
     Write-Host "Additional services native UI checks passed using loopback-only synthetic responders."
+}
+catch {
+    if ($process -and -not $process.HasExited -and $process.MainWindowHandle -ne 0) {
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "services-failure.png")
+    }
+    throw
 }
 finally {
     try {

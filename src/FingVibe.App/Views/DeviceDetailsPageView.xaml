@@ -127,11 +127,11 @@
                             </Grid>
                             <TextBlock Text="Blank brand, family or model uses the original/default value. Saving does not change imported Fing evidence."
                                        TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <Grid x:Name="IdentificationActions" ColumnSpacing="8" RowSpacing="8" SizeChanged="Fields_SizeChanged">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button x:Name="DeviceClassificationSaveButton" Content="Save changes"
                                         Click="DeviceClassificationSaveButton_Click" />
                                 <Button x:Name="DeviceClassificationCancelButton" Content="Cancel" Click="ClassificationCancel_Click" />
-                            </Grid>
+                            </StackPanel>
                             <Button x:Name="DeviceClassificationResetButton" Content="Reset saved identification"
                                     Click="DeviceClassificationResetButton_Click"
                                     ToolTipService.ToolTip="Clear all six saved identification overrides. Names, assignments and original Fing data are unchanged." />
