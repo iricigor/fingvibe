@@ -115,7 +115,7 @@ public sealed partial class MainWindow
                 PresentScanProgress(new ScanProgress(0, total), retainedResults);
             }
             var networkId = GetScanNetworkIdentity(network);
-            var summary = await _scanner.ScanAsync(
+            await _scanner.ScanAsync(
                 network,
                 resultProgress,
                 scanProgress,
@@ -128,12 +128,11 @@ public sealed partial class MainWindow
             }
 
             stopwatch.Stop();
-            _scanMessage =
-                $"Complete in {stopwatch.Elapsed.TotalSeconds:N1}s - {summary.Alive:N0} responding {(summary.Alive == 1 ? "address" : "addresses")}";
 
             var results = resultProgress.Results.Select(result => IsUiReview && System.Net.IPAddress.IsLoopback(result.Address)
                 ? result with { MacAddress = System.Net.NetworkInformation.PhysicalAddress.Parse("020000000001") } : result).ToArray();
             await SaveCompletedScanAsync(network, results, networkId, stopwatch.Elapsed);
+            _scanMessage = null;
         }
         catch (OperationCanceledException)
         {
