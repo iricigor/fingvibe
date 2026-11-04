@@ -52,7 +52,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <Border x:Name="NetworkOverviewCard" Style="{StaticResource ScannerSummaryCardStyle}" VerticalAlignment="Top">
+                <Border x:Name="NetworkOverviewCard" Style="{StaticResource ScannerSummaryCardStyle}" VerticalAlignment="Stretch">
                     <StackPanel Spacing="12">
                         <TextBlock Text="Network overview" FontSize="18" FontWeight="SemiBold" />
                         <Grid x:Name="OverviewFields" ColumnSpacing="16" RowSpacing="12" SizeChanged="Fields_SizeChanged">
@@ -70,18 +70,24 @@
                                   Visibility="Collapsed" SelectionChanged="DeviceAddressPicker_SelectionChanged" />
                     </StackPanel>
                 </Border>
-                <Border x:Name="AssignmentsCard" Grid.Column="1" Style="{StaticResource ScannerSummaryCardStyle}" VerticalAlignment="Top">
-                    <StackPanel Spacing="8">
+                <Border x:Name="AssignmentsCard" Grid.Column="1" Style="{StaticResource ScannerSummaryCardStyle}" VerticalAlignment="Stretch">
+                    <Grid RowSpacing="8">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
                         <TextBlock Text="Assignments" FontSize="18" FontWeight="SemiBold" />
-                        <Grid x:Name="AssignmentFields" ColumnSpacing="12" RowSpacing="12" SizeChanged="Fields_SizeChanged">
+                        <Grid x:Name="AssignmentFields" Grid.Row="1" ColumnSpacing="12" RowSpacing="12" SizeChanged="Fields_SizeChanged">
                             <ComboBox x:Name="DevicePersonPicker" Header="Person" HorizontalAlignment="Stretch"
                                       AutomationProperties.Name="Person" SelectionChanged="DevicePersonPicker_SelectionChanged" />
                             <ComboBox x:Name="DeviceRoomPicker" Header="Room" HorizontalAlignment="Stretch"
                                       AutomationProperties.Name="Room" SelectionChanged="DeviceRoomPicker_SelectionChanged" />
                         </Grid>
-                        <TextBlock x:Name="DeviceAssignmentStatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
+                        <TextBlock x:Name="DeviceAssignmentStatusText" Grid.Row="2" VerticalAlignment="Bottom"
+                                   TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    </StackPanel>
+                    </Grid>
                 </Border>
             </Grid>
             <Border x:Name="IdentificationCard" Style="{StaticResource ScannerSummaryCardStyle}"

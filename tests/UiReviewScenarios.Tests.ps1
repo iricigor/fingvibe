@@ -340,6 +340,16 @@ try {
             $identification.NextSibling -ne $ports) {
             throw "Details must put network/assignments in the top row, then full-width identification and ports."
         }
+        $assignmentLayout = $assignments.FirstChild
+        $assignmentNote = $details.SelectSingleNode("//*[@*[local-name()='Name']='DeviceAssignmentStatusText']")
+        if ($overview.GetAttribute("VerticalAlignment") -ne "Stretch" -or
+            $assignments.GetAttribute("VerticalAlignment") -ne "Stretch" -or
+            $assignmentLayout.LocalName -ne "Grid" -or
+            $assignmentLayout.FirstChild.LastChild.GetAttribute("Height") -ne "*" -or
+            $assignmentNote.GetAttribute("Grid.Row") -ne "2" -or
+            $assignmentNote.GetAttribute("VerticalAlignment") -ne "Bottom") {
+            throw "Top-row cards must share their height, with the assignments note anchored at the bottom."
+        }
         $valueCode = Get-Content (Join-Path $appDirectory "Views\DeviceDetailValue.cs") -Raw
         if ($valueCode -notmatch 'HyperlinkButton _browser' -or
             $valueCode -notmatch '_valueRow.Children.Add\(_copy\)' -or

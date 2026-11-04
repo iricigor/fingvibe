@@ -73,7 +73,8 @@ still checks only its original 10 TCP ports. The additional scan uses at most
 16 simultaneous connections with 400 ms per-connection deadlines.
 
 Device details places **Network overview** at the top left and **Assignments**
-at the top right (roughly 60/40), stacking them in narrow windows. A full-width,
+at the top right (roughly 60/40), with aligned bottom edges and the assignments
+explanation anchored at the bottom. They stack at natural height in narrow windows. A full-width,
 read-first **Device identification** card follows, then **Ports & services**.
 Identification uses up to three field columns, and endpoints use up to two
 columns, reducing to one as width and text scaling require. **Rename** in the

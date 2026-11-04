@@ -241,6 +241,15 @@ function Test-DeviceDetailsEditing {
     if ([Math]::Abs($network.Top - $assignment.Top) -gt 3 -or $assignment.Left -le $network.Left + 300) {
         throw "Network overview and Assignments must share the top row in left/right order."
     }
+    Wait-ServiceState {
+        (Find-ServiceControl DeviceAddressSourceText).Current.BoundingRectangle.Width -gt 0 -and
+        (Find-ServiceControl DeviceAssignmentStatusText).Current.BoundingRectangle.Width -gt 0
+    } "aligned card footnotes"
+    $networkNote = (Find-ServiceControl DeviceAddressSourceText).Current.BoundingRectangle
+    $assignmentNote = (Find-ServiceControl DeviceAssignmentStatusText).Current.BoundingRectangle
+    if ([Math]::Abs($networkNote.Bottom - $assignmentNote.Bottom) -gt 3) {
+        throw "The assignments explanation must follow the aligned card bottom: network=$networkNote assignments=$assignmentNote."
+    }
     Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-details-wide.png")
     Invoke-ServiceControl "Rename device"
     Wait-ServiceState {
