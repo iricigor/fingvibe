@@ -18,6 +18,11 @@ public static class ImportReviewKeyboard
         keybd_event(0x12, 0, 0, UIntPtr.Zero);
         keybd_event(0x12, 0, 2, UIntPtr.Zero);
     }
+    public static void Tap(byte key)
+    {
+        keybd_event(key, 0, 0, UIntPtr.Zero);
+        keybd_event(key, 0, 2, UIntPtr.Zero);
+    }
 }
 "@
 $previousReview = $env:FINGVIBE_UI_REVIEW
@@ -50,6 +55,25 @@ function Invoke-ImportControl([string] $Name) {
     (Find-ImportControl $Name ([System.Windows.Automation.ControlType]::Button)).
         GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Start-Sleep -Milliseconds 350
+}
+
+function Set-ImportStatusFilter([string[]] $Selected) {
+    (Find-ImportId InventoryStatusFilter).GetCurrentPattern(
+        [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Start-Sleep -Milliseconds 250
+    $checks = (Find-ImportId InventoryStatusFilterChoices).FindAll(
+        [System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::CheckBox))
+    if ($checks.Count -ne 4) { throw "Status must expose four native checkbox choices." }
+    foreach ($check in $checks) {
+        $toggle = $check.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+        if (($toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On) -ne
+            ($check.Current.Name -in $Selected)) { $toggle.Toggle() }
+    }
+    [ImportReviewKeyboard]::Tap(0x1B)
+    Start-Sleep -Milliseconds 300
 }
 
 function Select-ImportPage([string] $Name) {
@@ -349,7 +373,9 @@ try {
         (Find-ImportId InventoryCountsText).Current.Name -notlike "0 Online*0 Offline*3 Fing Only") {
         throw "Imported-only records must not inflate online counts or disappear from Devices."
     }
-    $status = Find-ImportControl "Filter by device status" ([System.Windows.Automation.ControlType]::ComboBox)
+    $status = Find-ImportId InventoryStatusFilter
+    (Find-ImportId FilterExpander).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
+    Start-Sleep -Milliseconds 250
     $area = [System.Windows.Forms.Screen]::FromHandle($process.MainWindowHandle).WorkingArea
     foreach ($width in (@(1024, [Math]::Min(1280, $area.Width)) | Select-Object -Unique)) {
         if (-not [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero,
@@ -366,16 +392,17 @@ try {
             throw "The device status filter must remain aligned directly beside search at width $width. Search: $searchBounds; status: $statusBounds."
         }
         if ($width -eq 1280) {
-            $previousBounds = $statusBounds
-            foreach ($filter in @(
-                (Find-ImportControl "Filter by person" ([System.Windows.Automation.ControlType]::ComboBox)),
-                (Find-ImportControl "Filter by room" ([System.Windows.Automation.ControlType]::ComboBox)),
-                (Find-ImportControl "With open ports" ([System.Windows.Automation.ControlType]::Button)))) {
+            $firstBounds = (Find-ImportId TypeFilter).Current.BoundingRectangle
+            $previousBounds = $null
+            foreach ($id in @("TypeFilter", "OperatingSystemFilter", "VendorFilter", "PersonFilter", "RoomFilter", "PortsFilter")) {
+                $filter = Find-ImportId $id
                 $bounds = $filter.Current.BoundingRectangle
-                if ($bounds.IsEmpty -or $filter.Current.IsOffscreen -or $bounds.Left -lt $previousBounds.Right -or
-                    [Math]::Abs(($bounds.Top + $bounds.Height / 2) -
-                        ($searchBounds.Top + $searchBounds.Height / 2)) -gt 1.5) {
-                    throw "All device filters must share the search/status row when the window is wide enough."
+                if ($bounds.IsEmpty -or $filter.Current.IsOffscreen -or
+                    ($previousBounds -and $bounds.Left -lt $previousBounds.Right) -or
+                    $bounds.Top -lt $searchBounds.Bottom -or
+                    [Math]::Abs($bounds.Top - $firstBounds.Top) -gt 1.5 -or
+                    [Math]::Abs($bounds.Width - $firstBounds.Width) -gt 1.5) {
+                    throw "Secondary device filters must share one equal-width row beneath search/status."
                 }
                 $previousBounds = $bounds
             }
@@ -384,10 +411,7 @@ try {
     if ($ScreenshotDirectory) {
         Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "fing-import-device-filters.png")
     }
-    $status.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
-    (Find-ImportControl "Offline" ([System.Windows.Automation.ControlType]::ListItem)).
-        GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-    Start-Sleep -Milliseconds 300
+    Set-ImportStatusFilter @("Offline")
     if ((Find-ImportId ResultCountText).Current.Name -ne "Showing 0 of 3 devices") {
         throw "Fing Only must not be classified as Offline by filtering."
     }
@@ -417,10 +441,7 @@ try {
         throw "Explicit replacement must apply only the analyzed name change."
     }
     Select-ImportPage Devices
-    $status = Find-ImportControl "Filter by device status" ([System.Windows.Automation.ControlType]::ComboBox)
-    $status.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
-    (Find-ImportControl "All statuses" ([System.Windows.Automation.ControlType]::ListItem)).
-        GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Set-ImportStatusFilter @()
     $search = Find-ImportControl "Search devices" ([System.Windows.Automation.ControlType]::Edit)
     $search.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("Review custom name")
     Start-Sleep -Milliseconds 250
