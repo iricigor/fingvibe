@@ -144,7 +144,7 @@
                                 <DropDownButton x:Name="InventoryStatusFilter" Grid.Column="1"
                                                 Style="{StaticResource StatusFilterStyle}"
                                                 AutomationProperties.AutomationId="InventoryStatusFilter" />
-                                <ToggleButton x:Name="FilterExpander" Grid.Column="2" MinWidth="40" MinHeight="32"
+                                <ToggleButton x:Name="FilterExpander" Grid.Column="2" MinWidth="40" MinHeight="32" IsChecked="False"
                                               VerticalAlignment="Top" CornerRadius="4"
                                               AutomationProperties.Name="Show additional device filters"
                                               ToolTipService.ToolTip="Show or hide additional device filters"
@@ -180,7 +180,7 @@
                                             <StackPanel x:Name="PortsFilterChoices"
                                                         AutomationProperties.Name="Ports choices"
                                                         AutomationProperties.AccessibilityView="Content">
-                                                <CheckBox x:Name="OpenPortsFilter" Content="With open ports"
+                                                <CheckBox x:Name="OpenPortsFilter" Content="With open ports" IsChecked="False"
                                                           AutomationProperties.Name="With open ports"
                                                           Checked="OpenPortsFilter_Changed" Unchecked="OpenPortsFilter_Changed" />
                                             </StackPanel>

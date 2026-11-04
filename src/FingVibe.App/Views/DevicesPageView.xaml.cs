@@ -313,6 +313,7 @@ public sealed partial class DevicesPageView : UserControl
 
     private void FilterExpander_Changed(object sender, RoutedEventArgs e)
     {
+        if (!_filtersReady) return;
         DeviceFilterOptions.Visibility = FilterExpander.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         OnFiltersChanged();
     }

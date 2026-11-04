@@ -445,7 +445,11 @@ function Test-DeviceRefresh {
         finally { Remove-Item -LiteralPath $snapshotPath }
         $filterExpander = (Find-SidebarElement AutomationId FilterExpander).GetCurrentPattern(
             [System.Windows.Automation.TogglePattern]::Pattern)
+        Write-Host "Initial filter expander state: $($filterExpander.Current.ToggleState)"
         $filterExpander.Toggle()
+        Start-Sleep -Milliseconds 250
+        $expanderElement = Find-SidebarElement AutomationId FilterExpander
+        Write-Host "Filter expander state: $($filterExpander.Current.ToggleState); help: $($expanderElement.Current.HelpText)"
         foreach ($width in @($expandedWidth, 1000, 640)) {
             Set-SidebarWindowWidth $width
             $filters = @("ResultSearchBox", "InventoryStatusFilter", "FilterExpander", "TypeFilter",
