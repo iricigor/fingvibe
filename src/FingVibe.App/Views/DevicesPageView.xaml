@@ -48,6 +48,7 @@
         <Style x:Key="FilterStyle" TargetType="DropDownButton">
             <Setter Property="MinWidth" Value="0" />
             <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         </Style>
         <Style x:Key="StatusCountStyle" TargetType="ToggleButton">
