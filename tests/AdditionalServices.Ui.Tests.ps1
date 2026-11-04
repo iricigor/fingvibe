@@ -186,6 +186,16 @@ function Save-ServiceEvidence([string] $Name, [switch] $DevicesList) {
     Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Name.png")
 }
 
+function Open-IdentificationEditor {
+    $edit = Find-ServiceControl "Edit device identification" -ByName
+    $edit.SetFocus()
+    Invoke-ServiceControl "Edit device identification"
+    Wait-ServiceState {
+        -not $edit.Current.IsEnabled -and
+        [System.Windows.Automation.AutomationElement]::FocusedElement.Current.Name -eq "Device type"
+    } "first identification input focus"
+}
+
 function Test-DeviceDetailsEditing {
     $copy = Find-ServiceControl "Copy IP address" -ByName
     $copy.SetFocus()
@@ -198,16 +208,11 @@ function Test-DeviceDetailsEditing {
     if ($before -ne $after) { throw "Copy activation shifted its layout." }
     [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
 
-    $edit = Find-ServiceControl "Edit device identification" -ByName
-    $edit.SetFocus()
-    Invoke-ServiceControl "Edit device identification"
-    Wait-ServiceState {
-        [System.Windows.Automation.AutomationElement]::FocusedElement.Current.Name -eq "Device type"
-    } "first identification input focus"
+    Open-IdentificationEditor
     $brand = Find-ServiceControl DeviceBrandInput
     $brand.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("Unsaved brand")
     Invoke-ServiceControl Cancel
-    Invoke-ServiceControl "Edit device identification"
+    Open-IdentificationEditor
     if ($brand.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value -ne "") {
         throw "Cancel retained unsaved identification values."
     }
@@ -216,6 +221,7 @@ function Test-DeviceDetailsEditing {
             [System.Windows.Automation.ValuePattern]::Pattern).SetValue("Synthetic $field")
     }
     $save = Find-ServiceControl "Save changes" -ByName
+    Wait-ServiceState { $save.Current.IsEnabled } "changed identification save action"
     $save.SetFocus()
     Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-identification-edit.png")
     Invoke-ServiceControl "Save changes"
@@ -225,10 +231,10 @@ function Test-DeviceDetailsEditing {
     [System.Windows.Forms.SendKeys]::SendWait(" ")
     Wait-ServiceState { [System.Windows.Forms.Clipboard]::GetText() -eq "Synthetic Model" } "saved metadata copy"
     [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
-    Invoke-ServiceControl "Edit device identification"
+    Open-IdentificationEditor
     Invoke-ServiceControl "Reset saved identification"
     Wait-ServiceState { (Find-ServiceControl "Edit device identification" -ByName).Current.IsEnabled } "identification reset"
-    Invoke-ServiceControl "Edit device identification"
+    Open-IdentificationEditor
     foreach ($field in @("Brand", "Family", "Model")) {
         if ((Find-ServiceControl "Device${field}Input").GetCurrentPattern(
                 [System.Windows.Automation.ValuePattern]::Pattern).Current.Value -ne "") {
@@ -241,11 +247,11 @@ function Test-DeviceDetailsEditing {
         $null = [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero,
             $window.Left, $window.Top, 760, $window.Height, 0x0044)
         Start-Sleep -Milliseconds 300
-        $edit.SetFocus()
-        Invoke-ServiceControl "Edit device identification"
+        Open-IdentificationEditor
         (Find-ServiceControl DeviceBrandInput).GetCurrentPattern(
             [System.Windows.Automation.ValuePattern]::Pattern).SetValue("Narrow draft")
         $save = Find-ServiceControl "Save changes" -ByName
+        Wait-ServiceState { $save.Current.IsEnabled } "changed narrow identification save action"
         $save.SetFocus()
         Wait-ServiceState { -not $save.Current.IsOffscreen } "narrow inline editor"
         $scroll = (Find-ServiceControl DeviceDetailsScroll).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
