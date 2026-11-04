@@ -36,7 +36,11 @@ public sealed class AdditionalServicesFixture : IDisposable
             dns = new UdpClient(new IPEndPoint(IPAddress.Loopback, 53));
             endpoint = "123/UDP";
             ntp = new UdpClient(new IPEndPoint(IPAddress.Loopback, 123));
-            workers = new[] { Reply(dns, true), Reply(ntp, false) };
+            endpoint = "8080/TCP";
+            web[0].Start();
+            endpoint = "8443/TCP";
+            web[1].Start();
+            workers = new[] { Reply(dns, true), Reply(ntp, false), Accept(web[0]), Accept(web[1]) };
         }
         catch (SocketException exception)
         {
@@ -47,8 +51,7 @@ public sealed class AdditionalServicesFixture : IDisposable
     public void StartTcp()
     {
         tcp.Start();
-        foreach (var listener in web) listener.Start();
-        tcpWorker = Task.WhenAll(new[] { Accept(tcp), Accept(web[0]), Accept(web[1]) });
+        tcpWorker = Accept(tcp);
     }
     private async Task Accept(TcpListener listener)
     {
