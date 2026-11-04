@@ -270,7 +270,14 @@ function Test-CellPreviews {
     [DevicesReviewInput]::MoveTo([int]($previewBounds.Right - 1), [int]($previewBounds.Top + $previewBounds.Height / 2))
     Start-Sleep -Milliseconds 150
     $null = Find-DeviceElement CellPreviewText
+    Move-ToDeviceElement $name
+    [DevicesReviewInput]::Click()
+    $null = Find-DeviceElement DeviceDetailsScroll
+    Select-DevicePage DevicesNavItem
+    Assert-NoCellPreview
     $scroll = (Find-DeviceElement ResultsList).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+    $name = Get-VisibleDeviceChild (@(Get-DeviceRows)[0]) AutomationId DeviceNameText
+    $null = Assert-CellPreview $name "Fixture device 01" ""
     $scroll.SetScrollPercent(-1, 100)
     Start-Sleep -Milliseconds 150
     Assert-NoCellPreview
@@ -327,6 +334,10 @@ function Test-CellPreviews {
     $vendorValue = "Example Devices with a deliberately long manufacturer name for hover inspection"
     $vendor = Get-VisibleDeviceChild $row Name $vendorValue
     $null = Assert-CellPreview $vendor $vendorValue "devices-full-vendor-preview"
+    foreach ($value in @("192.0.2.1", "00-11-22-33-44-01")) {
+        $cell = Get-VisibleDeviceChild $row Name $value
+        $null = Assert-CellPreview $cell $value ""
+    }
     Move-ToDeviceElement (Find-DeviceElement DevicesHeading)
     Set-DeviceWidth 480
     $name = Get-VisibleDeviceChild (@(Get-DeviceRows)[0]) AutomationId DeviceNameText
