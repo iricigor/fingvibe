@@ -443,9 +443,13 @@ function Test-DeviceRefresh {
             Select-SidebarPage Devices "Search devices"
         }
         finally { Remove-Item -LiteralPath $snapshotPath }
+        $filterExpander = (Find-SidebarElement AutomationId FilterExpander).GetCurrentPattern(
+            [System.Windows.Automation.TogglePattern]::Pattern)
+        $filterExpander.Toggle()
         foreach ($width in @($expandedWidth, 1000, 640)) {
             Set-SidebarWindowWidth $width
-            $filters = @("ResultSearchBox", "PersonFilter", "RoomFilter", "OpenPortsFilter") |
+            $filters = @("ResultSearchBox", "InventoryStatusFilter", "FilterExpander", "TypeFilter",
+                "OperatingSystemFilter", "VendorFilter", "PersonFilter", "RoomFilter", "PortsFilter") |
                 ForEach-Object { Find-SidebarElement AutomationId $_ }
             for ($index = 0; $index -lt $filters.Count; $index++) {
                 $bounds = $filters[$index].Current.BoundingRectangle
@@ -456,6 +460,7 @@ function Test-DeviceRefresh {
                         throw "Device filters overlap at $width logical pixels."
                     }
                 }
+                $filterExpander.Toggle()
             }
         }
         Write-Host "Device success/navigation, refresh/cancellation, scan/save errors, filtered counts, and responsive filter bounds passed."
