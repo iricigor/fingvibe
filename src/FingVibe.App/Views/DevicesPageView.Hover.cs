@@ -57,32 +57,32 @@ public sealed partial class DevicesPageView
             Columns.PropertyChanged -= PreviewSettingsChanged;
             DismissCellPreview();
         };
-        IsEnabledChanged += (_, _) => DismissCellPreview("enabled");
-        SizeChanged += (_, _) => DismissCellPreview("size");
-        ActualThemeChanged += (_, _) => DismissCellPreview("theme");
+        IsEnabledChanged += (_, _) => DismissCellPreview();
+        SizeChanged += (_, _) => DismissCellPreview();
+        ActualThemeChanged += (_, _) => DismissCellPreview();
         RegisterPropertyChangedCallback(VisibilityProperty, (_, _) => DismissCellPreview());
         EffectiveViewportChanged += (_, args) =>
         {
-            if (args.EffectiveViewport.Width <= 0 || args.EffectiveViewport.Height <= 0) DismissCellPreview("viewport");
+            if (args.EffectiveViewport.Width <= 0 || args.EffectiveViewport.Height <= 0) DismissCellPreview();
         };
         TableViewport.AddHandler(PointerMovedEvent, new PointerEventHandler(Preview_PointerMoved), true);
         TableViewport.AddHandler(PointerPressedEvent, new PointerEventHandler(Preview_PointerPressed), true);
         TableViewport.AddHandler(PointerWheelChangedEvent, new PointerEventHandler(Preview_PointerPressed), true);
         TableViewport.PointerExited += Preview_PointerExited;
         ResultsList.GotFocus += Preview_GotFocus;
-        ResultsList.LostFocus += (_, _) => DismissCellPreview("lost-focus");
+        ResultsList.LostFocus += (_, _) => DismissCellPreview();
         ResultsList.LayoutUpdated += (_, _) =>
         {
-            if (_previewAnchor is { } anchor && (!anchor.IsLoaded || !ReferenceEquals(anchor.DataContext, _previewData)
+            if (_previewAnchor is { } anchor && (!IsCurrentPreviewAnchor(anchor)
                 || !BoundsInPreviewLayer(anchor).Equals(_anchorBounds)))
-                DismissCellPreview($"layout loaded={anchor.IsLoaded}, data={ReferenceEquals(anchor.DataContext, _previewData)}");
+                DismissCellPreview();
         };
     }
 
     private void PreviewSettingsChanged(object? sender, PropertyChangedEventArgs args)
     {
         DismissCellPreview();
-        if (args.PropertyName is null or nameof(DeviceColumnLayout.EnlargedCellPreviews))
+        if (args.PropertyName == nameof(DeviceColumnLayout.EnlargedCellPreviews))
             UpdateCellTooltips(this);
     }
 
@@ -107,9 +107,15 @@ public sealed partial class DevicesPageView
     private Rect BoundsInPreviewLayer(FrameworkElement element) =>
         element.TransformToVisual(PreviewLayer).TransformBounds(new Rect(0, 0, element.ActualWidth, element.ActualHeight));
 
+    private bool IsCurrentPreviewAnchor(FrameworkElement anchor) =>
+        // Initially collapsed virtualized descendants can render while IsLoaded remains false.
+        FindAncestor<DevicesPageView>(anchor) == this
+        && FindAncestor<ListViewItem>(anchor) is { } container
+        && ReferenceEquals(ResultsList.ItemFromContainer(container), _previewData)
+        && ReferenceEquals(anchor.DataContext, _previewData);
+
     private void Preview_PointerMoved(object sender, PointerRoutedEventArgs args)
     {
-        LogPreview($"Move: source={(args.OriginalSource as FrameworkElement)?.Name}, type={args.Pointer.PointerDeviceType}, at={args.GetCurrentPoint(PreviewLayer).Position}");
         if (!Columns.EnlargedCellPreviews || args.Pointer.PointerDeviceType != Microsoft.UI.Input.PointerDeviceType.Mouse)
             return;
         var point = args.GetCurrentPoint(PreviewLayer).Position;
@@ -122,7 +128,6 @@ public sealed partial class DevicesPageView
             candidate = VisualTreeHelper.GetParent(candidate);
         var anchor = candidate is FrameworkElement element && GetPreviewText(element) is not null
             && FindAncestor<ListViewItem>(element) is not null ? element : null;
-        LogPreview($"Candidate: {anchor?.Name}, text={GetPreviewText(candidate ?? this)}");
         if (ReferenceEquals(anchor, _previewAnchor) && !_keyboardPreview) return;
         DismissCellPreview();
         if (anchor is null) return;
@@ -162,10 +167,9 @@ public sealed partial class DevicesPageView
 
     private void ShowCellPreview()
     {
-        LogPreview($"Show: {_previewAnchor?.Name}; loaded={_previewAnchor?.IsLoaded}, enabled={IsEnabled}, visibility={Visibility}, layer={PreviewLayer.ActualWidth}x{PreviewLayer.ActualHeight}");
         _previewTimer.Stop();
-        if (!Columns.EnlargedCellPreviews || _previewAnchor is not { IsLoaded: true } anchor
-            || !ReferenceEquals(anchor.DataContext, _previewData) || !IsLoaded || !IsEnabled
+        if (!Columns.EnlargedCellPreviews || _previewAnchor is not { } anchor
+            || !IsCurrentPreviewAnchor(anchor) || !IsLoaded || !IsEnabled
             || Visibility != Visibility.Visible || PreviewLayer.ActualWidth <= 2 || PreviewLayer.ActualHeight <= 2)
         {
             DismissCellPreview();
@@ -208,17 +212,8 @@ public sealed partial class DevicesPageView
         return null;
     }
 
-    private static void LogPreview(string message)
+    private void DismissCellPreview()
     {
-        if (Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW") == "1"
-            && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_PREVIEW_LOG") is { Length: > 0 } path)
-            File.AppendAllText(path, $"{DateTime.UtcNow:O} {message}{Environment.NewLine}");
-    }
-
-    private void DismissCellPreview([System.Runtime.CompilerServices.CallerMemberName] string caller = "")
-    {
-        if (_previewAnchor is { } anchor)
-            LogPreview($"Dismiss from {caller}: {GetPreviewText(anchor)}; bounds was {_anchorBounds}, now {BoundsInPreviewLayer(anchor)}");
         _previewTimer.Stop();
         _previewAnchor = null;
         _previewData = null;
