@@ -295,7 +295,24 @@ function Assert-CellPreview($Cell, [string] $Value, [string] $Capture) {
         [Math]::Abs($bounds.Left - $sourceBounds.Left) -gt $scale) {
         throw "Unconstrained previews must align their text with the original value."
     }
-    if ($Capture) { $null = Save-DeviceCapture $Capture -KeepPointer }
+    if ($Capture) {
+        $path = Save-DeviceCapture $Capture -KeepPointer
+        if ($Value -like "Example Devices with a deliberately long*") {
+            $window = Get-UiReviewWindowBounds $windowHandle
+            $bitmap = [System.Drawing.Bitmap]::new($path)
+            try {
+                foreach ($y in [int]($bounds.Top - $window.Top)..([int]($bounds.Bottom - $window.Top) - 1)) {
+                    foreach ($x in [int]($bounds.Left - $window.Left)..([int]($bounds.Right - $window.Left) - 1)) {
+                        $pixel = $bitmap.GetPixel($x, $y)
+                        if ($pixel.G -gt $pixel.R * 1.2 -and $pixel.G -gt $pixel.B * 1.15) {
+                            throw "Underlying green port/status content must not bleed through the full-value preview."
+                        }
+                    }
+                }
+            }
+            finally { $bitmap.Dispose() }
+        }
+    }
     return $preview
 }
 

@@ -590,7 +590,7 @@
                 </ScrollViewer>
                 <Canvas x:Name="PreviewLayer" Grid.Row="1" IsHitTestVisible="False">
                     <Border x:Name="CellPreview" Visibility="Collapsed" Padding="8,4"
-                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            Background="{ThemeResource ScannerHeaderBackgroundBrush}"
                             BorderBrush="{ThemeResource ScannerCardBorderBrush}"
                             BorderThickness="1" CornerRadius="4">
                         <TextBlock x:Name="CellPreviewText" TextWrapping="Wrap"
