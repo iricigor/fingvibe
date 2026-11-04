@@ -243,6 +243,8 @@ function Test-DeviceDetailsEditing {
         Start-Sleep -Milliseconds 300
         $edit.SetFocus()
         Invoke-ServiceControl "Edit device identification"
+        (Find-ServiceControl DeviceBrandInput).GetCurrentPattern(
+            [System.Windows.Automation.ValuePattern]::Pattern).SetValue("Narrow draft")
         $save = Find-ServiceControl "Save changes" -ByName
         $save.SetFocus()
         Wait-ServiceState { -not $save.Current.IsOffscreen } "narrow inline editor"
