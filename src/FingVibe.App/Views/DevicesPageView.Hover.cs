@@ -57,25 +57,25 @@ public sealed partial class DevicesPageView
             Columns.PropertyChanged -= PreviewSettingsChanged;
             DismissCellPreview();
         };
-        IsEnabledChanged += (_, _) => DismissCellPreview();
-        SizeChanged += (_, _) => DismissCellPreview();
-        ActualThemeChanged += (_, _) => DismissCellPreview();
+        IsEnabledChanged += (_, _) => DismissCellPreview("enabled");
+        SizeChanged += (_, _) => DismissCellPreview("size");
+        ActualThemeChanged += (_, _) => DismissCellPreview("theme");
         RegisterPropertyChangedCallback(VisibilityProperty, (_, _) => DismissCellPreview());
         EffectiveViewportChanged += (_, args) =>
         {
-            if (args.EffectiveViewport.Width <= 0 || args.EffectiveViewport.Height <= 0) DismissCellPreview();
+            if (args.EffectiveViewport.Width <= 0 || args.EffectiveViewport.Height <= 0) DismissCellPreview("viewport");
         };
         TableViewport.AddHandler(PointerMovedEvent, new PointerEventHandler(Preview_PointerMoved), true);
         TableViewport.AddHandler(PointerPressedEvent, new PointerEventHandler(Preview_PointerPressed), true);
         TableViewport.AddHandler(PointerWheelChangedEvent, new PointerEventHandler(Preview_PointerPressed), true);
         TableViewport.PointerExited += Preview_PointerExited;
         ResultsList.GotFocus += Preview_GotFocus;
-        ResultsList.LostFocus += (_, _) => DismissCellPreview();
+        ResultsList.LostFocus += (_, _) => DismissCellPreview("lost-focus");
         ResultsList.LayoutUpdated += (_, _) =>
         {
             if (_previewAnchor is { } anchor && (!anchor.IsLoaded || !ReferenceEquals(anchor.DataContext, _previewData)
                 || !BoundsInPreviewLayer(anchor).Equals(_anchorBounds)))
-                DismissCellPreview();
+                DismissCellPreview($"layout loaded={anchor.IsLoaded}, data={ReferenceEquals(anchor.DataContext, _previewData)}");
         };
     }
 
