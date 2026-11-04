@@ -411,6 +411,19 @@ function Test-CellPreviews {
         Start-Sleep -Milliseconds 750
         Assert-NoCellPreview
     }
+    $nameGrip = Get-VisibleDeviceChild $root Name "Resize Name column"
+    $nameGrip.SetFocus()
+    foreach ($step in 1..12) { [DevicesReviewInput]::Tap(0x25) }
+    Start-Sleep -Milliseconds 250
+    try {
+        $name = Get-VisibleDeviceChild (@(Get-DeviceRows)[0]) AutomationId DeviceNameText
+        $null = Assert-CellPreview $name "Fixture device 01" "devices-truncated-name-preview"
+    }
+    finally {
+        $nameGrip.SetFocus()
+        foreach ($step in 1..12) { [DevicesReviewInput]::Tap(0x27) }
+        Start-Sleep -Milliseconds 250
+    }
     Move-ToDeviceElement (Find-DeviceElement DevicesHeading)
     Set-DeviceWidth 480
     $name = Get-VisibleDeviceChild (@(Get-DeviceRows)[0]) AutomationId DeviceNameText
