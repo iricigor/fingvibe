@@ -563,6 +563,7 @@ function Test-MergedAssignments {
 $savedReview = $env:FINGVIBE_UI_REVIEW
 $savedSnapshot = $env:FINGVIBE_UI_REVIEW_SNAPSHOT
 $savedCurrentSnapshot = $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT
+$savedPreviewLog = $env:FINGVIBE_UI_REVIEW_PREVIEW_LOG
 $process = $null
 $fixture = $null
 $previousContext = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext([IntPtr]::new(-4))
@@ -616,6 +617,7 @@ try {
     $env:FINGVIBE_UI_REVIEW = "1"
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $fixture
     $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT = "1"
+    $env:FINGVIBE_UI_REVIEW_PREVIEW_LOG = Join-Path (Split-Path $fixture) "hover-diagnostics.log"
     $process = Start-Process -FilePath (Resolve-Path -LiteralPath $AppPath).Path -PassThru
     $deadline = [DateTime]::UtcNow.AddSeconds(30)
     do {
@@ -928,6 +930,7 @@ finally {
     $env:FINGVIBE_UI_REVIEW = $savedReview
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $savedSnapshot
     $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT = $savedCurrentSnapshot
+    $env:FINGVIBE_UI_REVIEW_PREVIEW_LOG = $savedPreviewLog
     if ($fixture -and (Test-Path -LiteralPath $fixture)) { Remove-Item -LiteralPath $fixture }
     $null = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext($previousContext)
 }

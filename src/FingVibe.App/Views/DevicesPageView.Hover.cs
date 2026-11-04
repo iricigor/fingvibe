@@ -109,6 +109,7 @@ public sealed partial class DevicesPageView
 
     private void Preview_PointerMoved(object sender, PointerRoutedEventArgs args)
     {
+        LogPreview($"Move: source={(args.OriginalSource as FrameworkElement)?.Name}, type={args.Pointer.PointerDeviceType}, at={args.GetCurrentPoint(PreviewLayer).Position}");
         if (!Columns.EnlargedCellPreviews || args.Pointer.PointerDeviceType != Microsoft.UI.Input.PointerDeviceType.Mouse)
             return;
         var point = args.GetCurrentPoint(PreviewLayer).Position;
@@ -121,6 +122,7 @@ public sealed partial class DevicesPageView
             candidate = VisualTreeHelper.GetParent(candidate);
         var anchor = candidate is FrameworkElement element && GetPreviewText(element) is not null
             && FindAncestor<ListViewItem>(element) is not null ? element : null;
+        LogPreview($"Candidate: {anchor?.Name}, text={GetPreviewText(candidate ?? this)}");
         if (ReferenceEquals(anchor, _previewAnchor) && !_keyboardPreview) return;
         DismissCellPreview();
         if (anchor is null) return;
@@ -160,6 +162,7 @@ public sealed partial class DevicesPageView
 
     private void ShowCellPreview()
     {
+        LogPreview($"Show: {_previewAnchor?.Name}; loaded={_previewAnchor?.IsLoaded}, enabled={IsEnabled}, visibility={Visibility}, layer={PreviewLayer.ActualWidth}x{PreviewLayer.ActualHeight}");
         _previewTimer.Stop();
         if (!Columns.EnlargedCellPreviews || _previewAnchor is not { IsLoaded: true } anchor
             || !ReferenceEquals(anchor.DataContext, _previewData) || !IsLoaded || !IsEnabled
@@ -205,8 +208,17 @@ public sealed partial class DevicesPageView
         return null;
     }
 
-    private void DismissCellPreview()
+    private static void LogPreview(string message)
     {
+        if (Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW") == "1"
+            && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_PREVIEW_LOG") is { Length: > 0 } path)
+            File.AppendAllText(path, $"{DateTime.UtcNow:O} {message}{Environment.NewLine}");
+    }
+
+    private void DismissCellPreview([System.Runtime.CompilerServices.CallerMemberName] string caller = "")
+    {
+        if (_previewAnchor is { } anchor)
+            LogPreview($"Dismiss from {caller}: {GetPreviewText(anchor)}; bounds was {_anchorBounds}, now {BoundsInPreviewLayer(anchor)}");
         _previewTimer.Stop();
         _previewAnchor = null;
         _previewData = null;
