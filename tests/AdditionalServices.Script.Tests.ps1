@@ -121,7 +121,7 @@ function Find-ServiceControl {
     switch ($Value) {
         "DeviceDetailsScroll" { return $scrollElement }
         "DevicePortScanButton" { return $script:fixtureButtonPeer }
-        "UDP observations (silence is not an open or closed port)" { return $script:fixtureHeadingPeer }
+        "DeviceIncludeUdpCheckBox" { return $script:fixtureHeadingPeer }
         default { throw "Unexpected mock control $Value." }
     }
 }

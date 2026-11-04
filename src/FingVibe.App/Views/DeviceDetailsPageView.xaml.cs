@@ -104,6 +104,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
         ShowUdpObservations(row.Result?.UdpObservationItems ?? []);
         DevicePortScanStatusText.Text = string.Empty;
         DeviceUdpScanStatusText.Text = string.Empty;
+        ShowClassification(row);
     }
 
     internal void ResetScroll() => DevicePage.ChangeView(null, 0, null, disableAnimation: true);
@@ -240,6 +241,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
         DeviceIconText.Value = row.Icon.Label();
         DeviceIconText.Source = row.ClassificationOverride?.Icon is not null ? "Saved correction" : "Follows device type";
         DeviceVendorText.Value = row.VendorText;
+        DeviceVendorText.Opacity = row.VendorOpacity;
         DeviceOsText.Opacity = row.OperatingSystemOpacity;
         DeviceTypeValueText.Opacity = row.DeviceTypeOpacity;
         ToolTipService.SetToolTip(DeviceOsText, row.OperatingSystemSource);
