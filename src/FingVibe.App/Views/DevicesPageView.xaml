@@ -125,16 +125,8 @@
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </Grid>
                     <Border Padding="0,4,0,0">
-                        <Grid x:Name="DeviceFilters" ColumnSpacing="8" RowSpacing="8"
+                        <StackPanel x:Name="DeviceFilters" Spacing="8"
                               SizeChanged="DeviceFilters_SizeChanged">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
                             <Grid x:Name="DeviceSearchFilters" ColumnSpacing="8" RowSpacing="8">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -142,6 +134,7 @@
                                 </Grid.RowDefinitions>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <TextBox x:Name="ResultSearchBox"
@@ -151,18 +144,18 @@
                                 <DropDownButton x:Name="InventoryStatusFilter" Grid.Column="1"
                                                 Style="{StaticResource StatusFilterStyle}"
                                                 AutomationProperties.AutomationId="InventoryStatusFilter" />
+                                <ToggleButton x:Name="FilterExpander" Grid.Column="2" MinWidth="40" MinHeight="32"
+                                              VerticalAlignment="Top" CornerRadius="4"
+                                              AutomationProperties.Name="Show additional device filters"
+                                              ToolTipService.ToolTip="Show or hide additional device filters"
+                                              Checked="FilterExpander_Changed" Unchecked="FilterExpander_Changed">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <FontIcon Glyph="&#xE71C;" FontSize="16" />
+                                        <TextBlock x:Name="ActiveFilterCount" Visibility="Collapsed" />
+                                    </StackPanel>
+                                </ToggleButton>
                             </Grid>
-                            <ToggleButton x:Name="FilterExpander" Grid.Column="1" MinWidth="40" MinHeight="32"
-                                          VerticalAlignment="Top" CornerRadius="4"
-                                          AutomationProperties.Name="Show additional device filters"
-                                          ToolTipService.ToolTip="Show or hide additional device filters"
-                                          Checked="FilterExpander_Changed" Unchecked="FilterExpander_Changed">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <FontIcon Glyph="&#xE71C;" FontSize="16" />
-                                    <TextBlock x:Name="ActiveFilterCount" Visibility="Collapsed" />
-                                </StackPanel>
-                            </ToggleButton>
-                            <Grid x:Name="DeviceFilterOptions" Grid.Row="1" Grid.ColumnSpan="2"
+                            <Grid x:Name="DeviceFilterOptions"
                                   ColumnSpacing="8" RowSpacing="8" Visibility="Collapsed"
                                   HorizontalAlignment="Left">
                                 <Grid.ColumnDefinitions>
@@ -195,7 +188,7 @@
                                     </DropDownButton.Flyout>
                                 </DropDownButton>
                             </Grid>
-                        </Grid>
+                        </StackPanel>
                     </Border>
                     <HyperlinkButton x:Name="ClearFiltersLink" Content="Clear filters" Click="ClearFilters_Click"
                                      Visibility="Collapsed" HorizontalAlignment="Left" Padding="0,4"

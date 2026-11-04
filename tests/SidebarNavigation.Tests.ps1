@@ -453,7 +453,11 @@ function Test-DeviceRefresh {
                 ForEach-Object { Find-SidebarElement AutomationId $_ }
             for ($index = 0; $index -lt $filters.Count; $index++) {
                 $bounds = $filters[$index].Current.BoundingRectangle
-                if ($bounds.Width -le 0) { throw "A filter has no visible width at $width." }
+                if ($bounds.Width -le 0) {
+                    $filters | ForEach-Object { Write-Host "$($_.Current.AutomationId): $($_.Current.BoundingRectangle)" }
+                    Save-SidebarAppearance "filters-layout-failure"
+                    throw "Filter '$($filters[$index].Current.AutomationId)' has no visible width at $width."
+                }
                 for ($other = 0; $other -lt $index; $other++) {
                     $intersection = [System.Windows.Rect]::Intersect($bounds, $filters[$other].Current.BoundingRectangle)
                     if (-not $intersection.IsEmpty -and $intersection.Width -gt 0 -and $intersection.Height -gt 0) {
