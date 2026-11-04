@@ -38,7 +38,7 @@ public sealed partial class MainWindow
         }
 
         DevicePage.ShowClassification(row);
-        DevicePage.ClassificationStatus = _classificationOverridesUnavailable
+        DevicePage.ClassificationNotice = _classificationOverridesUnavailable
             ? "Saved classifications could not be loaded. Changes are disabled to protect the saved file."
             : row.VirtualDevice is not null
                 ? "Corrections belong to this virtual device and follow its inferred MAC associations."
@@ -46,11 +46,11 @@ public sealed partial class MainWindow
                 ? "A MAC address is required to save corrections; IP addresses can change."
                 : MacAddressResolver.IsPrivateOrRandomized(row.MacAddress)
                     ? "This MAC is private/randomized. Corrections apply only while the MAC stays the same."
-                    : "Corrections are saved by MAC address and take precedence over automatic detection.";
+                    : "Saved corrections take precedence over imported values and automatic detection, and are saved by MAC address.";
         UpdateClassificationActions();
     }
 
-    private void ClassificationPicker_SelectionChanged(object sender, SelectionChangedEventArgs e) =>
+    private void ClassificationPicker_SelectionChanged(object? sender, EventArgs e) =>
         UpdateClassificationActions();
 
     private void UpdateClassificationActions()
@@ -108,16 +108,18 @@ public sealed partial class MainWindow
             RefreshVisibleResults();
             if (_selectedDeviceRow?.IdentityKey == row.IdentityKey)
             {
+                DevicePage.CompleteClassificationEdit();
                 UpdateClassificationDetails();
                 DevicePage.ClassificationStatus = value.IsEmpty
                     ? row.ImportedMetadata is null ? "Automatic detection restored."
                         : "Saved corrections cleared; imported data or automatic detection is now used."
-                    : "Classification and icon choices saved.";
+                    : "Device identification saved.";
             }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or FormatException or InvalidOperationException)
         {
-            DevicePage.ClassificationStatus = $"Corrections for {row.NameText} could not be saved: {exception.Message}";
+            if (_selectedDeviceRow?.IdentityKey == row.IdentityKey)
+                DevicePage.ClassificationStatus = $"Corrections for {row.NameText} could not be saved: {exception.Message}";
         }
         finally
         {

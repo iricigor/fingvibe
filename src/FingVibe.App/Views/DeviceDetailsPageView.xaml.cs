@@ -4,6 +4,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using Windows.System;
 
 namespace FingVibe.App.Views;
 
@@ -13,11 +14,19 @@ public sealed partial class DeviceDetailsPageView : UserControl
 {
     private bool _updatingAssignments;
     private bool _updatingAddresses;
+    private bool _editingClassification;
+    private bool _classificationEnabled;
+    private ScanResultRow? _row;
 
     public DeviceDetailsPageView()
     {
         InitializeComponent();
         InitializeClassificationPickers();
+        GotFocus += (_, args) =>
+        {
+            if (args.OriginalSource is FrameworkElement element)
+                element.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false });
+        };
     }
 
     public event RoutedEventHandler? BackRequested;
@@ -25,7 +34,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
     public event RoutedEventHandler? NameSaveRequested;
     public event RoutedEventHandler? NameResetRequested;
     public event RoutedEventHandler? PortScanRequested;
-    public event SelectionChangedEventHandler? ClassificationChanged;
+    public event EventHandler? ClassificationChanged;
     public event RoutedEventHandler? ClassificationSaveRequested;
     public event RoutedEventHandler? ClassificationResetRequested;
     public event EventHandler<DeviceAssignmentChoice>? PersonAssignmentRequested;
@@ -39,10 +48,15 @@ public sealed partial class DeviceDetailsPageView : UserControl
     internal string UdpScanStatus { set => DeviceUdpScanStatusText.Text = value; }
     internal bool IncludeUdp => DeviceIncludeUdpCheckBox.IsChecked == true;
     internal string ClassificationStatus { set => DeviceClassificationStatusText.Text = value; }
+    internal string ClassificationNotice { set => DeviceClassificationNoticeText.Text = value; }
     internal string AssignmentStatus { set => DeviceAssignmentStatusText.Text = value; }
 
     internal void ShowDevice(ScanResultRow row)
     {
+        _row = row;
+        DeviceNameEditor.Visibility = Visibility.Collapsed;
+        SetClassificationEditing(false);
+        DeviceClassificationStatusText.Text = string.Empty;
         _updatingAddresses = true;
         try
         {
@@ -54,7 +68,8 @@ public sealed partial class DeviceDetailsPageView : UserControl
         ShowHistory(row);
         ShowConnection(row);
         DeviceIncludeUdpCheckBox.IsChecked = false;
-        DeviceIdentificationEditor.IsExpanded = false;
+        DeviceImportedMetadata.IsExpanded = false;
+        DeviceBrowserStatusText.Text = string.Empty;
     }
 
     internal void ShowHistory(ScanResultRow row)
@@ -66,34 +81,50 @@ public sealed partial class DeviceDetailsPageView : UserControl
     internal void ShowConnection(ScanResultRow row)
     {
         var result = row.Result;
-        DeviceAddressText.Text = row.AddressText;
-        DeviceMacText.Text = row.MacAddressText;
-        DeviceVendorText.Text = row.VendorText;
+        _row = row;
+        DeviceNameValue.Value = row.NameText;
+        DeviceAddressText.Value = row.AddressText;
+        DeviceMacText.Value = row.MacAddressText;
+        DeviceVendorText.Value = row.VendorText;
         DeviceVendorText.Opacity = row.VendorOpacity;
         DeviceStatusText.Text = row.StatusContext;
-        DeviceResponseText.Text = row.LatencyLabel;
-        DeviceProbeText.Text = result is null ? "-" : $"{result.ProbeDuration.TotalMilliseconds:N0} ms";
-        DeviceHostnameText.Text = row.HostnameText;
+        DeviceResponseText.Value = row.LatencyLabel;
+        DeviceProbeText.Value = result is null ? "-" : $"{result.ProbeDuration.TotalMilliseconds:N0} ms";
+        DeviceHostnameText.Value = result?.DeviceName ?? "-";
         DeviceAddressSourceText.Text = result is null ? "Historical IP from Fing; never observed locally."
             : row.IsCurrentScanResponse ? "Responded in the current local scan."
             : "Last-known local address; not a current response.";
-        DeviceImportedMetadataText.Text = row.ImportedMetadata is { } imported
-            ? $"Imported from Fing\nName: {imported.Name ?? "-"}\nHostname: {imported.Hostname ?? "-"}\n"
-                + $"Type: {imported.Type ?? "-"}\nBrand: {imported.Brand ?? "-"}\nFamily: {imported.Family ?? "-"}\n"
-                + $"Model: {imported.Model ?? "-"}\nOS: {imported.OperatingSystem ?? "-"} {imported.OperatingSystemVersion}\n"
-                + $"Historical imported IP: {imported.Address ?? "-"}"
-            : "No imported Fing metadata.";
+        DeviceBrowserStatusText.Text = string.Empty;
+        DeviceImportedFields.Children.Clear();
+        foreach (var field in DeviceDetailsPresentation.ImportedFields(row.ImportedMetadata))
+            DeviceImportedFields.Children.Add(new DeviceDetailValue { Label = field.Label, Value = field.Value });
+        if (DeviceImportedFields.Children.Count == 0)
+            DeviceImportedFields.Children.Add(new TextBlock { Text = "No imported Fing metadata.", TextWrapping = TextWrapping.Wrap });
         SetPortScanRunning(false, row.CanProbe);
         ShowPorts(row.Result?.OpenPortItems ?? []);
         ShowUdpObservations(row.Result?.UdpObservationItems ?? []);
         DevicePortScanStatusText.Text = string.Empty;
         DeviceUdpScanStatusText.Text = string.Empty;
+        ShowClassification(row);
     }
 
     internal void ResetScroll() => DevicePage.ChangeView(null, 0, null, disableAnimation: true);
 
+    private void Rename_Click(object sender, RoutedEventArgs e)
+    {
+        DeviceNameEditor.Visibility = Visibility.Visible;
+        DeviceNameInput.Focus(FocusState.Programmatic);
+    }
+
+    private void RenameDone_Click(object sender, RoutedEventArgs e)
+    {
+        DeviceNameEditor.Visibility = Visibility.Collapsed;
+        DeviceRenameButton.Focus(FocusState.Programmatic);
+    }
+
     internal void SetNameActions(bool canSave, bool canReset, string? resetToolTip)
     {
+        if (_row is { } row) DeviceNameValue.Value = row.NameText;
         DeviceNameSaveButton.IsEnabled = canSave;
         DeviceNameResetButton.IsEnabled = canReset;
         ToolTipService.SetToolTip(DeviceNameResetButton, resetToolTip);
@@ -101,8 +132,61 @@ public sealed partial class DeviceDetailsPageView : UserControl
 
     internal void ShowPorts(IReadOnlyList<OpenPort> ports)
     {
-        DevicePortsList.ItemsSource = ports;
+        DevicePortsList.Children.Clear();
+        if (_row is { } row)
+        {
+            foreach (var port in ports)
+            {
+                var endpoint = DeviceDetailsPresentation.Endpoint(row, port);
+                var panel = new Grid { ColumnSpacing = 8 };
+                panel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                panel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                var icon = new FontIcon
+                {
+                    Glyph = PortServiceIcons.Glyph(port), FontFamily = new FontFamily("Segoe Fluent Icons"),
+                    FontSize = 16, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 6, 0, 0)
+                };
+                AutomationProperties.SetName(icon, port.AccessibleLabel);
+                ToolTipService.SetToolTip(icon, port.AccessibleLabel);
+                panel.Children.Add(icon);
+                var content = new DeviceDetailValue { Label = port.AccessibleLabel, Value = endpoint.Value };
+                Grid.SetColumn(content, 1);
+                panel.Children.Add(content);
+                if (endpoint.HasBrowserAction)
+                {
+                    content.SetBrowserAction(port.Port is 80 or 443, endpoint.BrowserLabel, endpoint.BrowserUri!.AbsoluteUri);
+                    content.BrowserRequested += async (_, _) => await OpenBrowserAsync(row, port);
+                }
+                DevicePortsList.Children.Add(panel);
+            }
+        }
         DeviceNoPortsText.Visibility = ports.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        LayoutFields(DevicePortsList);
+    }
+
+    private async Task OpenBrowserAsync(ScanResultRow row, OpenPort port)
+    {
+        if (!ReferenceEquals(_row, row)) return;
+        var uri = DeviceDetailsPresentation.Endpoint(row, port).BrowserUri;
+        if (uri is null)
+        {
+            DeviceBrowserStatusText.Text = "This endpoint no longer has a current local observation. Scan again before opening it.";
+            return;
+        }
+        try
+        {
+            var launched = await Launcher.LaunchUriAsync(uri);
+            if (!ReferenceEquals(_row, row)) return;
+            DeviceBrowserStatusText.Text = launched
+                ? $"Opened {uri.AbsoluteUri} in your browser."
+                : $"Could not open {uri.AbsoluteUri}. Check your default browser.";
+        }
+        catch (Exception exception) when (exception is System.Runtime.InteropServices.COMException
+            or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+        {
+            if (ReferenceEquals(_row, row))
+                DeviceBrowserStatusText.Text = $"Could not open {uri.AbsoluteUri}: {exception.Message}";
+        }
     }
 
     internal void SetPortScanRunning(bool running, bool canProbe)
@@ -148,8 +232,22 @@ public sealed partial class DeviceDetailsPageView : UserControl
         DeviceTypeIcon.Glyph = row.IconGlyph;
         AutomationProperties.SetName(DeviceTypeIcon, row.IconSource);
         ToolTipService.SetToolTip(DeviceTypeIcon, row.IconSource);
-        DeviceOsText.Text = row.OperatingSystemText;
-        DeviceTypeValueText.Text = row.DeviceTypeText;
+        DeviceOsText.Value = row.OperatingSystemText;
+        DeviceTypeValueText.Value = row.DeviceTypeText;
+        DeviceOsText.Source = row.ClassificationOverride?.OperatingSystem is not null ? "Saved correction"
+            : FingClassificationMapper.OperatingSystem(row.ImportedMetadata?.OperatingSystem) is not null ? "Imported from Fing" : "Automatic detection";
+        DeviceTypeValueText.Source = row.ClassificationOverride?.Type is not null ? "Saved correction"
+            : FingClassificationMapper.Type(row.ImportedMetadata?.Type) is not null ? "Imported from Fing" : "Automatic detection";
+        DeviceBrandText.Value = row.BrandText;
+        DeviceBrandText.Source = row.BrandSource;
+        DeviceFamilyText.Value = row.FamilyText;
+        DeviceFamilyText.Source = row.FamilySource;
+        DeviceModelText.Value = row.ModelText;
+        DeviceModelText.Source = row.ModelSource;
+        DeviceIconText.Value = row.Icon.Label();
+        DeviceIconText.Source = row.ClassificationOverride?.Icon is not null ? "Saved correction" : "Follows device type";
+        DeviceVendorText.Value = row.VendorText;
+        DeviceVendorText.Opacity = row.VendorOpacity;
         DeviceOsText.Opacity = row.OperatingSystemOpacity;
         DeviceTypeValueText.Opacity = row.DeviceTypeOpacity;
         ToolTipService.SetToolTip(DeviceOsText, row.OperatingSystemSource);
@@ -160,11 +258,20 @@ public sealed partial class DeviceDetailsPageView : UserControl
             ? "Use imported Fing OS" : "Automatic";
         ((ComboBoxItem)DeviceTypePicker.Items[0]).Content = FingClassificationMapper.Type(row.ImportedMetadata?.Type) is not null
             ? "Use imported Fing type" : "Automatic";
-        DeviceClassificationResetButton.Content = row.ImportedMetadata is null
-            ? "Use automatic detection" : "Clear saved corrections";
+        if (!_editingClassification) PopulateClassificationInputs(row);
+    }
+
+    private void PopulateClassificationInputs(ScanResultRow row)
+    {
         SelectChoice(DeviceOsPicker, row.ClassificationOverride?.OperatingSystem);
         SelectChoice(DeviceTypePicker, row.ClassificationOverride?.Type);
         SelectChoice(DeviceIconPicker, row.ClassificationOverride?.Icon);
+        DeviceBrandInput.Text = row.ClassificationOverride?.Brand ?? "";
+        DeviceFamilyInput.Text = row.ClassificationOverride?.Family ?? "";
+        DeviceModelInput.Text = row.ClassificationOverride?.Model ?? "";
+        DeviceBrandInput.PlaceholderText = row.BrandText;
+        DeviceFamilyInput.PlaceholderText = row.FamilyText;
+        DeviceModelInput.PlaceholderText = row.ModelText;
     }
 
     private static void SelectChoice<T>(ComboBox picker, T? value) where T : struct =>
@@ -174,15 +281,94 @@ public sealed partial class DeviceDetailsPageView : UserControl
     internal DeviceClassificationOverride ClassificationChoices => new(
         (DeviceOsPicker.SelectedItem as ComboBoxItem)?.Tag as DeviceOperatingSystem?,
         (DeviceTypePicker.SelectedItem as ComboBoxItem)?.Tag as DeviceType?,
-        (DeviceIconPicker.SelectedItem as ComboBoxItem)?.Tag as DeviceType?);
+        (DeviceIconPicker.SelectedItem as ComboBoxItem)?.Tag as DeviceType?,
+        OptionalText(DeviceBrandInput.Text), OptionalText(DeviceFamilyInput.Text), OptionalText(DeviceModelInput.Text));
+
+    private static string? OptionalText(string text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+
+    private void ClassificationEdit_Click(object sender, RoutedEventArgs e)
+    {
+        if (_row is not { } row) return;
+        PopulateClassificationInputs(row);
+        SetClassificationEditing(true);
+        DeviceClassificationStatusText.Text = string.Empty;
+        DeviceTypePicker.Focus(FocusState.Programmatic);
+    }
+
+    private void ClassificationCancel_Click(object sender, RoutedEventArgs e)
+    {
+        SetClassificationEditing(false);
+        if (_row is { } row) PopulateClassificationInputs(row);
+        DeviceClassificationStatusText.Text = string.Empty;
+        DeviceClassificationEditButton.Focus(FocusState.Programmatic);
+    }
+
+    internal void CompleteClassificationEdit()
+    {
+        SetClassificationEditing(false);
+        DispatcherQueue.TryEnqueue(() => DeviceClassificationEditButton.Focus(FocusState.Programmatic));
+    }
+
+    private void SetClassificationEditing(bool editing)
+    {
+        _editingClassification = editing;
+        IdentificationReadFields.Visibility = editing ? Visibility.Collapsed : Visibility.Visible;
+        IdentificationEditFields.Visibility = editing ? Visibility.Visible : Visibility.Collapsed;
+        DeviceClassificationEditButton.IsEnabled = _classificationEnabled && !editing;
+    }
 
     internal void SetClassificationActions(bool enabled, bool canSave, bool canReset)
     {
+        _classificationEnabled = enabled;
         DeviceOsPicker.IsEnabled = enabled;
         DeviceTypePicker.IsEnabled = enabled;
         DeviceIconPicker.IsEnabled = enabled;
+        DeviceBrandInput.IsEnabled = enabled;
+        DeviceFamilyInput.IsEnabled = enabled;
+        DeviceModelInput.IsEnabled = enabled;
+        DeviceClassificationEditButton.IsEnabled = enabled && !_editingClassification;
+        DeviceClassificationCancelButton.IsEnabled = enabled;
         DeviceClassificationSaveButton.IsEnabled = canSave;
         DeviceClassificationResetButton.IsEnabled = canReset;
+    }
+
+    private void DetailsColumns_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var wide = e.NewSize.Width >= 900 * new Windows.UI.ViewManagement.UISettings().TextScaleFactor;
+        DetailsColumns.ColumnDefinitions[0].Width = new GridLength(wide ? 3 : 1, GridUnitType.Star);
+        DetailsColumns.ColumnDefinitions[1].Width = wide ? new GridLength(2, GridUnitType.Star) : new GridLength(0);
+        Grid.SetColumn(AssignmentsCard, wide ? 1 : 0);
+        Grid.SetRow(AssignmentsCard, wide ? 0 : 1);
+    }
+
+    private void Fields_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (sender is not Grid grid) return;
+        LayoutFields(grid);
+    }
+
+    private void LayoutFields(Grid grid)
+    {
+        var scale = new Windows.UI.ViewManagement.UISettings().TextScaleFactor;
+        var identification = grid == IdentificationReadFields || grid == IdentificationInputs;
+        var minimum = grid == DevicePortsList ? 400 : identification ? 260 : 210;
+        var maximum = identification ? 3 : 2;
+        var columns = Math.Clamp((int)(grid.ActualWidth / (minimum * scale)), 1, maximum);
+        var rows = (grid.Children.Count + columns - 1) / columns;
+        if (grid.ColumnDefinitions.Count != columns || grid.RowDefinitions.Count != rows)
+        {
+            grid.ColumnDefinitions.Clear();
+            grid.RowDefinitions.Clear();
+            for (var index = 0; index < columns; index++)
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            for (var index = 0; index < rows; index++)
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        }
+        for (var index = 0; index < grid.Children.Count; index++)
+        {
+            Grid.SetColumn((FrameworkElement)grid.Children[index], index % columns);
+            Grid.SetRow((FrameworkElement)grid.Children[index], index / columns);
+        }
     }
 
     internal void SetAssignments(IEnumerable<(Guid Id, string Label)> people,
@@ -269,7 +455,9 @@ public sealed partial class DeviceDetailsPageView : UserControl
         if (!_updatingAddresses && DeviceAddressPicker.SelectedItem is string address)
             AddressRequested?.Invoke(this, address);
     }
-    private void ClassificationPicker_SelectionChanged(object sender, SelectionChangedEventArgs e) => ClassificationChanged?.Invoke(this, e);
+    private void ClassificationPicker_SelectionChanged(object sender, SelectionChangedEventArgs e) => ClassificationChanged?.Invoke(this, EventArgs.Empty);
+    private void ClassificationText_TextChanged(object sender, TextChangedEventArgs e) =>
+        ClassificationChanged?.Invoke(this, EventArgs.Empty);
     private void DeviceClassificationSaveButton_Click(object sender, RoutedEventArgs e) => ClassificationSaveRequested?.Invoke(this, e);
     private void DeviceClassificationResetButton_Click(object sender, RoutedEventArgs e) => ClassificationResetRequested?.Invoke(this, e);
 }

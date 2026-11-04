@@ -118,6 +118,9 @@ try {
     $base = $originalBase
     Test-Change @{ "src\FingVibe.App\MainWindow.DeviceDetails.cs" = "changed" } `
         @("Devices", "DeviceDetails") "Device details code"
+    foreach ($path in @("src\FingVibe.App\DeviceDetailsPresentation.cs", "src\FingVibe.App\Views\DeviceDetailValue.cs")) {
+        Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device details presentation"
+    }
     foreach ($iconPath in @("src\FingVibe.App\PeopleRoomsIcons.cs", "src\FingVibe.App\Views\PeopleRoomsIconPicker.cs")) {
         Test-Change @{ $iconPath = "changed" } `
             @("Devices", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails") "People/Rooms icon surfaces"
@@ -339,6 +342,33 @@ try {
         if ($viewCode -notmatch 'DeviceColumnLayout Columns => DeviceColumnLayout.Current') {
             throw "$view must bind the shared table column layout."
         }
+        $details = [xml](Get-Content (Join-Path $appDirectory "Views\DeviceDetailsPageView.xaml") -Raw)
+        $overview = $details.SelectSingleNode("//*[@*[local-name()='Name']='NetworkOverviewCard']")
+        $assignments = $details.SelectSingleNode("//*[@*[local-name()='Name']='AssignmentsCard']")
+        $identification = $details.SelectSingleNode("//*[@*[local-name()='Name']='IdentificationCard']")
+        $ports = $details.SelectSingleNode("//*[@*[local-name()='Name']='PortsServicesCard']")
+        if ($overview.ParentNode -ne $assignments.ParentNode -or
+            $assignments.GetAttribute("Grid.Column") -ne "1" -or
+            $identification.ParentNode -ne $overview.ParentNode.ParentNode -or
+            $identification.NextSibling -ne $ports) {
+            throw "Details must put network/assignments in the top row, then full-width identification and ports."
+        }
+        $assignmentLayout = $assignments.FirstChild
+        $assignmentNote = $details.SelectSingleNode("//*[@*[local-name()='Name']='DeviceAssignmentStatusText']")
+        if ($overview.GetAttribute("VerticalAlignment") -ne "Stretch" -or
+            $assignments.GetAttribute("VerticalAlignment") -ne "Stretch" -or
+            $assignmentLayout.LocalName -ne "Grid" -or
+            $assignmentLayout.FirstChild.LastChild.GetAttribute("Height") -ne "*" -or
+            $assignmentNote.GetAttribute("Grid.Row") -ne "2" -or
+            $assignmentNote.GetAttribute("VerticalAlignment") -ne "Bottom") {
+            throw "Top-row cards must share their height, with the assignments note anchored at the bottom."
+        }
+        $valueCode = Get-Content (Join-Path $appDirectory "Views\DeviceDetailValue.cs") -Raw
+        if ($valueCode -notmatch 'HyperlinkButton _browser' -or
+            $valueCode -notmatch '_valueRow.Children.Add\(_copy\)' -or
+            $valueCode -notmatch '_copy.Opacity = _pointerOver') {
+            throw "Details must keep native browser links and reserved hover/focus copy actions beside values."
+        }
     }
     foreach ($view in $viewScenarios.Keys) {
         foreach ($extension in @("xaml", "xaml.cs")) {
@@ -504,7 +534,7 @@ try {
                     "control-No devices match the current filter." { $script:currentPage -eq "Devices" -and $script:empty }
                     "control-Back to devices" { $script:currentPage -eq "DeviceDetails" }
                     "control-Device name" { $script:currentPage -eq "DeviceDetails" }
-                    "control-Assignments" { $script:currentPage -eq "DeviceDetails" }
+                    "control-Network overview" { $script:currentPage -eq "DeviceDetails" }
                     "control-Scan additional ports" { $script:currentPage -eq "DeviceDetails" }
                     "control-Online devices" { $script:currentPage -eq "Overview" }
                     "control-Public IP address" { $script:currentPage -eq "Network" }
@@ -558,7 +588,7 @@ try {
     $script:hiddenControl = ""
     $script:hiddenControl = "control-Scan additional ports"
     Show-UiReviewCaptureScenario "DeviceDetails"
-    $script:hiddenControl = "control-Assignments"
+    $script:hiddenControl = "control-Network overview"
     Assert-Throws { Show-UiReviewCaptureScenario "DeviceDetails" } "*not visible*"
     $script:hiddenControl = "control-Run network troubleshooting"
     Show-UiReviewCaptureScenario "Troubleshooting"

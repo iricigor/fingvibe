@@ -169,7 +169,17 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         ? Result.DeviceName : _inventoryDevice?.Imported.Hostname ?? "-";
     public string AutomaticName => VirtualDevice?.AutomaticName ?? _inventoryDevice?.Imported.Name
         ?? (HostnameText != "-" ? HostnameText : AddressText);
-    public string VendorText => _inventoryDevice?.Imported.Brand ?? Result?.VendorName ?? "Unknown";
+    public string VendorText => _classificationOverride?.Brand ?? _inventoryDevice?.Imported.Brand ?? Result?.VendorName ?? "Unknown";
+    public string BrandText => _classificationOverride?.Brand ?? ImportedMetadata?.Brand
+        ?? (VendorText is "Unknown" or "Private" or "Private/Randomized" ? "-" : VendorText);
+    public string FamilyText => _classificationOverride?.Family ?? ImportedMetadata?.Family ?? "-";
+    public string ModelText => _classificationOverride?.Model ?? ImportedMetadata?.Model ?? "-";
+    public string BrandSource => _classificationOverride?.Brand is not null ? "Saved correction"
+        : ImportedMetadata?.Brand is not null ? "Imported from Fing" : "Manufacturer lookup";
+    public string FamilySource => _classificationOverride?.Family is not null ? "Saved correction"
+        : ImportedMetadata?.Family is not null ? "Imported from Fing" : string.Empty;
+    public string ModelSource => _classificationOverride?.Model is not null ? "Saved correction"
+        : ImportedMetadata?.Model is not null ? "Imported from Fing" : string.Empty;
     public string VendorDisplayText => VendorText == "Private/Randomized" ? "Private MAC" : VendorText;
     public string VendorDescription => VendorText == "Private/Randomized"
         ? "Locally administered address; manufacturer cannot be reliably determined." : VendorText;
@@ -323,6 +333,8 @@ public sealed class ScanResultRow : INotifyPropertyChanged
             || MacAddressText.Contains(search, StringComparison.OrdinalIgnoreCase)
             || VendorText.Contains(search, StringComparison.OrdinalIgnoreCase)
             || VendorDisplayText.Contains(search, StringComparison.OrdinalIgnoreCase)
+            || FamilyText.Contains(search, StringComparison.OrdinalIgnoreCase)
+            || ModelText.Contains(search, StringComparison.OrdinalIgnoreCase)
             || (ImportedMetadata?.Type?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
             || (ImportedMetadata?.OperatingSystem?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
             || (ImportedMetadata?.Family?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
@@ -340,7 +352,10 @@ public sealed class ScanResultRow : INotifyPropertyChanged
             nameof(ClassificationOverride), nameof(OperatingSystem), nameof(Type), nameof(Icon),
             nameof(OperatingSystemText), nameof(DeviceTypeText), nameof(OperatingSystemSource),
             nameof(DeviceTypeSource), nameof(IconGlyph), nameof(IconSource),
-            nameof(OperatingSystemOpacity), nameof(DeviceTypeOpacity)
+            nameof(OperatingSystemOpacity), nameof(DeviceTypeOpacity),
+            nameof(BrandText), nameof(FamilyText), nameof(ModelText),
+            nameof(BrandSource), nameof(FamilySource), nameof(ModelSource),
+            nameof(VendorText), nameof(VendorDisplayText), nameof(VendorDescription), nameof(VendorOpacity)
         })
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));

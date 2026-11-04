@@ -88,6 +88,34 @@ home automation/media, infrastructure, and printing. The automatic LAN scan
 still checks only its original 10 TCP ports. The additional scan uses at most
 16 simultaneous connections with 400 ms per-connection deadlines.
 
+Device details places **Network overview** at the top left and **Assignments**
+at the top right (roughly 60/40), with aligned bottom edges and the assignments
+explanation anchored at the bottom. They stack at natural height in narrow windows. A full-width,
+read-first **Device identification** card follows, then **Ports & services**.
+Identification uses up to three field columns, and endpoints use up to two
+columns, reducing to one as width and text scaling require. **Rename** in the
+identity header reveals the existing name editor only when requested. **Ports & services**
+has its own container for endpoints, scan controls, independent TCP/UDP feedback,
+and UDP observations. Discovered hostname belongs to the network overview;
+the collapsed **Imported Fing data** section contains only populated original
+fields and explicitly labels historical imported IPs.
+
+Hover beside a populated identity, network, identification, imported, or endpoint
+value to reveal its copy icon immediately after the value (not at the field's
+far edge), or Tab to the same button to reveal and activate it
+with the keyboard. Copy writes only that value (endpoint addresses include their
+port), never the label/source, and reports success or clipboard errors in a
+non-layout-shifting flyout. Missing-value placeholders have no copy action.
+Confirmed current TCP endpoints on 80/443 show the address itself as a native
+browser hyperlink with an external-link arrow. Ports 8080/8443 retain a plain
+address plus a nearby **Try HTTP/HTTPS** text link with the same arrow, since
+port numbers do not verify the protocol. Copy is always a separate adjacent
+action, and neither browser treatment uses a boxed button.
+Links use the selected current address, preserve alternate ports, and launch the
+default browser only on activation. Failures are shown in details. Historical-only
+addresses, UDP observations and arbitrary non-web endpoints have no browser action;
+no extra scanning or protocol verification is performed.
+
 **Include UDP service checks** starts unchecked. Opting in sends only one
 non-recursive DNS question to 53/UDP and one standard NTP client request to
 123/UDP on the selected device, bound to the selected interface. Both checks
@@ -147,13 +175,30 @@ The expanded sidebar uses a compact 216-DIP Windows Settings-style layout with c
 
 Devices show a native Segoe Fluent device icon beside their name. **OS** is a sortable, resizable, optional column. **Device type** is an optional secondary line within the mandatory Name column, with a separate type-sort action in its header. Both detected and manually selected classifications are included in text filtering. Device details show the identification evidence and whether a value is user-selected. Unknown OS, device type, and vendor metadata use muted dashes in the list; details retain descriptive classification text.
 
+The identification card reads as values by default. Its single pencil + **Edit**
+button switches all six fields inline: device type, OS, brand, family, model and
+icon. It focuses device type and keeps **Save changes** / **Cancel** beneath the
+inputs. Cancel discards drafts; successful Save returns to read mode; a failed
+Save keeps entered values and displays the error. Blank brand/family/model
+inputs inherit the original/default value (shown as placeholder text), rather
+than hiding it. Saved corrections take precedence over original Fing values,
+then automatic evidence where available. **Reset saved identification** clears
+all six overrides, not device names, assignments or imported evidence.
+**How this device was identified** discloses the technical evidence separately.
+
 Identification is best-effort and local. SSDP discovery uses the selected interface, and one shared multicast DNS-SD discovery window follows service announcements through SRV, TXT, and IPv4 address records to collect models without confusing proxy responses with the responding device. It listens for multicast replies as well as requested unicast replies. SSDP `SERVER` advertisements and bounded HTTP/SSH banner reads on already-open ports can identify OS-specific platform information. Merely running SSH, SMB, nginx, or Apache is not OS proof. The computer running the scanner is identified directly from its OS, and the selected interface's configured gateway is identified as a router.
 
 Explicit device types/models outweigh service-only clues. When explicit evidence is absent, narrow product/manufacturer clues can suggest categories such as WD My Cloud/Synology/QNAP storage, Philips Lighting/Signify/Tuya smart devices, media devices, or game consoles. OS-specific discovered names, such as `Android-...`, are hints, not proof that the device is a phone. These inferred values are visibly marked **(likely)** in the list and details, with the supporting evidence shown in details. A generic TP-Link, Amazon, or Apple vendor, randomized MAC, or open SMB port alone does not determine an OS or device category. Conflicting or unsupported results remain **Unknown**; silent devices may still require manual correction. No fingerprinting cloud API is contacted; the existing vendor-registry downloads and optional public-network lookup are unchanged.
 
 For otherwise unidentified SMB hosts, an observed ICMP response TTL of 127 or 128 together with open TCP 445 can suggest **Windows (likely)** and **Computer (likely)**. This is a combined heuristic, not definitive OS fingerprinting: it does not apply to known routers, NAS appliances, smart devices, or contradictory OS evidence. TTL alone, SMB alone, and Linux/macOS-style TTL values do not produce an OS guess.
 
-Device details keep the OS, type, and icon visible above the network information and port-scan action. Expand **Identification evidence and corrections** below the network details to inspect the evidence, choose an operating system, device type, and/or a built-in icon, then select **Save identification**. **Automatic** restores detection for an individual field when no mapped Fing metadata is available; otherwise that option explicitly says **Use imported Fing OS/type**. **Use automatic detection** (or **Clear saved corrections** for imported devices) clears all three saved choices, restoring the imported/automatic fallback without deleting imported metadata. The icon follows the effective device type unless an explicit icon is selected. Available types include Computer, Phone, Tablet, Router/access point, Printer, TV/media device, NAS/storage, Game console, IoT/smart device, and Unknown. Categories without reliable discovery evidence can be assigned manually; OS also offers Other.
+In the inline editor, **Automatic** restores detection for an individual field
+when no mapped Fing metadata is available; otherwise that option explicitly says
+**Use imported Fing OS/type**. The icon follows the effective device type unless
+an explicit icon is selected. Available types include Computer, Phone, Tablet,
+Router/access point, Printer, TV/media device, NAS/storage, Game console,
+IoT/smart device, and Unknown. Categories without reliable discovery evidence
+can be assigned manually; OS also offers Other.
 
 Corrections are stored separately from automatic evidence within `%LOCALAPPDATA%\FingVibe\device-inventory.json`, keyed by MAC address, and apply after rescans, IP changes, and restarts. Existing `device-classifications.json` data is migrated without deleting or rewriting the legacy file. Saving requires a six-byte MAC address, including an imported MAC. Private/randomized MACs may change and therefore lose their association with saved corrections. Load/save errors are shown in details; a failed load disables edits rather than overwriting existing corrections. Completed scan snapshots preserve automatic evidence and inferred-value markers. Older snapshots remain readable, but are not re-enriched when opening a new build: run **Scan LAN** again to collect current detection evidence.
 

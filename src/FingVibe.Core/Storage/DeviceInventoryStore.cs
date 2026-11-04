@@ -105,9 +105,7 @@ public sealed class DeviceInventoryStore
                 throw new InvalidDataException("A saved name is invalid.");
         foreach (var (key, classification) in data.Classifications)
             if (key != PeopleRoomsData.NormalizeMacAddress(key) || classification is null
-                || classification.OperatingSystem is { } os && !Enum.IsDefined(os)
-                || classification.Type is { } type && !Enum.IsDefined(type)
-                || classification.Icon is { } icon && !Enum.IsDefined(icon))
+                || !classification.HasValidValues())
                 throw new InvalidDataException("A saved classification is invalid.");
         if (data.VirtualDevices is null)
             throw new InvalidDataException("Virtual devices are missing.");
@@ -124,10 +122,7 @@ public sealed class DeviceInventoryStore
                 || !numbers.Add((slot.NetworkId, slot.Subnet, slot.Prefix, slot.Number))
                 || slot.LastChecked == default || slot.History is null || slot.History.Count == 0
                 || slot.Name is not null && string.IsNullOrWhiteSpace(slot.Name)
-                || slot.Classification is { } classification
-                    && (classification.Type is { } type && !Enum.IsDefined(type)
-                        || classification.OperatingSystem is { } os && !Enum.IsDefined(os)
-                        || classification.Icon is { } icon && !Enum.IsDefined(icon))
+                || slot.Classification is { } classification && !classification.HasValidValues()
                 || slot.Assignment?.PersonId is { } person && data.PeopleRooms.People.All(item => item.Id != person)
                 || slot.Assignment?.RoomId is { } room && data.PeopleRooms.Rooms.All(item => item.Id != room))
                 throw new InvalidDataException("The inventory contains invalid virtual devices.");

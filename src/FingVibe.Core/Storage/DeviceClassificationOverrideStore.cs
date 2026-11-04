@@ -81,12 +81,9 @@ public sealed class DeviceClassificationOverrideStore
         foreach (var (mac, value) in overrides)
         {
             var key = DeviceNameOverrideStore.NormalizeMacAddress(mac);
-            if (value is null || value.IsEmpty
-                || (value.OperatingSystem is { } os && !Enum.IsDefined(os))
-                || (value.Type is { } type && !Enum.IsDefined(type))
-                || (value.Icon is { } icon && !Enum.IsDefined(icon)))
+            if (value is null || value.IsEmpty || !value.HasValidValues())
             {
-                throw new ArgumentException("Device classification overrides must contain valid OS, type, or icon choices.",
+                throw new ArgumentException("Device identification overrides must contain valid choices and nonblank metadata.",
                     nameof(overrides));
             }
 

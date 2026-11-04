@@ -13,7 +13,7 @@ public sealed class DeviceClassificationOverrideStoreTests
         var path = Path.Combine(directory, "overrides.json");
         var store = new DeviceClassificationOverrideStore(path);
         var choices = new DeviceClassificationOverride(DeviceOperatingSystem.Android,
-            DeviceType.Phone, DeviceType.GameConsole);
+            DeviceType.Phone, DeviceType.GameConsole, "Brand", "Family", "Model");
         try
         {
             Assert.Empty(await store.LoadAsync());
@@ -48,6 +48,7 @@ public sealed class DeviceClassificationOverrideStoreTests
     [InlineData("""{"not-a-mac":{"type":"Phone"}}""")]
     [InlineData("""{"AABBCCDDEEFF":{"type":999}}""")]
     [InlineData("""{"AABBCCDDEEFF":{"operatingSystem":"NotAnOs"}}""")]
+    [InlineData("""{"AABBCCDDEEFF":{"brand":" "}}""")]
     [InlineData("""{"aa:bb:cc:dd:ee:ff":{"type":"Phone"},"AABBCCDDEEFF":{"type":"Tablet"}}""")]
     public async Task Load_RejectsInvalidOverrides(string json)
     {

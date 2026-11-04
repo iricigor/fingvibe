@@ -15,6 +15,10 @@ using System.Threading.Tasks;
 public sealed class AdditionalServicesFixture : IDisposable
 {
     private readonly TcpListener tcp = new TcpListener(IPAddress.Loopback, 1883);
+    private readonly TcpListener[] web = {
+        new TcpListener(IPAddress.Loopback, 8080),
+        new TcpListener(IPAddress.Loopback, 8443)
+    };
     private UdpClient dns;
     private UdpClient ntp;
     private Task[] workers = new Task[0];
@@ -32,7 +36,11 @@ public sealed class AdditionalServicesFixture : IDisposable
             dns = new UdpClient(new IPEndPoint(IPAddress.Loopback, 53));
             endpoint = "123/UDP";
             ntp = new UdpClient(new IPEndPoint(IPAddress.Loopback, 123));
-            workers = new[] { Reply(dns, true), Reply(ntp, false) };
+            endpoint = "8080/TCP";
+            web[0].Start();
+            endpoint = "8443/TCP";
+            web[1].Start();
+            workers = new[] { Reply(dns, true), Reply(ntp, false), Accept(web[0]), Accept(web[1]) };
         }
         catch (SocketException exception)
         {
@@ -43,11 +51,11 @@ public sealed class AdditionalServicesFixture : IDisposable
     public void StartTcp()
     {
         tcp.Start();
-        tcpWorker = Accept();
+        tcpWorker = Accept(tcp);
     }
-    private async Task Accept()
+    private async Task Accept(TcpListener listener)
     {
-        try { while (!stopping) { using (await tcp.AcceptTcpClientAsync()) {} } }
+        try { while (!stopping) { using (await listener.AcceptTcpClientAsync()) {} } }
         catch (ObjectDisposedException) when (stopping) {}
         catch (SocketException) when (stopping) {}
     }
@@ -89,6 +97,7 @@ public sealed class AdditionalServicesFixture : IDisposable
     {
         stopping = true;
         tcp.Stop();
+        foreach (var listener in web) listener.Stop();
         if (dns != null) dns.Dispose();
         if (ntp != null) ntp.Dispose();
         if (!Task.WaitAll(workers, 5000)) throw new TimeoutException("Fixture workers failed to stop.");
@@ -119,6 +128,29 @@ function Wait-ServiceState([scriptblock] $Predicate, [string] $Description, [int
 function Invoke-ServiceControl([string] $Name) {
     (Find-ServiceControl $Name -ByName).GetCurrentPattern(
         [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+}
+
+function Assert-KeyboardCopy([string] $Label, [string] $Expected) {
+    [System.Windows.Forms.SendKeys]::SendWait(" ")
+    Wait-ServiceState {
+        $texts = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
+            [System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.AndCondition]::new(
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::ProcessIdProperty, $process.Id),
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                    [System.Windows.Automation.ControlType]::Text)))
+        $feedback = $texts | Where-Object {
+            $_.Current.Name -eq "$Label copied." -or $_.Current.Name -like "Could not copy ${Label}:*"
+        } | Select-Object -First 1
+        if (-not $feedback) { return $false }
+        if ($feedback.Current.Name -ne "$Label copied.") { throw $feedback.Current.Name }
+        return $true
+    } "$Label copy feedback"
+    if ([System.Windows.Forms.Clipboard]::GetText() -ne $Expected) {
+        throw "Keyboard copy must contain only the $Label value."
+    }
 }
 
 function Select-ServicePage([string] $Name) {
@@ -172,18 +204,183 @@ function Show-ServiceScanSection([int] $ExtraSpace = 0) {
         $top = [Math]::Max($area.Top, $window.Top + 190 * $scale)
         $bottom = [Math]::Min($area.Bottom, $window.Bottom - 8 * $scale)
         $button = (Find-ServiceControl DevicePortScanButton).Current.BoundingRectangle
-        $heading = (Find-ServiceControl "UDP observations (silence is not an open or closed port)" -ByName).Current.BoundingRectangle
+        $heading = (Find-ServiceControl DeviceIncludeUdpCheckBox).Current.BoundingRectangle
         if ($button.Width -gt 0 -and $heading.Width -gt 0 -and
             $button.Top -ge $top + 8 * $scale -and $heading.Bottom -le $bottom - (110 + $ExtraSpace) * $scale) {
             return
         }
     }
-    throw "The scan section could not fit the physical viewport: window=$window, scroll=$area, button=$button, observations=$heading."
+    throw "The scan controls could not fit the physical viewport: window=$window, scroll=$area, button=$button, UDP option=$heading."
 }
 
 function Save-ServiceEvidence([string] $Name, [switch] $DevicesList) {
     if (-not $DevicesList) { Show-ServiceScanSection }
     Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Name.png")
+}
+
+function Open-IdentificationEditor {
+    $edit = Find-ServiceControl "Edit device identification" -ByName
+    Wait-ServiceState { $edit.Current.IsEnabled } "identification read mode"
+    $edit.SetFocus()
+    Invoke-ServiceControl "Edit device identification"
+    Wait-ServiceState {
+        -not $edit.Current.IsEnabled -and
+        [System.Windows.Automation.AutomationElement]::FocusedElement.Current.Name -eq "Device type"
+    } "first identification input focus"
+}
+
+function Test-DeviceDetailsEditing {
+    $scroll = (Find-ServiceControl DeviceDetailsScroll).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+    $scroll.SetScrollPercent(-1, 0)
+    Wait-ServiceState {
+        (Find-ServiceControl "Network overview" -ByName).Current.BoundingRectangle.Width -gt 0 -and
+        (Find-ServiceControl Assignments -ByName).Current.BoundingRectangle.Width -gt 0
+    } "top-row cards"
+    $network = (Find-ServiceControl "Network overview" -ByName).Current.BoundingRectangle
+    $assignment = (Find-ServiceControl Assignments -ByName).Current.BoundingRectangle
+    if ([Math]::Abs($network.Top - $assignment.Top) -gt 3 -or $assignment.Left -le $network.Left + 300) {
+        throw "Network overview and Assignments must share the top row in left/right order."
+    }
+    Wait-ServiceState {
+        (Find-ServiceControl DeviceAddressSourceText).Current.BoundingRectangle.Width -gt 0 -and
+        (Find-ServiceControl DeviceAssignmentStatusText).Current.BoundingRectangle.Width -gt 0
+    } "aligned card footnotes"
+    $networkNote = (Find-ServiceControl DeviceAddressSourceText).Current.BoundingRectangle
+    $assignmentNote = (Find-ServiceControl DeviceAssignmentStatusText).Current.BoundingRectangle
+    if ([Math]::Abs($networkNote.Bottom - $assignmentNote.Bottom) -gt 3) {
+        throw "The assignments explanation must follow the aligned card bottom: network=$networkNote assignments=$assignmentNote."
+    }
+    Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-details-wide.png")
+    Invoke-ServiceControl "Rename device"
+    Wait-ServiceState {
+        [System.Windows.Automation.AutomationElement]::FocusedElement.Current.Name -eq "Device name"
+    } "name editor focus"
+    Invoke-ServiceControl Done
+    Wait-ServiceState {
+        [System.Windows.Automation.AutomationElement]::FocusedElement.Current.Name -eq "Rename device"
+    } "name editor closed"
+    $copy = Find-ServiceControl "Copy IP address" -ByName
+    $copy.SetFocus()
+    Write-Host "Copy focus: $([System.Windows.Automation.AutomationElement]::FocusedElement.Current.Name); bounds: $($copy.Current.BoundingRectangle)."
+    Wait-ServiceState { -not $copy.Current.IsOffscreen -and $copy.Current.BoundingRectangle.Width -ge 30 } "keyboard-accessible copy action"
+    $value = (Find-ServiceControl "127.0.0.1" -ByName).Current.BoundingRectangle
+    $copyBounds = $copy.Current.BoundingRectangle
+    if ($value.Width -le 0 -or $copyBounds.Left - $value.Right -gt 16 -or $copyBounds.Left -lt $value.Right - 1) {
+        throw "Copy must sit immediately after its value, not at the field edge: value=$value copy=$copyBounds."
+    }
+    $before = $copy.Current.BoundingRectangle
+    Assert-KeyboardCopy "IP address" "127.0.0.1"
+    $after = $copy.Current.BoundingRectangle
+    if ($before -ne $after) { throw "Copy activation shifted its layout." }
+    [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
+
+    Open-IdentificationEditor
+    $brand = Find-ServiceControl DeviceBrandInput
+    $brand.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("Unsaved brand")
+    Invoke-ServiceControl Cancel
+    Open-IdentificationEditor
+    if ($brand.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value -ne "") {
+        throw "Cancel retained unsaved identification values."
+    }
+    foreach ($field in @("Brand", "Family", "Model")) {
+        (Find-ServiceControl "Device${field}Input").GetCurrentPattern(
+            [System.Windows.Automation.ValuePattern]::Pattern).SetValue("Synthetic $field")
+    }
+    $save = Find-ServiceControl "Save changes" -ByName
+    Wait-ServiceState { $save.Current.IsEnabled } "changed identification save action"
+    $save.SetFocus()
+    Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-identification-edit.png")
+    Invoke-ServiceControl "Save changes"
+    Wait-ServiceState { (Find-ServiceControl "Edit device identification" -ByName).Current.IsEnabled } "identification save"
+    $modelCopy = Find-ServiceControl "Copy Model" -ByName
+    $modelCopy.SetFocus()
+    Wait-ServiceState { -not $modelCopy.Current.IsOffscreen -and $modelCopy.Current.BoundingRectangle.Width -ge 30 } "saved metadata copy focus"
+    Assert-KeyboardCopy Model "Synthetic Model"
+    [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
+    Show-ServiceScanSection
+    $ports = (Find-ServiceControl "Ports & services" -ByName).Current.BoundingRectangle
+    (Find-ServiceControl "Edit device identification" -ByName).SetFocus()
+    Wait-ServiceState {
+        (Find-ServiceControl "Device type" -ByName).Current.BoundingRectangle.Width -gt 0
+    } "wide identification fields"
+    $type = (Find-ServiceControl "Device type" -ByName).Current.BoundingRectangle
+    $os = (Find-ServiceControl "Operating system" -ByName).Current.BoundingRectangle
+    $brand = (Find-ServiceControl Brand -ByName).Current.BoundingRectangle
+    $identification = (Find-ServiceControl "Device identification" -ByName).Current.BoundingRectangle
+    if ($type.Width -le 0 -or $os.Left -le $type.Left -or $brand.Left -le $os.Left -or
+        [Math]::Abs($type.Top - $os.Top) -gt 3 -or [Math]::Abs($type.Top - $brand.Top) -gt 3 -or
+        [Math]::Abs($identification.Left - $network.Left) -gt 3 -or
+        [Math]::Abs($ports.Left - $network.Left) -gt 3) {
+        throw "Wide identification must span the page in three field columns, followed by full-width ports."
+    }
+    Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-identification-read-wide.png")
+    Open-IdentificationEditor
+    Invoke-ServiceControl "Reset saved identification"
+    Wait-ServiceState { (Find-ServiceControl "Edit device identification" -ByName).Current.IsEnabled } "identification reset"
+    Open-IdentificationEditor
+    foreach ($field in @("Brand", "Family", "Model")) {
+        if ((Find-ServiceControl "Device${field}Input").GetCurrentPattern(
+                [System.Windows.Automation.ValuePattern]::Pattern).Current.Value -ne "") {
+            throw "Reset retained the saved $field correction."
+        }
+    }
+    Invoke-ServiceControl Cancel
+    $window = Get-UiReviewWindowBounds $process.MainWindowHandle
+    try {
+        $null = [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero,
+            $window.Left, $window.Top, 760, $window.Height, 0x0044)
+        Start-Sleep -Milliseconds 300
+        Open-IdentificationEditor
+        (Find-ServiceControl DeviceBrandInput).GetCurrentPattern(
+            [System.Windows.Automation.ValuePattern]::Pattern).SetValue("Narrow draft")
+        $save = Find-ServiceControl "Save changes" -ByName
+        Wait-ServiceState { $save.Current.IsEnabled } "changed narrow identification save action"
+        $save.SetFocus()
+        Wait-ServiceState { -not $save.Current.IsOffscreen } "narrow inline editor"
+        $scroll = (Find-ServiceControl DeviceDetailsScroll).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        if ($scroll.Current.HorizontallyScrollable) { throw "Narrow details require horizontal scrolling." }
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-identification-narrow.png")
+        Invoke-ServiceControl Cancel
+    }
+    finally {
+        $null = [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero,
+            $window.Left, $window.Top, $window.Width, $window.Height, 0x0044)
+    }
+    Show-ServiceScanSection
+}
+
+function Test-EndpointLinks {
+    foreach ($case in @(@("Try HTTP", 8080), @("Try HTTPS", 8443))) {
+        $link = Find-ServiceControl "$($case[0]): 127.0.0.1:$($case[1])" -ByName
+        if ($link.Current.ControlType -ne [System.Windows.Automation.ControlType]::Hyperlink) {
+            throw "Alternate browser actions must be native text hyperlinks, not boxed buttons."
+        }
+        $link.SetFocus()
+        Wait-ServiceState { -not $link.Current.IsOffscreen -and $link.Current.BoundingRectangle.Width -gt 0 } "alternate browser link focus"
+        $copies = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::Button))
+        $portLabel = $copies | Where-Object { $_.Current.Name -like "Copy $($case[1])/TCP -*" } | Select-Object -First 1
+        if (-not $portLabel) { throw "Missing endpoint copy action for port $($case[1])." }
+        $portLabel.SetFocus()
+        Wait-ServiceState { -not $portLabel.Current.IsOffscreen -and $portLabel.Current.BoundingRectangle.Width -ge 30 } "endpoint copy geometry"
+        $copyBounds = $portLabel.Current.BoundingRectangle
+        $linkBounds = $link.Current.BoundingRectangle
+        if ($linkBounds.Left -lt $copyBounds.Right - 1 -or $linkBounds.Left - $copyBounds.Right -gt 16 -or
+            [Math]::Abs($linkBounds.Top - $copyBounds.Top) -gt 10) {
+            throw "Try links must stay beside endpoint copy actions: copy=$copyBounds link=$linkBounds."
+        }
+    }
+    Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-endpoint-try-links.png")
+    $primary = Find-ServiceControl "Open HTTP: 127.0.0.1:80" -ByName -Optional
+    if ($primary) {
+        if ($primary.Current.ControlType -ne [System.Windows.Automation.ControlType]::Hyperlink) {
+            throw "A confirmed standard web endpoint must use a linked address."
+        }
+        $primary.SetFocus()
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-endpoint-linked-address.png")
+    }
 }
 
 $previousReview = $env:FINGVIBE_UI_REVIEW
@@ -216,6 +413,7 @@ try {
     Invoke-ServiceControl "Scan LAN"
     Wait-ServiceState { (Find-ServiceControl "Scan LAN" -ByName -Optional).Current.IsEnabled -and (Test-Path $snapshot) } "loopback scan"
     Open-ServiceDetails
+    Test-DeviceDetailsEditing
     $udp = (Find-ServiceControl DeviceIncludeUdpCheckBox).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
     if ($udp.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off) { throw "UDP must start unchecked." }
     Save-ServiceEvidence "services-default"
@@ -240,6 +438,7 @@ try {
     if ($fixture.DnsRequests -ne 1 -or $fixture.NtpRequests -ne 1) { throw "UDP must send only one request per service." }
     Save-ServiceEvidence "services-inconclusive"
     Wait-ServiceState { (Find-ServiceControl DevicePortScanButton).Current.Name -eq "Scan additional ports" } "scan cleanup"
+    Test-EndpointLinks
     if ((Find-ServiceControl DeviceTcpScanStatus).Current.Name -notlike "TCP: complete*") { throw "TCP completion was not independently reported." }
     $fixture.DnsMode = 1
     $fixture.NtpMode = 1
@@ -279,6 +478,12 @@ try {
         Save-ServiceEvidence "services-list-$theme" -DevicesList
         Open-ServiceDetails
         Save-ServiceEvidence "services-details-$theme"
+        $endpointCopy = Find-ServiceControl "Copy 1883/TCP - MQTT" -ByName
+        $endpointCopy.SetFocus()
+        Wait-ServiceState { -not $endpointCopy.Current.IsOffscreen -and $endpointCopy.Current.BoundingRectangle.Width -ge 30 } "endpoint capture focus"
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "services-endpoints-$theme.png")
+        (Find-ServiceControl "Edit device identification" -ByName).SetFocus()
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-identification-$theme.png")
     }
     $saved = Get-Content -LiteralPath $snapshot -Raw | ConvertFrom-Json
     if (@($saved.results[0].openPorts | Where-Object protocol -eq 1).Count -ne 2) {
@@ -290,6 +495,12 @@ try {
     $null = $process.CloseMainWindow()
     if (-not $process.WaitForExit(5000)) { throw "Closing the window did not cancel and drain the additional scan." }
     Write-Host "Additional services native UI checks passed using loopback-only synthetic responders."
+}
+catch {
+    if ($process -and -not $process.HasExited -and $process.MainWindowHandle -ne 0) {
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "services-failure.png")
+    }
+    throw
 }
 finally {
     try {
