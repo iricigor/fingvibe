@@ -52,103 +52,103 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                    <Border x:Name="NetworkOverviewCard" Style="{StaticResource ScannerSummaryCardStyle}" VerticalAlignment="Top">
-                        <StackPanel Spacing="12">
-                            <TextBlock Text="Network overview" FontSize="18" FontWeight="SemiBold" />
-                            <Grid x:Name="OverviewFields" ColumnSpacing="16" RowSpacing="12" SizeChanged="Fields_SizeChanged">
-                                <views:DeviceDetailValue x:Name="DeviceAddressText" Label="IP address" />
-                                <views:DeviceDetailValue x:Name="DeviceMacText" Label="MAC address" />
-                                <views:DeviceDetailValue x:Name="DeviceHostnameText" Label="Discovered hostname" />
-                                <views:DeviceDetailValue x:Name="DeviceVendorText" Label="Vendor / manufacturer" />
-                                <views:DeviceDetailValue x:Name="DeviceResponseText" Label="Response" />
-                                <views:DeviceDetailValue x:Name="DeviceProbeText" Label="Probe duration" />
-                            </Grid>
-                            <TextBlock x:Name="DeviceAddressSourceText" TextWrapping="Wrap"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <ComboBox x:Name="DeviceAddressPicker" Header="Current address to inspect / probe"
-                                      HorizontalAlignment="Stretch" AutomationProperties.AutomationId="DeviceAddressPicker"
-                                      Visibility="Collapsed" SelectionChanged="DeviceAddressPicker_SelectionChanged" />
-                        </StackPanel>
-                    </Border>
-                    <Border x:Name="AssignmentsCard" Grid.Column="1" Style="{StaticResource ScannerSummaryCardStyle}" VerticalAlignment="Top">
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="Assignments" FontWeight="SemiBold" />
-                            <Grid x:Name="AssignmentFields" ColumnSpacing="12" RowSpacing="12" SizeChanged="Fields_SizeChanged">
-                                <ComboBox x:Name="DevicePersonPicker" Header="Person" HorizontalAlignment="Stretch"
-                                          AutomationProperties.Name="Person" SelectionChanged="DevicePersonPicker_SelectionChanged" />
-                                <ComboBox x:Name="DeviceRoomPicker" Header="Room" HorizontalAlignment="Stretch"
-                                          AutomationProperties.Name="Room" SelectionChanged="DeviceRoomPicker_SelectionChanged" />
-                            </Grid>
-                            <TextBlock x:Name="DeviceAssignmentStatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        </StackPanel>
-                    </Border>
-            </Grid>
-                <Border x:Name="IdentificationCard" Style="{StaticResource ScannerSummaryCardStyle}"
-                        VerticalAlignment="Top">
+                <Border x:Name="NetworkOverviewCard" Style="{StaticResource ScannerSummaryCardStyle}" VerticalAlignment="Top">
                     <StackPanel Spacing="12">
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Device identification" FontSize="18" FontWeight="SemiBold"
-                                       TextWrapping="Wrap" VerticalAlignment="Center" />
-                            <Button x:Name="DeviceClassificationEditButton" Grid.Column="1"
-                                    AutomationProperties.Name="Edit device identification" Click="ClassificationEdit_Click">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <FontIcon Glyph="&#xE70F;" FontSize="14" />
-                                    <TextBlock Text="Edit" />
-                                </StackPanel>
-                            </Button>
+                        <TextBlock Text="Network overview" FontSize="18" FontWeight="SemiBold" />
+                        <Grid x:Name="OverviewFields" ColumnSpacing="16" RowSpacing="12" SizeChanged="Fields_SizeChanged">
+                            <views:DeviceDetailValue x:Name="DeviceAddressText" Label="IP address" />
+                            <views:DeviceDetailValue x:Name="DeviceMacText" Label="MAC address" />
+                            <views:DeviceDetailValue x:Name="DeviceHostnameText" Label="Discovered hostname" />
+                            <views:DeviceDetailValue x:Name="DeviceVendorText" Label="Vendor / manufacturer" />
+                            <views:DeviceDetailValue x:Name="DeviceResponseText" Label="Response" />
+                            <views:DeviceDetailValue x:Name="DeviceProbeText" Label="Probe duration" />
                         </Grid>
-                        <Grid x:Name="IdentificationReadFields" ColumnSpacing="16" RowSpacing="12" SizeChanged="Fields_SizeChanged">
-                            <views:DeviceDetailValue x:Name="DeviceTypeValueText" Label="Device type" />
-                            <views:DeviceDetailValue x:Name="DeviceOsText" Label="Operating system" />
-                            <views:DeviceDetailValue x:Name="DeviceBrandText" Label="Brand" />
-                            <views:DeviceDetailValue x:Name="DeviceFamilyText" Label="Family" />
-                            <views:DeviceDetailValue x:Name="DeviceModelText" Label="Model" />
-                            <views:DeviceDetailValue x:Name="DeviceIconText" Label="Icon" />
-                        </Grid>
-                        <TextBlock x:Name="DeviceClassificationNoticeText" TextWrapping="Wrap"
+                        <TextBlock x:Name="DeviceAddressSourceText" TextWrapping="Wrap"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <StackPanel x:Name="IdentificationEditFields" Spacing="12" Visibility="Collapsed">
-                            <Grid x:Name="IdentificationInputs" ColumnSpacing="16" RowSpacing="12" SizeChanged="Fields_SizeChanged">
-                                <ComboBox x:Name="DeviceTypePicker" Header="Device type" HorizontalAlignment="Stretch"
-                                          AutomationProperties.Name="Device type" SelectionChanged="ClassificationPicker_SelectionChanged" />
-                                <ComboBox x:Name="DeviceOsPicker" Header="Operating system" HorizontalAlignment="Stretch"
-                                          AutomationProperties.Name="Operating system" SelectionChanged="ClassificationPicker_SelectionChanged" />
-                                <TextBox x:Name="DeviceBrandInput" Header="Brand" AutomationProperties.Name="Brand"
-                                         TextChanged="ClassificationText_TextChanged" />
-                                <TextBox x:Name="DeviceFamilyInput" Header="Family" AutomationProperties.Name="Family"
-                                         TextChanged="ClassificationText_TextChanged" />
-                                <TextBox x:Name="DeviceModelInput" Header="Model" AutomationProperties.Name="Model"
-                                         TextChanged="ClassificationText_TextChanged" />
-                                <ComboBox x:Name="DeviceIconPicker" Header="Device icon" HorizontalAlignment="Stretch"
-                                          AutomationProperties.Name="Device icon" SelectionChanged="ClassificationPicker_SelectionChanged" />
-                            </Grid>
-                            <TextBlock Text="Blank brand, family or model uses the original/default value. Saving does not change imported Fing evidence."
-                                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Button x:Name="DeviceClassificationSaveButton" Content="Save changes"
-                                        Click="DeviceClassificationSaveButton_Click" />
-                                <Button x:Name="DeviceClassificationCancelButton" Content="Cancel" Click="ClassificationCancel_Click" />
-                            </StackPanel>
-                            <Button x:Name="DeviceClassificationResetButton" Content="Reset saved identification"
-                                    Click="DeviceClassificationResetButton_Click"
-                                    ToolTipService.ToolTip="Clear all six saved identification overrides. Names, assignments and original Fing data are unchanged." />
-                        </StackPanel>
-                        <TextBlock x:Name="DeviceClassificationStatusText" TextWrapping="Wrap"
-                                   AutomationProperties.LiveSetting="Polite" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <Expander Header="How this device was identified" HorizontalAlignment="Stretch"
-                                  HorizontalContentAlignment="Stretch">
-                            <StackPanel Spacing="8">
-                                <TextBlock x:Name="DeviceOsEvidenceText" TextWrapping="Wrap" />
-                                <TextBlock x:Name="DeviceTypeEvidenceText" TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Expander>
+                        <ComboBox x:Name="DeviceAddressPicker" Header="Current address to inspect / probe"
+                                  HorizontalAlignment="Stretch" AutomationProperties.AutomationId="DeviceAddressPicker"
+                                  Visibility="Collapsed" SelectionChanged="DeviceAddressPicker_SelectionChanged" />
                     </StackPanel>
                 </Border>
+                <Border x:Name="AssignmentsCard" Grid.Column="1" Style="{StaticResource ScannerSummaryCardStyle}" VerticalAlignment="Top">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="Assignments" FontSize="18" FontWeight="SemiBold" />
+                        <Grid x:Name="AssignmentFields" ColumnSpacing="12" RowSpacing="12" SizeChanged="Fields_SizeChanged">
+                            <ComboBox x:Name="DevicePersonPicker" Header="Person" HorizontalAlignment="Stretch"
+                                      AutomationProperties.Name="Person" SelectionChanged="DevicePersonPicker_SelectionChanged" />
+                            <ComboBox x:Name="DeviceRoomPicker" Header="Room" HorizontalAlignment="Stretch"
+                                      AutomationProperties.Name="Room" SelectionChanged="DeviceRoomPicker_SelectionChanged" />
+                        </Grid>
+                        <TextBlock x:Name="DeviceAssignmentStatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+            <Border x:Name="IdentificationCard" Style="{StaticResource ScannerSummaryCardStyle}"
+                    VerticalAlignment="Top">
+                <StackPanel Spacing="12">
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Device identification" FontSize="18" FontWeight="SemiBold"
+                                   TextWrapping="Wrap" VerticalAlignment="Center" />
+                        <Button x:Name="DeviceClassificationEditButton" Grid.Column="1"
+                                AutomationProperties.Name="Edit device identification" Click="ClassificationEdit_Click">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <FontIcon Glyph="&#xE70F;" FontSize="14" />
+                                <TextBlock Text="Edit" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                    <Grid x:Name="IdentificationReadFields" ColumnSpacing="16" RowSpacing="12" SizeChanged="Fields_SizeChanged">
+                        <views:DeviceDetailValue x:Name="DeviceTypeValueText" Label="Device type" />
+                        <views:DeviceDetailValue x:Name="DeviceOsText" Label="Operating system" />
+                        <views:DeviceDetailValue x:Name="DeviceBrandText" Label="Brand" />
+                        <views:DeviceDetailValue x:Name="DeviceFamilyText" Label="Family" />
+                        <views:DeviceDetailValue x:Name="DeviceModelText" Label="Model" />
+                        <views:DeviceDetailValue x:Name="DeviceIconText" Label="Icon" />
+                    </Grid>
+                    <TextBlock x:Name="DeviceClassificationNoticeText" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <StackPanel x:Name="IdentificationEditFields" Spacing="12" Visibility="Collapsed">
+                        <Grid x:Name="IdentificationInputs" ColumnSpacing="16" RowSpacing="12" SizeChanged="Fields_SizeChanged">
+                            <ComboBox x:Name="DeviceTypePicker" Header="Device type" HorizontalAlignment="Stretch"
+                                      AutomationProperties.Name="Device type" SelectionChanged="ClassificationPicker_SelectionChanged" />
+                            <ComboBox x:Name="DeviceOsPicker" Header="Operating system" HorizontalAlignment="Stretch"
+                                      AutomationProperties.Name="Operating system" SelectionChanged="ClassificationPicker_SelectionChanged" />
+                            <TextBox x:Name="DeviceBrandInput" Header="Brand" AutomationProperties.Name="Brand"
+                                     TextChanged="ClassificationText_TextChanged" />
+                            <TextBox x:Name="DeviceFamilyInput" Header="Family" AutomationProperties.Name="Family"
+                                     TextChanged="ClassificationText_TextChanged" />
+                            <TextBox x:Name="DeviceModelInput" Header="Model" AutomationProperties.Name="Model"
+                                     TextChanged="ClassificationText_TextChanged" />
+                            <ComboBox x:Name="DeviceIconPicker" Header="Device icon" HorizontalAlignment="Stretch"
+                                      AutomationProperties.Name="Device icon" SelectionChanged="ClassificationPicker_SelectionChanged" />
+                        </Grid>
+                        <TextBlock Text="Blank brand, family or model uses the original/default value. Saving does not change imported Fing evidence."
+                                   TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="DeviceClassificationSaveButton" Content="Save changes"
+                                    Click="DeviceClassificationSaveButton_Click" />
+                            <Button x:Name="DeviceClassificationCancelButton" Content="Cancel" Click="ClassificationCancel_Click" />
+                        </StackPanel>
+                        <Button x:Name="DeviceClassificationResetButton" Content="Reset saved identification"
+                                Click="DeviceClassificationResetButton_Click"
+                                ToolTipService.ToolTip="Clear all six saved identification overrides. Names, assignments and original Fing data are unchanged." />
+                    </StackPanel>
+                    <TextBlock x:Name="DeviceClassificationStatusText" TextWrapping="Wrap"
+                               AutomationProperties.LiveSetting="Polite" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <Expander Header="How this device was identified" HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Stretch">
+                        <StackPanel Spacing="8">
+                            <TextBlock x:Name="DeviceOsEvidenceText" TextWrapping="Wrap" />
+                            <TextBlock x:Name="DeviceTypeEvidenceText" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Expander>
+                </StackPanel>
+            </Border>
             <Border x:Name="PortsServicesCard" Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="8">
                     <TextBlock Text="Ports &amp; services" FontSize="18" FontWeight="SemiBold" />

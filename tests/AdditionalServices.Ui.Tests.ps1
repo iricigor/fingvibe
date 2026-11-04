@@ -261,6 +261,18 @@ function Test-DeviceDetailsEditing {
     [System.Windows.Forms.SendKeys]::SendWait(" ")
     Wait-ServiceState { [System.Windows.Forms.Clipboard]::GetText() -eq "Synthetic Model" } "saved metadata copy"
     [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
+    $type = (Find-ServiceControl "Device type" -ByName).Current.BoundingRectangle
+    $os = (Find-ServiceControl "Operating system" -ByName).Current.BoundingRectangle
+    $brand = (Find-ServiceControl Brand -ByName).Current.BoundingRectangle
+    $identification = (Find-ServiceControl "Device identification" -ByName).Current.BoundingRectangle
+    $ports = (Find-ServiceControl "Ports & services" -ByName).Current.BoundingRectangle
+    if ($type.Width -le 0 -or $os.Left -le $type.Left -or $brand.Left -le $os.Left -or
+        [Math]::Abs($type.Top - $os.Top) -gt 3 -or [Math]::Abs($type.Top - $brand.Top) -gt 3 -or
+        [Math]::Abs($identification.Left - $network.Left) -gt 3 -or
+        [Math]::Abs($ports.Left - $network.Left) -gt 3) {
+        throw "Wide identification must span the page in three field columns, followed by full-width ports."
+    }
+    Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-identification-read-wide.png")
     Open-IdentificationEditor
     Invoke-ServiceControl "Reset saved identification"
     Wait-ServiceState { (Find-ServiceControl "Edit device identification" -ByName).Current.IsEnabled } "identification reset"
@@ -314,10 +326,12 @@ function Test-EndpointLinks {
         Wait-ServiceState { -not $portLabel.Current.IsOffscreen -and $portLabel.Current.BoundingRectangle.Width -ge 30 } "endpoint copy geometry"
         $copyBounds = $portLabel.Current.BoundingRectangle
         $linkBounds = $link.Current.BoundingRectangle
-        if ($linkBounds.Left - $copyBounds.Right -gt 16 -or [Math]::Abs($linkBounds.Top - $copyBounds.Top) -gt 10) {
+        if ($linkBounds.Left -lt $copyBounds.Right - 1 -or $linkBounds.Left - $copyBounds.Right -gt 16 -or
+            [Math]::Abs($linkBounds.Top - $copyBounds.Top) -gt 10) {
             throw "Try links must stay beside endpoint copy actions: copy=$copyBounds link=$linkBounds."
         }
     }
+    Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-endpoint-try-links.png")
     $primary = Find-ServiceControl "Open HTTP: 127.0.0.1:80" -ByName -Optional
     if ($primary) {
         if ($primary.Current.ControlType -ne [System.Windows.Automation.ControlType]::Hyperlink) {
