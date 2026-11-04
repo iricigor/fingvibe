@@ -8,7 +8,7 @@
     <UserControl.Resources>
         <DataTemplate x:Key="MacTemplate" x:DataType="local:ScanResultRow">
             <TextBlock FontFamily="Consolas" FontSize="11" TextTrimming="CharacterEllipsis"
-                       ToolTipService.ToolTip="{x:Bind MacAddressText}" AutomationProperties.Name="{x:Bind MacAddressText}">
+                       views:DevicesPageView.PreviewText="{x:Bind MacAddressText}" AutomationProperties.Name="{x:Bind MacAddressText}">
                 <Run Text="{x:Bind local:DeviceColumnLayoutHelpers.MetadataText(MacOui)}" Foreground="{ThemeResource ScannerMacOuiBrush}" /><Run Text="{x:Bind MacNic}" Foreground="{ThemeResource ScannerMacNicBrush}" />
             </TextBlock>
         </DataTemplate>
@@ -174,7 +174,8 @@
                         </Grid>
                     </Border>
                 </StackPanel>
-                <ScrollViewer Grid.Row="1"
+                <ScrollViewer x:Name="TableViewport" Grid.Row="1"
+                              ViewChanged="TableViewport_ViewChanged"
                               HorizontalScrollMode="Auto"
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollMode="Disabled"
@@ -400,7 +401,7 @@
                                             <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
                                                 <TextBlock x:Name="DeviceNameText" Text="{x:Bind NameText, Mode=OneWay}" FontSize="13" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"
                                                            FontFamily="Segoe UI Emoji" Opacity="{x:Bind NameOpacity, Mode=OneWay}"
-                                                           ToolTipService.ToolTip="{x:Bind NameText, Mode=OneWay}" />
+                                                           views:DevicesPageView.PreviewText="{x:Bind NameText, Mode=OneWay}" />
                                                 <TextBlock x:Name="DeviceTypeLabel" Text="{x:Bind local:DeviceColumnLayoutHelpers.MetadataText(DeviceTypeText), Mode=OneWay}"
                                                            FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                            Visibility="{x:Bind local:DeviceColumnLayoutHelpers.SecondaryTypeVisibility(Columns.ShowMergedType, DeviceTypeText), Mode=OneWay}" TextTrimming="CharacterEllipsis"
@@ -411,7 +412,7 @@
                                         <TextBlock FontFamily="Consolas" TextTrimming="CharacterEllipsis"
                                                    Margin="0,0,12,0"
                                                    Visibility="{x:Bind Columns.Address.IsVisible, Mode=OneWay}"
-                                                   ToolTipService.ToolTip="{x:Bind AddressText, Mode=OneWay}"
+                                                   views:DevicesPageView.PreviewText="{x:Bind AddressText, Mode=OneWay}"
                                                    AutomationProperties.Name="{x:Bind AddressText, Mode=OneWay}">
                                             <Run Text="{x:Bind AddressPrefix, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><Run Text="{x:Bind AddressHost, Mode=OneWay}" FontWeight="SemiBold" />
                                         </TextBlock>
@@ -423,7 +424,7 @@
                                                    Text="{x:Bind local:DeviceColumnLayoutHelpers.MetadataText(VendorDisplayText)}"
                                                    Opacity="{x:Bind VendorOpacity}" Margin="0,0,12,0"
                                                    Visibility="{x:Bind Columns.Vendor.IsVisible, Mode=OneWay}"
-                                                   ToolTipService.ToolTip="{x:Bind VendorDescription}"
+                                                   views:DevicesPageView.PreviewText="{x:Bind views:DevicesPageView.VendorPreviewText(VendorDisplayText, VendorDescription)}"
                                                    TextTrimming="CharacterEllipsis" />
                                         <ItemsControl Grid.Column="3" ItemsSource="{x:Bind OpenPortItems, Mode=OneWay}" VerticalAlignment="Center"
                                                       Margin="0,0,12,0"
@@ -512,7 +513,7 @@
                                             <StackPanel x:Name="MergedAssignments" Spacing="2" VerticalAlignment="Center">
                                                 <Grid x:Name="MergedPersonLine" ColumnSpacing="4" HorizontalAlignment="Center"
                                                       Visibility="{x:Bind HasPersonAssignment, Mode=OneWay}"
-                                                      ToolTipService.ToolTip="{x:Bind PersonAssignmentDescription, Mode=OneWay}"
+                                                      views:DevicesPageView.PreviewText="{x:Bind PersonAssignmentDescription, Mode=OneWay}"
                                                       AutomationProperties.Name="{x:Bind PersonAssignmentDescription, Mode=OneWay}">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="Auto" />
@@ -526,7 +527,7 @@
                                                 </Grid>
                                                 <Grid x:Name="MergedRoomLine" ColumnSpacing="4" HorizontalAlignment="Center"
                                                       Visibility="{x:Bind HasRoomAssignment, Mode=OneWay}"
-                                                      ToolTipService.ToolTip="{x:Bind RoomAssignmentDescription, Mode=OneWay}"
+                                                      views:DevicesPageView.PreviewText="{x:Bind RoomAssignmentDescription, Mode=OneWay}"
                                                       AutomationProperties.Name="{x:Bind RoomAssignmentDescription, Mode=OneWay}">
                                                     <Grid.ColumnDefinitions>
                                                         <ColumnDefinition Width="Auto" />
@@ -543,7 +544,7 @@
                                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                        Visibility="{x:Bind HasNoAssignments, Mode=OneWay}"
-                                                       ToolTipService.ToolTip="Person and room: Unassigned"
+                                                       views:DevicesPageView.PreviewText="Person and room: Unassigned"
                                                        AutomationProperties.Name="Person and room: Unassigned" />
                                         </Grid>
                                         <Button Grid.Column="9" Content="{x:Bind local:DeviceColumnLayoutHelpers.AssignmentText(PersonId, PersonShortName), Mode=OneWay}"
@@ -551,14 +552,14 @@
                                                 VerticalAlignment="Center"
                                                 Visibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.ShowSeparatePerson), Mode=OneWay}"
                                                 Opacity="{x:Bind PersonOpacity, Mode=OneWay}"
-                                                ToolTipService.ToolTip="{x:Bind PersonFullName, Mode=OneWay}"
+                                                views:DevicesPageView.PreviewText="{x:Bind PersonFullName, Mode=OneWay}"
                                                 AutomationProperties.Name="{x:Bind PersonFullName, Mode=OneWay}" />
                                         <Button Grid.Column="9" Content="{x:Bind local:DeviceColumnLayoutHelpers.AssignmentText(RoomId, RoomShortName), Mode=OneWay}"
                                                 FontSize="12" Style="{StaticResource ScannerAssignmentTextStyle}" FontFamily="Segoe UI Emoji"
                                                 VerticalAlignment="Center"
                                                 Visibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.ShowRoomOnly), Mode=OneWay}"
                                                 Opacity="{x:Bind RoomOpacity, Mode=OneWay}"
-                                                ToolTipService.ToolTip="{x:Bind RoomFullName, Mode=OneWay}"
+                                                views:DevicesPageView.PreviewText="{x:Bind RoomFullName, Mode=OneWay}"
                                                 AutomationProperties.Name="{x:Bind RoomFullName, Mode=OneWay}" />
                                         <Button Grid.Column="10" Content="{x:Bind local:DeviceColumnLayoutHelpers.AssignmentText(RoomId, RoomShortName), Mode=OneWay}"
                                                 Style="{StaticResource ScannerAssignmentTextStyle}"
@@ -566,7 +567,7 @@
                                                 FontFamily="Segoe UI Emoji"
                                                 Opacity="{x:Bind RoomOpacity, Mode=OneWay}"
                                                 Visibility="{x:Bind Columns.ShowSeparateRoom, Mode=OneWay}"
-                                                ToolTipService.ToolTip="{x:Bind RoomFullName, Mode=OneWay}"
+                                                views:DevicesPageView.PreviewText="{x:Bind RoomFullName, Mode=OneWay}"
                                                 AutomationProperties.Name="{x:Bind RoomFullName, Mode=OneWay}" />
                                     </Grid>
                                 </DataTemplate>
@@ -574,6 +575,15 @@
                         </ListView>
                     </Grid>
                 </ScrollViewer>
+                <Canvas x:Name="PreviewLayer" Grid.Row="1" IsHitTestVisible="False">
+                    <Border x:Name="CellPreview" Visibility="Collapsed" Padding="12,6"
+                            Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                            BorderBrush="{ThemeResource TextFillColorPrimaryBrush}"
+                            BorderThickness="1" CornerRadius="4">
+                        <TextBlock x:Name="CellPreviewText" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                    </Border>
+                </Canvas>
                 <TextBlock x:Name="EmptyResultsText"
                            Grid.Row="1"
                            Text="Select Scan LAN to probe every address on the detected subnet."

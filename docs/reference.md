@@ -59,6 +59,17 @@ Settings places the appearance selectors side by side when space permits and sta
 
 Public IP and ISP details are retrieved from `ipwho.is`. This optional display depends on internet access and sends the connection's public IP to that provider as part of the HTTPS request. LAN discovery and scanning continue to work when the lookup is unavailable.
 
+**Settings > Enlarged cell hover previews** is enabled by default. Pause over a
+Devices name, IP, MAC, vendor, person or room for about half a second to reveal
+its full value at 125% text size without moving the table. Person/room previews
+show full names. Keyboard focus on a row exposes the same full values together;
+accessible cell names and row help text also retain them. Explanatory icon,
+status, response, OS, device-type and header tooltips remain unchanged. Turning
+the option off immediately dismisses previews and restores ordinary value
+tooltips. This preference shares `device-table.json` and its load/save error
+handling; **Reset columns** leaves the preview choice unchanged. Previews have
+no animation and use system-aware colors, including Windows high contrast.
+
 Configured builds also show an ISP logo on the Network page, loaded asynchronously from Logo.dev using the original ISP name. Logo.dev receives that name and the caller's public IP, but no LAN addresses, device inventory, or scan results. Missing configuration, unavailable images, and failed or slow requests leave a generic network icon; the ISP text and scanning remain available. Name matching selects the provider's top result and can identify the wrong brand. UI-review mode never requests logos. See [ISP logo configuration](isp-logos.md) for build setup and provider limitations.
 
 The Overview network card shows A, B, or C for /8, /16, or /24 sizes; other sizes show their CIDR prefix. Network details explain all prefixes from /0 through /32, including class-size multiples/divisions and point-to-point or single-host networks. Counts below one million are exact; larger counts use M with two significant digits. Ordinary subnet counts exclude network/broadcast addresses, with a reserved suffix for /17 through /30; /31 assumes point-to-point use and /32 identifies one host. These capacity figures do not change the scanner's 65,534-address safety limit. Scope checks cover the whole subnet, distinguish private and special-purpose ranges (including APIPA/link-local), and flag mixed scopes. "Standard-size private" means a private /8, /16, or /24 subnet, not that other private prefix lengths are invalid.

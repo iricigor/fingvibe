@@ -6,6 +6,23 @@ namespace FingVibe.Core.Tests;
 public sealed class DeviceColumnLayoutTests
 {
     [Fact]
+    public void CellPreviewPreference_IsDefaultOnNotifiesAndSurvivesColumnReset()
+    {
+        var layout = new DeviceColumnLayout();
+        Assert.True(layout.EnlargedCellPreviews);
+        var changes = 0;
+        layout.SettingsChanged += (_, _) => changes++;
+        layout.EnlargedCellPreviews = false;
+        layout.EnlargedCellPreviews = false;
+        Assert.Equal(1, changes);
+        var restored = new DeviceColumnLayout();
+        restored.Restore(layout.Capture());
+        Assert.False(restored.EnlargedCellPreviews);
+        restored.Reset();
+        Assert.False(restored.EnlargedCellPreviews);
+    }
+
+    [Fact]
     public void Response_DefaultWidthIsCompactAndCanBeResized()
     {
         var layout = new DeviceColumnLayout();

@@ -200,6 +200,137 @@ function Get-VisibleDeviceChild($Parent, [string] $Property, [string] $Value) {
         Where-Object { -not $_.Current.IsOffscreen }) | Select-Object -First 1
 }
 
+function Move-ToDeviceElement($Element) {
+    $b = $Element.Current.BoundingRectangle
+    [DevicesReviewInput]::MoveTo([int]($b.Left + $b.Width / 2), [int]($b.Top + $b.Height / 2))
+}
+
+function Assert-NoCellPreview {
+    if (Get-VisibleDeviceChild $root AutomationId CellPreviewText) {
+        throw "Cell preview must not remain visible."
+    }
+}
+
+function Assert-CellPreview($Cell, [string] $Value, [string] $Capture) {
+    Move-ToDeviceElement $Cell
+    Start-Sleep -Milliseconds 750
+    $preview = Find-DeviceElement CellPreviewText
+    if ($preview.Current.Name -ne $Value) {
+        throw "Cell preview must reveal '$Value', got '$($preview.Current.Name)'."
+    }
+    $pattern = $preview.GetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern)
+    $font = $pattern.DocumentRange.GetAttributeValue([System.Windows.Automation.TextPattern]::FontSizeAttribute)
+    $sourcePattern = $Cell.GetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern)
+    $sourceFont = $sourcePattern.DocumentRange.GetAttributeValue([System.Windows.Automation.TextPattern]::FontSizeAttribute)
+    if ([Math]::Abs([double]$font / [double]$sourceFont - 1.25) -gt 0.02) {
+        throw "Cell preview text must be 125% of the original font ($font / $sourceFont)."
+    }
+    $viewport = (Find-DeviceElement TableViewport).Current.BoundingRectangle
+    $bounds = $preview.Current.BoundingRectangle
+    if ($bounds.Left -lt $viewport.Left -or $bounds.Right -gt $viewport.Right -or
+        $bounds.Top -lt $viewport.Top -or $bounds.Bottom -gt $viewport.Bottom) {
+        throw "Cell preview escaped the visible table."
+    }
+    if ($Capture) { $null = Save-DeviceCapture $Capture -KeepPointer }
+    return $preview
+}
+
+function Test-CellPreviews {
+    Set-DeviceWidth 1280
+    $rows = @(Get-DeviceRows)
+    $name = Get-VisibleDeviceChild $rows[0] AutomationId DeviceNameText
+    $second = Get-VisibleDeviceChild $rows[1] AutomationId DeviceNameText
+    $originalBounds = $rows[0].Current.BoundingRectangle
+    Move-ToDeviceElement $name
+    Start-Sleep -Milliseconds 200
+    Assert-NoCellPreview
+    Move-ToDeviceElement (Find-DeviceElement DevicesHeading)
+    Start-Sleep -Milliseconds 600
+    Assert-NoCellPreview
+    Move-ToDeviceElement $name
+    Start-Sleep -Milliseconds 300
+    Move-ToDeviceElement $second
+    Start-Sleep -Milliseconds 250
+    Assert-NoCellPreview
+    Start-Sleep -Milliseconds 400
+    if ((Find-DeviceElement CellPreviewText).Current.Name -ne "Kitchen display") {
+        throw "Moving between cells must restart the dwell and replace the value."
+    }
+    Move-ToDeviceElement (Find-DeviceElement DevicesHeading)
+    Start-Sleep -Milliseconds 100
+    $null = Assert-CellPreview $name "Fixture device 01" "devices-cell-preview"
+    if (-not $originalBounds.Equals($rows[0].Current.BoundingRectangle)) {
+        throw "Preview changed the row geometry."
+    }
+    $previewBounds = (Find-DeviceElement CellPreviewText).Current.BoundingRectangle
+    [DevicesReviewInput]::MoveTo([int]($previewBounds.Right - 1), [int]($previewBounds.Top + $previewBounds.Height / 2))
+    Start-Sleep -Milliseconds 150
+    $null = Find-DeviceElement CellPreviewText
+    $scroll = (Find-DeviceElement ResultsList).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+    $scroll.SetScrollPercent(-1, 100)
+    Start-Sleep -Milliseconds 150
+    Assert-NoCellPreview
+    $scroll.SetScrollPercent(-1, 0)
+    Start-Sleep -Milliseconds 200
+
+    $name = Get-VisibleDeviceChild (@(Get-DeviceRows)[0]) AutomationId DeviceNameText
+    $null = Assert-CellPreview $name "Fixture device 01" ""
+    Select-DevicePage OverviewNavItem
+    Assert-NoCellPreview
+    Select-DevicePage DevicesNavItem
+    Assert-NoCellPreview
+    Select-DevicePage Settings
+    $toggle = (Find-DeviceElement EnlargedCellPreviews).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+    if ($toggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
+        throw "Enlarged previews must default to enabled."
+    }
+    $toggle.Toggle()
+    Select-DevicePage DevicesNavItem
+    $name = Get-VisibleDeviceChild (@(Get-DeviceRows)[0]) AutomationId DeviceNameText
+    Move-ToDeviceElement $name
+    Start-Sleep -Milliseconds 800
+    Assert-NoCellPreview
+    $tipCondition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+        [System.Windows.Automation.ControlType]::ToolTip)
+    $deadline = [DateTime]::UtcNow.AddSeconds(3)
+    do {
+        $tip = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $tipCondition)
+        if ($tip -and -not $tip.Current.IsOffscreen) { break }
+        Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $deadline)
+    if (-not $tip -or $tip.Current.Name -notlike "*Fixture device 01*") {
+        throw "Disabling previews must restore the ordinary full-value tooltip."
+    }
+    Select-DevicePage Settings
+    (Find-DeviceElement EnlargedCellPreviews).GetCurrentPattern(
+        [System.Windows.Automation.TogglePattern]::Pattern).Toggle()
+    Select-DevicePage DevicesNavItem
+    Move-ToDeviceElement (Find-DeviceElement DevicesHeading)
+    $name = Get-VisibleDeviceChild (@(Get-DeviceRows)[0]) AutomationId DeviceNameText
+    $null = Assert-CellPreview $name "Fixture device 01" ""
+    $search = (Find-DeviceElement ResultSearchBox).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
+    $search.SetValue("Kitchen")
+    Start-Sleep -Milliseconds 150
+    Assert-NoCellPreview
+    $search.SetValue("")
+    Start-Sleep -Milliseconds 150
+    $row = @(Get-DeviceRows)[0]
+    if ($row.Current.HelpText -notlike "*IP address: 192.0.2.1*") {
+        throw "Keyboard-focused rows must expose full-value accessible help."
+    }
+    $vendorValue = "Example Devices with a deliberately long manufacturer name for hover inspection"
+    $vendor = Get-VisibleDeviceChild $row Name $vendorValue
+    $null = Assert-CellPreview $vendor $vendorValue "devices-full-vendor-preview"
+    Move-ToDeviceElement (Find-DeviceElement DevicesHeading)
+    Set-DeviceWidth 480
+    $name = Get-VisibleDeviceChild (@(Get-DeviceRows)[0]) AutomationId DeviceNameText
+    $null = Assert-CellPreview $name "Fixture device 01" "devices-narrow-preview"
+    Move-ToDeviceElement (Find-DeviceElement DevicesHeading)
+    Set-DeviceWidth 1280
+    Move-ToDeviceElement (Find-DeviceElement DevicesHeading)
+}
+
 function Set-DeviceFilterChoice([string] $Id, [string] $Label) {
     $picker = Find-DeviceElement $Id
     $expand = $picker.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
@@ -410,6 +541,12 @@ function Test-MergedAssignments {
             throw "Two assignments must occupy separate stacked lines."
         }
         if ($rb.Height / $scale -gt 48) { throw "Merged assignments must not increase the row envelope." }
+        foreach ($entry in @(@($person, "Person: UI review person"), @($room, "Room: UI review room"))) {
+            if ($entry[0]) {
+                Move-ToDeviceElement (Find-DeviceElement DevicesHeading)
+                $null = Assert-CellPreview $entry[0] $entry[1] ""
+            }
+        }
         $null = Save-DeviceCapture "devices-assignments-$($case.Person)-$($case.Room)"
     }
     Select-DevicePage Settings
@@ -431,7 +568,8 @@ try {
         @{
             address = "192.0.2.1"; status = 0; roundtripTimeMilliseconds = 12
             probeDuration = "00:00:00.002"; deviceName = "Fixture device 01"
-            macAddress = "001122334401"; vendorName = "Example Devices"
+            macAddress = "001122334401"
+            vendorName = "Example Devices with a deliberately long manufacturer name for hover inspection"
             classification = @{ type = 1 }
             openPorts = @(@{ port = 443; serviceName = "HTTPS" })
         },
@@ -551,6 +689,7 @@ try {
     Test-ConditionalDeviceColumns
     Test-MergeOptions
     Test-MergedAssignments
+    Test-CellPreviews
 
     Set-DeviceFilterChoice PersonFilter "UI · UI review person"
     Set-DeviceFilterChoice RoomFilter "UI · UI review room"
@@ -623,6 +762,9 @@ try {
         Select-DevicePage DevicesNavItem
         Assert-DeviceStripes "devices-$theme"
         Assert-HeaderUnderline $theme
+        $name = Get-VisibleDeviceChild (@(Get-DeviceRows)[0]) AutomationId DeviceNameText
+        $null = Assert-CellPreview $name "Fixture device 01" "devices-preview-$theme"
+        Move-ToDeviceElement (Find-DeviceElement DevicesHeading)
     }
     Set-DeviceFilterChoice InventoryStatusFilter "All statuses"
     Set-DeviceFilterChoice RoomFilter "All rooms"
@@ -718,6 +860,10 @@ try {
     $selected = @($listSelection.Current.GetSelection())
     if ($selected.Count -ne 1 -or -not $selected[0].Current.HasKeyboardFocus) {
         throw "Keyboard navigation must focus and select a device row."
+    }
+    $keyboardPreview = Find-DeviceElement CellPreviewText
+    if ($keyboardPreview.Current.Name -notlike "*Kitchen display*IP address: 192.0.2.2*Room: Unassigned*") {
+        throw "Keyboard focus must reveal the row's equivalent full values."
     }
     $null = Save-DeviceCapture "devices-keyboard-focus"
     $area = [System.Windows.Forms.Screen]::FromHandle($windowHandle).WorkingArea

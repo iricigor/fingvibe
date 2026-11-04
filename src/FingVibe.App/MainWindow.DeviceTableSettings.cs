@@ -34,7 +34,7 @@ public sealed partial class MainWindow
         try
         {
             _deviceTableStore.Save(DeviceColumnLayout.Current.Capture());
-            SettingsPage.ColumnSaveStatus = "Column visibility, combinations and widths are saved automatically.";
+            SettingsPage.ColumnSaveStatus = "Table preferences are saved automatically.";
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

@@ -7,4 +7,5 @@ public sealed record DeviceTableSettings(
     bool CombineNameType = true,
     bool CombineAddresses = true,
     bool CombineStatusResponse = true,
-    bool CombinePersonRoom = false);
+    bool CombinePersonRoom = false,
+    bool EnlargedCellPreviews = true);
