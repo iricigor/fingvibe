@@ -616,8 +616,13 @@ function Test-MergeOptions {
 }
 
 function Assert-ClearFiltersVisible([bool] $Expected) {
-    $link = Get-VisibleDeviceChild $root AutomationId ClearFiltersLink
-    if ([bool]$link -ne $Expected) { throw "Clear filters visibility must match active restrictions." }
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+        $link = Get-VisibleDeviceChild $root AutomationId ClearFiltersLink
+        if ([bool]$link -eq $Expected) { return }
+        Start-Sleep -Milliseconds 50
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "Clear filters visibility must match active restrictions; expected visible=$Expected."
 }
 
 function Clear-DeviceFilters {
