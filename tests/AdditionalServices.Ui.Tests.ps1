@@ -221,6 +221,9 @@ function Test-DeviceDetailsEditing {
         [System.Windows.Automation.AutomationElement]::FocusedElement.Current.Name -eq "Device name"
     } "name editor focus"
     Invoke-ServiceControl Done
+    Wait-ServiceState {
+        [System.Windows.Automation.AutomationElement]::FocusedElement.Current.Name -eq "Rename device"
+    } "name editor closed"
     $copy = Find-ServiceControl "Copy IP address" -ByName
     $copy.SetFocus()
     Write-Host "Copy focus: $([System.Windows.Automation.AutomationElement]::FocusedElement.Current.Name); bounds: $($copy.Current.BoundingRectangle)."
@@ -261,11 +264,16 @@ function Test-DeviceDetailsEditing {
     [System.Windows.Forms.SendKeys]::SendWait(" ")
     Wait-ServiceState { [System.Windows.Forms.Clipboard]::GetText() -eq "Synthetic Model" } "saved metadata copy"
     [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
+    Show-ServiceScanSection
+    $ports = (Find-ServiceControl "Ports & services" -ByName).Current.BoundingRectangle
+    (Find-ServiceControl "Edit device identification" -ByName).SetFocus()
+    Wait-ServiceState {
+        (Find-ServiceControl "Device type" -ByName).Current.BoundingRectangle.Width -gt 0
+    } "wide identification fields"
     $type = (Find-ServiceControl "Device type" -ByName).Current.BoundingRectangle
     $os = (Find-ServiceControl "Operating system" -ByName).Current.BoundingRectangle
     $brand = (Find-ServiceControl Brand -ByName).Current.BoundingRectangle
     $identification = (Find-ServiceControl "Device identification" -ByName).Current.BoundingRectangle
-    $ports = (Find-ServiceControl "Ports & services" -ByName).Current.BoundingRectangle
     if ($type.Width -le 0 -or $os.Left -le $type.Left -or $brand.Left -le $os.Left -or
         [Math]::Abs($type.Top - $os.Top) -gt 3 -or [Math]::Abs($type.Top - $brand.Top) -gt 3 -or
         [Math]::Abs($identification.Left - $network.Left) -gt 3 -or
