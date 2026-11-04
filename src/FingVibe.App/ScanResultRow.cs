@@ -30,6 +30,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public string? CustomName => _customName;
     private LanNetwork? _selectedNetwork;
     private bool EmphasizeAddress => _selectedNetwork is { PrefixLength: >= 0 and <= 32 } network
+        && AddressText.Split('.').Length == 4
         && System.Net.IPAddress.TryParse(AddressText, out var address)
         && address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork
         && network.NetworkAddress.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork

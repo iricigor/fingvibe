@@ -63,6 +63,20 @@ public sealed class ScanResultRowTests
     }
 
     [Theory]
+    [InlineData("127.1")]
+    [InlineData("127.0.1")]
+    [InlineData("2130706433")]
+    public void HostSizeEmphasis_PreservesImportedNonDottedQuadNotation(string address)
+    {
+        Assert.True(IPAddress.TryParse(address, out _));
+        var row = new ScanResultRow(new InventoryDevice("001122334455",
+            new ImportedDeviceMetadata(Address: address), []), 24);
+        row.SetSelectedNetwork(new("Loopback", IPAddress.Loopback, IPAddress.Loopback, 32, false));
+        Assert.Equal(12, row.AddressHostFontSize);
+        Assert.Equal(address, row.DisplayAddressPrefix + row.DisplayAddressHost);
+    }
+
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
