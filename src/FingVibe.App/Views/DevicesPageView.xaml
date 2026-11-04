@@ -63,7 +63,11 @@
                         <Grid Background="Transparent">
                             <VisualStateManager.VisualStateGroups>
                                 <VisualStateGroup x:Name="CommonStates">
-                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="Normal">
+                                        <VisualState.Setters>
+                                            <Setter Target="HoverLine.Visibility" Value="Collapsed" />
+                                        </VisualState.Setters>
+                                    </VisualState>
                                     <VisualState x:Name="PointerOver">
                                         <VisualState.Setters>
                                             <Setter Target="HoverLine.Visibility" Value="Visible" />
@@ -79,12 +83,26 @@
                                             <Setter Target="Presenter.Opacity" Value="0.4" />
                                         </VisualState.Setters>
                                     </VisualState>
-                                </VisualStateGroup>
-                                <VisualStateGroup x:Name="CheckStates">
-                                    <VisualState x:Name="Unchecked" />
                                     <VisualState x:Name="Checked">
                                         <VisualState.Setters>
                                             <Setter Target="SelectedLine.Visibility" Value="Visible" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="CheckedPointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="SelectedLine.Visibility" Value="Visible" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="CheckedPressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="SelectedLine.Visibility" Value="Visible" />
+                                            <Setter Target="Presenter.Opacity" Value="0.7" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="CheckedDisabled">
+                                        <VisualState.Setters>
+                                            <Setter Target="SelectedLine.Visibility" Value="Visible" />
+                                            <Setter Target="Presenter.Opacity" Value="0.4" />
                                         </VisualState.Setters>
                                     </VisualState>
                                 </VisualStateGroup>
@@ -144,8 +162,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <Grid x:Name="InventoryCountsText" ColumnSpacing="8" RowSpacing="2" HorizontalAlignment="Left"
-                              AutomationProperties.AccessibilityView="Content"
-                              SizeChanged="InventoryCounts_SizeChanged">
+                              AutomationProperties.AccessibilityView="Content">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="Auto" />

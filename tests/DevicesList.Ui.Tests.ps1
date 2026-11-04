@@ -1000,6 +1000,12 @@ try {
     $inventory = (Find-DeviceElement InventoryCountsText).Current.BoundingRectangle
     $deviceCount = (Find-DeviceElement ResultCountText).Current.BoundingRectangle
     $scanSummary = (Find-DeviceElement LastScanText).Current.BoundingRectangle
+    foreach ($id in @("OnlineChip", "OfflineChip", "UnknownChip", "FingOnlyChip")) {
+        $chip = (Find-DeviceElement $id).Current.BoundingRectangle
+        if ([Math]::Abs($chip.Top - $inventory.Top) -gt $scale -or $chip.Height -gt 28 * $scale) {
+            throw "Wide status totals must be compact, content-sized toggles in one horizontal row."
+        }
+    }
     if ($heading.Bottom -ge $inventory.Top -or
         [Math]::Abs($inventory.Left - $heading.Left - 16 * $scale) -gt 2 * $scale) {
         throw "Devices title must sit above the card contents, outside their 16-DIP inset."

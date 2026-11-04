@@ -165,6 +165,9 @@ public sealed partial class DevicesPageView : UserControl
         var scale = _uiSettings.TextScaleFactor;
         var inline = e.NewSize.Width >= 850 * scale;
         var narrow = e.NewSize.Width < 600 * scale;
+        LayoutStatusCounts(narrow
+            ? Math.Clamp((int)((e.NewSize.Width + 8) / (105 * scale + 8)), 1, 4)
+            : 4);
         InventoryCountsText.MaxWidth = Math.Max(0, e.NewSize.Width);
         Grid.SetColumnSpan(InventoryCountsText, inline ? 1 : narrow ? 3 : 2);
         Grid.SetRow(ResultCountText, inline ? 0 : 1);
@@ -175,9 +178,8 @@ public sealed partial class DevicesPageView : UserControl
         Grid.SetColumnSpan(LastScanText, narrow ? 3 : 1);
     }
 
-    private void InventoryCounts_SizeChanged(object sender, SizeChangedEventArgs e)
+    private void LayoutStatusCounts(int columns)
     {
-        var columns = Math.Clamp((int)((e.NewSize.Width + 8) / (100 * _uiSettings.TextScaleFactor + 8)), 1, 4);
         ToggleButton[] chips = [OnlineChip, OfflineChip, UnknownChip, FingOnlyChip];
         var rows = (chips.Length + columns - 1) / columns;
         if (InventoryCountsText.RowDefinitions.Count != rows)
