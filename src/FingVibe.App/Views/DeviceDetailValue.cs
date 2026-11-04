@@ -133,7 +133,10 @@ public sealed class DeviceDetailValue : Grid
         catch (Exception exception) when (exception is System.Runtime.InteropServices.COMException
             or UnauthorizedAccessException or InvalidOperationException)
         {
-            message.Text = $"Could not copy {Label}: {exception.Message}";
+            var detail = string.IsNullOrWhiteSpace(exception.Message)
+                ? $"Clipboard unavailable (0x{exception.HResult:X8}). Try again."
+                : exception.Message;
+            message.Text = $"Could not copy {Label}: {detail}";
         }
         new Flyout { Content = message }.ShowAt(_copy);
     }

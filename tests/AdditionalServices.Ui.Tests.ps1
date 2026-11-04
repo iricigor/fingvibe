@@ -130,6 +130,29 @@ function Invoke-ServiceControl([string] $Name) {
         [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
 }
 
+function Assert-KeyboardCopy([string] $Label, [string] $Expected) {
+    [System.Windows.Forms.SendKeys]::SendWait(" ")
+    Wait-ServiceState {
+        $texts = [System.Windows.Automation.AutomationElement]::RootElement.FindAll(
+            [System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.AndCondition]::new(
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::ProcessIdProperty, $process.Id),
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                    [System.Windows.Automation.ControlType]::Text)))
+        $feedback = $texts | Where-Object {
+            $_.Current.Name -eq "$Label copied." -or $_.Current.Name -like "Could not copy ${Label}:*"
+        } | Select-Object -First 1
+        if (-not $feedback) { return $false }
+        if ($feedback.Current.Name -ne "$Label copied.") { throw $feedback.Current.Name }
+        return $true
+    } "$Label copy feedback"
+    if ([System.Windows.Forms.Clipboard]::GetText() -ne $Expected) {
+        throw "Keyboard copy must contain only the $Label value."
+    }
+}
+
 function Select-ServicePage([string] $Name) {
     $condition = [System.Windows.Automation.AndCondition]::new(
         [System.Windows.Automation.PropertyCondition]::new(
@@ -237,8 +260,7 @@ function Test-DeviceDetailsEditing {
         throw "Copy must sit immediately after its value, not at the field edge: value=$value copy=$copyBounds."
     }
     $before = $copy.Current.BoundingRectangle
-    [System.Windows.Forms.SendKeys]::SendWait(" ")
-    Wait-ServiceState { [System.Windows.Forms.Clipboard]::GetText() -eq "127.0.0.1" } "value-only clipboard contents"
+    Assert-KeyboardCopy "IP address" "127.0.0.1"
     $after = $copy.Current.BoundingRectangle
     if ($before -ne $after) { throw "Copy activation shifted its layout." }
     [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
@@ -264,8 +286,7 @@ function Test-DeviceDetailsEditing {
     $modelCopy = Find-ServiceControl "Copy Model" -ByName
     $modelCopy.SetFocus()
     Wait-ServiceState { -not $modelCopy.Current.IsOffscreen -and $modelCopy.Current.BoundingRectangle.Width -ge 30 } "saved metadata copy focus"
-    [System.Windows.Forms.SendKeys]::SendWait(" ")
-    Wait-ServiceState { [System.Windows.Forms.Clipboard]::GetText() -eq "Synthetic Model" } "saved metadata copy"
+    Assert-KeyboardCopy Model "Synthetic Model"
     [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
     Show-ServiceScanSection
     $ports = (Find-ServiceControl "Ports & services" -ByName).Current.BoundingRectangle
