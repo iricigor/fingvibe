@@ -8,6 +8,11 @@ public static class DeviceColumnLayoutHelpers
 
     public static GridLength ToGridLength(double width) => new(width);
     public static Thickness RowPadding(bool compact) => new(12, compact ? 3 : 6, 12, compact ? 3 : 6);
+    public static Thickness HeaderPadding(double vertical) => new(12, vertical, 12, vertical);
+    public static Thickness HeaderButtonPadding(double vertical) => new(0, vertical, 0, vertical);
+    public static Thickness HeaderPrimaryMargin(double top) => new(0, top, 0, 0);
+    public static Thickness HeaderTextMargin(double vertical) => new(0, vertical, 12, vertical);
+    public static Thickness HeaderSecondaryMargin(double vertical) => new(0, vertical, 0, vertical);
     public static string KnownMetadataText(string? value) =>
         string.IsNullOrWhiteSpace(value) || value is "Unknown" or "-" ? string.Empty : value;
 

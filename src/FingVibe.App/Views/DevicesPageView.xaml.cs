@@ -111,8 +111,8 @@ public sealed partial class DevicesPageView : UserControl
     }
 
     internal void ShowLastScan(ScanSnapshot? snapshot) =>
-        LastScanText.Text = "Duration: " + (snapshot?.Duration is { } duration
-            ? $"{duration.TotalSeconds:N1} s" : snapshot is null ? "—" : "not recorded");
+        LastScanText.Text = "Scan duration " + (snapshot?.Duration is { } duration
+            ? $"{duration.TotalSeconds:N1}s" : snapshot is null ? "—" : "not recorded");
 
     internal void ShowSort(string address, string status, string response, string mac, string os, string type)
     {
@@ -138,13 +138,18 @@ public sealed partial class DevicesPageView : UserControl
     }
 
     private void DeviceFilters_SizeChanged(object sender, SizeChangedEventArgs e)
+        => UpdatePrimaryFilterLayout(e.NewSize.Width);
+
+    private void UpdatePrimaryFilterLayout(double width)
     {
         const double spacing = 8;
         const double minimumSearchWidth = 180;
         var textScale = _uiSettings.TextScaleFactor;
-        var availableWidth = Math.Max(0, e.NewSize.Width);
+        var availableWidth = Math.Max(0, width);
         FilterExpander.Width = 64 * textScale;
-        var primaryWidth = Math.Max(0, availableWidth - FilterExpander.Width - spacing);
+        ClearFiltersLink.Width = 36 * textScale;
+        var primaryWidth = Math.Max(0, availableWidth - FilterExpander.Width - spacing - 2
+            - (ClearFiltersLink.Visibility == Visibility.Visible ? ClearFiltersLink.Width : 0));
         var statusWidth = Math.Min(210 * textScale, primaryWidth);
         InventoryStatusFilter.Width = statusWidth;
         var stackedSearch = primaryWidth < minimumSearchWidth + statusWidth + spacing;
@@ -153,51 +158,26 @@ public sealed partial class DevicesPageView : UserControl
         Grid.SetColumn(InventoryStatusFilter, stackedSearch ? 0 : 1);
         Grid.SetColumnSpan(InventoryStatusFilter, stackedSearch ? 2 : 1);
         Grid.SetColumnSpan(ResultSearchBox, stackedSearch ? 2 : 1);
-        FrameworkElement[] filters = [TypeFilter, OperatingSystemFilter, VendorFilter, PersonFilter, RoomFilter, PortsFilter];
-        var filterWidth = Math.Min(180 * textScale, availableWidth);
-        var columns = Math.Clamp((int)((availableWidth + spacing) / (180 * textScale + spacing)), 1, filters.Length);
-        var rows = (filters.Length + columns - 1) / columns;
-        if (DeviceFilterOptions.ColumnDefinitions.Count != columns)
-        {
-            DeviceFilterOptions.ColumnDefinitions.Clear();
-            for (var column = 0; column < columns; column++)
-            {
-                DeviceFilterOptions.ColumnDefinitions.Add(new ColumnDefinition());
-            }
-        }
-        for (var column = 0; column < columns; column++)
-        {
-            DeviceFilterOptions.ColumnDefinitions[column].Width =
-                new GridLength(filterWidth);
-        }
-        if (DeviceFilterOptions.RowDefinitions.Count != rows)
-        {
-            DeviceFilterOptions.RowDefinitions.Clear();
-            for (var row = 0; row < rows; row++)
-            {
-                DeviceFilterOptions.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            }
-        }
-        for (var index = 0; index < filters.Length; index++)
-        {
-            filters[index].Width = filterWidth;
-            Grid.SetRow(filters[index], index / columns);
-            Grid.SetColumn(filters[index], index % columns);
-        }
     }
 
     private void DeviceSummary_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        var inline = e.NewSize.Width >= 760 * _uiSettings.TextScaleFactor;
-        Grid.SetRow(LastScanText, inline ? 0 : 2);
-        Grid.SetColumn(LastScanText, inline ? 1 : 0);
-        Grid.SetColumnSpan(LastScanText, inline ? 1 : 2);
-        LastScanText.Margin = inline ? new Thickness(0) : new Thickness(0, 4, 0, 0);
+        var scale = _uiSettings.TextScaleFactor;
+        var inline = e.NewSize.Width >= 850 * scale;
+        var narrow = e.NewSize.Width < 600 * scale;
+        InventoryCountsText.MaxWidth = Math.Max(0, e.NewSize.Width);
+        Grid.SetColumnSpan(InventoryCountsText, inline ? 1 : narrow ? 3 : 2);
+        Grid.SetRow(ResultCountText, inline ? 0 : 1);
+        Grid.SetColumn(ResultCountText, inline ? 1 : 0);
+        Grid.SetColumnSpan(ResultCountText, inline ? 1 : 3);
+        Grid.SetRow(LastScanText, narrow ? 2 : 0);
+        Grid.SetColumn(LastScanText, narrow ? 0 : 2);
+        Grid.SetColumnSpan(LastScanText, narrow ? 3 : 1);
     }
 
     private void InventoryCounts_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        var columns = Math.Clamp((int)((e.NewSize.Width + 8) / (140 * _uiSettings.TextScaleFactor + 8)), 1, 4);
+        var columns = Math.Clamp((int)((e.NewSize.Width + 8) / (100 * _uiSettings.TextScaleFactor + 8)), 1, 4);
         ToggleButton[] chips = [OnlineChip, OfflineChip, UnknownChip, FingOnlyChip];
         var rows = (chips.Length + columns - 1) / columns;
         if (InventoryCountsText.RowDefinitions.Count != rows)
@@ -210,7 +190,7 @@ public sealed partial class DevicesPageView : UserControl
         {
             InventoryCountsText.ColumnDefinitions.Clear();
             for (var column = 0; column < columns; column++)
-                InventoryCountsText.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                InventoryCountsText.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         }
         for (var index = 0; index < chips.Length; index++)
         {
@@ -297,6 +277,8 @@ public sealed partial class DevicesPageView : UserControl
         AutomationProperties.SetName(PortsFilter, OpenPortsOnly ? "Ports: With open ports" : "Ports: All");
         ToolTipService.SetToolTip(PortsFilter, OpenPortsOnly ? "Ports: With open ports" : "Ports: All");
         ClearFiltersLink.Visibility = filter.HasRestrictions ? Visibility.Visible : Visibility.Collapsed;
+        FilterExpander.CornerRadius = filter.HasRestrictions ? new CornerRadius(3, 0, 0, 3) : new CornerRadius(3);
+        UpdatePrimaryFilterLayout(DeviceFilters.ActualWidth);
         FiltersChanged?.Invoke(this, EventArgs.Empty);
     }
 

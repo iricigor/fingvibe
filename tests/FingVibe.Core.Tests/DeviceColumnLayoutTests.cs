@@ -6,26 +6,51 @@ namespace FingVibe.Core.Tests;
 public sealed class DeviceColumnLayoutTests
 {
     [Fact]
-    public void Density_DefaultsToStandardPersistsIndependentlyAndSurvivesColumnReset()
+    public void Density_DefaultsToCompactPersistsIndependentlyAndSurvivesColumnReset()
     {
         var layout = new DeviceColumnLayout();
-        Assert.False(layout.CompactRows);
+        Assert.True(layout.CompactRows);
         Assert.False(layout.CombineVendorOs);
-        Assert.Equal(44, layout.RowMinimumHeight);
-        Assert.Equal(3, layout.RowSpacing);
-        var changes = 0;
-        layout.SettingsChanged += (_, _) => changes++;
-        layout.CompactRows = true;
-        layout.CompactRows = true;
-        Assert.Equal(1, changes);
         Assert.Equal(38, layout.RowMinimumHeight);
         Assert.Equal(1, layout.RowSpacing);
-        Assert.Equal(1, layout.AssignmentSpacing);
+        Assert.Equal(2, layout.HeaderVerticalPadding);
+        Assert.Equal(1, layout.HeaderButtonVerticalPadding);
+        var changes = 0;
+        layout.SettingsChanged += (_, _) => changes++;
+        layout.CompactRows = false;
+        layout.CompactRows = false;
+        Assert.Equal(1, changes);
+        Assert.Equal(44, layout.RowMinimumHeight);
+        Assert.Equal(3, layout.RowSpacing);
+        Assert.Equal(2, layout.AssignmentSpacing);
+        Assert.Equal(4, layout.HeaderVerticalPadding);
+        Assert.Equal(3, layout.HeaderButtonVerticalPadding);
         var restored = new DeviceColumnLayout();
         restored.Restore(layout.Capture());
-        Assert.True(restored.CompactRows);
+        Assert.False(restored.CompactRows);
         restored.Reset();
-        Assert.True(restored.CompactRows);
+        Assert.False(restored.CompactRows);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LegacyDensity_MigratesOnceWithoutChangingOtherPreferences(bool compact)
+    {
+        var saved = new FingVibe.Core.Models.DeviceTableSettings(
+            new() { ["Name"] = new(250, true) }, CombineVendorOs: true, CompactRows: compact);
+        var layout = new DeviceColumnLayout();
+        layout.Restore(saved);
+        Assert.True(layout.CompactRows);
+        Assert.True(layout.CombineVendorOs);
+        Assert.Equal(250, layout.Name.Width);
+        Assert.Equal(1, layout.Capture().DensityVersion);
+        layout.CompactRows = false;
+        var nextLaunch = new DeviceColumnLayout();
+        nextLaunch.Restore(layout.Capture());
+        Assert.False(nextLaunch.CompactRows);
+        Assert.True(nextLaunch.CombineVendorOs);
+        Assert.Equal(250, nextLaunch.Name.Width);
     }
 
     [Theory]

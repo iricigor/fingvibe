@@ -12,11 +12,16 @@ public sealed partial class MainWindow
     private void InitializeDeviceTableSettings()
     {
         var columns = DeviceColumnLayout.Current;
+        var migrateDensity = false;
         if (!IsUiReview)
         {
             try
             {
-                if (_deviceTableStore.Load() is { } settings) columns.Restore(settings);
+                if (_deviceTableStore.Load() is { } settings)
+                {
+                    columns.Restore(settings);
+                    migrateDensity = settings.DensityVersion == 0;
+                }
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
             {
@@ -26,6 +31,7 @@ public sealed partial class MainWindow
         }
         columns.SettingsChanged += DeviceTableSettings_Changed;
         Closed += (_, _) => columns.SettingsChanged -= DeviceTableSettings_Changed;
+        if (migrateDensity) DeviceTableSettings_Changed(this, EventArgs.Empty);
     }
 
     private void DeviceTableSettings_Changed(object? sender, EventArgs e)

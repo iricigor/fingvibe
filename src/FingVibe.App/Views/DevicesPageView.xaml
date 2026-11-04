@@ -46,9 +46,59 @@
             </Grid>
         </DataTemplate>
         <Style x:Key="FilterStyle" TargetType="DropDownButton">
-            <Setter Property="Width" Value="140" />
+            <Setter Property="MinWidth" Value="0" />
             <Setter Property="CornerRadius" Value="4" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+        <Style x:Key="StatusCountStyle" TargetType="ToggleButton">
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="MinHeight" Value="24" />
+            <Setter Property="Padding" Value="4,2" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="UseSystemFocusVisuals" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid Background="Transparent">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="HoverLine.Visibility" Value="Visible" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="Presenter.Opacity" Value="0.7" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <VisualState.Setters>
+                                            <Setter Target="Presenter.Opacity" Value="0.4" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                                <VisualStateGroup x:Name="CheckStates">
+                                    <VisualState x:Name="Unchecked" />
+                                    <VisualState x:Name="Checked">
+                                        <VisualState.Setters>
+                                            <Setter Target="SelectedLine.Visibility" Value="Visible" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <ContentPresenter x:Name="Presenter" Content="{TemplateBinding Content}"
+                                              Padding="{TemplateBinding Padding}"
+                                              Foreground="{TemplateBinding Foreground}" />
+                            <Border x:Name="HoverLine" Height="1" VerticalAlignment="Bottom"
+                                    Background="{ThemeResource TextFillColorSecondaryBrush}" Visibility="Collapsed" />
+                            <Border x:Name="SelectedLine" Height="2" VerticalAlignment="Bottom"
+                                    Background="{ThemeResource AccentTextFillColorPrimaryBrush}" Visibility="Collapsed" />
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
         <Style x:Key="StatusFilterStyle" TargetType="DropDownButton" BasedOn="{StaticResource FilterStyle}">
             <Setter Property="Width" Value="210" />
@@ -88,39 +138,52 @@
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <Grid x:Name="InventoryCountsText" ColumnSpacing="8" RowSpacing="8"
+                        <Grid x:Name="InventoryCountsText" ColumnSpacing="8" RowSpacing="2" HorizontalAlignment="Left"
                               AutomationProperties.AccessibilityView="Content"
                               SizeChanged="InventoryCounts_SizeChanged">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
-                            <ToggleButton x:Name="OnlineChip" Tag="1" Checked="StatusChip_Changed" Unchecked="StatusChip_Changed" HorizontalAlignment="Stretch">
-                                <TextBlock x:Name="OnlineCountText" Text="0 Online" TextWrapping="Wrap" />
+                            <ToggleButton x:Name="OnlineChip" Tag="1" Checked="StatusChip_Changed" Unchecked="StatusChip_Changed" Style="{StaticResource StatusCountStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Ellipse Width="6" Height="6" Fill="{ThemeResource ScannerOnlineForegroundBrush}" />
+                                    <TextBlock x:Name="OnlineCountText" Text="0 Online" />
+                                </StackPanel>
                             </ToggleButton>
-                            <ToggleButton x:Name="OfflineChip" Grid.Column="1" Tag="2" Checked="StatusChip_Changed" Unchecked="StatusChip_Changed" HorizontalAlignment="Stretch">
-                                <TextBlock x:Name="OfflineCountText" Text="0 Offline" TextWrapping="Wrap" />
+                            <ToggleButton x:Name="OfflineChip" Grid.Column="1" Tag="2" Checked="StatusChip_Changed" Unchecked="StatusChip_Changed" Style="{StaticResource StatusCountStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Ellipse Width="6" Height="6" Fill="{ThemeResource ScannerOfflineForegroundBrush}" />
+                                    <TextBlock x:Name="OfflineCountText" Text="0 Offline" />
+                                </StackPanel>
                             </ToggleButton>
-                            <ToggleButton x:Name="UnknownChip" Grid.Column="2" Tag="4" Checked="StatusChip_Changed" Unchecked="StatusChip_Changed" HorizontalAlignment="Stretch">
-                                <TextBlock x:Name="UnknownCountText" Text="0 Unknown" TextWrapping="Wrap" />
+                            <ToggleButton x:Name="UnknownChip" Grid.Column="2" Tag="4" Checked="StatusChip_Changed" Unchecked="StatusChip_Changed" Style="{StaticResource StatusCountStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Ellipse Width="6" Height="6" Fill="{ThemeResource ScannerOfflineForegroundBrush}" />
+                                    <TextBlock x:Name="UnknownCountText" Text="0 Unknown" />
+                                </StackPanel>
                             </ToggleButton>
-                            <ToggleButton x:Name="FingOnlyChip" Grid.Column="3" Tag="3" Checked="StatusChip_Changed" Unchecked="StatusChip_Changed" HorizontalAlignment="Stretch">
-                                <TextBlock x:Name="FingOnlyCountText" Text="0 Fing Only" TextWrapping="Wrap" />
+                            <ToggleButton x:Name="FingOnlyChip" Grid.Column="3" Tag="3" Checked="StatusChip_Changed" Unchecked="StatusChip_Changed" Style="{StaticResource StatusCountStyle}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Ellipse Width="6" Height="6" Fill="{ThemeResource ScannerImportedForegroundBrush}" />
+                                    <TextBlock x:Name="FingOnlyCountText" Text="0 Fing Only" />
+                                </StackPanel>
                             </ToggleButton>
                         </Grid>
-                        <TextBlock x:Name="ResultCountText" Grid.Row="1" Grid.ColumnSpan="2" Text="Showing 0 devices"
-                                   Margin="0,4,0,0" TextWrapping="Wrap"
+                        <TextBlock x:Name="ResultCountText" Grid.Column="1" Text="Showing 0 devices"
+                                   TextWrapping="Wrap" FontSize="12"
                                    VerticalAlignment="Center"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock x:Name="LastScanText" Grid.Column="1" Text="Duration: —"
+                        <TextBlock x:Name="LastScanText" Grid.Column="2" Text="Scan duration —"
                                    TextWrapping="Wrap" FontSize="12" VerticalAlignment="Center"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </Grid>
@@ -144,8 +207,16 @@
                                 <DropDownButton x:Name="InventoryStatusFilter" Grid.Column="1"
                                                 Style="{StaticResource StatusFilterStyle}"
                                                 AutomationProperties.AutomationId="InventoryStatusFilter" />
-                                <ToggleButton x:Name="FilterExpander" Grid.Column="2" MinWidth="40" MinHeight="32" IsChecked="False"
-                                              VerticalAlignment="Top" CornerRadius="4"
+                                <Border x:Name="FilterActions" Grid.Column="2" VerticalAlignment="Top"
+                                        BorderBrush="{ThemeResource ControlStrongStrokeColorDefaultBrush}"
+                                        BorderThickness="1" CornerRadius="4">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                <ToggleButton x:Name="FilterExpander" MinWidth="40" MinHeight="30" IsChecked="False"
+                                              BorderThickness="0" CornerRadius="3"
                                               AutomationProperties.Name="Show additional device filters"
                                               ToolTipService.ToolTip="Show or hide additional device filters"
                                               Checked="FilterExpander_Changed" Unchecked="FilterExpander_Changed">
@@ -154,17 +225,26 @@
                                         <TextBlock x:Name="ActiveFilterCount" Visibility="Collapsed" />
                                     </StackPanel>
                                 </ToggleButton>
+                                        <Button x:Name="ClearFiltersLink" Grid.Column="1" MinWidth="36" MinHeight="30"
+                                                Padding="8,4" BorderThickness="1,0,0,0" CornerRadius="0,3,3,0"
+                                                BorderBrush="{ThemeResource ControlStrongStrokeColorDefaultBrush}"
+                                                Click="ClearFilters_Click" Visibility="Collapsed"
+                                                AutomationProperties.Name="Clear all Devices filters"
+                                                ToolTipService.ToolTip="Clear filters">
+                                            <FontIcon Glyph="&#xE894;" FontSize="16" />
+                                        </Button>
+                                    </Grid>
+                                </Border>
                             </Grid>
                             <Grid x:Name="DeviceFilterOptions"
-                                  ColumnSpacing="8" RowSpacing="8" Visibility="Collapsed"
-                                  HorizontalAlignment="Left">
+                                  ColumnSpacing="8" Visibility="Collapsed">
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="180" />
-                                    <ColumnDefinition Width="180" />
-                                    <ColumnDefinition Width="180" />
-                                    <ColumnDefinition Width="140" />
-                                    <ColumnDefinition Width="140" />
-                                    <ColumnDefinition Width="180" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -190,9 +270,6 @@
                             </Grid>
                         </StackPanel>
                     </Border>
-                    <HyperlinkButton x:Name="ClearFiltersLink" Content="Clear filters" Click="ClearFilters_Click"
-                                     Visibility="Collapsed" HorizontalAlignment="Left" Padding="0,4"
-                                     AutomationProperties.Name="Clear all Devices filters" />
                 </StackPanel>
                 <ScrollViewer x:Name="TableViewport" Grid.Row="1"
                               ViewChanged="TableViewport_ViewChanged"
@@ -205,7 +282,9 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <Grid Padding="12,4" Background="{ThemeResource ScannerHeaderBackgroundBrush}"
+                        <Grid x:Name="DeviceTableHeader" AutomationProperties.Name="Device column titles"
+                              AutomationProperties.AccessibilityView="Content"
+                              Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderPadding(Columns.HeaderVerticalPadding), Mode=OneWay}" Background="{ThemeResource ScannerHeaderBackgroundBrush}"
                               BorderBrush="{ThemeResource ScannerCardBorderBrush}" BorderThickness="0,0,0,1">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Name.EffectiveWidth), Mode=OneWay}" />
@@ -223,9 +302,9 @@
                             </Grid.ColumnDefinitions>
                             <Grid Visibility="{x:Bind Columns.Name.IsVisible, Mode=OneWay}">
                                 <StackPanel Margin="0,0,12,0">
-                                    <TextBlock Text="Name" FontWeight="SemiBold" FontSize="12" Margin="0,6,0,0" />
+                                    <TextBlock Text="Name" FontWeight="SemiBold" FontSize="12" Margin="{x:Bind local:DeviceColumnLayoutHelpers.HeaderPrimaryMargin(Columns.HeaderLabelTopMargin), Mode=OneWay}" />
                                     <Button Tag="DeviceType" Click="SortHeader_Click"
-                                            MinHeight="0" Padding="0,3"
+                                            MinHeight="0" Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
                                             Visibility="{x:Bind Columns.ShowMergedType, Mode=OneWay}"
                                             Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by device type">
                                         <StackPanel Orientation="Horizontal" Spacing="6">
@@ -239,7 +318,7 @@
                             </Grid>
                             <Grid Grid.Column="1" Visibility="{x:Bind Columns.Address.IsVisible, Mode=OneWay}">
                                 <StackPanel Margin="0,0,12,0">
-                                <Button Tag="Address" Click="SortHeader_Click" MinHeight="0" Padding="0,3"
+                                <Button Tag="Address" Click="SortHeader_Click" MinHeight="0" Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
                                         Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by IP address">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <TextBlock Text="IP address" FontWeight="SemiBold" />
@@ -247,7 +326,7 @@
                                     </StackPanel>
                                 </Button>
                                 <Button Tag="MacAddress" Click="SortHeader_Click" Visibility="{x:Bind Columns.ShowMergedMac, Mode=OneWay}"
-                                        Style="{StaticResource ScannerHeaderButtonStyle}" MinHeight="0" Padding="0,3" ToolTipService.ToolTip="Sort by MAC address">
+                                        Style="{StaticResource ScannerHeaderButtonStyle}" MinHeight="0" Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}" ToolTipService.ToolTip="Sort by MAC address">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <TextBlock Text="MAC address" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                         <TextBlock x:Name="MergedMacAddressSortGlyph" />
@@ -259,8 +338,8 @@
                             </Grid>
                             <Grid Grid.Column="2" Visibility="{x:Bind Columns.Vendor.IsVisible, Mode=OneWay}">
                                 <StackPanel Margin="0,0,12,0" VerticalAlignment="Center">
-                                    <TextBlock Text="Vendor" FontWeight="SemiBold" FontSize="12" Margin="0,6,0,0" />
-                                    <Button Tag="OperatingSystem" Click="SortHeader_Click" MinHeight="0" Padding="0,3"
+                                    <TextBlock Text="Vendor" FontWeight="SemiBold" FontSize="12" Margin="{x:Bind local:DeviceColumnLayoutHelpers.HeaderPrimaryMargin(Columns.HeaderLabelTopMargin), Mode=OneWay}" />
+                                    <Button Tag="OperatingSystem" Click="SortHeader_Click" MinHeight="0" Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
                                             Visibility="{x:Bind Columns.ShowMergedOs, Mode=OneWay}"
                                             Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by operating system">
                                         <StackPanel Orientation="Horizontal" Spacing="6">
@@ -273,7 +352,7 @@
                                                         SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.VendorOs.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="3" Visibility="{x:Bind Columns.Ports.IsVisible, Mode=OneWay}">
-                                <TextBlock Text="Open ports" FontWeight="SemiBold" FontSize="12" Margin="0,6,12,6" VerticalAlignment="Center" />
+                                <TextBlock Text="Open ports" FontWeight="SemiBold" FontSize="12" Margin="{x:Bind local:DeviceColumnLayoutHelpers.HeaderTextMargin(Columns.HeaderLabelTopMargin), Mode=OneWay}" VerticalAlignment="Center" />
                                 <local:ColumnResizeGrip Column="{x:Bind Columns.Ports}" AutomationProperties.Name="{x:Bind Columns.Ports.ResizeLabel}"
                                                         SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Ports.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
@@ -283,7 +362,8 @@
                                     <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibleStarWidth(Columns.ShowConnectionResponse), Mode=OneWay}" />
                                 </Grid.ColumnDefinitions>
                                 <Grid Visibility="{x:Bind Columns.Status.IsVisible, Mode=OneWay}">
-                                    <Button Tag="Status" Click="SortHeader_Click" Margin="0,0,12,0"
+                                    <Button Tag="Status" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
+                                            Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
                                             Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by status">
                                         <StackPanel Orientation="Horizontal" Spacing="6">
                                             <TextBlock Text="Status" FontWeight="SemiBold" />
@@ -292,7 +372,8 @@
                                     </Button>
                                 </Grid>
                                 <Grid Grid.Column="1" Visibility="{x:Bind Columns.ShowConnectionResponse, Mode=OneWay}">
-                                    <Button Tag="Response" Click="SortHeader_Click" Margin="0,0,12,0" HorizontalContentAlignment="Right"
+                                    <Button Tag="Response" Click="SortHeader_Click" Margin="0,0,12,0" HorizontalContentAlignment="Right" MinHeight="0"
+                                            Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
                                             Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by response time">
                                         <StackPanel Orientation="Horizontal" Spacing="6">
                                             <TextBlock Text="Response" FontWeight="SemiBold" />
@@ -305,7 +386,8 @@
                                                         SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Connection.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="5" Visibility="{x:Bind Columns.ShowSeparateResponse, Mode=OneWay}">
-                                <Button Tag="Response" Click="SortHeader_Click" Margin="0,0,12,0" HorizontalContentAlignment="Right"
+                                <Button Tag="Response" Click="SortHeader_Click" Margin="0,0,12,0" HorizontalContentAlignment="Right" MinHeight="0"
+                                        Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
                                         Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by response time">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <TextBlock Text="Response" FontWeight="SemiBold" />
@@ -316,7 +398,8 @@
                                                         SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Response.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="6" Visibility="{x:Bind Columns.ShowSeparateMac, Mode=OneWay}">
-                                <Button Tag="MacAddress" Click="SortHeader_Click" Margin="0,0,12,0"
+                                <Button Tag="MacAddress" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
+                                        Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
                                         Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by MAC address">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <TextBlock Text="MAC address" FontWeight="SemiBold" />
@@ -327,7 +410,8 @@
                                                         SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Mac.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="7" Visibility="{x:Bind Columns.ShowSeparateOs, Mode=OneWay}">
-                                <Button Tag="OperatingSystem" Click="SortHeader_Click" Margin="0,0,12,0"
+                                <Button Tag="OperatingSystem" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
+                                        Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
                                         Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by operating system">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <TextBlock Text="OS" FontWeight="SemiBold" />
@@ -338,7 +422,8 @@
                                                         SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.OperatingSystem.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="8" Visibility="{x:Bind Columns.ShowSeparateType, Mode=OneWay}">
-                                <Button Tag="DeviceType" Click="SortHeader_Click" Margin="0,0,12,0"
+                                <Button Tag="DeviceType" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
+                                        Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
                                         Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by device type">
                                     <StackPanel Orientation="Horizontal" Spacing="6">
                                         <TextBlock Text="Device type" FontWeight="SemiBold" />
@@ -349,19 +434,19 @@
                                                         SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Type.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="9" Visibility="{x:Bind Columns.Assignments.IsVisible, Mode=OneWay}">
-                                <TextBlock Text="{x:Bind Columns.Assignments.Header, Mode=OneWay}" FontWeight="SemiBold" FontSize="12" Margin="0,6,12,6" VerticalAlignment="Center"
+                                <TextBlock Text="{x:Bind Columns.Assignments.Header, Mode=OneWay}" FontWeight="SemiBold" FontSize="12" Margin="{x:Bind local:DeviceColumnLayoutHelpers.HeaderTextMargin(Columns.HeaderLabelTopMargin), Mode=OneWay}" VerticalAlignment="Center"
                                            Visibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.ShowSeparatePerson), Mode=OneWay}" />
-                                <TextBlock Text="Room" FontWeight="SemiBold" FontSize="12" Margin="0,6,12,6" VerticalAlignment="Center"
+                                <TextBlock Text="Room" FontWeight="SemiBold" FontSize="12" Margin="{x:Bind local:DeviceColumnLayoutHelpers.HeaderTextMargin(Columns.HeaderLabelTopMargin), Mode=OneWay}" VerticalAlignment="Center"
                                            Visibility="{x:Bind Columns.ShowRoomOnly, Mode=OneWay}" />
                                 <StackPanel Margin="0,0,12,0" Visibility="{x:Bind Columns.ShowMergedRoom, Mode=OneWay}">
-                                    <TextBlock Text="Person" FontWeight="SemiBold" FontSize="12" Margin="0,6,0,0" />
-                                    <TextBlock Text="Room" FontSize="11" Margin="0,3,0,3" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Text="Person" FontWeight="SemiBold" FontSize="12" Margin="{x:Bind local:DeviceColumnLayoutHelpers.HeaderPrimaryMargin(Columns.HeaderLabelTopMargin), Mode=OneWay}" />
+                                    <TextBlock Text="Room" FontSize="11" Margin="{x:Bind local:DeviceColumnLayoutHelpers.HeaderSecondaryMargin(Columns.HeaderSecondaryMargin), Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                 </StackPanel>
                                 <local:ColumnResizeGrip Column="{x:Bind Columns.Assignments, Mode=OneWay}" AutomationProperties.Name="{x:Bind Columns.Assignments.ResizeLabel, Mode=OneWay}"
                                                         SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Assignments.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="10" Visibility="{x:Bind Columns.ShowSeparateRoom, Mode=OneWay}">
-                                <TextBlock Text="Room" FontWeight="SemiBold" FontSize="12" Margin="0,6,12,6" VerticalAlignment="Center" />
+                                <TextBlock Text="Room" FontWeight="SemiBold" FontSize="12" Margin="{x:Bind local:DeviceColumnLayoutHelpers.HeaderTextMargin(Columns.HeaderLabelTopMargin), Mode=OneWay}" VerticalAlignment="Center" />
                                 <local:ColumnResizeGrip Column="{x:Bind Columns.Room}" AutomationProperties.Name="{x:Bind Columns.Room.ResizeLabel}"
                                                         SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Room.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>

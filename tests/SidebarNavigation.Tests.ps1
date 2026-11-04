@@ -387,7 +387,7 @@ function Test-DeviceRefresh {
                 throw "Successful completion must leave no scan message or progress on $($page[0])."
             }
             if ($page[0] -eq "Devices" -and
-                (Find-SidebarElement AutomationId LastScanText).Current.Name -notmatch '^Duration: \d') {
+                (Find-SidebarElement AutomationId LastScanText).Current.Name -notmatch '^Scan duration \d') {
                 throw "Devices must retain the completed scan duration."
             }
             if ($page[0] -eq "Overview" -and

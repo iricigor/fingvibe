@@ -1,4 +1,5 @@
 using System.Text.Json;
+using FingVibe.App;
 using FingVibe.Core.Models;
 using FingVibe.Core.Storage;
 using Xunit;
@@ -46,7 +47,28 @@ public sealed class DeviceTableSettingsStoreTests : IDisposable
         var loaded = new DeviceTableSettingsStore(FilePath).Load()!;
         Assert.True(loaded.EnlargedCellPreviews);
         Assert.False(loaded.CombineVendorOs);
-        Assert.False(loaded.CompactRows);
+        Assert.True(loaded.CompactRows);
+    }
+
+    [Fact]
+    public void LegacyDensity_RoundTripPersistsMigrationAndSubsequentStandardChoice()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(FilePath, """{"columns":{},"compactRows":false,"combineVendorOs":true}""");
+        var store = new DeviceTableSettingsStore(FilePath);
+        var legacy = store.Load()!;
+        Assert.Equal(0, legacy.DensityVersion);
+        var layout = new DeviceColumnLayout();
+        layout.Restore(legacy);
+        Assert.True(layout.CompactRows);
+        store.Save(layout.Capture());
+        Assert.Equal(1, store.Load()!.DensityVersion);
+        layout.CompactRows = false;
+        store.Save(layout.Capture());
+        var restored = new DeviceColumnLayout();
+        restored.Restore(store.Load()!);
+        Assert.False(restored.CompactRows);
+        Assert.True(restored.CombineVendorOs);
     }
 
     [Theory]
