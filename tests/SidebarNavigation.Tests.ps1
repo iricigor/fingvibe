@@ -469,9 +469,9 @@ function Test-DeviceRefresh {
                         throw "Device filters overlap at $width logical pixels."
                     }
                 }
-                $filterExpander.Toggle()
             }
         }
+        $filterExpander.Toggle()
         Write-Host "Device success/navigation, refresh/cancellation, scan/save errors, filtered counts, and responsive filter bounds passed."
     }
     finally {
