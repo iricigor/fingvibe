@@ -213,6 +213,21 @@ function Assert-NoCellPreview {
     }
 }
 
+function Assert-PreviewFont($Preview, $Cell) {
+    $pattern = $Preview.GetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern)
+    $font = $pattern.DocumentRange.GetAttributeValue([System.Windows.Automation.TextPattern]::FontSizeAttribute)
+    $sourcePattern = $Cell.GetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern)
+    $sourceFont = $sourcePattern.DocumentRange.GetAttributeValue([System.Windows.Automation.TextPattern]::FontSizeAttribute)
+    if ([Math]::Abs([double]$font / [double]$sourceFont - 1.25) -gt 0.02) {
+        throw "Cell preview text must be 125% of the original font ($font / $sourceFont)."
+    }
+    $family = $pattern.DocumentRange.GetAttributeValue([System.Windows.Automation.TextPattern]::FontNameAttribute)
+    $sourceFamily = $sourcePattern.DocumentRange.GetAttributeValue([System.Windows.Automation.TextPattern]::FontNameAttribute)
+    if ($family -ne $sourceFamily) {
+        throw "Preview text must retain the value's font family, not a decorative icon font ($family / $sourceFamily)."
+    }
+}
+
 function Assert-CellPreview($Cell, [string] $Value, [string] $Capture) {
     Write-Host "Checking full-value preview '$Value' at $($Cell.Current.BoundingRectangle)."
     Move-ToDeviceElement (Find-DeviceElement DevicesHeading)
@@ -222,13 +237,7 @@ function Assert-CellPreview($Cell, [string] $Value, [string] $Capture) {
     if ($preview.Current.Name -ne $Value) {
         throw "Cell preview must reveal '$Value', got '$($preview.Current.Name)'."
     }
-    $pattern = $preview.GetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern)
-    $font = $pattern.DocumentRange.GetAttributeValue([System.Windows.Automation.TextPattern]::FontSizeAttribute)
-    $sourcePattern = $Cell.GetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern)
-    $sourceFont = $sourcePattern.DocumentRange.GetAttributeValue([System.Windows.Automation.TextPattern]::FontSizeAttribute)
-    if ([Math]::Abs([double]$font / [double]$sourceFont - 1.25) -gt 0.02) {
-        throw "Cell preview text must be 125% of the original font ($font / $sourceFont)."
-    }
+    Assert-PreviewFont $preview $Cell
     $viewport = (Find-DeviceElement TableViewport).Current.BoundingRectangle
     $bounds = $preview.Current.BoundingRectangle
     if ($bounds.Left -lt $viewport.Left -or $bounds.Right -gt $viewport.Right -or
@@ -888,6 +897,7 @@ try {
         $keyboardPreview.Current.Name -notlike "*IP address: *MAC address: *Vendor: *Person: *Room: *") {
         throw "Keyboard focus must reveal the row's equivalent full values."
     }
+    Assert-PreviewFont $keyboardPreview (Get-VisibleDeviceChild $selected[0] AutomationId DeviceNameText)
     $null = Save-DeviceCapture "devices-keyboard-focus"
     $area = [System.Windows.Forms.Screen]::FromHandle($windowHandle).WorkingArea
     if ($area.Width / $scale -ge 1880) {
