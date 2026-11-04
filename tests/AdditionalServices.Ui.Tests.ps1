@@ -15,6 +15,10 @@ using System.Threading.Tasks;
 public sealed class AdditionalServicesFixture : IDisposable
 {
     private readonly TcpListener tcp = new TcpListener(IPAddress.Loopback, 1883);
+    private readonly TcpListener[] web = {
+        new TcpListener(IPAddress.Loopback, 8080),
+        new TcpListener(IPAddress.Loopback, 8443)
+    };
     private UdpClient dns;
     private UdpClient ntp;
     private Task[] workers = new Task[0];
@@ -43,11 +47,12 @@ public sealed class AdditionalServicesFixture : IDisposable
     public void StartTcp()
     {
         tcp.Start();
-        tcpWorker = Accept();
+        foreach (var listener in web) listener.Start();
+        tcpWorker = Task.WhenAll(new[] { Accept(tcp), Accept(web[0]), Accept(web[1]) });
     }
-    private async Task Accept()
+    private async Task Accept(TcpListener listener)
     {
-        try { while (!stopping) { using (await tcp.AcceptTcpClientAsync()) {} } }
+        try { while (!stopping) { using (await listener.AcceptTcpClientAsync()) {} } }
         catch (ObjectDisposedException) when (stopping) {}
         catch (SocketException) when (stopping) {}
     }
@@ -89,6 +94,7 @@ public sealed class AdditionalServicesFixture : IDisposable
     {
         stopping = true;
         tcp.Stop();
+        foreach (var listener in web) listener.Stop();
         if (dns != null) dns.Dispose();
         if (ntp != null) ntp.Dispose();
         if (!Task.WaitAll(workers, 5000)) throw new TimeoutException("Fixture workers failed to stop.");
@@ -198,10 +204,32 @@ function Open-IdentificationEditor {
 }
 
 function Test-DeviceDetailsEditing {
+    $scroll = (Find-ServiceControl DeviceDetailsScroll).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+    $scroll.SetScrollPercent(-1, 0)
+    Wait-ServiceState {
+        (Find-ServiceControl "Network overview" -ByName).Current.BoundingRectangle.Width -gt 0 -and
+        (Find-ServiceControl Assignments -ByName).Current.BoundingRectangle.Width -gt 0
+    } "top-row cards"
+    $network = (Find-ServiceControl "Network overview" -ByName).Current.BoundingRectangle
+    $assignment = (Find-ServiceControl Assignments -ByName).Current.BoundingRectangle
+    if ([Math]::Abs($network.Top - $assignment.Top) -gt 3 -or $assignment.Left -le $network.Left + 300) {
+        throw "Network overview and Assignments must share the top row in left/right order."
+    }
+    Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-details-wide.png")
+    Invoke-ServiceControl "Rename device"
+    Wait-ServiceState {
+        [System.Windows.Automation.AutomationElement]::FocusedElement.Current.Name -eq "Device name"
+    } "name editor focus"
+    Invoke-ServiceControl Done
     $copy = Find-ServiceControl "Copy IP address" -ByName
     $copy.SetFocus()
     Write-Host "Copy focus: $([System.Windows.Automation.AutomationElement]::FocusedElement.Current.Name); bounds: $($copy.Current.BoundingRectangle)."
     Wait-ServiceState { -not $copy.Current.IsOffscreen -and $copy.Current.BoundingRectangle.Width -ge 30 } "keyboard-accessible copy action"
+    $value = (Find-ServiceControl "127.0.0.1" -ByName).Current.BoundingRectangle
+    $copyBounds = $copy.Current.BoundingRectangle
+    if ($value.Width -le 0 -or $copyBounds.Left - $value.Right -gt 16 -or $copyBounds.Left -lt $value.Right - 1) {
+        throw "Copy must sit immediately after its value, not at the field edge: value=$value copy=$copyBounds."
+    }
     $before = $copy.Current.BoundingRectangle
     [System.Windows.Forms.SendKeys]::SendWait(" ")
     Wait-ServiceState { [System.Windows.Forms.Clipboard]::GetText() -eq "127.0.0.1" } "value-only clipboard contents"
@@ -268,6 +296,38 @@ function Test-DeviceDetailsEditing {
     Show-ServiceScanSection
 }
 
+function Test-EndpointLinks {
+    foreach ($case in @(@("Try HTTP", 8080), @("Try HTTPS", 8443))) {
+        $link = Find-ServiceControl "$($case[0]): 127.0.0.1:$($case[1])" -ByName
+        if ($link.Current.ControlType -ne [System.Windows.Automation.ControlType]::Hyperlink) {
+            throw "Alternate browser actions must be native text hyperlinks, not boxed buttons."
+        }
+        $link.SetFocus()
+        Wait-ServiceState { -not $link.Current.IsOffscreen -and $link.Current.BoundingRectangle.Width -gt 0 } "alternate browser link focus"
+        $copies = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::Button))
+        $portLabel = $copies | Where-Object { $_.Current.Name -like "Copy $($case[1])/TCP -*" } | Select-Object -First 1
+        if (-not $portLabel) { throw "Missing endpoint copy action for port $($case[1])." }
+        $portLabel.SetFocus()
+        Wait-ServiceState { -not $portLabel.Current.IsOffscreen -and $portLabel.Current.BoundingRectangle.Width -ge 30 } "endpoint copy geometry"
+        $copyBounds = $portLabel.Current.BoundingRectangle
+        $linkBounds = $link.Current.BoundingRectangle
+        if ($linkBounds.Left - $copyBounds.Right -gt 16 -or [Math]::Abs($linkBounds.Top - $copyBounds.Top) -gt 10) {
+            throw "Try links must stay beside endpoint copy actions: copy=$copyBounds link=$linkBounds."
+        }
+    }
+    $primary = Find-ServiceControl "Open HTTP: 127.0.0.1:80" -ByName -Optional
+    if ($primary) {
+        if ($primary.Current.ControlType -ne [System.Windows.Automation.ControlType]::Hyperlink) {
+            throw "A confirmed standard web endpoint must use a linked address."
+        }
+        $primary.SetFocus()
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-endpoint-linked-address.png")
+    }
+}
+
 $previousReview = $env:FINGVIBE_UI_REVIEW
 $previousSnapshot = $env:FINGVIBE_UI_REVIEW_SNAPSHOT
 $snapshot = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-services-$([Guid]::NewGuid().ToString('N')).json"
@@ -323,6 +383,7 @@ try {
     if ($fixture.DnsRequests -ne 1 -or $fixture.NtpRequests -ne 1) { throw "UDP must send only one request per service." }
     Save-ServiceEvidence "services-inconclusive"
     Wait-ServiceState { (Find-ServiceControl DevicePortScanButton).Current.Name -eq "Scan additional ports" } "scan cleanup"
+    Test-EndpointLinks
     if ((Find-ServiceControl DeviceTcpScanStatus).Current.Name -notlike "TCP: complete*") { throw "TCP completion was not independently reported." }
     $fixture.DnsMode = 1
     $fixture.NtpMode = 1

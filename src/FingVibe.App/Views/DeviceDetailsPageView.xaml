@@ -22,11 +22,13 @@
                           VerticalAlignment="Top" Margin="0,6,0,0" />
                 <StackPanel Grid.Column="1" Spacing="4">
                     <views:DeviceDetailValue x:Name="DeviceNameValue" Label="Device name" ValueFontSize="26" />
+                    <HyperlinkButton x:Name="DeviceRenameButton" Content="Rename" Click="Rename_Click"
+                                     AutomationProperties.Name="Rename device" Padding="0" />
                     <TextBlock x:Name="DeviceStatusText" TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
             </Grid>
-            <Expander Header="Change device name" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+            <Border x:Name="DeviceNameEditor" Visibility="Collapsed" Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="8">
                     <TextBox x:Name="DeviceNameInput" AutomationProperties.Name="Device name"
                              PlaceholderText="Edit device name" TextWrapping="Wrap" FontFamily="Segoe UI Emoji"
@@ -35,11 +37,12 @@
                         <Button x:Name="DeviceNameSaveButton" Content="Save" Click="DeviceNameSaveButton_Click" />
                         <Button x:Name="DeviceNameResetButton" Content="Use imported / discovered name"
                                 Click="DeviceNameResetButton_Click" />
+                        <Button Content="Done" Click="RenameDone_Click" />
                     </StackPanel>
                     <TextBlock x:Name="DeviceNameStatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
-            </Expander>
+            </Border>
             <Grid x:Name="DetailsColumns" ColumnSpacing="16" RowSpacing="16" SizeChanged="DetailsColumns_SizeChanged">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -49,8 +52,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <StackPanel x:Name="OverviewColumn" Spacing="16">
-                    <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                    <Border x:Name="NetworkOverviewCard" Style="{StaticResource ScannerSummaryCardStyle}" VerticalAlignment="Top">
                         <StackPanel Spacing="12">
                             <TextBlock Text="Network overview" FontSize="18" FontWeight="SemiBold" />
                             <Grid x:Name="OverviewFields" ColumnSpacing="16" RowSpacing="12" SizeChanged="Fields_SizeChanged">
@@ -68,7 +70,7 @@
                                       Visibility="Collapsed" SelectionChanged="DeviceAddressPicker_SelectionChanged" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                    <Border x:Name="AssignmentsCard" Grid.Column="1" Style="{StaticResource ScannerSummaryCardStyle}" VerticalAlignment="Top">
                         <StackPanel Spacing="8">
                             <TextBlock Text="Assignments" FontWeight="SemiBold" />
                             <Grid x:Name="AssignmentFields" ColumnSpacing="12" RowSpacing="12" SizeChanged="Fields_SizeChanged">
@@ -81,8 +83,8 @@
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </StackPanel>
                     </Border>
-                </StackPanel>
-                <Border x:Name="IdentificationCard" Grid.Column="1" Style="{StaticResource ScannerSummaryCardStyle}"
+            </Grid>
+                <Border x:Name="IdentificationCard" Style="{StaticResource ScannerSummaryCardStyle}"
                         VerticalAlignment="Top">
                     <StackPanel Spacing="12">
                         <Grid ColumnSpacing="8">
@@ -147,8 +149,7 @@
                         </Expander>
                     </StackPanel>
                 </Border>
-            </Grid>
-            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+            <Border x:Name="PortsServicesCard" Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="8">
                     <TextBlock Text="Ports &amp; services" FontSize="18" FontWeight="SemiBold" />
                     <TextBlock Text="Confirmed open/responding endpoints" FontWeight="SemiBold" />
@@ -165,7 +166,7 @@
                     <TextBlock x:Name="DeviceUdpScanStatusText" TextWrapping="Wrap"
                                AutomationProperties.AutomationId="DeviceUdpScanStatus" AutomationProperties.LiveSetting="Polite"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <StackPanel x:Name="DevicePortsList" Spacing="8" />
+                    <Grid x:Name="DevicePortsList" ColumnSpacing="24" RowSpacing="12" SizeChanged="Fields_SizeChanged" />
                     <TextBlock x:Name="DeviceBrowserStatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock Text="UDP observations (silence is not an open or closed port)" TextWrapping="Wrap"

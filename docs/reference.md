@@ -72,20 +72,28 @@ home automation/media, infrastructure, and printing. The automatic LAN scan
 still checks only its original 10 TCP ports. The additional scan uses at most
 16 simultaneous connections with 400 ms per-connection deadlines.
 
-Device details groups network values and assignments alongside a read-first
-**Device identification** card, stacking them in narrow windows. **Ports & services**
+Device details places **Network overview** at the top left and **Assignments**
+at the top right (roughly 60/40), stacking them in narrow windows. A full-width,
+read-first **Device identification** card follows, then **Ports & services**.
+Identification uses up to three field columns, and endpoints use up to two
+columns, reducing to one as width and text scaling require. **Rename** in the
+identity header reveals the existing name editor only when requested. **Ports & services**
 has its own container for endpoints, scan controls, independent TCP/UDP feedback,
 and UDP observations. Discovered hostname belongs to the network overview;
 the collapsed **Imported Fing data** section contains only populated original
 fields and explicitly labels historical imported IPs.
 
 Hover beside a populated identity, network, identification, imported, or endpoint
-value to reveal its copy icon, or Tab to the same button to reveal and activate it
+value to reveal its copy icon immediately after the value (not at the field's
+far edge), or Tab to the same button to reveal and activate it
 with the keyboard. Copy writes only that value (endpoint addresses include their
 port), never the label/source, and reports success or clipboard errors in a
 non-layout-shifting flyout. Missing-value placeholders have no copy action.
-Confirmed current TCP endpoints on 80/443 offer **Open HTTP/HTTPS**; 8080/8443
-offer **Try HTTP/HTTPS**, since port numbers do not verify the protocol.
+Confirmed current TCP endpoints on 80/443 show the address itself as a native
+browser hyperlink with an external-link arrow. Ports 8080/8443 retain a plain
+address plus a nearby **Try HTTP/HTTPS** text link with the same arrow, since
+port numbers do not verify the protocol. Copy is always a separate adjacent
+action, and neither browser treatment uses a boxed button.
 Links use the selected current address, preserve alternate ports, and launch the
 default browser only on activation. Failures are shown in details. Historical-only
 addresses, UDP observations and arbitrary non-web endpoints have no browser action;

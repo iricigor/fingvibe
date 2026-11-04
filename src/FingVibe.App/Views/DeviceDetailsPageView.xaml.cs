@@ -54,6 +54,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
     internal void ShowDevice(ScanResultRow row)
     {
         _row = row;
+        DeviceNameEditor.Visibility = Visibility.Collapsed;
         SetClassificationEditing(false);
         DeviceClassificationStatusText.Text = string.Empty;
         _updatingAddresses = true;
@@ -109,6 +110,18 @@ public sealed partial class DeviceDetailsPageView : UserControl
 
     internal void ResetScroll() => DevicePage.ChangeView(null, 0, null, disableAnimation: true);
 
+    private void Rename_Click(object sender, RoutedEventArgs e)
+    {
+        DeviceNameEditor.Visibility = Visibility.Visible;
+        DeviceNameInput.Focus(FocusState.Programmatic);
+    }
+
+    private void RenameDone_Click(object sender, RoutedEventArgs e)
+    {
+        DeviceNameEditor.Visibility = Visibility.Collapsed;
+        DeviceRenameButton.Focus(FocusState.Programmatic);
+    }
+
     internal void SetNameActions(bool canSave, bool canReset, string? resetToolTip)
     {
         if (_row is { } row) DeviceNameValue.Value = row.NameText;
@@ -128,7 +141,6 @@ public sealed partial class DeviceDetailsPageView : UserControl
                 var panel = new Grid { ColumnSpacing = 8 };
                 panel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 panel.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                panel.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
                 var icon = new FontIcon
                 {
                     Glyph = PortServiceIcons.Glyph(port), FontFamily = new FontFamily("Segoe Fluent Icons"),
@@ -142,25 +154,19 @@ public sealed partial class DeviceDetailsPageView : UserControl
                 panel.Children.Add(content);
                 if (endpoint.HasBrowserAction)
                 {
-                    var browser = new Button
-                    {
-                        Content = endpoint.BrowserLabel, Tag = port, VerticalAlignment = VerticalAlignment.Center
-                    };
-                    AutomationProperties.SetName(browser, $"{endpoint.BrowserLabel}: {endpoint.Value}");
-                    ToolTipService.SetToolTip(browser, endpoint.BrowserUri!.AbsoluteUri);
-                    browser.Click += Browser_Click;
-                    Grid.SetColumn(browser, 2);
-                    panel.Children.Add(browser);
+                    content.SetBrowserAction(port.Port is 80 or 443, endpoint.BrowserLabel, endpoint.BrowserUri!.AbsoluteUri);
+                    content.BrowserRequested += async (_, _) => await OpenBrowserAsync(row, port);
                 }
                 DevicePortsList.Children.Add(panel);
             }
         }
         DeviceNoPortsText.Visibility = ports.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        LayoutFields(DevicePortsList);
     }
 
-    private async void Browser_Click(object sender, RoutedEventArgs e)
+    private async Task OpenBrowserAsync(ScanResultRow row, OpenPort port)
     {
-        if (sender is not Button { Tag: OpenPort port } || _row is not { } row) return;
+        if (!ReferenceEquals(_row, row)) return;
         var uri = DeviceDetailsPresentation.Endpoint(row, port).BrowserUri;
         if (uri is null)
         {
@@ -328,24 +334,36 @@ public sealed partial class DeviceDetailsPageView : UserControl
 
     private void DetailsColumns_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        var wide = e.NewSize.Width >= 1000;
-        DetailsColumns.ColumnDefinitions[1].Width = wide ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
-        Grid.SetColumn(IdentificationCard, wide ? 1 : 0);
-        Grid.SetRow(IdentificationCard, wide ? 0 : 1);
+        var wide = e.NewSize.Width >= 900 * new Windows.UI.ViewManagement.UISettings().TextScaleFactor;
+        DetailsColumns.ColumnDefinitions[0].Width = new GridLength(wide ? 3 : 1, GridUnitType.Star);
+        DetailsColumns.ColumnDefinitions[1].Width = wide ? new GridLength(2, GridUnitType.Star) : new GridLength(0);
+        Grid.SetColumn(AssignmentsCard, wide ? 1 : 0);
+        Grid.SetRow(AssignmentsCard, wide ? 0 : 1);
     }
 
     private void Fields_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         if (sender is not Grid grid) return;
-        var columns = e.NewSize.Width >= 420 * new Windows.UI.ViewManagement.UISettings().TextScaleFactor ? 2 : 1;
+        LayoutFields(grid);
+    }
+
+    private void LayoutFields(Grid grid)
+    {
+        var scale = new Windows.UI.ViewManagement.UISettings().TextScaleFactor;
+        var identification = grid == IdentificationReadFields || grid == IdentificationInputs;
+        var minimum = grid == DevicePortsList ? 400 : identification ? 260 : 210;
+        var maximum = identification ? 3 : 2;
+        var columns = Math.Clamp((int)(grid.ActualWidth / (minimum * scale)), 1, maximum);
         var rows = (grid.Children.Count + columns - 1) / columns;
-        if (grid.ColumnDefinitions.Count == columns && grid.RowDefinitions.Count == rows) return;
-        grid.ColumnDefinitions.Clear();
-        grid.RowDefinitions.Clear();
-        for (var index = 0; index < columns; index++)
-            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        for (var index = 0; index < rows; index++)
-            grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        if (grid.ColumnDefinitions.Count != columns || grid.RowDefinitions.Count != rows)
+        {
+            grid.ColumnDefinitions.Clear();
+            grid.RowDefinitions.Clear();
+            for (var index = 0; index < columns; index++)
+                grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            for (var index = 0; index < rows; index++)
+                grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        }
         for (var index = 0; index < grid.Children.Count; index++)
         {
             Grid.SetColumn((FrameworkElement)grid.Children[index], index % columns);

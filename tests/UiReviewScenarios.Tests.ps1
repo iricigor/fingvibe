@@ -329,6 +329,23 @@ try {
         if ($viewCode -notmatch 'DeviceColumnLayout Columns => DeviceColumnLayout.Current') {
             throw "$view must bind the shared table column layout."
         }
+        $details = [xml](Get-Content (Join-Path $appDirectory "Views\DeviceDetailsPageView.xaml") -Raw)
+        $overview = $details.SelectSingleNode("//*[@*[local-name()='Name']='NetworkOverviewCard']")
+        $assignments = $details.SelectSingleNode("//*[@*[local-name()='Name']='AssignmentsCard']")
+        $identification = $details.SelectSingleNode("//*[@*[local-name()='Name']='IdentificationCard']")
+        $ports = $details.SelectSingleNode("//*[@*[local-name()='Name']='PortsServicesCard']")
+        if ($overview.ParentNode -ne $assignments.ParentNode -or
+            $assignments.GetAttribute("Grid.Column") -ne "1" -or
+            $identification.ParentNode -ne $overview.ParentNode.ParentNode -or
+            $identification.NextSibling -ne $ports) {
+            throw "Details must put network/assignments in the top row, then full-width identification and ports."
+        }
+        $valueCode = Get-Content (Join-Path $appDirectory "Views\DeviceDetailValue.cs") -Raw
+        if ($valueCode -notmatch 'HyperlinkButton _browser' -or
+            $valueCode -notmatch '_valueRow.Children.Add\(_copy\)' -or
+            $valueCode -notmatch '_copy.Opacity = _pointerOver') {
+            throw "Details must keep native browser links and reserved hover/focus copy actions beside values."
+        }
     }
     foreach ($view in $viewScenarios.Keys) {
         foreach ($extension in @("xaml", "xaml.cs")) {
