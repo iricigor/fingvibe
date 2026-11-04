@@ -467,6 +467,7 @@ function Set-SecondaryFiltersExpanded([bool] $Expanded) {
 function Open-DeviceFilter([string] $Id) {
     if ($Id -ne "InventoryStatusFilter") { Set-SecondaryFiltersExpanded $true }
     (Find-DeviceElement $Id).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Start-Sleep -Milliseconds 250
     return Find-DeviceElement "${Id}Choices"
 }
 
@@ -1110,20 +1111,20 @@ try {
     $null = Open-DeviceFilter PortsFilter
     $checkbox = Find-DeviceElement OpenPortsFilter
     $bounds = $checkbox.Current.BoundingRectangle
-    $null = [DevicesReviewInput]::SetCursorPos([int]($bounds.Right - 8 * $scale), [int]($bounds.Top + $bounds.Height / 2))
+    $null = [DevicesReviewInput]::SetCursorPos([int]($bounds.Left + 10 * $scale), [int]($bounds.Top + $bounds.Height / 2))
     [DevicesReviewInput]::Click()
     Start-Sleep -Milliseconds 200
     $toggle = $checkbox.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
     if ($toggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
-        throw "Clicking the open-ports component outside its label must toggle it."
+        throw "Clicking the open-ports checkbox glyph must toggle it."
     }
     if ((Find-DeviceElement ResultCountText).Current.Name -ne "Showing 40 of 80 devices") { throw "Open-ports filter did not apply." }
     $component = Get-FilterBounds $checkbox
-    $null = [DevicesReviewInput]::SetCursorPos([int]($component.Left + 5 * $scale), [int]($component.Top + $component.Height / 2))
+    $null = [DevicesReviewInput]::SetCursorPos([int]($component.Left + 60 * $scale), [int]($component.Top + $component.Height / 2))
     [DevicesReviewInput]::Click()
     Start-Sleep -Milliseconds 200
     if ($toggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off) {
-        throw "Clicking the bordered component's padding must also toggle it."
+        throw "Clicking the open-ports checkbox label must also toggle it."
     }
     $checkbox.SetFocus()
     [DevicesReviewInput]::Tap(0x20)
