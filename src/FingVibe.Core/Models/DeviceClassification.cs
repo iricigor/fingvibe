@@ -39,9 +39,19 @@ public sealed record DeviceClassification(
 public sealed record DeviceClassificationOverride(
     DeviceOperatingSystem? OperatingSystem = null,
     DeviceType? Type = null,
-    DeviceType? Icon = null)
+    DeviceType? Icon = null,
+    string? Brand = null,
+    string? Family = null,
+    string? Model = null)
 {
-    public bool IsEmpty => OperatingSystem is null && Type is null && Icon is null;
+    public bool IsEmpty => OperatingSystem is null && Type is null && Icon is null
+        && Brand is null && Family is null && Model is null;
+
+    public bool HasValidValues() =>
+        (OperatingSystem is null || Enum.IsDefined(OperatingSystem.Value))
+        && (Type is null || Enum.IsDefined(Type.Value))
+        && (Icon is null || Enum.IsDefined(Icon.Value))
+        && new[] { Brand, Family, Model }.All(value => value is null || !string.IsNullOrWhiteSpace(value));
 }
 
 public static class DeviceClassificationLabels

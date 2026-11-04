@@ -186,6 +186,77 @@ function Save-ServiceEvidence([string] $Name, [switch] $DevicesList) {
     Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Name.png")
 }
 
+function Test-DeviceDetailsEditing {
+    $copy = Find-ServiceControl "Copy IP address" -ByName
+    $copy.SetFocus()
+    Wait-ServiceState { -not $copy.Current.IsOffscreen } "keyboard-accessible copy action"
+    $before = $copy.Current.BoundingRectangle
+    [System.Windows.Forms.SendKeys]::SendWait(" ")
+    Wait-ServiceState { [System.Windows.Forms.Clipboard]::GetText() -eq "127.0.0.1" } "value-only clipboard contents"
+    $after = $copy.Current.BoundingRectangle
+    if ($before -ne $after) { throw "Copy activation shifted its layout." }
+    [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
+
+    $edit = Find-ServiceControl "Edit device identification" -ByName
+    $edit.SetFocus()
+    Invoke-ServiceControl "Edit device identification"
+    Wait-ServiceState {
+        [System.Windows.Automation.AutomationElement]::FocusedElement.Current.Name -eq "Device type"
+    } "first identification input focus"
+    $brand = Find-ServiceControl DeviceBrandInput
+    $brand.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("Unsaved brand")
+    Invoke-ServiceControl Cancel
+    Invoke-ServiceControl "Edit device identification"
+    if ($brand.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value -ne "") {
+        throw "Cancel retained unsaved identification values."
+    }
+    foreach ($field in @("Brand", "Family", "Model")) {
+        (Find-ServiceControl "Device${field}Input").GetCurrentPattern(
+            [System.Windows.Automation.ValuePattern]::Pattern).SetValue("Synthetic $field")
+    }
+    $save = Find-ServiceControl "Save changes" -ByName
+    $save.SetFocus()
+    Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-identification-edit.png")
+    Invoke-ServiceControl "Save changes"
+    Wait-ServiceState { (Find-ServiceControl "Edit device identification" -ByName).Current.IsEnabled } "identification save"
+    $modelCopy = Find-ServiceControl "Copy Model" -ByName
+    $modelCopy.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait(" ")
+    Wait-ServiceState { [System.Windows.Forms.Clipboard]::GetText() -eq "Synthetic Model" } "saved metadata copy"
+    [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
+    Invoke-ServiceControl "Edit device identification"
+    Invoke-ServiceControl "Reset saved identification"
+    Wait-ServiceState { (Find-ServiceControl "Edit device identification" -ByName).Current.IsEnabled } "identification reset"
+    Invoke-ServiceControl "Edit device identification"
+    foreach ($field in @("Brand", "Family", "Model")) {
+        if ((Find-ServiceControl "Device${field}Input").GetCurrentPattern(
+                [System.Windows.Automation.ValuePattern]::Pattern).Current.Value -ne "") {
+            throw "Reset retained the saved $field correction."
+        }
+    }
+    Invoke-ServiceControl Cancel
+    $window = Get-UiReviewWindowBounds $process.MainWindowHandle
+    try {
+        $null = [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero,
+            $window.Left, $window.Top, 760, $window.Height, 0x0044)
+        Start-Sleep -Milliseconds 300
+        $edit.SetFocus()
+        Invoke-ServiceControl "Edit device identification"
+        $save = Find-ServiceControl "Save changes" -ByName
+        $save.SetFocus()
+        Wait-ServiceState { -not $save.Current.IsOffscreen } "narrow inline editor"
+        $scroll = (Find-ServiceControl DeviceDetailsScroll).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        if ($scroll.Current.HorizontallyScrollable) { throw "Narrow details require horizontal scrolling." }
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-identification-narrow.png")
+        Invoke-ServiceControl Cancel
+    }
+    finally {
+        $null = [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero,
+            $window.Left, $window.Top, $window.Width, $window.Height, 0x0044)
+    }
+    Show-ServiceScanSection
+}
+
 $previousReview = $env:FINGVIBE_UI_REVIEW
 $previousSnapshot = $env:FINGVIBE_UI_REVIEW_SNAPSHOT
 $snapshot = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-services-$([Guid]::NewGuid().ToString('N')).json"
@@ -216,6 +287,7 @@ try {
     Invoke-ServiceControl "Scan LAN"
     Wait-ServiceState { (Find-ServiceControl "Scan LAN" -ByName -Optional).Current.IsEnabled -and (Test-Path $snapshot) } "loopback scan"
     Open-ServiceDetails
+    Test-DeviceDetailsEditing
     $udp = (Find-ServiceControl DeviceIncludeUdpCheckBox).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
     if ($udp.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off) { throw "UDP must start unchecked." }
     Save-ServiceEvidence "services-default"
@@ -279,6 +351,8 @@ try {
         Save-ServiceEvidence "services-list-$theme" -DevicesList
         Open-ServiceDetails
         Save-ServiceEvidence "services-details-$theme"
+        (Find-ServiceControl "Edit device identification" -ByName).SetFocus()
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-identification-$theme.png")
     }
     $saved = Get-Content -LiteralPath $snapshot -Raw | ConvertFrom-Json
     if (@($saved.results[0].openPorts | Where-Object protocol -eq 1).Count -ne 2) {

@@ -112,7 +112,7 @@ function Get-UiReviewCapturePlan {
                 }
                 Add-Scenarios $viewScenarios[$view] "$path changed page layout or behavior."
             }
-            elseif ($path -eq "src/FingVibe.App/MainWindow.DeviceDetails.cs") {
+            elseif ($path -match '^src/FingVibe.App/(MainWindow.DeviceDetails.cs|DeviceDetailsPresentation.cs|Views/DeviceDetailValue.cs)$') {
                 Add-Scenarios @("DeviceDetails") "$path changed device details behavior."
             }
             elseif ($path -eq "src/FingVibe.App/MainWindow.NetworkIdentity.cs") {

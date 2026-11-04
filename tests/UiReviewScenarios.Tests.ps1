@@ -118,6 +118,9 @@ try {
     $base = $originalBase
     Test-Change @{ "src\FingVibe.App\MainWindow.DeviceDetails.cs" = "changed" } `
         @("Devices", "DeviceDetails") "Device details code"
+    foreach ($path in @("src\FingVibe.App\DeviceDetailsPresentation.cs", "src\FingVibe.App\Views\DeviceDetailValue.cs")) {
+        Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device details presentation"
+    }
     foreach ($iconPath in @("src\FingVibe.App\PeopleRoomsIcons.cs", "src\FingVibe.App\Views\PeopleRoomsIconPicker.cs")) {
         Test-Change @{ $iconPath = "changed" } `
             @("Devices", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails") "People/Rooms icon surfaces"
@@ -491,7 +494,7 @@ try {
                     "control-No devices match the current filter." { $script:currentPage -eq "Devices" -and $script:empty }
                     "control-Back to devices" { $script:currentPage -eq "DeviceDetails" }
                     "control-Device name" { $script:currentPage -eq "DeviceDetails" }
-                    "control-Assignments" { $script:currentPage -eq "DeviceDetails" }
+                    "control-Network overview" { $script:currentPage -eq "DeviceDetails" }
                     "control-Scan additional ports" { $script:currentPage -eq "DeviceDetails" }
                     "control-Online devices" { $script:currentPage -eq "Overview" }
                     "control-Public IP address" { $script:currentPage -eq "Network" }
@@ -545,7 +548,7 @@ try {
     $script:hiddenControl = ""
     $script:hiddenControl = "control-Scan additional ports"
     Show-UiReviewCaptureScenario "DeviceDetails"
-    $script:hiddenControl = "control-Assignments"
+    $script:hiddenControl = "control-Network overview"
     Assert-Throws { Show-UiReviewCaptureScenario "DeviceDetails" } "*not visible*"
     $script:hiddenControl = "control-Run network troubleshooting"
     Show-UiReviewCaptureScenario "Troubleshooting"

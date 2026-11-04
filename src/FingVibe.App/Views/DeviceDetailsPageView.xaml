@@ -2,9 +2,10 @@
     x:Class="FingVibe.App.Views.DeviceDetailsPageView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:FingVibe.App"
+    xmlns:views="using:FingVibe.App.Views"
     xmlns:models="using:FingVibe.Core.Models">
-    <ScrollViewer x:Name="DevicePage" AutomationProperties.AutomationId="DeviceDetailsScroll">
+    <ScrollViewer x:Name="DevicePage" AutomationProperties.AutomationId="DeviceDetailsScroll"
+                  HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="24,0,24,24" Spacing="16">
             <Button Click="BackToDevicesButton_Click" AutomationProperties.Name="Back to devices">
                 <StackPanel Orientation="Horizontal" Spacing="8">
@@ -12,35 +13,173 @@
                     <TextBlock Text="Devices" />
                 </StackPanel>
             </Button>
-            <Grid ColumnSpacing="8" Margin="0,0,0,8">
+            <Grid ColumnSpacing="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <FontIcon x:Name="DeviceTypeIcon" FontFamily="Segoe Fluent Icons" FontSize="32"
+                          VerticalAlignment="Top" Margin="0,6,0,0" />
+                <StackPanel Grid.Column="1" Spacing="4">
+                    <views:DeviceDetailValue x:Name="DeviceNameValue" Label="Device name" ValueFontSize="26" />
+                    <TextBlock x:Name="DeviceStatusText" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+            </Grid>
+            <Expander Header="Change device name" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                <StackPanel Spacing="8">
+                    <TextBox x:Name="DeviceNameInput" AutomationProperties.Name="Device name"
+                             PlaceholderText="Edit device name" TextWrapping="Wrap" FontFamily="Segoe UI Emoji"
+                             TextChanged="DeviceNameInput_TextChanged" />
+                    <StackPanel Spacing="8">
+                        <Button x:Name="DeviceNameSaveButton" Content="Save" Click="DeviceNameSaveButton_Click" />
+                        <Button x:Name="DeviceNameResetButton" Content="Use imported / discovered name"
+                                Click="DeviceNameResetButton_Click" />
+                    </StackPanel>
+                    <TextBlock x:Name="DeviceNameStatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+            </Expander>
+            <Grid x:Name="DetailsColumns" ColumnSpacing="16" RowSpacing="16" SizeChanged="DetailsColumns_SizeChanged">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBox x:Name="DeviceNameInput"
-                         AutomationProperties.Name="Device name"
-                         PlaceholderText="Edit device name"
-                         TextWrapping="Wrap"
-                         FontSize="28"
-                         FontFamily="Segoe UI Emoji"
-                         Background="Transparent"
-                         BorderThickness="0"
-                         Padding="0"
-                         TextChanged="DeviceNameInput_TextChanged" />
-                <Button x:Name="DeviceNameSaveButton"
-                        Grid.Column="1"
-                        Content="Save"
-                        VerticalAlignment="Center"
-                        Click="DeviceNameSaveButton_Click" />
-                <Button x:Name="DeviceNameResetButton"
-                        Grid.Column="2"
-                        Content="Use imported / discovered name"
-                        VerticalAlignment="Center"
-                        Click="DeviceNameResetButton_Click" />
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <StackPanel x:Name="OverviewColumn" Spacing="16">
+                    <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="Network overview" FontSize="18" FontWeight="SemiBold" />
+                            <Grid x:Name="OverviewFields" ColumnSpacing="16" RowSpacing="12" SizeChanged="Fields_SizeChanged">
+                                <views:DeviceDetailValue x:Name="DeviceAddressText" Label="IP address" />
+                                <views:DeviceDetailValue x:Name="DeviceMacText" Label="MAC address" />
+                                <views:DeviceDetailValue x:Name="DeviceHostnameText" Label="Discovered hostname" />
+                                <views:DeviceDetailValue x:Name="DeviceVendorText" Label="Vendor / manufacturer" />
+                                <views:DeviceDetailValue x:Name="DeviceResponseText" Label="Response" />
+                                <views:DeviceDetailValue x:Name="DeviceProbeText" Label="Probe duration" />
+                            </Grid>
+                            <TextBlock x:Name="DeviceAddressSourceText" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <ComboBox x:Name="DeviceAddressPicker" Header="Current address to inspect / probe"
+                                      HorizontalAlignment="Stretch" AutomationProperties.AutomationId="DeviceAddressPicker"
+                                      Visibility="Collapsed" SelectionChanged="DeviceAddressPicker_SelectionChanged" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Assignments" FontWeight="SemiBold" />
+                            <Grid x:Name="AssignmentFields" ColumnSpacing="12" RowSpacing="12" SizeChanged="Fields_SizeChanged">
+                                <ComboBox x:Name="DevicePersonPicker" Header="Person" HorizontalAlignment="Stretch"
+                                          AutomationProperties.Name="Person" SelectionChanged="DevicePersonPicker_SelectionChanged" />
+                                <ComboBox x:Name="DeviceRoomPicker" Header="Room" HorizontalAlignment="Stretch"
+                                          AutomationProperties.Name="Room" SelectionChanged="DeviceRoomPicker_SelectionChanged" />
+                            </Grid>
+                            <TextBlock x:Name="DeviceAssignmentStatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+                <Border x:Name="IdentificationCard" Grid.Column="1" Style="{StaticResource ScannerSummaryCardStyle}"
+                        VerticalAlignment="Top">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Device identification" FontSize="18" FontWeight="SemiBold"
+                                       TextWrapping="Wrap" VerticalAlignment="Center" />
+                            <Button x:Name="DeviceClassificationEditButton" Grid.Column="1"
+                                    AutomationProperties.Name="Edit device identification" Click="ClassificationEdit_Click">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE70F;" FontSize="14" />
+                                    <TextBlock Text="Edit" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                        <Grid x:Name="IdentificationReadFields" ColumnSpacing="16" RowSpacing="12" SizeChanged="Fields_SizeChanged">
+                            <views:DeviceDetailValue x:Name="DeviceTypeValueText" Label="Device type" />
+                            <views:DeviceDetailValue x:Name="DeviceOsText" Label="Operating system" />
+                            <views:DeviceDetailValue x:Name="DeviceBrandText" Label="Brand" />
+                            <views:DeviceDetailValue x:Name="DeviceFamilyText" Label="Family" />
+                            <views:DeviceDetailValue x:Name="DeviceModelText" Label="Model" />
+                            <views:DeviceDetailValue x:Name="DeviceIconText" Label="Icon" />
+                        </Grid>
+                        <TextBlock x:Name="DeviceClassificationNoticeText" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <StackPanel x:Name="IdentificationEditFields" Spacing="12" Visibility="Collapsed">
+                            <Grid x:Name="IdentificationInputs" ColumnSpacing="16" RowSpacing="12" SizeChanged="Fields_SizeChanged">
+                                <ComboBox x:Name="DeviceTypePicker" Header="Device type" HorizontalAlignment="Stretch"
+                                          AutomationProperties.Name="Device type" SelectionChanged="ClassificationPicker_SelectionChanged" />
+                                <ComboBox x:Name="DeviceOsPicker" Header="Operating system" HorizontalAlignment="Stretch"
+                                          AutomationProperties.Name="Operating system" SelectionChanged="ClassificationPicker_SelectionChanged" />
+                                <TextBox x:Name="DeviceBrandInput" Header="Brand" AutomationProperties.Name="Brand"
+                                         TextChanged="ClassificationText_TextChanged" />
+                                <TextBox x:Name="DeviceFamilyInput" Header="Family" AutomationProperties.Name="Family"
+                                         TextChanged="ClassificationText_TextChanged" />
+                                <TextBox x:Name="DeviceModelInput" Header="Model" AutomationProperties.Name="Model"
+                                         TextChanged="ClassificationText_TextChanged" />
+                                <ComboBox x:Name="DeviceIconPicker" Header="Device icon" HorizontalAlignment="Stretch"
+                                          AutomationProperties.Name="Device icon" SelectionChanged="ClassificationPicker_SelectionChanged" />
+                            </Grid>
+                            <TextBlock Text="Blank brand, family or model uses the original/default value. Saving does not change imported Fing evidence."
+                                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <Grid x:Name="IdentificationActions" ColumnSpacing="8" RowSpacing="8" SizeChanged="Fields_SizeChanged">
+                                <Button x:Name="DeviceClassificationSaveButton" Content="Save changes"
+                                        Click="DeviceClassificationSaveButton_Click" />
+                                <Button x:Name="DeviceClassificationCancelButton" Content="Cancel" Click="ClassificationCancel_Click" />
+                            </Grid>
+                            <Button x:Name="DeviceClassificationResetButton" Content="Reset saved identification"
+                                    Click="DeviceClassificationResetButton_Click"
+                                    ToolTipService.ToolTip="Clear all six saved identification overrides. Names, assignments and original Fing data are unchanged." />
+                        </StackPanel>
+                        <TextBlock x:Name="DeviceClassificationStatusText" TextWrapping="Wrap"
+                                   AutomationProperties.LiveSetting="Polite" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <Expander Header="How this device was identified" HorizontalAlignment="Stretch"
+                                  HorizontalContentAlignment="Stretch">
+                            <StackPanel Spacing="8">
+                                <TextBlock x:Name="DeviceOsEvidenceText" TextWrapping="Wrap" />
+                                <TextBlock x:Name="DeviceTypeEvidenceText" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
+                </Border>
             </Grid>
-            <TextBlock x:Name="DeviceNameStatusText"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Ports &amp; services" FontSize="18" FontWeight="SemiBold" />
+                    <TextBlock Text="Confirmed open/responding endpoints" FontWeight="SemiBold" />
+                    <TextBlock x:Name="DeviceNoPortsText" Text="No open ports detected."
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <Button x:Name="DevicePortScanButton" Content="Scan additional ports"
+                            HorizontalAlignment="Left" Click="DevicePortScanButton_Click" />
+                    <CheckBox x:Name="DeviceIncludeUdpCheckBox" Content="Include UDP service checks"
+                              IsChecked="False" AutomationProperties.AutomationId="DeviceIncludeUdpCheckBox"
+                              ToolTipService.ToolTip="Send one read-only DNS and NTP request. Silence is inconclusive." />
+                    <TextBlock x:Name="DevicePortScanStatusText" TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="DeviceTcpScanStatus" AutomationProperties.LiveSetting="Polite"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock x:Name="DeviceUdpScanStatusText" TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="DeviceUdpScanStatus" AutomationProperties.LiveSetting="Polite"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <StackPanel x:Name="DevicePortsList" Spacing="8" />
+                    <TextBlock x:Name="DeviceBrowserStatusText" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock Text="UDP observations (silence is not an open or closed port)" TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <ItemsControl x:Name="DeviceUdpObservationsList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:UdpServiceObservation">
+                                <TextBlock Text="{x:Bind AccessibleLabel}" TextWrapping="Wrap" Margin="0,2"
+                                           AutomationProperties.Name="{x:Bind AccessibleLabel}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
             <Border x:Name="VirtualDeviceHistoryCard" Style="{StaticResource ScannerSummaryCardStyle}" Visibility="Collapsed">
                 <StackPanel Spacing="8">
                     <TextBlock Text="Virtual device" FontWeight="SemiBold" />
@@ -52,162 +191,9 @@
                     </Expander>
                 </StackPanel>
             </Border>
-            <Grid ColumnSpacing="16">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <FontIcon x:Name="DeviceTypeIcon" FontFamily="Segoe Fluent Icons" FontSize="28" />
-                <StackPanel Grid.Column="1" Spacing="2">
-                    <TextBlock Text="Operating system"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock x:Name="DeviceOsText" FontWeight="SemiBold" TextWrapping="Wrap" />
-                </StackPanel>
-                <StackPanel Grid.Column="2" Spacing="2">
-                    <TextBlock Text="Device type"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock x:Name="DeviceTypeValueText" FontWeight="SemiBold" TextWrapping="Wrap" />
-                </StackPanel>
-            </Grid>
-            <Border Style="{StaticResource ScannerSummaryCardStyle}">
-                <StackPanel Spacing="8">
-                    <TextBlock Text="Assignments" FontWeight="SemiBold" />
-                    <Grid ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <ComboBox x:Name="DevicePersonPicker" Header="Person" AutomationProperties.Name="Person" SelectionChanged="DevicePersonPicker_SelectionChanged" />
-                        <ComboBox x:Name="DeviceRoomPicker" Grid.Column="1" Header="Room" AutomationProperties.Name="Room" SelectionChanged="DeviceRoomPicker_SelectionChanged" />
-                    </Grid>
-                    <TextBlock x:Name="DeviceAssignmentStatusText" TextWrapping="Wrap"
-                               AutomationProperties.LiveSetting="Polite"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                </StackPanel>
-            </Border>
-            <Border Style="{StaticResource ScannerSummaryCardStyle}">
-                <Grid ColumnSpacing="24" RowSpacing="16">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
-                    </Grid.RowDefinitions>
-                    <StackPanel Spacing="2">
-                        <TextBlock Text="IP address" FontWeight="SemiBold" />
-                        <TextBlock x:Name="DeviceAddressText" FontSize="16" FontFamily="Consolas" IsTextSelectionEnabled="True" />
-                        <TextBlock x:Name="DeviceAddressSourceText" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <ComboBox x:Name="DeviceAddressPicker" Header="Current address to inspect / probe"
-                                  AutomationProperties.AutomationId="DeviceAddressPicker" Visibility="Collapsed"
-                                  SelectionChanged="DeviceAddressPicker_SelectionChanged" />
-                    </StackPanel>
-                    <StackPanel Grid.Column="1" Spacing="2">
-                        <TextBlock Text="MAC address" FontWeight="SemiBold" />
-                        <TextBlock x:Name="DeviceMacText" FontSize="16" FontFamily="Consolas" IsTextSelectionEnabled="True" />
-                    </StackPanel>
-                    <StackPanel Grid.Row="1" Spacing="2">
-                        <TextBlock Text="Vendor" FontWeight="SemiBold" />
-                        <TextBlock x:Name="DeviceVendorText" FontSize="16" IsTextSelectionEnabled="True" />
-                    </StackPanel>
-                    <StackPanel Grid.Row="1" Grid.Column="1" Spacing="2">
-                        <TextBlock Text="Status" FontWeight="SemiBold" />
-                        <TextBlock x:Name="DeviceStatusText" FontSize="16" />
-                    </StackPanel>
-                    <StackPanel Grid.Row="2" Spacing="2">
-                        <TextBlock Text="Response" FontWeight="SemiBold" />
-                        <TextBlock x:Name="DeviceResponseText" FontSize="16" FontFamily="Consolas" />
-                    </StackPanel>
-                    <StackPanel Grid.Row="2" Grid.Column="1" Spacing="2">
-                        <TextBlock Text="Probe duration" FontWeight="SemiBold" />
-                        <TextBlock x:Name="DeviceProbeText" FontSize="16" FontFamily="Consolas" />
-                    </StackPanel>
-                    <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Spacing="6">
-                        <TextBlock Text="Confirmed open/responding endpoints" FontWeight="SemiBold" />
-                        <TextBlock x:Name="DeviceNoPortsText"
-                                   Text="No open ports detected."
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <Button x:Name="DevicePortScanButton"
-                                Content="Scan additional ports"
-                                HorizontalAlignment="Left"
-                                Click="DevicePortScanButton_Click" />
-                        <CheckBox x:Name="DeviceIncludeUdpCheckBox" Content="Include UDP service checks"
-                                  IsChecked="False" AutomationProperties.AutomationId="DeviceIncludeUdpCheckBox"
-                                  ToolTipService.ToolTip="Send one read-only DNS and NTP request. Silence is inconclusive." />
-                        <TextBlock x:Name="DevicePortScanStatusText"
-                                   TextWrapping="Wrap" AutomationProperties.AutomationId="DeviceTcpScanStatus"
-                                   AutomationProperties.LiveSetting="Polite"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock x:Name="DeviceUdpScanStatusText"
-                                   TextWrapping="Wrap" AutomationProperties.AutomationId="DeviceUdpScanStatus"
-                                   AutomationProperties.LiveSetting="Polite"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <ItemsControl x:Name="DevicePortsList">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="models:OpenPort">
-                                    <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,2"
-                                                ToolTipService.ToolTip="{x:Bind AccessibleLabel}"
-                                                AutomationProperties.Name="{x:Bind AccessibleLabel}">
-                                        <FontIcon FontFamily="Segoe Fluent Icons"
-                                                  FontSize="16"
-                                                  Foreground="{ThemeResource SystemFillColorSuccessBrush}"
-                                                  Glyph="{Binding Converter={StaticResource PortIconGlyphConverter}}" />
-                                        <TextBlock Text="{x:Bind AccessibleLabel}" FontSize="14" />
-                                    </StackPanel>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                        <TextBlock Text="UDP observations (silence is not an open or closed port)"
-                                   TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <ItemsControl x:Name="DeviceUdpObservationsList">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="models:UdpServiceObservation">
-                                    <TextBlock Text="{x:Bind AccessibleLabel}" TextWrapping="Wrap" Margin="0,2"
-                                               AutomationProperties.Name="{x:Bind AccessibleLabel}" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </Grid>
-            </Border>
-            <Border Style="{StaticResource ScannerSummaryCardStyle}">
-                <StackPanel Spacing="8">
-                    <TextBlock Text="Hostname" FontWeight="SemiBold" />
-                    <TextBlock x:Name="DeviceHostnameText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
-                    <TextBlock x:Name="DeviceImportedMetadataText" TextWrapping="Wrap" IsTextSelectionEnabled="True"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                </StackPanel>
-            </Border>
-            <Expander x:Name="DeviceIdentificationEditor"
-                      Header="Identification evidence and corrections"
-                      HorizontalAlignment="Stretch"
-                      HorizontalContentAlignment="Stretch"
-                      IsExpanded="False">
-                <StackPanel Spacing="12">
-                    <TextBlock x:Name="DeviceOsEvidenceText" TextWrapping="Wrap"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <ComboBox x:Name="DeviceOsPicker" Header="Operating system" MinWidth="220"
-                              SelectionChanged="ClassificationPicker_SelectionChanged" />
-                    <TextBlock x:Name="DeviceTypeEvidenceText" TextWrapping="Wrap"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <ComboBox x:Name="DeviceTypePicker" Header="Device type" MinWidth="220"
-                              SelectionChanged="ClassificationPicker_SelectionChanged" />
-                    <ComboBox x:Name="DeviceIconPicker" Header="Device icon" MinWidth="220"
-                              SelectionChanged="ClassificationPicker_SelectionChanged" />
-                    <StackPanel Spacing="8">
-                        <Button x:Name="DeviceClassificationSaveButton" Content="Save identification"
-                                Click="DeviceClassificationSaveButton_Click" />
-                        <Button x:Name="DeviceClassificationResetButton" Content="Use automatic detection"
-                                Click="DeviceClassificationResetButton_Click" />
-                    </StackPanel>
-                    <TextBlock x:Name="DeviceClassificationStatusText" TextWrapping="Wrap"
-                               AutomationProperties.LiveSetting="Polite"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                </StackPanel>
+            <Expander x:Name="DeviceImportedMetadata" Header="Imported Fing data" IsExpanded="False"
+                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                <StackPanel x:Name="DeviceImportedFields" Spacing="12" />
             </Expander>
         </StackPanel>
     </ScrollViewer>
