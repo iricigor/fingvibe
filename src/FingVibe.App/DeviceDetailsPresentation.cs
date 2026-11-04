@@ -31,7 +31,7 @@ internal static class DeviceDetailsPresentation
             new DeviceDetailField("Operating system", metadata.OperatingSystem ?? ""),
             new DeviceDetailField("OS version", metadata.OperatingSystemVersion ?? ""),
             new DeviceDetailField("Historical imported IP (not a current observation)", metadata.Address ?? "")
-        }.Where(field => CanCopy(field.Value)).ToArray();
+        }.Where(field => !string.IsNullOrWhiteSpace(field.Value) && field.Value.Trim() != "-").ToArray();
     }
 
     internal static DeviceEndpointPresentation Endpoint(ScanResultRow row, OpenPort port)

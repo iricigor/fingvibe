@@ -83,6 +83,7 @@ public sealed class DeviceDetailsPresentationTests
             OperatingSystemVersion: "1.2", Address: "192.0.2.9"));
         Assert.Equal(["Original", "1.2", "192.0.2.9"], fields.Select(item => item.Value));
         Assert.Contains("Historical imported IP", fields[^1].Label);
+        Assert.Equal("Unknown", Assert.Single(DeviceDetailsPresentation.ImportedFields(new(Type: "Unknown"))).Value);
     }
 
     [Fact]
