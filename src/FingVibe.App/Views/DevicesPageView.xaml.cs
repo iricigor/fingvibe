@@ -315,6 +315,8 @@ public sealed partial class DevicesPageView : UserControl
     {
         if (!_filtersReady) return;
         DeviceFilterOptions.Visibility = FilterExpander.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        DeviceFilterOptions.InvalidateMeasure();
+        DeviceFilters.InvalidateMeasure();
         OnFiltersChanged();
         DispatcherQueue.TryEnqueue(() => AutomationProperties.SetItemStatus(FilterExpander,
             $"Row: {DeviceFilterOptions.Visibility} {DeviceFilterOptions.ActualWidth}x{DeviceFilterOptions.ActualHeight}; "
