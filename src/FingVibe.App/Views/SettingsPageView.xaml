@@ -98,6 +98,7 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
                         <CheckBox x:Name="CombineNameType" AutomationProperties.Name="Combine Name and Type"
                                   IsChecked="{x:Bind Columns.CombineNameType, Mode=TwoWay}">
@@ -115,8 +116,20 @@
                                   IsChecked="{x:Bind Columns.CombinePersonRoom, Mode=TwoWay}">
                             <TextBlock Text="Person + Room" TextWrapping="Wrap" />
                         </CheckBox>
+                        <CheckBox x:Name="CombineVendorOs" Grid.Row="4" AutomationProperties.Name="Combine Vendor and OS"
+                                  IsChecked="{x:Bind Columns.CombineVendorOs, Mode=TwoWay}">
+                            <TextBlock Text="Vendor + OS" TextWrapping="Wrap" />
+                        </CheckBox>
                     </Grid>
                     <Border Height="1" Background="{ThemeResource ScannerCardBorderBrush}" Margin="0,8,0,4" />
+                    <ComboBox x:Name="RowDensityPicker" Header="Devices row density"
+                              AutomationProperties.Name="Devices row density"
+                              SelectedIndex="{x:Bind DensityIndex, Mode=TwoWay}">
+                        <ComboBoxItem Content="Standard" />
+                        <ComboBoxItem Content="Compact" />
+                    </ComboBox>
+                    <TextBlock Text="Compact reduces row spacing without reducing text size. Rows can grow for larger text."
+                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <ToggleSwitch x:Name="EnlargedCellPreviews"
                                   Header="Cell hover emphasis and full-value previews"
                                   AutomationProperties.Name="Cell hover emphasis and full-value previews"

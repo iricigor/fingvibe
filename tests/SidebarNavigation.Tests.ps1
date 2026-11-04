@@ -92,6 +92,25 @@ function Find-SidebarElement([string] $Property, [string] $Value, [switch] $Opti
     throw "Visible sidebar test element '$Value' was not found."
 }
 
+function Show-SettingsSection([string] $Id) {
+    $page = Find-SidebarElement AutomationId SettingsPage
+    $scroll = $page.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+    if (-not $scroll.Current.VerticallyScrollable) { return }
+    $condition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Id)
+    $targetTop = $root.Current.BoundingRectangle.Top + 200 * $scale
+    foreach ($percent in 0..20) {
+        $scroll.SetScrollPercent(-1, $percent * 5)
+        Start-Sleep -Milliseconds 200
+        $heading = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        if ($heading -and -not $heading.Current.IsOffscreen -and
+            $heading.Current.BoundingRectangle.Top -ge $targetTop -and
+            $heading.Current.BoundingRectangle.Top -le $targetTop + 80 * $scale) { return }
+    }
+    Save-SidebarAppearance "settings-section-failure"
+    throw "Settings section '$Id' could not be brought into the viewport. Heading: $($heading.Current.BoundingRectangle); page: $($page.Current.BoundingRectangle); window: $($root.Current.BoundingRectangle); scroll: $($scroll.Current.VerticalScrollPercent)."
+}
+
 function Select-SidebarPage([string] $Name, [string] $Sentinel) {
     $condition = [System.Windows.Automation.AndCondition]::new(
         [System.Windows.Automation.PropertyCondition]::new(
@@ -228,7 +247,7 @@ function Test-SettingsLayout {
         Save-SidebarAppearance "settings-$theme"
         $scroll = (Find-SidebarElement AutomationId SettingsPage).GetCurrentPattern(
             [System.Windows.Automation.ScrollPattern]::Pattern)
-        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
+        Show-SettingsSection VisibleColumnsHeading
         Start-Sleep -Milliseconds 200
         $null = Find-SidebarElement AutomationId VisibleColumnsHeading
         $null = Find-SidebarElement AutomationId CombinedColumnsHeading
@@ -257,7 +276,7 @@ function Test-SettingsLayout {
             [System.Windows.Automation.PropertyCondition]::new(
                 [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "ResetColumnsButton"))
         if (-not $reset) { throw "Reset columns is missing." }
-        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
+        Show-SettingsSection VisibleColumnsHeading
         Start-Sleep -Milliseconds 200
         $choices = Find-SidebarElement AutomationId SettingsPage
         $headers = @("Name", "IP address", "Vendor", "Device type", "MAC address", "Open ports",
@@ -294,7 +313,7 @@ function Test-SettingsLayout {
                 $visibleHeading = (Find-SidebarElement AutomationId VisibleColumnsHeading).Current.BoundingRectangle
                 $combinedHeading = (Find-SidebarElement AutomationId CombinedColumnsHeading).Current.BoundingRectangle
                 $description = (Find-SidebarElement AutomationId CombinedColumnsDescription).Current.BoundingRectangle
-                $combinations = @("CombineNameType", "CombineAddresses", "CombineStatusResponse", "CombinePersonRoom") |
+                $combinations = @("CombineNameType", "CombineAddresses", "CombineStatusResponse", "CombinePersonRoom", "CombineVendorOs") |
                     ForEach-Object { (Find-SidebarElement AutomationId $_).Current.BoundingRectangle }
                 if ($visibleHeading.Bottom -gt $checkboxes[0].Current.BoundingRectangle.Top -or
                     $checkboxes[-1].Current.BoundingRectangle.Bottom -ge $combinedHeading.Top -or

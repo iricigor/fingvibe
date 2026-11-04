@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Net.NetworkInformation;
 using FingVibe.Core.Import;
 using FingVibe.Core.Models;
+using FingVibe.Core.Networking;
 
 namespace FingVibe.App;
 
@@ -27,6 +28,33 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public PrivateVirtualDevice? VirtualDevice { get; private set; }
     public string IdentityKey => VirtualDevice?.Id.ToString("D") ?? MacAddress?.ToString() ?? AddressText;
     public string? CustomName => _customName;
+    private LanNetwork? _selectedNetwork;
+    private bool EmphasizeAddress => _selectedNetwork is { PrefixLength: >= 0 and <= 32 } network
+        && AddressText.Split('.').Length == 4
+        && System.Net.IPAddress.TryParse(AddressText, out var address)
+        && address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork
+        && network.NetworkAddress.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork
+        && SubnetCalculator.GetNetworkAddress(address, network.PrefixLength)
+            .Equals(SubnetCalculator.GetNetworkAddress(network.NetworkAddress, network.PrefixLength));
+    public double AddressHostFontSize => EmphasizeAddress ? 13.2 : 12;
+    public string DisplayAddressPrefix => !EmphasizeAddress ? AddressPrefix
+        : _selectedNetwork!.PrefixLength < 8 ? string.Empty
+        : string.Join(".", AddressText.Split('.').Take(Math.Min(_selectedNetwork.PrefixLength / 8, 3))) + ".";
+    public string DisplayAddressHost => EmphasizeAddress
+        ? AddressText[DisplayAddressPrefix.Length..] : AddressHost;
+
+    public void SetSelectedNetwork(LanNetwork? network)
+    {
+        if (_selectedNetwork == network) return;
+        _selectedNetwork = network;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(AddressHostFontSize)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DisplayAddressPrefix)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(DisplayAddressHost)));
+    }
+
+    public bool IsVirtualIdentity => VirtualDevice is not null;
+    public string VirtualIdentityDescription => IsVirtualIdentity
+        ? "Virtual device - inferred identity across changing MAC addresses." : string.Empty;
 
     public ScanResultRow(ScanResult? result, int prefixLength, string? customName = null,
         DeviceClassificationOverride? classificationOverride = null, bool historical = false)
@@ -157,7 +185,8 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         AddressHost = string.Join(".", octets.Skip(count));
         foreach (var property in new[] { nameof(Result), nameof(AddressText), nameof(OpenPortItems),
                      nameof(LatencyLabel), nameof(LatencyMilliseconds), nameof(MacAddressText),
-                     nameof(AddressPrefix), nameof(AddressHost) })
+                     nameof(AddressPrefix), nameof(AddressHost), nameof(AddressHostFontSize),
+                     nameof(DisplayAddressPrefix), nameof(DisplayAddressHost) })
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
     }
     public PhysicalAddress? MacAddress => Result?.MacAddress

@@ -101,7 +101,7 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
                 }
             };
         }
-        foreach (var column in new[] { _combinedConnection, _combinedAddresses, _combinedAssignments })
+        foreach (var column in new[] { _combinedConnection, _combinedAddresses, _combinedAssignments, _combinedVendorOs })
         {
             column.PropertyChanged += (_, args) =>
             {
@@ -121,10 +121,13 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
     private readonly DeviceColumn _combinedConnection = new("Connection", "Status / response", 180);
     private readonly DeviceColumn _combinedAddresses = new("Addresses", "IP / MAC", 170, canHide: false);
     private readonly DeviceColumn _combinedAssignments = new("Assignments", "Person / room", 130);
+    private readonly DeviceColumn _combinedVendorOs = new("VendorOs", "Vendor / OS", 160);
     private bool _combineNameType = true;
     private bool _combineAddresses = true;
     private bool _combineStatusResponse = true;
     private bool _combinePersonRoom;
+    private bool _combineVendorOs;
+    private bool _compactRows;
     private bool _enlargedCellPreviews = true;
 
     public bool EnlargedCellPreviews
@@ -143,6 +146,11 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
     public bool CombineAddresses { get => _combineAddresses; set => SetCombination(ref _combineAddresses, value); }
     public bool CombineStatusResponse { get => _combineStatusResponse; set => SetCombination(ref _combineStatusResponse, value); }
     public bool CombinePersonRoom { get => _combinePersonRoom; set => SetCombination(ref _combinePersonRoom, value); }
+    public bool CombineVendorOs { get => _combineVendorOs; set => SetCombination(ref _combineVendorOs, value); }
+    public bool CompactRows { get => _compactRows; set => SetCombination(ref _compactRows, value); }
+    public double RowMinimumHeight => CompactRows ? 38 : 44;
+    public double RowSpacing => CompactRows ? 1 : 3;
+    public double AssignmentSpacing => CompactRows ? 1 : 2;
 
     private void SetCombination(ref bool field, bool value)
     {
@@ -177,6 +185,10 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
     public DeviceColumn Addresses => CombineAddresses && Mac.IsVisible ? _combinedAddresses : Address;
     public DeviceColumn Assignments => CombinePersonRoom && Person.IsVisible && Room.IsVisible
         ? _combinedAssignments : Person.IsVisible ? Person : Room;
+    public DeviceColumn VendorOs => ShowMergedOs ? _combinedVendorOs : Vendor;
+    public bool ShowMergedOs => CombineVendorOs && Vendor.IsVisible && OperatingSystem.IsVisible;
+    public bool ShowSeparateOs => OperatingSystem.IsVisible && !ShowMergedOs;
+    public double SeparateOsWidth => ShowSeparateOs ? OperatingSystem.Width : 0;
     public bool ShowMergedType => CombineNameType && Type.IsVisible;
     public bool ShowSeparateType => !CombineNameType && Type.IsVisible;
     public bool ShowMergedMac => CombineAddresses && Mac.IsVisible;
@@ -195,10 +207,10 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
     public double SeparateRoomWidth => ShowSeparateRoom ? Room.Width : 0;
 
     private DeviceColumn[] TableColumns => [
-        Name, Addresses, Vendor, Ports, Connection,
+        Name, Addresses, VendorOs, Ports, Connection,
         .. ShowSeparateResponse ? new[] { Response } : Array.Empty<DeviceColumn>(),
         .. ShowSeparateMac ? new[] { Mac } : Array.Empty<DeviceColumn>(),
-        OperatingSystem,
+        .. ShowSeparateOs ? new[] { OperatingSystem } : Array.Empty<DeviceColumn>(),
         .. ShowSeparateType ? new[] { Type } : Array.Empty<DeviceColumn>(),
         Assignments,
         .. ShowSeparateRoom && Person.IsVisible ? new[] { Room } : Array.Empty<DeviceColumn>()];
@@ -210,7 +222,7 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
 
     private void UpdateSeparators()
     {
-        foreach (var column in All.Concat(new[] { _combinedConnection, _combinedAddresses, _combinedAssignments }))
+        foreach (var column in All.Concat(new[] { _combinedConnection, _combinedAddresses, _combinedAssignments, _combinedVendorOs }))
             column.HasFollowingVisibleColumn = false;
         var columns = TableColumns;
         var hasFollowingVisibleColumn = false;
@@ -227,9 +239,11 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
         CombineAddresses = true;
         CombineStatusResponse = true;
         CombinePersonRoom = false;
+        CombineVendorOs = false;
         _combinedConnection.Width = _combinedConnection.DefaultWidth;
         _combinedAddresses.Width = _combinedAddresses.DefaultWidth;
         _combinedAssignments.Width = _combinedAssignments.DefaultWidth;
+        _combinedVendorOs.Width = _combinedVendorOs.DefaultWidth;
         foreach (var column in All)
         {
             column.Width = column.DefaultWidth;
@@ -238,13 +252,14 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
     }
 
     public DeviceTableSettings Capture() => new(
-        All.Concat(new[] { _combinedConnection, _combinedAddresses, _combinedAssignments })
+        All.Concat(new[] { _combinedConnection, _combinedAddresses, _combinedAssignments, _combinedVendorOs })
             .ToDictionary(column => column.Key, column => new DeviceColumnSettings(column.Width, column.IsVisible)),
-        CombineNameType, CombineAddresses, CombineStatusResponse, CombinePersonRoom, EnlargedCellPreviews);
+        CombineNameType, CombineAddresses, CombineStatusResponse, CombinePersonRoom, EnlargedCellPreviews,
+        CombineVendorOs, CompactRows);
 
     public void Restore(DeviceTableSettings settings)
     {
-        foreach (var column in All.Concat(new[] { _combinedConnection, _combinedAddresses, _combinedAssignments }))
+        foreach (var column in All.Concat(new[] { _combinedConnection, _combinedAddresses, _combinedAssignments, _combinedVendorOs }))
         {
             if (settings.Columns.TryGetValue(column.Key, out var saved))
             {
@@ -257,5 +272,7 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
         CombineStatusResponse = settings.CombineStatusResponse;
         CombinePersonRoom = settings.CombinePersonRoom;
         EnlargedCellPreviews = settings.EnlargedCellPreviews;
+        CombineVendorOs = settings.CombineVendorOs;
+        CompactRows = settings.CompactRows;
     }
 }

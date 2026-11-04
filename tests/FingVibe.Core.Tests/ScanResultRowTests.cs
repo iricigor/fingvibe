@@ -9,6 +9,74 @@ namespace FingVibe.Core.Tests;
 public sealed class ScanResultRowTests
 {
     [Theory]
+    [InlineData("192.168.0.1")]
+    [InlineData("192.168.0.15")]
+    [InlineData("192.168.0.255")]
+    public void HostSizeEmphasis_UsesApprovedRangesForEverySelectedPrefix(string address)
+    {
+        var ip = IPAddress.Parse(address);
+        var row = new ScanResultRow(new ScanResult(ip, HostStatus.Alive, 1, TimeSpan.Zero), 20);
+        for (var prefix = 0; prefix <= 32; prefix++)
+        {
+            var network = FingVibe.Core.Networking.SubnetCalculator.GetNetworkAddress(ip, prefix);
+            row.SetSelectedNetwork(new("Test", ip, network, prefix, false));
+            var networkOctets = Math.Min(prefix / 8, 3);
+            var expectedPrefix = networkOctets == 0 ? string.Empty
+                : string.Join(".", address.Split('.').Take(networkOctets)) + ".";
+            Assert.Equal(expectedPrefix, row.DisplayAddressPrefix);
+            Assert.Equal(address[expectedPrefix.Length..], row.DisplayAddressHost);
+            Assert.Equal(address, row.DisplayAddressPrefix + row.DisplayAddressHost);
+            Assert.Equal(3, (row.DisplayAddressPrefix + row.DisplayAddressHost).Count(character => character == '.'));
+            Assert.Equal(12 * 1.1, row.AddressHostFontSize, 5);
+        }
+    }
+
+    [Fact]
+    public void HostSizeEmphasis_SelectionChangesNotifyAndLeaveOtherNetworksAndIpv6Unchanged()
+    {
+        var row = CreateRow(prefix: 20);
+        var changes = new List<string?>();
+        row.PropertyChanged += (_, args) => changes.Add(args.PropertyName);
+        var ip = IPAddress.Parse(row.AddressText);
+        row.SetSelectedNetwork(new("Test", ip, IPAddress.Parse("192.168.0.0"), 24, false));
+        Assert.Equal(13.2, row.AddressHostFontSize);
+        Assert.Contains(nameof(row.AddressHostFontSize), changes);
+        Assert.Contains(nameof(row.DisplayAddressPrefix), changes);
+        Assert.Contains(nameof(row.DisplayAddressHost), changes);
+        foreach (var network in new LanNetwork?[]
+        {
+            null,
+            new("Other", IPAddress.Parse("10.0.0.1"), IPAddress.Parse("10.0.0.0"), 24, false),
+            new("Partial", IPAddress.Parse("192.169.0.1"), IPAddress.Parse("192.168.128.0"), 17, false),
+            new("IPv6", IPAddress.IPv6Loopback, IPAddress.IPv6Loopback, 32, false)
+        })
+        {
+            row.SetSelectedNetwork(network);
+            Assert.Equal(12, row.AddressHostFontSize);
+            Assert.Equal(row.AddressPrefix, row.DisplayAddressPrefix);
+            Assert.Equal(row.AddressHost, row.DisplayAddressHost);
+        }
+        var ipv6 = new ScanResultRow(new ScanResult(IPAddress.IPv6Loopback, HostStatus.Alive, 1, TimeSpan.Zero), 24);
+        ipv6.SetSelectedNetwork(new("Test", ip, IPAddress.Parse("192.168.0.0"), 0, false));
+        Assert.Equal(12, ipv6.AddressHostFontSize);
+        Assert.Equal("::1", ipv6.DisplayAddressPrefix + ipv6.DisplayAddressHost);
+    }
+
+    [Theory]
+    [InlineData("127.1")]
+    [InlineData("127.0.1")]
+    [InlineData("2130706433")]
+    public void HostSizeEmphasis_PreservesImportedNonDottedQuadNotation(string address)
+    {
+        Assert.True(IPAddress.TryParse(address, out _));
+        var row = new ScanResultRow(new InventoryDevice("001122334455",
+            new ImportedDeviceMetadata(Address: address), []), 24);
+        row.SetSelectedNetwork(new("Loopback", IPAddress.Loopback, IPAddress.Loopback, 32, false));
+        Assert.Equal(12, row.AddressHostFontSize);
+        Assert.Equal(address, row.DisplayAddressPrefix + row.DisplayAddressHost);
+    }
+
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
@@ -47,6 +115,8 @@ public sealed class ScanResultRowTests
         Assert.Equal("Private/Randomized", row.VendorText);
         Assert.Contains("manufacturer cannot be reliably determined", row.VendorDescription);
         Assert.True(row.MatchesFilter("Private MAC"));
+        Assert.False(row.IsVirtualIdentity);
+        Assert.Empty(row.VirtualIdentityDescription);
     }
 
     [Fact]

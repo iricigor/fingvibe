@@ -58,6 +58,7 @@ public sealed partial class MainWindow
         }
 
         var selectedResult = DevicesPage.SelectedResult;
+        foreach (var row in _allResults) row.SetSelectedNetwork(NetworkPicker.SelectedItem as LanNetwork);
         var sortedResults = _allResults
             .Where(ShouldShow)
             .ToList();
@@ -198,7 +199,8 @@ public sealed partial class MainWindow
             ? $"Showing {total:N0} {(total == 1 ? "device" : "devices")}"
             : $"Showing {_visibleResults.Count:N0} of {total:N0} devices";
         DevicesPage.ShowInventorySummary(
-            $"{_allResults.Count(row => row.IsOnline):N0} Online · {_allResults.Count(row => row.IsOffline):N0} Offline · {_allResults.Count(row => row.IsHistorical):N0} Unknown · {_allResults.Count(row => row.IsFingOnly):N0} Fing Only");
+            _allResults.Count(row => row.IsOnline), _allResults.Count(row => row.IsOffline),
+            _allResults.Count(row => row.IsHistorical), _allResults.Count(row => row.IsFingOnly));
         DevicesPage.ShowLastScan(_currentScanSnapshot);
         UpdateOverview();
 

@@ -197,7 +197,8 @@ public sealed partial class DevicesPageView
 
     private static string FullRowValues(ScanResultRow row) =>
         $"{row.NameText}\nIP address: {row.AddressText}\nMAC address: {row.MacAddressText}\nVendor: {row.VendorDescription}"
-        + $"\n{row.PersonAssignmentDescription}\n{row.RoomAssignmentDescription}";
+        + $"\n{row.PersonAssignmentDescription}\n{row.RoomAssignmentDescription}"
+        + (row.IsVirtualIdentity ? $"\n{row.VirtualIdentityDescription}" : string.Empty);
 
     private static string DisplayedText(TextBlock text) =>
         string.IsNullOrEmpty(text.Text) ? string.Concat(text.Inlines.OfType<Run>().Select(run => run.Text)) : text.Text;
