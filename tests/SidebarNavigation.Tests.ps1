@@ -98,15 +98,17 @@ function Show-SettingsSection([string] $Id) {
     if (-not $scroll.Current.VerticallyScrollable) { return }
     $condition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Id)
+    $targetTop = $root.Current.BoundingRectangle.Top + 200 * $scale
     foreach ($percent in 0..20) {
         $scroll.SetScrollPercent(-1, $percent * 5)
-        Start-Sleep -Milliseconds 100
+        Start-Sleep -Milliseconds 200
         $heading = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
         if ($heading -and -not $heading.Current.IsOffscreen -and
-            $heading.Current.BoundingRectangle.Top -ge $page.Current.BoundingRectangle.Top -and
-            $heading.Current.BoundingRectangle.Top -le $page.Current.BoundingRectangle.Top + 80 * $scale) { return }
+            $heading.Current.BoundingRectangle.Top -ge $targetTop -and
+            $heading.Current.BoundingRectangle.Top -le $targetTop + 80 * $scale) { return }
     }
-    throw "Settings section '$Id' could not be brought into the viewport."
+    Save-SidebarAppearance "settings-section-failure"
+    throw "Settings section '$Id' could not be brought into the viewport. Heading: $($heading.Current.BoundingRectangle); page: $($page.Current.BoundingRectangle); window: $($root.Current.BoundingRectangle); scroll: $($scroll.Current.VerticalScrollPercent)."
 }
 
 function Select-SidebarPage([string] $Name, [string] $Sentinel) {
