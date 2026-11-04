@@ -12,6 +12,7 @@ public sealed partial class DevicesPageView : UserControl
     public DevicesPageView()
     {
         InitializeComponent();
+        InitializeCellPreviews();
         InventoryStatusFilter.ItemsSource = new DeviceFilterChoice[]
         {
             new("Status", "All statuses", All: true),
@@ -48,7 +49,11 @@ public sealed partial class DevicesPageView : UserControl
     internal DeviceFilterChoice? PersonChoice => SelectedFilterChoice(PersonFilter);
     internal DeviceFilterChoice? RoomChoice => SelectedFilterChoice(RoomFilter);
 
-    internal void SetResults(IEnumerable<ScanResultRow> results) => ResultsList.ItemsSource = results;
+    internal void SetResults(IEnumerable<ScanResultRow> results)
+    {
+        DismissCellPreview();
+        ResultsList.ItemsSource = results;
+    }
     internal void FocusResults() => ResultsList.Focus(FocusState.Programmatic);
 
     internal void SetInteractionsEnabled(bool enabled)
@@ -177,8 +182,11 @@ public sealed partial class DevicesPageView : UserControl
 
     private void ResultsList_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
     {
+        if (_previewAnchor is { } anchor && FindAncestor<ListViewItem>(anchor) == args.ItemContainer)
+            DismissCellPreview();
         if (args.Item is ScanResultRow row)
         {
+            Microsoft.UI.Xaml.Automation.AutomationProperties.SetHelpText(args.ItemContainer, FullRowValues(row));
             row.IsPointerOver = false;
             row.IsSelected = ReferenceEquals(ResultsList.SelectedItem, row);
             args.ItemContainer.RemoveHandler(PointerEnteredEvent, new PointerEventHandler(ResultRow_PointerEntered));

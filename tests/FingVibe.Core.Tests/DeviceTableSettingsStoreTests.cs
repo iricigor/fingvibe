@@ -21,7 +21,7 @@ public sealed class DeviceTableSettingsStoreTests : IDisposable
     {
         var store = new DeviceTableSettingsStore(FilePath);
         var settings = new DeviceTableSettings(new() { ["Name"] = new(230, true), ["Mac"] = new(160, false) },
-            false, false, false, true);
+            false, false, false, true, false);
         store.Save(settings);
         store.Save(settings);
         var loaded = Assert.IsType<DeviceTableSettings>(store.Load());
@@ -30,7 +30,18 @@ public sealed class DeviceTableSettingsStoreTests : IDisposable
         Assert.False(loaded.CombineAddresses);
         Assert.False(loaded.CombineStatusResponse);
         Assert.True(loaded.CombinePersonRoom);
+        Assert.False(loaded.EnlargedCellPreviews);
         Assert.Single(Directory.GetFiles(_directory));
+    }
+
+    [Theory]
+    [InlineData("{\"columns\":{}}")]
+    [InlineData("{\"columns\":{},\"combinePersonRoom\":true}")]
+    public void ExistingSettings_DefaultToEnabledPreviews(string json)
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(FilePath, json);
+        Assert.True(new DeviceTableSettingsStore(FilePath).Load()!.EnlargedCellPreviews);
     }
 
     [Theory]

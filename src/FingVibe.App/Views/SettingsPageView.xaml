@@ -116,8 +116,15 @@
                             <TextBlock Text="Person + Room" TextWrapping="Wrap" />
                         </CheckBox>
                     </Grid>
+                    <Border Height="1" Background="{ThemeResource ScannerCardBorderBrush}" Margin="0,8,0,4" />
+                    <ToggleSwitch x:Name="EnlargedCellPreviews"
+                                  Header="Cell hover emphasis and full-value previews"
+                                  AutomationProperties.Name="Cell hover emphasis and full-value previews"
+                                  IsOn="{x:Bind Columns.EnlargedCellPreviews, Mode=TwoWay}" />
+                    <TextBlock Text="Brighten hovered Devices text. Pause over a shortened value to reveal its full text without enlarging it. Turn off to use ordinary tooltips."
+                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock x:Name="TableSaveStatus"
-                               Text="Column visibility, combinations and widths are saved automatically."
+                               Text="Table preferences are saved automatically."
                                TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <Grid x:Name="ColumnFooter" ColumnSpacing="16" RowSpacing="8" Margin="0,4,0,0"

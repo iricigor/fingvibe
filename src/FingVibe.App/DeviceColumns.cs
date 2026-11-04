@@ -125,6 +125,19 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
     private bool _combineAddresses = true;
     private bool _combineStatusResponse = true;
     private bool _combinePersonRoom;
+    private bool _enlargedCellPreviews = true;
+
+    public bool EnlargedCellPreviews
+    {
+        get => _enlargedCellPreviews;
+        set
+        {
+            if (_enlargedCellPreviews == value) return;
+            _enlargedCellPreviews = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(EnlargedCellPreviews)));
+            SettingsChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
 
     public bool CombineNameType { get => _combineNameType; set => SetCombination(ref _combineNameType, value); }
     public bool CombineAddresses { get => _combineAddresses; set => SetCombination(ref _combineAddresses, value); }
@@ -227,7 +240,7 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
     public DeviceTableSettings Capture() => new(
         All.Concat(new[] { _combinedConnection, _combinedAddresses, _combinedAssignments })
             .ToDictionary(column => column.Key, column => new DeviceColumnSettings(column.Width, column.IsVisible)),
-        CombineNameType, CombineAddresses, CombineStatusResponse, CombinePersonRoom);
+        CombineNameType, CombineAddresses, CombineStatusResponse, CombinePersonRoom, EnlargedCellPreviews);
 
     public void Restore(DeviceTableSettings settings)
     {
@@ -243,5 +256,6 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
         CombineAddresses = settings.CombineAddresses;
         CombineStatusResponse = settings.CombineStatusResponse;
         CombinePersonRoom = settings.CombinePersonRoom;
+        EnlargedCellPreviews = settings.EnlargedCellPreviews;
     }
 }
