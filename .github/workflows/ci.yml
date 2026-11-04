@@ -4,6 +4,10 @@ on:
   pull_request:
   workflow_dispatch:
     inputs:
+      appearance_archive:
+        description: "Capture the pinned #160 appearance archive on a disposable runner"
+        type: boolean
+        default: false
       additional_scenarios:
         description: "Extra captures (comma-separated): Overview, Network, DeviceDetails, People, PersonDetails, Rooms, RoomDetails, Tools, SpeedTest, Troubleshooting, About, FingImport, Settings, DevicesEmpty"
         type: string
@@ -17,7 +21,82 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  appearance-archive:
+    if: github.event_name == 'workflow_dispatch' && inputs.appearance_archive == true
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - uses: microsoft/setup-msbuild@v2
+      - name: Extract and validate the immutable source archive
+        shell: pwsh
+        run: |
+          $archive = "docs\archive\appearance-deae2a19c2cc"
+          python "$archive\evidence\verify.py" --source-only
+          if ($LASTEXITCODE -ne 0) { throw "Archive source verification failed." }
+          Expand-Archive -LiteralPath "$archive\fingvibe-source-deae2a19c2cc8218183f08b777347215b7fa31e6.zip" -DestinationPath artifacts\archive-source
+          New-Item -ItemType Directory artifacts\archive-evidence -Force | Out-Null
+      - name: Test and build extracted source without Git history
+        shell: pwsh
+        run: |
+          $evidence = (Resolve-Path artifacts\archive-evidence).Path
+          Push-Location artifacts\archive-source
+          try {
+            $project = "tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj"
+            $filter = "FullyQualifiedName~AppearancePaletteTests|FullyQualifiedName~AppearanceSettingsStoreTests"
+            dotnet test $project --no-restore -c Release --filter $filter 2>&1 | Tee-Object "$evidence\appearance-tests.log"
+            if ($LASTEXITCODE -ne 0) {
+              if (-not (Select-String -LiteralPath "$evidence\appearance-tests.log" -Pattern NETSDK1004 -Quiet)) {
+                throw "Appearance checks failed for a reason other than missing dependencies."
+              }
+              dotnet test $project -c Release --filter $filter 2>&1 | Tee-Object -Append "$evidence\appearance-tests.log"
+              if ($LASTEXITCODE -ne 0) { throw "Restored appearance checks failed." }
+            }
+            $properties = @("/target:Publish", "/property:Configuration=Release", "/property:Platform=x64",
+              "/property:RuntimeIdentifier=win-x64", "/property:SelfContained=true",
+              "/property:Version=0.0.160", "/property:BuildKind=Test",
+              "/property:BuildCommit=deae2a19c2cc8218183f08b777347215b7fa31e6",
+              "/property:BuildTimestamp=$([DateTime]::UtcNow.ToString('yyyy-MM-ddTHH:mm:ssZ'))",
+              "/property:BuildUrl=https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID",
+              "/property:PublishDir=$env:GITHUB_WORKSPACE\artifacts\archive-app\")
+            msbuild src\FingVibe.App\FingVibe.App.csproj @properties 2>&1 | Tee-Object "$evidence\build.log"
+            if ($LASTEXITCODE -ne 0) {
+              if (-not (Select-String -LiteralPath "$evidence\build.log" -Pattern NETSDK1004 -Quiet)) {
+                throw "Extracted source build failed for a reason other than missing dependencies."
+              }
+              msbuild src\FingVibe.App\FingVibe.App.csproj /restore @properties 2>&1 | Tee-Object -Append "$evidence\build.log"
+              if ($LASTEXITCODE -ne 0) { throw "Restored extracted source build failed." }
+            }
+          } finally { Pop-Location }
+      - name: Prepare disposable desktop
+        shell: powershell
+        run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
+      - name: Capture the 25 approved images from the extracted-source build
+        shell: powershell
+        run: |
+          Start-Transcript -Path artifacts\archive-evidence\capture.log
+          try {
+            .\docs\archive\appearance-deae2a19c2cc\evidence\Capture.ps1 `
+              -SourceDirectory "$env:GITHUB_WORKSPACE\artifacts\archive-source" `
+              -AppPath "$env:GITHUB_WORKSPACE\artifacts\archive-app\FingVibe.App.exe" `
+              -OutputDirectory "$env:GITHUB_WORKSPACE\artifacts\archive-evidence\screenshots" `
+              -SourceZipSha256 fcd5df9c7fe7b6b2fd3fca7e53dface25fea9338368e55d6f29b18488d2848b2
+          } finally { Stop-Transcript }
+      - name: Preserve archive evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: appearance-archive-evidence
+          path: artifacts\archive-evidence
+          if-no-files-found: error
+          retention-days: 14
+
   changes:
+    if: inputs.appearance_archive != true
     runs-on: windows-latest
     outputs:
       tests: ${{ steps.changes.outputs.tests }}
