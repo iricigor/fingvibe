@@ -1,0 +1,75 @@
+﻿**********************
+Windows PowerShell transcript start
+Start time: 20261104221336
+Username: runnervmhao91\runneradmin
+RunAs User: runnervmhao91\runneradmin
+Configuration Name: 
+Machine: runnervmhao91 (Microsoft Windows NT 10.0.26100.0)
+Host Application: C:\Windows\System32\WindowsPowerShell\v1.0\powershell.EXE -command . 'D:\a\_temp\6e7284c5-447b-4176-913d-cc068f8ba900.ps1'
+Process ID: 3312
+PSVersion: 5.1.26100.33648
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.33648
+BuildVersion: 10.0.26100.33648
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+Transcript started, output file is artifacts\archive-evidence\capture.log
+Initial window: {X=78,Y=78,Width=1280,Height=800}; monitor work area: {X=0,Y=0,Width=1920,Height=1032}; window DPI: 96.
+Prepared full review window: {X=320,Y=116,Width=1280,Height=800}.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived glass-light-standard-overview.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived glass-light-standard-devices.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived glass-light-colored-overview.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived glass-light-colored-devices.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived glass-dark-standard-overview.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived glass-dark-standard-devices.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived glass-dark-colored-overview.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived glass-dark-colored-devices.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived clay-light-standard-overview.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived clay-light-standard-devices.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived clay-light-colored-overview.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived clay-light-colored-devices.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived clay-dark-standard-overview.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived clay-dark-standard-devices.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived clay-dark-colored-overview.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived clay-dark-colored-devices.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived neumorphic-light-standard-overview.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived neumorphic-light-standard-devices.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived neumorphic-light-colored-overview.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived neumorphic-light-colored-devices.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived neumorphic-dark-standard-overview.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived neumorphic-dark-standard-devices.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived neumorphic-dark-colored-overview.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived neumorphic-dark-colored-devices.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+Captured complete window: {X=0,Y=0,Width=1600,Height=960}; PNG: 1600x960.
+Archived settings.png; Changes are previewed immediately. Material effects also depend on Windows transparency settings.
+**********************
+Windows PowerShell transcript end
+End time: 20261104221434
+**********************

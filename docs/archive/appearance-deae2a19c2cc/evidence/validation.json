@@ -1,0 +1,84 @@
+{
+  "sourceCommit": "deae2a19c2cc8218183f08b777347215b7fa31e6",
+  "sourceZipSha256": "fcd5df9c7fe7b6b2fd3fca7e53dface25fea9338368e55d6f29b18488d2848b2",
+  "sizes": {
+    "sourceZipBytes": 1071390,
+    "capturePngBytes": 7177062,
+    "completeArchiveApproximatelyMiB": 8.6,
+    "measurement": "Sum of all files in this archive directory, including ZIP, all 25 PNGs, documents, manifests, scripts and CI logs; checkout text line endings can affect the exact total."
+  },
+  "captureRun": "https://github.com/iricigor/fingvibe/actions/runs/41923005913",
+  "captureJobId": 126900048733,
+  "captureWorkflowCommit": "f288f57ebad4f1aa9ec01fa777965ca30c925cbe",
+  "startedAtUtc": "2026-11-04T22:11:16Z",
+  "completedAtUtc": "2026-11-04T22:14:41Z",
+  "runConclusion": "success",
+  "jobConclusion": "success",
+  "extractedSourceHasGitHistory": false,
+  "sourceFilesChangedForCapture": false,
+  "appearanceTests": {
+    "project": "tests/FingVibe.Core.Tests/FingVibe.Core.Tests.csproj",
+    "filter": "FullyQualifiedName~AppearancePaletteTests|FullyQualifiedName~AppearanceSettingsStoreTests",
+    "configuration": "Release",
+    "passed": 64,
+    "failed": 0,
+    "skipped": 0,
+    "log": "appearance-tests.log"
+  },
+  "build": {
+    "project": "src/FingVibe.App/FingVibe.App.csproj",
+    "target": "Publish",
+    "configuration": "Release",
+    "platform": "x64",
+    "runtimeIdentifier": "win-x64",
+    "selfContained": true,
+    "buildKind": "Test",
+    "version": "0.0.160",
+    "warnings": 0,
+    "errors": 0,
+    "log": "build.log"
+  },
+  "restore": "Initial no-restore checks reported missing project.assets.json (NETSDK1004); existing tooling restored dependencies, then the extracted-source checks and publish passed.",
+  "capture": {
+    "matrixImages": 24,
+    "settingsImages": 1,
+    "uniquePngImages": 25,
+    "viewportPhysicalPixels": [1600, 960],
+    "desktopPhysicalPixels": [1920, 1080],
+    "dpi": 96,
+    "highContrast": false,
+    "advancedEffectsEnabled": true,
+    "glassBackdrop": "Mica Alt",
+    "clayBackdrop": "Solid",
+    "neumorphicBackdrop": "Solid",
+    "fallbacksReported": 0,
+    "materialLimitation": "Application reports material available. OS-managed native material rendering is not independently measured.",
+    "fixture": "Unmodified source docs/screenshots/devices-fixture.json, eight historical TEST-NET-1 devices; no live LAN scan.",
+    "settingsEvidence": "settings.png visibly shows Mode=Dark, Theme=Standard, Visual style=Glass, Window backdrop=Mica Alt simultaneously.",
+    "manifest": "capture-manifest.json",
+    "log": "capture.log"
+  },
+  "localVerification": {
+    "command": "python evidence/verify.py",
+    "sourceFiles": 237,
+    "checks": [
+      "ZIP SHA-256, byte count, commit comment, tracked path set and every decompressed Git blob",
+      "All 24 approved style/mode/family/page tuples plus one Settings image",
+      "25 unique image SHA-256 values, valid PNG headers and uniform 1600x960 dimensions",
+      "Exact archived fixture checksum, source commit, source ZIP checksum and requested backdrops",
+      "Three short-README dark Standard Devices previews, full local gallery and relative document/image links",
+      "Four gallery rows with three style cells each; every cell pairs Overview above Devices under one Mode / Theme / Backdrop caption"
+    ],
+    "visualReview": "All 24 matrix captures compared across styles/modes/families/pages; Settings and dark Devices previews inspected at full size. No blank images or sensitive device data observed.",
+    "expectedPrototypeLimitations": "Historical devices are Unknown; Overview live counters are unavailable for the selected loopback target; mismatch warning and rightmost table overflow are preserved."
+  },
+  "earlierDispatch": {
+    "run": "https://github.com/iricigor/fingvibe/actions/runs/41921974711",
+    "appearanceArchiveJob": "success",
+    "overallRun": "failure",
+    "reason": "The normal ui-ux-review aggregate did not initially exclude archive-only dispatch, so it rejected deliberately skipped normal planning. The temporary hook was corrected and the complete archive build/capture rerun successfully. Only the successful rerun's images are retained."
+  },
+  "originalSourceValidationRun": "https://github.com/iricigor/fingvibe/actions/runs/41706787803",
+  "mainDelivery": "Pending normal human-reviewed merge of archive PR #161; do not infer presence on main before merge.",
+  "originalBranchAndPr": "Preserved; no commits pushed to iricigor-solid-chainsaw and no changes requested to original task #142 / PR #143."
+}
