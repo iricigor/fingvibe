@@ -187,6 +187,19 @@ try {
         throw "The ribbon must use an in-button focus border rather than an unclipped native focus adorner."
     }
     $scanHeader = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='ScanHeader']")
+    $scanSource = Get-Content (Join-Path $appDirectory "MainWindow.Scan.cs") -Raw
+    if ($scanSource -notmatch 'await SaveCompletedScanAsync\([^;]+\);\s*_scanMessage = null;' -or
+        $scanSource -match 'Complete in ' -or
+        $scanSource -notmatch 'new\[\] \{ _scanMessage, _snapshotError, _inventoryError, targetWarning \}' -or
+        $scanSource -notmatch 'ScanMessages\.Visibility = _isScanning \|\| !string\.IsNullOrWhiteSpace\(status\)\s*\? Visibility\.Visible : Visibility\.Collapsed;') {
+        throw "Scan success must clear only its own message, retain independent errors/warnings, and collapse unused messages."
+    }
+    $messages = $scanHeader.SelectSingleNode(".//*[@*[local-name()='Name']='ScanMessages']")
+    $messageRows = $messages.ParentNode.SelectNodes("./*[local-name()='Grid.RowDefinitions']/*")
+    if ($messages.GetAttribute("Visibility") -cne "Collapsed" -or
+        @($messageRows | Where-Object { $_.GetAttribute("Height") -cne "Auto" }).Count -ne 0) {
+        throw "The shared header must not reserve an empty row for collapsed scan messages."
+    }
     foreach ($id in @("DetectedNetworkLabel", "NetworkPicker", "ScanFreshnessText")) {
         $element = $scanHeader.SelectSingleNode(".//*[@*[local-name()='Name']='$id']")
         if (-not $element -or $element.GetAttribute("VerticalAlignment") -cne "Center") {

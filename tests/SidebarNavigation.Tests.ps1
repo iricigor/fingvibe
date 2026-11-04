@@ -352,6 +352,31 @@ function Test-DeviceRefresh {
         if ((Find-SidebarElement AutomationId ResultCountText).Current.Name -ne "Showing 1 device") {
             throw "The loopback scan must display exactly one device."
         }
+        foreach ($page in @(
+            @("Devices", "Search devices"),
+            @("Overview", "Online devices"),
+            @("Network", "Public IP address"),
+            @("People", "Search people"),
+            @("Rooms", "Search rooms"),
+            @("Tools", "Speed test"),
+            @("Settings", "Window backdrop")
+        )) {
+            Select-SidebarPage $page[0] $page[1]
+            Assert-SharedNetworkHeader
+            if ((Find-SidebarElement AutomationId ScanStatusText -Optional) -or
+                (Find-SidebarElement AutomationId ScanProgressBar -Optional)) {
+                throw "Successful completion must leave no scan message or progress on $($page[0])."
+            }
+            if ($page[0] -eq "Devices" -and
+                (Find-SidebarElement AutomationId LastScanText).Current.Name -notmatch '^Duration: \d') {
+                throw "Devices must retain the completed scan duration."
+            }
+            if ($page[0] -eq "Overview" -and
+                (Find-SidebarElement AutomationId OnlineDevicesText).Current.Name -ne "1") {
+                throw "Overview must retain its online-device count after successful completion."
+            }
+        }
+        Select-SidebarPage Devices "Search devices"
         $search = (Find-SidebarElement AutomationId ResultSearchBox).GetCurrentPattern(
             [System.Windows.Automation.ValuePattern]::Pattern)
         $search.SetValue("fingvibe-no-matching-device")
@@ -367,12 +392,38 @@ function Test-DeviceRefresh {
             (Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "*Displaying retained results*") {
             throw "Refresh must retain the displayed devices and explain their status."
         }
+        Select-SidebarPage Overview "Online devices"
+        if ((Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "Scanning*") {
+            throw "Live scan progress must remain visible after navigation."
+        }
         (Find-SidebarElement Name "Cancel scan").GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        Select-SidebarPage Devices "Search devices"
         Wait-DeviceScan
         if ((Find-SidebarElement AutomationId ResultCountText).Current.Name -ne "Showing 1 device" -or
             (Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "*cancelled*") {
             throw "Cancellation must preserve the displayed devices and report its outcome."
         }
+        Remove-Item -LiteralPath $scanHoldPath
+        [IO.File]::WriteAllText($scanHoldPath + ".progress", '{"Completed":2,"Total":1}')
+        [IO.File]::WriteAllText($scanHoldPath, "Exercise explicit scan failure.")
+        $scan.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        Wait-DeviceScan
+        if ((Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "*Unable to scan*") {
+            throw "A failed scan must retain its error instead of clearing the scan message."
+        }
+        Remove-Item -LiteralPath $scanHoldPath, ($scanHoldPath + ".progress")
+        Remove-Item -LiteralPath $snapshotPath
+        $null = New-Item -ItemType Directory -Path $snapshotPath
+        try {
+            $scan.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+            Wait-DeviceScan
+            Select-SidebarPage Overview "Online devices"
+            if ((Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "*The completed scan could not be saved.*") {
+                throw "A successful scan must preserve persistence errors across navigation."
+            }
+            Select-SidebarPage Devices "Search devices"
+        }
+        finally { Remove-Item -LiteralPath $snapshotPath }
         foreach ($width in @($expandedWidth, 1000, 640)) {
             Set-SidebarWindowWidth $width
             $filters = @("ResultSearchBox", "PersonFilter", "RoomFilter", "OpenPortsFilter") |
@@ -388,7 +439,7 @@ function Test-DeviceRefresh {
                 }
             }
         }
-        Write-Host "Device refresh/cancellation, filtered counts, and responsive filter bounds passed."
+        Write-Host "Device success/navigation, refresh/cancellation, scan/save errors, filtered counts, and responsive filter bounds passed."
     }
     finally {
         try {
