@@ -2,6 +2,7 @@ using System.ComponentModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.Foundation;
@@ -24,6 +25,8 @@ public sealed partial class DevicesPageView
     private Rect _anchorBounds;
     private Rect _previewBounds;
     private bool _keyboardPreview;
+    private TextBlock? _hoverText;
+    private TextHighlighter? _hoverEmphasis;
 
     private static void PreviewTextChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
     {
@@ -153,7 +156,18 @@ public sealed partial class DevicesPageView
         _previewAnchor = anchor;
         _previewRow = row;
         _anchorBounds = BoundsInPreviewLayer(anchor);
-        _previewTimer.Start();
+        if (FindText(anchor) is { } text)
+        {
+            _hoverText = text;
+            _hoverEmphasis = new TextHighlighter
+            {
+                Foreground = (SolidColorBrush)HoverTextPalette.Foreground,
+                Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent)
+            };
+            _hoverEmphasis.Ranges.Add(new TextRange { StartIndex = 0, Length = DisplayedText(text).Length });
+            text.TextHighlighters.Add(_hoverEmphasis);
+            if (NeedsFullValuePreview(anchor, text)) _previewTimer.Start();
+        }
     }
 
     private void Preview_PointerExited(object sender, PointerRoutedEventArgs args)
@@ -185,6 +199,19 @@ public sealed partial class DevicesPageView
         $"{row.NameText}\nIP address: {row.AddressText}\nMAC address: {row.MacAddressText}\nVendor: {row.VendorDescription}"
         + $"\n{row.PersonAssignmentDescription}\n{row.RoomAssignmentDescription}";
 
+    private static string DisplayedText(TextBlock text) =>
+        string.IsNullOrEmpty(text.Text) ? string.Concat(text.Inlines.OfType<Run>().Select(run => run.Text)) : text.Text;
+
+    private static bool NeedsFullValuePreview(FrameworkElement anchor, TextBlock text)
+    {
+        var full = GetPreviewText(anchor) ?? string.Empty;
+        if (anchor.Name == "MergedPersonLine") full = full["Person: ".Length..];
+        else if (anchor.Name == "MergedRoomLine") full = full["Room: ".Length..];
+        var visible = DisplayedText(text);
+        return text.IsTextTrimmed || !string.Equals(full, visible, StringComparison.Ordinal)
+            && visible != "-" && !string.IsNullOrWhiteSpace(full);
+    }
+
     private void ShowCellPreview()
     {
         _previewTimer.Stop();
@@ -204,20 +231,22 @@ public sealed partial class DevicesPageView
         }
         var text = _keyboardPreview && ResultsList.ItemFromContainer(anchor) is ScanResultRow row
             ? FullRowValues(row) : GetPreviewText(anchor);
-        CellPreviewText.Text = text ?? string.Empty;
         var sourceText = FindText(anchor);
-        CellPreviewText.FontSize = (sourceText?.FontSize ?? (anchor as Control)?.FontSize ?? 12) * 1.25;
+        if (!_keyboardPreview && (sourceText is null || !NeedsFullValuePreview(anchor, sourceText))) return;
+        CellPreviewText.Text = text ?? string.Empty;
+        CellPreviewText.FontSize = sourceText?.FontSize ?? (anchor as Control)?.FontSize ?? 12;
         CellPreviewText.FontFamily = sourceText?.FontFamily ?? (anchor as Control)?.FontFamily ?? new FontFamily("Segoe UI");
         CellPreviewText.FontWeight = sourceText?.FontWeight ?? Microsoft.UI.Text.FontWeights.Normal;
         CellPreview.MinWidth = 0;
         CellPreview.MaxWidth = PreviewLayer.ActualWidth;
         CellPreview.MaxHeight = PreviewLayer.ActualHeight;
-        CellPreview.MinWidth = Math.Min(bounds.Width + 24, CellPreview.MaxWidth);
+        var textBounds = sourceText is null ? bounds : BoundsInPreviewLayer(sourceText);
+        CellPreview.MinWidth = _keyboardPreview ? 0 : Math.Min(textBounds.Width + 18, CellPreview.MaxWidth);
         CellPreview.Visibility = Visibility.Visible;
         CellPreview.Measure(new Size(CellPreview.MaxWidth, CellPreview.MaxHeight));
         var size = CellPreview.DesiredSize;
-        var left = Math.Clamp(bounds.Left - 12, 0, Math.Max(0, PreviewLayer.ActualWidth - size.Width));
-        var top = Math.Clamp(bounds.Top + (bounds.Height - size.Height) / 2, 0,
+        var left = Math.Clamp(textBounds.Left - 9, 0, Math.Max(0, PreviewLayer.ActualWidth - size.Width));
+        var top = Math.Clamp(textBounds.Top - 5, 0,
             Math.Max(0, PreviewLayer.ActualHeight - size.Height));
         Canvas.SetLeft(CellPreview, left);
         Canvas.SetTop(CellPreview, top);
@@ -237,6 +266,10 @@ public sealed partial class DevicesPageView
     private void DismissCellPreview()
     {
         _previewTimer.Stop();
+        if (_hoverText is { } text && _hoverEmphasis is { } emphasis)
+            text.TextHighlighters.Remove(emphasis);
+        _hoverText = null;
+        _hoverEmphasis = null;
         _previewAnchor = null;
         _previewRow = null;
         _keyboardPreview = false;

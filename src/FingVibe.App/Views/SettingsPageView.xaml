@@ -118,10 +118,10 @@
                     </Grid>
                     <Border Height="1" Background="{ThemeResource ScannerCardBorderBrush}" Margin="0,8,0,4" />
                     <ToggleSwitch x:Name="EnlargedCellPreviews"
-                                  Header="Enlarged cell hover previews"
-                                  AutomationProperties.Name="Enlarged cell hover previews"
+                                  Header="Cell hover emphasis and full-value previews"
+                                  AutomationProperties.Name="Cell hover emphasis and full-value previews"
                                   IsOn="{x:Bind Columns.EnlargedCellPreviews, Mode=TwoWay}" />
-                    <TextBlock Text="Pause over a Devices value to see its full text at 125% size. Turn off to use ordinary tooltips."
+                    <TextBlock Text="Brighten hovered Devices text. Pause over a shortened value to reveal its full text without enlarging it. Turn off to use ordinary tooltips."
                                TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock x:Name="TableSaveStatus"
                                Text="Table preferences are saved automatically."

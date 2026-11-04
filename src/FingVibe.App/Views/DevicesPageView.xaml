@@ -6,6 +6,18 @@
     xmlns:views="using:FingVibe.App.Views"
     xmlns:models="using:FingVibe.Core.Models">
     <UserControl.Resources>
+        <ResourceDictionary>
+        <ResourceDictionary.ThemeDictionaries>
+            <ResourceDictionary x:Key="Light">
+                <SolidColorBrush x:Key="CellHoverTextBrush" Color="#005A9E" />
+            </ResourceDictionary>
+            <ResourceDictionary x:Key="Dark">
+                <SolidColorBrush x:Key="CellHoverTextBrush" Color="#A8DFFF" />
+            </ResourceDictionary>
+            <ResourceDictionary x:Key="HighContrast">
+                <SolidColorBrush x:Key="CellHoverTextBrush" Color="{ThemeResource SystemColorHotlightColor}" />
+            </ResourceDictionary>
+        </ResourceDictionary.ThemeDictionaries>
         <DataTemplate x:Key="MacTemplate" x:DataType="local:ScanResultRow">
             <TextBlock FontFamily="Consolas" FontSize="11" TextTrimming="CharacterEllipsis"
                        views:DevicesPageView.PreviewText="{x:Bind MacAddressText}" AutomationProperties.Name="{x:Bind MacAddressText}">
@@ -74,6 +86,7 @@
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
+        </ResourceDictionary>
     </UserControl.Resources>
     <Grid x:Name="DevicesPage" Margin="24,0,24,24">
         <Grid.RowDefinitions>
@@ -576,13 +589,15 @@
                     </Grid>
                 </ScrollViewer>
                 <Canvas x:Name="PreviewLayer" Grid.Row="1" IsHitTestVisible="False">
-                    <Border x:Name="CellPreview" Visibility="Collapsed" Padding="12,6"
-                            Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
-                            BorderBrush="{ThemeResource TextFillColorPrimaryBrush}"
+                    <Border x:Name="CellPreview" Visibility="Collapsed" Padding="8,4"
+                            Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                            BorderBrush="{ThemeResource ScannerCardBorderBrush}"
                             BorderThickness="1" CornerRadius="4">
                         <TextBlock x:Name="CellPreviewText" TextWrapping="Wrap"
                                    Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
                     </Border>
+                    <TextBlock x:Name="HoverTextPalette" Visibility="Collapsed"
+                               Foreground="{ThemeResource CellHoverTextBrush}" />
                 </Canvas>
                 <TextBlock x:Name="EmptyResultsText"
                            Grid.Row="1"
