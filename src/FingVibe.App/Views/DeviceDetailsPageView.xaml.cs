@@ -22,6 +22,11 @@ public sealed partial class DeviceDetailsPageView : UserControl
     {
         InitializeComponent();
         InitializeClassificationPickers();
+        GotFocus += (_, args) =>
+        {
+            if (args.OriginalSource is FrameworkElement element)
+                element.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false });
+        };
     }
 
     public event RoutedEventHandler? BackRequested;

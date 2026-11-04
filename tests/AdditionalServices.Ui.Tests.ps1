@@ -189,6 +189,7 @@ function Save-ServiceEvidence([string] $Name, [switch] $DevicesList) {
 function Test-DeviceDetailsEditing {
     $copy = Find-ServiceControl "Copy IP address" -ByName
     $copy.SetFocus()
+    Write-Host "Copy focus: $([System.Windows.Automation.AutomationElement]::FocusedElement.Current.Name); bounds: $($copy.Current.BoundingRectangle)."
     Wait-ServiceState { -not $copy.Current.IsOffscreen } "keyboard-accessible copy action"
     $before = $copy.Current.BoundingRectangle
     [System.Windows.Forms.SendKeys]::SendWait(" ")
@@ -249,6 +250,12 @@ function Test-DeviceDetailsEditing {
         if ($scroll.Current.HorizontallyScrollable) { throw "Narrow details require horizontal scrolling." }
         Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-identification-narrow.png")
         Invoke-ServiceControl Cancel
+    }
+    catch {
+        if ($process -and -not $process.HasExited -and $process.MainWindowHandle -ne 0) {
+            Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "services-failure.png")
+        }
+        throw
     }
     finally {
         $null = [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero,
