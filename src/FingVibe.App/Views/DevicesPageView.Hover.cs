@@ -20,7 +20,7 @@ public sealed partial class DevicesPageView
 
     private readonly DispatcherTimer _previewTimer = new() { Interval = TimeSpan.FromMilliseconds(500) };
     private FrameworkElement? _previewAnchor;
-    private object? _previewData;
+    private ScanResultRow? _previewRow;
     private Rect _anchorBounds;
     private Rect _previewBounds;
     private bool _keyboardPreview;
@@ -106,8 +106,8 @@ public sealed partial class DevicesPageView
         // Initially collapsed virtualized descendants can render while IsLoaded remains false.
         FindAncestor<DevicesPageView>(anchor) == this
         && FindAncestor<ListViewItem>(anchor) is { } container
-        && ReferenceEquals(ResultsList.ItemFromContainer(container), _previewData)
-        && ReferenceEquals(anchor.DataContext, _previewData);
+        && _previewRow is not null
+        && ReferenceEquals(ResultsList.ItemFromContainer(container), _previewRow);
 
     private void ValidateCellPreviewLayout()
     {
@@ -148,9 +148,10 @@ public sealed partial class DevicesPageView
             && FindAncestor<ListViewItem>(element) is not null ? element : null;
         if (ReferenceEquals(anchor, _previewAnchor) && !_keyboardPreview) return;
         DismissCellPreview();
-        if (anchor is null) return;
+        if (anchor is null || FindAncestor<ListViewItem>(anchor) is not { } container
+            || ResultsList.ItemFromContainer(container) is not ScanResultRow row) return;
         _previewAnchor = anchor;
-        _previewData = anchor.DataContext;
+        _previewRow = row;
         _anchorBounds = BoundsInPreviewLayer(anchor);
         _previewTimer.Start();
     }
@@ -171,10 +172,10 @@ public sealed partial class DevicesPageView
         var focused = FocusManager.GetFocusedElement(XamlRoot) as Control;
         if (!Columns.EnlargedCellPreviews || focused?.FocusState != FocusState.Keyboard
             || FindAncestor<ListViewItem>(focused) is not { } row
-            || ResultsList.ItemFromContainer(row) is not ScanResultRow)
+            || ResultsList.ItemFromContainer(row) is not ScanResultRow result)
             return;
         _previewAnchor = row;
-        _previewData = row.DataContext;
+        _previewRow = result;
         _anchorBounds = BoundsInPreviewLayer(row);
         _keyboardPreview = true;
         _previewTimer.Start();
@@ -235,7 +236,7 @@ public sealed partial class DevicesPageView
     {
         _previewTimer.Stop();
         _previewAnchor = null;
-        _previewData = null;
+        _previewRow = null;
         _keyboardPreview = false;
         CellPreview.Visibility = Visibility.Collapsed;
     }
