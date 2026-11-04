@@ -544,7 +544,7 @@ jobs:
   ui-ux-review:
     name: ui-ux-review
     needs: [changes, tests, build, installer, ui-capture, ui-publish]
-    if: always()
+    if: always() && inputs.appearance_archive != true
     runs-on: windows-latest
     steps:
       - name: Report validation result
