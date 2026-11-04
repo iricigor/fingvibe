@@ -449,7 +449,7 @@ function Test-DeviceRefresh {
         $filterExpander.Toggle()
         Start-Sleep -Milliseconds 250
         $expanderElement = Find-SidebarElement AutomationId FilterExpander
-        Write-Host "Filter expander state: $($filterExpander.Current.ToggleState); help: $($expanderElement.Current.HelpText)"
+        Write-Host "Filter expander state: $($filterExpander.Current.ToggleState); help: $($expanderElement.Current.HelpText); layout: $($expanderElement.Current.ItemStatus)"
         foreach ($width in @($expandedWidth, 1000, 640)) {
             Set-SidebarWindowWidth $width
             $filters = @("ResultSearchBox", "InventoryStatusFilter", "FilterExpander", "TypeFilter",
