@@ -66,7 +66,8 @@
       "All 24 approved style/mode/family/page tuples plus one Settings image",
       "25 unique image SHA-256 values, valid PNG headers and uniform 1600x960 dimensions",
       "Exact archived fixture checksum, source commit, source ZIP checksum and requested backdrops",
-      "Three short-README dark Standard Devices previews, full local gallery and relative document/image links"
+      "Three short-README dark Standard Devices previews, full local gallery and relative document/image links",
+      "Four gallery rows with three style cells each; every cell pairs Overview above Devices under one Mode / Theme / Backdrop caption"
     ],
     "visualReview": "All 24 matrix captures compared across styles/modes/families/pages; Settings and dark Devices previews inspected at full size. No blank images or sensitive device data observed.",
     "expectedPrototypeLimitations": "Historical devices are Unknown; Overview live counters are unavailable for the selected loopback target; mismatch warning and rightmost table overflow are preserved."

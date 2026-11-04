@@ -96,6 +96,21 @@ def verify_gallery(source):
     require(set(previews) == {f"screenshots/{style}-dark-standard-devices.png" for style in ("glass", "clay", "neumorphic")}, "Preview choices mismatch")
     gallery = (ROOT / "gallery" / "README.md").read_text()
     require(len(re.findall(r"!\[", gallery)) == 25, "Gallery must embed all 25 images exactly once")
+    table = [line for line in gallery.splitlines() if line.startswith("|")]
+    require(len(table) == 6 and table[0] == "| Glass | Clay | Neumorphic |", "Gallery must have three style columns and four paired rows")
+    for row, (mode, theme) in zip(table[2:], itertools.product(("Light", "Dark"), ("Standard", "Colored"))):
+        cells = [cell.strip() for cell in row.strip("|").split("|")]
+        require(len(cells) == 3, "Gallery row must contain three style cells")
+        for cell, style in zip(cells, ("Glass", "Clay", "Neumorphic")):
+            backdrop = "Mica Alt" if style == "Glass" else "Solid"
+            visible = re.sub(r"\[!\[[^\]]*\]\([^)]+\)\]\([^)]+\)", "", cell).replace("<br>", "").strip()
+            require(visible == f"**{mode} / {theme} / {backdrop}**", "Paired cell must have one shared Mode / Theme / Backdrop caption")
+            images = re.findall(r"!\[[^\]]*\]\(([^)]+)\)", cell)
+            expected_images = [
+                f"../screenshots/{style.lower()}-{mode.lower()}-{theme.lower()}-{page}.png"
+                for page in ("overview", "devices")
+            ]
+            require(images == expected_images, "Paired cell must show Overview above Devices for the same appearance")
     for name in names:
         require(gallery.count(f"(../screenshots/{name})") == 2, f"Gallery thumbnail must link to its local original: {name}")
     total_archive = sum(path.stat().st_size for path in ROOT.rglob("*") if path.is_file())
