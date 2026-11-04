@@ -212,6 +212,7 @@ function Assert-NoCellPreview {
 }
 
 function Assert-CellPreview($Cell, [string] $Value, [string] $Capture) {
+    Write-Host "Checking full-value preview '$Value' at $($Cell.Current.BoundingRectangle)."
     Move-ToDeviceElement $Cell
     Start-Sleep -Milliseconds 750
     $preview = Find-DeviceElement CellPreviewText
@@ -905,6 +906,18 @@ try {
     }
     else { Write-Host "Full-header pixel check not run: desktop is narrower than 1880 logical pixels." }
     Write-Host "Device toolbar/dropdowns, conditional columns, six-theme stripes/header underline, recycling, sorting/filtering, hover, selection and keyboard checks passed."
+}
+catch {
+    Write-Host $_
+    Write-Host $_.ScriptStackTrace
+    if ($windowHandle -and $process -and -not $process.HasExited) {
+        $null = Save-DeviceCapture "devices-failure" -KeepPointer
+        $root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.Condition]::TrueCondition) | ForEach-Object {
+                "$($_.Current.AutomationId) | $($_.Current.Name) | offscreen=$($_.Current.IsOffscreen) | $($_.Current.BoundingRectangle)"
+            } | Set-Content -LiteralPath (Join-Path $ScreenshotDirectory "devices-failure-tree.txt")
+    }
+    throw
 }
 finally {
     if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id }

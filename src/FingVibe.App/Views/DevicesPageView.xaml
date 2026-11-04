@@ -511,7 +511,7 @@
                                                    Visibility="{x:Bind Columns.ShowSeparateType, Mode=OneWay}" />
                                         <Grid Grid.Column="9" Visibility="{x:Bind Columns.ShowMergedRoom, Mode=OneWay}">
                                             <StackPanel x:Name="MergedAssignments" Spacing="2" VerticalAlignment="Center">
-                                                <Grid x:Name="MergedPersonLine" ColumnSpacing="4" HorizontalAlignment="Center"
+                                                <Grid x:Name="MergedPersonLine" ColumnSpacing="4" HorizontalAlignment="Center" Background="Transparent"
                                                       Visibility="{x:Bind HasPersonAssignment, Mode=OneWay}"
                                                       views:DevicesPageView.PreviewText="{x:Bind PersonAssignmentDescription, Mode=OneWay}"
                                                       AutomationProperties.Name="{x:Bind PersonAssignmentDescription, Mode=OneWay}">
@@ -525,7 +525,7 @@
                                                                FontSize="12" TextTrimming="CharacterEllipsis"
                                                                AutomationProperties.Name="{x:Bind PersonAssignmentDescription, Mode=OneWay}" />
                                                 </Grid>
-                                                <Grid x:Name="MergedRoomLine" ColumnSpacing="4" HorizontalAlignment="Center"
+                                                <Grid x:Name="MergedRoomLine" ColumnSpacing="4" HorizontalAlignment="Center" Background="Transparent"
                                                       Visibility="{x:Bind HasRoomAssignment, Mode=OneWay}"
                                                       views:DevicesPageView.PreviewText="{x:Bind RoomAssignmentDescription, Mode=OneWay}"
                                                       AutomationProperties.Name="{x:Bind RoomAssignmentDescription, Mode=OneWay}">
