@@ -873,6 +873,8 @@ try {
     Assert-DeviceStripes "devices-sorted"
     $sort.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Start-Sleep -Milliseconds 250
+    $scroll.SetScrollPercent(-1, 0)
+    Start-Sleep -Milliseconds 250
     $rows = @(Get-DeviceRows)
     $rows[0].SetFocus()
     [DevicesReviewInput]::Tap(0x28)
@@ -882,7 +884,8 @@ try {
         throw "Keyboard navigation must focus and select a device row."
     }
     $keyboardPreview = Find-DeviceElement CellPreviewText
-    if ($keyboardPreview.Current.Name -notlike "*Kitchen display*IP address: 192.0.2.2*Room: Unassigned*") {
+    if ($keyboardPreview.Current.Name -ne $selected[0].Current.HelpText -or
+        $keyboardPreview.Current.Name -notlike "*IP address: *MAC address: *Vendor: *Person: *Room: *") {
         throw "Keyboard focus must reveal the row's equivalent full values."
     }
     $null = Save-DeviceCapture "devices-keyboard-focus"

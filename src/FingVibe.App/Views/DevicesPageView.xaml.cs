@@ -182,7 +182,8 @@ public sealed partial class DevicesPageView : UserControl
 
     private void ResultsList_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
     {
-        DismissCellPreview();
+        if (_previewAnchor is { } anchor && FindAncestor<ListViewItem>(anchor) == args.ItemContainer)
+            DismissCellPreview();
         if (args.Item is ScanResultRow row)
         {
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetHelpText(args.ItemContainer, FullRowValues(row));

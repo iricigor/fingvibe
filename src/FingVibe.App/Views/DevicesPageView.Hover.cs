@@ -71,12 +71,7 @@ public sealed partial class DevicesPageView
         TableViewport.PointerExited += Preview_PointerExited;
         ResultsList.GotFocus += Preview_GotFocus;
         ResultsList.LostFocus += (_, _) => DismissCellPreview();
-        ResultsList.LayoutUpdated += (_, _) =>
-        {
-            if (_previewAnchor is { } anchor && (!IsCurrentPreviewAnchor(anchor)
-                || !BoundsInPreviewLayer(anchor).Equals(_anchorBounds)))
-                DismissCellPreview();
-        };
+        ResultsList.LayoutUpdated += (_, _) => ValidateCellPreviewLayout();
     }
 
     private void PreviewSettingsChanged(object? sender, PropertyChangedEventArgs args)
@@ -114,6 +109,29 @@ public sealed partial class DevicesPageView
         && ReferenceEquals(ResultsList.ItemFromContainer(container), _previewData)
         && ReferenceEquals(anchor.DataContext, _previewData);
 
+    private void ValidateCellPreviewLayout()
+    {
+        if (_previewAnchor is not { } anchor) return;
+        if (!IsCurrentPreviewAnchor(anchor))
+        {
+            DismissCellPreview();
+            return;
+        }
+        var bounds = BoundsInPreviewLayer(anchor);
+        if (bounds.Equals(_anchorBounds)) return;
+        if (_keyboardPreview && _previewTimer.IsEnabled)
+        {
+            // Keyboard focus can scroll its row into view before the preview is shown.
+            _anchorBounds = bounds;
+            _previewTimer.Stop();
+            _previewTimer.Start();
+        }
+        else
+        {
+            DismissCellPreview();
+        }
+    }
+
     private void Preview_PointerMoved(object sender, PointerRoutedEventArgs args)
     {
         if (!Columns.EnlargedCellPreviews || args.Pointer.PointerDeviceType != Microsoft.UI.Input.PointerDeviceType.Mouse)
@@ -145,20 +163,21 @@ public sealed partial class DevicesPageView
     }
 
     private void Preview_PointerPressed(object sender, PointerRoutedEventArgs args) => DismissCellPreview();
-    private void TableViewport_ViewChanged(object sender, ScrollViewerViewChangedEventArgs args) => DismissCellPreview();
+    private void TableViewport_ViewChanged(object sender, ScrollViewerViewChangedEventArgs args) => ValidateCellPreviewLayout();
 
     private void Preview_GotFocus(object sender, RoutedEventArgs args)
     {
         DismissCellPreview();
-        if (!Columns.EnlargedCellPreviews
-            || FindAncestor<ListViewItem>(args.OriginalSource as DependencyObject) is not { FocusState: FocusState.Keyboard } row
+        var focused = FocusManager.GetFocusedElement(XamlRoot) as Control;
+        if (!Columns.EnlargedCellPreviews || focused?.FocusState != FocusState.Keyboard
+            || FindAncestor<ListViewItem>(focused) is not { } row
             || ResultsList.ItemFromContainer(row) is not ScanResultRow)
             return;
         _previewAnchor = row;
         _previewData = row.DataContext;
         _anchorBounds = BoundsInPreviewLayer(row);
         _keyboardPreview = true;
-        ShowCellPreview();
+        _previewTimer.Start();
     }
 
     private static string FullRowValues(ScanResultRow row) =>
