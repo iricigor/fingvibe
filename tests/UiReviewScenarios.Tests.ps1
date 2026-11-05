@@ -122,6 +122,7 @@ try {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device details presentation"
     }
     foreach ($path in @("src\FingVibe.Core\Models\DeviceInventory.cs", "src\FingVibe.Core\Models\PrivateVirtualDevice.cs",
+        "src\FingVibe.Core\Models\DeviceHistorySummary.cs",
         "src\FingVibe.Core\Storage\DeviceInventoryStore.cs", "src\FingVibe.App\MainWindow.Snapshots.cs",
         "tests\DeviceScanHistory.Ui.Tests.ps1")) {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device scan history"
@@ -131,7 +132,7 @@ try {
             @("Devices", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails") "People/Rooms icon surfaces"
     }
     Test-Change @{ "src\FingVibe.App\MainWindow.NetworkIdentity.cs" = "changed" } `
-        @("Devices", "Overview", "Network", "Troubleshooting") "Network identity code"
+        @("Devices", "Overview", "Network", "DeviceDetails", "Troubleshooting") "Network identity code"
     Test-Change @{ "src\FingVibe.App\MainWindow.Results.cs" = "changed" } `
         @("Devices", "Settings", "DevicesEmpty") "Results and empty state"
     Test-Change @{ "src\FingVibe.App\DeviceResultFilter.cs" = "changed" } `

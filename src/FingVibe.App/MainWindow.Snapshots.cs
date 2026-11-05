@@ -165,7 +165,7 @@ public sealed partial class MainWindow
                 if (_selectedDeviceRow?.VirtualDevice is { } slot)
                 {
                     _selectedDeviceRow.UpdateVirtualDevice(_inventory.VirtualDevices.First(item => item.Id == slot.Id));
-                    DevicePage.ShowHistory(_selectedDeviceRow);
+                    UpdateDeviceHistory();
                 }
             }
             if (_currentScanSnapshot is { } snapshot)
