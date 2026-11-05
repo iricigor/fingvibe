@@ -73,29 +73,36 @@ public static class SidebarReviewKeyboard
         keybd_event(key, 0, 2, UIntPtr.Zero);
     }
 
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int index);
     [DllImport("user32.dll")]
     private static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extra);
 
     public static void Drag(int startX, int y, int[] targets)
     {
-        if (!SetCursorPos(startX, y))
-            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+        MoveTo(startX, y);
+        System.Threading.Thread.Sleep(200);
         mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
+        System.Threading.Thread.Sleep(100);
         try
         {
             foreach (int target in targets)
             {
                 for (int step = 1; step <= 20; step++)
                 {
-                    if (!SetCursorPos(startX + (target - startX) * step / 20, y))
-                        throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+                    MoveTo(startX + (target - startX) * step / 20, y);
                     System.Threading.Thread.Sleep(20);
                 }
                 startX = target;
                 System.Threading.Thread.Sleep(150);
             }
+        }
+
+        private static void MoveTo(int x, int y)
+        {
+            uint absoluteX = (uint)((long)(x - GetSystemMetrics(76)) * 65535 / (GetSystemMetrics(78) - 1));
+            uint absoluteY = (uint)((long)(y - GetSystemMetrics(77)) * 65535 / (GetSystemMetrics(79) - 1));
+            mouse_event(0xC001, absoluteX, absoluteY, 0, UIntPtr.Zero);
         }
         finally
         {
@@ -253,6 +260,7 @@ function Get-SidebarPaneWidth {
 function Assert-SidebarPaneWidth([double] $Expected) {
     $actual = Get-SidebarPaneWidth
     if ([Math]::Abs($actual - $Expected) -gt 1) {
+        Save-SidebarAppearance "sidebar-resize-failure"
         throw "Expected a $Expected-DIP navigation pane; got $actual DIPs."
     }
     $branding = Find-SidebarElement Name "LAN scanner" -Optional
@@ -269,6 +277,7 @@ function Resize-SidebarPane([double[]] $Widths) {
     $targets = [int[]] @($Widths | ForEach-Object {
         [int] [Math]::Round($startX + ($_ - $startWidth) * $scale)
     })
+    Write-Host "Dragging navigation from $startWidth DIPs to $($Widths -join ', ') DIPs at $grip."
     [SidebarReviewKeyboard]::Drag($startX, [int]($grip.Top + $grip.Height / 2), $targets)
     Start-Sleep -Milliseconds 500
 }
