@@ -69,6 +69,28 @@ public sealed class NavigationPaneSizingTests
     }
 
     [Theory]
+    [InlineData(160)]
+    [InlineData(280)]
+    [InlineData(320)]
+    public void RestoredWidthIsKeptWhileCollapsedAndReopened(double restoredWidth)
+    {
+        var sizing = new NavigationPaneSizing(restoredWidth);
+
+        Assert.Equal(restoredWidth, sizing.ExpandedWidth);
+        Assert.False(sizing.Resize(48, 48));
+        Assert.Equal(restoredWidth, sizing.ExpandedWidth);
+    }
+
+    [Theory]
+    [InlineData(159.999)]
+    [InlineData(320.001)]
+    [InlineData(double.NaN)]
+    public void InvalidRestoredWidthIsRejected(double width)
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new NavigationPaneSizing(width));
+    }
+
+    [Theory]
     [InlineData(double.NaN)]
     [InlineData(double.PositiveInfinity)]
     [InlineData(double.NegativeInfinity)]

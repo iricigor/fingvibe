@@ -10,7 +10,6 @@ public sealed partial class MainWindow : Window
     private readonly NetworkActivityCoordinator _networkActivityCoordinator = new();
     private bool _allowWindowClose;
     private bool _closingAfterNetworkActivity;
-    private readonly NavigationPaneSizing _navigationPaneSizing = new();
 
     private static readonly bool IsUiReview =
         Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW") == "1";
@@ -18,10 +17,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        MainNavigation.RegisterPropertyChangedCallback(
-            NavigationView.IsPaneOpenProperty, (_, _) => UpdateNavigationResizeGrip());
-        MainNavigation.DisplayModeChanged += (_, _) => UpdateNavigationResizeGrip();
-        UpdateNavigationResizeGrip();
+        InitializeNavigationPane();
         InitializeBuildIdentity();
         InitializeIspLogo();
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Scanner.ico"));
@@ -36,40 +32,6 @@ public sealed partial class MainWindow : Window
         UpdateSortGlyphs();
         MainNavigation.SelectedItem = OverviewNavItem;
         InitializeOverview();
-    }
-
-    private void NavigationResizeGrip_ResizeRequested(object? sender, ResizeRequestedEventArgs args)
-    {
-        var requestedWidth = args.IsKeyboard && !MainNavigation.IsPaneOpen &&
-                             args.Width > MainNavigation.CompactPaneLength
-            ? Math.Max(NavigationPaneSizing.CollapseThreshold, args.Width)
-            : args.Width;
-        var isOpen = _navigationPaneSizing.Resize(
-            requestedWidth, MainNavigation.CompactPaneLength, NavigationResizeGrip.IsResizing);
-        MainNavigation.OpenPaneLength = _navigationPaneSizing.ExpandedWidth;
-        MainNavigation.IsPaneOpen = isOpen;
-        UpdateNavigationResizeGrip();
-    }
-
-    private void NavigationResizeGrip_ResizeCompleted(object? sender, EventArgs args)
-    {
-        _navigationPaneSizing.CompleteDrag();
-        UpdateNavigationResizeGrip();
-    }
-
-    private void UpdateNavigationResizeGrip()
-    {
-        var paneWidth = MainNavigation.IsPaneOpen
-            ? MainNavigation.OpenPaneLength
-            : MainNavigation.CompactPaneLength;
-        NavigationResizeGrip.ResizeWidth = paneWidth;
-        var dividerWidth = _navigationPaneSizing.DragWidth ?? paneWidth;
-        NavigationResizeGrip.Margin = new Thickness(dividerWidth - NavigationResizeGrip.Width / 2, 0, 0, 0);
-        NavigationResizeGrip.Visibility =
-            MainNavigation.DisplayMode == NavigationViewDisplayMode.Minimal && !MainNavigation.IsPaneOpen &&
-            !NavigationResizeGrip.IsResizing
-                ? Visibility.Collapsed
-                : Visibility.Visible;
     }
 
     private async void MainWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)

@@ -37,7 +37,13 @@ compact rail. The divider also supports Left/Right arrow keys
 (8-DIP steps, or 32 DIPs with Shift); Right from the icon rail expands to
 160 DIPs. Small windows retain native overlay
 navigation; the divider is hidden when a minimal-mode pane is closed.
-Navigation widths apply only until the app closes and are not saved.
+The last expanded width and whether you left navigation icon-only in a wide
+window are saved to `%LOCALAPPDATA%\FingVibe\navigation.json` and restored at
+the next launch. Automatic collapse in small windows is not saved. Missing,
+unreadable, or invalid data uses the 216-DIP expanded default; out-of-range
+widths are clamped to 160–320 DIPs. Save failures do not interrupt navigation.
+UI-review mode does not read or write this file unless a review-specific
+`FINGVIBE_UI_REVIEW_NAVIGATION` path is supplied.
 
 Prerequisites:
 

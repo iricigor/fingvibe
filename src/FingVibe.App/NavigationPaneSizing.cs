@@ -1,12 +1,24 @@
+using FingVibe.Core.Models;
+
 namespace FingVibe.App;
 
 internal sealed class NavigationPaneSizing
 {
-    public const double DefaultWidth = 216;
-    public const double CollapseThreshold = 160;
-    public const double MaximumWidth = 320;
+    public const double DefaultWidth = NavigationPaneSettings.DefaultExpandedWidth;
+    public const double CollapseThreshold = NavigationPaneSettings.MinimumExpandedWidth;
+    public const double MaximumWidth = NavigationPaneSettings.MaximumExpandedWidth;
 
-    public double ExpandedWidth { get; private set; } = DefaultWidth;
+    public NavigationPaneSizing(double expandedWidth = DefaultWidth)
+    {
+        if (!double.IsFinite(expandedWidth) || expandedWidth < CollapseThreshold || expandedWidth > MaximumWidth)
+        {
+            throw new ArgumentOutOfRangeException(nameof(expandedWidth));
+        }
+
+        ExpandedWidth = expandedWidth;
+    }
+
+    public double ExpandedWidth { get; private set; }
     public double? DragWidth { get; private set; }
 
     public bool Resize(double requestedWidth, double compactWidth, bool isDragging = false)

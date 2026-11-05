@@ -849,31 +849,92 @@ function Test-ScanPresentation {
     }
 }
 
+function Start-SidebarApp {
+    $script:process = Start-Process -FilePath (Resolve-Path -LiteralPath $AppPath).Path -PassThru
+    $deadline = [DateTime]::UtcNow.AddSeconds(30)
+    do {
+        $script:process.Refresh()
+        if ($script:process.HasExited) { throw "Review app exited with code $($script:process.ExitCode)." }
+        if ($script:process.MainWindowHandle -ne [IntPtr]::Zero) { break }
+        Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $deadline)
+    $script:windowHandle = $script:process.MainWindowHandle
+    if ($script:windowHandle -eq [IntPtr]::Zero) { throw "Review app did not create a window." }
+    $script:root = [System.Windows.Automation.AutomationElement]::FromHandle($script:windowHandle)
+    $null = Find-SidebarElement AutomationId MainNavigation
+    Focus-SidebarWindow
+    Initialize-UiReviewWindow $script:windowHandle
+    $script:scale = [UiReviewNativeWindow]::GetDpiForWindow($script:windowHandle) / 96.0
+}
+
+function Stop-SidebarApp {
+    if ($script:process -and -not $script:process.HasExited) {
+        Stop-Process -Id $script:process.Id
+        $null = $script:process.WaitForExit(10000)
+    }
+}
+
+function Assert-SidebarNavigationPreference([double] $Width, [bool] $IsCollapsed) {
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+        $saved = $null
+        try { $saved = Get-Content -LiteralPath $navigationPreferencePath -Raw | ConvertFrom-Json }
+        catch [System.IO.IOException], [System.Management.Automation.ItemNotFoundException] { }
+        if ($saved -and [Math]::Abs($saved.expandedWidth - $Width) -le 1 -and $saved.isCollapsed -eq $IsCollapsed) {
+            return
+        }
+        Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "Expected saved navigation of $Width DIPs with collapsed=$IsCollapsed; got $($saved | ConvertTo-Json -Compress)."
+}
+
+function Test-SidebarPersistence {
+    Stop-SidebarApp
+    Set-Content -LiteralPath $navigationPreferencePath -Value '{"expandedWidth":280,"isCollapsed":false}' -Encoding ASCII
+    $env:FINGVIBE_UI_REVIEW_NAVIGATION = $navigationPreferencePath
+    Start-SidebarApp
+    Set-SidebarWindowWidth $expandedWidth
+    Assert-SidebarPaneWidth 280
+    Switch-SidebarPane
+    Assert-SidebarPaneWidth 48
+    Assert-SidebarNavigationPreference 280 $true
+
+    Stop-SidebarApp
+    Start-SidebarApp
+    Set-SidebarWindowWidth $expandedWidth
+    Assert-SidebarPaneWidth 48
+    Switch-SidebarPane
+    Assert-SidebarPaneWidth 280
+    Assert-SidebarNavigationPreference 280 $false
+    Resize-SidebarPane @(240)
+    Assert-SidebarPaneWidth 240
+    Assert-SidebarNavigationPreference 240 $false
+    Set-SidebarWindowWidth 800
+    if ((Find-SidebarElement AutomationId NetworkNavItem).Current.BoundingRectangle.Width / $scale -ge 80) {
+        throw "A small window must collapse navigation automatically."
+    }
+    Assert-SidebarNavigationPreference 240 $false
+
+    Stop-SidebarApp
+    Start-SidebarApp
+    Set-SidebarWindowWidth $expandedWidth
+    Assert-SidebarPaneWidth 240
+    Write-Host "Navigation width and icon-only choice were restored after restart; automatic small-window collapse was not saved."
+}
+
 $savedReviewMode = $env:FINGVIBE_UI_REVIEW
 $savedScanHold = $env:FINGVIBE_UI_REVIEW_SCAN_HOLD
+$savedNavigationPreference = $env:FINGVIBE_UI_REVIEW_NAVIGATION
 $scanHoldPath = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-refresh-$([Guid]::NewGuid().ToString('N')).hold"
+$navigationPreferencePath = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-navigation-$([Guid]::NewGuid().ToString('N')).json"
 $process = $null
 $previousContext = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext([IntPtr]::new(-4))
 try {
     $env:FINGVIBE_UI_REVIEW = "1"
     $env:FINGVIBE_UI_REVIEW_SCAN_HOLD = $scanHoldPath
+    $env:FINGVIBE_UI_REVIEW_NAVIGATION = $null
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
-    $process = Start-Process -FilePath (Resolve-Path -LiteralPath $AppPath).Path -PassThru
-    $deadline = [DateTime]::UtcNow.AddSeconds(30)
-    do {
-        $process.Refresh()
-        if ($process.HasExited) { throw "Review app exited with code $($process.ExitCode)." }
-        if ($process.MainWindowHandle -ne [IntPtr]::Zero) { break }
-        Start-Sleep -Milliseconds 100
-    } while ([DateTime]::UtcNow -lt $deadline)
-    $windowHandle = $process.MainWindowHandle
-    if ($windowHandle -eq [IntPtr]::Zero) { throw "Review app did not create a window." }
-    $root = [System.Windows.Automation.AutomationElement]::FromHandle($windowHandle)
-    $null = Find-SidebarElement Name FingVibe
-    Focus-SidebarWindow
-    Initialize-UiReviewWindow $windowHandle
-    $scale = [UiReviewNativeWindow]::GetDpiForWindow($windowHandle) / 96.0
-
+    Start-SidebarApp
     $area = [System.Windows.Forms.Screen]::FromHandle($windowHandle).WorkingArea
     $availableWidth = [int] [Math]::Floor($area.Width / $scale)
     $expandedWidth = [Math]::Min($ExpandedWindowWidth, $availableWidth)
@@ -952,11 +1013,14 @@ try {
     Write-Host "Sidebar navigation, expanded/compact/overlay layouts, and matching solid backgrounds in all six themes passed; material captures saved."
     Test-DeviceRefresh
     Test-ScanPresentation
+    Test-SidebarPersistence
 }
 finally {
     if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id }
     $env:FINGVIBE_UI_REVIEW = $savedReviewMode
     $env:FINGVIBE_UI_REVIEW_SCAN_HOLD = $savedScanHold
+    $env:FINGVIBE_UI_REVIEW_NAVIGATION = $savedNavigationPreference
     if (Test-Path -LiteralPath $scanHoldPath) { Remove-Item -LiteralPath $scanHoldPath }
+    if (Test-Path -LiteralPath $navigationPreferencePath) { Remove-Item -LiteralPath $navigationPreferencePath }
     $null = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext($previousContext)
 }
