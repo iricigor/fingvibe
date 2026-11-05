@@ -1,8 +1,17 @@
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 & {
+    $sidebarParseErrors = $null
     $sidebarAst = [System.Management.Automation.Language.Parser]::ParseFile(
-        (Join-Path $PSScriptRoot "SidebarNavigation.Tests.ps1"), [ref]$null, [ref]$null)
+        (Join-Path $PSScriptRoot "SidebarNavigation.Tests.ps1"), [ref]$null, [ref]$sidebarParseErrors)
+    if ($sidebarParseErrors) { throw ($sidebarParseErrors.Message -join "; ") }
+    $nativeHelper = $sidebarAst.Find({
+        param($node)
+        $node -is [System.Management.Automation.Language.CommandAst] -and
+            $node.GetCommandName() -eq "Add-Type"
+    }, $true)
+    if (-not $nativeHelper) { throw "Missing sidebar native input helper." }
+    Invoke-Expression $nativeHelper.Extent.Text
     $save = $sidebarAst.Find({
         param($node)
         $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and

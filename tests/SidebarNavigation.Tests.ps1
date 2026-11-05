@@ -98,16 +98,17 @@ public static class SidebarReviewKeyboard
             }
         }
 
-        private static void MoveTo(int x, int y)
-        {
-            uint absoluteX = (uint)((long)(x - GetSystemMetrics(76)) * 65535 / (GetSystemMetrics(78) - 1));
-            uint absoluteY = (uint)((long)(y - GetSystemMetrics(77)) * 65535 / (GetSystemMetrics(79) - 1));
-            mouse_event(0xC001, absoluteX, absoluteY, 0, UIntPtr.Zero);
-        }
         finally
         {
             mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
         }
+    }
+
+    private static void MoveTo(int x, int y)
+    {
+        uint absoluteX = (uint)((long)(x - GetSystemMetrics(76)) * 65535 / (GetSystemMetrics(78) - 1));
+        uint absoluteY = (uint)((long)(y - GetSystemMetrics(77)) * 65535 / (GetSystemMetrics(79) - 1));
+        mouse_event(0xC001, absoluteX, absoluteY, 0, UIntPtr.Zero);
     }
 }
 "@
