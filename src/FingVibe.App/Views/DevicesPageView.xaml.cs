@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Input;
 
 namespace FingVibe.App.Views;
@@ -12,18 +13,33 @@ public sealed partial class DevicesPageView : UserControl
     private readonly Windows.UI.ViewManagement.UISettings _uiSettings = new();
     private bool _updatingFilters;
     private bool _updatingStatusChips;
+    private bool _filtersReady;
+    private readonly MultiSelectFilter<InventoryDeviceStatus> _statuses;
+    private readonly MultiSelectFilter<DeviceType> _types;
+    private readonly MultiSelectFilter<DeviceOperatingSystem> _operatingSystems;
+    private readonly MultiSelectFilter<string> _vendors;
+    private readonly MultiSelectFilter<Guid?> _people;
+    private readonly MultiSelectFilter<Guid?> _rooms;
 
     public DevicesPageView()
     {
         InitializeComponent();
         InitializeCellPreviews();
-        InventoryStatusFilter.ItemsSource = new DeviceFilterChoice[]
-        {
-            new("Status", "All statuses", All: true),
-            new("Status", "Online"), new("Status", "Offline"),
-            new("Status", "Fing Only"), new("Status", "Unknown")
-        };
-        InventoryStatusFilter.SelectedIndex = 0;
+        _statuses = new(InventoryStatusFilter, "Status", OnFiltersChanged);
+        _types = new(TypeFilter, "Device type", OnFiltersChanged);
+        _operatingSystems = new(OperatingSystemFilter, "Operating system", OnFiltersChanged);
+        _vendors = new(VendorFilter, "Vendor", OnFiltersChanged, StringComparer.OrdinalIgnoreCase);
+        _people = new(PersonFilter, "Person", OnFiltersChanged);
+        _rooms = new(RoomFilter, "Room", OnFiltersChanged);
+        _statuses.SetChoices([
+            (InventoryDeviceStatus.Online, "Online"), (InventoryDeviceStatus.Offline, "Offline"),
+            (InventoryDeviceStatus.Unknown, "Unknown"), (InventoryDeviceStatus.FingOnly, "Fing Only")]);
+        _types.SetChoices(Enum.GetValues<DeviceType>().Select(value => (value, value.Label())));
+        _operatingSystems.SetChoices(Enum.GetValues<DeviceOperatingSystem>().Select(value => (value, value.Label())));
+        _people.SetChoices([(null, "Unassigned")]);
+        _rooms.SetChoices([(null, "Unassigned")]);
+        _filtersReady = true;
+        OnFiltersChanged();
     }
 
     public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
@@ -35,23 +51,30 @@ public sealed partial class DevicesPageView : UserControl
     internal bool OpenPortsOnly { get => OpenPortsFilter.IsChecked == true; set => OpenPortsFilter.IsChecked = value; }
     internal InventoryDeviceStatus? StatusFilter
     {
-        get => InventoryStatusFilter.SelectedIndex switch
+        set
         {
-            1 => InventoryDeviceStatus.Online,
-            2 => InventoryDeviceStatus.Offline,
-            3 => InventoryDeviceStatus.FingOnly,
-            4 => InventoryDeviceStatus.Unknown,
-            _ => null
-        };
-        set => InventoryStatusFilter.SelectedIndex = value is null ? 0 : (int)value + 1;
+            _statuses.SelectOnly(value is { } status ? [status] : []);
+            OnFiltersChanged();
+        }
     }
     internal ScanResultRow? SelectedResult
     {
         get => ResultsList.SelectedItem as ScanResultRow;
         set => ResultsList.SelectedItem = value;
     }
-    internal DeviceFilterChoice? PersonChoice => SelectedFilterChoice(PersonFilter);
-    internal DeviceFilterChoice? RoomChoice => SelectedFilterChoice(RoomFilter);
+    internal DeviceResultFilter CreateFilter() => new(false, OpenPortsOnly, SearchText)
+    {
+        Statuses = _statuses.Selected,
+        Types = _types.Selected,
+        OperatingSystems = _operatingSystems.Selected,
+        Vendors = _vendors.Selected,
+        People = _people.Selected,
+        Rooms = _rooms.Selected
+    };
+
+    internal void SetVendorFilters(IEnumerable<string> vendors) =>
+        _vendors.SetChoices(vendors.Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(value => value, StringComparer.OrdinalIgnoreCase).Select(value => (value, value)));
 
     internal void SetResults(IEnumerable<ScanResultRow> results)
     {
@@ -88,8 +111,8 @@ public sealed partial class DevicesPageView : UserControl
     }
 
     internal void ShowLastScan(ScanSnapshot? snapshot) =>
-        LastScanText.Text = "Duration: " + (snapshot?.Duration is { } duration
-            ? $"{duration.TotalSeconds:N1} s" : snapshot is null ? "—" : "not recorded");
+        LastScanText.Text = "Scan duration " + (snapshot?.Duration is { } duration
+            ? $"{duration.TotalSeconds:N1}s" : snapshot is null ? "—" : "not recorded");
 
     internal void ShowSort(string address, string status, string response, string mac, string os, string type)
     {
@@ -108,98 +131,55 @@ public sealed partial class DevicesPageView : UserControl
     internal void SetPeopleRoomFilters(IEnumerable<(Guid Id, string Label)> people,
         IEnumerable<(Guid Id, string Label)> rooms)
     {
-        PopulateFilter(PersonFilter, "Person", "All people", people);
-        PopulateFilter(RoomFilter, "Room", "All rooms", rooms);
-    }
-
-    private static DeviceFilterChoice? SelectedFilterChoice(ComboBox picker) =>
-        picker.SelectedItem as DeviceFilterChoice;
-
-    private static void PopulateFilter(ComboBox picker, string category, string allLabel,
-        IEnumerable<(Guid Id, string Label)> values)
-    {
-        var selected = SelectedFilterChoice(picker);
-        var choices = new List<DeviceFilterChoice>
-        {
-            new(category, allLabel, All: true),
-            new(category, "Unassigned", Unassigned: true)
-        };
-        choices.AddRange(values.Select(value => new DeviceFilterChoice(category, value.Label, value.Id)));
-        picker.ItemsSource = choices;
-        picker.SelectedItem = choices.FirstOrDefault(choice => selected?.Unassigned == true
-                ? choice.Unassigned
-                : selected?.Id is { } id ? choice.Id == id : choice.All)
-            ?? choices[0];
+        _people.SetChoices(new (Guid?, string)[] { (null, "Unassigned") }
+            .Concat(people.Select(value => ((Guid?)value.Id, value.Label))));
+        _rooms.SetChoices(new (Guid?, string)[] { (null, "Unassigned") }
+            .Concat(rooms.Select(value => ((Guid?)value.Id, value.Label))));
     }
 
     private void DeviceFilters_SizeChanged(object sender, SizeChangedEventArgs e)
+        => UpdatePrimaryFilterLayout(e.NewSize.Width);
+
+    private void UpdatePrimaryFilterLayout(double width)
     {
         const double spacing = 8;
         const double minimumSearchWidth = 180;
         var textScale = _uiSettings.TextScaleFactor;
-        double[] widths = [Math.Min(140 * textScale, e.NewSize.Width),
-            Math.Min(140 * textScale, e.NewSize.Width), Math.Min(180 * textScale, e.NewSize.Width)];
-        var statusWidth = Math.Min(210 * textScale, e.NewSize.Width);
-        PersonFilter.Width = widths[0];
-        RoomFilter.Width = widths[1];
-        OpenPortsFilterContainer.Width = widths[2];
+        var availableWidth = Math.Max(0, width);
+        FilterExpander.Width = 64 * textScale;
+        ClearFiltersLink.Width = 36 * textScale;
+        var primaryWidth = Math.Max(0, availableWidth - FilterExpander.Width - spacing - 2
+            - (ClearFiltersLink.Visibility == Visibility.Visible ? ClearFiltersLink.Width : 0));
+        var statusWidth = Math.Min(210 * textScale, primaryWidth);
         InventoryStatusFilter.Width = statusWidth;
-        var inline = e.NewSize.Width >= minimumSearchWidth + statusWidth + widths.Sum() + spacing * 4;
-        Grid.SetRow(DeviceFilterOptions, inline ? 0 : 1);
-        Grid.SetColumn(DeviceFilterOptions, inline ? 1 : 0);
-        Grid.SetColumnSpan(DeviceFilterOptions, inline ? 1 : 2);
-        Grid.SetColumnSpan(DeviceSearchFilters, inline ? 1 : 2);
-        DeviceFilters.RowSpacing = inline ? 0 : spacing;
-        var stackedSearch = e.NewSize.Width < minimumSearchWidth + statusWidth + spacing;
+        var stackedSearch = primaryWidth < minimumSearchWidth + statusWidth + spacing;
         DeviceSearchFilters.RowSpacing = stackedSearch ? spacing : 0;
         Grid.SetRow(InventoryStatusFilter, stackedSearch ? 1 : 0);
         Grid.SetColumn(InventoryStatusFilter, stackedSearch ? 0 : 1);
         Grid.SetColumnSpan(InventoryStatusFilter, stackedSearch ? 2 : 1);
         Grid.SetColumnSpan(ResultSearchBox, stackedSearch ? 2 : 1);
-        var columns = inline || e.NewSize.Width >= widths.Sum() + spacing * 2 ? 3
-            : e.NewSize.Width >= widths[2] + widths[0] + spacing ? 2 : 1;
-        var rows = (3 + columns - 1) / columns;
-        if (DeviceFilterOptions.ColumnDefinitions.Count != columns)
-        {
-            DeviceFilterOptions.ColumnDefinitions.Clear();
-            for (var column = 0; column < columns; column++)
-            {
-                DeviceFilterOptions.ColumnDefinitions.Add(new ColumnDefinition());
-            }
-        }
-        for (var column = 0; column < columns; column++)
-        {
-            DeviceFilterOptions.ColumnDefinitions[column].Width =
-                new GridLength(widths.Where((_, index) => index % columns == column).Max());
-        }
-        if (DeviceFilterOptions.RowDefinitions.Count != rows)
-        {
-            DeviceFilterOptions.RowDefinitions.Clear();
-            for (var row = 0; row < rows; row++)
-            {
-                DeviceFilterOptions.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-            }
-        }
-        FrameworkElement[] filters = [PersonFilter, RoomFilter, OpenPortsFilterContainer];
-        for (var index = 0; index < filters.Length; index++)
-        {
-            Grid.SetRow(filters[index], index / columns);
-            Grid.SetColumn(filters[index], index % columns);
-        }
     }
 
     private void DeviceSummary_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        var inline = e.NewSize.Width >= 760 * _uiSettings.TextScaleFactor;
-        Grid.SetRow(LastScanText, inline ? 0 : 2);
-        Grid.SetColumn(LastScanText, inline ? 1 : 0);
-        Grid.SetColumnSpan(LastScanText, inline ? 1 : 2);
-        LastScanText.Margin = inline ? new Thickness(0) : new Thickness(0, 4, 0, 0);
+        var scale = _uiSettings.TextScaleFactor;
+        var inline = e.NewSize.Width >= 850 * scale;
+        var narrow = e.NewSize.Width < 600 * scale;
+        LayoutStatusCounts(narrow
+            ? Math.Clamp((int)((e.NewSize.Width + 8) / (105 * scale + 8)), 1, 4)
+            : 4);
+        InventoryCountsText.MaxWidth = Math.Max(0, e.NewSize.Width);
+        Grid.SetColumnSpan(InventoryCountsText, inline ? 1 : narrow ? 3 : 2);
+        Grid.SetRow(ResultCountText, inline ? 0 : 1);
+        Grid.SetColumn(ResultCountText, inline ? 1 : 0);
+        Grid.SetColumnSpan(ResultCountText, inline ? 1 : 3);
+        Grid.SetRow(LastScanText, narrow ? 2 : 0);
+        Grid.SetColumn(LastScanText, narrow ? 0 : 2);
+        Grid.SetColumnSpan(LastScanText, narrow ? 3 : 1);
     }
 
-    private void InventoryCounts_SizeChanged(object sender, SizeChangedEventArgs e)
+    private void LayoutStatusCounts(int columns)
     {
-        var columns = Math.Clamp((int)((e.NewSize.Width + 8) / (140 * _uiSettings.TextScaleFactor + 8)), 1, 4);
         ToggleButton[] chips = [OnlineChip, OfflineChip, UnknownChip, FingOnlyChip];
         var rows = (chips.Length + columns - 1) / columns;
         if (InventoryCountsText.RowDefinitions.Count != rows)
@@ -212,7 +192,7 @@ public sealed partial class DevicesPageView : UserControl
         {
             InventoryCountsText.ColumnDefinitions.Clear();
             for (var column = 0; column < columns; column++)
-                InventoryCountsText.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                InventoryCountsText.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         }
         for (var index = 0; index < chips.Length; index++)
         {
@@ -269,25 +249,38 @@ public sealed partial class DevicesPageView : UserControl
     }
 
     private void ResultSearchBox_TextChanged(object sender, TextChangedEventArgs e) => OnFiltersChanged();
-    private void PeopleRoomFilter_SelectionChanged(object sender, SelectionChangedEventArgs e) => OnFiltersChanged();
-    private void InventoryStatusFilter_SelectionChanged(object sender, SelectionChangedEventArgs e) => OnFiltersChanged();
     private void OpenPortsFilter_Changed(object sender, RoutedEventArgs e) => OnFiltersChanged();
 
     private void OnFiltersChanged()
     {
-        if (_updatingFilters) return;
+        if (_updatingFilters || !_filtersReady) return;
         _updatingStatusChips = true;
         try
         {
-            OnlineChip.IsChecked = InventoryStatusFilter.SelectedIndex == 1;
-            OfflineChip.IsChecked = InventoryStatusFilter.SelectedIndex == 2;
-            FingOnlyChip.IsChecked = InventoryStatusFilter.SelectedIndex == 3;
-            UnknownChip.IsChecked = InventoryStatusFilter.SelectedIndex == 4;
+            OnlineChip.IsChecked = _statuses.Selected.Contains(InventoryDeviceStatus.Online);
+            OfflineChip.IsChecked = _statuses.Selected.Contains(InventoryDeviceStatus.Offline);
+            FingOnlyChip.IsChecked = _statuses.Selected.Contains(InventoryDeviceStatus.FingOnly);
+            UnknownChip.IsChecked = _statuses.Selected.Contains(InventoryDeviceStatus.Unknown);
         }
         finally { _updatingStatusChips = false; }
-        ClearFiltersLink.Visibility = !string.IsNullOrEmpty(SearchText) || StatusFilter is not null
-            || PersonChoice is { All: false } || RoomChoice is { All: false } || OpenPortsOnly
-                ? Visibility.Visible : Visibility.Collapsed;
+        var filter = CreateFilter();
+        var count = filter.ActiveSecondaryCategoryCount;
+        ActiveFilterCount.Text = count.ToString(System.Globalization.CultureInfo.CurrentCulture);
+        ActiveFilterCount.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        var expanded = FilterExpander.IsChecked == true;
+        AutomationProperties.SetName(FilterExpander,
+            $"{(expanded ? "Hide" : "Show")} additional device filters; {count} active categories");
+        AutomationProperties.SetHelpText(FilterExpander, expanded ? "Expanded" : "Collapsed");
+        PortsFilter.Content = new TextBlock
+        {
+            Text = OpenPortsOnly ? "Ports | With open ports" : "Ports",
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        AutomationProperties.SetName(PortsFilter, OpenPortsOnly ? "Ports: With open ports" : "Ports: All");
+        ToolTipService.SetToolTip(PortsFilter, OpenPortsOnly ? "Ports: With open ports" : "Ports: All");
+        ClearFiltersLink.Visibility = filter.HasRestrictions ? Visibility.Visible : Visibility.Collapsed;
+        FilterExpander.CornerRadius = filter.HasRestrictions ? new CornerRadius(3, 0, 0, 3) : new CornerRadius(3);
+        UpdatePrimaryFilterLayout(DeviceFilters.ActualWidth);
         FiltersChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -296,26 +289,145 @@ public sealed partial class DevicesPageView : UserControl
         if (_updatingStatusChips) return;
         if (sender is ToggleButton { Tag: string index })
         {
-            var selectedIndex = int.Parse(index, System.Globalization.CultureInfo.InvariantCulture);
-            if (InventoryStatusFilter.SelectedIndex == selectedIndex) OnFiltersChanged();
-            else InventoryStatusFilter.SelectedIndex = selectedIndex;
+            var status = (InventoryDeviceStatus)(int.Parse(index, System.Globalization.CultureInfo.InvariantCulture) - 1);
+            _statuses.Toggle(status);
+            OnFiltersChanged();
         }
     }
 
-    private void ClearFilters_Click(object sender, RoutedEventArgs e)
+    private void FilterExpander_Changed(object sender, RoutedEventArgs e)
+    {
+        if (!_filtersReady) return;
+        DeviceFilterOptions.Visibility = FilterExpander.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        OnFiltersChanged();
+    }
+
+    internal void ClearFilters()
     {
         _updatingFilters = true;
         try
         {
             SearchText = string.Empty;
-            InventoryStatusFilter.SelectedIndex = 0;
-            PersonFilter.SelectedIndex = 0;
-            RoomFilter.SelectedIndex = 0;
+            _statuses.Clear();
+            _types.Clear();
+            _operatingSystems.Clear();
+            _vendors.Clear();
+            _people.Clear();
+            _rooms.Clear();
             OpenPortsOnly = false;
         }
         finally { _updatingFilters = false; }
-        ResultSearchBox.Focus(FocusState.Programmatic);
         OnFiltersChanged();
+    }
+
+    private void ClearFilters_Click(object sender, RoutedEventArgs e)
+    {
+        ClearFilters();
+        ResultSearchBox.Focus(FocusState.Programmatic);
+    }
+
+    private sealed class MultiSelectFilter<T>
+    {
+        private readonly DropDownButton _button;
+        private readonly string _category;
+        private readonly Action _changed;
+        private readonly HashSet<T> _selected;
+        private List<(T Value, string Label)> _choices = [];
+        private readonly List<(T Value, CheckBox CheckBox)> _checks = [];
+
+        internal MultiSelectFilter(DropDownButton button, string category, Action changed,
+            IEqualityComparer<T>? comparer = null)
+        {
+            _button = button;
+            _category = category;
+            _changed = changed;
+            _selected = new(comparer);
+            UpdateLabel();
+        }
+
+        internal IReadOnlySet<T> Selected => _selected;
+
+        internal void SetChoices(IEnumerable<(T Value, string Label)> values)
+        {
+            var choices = values.ToList();
+            // Retain selected values during inventory/assignment refreshes instead of silently clearing restrictions.
+            choices.AddRange(_choices.Where(choice => _selected.Contains(choice.Value)
+                && !choices.Any(value => _selected.Comparer.Equals(value.Value, choice.Value))));
+            if (_choices.SequenceEqual(choices)) return;
+            _choices = choices;
+            _checks.Clear();
+            var panel = new StackPanel();
+            AutomationProperties.SetAutomationId(panel, _button.Name + "Choices");
+            AutomationProperties.SetName(panel, _category + " choices");
+            AutomationProperties.SetAccessibilityView(panel, AccessibilityView.Content);
+            foreach (var (value, label) in choices)
+            {
+                var check = new CheckBox
+                {
+                    Content = new TextBlock { Text = label, TextWrapping = TextWrapping.Wrap },
+                    IsChecked = _selected.Contains(value),
+                    HorizontalAlignment = HorizontalAlignment.Stretch
+                };
+                AutomationProperties.SetName(check, label);
+                check.Checked += (_, _) => SetSelected(value, true);
+                check.Unchecked += (_, _) => SetSelected(value, false);
+                panel.Children.Add(check);
+                _checks.Add((value, check));
+            }
+            _button.Flyout = new Flyout
+            {
+                Content = new ScrollViewer
+                {
+                    MaxHeight = 320,
+                    MaxWidth = 280,
+                    HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                    Content = panel
+                }
+            };
+            UpdateLabel();
+        }
+
+        private void SetSelected(T value, bool selected)
+        {
+            if (!(selected ? _selected.Add(value) : _selected.Remove(value))) return;
+            UpdateLabel();
+            _changed();
+        }
+
+        internal void Toggle(T value)
+        {
+            SetSelected(value, !_selected.Contains(value));
+            SyncChecks();
+        }
+
+        internal void SelectOnly(IEnumerable<T> values)
+        {
+            _selected.Clear();
+            _selected.UnionWith(values);
+            SyncChecks();
+        }
+
+        internal void Clear()
+        {
+            _selected.Clear();
+            SyncChecks();
+        }
+
+        private void SyncChecks()
+        {
+            foreach (var (value, check) in _checks) check.IsChecked = _selected.Contains(value);
+            UpdateLabel();
+        }
+
+        private void UpdateLabel()
+        {
+            var labels = _choices.Where(choice => _selected.Contains(choice.Value)).Select(choice => choice.Label);
+            var summary = _selected.Count == 0 ? "All" : string.Join(", ", labels);
+            var text = _selected.Count == 0 ? _category : $"{_category} | {summary}";
+            _button.Content = new TextBlock { Text = text, TextTrimming = TextTrimming.CharacterEllipsis };
+            AutomationProperties.SetName(_button, $"{_category}: {summary}");
+            ToolTipService.SetToolTip(_button, $"{_category}: {summary}");
+        }
     }
 
     private void SortHeader_Click(object sender, RoutedEventArgs e)

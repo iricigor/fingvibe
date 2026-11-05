@@ -127,7 +127,7 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
     private bool _combineStatusResponse = true;
     private bool _combinePersonRoom;
     private bool _combineVendorOs;
-    private bool _compactRows;
+    private bool _compactRows = true;
     private bool _enlargedCellPreviews = true;
 
     public bool EnlargedCellPreviews
@@ -151,6 +151,10 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
     public double RowMinimumHeight => CompactRows ? 38 : 44;
     public double RowSpacing => CompactRows ? 1 : 3;
     public double AssignmentSpacing => CompactRows ? 1 : 2;
+    public double HeaderVerticalPadding => CompactRows ? 2 : 4;
+    public double HeaderButtonVerticalPadding => CompactRows ? 1 : 3;
+    public double HeaderLabelTopMargin => CompactRows ? 1 : 6;
+    public double HeaderSecondaryMargin => CompactRows ? 1 : 3;
 
     private void SetCombination(ref bool field, bool value)
     {
@@ -255,7 +259,7 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
         All.Concat(new[] { _combinedConnection, _combinedAddresses, _combinedAssignments, _combinedVendorOs })
             .ToDictionary(column => column.Key, column => new DeviceColumnSettings(column.Width, column.IsVisible)),
         CombineNameType, CombineAddresses, CombineStatusResponse, CombinePersonRoom, EnlargedCellPreviews,
-        CombineVendorOs, CompactRows);
+        CombineVendorOs, CompactRows, DensityVersion: 1);
 
     public void Restore(DeviceTableSettings settings)
     {
@@ -273,6 +277,6 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
         CombinePersonRoom = settings.CombinePersonRoom;
         EnlargedCellPreviews = settings.EnlargedCellPreviews;
         CombineVendorOs = settings.CombineVendorOs;
-        CompactRows = settings.CompactRows;
+        CompactRows = settings.DensityVersion == 0 || settings.CompactRows;
     }
 }

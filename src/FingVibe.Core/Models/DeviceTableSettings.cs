@@ -10,4 +10,5 @@ public sealed record DeviceTableSettings(
     bool CombinePersonRoom = false,
     bool EnlargedCellPreviews = true,
     bool CombineVendorOs = false,
-    bool CompactRows = false);
+    bool CompactRows = true,
+    int DensityVersion = 0);

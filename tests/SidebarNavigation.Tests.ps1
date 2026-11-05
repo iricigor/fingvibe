@@ -387,7 +387,7 @@ function Test-DeviceRefresh {
                 throw "Successful completion must leave no scan message or progress on $($page[0])."
             }
             if ($page[0] -eq "Devices" -and
-                (Find-SidebarElement AutomationId LastScanText).Current.Name -notmatch '^Duration: \d') {
+                (Find-SidebarElement AutomationId LastScanText).Current.Name -notmatch '^Scan duration \d') {
                 throw "Devices must retain the completed scan duration."
             }
             if ($page[0] -eq "Overview" -and
@@ -443,13 +443,26 @@ function Test-DeviceRefresh {
             Select-SidebarPage Devices "Search devices"
         }
         finally { Remove-Item -LiteralPath $snapshotPath }
+        $filterExpander = (Find-SidebarElement AutomationId FilterExpander).GetCurrentPattern(
+            [System.Windows.Automation.TogglePattern]::Pattern)
+        $filterExpander.Toggle()
+        Start-Sleep -Milliseconds 250
+        $expanderElement = Find-SidebarElement AutomationId FilterExpander
+        if ($expanderElement.Current.HelpText -ne "Expanded") {
+            throw "The funnel must expose its expanded state."
+        }
         foreach ($width in @($expandedWidth, 1000, 640)) {
             Set-SidebarWindowWidth $width
-            $filters = @("ResultSearchBox", "PersonFilter", "RoomFilter", "OpenPortsFilter") |
+            $filters = @("ResultSearchBox", "InventoryStatusFilter", "FilterExpander", "TypeFilter",
+                "OperatingSystemFilter", "VendorFilter", "PersonFilter", "RoomFilter", "PortsFilter") |
                 ForEach-Object { Find-SidebarElement AutomationId $_ }
             for ($index = 0; $index -lt $filters.Count; $index++) {
                 $bounds = $filters[$index].Current.BoundingRectangle
-                if ($bounds.Width -le 0) { throw "A filter has no visible width at $width." }
+                if ($bounds.Width -le 0) {
+                    $filters | ForEach-Object { Write-Host "$($_.Current.AutomationId): $($_.Current.BoundingRectangle)" }
+                    Save-SidebarAppearance "filters-layout-failure"
+                    throw "Filter '$($filters[$index].Current.AutomationId)' has no visible width at $width."
+                }
                 for ($other = 0; $other -lt $index; $other++) {
                     $intersection = [System.Windows.Rect]::Intersect($bounds, $filters[$other].Current.BoundingRectangle)
                     if (-not $intersection.IsEmpty -and $intersection.Width -gt 0 -and $intersection.Height -gt 0) {
@@ -458,6 +471,7 @@ function Test-DeviceRefresh {
                 }
             }
         }
+        $filterExpander.Toggle()
         Write-Host "Device success/navigation, refresh/cancellation, scan/save errors, filtered counts, and responsive filter bounds passed."
     }
     finally {

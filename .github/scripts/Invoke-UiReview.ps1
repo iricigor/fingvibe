@@ -365,8 +365,7 @@ try {
 
     $elements["Scan LAN"] = Wait-UiReviewScan
 
-    # Summary navigation must replace stale filters and leave its port filter visible and reversible.
-    $portsFilter = Assert-VisibleUiReviewElement -Value "With open ports"
+    # Summary navigation must replace stale filters and expose hidden restrictions through the funnel.
     $null = Invoke-WebDriverRequest -Method Post `
         -Endpoint "/session/$sessionId/element/$search/value" `
         -Body @{ value = @("fingvibe-no-matching-host") }
@@ -374,8 +373,13 @@ try {
     Invoke-WebDriverElement -ElementId $overview
     $portsCard = Assert-VisibleUiReviewElement -Value "See devices with open ports"
     Invoke-WebDriverElement -ElementId $portsCard
-    $checked = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$portsFilter/selected"
-    if (-not $checked.value) { throw "The open-port summary did not enable the visible port filter." }
+    $count = Assert-VisibleUiReviewElement -Using xpath -Value "//*[@AutomationId='ActiveFilterCount']"
+    $countText = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$count/text"
+    if ($countText.value -ne "1") { throw "The open-port summary must expose one active secondary category." }
+    $funnel = Assert-VisibleUiReviewElement -Using xpath -Value "//*[@AutomationId='FilterExpander']"
+    Invoke-WebDriverElement -ElementId $funnel
+    $null = Assert-VisibleUiReviewElement -Value "Ports: With open ports"
+    $null = Assert-VisibleUiReviewElement -Value "Clear all Devices filters"
     $searchValue = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$search/text"
     if ($searchValue.value) { throw "Summary navigation did not clear the stale text filter." }
 
@@ -384,9 +388,7 @@ try {
     $null = Invoke-WebDriverRequest -Method Post `
         -Endpoint "/session/$sessionId/element/$onlineCard/value" `
         -Body @{ value = @([string] [char] 0xE007) }
-    $null = Assert-VisibleUiReviewElement -Value "With open ports"
-    $checked = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$portsFilter/selected"
-    if ($checked.value) { throw "The online summary retained a stale port filter." }
+    $null = Assert-VisibleUiReviewElement -Value "Ports: All"
     $null = Assert-VisibleUiReviewElement -Value "Online"
 
     $captureDirectory = [System.IO.Path]::GetFullPath($ScreenshotDirectory)

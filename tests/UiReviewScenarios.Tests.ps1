@@ -129,6 +129,8 @@ try {
         @("Devices", "Overview", "Network", "Troubleshooting") "Network identity code"
     Test-Change @{ "src\FingVibe.App\MainWindow.Results.cs" = "changed" } `
         @("Devices", "Settings", "DevicesEmpty") "Results and empty state"
+    Test-Change @{ "src\FingVibe.App\DeviceResultFilter.cs" = "changed" } `
+        @("Devices", "Settings", "DevicesEmpty") "Multi-select matching and empty state"
     Test-Change @{ "src\FingVibe.App\App.xaml" = "changed" } @($UiReviewScenarios.Keys) "Shared theme"
     $applicationXaml = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\MainWindow.xaml") -Raw
     $applicationDocument = [System.Xml.XmlDocument]::new()
@@ -322,6 +324,7 @@ try {
             throw "$view must not expose its child controls."
         }
         foreach ($child in $viewDocument.SelectNodes("//*[@*[local-name()='Name']]")) {
+            if ($child.LocalName -in @("VisualState", "VisualStateGroup")) { continue }
             $childName = $child.GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml")
             if ($childName -ne $page -and $shellCode -match "\b$([regex]::Escape($childName))\b") {
                 throw "Shell code must use $view APIs, not the child control $childName."
