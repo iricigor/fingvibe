@@ -7,8 +7,9 @@ internal sealed class NavigationPaneSizing
     public const double MaximumWidth = 320;
 
     public double ExpandedWidth { get; private set; } = DefaultWidth;
+    public double? DragWidth { get; private set; }
 
-    public bool Resize(double requestedWidth, double compactWidth)
+    public bool Resize(double requestedWidth, double compactWidth, bool isDragging = false)
     {
         if (!double.IsFinite(requestedWidth))
         {
@@ -20,6 +21,7 @@ internal sealed class NavigationPaneSizing
         }
 
         var width = Math.Clamp(requestedWidth, compactWidth, MaximumWidth);
+        DragWidth = isDragging ? width : null;
         if (width < CollapseThreshold)
         {
             return false;
@@ -28,4 +30,6 @@ internal sealed class NavigationPaneSizing
         ExpandedWidth = width;
         return true;
     }
+
+    public void CompleteDrag() => DragWidth = null;
 }

@@ -44,21 +44,30 @@ public sealed partial class MainWindow : Window
                              args.Width > MainNavigation.CompactPaneLength
             ? Math.Max(NavigationPaneSizing.CollapseThreshold, args.Width)
             : args.Width;
-        var isOpen = _navigationPaneSizing.Resize(requestedWidth, MainNavigation.CompactPaneLength);
+        var isOpen = _navigationPaneSizing.Resize(
+            requestedWidth, MainNavigation.CompactPaneLength, NavigationResizeGrip.IsResizing);
         MainNavigation.OpenPaneLength = _navigationPaneSizing.ExpandedWidth;
         MainNavigation.IsPaneOpen = isOpen;
         UpdateNavigationResizeGrip();
     }
 
+    private void NavigationResizeGrip_ResizeCompleted(object? sender, EventArgs args)
+    {
+        _navigationPaneSizing.CompleteDrag();
+        UpdateNavigationResizeGrip();
+    }
+
     private void UpdateNavigationResizeGrip()
     {
-        var width = MainNavigation.IsPaneOpen
+        var paneWidth = MainNavigation.IsPaneOpen
             ? MainNavigation.OpenPaneLength
             : MainNavigation.CompactPaneLength;
-        NavigationResizeGrip.ResizeWidth = width;
-        NavigationResizeGrip.Margin = new Thickness(width - NavigationResizeGrip.Width / 2, 0, 0, 0);
+        NavigationResizeGrip.ResizeWidth = paneWidth;
+        var dividerWidth = _navigationPaneSizing.DragWidth ?? paneWidth;
+        NavigationResizeGrip.Margin = new Thickness(dividerWidth - NavigationResizeGrip.Width / 2, 0, 0, 0);
         NavigationResizeGrip.Visibility =
-            MainNavigation.DisplayMode == NavigationViewDisplayMode.Minimal && !MainNavigation.IsPaneOpen
+            MainNavigation.DisplayMode == NavigationViewDisplayMode.Minimal && !MainNavigation.IsPaneOpen &&
+            !NavigationResizeGrip.IsResizing
                 ? Visibility.Collapsed
                 : Visibility.Visible;
     }

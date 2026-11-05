@@ -36,6 +36,39 @@ public sealed class NavigationPaneSizingTests
     }
 
     [Theory]
+    [InlineData(-100, 48, false)]
+    [InlineData(80, 80, false)]
+    [InlineData(120, 120, false)]
+    [InlineData(159, 159, false)]
+    [InlineData(160, 160, true)]
+    [InlineData(500, 320, true)]
+    public void DragGuideTracksBoundedPointerEvenWhenIconsRemain(double requested, double guide, bool open)
+    {
+        var sizing = new NavigationPaneSizing();
+
+        Assert.Equal(open, sizing.Resize(requested, 48, isDragging: true));
+        Assert.Equal(guide, sizing.DragWidth);
+        if (!open) Assert.Equal(NavigationPaneSizing.DefaultWidth, sizing.ExpandedWidth);
+        sizing.CompleteDrag();
+        Assert.Null(sizing.DragWidth);
+    }
+
+    [Fact]
+    public void ContinuousDragCrossesThresholdWithoutLosingGuideOrRememberedWidth()
+    {
+        var sizing = new NavigationPaneSizing();
+        Assert.False(sizing.Resize(100, 48, isDragging: true));
+        Assert.Equal(100, sizing.DragWidth);
+        Assert.True(sizing.Resize(240, 48, isDragging: true));
+        Assert.False(sizing.Resize(120, 48, isDragging: true));
+        Assert.Equal(120, sizing.DragWidth);
+        Assert.Equal(240, sizing.ExpandedWidth);
+        sizing.CompleteDrag();
+        Assert.Null(sizing.DragWidth);
+        Assert.Equal(240, sizing.ExpandedWidth);
+    }
+
+    [Theory]
     [InlineData(double.NaN)]
     [InlineData(double.PositiveInfinity)]
     [InlineData(double.NegativeInfinity)]
