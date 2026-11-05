@@ -72,6 +72,36 @@ public static class SidebarReviewKeyboard
         keybd_event(key, 0, 0, UIntPtr.Zero);
         keybd_event(key, 0, 2, UIntPtr.Zero);
     }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")]
+    private static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extra);
+
+    public static void Drag(int startX, int y, int[] targets)
+    {
+        if (!SetCursorPos(startX, y))
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+        mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
+        try
+        {
+            foreach (int target in targets)
+            {
+                for (int step = 1; step <= 20; step++)
+                {
+                    if (!SetCursorPos(startX + (target - startX) * step / 20, y))
+                        throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+                    System.Threading.Thread.Sleep(20);
+                }
+                startX = target;
+                System.Threading.Thread.Sleep(150);
+            }
+        }
+        finally
+        {
+            mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+        }
+    }
 }
 "@
 
@@ -212,6 +242,89 @@ function Switch-SidebarPane {
     $toggle = Find-SidebarElement AutomationId TogglePaneButton
     $toggle.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Start-Sleep -Milliseconds 500
+}
+
+function Get-SidebarPaneWidth {
+    $grip = (Find-SidebarElement AutomationId NavigationResizeGrip).Current.BoundingRectangle
+    $navigation = (Find-SidebarElement AutomationId MainNavigation).Current.BoundingRectangle
+    return ($grip.Left + $grip.Width / 2 - $navigation.Left) / $scale
+}
+
+function Assert-SidebarPaneWidth([double] $Expected) {
+    $actual = Get-SidebarPaneWidth
+    if ([Math]::Abs($actual - $Expected) -gt 1) {
+        throw "Expected a $Expected-DIP navigation pane; got $actual DIPs."
+    }
+    $branding = Find-SidebarElement Name "LAN scanner" -Optional
+    if (($Expected -ge 160) -ne ($null -ne $branding)) {
+        throw "Navigation labels/branding must appear at 160 DIPs and disappear below the threshold."
+    }
+}
+
+function Resize-SidebarPane([double[]] $Widths) {
+    Focus-SidebarWindow
+    $grip = (Find-SidebarElement AutomationId NavigationResizeGrip).Current.BoundingRectangle
+    $startX = [int] [Math]::Round($grip.Left + $grip.Width / 2)
+    $startWidth = Get-SidebarPaneWidth
+    $targets = [int[]] @($Widths | ForEach-Object {
+        [int] [Math]::Round($startX + ($_ - $startWidth) * $scale)
+    })
+    [SidebarReviewKeyboard]::Drag($startX, [int]($grip.Top + $grip.Height / 2), $targets)
+    Start-Sleep -Milliseconds 500
+}
+
+function Test-SidebarResizing {
+    Select-SidebarPage Network "Public IP address"
+    Assert-SidebarPaneWidth 216
+    Resize-SidebarPane @(320)
+    Assert-SidebarPaneWidth 320
+    Resize-SidebarPane @(500)
+    Assert-SidebarPaneWidth 320
+    Resize-SidebarPane @(160)
+    Assert-SidebarPaneWidth 160
+    $selection = (Find-SidebarElement AutomationId NetworkNavItem).GetCurrentPattern(
+        [System.Windows.Automation.SelectionItemPattern]::Pattern)
+    if (-not $selection.Current.IsSelected) { throw "Resizing must retain the selected navigation destination." }
+    Resize-SidebarPane @(159)
+    Assert-SidebarPaneWidth 48
+    Resize-SidebarPane @(1)
+    Assert-SidebarPaneWidth 48
+    foreach ($page in @(
+        @("Overview", "Online devices"), @("Network", "Public IP address"),
+        @("Devices", "Search devices"), @("People", "Search people"),
+        @("Rooms", "Search rooms"), @("Tools", "Speed test"), @("Settings", "Window backdrop")
+    )) {
+        Select-SidebarPage $page[0] $page[1]
+        Assert-SidebarPaneWidth 48
+    }
+    Save-SidebarAppearance "sidebar-resize-icons"
+    Switch-SidebarPane
+    Assert-SidebarPaneWidth 160
+    Resize-SidebarPane @(280)
+    Switch-SidebarPane
+    Assert-SidebarPaneWidth 48
+    Switch-SidebarPane
+    Assert-SidebarPaneWidth 280
+    # Cross the snap boundary in both directions without releasing pointer capture.
+    Resize-SidebarPane @(100, 240)
+    Assert-SidebarPaneWidth 240
+    Resize-SidebarPane @(159)
+    Assert-SidebarPaneWidth 48
+    Resize-SidebarPane @(160)
+    Assert-SidebarPaneWidth 160
+    $grip = Find-SidebarElement AutomationId NavigationResizeGrip
+    $grip.SetFocus()
+    [SidebarReviewKeyboard]::Tap(0x25)
+    Start-Sleep -Milliseconds 250
+    Assert-SidebarPaneWidth 48
+    [SidebarReviewKeyboard]::Tap(0x27)
+    Start-Sleep -Milliseconds 250
+    Assert-SidebarPaneWidth 160
+    Save-SidebarAppearance "sidebar-resize-threshold"
+    Resize-SidebarPane @(216)
+    Assert-SidebarPaneWidth 216
+    Save-SidebarAppearance "sidebar-resize-expanded"
+    Write-Host "Navigation drag bounds, exact snap threshold, continuous drag, all compact destinations, toggle restoration and keyboard resizing passed."
 }
 
 function Test-SettingsLayout {
@@ -708,6 +821,7 @@ try {
         throw "Tools must remain pinned directly above Settings."
     }
     Save-SidebarAppearance "sidebar-expanded" -AssertMatchingSolid
+    Test-SidebarResizing
     Test-SettingsLayout
     foreach ($theme in $UiReviewAppearanceThemes) {
         Set-SidebarAppearance ThemePicker $theme
@@ -737,8 +851,14 @@ try {
         Set-SidebarWindowWidth $width
         Switch-SidebarPane
         $null = Find-SidebarElement Name "LAN scanner"
+        Resize-SidebarPane @(280)
+        Assert-SidebarPaneWidth 280
+        Resize-SidebarPane @(216)
         Save-SidebarAppearance "sidebar-overlay-$width" -AssertMatchingSolid
         Select-SidebarPage People "Search people"
+        if ($width -eq 640 -and (Find-SidebarElement AutomationId NavigationResizeGrip -Optional)) {
+            throw "A closed minimal-mode pane must not leave a resize divider over page content."
+        }
     }
     Write-Host "Sidebar navigation, expanded/compact/overlay layouts, and matching solid backgrounds in all six themes passed; material captures saved."
     Test-DeviceRefresh

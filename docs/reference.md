@@ -26,6 +26,15 @@ heading. **Run checks** and **Start test** use the same accent-button styling;
 
 ## Run locally
 
+Drag the right edge of the left navigation to resize it, up to 320 DIPs.
+The default expanded width is 216 DIPs. Below 160 DIPs it snaps to the native
+icon-only rail; drag the edge wider to restore labels. The menu toggle reopens
+the last expanded width. The divider also supports Left/Right arrow keys
+(8-DIP steps, or 32 DIPs with Shift); Right from the icon rail expands to
+160 DIPs. Small windows retain native overlay
+navigation; the divider is hidden when a minimal-mode pane is closed.
+Navigation widths apply only until the app closes and are not saved.
+
 Prerequisites:
 
 - Windows 11

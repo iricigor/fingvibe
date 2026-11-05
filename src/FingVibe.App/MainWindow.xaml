@@ -290,6 +290,14 @@
                         AppearanceChanged="AppearancePicker_SelectionChanged" />
             </Grid>
         </NavigationView>
+        <local:ColumnResizeGrip x:Name="NavigationResizeGrip"
+                               Width="9"
+                               HorizontalAlignment="Left"
+                               Margin="211.5,0,0,0"
+                               ResizeRequested="NavigationResizeGrip_ResizeRequested"
+                               AutomationProperties.Name="Resize navigation"
+                               AutomationProperties.HelpText="Drag to resize the menu. Use Left or Right arrow keys; hold Shift for larger steps. Below 160 DIPs, only icons are shown."
+                               ToolTipService.ToolTip="Resize navigation" />
         <Canvas x:Name="BuildRibbonArea" Width="200" Height="124"
                 HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed">
             <Canvas.Clip>
