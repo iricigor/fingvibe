@@ -63,7 +63,7 @@ public sealed partial class MainWindow
                     _inventoryError = "Legacy device data could not be loaded. Inventory changes are disabled to protect it.";
             }
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
         {
             _inventoryUnavailable = _deviceNameOverridesUnavailable = _classificationOverridesUnavailable = _peopleRoomsUnavailable = true;
             _inventoryError = $"Saved inventory could not be loaded. Changes are disabled: {exception.Message}";

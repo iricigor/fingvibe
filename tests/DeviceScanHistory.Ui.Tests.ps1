@@ -265,8 +265,16 @@ try {
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-save-error.png")
     $lock.Dispose()
     $lock = $null
-    Stop-HistoryApp
     Set-Content -LiteralPath $inventory -Value "invalid inventory fixture"
+    Invoke-HistoryScan
+    Wait-HistoryScan
+    if ((Find-HistoryControl ScanStatusText).Current.Name -notlike "*inventory and scan history could not be saved*") {
+        throw "Invalid saved history encountered while saving must be visibly reported."
+    }
+    if ((Get-Content -LiteralPath $inventory -Raw).Trim() -ne "invalid inventory fixture") {
+        throw "Saving must not overwrite invalid history."
+    }
+    Stop-HistoryApp
     Start-HistoryApp
     Wait-HistoryState {
         $status = Find-HistoryControl ScanStatusText -Optional

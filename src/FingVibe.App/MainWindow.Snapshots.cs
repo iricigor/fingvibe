@@ -119,7 +119,7 @@ public sealed partial class MainWindow
                 await PersistDeviceDataAsync(observed);
                 _inventoryError = networkId is null && !IsUiReview ? _inventoryError : null;
             }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
             {
                 _inventory = observed;
                 _inventoryError = $"Scan completed, but inventory and scan history could not be saved: {exception.Message}";
@@ -157,7 +157,7 @@ public sealed partial class MainWindow
             {
                 var updated = CurrentDeviceData.UpdateProbeResults(result);
                 try { await PersistDeviceDataAsync(updated); }
-                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
                 {
                     _inventory = updated;
                     errors.Add($"Inventory: {exception.Message}");
