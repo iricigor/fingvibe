@@ -238,6 +238,10 @@ try {
     (Find-HistoryControl "Cancel scan" -ByName).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-HistoryScan
     if ((Get-Content -LiteralPath $inventory -Raw) -cne $beforeStop) { throw "Cancelled scan changed durable history." }
+    Open-HistoryDetails "History normal"
+    if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "6 completed scan observations") {
+        throw "Cancelled scan changed displayed history."
+    }
     @{ completed = -1; total = 1 } | ConvertTo-Json | Set-Content -LiteralPath "$hold.progress"
     Invoke-HistoryScan
     Wait-HistoryScan
@@ -245,6 +249,10 @@ try {
         throw "Failed scan must display its error."
     }
     if ((Get-Content -LiteralPath $inventory -Raw) -cne $beforeStop) { throw "Failed scan changed durable history." }
+    Open-HistoryDetails "History normal"
+    if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "6 completed scan observations") {
+        throw "Failed scan changed displayed history."
+    }
     Remove-Item -LiteralPath $hold, "$hold.progress"
     $lock = [System.IO.FileStream]::new("$inventory.lock", [System.IO.FileMode]::Open,
         [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
