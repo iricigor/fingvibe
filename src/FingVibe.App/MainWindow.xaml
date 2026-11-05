@@ -85,7 +85,7 @@
                 </ResourceDictionary>
             </NavigationView.Resources>
             <NavigationView.PaneCustomContent>
-                <Grid Margin="12,16,12,24" ColumnSpacing="12"
+                <Grid Margin="8,16,8,24" ColumnSpacing="8"
                       Visibility="{x:Bind MainNavigation.IsPaneOpen, Mode=OneWay}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="48" />
@@ -98,8 +98,10 @@
                         <FontIcon Glyph="&#xE8FE;" FontSize="24" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
                     </Border>
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
-                        <TextBlock Text="FingVibe" TextWrapping="Wrap" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                        <TextBlock Text="LAN scanner" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock x:Name="NavigationBrandName" Text="FingVibe" TextWrapping="NoWrap"
+                                   TextTrimming="CharacterEllipsis" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <TextBlock Text="LAN scanner" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </StackPanel>
                 </Grid>
             </NavigationView.PaneCustomContent>
@@ -290,6 +292,17 @@
                         AppearanceChanged="AppearancePicker_SelectionChanged" />
             </Grid>
         </NavigationView>
+        <local:ColumnResizeGrip x:Name="NavigationResizeGrip"
+                               Width="16"
+                               HorizontalAlignment="Left"
+                               Foreground="{ThemeResource DividerStrokeColorDefaultBrush}"
+                               RevealSeparatorOnInteraction="True"
+                               SeparatorVisibility="Collapsed"
+                               ResizeRequested="NavigationResizeGrip_ResizeRequested"
+                               ResizeCompleted="NavigationResizeGrip_ResizeCompleted"
+                               AutomationProperties.Name="Resize navigation"
+                               AutomationProperties.HelpText="Drag to resize the menu. Use Left or Right arrow keys; hold Shift for larger steps. Below 160 DIPs, only icons are shown."
+                               ToolTipService.ToolTip="Resize navigation" />
         <Canvas x:Name="BuildRibbonArea" Width="200" Height="124"
                 HorizontalAlignment="Right" VerticalAlignment="Top" Visibility="Collapsed">
             <Canvas.Clip>

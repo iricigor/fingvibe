@@ -72,6 +72,54 @@ public static class SidebarReviewKeyboard
         keybd_event(key, 0, 0, UIntPtr.Zero);
         keybd_event(key, 0, 2, UIntPtr.Zero);
     }
+
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int index);
+    [DllImport("user32.dll")]
+    private static extern void mouse_event(uint flags, uint x, uint y, uint data, UIntPtr extra);
+
+    public static void Drag(int startX, int y, int[] targets)
+    {
+        PressAt(startX, y);
+        try
+        {
+            foreach (int target in targets)
+            {
+                for (int step = 1; step <= 20; step++)
+                {
+                    MoveTo(startX + (target - startX) * step / 20, y);
+                    System.Threading.Thread.Sleep(20);
+                }
+                startX = target;
+                System.Threading.Thread.Sleep(150);
+            }
+        }
+
+        finally
+        {
+            Release();
+        }
+    }
+
+    public static void PressAt(int x, int y)
+    {
+        MoveTo(x, y);
+        System.Threading.Thread.Sleep(200);
+        mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
+        System.Threading.Thread.Sleep(100);
+    }
+
+    public static void Release()
+    {
+        mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+    }
+
+    public static void MoveTo(int x, int y)
+    {
+        uint absoluteX = (uint)((long)(x - GetSystemMetrics(76)) * 65535 / (GetSystemMetrics(78) - 1));
+        uint absoluteY = (uint)((long)(y - GetSystemMetrics(77)) * 65535 / (GetSystemMetrics(79) - 1));
+        mouse_event(0xC001, absoluteX, absoluteY, 0, UIntPtr.Zero);
+    }
 }
 "@
 
@@ -212,6 +260,160 @@ function Switch-SidebarPane {
     $toggle = Find-SidebarElement AutomationId TogglePaneButton
     $toggle.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Start-Sleep -Milliseconds 500
+}
+
+function Get-SidebarPaneWidth {
+    $grip = (Find-SidebarElement AutomationId NavigationResizeGrip).Current.BoundingRectangle
+    $navigation = (Find-SidebarElement AutomationId MainNavigation).Current.BoundingRectangle
+    return ($grip.Left + $grip.Width / 2 - $navigation.Left) / $scale
+}
+
+function Assert-SidebarPaneWidth([double] $Expected) {
+    $actual = Get-SidebarPaneWidth
+    if ([Math]::Abs($actual - $Expected) -gt 1) {
+        Save-SidebarAppearance "sidebar-resize-failure"
+        throw "Expected a $Expected-DIP navigation pane; got $actual DIPs."
+    }
+    $branding = Find-SidebarElement Name "LAN scanner" -Optional
+    if (($Expected -ge 160) -ne ($null -ne $branding)) {
+        throw "Navigation labels/branding must appear at 160 DIPs and disappear below the threshold."
+    }
+}
+
+function Resize-SidebarPane([double[]] $Widths) {
+    Focus-SidebarWindow
+    $grip = (Find-SidebarElement AutomationId NavigationResizeGrip).Current.BoundingRectangle
+    $startX = [int] [Math]::Round($grip.Left + $grip.Width / 2)
+    $startWidth = Get-SidebarPaneWidth
+    $targets = [int[]] @($Widths | ForEach-Object {
+        [int] [Math]::Round($startX + ($_ - $startWidth) * $scale)
+    })
+    Write-Host "Dragging navigation from $startWidth DIPs to $($Widths -join ', ') DIPs at $grip."
+    [SidebarReviewKeyboard]::Drag($startX, [int]($grip.Top + $grip.Height / 2), $targets)
+    Start-Sleep -Milliseconds 500
+}
+
+function Test-SidebarDividerAppearance {
+    Focus-SidebarWindow
+    (Find-SidebarElement AutomationId NetworkNavItem).SetFocus()
+    $grip = (Find-SidebarElement AutomationId NavigationResizeGrip).Current.BoundingRectangle
+    $x = [int]($grip.Left + $grip.Width / 2)
+    $y = [int]($grip.Top + $grip.Height / 2)
+    [SidebarReviewKeyboard]::MoveTo($x + [int](100 * $scale), $y)
+    Save-SidebarAppearance "sidebar-divider-hidden"
+    [SidebarReviewKeyboard]::MoveTo($x + [int](5 * $scale), $y)
+    Save-SidebarAppearance "sidebar-divider-hover"
+    [SidebarReviewKeyboard]::MoveTo($x + [int](100 * $scale), $y)
+    Save-SidebarAppearance "sidebar-divider-hidden-again"
+    $window = Get-UiReviewWindowBounds $windowHandle
+    $hidden = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "sidebar-divider-hidden.png"))
+    $hover = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "sidebar-divider-hover.png"))
+    $again = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "sidebar-divider-hidden-again.png"))
+    try {
+        $changed = 0
+        $sampleY = [int]($grip.Top - $window.Top + 16 * $scale)
+        foreach ($sampleX in ([int]($x - $window.Left - 2 * $scale))..([int]($x - $window.Left + 2 * $scale))) {
+            $background = $hidden.GetPixel($sampleX, $sampleY)
+            $line = $hover.GetPixel($sampleX, $sampleY)
+            if ($background.ToArgb() -ne $again.GetPixel($sampleX, $sampleY).ToArgb()) {
+                throw "The divider must disappear when the pointer leaves its hit area."
+            }
+            $contrast = [Math]::Max([Math]::Abs([int]$line.R - $background.R),
+                [Math]::Max([Math]::Abs([int]$line.G - $background.G), [Math]::Abs([int]$line.B - $background.B)))
+            if ($contrast -ge 3) { $changed++ }
+            if ($contrast -gt 40) { throw "The normal-theme divider must use a subtle color, not a strong border." }
+        }
+        if ($changed -eq 0) { throw "The divider must appear when the pointer is within five DIPs of its edge." }
+    }
+    finally {
+        $hidden.Dispose()
+        $hover.Dispose()
+        $again.Dispose()
+    }
+}
+
+function Test-SidebarIconDragGuide {
+    Focus-SidebarWindow
+    $grip = (Find-SidebarElement AutomationId NavigationResizeGrip).Current.BoundingRectangle
+    $navigation = (Find-SidebarElement AutomationId MainNavigation).Current.BoundingRectangle
+    $y = [int]($grip.Top + $grip.Height / 2)
+    [SidebarReviewKeyboard]::PressAt([int]($grip.Left + $grip.Width / 2), $y)
+    try {
+        foreach ($width in @(96, 140, 120)) {
+            [SidebarReviewKeyboard]::MoveTo([int]($navigation.Left + $width * $scale), $y)
+            Start-Sleep -Milliseconds 300
+            Assert-SidebarPaneWidth $width
+            if ((Find-SidebarElement AutomationId NetworkNavItem).Current.BoundingRectangle.Width / $scale -ge 80) {
+                throw "Following the pointer below 160 DIPs must not expand the icon rail."
+            }
+        }
+        Save-SidebarAppearance "sidebar-resize-icon-guide"
+    }
+    finally {
+        [SidebarReviewKeyboard]::Release()
+    }
+    Start-Sleep -Milliseconds 300
+    Assert-SidebarPaneWidth 48
+}
+
+function Test-SidebarResizing {
+    Select-SidebarPage Network "Public IP address"
+    Assert-SidebarPaneWidth 216
+    Test-SidebarDividerAppearance
+    Resize-SidebarPane @(320)
+    Assert-SidebarPaneWidth 320
+    Resize-SidebarPane @(500)
+    Assert-SidebarPaneWidth 320
+    Resize-SidebarPane @(160)
+    Assert-SidebarPaneWidth 160
+    $brand = Find-SidebarElement AutomationId NavigationBrandName
+    if ($brand.Current.Name -ne "FingVibe" -or $brand.Current.BoundingRectangle.Height / $scale -gt 30) {
+        throw "FingVibe must stay on one line at the minimum expanded width."
+    }
+    $selection = (Find-SidebarElement AutomationId NetworkNavItem).GetCurrentPattern(
+        [System.Windows.Automation.SelectionItemPattern]::Pattern)
+    if (-not $selection.Current.IsSelected) { throw "Resizing must retain the selected navigation destination." }
+    Resize-SidebarPane @(159)
+    Assert-SidebarPaneWidth 48
+    Resize-SidebarPane @(1)
+    Assert-SidebarPaneWidth 48
+    Test-SidebarIconDragGuide
+    foreach ($page in @(
+        @("Overview", "Online devices"), @("Network", "Public IP address"),
+        @("Devices", "Search devices"), @("People", "Search people"),
+        @("Rooms", "Search rooms"), @("Tools", "Speed test"), @("Settings", "Window backdrop")
+    )) {
+        Select-SidebarPage $page[0] $page[1]
+        Assert-SidebarPaneWidth 48
+    }
+    Save-SidebarAppearance "sidebar-resize-icons"
+    Switch-SidebarPane
+    Assert-SidebarPaneWidth 160
+    Resize-SidebarPane @(280)
+    Switch-SidebarPane
+    Assert-SidebarPaneWidth 48
+    Switch-SidebarPane
+    Assert-SidebarPaneWidth 280
+    # Cross the snap boundary in both directions without releasing pointer capture.
+    Resize-SidebarPane @(100, 240)
+    Assert-SidebarPaneWidth 240
+    Resize-SidebarPane @(159)
+    Assert-SidebarPaneWidth 48
+    Resize-SidebarPane @(160)
+    Assert-SidebarPaneWidth 160
+    $grip = Find-SidebarElement AutomationId NavigationResizeGrip
+    $grip.SetFocus()
+    [SidebarReviewKeyboard]::Tap(0x25)
+    Start-Sleep -Milliseconds 250
+    Assert-SidebarPaneWidth 48
+    [SidebarReviewKeyboard]::Tap(0x27)
+    Start-Sleep -Milliseconds 250
+    Assert-SidebarPaneWidth 160
+    Save-SidebarAppearance "sidebar-resize-threshold"
+    Resize-SidebarPane @(216)
+    Assert-SidebarPaneWidth 216
+    Save-SidebarAppearance "sidebar-resize-expanded"
+    Write-Host "Navigation drag bounds, exact snap threshold, continuous drag, all compact destinations, toggle restoration and keyboard resizing passed."
 }
 
 function Test-SettingsLayout {
@@ -647,31 +849,92 @@ function Test-ScanPresentation {
     }
 }
 
+function Start-SidebarApp {
+    $script:process = Start-Process -FilePath (Resolve-Path -LiteralPath $AppPath).Path -PassThru
+    $deadline = [DateTime]::UtcNow.AddSeconds(30)
+    do {
+        $script:process.Refresh()
+        if ($script:process.HasExited) { throw "Review app exited with code $($script:process.ExitCode)." }
+        if ($script:process.MainWindowHandle -ne [IntPtr]::Zero) { break }
+        Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $deadline)
+    $script:windowHandle = $script:process.MainWindowHandle
+    if ($script:windowHandle -eq [IntPtr]::Zero) { throw "Review app did not create a window." }
+    $script:root = [System.Windows.Automation.AutomationElement]::FromHandle($script:windowHandle)
+    $null = Find-SidebarElement AutomationId MainNavigation
+    Focus-SidebarWindow
+    Initialize-UiReviewWindow $script:windowHandle
+    $script:scale = [UiReviewNativeWindow]::GetDpiForWindow($script:windowHandle) / 96.0
+}
+
+function Stop-SidebarApp {
+    if ($script:process -and -not $script:process.HasExited) {
+        Stop-Process -Id $script:process.Id
+        $null = $script:process.WaitForExit(10000)
+    }
+}
+
+function Assert-SidebarNavigationPreference([double] $Width, [bool] $IsCollapsed) {
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+        $saved = $null
+        try { $saved = Get-Content -LiteralPath $navigationPreferencePath -Raw | ConvertFrom-Json }
+        catch [System.IO.IOException], [System.Management.Automation.ItemNotFoundException] { }
+        if ($saved -and [Math]::Abs($saved.expandedWidth - $Width) -le 1 -and $saved.isCollapsed -eq $IsCollapsed) {
+            return
+        }
+        Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "Expected saved navigation of $Width DIPs with collapsed=$IsCollapsed; got $($saved | ConvertTo-Json -Compress)."
+}
+
+function Test-SidebarPersistence {
+    Stop-SidebarApp
+    Set-Content -LiteralPath $navigationPreferencePath -Value '{"expandedWidth":280,"isCollapsed":false}' -Encoding ASCII
+    $env:FINGVIBE_UI_REVIEW_NAVIGATION = $navigationPreferencePath
+    Start-SidebarApp
+    Set-SidebarWindowWidth $expandedWidth
+    Assert-SidebarPaneWidth 280
+    Switch-SidebarPane
+    Assert-SidebarPaneWidth 48
+    Assert-SidebarNavigationPreference 280 $true
+
+    Stop-SidebarApp
+    Start-SidebarApp
+    Set-SidebarWindowWidth $expandedWidth
+    Assert-SidebarPaneWidth 48
+    Switch-SidebarPane
+    Assert-SidebarPaneWidth 280
+    Assert-SidebarNavigationPreference 280 $false
+    Resize-SidebarPane @(240)
+    Assert-SidebarPaneWidth 240
+    Assert-SidebarNavigationPreference 240 $false
+    Set-SidebarWindowWidth 800
+    if ((Find-SidebarElement AutomationId NetworkNavItem).Current.BoundingRectangle.Width / $scale -ge 80) {
+        throw "A small window must collapse navigation automatically."
+    }
+    Assert-SidebarNavigationPreference 240 $false
+
+    Stop-SidebarApp
+    Start-SidebarApp
+    Set-SidebarWindowWidth $expandedWidth
+    Assert-SidebarPaneWidth 240
+    Write-Host "Navigation width and icon-only choice were restored after restart; automatic small-window collapse was not saved."
+}
+
 $savedReviewMode = $env:FINGVIBE_UI_REVIEW
 $savedScanHold = $env:FINGVIBE_UI_REVIEW_SCAN_HOLD
+$savedNavigationPreference = $env:FINGVIBE_UI_REVIEW_NAVIGATION
 $scanHoldPath = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-refresh-$([Guid]::NewGuid().ToString('N')).hold"
+$navigationPreferencePath = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-navigation-$([Guid]::NewGuid().ToString('N')).json"
 $process = $null
 $previousContext = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext([IntPtr]::new(-4))
 try {
     $env:FINGVIBE_UI_REVIEW = "1"
     $env:FINGVIBE_UI_REVIEW_SCAN_HOLD = $scanHoldPath
+    $env:FINGVIBE_UI_REVIEW_NAVIGATION = $null
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
-    $process = Start-Process -FilePath (Resolve-Path -LiteralPath $AppPath).Path -PassThru
-    $deadline = [DateTime]::UtcNow.AddSeconds(30)
-    do {
-        $process.Refresh()
-        if ($process.HasExited) { throw "Review app exited with code $($process.ExitCode)." }
-        if ($process.MainWindowHandle -ne [IntPtr]::Zero) { break }
-        Start-Sleep -Milliseconds 100
-    } while ([DateTime]::UtcNow -lt $deadline)
-    $windowHandle = $process.MainWindowHandle
-    if ($windowHandle -eq [IntPtr]::Zero) { throw "Review app did not create a window." }
-    $root = [System.Windows.Automation.AutomationElement]::FromHandle($windowHandle)
-    $null = Find-SidebarElement Name FingVibe
-    Focus-SidebarWindow
-    Initialize-UiReviewWindow $windowHandle
-    $scale = [UiReviewNativeWindow]::GetDpiForWindow($windowHandle) / 96.0
-
+    Start-SidebarApp
     $area = [System.Windows.Forms.Screen]::FromHandle($windowHandle).WorkingArea
     $availableWidth = [int] [Math]::Floor($area.Width / $scale)
     $expandedWidth = [Math]::Min($ExpandedWindowWidth, $availableWidth)
@@ -708,6 +971,7 @@ try {
         throw "Tools must remain pinned directly above Settings."
     }
     Save-SidebarAppearance "sidebar-expanded" -AssertMatchingSolid
+    Test-SidebarResizing
     Test-SettingsLayout
     foreach ($theme in $UiReviewAppearanceThemes) {
         Set-SidebarAppearance ThemePicker $theme
@@ -737,17 +1001,26 @@ try {
         Set-SidebarWindowWidth $width
         Switch-SidebarPane
         $null = Find-SidebarElement Name "LAN scanner"
+        Resize-SidebarPane @(280)
+        Assert-SidebarPaneWidth 280
+        Resize-SidebarPane @(216)
         Save-SidebarAppearance "sidebar-overlay-$width" -AssertMatchingSolid
         Select-SidebarPage People "Search people"
+        if ($width -eq 640 -and (Find-SidebarElement AutomationId NavigationResizeGrip -Optional)) {
+            throw "A closed minimal-mode pane must not leave a resize divider over page content."
+        }
     }
     Write-Host "Sidebar navigation, expanded/compact/overlay layouts, and matching solid backgrounds in all six themes passed; material captures saved."
     Test-DeviceRefresh
     Test-ScanPresentation
+    Test-SidebarPersistence
 }
 finally {
     if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id }
     $env:FINGVIBE_UI_REVIEW = $savedReviewMode
     $env:FINGVIBE_UI_REVIEW_SCAN_HOLD = $savedScanHold
+    $env:FINGVIBE_UI_REVIEW_NAVIGATION = $savedNavigationPreference
     if (Test-Path -LiteralPath $scanHoldPath) { Remove-Item -LiteralPath $scanHoldPath }
+    if (Test-Path -LiteralPath $navigationPreferencePath) { Remove-Item -LiteralPath $navigationPreferencePath }
     $null = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext($previousContext)
 }

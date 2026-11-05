@@ -10,6 +10,7 @@ Keep changes within the owning module whenever possible. Coordinate changes to s
 Current ownership boundaries:
 
 - `MainWindow.xaml.cs` owns shell initialization, page routing, navigation, and top-level wiring.
+- `MainWindow.NavigationPane.cs` owns navigation-pane resizing, icon-only collapse, and its saved width/collapse preference.
 - `MainWindow.Scan.cs` owns scan start, cancellation, progress, and completion status.
 - `MainWindow.ScanPresentation.cs` owns responsive shared network-header layout and the scan-progress pulse.
 - `MainWindow.Results.cs` owns result collection, filtering, sorting, comparer state, and result summaries.
