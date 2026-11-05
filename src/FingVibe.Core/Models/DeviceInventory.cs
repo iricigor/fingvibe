@@ -23,6 +23,9 @@ public sealed record ImportedDeviceMetadata(
     string? OperatingSystemVersion = null,
     string? Address = null);
 
+public sealed record DeviceScanObservation(
+    DateTimeOffset CompletedAt, string? NetworkId, string Subnet, bool Present);
+
 public sealed record DeviceObservation(
     string? NetworkId,
     string Subnet,
@@ -49,6 +52,8 @@ public sealed record InventoryDevice(
     ImportedDeviceMetadata Imported,
     IReadOnlyList<DeviceObservation> Observations)
 {
+    public IReadOnlyList<DeviceScanObservation> ScanHistory { get; init; } = [];
+
     [JsonIgnore]
     public DeviceObservation? LatestObservation => Observations.OrderByDescending(item =>
             item.LastChecked == CurrentCompletedAt && item.NetworkId == CurrentNetworkId && item.Subnet == CurrentSubnet)
@@ -122,6 +127,7 @@ public sealed record DeviceInventoryData(
         var responses = snapshot.Results.Where(result => result.Status == HostStatus.Alive
             && result.MacAddress?.GetAddressBytes().Length == 6).ToArray();
         var seen = responses.Select(result => (result.MacAddress!.ToString(), result.AddressText)).ToHashSet();
+        var presentMacs = responses.Select(result => result.MacAddress!.ToString()).ToHashSet();
         foreach (var result in responses)
         {
             var mac = result.MacAddress!.ToString();
@@ -154,12 +160,20 @@ public sealed record DeviceInventoryData(
             }
         }
         foreach (var (mac, device) in devices.ToArray())
+        {
+            var present = presentMacs.Contains(mac);
+            var relevant = present || networkId is not null && device.Observations.Any(item =>
+                item.NetworkId == networkId && item.Subnet == snapshot.Subnet);
             devices[mac] = device with
             {
+                ScanHistory = !historical && relevant
+                    ? device.ScanHistory.Append(new(snapshot.CompletedAt, networkId, snapshot.Subnet, present)).ToArray()
+                    : device.ScanHistory,
                 CurrentCompletedAt = historical ? null : snapshot.CompletedAt,
                 CurrentNetworkId = historical ? null : networkId,
                 CurrentSubnet = historical ? null : snapshot.Subnet
             };
+        }
         var observed = this with { Devices = devices };
         return observed with
         {

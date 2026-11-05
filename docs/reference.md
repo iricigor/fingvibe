@@ -62,7 +62,7 @@ Overview shows the selected interface as the network name, with subnet and avail
 
 Successful scans leave no persistent completion message in the shared header, including on Devices. The message area collapses when no other status remains. Displayed-scan freshness, Devices scan duration, and Overview's online-device count remain available; live progress, cancellation feedback, scan/save errors, and selected-target warnings remain visible globally.
 
-Select the online-device or open-port summary card to open the corresponding Devices results. This clears stale search/summary filters; the visible **With open ports** toggle chip can be cleared to return to other devices and combines with text search and People/Rooms filters. Open ports describe observed services, not a security verdict. Overview does not count unused addresses as offline devices. Inventory retains local observations, not an event timeline. The compact **About FingVibe** card opens **Tools > About FingVibe** directly. About is also available from the Tools landing page and contains version/build details and links to the repository and creator's website (opened in the external browser).
+Select the online-device or open-port summary card to open the corresponding Devices results. This clears stale search/summary filters; the visible **With open ports** toggle chip can be cleared to return to other devices and combines with text search and People/Rooms filters. Open ports describe observed services, not a security verdict. Overview does not count unused addresses as offline devices. Inventory retains local observations and per-device scan history, not a physical-availability timeline. The compact **About FingVibe** card opens **Tools > About FingVibe** directly. About is also available from the Tools landing page and contains version/build details and links to the repository and creator's website (opened in the external browser).
 
 The running version is visible near the top of Overview and in the window title. Official release builds have no ribbon. PR artifacts show their PR number and an amber diagonal **TEST BUILD** ribbon; local builds show **DEV**, and manually dispatched non-PR CI builds show **TEST**. A smaller second line visibly shows the UTC build date/time (for example, **Built Nov 1, 12:20 UTC**). The tooltip and About show the full timestamp, including year and seconds, and commit information when recorded. Click or keyboard-activate the ribbon to acknowledge it until the app closes. The title and About details retain the build identity after acknowledgment. The ribbon floats above the page at the top-right client-area corner below the unchanged native title bar, extending continuously to the top and right edges. The header keeps a consistent right-hand clearance in every build, so showing or acknowledging the ribbon never shifts or resizes page content. The ribbon uses system colors in Windows high contrast.
 
@@ -253,7 +253,42 @@ Standard rows have 6-DIP vertical padding, 13px primary names/latencies and a 20
 
 IPv4 MAC enrichment first checks Windows' neighbor table for the exact IP on the route-selected interface, accepting only valid unicast six-byte addresses in usable states. If absent, it attempts `SendARP` once and rechecks the table. It never substitutes a gateway MAC or an unrelated interface's neighbor; a ping response can still lack a resolvable MAC.
 
-Starting a scan keeps the displayed list visible and scrollable but prevents opening device details by pointer or keyboard. Results are collected separately and replace the list only when the scan succeeds; cancellation or failure retains the displayed results and reports the outcome explicitly. Progress continues to count all checked addresses. Completed scans update inventory observations and same-network absence; this adds no event timeline or new discovery probes.
+Starting a scan keeps the displayed list visible and scrollable but prevents opening device details by pointer or keyboard. Results are collected separately and replace the list only when the scan succeeds; cancellation or failure retains the displayed results and reports the outcome explicitly. Progress continues to count all checked addresses. Completed scans update inventory observations, same-network absence, and per-device scan history; no new discovery probes are added.
+
+### Device scan history
+
+Device details shows a scrollable, newest-first **Scan history** list for normal
+MAC-based devices and existing virtual devices. Each relevant completed manual
+scan contributes one row with its completion time in UTC, **Observed present**
+or **Observed absent**, Windows network identity, and subnet. Repeated unchanged
+scans remain separate rows. Multiple responding addresses or associated MACs
+do not duplicate a virtual device's row; its history follows its existing
+virtual identity when the active MAC changes. Existing association rules are
+unchanged.
+
+Absence is recorded only for previously locally observed devices covered by a
+successful scan of the same identified network and subnet. Presence without a
+network identity is labeled **identity unavailable** and cannot establish later
+absence. Scans of other networks, unused addresses, failed/cancelled scans,
+additional port checks, and reopening saved data do not fabricate observations.
+These are scan results, not proof of uninterrupted physical availability or
+the actual time a device connected/disconnected.
+
+All scan observations are retained indefinitely in `device-inventory.json`,
+with no age/count limit, automatic truncation, or new history-clearing control.
+The file can grow over time. Inventory formats 1 and 2 remain readable; new
+saves use format 3. Legacy aggregates and imported Fing timestamps are never
+expanded into invented scan rows. Imported-only devices and older saved
+devices explain their empty history. Restart retains history but does not
+make it fresh evidence of live presence. Load errors disable inventory edits;
+save errors visibly report that inventory and scan history were not saved.
+
+`tests\DeviceScanHistory.Ui.Tests.ps1` verifies synthetic normal/virtual history,
+empty imported history, restart, successful repeated scans, cancellation,
+failure, and visible persistence errors on the disposable Windows CI desktop.
+Device-details review captures include this check; never run it on a working
+user's desktop. Its explicit `FINGVIBE_UI_REVIEW_INVENTORY` path isolates saved
+fixtures from real user data, like the existing review snapshot override.
 
 The expanded sidebar uses a compact 216-DIP Windows Settings-style layout with colored navigation icons and a wrapping FingVibe header. The sidebar and main page share one background, including when a backdrop material is selected. Collapsing the pane keeps an icon rail; narrow windows use native overlay navigation, with Tools above Settings at the bottom. While an overlay is open, both backgrounds temporarily use the same solid theme color to keep the menu readable without a contrasting pane tint; closing it restores the selected material. Windows high contrast replaces decorative icon colors with system colors.
 

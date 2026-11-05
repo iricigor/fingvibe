@@ -20,6 +20,8 @@ public sealed record PrivateVirtualDevice(
     DeviceClassificationOverride? Classification = null,
     DeviceAssignment? Assignment = null)
 {
+    public IReadOnlyList<DeviceScanObservation> ScanHistory { get; init; } = [];
+
     [JsonIgnore]
     public string AutomaticName => $"Private {string.Join("-", Enumerable.Range(0, 3).Select(i => Prefix.Substring(i * 2, 2)))}"
         + (Number == 1 ? string.Empty : $" -{Number}");
@@ -157,6 +159,8 @@ public static class PrivateVirtualDeviceAllocator
                 LastChecked = snapshot.CompletedAt,
                 Present = currentMac is not null,
                 History = history,
+                ScanHistory = slot.ScanHistory.Append(new(snapshot.CompletedAt, networkId,
+                    snapshot.Subnet, currentMac is not null)).ToArray(),
                 CurrentCompletedAt = snapshot.CompletedAt
             };
         }

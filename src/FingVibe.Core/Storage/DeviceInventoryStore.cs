@@ -21,10 +21,10 @@ public sealed class DeviceInventoryStore
         {
             await using var stream = File.OpenRead(_path);
             var document = await JsonSerializer.DeserializeAsync<Document>(stream, Options, cancellationToken);
-            if (document is null || document.Version is not (1 or 2) || document.Data is not { } saved
+            if (document is null || document.Version is not (1 or 2 or 3) || document.Data is not { } saved
                 || saved.Revision == Guid.Empty || saved.Devices is null || saved.Names is null || saved.Classifications is null
                 || saved.PeopleRooms?.People is null || saved.PeopleRooms.Rooms is null || saved.PeopleRooms.Assignments is null
-                || document.Version == 2 && saved.VirtualDevices is null)
+                || document.Version >= 2 && saved.VirtualDevices is null)
                 throw new InvalidDataException("The device inventory has an unsupported or invalid format.");
             var data = new DeviceInventoryData(saved.Revision, saved.Devices, saved.Names, saved.Classifications,
                 new PeopleRoomsData(saved.PeopleRooms.People, saved.PeopleRooms.Rooms, saved.PeopleRooms.Assignments))
@@ -60,7 +60,7 @@ public sealed class DeviceInventoryStore
         {
             await using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             {
-                var document = new Document(2, new SavedData(updated.Revision, updated.Devices, updated.Names,
+                var document = new Document(3, new SavedData(updated.Revision, updated.Devices, updated.Names,
                     updated.Classifications, new SavedPeopleRooms(updated.PeopleRooms.People, updated.PeopleRooms.Rooms,
                         updated.PeopleRooms.Assignments), updated.VirtualDevices));
                 await JsonSerializer.SerializeAsync(stream, document, Options, cancellationToken);
@@ -99,6 +99,7 @@ public sealed class DeviceInventoryStore
                 if (!identities.Add((observation.NetworkId, observation.Subnet, observation.Address)))
                     throw new InvalidDataException("The device inventory contains invalid local observations.");
             }
+            ValidateScanHistory(device.ScanHistory);
         }
         foreach (var (key, name) in data.Names)
             if (key != PeopleRoomsData.NormalizeMacAddress(key) || string.IsNullOrWhiteSpace(name))
@@ -145,7 +146,19 @@ public sealed class DeviceInventoryStore
                 throw new InvalidDataException("A virtual device must have at most one responding MAC.");
             if (slot.Present && !activeMacs.Add((slot.NetworkId, slot.Subnet, slot.LastActiveMac)))
                 throw new InvalidDataException("A responding MAC cannot occupy multiple virtual devices.");
+            ValidateScanHistory(slot.ScanHistory);
+            if (slot.ScanHistory.Any(item => item.NetworkId != slot.NetworkId || item.Subnet != slot.Subnet))
+                throw new InvalidDataException("Virtual scan history must belong to its device's network and subnet.");
         }
+    }
+
+    private static void ValidateScanHistory(IReadOnlyList<DeviceScanObservation> history)
+    {
+        if (history is null || history.Any(item => item is null || item.CompletedAt == default
+            || !ValidSubnet(item.Subnet)
+            || item.NetworkId is not null && string.IsNullOrWhiteSpace(item.NetworkId)
+            || !item.Present && item.NetworkId is null))
+            throw new InvalidDataException("The device inventory contains invalid scan history.");
     }
 
     private static void ValidateObservation(DeviceObservation observation)

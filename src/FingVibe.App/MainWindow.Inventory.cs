@@ -8,8 +8,11 @@ namespace FingVibe.App;
 
 public sealed partial class MainWindow
 {
-    private readonly DeviceInventoryStore _inventoryStore = new(Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FingVibe", "device-inventory.json"));
+    private static string? ReviewInventoryPath => IsUiReview
+        ? Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_INVENTORY") : null;
+    private readonly DeviceInventoryStore _inventoryStore = new(
+        ReviewInventoryPath is { Length: > 0 } ? ReviewInventoryPath : Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FingVibe", "device-inventory.json"));
     private readonly SemaphoreSlim _deviceDataSaveLock = new(1, 1);
     private DeviceInventoryData _inventory = DeviceInventoryData.Empty;
     private bool _inventoryReady;
@@ -30,7 +33,7 @@ public sealed partial class MainWindow
     {
         try
         {
-            var saved = IsUiReview ? null : await _inventoryStore.LoadAsync();
+            var saved = IsUiReview && string.IsNullOrEmpty(ReviewInventoryPath) ? null : await _inventoryStore.LoadAsync();
             if (saved is not null)
             {
                 ApplyInventoryData(saved);
@@ -87,7 +90,7 @@ public sealed partial class MainWindow
         if (!IsUiReview && _inventory.Revision == Guid.Empty && _legacyFingerprints is not null
             && !SameFingerprints(_legacyFingerprints, await ReadLegacyFingerprintsAsync()))
             throw new InvalidOperationException("Legacy saved data changed after loading. Restart and analyze again before migrating it.");
-        var saved = IsUiReview ? data with { Revision = Guid.NewGuid() }
+        var saved = IsUiReview && string.IsNullOrEmpty(ReviewInventoryPath) ? data with { Revision = Guid.NewGuid() }
             : await _inventoryStore.SaveAsync(data, _inventory.Revision);
         ApplyInventoryData(saved);
         ToolsPage.InvalidateImportAnalysis("Saved device data changed. Analyze again before importing.");

@@ -122,7 +122,7 @@ public sealed partial class MainWindow
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
             {
                 _inventory = observed;
-                _inventoryError = $"Scan completed, but inventory could not be saved: {exception.Message}";
+                _inventoryError = $"Scan completed, but inventory and scan history could not be saved: {exception.Message}";
             }
         }
         finally { _deviceDataSaveLock.Release(); }

@@ -1,9 +1,15 @@
 using System.Net;
+using System.Globalization;
 using FingVibe.Core.Models;
 
 namespace FingVibe.App;
 
 internal sealed record DeviceDetailField(string Label, string Value);
+
+public sealed record DeviceScanHistoryRow(string ScanTime, string State, string NetworkContext)
+{
+    public string AccessibleLabel => $"{ScanTime}; {State}; {NetworkContext}";
+}
 
 internal sealed record DeviceEndpointPresentation(
     OpenPort Endpoint, string Value, Uri? BrowserUri, string BrowserLabel)
@@ -14,6 +20,18 @@ internal sealed record DeviceEndpointPresentation(
 
 internal static class DeviceDetailsPresentation
 {
+    internal static IReadOnlyList<DeviceScanHistoryRow> ScanHistory(ScanResultRow row) =>
+        row.ScanHistory.OrderByDescending(item => item.CompletedAt).Select(item => new DeviceScanHistoryRow(
+            item.CompletedAt.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture),
+            item.Present ? "Observed present" : "Observed absent",
+            $"Network {item.NetworkId ?? "identity unavailable"} | {item.Subnet}")).ToArray();
+
+    internal static string EmptyScanHistory(ScanResultRow row) => row.IsFingOnly
+        ? "No local scan history. Imported Fing data is not a local scan observation."
+        : row.MacAddress is null
+            ? "Scan history requires a MAC-based device identity."
+            : "No recorded scan history yet. Earlier saved aggregates are not individual scan observations.";
+
     internal static bool CanCopy(string? value) =>
         !string.IsNullOrWhiteSpace(value) && value is not ("-" or "Unknown" or "Unknown (likely)");
 
