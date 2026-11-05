@@ -23,6 +23,7 @@ foreach ($case in @(
     @{ Paths = @("tests/UiReviewScreenshot.Tests.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/NetworkTroubleshooting.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/FingImport.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
+    @{ Paths = @("tests/DeviceScanHistory.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/Installer.Lifecycle.Tests.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/Installer.Script.Tests.ps1"); Expected = @($true, $false, $false) },
     @{ Paths = @("tools/installer/FingVibe.iss"); Expected = @($true, $true, $true) },

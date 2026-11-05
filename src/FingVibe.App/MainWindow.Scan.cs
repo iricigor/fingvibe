@@ -120,6 +120,7 @@ public sealed partial class MainWindow
                 resultProgress,
                 scanProgress,
                 _scanCancellation.Token);
+            cancellation.Token.ThrowIfCancellationRequested();
             var completedNetworkId = GetScanNetworkIdentity(network);
             if (completedNetworkId != networkId)
             {

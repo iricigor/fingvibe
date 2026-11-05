@@ -53,6 +53,8 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     }
 
     public bool IsVirtualIdentity => VirtualDevice is not null;
+    public IReadOnlyList<DeviceScanObservation> ScanHistory =>
+        VirtualDevice?.ScanHistory ?? _inventoryDevice?.ScanHistory ?? [];
     public string VirtualIdentityDescription => IsVirtualIdentity
         ? "Virtual device - inferred identity across changing MAC addresses." : string.Empty;
 

@@ -121,6 +121,11 @@ try {
     foreach ($path in @("src\FingVibe.App\DeviceDetailsPresentation.cs", "src\FingVibe.App\Views\DeviceDetailValue.cs")) {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device details presentation"
     }
+    foreach ($path in @("src\FingVibe.Core\Models\DeviceInventory.cs", "src\FingVibe.Core\Models\PrivateVirtualDevice.cs",
+        "src\FingVibe.Core\Storage\DeviceInventoryStore.cs", "src\FingVibe.App\MainWindow.Snapshots.cs",
+        "tests\DeviceScanHistory.Ui.Tests.ps1")) {
+        Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device scan history"
+    }
     foreach ($iconPath in @("src\FingVibe.App\PeopleRoomsIcons.cs", "src\FingVibe.App\Views\PeopleRoomsIconPicker.cs")) {
         Test-Change @{ $iconPath = "changed" } `
             @("Devices", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails") "People/Rooms icon surfaces"

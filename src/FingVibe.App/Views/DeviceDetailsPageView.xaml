@@ -2,6 +2,7 @@
     x:Class="FingVibe.App.Views.DeviceDetailsPageView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:app="using:FingVibe.App"
     xmlns:views="using:FingVibe.App.Views"
     xmlns:models="using:FingVibe.Core.Models">
     <ScrollViewer x:Name="DevicePage" AutomationProperties.AutomationId="DeviceDetailsScroll"
@@ -185,6 +186,32 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Scan history" FontSize="18" FontWeight="SemiBold" />
+                    <TextBlock Text="Completed manual scans, newest first. Present / absent describes this scan, not uninterrupted physical availability. All observations are retained."
+                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock x:Name="DeviceScanHistoryCount" AutomationProperties.AutomationId="DeviceScanHistoryCount"
+                               TextWrapping="Wrap" />
+                    <TextBlock x:Name="DeviceScanHistoryEmpty" TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="DeviceScanHistoryEmpty" />
+                    <ListView x:Name="DeviceScanHistoryList" MaxHeight="320" SelectionMode="None"
+                              HorizontalContentAlignment="Stretch"
+                              AutomationProperties.AutomationId="DeviceScanHistoryList"
+                              AutomationProperties.Name="Completed scan history, newest first">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="app:DeviceScanHistoryRow">
+                                <StackPanel Spacing="4" Margin="0,6" AutomationProperties.Name="{x:Bind AccessibleLabel}">
+                                    <TextBlock Text="{x:Bind ScanTime}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                    <TextBlock Text="{x:Bind State}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{x:Bind NetworkContext}" TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
                 </StackPanel>
             </Border>
             <Border x:Name="VirtualDeviceHistoryCard" Style="{StaticResource ScannerSummaryCardStyle}" Visibility="Collapsed">

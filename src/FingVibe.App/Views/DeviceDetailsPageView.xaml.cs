@@ -74,6 +74,12 @@ public sealed partial class DeviceDetailsPageView : UserControl
 
     internal void ShowHistory(ScanResultRow row)
     {
+        var history = DeviceDetailsPresentation.ScanHistory(row);
+        DeviceScanHistoryCount.Text = $"{history.Count:N0} completed scan observations";
+        DeviceScanHistoryList.ItemsSource = history;
+        DeviceScanHistoryList.Visibility = history.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        DeviceScanHistoryEmpty.Text = history.Count == 0 ? DeviceDetailsPresentation.EmptyScanHistory(row) : string.Empty;
+        DeviceScanHistoryEmpty.Visibility = history.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         VirtualDeviceHistoryCard.Visibility = row.VirtualDevice is null ? Visibility.Collapsed : Visibility.Visible;
         VirtualDeviceHistoryText.Text = row.ConnectionHistoryText;
     }

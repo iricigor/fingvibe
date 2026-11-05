@@ -23,6 +23,11 @@ else {
     @(Get-UiReviewCapturePlan -RepositoryPath (Get-Location).Path)
 }
 
+if ($capturePlan.Scenario -contains "DeviceDetails") {
+    & (Join-Path $PSScriptRoot "..\..\tests\DeviceScanHistory.Ui.Tests.ps1") `
+        -AppPath $AppPath -ScreenshotDirectory (Join-Path $ScreenshotDirectory "scan-history")
+}
+
 $serverUrl = "http://127.0.0.1:4723"
 $sessionId = $null
 $driverProcess = $null
