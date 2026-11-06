@@ -18,6 +18,12 @@ public sealed partial class DeviceDetailsPageView : UserControl
     private bool _classificationEnabled;
     private ScanResultRow? _row;
     private DeviceHistorySummary? _historySummary;
+    private IReadOnlyList<DeviceScanObservation> _history = [];
+    private string? _historyNetwork;
+    private string? _historySubnet;
+    private DeviceHistoryPage? _historyPage;
+    private int _historyPageIndex;
+    private int _historyGeneration;
     private readonly DispatcherTimer _historyClock = new() { Interval = TimeSpan.FromSeconds(30) };
 
     public DeviceDetailsPageView()
@@ -58,6 +64,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
 
     internal void ShowDevice(ScanResultRow row)
     {
+        _historyGeneration++;
         _row = row;
         DeviceNameEditor.Visibility = Visibility.Collapsed;
         SetClassificationEditing(false);
@@ -79,22 +86,88 @@ public sealed partial class DeviceDetailsPageView : UserControl
 
     internal void ShowHistory(ScanResultRow row, string? networkId, string? subnet)
     {
-        var summary = row.GetHistorySummary(networkId, subnet);
-        var history = DeviceDetailsPresentation.ScanHistory(summary);
-        _historySummary = summary;
-        RefreshHistorySummary();
+        _historyGeneration++;
+        _history = row.ScanHistory;
+        _historyNetwork = networkId;
+        _historySubnet = subnet;
+        _historyPageIndex = 0;
+        _historyPage = null;
+        DeviceHistoryPageStatus.Text = string.Empty;
         DeviceHistoryScope.Text = $"Current network: {networkId ?? "identity unavailable"} | {subnet ?? "subnet unavailable"}";
-        DeviceHistoryLatest.Text = summary.Latest is { } latest
-            ? $"Latest recorded scan: {DeviceDetailsPresentation.HistoryTimestamp(latest.CompletedAt)}. Saved observations do not establish current live presence."
-            : "No individual scans in this scope. Historical aggregates cannot establish an observed state or since time.";
-        DeviceScanHistoryCount.Text = $"{history.Count:N0} completed scan observations";
-        DeviceScanHistoryList.ItemsSource = history;
-        DeviceScanHistoryTable.Visibility = history.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
-        DeviceScanHistoryEmpty.Text = history.Count == 0 ? DeviceDetailsPresentation.EmptyScanHistory(row, networkId, subnet) : string.Empty;
-        DeviceScanHistoryEmpty.Visibility = history.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        try
+        {
+            var summary = row.GetHistorySummary(networkId, subnet);
+            _historySummary = summary;
+            RefreshHistorySummary();
+            DeviceHistoryLatest.Text = summary.Latest is { } latest
+                ? $"Latest recorded scan: {DeviceDetailsPresentation.HistoryTimestamp(latest.CompletedAt)}. Saved observations do not establish current live presence."
+                : "No individual scans in this scope. Historical aggregates cannot establish an observed state or since time.";
+            ApplyHistoryPage(DeviceHistoryQuery.ReadPage(_history, networkId, subnet));
+            DeviceScanHistoryEmpty.Text = _historyPage?.TotalCount == 0
+                ? DeviceDetailsPresentation.EmptyScanHistory(row, networkId, subnet) : string.Empty;
+            DeviceScanHistoryEmpty.Visibility = _historyPage?.TotalCount == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
+        {
+            _historySummary = new([], null, null, null, false, false);
+            RefreshHistorySummary();
+            DeviceHistoryLatest.Text = "Saved history is unavailable.";
+            DeviceScanHistoryCount.Text = string.Empty;
+            DeviceScanHistoryList.ItemsSource = null;
+            DeviceScanHistoryTable.Visibility = Visibility.Collapsed;
+            DeviceScanHistoryEmpty.Text = $"Scan history could not be loaded: {exception.Message}";
+            DeviceScanHistoryEmpty.Visibility = Visibility.Visible;
+        }
+        UpdateHistoryPageActions();
         VirtualDeviceHistoryCard.Visibility = row.VirtualDevice is { } device
             && device.NetworkId == networkId && device.Subnet == subnet ? Visibility.Visible : Visibility.Collapsed;
         VirtualDeviceHistoryText.Text = row.ConnectionHistoryText;
+    }
+
+    private void ApplyHistoryPage(DeviceHistoryPage page)
+    {
+        _historyPage = page;
+        DeviceScanHistoryCount.Text = $"{page.TotalCount:N0} completed scan observations";
+        DeviceScanHistoryList.ItemsSource = page.Items.Select((item, index) => new DeviceScanHistoryRow(
+            item.CompletedAt, item.Present, index % 2 == 1, TimeZoneInfo.Local)).ToArray();
+        DeviceScanHistoryTable.Visibility = page.TotalCount == 0 ? Visibility.Collapsed : Visibility.Visible;
+        var start = _historyPageIndex * DeviceHistoryQuery.DefaultPageSize;
+        DeviceHistoryPageStatus.Text = page.TotalCount == 0 ? string.Empty
+            : $"Showing {start + 1:N0}-{start + page.Items.Count:N0} of {page.TotalCount:N0}. New scans appear when you reopen or refresh this device.";
+        UpdateHistoryPageActions();
+    }
+
+    private void UpdateHistoryPageActions()
+    {
+        DeviceHistoryNewer.IsEnabled = _historyPageIndex > 0;
+        DeviceHistoryOlder.IsEnabled = _historyPage is { } page
+            && (_historyPageIndex + 1) * DeviceHistoryQuery.DefaultPageSize < page.TotalCount;
+    }
+
+    private async void HistoryPage_Click(object sender, RoutedEventArgs e)
+    {
+        if (_historyPage is not { } current) return;
+        var newer = ReferenceEquals(sender, DeviceHistoryNewer);
+        var history = _history;
+        var network = _historyNetwork;
+        var subnet = _historySubnet;
+        var generation = ++_historyGeneration;
+        DeviceHistoryNewer.IsEnabled = DeviceHistoryOlder.IsEnabled = false;
+        DeviceHistoryPageStatus.Text = "Loading scan observations...";
+        try
+        {
+            var page = await Task.Run(() => DeviceHistoryQuery.ReadPage(history, network, subnet,
+                newer ? current.First : current.Last, newer));
+            if (generation != _historyGeneration) return;
+            _historyPageIndex += newer ? -1 : 1;
+            ApplyHistoryPage(page);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
+        {
+            if (generation != _historyGeneration) return;
+            DeviceHistoryPageStatus.Text = $"Scan history page could not be loaded: {exception.Message}";
+            UpdateHistoryPageActions();
+        }
     }
 
     private void RefreshHistorySummary()

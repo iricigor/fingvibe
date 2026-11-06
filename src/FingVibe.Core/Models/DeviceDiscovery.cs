@@ -12,7 +12,8 @@ public sealed record DeviceDiscovery(string Mac, Guid? VirtualDeviceId = null)
         bool InScope(DeviceObservation observation) =>
             observation.NetworkId == networkId && observation.Subnet == scan.Subnet;
         bool Seen(InventoryDevice device) => device.Observations.Any(InScope)
-            || device.ScanHistory.Any(item => item.NetworkId == networkId && item.Subnet == scan.Subnet && item.Present);
+            || (device.ScanHistory is IDeviceHistoryQuery query ? query.HasPresence(networkId, scan.Subnet)
+                : device.ScanHistory.Any(item => item.NetworkId == networkId && item.Subnet == scan.Subnet && item.Present));
         bool InScopeSlot(PrivateVirtualDevice slot) => slot.NetworkId == networkId && slot.Subnet == scan.Subnet;
 
         // Legacy local aggregates establish a baseline too; imported metadata never does.

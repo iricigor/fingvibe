@@ -24,7 +24,8 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     $history = $page.SelectSingleNode("//*[@x:Name='DeviceScanHistoryExpander']", $namespaces)
     Assert-Equal $history.IsExpanded "False" "Completed observations starts collapsed"
     Assert-Equal $history.Header "Completed Scan Observations" "Completed observations header"
-    foreach ($id in @("DeviceHistoryScope", "DeviceHistoryLatest", "DeviceScanHistoryTable", "DeviceScanHistoryEmpty")) {
+    foreach ($id in @("DeviceHistoryScope", "DeviceHistoryLatest", "DeviceScanHistoryTable", "DeviceScanHistoryEmpty",
+        "DeviceHistoryNewer", "DeviceHistoryOlder", "DeviceHistoryPageStatus")) {
         if (-not $history.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must be inside completed observations." }
     }
     foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistoryState", "DeviceHistorySince")) {
@@ -148,7 +149,9 @@ try {
         "src\FingVibe.App\MainWindow.Scan.cs", "tests\DeviceDiscovery.Ui.Tests.ps1",
         "src\FingVibe.Core\Storage\DeviceInventoryStore.cs", "src\FingVibe.App\MainWindow.Snapshots.cs",
         "tests\DeviceScanHistory.Ui.Tests.ps1", "tests\Inventory.Sqlite.Helpers.ps1",
-        "src\FingVibe.Core\Storage\DeviceInventoryStore.Json.cs", "src\FingVibe.Core\Models\AppendedScanHistory.cs")) {
+        "src\FingVibe.Core\Storage\DeviceInventoryStore.Json.cs", "src\FingVibe.Core\Models\AppendedScanHistory.cs",
+        "src\FingVibe.Core\Storage\DeviceInventoryStore.History.cs", "src\FingVibe.Core\Storage\SqliteScanHistory.cs",
+        "src\FingVibe.Core\Models\DeviceHistoryQuery.cs")) {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device scan history"
     }
     foreach ($iconPath in @("src\FingVibe.App\PeopleRoomsIcons.cs", "src\FingVibe.App\Views\PeopleRoomsIconPicker.cs")) {

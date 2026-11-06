@@ -18,6 +18,8 @@ public sealed record DeviceHistorySummary(
     {
         if (string.IsNullOrWhiteSpace(networkId) || string.IsNullOrWhiteSpace(subnet))
             return new([], null, null, null, false, false);
+        if (history is IDeviceHistoryQuery query)
+            return query.Summarize(aggregates, networkId, subnet);
 
         var scoped = history.Where(item => item.NetworkId == networkId && item.Subnet == subnet)
             .OrderByDescending(item => item.CompletedAt).ToArray();

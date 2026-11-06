@@ -314,6 +314,16 @@ do not duplicate a virtual device's row; its history follows its existing
 virtual identity when the active MAC changes. Existing association rules are
 unchanged.
 
+History is fetched in bounded 100-observation pages. **Older scans** and
+**Newer scans** reach every retained observation; each page remains scrollable,
+and the page indicator reports the displayed range and scoped total. Only one
+page is held by the view. Equal-time observations keep their insertion order.
+A traversal captures a saved sequence boundary, so scans appended meanwhile
+cannot shift pages, skip observations, or duplicate rows. Reopening the device
+or refreshing its network context starts at the newest page and includes new
+observations; changing devices/networks discards the previous traversal.
+Page-load errors remain visible and can be retried without replacing a valid page.
+
 The list and its **First seen**, **Last seen**, and **Observed online/offline since**
 summary use only the selected current network identity and subnet, shown above
 the summary. Changing networks never falls back to another network's evidence;
@@ -347,6 +357,7 @@ save errors visibly report that inventory and scan history were not saved.
 `tests\DeviceScanHistory.Ui.Tests.ps1` verifies synthetic normal/virtual history and
 scoped summaries through repeated presence, absence, and return,
 empty imported history, restart, successful repeated scans, cancellation,
+205-row page boundaries, forward/backward reachability and selection changes,
 failure, and visible persistence errors on the disposable Windows CI desktop.
 The parallel history regression job includes this check when the capture plan
 requires device details; never run it on a working
@@ -545,8 +556,29 @@ history and network/subnet discovery baselines. Completed-scan changes commit
 together in a SQLite transaction with full synchronous durability and an
 optimistic revision check; stale app instances must restart and analyze again.
 Scans append history rows, while metadata edits update only changed records and
-leave scan history untouched. History reads still load the full retained history;
-indexed/paged presentation is separate work.
+leave scan history untouched. Startup loads metadata and immutable SQLite-backed
+history snapshots rather than all retained observations. Indexed network/subnet/
+identity/time queries supply bounded pages, first/last presence, latest observed
+state, and the start of its latest state run. Discovery uses bounded durable
+presence queries. Routine scans and metadata edits neither enumerate nor copy
+saved history. The explicit full-history Core load API remains available for
+consumers that deliberately need all observations.
+
+The earlier SQLite schema upgrades transactionally on first load, adding UTC
+tick indexes and incrementally maintained per-identity counts while preserving
+original timestamp offsets and every observation. This one-time upgrade reads
+existing rows; routine startup does not. Interrupted upgrades roll back and can
+retry without falling back to JSON.
+
+`SqliteHistoryQueryTests` validates a synthetic million-row fixture (100 devices
+with 10,000 observations each, timestamp ties, state changes and multiple
+networks). Its predeclared Release-mode interactive-operation ceilings are:
+metadata startup 10 seconds / 32 MiB managed allocations; a 100-row page
+1 second / 1 MiB; 100 summaries plus discovery, a 100-device scan/save, and a
+metadata edit each 5 seconds / 16 MiB. The test records the environment and
+actual measurements, verifies query plans, and excludes one-time fixture/index
+construction from routine timings. These bounded-memory checks are not an
+unlimited-capacity claim; retained database size still grows.
 
 On first load, supported `device-inventory.json` versions 1-4 migrate to a
 transactionally initialized temporary database, published only after success.
