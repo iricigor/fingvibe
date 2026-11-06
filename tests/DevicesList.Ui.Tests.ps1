@@ -1027,11 +1027,29 @@ try {
         throw "The screenshot fixture must include a virtual device."
     }
     $virtualRow = @(Get-DeviceRows)[4]
+    $virtualIcon = Get-VisibleDeviceChild $virtualRow AutomationId DeviceIcon
+    $normalIcon = Get-VisibleDeviceChild (@(Get-DeviceRows)[0]) AutomationId DeviceIcon
+    $virtualName = Get-VisibleDeviceChild $virtualRow AutomationId DeviceNameText
     if ($virtualRow.Current.HelpText -notlike "*Virtual device - inferred identity across changing MAC addresses.*" -or
-        -not (Get-VisibleDeviceChild $virtualRow AutomationId VirtualIdentityBadge) -or
-        (Get-VisibleDeviceChild (@(Get-DeviceRows)[0]) AutomationId VirtualIdentityBadge)) {
-        throw "Only inferred virtual identities must have the accessible stacked-device marker."
+        -not $virtualIcon -or $virtualIcon.Current.Name -ne "Virtual device - inferred identity across changing MAC addresses." -or
+        -not $normalIcon -or $normalIcon.Current.Name -like "*Virtual device*" -or
+        -not $virtualName -or $virtualName.Current.Name -ne "Private 00-11-22" -or
+        (Get-VisibleDeviceChild $root AutomationId VirtualIdentityBadge)) {
+        throw "Virtual identities must use the main device icon without a separate badge or name decoration."
     }
+    if ([Math]::Abs($virtualIcon.Current.BoundingRectangle.Left - $normalIcon.Current.BoundingRectangle.Left) -gt $scale -or
+        [Math]::Abs($virtualIcon.Current.BoundingRectangle.Width - $normalIcon.Current.BoundingRectangle.Width) -gt $scale) {
+        throw "The virtual-device icon must occupy the same position and width as the normal device icon."
+    }
+    $virtualRow.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    $virtualRow.SetFocus()
+    [DevicesReviewInput]::Tap(0x0D)
+    $null = Find-DeviceElement DeviceDetailsScroll
+    if ((Find-DeviceElement DeviceTypeIcon).Current.Name -ne "Virtual device - inferred identity across changing MAC addresses.") {
+        throw "Device details must use the same accessible virtual-device icon as the list."
+    }
+    $null = Save-DeviceCapture "devices-virtual-device-details"
+    Select-DevicePage DevicesNavItem
     Test-ExpandableDeviceFilters
     Assert-FilterPresentation InventoryStatusFilter Status
     Assert-FilterPresentation PersonFilter Person

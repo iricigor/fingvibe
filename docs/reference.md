@@ -232,10 +232,14 @@ Opt-in **Vendor + OS** places vendor above known OS in secondary text, retaining
 inference qualifiers, the OS source tooltip and header sort action. Unknown OS
 leaves the second line blank. Standalone OS consumes no width while merged;
 visibility and separate/combined widths are preserved when switching back.
-Virtual identities have a small stacked-device marker beside their type icon,
-with the explanation **Virtual device - inferred identity across changing MAC
-addresses.** This marks existing inferred identities, not virtual machines or
-every private MAC; it changes no grouping rules.
+Virtual identities default to a multiple-PC icon in the device icon position,
+both in the Devices list and device-details header, with the explanation
+**Virtual device - inferred identity across changing MAC addresses.**
+An explicitly selected icon takes precedence; clearing that correction restores
+the virtual-device icon, rather than following the device type. There is no
+separate marker beside the name, and genuine names and user-entered symbols are
+preserved. This marks existing inferred identities, not virtual machines or
+every private MAC; it changes no grouping or classification rules.
 
 **Devices row density** defaults to **Compact**. Existing density preferences,
 including explicitly saved Standard, migrate to Compact once; subsequent saved

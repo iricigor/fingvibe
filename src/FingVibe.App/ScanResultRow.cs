@@ -247,9 +247,12 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         ? $"User-selected. Automatic: {Detected.Type.Label()}. {Detected.TypeEvidence}"
         : ImportedMetadata?.Type is { } type
             ? $"Imported from Fing: {type}{(FingClassificationMapper.Type(type) is null ? " (unmapped; using automatic category)" : string.Empty)}. Automatic: {Detected.TypeEvidence}" : Detected.TypeEvidence;
+    public bool UsesVirtualIcon => IsVirtualIdentity && _classificationOverride?.Icon is null;
+    public string IconText => UsesVirtualIcon ? "Virtual device (multiple PCs)" : Icon.Label();
     public string IconSource => _classificationOverride?.Icon is not null
-        ? $"User-selected icon: {Icon.Label()}" : $"Icon follows device type: {Type.Label()}";
-    public string IconGlyph => GetIconGlyph(Icon);
+        ? $"User-selected icon: {Icon.Label()}"
+        : UsesVirtualIcon ? VirtualIdentityDescription : $"Icon follows device type: {Type.Label()}";
+    public string IconGlyph => UsesVirtualIcon ? "\uE902" : GetIconGlyph(Icon);
     public static string GetIconGlyph(DeviceType icon) => icon switch
     {
         DeviceType.Computer => "\uE7F8",
@@ -386,7 +389,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         {
             nameof(ClassificationOverride), nameof(OperatingSystem), nameof(Type), nameof(Icon),
             nameof(OperatingSystemText), nameof(DeviceTypeText), nameof(OperatingSystemSource),
-            nameof(DeviceTypeSource), nameof(IconGlyph), nameof(IconSource),
+            nameof(DeviceTypeSource), nameof(IconGlyph), nameof(IconSource), nameof(IconText), nameof(UsesVirtualIcon),
             nameof(OperatingSystemOpacity), nameof(DeviceTypeOpacity),
             nameof(BrandText), nameof(FamilyText), nameof(ModelText),
             nameof(BrandSource), nameof(FamilySource), nameof(ModelSource),

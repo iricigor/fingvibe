@@ -536,19 +536,10 @@
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="*" />
                                             </Grid.ColumnDefinitions>
-                                            <StackPanel Orientation="Horizontal" Spacing="3" VerticalAlignment="Center">
-                                            <FontIcon Glyph="{x:Bind IconGlyph, Mode=OneWay}" FontFamily="Segoe Fluent Icons" FontSize="20" Width="24"
+                                            <FontIcon x:Name="DeviceIcon" Glyph="{x:Bind IconGlyph, Mode=OneWay}" FontFamily="Segoe Fluent Icons" FontSize="20" Width="24"
+                                                      VerticalAlignment="Center"
                                                       ToolTipService.ToolTip="{x:Bind IconSource, Mode=OneWay}"
                                                       AutomationProperties.Name="{x:Bind IconSource, Mode=OneWay}" />
-                                            <Grid x:Name="VirtualIdentityBadge" Width="14" Height="14"
-                                                  Visibility="{x:Bind IsVirtualIdentity}" Background="Transparent"
-                                                  AutomationProperties.AccessibilityView="Content"
-                                                  ToolTipService.ToolTip="{x:Bind VirtualIdentityDescription}"
-                                                  AutomationProperties.Name="{x:Bind VirtualIdentityDescription}">
-                                                <Path Data="M 4,1 L 13,1 L 13,8 L 11,8 M 1,4 L 10,4 L 10,11 L 1,11 Z M 5,11 L 5,13 M 2,13 L 8,13"
-                                                      Stroke="{ThemeResource TextFillColorSecondaryBrush}" StrokeThickness="1" />
-                                            </Grid>
-                                            </StackPanel>
                                             <StackPanel Grid.Column="1" Spacing="{x:Bind Columns.RowSpacing, Mode=OneWay}" VerticalAlignment="Center">
                                                 <TextBlock x:Name="DeviceNameText" Text="{x:Bind NameText, Mode=OneWay}" FontSize="13" TextTrimming="CharacterEllipsis" FontWeight="SemiBold"
                                                            FontFamily="Segoe UI Emoji" Opacity="{x:Bind NameOpacity, Mode=OneWay}"

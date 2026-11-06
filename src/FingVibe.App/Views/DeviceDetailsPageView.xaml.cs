@@ -282,8 +282,9 @@ public sealed partial class DeviceDetailsPageView : UserControl
         DeviceFamilyText.Source = row.FamilySource;
         DeviceModelText.Value = row.ModelText;
         DeviceModelText.Source = row.ModelSource;
-        DeviceIconText.Value = row.Icon.Label();
-        DeviceIconText.Source = row.ClassificationOverride?.Icon is not null ? "Saved correction" : "Follows device type";
+        DeviceIconText.Value = row.IconText;
+        DeviceIconText.Source = row.ClassificationOverride?.Icon is not null ? "Saved correction"
+            : row.UsesVirtualIcon ? "Inferred virtual identity" : "Follows device type";
         DeviceVendorText.Value = row.VendorText;
         DeviceVendorText.Opacity = row.VendorOpacity;
         DeviceOsText.Opacity = row.OperatingSystemOpacity;
@@ -296,6 +297,8 @@ public sealed partial class DeviceDetailsPageView : UserControl
             ? "Use imported Fing OS" : "Automatic";
         ((ComboBoxItem)DeviceTypePicker.Items[0]).Content = FingClassificationMapper.Type(row.ImportedMetadata?.Type) is not null
             ? "Use imported Fing type" : "Automatic";
+        ((ComboBoxItem)DeviceIconPicker.Items[0]).Content = row.IsVirtualIdentity
+            ? "Use virtual-device icon" : "Follow device type";
         if (!_editingClassification) PopulateClassificationInputs(row);
     }
 
