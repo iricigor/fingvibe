@@ -41,11 +41,17 @@ verified work without bypass. Unrelated failures or unavailable evidence block
 delivery. It verifies merge, issue closure, lifecycle cleanup, and the Epic
 checklist, then posts and verifies a mandatory parent Epic work summary and stops
 after one task. The summary records actual run start/work end times in ISO 8601
-UTC, task and PR links, delivered work and validation outcome, decisions,
+UTC and total elapsed run duration calculated from those timestamps, task and
+PR links, delivered work and validation outcome, decisions,
 post-work comments, corner cases, questions to clarify later, and unimplemented
-suggestions. Blocked runs report progress and blockers without claiming task
-completion; abrupt interruptions may prevent recording and do not authorize
-orphan recovery or fabricated timestamps.
+suggestions. Duration includes capacity checks, implementation, CI waits, repairs,
+and delivery verification rather than active coding time. Truncate fractional
+seconds after subtraction and report `HH:mm:ss` with nonwrapping total hours
+and a human-readable equivalent, for example `00:42:17 (42m 17s)`.
+Blocked runs measure until stopping and report progress and blockers without
+claiming task completion; abrupt interruptions may prevent recording and do not
+authorize orphan recovery or fabricated timestamps/durations. Missing or
+inconsistent timing evidence must be reported as unavailable with the reason.
 
 Merging into `main` retains the existing release-on-main behavior and triggers
 the release workflow. These instructions do not alter or enable repository
