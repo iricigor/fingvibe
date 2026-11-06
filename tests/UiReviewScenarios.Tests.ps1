@@ -164,6 +164,8 @@ try {
         @("Devices", "Settings", "DevicesEmpty") "Results and empty state"
     Test-Change @{ "src\FingVibe.App\DeviceResultFilter.cs" = "changed" } `
         @("Devices", "Settings", "DevicesEmpty") "Multi-select matching and empty state"
+    Test-Change @{ "src\FingVibe.App\DeviceResultSort.cs" = "changed" } `
+        @("Devices", "Settings", "DevicesEmpty") "Devices sort keys and direction"
     Test-Change @{ "src\FingVibe.App\App.xaml" = "changed" } @($UiReviewScenarios.Keys) "Shared theme"
     $applicationXaml = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\MainWindow.xaml") -Raw
     $applicationDocument = [System.Xml.XmlDocument]::new()
