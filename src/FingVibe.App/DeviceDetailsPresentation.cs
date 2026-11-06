@@ -18,6 +18,23 @@ public sealed record DeviceScanHistoryRow(DateTimeOffset CompletedAt, bool Prese
     public string AccessibleLabel => $"{FullTimestamp}; Observed {State.ToLowerInvariant()}";
 }
 
+public enum DeviceLastSeenKind
+{
+    Timestamp,
+    SeenThisScan,
+    Unavailable,
+    NeverLocally
+}
+
+public sealed record DeviceLastSeen(DeviceLastSeenKind Kind, DateTimeOffset? Timestamp, string Text, string Description)
+{
+    public static DeviceLastSeen NotCalculated { get; } = Unavailable("last seen has not been calculated.");
+    public bool IsMuted => Kind != DeviceLastSeenKind.Timestamp;
+
+    internal static DeviceLastSeen Unavailable(string reason) =>
+        new(DeviceLastSeenKind.Unavailable, null, "Unavailable", $"Last seen: Unavailable - {reason}");
+}
+
 internal sealed record DeviceEndpointPresentation(
     OpenPort Endpoint, string Value, Uri? BrowserUri, string BrowserLabel)
 {
@@ -77,6 +94,40 @@ internal static class DeviceDetailsPresentation
 
     internal static bool CanCopy(string? value) =>
         !string.IsNullOrWhiteSpace(value) && value is not ("-" or "Unknown" or "Unknown (likely)");
+
+    internal static DeviceLastSeen LastSeen(ScanResultRow row, string? networkId, string? subnet,
+        DateTimeOffset? displayedScanCompletedAt, TimeZoneInfo? timeZone = null)
+    {
+        var zone = timeZone ?? TimeZoneInfo.Local;
+        string Exact(DateTimeOffset time) =>
+            TimeZoneInfo.ConvertTime(time, zone).ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture);
+
+        if (row.IsFingOnly)
+            return new(DeviceLastSeenKind.NeverLocally, null, "Never locally",
+                "Last seen: Never locally - imported Fing data is not a local scan observation.");
+        if (row.IsCurrentScanResponse && (row.CurrentScanCompletedAt ?? displayedScanCompletedAt) is { } scan)
+            return new(DeviceLastSeenKind.SeenThisScan, scan, "Seen this scan", $"Last seen: Seen this scan ({Exact(scan)})");
+        if (row.MacAddress is null)
+            return DeviceLastSeen.Unavailable("scan history requires a MAC-based device identity.");
+        if (string.IsNullOrWhiteSpace(networkId) || string.IsNullOrWhiteSpace(subnet))
+            return DeviceLastSeen.Unavailable(
+                "current network identity or subnet unavailable. Another network's evidence is not used.");
+
+        DeviceHistorySummary summary;
+        try { summary = row.GetHistorySummary(networkId, subnet); }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+            or InvalidDataException or InvalidOperationException)
+        {
+            return DeviceLastSeen.Unavailable($"saved history could not be loaded: {exception.Message}");
+        }
+        if (summary.LastSeen is not { } lastSeen)
+            return DeviceLastSeen.Unavailable("no matching local presence evidence for the current network/subnet.");
+        var aggregate = summary.LastSeenIsAggregate;
+        return new(DeviceLastSeenKind.Timestamp, lastSeen,
+            TimeZoneInfo.ConvertTime(lastSeen, zone).ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)
+                + (aggregate ? " (aggregate)" : string.Empty),
+            $"Last seen: {Exact(lastSeen)}" + (aggregate ? " (historical aggregate; individual scan unavailable)" : string.Empty));
+    }
 
     internal static IReadOnlyList<DeviceDetailField> ImportedFields(ImportedDeviceMetadata? metadata)
     {

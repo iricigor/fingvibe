@@ -316,6 +316,7 @@
                                 <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.SeparateTypeWidth), Mode=OneWay}" />
                                 <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Assignments.EffectiveWidth), Mode=OneWay}" />
                                 <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.SeparateRoomWidth), Mode=OneWay}" />
+                                <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.LastSeen.EffectiveWidth), Mode=OneWay}" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <Grid Visibility="{x:Bind Columns.Name.IsVisible, Mode=OneWay}">
@@ -524,6 +525,18 @@
                                 <local:ColumnResizeGrip Column="{x:Bind Columns.Room}" AutomationProperties.Name="{x:Bind Columns.Room.ResizeLabel}"
                                                         SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Room.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
+                            <Grid Grid.Column="11" Visibility="{x:Bind Columns.LastSeen.IsVisible, Mode=OneWay}">
+                                <Button x:Name="LastSeenSortButton" Tag="LastSeen" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
+                                        Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
+                                        Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by last seen time">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="Last seen" FontWeight="SemiBold" />
+                                        <TextBlock x:Name="LastSeenSortGlyph" />
+                                    </StackPanel>
+                                </Button>
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.LastSeen}" AutomationProperties.Name="{x:Bind Columns.LastSeen.ResizeLabel}"
+                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.LastSeen.HasFollowingVisibleColumn), Mode=OneWay}" />
+                            </Grid>
                         </Grid>
                         <ListView x:Name="ResultsList" Grid.Row="1" SelectionMode="Single"
                                   IsItemClickEnabled="True" ItemClick="ResultsList_ItemClick"
@@ -585,6 +598,7 @@
                                             <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.SeparateTypeWidth), Mode=OneWay}" />
                                             <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Assignments.EffectiveWidth), Mode=OneWay}" />
                                             <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.SeparateRoomWidth), Mode=OneWay}" />
+                                            <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.LastSeen.EffectiveWidth), Mode=OneWay}" />
                                             <ColumnDefinition Width="*" />
                                         </Grid.ColumnDefinitions>
                                         <Grid Margin="0,0,12,0" ColumnSpacing="8"
@@ -776,6 +790,11 @@
                                                 Visibility="{x:Bind Columns.ShowSeparateRoom, Mode=OneWay}"
                                                 views:DevicesPageView.PreviewText="{x:Bind RoomFullName, Mode=OneWay}"
                                                 AutomationProperties.Name="{x:Bind RoomFullName, Mode=OneWay}" />
+                                        <TextBlock x:Name="DeviceLastSeenText" Grid.Column="11" Text="{x:Bind LastSeenText, Mode=OneWay}"
+                                                   Margin="0,0,12,0" TextTrimming="CharacterEllipsis"
+                                                   Opacity="{x:Bind LastSeenOpacity, Mode=OneWay}"
+                                                   Visibility="{x:Bind Columns.LastSeen.IsVisible, Mode=OneWay}"
+                                                   views:DevicesPageView.PreviewText="{x:Bind LastSeenDescription, Mode=OneWay}" />
                                     </Grid>
                                 </DataTemplate>
                             </ListView.ItemTemplate>

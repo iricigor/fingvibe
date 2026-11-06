@@ -522,13 +522,13 @@ function Test-SettingsLayout {
         Start-Sleep -Milliseconds 200
         $choices = Find-SidebarElement AutomationId SettingsPage
         $headers = @("Name", "IP address", "Vendor", "Device type", "MAC address", "Open ports",
-            "Status", "Response", "OS", "Person", "Room")
+            "Status", "Response", "OS", "Person", "Room", "Last seen")
         $checkboxes = @($choices.FindAll([System.Windows.Automation.TreeScope]::Descendants,
             [System.Windows.Automation.PropertyCondition]::new(
                 [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
                 [System.Windows.Automation.ControlType]::CheckBox)) |
             Where-Object { $_.Current.Name -in $headers })
-        if ($checkboxes.Count -ne $headers.Count) { throw "Expected all eleven column choices at $width." }
+        if ($checkboxes.Count -ne $headers.Count) { throw "Expected all twelve column choices at $width." }
         $columns = if ($inline) { 3 } elseif ($width -eq 640) { 2 } else { 1 }
         for ($index = 0; $index -lt $checkboxes.Count; $index++) {
             $box = $checkboxes[$index]

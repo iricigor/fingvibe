@@ -117,6 +117,24 @@ public sealed class SqliteHistoryQueryTests(ITestOutputHelper output) : IDisposa
     }
 
     [Fact]
+    public async Task LastSeenUsesBoundedSavedHistoryAndReportsUnreadableHistoryAsUnavailable()
+    {
+        var data = Scan(Scan(Scan(DeviceInventoryData.Empty, 0), 1), 2, false);
+        var store = new DeviceInventoryStore(PathName);
+        await store.SaveAsync(data, Guid.Empty);
+        var loaded = (await store.LoadMetadataAsync())!;
+        var row = new ScanResultRow(loaded.Devices[Mac], 24);
+        var lastSeen = DeviceDetailsPresentation.LastSeen(row, Network, Subnet, null, TimeZoneInfo.Utc);
+        Assert.Equal(DeviceLastSeenKind.Timestamp, lastSeen.Kind);
+        Assert.Equal(Start.AddSeconds(1), lastSeen.Timestamp);
+        Sql("UPDATE history_counts SET count=0");
+        var unavailable = DeviceDetailsPresentation.LastSeen(row, Network, Subnet, null, TimeZoneInfo.Utc);
+        Assert.Equal(DeviceLastSeenKind.Unavailable, unavailable.Kind);
+        Assert.Null(unavailable.Timestamp);
+        Assert.StartsWith("Last seen: Unavailable - saved history could not be loaded: ", unavailable.Description);
+    }
+
+    [Fact]
     public async Task DiscoveryUsesDurableBoundedPresenceAndFailedWritesCanRetryWithoutHistoryCopy()
     {
         var store = new DeviceInventoryStore(PathName);

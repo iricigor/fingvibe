@@ -65,7 +65,7 @@ function Select-HistoryDevices {
     } "device list"
 }
 
-function Open-HistoryDetails([string] $Name) {
+function Find-HistoryDeviceRow([string] $Name) {
     Select-HistoryDevices
     (Find-HistoryControl "Search devices" -ByName).GetCurrentPattern(
         [System.Windows.Automation.ValuePattern]::Pattern).SetValue($Name)
@@ -75,7 +75,34 @@ function Open-HistoryDetails([string] $Name) {
         [System.Windows.Automation.ControlType]::ListItem)
     $rows = (Find-HistoryControl ResultsList).FindAll([System.Windows.Automation.TreeScope]::Children, $condition)
     if ($rows.Count -ne 1) { throw "Expected one device matching '$Name', got $($rows.Count)." }
-    $rows[0].SetFocus()
+    return $rows[0]
+}
+
+function Get-HistoryLastSeenCell([string] $Name) {
+    $condition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceLastSeenText")
+    $cell = (Find-HistoryDeviceRow $Name).FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+    if (-not $cell) { throw "Devices row '$Name' lacks a Last seen value." }
+    return $cell.Current.Name
+}
+
+function Assert-HistoryLastSeenCell([string] $Name, [string] $Expected) {
+    $deadline = [DateTime]::UtcNow.AddSeconds(10)
+    do {
+        $actual = Get-HistoryLastSeenCell $Name
+        if ($actual -like $Expected) { return $actual }
+        Start-Sleep -Milliseconds 200
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "Devices Last seen for '$Name' is '$actual', expected '$Expected'."
+}
+
+function Get-HistoryExactTime([int] $Index) {
+    return (Get-HistoryLocalTime $Index).ToString("yyyy-MM-dd HH:mm:ss zzz", [Globalization.CultureInfo]::InvariantCulture)
+}
+
+function Open-HistoryDetails([string] $Name) {
+    $row = Find-HistoryDeviceRow $Name
+    $row.SetFocus()
     [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
     Wait-HistoryState {
         $scroll = Find-HistoryControl DeviceDetailsScroll -Optional
@@ -366,6 +393,7 @@ try {
         if (Test-Path -LiteralPath $database) { Remove-Item -LiteralPath $database }
         Start-HistoryApp
         foreach ($kind in @("normal", "virtual")) {
+            $null = Assert-HistoryLastSeenCell "History $kind" "Last seen: $(Get-HistoryExactTime $lastSeen)"
             Open-HistoryDetails "History $kind"
             Assert-HistorySummary "history-$kind-$index" $index
             Assert-HistoryRows "history-$kind-$index" $index
@@ -375,6 +403,12 @@ try {
     $original = Get-Content -LiteralPath $inventory -Raw
     $originalDatabase = Get-InventoryFingerprint $database
     Start-HistoryApp
+    $null = Assert-HistoryLastSeenCell "History legacy" `
+        "Last seen: $(Get-HistoryExactTime 4) (historical aggregate; individual scan unavailable)"
+    $null = Assert-HistoryLastSeenCell "History unmatched" `
+        "Last seen: Unavailable - no matching local presence evidence for the current network/subnet."
+    $null = Assert-HistoryLastSeenCell "History imported" `
+        "Last seen: Never locally - imported Fing data is not a local scan observation."
     Open-HistoryDetails "History legacy"
     foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen")) {
         if ((Find-HistoryControl $id).Current.Name -notlike "*historical aggregate; individual scan unavailable*") {
@@ -446,6 +480,12 @@ try {
         }
         if ((Get-InventorySqliteValue $database "SELECT COUNT(*) FROM scan_history WHERE kind='virtual'") -ne $count - 2) { throw "Same-network scan did not record virtual absence." }
     }
+    $normalPresent = Get-InventorySqliteValue $database "SELECT present FROM scan_history WHERE kind='mac' AND id='020000000001' ORDER BY sequence DESC LIMIT 1"
+    $expectedNormal = if ("$normalPresent" -eq "1") { "Last seen: Seen this scan (*)" } else { "Last seen: $(Get-HistoryExactTime 4)" }
+    $beforeLastSeen = @{
+        "History normal" = Assert-HistoryLastSeenCell "History normal" $expectedNormal
+        "History virtual" = Assert-HistoryLastSeenCell "History virtual" "Last seen: $(Get-HistoryExactTime 4)"
+    }
     $beforeStop = Get-InventoryFingerprint $database
     Open-HistoryDetails "History normal"
     $beforeSummary = @{}
@@ -465,6 +505,9 @@ try {
     foreach ($id in $beforeSummary.Keys) {
         if ((Find-HistoryControl $id).Current.Name -ne $beforeSummary[$id]) { throw "Cancelled scan changed $id." }
     }
+    foreach ($name in $beforeLastSeen.Keys) {
+        if ((Get-HistoryLastSeenCell $name) -cne $beforeLastSeen[$name]) { throw "Cancelled scan changed Last seen for $name." }
+    }
     @{ completed = -1; total = 1 } | ConvertTo-Json | Set-Content -LiteralPath "$hold.progress"
     Invoke-HistoryScan
     Wait-HistoryScan
@@ -478,6 +521,9 @@ try {
     }
     foreach ($id in $beforeSummary.Keys) {
         if ((Find-HistoryControl $id).Current.Name -ne $beforeSummary[$id]) { throw "Failed scan changed $id." }
+    }
+    foreach ($name in $beforeLastSeen.Keys) {
+        if ((Get-HistoryLastSeenCell $name) -cne $beforeLastSeen[$name]) { throw "Failed scan changed Last seen for $name." }
     }
     Remove-Item -LiteralPath $hold, "$hold.progress"
     $lock = [System.IO.FileStream]::new("$inventory.lock", [System.IO.FileMode]::Open,

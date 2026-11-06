@@ -130,6 +130,7 @@ public sealed partial class DevicesPageView : UserControl
         MacAddressSortGlyph.Text = MergedMacAddressSortGlyph.Text = Glyph(ResultSortColumn.MacAddress);
         OperatingSystemSortGlyph.Text = MergedOperatingSystemSortGlyph.Text = Glyph(ResultSortColumn.OperatingSystem);
         DeviceTypeSortGlyph.Text = SeparateDeviceTypeSortGlyph.Text = Glyph(ResultSortColumn.DeviceType);
+        LastSeenSortGlyph.Text = Glyph(ResultSortColumn.LastSeen);
     }
 
     internal void SetPeopleRoomFilters(IEnumerable<(Guid Id, string Label)> people,
