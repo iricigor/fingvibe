@@ -1,6 +1,6 @@
 # Timeline worker
 
-**Agent:** [⏩ Epic worker](../../.github/agents/automation-epic-worker.agent.md)
+**Agent:** [⏩ Epic Developer](../../.github/agents/automation-epic-developer.agent.md)
 
 Complete and merge at most one eligible task from Epic:
 https://github.com/iricigor/fingvibe/issues/111

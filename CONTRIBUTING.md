@@ -25,16 +25,16 @@ Keep page-specific layout and state with the page when adding or substantially c
 
 Extracted pages have separate WinUI XAML namescopes and compiled-binding roots. Preserve automation names/IDs and shared `DeviceColumnLayout.Current` bindings when changing page boundaries. Update the page-to-scenario rules in `.github/scripts/UiReviewScenarios.ps1` and their regression tests whenever a view is added or renamed.
 
-## Explicitly invoked Epic worker
+## Explicitly invoked Epic Developer
 
-[⏩ Epic worker](.github/agents/automation-epic-worker.agent.md) is an ordinary
+[⏩ Epic Developer](.github/agents/automation-epic-developer.agent.md) is an ordinary
 repository custom agent for the first-iteration noninteractive workflow.
 The name prefix distinguishes it in the picker; it does not grant permissions.
 Its reusable rules are separate from the
 [Timeline kickoff](docs/automation-prompts/timeline-worker.md), which identifies
 the target Epic and links back to the intended agent.
 
-In the Copilot desktop app, select **⏩ Epic worker**, choose a new isolated
+In the Copilot desktop app, select **⏩ Epic Developer**, choose a new isolated
 worktree, and use these instructions for a manual run or a manually triggered
 Automation:
 
@@ -55,6 +55,10 @@ This delivery creates or enables no Automation and verifies no live picker/run.
 A local scheduled run requires the app/computer to be available and separate
 activation approval. Start manually; do not overlap invocations. Existing
 claims/draft PRs block pickup even after an hour, and orphan recovery is excluded.
+Every claimed run must publish and verify a parent Epic work-summary comment:
+actual UTC start/end times, task and PR links, work/validation outcome, decisions,
+post-work comments, corner cases, later clarification questions, and unimplemented
+suggestions. An incomplete run must not claim task completion.
 Use Windows build prerequisites and existing CI for native UI validation, not
 automation of the user's working desktop.
 

@@ -7,7 +7,7 @@ describe state; they do not enforce authorization, locking, or merge protection.
 ## Explicitly invoked manual-worker exception
 
 [Task #189](https://github.com/iricigor/fingvibe/issues/189) adds the
-[⏩ Epic worker](../.github/agents/automation-epic-worker.agent.md) and a separate
+[⏩ Epic Developer](../.github/agents/automation-epic-developer.agent.md) and a separate
 [Timeline kickoff](automation-prompts/timeline-worker.md). This is an instruction
 delivery, not implementation or activation of the scheduled dispatcher.
 
@@ -39,7 +39,13 @@ The worker waits for actual applicable final-revision validation and blocking
 reviews, repairs implementation-caused failures within scope, and merges only
 verified work without bypass. Unrelated failures or unavailable evidence block
 delivery. It verifies merge, issue closure, lifecycle cleanup, and the Epic
-checklist, then posts the decision record and stops after one task.
+checklist, then posts and verifies a mandatory parent Epic work summary and stops
+after one task. The summary records actual run start/work end times in ISO 8601
+UTC, task and PR links, delivered work and validation outcome, decisions,
+post-work comments, corner cases, questions to clarify later, and unimplemented
+suggestions. Blocked runs report progress and blockers without claiming task
+completion; abrupt interruptions may prevent recording and do not authorize
+orphan recovery or fabricated timestamps.
 
 Merging into `main` retains the existing release-on-main behavior and triggers
 the release workflow. These instructions do not alter or enable repository
