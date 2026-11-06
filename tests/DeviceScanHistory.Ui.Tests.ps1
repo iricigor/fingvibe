@@ -103,7 +103,7 @@ function Get-HistoryTimestamp([int] $Index) {
     return (Get-HistoryLocalTime $Index).ToString("yyyy-MM-dd HH:mm:ss '(local)'", [Globalization.CultureInfo]::InvariantCulture)
 }
 
-function Show-HistorySection([string] $Id) {
+function Show-HistorySection([string] $Id, [int] $TopMargin = 35) {
     $scrollElement = Find-HistoryControl DeviceDetailsScroll
     $scroll = $scrollElement.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     foreach ($percent in 0..100) {
@@ -113,7 +113,7 @@ function Show-HistorySection([string] $Id) {
         $bounds = $element.Current.BoundingRectangle
         $area = $scrollElement.Current.BoundingRectangle
         if (-not $element.Current.IsOffscreen -and $bounds.Height -gt 0 -and
-            $bounds.Top -ge $area.Top + 35 -and $bounds.Bottom -le $area.Bottom - 10) { return $element }
+            $bounds.Top -ge $area.Top + $TopMargin -and $bounds.Bottom -le $area.Bottom - 10) { return $element }
     }
     throw "Scan-history section '$Id' does not fit the details viewport."
 }
@@ -170,8 +170,7 @@ function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
 }
 
 function Assert-HistoryTableRendering([string] $Capture) {
-    $null = Show-HistorySection DeviceScanHistoryTable
-    $list = Find-HistoryControl DeviceScanHistoryList
+    $list = Show-HistorySection DeviceScanHistoryList 85
     $headers = @("Date", "Time (local)", "Status") | ForEach-Object { Find-HistoryControl $_ -ByName }
     $items = $list.FindAll([System.Windows.Automation.TreeScope]::Children,
         [System.Windows.Automation.PropertyCondition]::new(
@@ -244,7 +243,10 @@ function Assert-HistorySummary([string] $Capture, [int] $LastIndex = 4) {
             throw "Summary $id lacks a rounded relative age in the requested units."
         }
     }
-    $null = Show-HistorySection DeviceHistorySince
+    $expansion = (Find-HistoryControl DeviceScanHistoryExpander).GetCurrentPattern(
+        [System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+    $expansion.Collapse()
+    $null = Show-HistorySection DeviceScanHistoryExpander
     foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince")) {
         $element = Find-HistoryControl $id
         $area = (Find-HistoryControl DeviceDetailsScroll).Current.BoundingRectangle
@@ -254,6 +256,7 @@ function Assert-HistorySummary([string] $Capture, [int] $LastIndex = 4) {
         }
     }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Capture-summary.png")
+    $expansion.Expand()
 }
 
 function Invoke-HistoryScan {
@@ -420,7 +423,7 @@ try {
         Assert-HistoryTableRendering "history-table-$label-narrow"
         (Find-HistoryControl DeviceScanHistoryExpander).GetCurrentPattern(
             [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse()
-        $null = Show-HistorySection DeviceHistorySince
+        $null = Show-HistorySection DeviceScanHistoryExpander
         Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-summary-$label-narrow.png")
         $null = [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
             $bounds.Left, $bounds.Top, $bounds.Width, $bounds.Height, 0x0044)

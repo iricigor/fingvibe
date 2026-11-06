@@ -243,8 +243,7 @@
                                        TextWrapping="Wrap" />
                             <TextBlock x:Name="DeviceScanHistoryEmpty" TextWrapping="Wrap"
                                        AutomationProperties.AutomationId="DeviceScanHistoryEmpty" />
-                            <StackPanel x:Name="DeviceScanHistoryTable" Spacing="0"
-                                        AutomationProperties.AutomationId="DeviceScanHistoryTable">
+                            <StackPanel x:Name="DeviceScanHistoryTable" Spacing="0">
                                 <Border Background="{ThemeResource ControlFillColorSecondaryBrush}" Padding="12,8"
                                         BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
                                     <Grid ColumnSpacing="12">
