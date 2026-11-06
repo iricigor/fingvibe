@@ -23,6 +23,79 @@ public sealed class PrivateVirtualDeviceTests
         data.ObserveCompletedScan("synthetic-network", new("192.0.2.0/24", Start.AddMinutes(minute), results));
 
     [Fact]
+    public void VirtualDeviceIconIsIndependentOfClassificationAndPreservesExplicitChoices()
+    {
+        var data = Scan(DeviceInventoryData.Empty, 0, Result(First));
+        var row = new ScanResultRow(Assert.Single(data.VirtualDevices), data, 24);
+        var changes = new List<string?>();
+        row.PropertyChanged += (_, args) => changes.Add(args.PropertyName);
+
+        Assert.True(row.UsesVirtualIcon);
+        Assert.Equal("\uE975", row.IconGlyph);
+        Assert.Equal("Virtual device (multiple PCs)", row.IconText);
+        Assert.Equal(row.VirtualIdentityDescription, row.IconSource);
+        Assert.Equal(DeviceType.Unknown, row.Type);
+        Assert.Equal("Private D0-C9-07", row.NameText);
+
+        foreach (var type in Enum.GetValues<DeviceType>())
+        {
+            row.SetClassificationOverride(new(Type: type));
+            Assert.Equal(type, row.Type);
+            Assert.Equal("\uE975", row.IconGlyph);
+            row.SetClassificationOverride(new(Type: DeviceType.Computer, Icon: type));
+            Assert.False(row.UsesVirtualIcon);
+            Assert.Equal(ScanResultRow.GetIconGlyph(type), row.IconGlyph);
+            Assert.Equal(type.Label(), row.IconText);
+            Assert.Equal($"User-selected icon: {type.Label()}", row.IconSource);
+        }
+
+        row.SetClassificationOverride(null);
+        Assert.True(row.UsesVirtualIcon);
+        Assert.Equal("\uE975", row.IconGlyph);
+        Assert.Equal(row.VirtualIdentityDescription, row.IconSource);
+        foreach (var property in new[] { nameof(row.UsesVirtualIcon), nameof(row.IconGlyph),
+            nameof(row.IconText), nameof(row.IconSource) })
+            Assert.Contains(property, changes);
+    }
+
+    [Theory]
+    [InlineData("My PCs")]
+    [InlineData("\uE902 My PCs")]
+    [InlineData("\U0001F5A5\uFE0F My PCs")]
+    public void VirtualDeviceNamesKeepGenuineSymbolsAcrossUpdatesAndMacRotation(string name)
+    {
+        var data = Scan(DeviceInventoryData.Empty, 0, Result(First));
+        var slot = Assert.Single(data.VirtualDevices) with { Name = name };
+        data = data with { VirtualDevices = [slot] };
+        var row = new ScanResultRow(slot, data, 24);
+        Assert.Equal(name, row.NameText);
+        Assert.Equal(name, row.CustomName);
+
+        data = Scan(data, 1, Result(Second));
+        row.UpdateVirtualDevice(Assert.Single(data.VirtualDevices));
+        Assert.Equal(name, row.NameText);
+        Assert.Equal("\uE975", row.IconGlyph);
+        row.UpdateVirtualDevice(Assert.IsType<PrivateVirtualDevice>(row.VirtualDevice) with { Name = null });
+        Assert.Equal("Private D0-C9-07", row.NameText);
+    }
+
+    [Theory]
+    [InlineData(InventoryDeviceStatus.Online)]
+    [InlineData(InventoryDeviceStatus.Offline)]
+    [InlineData(InventoryDeviceStatus.Unknown)]
+    public void VirtualDeviceIconAppliesToCurrentOfflineAndHistoricalRows(InventoryDeviceStatus status)
+    {
+        var data = Scan(DeviceInventoryData.Empty, 0, Result(First));
+        if (status == InventoryDeviceStatus.Offline) data = Scan(data, 1);
+        var slot = Assert.Single(data.VirtualDevices);
+        if (status == InventoryDeviceStatus.Unknown) slot = slot with { CurrentCompletedAt = null };
+        var row = new ScanResultRow(slot, data, 24);
+        Assert.Equal(status, row.Status);
+        Assert.Equal("\uE975", row.IconGlyph);
+        Assert.Equal("Private D0-C9-07", row.NameText);
+    }
+
+    [Fact]
     public void RotatingMacReusesOnePersistentVirtualDeviceWithoutMergingRawInventory()
     {
         var first = Scan(DeviceInventoryData.Empty, 0, Result(First));

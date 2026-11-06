@@ -392,7 +392,14 @@ public sealed class ScanResultRowTests
         var row = CreateRow();
         var icons = Enum.GetValues<DeviceType>().Select(type =>
         {
+            row.SetClassificationOverride(new(Type: type));
+            Assert.False(row.UsesVirtualIcon);
+            Assert.Equal(ScanResultRow.GetIconGlyph(type), row.IconGlyph);
+            Assert.Equal(type.Label(), row.IconText);
+            Assert.Equal($"Icon follows device type: {type.Label()}", row.IconSource);
             row.SetClassificationOverride(new(Icon: type));
+            Assert.Equal(ScanResultRow.GetIconGlyph(type), row.IconGlyph);
+            Assert.Equal($"User-selected icon: {type.Label()}", row.IconSource);
             return row.IconGlyph;
         }).ToArray();
         Assert.All(icons, glyph => Assert.Single(glyph));
