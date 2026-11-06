@@ -396,8 +396,19 @@ try {
     Assert-HistorySummary "history-restarted"
     Assert-HistoryRows "history-restarted"
     foreach ($theme in @("Standard Light", "Standard Dark")) {
-        (Find-HistoryControl SettingsNavItem).GetCurrentPattern(
-            [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+        $condition = [System.Windows.Automation.AndCondition]::new(
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::NameProperty, "Settings"),
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::ListItem))
+        $settings = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        if (-not $settings) { throw "Settings navigation was not found." }
+        $settings.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+        Wait-HistoryState {
+            $picker = Find-HistoryControl ModePicker -Optional
+            $picker -and -not $picker.Current.IsOffscreen
+        } "appearance settings"
         Set-UiReviewTheme -Root $script:root -Theme $theme
         Open-HistoryDetails "History normal"
         $label = $theme.Replace(" ", "-").ToLowerInvariant()
