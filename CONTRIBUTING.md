@@ -26,6 +26,49 @@ Keep page-specific layout and state with the page when adding or substantially c
 
 Extracted pages have separate WinUI XAML namescopes and compiled-binding roots. Preserve automation names/IDs and shared `DeviceColumnLayout.Current` bindings when changing page boundaries. Update the page-to-scenario rules in `.github/scripts/UiReviewScenarios.ps1` and their regression tests whenever a view is added or renamed.
 
+## Explicitly invoked Epic Developer
+
+[⏩ Epic Developer](.github/agents/automation-epic-developer.agent.md) is an ordinary
+repository custom agent for the first-iteration noninteractive workflow.
+The name prefix distinguishes it in the picker; it does not grant permissions.
+Its reusable rules are separate from the
+[Timeline kickoff](docs/automation-prompts/timeline-worker.md), which identifies
+the target Epic and links back to the intended agent.
+
+In the Copilot desktop app, select **⏩ Epic Developer**, choose a new isolated
+worktree, and use these instructions for a manual run or a manually triggered
+Automation:
+
+```text
+Read docs\automation-prompts\timeline-worker.md and execute its instructions.
+```
+
+The kickoff's link does not select/switch agents, and this Markdown file is not
+automatically discovered Automation configuration. The selected checkout must
+contain both files; reopen the picker/start a fresh session after pulling them.
+The instructions authorize at most one task and a validated merge when explicitly
+invoked by a human under the
+[manual-worker exception](docs/development-backlog.md#explicitly-invoked-manual-worker-exception).
+They do not change Architect's workflow.
+
+Schedule, selected agent, model, host, and enabled state remain app configuration.
+This delivery creates or enables no Automation and verifies no live picker/run.
+A local scheduled run requires the app/computer to be available and separate
+activation approval. Start manually; do not overlap invocations. Existing
+claims/draft PRs block pickup even after an hour, and orphan recovery is excluded.
+Every claimed run must publish and verify a parent Epic work-summary comment:
+actual UTC start/end times, task and PR links, work/validation outcome, decisions,
+post-work comments, corner cases, later clarification questions, and unimplemented
+suggestions. An incomplete run must not claim task completion.
+Use Windows build prerequisites and existing CI for native UI validation, not
+automation of the user's working desktop.
+
+The worker merges by waiting for applicable validation and using its authorized
+GitHub identity; it does not enable GitHub's repository auto-merge setting.
+Host access must support issue updates, pushes, PRs, checks/log retrieval, comments,
+and merge. Missing permissions are blockers. Merges to `main` trigger the existing
+release workflow; no protection, review, release, or scheduling settings change.
+
 ## Architecture discussions with Architect
 
 For issue intake, Epic/task templates, and the label/ownership contract for
