@@ -252,7 +252,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public string IconSource => _classificationOverride?.Icon is not null
         ? $"User-selected icon: {Icon.Label()}"
         : UsesVirtualIcon ? VirtualIdentityDescription : $"Icon follows device type: {Type.Label()}";
-    public string IconGlyph => UsesVirtualIcon ? "\uE902" : GetIconGlyph(Icon);
+    public string IconGlyph => UsesVirtualIcon ? "\uE975" : GetIconGlyph(Icon);
     public static string GetIconGlyph(DeviceType icon) => icon switch
     {
         DeviceType.Computer => "\uE7F8",

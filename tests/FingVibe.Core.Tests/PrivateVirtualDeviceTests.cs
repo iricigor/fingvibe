@@ -31,7 +31,7 @@ public sealed class PrivateVirtualDeviceTests
         row.PropertyChanged += (_, args) => changes.Add(args.PropertyName);
 
         Assert.True(row.UsesVirtualIcon);
-        Assert.Equal("\uE902", row.IconGlyph);
+        Assert.Equal("\uE975", row.IconGlyph);
         Assert.Equal("Virtual device (multiple PCs)", row.IconText);
         Assert.Equal(row.VirtualIdentityDescription, row.IconSource);
         Assert.Equal(DeviceType.Unknown, row.Type);
@@ -41,7 +41,7 @@ public sealed class PrivateVirtualDeviceTests
         {
             row.SetClassificationOverride(new(Type: type));
             Assert.Equal(type, row.Type);
-            Assert.Equal("\uE902", row.IconGlyph);
+            Assert.Equal("\uE975", row.IconGlyph);
             row.SetClassificationOverride(new(Type: DeviceType.Computer, Icon: type));
             Assert.False(row.UsesVirtualIcon);
             Assert.Equal(ScanResultRow.GetIconGlyph(type), row.IconGlyph);
@@ -51,7 +51,7 @@ public sealed class PrivateVirtualDeviceTests
 
         row.SetClassificationOverride(null);
         Assert.True(row.UsesVirtualIcon);
-        Assert.Equal("\uE902", row.IconGlyph);
+        Assert.Equal("\uE975", row.IconGlyph);
         Assert.Equal(row.VirtualIdentityDescription, row.IconSource);
         foreach (var property in new[] { nameof(row.UsesVirtualIcon), nameof(row.IconGlyph),
             nameof(row.IconText), nameof(row.IconSource) })
@@ -74,7 +74,7 @@ public sealed class PrivateVirtualDeviceTests
         data = Scan(data, 1, Result(Second));
         row.UpdateVirtualDevice(Assert.Single(data.VirtualDevices));
         Assert.Equal(name, row.NameText);
-        Assert.Equal("\uE902", row.IconGlyph);
+        Assert.Equal("\uE975", row.IconGlyph);
         row.UpdateVirtualDevice(Assert.IsType<PrivateVirtualDevice>(row.VirtualDevice) with { Name = null });
         Assert.Equal("Private D0-C9-07", row.NameText);
     }
@@ -91,7 +91,7 @@ public sealed class PrivateVirtualDeviceTests
         if (status == InventoryDeviceStatus.Unknown) slot = slot with { CurrentCompletedAt = null };
         var row = new ScanResultRow(slot, data, 24);
         Assert.Equal(status, row.Status);
-        Assert.Equal("\uE902", row.IconGlyph);
+        Assert.Equal("\uE975", row.IconGlyph);
         Assert.Equal("Private D0-C9-07", row.NameText);
     }
 
