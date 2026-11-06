@@ -114,18 +114,22 @@ public sealed partial class DevicesPageView : UserControl
         LastScanText.Text = "Scan duration " + (snapshot?.Duration is { } duration
             ? $"{duration.TotalSeconds:N1}s" : snapshot is null ? "—" : "not recorded");
 
-    internal void ShowSort(string address, string status, string response, string mac, string os, string type)
+    internal void ShowSort(ResultSortColumn column, bool ascending)
     {
-        AddressSortGlyph.Text = address;
-        StatusSortGlyph.Text = status;
-        ResponseSortGlyph.Text = response;
-        MacAddressSortGlyph.Text = mac;
-        MergedMacAddressSortGlyph.Text = mac;
-        SeparateResponseSortGlyph.Text = response;
-        SeparateDeviceTypeSortGlyph.Text = type;
-        OperatingSystemSortGlyph.Text = os;
-        MergedOperatingSystemSortGlyph.Text = os;
-        DeviceTypeSortGlyph.Text = type;
+        string Glyph(ResultSortColumn candidate) =>
+            column == candidate ? (ascending ? "\u2191" : "\u2193") : string.Empty;
+
+        NameSortGlyph.Text = Glyph(ResultSortColumn.Name);
+        VendorSortGlyph.Text = Glyph(ResultSortColumn.Vendor);
+        OpenPortsSortGlyph.Text = Glyph(ResultSortColumn.OpenPorts);
+        PersonSortGlyph.Text = MergedPersonSortGlyph.Text = Glyph(ResultSortColumn.Person);
+        RoomSortGlyph.Text = MergedRoomSortGlyph.Text = RoomOnlySortGlyph.Text = Glyph(ResultSortColumn.Room);
+        AddressSortGlyph.Text = Glyph(ResultSortColumn.Address);
+        StatusSortGlyph.Text = Glyph(ResultSortColumn.Status);
+        ResponseSortGlyph.Text = SeparateResponseSortGlyph.Text = Glyph(ResultSortColumn.Response);
+        MacAddressSortGlyph.Text = MergedMacAddressSortGlyph.Text = Glyph(ResultSortColumn.MacAddress);
+        OperatingSystemSortGlyph.Text = MergedOperatingSystemSortGlyph.Text = Glyph(ResultSortColumn.OperatingSystem);
+        DeviceTypeSortGlyph.Text = SeparateDeviceTypeSortGlyph.Text = Glyph(ResultSortColumn.DeviceType);
     }
 
     internal void SetPeopleRoomFilters(IEnumerable<(Guid Id, string Label)> people,

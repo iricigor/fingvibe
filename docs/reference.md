@@ -228,6 +228,19 @@ changing sorting, device data, or the second row's visibility. Overview shortcut
 clear stale restrictions before showing Online devices or Online devices with
 open ports.
 
+Every Devices data-column header is sortable: click to select ascending order,
+then click again to reverse it. Name (including saved custom names), Vendor,
+OS, and Device type use case-insensitive displayed text; unknown/missing text
+retains ordinary lexical ordering. IP addresses sort numerically, Status by
+inventory status, Response by latency (missing first ascending), and Open ports
+by the number of observed port entries (zero first ascending). Person and Room
+sort by case-insensitive **full names**, not short labels or emoji, with
+unassigned devices last in both directions. Equal primary keys use MAC address,
+then numeric IP; tie keys follow the selected direction. Merged columns retain
+independent clickable subheaders and arrows. Filtering, clearing filters,
+metadata edits, and incoming results retain the selected sort; a selected
+device remains selected while it is still visible.
+
 Opt-in **Vendor + OS** places vendor above known OS in secondary text, retaining
 inference qualifiers, the OS source tooltip and header sort action. Unknown OS
 leaves the second line blank. Standalone OS consumes no width while merged;

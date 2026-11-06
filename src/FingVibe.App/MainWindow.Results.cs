@@ -7,16 +7,6 @@ namespace FingVibe.App;
 
 public sealed partial class MainWindow
 {
-    private enum ResultSortColumn
-    {
-        Address,
-        Status,
-        Response,
-        MacAddress,
-        OperatingSystem,
-        DeviceType
-    }
-
     private readonly List<ScanResultRow> _allResults = [];
     private readonly ObservableCollection<ScanResultRow> _visibleResults = [];
     private long _minimumLatency = long.MaxValue;
@@ -31,8 +21,9 @@ public sealed partial class MainWindow
 
     private void DeviceSortRequested(object? sender, string columnName)
     {
-        if (!Enum.TryParse(columnName, out ResultSortColumn column))
+        if (!Enum.TryParse(columnName, out ResultSortColumn column) || !Enum.IsDefined(column))
         {
+            System.Diagnostics.Trace.TraceError($"Unknown Devices sort request: {columnName}");
             return;
         }
 
@@ -106,58 +97,8 @@ public sealed partial class MainWindow
         }
     }
 
-    private int CompareResults(ScanResultRow leftRow, ScanResultRow rightRow)
-    {
-        var comparison = _sortColumn switch
-        {
-            ResultSortColumn.OperatingSystem => string.Compare(leftRow.OperatingSystemText,
-                rightRow.OperatingSystemText, StringComparison.OrdinalIgnoreCase),
-            ResultSortColumn.DeviceType => string.Compare(leftRow.DeviceTypeText,
-                rightRow.DeviceTypeText, StringComparison.OrdinalIgnoreCase),
-            ResultSortColumn.Address => CompareRowAddresses(leftRow, rightRow),
-            ResultSortColumn.Status => leftRow.Status.CompareTo(rightRow.Status),
-            ResultSortColumn.Response => Nullable.Compare(
-                leftRow.LatencyMilliseconds,
-                rightRow.LatencyMilliseconds),
-            ResultSortColumn.MacAddress => string.Compare(
-                leftRow.MacAddressText,
-                rightRow.MacAddressText,
-                StringComparison.OrdinalIgnoreCase),
-            _ => 0
-        };
-
-        if (comparison == 0)
-        {
-            comparison = CompareRowAddresses(leftRow, rightRow);
-            if (comparison == 0)
-                comparison = string.Compare(leftRow.MacAddressText, rightRow.MacAddressText, StringComparison.Ordinal);
-        }
-
-        return _sortAscending ? comparison : -comparison;
-    }
-
-    private static int CompareRowAddresses(ScanResultRow left, ScanResultRow right)
-    {
-        var hasLeft = System.Net.IPAddress.TryParse(left.AddressText, out var leftAddress);
-        var hasRight = System.Net.IPAddress.TryParse(right.AddressText, out var rightAddress);
-        return hasLeft && hasRight ? CompareAddresses(leftAddress!, rightAddress!) : hasLeft.CompareTo(hasRight);
-    }
-
-    private static int CompareAddresses(System.Net.IPAddress left, System.Net.IPAddress right)
-    {
-        var leftBytes = left.GetAddressBytes();
-        var rightBytes = right.GetAddressBytes();
-        for (var index = 0; index < leftBytes.Length; index++)
-        {
-            var comparison = leftBytes[index].CompareTo(rightBytes[index]);
-            if (comparison != 0)
-            {
-                return comparison;
-            }
-        }
-
-        return 0;
-    }
+    private int CompareResults(ScanResultRow leftRow, ScanResultRow rightRow) =>
+        DeviceResultSort.Compare(leftRow, rightRow, _sortColumn, _sortAscending);
 
     private void UpdateSortGlyphs()
     {
@@ -166,17 +107,8 @@ public sealed partial class MainWindow
             return;
         }
 
-        DevicesPage.ShowSort(
-            GetSortGlyph(ResultSortColumn.Address),
-            GetSortGlyph(ResultSortColumn.Status),
-            GetSortGlyph(ResultSortColumn.Response),
-            GetSortGlyph(ResultSortColumn.MacAddress),
-            GetSortGlyph(ResultSortColumn.OperatingSystem),
-            GetSortGlyph(ResultSortColumn.DeviceType));
+        DevicesPage.ShowSort(_sortColumn, _sortAscending);
     }
-
-    private string GetSortGlyph(ResultSortColumn column) =>
-        _sortColumn == column ? (_sortAscending ? "\u2191" : "\u2193") : string.Empty;
 
     private void UpdateEmptyState()
     {

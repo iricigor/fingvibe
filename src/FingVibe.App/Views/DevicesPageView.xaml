@@ -320,7 +320,14 @@
                             </Grid.ColumnDefinitions>
                             <Grid Visibility="{x:Bind Columns.Name.IsVisible, Mode=OneWay}">
                                 <StackPanel Margin="0,0,12,0">
-                                    <TextBlock Text="Name" FontWeight="SemiBold" FontSize="12" Margin="{x:Bind local:DeviceColumnLayoutHelpers.HeaderPrimaryMargin(Columns.HeaderLabelTopMargin), Mode=OneWay}" />
+                                    <Button x:Name="NameSortButton" Tag="Name" Click="SortHeader_Click" MinHeight="0"
+                                            Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
+                                            Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by name">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="Name" FontWeight="SemiBold" />
+                                            <TextBlock x:Name="NameSortGlyph" />
+                                        </StackPanel>
+                                    </Button>
                                     <Button Tag="DeviceType" Click="SortHeader_Click"
                                             MinHeight="0" Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
                                             Visibility="{x:Bind Columns.ShowMergedType, Mode=OneWay}"
@@ -356,7 +363,14 @@
                             </Grid>
                             <Grid Grid.Column="2" Visibility="{x:Bind Columns.Vendor.IsVisible, Mode=OneWay}">
                                 <StackPanel Margin="0,0,12,0" VerticalAlignment="Center">
-                                    <TextBlock Text="Vendor" FontWeight="SemiBold" FontSize="12" Margin="{x:Bind local:DeviceColumnLayoutHelpers.HeaderPrimaryMargin(Columns.HeaderLabelTopMargin), Mode=OneWay}" />
+                                    <Button x:Name="VendorSortButton" Tag="Vendor" Click="SortHeader_Click" MinHeight="0"
+                                            Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
+                                            Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by vendor">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="Vendor" FontWeight="SemiBold" />
+                                            <TextBlock x:Name="VendorSortGlyph" />
+                                        </StackPanel>
+                                    </Button>
                                     <Button Tag="OperatingSystem" Click="SortHeader_Click" MinHeight="0" Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
                                             Visibility="{x:Bind Columns.ShowMergedOs, Mode=OneWay}"
                                             Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by operating system">
@@ -370,7 +384,14 @@
                                                         SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.VendorOs.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="3" Visibility="{x:Bind Columns.Ports.IsVisible, Mode=OneWay}">
-                                <TextBlock Text="Open ports" FontWeight="SemiBold" FontSize="12" Margin="{x:Bind local:DeviceColumnLayoutHelpers.HeaderTextMargin(Columns.HeaderLabelTopMargin), Mode=OneWay}" VerticalAlignment="Center" />
+                                <Button x:Name="OpenPortsSortButton" Tag="OpenPorts" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
+                                        Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
+                                        Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by number of open ports">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="Open ports" FontWeight="SemiBold" />
+                                        <TextBlock x:Name="OpenPortsSortGlyph" />
+                                    </StackPanel>
+                                </Button>
                                 <local:ColumnResizeGrip Column="{x:Bind Columns.Ports}" AutomationProperties.Name="{x:Bind Columns.Ports.ResizeLabel}"
                                                         SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Ports.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
@@ -452,19 +473,54 @@
                                                         SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Type.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="9" Visibility="{x:Bind Columns.Assignments.IsVisible, Mode=OneWay}">
-                                <TextBlock Text="{x:Bind Columns.Assignments.Header, Mode=OneWay}" FontWeight="SemiBold" FontSize="12" Margin="{x:Bind local:DeviceColumnLayoutHelpers.HeaderTextMargin(Columns.HeaderLabelTopMargin), Mode=OneWay}" VerticalAlignment="Center"
-                                           Visibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.ShowSeparatePerson), Mode=OneWay}" />
-                                <TextBlock Text="Room" FontWeight="SemiBold" FontSize="12" Margin="{x:Bind local:DeviceColumnLayoutHelpers.HeaderTextMargin(Columns.HeaderLabelTopMargin), Mode=OneWay}" VerticalAlignment="Center"
-                                           Visibility="{x:Bind Columns.ShowRoomOnly, Mode=OneWay}" />
+                                <Button x:Name="PersonSortButton" Tag="Person" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
+                                        Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
+                                        Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by person's full name"
+                                        Visibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.ShowSeparatePerson), Mode=OneWay}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="Person" FontWeight="SemiBold" />
+                                        <TextBlock x:Name="PersonSortGlyph" />
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="RoomOnlySortButton" Tag="Room" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
+                                        Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
+                                        Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by room's full name"
+                                        Visibility="{x:Bind Columns.ShowRoomOnly, Mode=OneWay}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="Room" FontWeight="SemiBold" />
+                                        <TextBlock x:Name="RoomOnlySortGlyph" />
+                                    </StackPanel>
+                                </Button>
                                 <StackPanel Margin="0,0,12,0" Visibility="{x:Bind Columns.ShowMergedRoom, Mode=OneWay}">
-                                    <TextBlock Text="Person" FontWeight="SemiBold" FontSize="12" Margin="{x:Bind local:DeviceColumnLayoutHelpers.HeaderPrimaryMargin(Columns.HeaderLabelTopMargin), Mode=OneWay}" />
-                                    <TextBlock Text="Room" FontSize="11" Margin="{x:Bind local:DeviceColumnLayoutHelpers.HeaderSecondaryMargin(Columns.HeaderSecondaryMargin), Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    <Button x:Name="MergedPersonSortButton" Tag="Person" Click="SortHeader_Click" MinHeight="0"
+                                            Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
+                                            Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by person's full name">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="Person" FontWeight="SemiBold" />
+                                            <TextBlock x:Name="MergedPersonSortGlyph" />
+                                        </StackPanel>
+                                    </Button>
+                                    <Button x:Name="MergedRoomSortButton" Tag="Room" Click="SortHeader_Click" MinHeight="0"
+                                            Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
+                                            Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by room's full name">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="Room" FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock x:Name="MergedRoomSortGlyph" />
+                                        </StackPanel>
+                                    </Button>
                                 </StackPanel>
                                 <local:ColumnResizeGrip Column="{x:Bind Columns.Assignments, Mode=OneWay}" AutomationProperties.Name="{x:Bind Columns.Assignments.ResizeLabel, Mode=OneWay}"
                                                         SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Assignments.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="10" Visibility="{x:Bind Columns.ShowSeparateRoom, Mode=OneWay}">
-                                <TextBlock Text="Room" FontWeight="SemiBold" FontSize="12" Margin="{x:Bind local:DeviceColumnLayoutHelpers.HeaderTextMargin(Columns.HeaderLabelTopMargin), Mode=OneWay}" VerticalAlignment="Center" />
+                                <Button x:Name="RoomSortButton" Tag="Room" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
+                                        Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
+                                        Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by room's full name">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="Room" FontWeight="SemiBold" />
+                                        <TextBlock x:Name="RoomSortGlyph" />
+                                    </StackPanel>
+                                </Button>
                                 <local:ColumnResizeGrip Column="{x:Bind Columns.Room}" AutomationProperties.Name="{x:Bind Columns.Room.ResizeLabel}"
                                                         SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Room.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
