@@ -497,7 +497,8 @@
                             </ListView.Resources>
                             <ListView.ItemContainerStyle>
                                 <Style TargetType="ListViewItem">
-                                    <Setter Property="MinHeight" Value="{Binding Columns.RowMinimumHeight}" />
+                                    <!-- The row template owns the minimum; remove WinUI's 40-DIP container floor. -->
+                                    <Setter Property="MinHeight" Value="0" />
                                     <Setter Property="Padding" Value="0" />
                                     <Setter Property="Margin" Value="0" />
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
