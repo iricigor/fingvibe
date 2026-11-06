@@ -17,11 +17,16 @@ public sealed partial class DeviceDetailsPageView : UserControl
     private bool _editingClassification;
     private bool _classificationEnabled;
     private ScanResultRow? _row;
+    private DeviceHistorySummary? _historySummary;
+    private readonly DispatcherTimer _historyClock = new() { Interval = TimeSpan.FromSeconds(30) };
 
     public DeviceDetailsPageView()
     {
         InitializeComponent();
         InitializeClassificationPickers();
+        _historyClock.Tick += (_, _) => RefreshHistorySummary();
+        Loaded += (_, _) => { RefreshHistorySummary(); _historyClock.Start(); };
+        Unloaded += (_, _) => _historyClock.Stop();
         GotFocus += (_, args) =>
         {
             if (args.OriginalSource is FrameworkElement element)
@@ -68,6 +73,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
         ShowConnection(row);
         DeviceIncludeUdpCheckBox.IsChecked = false;
         DeviceImportedMetadata.IsExpanded = false;
+        DeviceScanHistoryExpander.IsExpanded = false;
         DeviceBrowserStatusText.Text = string.Empty;
     }
 
@@ -75,21 +81,39 @@ public sealed partial class DeviceDetailsPageView : UserControl
     {
         var summary = row.GetHistorySummary(networkId, subnet);
         var history = DeviceDetailsPresentation.ScanHistory(summary);
+        _historySummary = summary;
+        RefreshHistorySummary();
         DeviceHistoryScope.Text = $"Current network: {networkId ?? "identity unavailable"} | {subnet ?? "subnet unavailable"}";
-        DeviceHistoryFirstSeen.Text = $"First seen: {DeviceDetailsPresentation.HistoryTimestamp(summary.FirstSeen, summary.FirstSeenIsAggregate)}";
-        DeviceHistoryLastSeen.Text = $"Last seen: {DeviceDetailsPresentation.HistoryTimestamp(summary.LastSeen, summary.LastSeenIsAggregate)}";
-        DeviceHistorySince.Text = DeviceDetailsPresentation.ObservedSince(summary);
         DeviceHistoryLatest.Text = summary.Latest is { } latest
             ? $"Latest recorded scan: {DeviceDetailsPresentation.HistoryTimestamp(latest.CompletedAt)}. Saved observations do not establish current live presence."
             : "No individual scans in this scope. Historical aggregates cannot establish an observed state or since time.";
         DeviceScanHistoryCount.Text = $"{history.Count:N0} completed scan observations";
         DeviceScanHistoryList.ItemsSource = history;
-        DeviceScanHistoryList.Visibility = history.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        DeviceScanHistoryTable.Visibility = history.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         DeviceScanHistoryEmpty.Text = history.Count == 0 ? DeviceDetailsPresentation.EmptyScanHistory(row, networkId, subnet) : string.Empty;
         DeviceScanHistoryEmpty.Visibility = history.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         VirtualDeviceHistoryCard.Visibility = row.VirtualDevice is { } device
             && device.NetworkId == networkId && device.Subnet == subnet ? Visibility.Visible : Visibility.Collapsed;
         VirtualDeviceHistoryText.Text = row.ConnectionHistoryText;
+    }
+
+    private void RefreshHistorySummary()
+    {
+        if (_historySummary is not { } summary) return;
+        var now = DateTimeOffset.UtcNow;
+        DeviceHistoryFirstSeen.Text = $"First seen: {DeviceDetailsPresentation.HistoryTimestamp(summary.FirstSeen, summary.FirstSeenIsAggregate)}";
+        DeviceHistoryLastSeen.Text = $"Last seen: {DeviceDetailsPresentation.HistoryTimestamp(summary.LastSeen, summary.LastSeenIsAggregate)}";
+        DeviceHistoryFirstSeenAge.Text = DeviceDetailsPresentation.HistoryAge(summary.FirstSeen, now);
+        DeviceHistoryLastSeenAge.Text = DeviceDetailsPresentation.HistoryAge(summary.LastSeen, now);
+        ToolTipService.SetToolTip(DeviceHistoryFirstSeen, DeviceDetailsPresentation.HistoryTimestampTooltip(summary.FirstSeen));
+        ToolTipService.SetToolTip(DeviceHistoryLastSeen, DeviceDetailsPresentation.HistoryTimestampTooltip(summary.LastSeen));
+        ToolTipService.SetToolTip(DeviceHistorySince, DeviceDetailsPresentation.HistoryTimestampTooltip(summary.Since));
+        DeviceHistorySince.Text = DeviceDetailsPresentation.ObservedSince(summary);
+        DeviceHistoryState.Text = summary.Latest is { } latest
+            ? $"Last observed: {(latest.Present ? "Present" : "Absent")}"
+            : "Last observed: Unavailable - no matching individual scan observations.";
+        DeviceHistoryPresentDot.Visibility = summary.Latest?.Present == true ? Visibility.Visible : Visibility.Collapsed;
+        DeviceHistoryAbsentDot.Visibility = summary.Latest?.Present == false ? Visibility.Visible : Visibility.Collapsed;
     }
 
     internal void ShowConnection(ScanResultRow row)

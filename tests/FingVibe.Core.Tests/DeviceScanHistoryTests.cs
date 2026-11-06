@@ -47,12 +47,12 @@ public sealed class DeviceScanHistoryTests : IDisposable
         Assert.Equal(2, rows.Length);
         foreach (var row in rows)
         {
-            var history = DeviceDetailsPresentation.ScanHistory(row.GetHistorySummary(Network, Subnet));
-            Assert.Equal(["2026-11-01 12:03:00 UTC", "2026-11-01 12:02:00 UTC",
-                "2026-11-01 12:01:00 UTC", "2026-11-01 12:00:00 UTC"], history.Select(item => item.ScanTime));
-            Assert.Equal(["Observed present", "Observed absent", "Observed present", "Observed present"],
+            var history = DeviceDetailsPresentation.ScanHistory(row.GetHistorySummary(Network, Subnet), TimeZoneInfo.Utc);
+            Assert.Equal(["12:03:00", "12:02:00", "12:01:00", "12:00:00"], history.Select(item => item.Time));
+            Assert.All(history, item => Assert.Equal("2026-11-01", item.Date));
+            Assert.Equal(["Present", "Absent", "Present", "Present"],
                 history.Select(item => item.State));
-            Assert.All(history, item => Assert.Equal($"Network {Network} | {Subnet}", item.NetworkContext));
+            Assert.Equal([false, true, false, true], history.Select(item => item.IsAlternateRow));
         }
     }
 

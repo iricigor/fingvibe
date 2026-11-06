@@ -298,11 +298,12 @@ function Test-DeviceDetailsEditing {
     Assert-KeyboardCopy Model "Synthetic Model"
     [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
     Show-ServiceScanSection
-    $ports = (Find-ServiceControl "Ports & services" -ByName).Current.BoundingRectangle
     (Find-ServiceControl "Edit device identification" -ByName).SetFocus()
     Wait-ServiceState {
-        (Find-ServiceControl "Device type" -ByName).Current.BoundingRectangle.Width -gt 0
+        (Find-ServiceControl "Device type" -ByName).Current.BoundingRectangle.Width -gt 0 -and
+        (Find-ServiceControl "Ports & services" -ByName).Current.BoundingRectangle.Width -gt 0
     } "wide identification fields"
+    $ports = (Find-ServiceControl "Ports & services" -ByName).Current.BoundingRectangle
     $type = (Find-ServiceControl "Device type" -ByName).Current.BoundingRectangle
     $os = (Find-ServiceControl "Operating system" -ByName).Current.BoundingRectangle
     $brand = (Find-ServiceControl Brand -ByName).Current.BoundingRectangle
@@ -312,6 +313,14 @@ function Test-DeviceDetailsEditing {
         [Math]::Abs($identification.Left - $network.Left) -gt 3 -or
         [Math]::Abs($ports.Left - $network.Left) -gt 3) {
         throw "Wide identification must span the page in three field columns, followed by full-width ports."
+    }
+    $imported = Find-ServiceControl DeviceImportedMetadata
+    $evidence = Find-ServiceControl "How this device was identified" -ByName
+    if ($imported.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -ne
+        [System.Windows.Automation.ExpandCollapseState]::Collapsed -or
+        $imported.Current.BoundingRectangle.Top -lt $evidence.Current.BoundingRectangle.Bottom -or
+        $imported.Current.BoundingRectangle.Bottom -gt $ports.Top) {
+        throw "Collapsed Imported Fing data must follow identification evidence, before Ports & services."
     }
     Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-identification-read-wide.png")
     Open-IdentificationEditor
