@@ -10,6 +10,7 @@ namespace FingVibe.App;
 public sealed partial class MainWindow
 {
     private IReadOnlyList<DeviceDiscovery> _deferredDiscoveries = [];
+    private bool _discoveryNotificationsClosed;
 
     private bool IsMinimized => AppWindow.IsMinimized();
 
@@ -17,16 +18,23 @@ public sealed partial class MainWindow
     {
         AppWindow.Changed += DiscoveryWindow_Changed;
         Activated += DiscoveryWindow_Activated;
+        // Closed can run while AppWindow is still handling the close message, so these window-owned
+        // subscriptions are left to end with the window instead of touching AppWindow here.
         Closed += (_, _) =>
         {
-            AppWindow.Changed -= DiscoveryWindow_Changed;
-            Activated -= DiscoveryWindow_Activated;
+            _discoveryNotificationsClosed = true;
+            _deferredDiscoveries = [];
         };
     }
 
     // Discoveries found while minimized, for example by scheduled scans, wait until the window is restored.
     private void PresentDiscoveries(IReadOnlyList<DeviceDiscovery> discoveries)
     {
+        if (_discoveryNotificationsClosed)
+        {
+            return;
+        }
+
         if (IsMinimized)
         {
             _deferredDiscoveries = PeriodicScanPresentation.MergeDiscoveries(_deferredDiscoveries, discoveries);
@@ -48,7 +56,7 @@ public sealed partial class MainWindow
 
     private void QueueDeferredDiscoveries()
     {
-        if (_deferredDiscoveries.Count > 0)
+        if (!_discoveryNotificationsClosed && _deferredDiscoveries.Count > 0)
         {
             // Let restoration finish before anchoring the popup to the header.
             DispatcherQueue.TryEnqueue(ShowDeferredDiscoveries);
@@ -57,7 +65,7 @@ public sealed partial class MainWindow
 
     private void ShowDeferredDiscoveries()
     {
-        if (_deferredDiscoveries.Count == 0 || IsMinimized || !AppWindow.IsVisible)
+        if (_discoveryNotificationsClosed || _deferredDiscoveries.Count == 0 || IsMinimized || !AppWindow.IsVisible)
         {
             return;
         }

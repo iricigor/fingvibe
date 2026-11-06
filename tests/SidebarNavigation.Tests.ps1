@@ -1013,7 +1013,11 @@ function Show-ScheduledScansCard {
     $pageBounds = $page.Current.BoundingRectangle
     foreach ($id in @("ScheduledScansHeading", "ScheduledScansSwitch", "ScanIntervalPicker",
             "ScheduledScanStatus", "ScheduledScanEvidenceNote")) {
-        $bounds = (Find-SidebarElement AutomationId $id).Current.BoundingRectangle
+        try { $bounds = (Find-SidebarElement AutomationId $id).Current.BoundingRectangle }
+        catch {
+            Save-ScheduledScanFailure "scheduled-scans-missing"
+            throw
+        }
         if ($bounds.Left -lt $pageBounds.Left -or $bounds.Right -gt $pageBounds.Right + 1 -or
             $bounds.Top -lt $pageBounds.Top -or $bounds.Bottom -gt $pageBounds.Bottom + 1) {
             Save-ScheduledScanFailure "scheduled-scans-clipped"
@@ -1031,6 +1035,11 @@ function Hide-ScheduledScansCard {
 
 function Switch-ScheduledScansWithKeyboard([bool] $Expected) {
     Focus-SidebarWindow
+    $scroll = (Find-SidebarElement AutomationId SettingsPage).GetCurrentPattern(
+        [System.Windows.Automation.ScrollPattern]::Pattern)
+    Write-Host "Settings scroll before toggling scheduled scans: $([Math]::Round($scroll.Current.VerticalScrollPercent))%."
+    # Scan progress rows resize the header, so bring the card back into view before using the keyboard.
+    Show-ScheduledScansCard
     $switch = Find-SidebarElement AutomationId ScheduledScansSwitch
     $switch.SetFocus()
     [SidebarReviewKeyboard]::Tap(0x20)
