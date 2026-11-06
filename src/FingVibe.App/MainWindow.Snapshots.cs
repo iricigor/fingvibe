@@ -100,7 +100,7 @@ public sealed partial class MainWindow
         return row;
     }
 
-    private async Task<IReadOnlyList<DeviceDiscovery>> SaveCompletedScanAsync(
+    private async Task<ScanSaveResult> SaveCompletedScanAsync(
         LanNetwork network, IEnumerable<ScanResult> results, string? networkId, TimeSpan duration)
     {
         var snapshot = new ScanSnapshot(
@@ -111,6 +111,7 @@ public sealed partial class MainWindow
         _currentScanSnapshot = snapshot;
         _liveCompletedAt = snapshot.CompletedAt;
         IReadOnlyList<DeviceDiscovery> discoveries = [];
+        string? persistenceError = null;
         await _deviceDataSaveLock.WaitAsync();
         try
         {
@@ -125,6 +126,7 @@ public sealed partial class MainWindow
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
             {
                 _inventory = observed;
+                persistenceError = exception.Message;
                 _inventoryError = $"Scan completed, but inventory and scan history could not be saved: {exception.Message}";
             }
         }
@@ -141,7 +143,7 @@ public sealed partial class MainWindow
         {
             ShowSnapshotError("The completed scan could not be saved.");
         }
-        return discoveries;
+        return new ScanSaveResult(discoveries, persistenceError);
     }
 
     private void ShowSavedSnapshotStatus(ScanSnapshot snapshot)

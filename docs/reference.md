@@ -280,6 +280,8 @@ IPv4 MAC enrichment first checks Windows' neighbor table for the exact IP on the
 
 Starting a scan keeps the displayed list visible and scrollable but prevents opening device details by pointer or keyboard. Results are collected separately and replace the list only when the scan succeeds; cancellation or failure retains the displayed results and reports the outcome explicitly. Progress continues to count all checked addresses. Completed scans update inventory observations, same-network absence, and per-device scan history; no new discovery probes are added.
 
+Manual scans and the periodic scan engine, which is not yet enabled, share one execution path. It holds the app's single network-activity slot for the whole scan, so LAN scans never overlap speed tests, troubleshooting or device-service scans; a busy request is rejected, not queued. If the Windows network identity changes during a scan, its observations are saved unscoped and no device is marked Offline.
+
 ### First local discovery
 
 After a completed manual scan saves inventory/history successfully, a single
