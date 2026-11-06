@@ -22,6 +22,8 @@ public sealed partial class MainWindow : Window
         InitializeIspLogo();
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Scanner.ico"));
         ToolsPage.ActivityCoordinator = _networkActivityCoordinator;
+        _scanExecution = new ScanExecution(_networkActivityCoordinator, this);
+        _periodicScans = new PeriodicScanScheduler(RunScheduledScanAsync);
         this.AppWindow.Closing += MainWindow_Closing;
         InitializeAppearance();
         InitializeDeviceTableSettings();

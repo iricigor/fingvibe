@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using FingVibe.Core.Models;
 using FingVibe.Core.Networking;
 using FingVibe.Core.Storage;
@@ -6,16 +5,19 @@ using Microsoft.UI.Xaml;
 
 namespace FingVibe.App;
 
-public sealed partial class MainWindow
+public sealed partial class MainWindow : IScanExecutionSteps
 {
     private readonly LanScannerService _scanner = IsUiReview
         ? new LanScannerService(timeoutMilliseconds: 100, maximumConcurrency: 1)
         : new LanScannerService();
+    private readonly ScanExecution _scanExecution;
+    private readonly PeriodicScanScheduler _periodicScans;
     private CancellationTokenSource? _scanCancellation;
     private bool _isScanning;
     private bool _restoreScanActionFocus;
     private string? _scanMessage;
     private string? _discoveryMessage;
+    private string _retainedResultsMessage = string.Empty;
 
     private void UpdateScanStatus()
     {
@@ -51,16 +53,24 @@ public sealed partial class MainWindow
             return;
         }
 
-        if (!_networkActivityCoordinator.TryAcquire(NetworkActivityKind.LanScan, out var activityLease))
+        var outcome = await _scanExecution.RunAsync(new ScanRequest(ScanTrigger.Manual, network));
+        if (outcome.Status == ScanRunStatus.Busy)
         {
-            _scanMessage = _networkActivityCoordinator.ActiveKind == NetworkActivityKind.InternetSpeedTest
+            _scanMessage = outcome.BlockingActivity == NetworkActivityKind.InternetSpeedTest
                 ? "A Cloudflare speed test is active or stopping. Wait for it to finish before starting a LAN scan."
                 : "Another network measurement is in progress. Wait for it to finish before retrying.";
             UpdateScanStatus();
-            return;
         }
+    }
 
-        using var scanActivity = activityLease;
+    // Scheduled requests share the manual scan path; nothing starts the scheduler until user controls exist.
+    private Task<ScanRunOutcome> RunScheduledScanAsync(CancellationToken cancellationToken) =>
+        NetworkPicker.SelectedItem is LanNetwork network
+            ? _scanExecution.RunAsync(new ScanRequest(ScanTrigger.Scheduled, network), cancellationToken)
+            : Task.FromResult(new ScanRunOutcome(ScanRunStatus.Unavailable) { Message = "No LAN is selected." });
+
+    void IScanExecutionSteps.BeginScan(ScanRequest request, CancellationTokenSource cancellation)
+    {
         var focusScanAction = ScanButton.FocusState != FocusState.Unfocused;
         _isScanning = true;
         ToolsPage.InvalidateImportAnalysis("A scan started. Wait for it to finish and analyze again.");
@@ -71,106 +81,102 @@ public sealed partial class MainWindow
         CancelButton.IsEnabled = true;
         CancelButton.Visibility = Visibility.Visible;
         ScanProgressArea.Visibility = Visibility.Visible;
-        _scanCancellation = new CancellationTokenSource();
+        _scanCancellation = cancellation;
 
-        var total = SubnetCalculator.GetUsableHostCount(network.PrefixLength);
+        var total = SubnetCalculator.GetUsableHostCount(request.Network.PrefixLength);
         ScanProgressBar.Maximum = total;
         ScanProgressBar.Value = 0;
         StartScanPulse();
-        var retainedResults = _displayedScan is not null ? " · Displaying retained results" : string.Empty;
-        _scanMessage = $"Scanning 0/{total:N0} addresses{retainedResults}";
+        _retainedResultsMessage = _displayedScan is not null ? " · Displaying retained results" : string.Empty;
+        _scanMessage = $"Scanning 0/{total:N0} addresses{_retainedResultsMessage}";
         UpdateScanStatus();
         if (focusScanAction) CancelButton.Focus(FocusState.Programmatic);
-        var stopwatch = Stopwatch.StartNew();
-        IReadOnlyList<DeviceDiscovery> discoveries = [];
         _discoveryMessage = null;
+    }
 
+    string? IScanExecutionSteps.CaptureNetworkIdentity(LanNetwork network) => GetScanNetworkIdentity(network);
+
+    async Task<IReadOnlyList<ScanResult>> IScanExecutionSteps.ScanAsync(ScanRequest request, CancellationToken cancellationToken)
+    {
+        var network = request.Network;
+        var total = SubnetCalculator.GetUsableHostCount(network.PrefixLength);
+        var retainedResults = _retainedResultsMessage;
         var resultProgress = new ScanResultBuffer();
         var cancellation = _scanCancellation;
         var scanProgress = new Progress<ScanProgress>(progress =>
         {
-            if (!_isScanning || _scanCancellation != cancellation || cancellation.IsCancellationRequested)
+            if (!_isScanning || _scanCancellation != cancellation || cancellationToken.IsCancellationRequested)
             {
                 return;
             }
             PresentScanProgress(progress, retainedResults);
         });
 
-        try
+        // The disposable UI test holds only its refresh until it has observed retained results.
+        if (IsUiReview && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_SCAN_HOLD") is { Length: > 0 } holdPath)
         {
-            // The disposable UI test holds only its refresh until it has observed retained results.
-            if (IsUiReview && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_SCAN_HOLD") is { Length: > 0 } holdPath)
+            var fixturePath = holdPath + ".progress";
+            if (File.Exists(holdPath) && File.Exists(fixturePath))
             {
-                var fixturePath = holdPath + ".progress";
-                if (File.Exists(holdPath) && File.Exists(fixturePath))
-                {
-                    var fixture = System.Text.Json.JsonSerializer.Deserialize<ScanProgress>(File.ReadAllText(fixturePath));
-                    if (fixture.Total <= 0 || fixture.Completed < 0 || fixture.Completed > fixture.Total)
-                        throw new InvalidOperationException("The UI-review progress fixture is invalid.");
-                    PresentScanProgress(fixture, retainedResults);
-                }
-                var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
-                while (File.Exists(holdPath))
-                {
-                    if (DateTimeOffset.UtcNow >= deadline)
-                        throw new InvalidOperationException("The UI-review scan hold was not released within 30 seconds.");
-                    await Task.Delay(50, cancellation.Token);
-                }
-                PresentScanProgress(new ScanProgress(0, total), retainedResults);
+                var fixture = System.Text.Json.JsonSerializer.Deserialize<ScanProgress>(File.ReadAllText(fixturePath));
+                if (fixture.Total <= 0 || fixture.Completed < 0 || fixture.Completed > fixture.Total)
+                    throw new InvalidOperationException("The UI-review progress fixture is invalid.");
+                PresentScanProgress(fixture, retainedResults);
             }
-            var networkId = GetScanNetworkIdentity(network);
-            ScanSnapshot? completedFixture = null;
-            if (IsUiReview && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_SCAN_RESULTS") is { Length: > 0 } completedFixturePath)
-                completedFixture = await new ScanSnapshotStore(completedFixturePath).LoadAsync(cancellation.Token)
-                    ?? throw new InvalidOperationException("The UI-review completed-scan fixture is missing.");
-            else
-                await _scanner.ScanAsync(network, resultProgress, scanProgress, cancellation.Token);
-            cancellation.Token.ThrowIfCancellationRequested();
-            var completedNetworkId = GetScanNetworkIdentity(network);
-            if (completedNetworkId != networkId)
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+            while (File.Exists(holdPath))
             {
-                networkId = null;
-                _inventoryError = "The Windows network profile changed during this scan. Observations are unscoped and no devices are marked Offline.";
+                if (DateTimeOffset.UtcNow >= deadline)
+                    throw new InvalidOperationException("The UI-review scan hold was not released within 30 seconds.");
+                await Task.Delay(50, cancellationToken);
             }
+            PresentScanProgress(new ScanProgress(0, total), retainedResults);
+        }
+        if (IsUiReview && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_SCAN_RESULTS") is { Length: > 0 } completedFixturePath)
+            return (await new ScanSnapshotStore(completedFixturePath).LoadAsync(cancellationToken)
+                ?? throw new InvalidOperationException("The UI-review completed-scan fixture is missing.")).Results;
 
-            stopwatch.Stop();
+        await _scanner.ScanAsync(network, resultProgress, scanProgress, cancellationToken);
+        return resultProgress.Results.Select(result => IsUiReview && System.Net.IPAddress.IsLoopback(result.Address)
+            ? result with { MacAddress = System.Net.NetworkInformation.PhysicalAddress.Parse("020000000001") } : result).ToArray();
+    }
 
-            var results = completedFixture?.Results ?? resultProgress.Results.Select(result => IsUiReview && System.Net.IPAddress.IsLoopback(result.Address)
-                ? result with { MacAddress = System.Net.NetworkInformation.PhysicalAddress.Parse("020000000001") } : result).ToArray();
-            discoveries = await SaveCompletedScanAsync(network, results, networkId, stopwatch.Elapsed);
-            _scanMessage = null;
-            if (networkId is null)
-                _discoveryMessage = "New-device alerts and baseline establishment are disabled for this scan because network identity is unavailable.";
-        }
-        catch (OperationCanceledException)
-        {
-            _scanMessage = $"Scan of {network.Cidr} cancelled{retainedResults}";
-        }
-        catch (Exception exception) when (exception is InvalidOperationException or IOException or UnauthorizedAccessException or InvalidDataException)
-        {
-            _scanMessage = $"Unable to scan {network.Cidr}: {exception.Message}{retainedResults}";
-        }
-        finally
-        {
-            var restoreFocus = _restoreScanActionFocus || CancelButton.FocusState != FocusState.Unfocused;
-            _restoreScanActionFocus = false;
-            _isScanning = false;
-            DevicesPage.SetInteractionsEnabled(true);
-            UpdateEmptyState();
-            UpdatePeopleRoomsPages();
-            _scanCancellation.Dispose();
-            _scanCancellation = null;
-            NetworkPicker.IsEnabled = true;
-            CancelButton.IsEnabled = false;
-            CancelButton.Visibility = Visibility.Collapsed;
-            ScanProgressArea.Visibility = Visibility.Collapsed;
-            StopScanPulse();
-            UpdateScanStatus();
-            if (restoreFocus && ScanButton.Visibility == Visibility.Visible
-                && ScanActions.Visibility == Visibility.Visible)
-                ScanButton.Focus(FocusState.Programmatic);
-        }
-        if (discoveries.Count > 0) ShowDiscoveryPopup(discoveries);
+    async Task<ScanSaveResult> IScanExecutionSteps.SaveAsync(
+        ScanRequest request, IReadOnlyList<ScanResult> results, string? networkId, bool networkChanged, TimeSpan duration)
+    {
+        if (networkChanged)
+            _inventoryError = "The Windows network profile changed during this scan. Observations are unscoped and no devices are marked Offline.";
+        var saved = await SaveCompletedScanAsync(request.Network, results, networkId, duration);
+        _scanMessage = null;
+        if (networkId is null)
+            _discoveryMessage = "New-device alerts and baseline establishment are disabled for this scan because network identity is unavailable.";
+        return saved;
+    }
+
+    void IScanExecutionSteps.EndScan(ScanRequest request, ScanRunOutcome outcome)
+    {
+        if (outcome.Status == ScanRunStatus.Cancelled)
+            _scanMessage = $"Scan of {request.Network.Cidr} cancelled{_retainedResultsMessage}";
+        else if (outcome.Status == ScanRunStatus.Failed)
+            _scanMessage = $"Unable to scan {request.Network.Cidr}: {outcome.Message}{_retainedResultsMessage}";
+
+        var restoreFocus = _restoreScanActionFocus || CancelButton.FocusState != FocusState.Unfocused;
+        _restoreScanActionFocus = false;
+        _isScanning = false;
+        DevicesPage.SetInteractionsEnabled(true);
+        UpdateEmptyState();
+        UpdatePeopleRoomsPages();
+        _scanCancellation = null;
+        NetworkPicker.IsEnabled = true;
+        CancelButton.IsEnabled = false;
+        CancelButton.Visibility = Visibility.Collapsed;
+        ScanProgressArea.Visibility = Visibility.Collapsed;
+        StopScanPulse();
+        UpdateScanStatus();
+        if (restoreFocus && ScanButton.Visibility == Visibility.Visible
+            && ScanActions.Visibility == Visibility.Visible)
+            ScanButton.Focus(FocusState.Programmatic);
+        if (outcome.Discoveries.Count > 0) ShowDiscoveryPopup(outcome.Discoveries);
     }
 
     private void PresentScanProgress(ScanProgress progress, string retainedResults)
