@@ -78,11 +78,14 @@ function Find-HistoryDeviceRow([string] $Name) {
     return $rows[0]
 }
 
-function Get-HistoryLastSeenCell([string] $Name) {
+function Get-HistoryLastSeenCell([string] $Name, [switch] $Rendered) {
     $condition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceLastSeenText")
     $cell = (Find-HistoryDeviceRow $Name).FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
     if (-not $cell) { throw "Devices row '$Name' lacks a Last seen value." }
+    if ($Rendered) {
+        return $cell.GetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern).DocumentRange.GetText(-1)
+    }
     return $cell.Current.Name
 }
 
@@ -94,6 +97,15 @@ function Assert-HistoryLastSeenCell([string] $Name, [string] $Expected) {
         Start-Sleep -Milliseconds 200
     } while ([DateTime]::UtcNow -lt $deadline)
     throw "Devices Last seen for '$Name' is '$actual', expected '$Expected'."
+}
+
+# Visible text is a compact relative age; a clock earlier than the fixture shows its local time instead.
+function Assert-HistoryLastSeenAge([string] $Name, [int] $Index) {
+    $rendered = Get-HistoryLastSeenCell $Name -Rendered
+    $local = (Get-HistoryLocalTime $Index).ToString("yyyy-MM-dd HH:mm", [Globalization.CultureInfo]::InvariantCulture)
+    if ($rendered -cnotmatch '^(< 1 min\. ago|\d+ min\. ago|\d+ h ago|\d+ (day|month|year)s? ago)$' -and $rendered -cne $local) {
+        throw "Devices Last seen for '$Name' must render a relative age, not '$rendered'."
+    }
 }
 
 function Get-HistoryExactTime([int] $Index) {
@@ -394,6 +406,7 @@ try {
         Start-HistoryApp
         foreach ($kind in @("normal", "virtual")) {
             $null = Assert-HistoryLastSeenCell "History $kind" "Last seen: $(Get-HistoryExactTime $lastSeen)"
+            Assert-HistoryLastSeenAge "History $kind" $lastSeen
             Open-HistoryDetails "History $kind"
             Assert-HistorySummary "history-$kind-$index" $index
             Assert-HistoryRows "history-$kind-$index" $index
@@ -405,10 +418,13 @@ try {
     Start-HistoryApp
     $null = Assert-HistoryLastSeenCell "History legacy" `
         "Last seen: $(Get-HistoryExactTime 4) (historical aggregate; individual scan unavailable)"
+    Assert-HistoryLastSeenAge "History legacy" 4
     $null = Assert-HistoryLastSeenCell "History unmatched" `
         "Last seen: Unavailable - no matching local presence evidence for the current network/subnet."
+    if ((Get-HistoryLastSeenCell "History unmatched" -Rendered) -cne "Unavailable") { throw "Missing evidence must stay Unavailable." }
     $null = Assert-HistoryLastSeenCell "History imported" `
-        "Last seen: Never locally - imported Fing data is not a local scan observation."
+        "Last seen: Never - not observed by a local scan.*not mean the device was never present on any network."
+    if ((Get-HistoryLastSeenCell "History imported" -Rendered) -cne "Never") { throw "Imported-only devices must render Never." }
     Open-HistoryDetails "History legacy"
     foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen")) {
         if ((Find-HistoryControl $id).Current.Name -notlike "*historical aggregate; individual scan unavailable*") {
@@ -481,7 +497,7 @@ try {
         if ((Get-InventorySqliteValue $database "SELECT COUNT(*) FROM scan_history WHERE kind='virtual'") -ne $count - 2) { throw "Same-network scan did not record virtual absence." }
     }
     $normalPresent = Get-InventorySqliteValue $database "SELECT present FROM scan_history WHERE kind='mac' AND id='020000000001' ORDER BY sequence DESC LIMIT 1"
-    $expectedNormal = if ("$normalPresent" -eq "1") { "Last seen: Seen this scan (*)" } else { "Last seen: $(Get-HistoryExactTime 4)" }
+    $expectedNormal = if ("$normalPresent" -eq "1") { "Last seen: Online - responded in the displayed scan (*)" } else { "Last seen: $(Get-HistoryExactTime 4)" }
     $beforeLastSeen = @{
         "History normal" = Assert-HistoryLastSeenCell "History normal" $expectedNormal
         "History virtual" = Assert-HistoryLastSeenCell "History virtual" "Last seen: $(Get-HistoryExactTime 4)"

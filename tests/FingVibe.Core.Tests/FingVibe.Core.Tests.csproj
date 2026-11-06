@@ -25,6 +25,7 @@
     <Compile Include="..\..\src\FingVibe.App\BuildIdentity.cs" Link="BuildIdentity.cs" />
     <Compile Include="..\..\src\FingVibe.App\ScanResultRow.cs" Link="ScanResultRow.cs" />
     <Compile Include="..\..\src\FingVibe.App\DeviceDetailsPresentation.cs" Link="DeviceDetailsPresentation.cs" />
+    <Compile Include="..\..\src\FingVibe.App\Views\DeviceLastSeenAgeRefresh.cs" Link="DeviceLastSeenAgeRefresh.cs" />
     <Compile Include="..\..\src\FingVibe.App\PortServiceIcons.cs" Link="PortServiceIcons.cs" />
     <Compile Include="..\..\src\FingVibe.App\ScanResultBuffer.cs" Link="ScanResultBuffer.cs" />
     <Compile Include="..\..\src\FingVibe.App\ScanProgressPresentation.cs" Link="ScanProgressPresentation.cs" />

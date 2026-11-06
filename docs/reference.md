@@ -241,7 +241,7 @@ by the number of observed port entries (zero first ascending). Person and Room
 sort by case-insensitive **full names**, not short labels or emoji, with
 unassigned devices last in both directions. Last seen sorts by its timestamp
 (a current response uses the displayed scan time); Unavailable and then Never
-locally stay last in both directions. Equal primary keys use MAC address,
+stay last in both directions. Equal primary keys use MAC address,
 then numeric IP; tie keys follow the selected direction. Merged columns retain
 independent clickable subheaders and arrows. Filtering, clearing filters,
 metadata edits, and incoming results retain the selected sort; a selected
@@ -381,16 +381,25 @@ the actual time a device connected/disconnected.
 The Devices table's optional **Last seen** column, visible by default as the
 final column, applies the same selected network identity/subnet scope and the
 details page's last-seen evidence, so the two never disagree. A device that
-responded in the displayed live scan shows **Seen this scan**; otherwise the
-column shows the newest local presence as `yyyy-MM-dd HH:mm` local time, so
-absence never advances it. Matching legacy aggregates show **(aggregate)**.
+responded in the displayed live scan shows muted **Online**, meaning a response
+in that scan rather than continuous availability; otherwise the column shows
+the newest local presence as a compact relative age, so absence never advances
+it. Ages use whole elapsed units: `< 1 min. ago`, `N min. ago`, `N h ago`, then
+`1 day ago`/`N days ago`, 30-day `month(s)`, and 365-day `year(s)`. A saved
+timestamp later than the current clock (for example after a clock change) shows
+its `yyyy-MM-dd HH:mm` local time instead of a negative age.
 Missing, other-network, or unreadable evidence shows muted **Unavailable**, and
-imported-only devices show muted **Never locally**; neither substitutes Fing
-timestamps. The full-value preview, row values, and accessible name give the
-exact local timestamp with UTC offset, aggregate provenance, or unavailable reason.
-Values are calculated when rows are rebuilt or the network changes, not while
-filtering. Restart shows saved history rather than live presence. Saved
-settings without this column show it at its default width.
+imported-only devices show muted **Never** (never observed by a local scan, not
+never present on any network); neither substitutes Fing timestamps. The
+full-value preview, row values, and accessible name give the exact local
+timestamp with UTC offset, legacy historical-aggregate provenance, or the
+unavailable/never explanation. Evidence is calculated when rows are rebuilt or
+the network changes, not while filtering. While Devices is shown, ages refresh
+every 60 seconds and immediately when the page is shown again or receives rows;
+the refresh stops while another page is shown. It changes only the age text:
+never Online, status, timestamps, selection, ordering, or saved data, and it
+neither scans nor writes. Restart shows saved history rather than live presence.
+Saved settings without this column show it at its default width.
 
 All scan observations are retained indefinitely in `device-inventory.sqlite`,
 with no age/count limit, automatic truncation, or new history-clearing control.

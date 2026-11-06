@@ -70,10 +70,19 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public void SetLastSeen(DeviceLastSeen lastSeen)
     {
         if (LastSeen == lastSeen) return;
+        var previous = LastSeen;
         LastSeen = lastSeen;
-        foreach (var property in new[] { nameof(LastSeen), nameof(LastSeenText), nameof(LastSeenDescription), nameof(LastSeenOpacity) })
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
+        // Age refreshes change only the text; leaving other bindings untouched keeps open previews and accessibility stable.
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LastSeen)));
+        if (previous.Text != lastSeen.Text)
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LastSeenText)));
+        if (previous.Description != lastSeen.Description)
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LastSeenDescription)));
+        if (previous.IsMuted != lastSeen.IsMuted)
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LastSeenOpacity)));
     }
+
+    public void RefreshLastSeenAge(DateTimeOffset now) => SetLastSeen(LastSeen.At(now));
 
     public ScanResultRow(ScanResult? result, int prefixLength, string? customName = null,
         DeviceClassificationOverride? classificationOverride = null, bool historical = false)

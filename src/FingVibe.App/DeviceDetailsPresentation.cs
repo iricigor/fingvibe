@@ -31,6 +31,15 @@ public sealed record DeviceLastSeen(DeviceLastSeenKind Kind, DateTimeOffset? Tim
     public static DeviceLastSeen NotCalculated { get; } = Unavailable("last seen has not been calculated.");
     public bool IsMuted => Kind != DeviceLastSeenKind.Timestamp;
 
+    // Shown instead of an age when a clock change makes the saved timestamp later than now.
+    internal string LocalTime { get; init; } = string.Empty;
+
+    // Refreshing changes only the displayed age; kind, timestamp, and the exact description never change.
+    public DeviceLastSeen At(DateTimeOffset now) =>
+        Kind == DeviceLastSeenKind.Timestamp && Timestamp is { } time
+            ? this with { Text = DeviceDetailsPresentation.LastSeenAge(time, now) ?? LocalTime }
+            : this;
+
     internal static DeviceLastSeen Unavailable(string reason) =>
         new(DeviceLastSeenKind.Unavailable, null, "Unavailable", $"Last seen: Unavailable - {reason}");
 }
@@ -73,6 +82,22 @@ internal static class DeviceDetailsPresentation
         return elapsed < TimeSpan.Zero ? $"in {age}" : $"{age} ago";
     }
 
+    // Whole elapsed units (30-day months, 365-day years) change exactly at boundaries and never show 60 min. or 24 h.
+    // A future timestamp returns null so callers show its local time rather than a negative or fabricated age.
+    internal static string? LastSeenAge(DateTimeOffset timestamp, DateTimeOffset now)
+    {
+        var elapsed = now - timestamp;
+        if (elapsed < TimeSpan.Zero) return null;
+        if (elapsed < TimeSpan.FromMinutes(1)) return "< 1 min. ago";
+        if (elapsed < TimeSpan.FromHours(1)) return $"{(int)elapsed.TotalMinutes} min. ago";
+        if (elapsed < TimeSpan.FromDays(1)) return $"{(int)elapsed.TotalHours} h ago";
+        var days = (int)elapsed.TotalDays;
+        return days < 30 ? Ago(days, "day") : days < 365 ? Ago(days / 30, "month") : Ago(days / 365, "year");
+
+        static string Ago(int value, string unit) =>
+            $"{value.ToString(CultureInfo.InvariantCulture)} {unit}{(value == 1 ? "" : "s")} ago";
+    }
+
     internal static string ObservedSince(DeviceHistorySummary summary, TimeZoneInfo? timeZone = null) =>
         summary.Latest is { } latest && summary.Since is { } since
             ? $"Observed {(latest.Present ? "online" : "offline")} since: {HistoryTimestamp(since, timeZone: timeZone)}"
@@ -96,17 +121,19 @@ internal static class DeviceDetailsPresentation
         !string.IsNullOrWhiteSpace(value) && value is not ("-" or "Unknown" or "Unknown (likely)");
 
     internal static DeviceLastSeen LastSeen(ScanResultRow row, string? networkId, string? subnet,
-        DateTimeOffset? displayedScanCompletedAt, TimeZoneInfo? timeZone = null)
+        DateTimeOffset? displayedScanCompletedAt, TimeZoneInfo? timeZone = null, DateTimeOffset? now = null)
     {
         var zone = timeZone ?? TimeZoneInfo.Local;
         string Exact(DateTimeOffset time) =>
             TimeZoneInfo.ConvertTime(time, zone).ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture);
 
         if (row.IsFingOnly)
-            return new(DeviceLastSeenKind.NeverLocally, null, "Never locally",
-                "Last seen: Never locally - imported Fing data is not a local scan observation.");
+            return new(DeviceLastSeenKind.NeverLocally, null, "Never",
+                "Last seen: Never - not observed by a local scan. Imported Fing data is not a local scan observation"
+                + " and does not mean the device was never present on any network.");
         if (row.IsCurrentScanResponse && (row.CurrentScanCompletedAt ?? displayedScanCompletedAt) is { } scan)
-            return new(DeviceLastSeenKind.SeenThisScan, scan, "Seen this scan", $"Last seen: Seen this scan ({Exact(scan)})");
+            return new(DeviceLastSeenKind.SeenThisScan, scan, "Online",
+                $"Last seen: Online - responded in the displayed scan ({Exact(scan)})");
         if (row.MacAddress is null)
             return DeviceLastSeen.Unavailable("scan history requires a MAC-based device identity.");
         if (string.IsNullOrWhiteSpace(networkId) || string.IsNullOrWhiteSpace(subnet))
@@ -122,11 +149,13 @@ internal static class DeviceDetailsPresentation
         }
         if (summary.LastSeen is not { } lastSeen)
             return DeviceLastSeen.Unavailable("no matching local presence evidence for the current network/subnet.");
-        var aggregate = summary.LastSeenIsAggregate;
-        return new(DeviceLastSeenKind.Timestamp, lastSeen,
-            TimeZoneInfo.ConvertTime(lastSeen, zone).ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)
-                + (aggregate ? " (aggregate)" : string.Empty),
-            $"Last seen: {Exact(lastSeen)}" + (aggregate ? " (historical aggregate; individual scan unavailable)" : string.Empty));
+        var local = TimeZoneInfo.ConvertTime(lastSeen, zone).ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+        return new DeviceLastSeen(DeviceLastSeenKind.Timestamp, lastSeen, local,
+            $"Last seen: {Exact(lastSeen)}"
+            + (summary.LastSeenIsAggregate ? " (historical aggregate; individual scan unavailable)" : string.Empty))
+        {
+            LocalTime = local
+        }.At(now ?? DateTimeOffset.UtcNow);
     }
 
     internal static IReadOnlyList<DeviceDetailField> ImportedFields(ImportedDeviceMetadata? metadata)
