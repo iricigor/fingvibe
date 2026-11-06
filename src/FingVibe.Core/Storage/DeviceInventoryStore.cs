@@ -21,15 +21,17 @@ public sealed class DeviceInventoryStore
         {
             await using var stream = File.OpenRead(_path);
             var document = await JsonSerializer.DeserializeAsync<Document>(stream, Options, cancellationToken);
-            if (document is null || document.Version is not (1 or 2 or 3) || document.Data is not { } saved
+            if (document is null || document.Version is not (1 or 2 or 3 or 4) || document.Data is not { } saved
                 || saved.Revision == Guid.Empty || saved.Devices is null || saved.Names is null || saved.Classifications is null
                 || saved.PeopleRooms?.People is null || saved.PeopleRooms.Rooms is null || saved.PeopleRooms.Assignments is null
-                || document.Version >= 2 && saved.VirtualDevices is null)
+                || document.Version >= 2 && saved.VirtualDevices is null
+                || document.Version >= 4 && saved.DiscoveryBaselines is null)
                 throw new InvalidDataException("The device inventory has an unsupported or invalid format.");
             var data = new DeviceInventoryData(saved.Revision, saved.Devices, saved.Names, saved.Classifications,
                 new PeopleRoomsData(saved.PeopleRooms.People, saved.PeopleRooms.Rooms, saved.PeopleRooms.Assignments))
             {
-                VirtualDevices = saved.VirtualDevices ?? []
+                VirtualDevices = saved.VirtualDevices ?? [],
+                DiscoveryBaselines = saved.DiscoveryBaselines ?? []
             };
             Validate(data);
             return data;
@@ -60,9 +62,9 @@ public sealed class DeviceInventoryStore
         {
             await using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             {
-                var document = new Document(3, new SavedData(updated.Revision, updated.Devices, updated.Names,
+                var document = new Document(4, new SavedData(updated.Revision, updated.Devices, updated.Names,
                     updated.Classifications, new SavedPeopleRooms(updated.PeopleRooms.People, updated.PeopleRooms.Rooms,
-                        updated.PeopleRooms.Assignments), updated.VirtualDevices));
+                        updated.PeopleRooms.Assignments), updated.VirtualDevices, updated.DiscoveryBaselines));
                 await JsonSerializer.SerializeAsync(stream, document, Options, cancellationToken);
                 await stream.FlushAsync(cancellationToken);
                 stream.Flush(flushToDisk: true);
@@ -81,6 +83,10 @@ public sealed class DeviceInventoryStore
         if (data.Devices is null || data.Names is null || data.Classifications is null || data.PeopleRooms is null)
             throw new InvalidDataException("The device inventory is incomplete.");
         _ = new PeopleRoomsData(data.PeopleRooms.People, data.PeopleRooms.Rooms, data.PeopleRooms.Assignments);
+        if (data.DiscoveryBaselines is null || data.DiscoveryBaselines.Any(item =>
+                item is null || string.IsNullOrWhiteSpace(item.NetworkId) || !ValidSubnet(item.Subnet))
+            || data.DiscoveryBaselines.Distinct().Count() != data.DiscoveryBaselines.Count)
+            throw new InvalidDataException("The inventory contains invalid discovery baselines.");
         foreach (var (key, device) in data.Devices)
         {
             if (device is null || key != PeopleRoomsData.NormalizeMacAddress(key) || device.Mac != key
@@ -191,7 +197,8 @@ public sealed class DeviceInventoryStore
     private sealed record Document(int Version, SavedData? Data);
     private sealed record SavedData(Guid Revision, IReadOnlyDictionary<string, InventoryDevice>? Devices,
         IReadOnlyDictionary<string, string>? Names, IReadOnlyDictionary<string, DeviceClassificationOverride>? Classifications,
-        SavedPeopleRooms? PeopleRooms, IReadOnlyList<PrivateVirtualDevice>? VirtualDevices = null);
+        SavedPeopleRooms? PeopleRooms, IReadOnlyList<PrivateVirtualDevice>? VirtualDevices = null,
+        IReadOnlyList<DeviceDiscoveryBaseline>? DiscoveryBaselines = null);
     private sealed record SavedPeopleRooms(IReadOnlyList<ManagedPerson>? People, IReadOnlyList<ManagedRoom>? Rooms,
         IReadOnlyDictionary<string, DeviceAssignment>? Assignments);
 }

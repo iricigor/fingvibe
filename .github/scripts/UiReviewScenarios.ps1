@@ -115,8 +115,9 @@ function Get-UiReviewCapturePlan {
             elseif ($path -match '^src/FingVibe.App/(MainWindow.DeviceDetails.cs|DeviceDetailsPresentation.cs|Views/DeviceDetailValue.cs)$') {
                 Add-Scenarios @("DeviceDetails") "$path changed device details behavior."
             }
-            elseif ($path -match '^src/FingVibe.Core/(Models/(DeviceInventory|PrivateVirtualDevice|DeviceHistorySummary).cs|Storage/DeviceInventoryStore.cs)$' -or
-                $path -eq "src/FingVibe.App/MainWindow.Snapshots.cs" -or $path -eq "tests/DeviceScanHistory.Ui.Tests.ps1") {
+            elseif ($path -match '^src/FingVibe.Core/(Models/(DeviceInventory|PrivateVirtualDevice|DeviceHistorySummary|DeviceDiscovery).cs|Storage/DeviceInventoryStore.cs)$' -or
+                $path -match '^src/FingVibe.App/MainWindow.(Snapshots|DiscoveryNotifications|Scan).cs$' -or
+                $path -match '^tests/Device(ScanHistory|Discovery).Ui.Tests.ps1$') {
                 Add-Scenarios @("DeviceDetails") "$path changed persisted device scan history."
             }
             elseif ($path -eq "src/FingVibe.App/MainWindow.NetworkIdentity.cs") {

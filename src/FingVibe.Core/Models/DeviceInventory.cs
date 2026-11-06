@@ -26,6 +26,8 @@ public sealed record ImportedDeviceMetadata(
 public sealed record DeviceScanObservation(
     DateTimeOffset CompletedAt, string? NetworkId, string Subnet, bool Present);
 
+public sealed record DeviceDiscoveryBaseline(string NetworkId, string Subnet);
+
 public sealed record DeviceObservation(
     string? NetworkId,
     string Subnet,
@@ -82,6 +84,7 @@ public sealed record DeviceInventoryData(
     PeopleRoomsData PeopleRooms)
 {
     public IReadOnlyList<PrivateVirtualDevice> VirtualDevices { get; init; } = [];
+    public IReadOnlyList<DeviceDiscoveryBaseline> DiscoveryBaselines { get; init; } = [];
 
     public static DeviceInventoryData Empty { get; } = new(Guid.Empty,
         new Dictionary<string, InventoryDevice>(), new Dictionary<string, string>(),
@@ -177,7 +180,10 @@ public sealed record DeviceInventoryData(
         var observed = this with { Devices = devices };
         return observed with
         {
-            VirtualDevices = PrivateVirtualDeviceAllocator.Observe(observed, networkId, snapshot, historical)
+            VirtualDevices = PrivateVirtualDeviceAllocator.Observe(observed, networkId, snapshot, historical),
+            DiscoveryBaselines = !historical && networkId is not null
+                ? DiscoveryBaselines.Append(new(networkId, snapshot.Subnet)).Distinct().ToArray()
+                : DiscoveryBaselines
         };
     }
 }

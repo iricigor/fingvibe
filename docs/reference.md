@@ -255,6 +255,32 @@ IPv4 MAC enrichment first checks Windows' neighbor table for the exact IP on the
 
 Starting a scan keeps the displayed list visible and scrollable but prevents opening device details by pointer or keyboard. Results are collected separately and replace the list only when the scan succeeds; cancellation or failure retains the displayed results and reports the outcome explicitly. Progress continues to count all checked addresses. Completed scans update inventory observations, same-network absence, and per-device scan history; no new discovery probes are added.
 
+### First local discovery
+
+After a completed manual scan saves inventory/history successfully, a single
+in-app popup lists newly observed devices' MACs with individual details links.
+It is a transient popup, not a notification archive or a Windows notification.
+Returning devices and repeated scans, including after restart, do not alert.
+Existing virtual identities suppress separate alerts for associated MACs,
+including a new MAC assigned to an already known virtual device.
+
+Discovery is scoped to the current identified network and subnet. Existing
+durable local observations establish its baseline on upgrade; imported Fing
+metadata does not. The first successful scan of a previously unknown scope is
+quiet, including an empty scan, and saves its baseline in the inventory.
+Imported-only devices qualify on their first local discovery after that baseline.
+Unknown network identity suppresses both alerts and baseline establishment with
+a visible explanation. Cancelled/failed scans and saved-scan restoration never
+alert. Inventory/history save failures withhold the popup and remain visible;
+unsaved in-memory observations are not used as durable duplicate suppression.
+
+`tests\DeviceDiscovery.Ui.Tests.ps1` exercises synthetic baseline/upgrade,
+normal/virtual discovery, imported-only discovery, each details link, repeat and
+return scans, restart, MAC rotation, network scope, cancellation/failure, and
+save-failure/retry behavior through the existing Windows CI device-details review.
+Its completed-scan and network fixtures are enabled only in UI-review mode.
+Never run native UI automation on a working user's desktop.
+
 ### Device scan history
 
 Device details shows a scrollable, newest-first **Scan history** list for normal
@@ -289,8 +315,8 @@ the actual time a device connected/disconnected.
 
 All scan observations are retained indefinitely in `device-inventory.json`,
 with no age/count limit, automatic truncation, or new history-clearing control.
-The file can grow over time. Inventory formats 1 and 2 remain readable; new
-saves use format 3. Legacy aggregates and imported Fing timestamps are never
+The file can grow over time. Inventory formats 1, 2 and 3 remain readable; new
+saves use format 4. Legacy aggregates and imported Fing timestamps are never
 expanded into invented scan rows. Imported-only devices and older saved
 devices explain their empty history. Restart retains history but does not
 make it fresh evidence of live presence. Load errors disable inventory edits;
