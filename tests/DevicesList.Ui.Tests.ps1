@@ -998,7 +998,7 @@ function Test-DeviceColumnSorting {
     $expected = @($results | Where-Object { $_.address -eq "127.0.0.1" -or $_.address -match "^127\.0\.0\.1[0-9]$" } |
         ForEach-Object { @{
             Address = $_.address; Name = $_.deviceName; Vendor = $_.vendorName
-            OpenPorts = $_.openPorts.Count; Mac = $_.macAddress; Person = ""; Room = ""
+            OpenPorts = $_.openPorts.Count; Mac = $_.macAddress; Person = ""; Room = ""; LastSeen = ""
         } })
     foreach ($merged in @($false, $true)) {
         Select-DevicePage Settings
@@ -1056,6 +1056,21 @@ function Test-DeviceColumnSorting {
         throw "Switching assignment layout lost the selected sort."
     }
 
+    # Every fixture row responded in the displayed scan, so equal Last seen values fall back to MAC order.
+    foreach ($ascending in @($true, $false)) {
+        Invoke-DeviceSort LastSeenSortButton LastSeenSortGlyph $ascending
+        Assert-SortedFixture LastSeen $ascending $expected
+    }
+    foreach ($row in @(Get-DeviceRows)) {
+        $lastSeen = Get-VisibleDeviceChild $row AutomationId DeviceLastSeenText
+        if (-not $lastSeen -or $lastSeen.Current.Name -notlike "Last seen: Seen this scan (*)") {
+            throw "Current responses must show Seen this scan with an exact accessible timestamp."
+        }
+        if ($row.Current.HelpText -notlike "*`nLast seen: Seen this scan (*)*") {
+            throw "Row values must include the full Last seen value."
+        }
+    }
+
     Invoke-DeviceSort NameSortButton NameSortGlyph $true
     Invoke-DeviceSort NameSortButton NameSortGlyph $false
     $search.SetValue("Fixture device 01")
@@ -1067,6 +1082,11 @@ function Test-DeviceColumnSorting {
     Start-Sleep -Milliseconds 350
     (Find-DeviceElement DeviceRenameButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     (Find-DeviceElement DeviceNameInput).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("ZZ sorting update")
+    # The Save action is enabled by the asynchronous text-changed handler.
+    $deadline = [DateTime]::UtcNow.AddSeconds(10)
+    while (-not (Find-DeviceElement DeviceNameSaveButton).Current.IsEnabled -and [DateTime]::UtcNow -lt $deadline) {
+        Start-Sleep -Milliseconds 100
+    }
     (Find-DeviceElement DeviceNameSaveButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     $deadline = [DateTime]::UtcNow.AddSeconds(10)
     do {
@@ -1465,7 +1485,7 @@ try {
     $area = [System.Windows.Forms.Screen]::FromHandle($windowHandle).WorkingArea
     if ($area.Width / $scale -ge 1880) {
         Set-DeviceWidth 1880
-        $grips = @("Resize Person column", "Resize Room column") | ForEach-Object {
+        $grips = @("Resize Room column", "Resize Last seen column") | ForEach-Object {
             $condition = [System.Windows.Automation.PropertyCondition]::new(
                 [System.Windows.Automation.AutomationElement]::NameProperty, $_)
             $grip = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)

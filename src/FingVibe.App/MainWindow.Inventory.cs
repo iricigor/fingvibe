@@ -138,6 +138,7 @@ public sealed partial class MainWindow
             _allResults.Add(row);
             UpdateLatencyRange(row);
         }
+        UpdateLastSeen();
         RefreshVisibleResults();
         DevicesPage.SelectedResult = _allResults.FirstOrDefault(row => row.IdentityKey == selectedKey);
         _onlineDeviceCount = _liveCompletedAt is null ? null : _allResults.Count(row => row.IsOnline);
@@ -165,6 +166,15 @@ public sealed partial class MainWindow
 
     private string? GetScanNetworkIdentity(LanNetwork network)
     {
+        var identity = ResolveNetworkIdentity(network, out var error);
+        if (error is not null)
+            _inventoryError = $"Network identity is unavailable; this scan will not mark devices Offline: {error}";
+        return identity;
+    }
+
+    private static string? ResolveNetworkIdentity(LanNetwork network, out string? error)
+    {
+        error = null;
         if (IsUiReview)
         {
             var identity = Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_NETWORK");
@@ -173,9 +183,18 @@ public sealed partial class MainWindow
         try { return WindowsNetworkProfileIdentity.GetNetworkId(network).ToString("D"); }
         catch (Exception exception) when (exception is InvalidOperationException or COMException)
         {
-            _inventoryError = $"Network identity is unavailable; this scan will not mark devices Offline: {exception.Message}";
+            error = exception.Message;
             return null;
         }
+    }
+
+    // History summaries can query SQLite, so compute once per row rebuild or network change, not per filter.
+    private void UpdateLastSeen()
+    {
+        var network = NetworkPicker.SelectedItem as LanNetwork;
+        var networkId = network is null ? null : ResolveNetworkIdentity(network, out _);
+        foreach (var row in _allResults)
+            row.SetLastSeen(DeviceDetailsPresentation.LastSeen(row, networkId, network?.Cidr, _liveCompletedAt));
     }
 
     private void ConfigureImportPage()

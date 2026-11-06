@@ -61,6 +61,8 @@ public sealed partial class MainWindow
     {
         var selectedNetwork = NetworkPicker.SelectedItem as LanNetwork;
         foreach (var row in _allResults) row.SetSelectedNetwork(selectedNetwork);
+        UpdateLastSeen();
+        RefreshVisibleResults();
         UpdateDeviceHistory();
         ToolsPage.SetNetworkContext(selectedNetwork);
         OverviewPage.ShowSubnet(selectedNetwork);

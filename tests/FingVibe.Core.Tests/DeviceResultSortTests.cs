@@ -98,6 +98,37 @@ public sealed class DeviceResultSortTests
             AssertOrder(first, second, column, ascending);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void LastSeen_UsesTimestampsAndKeepsMissingValuesLastInBothDirections(bool ascending)
+    {
+        var start = new DateTimeOffset(2026, 11, 1, 12, 0, 0, TimeSpan.Zero);
+        var older = Row("10.0.0.30", "001122334405");
+        var newer = Row("10.0.0.20", "001122334404");
+        var current = Row("10.0.0.10", "001122334403");
+        var unavailable = Row("10.0.0.2", "001122334401");
+        var imported = Row("10.0.0.1", "001122334402");
+        older.SetLastSeen(new(DeviceLastSeenKind.Timestamp, start, "older", "older"));
+        newer.SetLastSeen(new(DeviceLastSeenKind.Timestamp, start.AddHours(1), "newer", "newer"));
+        current.SetLastSeen(new(DeviceLastSeenKind.SeenThisScan, start.AddHours(2), "Seen this scan", "current"));
+        unavailable.SetLastSeen(DeviceLastSeen.Unavailable("none"));
+        imported.SetLastSeen(new(DeviceLastSeenKind.NeverLocally, null, "Never locally", "imported"));
+
+        AssertOrder(older, newer, ResultSortColumn.LastSeen, ascending);
+        AssertOrder(newer, current, ResultSortColumn.LastSeen, ascending);
+        var rows = new List<ScanResultRow> { imported, unavailable, current, older, newer };
+        rows.Sort((left, right) => DeviceResultSort.Compare(left, right, ResultSortColumn.LastSeen, ascending));
+        Assert.Equal(ascending ? new[] { older, newer, current, unavailable, imported }
+            : new[] { current, newer, older, unavailable, imported }, rows);
+        Assert.Equal(-1, DeviceResultSort.Compare(older, unavailable, ResultSortColumn.LastSeen, ascending));
+        Assert.Equal(-1, DeviceResultSort.Compare(unavailable, imported, ResultSortColumn.LastSeen, ascending));
+        Assert.Equal(0, DeviceResultSort.Compare(imported, imported, ResultSortColumn.LastSeen, ascending));
+        var otherUnavailable = Row("10.0.0.2", "001122334400");
+        otherUnavailable.SetLastSeen(DeviceLastSeen.Unavailable("other reason"));
+        AssertOrder(otherUnavailable, unavailable, ResultSortColumn.LastSeen, ascending);
+    }
+
     [Fact]
     public void MissingTextAndAddresses_KeepLexicalAndMissingAddressBehavior()
     {

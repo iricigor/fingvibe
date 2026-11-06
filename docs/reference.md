@@ -212,7 +212,7 @@ checkboxes expose keyboard focus and checked states, and the funnel announces
 expanded/collapsed state and active-category count. Filtered counts show visible
 versus total devices.
 
-Settings groups the Devices table options inside one card: **Visible columns** contains the eleven independent visibility choices; a subtle theme-aware divider separates **Combined columns**, its explanatory text and five independent combination switches. Name and IP are marked **always shown**. Both groups wrap at narrow widths without changing saved preferences. **Name/Type**, **IP/MAC** and **Status/Response** are combined by default; **Person/Room** and **Vendor/OS** are separate by default. Turning off a combination restores standalone columns. When only one member is visible, it occupies a normal column; when neither is visible, the group is omitted. **Name** and **IP address** remain mandatory. Combined columns have one resize boundary, retain each applicable sort action, and remember their widths separately from standalone columns. Type appears beneath Name only when known; IP appears above the two-color monospaced MAC. Combined Person/Room shows muted person/home icons beside assigned values, omits unassigned lines, and shows one muted `-` when both are unassigned. Two assigned values stack without increasing row height; each line is horizontally centered and the complete group vertically centered. Its header also stacks Person above Room. Category/full-name tooltips and accessible labels distinguish the assignments. Separate columns retain their existing presentation. Combined Status/Response overlaps the two metrics' horizontal footprints: status at the upper left, right-aligned time at the upper right, and one shared full-width response bar beneath both, retaining the scan-wide latency scale.
+Settings groups the Devices table options inside one card: **Visible columns** contains the twelve independent visibility choices; a subtle theme-aware divider separates **Combined columns**, its explanatory text and five independent combination switches. Name and IP are marked **always shown**. Both groups wrap at narrow widths without changing saved preferences. **Name/Type**, **IP/MAC** and **Status/Response** are combined by default; **Person/Room** and **Vendor/OS** are separate by default. Turning off a combination restores standalone columns. When only one member is visible, it occupies a normal column; when neither is visible, the group is omitted. **Name** and **IP address** remain mandatory. Combined columns have one resize boundary, retain each applicable sort action, and remember their widths separately from standalone columns. Type appears beneath Name only when known; IP appears above the two-color monospaced MAC. Combined Person/Room shows muted person/home icons beside assigned values, omits unassigned lines, and shows one muted `-` when both are unassigned. Two assigned values stack without increasing row height; each line is horizontally centered and the complete group vertically centered. Its header also stacks Person above Room. Category/full-name tooltips and accessible labels distinguish the assignments. Separate columns retain their existing presentation. Combined Status/Response overlaps the two metrics' horizontal footprints: status at the upper left, right-aligned time at the upper right, and one shared full-width response bar beneath both, retaining the scan-wide latency scale.
 
 The four inventory status totals are compact, borderless colored-dot/text toggles,
 not rectangular button surfaces; hover and selected underlines plus native focus
@@ -235,7 +235,9 @@ retains ordinary lexical ordering. IP addresses sort numerically, Status by
 inventory status, Response by latency (missing first ascending), and Open ports
 by the number of observed port entries (zero first ascending). Person and Room
 sort by case-insensitive **full names**, not short labels or emoji, with
-unassigned devices last in both directions. Equal primary keys use MAC address,
+unassigned devices last in both directions. Last seen sorts by its timestamp
+(a current response uses the displayed scan time); Unavailable and then Never
+locally stay last in both directions. Equal primary keys use MAC address,
 then numeric IP; tie keys follow the selected direction. Merged columns retain
 independent clickable subheaders and arrows. Filtering, clearing filters,
 metadata edits, and incoming results retain the selected sort; a selected
@@ -358,6 +360,20 @@ additional port checks, and reopening saved data do not fabricate observations.
 These are scan results, not proof of uninterrupted physical availability or
 the actual time a device connected/disconnected.
 
+The Devices table's optional **Last seen** column, visible by default as the
+final column, applies the same selected network identity/subnet scope and the
+details page's last-seen evidence, so the two never disagree. A device that
+responded in the displayed live scan shows **Seen this scan**; otherwise the
+column shows the newest local presence as `yyyy-MM-dd HH:mm` local time, so
+absence never advances it. Matching legacy aggregates show **(aggregate)**.
+Missing, other-network, or unreadable evidence shows muted **Unavailable**, and
+imported-only devices show muted **Never locally**; neither substitutes Fing
+timestamps. The full-value preview, row values, and accessible name give the
+exact local timestamp with UTC offset, aggregate provenance, or unavailable reason.
+Values are calculated when rows are rebuilt or the network changes, not while
+filtering. Restart shows saved history rather than live presence. Saved
+settings without this column show it at its default width.
+
 All scan observations are retained indefinitely in `device-inventory.sqlite`,
 with no age/count limit, automatic truncation, or new history-clearing control.
 The database can grow over time. JSON inventory formats 1-4 migrate without
@@ -368,7 +384,7 @@ make it fresh evidence of live presence. Load errors disable inventory edits;
 save errors visibly report that inventory and scan history were not saved.
 
 `tests\DeviceScanHistory.Ui.Tests.ps1` verifies synthetic normal/virtual history and
-scoped summaries through repeated presence, absence, and return,
+scoped summaries and the matching Devices **Last seen** values through repeated presence, absence, and return,
 empty imported history, restart, successful repeated scans, cancellation,
 205-row page boundaries, forward/backward reachability and selection changes,
 failure, and visible persistence errors on the disposable Windows CI desktop.

@@ -61,6 +61,19 @@ public sealed class ScanResultRow : INotifyPropertyChanged
                 : _inventoryDevice?.Observations ?? [], networkId, subnet);
     public string VirtualIdentityDescription => IsVirtualIdentity
         ? "Virtual device - inferred identity across changing MAC addresses." : string.Empty;
+    public DateTimeOffset? CurrentScanCompletedAt => VirtualDevice?.CurrentCompletedAt ?? _inventoryDevice?.CurrentCompletedAt;
+    public DeviceLastSeen LastSeen { get; private set; } = DeviceLastSeen.NotCalculated;
+    public string LastSeenText => LastSeen.Text;
+    public string LastSeenDescription => LastSeen.Description;
+    public double LastSeenOpacity => LastSeen.IsMuted ? 0.65 : 1;
+
+    public void SetLastSeen(DeviceLastSeen lastSeen)
+    {
+        if (LastSeen == lastSeen) return;
+        LastSeen = lastSeen;
+        foreach (var property in new[] { nameof(LastSeen), nameof(LastSeenText), nameof(LastSeenDescription), nameof(LastSeenOpacity) })
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
+    }
 
     public ScanResultRow(ScanResult? result, int prefixLength, string? customName = null,
         DeviceClassificationOverride? classificationOverride = null, bool historical = false)

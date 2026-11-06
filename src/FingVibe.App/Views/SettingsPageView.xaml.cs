@@ -24,7 +24,7 @@ public sealed partial class SettingsPageView : UserControl
     public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
     public IReadOnlyList<DeviceColumn> VisibilityChoices =>
         [Columns.Name, Columns.Address, Columns.Vendor, Columns.Type, Columns.Mac, Columns.Ports,
-            Columns.Status, Columns.Response, Columns.OperatingSystem, Columns.Person, Columns.Room];
+            Columns.Status, Columns.Response, Columns.OperatingSystem, Columns.Person, Columns.Room, Columns.LastSeen];
     public event SelectionChangedEventHandler? AppearanceChanged;
 
     private ThemeVariant[] ModeThemes => ModePicker.SelectedIndex == 1 ? DarkThemes : LightThemes;

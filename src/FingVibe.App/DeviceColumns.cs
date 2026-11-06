@@ -89,7 +89,7 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
 
     public DeviceColumnLayout()
     {
-        All = [Name, Address, Vendor, Ports, Status, Response, Mac, OperatingSystem, Type, Person, Room];
+        All = [Name, Address, Vendor, Ports, Status, Response, Mac, OperatingSystem, Type, Person, Room, LastSeen];
         foreach (var column in All)
         {
             column.PropertyChanged += (_, args) =>
@@ -183,6 +183,7 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
     public DeviceColumn Type { get; } = new("Type", "Device type", 150);
     public DeviceColumn Person { get; } = new("Person", "Person", 90);
     public DeviceColumn Room { get; } = new("Room", "Room", 100);
+    public DeviceColumn LastSeen { get; } = new("LastSeen", "Last seen", 130);
 
     public IReadOnlyList<DeviceColumn> All { get; }
 
@@ -219,7 +220,8 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
         .. ShowSeparateOs ? new[] { OperatingSystem } : Array.Empty<DeviceColumn>(),
         .. ShowSeparateType ? new[] { Type } : Array.Empty<DeviceColumn>(),
         Assignments,
-        .. ShowSeparateRoom && Person.IsVisible ? new[] { Room } : Array.Empty<DeviceColumn>()];
+        .. ShowSeparateRoom && Person.IsVisible ? new[] { Room } : Array.Empty<DeviceColumn>(),
+        LastSeen];
 
     public double TotalWidth => TableColumns.Where(column => column.IsVisible).Sum(column => column.Width);
 

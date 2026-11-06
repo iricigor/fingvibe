@@ -14,18 +14,20 @@ internal enum ResultSortColumn
     Vendor,
     OpenPorts,
     Person,
-    Room
+    Room,
+    LastSeen
 }
 
 internal static class DeviceResultSort
 {
     internal static int Compare(ScanResultRow left, ScanResultRow right, ResultSortColumn column, bool ascending)
     {
-        // Assignment absence is independent of direction; do not reverse it with the keys.
+        // Missing assignments and last-seen values stay last in both directions; do not reverse them with the keys.
         var assignmentPresence = column switch
         {
             ResultSortColumn.Person => (left.PersonId is null).CompareTo(right.PersonId is null),
             ResultSortColumn.Room => (left.RoomId is null).CompareTo(right.RoomId is null),
+            ResultSortColumn.LastSeen => MissingLastSeenRank(left.LastSeen).CompareTo(MissingLastSeenRank(right.LastSeen)),
             _ => 0
         };
         if (assignmentPresence != 0) return assignmentPresence;
@@ -43,6 +45,7 @@ internal static class DeviceResultSort
             ResultSortColumn.Status => left.Status.CompareTo(right.Status),
             ResultSortColumn.Response => Nullable.Compare(left.LatencyMilliseconds, right.LatencyMilliseconds),
             ResultSortColumn.MacAddress => CompareText(left.MacAddressText, right.MacAddressText),
+            ResultSortColumn.LastSeen => Nullable.Compare(left.LastSeen.Timestamp, right.LastSeen.Timestamp),
             _ => throw new ArgumentOutOfRangeException(nameof(column), column, "Unknown Devices sort column.")
         };
 
@@ -56,6 +59,13 @@ internal static class DeviceResultSort
 
     private static int CompareText(string left, string right) =>
         string.Compare(left, right, StringComparison.OrdinalIgnoreCase);
+
+    private static int MissingLastSeenRank(DeviceLastSeen lastSeen) => lastSeen switch
+    {
+        { Timestamp: not null } => 0,
+        { Kind: DeviceLastSeenKind.NeverLocally } => 2,
+        _ => 1
+    };
 
     private static int CompareAddresses(string left, string right)
     {

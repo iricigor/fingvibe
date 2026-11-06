@@ -151,7 +151,8 @@ public sealed class DeviceColumnLayoutTests
         Assert.Equal(layout.Name.EffectiveWidth + layout.Addresses.EffectiveWidth
             + layout.VendorOs.EffectiveWidth + layout.Ports.EffectiveWidth + layout.Connection.EffectiveWidth
             + layout.SeparateResponseWidth + layout.SeparateMacWidth + layout.SeparateOsWidth
-            + layout.SeparateTypeWidth + layout.Assignments.EffectiveWidth + layout.SeparateRoomWidth, layout.TotalWidth);
+            + layout.SeparateTypeWidth + layout.Assignments.EffectiveWidth + layout.SeparateRoomWidth
+            + layout.LastSeen.EffectiveWidth, layout.TotalWidth);
 
         var restored = new DeviceColumnLayout();
         restored.Restore(layout.Capture());
@@ -217,20 +218,60 @@ public sealed class DeviceColumnLayoutTests
     public void LastVisibleColumn_HasNoSeparatorButRemainsResizable()
     {
         var layout = new DeviceColumnLayout();
-        Assert.False(layout.Room.HasFollowingVisibleColumn);
+        Assert.False(layout.LastSeen.HasFollowingVisibleColumn);
+        Assert.True(layout.Room.HasFollowingVisibleColumn);
         Assert.True(layout.Person.HasFollowingVisibleColumn);
         var changed = new List<string?>();
+        layout.Room.PropertyChanged += (_, args) => changed.Add(args.PropertyName);
+
+        layout.LastSeen.IsVisible = false;
+
+        Assert.False(layout.Room.HasFollowingVisibleColumn);
+        Assert.Contains(nameof(DeviceColumn.HasFollowingVisibleColumn), changed);
+        changed.Clear();
         layout.Person.PropertyChanged += (_, args) => changed.Add(args.PropertyName);
-
         layout.Room.IsVisible = false;
-
         Assert.False(layout.Person.HasFollowingVisibleColumn);
         Assert.Contains(nameof(DeviceColumn.HasFollowingVisibleColumn), changed);
         layout.Person.Width = 120;
         Assert.Equal(120, layout.Person.Width);
         layout.Reset();
         Assert.True(layout.Person.HasFollowingVisibleColumn);
-        Assert.False(layout.Room.HasFollowingVisibleColumn);
+        Assert.True(layout.Room.HasFollowingVisibleColumn);
+        Assert.False(layout.LastSeen.HasFollowingVisibleColumn);
+    }
+
+    [Fact]
+    public void LastSeen_IsAHideableResizableTrailingColumnThatDefaultsVisibleForOlderSettings()
+    {
+        var layout = new DeviceColumnLayout();
+        Assert.Same(layout.LastSeen, layout.All[^1]);
+        Assert.Same(layout.LastSeen, layout.Find("LastSeen"));
+        Assert.Equal("Last seen", layout.LastSeen.Header);
+        Assert.True(layout.LastSeen.CanHide);
+        Assert.True(layout.LastSeen.IsVisible);
+        Assert.Equal(130, layout.LastSeen.Width);
+        var total = layout.TotalWidth;
+        layout.LastSeen.Width = 190;
+        Assert.Equal(total + 60, layout.TotalWidth);
+        layout.LastSeen.IsVisible = false;
+        Assert.Equal(total - 130, layout.TotalWidth);
+
+        var restored = new DeviceColumnLayout();
+        restored.Restore(layout.Capture());
+        Assert.False(restored.LastSeen.IsVisible);
+        Assert.Equal(190, restored.LastSeen.Width);
+        restored.Reset();
+        Assert.True(restored.LastSeen.IsVisible);
+        Assert.Equal(130, restored.LastSeen.Width);
+
+        var older = layout.Capture();
+        older.Columns.Remove("LastSeen");
+        var upgraded = new DeviceColumnLayout();
+        upgraded.Restore(older);
+        Assert.True(upgraded.LastSeen.IsVisible);
+        Assert.Equal(130, upgraded.LastSeen.Width);
+        Assert.Equal(layout.Room.Width, upgraded.Room.Width);
     }
 
     [Fact]
@@ -304,7 +345,7 @@ public sealed class DeviceColumnLayoutTests
         Assert.Equal(key, layout.Connection.Key);
         Assert.Equal(width, layout.Connection.EffectiveWidth);
         Assert.Equal(layout.Name.Width + layout.Addresses.Width + layout.Vendor.Width + layout.Ports.Width
-            + width + layout.OperatingSystem.Width + layout.Person.Width + layout.Room.Width,
+            + width + layout.OperatingSystem.Width + layout.Person.Width + layout.Room.Width + layout.LastSeen.Width,
             layout.TotalWidth);
     }
 
@@ -333,7 +374,7 @@ public sealed class DeviceColumnLayoutTests
     public void ConnectionSeparator_TracksPhysicalColumns(bool status, bool response)
     {
         var layout = new DeviceColumnLayout();
-        foreach (var column in new[] { layout.Mac, layout.OperatingSystem, layout.Person, layout.Room })
+        foreach (var column in new[] { layout.Mac, layout.OperatingSystem, layout.Person, layout.Room, layout.LastSeen })
         {
             column.IsVisible = false;
         }
@@ -376,7 +417,7 @@ public sealed class DeviceColumnLayoutTests
     [Fact]
     public void EveryCombination_UsesExactlyTheDisplayedColumnWidths()
     {
-        for (var flags = 0; flags < 1024; flags++)
+        for (var flags = 0; flags < 2048; flags++)
         {
             var layout = new DeviceColumnLayout
             {
@@ -391,10 +432,12 @@ public sealed class DeviceColumnLayoutTests
             layout.Response.IsVisible = (flags & 128) != 0;
             layout.Person.IsVisible = (flags & 256) != 0;
             layout.Room.IsVisible = (flags & 512) != 0;
+            layout.LastSeen.IsVisible = (flags & 1024) != 0;
             Assert.Equal(layout.Name.EffectiveWidth + layout.Addresses.EffectiveWidth
                 + layout.Vendor.EffectiveWidth + layout.Ports.EffectiveWidth + layout.Connection.EffectiveWidth
                 + layout.SeparateResponseWidth + layout.SeparateMacWidth + layout.OperatingSystem.EffectiveWidth
-                + layout.SeparateTypeWidth + layout.Assignments.EffectiveWidth + layout.SeparateRoomWidth, layout.TotalWidth);
+                + layout.SeparateTypeWidth + layout.Assignments.EffectiveWidth + layout.SeparateRoomWidth
+                + layout.LastSeen.EffectiveWidth, layout.TotalWidth);
             Assert.Equal(layout.Type.IsVisible, layout.ShowMergedType || layout.ShowSeparateType);
             Assert.Equal(layout.Mac.IsVisible, layout.ShowMergedMac || layout.ShowSeparateMac);
             Assert.Equal(layout.Response.IsVisible, layout.ShowConnectionResponse || layout.ShowSeparateResponse);
