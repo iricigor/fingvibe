@@ -95,4 +95,13 @@ public sealed record UdpServiceObservation(int Port, string ServiceName, UdpServ
 
 public readonly record struct ScanProgress(int Completed, int Total);
 
+public enum LanScanPhase
+{
+    FirstPass,
+    Retry
+}
+
+// Each LAN scan phase counts its own addresses: the first pass covers the subnet, the retry only first-pass misses.
+public readonly record struct LanScanProgress(LanScanPhase Phase, int Completed, int Total);
+
 public readonly record struct ScanSummary(int Total, int Alive, int Unreachable);

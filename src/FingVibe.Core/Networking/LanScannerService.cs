@@ -5,17 +5,24 @@ using FingVibe.Core.Models;
 
 namespace FingVibe.Core.Networking;
 
+internal readonly record struct IcmpEchoReply(IPStatus Status, long RoundtripTimeMilliseconds, int? Ttl);
+
 public sealed class LanScannerService
 {
+    internal const int DefaultTimeoutMilliseconds = 700;
+    internal const int DefaultMaximumConcurrency = 256;
+    internal static readonly TimeSpan RetryPause = TimeSpan.FromSeconds(1);
+
     private readonly int _timeoutMilliseconds;
     private readonly int _maximumConcurrency;
-    private readonly SsdpDiscoveryService _ssdpDiscovery;
-    private readonly MdnsDeviceDiscoveryService _mdnsDiscovery;
     private readonly IScanResultEnricher _resultEnricher;
+    private readonly Func<IPAddress, CancellationToken, Task<ScanDiscovery>> _discover;
+    private readonly Func<IPAddress, int, Task<IcmpEchoReply>> _sendEcho;
+    private readonly TimeProvider _timeProvider;
 
     public LanScannerService(
-        int timeoutMilliseconds = 700,
-        int maximumConcurrency = 256,
+        int timeoutMilliseconds = DefaultTimeoutMilliseconds,
+        int maximumConcurrency = DefaultMaximumConcurrency,
         DeviceNameResolver? nameResolver = null,
         SsdpDiscoveryService? ssdpDiscovery = null,
         PortScannerService? portScanner = null,
@@ -23,71 +30,127 @@ public sealed class LanScannerService
         IeeeVendorRegistry? vendorRegistry = null,
         IScanResultEnricher? resultEnricher = null,
         MdnsDeviceDiscoveryService? mdnsDiscovery = null)
+        : this(
+            timeoutMilliseconds,
+            maximumConcurrency,
+            resultEnricher ?? new ScanResultEnricher(nameResolver, portScanner, macAddressResolver, vendorRegistry),
+            CreateDiscovery(ssdpDiscovery ?? new SsdpDiscoveryService(), mdnsDiscovery ?? new MdnsDeviceDiscoveryService()),
+            SendPingAsync,
+            TimeProvider.System)
+    {
+    }
+
+    internal LanScannerService(
+        int timeoutMilliseconds,
+        int maximumConcurrency,
+        IScanResultEnricher resultEnricher,
+        Func<IPAddress, CancellationToken, Task<ScanDiscovery>> discover,
+        Func<IPAddress, int, Task<IcmpEchoReply>> sendEcho,
+        TimeProvider timeProvider)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timeoutMilliseconds);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumConcurrency);
         _timeoutMilliseconds = timeoutMilliseconds;
         _maximumConcurrency = maximumConcurrency;
-        _ssdpDiscovery = ssdpDiscovery ?? new SsdpDiscoveryService();
-        _mdnsDiscovery = mdnsDiscovery ?? new MdnsDeviceDiscoveryService();
-        _resultEnricher = resultEnricher ?? new ScanResultEnricher(
-            nameResolver,
-            portScanner,
-            macAddressResolver,
-            vendorRegistry);
+        _resultEnricher = resultEnricher;
+        _discover = discover;
+        _sendEcho = sendEcho;
+        _timeProvider = timeProvider;
     }
 
+    // Probes every usable address once, then, after a cancellable pause, probes each first-pass miss exactly once
+    // more with the same settings. Each address is reported once with its final outcome: first-pass responders
+    // immediately, misses only after their retry. Only a fresh reply during this scan counts as Alive.
     public async Task<ScanSummary> ScanAsync(
         LanNetwork network,
         IProgress<ScanResult> resultProgress,
-        IProgress<ScanProgress>? scanProgress = null,
+        IProgress<LanScanProgress>? scanProgress = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(network);
         ArgumentNullException.ThrowIfNull(resultProgress);
 
         var total = SubnetCalculator.GetUsableHostCount(network.PrefixLength);
-        var addresses = SubnetCalculator.EnumerateUsableHosts(network.NetworkAddress, network.PrefixLength);
-        var completed = 0;
+        var addresses = SubnetCalculator.EnumerateUsableHosts(network.NetworkAddress, network.PrefixLength).ToArray();
+        var missed = new bool[addresses.Length];
         var alive = 0;
-        var discoveryTask = DiscoverAsync(network.LocalAddress, cancellationToken);
+        var discoveryTask = _discover(network.LocalAddress, cancellationToken);
         using var enrichmentSlots = new SemaphoreSlim(32, 32);
 
-        await Parallel.ForEachAsync(
-            addresses,
-            new ParallelOptions
+        await ProbePhaseAsync(LanScanPhase.FirstPass, Enumerable.Range(0, addresses.Length).ToArray(), total, (index, result) =>
+        {
+            if (result.Status == HostStatus.Alive)
             {
-                CancellationToken = cancellationToken,
-                MaxDegreeOfParallelism = _maximumConcurrency
-            },
-            async (address, token) =>
+                Interlocked.Increment(ref alive);
+                resultProgress.Report(result);
+            }
+            else
             {
-                var result = await ProbeAsync(
-                    address,
-                    network,
-                    discoveryTask,
-                    enrichmentSlots,
-                    token).ConfigureAwait(false);
+                missed[index] = true;
+            }
+        }).ConfigureAwait(false);
+
+        var retries = Enumerable.Range(0, addresses.Length).Where(index => missed[index]).ToArray();
+        if (retries.Length > 0)
+        {
+            // The pause timer starts before the phase is announced, so observers never race the wait.
+            var pause = Task.Delay(RetryPause, _timeProvider, cancellationToken);
+            scanProgress?.Report(new LanScanProgress(LanScanPhase.Retry, 0, retries.Length));
+            await pause.ConfigureAwait(false);
+            await ProbePhaseAsync(LanScanPhase.Retry, retries, retries.Length, (_, result) =>
+            {
                 if (result.Status == HostStatus.Alive)
                 {
                     Interlocked.Increment(ref alive);
                 }
 
                 resultProgress.Report(result);
-                var completedCount = Interlocked.Increment(ref completed);
-                scanProgress?.Report(new ScanProgress(completedCount, total));
             }).ConfigureAwait(false);
+        }
 
         await discoveryTask.ConfigureAwait(false);
         return new ScanSummary(total, alive, total - alive);
+
+        Task ProbePhaseAsync(LanScanPhase phase, int[] indexes, int phaseTotal, Action<int, ScanResult> record)
+        {
+            var completed = 0;
+            return Parallel.ForEachAsync(
+                indexes,
+                new ParallelOptions
+                {
+                    CancellationToken = cancellationToken,
+                    MaxDegreeOfParallelism = _maximumConcurrency
+                },
+                async (index, token) =>
+                {
+                    var result = await ProbeAsync(
+                        addresses[index],
+                        network,
+                        discoveryTask,
+                        enrichmentSlots,
+                        token).ConfigureAwait(false);
+                    record(index, result);
+                    var completedCount = Interlocked.Increment(ref completed);
+                    scanProgress?.Report(new LanScanProgress(phase, completedCount, phaseTotal));
+                });
+        }
     }
 
-    private async Task<ScanDiscovery> DiscoverAsync(IPAddress localAddress, CancellationToken cancellationToken)
+    private static Func<IPAddress, CancellationToken, Task<ScanDiscovery>> CreateDiscovery(
+        SsdpDiscoveryService ssdpDiscovery,
+        MdnsDeviceDiscoveryService mdnsDiscovery) => async (localAddress, cancellationToken) =>
     {
-        var ssdp = _ssdpDiscovery.DiscoverDevicesAsync(cancellationToken, localAddress);
-        var mdns = _mdnsDiscovery.DiscoverNetworkAsync(localAddress, cancellationToken);
+        var ssdp = ssdpDiscovery.DiscoverDevicesAsync(cancellationToken, localAddress);
+        var mdns = mdnsDiscovery.DiscoverNetworkAsync(localAddress, cancellationToken);
         await Task.WhenAll(ssdp, mdns).ConfigureAwait(false);
         return new ScanDiscovery(ssdp.Result, mdns.Result);
+    };
+
+    private static async Task<IcmpEchoReply> SendPingAsync(IPAddress address, int timeoutMilliseconds)
+    {
+        using var ping = new Ping();
+        var reply = await ping.SendPingAsync(address, timeoutMilliseconds).ConfigureAwait(false);
+        return new IcmpEchoReply(reply.Status, reply.RoundtripTime, reply.Options?.Ttl);
     }
 
     private async Task<ScanResult> ProbeAsync(
@@ -98,12 +161,11 @@ public sealed class LanScannerService
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        using var ping = new Ping();
         var stopwatch = Stopwatch.StartNew();
 
         try
         {
-            var reply = await ping.SendPingAsync(address, _timeoutMilliseconds).ConfigureAwait(false);
+            var reply = await _sendEcho(address, _timeoutMilliseconds).ConfigureAwait(false);
             stopwatch.Stop();
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -115,7 +177,7 @@ public sealed class LanScannerService
             await enrichmentSlots.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                var responseTtl = address.Equals(network.GatewayAddress) ? null : reply.Options?.Ttl;
+                var responseTtl = address.Equals(network.GatewayAddress) ? null : reply.Ttl;
                 var enrichment = await _resultEnricher
                     .EnrichAsync(address, discoveryTask, cancellationToken, responseTtl)
                     .ConfigureAwait(false);
@@ -123,7 +185,7 @@ public sealed class LanScannerService
                 return new ScanResult(
                     address,
                     HostStatus.Alive,
-                    reply.RoundtripTime,
+                    reply.RoundtripTimeMilliseconds,
                     stopwatch.Elapsed,
                     enrichment.DeviceName,
                     enrichment.MacAddress,
