@@ -298,7 +298,8 @@ jobs:
 
       - name: Run native regression suite
         timeout-minutes: 15
-        shell: ${{ matrix.suite == 'sidebar' && 'powershell' || 'pwsh' }}
+        if: matrix.suite != 'sidebar'
+        shell: pwsh
         run: |
           .\.github\scripts\Invoke-UiRegression.ps1 `
             -Suite "${{ matrix.suite }}" `
@@ -310,6 +311,17 @@ jobs:
             -BuildTimestamp "${{ needs.build.outputs.build-timestamp }}" `
             -BuildCommit "${{ github.sha }}" `
             -PullRequestNumber ${{ github.event.pull_request.number || 0 }}
+
+      - name: Run sidebar regression in Windows PowerShell
+        timeout-minutes: 15
+        if: matrix.suite == 'sidebar'
+        shell: powershell
+        run: |
+          .\.github\scripts\Invoke-UiRegression.ps1 `
+            -Suite sidebar `
+            -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
+            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-regression" `
+            -CapturePlanPath "${{ github.workspace }}\artifacts\ui-regression\capture-plan.json"
 
       - name: Upload native regression diagnostics
         if: always()

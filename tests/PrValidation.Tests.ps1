@@ -168,6 +168,8 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         'fail-fast: false',
         'suite: \[sidebar, devices, history, tools\]',
         '(?s)name: Run native regression suite\s+timeout-minutes: 15',
+        "(?s)name: Run native regression suite\s+timeout-minutes: 15\s+if: matrix.suite != 'sidebar'\s+shell: pwsh",
+        "(?s)name: Run sidebar regression in Windows PowerShell\s+timeout-minutes: 15\s+if: matrix.suite == 'sidebar'\s+shell: powershell",
         '(?s)name: Upload native regression diagnostics\s+if: always\(\)',
         'name: fingvibe-ui-regression-\$\{\{ matrix.suite \}\}-pr-',
         'REGRESSION_RESULT: \$\{\{ needs.ui-regression.result \}\}'
