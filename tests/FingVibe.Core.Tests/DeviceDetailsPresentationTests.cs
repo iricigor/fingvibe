@@ -214,6 +214,7 @@ public sealed class DeviceDetailsPresentationTests
         finally
         {
             if (File.Exists(path)) File.Delete(path);
+            File.Delete(Path.ChangeExtension(path, ".sqlite"));
             if (File.Exists(path + ".lock")) File.Delete(path + ".lock");
             if (Directory.Exists(Path.GetDirectoryName(path))) Directory.Delete(Path.GetDirectoryName(path)!);
         }

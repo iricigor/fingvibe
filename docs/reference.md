@@ -330,10 +330,10 @@ additional port checks, and reopening saved data do not fabricate observations.
 These are scan results, not proof of uninterrupted physical availability or
 the actual time a device connected/disconnected.
 
-All scan observations are retained indefinitely in `device-inventory.json`,
+All scan observations are retained indefinitely in `device-inventory.sqlite`,
 with no age/count limit, automatic truncation, or new history-clearing control.
-The file can grow over time. Inventory formats 1, 2 and 3 remain readable; new
-saves use format 4. Legacy aggregates and imported Fing timestamps are never
+The database can grow over time. JSON inventory formats 1-4 migrate without
+changing the originals. Legacy aggregates and imported Fing timestamps are never
 expanded into invented scan rows. Imported-only devices and older saved
 devices explain their empty history. Restart retains history but does not
 make it fresh evidence of live presence. Load errors disable inventory edits;
@@ -378,7 +378,7 @@ Router/access point, Printer, TV/media device, NAS/storage, Game console,
 IoT/smart device, and Unknown. Categories without reliable discovery evidence
 can be assigned manually; OS also offers Other.
 
-Corrections are stored separately from automatic evidence within `%LOCALAPPDATA%\FingVibe\device-inventory.json`, keyed by MAC address, and apply after rescans, IP changes, and restarts. Existing `device-classifications.json` data is migrated without deleting or rewriting the legacy file. Saving requires a six-byte MAC address, including an imported MAC. Private/randomized MACs may change and therefore lose their association with saved corrections. Load/save errors are shown in details; a failed load disables edits rather than overwriting existing corrections. Completed scan snapshots preserve automatic evidence and inferred-value markers. Older snapshots remain readable, but are not re-enriched when opening a new build: run **Scan LAN** again to collect current detection evidence.
+Corrections are stored separately from automatic evidence within `%LOCALAPPDATA%\FingVibe\device-inventory.sqlite`, keyed by MAC address, and apply after rescans, IP changes, and restarts. Existing `device-classifications.json` data is migrated without deleting or rewriting the legacy file. Saving requires a six-byte MAC address, including an imported MAC. Private/randomized MACs may change and therefore lose their association with saved corrections. Load/save errors are shown in details; a failed load disables edits rather than overwriting existing corrections. Completed scan snapshots preserve automatic evidence and inferred-value markers. Older snapshots remain readable, but are not re-enriched when opening a new build: run **Scan LAN** again to collect current detection evidence.
 
 For private-prefix virtual devices, corrections instead belong to the persistent virtual identity and follow its inferred MAC changes; underlying MAC-specific corrections are preserved separately.
 
@@ -400,7 +400,7 @@ Short-name limits count visible characters, so a multi-code-point emoji such as 
 
 The **People** and **Rooms** pages manage manually named people and locations. Each entry has a full name, a unique 1–3-character short name within its category, and optional notes. New entries suggest initials from the first two words as you type (`Igor` → `I`, `Igor Iric` → `II`, `Living Room` → `LR`); editing the short name manually stops automatic updates. Device details can assign one person and one room independently; either can remain unassigned. The Devices table shows plain short-name text in optional **Person** and **Room** columns, with muted dashes for unassigned values, while filters and search match both short and full names. Hover over a short name or keyboard-focus it to access its full-name tooltip and accessible label.
 
-People, rooms, and their assignments are saved separately from scan snapshots within `%LOCALAPPDATA%\FingVibe\device-inventory.json`. Existing `people-rooms.json` data is migrated without deleting or rewriting the legacy file. Assignments require a six-byte MAC address, including an imported MAC, and never use an IP address alone. Private or randomized MAC addresses may change, so their assignments are only retained when the same MAC is observed again. Deleting a person or room clears only that category's assignments; it does not delete devices or scan history. Last-scan response counts report devices that answered ICMP during the displayed scan, not human presence; no response does not prove a device is powered off. Load and save errors are displayed, and a failed load disables changes to protect the saved file.
+People, rooms, and their assignments are saved separately from scan snapshots within `%LOCALAPPDATA%\FingVibe\device-inventory.sqlite`. Existing `people-rooms.json` data is migrated without deleting or rewriting the legacy file. Assignments require a six-byte MAC address, including an imported MAC, and never use an IP address alone. Private or randomized MAC addresses may change, so their assignments are only retained when the same MAC is observed again. Deleting a person or room clears only that category's assignments; it does not delete devices or scan history. Last-scan response counts report devices that answered ICMP during the displayed scan, not human presence; no response does not prove a device is powered off. Load and save errors are displayed, and a failed load disables changes to protect the saved file.
 
 Assignments edited on a private-prefix virtual device belong to its persistent identity and follow inferred MAC changes, rather than being copied to its member MACs.
 
@@ -533,17 +533,26 @@ On Devices, the status filter sits directly beside text search in the filter bar
 its semibold text and stronger theme-aware accent border distinguish it from the
 other filters, which retain responsive wrapping at narrower window widths.
 
-The version-4 `device-inventory.json` contains inventory, local observations,
-names, classification corrections, People/Rooms, persistent virtual devices,
-scan history and network/subnet discovery baselines in one atomic commit.
-Versions 1-3 remain readable and migrate on save. Older inventory-aware builds
-reject newer formats rather than silently dropping their data. It
-becomes authoritative after the first successful save; legacy `device-names.json`,
-`device-classifications.json`, and `people-rooms.json` are retained untouched.
+`device-inventory.sqlite` contains inventory, local observations, names,
+classification corrections, People/Rooms, persistent virtual devices, scan
+history and network/subnet discovery baselines. Completed-scan changes commit
+together in a SQLite transaction with full synchronous durability and an
+optimistic revision check; stale app instances must restart and analyze again.
+Scans append history rows, while metadata edits update only changed records and
+leave scan history untouched. History reads still load the full retained history;
+indexed/paged presentation is separate work.
+
+On first load, supported `device-inventory.json` versions 1-4 migrate to a
+transactionally initialized temporary database, published only after success.
+Without an inventory, existing `device-names.json`, `device-classifications.json`,
+and `people-rooms.json` migrate together. Source files remain untouched and are
+checked for changes during migration. Interrupted migration can retry the
+originals; an invalid existing SQLite database never falls back to stale JSON
+or an empty inventory. The successfully published database is authoritative.
 Available legacy snapshot observations are restored as historical with unknown
 network identity; unavailable older history is not invented. `latest-scan.json`
 and appearance settings keep their existing formats. Older app builds do not
-read the new inventory, and their legacy-file edits are not synchronized back
+read SQLite and may display retained older JSON; their legacy-file edits are not synchronized back
 after migration. Load failures disable changes rather than overwriting data.
 Use **Import device** to save one device or **Import all** for all eligible changes.
 **Select devices** switches to checkboxes and **Import selected (N)**, with

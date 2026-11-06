@@ -572,6 +572,7 @@ public sealed class FingImportTests
         finally
         {
             File.Delete(path);
+            File.Delete(Path.ChangeExtension(path, ".sqlite"));
             File.Delete(path + ".lock");
             Directory.Delete(directory);
         }
@@ -616,6 +617,7 @@ public sealed class FingImportTests
         finally
         {
             File.Delete(Path.Combine(directory, "inventory.json"));
+            File.Delete(Path.Combine(directory, "inventory.sqlite"));
             File.Delete(Path.Combine(directory, "inventory.json.lock"));
             Directory.Delete(directory);
         }
@@ -633,7 +635,7 @@ public sealed class FingImportTests
         try
         {
             var store = new DeviceInventoryStore(path);
-            await store.SaveAsync(DeviceInventoryData.Empty, Guid.Empty);
+            await InventoryJsonFixture.WriteAsync(path, DeviceInventoryData.Empty);
             var document = JsonNode.Parse(await File.ReadAllTextAsync(path))!;
             document["data"]!["peopleRooms"]!.AsObject().Remove(missingField);
             var broken = document.ToJsonString();

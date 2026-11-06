@@ -5,6 +5,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
+. (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
 
 function Find-DiscoveryControl([string] $Id, [switch] $Optional) {
     $condition = [System.Windows.Automation.PropertyCondition]::new(
@@ -103,6 +104,7 @@ foreach ($key in @("FINGVIBE_UI_REVIEW", "FINGVIBE_UI_REVIEW_INVENTORY", "FINGVI
 }
 $directory = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-discovery-ui-$([Guid]::NewGuid().ToString('N'))"
 $inventory = Join-Path $directory "inventory.json"
+$database = [System.IO.Path]::ChangeExtension($inventory, ".sqlite")
 $fixture = Join-Path $directory "results.json"
 $snapshot = Join-Path $directory "snapshot.json"
 $hold = Join-Path $directory "scan.hold"
@@ -136,6 +138,7 @@ try {
     }} | ConvertTo-Json -Depth 15
     foreach ($target in @("001122334466", "D0C907000001")) {
         Set-Content -LiteralPath $inventory -Value $legacy -Encoding UTF8
+        if (Test-Path -LiteralPath $database) { Remove-Item -LiteralPath $database }
         if (Test-Path -LiteralPath $snapshot) { Remove-Item -LiteralPath $snapshot }
         Start-DiscoveryApp
         Set-DiscoveryResults @("020000000001")
@@ -168,7 +171,7 @@ try {
     Set-DiscoveryResults @("020000000001", "001122334466", "D0C907000002")
     Invoke-DiscoveryScan
     Assert-NoDiscovery
-    $before = Get-Content -LiteralPath $inventory -Raw
+    $before = Get-InventoryFingerprint $database
     Set-DiscoveryResults @("001122334477")
     Set-Content -LiteralPath $hold -Value "cancelled scan"
     (Find-DiscoveryControl ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
@@ -176,13 +179,13 @@ try {
     (Find-DiscoveryControl CancelButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-DiscoveryState { (Find-DiscoveryControl ScanButton).Current.IsEnabled } "cancelled scan"
     Assert-NoDiscovery
-    if ((Get-Content -LiteralPath $inventory -Raw) -cne $before) { throw "Cancellation persisted discovery evidence." }
+    if ((Get-InventoryFingerprint $database) -cne $before) { throw "Cancellation persisted discovery evidence." }
     Remove-Item -LiteralPath $hold
     Set-Content -LiteralPath $fixture -Value "invalid scan fixture"
     Invoke-DiscoveryScan
     Assert-NoDiscovery
     if ((Find-DiscoveryControl ScanStatusText).Current.Name -notlike "*Unable to scan*") { throw "Scan failure was hidden." }
-    if ((Get-Content -LiteralPath $inventory -Raw) -cne $before) { throw "Failed scan persisted discovery evidence." }
+    if ((Get-InventoryFingerprint $database) -cne $before) { throw "Failed scan persisted discovery evidence." }
     Set-DiscoveryResults @("001122334477")
     $lock = [System.IO.FileStream]::new("$inventory.lock", [System.IO.FileMode]::Open,
         [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
@@ -191,7 +194,7 @@ try {
     if ((Find-DiscoveryControl ScanStatusText).Current.Name -notlike "*inventory and scan history could not be saved*") {
         throw "Discovery persistence failure was hidden."
     }
-    if ((Get-Content -LiteralPath $inventory -Raw) -cne $before) { throw "Failed save changed durable newness." }
+    if ((Get-InventoryFingerprint $database) -cne $before) { throw "Failed save changed durable newness." }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "discovery-save-failure.png")
     $lock.Dispose()
     $lock = $null

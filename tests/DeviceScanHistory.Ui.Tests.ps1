@@ -6,6 +6,8 @@ param(
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
+. (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
+Initialize-InventorySqlite $AppPath
 
 function Find-HistoryControl([string] $Value, [switch] $ByName, [switch] $Optional) {
     $property = if ($ByName) { [System.Windows.Automation.AutomationElement]::NameProperty }
@@ -282,6 +284,7 @@ foreach ($key in @("FINGVIBE_UI_REVIEW", "FINGVIBE_UI_REVIEW_INVENTORY", "FINGVI
 }
 $fixtureDirectory = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-history-ui-$([Guid]::NewGuid().ToString('N'))"
 $inventory = Join-Path $fixtureDirectory "inventory.json"
+$database = [System.IO.Path]::ChangeExtension($inventory, ".sqlite")
 $snapshot = Join-Path $fixtureDirectory "snapshot.json"
 $hold = Join-Path $fixtureDirectory "scan.hold"
 $script:process = $null
@@ -360,6 +363,7 @@ try {
         $slot.scanHistory = @($history[0..$index])
         $data.devices.'020000000001'.scanHistory = @($history[0..$index]) + $decoyHistory
         @{ version = 3; data = $data } | ConvertTo-Json -Depth 15 | Set-Content -LiteralPath $inventory -Encoding UTF8
+        if (Test-Path -LiteralPath $database) { Remove-Item -LiteralPath $database }
         Start-HistoryApp
         foreach ($kind in @("normal", "virtual")) {
             Open-HistoryDetails "History $kind"
@@ -369,6 +373,7 @@ try {
         Stop-HistoryApp
     }
     $original = Get-Content -LiteralPath $inventory -Raw
+    $originalDatabase = Get-InventoryFingerprint $database
     Start-HistoryApp
     Open-HistoryDetails "History legacy"
     foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen")) {
@@ -432,16 +437,16 @@ try {
     Open-HistoryDetails "History virtual"
     Assert-HistorySummary "history-virtual-restarted"
     if ((Get-Content -LiteralPath $inventory -Raw) -cne $original) { throw "Restoration must not write new scan entries." }
+    if ((Get-InventoryFingerprint $database) -cne $originalDatabase) { throw "Restoration changed SQLite history." }
     foreach ($count in @(8, 9)) {
         Invoke-HistoryScan
         Wait-HistoryScan
-        $saved = Get-Content -LiteralPath $inventory -Raw | ConvertFrom-Json
-        if ($saved.data.devices.'020000000001'.scanHistory.Count -ne $count) {
+        if ((Get-InventorySqliteValue $database "SELECT COUNT(*) FROM scan_history WHERE kind='mac' AND id='020000000001'") -ne $count) {
             throw "Each successful repeated scan must persist one new observation."
         }
-        if ($saved.data.virtualDevices[0].scanHistory.Count -ne $count - 2) { throw "Same-network scan did not record virtual absence." }
+        if ((Get-InventorySqliteValue $database "SELECT COUNT(*) FROM scan_history WHERE kind='virtual'") -ne $count - 2) { throw "Same-network scan did not record virtual absence." }
     }
-    $beforeStop = Get-Content -LiteralPath $inventory -Raw
+    $beforeStop = Get-InventoryFingerprint $database
     Open-HistoryDetails "History normal"
     $beforeSummary = @{}
     foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince", "DeviceHistoryLatest")) {
@@ -452,7 +457,7 @@ try {
     Wait-HistoryState { Find-HistoryControl "Cancel scan" -ByName -Optional } "cancel action"
     (Find-HistoryControl "Cancel scan" -ByName).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-HistoryScan
-    if ((Get-Content -LiteralPath $inventory -Raw) -cne $beforeStop) { throw "Cancelled scan changed durable history." }
+    if ((Get-InventoryFingerprint $database) -cne $beforeStop) { throw "Cancelled scan changed durable history." }
     Open-HistoryDetails "History normal"
     if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "7 completed scan observations") {
         throw "Cancelled scan changed displayed history."
@@ -466,7 +471,7 @@ try {
     if ((Find-HistoryControl ScanStatusText).Current.Name -notlike "*UI-review progress fixture is invalid*") {
         throw "Failed scan must display its error."
     }
-    if ((Get-Content -LiteralPath $inventory -Raw) -cne $beforeStop) { throw "Failed scan changed durable history." }
+    if ((Get-InventoryFingerprint $database) -cne $beforeStop) { throw "Failed scan changed durable history." }
     Open-HistoryDetails "History normal"
     if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "7 completed scan observations") {
         throw "Failed scan changed displayed history."
@@ -482,17 +487,17 @@ try {
     if ((Find-HistoryControl ScanStatusText).Current.Name -notlike "*inventory and scan history could not be saved*") {
         throw "Failed history persistence must be visibly reported."
     }
-    if ((Get-Content -LiteralPath $inventory -Raw) -cne $beforeStop) { throw "A failed save changed durable history." }
+    if ((Get-InventoryFingerprint $database) -cne $beforeStop) { throw "A failed save changed durable history." }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-save-error.png")
     $lock.Dispose()
     $lock = $null
-    Set-Content -LiteralPath $inventory -Value "invalid inventory fixture"
+    Set-Content -LiteralPath $database -Value "invalid inventory fixture"
     Invoke-HistoryScan
     Wait-HistoryScan
     if ((Find-HistoryControl ScanStatusText).Current.Name -notlike "*inventory and scan history could not be saved*") {
         throw "Invalid saved history encountered while saving must be visibly reported."
     }
-    if ((Get-Content -LiteralPath $inventory -Raw).Trim() -ne "invalid inventory fixture") {
+    if ((Get-Content -LiteralPath $database -Raw).Trim() -ne "invalid inventory fixture") {
         throw "Saving must not overwrite invalid history."
     }
     Stop-HistoryApp
@@ -502,7 +507,7 @@ try {
         $status -and $status.Current.Name -like "*Saved inventory could not be loaded. Changes are disabled*"
     } "visible inventory load failure"
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-load-error.png")
-    if ((Get-Content -LiteralPath $inventory -Raw).Trim() -ne "invalid inventory fixture") {
+    if ((Get-Content -LiteralPath $database -Raw).Trim() -ne "invalid inventory fixture") {
         throw "Invalid saved history must not be overwritten."
     }
     Write-Host "Device scan-history native UI checks passed."

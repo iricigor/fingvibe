@@ -170,7 +170,7 @@ public sealed record DeviceInventoryData(
             devices[mac] = device with
             {
                 ScanHistory = !historical && relevant
-                    ? device.ScanHistory.Append(new(snapshot.CompletedAt, networkId, snapshot.Subnet, present)).ToArray()
+                    ? new AppendedScanHistory(device.ScanHistory, new(snapshot.CompletedAt, networkId, snapshot.Subnet, present))
                     : device.ScanHistory,
                 CurrentCompletedAt = historical ? null : snapshot.CompletedAt,
                 CurrentNetworkId = historical ? null : networkId,

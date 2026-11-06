@@ -12,7 +12,7 @@ public sealed partial class MainWindow
         ? Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_INVENTORY") : null;
     private readonly DeviceInventoryStore _inventoryStore = new(
         ReviewInventoryPath is { Length: > 0 } ? ReviewInventoryPath : Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FingVibe", "device-inventory.json"));
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FingVibe", "device-inventory.sqlite"));
     private readonly SemaphoreSlim _deviceDataSaveLock = new(1, 1);
     private DeviceInventoryData _inventory = DeviceInventoryData.Empty;
     private DeviceInventoryData _persistedInventory = DeviceInventoryData.Empty;
@@ -64,7 +64,7 @@ public sealed partial class MainWindow
                     _inventoryError = "Legacy device data could not be loaded. Inventory changes are disabled to protect it.";
             }
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
         {
             _inventoryUnavailable = _deviceNameOverridesUnavailable = _classificationOverridesUnavailable = _peopleRoomsUnavailable = true;
             _inventoryError = $"Saved inventory could not be loaded. Changes are disabled: {exception.Message}";
