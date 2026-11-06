@@ -1033,18 +1033,9 @@ function Hide-ScheduledScansCard {
     Start-Sleep -Milliseconds 200
 }
 
-function Write-ScheduledScanScroll([string] $Phase) {
-    $scroll = (Find-SidebarElement AutomationId SettingsPage).GetCurrentPattern(
-        [System.Windows.Automation.ScrollPattern]::Pattern)
-    $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
-    $focus = if ($focused) { "$($focused.Current.AutomationId)/$($focused.Current.Name)" } else { "none" }
-    Write-Host "Settings scroll $Phase`: $([Math]::Round($scroll.Current.VerticalScrollPercent))%; focus: $focus."
-}
-
 function Switch-ScheduledScansWithKeyboard([bool] $Expected) {
     Focus-SidebarWindow
-    Write-ScheduledScanScroll "before toggling scheduled scans"
-    # Scan progress rows resize the header, so bring the card back into view before using the keyboard.
+    # Cancelling from the header can scroll Settings, so bring the card back into view before using the keyboard.
     Show-ScheduledScansCard
     $switch = Find-SidebarElement AutomationId ScheduledScansSwitch
     $switch.SetFocus()
@@ -1139,16 +1130,13 @@ function Test-ScheduledScans {
         $null = Wait-SidebarText ScheduledScanStatus "Scheduled scan in progress."
         Show-ScheduledScansCard
         Save-SidebarAppearance "scheduled-scans-running"
-        Write-ScheduledScanScroll "while the first scheduled scan runs"
         (Find-SidebarElement AutomationId CancelButton).GetCurrentPattern(
             [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
         $null = Wait-SidebarText ScanStatusText "Scheduled scan of 127.0.0.1/32 cancelled*"
         $null = Wait-SidebarText ScheduledScanStatus "Last scheduled scan was cancelled; nothing was saved. Next around *."
         $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 15 minutes"
-        Write-ScheduledScanScroll "after cancelling the scheduled scan"
 
         $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Scanning *"
-        Write-ScheduledScanScroll "after the next scheduled scan starts"
         Switch-ScheduledScansWithKeyboard $false
         $null = Wait-SidebarText ScanStatusText "Scheduled scan of 127.0.0.1/32 stopped; nothing was saved*"
         $null = Wait-SidebarText ScheduledScanStatus "Off. Scans run only when you select Scan LAN."
