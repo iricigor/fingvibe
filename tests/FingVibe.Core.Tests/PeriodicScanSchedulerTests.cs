@@ -261,4 +261,79 @@ public sealed class PeriodicScanSchedulerTests
         Assert.Equal(ScanRunStatus.Cancelled, cancelled.LastOutcome!.Status);
         Assert.Equal(2, calls);
     }
+
+    [Fact]
+    public async Task PolicyUpdatesRequireARunningScheduler()
+    {
+        await using var harness = new SchedulerHarness();
+        Assert.Throws<InvalidOperationException>(() => harness.Scheduler.UpdatePolicy(Policy));
+
+        harness.Scheduler.Start(Policy);
+        await harness.ExpectWaitingAsync(Interval);
+        await harness.Scheduler.StopAsync().WaitAsync(ScanExecutionFixture.Timeout);
+        await harness.ExpectAsync(PeriodicScanState.Stopped);
+
+        Assert.Throws<InvalidOperationException>(() => harness.Scheduler.UpdatePolicy(Policy));
+        harness.Time.Advance(Interval * 2);
+        harness.AssertNoPendingWork();
+    }
+
+    [Fact]
+    public async Task PolicyUpdateRestartsAPendingWaitFromNow()
+    {
+        var longer = new PeriodicScanPolicy(Interval * 2);
+        await using var harness = new SchedulerHarness();
+        harness.Scheduler.Start(Policy);
+        await harness.ExpectWaitingAsync(Interval);
+        harness.Time.Advance(Interval - TimeSpan.FromMinutes(1));
+
+        harness.Scheduler.UpdatePolicy(longer);
+
+        await harness.ExpectWaitingAsync(longer.Interval);
+        harness.Time.Advance(longer.Interval - TimeSpan.FromTicks(1));
+        harness.AssertNoPendingWork();
+        Assert.Equal(PeriodicScanState.Waiting, harness.Scheduler.Status.State);
+        (await harness.TickToScheduledScanAsync(TimeSpan.FromTicks(1))).Complete();
+        await harness.ExpectWaitingAsync(longer.Interval);
+        Assert.Single(harness.Steps.Saves);
+    }
+
+    [Fact]
+    public async Task PolicyUpdateDuringAScheduledScanAppliesToTheFollowingWait()
+    {
+        var shorter = new PeriodicScanPolicy(TimeSpan.FromMinutes(5));
+        await using var harness = new SchedulerHarness();
+        harness.Scheduler.Start(Policy);
+        await harness.ExpectWaitingAsync(Interval);
+        var scan = await harness.TickToScheduledScanAsync(Interval);
+
+        harness.Scheduler.UpdatePolicy(shorter);
+
+        Assert.False(scan.Token.IsCancellationRequested);
+        Assert.False(harness.Statuses.Reader.TryRead(out _));
+        scan.Complete();
+        var waiting = await harness.ExpectWaitingAsync(shorter.Interval);
+        Assert.Equal(ScanRunStatus.Completed, waiting.LastOutcome!.Status);
+    }
+
+    [Fact]
+    public async Task PolicyUpdateKeepsRetryBackoffAndLastOutcome()
+    {
+        var longer = new PeriodicScanPolicy(Interval * 2);
+        await using var harness = new SchedulerHarness();
+        Assert.True(harness.Coordinator.TryAcquire(NetworkActivityKind.InternetSpeedTest, out var lease));
+        harness.Scheduler.Start(Policy);
+        await harness.ExpectWaitingAsync(Interval);
+        await harness.TickAsync(Interval);
+        await harness.ExpectWaitingAsync(Retry);
+
+        harness.Scheduler.UpdatePolicy(longer);
+
+        var retrying = await harness.ExpectWaitingAsync(longer.DelayAfter(1));
+        Assert.Equal(1, retrying.ConsecutiveUnsuccessfulAttempts);
+        Assert.Equal(ScanRunStatus.Busy, retrying.LastOutcome!.Status);
+        lease!.Dispose();
+        (await harness.TickToScheduledScanAsync(Retry)).Complete();
+        await harness.ExpectWaitingAsync(longer.Interval);
+    }
 }

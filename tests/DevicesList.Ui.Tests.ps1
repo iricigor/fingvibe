@@ -67,8 +67,24 @@ function Select-DevicePage([string] $Id) {
         [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
     Start-Sleep -Milliseconds 350
     if ($Id -eq "Settings") {
-        $scroll = (Find-DeviceElement SettingsPage).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
+        $page = Find-DeviceElement SettingsPage
+        $scroll = $page.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        if ($scroll.Current.VerticallyScrollable) {
+            # Scheduled scans follow the Devices card; keep the column footer at the viewport bottom.
+            $reset = [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "ResetColumnsButton")
+            $best = 100
+            $scroll.SetScrollPercent(-1, $best)
+            for ($percent = 98; $percent -ge 0; $percent -= 2) {
+                $scroll.SetScrollPercent(-1, $percent)
+                Start-Sleep -Milliseconds 100
+                $bounds = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $reset).Current.BoundingRectangle
+                if ($bounds.IsEmpty -or $bounds.Bottom -gt $page.Current.BoundingRectangle.Bottom) { break }
+                $best = $percent
+            }
+            $scroll.SetScrollPercent(-1, $best)
+            Start-Sleep -Milliseconds 150
+        }
     }
 }
 

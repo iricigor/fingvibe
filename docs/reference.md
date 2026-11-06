@@ -280,11 +280,23 @@ IPv4 MAC enrichment first checks Windows' neighbor table for the exact IP on the
 
 Starting a scan keeps the displayed list visible and scrollable but prevents opening device details by pointer or keyboard. Results are collected separately and replace the list only when the scan succeeds; cancellation or failure retains the displayed results and reports the outcome explicitly. Progress continues to count all checked addresses. Completed scans update inventory observations, same-network absence, and per-device scan history; no new discovery probes are added.
 
-Manual scans and the periodic scan engine, which is not yet enabled, share one execution path. It holds the app's single network-activity slot for the whole scan, so LAN scans never overlap speed tests, troubleshooting or device-service scans; a busy request is rejected, not queued. If the Windows network identity changes during a scan, its observations are saved unscoped and no device is marked Offline.
+Manual and scheduled scans share one execution path. It holds the app's single network-activity slot for the whole scan, so LAN scans never overlap speed tests, troubleshooting or device-service scans; a busy request is rejected, not queued. If the Windows network identity changes during a scan, its observations are saved unscoped and no device is marked Offline.
+
+### Scheduled scans
+
+**Settings > Scheduled scans** is off by default. Turning it on scans the network selected in the shared header every 15 minutes, 30 minutes, 1 hour (default), 2 hours, or 4 hours while FingVibe is open, including when it is minimized. There is no tray, service, background task, or catch-up scan: the first scheduled scan runs one full interval after you enable it, FingVibe finishes loading, or Windows resumes, and changing the interval restarts that wait. Closing FingVibe or turning scheduling off stops it immediately; turning it off during a scheduled scan cancels that scan without saving partial results.
+
+Scheduled scans use the same execution path, progress, cancellation, retained-result, inventory, history and discovery handling as **Scan LAN**. Their progress and outcomes are labeled **Scheduled scan**, and **Cancel scan** stays available on every page. A scan you cancel waits a full interval before the next attempt; cancellation by disabling, sleep or closing is reported as stopped with nothing saved. Busy network activity, an unavailable LAN, or a failed scan or save is retried after one minute (or the interval if shorter), doubling up to the chosen interval, with the reason shown in Settings. Scheduling pauses while Windows reports sleep, cancelling any in-progress scheduled scan; on resume, it waits a full interval.
+
+Settings explains the current state in one sentence: off, waiting for loading, in progress, next approximate time, or a paused, skipped, or failed attempt and its retry time. While scheduling is on, the shared header's freshness line ends with **Scheduled every** *interval* (or **Scheduled scans paused**/**retrying**). Each scheduled scan samples which devices answer at that moment; missed responses between scans are not proof that a device was offline, and FingVibe does not record a continuous availability timeline.
+
+Newly observed devices from a scheduled scan use the same in-app discovery popup. Discoveries made while FingVibe is minimized are combined and shown once the window is restored, noting that they were found while minimized.
+
+The choice is saved atomically to `%LOCALAPPDATA%\FingVibe\periodic-scan.json`; unsupported intervals load as 1 hour. An unreadable file leaves scheduling off, is never overwritten, and is reported in Settings, as are save failures. UI-review mode reads and writes this setting only when `FINGVIBE_UI_REVIEW_PERIODIC_SCAN` names a file, and `FINGVIBE_UI_REVIEW_PERIODIC_SCAN_TIME_SCALE` (greater than 1) shortens the scheduled waits for automation while Settings continues to show unscaled times. `tests\SidebarNavigation.Tests.ps1` exercises the controls, keyboard toggle, responsive layout, themes, cancellation, disabling, completion and restart restoration; `tests\DeviceDiscovery.Ui.Tests.ps1` checks minimized discovery deferral. Never run native UI automation on a working user's desktop.
 
 ### First local discovery
 
-After a completed manual scan saves inventory/history successfully, a single
+After a completed manual or scheduled scan saves inventory/history successfully, a single
 in-app popup lists newly observed devices' MACs with individual details links.
 It is a transient popup, not a notification archive or a Windows notification.
 Returning devices and repeated scans, including after restart, do not alert.

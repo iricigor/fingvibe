@@ -63,7 +63,7 @@ internal sealed record PeriodicScanPolicy
 
 // Runs at most one scheduled attempt at a time. Each wait starts only after the previous attempt finishes,
 // so long scans, busy ticks, and late timers (for example after sleep) never build a catch-up queue.
-// Start and StopAsync are called from the UI thread; attempts resume on the caller's synchronization context.
+// Start, UpdatePolicy, and StopAsync are called from the UI thread; attempts resume on the caller's synchronization context.
 internal sealed class PeriodicScanScheduler(
     Func<CancellationToken, Task<ScanRunOutcome>> runScan,
     TimeProvider? timeProvider = null)
@@ -71,6 +71,8 @@ internal sealed class PeriodicScanScheduler(
     private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
     private readonly object _sync = new();
     private CancellationTokenSource? _stop;
+    private CancellationTokenSource? _restartWait;
+    private PeriodicScanPolicy? _policy;
     private Task _loop = Task.CompletedTask;
     private PeriodicScanStatus _status = new(PeriodicScanState.Stopped);
 
@@ -97,8 +99,36 @@ internal sealed class PeriodicScanScheduler(
                 throw new InvalidOperationException("Periodic scanning is already running or still stopping.");
             }
 
+            _policy = policy;
             _stop = new CancellationTokenSource();
-            _loop = RunAsync(policy, _stop.Token);
+            _loop = RunAsync(_stop.Token);
+        }
+    }
+
+    // A pending wait restarts from now under the new policy; an attempt in progress continues, and the
+    // policy applies to the wait that follows it.
+    public void UpdatePolicy(PeriodicScanPolicy policy)
+    {
+        ArgumentNullException.ThrowIfNull(policy);
+        CancellationTokenSource? restart;
+        lock (_sync)
+        {
+            if (_stop is null)
+            {
+                throw new InvalidOperationException("Periodic scanning is not running.");
+            }
+
+            _policy = policy;
+            restart = _restartWait;
+        }
+
+        try
+        {
+            restart?.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // The wait already finished; the next wait reads the new policy.
         }
     }
 
@@ -131,11 +161,10 @@ internal sealed class PeriodicScanScheduler(
         }
     }
 
-    private async Task RunAsync(PeriodicScanPolicy policy, CancellationToken stop)
+    private async Task RunAsync(CancellationToken stop)
     {
         // Leave Start before publishing so status observers never run inside its lock.
         await Task.Yield();
-        var delay = policy.Interval;
         var unsuccessful = 0;
         ScanRunOutcome? last = null;
         try
@@ -143,18 +172,41 @@ internal sealed class PeriodicScanScheduler(
             while (true)
             {
                 stop.ThrowIfCancellationRequested();
+                using var restart = CancellationTokenSource.CreateLinkedTokenSource(stop);
+                PeriodicScanPolicy policy;
+                lock (_sync)
+                {
+                    policy = _policy!;
+                    _restartWait = restart;
+                }
 
                 // Create the timer before publishing its due time so observers cannot advance past it unseen.
-                var wait = Task.Delay(delay, _time, stop);
+                var delay = policy.DelayAfter(unsuccessful);
+                var wait = Task.Delay(delay, _time, restart.Token);
                 Publish(new PeriodicScanStatus(PeriodicScanState.Waiting, _time.GetUtcNow() + delay, last, unsuccessful));
-                await wait;
+                try
+                {
+                    await wait;
+                }
+                catch (OperationCanceledException) when (!stop.IsCancellationRequested)
+                {
+                    continue;
+                }
+                finally
+                {
+                    lock (_sync)
+                    {
+                        _restartWait = null;
+                    }
+                }
+
+                stop.ThrowIfCancellationRequested();
                 Publish(new PeriodicScanStatus(PeriodicScanState.Running, null, last, unsuccessful));
                 last = await AttemptAsync(stop);
                 stop.ThrowIfCancellationRequested();
 
                 // A user-cancelled attempt was deliberate, so it waits a full interval instead of retrying.
                 unsuccessful = last.Status is ScanRunStatus.Completed or ScanRunStatus.Cancelled ? 0 : unsuccessful + 1;
-                delay = policy.DelayAfter(unsuccessful);
             }
         }
         catch (OperationCanceledException) when (stop.IsCancellationRequested)
