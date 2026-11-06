@@ -163,6 +163,40 @@
                     </Grid>
                 </StackPanel>
             </Border>
+            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                <StackPanel Spacing="8">
+                    <TextBlock x:Name="ScheduledScansHeading" Text="Scheduled scans" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <TextBlock x:Name="ScheduledScansDescription"
+                               Text="Scan the selected LAN automatically while FingVibe is open, including when it is minimized. Scheduled scans pause while Windows sleeps and stop when FingVibe closes."
+                               TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <Grid x:Name="ScheduledScanOptions" ColumnSpacing="16" RowSpacing="8"
+                          SizeChanged="ScheduledScanOptions_SizeChanged">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <ToggleSwitch x:Name="ScheduledScansSwitch" Loaded="DevicePreferenceSwitch_Loaded"
+                                      Header="Scheduled scans" AutomationProperties.Name="Scheduled scans"
+                                      Toggled="ScheduledScansSwitch_Toggled"
+                                      ToolTipService.ToolTip="Scan the selected LAN at the chosen interval while FingVibe is open." />
+                        <ComboBox x:Name="ScanIntervalPicker" Grid.Column="1"
+                                  Header="Scan every" AutomationProperties.Name="Scheduled scan interval"
+                                  HorizontalAlignment="Stretch" VerticalAlignment="Bottom"
+                                  SelectionChanged="ScanIntervalPicker_SelectionChanged" />
+                    </Grid>
+                    <TextBlock x:Name="ScheduledScanStatus"
+                               TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock x:Name="ScheduledScanEvidenceNote"
+                               TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

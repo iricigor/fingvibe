@@ -1,3 +1,4 @@
+using System.Net.NetworkInformation;
 using FingVibe.Core.Models;
 using FingVibe.Core.Networking;
 using FingVibe.Core.Storage;
@@ -15,9 +16,13 @@ public sealed partial class MainWindow : IScanExecutionSteps
     private CancellationTokenSource? _scanCancellation;
     private bool _isScanning;
     private bool _restoreScanActionFocus;
+    private ScanTrigger _scanTrigger;
+    private bool _scanCancelledByUser;
     private string? _scanMessage;
     private string? _discoveryMessage;
     private string _retainedResultsMessage = string.Empty;
+
+    private string ScanProgressPrefix => _scanTrigger == ScanTrigger.Scheduled ? "Scheduled scan · " : string.Empty;
 
     private void UpdateScanStatus()
     {
@@ -30,6 +35,10 @@ public sealed partial class MainWindow : IScanExecutionSteps
         var context = _displayedScan is { } scan
             ? $"{scan.Freshness(DateTimeOffset.UtcNow)} · {scan.Subnet}"
             : network is null ? "Connect to a LAN to scan" : "Ready for your first scan";
+        if (PeriodicScanHeaderSummary() is { } schedule)
+        {
+            context += $" · {schedule}";
+        }
         var targetWarning = _displayedScan is { } displayed && displayed.Subnet != network?.Cidr
             ? $"These results are not for the selected scan target ({network?.Cidr ?? "none"})."
             : null;
@@ -63,16 +72,49 @@ public sealed partial class MainWindow : IScanExecutionSteps
         }
     }
 
-    // Scheduled requests share the manual scan path; nothing starts the scheduler until user controls exist.
-    private Task<ScanRunOutcome> RunScheduledScanAsync(CancellationToken cancellationToken) =>
-        NetworkPicker.SelectedItem is LanNetwork network
-            ? _scanExecution.RunAsync(new ScanRequest(ScanTrigger.Scheduled, network), cancellationToken)
-            : Task.FromResult(new ScanRunOutcome(ScanRunStatus.Unavailable) { Message = "No LAN is selected." });
+    // Scheduled requests share the manual scan path and always target the currently selected LAN. Outside UI
+    // review they first confirm that the adapter still reports that subnet, so a disconnected LAN is retried
+    // with backoff instead of being scanned and reported as empty.
+    private Task<ScanRunOutcome> RunScheduledScanAsync(CancellationToken cancellationToken)
+    {
+        if (NetworkPicker.SelectedItem is not LanNetwork network)
+        {
+            return Task.FromResult(new ScanRunOutcome(ScanRunStatus.Unavailable) { Message = "No LAN is selected." });
+        }
+
+        if (!IsUiReview)
+        {
+            IReadOnlyList<LanNetwork> available;
+            try
+            {
+                available = _networkDiscovery.GetAvailableNetworks();
+            }
+            catch (NetworkInformationException exception)
+            {
+                return Task.FromResult(new ScanRunOutcome(ScanRunStatus.Unavailable)
+                {
+                    Message = $"Network adapters could not be read: {exception.Message}"
+                });
+            }
+
+            if (!PeriodicScanTarget.IsAvailable(available, network))
+            {
+                return Task.FromResult(new ScanRunOutcome(ScanRunStatus.Unavailable)
+                {
+                    Message = $"{network.InterfaceName} ({network.Cidr}) is not connected."
+                });
+            }
+        }
+
+        return _scanExecution.RunAsync(new ScanRequest(ScanTrigger.Scheduled, network), cancellationToken);
+    }
 
     void IScanExecutionSteps.BeginScan(ScanRequest request, CancellationTokenSource cancellation)
     {
         var focusScanAction = ScanButton.FocusState != FocusState.Unfocused;
         _isScanning = true;
+        _scanTrigger = request.Trigger;
+        _scanCancelledByUser = false;
         ToolsPage.InvalidateImportAnalysis("A scan started. Wait for it to finish and analyze again.");
         DevicesPage.SetInteractionsEnabled(false);
         UpdateEmptyState();
@@ -88,7 +130,7 @@ public sealed partial class MainWindow : IScanExecutionSteps
         ScanProgressBar.Value = 0;
         StartScanPulse();
         _retainedResultsMessage = _displayedScan is not null ? " · Displaying retained results" : string.Empty;
-        _scanMessage = $"Scanning 0/{total:N0} addresses{_retainedResultsMessage}";
+        _scanMessage = $"{ScanProgressPrefix}Scanning 0/{total:N0} addresses{_retainedResultsMessage}";
         UpdateScanStatus();
         if (focusScanAction) CancelButton.Focus(FocusState.Programmatic);
         _discoveryMessage = null;
@@ -155,10 +197,17 @@ public sealed partial class MainWindow : IScanExecutionSteps
 
     void IScanExecutionSteps.EndScan(ScanRequest request, ScanRunOutcome outcome)
     {
+        var scheduled = request.Trigger == ScanTrigger.Scheduled;
         if (outcome.Status == ScanRunStatus.Cancelled)
-            _scanMessage = $"Scan of {request.Network.Cidr} cancelled{_retainedResultsMessage}";
+            _scanMessage = !scheduled
+                ? $"Scan of {request.Network.Cidr} cancelled{_retainedResultsMessage}"
+                : _scanCancelledByUser
+                    ? $"Scheduled scan of {request.Network.Cidr} cancelled{_retainedResultsMessage}"
+                    : $"Scheduled scan of {request.Network.Cidr} stopped; nothing was saved{_retainedResultsMessage}";
         else if (outcome.Status == ScanRunStatus.Failed)
-            _scanMessage = $"Unable to scan {request.Network.Cidr}: {outcome.Message}{_retainedResultsMessage}";
+            _scanMessage = scheduled
+                ? $"Unable to complete scheduled scan of {request.Network.Cidr}: {outcome.Message}{_retainedResultsMessage}"
+                : $"Unable to scan {request.Network.Cidr}: {outcome.Message}{_retainedResultsMessage}";
 
         var restoreFocus = _restoreScanActionFocus || CancelButton.FocusState != FocusState.Unfocused;
         _restoreScanActionFocus = false;
@@ -176,7 +225,7 @@ public sealed partial class MainWindow : IScanExecutionSteps
         if (restoreFocus && ScanButton.Visibility == Visibility.Visible
             && ScanActions.Visibility == Visibility.Visible)
             ScanButton.Focus(FocusState.Programmatic);
-        if (outcome.Discoveries.Count > 0) ShowDiscoveryPopup(outcome.Discoveries);
+        if (outcome.Discoveries.Count > 0) PresentDiscoveries(outcome.Discoveries);
     }
 
     private void PresentScanProgress(ScanProgress progress, string retainedResults)
@@ -184,13 +233,14 @@ public sealed partial class MainWindow : IScanExecutionSteps
         ScanProgressBar.Maximum = progress.Total;
         ScanProgressBar.Value = progress.Completed;
         UpdateScanPulseWidth();
-        _scanMessage = $"Scanning {progress.Completed:N0}/{progress.Total:N0} addresses{retainedResults}";
+        _scanMessage = $"{ScanProgressPrefix}Scanning {progress.Completed:N0}/{progress.Total:N0} addresses{retainedResults}";
         UpdateScanStatus();
     }
 
     private void CancelButton_Click(object sender, RoutedEventArgs e)
     {
         _restoreScanActionFocus = CancelButton.FocusState != FocusState.Unfocused;
+        _scanCancelledByUser = true;
         _scanCancellation?.Cancel();
         StopScanPulse();
         CancelButton.IsEnabled = false;

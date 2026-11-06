@@ -13,12 +13,19 @@ public sealed partial class SettingsPageView : UserControl
     private static readonly ThemeVariant[] DarkThemes =
         [ThemeVariant.StandardDark, ThemeVariant.OledDark, ThemeVariant.ColorfulDark];
     private bool _updatingAppearance;
+    private bool _updatingPeriodicScan;
     private string? _appearanceSaveError;
     private string? _materialStatus;
 
     public SettingsPageView()
     {
         InitializeComponent();
+        foreach (var minutes in PeriodicScanSettings.IntervalChoices)
+        {
+            ScanIntervalPicker.Items.Add(new ComboBoxItem { Content = PeriodicScanPresentation.IntervalLabel(minutes) });
+        }
+        ScheduledScanEvidenceNote.Text = PeriodicScanPresentation.EvidenceNote;
+        SetPeriodicScan(PeriodicScanSettings.Default);
     }
 
     public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
@@ -26,6 +33,7 @@ public sealed partial class SettingsPageView : UserControl
         [Columns.Name, Columns.Address, Columns.Vendor, Columns.Type, Columns.Mac, Columns.Ports,
             Columns.Status, Columns.Response, Columns.OperatingSystem, Columns.Person, Columns.Room, Columns.LastSeen];
     public event SelectionChangedEventHandler? AppearanceChanged;
+    public event EventHandler? PeriodicScanChanged;
 
     private ThemeVariant[] ModeThemes => ModePicker.SelectedIndex == 1 ? DarkThemes : LightThemes;
     internal AppearanceSettings? SelectedAppearance =>
@@ -35,6 +43,47 @@ public sealed partial class SettingsPageView : UserControl
     internal string? SaveError { set { _appearanceSaveError = value; UpdateAppearanceStatus(); } }
     internal string? MaterialStatus { set { _materialStatus = value; UpdateAppearanceStatus(); } }
     internal string ColumnSaveStatus { set => TableSaveStatus.Text = value; }
+    internal PeriodicScanSettings? SelectedPeriodicScan =>
+        ScanIntervalPicker.SelectedIndex < 0
+            ? null
+            : new PeriodicScanSettings(ScheduledScansSwitch.IsOn, PeriodicScanSettings.IntervalChoices[ScanIntervalPicker.SelectedIndex]);
+    internal string PeriodicScanStatus { set => ScheduledScanStatus.Text = value; }
+
+    internal void SetPeriodicScan(PeriodicScanSettings settings)
+    {
+        var normalized = settings.Normalize();
+        _updatingPeriodicScan = true;
+        try
+        {
+            ScheduledScansSwitch.IsOn = normalized.IsEnabled;
+            ScanIntervalPicker.SelectedIndex = PeriodicScanSettings.IntervalChoices.ToList().IndexOf(normalized.IntervalMinutes);
+        }
+        finally
+        {
+            _updatingPeriodicScan = false;
+        }
+    }
+
+    private void ScheduledScansSwitch_Toggled(object sender, RoutedEventArgs e) => RaisePeriodicScanChanged();
+
+    private void ScanIntervalPicker_SelectionChanged(object sender, SelectionChangedEventArgs e) => RaisePeriodicScanChanged();
+
+    private void RaisePeriodicScanChanged()
+    {
+        if (!_updatingPeriodicScan && SelectedPeriodicScan is not null)
+        {
+            PeriodicScanChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
+
+    private void ScheduledScanOptions_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var inline = e.NewSize.Width >= 416;
+        Grid.SetColumn(ScanIntervalPicker, inline ? 1 : 0);
+        Grid.SetRow(ScanIntervalPicker, inline ? 0 : 1);
+        Grid.SetColumnSpan(ScheduledScansSwitch, inline ? 1 : 2);
+        Grid.SetColumnSpan(ScanIntervalPicker, inline ? 1 : 2);
+    }
 
     private void UpdateAppearanceStatus()
     {

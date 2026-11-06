@@ -16,6 +16,8 @@ public sealed partial class MainWindow : Window
 
     public MainWindow()
     {
+        _periodicScans = new PeriodicScanScheduler(RunScheduledScanAsync, CreatePeriodicScanTimeProvider());
+        _periodicScanController = new PeriodicScanController(_periodicScans, LoadPeriodicScanSettings());
         InitializeComponent();
         InitializeNavigationPane();
         InitializeBuildIdentity();
@@ -23,11 +25,12 @@ public sealed partial class MainWindow : Window
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Scanner.ico"));
         ToolsPage.ActivityCoordinator = _networkActivityCoordinator;
         _scanExecution = new ScanExecution(_networkActivityCoordinator, this);
-        _periodicScans = new PeriodicScanScheduler(RunScheduledScanAsync);
         this.AppWindow.Closing += MainWindow_Closing;
         InitializeAppearance();
         InitializeDeviceTableSettings();
         InitializePeopleRoomsViews();
+        InitializePeriodicScans();
+        InitializeDiscoveryNotifications();
         Closed += (_, _) => _devicePortScanCancellation?.Cancel();
 
         DevicesPage.SetResults(_visibleResults);
@@ -38,7 +41,8 @@ public sealed partial class MainWindow : Window
 
     private async void MainWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
     {
-        if (_allowWindowClose || (!ToolsPage.HasActiveTest && _devicePortScanCancellation is null))
+        if (_allowWindowClose
+            || (!ToolsPage.HasActiveTest && _devicePortScanCancellation is null && !_periodicScanController.IsActive))
         {
             return;
         }
@@ -52,6 +56,8 @@ public sealed partial class MainWindow : Window
         _closingAfterNetworkActivity = true;
         try
         {
+            // Stop scheduling first so no scheduled scan can start while other activity winds down.
+            await _periodicScanController.ShutdownAsync();
             await StopDevicePortScanAsync();
             await ToolsPage.StopForWindowCloseAsync();
         }
@@ -79,6 +85,7 @@ public sealed partial class MainWindow : Window
         _inventoryReady = true;
         UpdatePeopleRoomsPages();
         UpdatePeopleRoomFilters();
+        await ActivatePeriodicScansAsync();
         await InitializeNetworkAsync();
     }
 

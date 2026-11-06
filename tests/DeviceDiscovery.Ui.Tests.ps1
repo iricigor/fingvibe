@@ -99,7 +99,7 @@ function Assert-DiscoveryEntries([string[]] $Macs, [string] $Capture) {
 $previous = @{}
 foreach ($key in @("FINGVIBE_UI_REVIEW", "FINGVIBE_UI_REVIEW_INVENTORY", "FINGVIBE_UI_REVIEW_SNAPSHOT",
     "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT", "FINGVIBE_UI_REVIEW_SCAN_RESULTS", "FINGVIBE_UI_REVIEW_NETWORK",
-    "FINGVIBE_UI_REVIEW_SCAN_HOLD")) {
+    "FINGVIBE_UI_REVIEW_SCAN_HOLD", "FINGVIBE_UI_REVIEW_PERIODIC_SCAN", "FINGVIBE_UI_REVIEW_PERIODIC_SCAN_TIME_SCALE")) {
     $previous[$key] = [Environment]::GetEnvironmentVariable($key)
 }
 $directory = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-discovery-ui-$([Guid]::NewGuid().ToString('N'))"
@@ -108,6 +108,7 @@ $database = [System.IO.Path]::ChangeExtension($inventory, ".sqlite")
 $fixture = Join-Path $directory "results.json"
 $snapshot = Join-Path $directory "snapshot.json"
 $hold = Join-Path $directory "scan.hold"
+$periodicScan = Join-Path $directory "periodic-scan.json"
 $script:process = $null
 $lock = $null
 try {
@@ -227,6 +228,36 @@ try {
     Start-DiscoveryApp
     Invoke-DiscoveryScan
     Assert-NoDiscovery
+    Stop-DiscoveryApp
+    # Scheduled scans keep running while minimized and defer discoveries until the window is restored.
+    Set-Content -LiteralPath $periodicScan -Value '{"isEnabled":true,"intervalMinutes":15}' -Encoding ASCII
+    $env:FINGVIBE_UI_REVIEW_PERIODIC_SCAN = $periodicScan
+    $env:FINGVIBE_UI_REVIEW_PERIODIC_SCAN_TIME_SCALE = "60"
+    Set-DiscoveryResults @("001122334466", "001122334499")
+    Start-DiscoveryApp
+    $handle = $script:process.MainWindowHandle
+    if ((Test-Path -LiteralPath $snapshot) -and (Get-Content -LiteralPath $snapshot -Raw) -like "*001122334499*") {
+        throw "The scheduled scan ran before the window could be minimized."
+    }
+    $null = [UiReviewNativeWindow]::ShowWindow($handle, 6)
+    Wait-DiscoveryState { [UiReviewNativeWindow]::IsIconic($handle) } "minimized window"
+    Wait-DiscoveryState {
+        # Controls in a minimized window can report as offscreen, so only check that scanning has finished.
+        $scan = Find-DiscoveryControl ScanButton -Optional
+        (Get-Content -LiteralPath $snapshot -Raw -ErrorAction SilentlyContinue) -like "*001122334499*" -and
+            $scan -and $scan.Current.IsEnabled
+    } "scheduled scan while minimized"
+    Start-Sleep -Seconds 1
+    if (Find-DiscoveryControl DiscoveryPopup -Optional) { throw "Discoveries must wait until FingVibe is restored." }
+    Initialize-UiReviewWindow $handle
+    Assert-DiscoveryEntries @("001122334499") "discovery-minimized"
+    $summary = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::NameProperty,
+        "1 newly observed devices while FingVibe was minimized. Saved locally.")
+    if (-not $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $summary)) {
+        throw "Restored discoveries must say they were found while FingVibe was minimized."
+    }
+    (Find-DiscoveryControl CloseDiscoveryPopup).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Stop-DiscoveryApp
     Write-Host "Device discovery native UI checks passed."
 }

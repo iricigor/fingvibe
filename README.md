@@ -50,11 +50,12 @@ Hover over service icons for port numbers and names. Use search and the
 Create people and rooms on their respective pages, then assign devices from
 device details. Names and notes are yours to manage; a device responding to a
 scan does not establish that its assigned person is present. In **Settings**,
-choose appearance options or hide columns you do not need.
+choose appearance options, hide columns you do not need, or opt in to
+**Scheduled scans** while FingVibe is open.
 
 Refreshing retains the old list until a scan succeeds. Cancellation or failure
 keeps the displayed results and reports the outcome. Freshness describes that
-scan, not ongoing background checks; switching networks identifies results
+scan, not continuous monitoring; switching networks identifies results
 from another target rather than silently relabeling them.
 
 **Scanning limitations:** Only devices answering ICMP are locally discovered;
