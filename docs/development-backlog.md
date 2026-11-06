@@ -4,6 +4,55 @@ This contract prepares issue intake and future scheduled pickup. It does not
 implement dispatch, agent invocation, review automation, or merging. Labels
 describe state; they do not enforce authorization, locking, or merge protection.
 
+## Explicitly invoked manual-worker exception
+
+[Task #189](https://github.com/iricigor/fingvibe/issues/189) adds the
+[⏩ Epic worker](../.github/agents/automation-epic-worker.agent.md) and a separate
+[Timeline kickoff](automation-prompts/timeline-worker.md). This is an instruction
+delivery, not implementation or activation of the scheduled dispatcher.
+
+For this first iteration only, a human explicitly selecting that worker and
+invoking "complete and merge at most one eligible task" supplies implementation
+and merge authorization for one direct native child of the specified Epic.
+The kickoff must identify the target; Epic membership, an agent file, or a saved
+prompt alone does not authorize execution. Creating/saving a desktop Automation
+is not activation approval; an unattended schedule requires separate approval.
+
+In this explicitly invoked mode, `status:ready`, size, and priority labels and
+per-candidate readiness approval records are not prerequisites. The worker
+checks delivered dependencies, follows explicit Epic task order (otherwise
+ascending issue number), resolves ordinary ambiguities autonomously, and records
+decisions, assumptions, questions, corner cases, and unimplemented suggestions on
+the parent Epic. It cannot drop acceptance criteria, expand scope, change gates,
+or manufacture completion. Only requested changes and directly necessary tests
+and documentation are allowed.
+
+The worker checks repository-wide claims and open PRs, including drafts, before
+pickup; any unfinished work prevents selection. It records a claim, marks
+`active`, and verifies an early WIP draft before edits. Validated PR publication
+moves the claim to `status:review`; ownership remains through merge. Failed or
+interrupted work retains its claim. No age-based expiry or orphan recovery is
+implemented, and labels/PRs are not an atomic lock. Humans must stagger starts;
+this is not safe serialized unattended dispatch.
+
+The worker waits for actual applicable final-revision validation and blocking
+reviews, repairs implementation-caused failures within scope, and merges only
+verified work without bypass. Unrelated failures or unavailable evidence block
+delivery. It verifies merge, issue closure, lifecycle cleanup, and the Epic
+checklist, then posts the decision record and stops after one task.
+
+Merging into `main` retains the existing release-on-main behavior and triggers
+the release workflow. These instructions do not alter or enable repository
+auto-merge, protection, review gates, release policy, or app schedules. A kickoff
+that forbids releases cannot authorize merging into `main` under that behavior.
+This narrow instruction-only mode does not deliver or waive the full scheduled
+loop's policy/protection/activation tasks #104–#108.
+
+All other workflows retain the approval, selection, serialization, recovery, and
+activation requirements below. In particular, Architect remains discussion-first
+and publishes for human review without automatically merging its own delivery.
+Host permissions and higher-priority instructions still apply to every agent.
+
 ## Development-environment planning
 
 [Epic #92](https://github.com/iricigor/fingvibe/issues/92) organizes the seven
