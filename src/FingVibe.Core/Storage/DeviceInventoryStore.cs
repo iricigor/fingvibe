@@ -24,6 +24,7 @@ public sealed partial class DeviceInventoryStore
         await _gate.WaitAsync(cancellationToken);
         try
         {
+            _loaded = null;
             if (!File.Exists(_databasePath))
             {
                 var directory = Path.GetDirectoryName(_databasePath)!;

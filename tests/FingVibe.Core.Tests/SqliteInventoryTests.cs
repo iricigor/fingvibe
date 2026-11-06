@@ -197,6 +197,18 @@ public sealed class SqliteInventoryTests : IDisposable
         Assert.Single((await store.LoadAsync())!.Devices[Mac].ScanHistory);
     }
 
+    [Fact]
+    public async Task FailedReloadDisablesWritesFromPreviouslyLoadedData()
+    {
+        var store = new DeviceInventoryStore(JsonPath);
+        var saved = await store.SaveAsync(Scan(DeviceInventoryData.Empty, 0), Guid.Empty);
+        Sql("UPDATE devices SET data=json_set(data,'$.imported',NULL)");
+        await Assert.ThrowsAsync<InvalidDataException>(() => store.LoadAsync());
+        await Assert.ThrowsAsync<InvalidOperationException>(() => store.SaveAsync(saved, saved.Revision));
+        Assert.Equal(1L, Scalar("SELECT COUNT(*) FROM devices WHERE json_type(data,'$.imported')='null'"));
+        Assert.Equal(saved.Revision.ToString("D"), Scalar("SELECT revision FROM inventory"));
+    }
+
     private void Sql(string sql)
     {
         using var connection = new SqliteConnection($"Data Source={DatabasePath};Pooling=False");
