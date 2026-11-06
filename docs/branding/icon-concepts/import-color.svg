@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">FingVibe - Import</title><desc id="desc">Review a spreadsheet, keep control</desc>
+<defs><linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="16" y1="16" x2="240" y2="240"><stop stop-color="#173967"/><stop offset="1" stop-color="#101B34"/></linearGradient></defs>
+<rect x="16" y="16" width="224" height="224" rx="52" fill="url(#tile)" stroke="#38577B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M42.456 72.447 A102 102 0 0 1 157.822 30.457" fill="none" stroke="#50739B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="55" y="49" width="113" height="151" rx="12" fill="#1B304D" stroke="#4DF0D3" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="73,89 150,89" fill="none" stroke="#4DF0D3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="73,113 150,113" fill="none" stroke="#477298" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="73,137 118,137" fill="none" stroke="#477298" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="95,72 95,175" fill="none" stroke="#477298" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="122,72 122,113" fill="none" stroke="#477298" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="73,161 110,161" fill="none" stroke="#477298" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="203,156 135,156 153,138 135,156 153,174" fill="none" stroke="#FFEB9A" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="187" cy="201" r="15" fill="#1B304D" stroke="#80D5FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="180,201 185,206 195,195" fill="none" stroke="#80D5FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

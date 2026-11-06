@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">FingVibe - Tools</title><desc id="desc">A kit for understanding your LAN</desc>
+<rect x="51" y="90" width="154" height="113" rx="15" fill="none" stroke="#4DF0D3" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="94,88 94,59 162,59 162,88" fill="none" stroke="#4DF0D3" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="53,129 203,129" fill="none" stroke="#4DF0D3" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="112" y="116" width="32" height="28" rx="5" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

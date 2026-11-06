@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">FingVibe - Devices</title><desc id="desc">One inventory, many device types</desc>
+<rect x="48" y="62" width="134" height="91" rx="10" fill="none" stroke="#4DF0D3" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="112,156 112,178 81,178 143,178" fill="none" stroke="#4DF0D3" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="159" y="109" width="45" height="93" rx="10" fill="none" stroke="#4DF0D3" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="174,189 189,189" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

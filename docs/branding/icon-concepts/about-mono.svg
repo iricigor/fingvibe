@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">FingVibe - About</title><desc id="desc">Version, provenance and project</desc>
+<circle cx="128" cy="128" r="78" fill="none" stroke="#4DF0D3" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="128" cy="88" r="9" fill="#4DF0D3" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="117,117 128,117 128,166 115,166 141,166" fill="none" stroke="#4DF0D3" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">B / Scan summary</title><desc id="desc">A clipboard collecting the latest scan results</desc>
+<defs><linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="16" y1="16" x2="240" y2="240"><stop stop-color="#173967"/><stop offset="1" stop-color="#101B34"/></linearGradient></defs>
+<rect x="16" y="16" width="224" height="224" rx="52" fill="url(#tile)" stroke="#38577B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M42.456 72.447 A102 102 0 0 1 157.822 30.457" fill="none" stroke="#50739B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="62" y="60" width="132" height="151" rx="14" fill="#1B304D" stroke="#4DF0D3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="98" y="45" width="60" height="32" rx="8" fill="#214456" stroke="#4DF0D3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="84,107 91,114 103,100" fill="none" stroke="#4DF0D3" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="84,143 91,150 103,136" fill="none" stroke="#80D5FF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="119,108 171,108" fill="none" stroke="#EDF9FF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="119,144 159,144" fill="none" stroke="#EDF9FF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="85,182 108,182 120,169 134,189 149,175 171,175" fill="none" stroke="#FFEB9A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="119,120 148,120" fill="none" stroke="#477298" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="119,156 143,156" fill="none" stroke="#477298" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="128" cy="61" r="3" fill="#4DF0D3" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

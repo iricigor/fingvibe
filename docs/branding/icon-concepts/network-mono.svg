@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">B / Internet to LAN</title><desc id="desc">A globe above a wired gateway and local endpoints</desc>
+<circle cx="128" cy="84" r="35" fill="none" stroke="#4DF0D3" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M120.746 111.28 A40 40 0 0 1 120.746 56.72" fill="none" stroke="#4DF0D3" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M135.254 56.72 A40 40 0 0 1 135.254 111.28" fill="none" stroke="#4DF0D3" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="95,84 161,84" fill="none" stroke="#4DF0D3" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="128,121 128,142" fill="none" stroke="#4DF0D3" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="74" y="143" width="108" height="34" rx="9" fill="none" stroke="#4DF0D3" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="94" cy="160" r="4" fill="#4DF0D3" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="126,160 163,160" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="128,179 128,197 75,197 181,197" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="75" cy="208" r="9" fill="none" stroke="#4DF0D3" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="128" cy="208" r="9" fill="none" stroke="#4DF0D3" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="181" cy="208" r="9" fill="none" stroke="#4DF0D3" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

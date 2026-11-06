@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">FingVibe - About</title><desc id="desc">Version, provenance and project</desc>
+<defs><linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="16" y1="16" x2="240" y2="240"><stop stop-color="#173967"/><stop offset="1" stop-color="#101B34"/></linearGradient></defs>
+<rect x="16" y="16" width="224" height="224" rx="52" fill="url(#tile)" stroke="#38577B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M42.456 72.447 A102 102 0 0 1 157.822 30.457" fill="none" stroke="#50739B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="128" cy="128" r="78" fill="#1B304D" stroke="#4DF0D3" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="128" cy="88" r="9" fill="#EDF9FF" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="117,117 128,117 128,166 115,166 141,166" fill="none" stroke="#EDF9FF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M60.831 69.611 A89 89 0 0 1 128 39" fill="none" stroke="#80D5FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M201.784 177.768 A89 89 0 0 1 146.504 215.055" fill="none" stroke="#B4A0FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="191" cy="191" r="8" fill="#FFEB9A" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

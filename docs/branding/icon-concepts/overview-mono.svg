@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">B / Scan summary</title><desc id="desc">A clipboard collecting the latest scan results</desc>
+<rect x="62" y="60" width="132" height="151" rx="14" fill="none" stroke="#4DF0D3" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="98" y="45" width="60" height="32" rx="8" fill="none" stroke="#4DF0D3" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="84,107 91,114 103,100" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="84,143 91,150 103,136" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="119,108 171,108" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="119,144 159,144" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="85,182 108,182 120,169 134,189 149,175 171,175" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

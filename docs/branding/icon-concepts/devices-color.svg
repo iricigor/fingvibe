@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">FingVibe - Devices</title><desc id="desc">One inventory, many device types</desc>
+<defs><linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="16" y1="16" x2="240" y2="240"><stop stop-color="#173967"/><stop offset="1" stop-color="#101B34"/></linearGradient></defs>
+<rect x="16" y="16" width="224" height="224" rx="52" fill="url(#tile)" stroke="#38577B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M42.456 72.447 A102 102 0 0 1 157.822 30.457" fill="none" stroke="#50739B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="48" y="62" width="134" height="91" rx="10" fill="#1B304D" stroke="#4DF0D3" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="112,156 112,178 81,178 143,178" fill="none" stroke="#4DF0D3" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="159" y="109" width="45" height="93" rx="10" fill="#1B304D" stroke="#F093BE" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="174,189 189,189" fill="none" stroke="#F093BE" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="57" y="72" width="115" height="67" rx="5" fill="#244562" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="72,116 89,116 100,96 117,126 131,109 155,109" fill="none" stroke="#80D5FF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="52" y="194" width="84" height="18" rx="5" fill="#1B304D" stroke="#B4A0FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="122" cy="203" r="3" fill="#B4A0FF" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

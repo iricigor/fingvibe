@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">FingVibe - Troubleshooting</title><desc id="desc">Inspect routes, DNS and responses</desc>
+<circle cx="109" cy="106" r="52" fill="none" stroke="#4DF0D3" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="147,145 201,199" fill="none" stroke="#4DF0D3" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="73,109 88,109 98,89 112,125 124,102 145,102" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

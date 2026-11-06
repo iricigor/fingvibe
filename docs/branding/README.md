@@ -1,5 +1,9 @@
 # README branding
 
+For the separately selected page and tool icon family, see the
+[icon concept design record](icon-concepts/README.md). Those concepts do not
+replace this README mark or adopt icons on any application surface.
+
 The user selected **Network radar** from three original FingVibe brand-mark
 proposals in [PR #112](https://github.com/iricigor/fingvibe/pull/112).
 These README assets do not replace the

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">FingVibe - Connected home</title><desc id="desc">A home-shaped local network connects personal devices and rooms.</desc>
+<polyline points="43,107 128,43 213,107" fill="none" stroke="#4DF0D3" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="59,112 59,204 98,204" fill="none" stroke="#4DF0D3" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="197,112 197,204 158,204" fill="none" stroke="#4DF0D3" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="128" cy="115" r="16" fill="#4DF0D3" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="128,131 128,172 92,172" fill="none" stroke="#4DF0D3" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="128,153 166,153" fill="none" stroke="#4DF0D3" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="75" y="160" width="28" height="24" rx="4" fill="none" stroke="#4DF0D3" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="163" y="139" width="19" height="32" rx="4" fill="none" stroke="#4DF0D3" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="128" cy="197" r="10" fill="#4DF0D3" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
