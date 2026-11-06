@@ -148,7 +148,9 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
     public bool CombinePersonRoom { get => _combinePersonRoom; set => SetCombination(ref _combinePersonRoom, value); }
     public bool CombineVendorOs { get => _combineVendorOs; set => SetCombination(ref _combineVendorOs, value); }
     public bool CompactRows { get => _compactRows; set => SetCombination(ref _compactRows, value); }
-    public double RowMinimumHeight => CompactRows ? 38 : 44;
+    public bool HasStackedColumns => ShowMergedType || ShowMergedMac || ShowMergedOs || ShowMergedRoom;
+    public double RowMinimumHeight => CompactRows ? (HasStackedColumns ? 36 : 30) : (HasStackedColumns ? 40 : 34);
+    public double RowVerticalPadding => CompactRows ? 1 : 4;
     public double RowSpacing => CompactRows ? 1 : 3;
     public double AssignmentSpacing => CompactRows ? 1 : 2;
     public double HeaderVerticalPadding => CompactRows ? 2 : 4;

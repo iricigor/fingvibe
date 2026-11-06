@@ -507,7 +507,7 @@
                             </ListView.ItemContainerStyle>
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="local:ScanResultRow">
-                                    <Grid Padding="{x:Bind local:DeviceColumnLayoutHelpers.RowPadding(Columns.CompactRows), Mode=OneWay}"
+                                    <Grid Padding="{x:Bind local:DeviceColumnLayoutHelpers.RowPadding(Columns.RowVerticalPadding), Mode=OneWay}"
                                           MinHeight="{x:Bind Columns.RowMinimumHeight, Mode=OneWay}"
                                           Background="{x:Bind HasStripe, Mode=OneWay, Converter={StaticResource ResultRowBackgroundConverter}}">
                                         <Grid.Resources>

@@ -243,18 +243,23 @@ every private MAC; it changes no grouping or classification rules.
 
 **Devices row density** defaults to **Compact**. Existing density preferences,
 including explicitly saved Standard, migrate to Compact once; subsequent saved
-Standard or Compact choices are respected. Standard remains available with 6-DIP
-vertical padding, existing line gaps and the 44-DIP minimum.
-Compact uses 3-DIP padding, 1-DIP line gaps and a 38-DIP
-minimum, targeting approximately 38-40 DIPs for normal-scale two-line rows without
-shrinking text. Column titles follow the same setting through tighter vertical
+Standard or Compact choices are respected. Standard (relaxed) uses 4-DIP
+top/bottom padding and existing line gaps; Compact uses 1-DIP top/bottom padding
+and 1-DIP line gaps. With visible stacked columns, the minimum heights are
+36 DIP in Compact and 40 DIP in Standard; without them, they are 30 and 34 DIP.
+Stacking is determined by enabled Name/Type, IP/MAC, Vendor/OS, and Person/Room
+combinations with both members visible. Hidden secondary members do not count;
+the side-by-side Status/Response combination does not count either.
+The policy applies across the table, not separately to devices with missing
+metadata or assignments. Fonts, icons, and horizontal spacing are unchanged.
+Column titles follow the same setting through tighter vertical
 padding and spacing, retaining font sizes and sort/resize actions.
 Both modes allow growth for accessible text sizes. Density and
 Vendor/OS merge are saved in `device-table.json`; changing density preserves
 selection, filters, sorting and columns. **Reset columns** resets Vendor/OS merge
 but leaves density and hover-preview preferences unchanged.
 
-Standard rows have 6-DIP vertical padding, 13px primary names/latencies and a 20px far-left type icon within the existing row envelope. Smaller monospaced MAC addresses use contrasting prefix/suffix colors; muted metadata preserves name hierarchy. Missing metadata uses a muted dash; the meaningful Unknown device status is not replaced. The vendor label **Private MAC** means a locally administered address, not a proven randomized address or known manufacturer; its tooltip explains the limitation. Unassigned People/Rooms cannot display stale labels, while valid assigned digits and emoji are preserved. Green Online, neutral Offline/Unknown, and amber Fing Only badges pair text with a dot. Subtle theme-aware zebra stripes follow the displayed row order, with native hover, selection, and focus indicators taking precedence; decorative stripes are disabled in Windows high contrast. A 1px theme-aware line below the contrasting column headers separates them from the rows, using system colors in high contrast. The final visible column has no trailing divider suggesting an extra column; its resize handle remains available.
+Both modes retain 13px primary names/latencies and a 20px far-left type icon within the content-driven row envelope. Smaller monospaced MAC addresses use contrasting prefix/suffix colors; muted metadata preserves name hierarchy. Missing metadata uses a muted dash; the meaningful Unknown device status is not replaced. The vendor label **Private MAC** means a locally administered address, not a proven randomized address or known manufacturer; its tooltip explains the limitation. Unassigned People/Rooms cannot display stale labels, while valid assigned digits and emoji are preserved. Green Online, neutral Offline/Unknown, and amber Fing Only badges pair text with a dot. Subtle theme-aware zebra stripes follow the displayed row order, with native hover, selection, and focus indicators taking precedence; decorative stripes are disabled in Windows high contrast. A 1px theme-aware line below the contrasting column headers separates them from the rows, using system colors in high contrast. The final visible column has no trailing divider suggesting an extra column; its resize handle remains available.
 
 IPv4 MAC enrichment first checks Windows' neighbor table for the exact IP on the route-selected interface, accepting only valid unicast six-byte addresses in usable states. If absent, it attempts `SendARP` once and rechecks the table. It never substitutes a gateway MAC or an unrelated interface's neighbor; a ping response can still lack a resolvable MAC.
 
