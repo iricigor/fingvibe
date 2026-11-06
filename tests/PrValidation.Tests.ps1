@@ -244,9 +244,13 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         Assert-Equal ([DateTimeOffset]$calls[4].Parameters.BuildTimestamp).UtcDateTime ([DateTimeOffset]$parameters.BuildTimestamp).UtcDateTime "Forward stamped identity"
         Assert-Equal $calls[4].Parameters.PullRequestNumber 198 "Forward PR identity"
         Assert-Equal ($calls.Parameters.AppPath | Select-Object -Unique) "synthetic.exe" "Reuse supplied app"
+        & powershell.exe -NoProfile -File $runner -Suite sidebar -AppPath $parameters.AppPath `
+            -ScreenshotDirectory $parameters.ScreenshotDirectory -CapturePlanPath $planPath
+        if ($LASTEXITCODE -ne 0) { throw "Sidebar runner must support multi-scenario plans under Windows PowerShell." }
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 9 "Windows PowerShell dispatches the sidebar without parsing history selection"
         ConvertTo-Json -InputObject @($definitions | Where-Object Scenario -eq Devices) -Depth 5 | Set-Content $planPath
         & $runner -Suite history @parameters
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 8 "Unselected history must not launch native checks"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 9 "Unselected history must not launch native checks"
         $env:UI_REGRESSION_FAIL = "DevicesList.Ui"
         Assert-Throws { & $runner -Suite devices @parameters } "*Simulated regression failure*"
         if ((Get-Content (Join-Path $parameters.ScreenshotDirectory "regression.log") -Raw) -notmatch 'Simulated regression failure') {

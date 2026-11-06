@@ -15,7 +15,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "UiReviewScenarios.ps1")
-$plan = @(Read-UiReviewCapturePlan -Path $CapturePlanPath)
+$plan = if ($Suite -eq "history") { @(Read-UiReviewCapturePlan -Path $CapturePlanPath) } else { @() }
 $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
 
 function Invoke-RegressionCheck([string] $Name, [hashtable] $Parameters = @{}) {
