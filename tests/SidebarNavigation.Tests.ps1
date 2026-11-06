@@ -517,7 +517,7 @@ function Test-SettingsLayout {
         } elseif ($compact.Bottom -gt $hover.Top) {
             throw "Devices switches must stack at narrow widths."
         }
-        Save-SidebarAppearance "settings-switches-$width"
+        if ($width -ge 640) { Save-SidebarAppearance "settings-switches-$width" }
         Show-SettingsSection VisibleColumnsHeading
         Start-Sleep -Milliseconds 200
         $choices = Find-SidebarElement AutomationId SettingsPage
