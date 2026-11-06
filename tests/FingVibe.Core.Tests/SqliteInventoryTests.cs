@@ -21,6 +21,13 @@ public sealed class SqliteInventoryTests : IDisposable
             [new(IPAddress.Parse("192.0.2.1"), HostStatus.Alive, 1, TimeSpan.FromMilliseconds(1),
                 null, PhysicalAddress.Parse(Mac), "Example")]));
 
+    [Fact]
+    public async Task NativeSqliteIncludesTheAggregateMemoryCorruptionFix()
+    {
+        await new DeviceInventoryStore(JsonPath).SaveAsync(DeviceInventoryData.Empty, Guid.Empty);
+        Assert.True(Version.Parse((string)Scalar("SELECT sqlite_version()")!) >= new Version(3, 50, 2));
+    }
+
     [Theory]
     [InlineData(1)]
     [InlineData(2)]
