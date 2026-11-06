@@ -446,6 +446,23 @@ function Test-SettingsLayout {
     }
     foreach ($theme in $UiReviewAppearanceThemes) {
         Set-UiReviewTheme -Root $root -Theme $theme
+        Show-SettingsSection DevicesSettingsHeading
+        $footer = Find-SidebarElement AutomationId AppearanceSaveStatus
+        if ($footer.Current.Name -ne "Appearance changes apply immediately and save automatically, with material effects depending on Windows transparency settings.") {
+            throw "Normal Appearance feedback must be one consolidated sentence."
+        }
+        foreach ($id in @("CompactRowsSwitch", "EnlargedCellPreviews")) {
+            $switch = Find-SidebarElement AutomationId $id
+            $toggle = $switch.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+            $original = $toggle.Current.ToggleState
+            $switch.SetFocus()
+            [SidebarReviewKeyboard]::Tap(0x20)
+            Start-Sleep -Milliseconds 200
+            if ($toggle.Current.ToggleState -eq $original) { throw "$id must toggle with Space." }
+            if ($theme -eq "Standard Dark") { Save-SidebarAppearance "settings-$id-toggled" }
+            $toggle.Toggle()
+            if ($toggle.Current.ToggleState -ne $original) { throw "$id must restore through native TogglePattern." }
+        }
         Save-SidebarAppearance "settings-$theme"
         $scroll = (Find-SidebarElement AutomationId SettingsPage).GetCurrentPattern(
             [System.Windows.Automation.ScrollPattern]::Pattern)
@@ -478,6 +495,19 @@ function Test-SettingsLayout {
             [System.Windows.Automation.PropertyCondition]::new(
                 [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "ResetColumnsButton"))
         if (-not $reset) { throw "Reset columns is missing." }
+        Show-SettingsSection DevicesSettingsHeading
+        $heading = (Find-SidebarElement AutomationId DevicesSettingsHeading).Current.BoundingRectangle
+        $compact = (Find-SidebarElement AutomationId CompactRowsSwitch).Current.BoundingRectangle
+        $hover = (Find-SidebarElement AutomationId EnlargedCellPreviews).Current.BoundingRectangle
+        if ($heading.Bottom -gt $compact.Top) { throw "Preferences must follow the Devices page title." }
+        if ($width -ge 640) {
+            if ([Math]::Abs($compact.Top - $hover.Top) -gt 2 * $scale -or $compact.Right -gt $hover.Left) {
+                throw "Devices switches must share a non-overlapping row at $width."
+            }
+        } elseif ($compact.Bottom -gt $hover.Top) {
+            throw "Devices switches must stack at narrow widths."
+        }
+        Save-SidebarAppearance "settings-switches-$width"
         Show-SettingsSection VisibleColumnsHeading
         Start-Sleep -Milliseconds 200
         $choices = Find-SidebarElement AutomationId SettingsPage
@@ -522,11 +552,14 @@ function Test-SettingsLayout {
                     $combinedHeading.Bottom -gt $description.Top -or $description.Bottom -gt $combinations[0].Top) {
                     throw "Visibility and combination controls must have distinct, correctly ordered sections."
                 }
-                if ([Math]::Abs($combinations[0].Top - $combinations[1].Top) -gt 2 * $scale -or
-                    $combinations[0].Right -gt $combinations[1].Left -or
-                    $combinations[0].Bottom -gt $combinations[2].Top -or
-                    $combinations[2].Right -gt $combinations[3].Left) {
-                    throw "Combination choices must keep the approved two-column layout."
+                for ($index = 0; $index -lt $combinations.Count; $index++) {
+                    $column = $index % 3
+                    if ([Math]::Abs($combinations[$index].Left - $checkboxes[$column].Current.BoundingRectangle.Left) -gt 2 * $scale -or
+                        [Math]::Abs($combinations[$index].Top - $combinations[$index - $column].Top) -gt 2 * $scale -or
+                        ($column -gt 0 -and $combinations[$index - 1].Right -gt $combinations[$index].Left) -or
+                        ($index -ge 3 -and $combinations[$index - 3].Bottom -gt $combinations[$index].Top)) {
+                        throw "Combination choices must align with the visible three-column grid."
+                    }
                 }
             }
         }
@@ -542,10 +575,17 @@ function Test-SettingsLayout {
     if ($toggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off) {
         throw "Column visibility did not update."
     }
+    $density = (Find-SidebarElement AutomationId CompactRowsSwitch).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+    $hoverPreference = (Find-SidebarElement AutomationId EnlargedCellPreviews).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+    $densityBefore = $density.Current.ToggleState
+    $hoverBefore = $hoverPreference.Current.ToggleState
     (Find-SidebarElement AutomationId ResetColumnsButton).GetCurrentPattern(
         [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     if ($toggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
         throw "Reset columns did not restore visibility."
+    }
+    if ($density.Current.ToggleState -ne $densityBefore -or $hoverPreference.Current.ToggleState -ne $hoverBefore) {
+        throw "Reset columns must preserve both Devices preferences."
     }
     Set-UiReviewTheme -Root $root -Theme "Standard Dark"
     Select-SidebarPage People "Search people"

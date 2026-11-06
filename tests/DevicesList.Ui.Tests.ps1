@@ -496,6 +496,14 @@ function Set-DeviceFilterChecks([string] $Id, [string[]] $Labels) {
 }
 
 function Set-DeviceFilterChoice([string] $Id, [string] $Label) {
+    if ($Id -eq "CompactRowsSwitch") {
+        if ($Label -notin @("Standard", "Compact")) { throw "Unknown density '$Label'." }
+        $toggle = (Find-DeviceElement $Id).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+        if (($toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On) -ne ($Label -eq "Compact")) {
+            $toggle.Toggle()
+        }
+        return
+    }
     if ($Id -in @("InventoryStatusFilter", "TypeFilter", "OperatingSystemFilter", "VendorFilter",
         "PersonFilter", "RoomFilter", "PortsFilter")) {
         $labels = if ($Label -like "All *") { @() } else { @($Label) }
@@ -810,7 +818,7 @@ function Test-RowDensity {
                 Set-ColumnOption $label ($layout -eq "Stacked")
             }
             Set-ColumnOption "Combine Status and Response" ($layout -ne "Separate")
-            Set-DeviceFilterChoice RowDensityPicker $density
+            Set-DeviceFilterChoice CompactRowsSwitch $density
             Select-DevicePage DevicesNavItem
             $rows = @(Get-DeviceRows)
             if ($rows.Count -lt 4) { throw "Density measurement requires four representative rows." }
@@ -860,7 +868,7 @@ function Test-RowDensity {
     $measurements | ConvertTo-Json -Depth 5 |
         Set-Content -LiteralPath (Join-Path $ScreenshotDirectory "devices-density-measurements.json")
     Select-DevicePage Settings
-    Set-DeviceFilterChoice RowDensityPicker Standard
+    Set-DeviceFilterChoice CompactRowsSwitch Standard
     (Find-DeviceElement ResetColumnsButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Select-DevicePage DevicesNavItem
     Set-DeviceWidth 1280

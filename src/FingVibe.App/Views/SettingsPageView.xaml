@@ -48,11 +48,8 @@
                             <ComboBoxItem Content="Acrylic" />
                         </ComboBox>
                     </Grid>
-                    <TextBlock x:Name="BackdropStatus"
-                               TextWrapping="Wrap"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock x:Name="AppearanceSaveStatus"
-                               Text="Appearance saved automatically."
+                               Text="Appearance changes apply immediately and save automatically, with material effects depending on Windows transparency settings."
                                TextWrapping="Wrap"
                                AutomationProperties.LiveSetting="Polite"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -60,7 +57,27 @@
             </Border>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Devices table columns" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <TextBlock x:Name="DevicesSettingsHeading" Text="Devices page" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <Grid x:Name="DevicePreferences" ColumnSpacing="16" RowSpacing="8"
+                          SizeChanged="DevicePreferences_SizeChanged">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <ToggleSwitch x:Name="CompactRowsSwitch" Loaded="DevicePreferenceSwitch_Loaded"
+                                  Header="Compact rows" AutomationProperties.Name="Compact rows"
+                                  IsOn="{x:Bind Columns.CompactRows, Mode=TwoWay}"
+                                  ToolTipService.ToolTip="Reduce row spacing without shrinking text; turn off for relaxed rows." />
+                        <ToggleSwitch x:Name="EnlargedCellPreviews" Grid.Column="1" Loaded="DevicePreferenceSwitch_Loaded"
+                                  Header="Cell hover previews"
+                                  AutomationProperties.Name="Cell hover emphasis and full-value previews"
+                                  IsOn="{x:Bind Columns.EnlargedCellPreviews, Mode=TwoWay}"
+                                  ToolTipService.ToolTip="Brighten hovered Devices text and reveal shortened values; turn off to use ordinary tooltips." />
+                    </Grid>
                     <TextBlock Text="Choose which information appears and which columns share a compact presentation."
                                TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -92,6 +109,7 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -121,21 +139,6 @@
                             <TextBlock Text="Vendor + OS" TextWrapping="Wrap" />
                         </CheckBox>
                     </Grid>
-                    <Border Height="1" Background="{ThemeResource ScannerCardBorderBrush}" Margin="0,8,0,4" />
-                    <ComboBox x:Name="RowDensityPicker" Header="Devices row density"
-                              AutomationProperties.Name="Devices row density"
-                              SelectedIndex="{x:Bind DensityIndex, Mode=TwoWay}">
-                        <ComboBoxItem Content="Standard" />
-                        <ComboBoxItem Content="Compact" />
-                    </ComboBox>
-                    <TextBlock Text="Compact reduces row spacing without reducing text size. Rows can grow for larger text."
-                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <ToggleSwitch x:Name="EnlargedCellPreviews"
-                                  Header="Cell hover emphasis and full-value previews"
-                                  AutomationProperties.Name="Cell hover emphasis and full-value previews"
-                                  IsOn="{x:Bind Columns.EnlargedCellPreviews, Mode=TwoWay}" />
-                    <TextBlock Text="Brighten hovered Devices text. Pause over a shortened value to reveal its full text without enlarging it. Turn off to use ordinary tooltips."
-                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock x:Name="TableSaveStatus"
                                Text="Table preferences are saved automatically."
                                TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"

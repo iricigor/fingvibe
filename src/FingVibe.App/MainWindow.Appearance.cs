@@ -71,11 +71,11 @@ public sealed partial class MainWindow
         try
         {
             _appearanceStore.Save(_appearance);
-            SettingsPage.SaveStatus = "Appearance saved automatically.";
+            SettingsPage.SaveError = null;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            SettingsPage.SaveStatus = "Appearance applied, but could not be saved for the next launch.";
+            SettingsPage.SaveError = "Appearance applied, but could not be saved for the next launch.";
         }
     }
 
@@ -104,7 +104,7 @@ public sealed partial class MainWindow
             ? "High contrast is active; Windows system colors are used instead of materials."
             : _appearance.Backdrop != WindowBackdrop.Solid && !hasBackdrop
                 ? "This material is unavailable. A solid background is used; your choice is kept."
-                : "Changes are previewed immediately. Material effects also depend on Windows transparency settings.";
+                : null;
     }
 
     private void UpdateNavigationPaneBackground(bool isPaneOpen)
