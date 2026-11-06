@@ -242,11 +242,10 @@ try {
     $null = [UiReviewNativeWindow]::ShowWindow($handle, 6)
     Wait-DiscoveryState { [UiReviewNativeWindow]::IsIconic($handle) } "minimized window"
     Wait-DiscoveryState {
-        try {
-            (Get-Content -LiteralPath $snapshot -Raw) -like "*001122334499*" -and
-                -not (Find-DiscoveryControl CancelButton).Current.IsEnabled
-        }
-        catch { $false }
+        # Controls in a minimized window can report as offscreen, so only check that scanning has finished.
+        $scan = Find-DiscoveryControl ScanButton -Optional
+        (Get-Content -LiteralPath $snapshot -Raw -ErrorAction SilentlyContinue) -like "*001122334499*" -and
+            $scan -and $scan.Current.IsEnabled
     } "scheduled scan while minimized"
     Start-Sleep -Seconds 1
     if (Find-DiscoveryControl DiscoveryPopup -Optional) { throw "Discoveries must wait until FingVibe is restored." }
