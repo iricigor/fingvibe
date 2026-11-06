@@ -57,9 +57,16 @@ A local scheduled run requires the app/computer to be available and separate
 activation approval. Start manually; do not overlap invocations. Existing
 claims/draft PRs block pickup even after an hour, and orphan recovery is excluded.
 Every claimed run must publish and verify a parent Epic work-summary comment:
-actual UTC start/end times, task and PR links, work/validation outcome, decisions,
+actual UTC start/end times and calculated total elapsed run duration, task and
+PR links, work/validation outcome, decisions,
 post-work comments, corner cases, later clarification questions, and unimplemented
-suggestions. An incomplete run must not claim task completion.
+suggestions. Duration includes capacity checks, implementation, CI waits, repairs,
+and delivery verification, not just active coding time. Report `HH:mm:ss` with
+total hours that do not wrap at 24 and a human-readable equivalent, for example
+`00:42:17 (42m 17s)`, truncating fractional seconds after subtracting timestamps.
+An incomplete run measures duration until stopping and must not claim task
+completion. Never fabricate an interrupted run's end time or duration; missing
+or inconsistent timing evidence must be reported as unavailable with the reason.
 Use Windows build prerequisites and existing CI for native UI validation, not
 automation of the user's working desktop.
 

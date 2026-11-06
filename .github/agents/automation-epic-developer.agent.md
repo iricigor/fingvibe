@@ -1,6 +1,6 @@
 ---
 name: "⏩ Epic Developer"
-description: Delivers at most one Epic child per explicitly authorized run, with strict scope, visible claims, validation repair, verified merging, and a timestamped Epic work summary.
+description: Delivers at most one Epic child per explicitly authorized run, with strict scope, visible claims, validation repair, verified merging, and an Epic work summary with timestamps and elapsed run duration.
 target: github-copilot
 user-invocable: true
 disable-model-invocation: true
@@ -47,7 +47,8 @@ editing them, creating additional issues, or implementing optional follow-ups.
 ## 1. Check capacity before selecting
 
 Capture the actual run start time in ISO 8601 UTC for the final Epic work summary.
-Do not reconstruct or invent timestamps later.
+Retain it for calculating elapsed run duration. Do not reconstruct or invent
+timestamps later.
 
 Determine the repository and intended target branch from the kickoff, workspace,
 and remotes. Stop on a mismatch or ambiguous target. Preserve unrelated local
@@ -197,8 +198,18 @@ ISO 8601 UTC. Post a mandatory work-summary comment on the parent Epic and verif
 it was saved on GitHub. Issue checkpoints or the final chat response do not
 replace this Epic comment.
 
+Calculate run duration by subtracting the captured run start from the captured
+work end, truncating fractional seconds only after subtraction. This is total
+elapsed time, including capacity checks, implementation, CI waits, repairs, and
+delivery verification, not active coding time. Use total hours (at least two
+digits, without wrapping at 24), minutes, and seconds as `HH:mm:ss`, followed by
+a human-readable equivalent of the same whole-second duration; for example,
+`00:42:17 (42m 17s)` or `27:05:09 (27h 5m 9s)`.
+
 - **Started / ended:** actual run start and work end timestamps in ISO 8601 UTC.
   For blocked/incomplete work, label the end as the run ending, not task completion.
+- **Run duration:** calculated elapsed duration in the format above. For
+  blocked/incomplete work, measure until the run stops, not task completion.
 - **Task:** selected issue link, title, and a short description of its requested work.
 - **PR:** PR link (or explicitly "Not created" with the reason).
 - **Work summary:** changes delivered and validation results, or progress and blocker.
@@ -212,7 +223,10 @@ Use "None" when appropriate. Do not describe blocked work as closed or completed
 Do not post unrelated documentation commentary or create follow-up issues.
 If posting or verification fails, report the missing Epic summary as remaining
 work. An abrupt interruption may prevent posting; never fabricate an end time or
-claim an orphaned run completed. Orphan recovery remains outside this iteration.
+duration or claim an orphaned run completed. If captured timestamps are missing
+or the end precedes the start, explicitly report duration as unavailable with
+the reason rather than guessing or substituting zero. Orphan recovery remains
+outside this iteration.
 
 Finish with concise links and the actual outcome. At most one task is selected
 per invocation; never start a second task, even if the first finishes quickly.
