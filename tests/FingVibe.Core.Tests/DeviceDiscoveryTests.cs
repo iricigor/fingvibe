@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Text.Json.Nodes;
+using FingVibe.Core.Import;
 using FingVibe.Core.Models;
 using FingVibe.Core.Storage;
 using Xunit;
@@ -150,6 +151,27 @@ public sealed class DeviceDiscoveryTests : IDisposable
         Assert.Equal([New, Rotated], discoveries.Select(item => item.Mac));
         await store.SaveAsync(retry, persisted.Revision);
         Assert.Empty(Discover((await store.LoadAsync())!, Scan(3, Result(New), Result(Rotated))));
+    }
+
+    [Fact]
+    public async Task FailedInitialSaveDoesNotEstablishBaselineAndImportPreservesEmptyBaseline()
+    {
+        var store = new DeviceInventoryStore(PathName);
+        Directory.CreateDirectory(_directory);
+        var unsaved = DeviceInventoryData.Empty.ObserveCompletedScan(Network, Scan(0, Result(Known)));
+        using (var locked = new FileStream(PathName + ".lock", FileMode.Create, FileAccess.ReadWrite, FileShare.None))
+            await Assert.ThrowsAsync<IOException>(() => store.SaveAsync(unsaved, Guid.Empty));
+        Assert.Null(await store.LoadAsync());
+        var retryScan = Scan(1, Result(New));
+        Assert.Empty(DeviceDiscovery.FindNewDevices(DeviceInventoryData.Empty,
+            unsaved.ObserveCompletedScan(Network, retryScan), Network, retryScan));
+
+        var baseline = DeviceInventoryData.Empty.ObserveCompletedScan(Network, Scan(2));
+        var imported = FingImportAnalyzer.Analyze(
+            new FingExport([new FingDeviceRecord(2, New, new(Name: "Imported"), null, null)], [], 1), baseline).Updated;
+        var saved = await store.SaveAsync(imported, Guid.Empty);
+        Assert.Single(saved.DiscoveryBaselines);
+        Assert.Equal(New, Assert.Single(Discover((await store.LoadAsync())!, Scan(3, Result(New)))).Mac);
     }
 
     [Theory]

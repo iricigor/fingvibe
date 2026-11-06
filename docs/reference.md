@@ -516,11 +516,11 @@ On Devices, the status filter sits directly beside text search in the filter bar
 its semibold text and stronger theme-aware accent border distinguish it from the
 other filters, which retain responsive wrapping at narrower window widths.
 
-The version-2 `device-inventory.json` contains inventory, local observations,
-names, classification corrections, People/Rooms and persistent virtual devices
-in one atomic commit. Version-1 inventories remain readable and migrate on save.
-Older inventory-aware builds reject version 2 rather than silently dropping its
-virtual devices or multiple-address observations. It
+The version-4 `device-inventory.json` contains inventory, local observations,
+names, classification corrections, People/Rooms, persistent virtual devices,
+scan history and network/subnet discovery baselines in one atomic commit.
+Versions 1-3 remain readable and migrate on save. Older inventory-aware builds
+reject newer formats rather than silently dropping their data. It
 becomes authoritative after the first successful save; legacy `device-names.json`,
 `device-classifications.json`, and `people-rooms.json` are retained untouched.
 Available legacy snapshot observations are restored as historical with unknown
