@@ -18,6 +18,7 @@ Current ownership boundaries:
 - `PeriodicScanPresentation` owns scheduled-scan status, header-summary, and deferred-discovery text; `MainWindow.PeriodicScans.cs` wires it to Settings, saved preferences, and Windows power events.
 - `MainWindow.ScanPresentation.cs` owns responsive shared network-header layout and the scan-progress pulse.
 - `MainWindow.Results.cs` owns result collection, filtering, sorting, comparer state, and result summaries.
+- `Views/DeviceLastSeenAgeRefresh.cs` owns the Devices page's presentation-only minute refresh of Last seen ages while that page is shown.
 - `MainWindow.NetworkIdentity.cs` owns local network selection and public/local network identity display.
 - `MainWindow.Snapshots.cs` owns snapshot restoration, persistence status, and saved-scan state.
 - `MainWindow.DeviceDetails.cs` owns the selected-device details view.

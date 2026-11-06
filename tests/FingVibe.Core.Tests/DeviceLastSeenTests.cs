@@ -31,12 +31,14 @@ public sealed class DeviceLastSeenTests
         VirtualDevices = data.VirtualDevices.Select(slot => slot with { CurrentCompletedAt = null }).ToArray()
     };
 
+    private static readonly DateTimeOffset Now = Start.AddMinutes(10);
+
     private static DeviceLastSeen LastSeen(ScanResultRow row, string? network = Network, string? subnet = Subnet,
-        DateTimeOffset? displayed = null, TimeZoneInfo? zone = null) =>
-        DeviceDetailsPresentation.LastSeen(row, network, subnet, displayed, zone ?? TimeZoneInfo.Utc);
+        DateTimeOffset? displayed = null, TimeZoneInfo? zone = null, DateTimeOffset? now = null) =>
+        DeviceDetailsPresentation.LastSeen(row, network, subnet, displayed, zone ?? TimeZoneInfo.Utc, now ?? Now);
 
     [Fact]
-    public void CurrentResponsesShowThisScanAndAbsenceNeverAdvancesNormalOrVirtualLastSeen()
+    public void CurrentResponsesShowOnlineAndAbsenceNeverAdvancesNormalOrVirtualLastSeen()
     {
         var data = DeviceInventoryData.Empty;
         var states = new[] { true, true, false, false, true };
@@ -54,15 +56,16 @@ public sealed class DeviceLastSeenTests
                 {
                     Assert.Equal(DeviceLastSeenKind.SeenThisScan, value.Kind);
                     Assert.Equal(Start.AddMinutes(i), value.Timestamp);
-                    Assert.Equal("Seen this scan", value.Text);
-                    Assert.Equal($"Last seen: Seen this scan (2026-11-01 12:0{i}:00 +00:00)", value.Description);
+                    Assert.Equal("Online", value.Text);
+                    Assert.Equal($"Last seen: Online - responded in the displayed scan (2026-11-01 12:0{i}:00 +00:00)",
+                        value.Description);
                     Assert.True(value.IsMuted);
                 }
                 else
                 {
                     Assert.Equal(DeviceLastSeenKind.Timestamp, value.Kind);
                     Assert.Equal(Start.AddMinutes(lastSeen[i]), value.Timestamp);
-                    Assert.Equal($"2026-11-01 12:0{lastSeen[i]}", value.Text);
+                    Assert.Equal($"{10 - lastSeen[i]} min. ago", value.Text);
                     Assert.Equal($"Last seen: 2026-11-01 12:0{lastSeen[i]}:00 +00:00", value.Description);
                     Assert.False(value.IsMuted);
                 }
@@ -72,7 +75,7 @@ public sealed class DeviceLastSeenTests
                 var restored = LastSeen(row, zone: PlusTwo);
                 Assert.Equal(DeviceLastSeenKind.Timestamp, restored.Kind);
                 Assert.Equal(Start.AddMinutes(lastSeen[i]), restored.Timestamp);
-                Assert.Equal($"2026-11-01 14:0{lastSeen[i]}", restored.Text);
+                Assert.Equal($"{10 - lastSeen[i]} min. ago", restored.Text);
                 Assert.Equal($"Last seen: 2026-11-01 14:0{lastSeen[i]}:00 +02:00", restored.Description);
             }
         }
@@ -139,7 +142,7 @@ public sealed class DeviceLastSeenTests
             var value = LastSeen(row);
             Assert.Equal(DeviceLastSeenKind.Timestamp, value.Kind);
             Assert.Equal(Start, value.Timestamp);
-            Assert.Equal("2026-11-01 12:00 (aggregate)", value.Text);
+            Assert.Equal("10 min. ago", value.Text);
             Assert.Equal("Last seen: 2026-11-01 12:00:00 +00:00 (historical aggregate; individual scan unavailable)",
                 value.Description);
         }
@@ -160,8 +163,9 @@ public sealed class DeviceLastSeenTests
         var never = LastSeen(new ScanResultRow(imported, 24));
         Assert.Equal(DeviceLastSeenKind.NeverLocally, never.Kind);
         Assert.Null(never.Timestamp);
-        Assert.Equal("Never locally", never.Text);
-        Assert.Equal("Last seen: Never locally - imported Fing data is not a local scan observation.", never.Description);
+        Assert.Equal("Never", never.Text);
+        Assert.Equal("Last seen: Never - not observed by a local scan. Imported Fing data is not a local scan observation"
+            + " and does not mean the device was never present on any network.", never.Description);
         Assert.True(never.IsMuted);
 
         var unkeyed = Result(Normal) with { MacAddress = null };
@@ -197,5 +201,156 @@ public sealed class DeviceLastSeenTests
         changed.Clear();
         row.SetLastSeen(value with { });
         Assert.Empty(changed);
+    }
+
+    [Theory]
+    [InlineData(0, "< 1 min. ago")]
+    [InlineData(59, "< 1 min. ago")]
+    [InlineData(60, "1 min. ago")]
+    [InlineData(119, "1 min. ago")]
+    [InlineData(120, "2 min. ago")]
+    [InlineData(3599, "59 min. ago")]
+    [InlineData(3600, "1 h ago")]
+    [InlineData(7200, "2 h ago")]
+    [InlineData(86399, "23 h ago")]
+    [InlineData(86400, "1 day ago")]
+    [InlineData(2 * 86400, "2 days ago")]
+    [InlineData(30 * 86400 - 1, "29 days ago")]
+    [InlineData(30 * 86400, "1 month ago")]
+    [InlineData(60 * 86400 - 1, "1 month ago")]
+    [InlineData(60 * 86400, "2 months ago")]
+    [InlineData(365 * 86400 - 1, "12 months ago")]
+    [InlineData(365 * 86400, "1 year ago")]
+    [InlineData(2 * 365 * 86400, "2 years ago")]
+    [InlineData(-1, null)]
+    public void RelativeAgesUseWholeUnitsWithSingularAndPluralBoundaries(long elapsedSeconds, string? expected) =>
+        Assert.Equal(expected, DeviceDetailsPresentation.LastSeenAge(Start, Start.AddSeconds(elapsedSeconds)));
+
+    [Fact]
+    public void ClockChangesShowLocalTimeWithoutChangingEvidenceAndOnlyAgesRefresh()
+    {
+        var data = Restarted(Scan(DeviceInventoryData.Empty, 0, Normal));
+        var row = new ScanResultRow(data.Devices[Normal], 24);
+        var future = LastSeen(row, zone: PlusTwo, now: Start.AddHours(-3));
+        Assert.Equal(DeviceLastSeenKind.Timestamp, future.Kind);
+        Assert.Equal(Start, future.Timestamp);
+        Assert.Equal("2026-11-01 14:00", future.Text);
+        Assert.Equal("Last seen: 2026-11-01 14:00:00 +02:00", future.Description);
+        Assert.False(future.IsMuted);
+
+        foreach (var (now, text) in new[] { (Start.AddDays(3), "3 days ago"), (Start.AddSeconds(-1), "2026-11-01 14:00"),
+                     (Start.AddDays(400), "1 year ago") })
+        {
+            var refreshed = future.At(now);
+            Assert.Equal(text, refreshed.Text);
+            Assert.Equal(future with { Text = text }, refreshed);
+        }
+
+        var online = LastSeen(ScanResultRow.CreateInventoryRows(Scan(DeviceInventoryData.Empty, 0, Normal)).Single());
+        var never = LastSeen(new ScanResultRow(new InventoryDevice(Normal, new(Name: "Imported"), []), 24));
+        var unavailable = LastSeen(row, network: "unseen");
+        Assert.Equal(DeviceLastSeenKind.SeenThisScan, online.Kind);
+        Assert.Equal(DeviceLastSeenKind.NeverLocally, never.Kind);
+        foreach (var fixedValue in new[] { online, never, unavailable, DeviceLastSeen.NotCalculated })
+            Assert.Same(fixedValue, fixedValue.At(Start.AddDays(90)));
+    }
+
+    [Fact]
+    public void AgeRefreshPublishesOnlyTextAndLeavesOnlineStatusAndOrderingUnchanged()
+    {
+        var data = Scan(Scan(DeviceInventoryData.Empty, 0, Normal), 5, Private);
+        var offline = new ScanResultRow(data.Devices[Normal], 24);
+        var online = ScanResultRow.CreateInventoryRows(data).Single(row => row.IsVirtualIdentity);
+        offline.SetLastSeen(LastSeen(offline));
+        online.SetLastSeen(LastSeen(online));
+        var status = (offline.Status, online.Status, offline.IsOnline, online.IsOnline);
+        var changed = new List<string?>();
+        offline.PropertyChanged += (_, args) => changed.Add(args.PropertyName);
+        online.PropertyChanged += (_, args) => changed.Add(args.PropertyName);
+
+        offline.RefreshLastSeenAge(Now.AddMinutes(50));
+        online.RefreshLastSeenAge(Now.AddMinutes(50));
+        Assert.Equal(["LastSeen", "LastSeenText"], changed);
+        Assert.Equal("1 h ago", offline.LastSeenText);
+        Assert.Equal("Online", online.LastSeenText);
+        Assert.Equal(Start, offline.LastSeen.Timestamp);
+        Assert.Equal("Last seen: 2026-11-01 12:00:00 +00:00", offline.LastSeenDescription);
+        Assert.Equal(status, (offline.Status, online.Status, offline.IsOnline, online.IsOnline));
+        Assert.Equal(1, DeviceResultSort.Compare(online, offline, ResultSortColumn.LastSeen, ascending: true));
+
+        changed.Clear();
+        offline.RefreshLastSeenAge(Now.AddMinutes(50).AddSeconds(59));
+        Assert.Empty(changed);
+    }
+
+    [Fact]
+    public void MinuteRefreshRunsOnlyWhileActiveAndRefreshesImmediatelyWhenShownOrGivenRows()
+    {
+        var time = new Microsoft.Extensions.Time.Testing.FakeTimeProvider(Now);
+        var data = Scan(Scan(DeviceInventoryData.Empty, 0, Normal), 5, Private);
+        var offline = new ScanResultRow(data.Devices[Normal], 24);
+        var online = ScanResultRow.CreateInventoryRows(data).Single(row => row.IsVirtualIdentity);
+        var imported = new ScanResultRow(new InventoryDevice("001122334466", new(Name: "Imported"), []), 24);
+        var rows = new List<ScanResultRow> { offline, online, imported };
+        foreach (var row in rows) row.SetLastSeen(LastSeen(row, now: time.GetUtcNow()));
+        var before = rows.Select(row => row.LastSeen).ToArray();
+        var posted = new Queue<Action>();
+        var ticks = 0;
+        var refresh = new FingVibe.App.Views.DeviceLastSeenAgeRefresh(() => rows, action =>
+        {
+            ticks++;
+            posted.Enqueue(action);
+        }, time);
+        void Advance(TimeSpan by)
+        {
+            time.Advance(by);
+            while (posted.TryDequeue(out var action)) action();
+        }
+
+        Assert.Equal(TimeSpan.FromSeconds(60), FingVibe.App.Views.DeviceLastSeenAgeRefresh.Interval);
+        Advance(TimeSpan.FromMinutes(5));
+        Assert.False(refresh.IsActive);
+        Assert.Equal(0, ticks);
+        Assert.Equal("10 min. ago", offline.LastSeenText);
+
+        refresh.SetActive(true);
+        Assert.Equal("15 min. ago", offline.LastSeenText);
+        Advance(TimeSpan.FromSeconds(59));
+        Assert.Equal("15 min. ago", offline.LastSeenText);
+        Advance(TimeSpan.FromSeconds(1));
+        Assert.Equal("16 min. ago", offline.LastSeenText);
+
+        // A tick already posted to the UI thread is ignored once the page is no longer active.
+        time.Advance(TimeSpan.FromMinutes(1));
+        refresh.SetActive(false);
+        while (posted.TryDequeue(out var stale)) stale();
+        Assert.Equal("16 min. ago", offline.LastSeenText);
+        var inactiveTicks = ticks;
+        Advance(TimeSpan.FromHours(24));
+        Assert.Equal(inactiveTicks, ticks);
+        Assert.Equal("16 min. ago", offline.LastSeenText);
+        var added = new ScanResultRow(data.Devices[Normal], 24);
+        added.SetLastSeen(before[0]);
+        refresh.RefreshIfActive([added]);
+        Assert.Equal("10 min. ago", added.LastSeenText);
+
+        refresh.SetActive(true);
+        Assert.Equal("1 day ago", offline.LastSeenText);
+        refresh.RefreshIfActive([added]);
+        Assert.Equal("1 day ago", added.LastSeenText);
+        refresh.SetActive(true);
+        var activeTicks = ticks;
+        Advance(TimeSpan.FromMinutes(1));
+        Assert.Equal(activeTicks + 1, ticks);
+
+        for (var index = 0; index < rows.Count; index++)
+        {
+            Assert.Equal(before[index].Kind, rows[index].LastSeen.Kind);
+            Assert.Equal(before[index].Timestamp, rows[index].LastSeen.Timestamp);
+            Assert.Equal(before[index].Description, rows[index].LastSeenDescription);
+        }
+        Assert.Equal("Online", online.LastSeenText);
+        Assert.Equal("Never", imported.LastSeenText);
+        Assert.True(online.IsOnline);
     }
 }

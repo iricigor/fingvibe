@@ -111,9 +111,9 @@ public sealed class DeviceResultSortTests
         var imported = Row("10.0.0.1", "001122334402");
         older.SetLastSeen(new(DeviceLastSeenKind.Timestamp, start, "older", "older"));
         newer.SetLastSeen(new(DeviceLastSeenKind.Timestamp, start.AddHours(1), "newer", "newer"));
-        current.SetLastSeen(new(DeviceLastSeenKind.SeenThisScan, start.AddHours(2), "Seen this scan", "current"));
+        current.SetLastSeen(new(DeviceLastSeenKind.SeenThisScan, start.AddHours(2), "Online", "current"));
         unavailable.SetLastSeen(DeviceLastSeen.Unavailable("none"));
-        imported.SetLastSeen(new(DeviceLastSeenKind.NeverLocally, null, "Never locally", "imported"));
+        imported.SetLastSeen(new(DeviceLastSeenKind.NeverLocally, null, "Never", "imported"));
 
         AssertOrder(older, newer, ResultSortColumn.LastSeen, ascending);
         AssertOrder(newer, current, ResultSortColumn.LastSeen, ascending);

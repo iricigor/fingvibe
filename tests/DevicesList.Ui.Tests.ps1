@@ -1079,10 +1079,12 @@ function Test-DeviceColumnSorting {
     }
     foreach ($row in @(Get-DeviceRows)) {
         $lastSeen = Get-VisibleDeviceChild $row AutomationId DeviceLastSeenText
-        if (-not $lastSeen -or $lastSeen.Current.Name -notlike "Last seen: Seen this scan (*)") {
-            throw "Current responses must show Seen this scan with an exact accessible timestamp."
+        if (-not $lastSeen -or $lastSeen.Current.Name -notlike "Last seen: Online - responded in the displayed scan (*)") {
+            throw "Current responses must show Online with an exact accessible timestamp."
         }
-        if ($row.Current.HelpText -notlike "*`nLast seen: Seen this scan (*)*") {
+        $rendered = $lastSeen.GetCurrentPattern([System.Windows.Automation.TextPattern]::Pattern).DocumentRange.GetText(-1)
+        if ($rendered -cne "Online") { throw "Current responses must render Online, not '$rendered'." }
+        if ($row.Current.HelpText -notlike "*`nLast seen: Online - responded in the displayed scan (*)*") {
             throw "Row values must include the full Last seen value."
         }
     }

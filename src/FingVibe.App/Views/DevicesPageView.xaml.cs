@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using FingVibe.Core.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -20,11 +21,17 @@ public sealed partial class DevicesPageView : UserControl
     private readonly MultiSelectFilter<string> _vendors;
     private readonly MultiSelectFilter<Guid?> _people;
     private readonly MultiSelectFilter<Guid?> _rooms;
+    private readonly DeviceLastSeenAgeRefresh _lastSeenAges;
+    private IEnumerable<ScanResultRow> _results = [];
 
     public DevicesPageView()
     {
         InitializeComponent();
         InitializeCellPreviews();
+        _lastSeenAges = new(() => _results, RefreshLastSeenAgesOnUi);
+        Loaded += (_, _) => UpdateLastSeenAgeRefresh();
+        Unloaded += (_, _) => _lastSeenAges.SetActive(false);
+        RegisterPropertyChangedCallback(VisibilityProperty, (_, _) => UpdateLastSeenAgeRefresh());
         _statuses = new(InventoryStatusFilter, "Status", OnFiltersChanged);
         _types = new(TypeFilter, "Device type", OnFiltersChanged);
         _operatingSystems = new(OperatingSystemFilter, "Operating system", OnFiltersChanged);
@@ -79,8 +86,28 @@ public sealed partial class DevicesPageView : UserControl
     internal void SetResults(IEnumerable<ScanResultRow> results)
     {
         DismissCellPreview();
+        if (_results is INotifyCollectionChanged previous) previous.CollectionChanged -= Results_CollectionChanged;
+        _results = results;
+        if (results is INotifyCollectionChanged current) current.CollectionChanged += Results_CollectionChanged;
         ResultsList.ItemsSource = results;
+        _lastSeenAges.RefreshIfActive(results);
     }
+
+    private void Results_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs args)
+    {
+        if (args.NewItems is { } added) _lastSeenAges.RefreshIfActive(added.OfType<ScanResultRow>());
+    }
+
+    private void UpdateLastSeenAgeRefresh() => _lastSeenAges.SetActive(IsLoaded && Visibility == Visibility.Visible);
+
+    private void RefreshLastSeenAgesOnUi(Action refresh) => DispatcherQueue.TryEnqueue(() =>
+    {
+        // A changed hovered value would leave its emphasis range stale, so close that preview instead.
+        var hovered = _hoverText is { Name: "DeviceLastSeenText" } text ? text.Text : null;
+        refresh();
+        if (hovered is not null && _hoverText?.Text != hovered) DismissCellPreview();
+    });
+
     internal void FocusResults() => ResultsList.Focus(FocusState.Programmatic);
 
     internal void SetInteractionsEnabled(bool enabled)
