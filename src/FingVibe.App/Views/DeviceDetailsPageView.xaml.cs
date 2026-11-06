@@ -65,22 +65,30 @@ public sealed partial class DeviceDetailsPageView : UserControl
             DeviceAddressPicker.Visibility = row.CurrentConnections.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
         }
         finally { _updatingAddresses = false; }
-        ShowHistory(row);
         ShowConnection(row);
         DeviceIncludeUdpCheckBox.IsChecked = false;
         DeviceImportedMetadata.IsExpanded = false;
         DeviceBrowserStatusText.Text = string.Empty;
     }
 
-    internal void ShowHistory(ScanResultRow row)
+    internal void ShowHistory(ScanResultRow row, string? networkId, string? subnet)
     {
-        var history = DeviceDetailsPresentation.ScanHistory(row);
+        var summary = row.GetHistorySummary(networkId, subnet);
+        var history = DeviceDetailsPresentation.ScanHistory(summary);
+        DeviceHistoryScope.Text = $"Current network: {networkId ?? "identity unavailable"} | {subnet ?? "subnet unavailable"}";
+        DeviceHistoryFirstSeen.Text = $"First seen: {DeviceDetailsPresentation.HistoryTimestamp(summary.FirstSeen, summary.FirstSeenIsAggregate)}";
+        DeviceHistoryLastSeen.Text = $"Last seen: {DeviceDetailsPresentation.HistoryTimestamp(summary.LastSeen, summary.LastSeenIsAggregate)}";
+        DeviceHistorySince.Text = DeviceDetailsPresentation.ObservedSince(summary);
+        DeviceHistoryLatest.Text = summary.Latest is { } latest
+            ? $"Latest recorded scan: {DeviceDetailsPresentation.HistoryTimestamp(latest.CompletedAt)}. Saved observations do not establish current live presence."
+            : "No individual scans in this scope. Historical aggregates cannot establish an observed state or since time.";
         DeviceScanHistoryCount.Text = $"{history.Count:N0} completed scan observations";
         DeviceScanHistoryList.ItemsSource = history;
         DeviceScanHistoryList.Visibility = history.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
-        DeviceScanHistoryEmpty.Text = history.Count == 0 ? DeviceDetailsPresentation.EmptyScanHistory(row) : string.Empty;
+        DeviceScanHistoryEmpty.Text = history.Count == 0 ? DeviceDetailsPresentation.EmptyScanHistory(row, networkId, subnet) : string.Empty;
         DeviceScanHistoryEmpty.Visibility = history.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        VirtualDeviceHistoryCard.Visibility = row.VirtualDevice is null ? Visibility.Collapsed : Visibility.Visible;
+        VirtualDeviceHistoryCard.Visibility = row.VirtualDevice is { } device
+            && device.NetworkId == networkId && device.Subnet == subnet ? Visibility.Visible : Visibility.Collapsed;
         VirtualDeviceHistoryText.Text = row.ConnectionHistoryText;
     }
 

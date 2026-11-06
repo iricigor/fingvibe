@@ -47,7 +47,7 @@ public sealed class DeviceScanHistoryTests : IDisposable
         Assert.Equal(2, rows.Length);
         foreach (var row in rows)
         {
-            var history = DeviceDetailsPresentation.ScanHistory(row);
+            var history = DeviceDetailsPresentation.ScanHistory(row.GetHistorySummary(Network, Subnet));
             Assert.Equal(["2026-11-01 12:03:00 UTC", "2026-11-01 12:02:00 UTC",
                 "2026-11-01 12:01:00 UTC", "2026-11-01 12:00:00 UTC"], history.Select(item => item.ScanTime));
             Assert.Equal(["Observed present", "Observed absent", "Observed present", "Observed present"],
@@ -94,7 +94,7 @@ public sealed class DeviceScanHistoryTests : IDisposable
         Assert.True(item.Present);
         data = Scan(data, 1);
         Assert.Single(data.Devices[Normal].ScanHistory);
-        Assert.Contains("identity unavailable", DeviceDetailsPresentation.ScanHistory(new(data.Devices[Normal], 24))[0].NetworkContext);
+        Assert.Empty(DeviceDetailsPresentation.ScanHistory(new ScanResultRow(data.Devices[Normal], 24).GetHistorySummary(null, Subnet)));
         data = Scan(data, 2, Result(Normal));
         data = Scan(data, 3);
         Assert.Equal([true, true, false], data.Devices[Normal].ScanHistory.Select(item => item.Present));
@@ -120,11 +120,11 @@ public sealed class DeviceScanHistoryTests : IDisposable
         data = Scan(data, 0, Result("001122334466") with { Status = HostStatus.Unreachable });
         Assert.Single(data.Devices);
         Assert.Empty(data.Devices[Normal].ScanHistory);
-        Assert.Contains("Imported Fing", DeviceDetailsPresentation.EmptyScanHistory(new(imported, 24)));
+        Assert.Contains("Imported Fing", DeviceDetailsPresentation.EmptyScanHistory(new(imported, 24), Network, Subnet));
         var historical = data.ObserveCompletedScan(null, new(Subnet, Start, [Result(Normal)]), historical: true);
         Assert.Empty(historical.Devices[Normal].ScanHistory);
-        Assert.Contains("Earlier saved aggregates", DeviceDetailsPresentation.EmptyScanHistory(new(historical.Devices[Normal], 24)));
-        Assert.Contains("MAC-based", DeviceDetailsPresentation.EmptyScanHistory(new(Result(Normal) with { MacAddress = null }, 24)));
+        Assert.Contains("Earlier saved aggregates", DeviceDetailsPresentation.EmptyScanHistory(new(historical.Devices[Normal], 24), Network, Subnet));
+        Assert.Contains("MAC-based", DeviceDetailsPresentation.EmptyScanHistory(new(Result(Normal) with { MacAddress = null }, 24), Network, Subnet));
     }
 
     [Fact]

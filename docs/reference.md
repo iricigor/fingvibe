@@ -266,9 +266,22 @@ do not duplicate a virtual device's row; its history follows its existing
 virtual identity when the active MAC changes. Existing association rules are
 unchanged.
 
+The list and its **First seen**, **Last seen**, and **Observed online/offline since**
+summary use only the selected current network identity and subnet, shown above
+the summary. Changing networks never falls back to another network's evidence;
+unavailable identity or missing matching evidence explains unavailable values.
+Other-network history remains saved. First/last seen use presence observations;
+absence does not advance last seen. Since is the first scan in the latest
+recorded run of the same state, so repeated states preserve it and a return
+starts a new run. Observation gaps do not imply continuous availability.
+Matching legacy first/last-seen aggregates remain available with an explicit
+historical-aggregate label when their individual scans are unavailable; they
+never supply a since value or fabricated history rows. Restart preserves these
+timestamps without treating the saved state as current live presence.
+
 Absence is recorded only for previously locally observed devices covered by a
 successful scan of the same identified network and subnet. Presence without a
-network identity is labeled **identity unavailable** and cannot establish later
+network identity is retained but excluded from current-network history and cannot establish later
 absence. Scans of other networks, unused addresses, failed/cancelled scans,
 additional port checks, and reopening saved data do not fabricate observations.
 These are scan results, not proof of uninterrupted physical availability or
@@ -283,7 +296,8 @@ devices explain their empty history. Restart retains history but does not
 make it fresh evidence of live presence. Load errors disable inventory edits;
 save errors visibly report that inventory and scan history were not saved.
 
-`tests\DeviceScanHistory.Ui.Tests.ps1` verifies synthetic normal/virtual history,
+`tests\DeviceScanHistory.Ui.Tests.ps1` verifies synthetic normal/virtual history and
+scoped summaries through repeated presence, absence, and return,
 empty imported history, restart, successful repeated scans, cancellation,
 failure, and visible persistence errors on the disposable Windows CI desktop.
 Device-details review captures include this check; never run it on a working

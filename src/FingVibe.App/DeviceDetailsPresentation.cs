@@ -20,17 +20,31 @@ internal sealed record DeviceEndpointPresentation(
 
 internal static class DeviceDetailsPresentation
 {
-    internal static IReadOnlyList<DeviceScanHistoryRow> ScanHistory(ScanResultRow row) =>
-        row.ScanHistory.OrderByDescending(item => item.CompletedAt).Select(item => new DeviceScanHistoryRow(
-            item.CompletedAt.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture),
+    internal static string HistoryTimestamp(DateTimeOffset? timestamp, bool aggregate = false) =>
+        timestamp is { } time
+            ? time.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture)
+                + (aggregate ? " (historical aggregate; individual scan unavailable)" : string.Empty)
+            : "Unavailable - no matching local presence evidence.";
+
+    internal static string ObservedSince(DeviceHistorySummary summary) =>
+        summary.Latest is { } latest && summary.Since is { } since
+            ? $"Observed {(latest.Present ? "online" : "offline")} since: {HistoryTimestamp(since)}"
+            : "Observed state / since: Unavailable - no matching individual scan observations.";
+
+    internal static IReadOnlyList<DeviceScanHistoryRow> ScanHistory(DeviceHistorySummary summary) =>
+        summary.History.Select(item => new DeviceScanHistoryRow(
+            HistoryTimestamp(item.CompletedAt),
             item.Present ? "Observed present" : "Observed absent",
             $"Network {item.NetworkId ?? "identity unavailable"} | {item.Subnet}")).ToArray();
 
-    internal static string EmptyScanHistory(ScanResultRow row) => row.IsFingOnly
+    internal static string EmptyScanHistory(ScanResultRow row, string? networkId, string? subnet) =>
+        string.IsNullOrWhiteSpace(networkId) || string.IsNullOrWhiteSpace(subnet)
+        ? "Current network identity or subnet unavailable. History and summaries cannot use another network's evidence."
+        : row.IsFingOnly
         ? "No local scan history. Imported Fing data is not a local scan observation."
         : row.MacAddress is null
             ? "Scan history requires a MAC-based device identity."
-            : "No recorded scan history yet. Earlier saved aggregates are not individual scan observations.";
+            : "No recorded scan history for the current network/subnet. Earlier saved aggregates are not individual scan observations.";
 
     internal static bool CanCopy(string? value) =>
         !string.IsNullOrWhiteSpace(value) && value is not ("-" or "Unknown" or "Unknown (likely)");

@@ -96,9 +96,10 @@ function Show-HistorySection([string] $Id) {
     throw "Scan-history section '$Id' does not fit the details viewport."
 }
 
-function Assert-HistoryRows([string] $Capture) {
-    if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "4 completed scan observations") {
-        throw "The history must contain exactly four individual completed scans."
+function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
+    $count = $LastIndex + 1
+    if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "$count completed scan observations") {
+        throw "The history must contain exactly $count individual completed scans in the current scope."
     }
     $list = Show-HistorySection DeviceScanHistoryList
     $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
@@ -119,9 +120,9 @@ function Assert-HistoryRows([string] $Capture) {
             if ($texts.Count -eq 0) { continue }
             if ($texts.Count -ne 3) { throw "Each scan row must expose time, state and network: $texts." }
             $time = $texts[0]
-            if ($time -notmatch '^2026-11-01 12:0[0-3]:00 UTC$') { throw "Unexpected scan timestamp '$time'." }
-            $state = if ($time -eq "2026-11-01 12:02:00 UTC") { "Observed absent" } else { "Observed present" }
-            if ($texts[1] -ne $state -or $texts[2] -ne "Network synthetic-network | 192.0.2.0/24") {
+            if ($time -notmatch '^2026-11-01 12:0[0-4]:00 UTC$') { throw "Unexpected scan timestamp '$time'." }
+            $state = if ($time -in @("2026-11-01 12:02:00 UTC", "2026-11-01 12:03:00 UTC")) { "Observed absent" } else { "Observed present" }
+            if ($texts[1] -ne $state -or $texts[2] -ne "Network ui-review-network | 127.0.0.1/32") {
                 throw "Incorrect scan observation: $texts."
             }
             $seen[$time] = $true
@@ -131,9 +132,39 @@ function Assert-HistoryRows([string] $Capture) {
             throw "Scan rows are not newest first: $times."
         }
     }
-    if ($seen.Count -ne 4) { throw "Not all four scans are reachable in the native history list." }
+    if ($seen.Count -ne $count) { throw "Not all $count scans are reachable in the native history list." }
+    foreach ($index in 0..$LastIndex) {
+        if (-not $seen.ContainsKey("2026-11-01 12:0${index}:00 UTC")) { throw "Scan $index is missing from history." }
+    }
     if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Capture.png")
+}
+
+function Assert-HistorySummary([string] $Capture, [int] $LastIndex = 4) {
+    $lastSeen = @(0, 1, 1, 1, 4)[$LastIndex]
+    $since = @(0, 0, 2, 2, 4)[$LastIndex]
+    $state = if ($LastIndex -in @(2, 3)) { "offline" } else { "online" }
+    $expected = @{
+        DeviceHistoryScope = "Current network: ui-review-network | 127.0.0.1/32"
+        DeviceHistoryFirstSeen = "First seen: 2026-11-01 12:00:00 UTC"
+        DeviceHistoryLastSeen = "Last seen: 2026-11-01 12:0${lastSeen}:00 UTC"
+        DeviceHistorySince = "Observed $state since: 2026-11-01 12:0${since}:00 UTC"
+        DeviceHistoryLatest = "Latest recorded scan: 2026-11-01 12:0${LastIndex}:00 UTC. Saved observations do not establish current live presence."
+    }
+    foreach ($id in $expected.Keys) {
+        $actual = (Find-HistoryControl $id).Current.Name
+        if ($actual -ne $expected[$id]) { throw "Incorrect summary $id : '$actual', expected '$($expected[$id])'." }
+    }
+    $null = Show-HistorySection DeviceHistoryLatest
+    foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince")) {
+        $element = Find-HistoryControl $id
+        $area = (Find-HistoryControl DeviceDetailsScroll).Current.BoundingRectangle
+        $bounds = $element.Current.BoundingRectangle
+        if ($element.Current.IsOffscreen -or $bounds.Top -lt $area.Top -or $bounds.Bottom -gt $area.Bottom) {
+            throw "Summary field $id is clipped."
+        }
+    }
+    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Capture-summary.png")
 }
 
 function Invoke-HistoryScan {
@@ -166,52 +197,105 @@ $lock = $null
 try {
     $null = New-Item -ItemType Directory -Path $fixtureDirectory
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
-    $history = @(0..3 | ForEach-Object {
-        @{ completedAt = "2026-11-01T12:0${_}:00+00:00"; networkId = "synthetic-network"
-           subnet = "192.0.2.0/24"; present = ($_ -ne 2) }
+    $history = @(0..4 | ForEach-Object {
+        @{ completedAt = "2026-11-01T12:0${_}:00+00:00"; networkId = "ui-review-network"
+           subnet = "127.0.0.1/32"; present = ($_ -notin @(2, 3)) }
     })
     function New-HistoryObservation([string] $Address, [bool] $Present, [string] $Vendor) {
-        @{ networkId = "synthetic-network"; subnet = "192.0.2.0/24"; address = $Address
+        @{ networkId = "ui-review-network"; subnet = "127.0.0.1/32"; address = $Address
            hostname = $null; vendor = $Vendor; ports = @(); latency = 1; probeDuration = "00:00:00.001"
            classification = @{ type = 0; operatingSystem = 0; typeEvidence = "Synthetic fixture"; operatingSystemEvidence = "Synthetic fixture" }
-           firstSeen = "2026-11-01T12:00:00+00:00"; lastSeen = "2026-11-01T12:03:00+00:00"
-           lastChecked = "2026-11-01T12:03:00+00:00"; present = $Present }
+           firstSeen = "2026-11-01T12:00:00+00:00"; lastSeen = "2026-11-01T12:04:00+00:00"
+           lastChecked = "2026-11-01T12:04:00+00:00"; present = $Present }
     }
-    $old = New-HistoryObservation "192.0.2.2" $false "Private"
-    $current = New-HistoryObservation "192.0.2.3" $true "Private"
+    $old = New-HistoryObservation "127.0.0.1" $false "Private"
+    $current = New-HistoryObservation "127.0.0.1" $true "Private"
+    $normal = New-HistoryObservation "127.0.0.1" $true "Example"
+    $legacy = New-HistoryObservation "127.0.0.1" $true "Example"
+    $unmatched = New-HistoryObservation "127.0.0.1" $true "Example"
+    $unmatched.networkId = "another-network"
+    $decoyHistory = @(
+        @{ completedAt = "2026-10-01T12:00:00+00:00"; networkId = "another-network"; subnet = "127.0.0.1/32"; present = $true },
+        @{ completedAt = "2026-11-02T12:00:00+00:00"; networkId = "ui-review-network"; subnet = "192.0.2.0/24"; present = $false }
+    )
     $data = @{
         revision = [Guid]::NewGuid().ToString()
         devices = @{
             "020000000001" = @{ mac = "020000000001"; imported = @{ name = "History normal" }
-                observations = @((New-HistoryObservation "192.0.2.1" $true "Example")); scanHistory = $history }
+                observations = @($normal, $unmatched); scanHistory = $history + $decoyHistory }
             "D0C907000001" = @{ mac = "D0C907000001"; imported = @{}; observations = @($old); scanHistory = @() }
             "D0C907000002" = @{ mac = "D0C907000002"; imported = @{}; observations = @($current); scanHistory = @() }
             "001122334466" = @{ mac = "001122334466"; imported = @{ name = "History imported" }; observations = @(); scanHistory = @() }
+            "001122334477" = @{ mac = "001122334477"; imported = @{ name = "History legacy" }; observations = @($legacy); scanHistory = @() }
+            "001122334488" = @{ mac = "001122334488"; imported = @{ name = "History unmatched" }; observations = @($unmatched); scanHistory = $decoyHistory }
         }
         names = @{}; classifications = @{}; peopleRooms = @{ people = @(); rooms = @(); assignments = @{} }
         virtualDevices = @(@{
-            id = [Guid]::NewGuid().ToString(); networkId = "synthetic-network"; subnet = "192.0.2.0/24"
-            prefix = "D0C907"; number = 1; lastActiveMac = "D0C907000002"; lastChecked = "2026-11-01T12:03:00+00:00"
+            id = [Guid]::NewGuid().ToString(); networkId = "ui-review-network"; subnet = "127.0.0.1/32"
+            prefix = "D0C907"; number = 1; lastActiveMac = "D0C907000002"; lastChecked = "2026-11-01T12:04:00+00:00"
             present = $true; name = "History virtual"; scanHistory = $history
             history = @(@{ mac = "D0C907000001"; observation = $old; inferred = $true },
                 @{ mac = "D0C907000002"; observation = $current; inferred = $true })
         })
     }
-    @{ version = 3; data = $data } | ConvertTo-Json -Depth 15 | Set-Content -LiteralPath $inventory -Encoding UTF8
-    @{ version = 3; subnet = "192.0.2.0/24"; completedAt = "2026-11-01T12:03:00+00:00"; results = @() } |
+    @{ version = 3; subnet = "127.0.0.1/32"; completedAt = "2026-11-01T12:04:00+00:00"; results = @() } |
         ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $snapshot -Encoding UTF8
-    $original = Get-Content -LiteralPath $inventory -Raw
     $env:FINGVIBE_UI_REVIEW = "1"
     $env:FINGVIBE_UI_REVIEW_INVENTORY = $inventory
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $snapshot
     $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT = "0"
     $env:FINGVIBE_UI_REVIEW_SCAN_HOLD = $hold
+    foreach ($index in 0..4) {
+        $lastSeen = @(0, 1, 1, 1, 4)[$index]
+        $present = $index -notin @(2, 3)
+        $time = "2026-11-01T12:0${index}:00+00:00"
+        $normal.lastSeen = "2026-11-01T12:0${lastSeen}:00+00:00"
+        $normal.lastChecked = $time
+        $normal.present = $present
+        $old.lastSeen = "2026-11-01T12:00:00+00:00"
+        $old.lastChecked = $time
+        $old.present = $index -eq 0
+        $current.firstSeen = "2026-11-01T12:01:00+00:00"
+        $current.lastSeen = "2026-11-01T12:0$([Math]::Max(1, $lastSeen)):00+00:00"
+        $current.lastChecked = "2026-11-01T12:0$([Math]::Max(1, $index)):00+00:00"
+        $current.present = $present -and $index -gt 0
+        $slot = $data.virtualDevices[0]
+        $slot.lastActiveMac = if ($index -eq 0) { "D0C907000001" } else { "D0C907000002" }
+        $slot.lastChecked = $time
+        $slot.present = $present
+        $slot.history = @(@{ mac = "D0C907000001"; observation = $old; inferred = $true })
+        if ($index -gt 0) { $slot.history += @{ mac = "D0C907000002"; observation = $current; inferred = $true } }
+        $slot.scanHistory = @($history[0..$index])
+        $data.devices.'020000000001'.scanHistory = @($history[0..$index]) + $decoyHistory
+        @{ version = 3; data = $data } | ConvertTo-Json -Depth 15 | Set-Content -LiteralPath $inventory -Encoding UTF8
+        Start-HistoryApp
+        foreach ($kind in @("normal", "virtual")) {
+            Open-HistoryDetails "History $kind"
+            Assert-HistorySummary "history-$kind-$index" $index
+            Assert-HistoryRows "history-$kind-$index" $index
+        }
+        Stop-HistoryApp
+    }
+    $original = Get-Content -LiteralPath $inventory -Raw
     Start-HistoryApp
-    Open-HistoryDetails "History normal"
-    Assert-HistoryRows "history-normal"
-    Open-HistoryDetails "History virtual"
-    Assert-HistoryRows "history-virtual"
+    Open-HistoryDetails "History legacy"
+    foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen")) {
+        if ((Find-HistoryControl $id).Current.Name -notlike "*historical aggregate; individual scan unavailable*") {
+            throw "Legacy timestamps must retain their aggregate provenance."
+        }
+    }
+    if ((Find-HistoryControl DeviceHistorySince).Current.Name -notlike "*Unavailable*") { throw "Legacy aggregates fabricated since." }
+    $null = Show-HistorySection DeviceHistoryFirstSeen
+    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-legacy-summary.png")
+    Open-HistoryDetails "History unmatched"
+    foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince")) {
+        if ((Find-HistoryControl $id).Current.Name -notlike "*Unavailable*") { throw "Other-network/subnet evidence leaked into $id." }
+    }
+    if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "0 completed scan observations") { throw "Other-scope history leaked." }
     Open-HistoryDetails "History imported"
+    foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince")) {
+        if ((Find-HistoryControl $id).Current.Name -notlike "*Unavailable*") { throw "Imported-only history fabricated $id." }
+    }
     $empty = Show-HistorySection DeviceScanHistoryEmpty
     if ($empty.Current.Name -ne "No local scan history. Imported Fing data is not a local scan observation.") {
         throw "Imported-only history needs an explanatory empty state."
@@ -220,18 +304,26 @@ try {
     Stop-HistoryApp
     Start-HistoryApp
     Open-HistoryDetails "History normal"
+    Assert-HistorySummary "history-restarted"
     Assert-HistoryRows "history-restarted"
+    Open-HistoryDetails "History virtual"
+    Assert-HistorySummary "history-virtual-restarted"
     if ((Get-Content -LiteralPath $inventory -Raw) -cne $original) { throw "Restoration must not write new scan entries." }
-    foreach ($count in @(5, 6)) {
+    foreach ($count in @(8, 9)) {
         Invoke-HistoryScan
         Wait-HistoryScan
         $saved = Get-Content -LiteralPath $inventory -Raw | ConvertFrom-Json
         if ($saved.data.devices.'020000000001'.scanHistory.Count -ne $count) {
             throw "Each successful repeated scan must persist one new observation."
         }
-        if ($saved.data.virtualDevices[0].scanHistory.Count -ne 4) { throw "Another subnet fabricated virtual absence." }
+        if ($saved.data.virtualDevices[0].scanHistory.Count -ne $count - 2) { throw "Same-network scan did not record virtual absence." }
     }
     $beforeStop = Get-Content -LiteralPath $inventory -Raw
+    Open-HistoryDetails "History normal"
+    $beforeSummary = @{}
+    foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince", "DeviceHistoryLatest")) {
+        $beforeSummary[$id] = (Find-HistoryControl $id).Current.Name
+    }
     Set-Content -LiteralPath $hold -Value "hold for cancellation"
     Invoke-HistoryScan
     Wait-HistoryState { Find-HistoryControl "Cancel scan" -ByName -Optional } "cancel action"
@@ -239,8 +331,11 @@ try {
     Wait-HistoryScan
     if ((Get-Content -LiteralPath $inventory -Raw) -cne $beforeStop) { throw "Cancelled scan changed durable history." }
     Open-HistoryDetails "History normal"
-    if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "6 completed scan observations") {
+    if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "7 completed scan observations") {
         throw "Cancelled scan changed displayed history."
+    }
+    foreach ($id in $beforeSummary.Keys) {
+        if ((Find-HistoryControl $id).Current.Name -ne $beforeSummary[$id]) { throw "Cancelled scan changed $id." }
     }
     @{ completed = -1; total = 1 } | ConvertTo-Json | Set-Content -LiteralPath "$hold.progress"
     Invoke-HistoryScan
@@ -250,8 +345,11 @@ try {
     }
     if ((Get-Content -LiteralPath $inventory -Raw) -cne $beforeStop) { throw "Failed scan changed durable history." }
     Open-HistoryDetails "History normal"
-    if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "6 completed scan observations") {
+    if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "7 completed scan observations") {
         throw "Failed scan changed displayed history."
+    }
+    foreach ($id in $beforeSummary.Keys) {
+        if ((Find-HistoryControl $id).Current.Name -ne $beforeSummary[$id]) { throw "Failed scan changed $id." }
     }
     Remove-Item -LiteralPath $hold, "$hold.progress"
     $lock = [System.IO.FileStream]::new("$inventory.lock", [System.IO.FileMode]::Open,

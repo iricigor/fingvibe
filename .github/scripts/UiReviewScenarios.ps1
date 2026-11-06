@@ -115,12 +115,12 @@ function Get-UiReviewCapturePlan {
             elseif ($path -match '^src/FingVibe.App/(MainWindow.DeviceDetails.cs|DeviceDetailsPresentation.cs|Views/DeviceDetailValue.cs)$') {
                 Add-Scenarios @("DeviceDetails") "$path changed device details behavior."
             }
-            elseif ($path -match '^src/FingVibe.Core/(Models/(DeviceInventory|PrivateVirtualDevice).cs|Storage/DeviceInventoryStore.cs)$' -or
+            elseif ($path -match '^src/FingVibe.Core/(Models/(DeviceInventory|PrivateVirtualDevice|DeviceHistorySummary).cs|Storage/DeviceInventoryStore.cs)$' -or
                 $path -eq "src/FingVibe.App/MainWindow.Snapshots.cs" -or $path -eq "tests/DeviceScanHistory.Ui.Tests.ps1") {
                 Add-Scenarios @("DeviceDetails") "$path changed persisted device scan history."
             }
             elseif ($path -eq "src/FingVibe.App/MainWindow.NetworkIdentity.cs") {
-                Add-Scenarios @("Overview", "Network", "Troubleshooting") "$path changed network identity."
+                Add-Scenarios @("Overview", "Network", "Troubleshooting", "DeviceDetails") "$path changed network identity."
             }
             elseif ($path -match '^src/FingVibe.App/(MainWindow.Results.cs|DeviceResultFilter.cs|StatusFilter.*|DeviceColumn.*|ColumnResizeGrip.cs)$') {
                 Add-Scenarios @("Devices", "DevicesEmpty", "Settings") "$path changed results, filtering, or table controls."

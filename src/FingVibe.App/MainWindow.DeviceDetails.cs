@@ -32,11 +32,19 @@ public sealed partial class MainWindow
             : string.Empty;
         UpdateDeviceNameActions();
         DevicePage.ShowDevice(row);
+        UpdateDeviceHistory();
         UpdateClassificationDetails();
         UpdateDeviceAssignmentPickers();
         MainNavigation.SelectedItem = DevicesNavItem;
         ShowPage(DevicePage);
         DevicePage.ResetScroll();
+    }
+
+    private void UpdateDeviceHistory()
+    {
+        if (_selectedDeviceRow is not { } row) return;
+        var network = NetworkPicker.SelectedItem as LanNetwork;
+        DevicePage.ShowHistory(row, network is null ? null : GetScanNetworkIdentity(network), network?.Cidr);
     }
 
     private void DeviceNameInput_TextChanged(object sender, TextChangedEventArgs e)
