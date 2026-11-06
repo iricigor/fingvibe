@@ -162,7 +162,7 @@ public sealed class DeviceScanHistoryTests : IDisposable
     public async Task OlderInventoryFormatsLoadWithoutFabricatedScanEntries(int version)
     {
         var store = new DeviceInventoryStore(PathName);
-        await store.SaveAsync(Scan(DeviceInventoryData.Empty, 0, Result(Normal), Result(Private)), Guid.Empty);
+        await InventoryJsonFixture.WriteAsync(PathName, Scan(DeviceInventoryData.Empty, 0, Result(Normal), Result(Private)));
         var json = JsonNode.Parse(await File.ReadAllTextAsync(PathName))!;
         json["version"] = version;
         foreach (var device in json["data"]!["devices"]!.AsObject())
@@ -178,7 +178,8 @@ public sealed class DeviceScanHistoryTests : IDisposable
         Assert.Single(observed.Devices[Normal].ScanHistory);
         Assert.Single(Assert.Single(observed.VirtualDevices).ScanHistory);
         await store.SaveAsync(observed, loaded.Revision);
-        Assert.Equal(4, JsonNode.Parse(await File.ReadAllTextAsync(PathName))!["version"]!.GetValue<int>());
+        Assert.Equal(version, JsonNode.Parse(await File.ReadAllTextAsync(PathName))!["version"]!.GetValue<int>());
+        Assert.Single((await new DeviceInventoryStore(PathName).LoadAsync())!.Devices[Normal].ScanHistory);
     }
 
     [Fact]
@@ -206,7 +207,7 @@ public sealed class DeviceScanHistoryTests : IDisposable
     public async Task InvalidHistoryFailsClosedAndIsNotOverwritten(string corruption)
     {
         var store = new DeviceInventoryStore(PathName);
-        var saved = await store.SaveAsync(Scan(DeviceInventoryData.Empty, 0, Result(Normal), Result(Private)), Guid.Empty);
+        var saved = await InventoryJsonFixture.WriteAsync(PathName, Scan(DeviceInventoryData.Empty, 0, Result(Normal), Result(Private)));
         var json = JsonNode.Parse(await File.ReadAllTextAsync(PathName))!;
         var device = json["data"]!["devices"]![Normal]!;
         var entry = device["scanHistory"]![0]!;

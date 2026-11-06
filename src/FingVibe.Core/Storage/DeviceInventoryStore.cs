@@ -1,204 +1,394 @@
-using System.Net;
+using System.Security.Cryptography;
 using System.Text.Json;
 using FingVibe.Core.Models;
+using Microsoft.Data.Sqlite;
 
 namespace FingVibe.Core.Storage;
 
-public sealed class DeviceInventoryStore
+public sealed partial class DeviceInventoryStore
 {
-    private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web) { WriteIndented = true };
-    private readonly string _path;
+    private readonly string _jsonPath;
+    private readonly string _databasePath;
+    private readonly SemaphoreSlim _gate = new(1, 1);
+    private DeviceInventoryData? _loaded;
 
     public DeviceInventoryStore(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        _path = path;
+        _jsonPath = Path.ChangeExtension(path, ".json");
+        _databasePath = Path.ChangeExtension(path, ".sqlite");
     }
 
     public async Task<DeviceInventoryData?> LoadAsync(CancellationToken cancellationToken = default)
     {
+        await _gate.WaitAsync(cancellationToken);
         try
         {
-            await using var stream = File.OpenRead(_path);
-            var document = await JsonSerializer.DeserializeAsync<Document>(stream, Options, cancellationToken);
-            if (document is null || document.Version is not (1 or 2 or 3 or 4) || document.Data is not { } saved
-                || saved.Revision == Guid.Empty || saved.Devices is null || saved.Names is null || saved.Classifications is null
-                || saved.PeopleRooms?.People is null || saved.PeopleRooms.Rooms is null || saved.PeopleRooms.Assignments is null
-                || document.Version >= 2 && saved.VirtualDevices is null
-                || document.Version >= 4 && saved.DiscoveryBaselines is null)
-                throw new InvalidDataException("The device inventory has an unsupported or invalid format.");
-            var data = new DeviceInventoryData(saved.Revision, saved.Devices, saved.Names, saved.Classifications,
-                new PeopleRoomsData(saved.PeopleRooms.People, saved.PeopleRooms.Rooms, saved.PeopleRooms.Assignments))
+            _loaded = null;
+            if (!File.Exists(_databasePath))
             {
-                VirtualDevices = saved.VirtualDevices ?? [],
-                DiscoveryBaselines = saved.DiscoveryBaselines ?? []
+                var directory = Path.GetDirectoryName(_databasePath)!;
+                if (!Directory.Exists(directory)) return _loaded = null;
+                await using var fileLock = LockFile();
+                if (!File.Exists(_databasePath))
+                {
+                    var data = await LoadMigrationAsync(cancellationToken);
+                    if (data is null) return _loaded = null;
+                    await PublishAsync(data.Data, cancellationToken, data);
+                }
+            }
+            using var connection = Open(_databasePath);
+            using var transaction = connection.BeginTransaction();
+            var revision = ReadRevision(connection, transaction);
+            var devices = ReadEntities<InventoryDevice>(connection, transaction, "devices", cancellationToken);
+            var slots = ReadEntities<PrivateVirtualDevice>(connection, transaction, "virtual_devices", cancellationToken);
+            var histories = ReadHistories(connection, transaction, cancellationToken);
+            foreach (var key in devices.Keys.ToArray())
+                devices[key] = devices[key] with { ScanHistory = histories.GetValueOrDefault(("mac", key)) ?? [] };
+            foreach (var key in slots.Keys.ToArray())
+                slots[key] = slots[key] with { ScanHistory = histories.GetValueOrDefault(("virtual", key)) ?? [] };
+            if (histories.Keys.Any(key => key.Kind == "mac" ? !devices.ContainsKey(key.Id)
+                    : key.Kind != "virtual" || !slots.ContainsKey(key.Id)))
+                throw new InvalidDataException("Saved scan history has no matching device.");
+            var people = ReadEntities<ManagedPerson>(connection, transaction, "people", cancellationToken);
+            var rooms = ReadEntities<ManagedRoom>(connection, transaction, "rooms", cancellationToken);
+            var baselines = ReadEntities<DeviceDiscoveryBaseline>(connection, transaction, "baselines", cancellationToken);
+            if (slots.Any(pair => pair.Key != pair.Value.Id.ToString("D"))
+                || people.Any(pair => pair.Key != pair.Value.Id.ToString("D"))
+                || rooms.Any(pair => pair.Key != pair.Value.Id.ToString("D"))
+                || baselines.Any(pair => pair.Key != BaselineKey(pair.Value)))
+                throw new InvalidDataException("The inventory contains mismatched saved identities.");
+            var dataLoaded = new DeviceInventoryData(revision, devices,
+                ReadEntities<string>(connection, transaction, "names", cancellationToken),
+                ReadEntities<DeviceClassificationOverride>(connection, transaction, "classifications", cancellationToken),
+                new PeopleRoomsData(people.Values.ToArray(), rooms.Values.ToArray(),
+                    ReadEntities<DeviceAssignment>(connection, transaction, "assignments", cancellationToken)))
+            {
+                VirtualDevices = slots.Values.ToArray(),
+                DiscoveryBaselines = baselines.Values.ToArray()
             };
-            Validate(data);
-            return data;
+            Validate(dataLoaded);
+            transaction.Commit();
+            return _loaded = dataLoaded;
         }
-        catch (FileNotFoundException) { return null; }
-        catch (DirectoryNotFoundException) { return null; }
+        catch (SqliteException exception) { throw StorageError(exception); }
         catch (Exception exception) when (exception is JsonException or ArgumentException or FormatException)
         {
-            throw new InvalidDataException("The device inventory contains invalid saved data.", exception);
+            throw new InvalidDataException("The SQLite inventory contains invalid saved data.", exception);
         }
+        finally { _gate.Release(); }
     }
 
     public async Task<DeviceInventoryData> SaveAsync(
         DeviceInventoryData data, Guid expectedRevision, CancellationToken cancellationToken = default)
     {
-        Validate(data);
-        var directory = Path.GetDirectoryName(_path)
-            ?? throw new ArgumentException("The inventory path must include a directory.");
-        Directory.CreateDirectory(directory);
-        await using var fileLock = new FileStream(_path + ".lock", FileMode.OpenOrCreate,
-            FileAccess.ReadWrite, FileShare.None);
-        var saved = await LoadAsync(cancellationToken);
-        if ((saved?.Revision ?? Guid.Empty) != expectedRevision)
-            throw new InvalidOperationException("Saved device data changed in another app instance. Restart and analyze again before saving.");
-        var updated = data with { Revision = Guid.NewGuid() };
-        var temporary = Path.Combine(directory, $".{Path.GetFileName(_path)}.{Guid.NewGuid():N}.tmp");
+        await _gate.WaitAsync(cancellationToken);
         try
         {
-            await using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            var directory = Path.GetDirectoryName(_databasePath)
+                ?? throw new ArgumentException("The inventory path must include a directory.");
+            Directory.CreateDirectory(directory);
+            await using var fileLock = LockFile();
+            if (!File.Exists(_databasePath))
             {
-                var document = new Document(4, new SavedData(updated.Revision, updated.Devices, updated.Names,
-                    updated.Classifications, new SavedPeopleRooms(updated.PeopleRooms.People, updated.PeopleRooms.Rooms,
-                        updated.PeopleRooms.Assignments), updated.VirtualDevices, updated.DiscoveryBaselines));
-                await JsonSerializer.SerializeAsync(stream, document, Options, cancellationToken);
-                await stream.FlushAsync(cancellationToken);
-                stream.Flush(flushToDisk: true);
+                var migration = await LoadMigrationAsync(cancellationToken);
+                if (migration is not null)
+                {
+                    await PublishAsync(migration.Data, cancellationToken, migration);
+                    _loaded = migration.Data;
+                }
+                else
+                {
+                    CheckRevision(Guid.Empty, expectedRevision);
+                    Validate(data);
+                    var initial = data with { Revision = Guid.NewGuid() };
+                    await PublishAsync(initial, cancellationToken);
+                    return _loaded = Committed(initial);
+                }
             }
-            File.Move(temporary, _path, true);
-            return updated;
+            using var connection = Open(_databasePath);
+            using var transaction = connection.BeginTransaction();
+            CheckRevision(ReadRevision(connection, transaction), expectedRevision);
+            if (_loaded is null || _loaded.Revision != expectedRevision)
+                throw new InvalidOperationException("Load the saved inventory before changing it.");
+            Validate(data, _loaded);
+            var updated = data with { Revision = Guid.NewGuid() };
+            WriteChanges(connection, transaction, updated, _loaded, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            transaction.Commit();
+            return _loaded = Committed(updated);
+        }
+        catch (SqliteException exception) { throw StorageError(exception); }
+        finally { _gate.Release(); }
+    }
+
+    private FileStream LockFile() => new(_jsonPath + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+
+    private static SqliteConnection Open(string path)
+    {
+        var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = path, Mode = SqliteOpenMode.ReadWrite, Pooling = false, DefaultTimeout = 5
+        }.ToString());
+        try
+        {
+            connection.Open();
+            Execute(connection, null, "PRAGMA synchronous=FULL");
+            return connection;
+        }
+        catch { connection.Dispose(); throw; }
+    }
+
+    private sealed record Migration(DeviceInventoryData Data, string[] Paths, string?[] Fingerprints);
+
+    private async Task<Migration?> LoadMigrationAsync(CancellationToken cancellationToken)
+    {
+        var paths = new[] { _jsonPath }.Concat(new[] { "device-names.json", "device-classifications.json", "people-rooms.json" }
+            .Select(name => Path.Combine(Path.GetDirectoryName(_jsonPath)!, name))).ToArray();
+        var before = await FingerprintsAsync(paths, cancellationToken);
+        var data = await LoadJsonAsync(cancellationToken);
+        if (data is null && before.Skip(1).Any(value => value is not null))
+        {
+            data = DeviceInventoryData.Empty with
+            {
+                Revision = Guid.NewGuid(),
+                Names = await new DeviceNameOverrideStore(paths[1]).LoadAsync(cancellationToken),
+                Classifications = await new DeviceClassificationOverrideStore(paths[2]).LoadAsync(cancellationToken),
+                PeopleRooms = await new PeopleRoomsStore(paths[3]).LoadAsync(cancellationToken)
+            };
+            Validate(data);
+        }
+        if (!before.SequenceEqual(await FingerprintsAsync(paths, cancellationToken)))
+            throw new InvalidOperationException("Legacy saved data changed during migration. Restart before migrating it.");
+        return data is null ? null : new(data, paths, before);
+    }
+
+    private static async Task<string?[]> FingerprintsAsync(string[] paths, CancellationToken cancellationToken)
+    {
+        var result = new string?[paths.Length];
+        for (var i = 0; i < paths.Length; i++)
+        {
+            try
+            {
+                await using var stream = File.OpenRead(paths[i]);
+                result[i] = Convert.ToHexString(await SHA256.HashDataAsync(stream, cancellationToken));
+            }
+            catch (FileNotFoundException) { }
+            catch (DirectoryNotFoundException) { }
+        }
+        return result;
+    }
+
+    private async Task PublishAsync(DeviceInventoryData data, CancellationToken cancellationToken, Migration? migration = null)
+    {
+        var temporary = _databasePath + $".{Guid.NewGuid():N}.tmp";
+        try
+        {
+            using (var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+                   { DataSource = temporary, Pooling = false }.ToString()))
+            {
+                await connection.OpenAsync(cancellationToken);
+                Execute(connection, null, "PRAGMA synchronous=FULL");
+                using var transaction = connection.BeginTransaction();
+                Execute(connection, transaction, """
+                    CREATE TABLE inventory (id INTEGER PRIMARY KEY CHECK(id=1), version INTEGER NOT NULL, revision TEXT NOT NULL);
+                    INSERT INTO inventory VALUES(1, 1, '');
+                    CREATE TABLE scan_history (
+                        kind TEXT NOT NULL CHECK(kind IN ('mac','virtual')), id TEXT NOT NULL,
+                        sequence INTEGER NOT NULL, completed_at TEXT NOT NULL, network_id TEXT,
+                        subnet TEXT NOT NULL, present INTEGER NOT NULL CHECK(present IN (0,1)),
+                        PRIMARY KEY(kind,id,sequence));
+                    """);
+                foreach (var table in EntityTables)
+                    Execute(connection, transaction, $"CREATE TABLE {table} (id TEXT PRIMARY KEY, data TEXT NOT NULL)");
+                WriteChanges(connection, transaction, data, DeviceInventoryData.Empty, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+                transaction.Commit();
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            if (migration is not null && !migration.Fingerprints.SequenceEqual(
+                    await FingerprintsAsync(migration.Paths, cancellationToken)))
+                throw new InvalidOperationException("Legacy saved data changed during migration. Restart before migrating it.");
+            File.Move(temporary, _databasePath, overwrite: false);
         }
         finally
         {
             if (File.Exists(temporary)) File.Delete(temporary);
+            if (File.Exists(temporary + "-journal")) File.Delete(temporary + "-journal");
         }
     }
 
-    private static void Validate(DeviceInventoryData data)
+    private static readonly string[] EntityTables =
+        ["devices", "virtual_devices", "names", "classifications", "people", "rooms", "assignments", "baselines"];
+
+    private static void WriteChanges(SqliteConnection connection, SqliteTransaction transaction,
+        DeviceInventoryData data, DeviceInventoryData previous, CancellationToken cancellationToken)
     {
-        if (data.Devices is null || data.Names is null || data.Classifications is null || data.PeopleRooms is null)
-            throw new InvalidDataException("The device inventory is incomplete.");
-        _ = new PeopleRoomsData(data.PeopleRooms.People, data.PeopleRooms.Rooms, data.PeopleRooms.Assignments);
-        if (data.DiscoveryBaselines is null || data.DiscoveryBaselines.Any(item =>
-                item is null || string.IsNullOrWhiteSpace(item.NetworkId) || !ValidSubnet(item.Subnet))
-            || data.DiscoveryBaselines.Distinct().Count() != data.DiscoveryBaselines.Count)
-            throw new InvalidDataException("The inventory contains invalid discovery baselines.");
+        Sync(connection, transaction, "devices",
+            data.Devices.ToDictionary(pair => pair.Key, pair => pair.Value with { ScanHistory = [] }),
+            previous.Devices.ToDictionary(pair => pair.Key, pair => pair.Value with { ScanHistory = [] }), cancellationToken);
+        Sync(connection, transaction, "virtual_devices",
+            data.VirtualDevices.ToDictionary(slot => slot.Id.ToString("D"), slot => slot with { ScanHistory = [] }),
+            previous.VirtualDevices.ToDictionary(slot => slot.Id.ToString("D"), slot => slot with { ScanHistory = [] }), cancellationToken);
+        Sync(connection, transaction, "names", data.Names, previous.Names, cancellationToken);
+        Sync(connection, transaction, "classifications", data.Classifications, previous.Classifications, cancellationToken);
+        Sync(connection, transaction, "people", data.PeopleRooms.People.ToDictionary(item => item.Id.ToString("D")),
+            previous.PeopleRooms.People.ToDictionary(item => item.Id.ToString("D")), cancellationToken);
+        Sync(connection, transaction, "rooms", data.PeopleRooms.Rooms.ToDictionary(item => item.Id.ToString("D")),
+            previous.PeopleRooms.Rooms.ToDictionary(item => item.Id.ToString("D")), cancellationToken);
+        Sync(connection, transaction, "assignments", data.PeopleRooms.Assignments, previous.PeopleRooms.Assignments, cancellationToken);
+        Sync(connection, transaction, "baselines", data.DiscoveryBaselines.ToDictionary(BaselineKey),
+            previous.DiscoveryBaselines.ToDictionary(BaselineKey), cancellationToken);
         foreach (var (key, device) in data.Devices)
-        {
-            if (device is null || key != PeopleRoomsData.NormalizeMacAddress(key) || device.Mac != key
-                || device.Imported is null || device.Observations is null)
-                throw new InvalidDataException("The device inventory contains an invalid MAC or device.");
-            if (device.Imported.Address is { } importedAddress && !IsIpv4(importedAddress))
-                throw new InvalidDataException("An imported address is invalid.");
-            if (new[] { device.Imported.Name, device.Imported.Hostname, device.Imported.Type, device.Imported.Brand,
-                    device.Imported.Family, device.Imported.Model, device.Imported.OperatingSystem, device.Imported.OperatingSystemVersion }
-                .Any(value => value is not null && string.IsNullOrWhiteSpace(value)))
-                throw new InvalidDataException("Imported metadata must use null, not blank values, for missing fields.");
-            var identities = new HashSet<(string?, string, string)>();
-            foreach (var observation in device.Observations)
-            {
-                ValidateObservation(observation);
-                if (!identities.Add((observation.NetworkId, observation.Subnet, observation.Address)))
-                    throw new InvalidDataException("The device inventory contains invalid local observations.");
-            }
-            ValidateScanHistory(device.ScanHistory);
-        }
-        foreach (var (key, name) in data.Names)
-            if (key != PeopleRoomsData.NormalizeMacAddress(key) || string.IsNullOrWhiteSpace(name))
-                throw new InvalidDataException("A saved name is invalid.");
-        foreach (var (key, classification) in data.Classifications)
-            if (key != PeopleRoomsData.NormalizeMacAddress(key) || classification is null
-                || !classification.HasValidValues())
-                throw new InvalidDataException("A saved classification is invalid.");
-        if (data.VirtualDevices is null)
-            throw new InvalidDataException("Virtual devices are missing.");
-        var ids = new HashSet<Guid>();
-        var numbers = new HashSet<(string, string, string, int)>();
-        var activeMacs = new HashSet<(string, string, string)>();
+            AppendHistory(connection, transaction, "mac", key, device.ScanHistory,
+                previous.Devices.GetValueOrDefault(key)?.ScanHistory, cancellationToken);
         foreach (var slot in data.VirtualDevices)
+            AppendHistory(connection, transaction, "virtual", slot.Id.ToString("D"), slot.ScanHistory,
+                previous.VirtualDevices.FirstOrDefault(item => item.Id == slot.Id)?.ScanHistory, cancellationToken);
+        if (previous.Devices.Keys.Except(data.Devices.Keys).Any()
+            || previous.VirtualDevices.Any(slot => data.VirtualDevices.All(item => item.Id != slot.Id)))
+            throw new InvalidOperationException("Removing saved device identities is not supported.");
+        Execute(connection, transaction, "UPDATE inventory SET revision=$revision WHERE id=1",
+            ("$revision", data.Revision.ToString("D")));
+    }
+
+    private static string BaselineKey(DeviceDiscoveryBaseline item) => JsonSerializer.Serialize(item, Options);
+
+    private static DeviceInventoryData Committed(DeviceInventoryData data) => data with
+    {
+        Devices = data.Devices.ToDictionary(pair => pair.Key, pair => pair.Value with
         {
-            if (slot is null || slot.Id == Guid.Empty || !ids.Add(slot.Id)
-                || string.IsNullOrWhiteSpace(slot.NetworkId) || !ValidSubnet(slot.Subnet)
-                || slot.Prefix is null || slot.Prefix.Length != 6 || !slot.Prefix.All(Uri.IsHexDigit)
-                || slot.Prefix != slot.Prefix.ToUpperInvariant() || slot.Number < 1
-                || (Convert.ToByte(slot.Prefix[..2], 16) & 3) != 0
-                || !numbers.Add((slot.NetworkId, slot.Subnet, slot.Prefix, slot.Number))
-                || slot.LastChecked == default || slot.History is null || slot.History.Count == 0
-                || slot.Name is not null && string.IsNullOrWhiteSpace(slot.Name)
-                || slot.Classification is { } classification && !classification.HasValidValues()
-                || slot.Assignment?.PersonId is { } person && data.PeopleRooms.People.All(item => item.Id != person)
-                || slot.Assignment?.RoomId is { } room && data.PeopleRooms.Rooms.All(item => item.Id != room))
-                throw new InvalidDataException("The inventory contains invalid virtual devices.");
-            var connections = new HashSet<(string, string)>();
-            foreach (var connection in slot.History)
-            {
-                if (connection is null || connection.Observation is not { } observation
-                    || !data.Devices.ContainsKey(connection.Mac) || !connection.Mac.StartsWith(slot.Prefix, StringComparison.Ordinal)
-                    || observation.NetworkId != slot.NetworkId || observation.Subnet != slot.Subnet
-                    || !connections.Add((connection.Mac, observation.Address)) || observation.LastChecked > slot.LastChecked)
-                    throw new InvalidDataException("A virtual-device connection is invalid.");
-                ValidateObservation(observation);
-            }
-            if (!slot.History.Any(item => item.Mac == slot.LastActiveMac))
-                throw new InvalidDataException("A virtual device has no last-active connection.");
-            var current = slot.History.Where(item => item.Observation.Present
-                && item.Observation.LastChecked == slot.LastChecked).ToArray();
-            if (slot.Present && (current.Length == 0 || current.Any(item => item.Mac != slot.LastActiveMac))
-                || !slot.Present && current.Length != 0)
-                throw new InvalidDataException("A virtual device must have at most one responding MAC.");
-            if (slot.Present && !activeMacs.Add((slot.NetworkId, slot.Subnet, slot.LastActiveMac)))
-                throw new InvalidDataException("A responding MAC cannot occupy multiple virtual devices.");
-            ValidateScanHistory(slot.ScanHistory);
-            if (slot.ScanHistory.Any(item => item.NetworkId != slot.NetworkId || item.Subnet != slot.Subnet))
-                throw new InvalidDataException("Virtual scan history must belong to its device's network and subnet.");
+            ScanHistory = pair.Value.ScanHistory is AppendedScanHistory history ? history.Committed : pair.Value.ScanHistory
+        }),
+        VirtualDevices = data.VirtualDevices.Select(slot => slot with
+        {
+            ScanHistory = slot.ScanHistory is AppendedScanHistory history ? history.Committed : slot.ScanHistory
+        }).ToArray()
+    };
+
+    private static void Sync<T>(SqliteConnection connection, SqliteTransaction transaction, string table,
+        IReadOnlyDictionary<string, T> data, IReadOnlyDictionary<string, T> previous, CancellationToken cancellationToken)
+    {
+        foreach (var key in previous.Keys.Except(data.Keys))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Execute(connection, transaction, $"DELETE FROM {table} WHERE id=$id", ("$id", key));
+        }
+        foreach (var (key, value) in data)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var json = JsonSerializer.Serialize(value, Options);
+            if (previous.TryGetValue(key, out var old) && json == JsonSerializer.Serialize(old, Options)) continue;
+            Execute(connection, transaction, $"INSERT INTO {table}(id,data) VALUES($id,$data) ON CONFLICT(id) DO UPDATE SET data=excluded.data",
+                ("$id", key), ("$data", json));
         }
     }
 
-    private static void ValidateScanHistory(IReadOnlyList<DeviceScanObservation> history)
+    private static IReadOnlyList<DeviceScanObservation> AppendedHistory(
+        IReadOnlyList<DeviceScanObservation> history, IReadOnlyList<DeviceScanObservation>? previous)
     {
-        if (history is null || history.Any(item => item is null || item.CompletedAt == default
-            || !ValidSubnet(item.Subnet)
-            || item.NetworkId is not null && string.IsNullOrWhiteSpace(item.NetworkId)
-            || !item.Present && item.NetworkId is null))
-            throw new InvalidDataException("The device inventory contains invalid scan history.");
+        if (history is null) throw new InvalidDataException("Scan history is missing.");
+        if (previous is null || previous.Count == 0) return history;
+        if (ReferenceEquals(history, previous)) return [];
+        var additions = new List<DeviceScanObservation>();
+        var cursor = history;
+        while (cursor is AppendedScanHistory appended && cursor.Count > previous.Count)
+        {
+            additions.Add(appended.Added);
+            cursor = appended.Previous;
+        }
+        if (ReferenceEquals(cursor, previous))
+        {
+            additions.Reverse();
+            return additions;
+        }
+        if (history.Count < previous.Count || !history.Take(previous.Count).SequenceEqual(previous))
+            throw new InvalidDataException("Saved scan observations cannot be removed or changed.");
+        return history.Skip(previous.Count).ToArray();
     }
 
-    private static void ValidateObservation(DeviceObservation observation)
+    private static void AppendHistory(SqliteConnection connection, SqliteTransaction transaction, string kind,
+        string id, IReadOnlyList<DeviceScanObservation> history, IReadOnlyList<DeviceScanObservation>? previous,
+        CancellationToken cancellationToken)
     {
-        if (observation is null || !IsIpv4(observation.Address) || observation.FirstSeen == default
-            || observation.LastSeen < observation.FirstSeen || observation.LastChecked < observation.LastSeen
-            || observation.Classification is null || observation.Ports is null
-            || !Enum.IsDefined(observation.Classification.Type) || !Enum.IsDefined(observation.Classification.OperatingSystem)
-            || string.IsNullOrWhiteSpace(observation.Classification.TypeEvidence)
-            || string.IsNullOrWhiteSpace(observation.Classification.OperatingSystemEvidence)
-            || observation.NetworkId is not null && string.IsNullOrWhiteSpace(observation.NetworkId)
-            || observation.Ports.Any(port => port is null || port.Port is < 1 or > 65535 || !Enum.IsDefined(port.Protocol))
-            || (observation.UdpObservations?.Any(item => item is null || item.Port is not (53 or 123)
-                || !Enum.IsDefined(item.State) || string.IsNullOrWhiteSpace(item.ServiceName)
-                || string.IsNullOrWhiteSpace(item.Detail)) ?? false)
-            || !ValidSubnet(observation.Subnet))
-            throw new InvalidDataException("The device inventory contains invalid local observations.");
+        var sequence = previous?.Count ?? 0;
+        foreach (var item in AppendedHistory(history, previous))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Execute(connection, transaction, """
+                INSERT INTO scan_history VALUES($kind,$id,$sequence,$time,$network,$subnet,$present)
+                """, ("$kind", kind), ("$id", id), ("$sequence", sequence++),
+                ("$time", item.CompletedAt.ToString("O")), ("$network", item.NetworkId),
+                ("$subnet", item.Subnet), ("$present", item.Present ? 1 : 0));
+        }
     }
 
-    private static bool IsIpv4(string value) => IPAddress.TryParse(value, out var address)
-        && address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork;
-
-    private static bool ValidSubnet(string? value)
+    private static Dictionary<string, T> ReadEntities<T>(SqliteConnection connection, SqliteTransaction transaction,
+        string table, CancellationToken cancellationToken)
     {
-        if (value is null) return false;
-        var parts = value.Split('/');
-        return parts.Length == 2 && IsIpv4(parts[0]) && int.TryParse(parts[1], out var prefix) && prefix is >= 0 and <= 32;
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = $"SELECT id,data FROM {table} ORDER BY rowid";
+        using var reader = command.ExecuteReader();
+        var data = new Dictionary<string, T>();
+        while (reader.Read())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            data.Add(reader.GetString(0), JsonSerializer.Deserialize<T>(reader.GetString(1), Options)
+                ?? throw new InvalidDataException($"The inventory contains invalid {table}."));
+        }
+        return data;
     }
 
-    private sealed record Document(int Version, SavedData? Data);
-    private sealed record SavedData(Guid Revision, IReadOnlyDictionary<string, InventoryDevice>? Devices,
-        IReadOnlyDictionary<string, string>? Names, IReadOnlyDictionary<string, DeviceClassificationOverride>? Classifications,
-        SavedPeopleRooms? PeopleRooms, IReadOnlyList<PrivateVirtualDevice>? VirtualDevices = null,
-        IReadOnlyList<DeviceDiscoveryBaseline>? DiscoveryBaselines = null);
-    private sealed record SavedPeopleRooms(IReadOnlyList<ManagedPerson>? People, IReadOnlyList<ManagedRoom>? Rooms,
-        IReadOnlyDictionary<string, DeviceAssignment>? Assignments);
+    private static Dictionary<(string Kind, string Id), List<DeviceScanObservation>> ReadHistories(
+        SqliteConnection connection, SqliteTransaction transaction, CancellationToken cancellationToken)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT kind,id,sequence,completed_at,network_id,subnet,present FROM scan_history ORDER BY kind,id,sequence";
+        using var reader = command.ExecuteReader();
+        var histories = new Dictionary<(string, string), List<DeviceScanObservation>>();
+        while (reader.Read())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var key = (reader.GetString(0), reader.GetString(1));
+            if (!histories.TryGetValue(key, out var history)) histories.Add(key, history = []);
+            if (reader.GetInt32(2) != history.Count || reader.GetInt32(6) is not (0 or 1))
+                throw new InvalidDataException("The inventory contains invalid scan sequences or states.");
+            history.Add(new(DateTimeOffset.Parse(reader.GetString(3), System.Globalization.CultureInfo.InvariantCulture),
+                reader.IsDBNull(4) ? null : reader.GetString(4), reader.GetString(5), reader.GetInt32(6) == 1));
+        }
+        return histories;
+    }
+
+    private static Guid ReadRevision(SqliteConnection connection, SqliteTransaction transaction)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT id,version,revision FROM inventory";
+        using var reader = command.ExecuteReader();
+        if (!reader.Read() || reader.GetInt32(0) != 1 || reader.GetInt32(1) != 1
+            || !Guid.TryParse(reader.GetString(2), out var revision) || revision == Guid.Empty || reader.Read())
+            throw new InvalidDataException("The SQLite inventory has an unsupported or incomplete format.");
+        return revision;
+    }
+
+    private static void CheckRevision(Guid actual, Guid expected)
+    {
+        if (actual != expected)
+            throw new InvalidOperationException("Saved device data changed in another app instance. Restart and analyze again before saving.");
+    }
+
+    private static void Execute(SqliteConnection connection, SqliteTransaction? transaction, string sql,
+        params (string Name, object? Value)[] parameters)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = sql;
+        foreach (var (name, value) in parameters) command.Parameters.AddWithValue(name, value ?? DBNull.Value);
+        command.ExecuteNonQuery();
+    }
+
+    private static IOException StorageError(SqliteException exception) =>
+        new($"The SQLite inventory could not be read or written: {exception.Message}", exception);
 }

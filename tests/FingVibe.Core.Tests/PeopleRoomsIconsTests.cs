@@ -116,8 +116,11 @@ public sealed class PeopleRoomsIconsTests
             Assert.Equal(roomIcon, Assert.Single(loaded.DeletePerson(personId).Rooms).IconId);
             Assert.Equal(personIcon, Assert.Single(loaded.DeleteRoom(roomId).People).IconId);
             Assert.Equal(roomIcon, Assert.Single(loaded.AssignPerson("AABBCCDDEEFF", null).Rooms).IconId);
-            using var document = JsonDocument.Parse(await File.ReadAllTextAsync(path));
-            var root = inventory ? document.RootElement.GetProperty("data").GetProperty("peopleRooms") : document.RootElement;
+            if (inventory) Assert.Equal(json, await File.ReadAllTextAsync(path));
+            using var document = JsonDocument.Parse(inventory
+                ? JsonSerializer.Serialize(loaded, new JsonSerializerOptions(JsonSerializerDefaults.Web))
+                : await File.ReadAllTextAsync(path));
+            var root = document.RootElement;
             Assert.Equal(personIcon, root.GetProperty("people")[0].GetProperty("iconId").GetString());
             Assert.Equal(roomIcon, root.GetProperty("rooms")[0].GetProperty("iconId").GetString());
         }

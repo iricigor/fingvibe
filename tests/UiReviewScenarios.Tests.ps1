@@ -147,7 +147,8 @@ try {
         "src\FingVibe.Core\Models\DeviceDiscovery.cs", "src\FingVibe.App\MainWindow.DiscoveryNotifications.cs",
         "src\FingVibe.App\MainWindow.Scan.cs", "tests\DeviceDiscovery.Ui.Tests.ps1",
         "src\FingVibe.Core\Storage\DeviceInventoryStore.cs", "src\FingVibe.App\MainWindow.Snapshots.cs",
-        "tests\DeviceScanHistory.Ui.Tests.ps1")) {
+        "tests\DeviceScanHistory.Ui.Tests.ps1", "tests\Inventory.Sqlite.Helpers.ps1",
+        "src\FingVibe.Core\Storage\DeviceInventoryStore.Json.cs", "src\FingVibe.Core\Models\AppendedScanHistory.cs")) {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device scan history"
     }
     foreach ($iconPath in @("src\FingVibe.App\PeopleRoomsIcons.cs", "src\FingVibe.App\Views\PeopleRoomsIconPicker.cs")) {

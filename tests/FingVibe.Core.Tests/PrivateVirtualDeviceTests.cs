@@ -376,7 +376,8 @@ public sealed class PrivateVirtualDeviceTests
             var restored = (await store.LoadAsync())!;
             Assert.Equal(InventoryDeviceStatus.Unknown, restored.Devices[First].Status);
             Assert.Equal(InventoryDeviceStatus.Unknown, Assert.Single(restored.VirtualDevices).Status);
-            Assert.DoesNotContain("currentCompletedAt", await File.ReadAllTextAsync(path));
+            Assert.Null(restored.Devices[First].CurrentCompletedAt);
+            Assert.Null(restored.VirtualDevices[0].CurrentCompletedAt);
             var historical = new ScanResultRow(Assert.Single(restored.VirtualDevices), restored, 24);
             Assert.Equal("Unknown", historical.StatusLabel);
             Assert.False(historical.CanProbe);
@@ -397,6 +398,7 @@ public sealed class PrivateVirtualDeviceTests
         finally
         {
             if (File.Exists(path)) File.Delete(path);
+            File.Delete(Path.ChangeExtension(path, ".sqlite"));
             if (File.Exists(path + ".lock")) File.Delete(path + ".lock");
             if (Directory.Exists(directory)) Directory.Delete(directory);
         }
@@ -410,13 +412,14 @@ public sealed class PrivateVirtualDeviceTests
         try
         {
             var store = new DeviceInventoryStore(path);
-            await store.SaveAsync(Scan(DeviceInventoryData.Empty, 0, Result(First)), Guid.Empty);
+            await InventoryJsonFixture.WriteAsync(path, Scan(DeviceInventoryData.Empty, 0, Result(First)));
             var json = JsonNode.Parse(await File.ReadAllTextAsync(path))!;
             var original = json.ToJsonString();
             json["data"]!.AsObject().Remove("virtualDevices");
             json["version"] = 1;
             await File.WriteAllTextAsync(path, json.ToJsonString());
             Assert.Empty((await store.LoadAsync())!.VirtualDevices);
+            File.Delete(Path.ChangeExtension(path, ".sqlite"));
             json = JsonNode.Parse(original)!;
             json["data"]!["virtualDevices"]![0]!["history"]![0]!["mac"] = Second;
             await File.WriteAllTextAsync(path, json.ToJsonString());

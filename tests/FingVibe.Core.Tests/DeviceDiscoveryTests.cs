@@ -103,7 +103,7 @@ public sealed class DeviceDiscoveryTests : IDisposable
     public async Task LegacyInventoryBaselineSurvivesActivationAndUpgrade(int version)
     {
         var store = new DeviceInventoryStore(PathName);
-        await store.SaveAsync(Baseline().ObserveCompletedScan(Network, Scan(1, Result(Private))), Guid.Empty);
+        await InventoryJsonFixture.WriteAsync(PathName, Baseline().ObserveCompletedScan(Network, Scan(1, Result(Private))));
         var json = JsonNode.Parse(await File.ReadAllTextAsync(PathName))!;
         json["version"] = version;
         json["data"]!.AsObject().Remove("discoveryBaselines");
@@ -183,7 +183,7 @@ public sealed class DeviceDiscoveryTests : IDisposable
     public async Task InvalidBaselineFailsClosed(string corruption)
     {
         var store = new DeviceInventoryStore(PathName);
-        var saved = await store.SaveAsync(Baseline(), Guid.Empty);
+        var saved = await InventoryJsonFixture.WriteAsync(PathName, Baseline());
         var json = JsonNode.Parse(await File.ReadAllTextAsync(PathName))!;
         var baselines = json["data"]!["discoveryBaselines"]!.AsArray();
         switch (corruption)
