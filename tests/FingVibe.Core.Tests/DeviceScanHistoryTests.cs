@@ -178,7 +178,7 @@ public sealed class DeviceScanHistoryTests : IDisposable
         Assert.Single(observed.Devices[Normal].ScanHistory);
         Assert.Single(Assert.Single(observed.VirtualDevices).ScanHistory);
         await store.SaveAsync(observed, loaded.Revision);
-        Assert.Equal(3, JsonNode.Parse(await File.ReadAllTextAsync(PathName))!["version"]!.GetValue<int>());
+        Assert.Equal(4, JsonNode.Parse(await File.ReadAllTextAsync(PathName))!["version"]!.GetValue<int>());
     }
 
     [Fact]

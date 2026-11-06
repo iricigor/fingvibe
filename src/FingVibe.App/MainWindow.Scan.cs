@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using FingVibe.Core.Models;
 using FingVibe.Core.Networking;
+using FingVibe.Core.Storage;
 using Microsoft.UI.Xaml;
 
 namespace FingVibe.App;
@@ -14,6 +15,7 @@ public sealed partial class MainWindow
     private bool _isScanning;
     private bool _restoreScanActionFocus;
     private string? _scanMessage;
+    private string? _discoveryMessage;
 
     private void UpdateScanStatus()
     {
@@ -34,7 +36,7 @@ public sealed partial class MainWindow
             ? Visibility.Visible : Visibility.Collapsed;
         ScanButton.Visibility = _isScanning ? Visibility.Collapsed : Visibility.Visible;
         ScanButton.IsEnabled = !_isScanning && network is not null;
-        var status = string.Join(" · ", new[] { _scanMessage, _snapshotError, _inventoryError, targetWarning }
+        var status = string.Join(" · ", new[] { _scanMessage, _snapshotError, _inventoryError, _discoveryMessage, targetWarning }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
         ScanStatusText.Text = status;
         ScanStatusText.Visibility = string.IsNullOrWhiteSpace(status) ? Visibility.Collapsed : Visibility.Visible;
@@ -80,6 +82,8 @@ public sealed partial class MainWindow
         UpdateScanStatus();
         if (focusScanAction) CancelButton.Focus(FocusState.Programmatic);
         var stopwatch = Stopwatch.StartNew();
+        IReadOnlyList<DeviceDiscovery> discoveries = [];
+        _discoveryMessage = null;
 
         var resultProgress = new ScanResultBuffer();
         var cancellation = _scanCancellation;
@@ -115,11 +119,12 @@ public sealed partial class MainWindow
                 PresentScanProgress(new ScanProgress(0, total), retainedResults);
             }
             var networkId = GetScanNetworkIdentity(network);
-            await _scanner.ScanAsync(
-                network,
-                resultProgress,
-                scanProgress,
-                _scanCancellation.Token);
+            ScanSnapshot? completedFixture = null;
+            if (IsUiReview && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_SCAN_RESULTS") is { Length: > 0 } completedFixturePath)
+                completedFixture = await new ScanSnapshotStore(completedFixturePath).LoadAsync(cancellation.Token)
+                    ?? throw new InvalidOperationException("The UI-review completed-scan fixture is missing.");
+            else
+                await _scanner.ScanAsync(network, resultProgress, scanProgress, cancellation.Token);
             cancellation.Token.ThrowIfCancellationRequested();
             var completedNetworkId = GetScanNetworkIdentity(network);
             if (completedNetworkId != networkId)
@@ -130,16 +135,18 @@ public sealed partial class MainWindow
 
             stopwatch.Stop();
 
-            var results = resultProgress.Results.Select(result => IsUiReview && System.Net.IPAddress.IsLoopback(result.Address)
+            var results = completedFixture?.Results ?? resultProgress.Results.Select(result => IsUiReview && System.Net.IPAddress.IsLoopback(result.Address)
                 ? result with { MacAddress = System.Net.NetworkInformation.PhysicalAddress.Parse("020000000001") } : result).ToArray();
-            await SaveCompletedScanAsync(network, results, networkId, stopwatch.Elapsed);
+            discoveries = await SaveCompletedScanAsync(network, results, networkId, stopwatch.Elapsed);
             _scanMessage = null;
+            if (networkId is null)
+                _discoveryMessage = "New-device alerts and baseline establishment are disabled for this scan because network identity is unavailable.";
         }
         catch (OperationCanceledException)
         {
             _scanMessage = $"Scan of {network.Cidr} cancelled{retainedResults}";
         }
-        catch (InvalidOperationException exception)
+        catch (Exception exception) when (exception is InvalidOperationException or IOException or UnauthorizedAccessException or InvalidDataException)
         {
             _scanMessage = $"Unable to scan {network.Cidr}: {exception.Message}{retainedResults}";
         }
@@ -163,6 +170,7 @@ public sealed partial class MainWindow
                 && ScanActions.Visibility == Visibility.Visible)
                 ScanButton.Focus(FocusState.Programmatic);
         }
+        if (discoveries.Count > 0) ShowDiscoveryPopup(discoveries);
     }
 
     private void PresentScanProgress(ScanProgress progress, string retainedResults)

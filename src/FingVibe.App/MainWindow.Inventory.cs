@@ -15,6 +15,7 @@ public sealed partial class MainWindow
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FingVibe", "device-inventory.json"));
     private readonly SemaphoreSlim _deviceDataSaveLock = new(1, 1);
     private DeviceInventoryData _inventory = DeviceInventoryData.Empty;
+    private DeviceInventoryData _persistedInventory = DeviceInventoryData.Empty;
     private bool _inventoryReady;
     private bool _inventoryUnavailable;
     private string? _inventoryError;
@@ -78,6 +79,7 @@ public sealed partial class MainWindow
     private void ApplyInventoryData(DeviceInventoryData data)
     {
         _inventory = data;
+        _persistedInventory = data;
         _deviceNameOverrides = data.Names.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
         _classificationOverrides = data.Classifications.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
         _peopleRooms = data.PeopleRooms;
@@ -163,7 +165,11 @@ public sealed partial class MainWindow
 
     private string? GetScanNetworkIdentity(LanNetwork network)
     {
-        if (IsUiReview) return "ui-review-network";
+        if (IsUiReview)
+        {
+            var identity = Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_NETWORK");
+            return identity == "unavailable" ? null : identity ?? "ui-review-network";
+        }
         try { return WindowsNetworkProfileIdentity.GetNetworkId(network).ToString("D"); }
         catch (Exception exception) when (exception is InvalidOperationException or COMException)
         {
