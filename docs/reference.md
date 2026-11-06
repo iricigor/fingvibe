@@ -339,7 +339,8 @@ save errors visibly report that inventory and scan history were not saved.
 scoped summaries through repeated presence, absence, and return,
 empty imported history, restart, successful repeated scans, cancellation,
 failure, and visible persistence errors on the disposable Windows CI desktop.
-Device-details review captures include this check; never run it on a working
+The parallel history regression job includes this check when the capture plan
+requires device details; never run it on a working
 user's desktop. Its explicit `FINGVIBE_UI_REVIEW_INVENTORY` path isolates saved
 fixtures from real user data, like the existing review snapshot override.
 
@@ -643,7 +644,11 @@ Pull requests expose two review checks:
 - `security-review` scans the repository for exposed secrets and fails on critical dependency vulnerabilities.
 - `ui-ux-review` launches the tested WinUI app, exercises the primary **Scan LAN** action, verifies critical accessible controls, and embeds fresh screenshots of Devices and the affected views/states on the pull request.
 
-The **🔨 Pull request build** workflow runs core/script tests and one Windows publish concurrently after change planning. Once both pass, installer packaging/lifecycle validation and native UI validation run on separate Windows runners in parallel. Both download the same published payload; neither rebuilds the app. Desktop UI suites remain sequential on their runner to avoid competing for focus and input. UI-review mode is enabled only at runtime, so the downloaded app remains the normal executable.
+The **🔨 Pull request build** workflow runs core/script tests and one Windows publish concurrently after change planning. Once both pass, installer validation, `ui-capture`, and the four `ui-regression` matrix suites run on separate Windows runners in parallel. Every job downloads the same published payload; none rebuilds the app. The matrix separates sidebar/appearance, Devices, history/discovery, and Tools/build identity. Suites remain sequential within each runner to avoid competing for focus and input. The sidebar retains Windows PowerShell; other suites retain PowerShell Core. UI-review mode is enabled only at runtime, so the downloaded app remains the normal executable.
+
+`ui-capture` now runs only screenshot-helper validation, baseline scan/filter and cross-page smoke checks, and required captures. History/discovery retain their existing condition: they run when the capture plan includes DeviceDetails. No existing checks are removed or moved to a scheduled-only policy. Regression jobs have a 20-minute job limit and a 15-minute suite-step limit; capture has a 10-minute job limit and a 7-minute smoke-step limit. These outer bounds also stop otherwise unbounded native/process waits without changing the test fixtures. Each regression check and the smoke/capture step report elapsed seconds in logs and the job summary.
+
+Each matrix suite uploads its own `fingvibe-ui-regression-<suite>-pr-*-attempt-*` artifact, including the capture plan, transcript, and available screenshots/diagnostics, even on failure. These replace the suite subdirectories previously bundled into the capture artifact. The existing `fingvibe-ui-review-pr-*` artifact contains the smoke/capture evidence. Matrix fail-fast is disabled so one failed suite does not cancel the others' diagnostics. Screenshot publication and the existing required `ui-ux-review` aggregate gate require successful capture, all regression matrix jobs, and existing installer/tests/build checks. Missing, failed, cancelled, or unexpectedly skipped required matrix results cannot pass. Separate runners shorten the sequential critical path but add startup/transfer overhead and may increase billed minutes; actual durations depend on runner availability.
 
 Publishing uploads a short-lived `fingvibe-validation-payload-pr-*` transfer artifact (one-day retention), explicitly not a tested download. Publishing may finish even if concurrent tests fail. The installer job publishes the existing runnable-app and tested-installer downloads only after core tests and installer lifecycle checks pass; the build-link comment follows that job. Screenshot publication also waits for installer and UI validation to succeed. The required `ui-ux-review` gate aggregates tests, publishing, installer/download validation, native UI checks, and screenshot publication; failed, cancelled, or unexpectedly skipped required stages cannot pass. Separate jobs add runner startup and artifact-transfer overhead, so time savings depend on the run.
 

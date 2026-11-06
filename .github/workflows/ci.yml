@@ -243,6 +243,83 @@ jobs:
           .\.github\scripts\Publish-PrComment.ps1 -Mode Append `
             -PullRequestNumber $env:PR_NUMBER -Repository $env:GITHUB_REPOSITORY -Marker $marker -Body $body
 
+  ui-regression:
+    name: ui-regression (${{ matrix.suite }})
+    needs: [changes, tests, build]
+    if: >
+      needs.changes.outputs.ui == 'true'
+      && (
+        github.event_name == 'workflow_dispatch'
+        || (
+          github.event.pull_request.head.repo.full_name == github.repository
+          && (
+            contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
+            || github.event.pull_request.user.login == 'Copilot'
+          )
+        )
+      )
+    runs-on: windows-2025
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [sidebar, devices, history, tools]
+    env:
+      FINGVIBE_UI_REVIEW: "1"
+    steps:
+      - name: Check out source and history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download the published payload
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          merge-multiple: true
+          path: artifacts\ui-review-app
+
+      - name: Prepare disposable desktop
+        shell: powershell
+        run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
+
+      - name: Select changed views and states
+        env:
+          BASE_REVISION: ${{ github.event.pull_request.base.sha }}
+          HEAD_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+          ADDITIONAL_SCENARIOS: ${{ inputs.additional_scenarios }}
+        shell: pwsh
+        run: |
+          .\.github\scripts\Select-UiReviewScenarios.ps1 `
+            -PlanPath "${{ github.workspace }}\artifacts\ui-regression\capture-plan.json" `
+            -BaseRevision $env:BASE_REVISION -HeadRevision $env:HEAD_REVISION `
+            -AdditionalScenarios $env:ADDITIONAL_SCENARIOS
+
+      - name: Run native regression suite
+        timeout-minutes: 15
+        shell: ${{ matrix.suite == 'sidebar' && 'powershell' || 'pwsh' }}
+        run: |
+          .\.github\scripts\Invoke-UiRegression.ps1 `
+            -Suite "${{ matrix.suite }}" `
+            -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
+            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-regression" `
+            -CapturePlanPath "${{ github.workspace }}\artifacts\ui-regression\capture-plan.json" `
+            -Version "0.0.${{ github.run_number }}" `
+            -BuildKind "${{ github.event_name == 'pull_request' && 'PullRequest' || 'Test' }}" `
+            -BuildTimestamp "${{ needs.build.outputs.build-timestamp }}" `
+            -BuildCommit "${{ github.sha }}" `
+            -PullRequestNumber ${{ github.event.pull_request.number || 0 }}
+
+      - name: Upload native regression diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fingvibe-ui-regression-${{ matrix.suite }}-pr-${{ github.event.pull_request.number || github.run_number }}-attempt-${{ github.run_attempt }}
+          path: artifacts\ui-regression\
+          if-no-files-found: warn
+          retention-days: 14
+
   ui-capture:
     needs: [changes, tests, build]
     if: >
@@ -258,6 +335,7 @@ jobs:
         )
       )
     runs-on: windows-2025
+    timeout-minutes: 10
     env:
       FINGVIBE_UI_REVIEW: "1"
     steps:
@@ -296,57 +374,12 @@ jobs:
             -BaseRevision $env:BASE_REVISION -HeadRevision $env:HEAD_REVISION `
             -AdditionalScenarios $env:ADDITIONAL_SCENARIOS
 
-      - name: Test sidebar navigation and appearance
-        shell: powershell
-        run: |
-          .\tests\SidebarNavigation.Tests.ps1 `
-            -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
-            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-review\sidebar"
-
-      - name: Verify Devices filters and conditional columns
-        shell: pwsh
-        run: |
-          .\tests\DevicesList.Ui.Tests.ps1 `
-            -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
-            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-review\devices"
-
-      - name: Verify build identity and About navigation
-        shell: pwsh
-        run: |
-          .\tests\BuildIdentity.Ui.Tests.ps1 `
-            -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
-            -Version "0.0.${{ github.run_number }}" `
-            -BuildKind "${{ github.event_name == 'pull_request' && 'PullRequest' || 'Test' }}" `
-            -BuildTimestamp "${{ needs.build.outputs.build-timestamp }}" `
-            -BuildCommit "${{ github.sha }}" `
-            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-review\build-identity" `
-            -PullRequestNumber ${{ github.event.pull_request.number || 0 }}
-
-      - name: Verify network troubleshooting controls and privacy
-        shell: pwsh
-        run: |
-          .\tests\NetworkTroubleshooting.Ui.Tests.ps1 `
-            -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
-            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-review\troubleshooting"
-
-      - name: Verify Fing import preview, management return, and inventory status
-        shell: pwsh
-        run: |
-          .\tests\FingImport.Ui.Tests.ps1 `
-            -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
-            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-review\fing-import"
-
-      - name: Verify additional TCP and opt-in UDP service checks
-        shell: pwsh
-        run: |
-          .\tests\AdditionalServices.Ui.Tests.ps1 `
-            -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
-            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-review\additional-services"
-
       - name: Exercise primary UI and capture required views
         id: smoke
+        timeout-minutes: 7
         shell: pwsh
         run: |
+          $clock = [Diagnostics.Stopwatch]::StartNew()
           Start-Transcript -Path "artifacts\ui-review\smoke-test.log"
           try {
             .\.github\scripts\Invoke-UiReview.ps1 `
@@ -357,6 +390,10 @@ jobs:
             Write-Host $_
             throw
           } finally {
+            $clock.Stop()
+            $timing = "Smoke/capture elapsed: $($clock.Elapsed.TotalSeconds.ToString('F1', [Globalization.CultureInfo]::InvariantCulture)) seconds"
+            Write-Host $timing
+            if ($env:GITHUB_STEP_SUMMARY) { $timing >> $env:GITHUB_STEP_SUMMARY }
             Stop-Transcript
           }
 
@@ -371,7 +408,7 @@ jobs:
           retention-days: 14
 
   ui-publish:
-    needs: [changes, tests, build, installer, ui-capture]
+    needs: [changes, tests, build, installer, ui-capture, ui-regression]
     if: >
       !cancelled()
       && needs.changes.outputs.ui == 'true'
@@ -393,7 +430,7 @@ jobs:
           persist-credentials: false
 
       - name: Download completed captures
-        if: needs.ui-capture.result == 'success' && needs.installer.result == 'success'
+        if: needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
         uses: actions/download-artifact@v4
         with:
           name: fingvibe-ui-review-pr-${{ github.event.pull_request.number }}-attempt-${{ github.run_attempt }}
@@ -401,7 +438,7 @@ jobs:
 
       - name: Publish screenshots for inline review
         id: pages
-        if: needs.ui-capture.result == 'success' && needs.installer.result == 'success'
+        if: needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -413,7 +450,7 @@ jobs:
 
       - name: Add screenshots to pull request
         id: pr-comment
-        if: needs.ui-capture.result == 'success' && needs.installer.result == 'success'
+        if: needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           COMMENT_BODY_PATH: ${{ steps.pages.outputs.body-path }}
@@ -426,12 +463,13 @@ jobs:
           $body >> $env:GITHUB_STEP_SUMMARY
 
       - name: Explain UI/UX review failure
-        if: failure() || needs.tests.result == 'failure' || needs.build.result == 'failure' || needs.installer.result == 'failure' || needs.ui-capture.result == 'failure'
+        if: failure() || needs.tests.result == 'failure' || needs.build.result == 'failure' || needs.installer.result == 'failure' || needs.ui-capture.result == 'failure' || needs.ui-regression.result == 'failure'
         env:
           TEST_RESULT: ${{ needs.tests.result }}
           BUILD_RESULT: ${{ needs.build.result }}
           INSTALLER_RESULT: ${{ needs.installer.result }}
           CAPTURE_RESULT: ${{ needs.ui-capture.result }}
+          REGRESSION_RESULT: ${{ needs.ui-regression.result }}
           PAGES_OUTCOME: ${{ steps.pages.outcome }}
           COMMENT_OUTCOME: ${{ steps.pr-comment.outcome }}
           GH_TOKEN: ${{ github.token }}
@@ -444,6 +482,7 @@ jobs:
           if ($env:BUILD_RESULT -eq "failure") { $reasons.Add("- The Windows app could not be published or its validation payload could not be uploaded.") }
           if ($env:INSTALLER_RESULT -eq "failure") { $reasons.Add("- Installer packaging, lifecycle validation, or tested download publication failed. Inspect the installer job and its diagnostic logs.") }
           if ($env:CAPTURE_RESULT -eq "failure") { $reasons.Add("- Native UI validation or capture failed. Inspect the failed step and download available capture plans, screenshots, and diagnostic logs from this run.") }
+          if ($env:REGRESSION_RESULT -eq "failure") { $reasons.Add("- Native UI regression failed. Inspect the parallel suite jobs and their separate diagnostic artifacts.") }
           if ($env:PAGES_OUTCOME -eq "failure") { $reasons.Add("- Screenshot download/publication failed; see the run's diagnostic artifacts.") }
           if ($env:COMMENT_OUTCOME -eq "failure") { $reasons.Add("- Screenshots were published, but their PR comment could not be posted.") }
           if ($reasons.Count -eq 0) { $reasons.Add("- Review publication failed unexpectedly. Inspect the failed workflow step.") }
@@ -453,7 +492,7 @@ jobs:
             -Repository $env:GITHUB_REPOSITORY -Marker $marker -Body $body
 
       - name: Clear resolved UI/UX failure comment
-        if: success() && needs.ui-capture.result == 'success' && needs.installer.result == 'success'
+        if: success() && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -464,7 +503,7 @@ jobs:
 
   ui-ux-review:
     name: ui-ux-review
-    needs: [changes, tests, build, installer, ui-capture, ui-publish]
+    needs: [changes, tests, build, installer, ui-capture, ui-regression, ui-publish]
     if: always()
     runs-on: windows-latest
     steps:
@@ -478,6 +517,7 @@ jobs:
           BUILD_REQUIRED: ${{ needs.changes.outputs.build }}
           UI_REQUIRED: ${{ needs.changes.outputs.ui }}
           CAPTURE_RESULT: ${{ needs.ui-capture.result }}
+          REGRESSION_RESULT: ${{ needs.ui-regression.result }}
           PUBLISH_RESULT: ${{ needs.ui-publish.result }}
           TRUSTED: ${{ github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && (contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) || github.event.pull_request.user.login == 'Copilot')) }}
           EVENT_NAME: ${{ github.event_name }}
@@ -502,6 +542,9 @@ jobs:
           } else {
             if ($env:TEST_RESULT -ne "success" -or $env:BUILD_RESULT -ne "success" -or $env:CAPTURE_RESULT -ne "success") {
               throw "Required build, tests, or native UI validation did not complete successfully."
+            }
+            if ($env:REGRESSION_RESULT -ne "success") {
+              throw "Required parallel native UI regression did not complete successfully."
             }
             if ($env:EVENT_NAME -eq "pull_request" -and $env:PUBLISH_RESULT -ne "success") {
               throw "Required screenshot publication/commenting did not complete successfully."
