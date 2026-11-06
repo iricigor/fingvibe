@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">FingVibe - Troubleshooting</title><desc id="desc">Inspect routes, DNS and responses</desc>
+<defs><linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="16" y1="16" x2="240" y2="240"><stop stop-color="#173967"/><stop offset="1" stop-color="#101B34"/></linearGradient></defs>
+<rect x="16" y="16" width="224" height="224" rx="52" fill="url(#tile)" stroke="#38577B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M42.456 72.447 A102 102 0 0 1 157.822 30.457" fill="none" stroke="#50739B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="66,164 66,185 128,185 128,162 182,162" fill="none" stroke="#477298" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="66" cy="164" r="9" fill="#1B304D" stroke="#80D5FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="128" cy="185" r="8" fill="#1B304D" stroke="#4DF0D3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="182" cy="162" r="8" fill="#1B304D" stroke="#B4A0FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="109" cy="106" r="52" fill="#1B304D" stroke="#4DF0D3" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="147,145 201,199" fill="none" stroke="#4DF0D3" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="73,109 88,109 98,89 112,125 124,102 145,102" fill="none" stroke="#FFEB9A" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">B / Measured velocity</title><desc id="desc">A lightning bolt, measurement ticks and upload/download</desc>
+<polygon points="147,47 99,117 128,117 109,165 165,96 135,96 147,47" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="54,67 54,164" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="54,67 69,67" fill="none" stroke="#4DF0D3" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="54,91 63,91" fill="none" stroke="#4DF0D3" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="54,115 69,115" fill="none" stroke="#4DF0D3" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="54,139 63,139" fill="none" stroke="#4DF0D3" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="54,164 69,164" fill="none" stroke="#4DF0D3" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="179,76 203,76" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="181,102 218,102" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="173,128 201,128" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="101,213 101,181 91,191 101,181 111,191" fill="none" stroke="#4DF0D3" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="165,181 165,213 155,203 165,213 175,203" fill="none" stroke="#4DF0D3" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

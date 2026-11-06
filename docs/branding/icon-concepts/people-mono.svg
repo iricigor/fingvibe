@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">B / Person and their devices</title><desc id="desc">One clearly shaped person linked to a screen and phone</desc>
+<circle cx="98" cy="84" r="21.6" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="85.85,117.75 85.85,132.6 58.85,143.4 49.4,162.3 49.4,178.5 146.6,178.5 146.6,162.3 137.15,143.4 110.15,132.6 110.15,117.75" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="150,152 174,152 174,108" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="164" y="64" width="29" height="47" rx="7" fill="none" stroke="#4DF0D3" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="174,102 182,102" fill="none" stroke="#4DF0D3" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="98,184 98,202 145,202" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="145" y="183" width="56" height="35" rx="7" fill="none" stroke="#4DF0D3" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

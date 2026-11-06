@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">FingVibe - Scan history</title><desc id="desc">A clock and linked observation nodes represent completed scan history, not continuous monitoring.</desc>
+<path d="M65.646 79 A72 72 0 1 1 65.646 151" fill="none" stroke="#4DF0D3" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="64,57 64,92 99,92" fill="none" stroke="#4DF0D3" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="128,76 128,115 156,133" fill="none" stroke="#4DF0D3" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="128" cy="115" r="8" fill="#4DF0D3" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="57,205 86,205 107,177 126,222 148,192 165,205 199,205" fill="none" stroke="#4DF0D3" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="57" cy="205" r="10" fill="#4DF0D3" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="199" cy="205" r="10" fill="#4DF0D3" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">FingVibe - Scan history</title><desc id="desc">A clock and linked observation nodes represent completed scan history, not continuous monitoring.</desc>
+<defs><linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="16" y1="16" x2="240" y2="240"><stop stop-color="#173967"/><stop offset="1" stop-color="#101B34"/></linearGradient></defs>
+<rect x="16" y="16" width="224" height="224" rx="52" fill="url(#tile)" stroke="#38577B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M42.456 72.447 A102 102 0 0 1 157.822 30.457" fill="none" stroke="#50739B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="128" cy="123" r="67" fill="none" stroke="#355D83" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M68.303 92.583 A67 67 0 1 1 136.165 189.501" fill="none" stroke="#4DF0D3" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="69,62 69,93 96,93" fill="none" stroke="#4DF0D3" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="128,71 128,66" fill="none" stroke="#477298" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="154,77.9666790032092 156.5,73.636551984287" fill="none" stroke="#477298" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="173.033320996791,97 177.363448015713,94.5" fill="none" stroke="#477298" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="180,123 185,123" fill="none" stroke="#477298" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="173.033320996791,149 177.363448015713,151.5" fill="none" stroke="#477298" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="154,168.033320996791 156.5,172.363448015713" fill="none" stroke="#477298" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="128,175 128,180" fill="none" stroke="#477298" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="128,83 128,123 154,139" fill="none" stroke="#EDF9FF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="128" cy="123" r="7" fill="#4DF0D3" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="53,192 83,192 100,164 119,202 139,179 154,192 203,192" fill="none" stroke="#FFEB9A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="53" cy="192" r="13" fill="#183C55" stroke="#80D5FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="53" cy="192" r="4" fill="#80D5FF" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="154" cy="192" r="10" fill="#183C55" stroke="#4DF0D3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="154" cy="192" r="3" fill="#4DF0D3" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="203" cy="192" r="13" fill="#183C55" stroke="#FF5C5C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="203" cy="192" r="4" fill="#FF5C5C" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="82,215 174,215" fill="none" stroke="#355D83" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="102" cy="215" r="3" fill="#80D5FF" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="128" cy="215" r="3" fill="#4DF0D3" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="154" cy="215" r="3" fill="#FFEB9A" stroke="none" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
