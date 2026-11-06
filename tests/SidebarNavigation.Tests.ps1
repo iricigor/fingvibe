@@ -154,6 +154,16 @@ function Show-SettingsSection([string] $Id) {
         if ($heading -and -not $heading.Current.IsOffscreen -and
             $heading.Current.BoundingRectangle.Top -ge $targetTop -and
             $heading.Current.BoundingRectangle.Top -le $targetTop + 80 * $scale) { return }
+        if ($percent -eq 20 -and $heading -and -not $heading.Current.IsOffscreen) {
+            $pageBounds = $page.Current.BoundingRectangle
+            $resetCondition = [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "ResetColumnsButton")
+            $reset = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $resetCondition)
+            # A shorter Settings card can reach the scroll limit before the old alignment target.
+            if ($reset -and -not $reset.Current.IsOffscreen -and
+                $heading.Current.BoundingRectangle.Top -ge $pageBounds.Top -and
+                $reset.Current.BoundingRectangle.Bottom -le $pageBounds.Bottom) { return }
+        }
     }
     Save-SidebarAppearance "settings-section-failure"
     throw "Settings section '$Id' could not be brought into the viewport. Heading: $($heading.Current.BoundingRectangle); page: $($page.Current.BoundingRectangle); window: $($root.Current.BoundingRectangle); scroll: $($scroll.Current.VerticalScrollPercent)."
