@@ -1082,6 +1082,11 @@ function Test-DeviceColumnSorting {
     Start-Sleep -Milliseconds 350
     (Find-DeviceElement DeviceRenameButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     (Find-DeviceElement DeviceNameInput).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("ZZ sorting update")
+    # The Save action is enabled by the asynchronous text-changed handler.
+    $deadline = [DateTime]::UtcNow.AddSeconds(10)
+    while (-not (Find-DeviceElement DeviceNameSaveButton).Current.IsEnabled -and [DateTime]::UtcNow -lt $deadline) {
+        Start-Sleep -Milliseconds 100
+    }
     (Find-DeviceElement DeviceNameSaveButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     $deadline = [DateTime]::UtcNow.AddSeconds(10)
     do {
