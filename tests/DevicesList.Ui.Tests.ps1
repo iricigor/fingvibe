@@ -127,6 +127,9 @@ function Save-DeviceCapture([string] $Name, [switch] $KeepPointer) {
 function Get-RowColor($Bitmap, $Row) {
     $bounds = Get-UiReviewWindowBounds $windowHandle
     $rowBounds = $Row.Current.BoundingRectangle
+    if ($rowBounds.IsEmpty -or $Row.Current.IsOffscreen) {
+        throw "Cannot sample an unrealized or offscreen device row."
+    }
     $Bitmap.GetPixel([int]($rowBounds.Left - $bounds.Left + 8 * $scale),
         [int]($rowBounds.Top - $bounds.Top + $rowBounds.Height / 2)).ToArgb()
 }
@@ -1261,9 +1264,20 @@ try {
     $listSelection = (Find-DeviceElement ResultsList).GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern)
     $selected = @($listSelection.Current.GetSelection())
     if ($selected.Count -ne 1) { throw "Sorting must preserve selection." }
-    $selected[0].GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView()
-    Start-Sleep -Milliseconds 250
-    $selected = @($listSelection.Current.GetSelection())
+    $deadline = [DateTime]::UtcNow.AddSeconds(10)
+    do {
+        $selected = @($listSelection.Current.GetSelection())
+        if ($selected.Count -ne 1) { throw "Scrolling must preserve the selected device." }
+        $selectedBounds = $selected[0].Current.BoundingRectangle
+        $listBounds = (Find-DeviceElement ResultsList).Current.BoundingRectangle
+        $visible = -not $selected[0].Current.IsOffscreen -and -not $selectedBounds.IsEmpty -and
+            $selectedBounds.Top -ge $listBounds.Top -and $selectedBounds.Bottom -le $listBounds.Bottom
+        if ($visible) { break }
+        # Density changes alter virtualization estimates; reacquire selection until scrolling realizes it.
+        $selected[0].GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView()
+        Start-Sleep -Milliseconds 150
+    } while ([DateTime]::UtcNow -lt $deadline)
+    if (-not $visible) { throw "The selected device did not become fully visible after sorting." }
     $nameCondition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::NameProperty, "Kitchen display")
     if (-not $selected[0].FindFirst([System.Windows.Automation.TreeScope]::Descendants, $nameCondition)) {
