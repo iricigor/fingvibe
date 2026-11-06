@@ -79,6 +79,28 @@ function Open-HistoryDetails([string] $Name) {
         $scroll = Find-HistoryControl DeviceDetailsScroll -Optional
         $scroll -and -not $scroll.Current.IsOffscreen
     } "details for $Name"
+    foreach ($id in @("DeviceScanHistoryExpander", "DeviceImportedMetadata")) {
+        $pattern = (Find-HistoryControl $id).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+        if ($pattern.Current.ExpandCollapseState -ne [System.Windows.Automation.ExpandCollapseState]::Collapsed) {
+            throw "$id must start collapsed on opening a device."
+        }
+    }
+    $expander = Show-HistorySection DeviceScanHistoryExpander
+    $expander.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait(" ")
+    Wait-HistoryState {
+        (Find-HistoryControl DeviceScanHistoryExpander).GetCurrentPattern(
+            [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -eq
+                [System.Windows.Automation.ExpandCollapseState]::Expanded
+    } "keyboard expansion of completed observations"
+}
+
+function Get-HistoryLocalTime([int] $Index) {
+    return ([DateTimeOffset]::Parse("2026-11-01T12:0${Index}:00+00:00")).ToLocalTime()
+}
+
+function Get-HistoryTimestamp([int] $Index) {
+    return (Get-HistoryLocalTime $Index).ToString("yyyy-MM-dd HH:mm:ss '(local)'", [Globalization.CultureInfo]::InvariantCulture)
 }
 
 function Show-HistorySection([string] $Id) {
@@ -118,12 +140,17 @@ function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
             $texts = @($item.FindAll([System.Windows.Automation.TreeScope]::Descendants, $textCondition) |
                 ForEach-Object { $_.Current.Name })
             if ($texts.Count -eq 0) { continue }
-            if ($texts.Count -ne 3) { throw "Each scan row must expose time, state and network: $texts." }
-            $time = $texts[0]
-            if ($time -notmatch '^2026-11-01 12:0[0-4]:00 UTC$') { throw "Unexpected scan timestamp '$time'." }
-            $state = if ($time -in @("2026-11-01 12:02:00 UTC", "2026-11-01 12:03:00 UTC")) { "Observed absent" } else { "Observed present" }
-            if ($texts[1] -ne $state -or $texts[2] -ne "Network ui-review-network | 127.0.0.1/32") {
+            if ($texts.Count -ne 3) { throw "Each scan row must expose date, local time and state, without repeated network: $texts." }
+            $time = "$($texts[0]) $($texts[1])"
+            $matching = @(0..$LastIndex | Where-Object { (Get-HistoryLocalTime $_).ToString("yyyy-MM-dd HH:mm:ss") -eq $time })
+            if ($matching.Count -ne 1) { throw "Unexpected local scan timestamp '$time'." }
+            $state = if ($matching[0] -in @(2, 3)) { "Absent" } else { "Present" }
+            if ($texts[2] -ne $state) {
                 throw "Incorrect scan observation: $texts."
+            }
+            $label = "$((Get-HistoryLocalTime $matching[0]).ToString('yyyy-MM-dd HH:mm:ss zzz')); Observed $($state.ToLowerInvariant())"
+            if ($item.Current.Name -ne $label) {
+                throw "Scan row lacks an accessible full timestamp with UTC offset and observed state."
             }
             $seen[$time] = $true
             $times += $time
@@ -134,10 +161,66 @@ function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
     }
     if ($seen.Count -ne $count) { throw "Not all $count scans are reachable in the native history list." }
     foreach ($index in 0..$LastIndex) {
-        if (-not $seen.ContainsKey("2026-11-01 12:0${index}:00 UTC")) { throw "Scan $index is missing from history." }
+        if (-not $seen.ContainsKey((Get-HistoryLocalTime $index).ToString("yyyy-MM-dd HH:mm:ss"))) {
+            throw "Scan $index is missing from history."
+        }
     }
     if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Capture.png")
+}
+
+function Assert-HistoryTableRendering([string] $Capture) {
+    $null = Show-HistorySection DeviceScanHistoryTable
+    $list = Find-HistoryControl DeviceScanHistoryList
+    $headers = @("Date", "Time (local)", "Status") | ForEach-Object { Find-HistoryControl $_ -ByName }
+    $items = $list.FindAll([System.Windows.Automation.TreeScope]::Children,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::ListItem))
+    $path = Join-Path $ScreenshotDirectory "$Capture.png"
+    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle $path
+    $window = Get-UiReviewWindowBounds $script:process.MainWindowHandle
+    $bitmap = [System.Drawing.Bitmap]::FromFile($path)
+    try {
+        $stripeColors = @()
+        $states = @{}
+        foreach ($item in $items) {
+            if ($item.Current.IsOffscreen) { continue }
+            $texts = $item.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                    [System.Windows.Automation.ControlType]::Text))
+            if ($texts.Count -ne 3) { throw "Rendered table row must expose three columns." }
+            for ($column = 0; $column -lt 3; $column++) {
+                $bounds = $texts[$column].Current.BoundingRectangle
+                $header = $headers[$column].Current.BoundingRectangle
+                $expectedLeft = $header.Left + $(if ($column -eq 2) { 18 * [UiReviewNativeWindow]::GetDpiForWindow($script:process.MainWindowHandle) / 96 } else { 0 })
+                if ([Math]::Abs($bounds.Left - $expectedLeft) -gt 3 -or $bounds.Right -gt $header.Right + 3) {
+                    throw "Column $column is misaligned/clipped relative to its header: $bounds / $header."
+                }
+            }
+            $row = $item.Current.BoundingRectangle
+            $stripeColors += $bitmap.GetPixel([int]($row.Left - $window.Left + 3), [int]($row.Top - $window.Top + 3)).ToArgb()
+            $status = $texts[2].Current.BoundingRectangle
+            $green = 0
+            $red = 0
+            for ($x = [int]($status.Left - $window.Left - 20); $x -lt $status.Left - $window.Left; $x++) {
+                for ($y = [int]($status.Top - $window.Top); $y -lt $status.Bottom - $window.Top; $y++) {
+                    $pixel = $bitmap.GetPixel($x, $y)
+                    if ($pixel.G -gt $pixel.R + 20 -and $pixel.G -gt $pixel.B + 10) { $green++ }
+                    if ($pixel.R -gt $pixel.G + 20 -and $pixel.R -gt $pixel.B + 10) { $red++ }
+                }
+            }
+            $state = $texts[2].Current.Name
+            if (($state -eq "Present" -and $green -lt 20) -or ($state -eq "Absent" -and $red -lt 20)) {
+                throw "$state row lacks its rendered green/red status dot."
+            }
+            $states[$state] = $true
+        }
+        if (($stripeColors | Select-Object -Unique).Count -lt 2) { throw "History rows lack visible zebra stripes." }
+        if ($states.Count -ne 2) { throw "Rendering evidence must include both present and absent rows." }
+    }
+    finally { $bitmap.Dispose() }
 }
 
 function Assert-HistorySummary([string] $Capture, [int] $LastIndex = 4) {
@@ -146,16 +229,22 @@ function Assert-HistorySummary([string] $Capture, [int] $LastIndex = 4) {
     $state = if ($LastIndex -in @(2, 3)) { "offline" } else { "online" }
     $expected = @{
         DeviceHistoryScope = "Current network: ui-review-network | 127.0.0.1/32"
-        DeviceHistoryFirstSeen = "First seen: 2026-11-01 12:00:00 UTC"
-        DeviceHistoryLastSeen = "Last seen: 2026-11-01 12:0${lastSeen}:00 UTC"
-        DeviceHistorySince = "Observed $state since: 2026-11-01 12:0${since}:00 UTC"
-        DeviceHistoryLatest = "Latest recorded scan: 2026-11-01 12:0${LastIndex}:00 UTC. Saved observations do not establish current live presence."
+        DeviceHistoryFirstSeen = "First seen: $(Get-HistoryTimestamp 0)"
+        DeviceHistoryLastSeen = "Last seen: $(Get-HistoryTimestamp $lastSeen)"
+        DeviceHistorySince = "Observed $state since: $(Get-HistoryTimestamp $since)"
+        DeviceHistoryState = "Last observed: $(if ($state -eq 'online') { 'Present' } else { 'Absent' })"
+        DeviceHistoryLatest = "Latest recorded scan: $(Get-HistoryTimestamp $LastIndex). Saved observations do not establish current live presence."
     }
     foreach ($id in $expected.Keys) {
         $actual = (Find-HistoryControl $id).Current.Name
         if ($actual -ne $expected[$id]) { throw "Incorrect summary $id : '$actual', expected '$($expected[$id])'." }
     }
-    $null = Show-HistorySection DeviceHistoryLatest
+    foreach ($id in @("DeviceHistoryFirstSeenAge", "DeviceHistoryLastSeenAge")) {
+        if ((Find-HistoryControl $id).Current.Name -notmatch '^(in )?\d+ (minute|hour|day|month|year)s?( ago)?$') {
+            throw "Summary $id lacks a rounded relative age in the requested units."
+        }
+    }
+    $null = Show-HistorySection DeviceHistorySince
     foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince")) {
         $element = Find-HistoryControl $id
         $area = (Find-HistoryControl DeviceDetailsScroll).Current.BoundingRectangle
@@ -306,6 +395,26 @@ try {
     Open-HistoryDetails "History normal"
     Assert-HistorySummary "history-restarted"
     Assert-HistoryRows "history-restarted"
+    foreach ($theme in @("Standard Light", "Standard Dark")) {
+        (Find-HistoryControl SettingsNavItem).GetCurrentPattern(
+            [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+        Set-UiReviewTheme -Root $script:root -Theme $theme
+        Open-HistoryDetails "History normal"
+        $label = $theme.Replace(" ", "-").ToLowerInvariant()
+        Assert-HistoryTableRendering "history-table-$label"
+        $bounds = Get-UiReviewWindowBounds $script:process.MainWindowHandle
+        if (-not [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
+            $bounds.Left, $bounds.Top, 640, $bounds.Height, 0x0044)) { throw "Cannot resize history review window." }
+        Start-Sleep -Milliseconds 500
+        Assert-HistoryTableRendering "history-table-$label-narrow"
+        (Find-HistoryControl DeviceScanHistoryExpander).GetCurrentPattern(
+            [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse()
+        $null = Show-HistorySection DeviceHistorySince
+        Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-summary-$label-narrow.png")
+        $null = [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
+            $bounds.Left, $bounds.Top, $bounds.Width, $bounds.Height, 0x0044)
+        Start-Sleep -Milliseconds 500
+    }
     Open-HistoryDetails "History virtual"
     Assert-HistorySummary "history-virtual-restarted"
     if ((Get-Content -LiteralPath $inventory -Raw) -cne $original) { throw "Restoration must not write new scan entries." }

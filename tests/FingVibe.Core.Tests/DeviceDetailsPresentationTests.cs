@@ -17,6 +17,65 @@ public sealed class DeviceDetailsPresentationTests
         DeviceOperatingSystem.Android, DeviceType.Phone, DeviceType.Tablet, "Brand", "Family", "Model");
 
     [Theory]
+    [InlineData(0, "0 minutes ago")]
+    [InlineData(0.5, "1 minute ago")]
+    [InlineData(17.2, "17 minutes ago")]
+    [InlineData(59, "59 minutes ago")]
+    [InlineData(60, "1 hour ago")]
+    [InlineData(120, "2 hours ago")]
+    [InlineData(150, "3 hours ago")]
+    [InlineData(1440, "1 day ago")]
+    [InlineData(4320, "3 days ago")]
+    [InlineData(43200, "1 month ago")]
+    [InlineData(86400, "2 months ago")]
+    [InlineData(525600, "1 year ago")]
+    [InlineData(1051200, "2 years ago")]
+    [InlineData(-120, "in 2 hours")]
+    public void HistoryAges_UseRoundedRequestedUnits(double minutes, string expected) =>
+        Assert.Equal(expected, DeviceDetailsPresentation.HistoryAge(Now.AddMinutes(-minutes), Now));
+
+    [Fact]
+    public void HistoryAge_MissingEvidenceHasNoInventedAgeAndUsesElapsedTimeNotWallClock()
+    {
+        Assert.Empty(DeviceDetailsPresentation.HistoryAge(null, Now));
+        Assert.Equal("2 hours ago", DeviceDetailsPresentation.HistoryAge(Now.ToOffset(TimeSpan.FromHours(2)).AddHours(-2), Now));
+    }
+
+    [Fact]
+    public void HistoryTable_LocalDatesAndOffsetsDoNotChangeStoredObservationTimes()
+    {
+        var zone = TimeZoneInfo.CreateCustomTimeZone("test-plus-two", TimeSpan.FromHours(2), "Test +02", "Test +02");
+        var timestamp = new DateTimeOffset(2026, 11, 1, 23, 30, 0, TimeSpan.Zero);
+        var row = new DeviceScanHistoryRow(timestamp, true, false, zone);
+        Assert.Equal("2026-11-02", row.Date);
+        Assert.Equal("01:30:00", row.Time);
+        Assert.Equal("2026-11-02 01:30:00 +02:00", row.FullTimestamp);
+        Assert.Equal(timestamp, row.CompletedAt);
+        Assert.Equal("Present", row.State);
+        Assert.False(row.Absent);
+        Assert.Contains("Observed present", row.AccessibleLabel);
+        Assert.Equal("2026-11-02 01:30:00 (local)", DeviceDetailsPresentation.HistoryTimestamp(timestamp, timeZone: zone));
+        Assert.Contains("historical aggregate", DeviceDetailsPresentation.HistoryTimestamp(timestamp, true, zone));
+        Assert.Contains("Unavailable", DeviceDetailsPresentation.HistoryTimestamp(null));
+    }
+
+    [Fact]
+    public void HistoryTable_DaylightSavingRepeatedLocalTimesRemainDistinguishable()
+    {
+        var zone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+        var first = new DeviceScanHistoryRow(new(2026, 11, 1, 5, 30, 0, TimeSpan.Zero), true, false, zone);
+        var second = new DeviceScanHistoryRow(first.CompletedAt.AddHours(1), false, true, zone);
+        Assert.Equal(first.Date, second.Date);
+        Assert.Equal("01:30:00", first.Time);
+        Assert.Equal(first.Time, second.Time);
+        Assert.EndsWith("-04:00", first.FullTimestamp);
+        Assert.EndsWith("-05:00", second.FullTimestamp);
+        Assert.NotEqual(first.AccessibleLabel, second.AccessibleLabel);
+        Assert.Equal("Absent", second.State);
+        Assert.True(second.Absent);
+    }
+
+    [Theory]
     [InlineData(80, "http://192.0.2.1/", "Open HTTP")]
     [InlineData(443, "https://192.0.2.1/", "Open HTTPS")]
     [InlineData(8080, "http://192.0.2.1:8080/", "Try HTTP")]

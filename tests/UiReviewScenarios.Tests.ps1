@@ -18,6 +18,27 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
 }
 
 & {
+    [xml] $page = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml") -Raw
+    $namespaces = [System.Xml.XmlNamespaceManager]::new($page.NameTable)
+    $namespaces.AddNamespace("x", "http://schemas.microsoft.com/winfx/2006/xaml")
+    $history = $page.SelectSingleNode("//*[@x:Name='DeviceScanHistoryExpander']", $namespaces)
+    Assert-Equal $history.IsExpanded "False" "Completed observations starts collapsed"
+    Assert-Equal $history.Header "Completed Scan Observations" "Completed observations header"
+    foreach ($id in @("DeviceHistoryScope", "DeviceHistoryLatest", "DeviceScanHistoryTable", "DeviceScanHistoryEmpty")) {
+        if (-not $history.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must be inside completed observations." }
+    }
+    foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistoryState", "DeviceHistorySince")) {
+        if ($history.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must remain outside collapsed observations." }
+    }
+    $imported = $page.SelectSingleNode("//*[@x:Name='DeviceImportedMetadata']", $namespaces)
+    Assert-Equal $imported.IsExpanded "False" "Imported metadata starts collapsed"
+    Assert-Equal $imported.PreviousSibling.Header "How this device was identified" "Imported data immediately follows identification evidence"
+    if ($imported.ParentNode.ParentNode.GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml") -ne "IdentificationCard") {
+        throw "Imported metadata must belong to Device identification."
+    }
+}
+
+& {
     . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
     $choices = [System.Collections.Generic.List[string]]::new()
     function Set-UiReviewAppearanceChoice {

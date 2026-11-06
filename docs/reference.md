@@ -123,8 +123,9 @@ columns, reducing to one as width and text scaling require. **Rename** in the
 identity header reveals the existing name editor only when requested. **Ports & services**
 has its own container for endpoints, scan controls, independent TCP/UDP feedback,
 and UDP observations. Discovered hostname belongs to the network overview;
-the collapsed **Imported Fing data** section contains only populated original
-fields and explicitly labels historical imported IPs.
+the collapsed **Imported Fing data** section sits inside **Device identification**,
+immediately below **How this device was identified**. It contains only populated
+original fields and explicitly labels historical imported IPs.
 
 Hover beside a populated identity, network, identification, imported, or endpoint
 value to reveal its copy icon immediately after the value (not at the field's
@@ -283,10 +284,22 @@ Never run native UI automation on a working user's desktop.
 
 ### Device scan history
 
-Device details shows a scrollable, newest-first **Scan history** list for normal
-MAC-based devices and existing virtual devices. Each relevant completed manual
-scan contributes one row with its completion time in UTC, **Observed present**
-or **Observed absent**, Windows network identity, and subnet. Repeated unchanged
+Device details shows a **Scan history** summary for normal MAC-based devices and
+existing virtual devices. First/last-seen timestamps display in local time with
+relative ages, refreshed while the page is visible and rounded to the nearest
+whole minute, hour, day, month (approximately 30 days), or year (365 days).
+**Last observed: Present/Absent** pairs a semantic green/red dot with text; it is
+not live status. Missing evidence and historical aggregates remain explicit.
+
+The **Completed Scan Observations** section starts collapsed each time a device
+is opened. Expand it for the current-network context, latest-scan explanation,
+observation semantics, and a scrollable newest-first table with **Date**,
+**Time (local)**, and **Status** columns. Zebra stripes and subtle separators
+help track rows; status combines a green/red dot with **Present/Absent** text.
+Network identity and subnet appear once above the table, not on every row.
+Timestamp tooltips expose the full local timestamp and UTC offset to distinguish
+repeated daylight-saving times. Storage remains UTC. Each relevant completed manual
+scan contributes one observation. Repeated unchanged
 scans remain separate rows. Multiple responding addresses or associated MACs
 do not duplicate a virtual device's row; its history follows its existing
 virtual identity when the active MAC changes. Existing association rules are

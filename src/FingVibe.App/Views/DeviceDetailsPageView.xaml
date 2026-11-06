@@ -154,6 +154,11 @@
                             <TextBlock x:Name="DeviceTypeEvidenceText" TextWrapping="Wrap" />
                         </StackPanel>
                     </Expander>
+                    <Expander x:Name="DeviceImportedMetadata" Header="Imported Fing data" IsExpanded="False"
+                              AutomationProperties.AutomationId="DeviceImportedMetadata"
+                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <StackPanel x:Name="DeviceImportedFields" Spacing="12" />
+                    </Expander>
                 </StackPanel>
             </Border>
             <Border x:Name="PortsServicesCard" Style="{StaticResource ScannerSummaryCardStyle}">
@@ -189,41 +194,119 @@
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
-                <StackPanel Spacing="8">
+                <StackPanel Spacing="16">
                     <TextBlock Text="Scan history" FontSize="18" FontWeight="SemiBold" />
-                    <TextBlock x:Name="DeviceHistoryScope" AutomationProperties.AutomationId="DeviceHistoryScope"
-                               TextWrapping="Wrap" FontWeight="SemiBold" />
-                    <StackPanel Spacing="8">
-                        <TextBlock x:Name="DeviceHistoryFirstSeen" AutomationProperties.AutomationId="DeviceHistoryFirstSeen"
-                                   TextWrapping="Wrap" IsTextSelectionEnabled="True" />
-                        <TextBlock x:Name="DeviceHistoryLastSeen" AutomationProperties.AutomationId="DeviceHistoryLastSeen"
-                                   TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                    <Grid ColumnSpacing="24" RowSpacing="12" SizeChanged="Fields_SizeChanged">
+                        <StackPanel Spacing="4">
+                            <TextBlock x:Name="DeviceHistoryFirstSeen" AutomationProperties.AutomationId="DeviceHistoryFirstSeen"
+                                       TextWrapping="Wrap" IsTextSelectionEnabled="True" FontWeight="SemiBold" />
+                            <TextBlock x:Name="DeviceHistoryFirstSeenAge" AutomationProperties.AutomationId="DeviceHistoryFirstSeenAge"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock x:Name="DeviceHistoryLastSeen" AutomationProperties.AutomationId="DeviceHistoryLastSeen"
+                                       TextWrapping="Wrap" IsTextSelectionEnabled="True" FontWeight="SemiBold" />
+                            <TextBlock x:Name="DeviceHistoryLastSeenAge" AutomationProperties.AutomationId="DeviceHistoryLastSeenAge"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                    <StackPanel Spacing="4">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid VerticalAlignment="Center">
+                                <Ellipse x:Name="DeviceHistoryPresentDot" Width="10" Height="10"
+                                         Fill="{ThemeResource SystemFillColorSuccessBrush}" Visibility="Collapsed" />
+                                <Ellipse x:Name="DeviceHistoryAbsentDot" Width="10" Height="10"
+                                         Fill="{ThemeResource SystemFillColorCriticalBrush}" Visibility="Collapsed" />
+                            </Grid>
+                            <TextBlock x:Name="DeviceHistoryState" Grid.Column="1" FontWeight="SemiBold"
+                                       AutomationProperties.AutomationId="DeviceHistoryState" TextWrapping="Wrap" />
+                        </Grid>
                         <TextBlock x:Name="DeviceHistorySince" AutomationProperties.AutomationId="DeviceHistorySince"
-                                   TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                                   TextWrapping="Wrap" IsTextSelectionEnabled="True"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </StackPanel>
-                    <TextBlock x:Name="DeviceHistoryLatest" AutomationProperties.AutomationId="DeviceHistoryLatest"
-                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock Text="Current-network completed manual scans, newest first. Online / offline means observed present / absent. Since is the first scan in the latest recorded run of that state, not the physical connection/disconnection time. Gaps between scans do not prove uninterrupted availability. All observations are retained."
-                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBlock x:Name="DeviceScanHistoryCount" AutomationProperties.AutomationId="DeviceScanHistoryCount"
-                               TextWrapping="Wrap" />
-                    <TextBlock x:Name="DeviceScanHistoryEmpty" TextWrapping="Wrap"
-                               AutomationProperties.AutomationId="DeviceScanHistoryEmpty" />
-                    <ListView x:Name="DeviceScanHistoryList" MaxHeight="320" SelectionMode="None"
-                              HorizontalContentAlignment="Stretch"
-                              AutomationProperties.AutomationId="DeviceScanHistoryList"
-                              AutomationProperties.Name="Completed scan history, newest first">
-                        <ListView.ItemTemplate>
-                            <DataTemplate x:DataType="app:DeviceScanHistoryRow">
-                                <StackPanel Spacing="4" Margin="0,6" AutomationProperties.Name="{x:Bind AccessibleLabel}">
-                                    <TextBlock Text="{x:Bind ScanTime}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                    <TextBlock Text="{x:Bind State}" TextWrapping="Wrap" />
-                                    <TextBlock Text="{x:Bind NetworkContext}" TextWrapping="Wrap"
-                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                </StackPanel>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+                    <Expander x:Name="DeviceScanHistoryExpander" Header="Completed Scan Observations"
+                              IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                              AutomationProperties.AutomationId="DeviceScanHistoryExpander">
+                        <StackPanel Spacing="12">
+                            <TextBlock x:Name="DeviceHistoryScope" AutomationProperties.AutomationId="DeviceHistoryScope"
+                                       TextWrapping="Wrap" FontWeight="SemiBold" />
+                            <TextBlock x:Name="DeviceHistoryLatest" AutomationProperties.AutomationId="DeviceHistoryLatest"
+                                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Text="Current-network completed manual scans, newest first. Online / offline means observed present / absent. Since is the first scan in the latest recorded run of that state, not the physical connection/disconnection time. Gaps between scans do not prove uninterrupted availability. All observations are retained."
+                                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock x:Name="DeviceScanHistoryCount" AutomationProperties.AutomationId="DeviceScanHistoryCount"
+                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="DeviceScanHistoryEmpty" TextWrapping="Wrap"
+                                       AutomationProperties.AutomationId="DeviceScanHistoryEmpty" />
+                            <StackPanel x:Name="DeviceScanHistoryTable" Spacing="0"
+                                        AutomationProperties.AutomationId="DeviceScanHistoryTable">
+                                <Border Background="{ThemeResource ControlFillColorSecondaryBrush}" Padding="12,8"
+                                        BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Date" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock Grid.Column="1" Text="Time (local)" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock Grid.Column="2" Text="Status" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                    </Grid>
+                                </Border>
+                                <ListView x:Name="DeviceScanHistoryList" MaxHeight="320" SelectionMode="None"
+                                          HorizontalContentAlignment="Stretch"
+                                          AutomationProperties.AutomationId="DeviceScanHistoryList"
+                                          AutomationProperties.Name="Completed scan history, newest first">
+                                    <ListView.ItemContainerStyle>
+                                        <Style TargetType="ListViewItem">
+                                            <Setter Property="Padding" Value="0" />
+                                            <Setter Property="Margin" Value="0" />
+                                            <Setter Property="MinHeight" Value="0" />
+                                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                            <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleLabel}" />
+                                        </Style>
+                                    </ListView.ItemContainerStyle>
+                                    <ListView.ItemTemplate>
+                                        <DataTemplate x:DataType="app:DeviceScanHistoryRow">
+                                            <Border Padding="12,8" BorderThickness="0,0,0,1"
+                                                    BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                                    Background="{x:Bind IsAlternateRow, Converter={StaticResource ResultRowBackgroundConverter}}"
+                                                    AutomationProperties.Name="{x:Bind AccessibleLabel}"
+                                                    ToolTipService.ToolTip="{x:Bind FullTimestamp}">
+                                                <Grid ColumnSpacing="12">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{x:Bind Date}" TextWrapping="Wrap" />
+                                                    <TextBlock Grid.Column="1" Text="{x:Bind Time}" TextWrapping="Wrap" />
+                                                    <Grid Grid.Column="2" ColumnSpacing="8">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <Grid VerticalAlignment="Center">
+                                                            <Ellipse Width="10" Height="10" Fill="{ThemeResource SystemFillColorSuccessBrush}"
+                                                                     Visibility="{x:Bind Present}" />
+                                                            <Ellipse Width="10" Height="10" Fill="{ThemeResource SystemFillColorCriticalBrush}"
+                                                                     Visibility="{x:Bind Absent}" />
+                                                        </Grid>
+                                                        <TextBlock Grid.Column="1" Text="{x:Bind State}" TextWrapping="Wrap" />
+                                                    </Grid>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ListView.ItemTemplate>
+                                </ListView>
+                            </StackPanel>
+                        </StackPanel>
+                    </Expander>
                 </StackPanel>
             </Border>
             <Border x:Name="VirtualDeviceHistoryCard" Style="{StaticResource ScannerSummaryCardStyle}" Visibility="Collapsed">
@@ -237,10 +320,6 @@
                     </Expander>
                 </StackPanel>
             </Border>
-            <Expander x:Name="DeviceImportedMetadata" Header="Imported Fing data" IsExpanded="False"
-                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                <StackPanel x:Name="DeviceImportedFields" Spacing="12" />
-            </Expander>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

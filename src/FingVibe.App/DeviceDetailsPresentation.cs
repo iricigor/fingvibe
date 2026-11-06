@@ -6,9 +6,16 @@ namespace FingVibe.App;
 
 internal sealed record DeviceDetailField(string Label, string Value);
 
-public sealed record DeviceScanHistoryRow(string ScanTime, string State, string NetworkContext)
+public sealed record DeviceScanHistoryRow(DateTimeOffset CompletedAt, bool Present, bool IsAlternateRow,
+    TimeZoneInfo TimeZone)
 {
-    public string AccessibleLabel => $"{ScanTime}; {State}; {NetworkContext}";
+    private DateTimeOffset LocalTime => TimeZoneInfo.ConvertTime(CompletedAt, TimeZone);
+    public string Date => LocalTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
+    public string Time => LocalTime.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
+    public string FullTimestamp => LocalTime.ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture);
+    public string State => Present ? "Present" : "Absent";
+    public bool Absent => !Present;
+    public string AccessibleLabel => $"{FullTimestamp}; Observed {State.ToLowerInvariant()}";
 }
 
 internal sealed record DeviceEndpointPresentation(
@@ -20,22 +27,44 @@ internal sealed record DeviceEndpointPresentation(
 
 internal static class DeviceDetailsPresentation
 {
-    internal static string HistoryTimestamp(DateTimeOffset? timestamp, bool aggregate = false) =>
+    internal static string HistoryTimestamp(DateTimeOffset? timestamp, bool aggregate = false,
+        TimeZoneInfo? timeZone = null) =>
         timestamp is { } time
-            ? time.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss 'UTC'", CultureInfo.InvariantCulture)
+            ? TimeZoneInfo.ConvertTime(time, timeZone ?? TimeZoneInfo.Local)
+                .ToString("yyyy-MM-dd HH:mm:ss '(local)'", CultureInfo.InvariantCulture)
                 + (aggregate ? " (historical aggregate; individual scan unavailable)" : string.Empty)
             : "Unavailable - no matching local presence evidence.";
 
-    internal static string ObservedSince(DeviceHistorySummary summary) =>
+    internal static string HistoryTimestampTooltip(DateTimeOffset? timestamp) =>
+        timestamp is { } time
+            ? TimeZoneInfo.ConvertTime(time, TimeZoneInfo.Local)
+                .ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture)
+            : string.Empty;
+
+    internal static string HistoryAge(DateTimeOffset? timestamp, DateTimeOffset now)
+    {
+        if (timestamp is not { } time) return string.Empty;
+        var elapsed = now - time;
+        var days = Math.Abs(elapsed.TotalDays);
+        var (value, unit) = days >= 365 ? (days / 365, "year")
+            : days >= 30 ? (days / 30, "month")
+            : days >= 1 ? (days, "day")
+            : Math.Abs(elapsed.TotalHours) >= 1 ? (Math.Abs(elapsed.TotalHours), "hour")
+            : (Math.Abs(elapsed.TotalMinutes), "minute");
+        var rounded = Math.Round(value, MidpointRounding.AwayFromZero);
+        var age = $"{rounded.ToString("0", CultureInfo.InvariantCulture)} {unit}{(rounded == 1 ? "" : "s")}";
+        return elapsed < TimeSpan.Zero ? $"in {age}" : $"{age} ago";
+    }
+
+    internal static string ObservedSince(DeviceHistorySummary summary, TimeZoneInfo? timeZone = null) =>
         summary.Latest is { } latest && summary.Since is { } since
-            ? $"Observed {(latest.Present ? "online" : "offline")} since: {HistoryTimestamp(since)}"
+            ? $"Observed {(latest.Present ? "online" : "offline")} since: {HistoryTimestamp(since, timeZone: timeZone)}"
             : "Observed state / since: Unavailable - no matching individual scan observations.";
 
-    internal static IReadOnlyList<DeviceScanHistoryRow> ScanHistory(DeviceHistorySummary summary) =>
-        summary.History.Select(item => new DeviceScanHistoryRow(
-            HistoryTimestamp(item.CompletedAt),
-            item.Present ? "Observed present" : "Observed absent",
-            $"Network {item.NetworkId ?? "identity unavailable"} | {item.Subnet}")).ToArray();
+    internal static IReadOnlyList<DeviceScanHistoryRow> ScanHistory(DeviceHistorySummary summary,
+        TimeZoneInfo? timeZone = null) =>
+        summary.History.Select((item, index) => new DeviceScanHistoryRow(
+            item.CompletedAt, item.Present, index % 2 == 1, timeZone ?? TimeZoneInfo.Local)).ToArray();
 
     internal static string EmptyScanHistory(ScanResultRow row, string? networkId, string? subnet) =>
         string.IsNullOrWhiteSpace(networkId) || string.IsNullOrWhiteSpace(subnet)
