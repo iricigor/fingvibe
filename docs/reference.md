@@ -76,11 +76,11 @@ Without a saved theme preference, FingVibe starts with Standard Light or Standar
 
 Appearance choices apply immediately and are saved to `%LOCALAPPDATA%\FingVibe\appearance.json` for the next launch; existing saved themes remain compatible and take precedence over Windows app mode. Ordinary Windows light/dark changes do not switch the theme while FingVibe is running. Unsupported backdrop materials fall back to a solid theme background without discarding your selection. Material rendering also follows Windows transparency settings; Windows high contrast takes precedence and uses system colors instead.
 
-Settings places the appearance selectors side by side when space permits and stacks them in narrower windows. Device-column choices use up to three columns in their existing order, with fewer columns as space decreases. Name and IP address are always shown. Column visibility, combination choices, and individual/combined widths are saved atomically in `%LOCALAPPDATA%\FingVibe\device-table.json`. **Reset columns** restores visibility, widths and combination defaults. Load failures are shown in Settings and prevent overwriting the unreadable file; save failures keep the current layout and report that it could not be saved. UI-review mode never reads or writes these preferences. The page remains scrollable for small windows and larger text.
+Settings places the appearance selectors side by side when space permits and stacks them in narrower windows. Appearance feedback is one sentence in normal operation; save failures, unavailable materials, and high contrast remain explicit. The **Devices page** card starts with matching **Compact rows** and **Cell hover previews** switches in one row, stacking them in narrow windows. Both use rounded-rectangle tracks and thumbs while retaining native Windows toggle, keyboard, focus, and theme behavior. Compact off selects Standard/relaxed rows; hover off uses ordinary tooltips. Visible and combined column choices share the same up-to-three-column layout and responsive thresholds. Name and IP address are always shown. Column visibility, combination choices, and individual/combined widths are saved atomically in `%LOCALAPPDATA%\FingVibe\device-table.json`. **Reset columns** restores visibility, widths and combination defaults but preserves both switches. Load failures are shown in Settings and prevent overwriting the unreadable file; save failures keep the current layout and report that it could not be saved. UI-review mode never reads or writes these preferences. The page remains scrollable for small windows and larger text.
 
 Public IP and ISP details are retrieved from `ipwho.is`. This optional display depends on internet access and sends the connection's public IP to that provider as part of the HTTPS request. LAN discovery and scanning continue to work when the lookup is unavailable.
 
-**Settings > Cell hover emphasis and full-value previews** is enabled by default.
+**Settings > Devices page > Cell hover previews** is enabled by default.
 Hovering a Devices name, IP, MAC, vendor, person or room immediately emphasizes
 its text with a brighter theme-aware foreground, without moving or enlarging it.
 Pause for about half a second over a truncated or abbreviated value to reveal
@@ -243,18 +243,23 @@ every private MAC; it changes no grouping or classification rules.
 
 **Devices row density** defaults to **Compact**. Existing density preferences,
 including explicitly saved Standard, migrate to Compact once; subsequent saved
-Standard or Compact choices are respected. Standard remains available with 6-DIP
-vertical padding, existing line gaps and the 44-DIP minimum.
-Compact uses 3-DIP padding, 1-DIP line gaps and a 38-DIP
-minimum, targeting approximately 38-40 DIPs for normal-scale two-line rows without
-shrinking text. Column titles follow the same setting through tighter vertical
+Standard or Compact choices are respected. Standard (relaxed) uses 4-DIP
+top/bottom padding and existing line gaps; Compact uses 1-DIP top/bottom padding
+and 1-DIP line gaps. With visible stacked columns, the minimum heights are
+36 DIP in Compact and 40 DIP in Standard; without them, they are 30 and 34 DIP.
+Stacking is determined by enabled Name/Type, IP/MAC, Vendor/OS, and Person/Room
+combinations with both members visible. Hidden secondary members do not count;
+the side-by-side Status/Response combination does not count either.
+The policy applies across the table, not separately to devices with missing
+metadata or assignments. Fonts, icons, and horizontal spacing are unchanged.
+Column titles follow the same setting through tighter vertical
 padding and spacing, retaining font sizes and sort/resize actions.
 Both modes allow growth for accessible text sizes. Density and
 Vendor/OS merge are saved in `device-table.json`; changing density preserves
 selection, filters, sorting and columns. **Reset columns** resets Vendor/OS merge
 but leaves density and hover-preview preferences unchanged.
 
-Standard rows have 6-DIP vertical padding, 13px primary names/latencies and a 20px far-left type icon within the existing row envelope. Smaller monospaced MAC addresses use contrasting prefix/suffix colors; muted metadata preserves name hierarchy. Missing metadata uses a muted dash; the meaningful Unknown device status is not replaced. The vendor label **Private MAC** means a locally administered address, not a proven randomized address or known manufacturer; its tooltip explains the limitation. Unassigned People/Rooms cannot display stale labels, while valid assigned digits and emoji are preserved. Green Online, neutral Offline/Unknown, and amber Fing Only badges pair text with a dot. Subtle theme-aware zebra stripes follow the displayed row order, with native hover, selection, and focus indicators taking precedence; decorative stripes are disabled in Windows high contrast. A 1px theme-aware line below the contrasting column headers separates them from the rows, using system colors in high contrast. The final visible column has no trailing divider suggesting an extra column; its resize handle remains available.
+Both modes retain 13px primary names/latencies and a 20px far-left type icon within the content-driven row envelope. Smaller monospaced MAC addresses use contrasting prefix/suffix colors; muted metadata preserves name hierarchy. Missing metadata uses a muted dash; the meaningful Unknown device status is not replaced. The vendor label **Private MAC** means a locally administered address, not a proven randomized address or known manufacturer; its tooltip explains the limitation. Unassigned People/Rooms cannot display stale labels, while valid assigned digits and emoji are preserved. Green Online, neutral Offline/Unknown, and amber Fing Only badges pair text with a dot. Subtle theme-aware zebra stripes follow the displayed row order, with native hover, selection, and focus indicators taking precedence; decorative stripes are disabled in Windows high contrast. A 1px theme-aware line below the contrasting column headers separates them from the rows, using system colors in high contrast. The final visible column has no trailing divider suggesting an extra column; its resize handle remains available.
 
 IPv4 MAC enrichment first checks Windows' neighbor table for the exact IP on the route-selected interface, accepting only valid unicast six-byte addresses in usable states. If absent, it attempts `SendARP` once and rechecks the table. It never substitutes a gateway MAC or an unrelated interface's neighbor; a ping response can still lack a resolvable MAC.
 

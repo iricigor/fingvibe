@@ -11,7 +11,8 @@ public sealed class DeviceColumnLayoutTests
         var layout = new DeviceColumnLayout();
         Assert.True(layout.CompactRows);
         Assert.False(layout.CombineVendorOs);
-        Assert.Equal(38, layout.RowMinimumHeight);
+        Assert.Equal(36, layout.RowMinimumHeight);
+        Assert.Equal(1, layout.RowVerticalPadding);
         Assert.Equal(1, layout.RowSpacing);
         Assert.Equal(2, layout.HeaderVerticalPadding);
         Assert.Equal(1, layout.HeaderButtonVerticalPadding);
@@ -20,7 +21,8 @@ public sealed class DeviceColumnLayoutTests
         layout.CompactRows = false;
         layout.CompactRows = false;
         Assert.Equal(1, changes);
-        Assert.Equal(44, layout.RowMinimumHeight);
+        Assert.Equal(40, layout.RowMinimumHeight);
+        Assert.Equal(4, layout.RowVerticalPadding);
         Assert.Equal(3, layout.RowSpacing);
         Assert.Equal(2, layout.AssignmentSpacing);
         Assert.Equal(4, layout.HeaderVerticalPadding);
@@ -29,6 +31,81 @@ public sealed class DeviceColumnLayoutTests
         restored.Restore(layout.Capture());
         Assert.False(restored.CompactRows);
         restored.Reset();
+        Assert.False(restored.CompactRows);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Density_UsesOnlyVisibleStackedColumnsForEveryCombination(bool compact)
+    {
+        for (var flags = 0; flags < 4096; flags++)
+        {
+            var layout = new DeviceColumnLayout
+            {
+                CompactRows = compact,
+                CombineNameType = (flags & 1) != 0,
+                CombineAddresses = (flags & 2) != 0,
+                CombineVendorOs = (flags & 4) != 0,
+                CombinePersonRoom = (flags & 8) != 0,
+                CombineStatusResponse = (flags & 16) != 0
+            };
+            layout.Type.IsVisible = (flags & 32) != 0;
+            layout.Mac.IsVisible = (flags & 64) != 0;
+            layout.Vendor.IsVisible = (flags & 128) != 0;
+            layout.OperatingSystem.IsVisible = (flags & 256) != 0;
+            layout.Person.IsVisible = (flags & 512) != 0;
+            layout.Room.IsVisible = (flags & 1024) != 0;
+            layout.Response.IsVisible = (flags & 2048) != 0;
+
+            var stacked = (layout.CombineNameType && layout.Type.IsVisible)
+                || (layout.CombineAddresses && layout.Mac.IsVisible)
+                || (layout.CombineVendorOs && layout.Vendor.IsVisible && layout.OperatingSystem.IsVisible)
+                || (layout.CombinePersonRoom && layout.Person.IsVisible && layout.Room.IsVisible);
+            Assert.Equal(stacked, layout.HasStackedColumns);
+            Assert.Equal(compact ? (stacked ? 36 : 30) : (stacked ? 40 : 34), layout.RowMinimumHeight);
+            Assert.Equal(compact ? 1 : 4, layout.RowVerticalPadding);
+        }
+    }
+
+    [Fact]
+    public void Density_RefreshesOnVisibilityMergeAndPreferenceChangesAndRestores()
+    {
+        var layout = new DeviceColumnLayout
+        {
+            CombineNameType = false,
+            CombineAddresses = false
+        };
+        var changed = new List<string?>();
+        layout.PropertyChanged += (_, args) => changed.Add(args.PropertyName);
+
+        void AssertRefreshed(double minimum)
+        {
+            Assert.Contains(null, changed);
+            Assert.Equal(minimum, layout.RowMinimumHeight);
+            changed.Clear();
+        }
+
+        Assert.False(layout.HasStackedColumns);
+        Assert.Equal(30, layout.RowMinimumHeight);
+        layout.CombineVendorOs = true;
+        AssertRefreshed(36);
+        layout.OperatingSystem.IsVisible = false;
+        AssertRefreshed(30);
+        layout.OperatingSystem.IsVisible = true;
+        AssertRefreshed(36);
+        layout.CombineVendorOs = false;
+        AssertRefreshed(30);
+        layout.CompactRows = false;
+        AssertRefreshed(34);
+
+        var restored = new DeviceColumnLayout();
+        restored.Restore(layout.Capture());
+        Assert.False(restored.HasStackedColumns);
+        Assert.Equal(34, restored.RowMinimumHeight);
+        restored.Reset();
+        Assert.True(restored.HasStackedColumns);
+        Assert.Equal(40, restored.RowMinimumHeight);
         Assert.False(restored.CompactRows);
     }
 

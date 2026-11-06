@@ -1,36 +1,25 @@
 using FingVibe.Core.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Shapes;
 
 namespace FingVibe.App.Views;
 
-public sealed partial class SettingsPageView : UserControl, System.ComponentModel.INotifyPropertyChanged
+public sealed partial class SettingsPageView : UserControl
 {
     private static readonly ThemeVariant[] LightThemes =
         [ThemeVariant.StandardLight, ThemeVariant.WarmLight, ThemeVariant.ColorfulLight];
     private static readonly ThemeVariant[] DarkThemes =
         [ThemeVariant.StandardDark, ThemeVariant.OledDark, ThemeVariant.ColorfulDark];
     private bool _updatingAppearance;
+    private string? _appearanceSaveError;
+    private string? _materialStatus;
 
     public SettingsPageView()
     {
         InitializeComponent();
-        Loaded += (_, _) => Columns.PropertyChanged += Columns_PropertyChanged;
-        Unloaded += (_, _) => Columns.PropertyChanged -= Columns_PropertyChanged;
     }
-
-    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
-    public int DensityIndex
-    {
-        get => Columns.CompactRows ? 1 : 0;
-        set
-        {
-            if (value is 0 or 1) Columns.CompactRows = value == 1;
-        }
-    }
-
-    private void Columns_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e) =>
-        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(DensityIndex)));
 
     public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
     public IReadOnlyList<DeviceColumn> VisibilityChoices =>
@@ -43,9 +32,14 @@ public sealed partial class SettingsPageView : UserControl, System.ComponentMode
         ModePicker.SelectedIndex < 0 || ThemePicker.SelectedIndex < 0 || BackdropPicker.SelectedIndex < 0
             ? null
             : new AppearanceSettings((WindowBackdrop)BackdropPicker.SelectedIndex, ModeThemes[ThemePicker.SelectedIndex]);
-    internal string SaveStatus { set => AppearanceSaveStatus.Text = value; }
-    internal string MaterialStatus { set => BackdropStatus.Text = value; }
+    internal string? SaveError { set { _appearanceSaveError = value; UpdateAppearanceStatus(); } }
+    internal string? MaterialStatus { set { _materialStatus = value; UpdateAppearanceStatus(); } }
     internal string ColumnSaveStatus { set => TableSaveStatus.Text = value; }
+
+    private void UpdateAppearanceStatus()
+    {
+        AppearanceSaveStatus.Text = SettingsPresentation.AppearanceStatus(_appearanceSaveError, _materialStatus);
+    }
 
     internal void SetAppearance(AppearanceSettings appearance)
     {
@@ -116,14 +110,54 @@ public sealed partial class SettingsPageView : UserControl, System.ComponentMode
 
     private void CombinationOptions_SizeChanged(object sender, SizeChangedEventArgs e)
     {
-        var columns = e.NewSize.Width >= 560 ? 2 : 1;
+        var columns = SettingsPresentation.ColumnCount(e.NewSize.Width);
         FrameworkElement[] choices = [CombineNameType, CombineAddresses, CombineStatusResponse, CombinePersonRoom, CombineVendorOs];
         for (var index = 0; index < choices.Length; index++)
         {
             Grid.SetRow(choices[index], index / columns);
             Grid.SetColumn(choices[index], index % columns);
-            Grid.SetColumnSpan(choices[index], columns == 1 ? 2 : 1);
+            Grid.SetColumnSpan(choices[index], 1);
         }
+        CombinationOptions.ColumnDefinitions.Clear();
+        for (var column = 0; column < columns; column++)
+            CombinationOptions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+    }
+
+    private void DevicePreferences_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var inline = e.NewSize.Width >= 416;
+        Grid.SetColumn(EnlargedCellPreviews, inline ? 1 : 0);
+        Grid.SetRow(EnlargedCellPreviews, inline ? 0 : 1);
+        Grid.SetColumnSpan(CompactRowsSwitch, inline ? 1 : 2);
+        Grid.SetColumnSpan(EnlargedCellPreviews, inline ? 1 : 2);
+    }
+
+    private void DevicePreferenceSwitch_Loaded(object sender, RoutedEventArgs e)
+    {
+        var toggle = (ToggleSwitch)sender;
+        toggle.ApplyTemplate();
+        // ToggleSwitch is sealed; retain its native template and change only the four shape parts.
+        foreach (var name in new[] { "OuterBorder", "SwitchKnobBounds", "SwitchKnobOff" })
+        {
+            if (FindSwitchPart(toggle, name) is not Rectangle rectangle)
+                throw new InvalidOperationException($"The native ToggleSwitch template is missing rectangle '{name}'.");
+            rectangle.RadiusX = rectangle.RadiusY = name == "SwitchKnobOff" ? 2 : 4;
+        }
+        if (FindSwitchPart(toggle, "SwitchKnobOn") is not Border knob)
+            throw new InvalidOperationException("The native ToggleSwitch template is missing the on thumb.");
+        knob.CornerRadius = new CornerRadius(2);
+    }
+
+    private static FrameworkElement? FindSwitchPart(DependencyObject parent, string name)
+    {
+        if (parent is FrameworkElement element && element.Name == name)
+            return element;
+        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
+        {
+            if (FindSwitchPart(VisualTreeHelper.GetChild(parent, index), name) is { } child)
+                return child;
+        }
+        return null;
     }
 
     private void ColumnChoices_Loaded(object sender, RoutedEventArgs e) => UpdateColumnChoicesLayout();
@@ -136,8 +170,7 @@ public sealed partial class SettingsPageView : UserControl, System.ComponentMode
         {
             return;
         }
-        const double spacing = 16;
-        var columns = Math.Clamp((int)((ColumnChoices.ActualWidth + spacing) / (200 + spacing)), 1, 3);
+        var columns = SettingsPresentation.ColumnCount(ColumnChoices.ActualWidth);
         var rows = (VisibilityChoices.Count + columns - 1) / columns;
         if (panel.ColumnDefinitions.Count != columns)
         {

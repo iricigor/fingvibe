@@ -259,6 +259,31 @@ try {
                     Save-UiReviewWindowScreenshot -WindowHandle $process.MainWindowHandle `
                         -Path (Join-Path $ScreenshotDirectory "$BuildKind-narrow-high-contrast.png")
                 }
+                $null = [UiReviewNativeWindow]::SetWindowPos(
+                    $process.MainWindowHandle, [IntPtr]::Zero, $bounds.X, $bounds.Y, 1280, 720, 0x0044)
+                Select-Page "Settings"
+                foreach ($id in @("CompactRowsSwitch", "EnlargedCellPreviews")) {
+                    $condition = [System.Windows.Automation.PropertyCondition]::new(
+                        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
+                    $preference = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+                    if (-not $preference -or $preference.Current.IsOffscreen) {
+                        throw "$id must remain visible in high contrast."
+                    }
+                    $pattern = $preference.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+                    $original = $pattern.Current.ToggleState
+                    $preference.SetFocus()
+                    [BuildIdentityReviewKeyboard]::Tap(0x20)
+                    Start-Sleep -Milliseconds 200
+                    if ($pattern.Current.ToggleState -eq $original) { throw "$id must toggle in high contrast." }
+                    $pattern.Toggle()
+                }
+                if ($ScreenshotDirectory) {
+                    Save-UiReviewWindowScreenshot -WindowHandle $process.MainWindowHandle `
+                        -Path (Join-Path $ScreenshotDirectory "settings-switches-high-contrast.png")
+                }
+                Select-Page "Overview"
+                $null = [UiReviewNativeWindow]::SetWindowPos(
+                    $process.MainWindowHandle, [IntPtr]::Zero, $bounds.X, $bounds.Y, 640, 480, 0x0044)
                 [BuildIdentityReviewKeyboard]::SetHighContrastFlags($highContrastFlags)
                 $highContrastFlags = $null
                 Start-Sleep -Seconds 2

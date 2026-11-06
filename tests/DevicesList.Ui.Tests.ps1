@@ -127,6 +127,9 @@ function Save-DeviceCapture([string] $Name, [switch] $KeepPointer) {
 function Get-RowColor($Bitmap, $Row) {
     $bounds = Get-UiReviewWindowBounds $windowHandle
     $rowBounds = $Row.Current.BoundingRectangle
+    if ($rowBounds.IsEmpty -or $Row.Current.IsOffscreen) {
+        throw "Cannot sample an unrealized or offscreen device row."
+    }
     $Bitmap.GetPixel([int]($rowBounds.Left - $bounds.Left + 8 * $scale),
         [int]($rowBounds.Top - $bounds.Top + $rowBounds.Height / 2)).ToArgb()
 }
@@ -493,6 +496,14 @@ function Set-DeviceFilterChecks([string] $Id, [string[]] $Labels) {
 }
 
 function Set-DeviceFilterChoice([string] $Id, [string] $Label) {
+    if ($Id -eq "CompactRowsSwitch") {
+        if ($Label -notin @("Standard", "Compact")) { throw "Unknown density '$Label'." }
+        $toggle = (Find-DeviceElement $Id).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+        if (($toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On) -ne ($Label -eq "Compact")) {
+            $toggle.Toggle()
+        }
+        return
+    }
     if ($Id -in @("InventoryStatusFilter", "TypeFilter", "OperatingSystemFilter", "VendorFilter",
         "PersonFilter", "RoomFilter", "PortsFilter")) {
         $labels = if ($Label -like "All *") { @() } else { @($Label) }
@@ -799,41 +810,65 @@ function Test-FilterChips {
 function Test-RowDensity {
     Set-DeviceWidth 1880
     $measurements = @{}
-    foreach ($density in @("Standard", "Compact")) {
-        Select-DevicePage Settings
-        Set-ColumnOption "Combine Vendor and OS" $true
-        Set-ColumnOption "Combine Person and Room" $true
-        Set-DeviceFilterChoice RowDensityPicker $density
-        Select-DevicePage DevicesNavItem
-        $rows = @(Get-DeviceRows)
-        $listBounds = (Find-DeviceElement ResultsList).Current.BoundingRectangle
-        $heights = @($rows | Select-Object -First 4 | ForEach-Object { $_.Current.BoundingRectangle.Height / $scale })
-        $fullyVisible = @($rows | Where-Object { $_.Current.BoundingRectangle.Bottom -le $listBounds.Bottom }).Count
-        $headerHeight = (Find-DeviceElement DeviceTableHeader).Current.BoundingRectangle.Height / $scale
-        $measurements[$density] = @{ heights = $heights; visibleRows = $fullyVisible; headerHeight = $headerHeight }
-        foreach ($height in $heights) {
-            if ($density -eq "Compact" -and ($height -lt 38 -or $height -gt 40.5)) {
-                throw "Compact representative rows must render at approximately 38-40 DIPs, got $height."
+    foreach ($layout in @("Stacked", "Separate", "ConnectionOnly")) {
+        $measurements[$layout] = @{}
+        foreach ($density in @("Standard", "Compact")) {
+            Select-DevicePage Settings
+            foreach ($label in @("Combine Name and Type", "Combine IP and MAC", "Combine Person and Room", "Combine Vendor and OS")) {
+                Set-ColumnOption $label ($layout -eq "Stacked")
             }
-            if ($density -eq "Standard" -and $height -lt 44) { throw "Standard minimum height changed." }
+            Set-ColumnOption "Combine Status and Response" ($layout -ne "Separate")
+            Set-DeviceFilterChoice CompactRowsSwitch $density
+            Select-DevicePage DevicesNavItem
+            $rows = @(Get-DeviceRows)
+            if ($rows.Count -lt 4) { throw "Density measurement requires four representative rows." }
+            $listBounds = (Find-DeviceElement ResultsList).Current.BoundingRectangle
+            $heights = @($rows | Select-Object -First 4 | ForEach-Object { $_.Current.BoundingRectangle.Height / $scale })
+            $fullyVisible = @($rows | Where-Object { $_.Current.BoundingRectangle.Bottom -le $listBounds.Bottom }).Count
+            $headerHeight = (Find-DeviceElement DeviceTableHeader).Current.BoundingRectangle.Height / $scale
+            $measurements[$layout][$density] = @{ heights = $heights; visibleRows = $fullyVisible; headerHeight = $headerHeight; scale = $scale }
+            $minimum = if ($layout -eq "Stacked") {
+                if ($density -eq "Compact") { 36 } else { 40 }
+            } else {
+                if ($density -eq "Compact") { 30 } else { 34 }
+            }
+            # Native two-line name/type metrics require 44 DIPs in Standard, above its 40-DIP minimum.
+            $maximum = $minimum + $(if ($layout -eq "Stacked" -and $density -eq "Standard") { 4.5 } else { 0.5 })
+            foreach ($height in $heights) {
+                if ($height -lt $minimum - 0.5 -or $height -gt $maximum) {
+                    throw "$layout/$density representative height must be $minimum-$maximum DIPs, got $height."
+                }
+            }
+            foreach ($row in ($rows | Select-Object -First 4)) {
+                $rowBounds = $row.Current.BoundingRectangle
+                foreach ($child in $row.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.Condition]::TrueCondition)) {
+                    if ($child.Current.IsOffscreen) { continue }
+                    $childBounds = $child.Current.BoundingRectangle
+                    if ($childBounds.Height -gt 0 -and
+                        ($childBounds.Top -lt $rowBounds.Top - 1 -or $childBounds.Bottom -gt $rowBounds.Bottom + 1)) {
+                        throw "$layout/$density clips row content '$($child.Current.Name)'."
+                    }
+                }
+            }
+            $selected = $rows[0].GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
+            if ($density -eq "Compact" -and -not $selected.Current.IsSelected) {
+                throw "Changing density must preserve the selected device."
+            }
+            $selected.Select()
+            $null = Save-DeviceCapture "devices-density-$layout-$density"
         }
-        $selected = $rows[0].GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
-        if ($density -eq "Compact" -and -not $selected.Current.IsSelected) {
-            throw "Changing density must preserve the selected device."
+        if ($measurements[$layout].Compact.visibleRows -le $measurements[$layout].Standard.visibleRows) {
+            throw "$layout Compact must display more complete rows at an identical viewport."
         }
-        $selected.Select()
-        $null = Save-DeviceCapture "devices-density-$density"
+        if ($measurements[$layout].Compact.headerHeight -ge $measurements[$layout].Standard.headerHeight) {
+            throw "Column titles must retain the existing density distinction."
+        }
     }
-    if ($measurements.Compact.visibleRows -le $measurements.Standard.visibleRows) {
-        throw "Compact must display more complete rows at an identical viewport."
-    }
-    if ($measurements.Compact.headerHeight -ge $measurements.Standard.headerHeight) {
-        throw "Column titles must become more compact along with device rows."
-    }
-    $measurements | ConvertTo-Json -Depth 4 |
+    $measurements | ConvertTo-Json -Depth 5 |
         Set-Content -LiteralPath (Join-Path $ScreenshotDirectory "devices-density-measurements.json")
     Select-DevicePage Settings
-    Set-DeviceFilterChoice RowDensityPicker Standard
+    Set-DeviceFilterChoice CompactRowsSwitch Standard
     (Find-DeviceElement ResetColumnsButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Select-DevicePage DevicesNavItem
     Set-DeviceWidth 1280
@@ -1237,9 +1272,20 @@ try {
     $listSelection = (Find-DeviceElement ResultsList).GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern)
     $selected = @($listSelection.Current.GetSelection())
     if ($selected.Count -ne 1) { throw "Sorting must preserve selection." }
-    $selected[0].GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView()
-    Start-Sleep -Milliseconds 250
-    $selected = @($listSelection.Current.GetSelection())
+    $deadline = [DateTime]::UtcNow.AddSeconds(10)
+    do {
+        $selected = @($listSelection.Current.GetSelection())
+        if ($selected.Count -ne 1) { throw "Scrolling must preserve the selected device." }
+        $selectedBounds = $selected[0].Current.BoundingRectangle
+        $listBounds = (Find-DeviceElement ResultsList).Current.BoundingRectangle
+        $visible = -not $selected[0].Current.IsOffscreen -and -not $selectedBounds.IsEmpty -and
+            $selectedBounds.Top -ge $listBounds.Top -and $selectedBounds.Bottom -le $listBounds.Bottom
+        if ($visible) { break }
+        # Density changes alter virtualization estimates; reacquire selection until scrolling realizes it.
+        $selected[0].GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView()
+        Start-Sleep -Milliseconds 150
+    } while ([DateTime]::UtcNow -lt $deadline)
+    if (-not $visible) { throw "The selected device did not become fully visible after sorting." }
     $nameCondition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::NameProperty, "Kitchen display")
     if (-not $selected[0].FindFirst([System.Windows.Automation.TreeScope]::Descendants, $nameCondition)) {

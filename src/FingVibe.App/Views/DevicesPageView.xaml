@@ -497,7 +497,8 @@
                             </ListView.Resources>
                             <ListView.ItemContainerStyle>
                                 <Style TargetType="ListViewItem">
-                                    <Setter Property="MinHeight" Value="{Binding Columns.RowMinimumHeight}" />
+                                    <!-- The row template owns the minimum; remove WinUI's 40-DIP container floor. -->
+                                    <Setter Property="MinHeight" Value="0" />
                                     <Setter Property="Padding" Value="0" />
                                     <Setter Property="Margin" Value="0" />
                                     <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -507,7 +508,7 @@
                             </ListView.ItemContainerStyle>
                             <ListView.ItemTemplate>
                                 <DataTemplate x:DataType="local:ScanResultRow">
-                                    <Grid Padding="{x:Bind local:DeviceColumnLayoutHelpers.RowPadding(Columns.CompactRows), Mode=OneWay}"
+                                    <Grid Padding="{x:Bind local:DeviceColumnLayoutHelpers.RowPadding(Columns.RowVerticalPadding), Mode=OneWay}"
                                           MinHeight="{x:Bind Columns.RowMinimumHeight, Mode=OneWay}"
                                           Background="{x:Bind HasStripe, Mode=OneWay, Converter={StaticResource ResultRowBackgroundConverter}}">
                                         <Grid.Resources>
