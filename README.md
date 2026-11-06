@@ -31,7 +31,7 @@ not a real LAN. [Capture details](docs/screenshots/README.md).
 
 | | What you can do |
 | --- | --- |
-| 🔎 **Discover** | Detect IPv4 interfaces and subnets, scan with up to 256 concurrent ICMP probes, and follow progress or cancel. |
+| 🔎 **Discover** | Detect IPv4 interfaces and subnets, scan with up to 256 concurrent ICMP probes (missed addresses are retried once), and follow progress or cancel. |
 | 💻 **Identify** | Discover names through UPnP/SSDP, mDNS, reverse DNS, and NetBIOS; explore MAC vendors, evidence-backed OS/device types, and saved manual corrections. |
 | 🌐 **Inspect** | View common TCP services, device details, public/local network identity, and scan-wide latency bars. |
 | 👥 **Organize** | Assign people and rooms by MAC address; search, filter, sort, and resize device columns. |
@@ -59,7 +59,9 @@ scan, not continuous monitoring; switching networks identifies results
 from another target rather than silently relabeling them.
 
 **Scanning limitations:** Only devices answering ICMP are locally discovered;
-firewalls or silent devices can hide active hosts. Previously observed and imported
+firewalls or silent devices can hide active hosts. Each missed address gets one
+retry after a one-second pause, which can nearly double scan traffic and adds time,
+but cannot guarantee the same device count every scan. Previously observed and imported
 devices remain in the inventory. Identification is best-effort, open ports are not
 a security verdict, and scan results are not continuous monitoring or an event timeline.
 The scanner limits a target to 65,534 usable addresses. An **Unknown** or

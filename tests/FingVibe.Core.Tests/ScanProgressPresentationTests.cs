@@ -1,4 +1,5 @@
 using FingVibe.App;
+using FingVibe.Core.Models;
 using Xunit;
 
 namespace FingVibe.Core.Tests;
@@ -28,5 +29,15 @@ public sealed class ScanProgressPresentationTests
         Assert.Equal(0.5, ScanProgressPresentation.PulsePosition(TimeSpan.FromSeconds(0.9)), 8);
         Assert.InRange(ScanProgressPresentation.PulsePosition(TimeSpan.FromSeconds(1.799)), 1.24, 1.25);
         Assert.Equal(-0.25, ScanProgressPresentation.PulsePosition(TimeSpan.FromSeconds(1.8)), 8);
+    }
+
+    [Theory]
+    [InlineData(LanScanPhase.FirstPass, 0, 254, "Scanning 0/254 addresses")]
+    [InlineData(LanScanPhase.FirstPass, 254, 254, "Scanning 254/254 addresses")]
+    [InlineData(LanScanPhase.Retry, 0, 230, "Retrying 0/230 missed addresses")]
+    [InlineData(LanScanPhase.Retry, 17, 230, "Retrying 17/230 missed addresses")]
+    public void ProgressMessageNamesTheScanPhaseAndItsOwnCount(LanScanPhase phase, int completed, int total, string expected)
+    {
+        Assert.Equal(expected, ScanProgressPresentation.Message(new LanScanProgress(phase, completed, total)));
     }
 }

@@ -130,7 +130,7 @@ public sealed partial class MainWindow : IScanExecutionSteps
         ScanProgressBar.Value = 0;
         StartScanPulse();
         _retainedResultsMessage = _displayedScan is not null ? " · Displaying retained results" : string.Empty;
-        _scanMessage = $"{ScanProgressPrefix}Scanning 0/{total:N0} addresses{_retainedResultsMessage}";
+        _scanMessage = $"{ScanProgressPrefix}{ScanProgressPresentation.Message(new LanScanProgress(LanScanPhase.FirstPass, 0, total))}{_retainedResultsMessage}";
         UpdateScanStatus();
         if (focusScanAction) CancelButton.Focus(FocusState.Programmatic);
         _discoveryMessage = null;
@@ -145,7 +145,7 @@ public sealed partial class MainWindow : IScanExecutionSteps
         var retainedResults = _retainedResultsMessage;
         var resultProgress = new ScanResultBuffer();
         var cancellation = _scanCancellation;
-        var scanProgress = new Progress<ScanProgress>(progress =>
+        var scanProgress = new Progress<LanScanProgress>(progress =>
         {
             if (!_isScanning || _scanCancellation != cancellation || cancellationToken.IsCancellationRequested)
             {
@@ -163,7 +163,7 @@ public sealed partial class MainWindow : IScanExecutionSteps
                 var fixture = System.Text.Json.JsonSerializer.Deserialize<ScanProgress>(File.ReadAllText(fixturePath));
                 if (fixture.Total <= 0 || fixture.Completed < 0 || fixture.Completed > fixture.Total)
                     throw new InvalidOperationException("The UI-review progress fixture is invalid.");
-                PresentScanProgress(fixture, retainedResults);
+                PresentScanProgress(new LanScanProgress(LanScanPhase.FirstPass, fixture.Completed, fixture.Total), retainedResults);
             }
             var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
             while (File.Exists(holdPath))
@@ -172,7 +172,7 @@ public sealed partial class MainWindow : IScanExecutionSteps
                     throw new InvalidOperationException("The UI-review scan hold was not released within 30 seconds.");
                 await Task.Delay(50, cancellationToken);
             }
-            PresentScanProgress(new ScanProgress(0, total), retainedResults);
+            PresentScanProgress(new LanScanProgress(LanScanPhase.FirstPass, 0, total), retainedResults);
         }
         if (IsUiReview && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_SCAN_RESULTS") is { Length: > 0 } completedFixturePath)
             return (await new ScanSnapshotStore(completedFixturePath).LoadAsync(cancellationToken)
@@ -228,12 +228,12 @@ public sealed partial class MainWindow : IScanExecutionSteps
         if (outcome.Discoveries.Count > 0) PresentDiscoveries(outcome.Discoveries);
     }
 
-    private void PresentScanProgress(ScanProgress progress, string retainedResults)
+    private void PresentScanProgress(LanScanProgress progress, string retainedResults)
     {
         ScanProgressBar.Maximum = progress.Total;
         ScanProgressBar.Value = progress.Completed;
         UpdateScanPulseWidth();
-        _scanMessage = $"{ScanProgressPrefix}Scanning {progress.Completed:N0}/{progress.Total:N0} addresses{retainedResults}";
+        _scanMessage = $"{ScanProgressPrefix}{ScanProgressPresentation.Message(progress)}{retainedResults}";
         UpdateScanStatus();
     }
 

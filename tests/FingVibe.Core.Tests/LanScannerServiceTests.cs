@@ -1,0 +1,413 @@
+using System.Collections.Concurrent;
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Threading.Channels;
+using FingVibe.App;
+using FingVibe.Core.Models;
+using FingVibe.Core.Networking;
+using Microsoft.Extensions.Time.Testing;
+using Xunit;
+
+namespace FingVibe.Core.Tests;
+
+public sealed class LanScannerServiceTests
+{
+    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(10);
+
+    // A /29 has six usable addresses: 192.0.2.1 through 192.0.2.6.
+    private static readonly LanNetwork Network = new(
+        "Ethernet", IPAddress.Parse("192.0.2.5"), IPAddress.Parse("192.0.2.0"), 29, true, IPAddress.Parse("192.0.2.1"));
+
+    private static readonly string[] Addresses = Enumerable.Range(1, 6).Select(host => $"192.0.2.{host}").ToArray();
+
+    private readonly FakeTimeProvider _time = new(new DateTimeOffset(2026, 11, 6, 8, 0, 0, TimeSpan.Zero));
+    private readonly ScriptedIcmp _icmp = new();
+    private readonly RecordingEnricher _enricher = new();
+    private readonly Recorder<ScanResult> _results = new();
+    private readonly Recorder<LanScanProgress> _progress = new();
+
+    private LanScannerService Scanner(int timeoutMilliseconds = 700, int maximumConcurrency = 256) =>
+        new(timeoutMilliseconds, maximumConcurrency, _enricher,
+            (_, _) => Task.FromResult(new ScanDiscovery(
+                new Dictionary<IPAddress, IReadOnlyList<SsdpDeviceInfo>>(),
+                new Dictionary<IPAddress, MdnsDeviceInfo>())),
+            _icmp.SendAsync, _time);
+
+    [Fact]
+    public void FirstPassKeepsTheExistingTimeoutAndConcurrencyWithAOneSecondRetryPause()
+    {
+        Assert.Equal(700, LanScannerService.DefaultTimeoutMilliseconds);
+        Assert.Equal(256, LanScannerService.DefaultMaximumConcurrency);
+        Assert.Equal(TimeSpan.FromSeconds(1), LanScannerService.RetryPause);
+    }
+
+    // The scanner receives no inventory or history, so every first-pass miss is retried, known or not.
+    [Fact]
+    public async Task EveryFirstPassMissIsRetriedOnceAfterThePauseAndOnlyFreshRepliesCountAsAlive()
+    {
+        _icmp.Respond = (address, attempt) => address switch
+        {
+            "192.0.2.1" => ScriptedIcmp.Reply(),
+            "192.0.2.2" => attempt == 1 ? ScriptedIcmp.Miss() : ScriptedIcmp.Reply(),
+            "192.0.2.3" => attempt == 1 ? ScriptedIcmp.PingFailure() : ScriptedIcmp.Reply(),
+            "192.0.2.4" => attempt == 1 ? ScriptedIcmp.Miss(IPStatus.DestinationHostUnreachable) : ScriptedIcmp.Miss(),
+            _ => ScriptedIcmp.Miss()
+        };
+
+        var scan = Scanner().ScanAsync(Network, _results, _progress);
+        Assert.Equal(new LanScanProgress(LanScanPhase.Retry, 0, 5),
+            await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry));
+        Assert.Equal(6, _icmp.Attempts.Count);
+
+        _time.Advance(LanScannerService.RetryPause - TimeSpan.FromMilliseconds(1));
+        await Task.Delay(50);
+        Assert.Equal(6, _icmp.Attempts.Count);
+        Assert.False(scan.IsCompleted);
+
+        _time.Advance(TimeSpan.FromMilliseconds(1));
+        var summary = await scan.WaitAsync(Timeout);
+
+        Assert.Equal(new ScanSummary(6, 3, 3), summary);
+        Assert.Equal([1, 2, 2, 2, 2, 2], Addresses.Select(_icmp.AttemptsFor));
+        Assert.All(_icmp.Attempts, attempt => Assert.Equal(700, attempt.Timeout));
+        var results = _results.Items.OrderBy(result => result.Address.GetAddressBytes()[3]).ToArray();
+        Assert.Equal(Addresses, results.Select(result => result.AddressText));
+        Assert.Equal(
+            [HostStatus.Alive, HostStatus.Alive, HostStatus.Alive,
+                HostStatus.Unreachable, HostStatus.Unreachable, HostStatus.Unreachable],
+            results.Select(result => result.Status));
+        Assert.Equal(["192.0.2.1", "192.0.2.2", "192.0.2.3"],
+            _enricher.Enriched.Select(address => address.ToString()).Order());
+        Assert.Equal("001122334402", results[1].MacAddressText.Replace("-", string.Empty));
+        Assert.Equal(summary.Alive, results.Count(result => result.Status == HostStatus.Alive));
+    }
+
+    [Fact]
+    public async Task ProgressReportsTheFirstPassThenADistinctRetryPhaseWithItsOwnCount()
+    {
+        _icmp.Respond = (address, attempt) => address is "192.0.2.1" or "192.0.2.2" || attempt == 2 && address == "192.0.2.6"
+            ? ScriptedIcmp.Reply() : ScriptedIcmp.Miss();
+
+        var scan = Scanner().ScanAsync(Network, _results, _progress);
+        await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry);
+        _time.Advance(LanScannerService.RetryPause);
+        Assert.Equal(new ScanSummary(6, 3, 3), await scan.WaitAsync(Timeout));
+
+        var progress = _progress.Items.ToArray();
+        var firstPass = progress.TakeWhile(item => item.Phase == LanScanPhase.FirstPass).ToArray();
+        var retry = progress.Skip(firstPass.Length).ToArray();
+        Assert.Equal(Enumerable.Range(1, 6), firstPass.Select(item => item.Completed).Order());
+        Assert.All(firstPass, item => Assert.Equal(6, item.Total));
+        Assert.All(retry, item => Assert.Equal(LanScanPhase.Retry, item.Phase));
+        Assert.Equal(new LanScanProgress(LanScanPhase.Retry, 0, 4), retry[0]);
+        Assert.Equal(Enumerable.Range(0, 5), retry.Select(item => item.Completed).Order());
+        Assert.All(retry, item => Assert.Equal(4, item.Total));
+        Assert.Equal(6, _results.Items.Count);
+    }
+
+    [Fact]
+    public async Task NoFirstPassMissesSkipsThePauseAndRetry()
+    {
+        _icmp.Respond = (_, _) => ScriptedIcmp.Reply();
+
+        var summary = await Scanner().ScanAsync(Network, _results, _progress).WaitAsync(Timeout);
+
+        Assert.Equal(new ScanSummary(6, 6, 0), summary);
+        Assert.Equal(Enumerable.Repeat(1, 6), Addresses.Select(_icmp.AttemptsFor));
+        Assert.DoesNotContain(_progress.Items, item => item.Phase == LanScanPhase.Retry);
+        Assert.Equal(Addresses, _results.Items.Select(result => result.AddressText).Order());
+    }
+
+    [Fact]
+    public async Task PersistentMissesProduceOneUnreachableResultPerAddressAndNoThirdAttempt()
+    {
+        var scan = Scanner().ScanAsync(Network, _results, _progress);
+        await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry);
+        Assert.Empty(_results.Items);
+        _time.Advance(LanScannerService.RetryPause);
+
+        Assert.Equal(new ScanSummary(6, 0, 6), await scan.WaitAsync(Timeout));
+        Assert.Equal(Enumerable.Repeat(2, 6), Addresses.Select(_icmp.AttemptsFor));
+        Assert.Equal(Addresses, _results.Items.Select(result => result.AddressText).Order());
+        Assert.All(_results.Items, result => Assert.Equal(HostStatus.Unreachable, result.Status));
+        Assert.Empty(_enricher.Enriched);
+    }
+
+    [Fact]
+    public async Task RetryUsesTheSameTimeoutAndConcurrencyAndStartsOnlyAfterTheFirstPass()
+    {
+        _icmp.Respond = async (_, _) =>
+        {
+            await Task.Delay(5);
+            return new IcmpEchoReply(IPStatus.TimedOut, 0, null);
+        };
+
+        var scan = Scanner(timeoutMilliseconds: 123, maximumConcurrency: 2).ScanAsync(Network, _results, _progress);
+        await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry);
+        _time.Advance(LanScannerService.RetryPause);
+        await scan.WaitAsync(Timeout);
+
+        Assert.InRange(_icmp.PeakConcurrency, 1, 2);
+        Assert.All(_icmp.Attempts, attempt => Assert.Equal(123, attempt.Timeout));
+        Assert.Equal(Enumerable.Repeat(1, 6).Concat(Enumerable.Repeat(2, 6)), _icmp.Attempts.Select(attempt => attempt.Attempt));
+    }
+
+    [Fact]
+    public async Task CancellationDuringThePauseStopsBeforeAnyRetryOrMissResult()
+    {
+        _icmp.Respond = (address, _) => address == "192.0.2.1" ? ScriptedIcmp.Reply() : ScriptedIcmp.Miss();
+        using var cancellation = new CancellationTokenSource();
+
+        var scan = Scanner().ScanAsync(Network, _results, _progress, cancellation.Token);
+        await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry);
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => scan.WaitAsync(Timeout));
+        Assert.Equal(6, _icmp.Attempts.Count);
+        Assert.Equal("192.0.2.1", Assert.Single(_results.Items).AddressText);
+    }
+
+    [Fact]
+    public async Task CancellationDuringTheRetryDoesNotReportTheRetryReply()
+    {
+        var retryStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var retryReply = new TaskCompletionSource<IcmpEchoReply>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _icmp.Respond = (address, attempt) =>
+        {
+            if (address != "192.0.2.2") return ScriptedIcmp.Reply();
+            if (attempt == 1) return ScriptedIcmp.Miss();
+            retryStarted.SetResult();
+            return retryReply.Task;
+        };
+        using var cancellation = new CancellationTokenSource();
+
+        var scan = Scanner().ScanAsync(Network, _results, _progress, cancellation.Token);
+        await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry);
+        _time.Advance(LanScannerService.RetryPause);
+        await retryStarted.Task.WaitAsync(Timeout);
+        cancellation.Cancel();
+        retryReply.SetResult(new IcmpEchoReply(IPStatus.Success, 1, 64));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => scan.WaitAsync(Timeout));
+        Assert.DoesNotContain(_results.Items, result => result.AddressText == "192.0.2.2");
+        Assert.DoesNotContain("192.0.2.2", _enricher.Enriched.Select(address => address.ToString()));
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task UnexpectedProbeErrorsFailTheScanInsteadOfCountingAsMisses(int failingAttempt)
+    {
+        _icmp.Respond = (address, attempt) => address != "192.0.2.3"
+            ? ScriptedIcmp.Reply()
+            : attempt == failingAttempt
+                ? Task.FromException<IcmpEchoReply>(new InvalidOperationException("adapter failed"))
+                : ScriptedIcmp.Miss();
+
+        var scan = Scanner().ScanAsync(Network, _results, _progress);
+        if (failingAttempt == 2)
+        {
+            await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry);
+            _time.Advance(LanScannerService.RetryPause);
+        }
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => scan.WaitAsync(Timeout));
+        Assert.Equal("adapter failed", error.Message);
+        Assert.DoesNotContain(_results.Items, result => result.AddressText == "192.0.2.3");
+    }
+
+    [Theory]
+    [InlineData(nameof(ScanTrigger.Manual))]
+    [InlineData(nameof(ScanTrigger.Scheduled))]
+    public async Task SharedExecutionSavesOneResultPerRecoveredResponder(string triggerName)
+    {
+        _icmp.Respond = (address, attempt) => address == "192.0.2.1" || address == "192.0.2.4" && attempt == 2
+            ? ScriptedIcmp.Reply() : ScriptedIcmp.Miss();
+        var steps = new ScannerSteps(Scanner());
+        var execution = new ScanExecution(new NetworkActivityCoordinator(), steps);
+
+        var run = execution.RunAsync(new ScanRequest(Enum.Parse<ScanTrigger>(triggerName), Network));
+        await steps.Progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry);
+        Assert.Empty(steps.Saves);
+        _time.Advance(LanScannerService.RetryPause);
+        var outcome = await run.WaitAsync(Timeout);
+
+        Assert.Equal(ScanRunStatus.Completed, outcome.Status);
+        var saved = Assert.Single(steps.Saves);
+        Assert.Equal(["192.0.2.1", "192.0.2.4"], saved.Select(result => result.AddressText).Order());
+        Assert.All(saved, result => Assert.Equal(HostStatus.Alive, result.Status));
+        Assert.Equal(outcome, Assert.Single(steps.Ended));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SharedExecutionCancellationDuringThePauseOrRetrySavesNothing(bool duringRetry)
+    {
+        var retryStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var retryReply = new TaskCompletionSource<IcmpEchoReply>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _icmp.Respond = (address, attempt) =>
+        {
+            if (address == "192.0.2.1") return ScriptedIcmp.Reply();
+            if (attempt == 1) return ScriptedIcmp.Miss();
+            retryStarted.TrySetResult();
+            return retryReply.Task;
+        };
+        var steps = new ScannerSteps(Scanner());
+        var execution = new ScanExecution(new NetworkActivityCoordinator(), steps);
+
+        var run = execution.RunAsync(new ScanRequest(ScanTrigger.Scheduled, Network));
+        await steps.Progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry);
+        if (duringRetry)
+        {
+            _time.Advance(LanScannerService.RetryPause);
+            await retryStarted.Task.WaitAsync(Timeout);
+        }
+
+        steps.Cancellation!.Cancel();
+        retryReply.SetResult(new IcmpEchoReply(IPStatus.Success, 1, 64));
+        var outcome = await run.WaitAsync(Timeout);
+
+        Assert.Equal(ScanRunStatus.Cancelled, outcome.Status);
+        Assert.Empty(steps.Saves);
+        Assert.Equal(duringRetry, retryStarted.Task.IsCompleted);
+    }
+
+    [Fact]
+    public async Task SharedExecutionReportsARetryErrorAsAFailureWithoutSaving()
+    {
+        _icmp.Respond = (address, attempt) => address == "192.0.2.1"
+            ? ScriptedIcmp.Reply()
+            : attempt == 2 && address == "192.0.2.6"
+                ? Task.FromException<IcmpEchoReply>(new InvalidOperationException("adapter failed"))
+                : ScriptedIcmp.Miss();
+        var steps = new ScannerSteps(Scanner());
+        var execution = new ScanExecution(new NetworkActivityCoordinator(), steps);
+
+        var run = execution.RunAsync(new ScanRequest(ScanTrigger.Manual, Network));
+        await steps.Progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry);
+        _time.Advance(LanScannerService.RetryPause);
+        var outcome = await run.WaitAsync(Timeout);
+
+        Assert.Equal(ScanRunStatus.Failed, outcome.Status);
+        Assert.Equal("adapter failed", outcome.Message);
+        Assert.Empty(steps.Saves);
+    }
+
+    private sealed class ScriptedIcmp
+    {
+        private readonly ConcurrentDictionary<string, int> _counts = new();
+        private int _inFlight;
+        private int _peakConcurrency;
+
+        public ConcurrentQueue<(string Address, int Attempt, int Timeout)> Attempts { get; } = new();
+
+        public Func<string, int, Task<IcmpEchoReply>> Respond { get; set; } = (_, _) => Miss();
+
+        public int PeakConcurrency => Volatile.Read(ref _peakConcurrency);
+
+        public static Task<IcmpEchoReply> Reply() => Task.FromResult(new IcmpEchoReply(IPStatus.Success, 3, 64));
+
+        public static Task<IcmpEchoReply> Miss(IPStatus status = IPStatus.TimedOut) =>
+            Task.FromResult(new IcmpEchoReply(status, 0, null));
+
+        public static Task<IcmpEchoReply> PingFailure() =>
+            Task.FromException<IcmpEchoReply>(new PingException("transient ping failure"));
+
+        public int AttemptsFor(string address) => _counts.GetValueOrDefault(address);
+
+        public async Task<IcmpEchoReply> SendAsync(IPAddress address, int timeoutMilliseconds)
+        {
+            var text = address.ToString();
+            var attempt = _counts.AddOrUpdate(text, 1, (_, count) => count + 1);
+            Attempts.Enqueue((text, attempt, timeoutMilliseconds));
+            var inFlight = Interlocked.Increment(ref _inFlight);
+            int peak;
+            while (inFlight > (peak = Volatile.Read(ref _peakConcurrency))
+                && Interlocked.CompareExchange(ref _peakConcurrency, inFlight, peak) != peak)
+            {
+            }
+
+            try
+            {
+                return await Respond(text, attempt);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _inFlight);
+            }
+        }
+    }
+
+    private sealed class RecordingEnricher : IScanResultEnricher
+    {
+        public ConcurrentQueue<IPAddress> Enriched { get; } = new();
+
+        public Task<ScanEnrichment> EnrichAsync(
+            IPAddress address, Task<ScanDiscovery> discoveryTask, CancellationToken cancellationToken, int? responseTtl = null)
+        {
+            Enriched.Enqueue(address);
+            var host = address.GetAddressBytes()[3];
+            return Task.FromResult(new ScanEnrichment(
+                $"device-{host}", PhysicalAddress.Parse($"0011223344{host:X2}"), "Example", []));
+        }
+    }
+
+    private sealed class Recorder<T> : IProgress<T>
+    {
+        private readonly Channel<T> _channel = Channel.CreateUnbounded<T>();
+
+        public ConcurrentQueue<T> Items { get; } = new();
+
+        public void Report(T value)
+        {
+            Items.Enqueue(value);
+            _channel.Writer.TryWrite(value);
+        }
+
+        public async Task<T> WaitForAsync(Func<T, bool> predicate)
+        {
+            using var timeout = new CancellationTokenSource(Timeout);
+            while (true)
+            {
+                var value = await _channel.Reader.ReadAsync(timeout.Token);
+                if (predicate(value)) return value;
+            }
+        }
+    }
+
+    // Runs the real scanner and result buffer through the shared execution path, as MainWindow does.
+    private sealed class ScannerSteps(LanScannerService scanner) : IScanExecutionSteps
+    {
+        private readonly ConcurrentQueue<IReadOnlyList<ScanResult>> _saves = new();
+        private readonly ConcurrentQueue<ScanRunOutcome> _ended = new();
+
+        public Recorder<LanScanProgress> Progress { get; } = new();
+
+        public CancellationTokenSource? Cancellation { get; private set; }
+
+        public IReadOnlyList<IReadOnlyList<ScanResult>> Saves => _saves.ToArray();
+
+        public IReadOnlyList<ScanRunOutcome> Ended => _ended.ToArray();
+
+        public void BeginScan(ScanRequest request, CancellationTokenSource cancellation) => Cancellation = cancellation;
+
+        public string? CaptureNetworkIdentity(LanNetwork network) => "network-a";
+
+        public async Task<IReadOnlyList<ScanResult>> ScanAsync(ScanRequest request, CancellationToken cancellationToken)
+        {
+            var buffer = new ScanResultBuffer();
+            await scanner.ScanAsync(request.Network, buffer, Progress, cancellationToken);
+            return buffer.Results;
+        }
+
+        public Task<ScanSaveResult> SaveAsync(
+            ScanRequest request, IReadOnlyList<ScanResult> results, string? networkId, bool networkChanged, TimeSpan duration)
+        {
+            _saves.Enqueue(results);
+            return Task.FromResult(new ScanSaveResult([]));
+        }
+
+        public void EndScan(ScanRequest request, ScanRunOutcome outcome) => _ended.Enqueue(outcome);
+    }
+}
