@@ -11,6 +11,7 @@ public sealed partial class DeviceInventoryStore
     private readonly string _databasePath;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private DeviceInventoryData? _loaded;
+    private bool _metadataOnly;
 
     public DeviceInventoryStore(string path)
     {
@@ -20,11 +21,18 @@ public sealed partial class DeviceInventoryStore
     }
 
     public async Task<DeviceInventoryData?> LoadAsync(CancellationToken cancellationToken = default)
+        => await LoadAsync(metadataOnly: false, cancellationToken);
+
+    public async Task<DeviceInventoryData?> LoadMetadataAsync(CancellationToken cancellationToken = default)
+        => await LoadAsync(metadataOnly: true, cancellationToken);
+
+    private async Task<DeviceInventoryData?> LoadAsync(bool metadataOnly, CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken);
         try
         {
             _loaded = null;
+            _metadataOnly = metadataOnly;
             if (!File.Exists(_databasePath))
             {
                 var directory = Path.GetDirectoryName(_databasePath)!;
@@ -38,11 +46,15 @@ public sealed partial class DeviceInventoryStore
                 }
             }
             using var connection = Open(_databasePath);
+            await using (var schemaLock = LockFile())
+                EnsureHistorySchema(connection, cancellationToken);
             using var transaction = connection.BeginTransaction();
             var revision = ReadRevision(connection, transaction);
             var devices = ReadEntities<InventoryDevice>(connection, transaction, "devices", cancellationToken);
             var slots = ReadEntities<PrivateVirtualDevice>(connection, transaction, "virtual_devices", cancellationToken);
-            var histories = ReadHistories(connection, transaction, cancellationToken);
+            var histories = metadataOnly ? ReadHistorySnapshots(connection, transaction, cancellationToken)
+                : ReadHistories(connection, transaction, cancellationToken)
+                    .ToDictionary(pair => pair.Key, pair => (IReadOnlyList<DeviceScanObservation>)pair.Value);
             foreach (var key in devices.Keys.ToArray())
                 devices[key] = devices[key] with { ScanHistory = histories.GetValueOrDefault(("mac", key)) ?? [] };
             foreach (var key in slots.Keys.ToArray())
@@ -67,7 +79,7 @@ public sealed partial class DeviceInventoryStore
                 VirtualDevices = slots.Values.ToArray(),
                 DiscoveryBaselines = baselines.Values.ToArray()
             };
-            Validate(dataLoaded);
+            Validate(dataLoaded, metadataOnly ? dataLoaded : null);
             transaction.Commit();
             return _loaded = dataLoaded;
         }
@@ -103,10 +115,11 @@ public sealed partial class DeviceInventoryStore
                     Validate(data);
                     var initial = data with { Revision = Guid.NewGuid() };
                     await PublishAsync(initial, cancellationToken);
-                    return _loaded = Committed(initial);
+                    return _loaded = _metadataOnly ? SnapshotHistories(initial) : Committed(initial);
                 }
             }
             using var connection = Open(_databasePath);
+            EnsureHistorySchema(connection, cancellationToken);
             using var transaction = connection.BeginTransaction();
             CheckRevision(ReadRevision(connection, transaction), expectedRevision);
             if (_loaded is null || _loaded.Revision != expectedRevision)
@@ -116,7 +129,7 @@ public sealed partial class DeviceInventoryStore
             WriteChanges(connection, transaction, updated, _loaded, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
             transaction.Commit();
-            return _loaded = Committed(updated);
+            return _loaded = _metadataOnly ? SnapshotHistories(updated) : Committed(updated);
         }
         catch (SqliteException exception) { throw StorageError(exception); }
         finally { _gate.Release(); }
@@ -124,7 +137,7 @@ public sealed partial class DeviceInventoryStore
 
     private FileStream LockFile() => new(_jsonPath + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
 
-    private static SqliteConnection Open(string path)
+    internal static SqliteConnection Open(string path)
     {
         var connection = new SqliteConnection(new SqliteConnectionStringBuilder
         {
@@ -199,6 +212,7 @@ public sealed partial class DeviceInventoryStore
                         subnet TEXT NOT NULL, present INTEGER NOT NULL CHECK(present IN (0,1)),
                         PRIMARY KEY(kind,id,sequence));
                     """);
+                CreateHistoryIndexes(connection, transaction);
                 foreach (var table in EntityTables)
                     Execute(connection, transaction, $"CREATE TABLE {table} (id TEXT PRIMARY KEY, data TEXT NOT NULL)");
                 WriteChanges(connection, transaction, data, DeviceInventoryData.Empty, cancellationToken);
@@ -316,10 +330,10 @@ public sealed partial class DeviceInventoryStore
         {
             cancellationToken.ThrowIfCancellationRequested();
             Execute(connection, transaction, """
-                INSERT INTO scan_history VALUES($kind,$id,$sequence,$time,$network,$subnet,$present)
+                INSERT INTO scan_history VALUES($kind,$id,$sequence,$time,$network,$subnet,$present,$ticks)
                 """, ("$kind", kind), ("$id", id), ("$sequence", sequence++),
                 ("$time", item.CompletedAt.ToString("O")), ("$network", item.NetworkId),
-                ("$subnet", item.Subnet), ("$present", item.Present ? 1 : 0));
+                ("$subnet", item.Subnet), ("$present", item.Present ? 1 : 0), ("$ticks", item.CompletedAt.UtcTicks));
         }
     }
 
@@ -367,7 +381,7 @@ public sealed partial class DeviceInventoryStore
         command.Transaction = transaction;
         command.CommandText = "SELECT id,version,revision FROM inventory";
         using var reader = command.ExecuteReader();
-        if (!reader.Read() || reader.GetInt32(0) != 1 || reader.GetInt32(1) != 1
+        if (!reader.Read() || reader.GetInt32(0) != 1 || reader.GetInt32(1) != 2
             || !Guid.TryParse(reader.GetString(2), out var revision) || revision == Guid.Empty || reader.Read())
             throw new InvalidDataException("The SQLite inventory has an unsupported or incomplete format.");
         return revision;
@@ -379,7 +393,7 @@ public sealed partial class DeviceInventoryStore
             throw new InvalidOperationException("Saved device data changed in another app instance. Restart and analyze again before saving.");
     }
 
-    private static void Execute(SqliteConnection connection, SqliteTransaction? transaction, string sql,
+    internal static void Execute(SqliteConnection connection, SqliteTransaction? transaction, string sql,
         params (string Name, object? Value)[] parameters)
     {
         using var command = connection.CreateCommand();
@@ -389,6 +403,6 @@ public sealed partial class DeviceInventoryStore
         command.ExecuteNonQuery();
     }
 
-    private static IOException StorageError(SqliteException exception) =>
+    internal static IOException StorageError(SqliteException exception) =>
         new($"The SQLite inventory could not be read or written: {exception.Message}", exception);
 }

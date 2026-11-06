@@ -510,6 +510,68 @@ try {
     if ((Get-Content -LiteralPath $database -Raw).Trim() -ne "invalid inventory fixture") {
         throw "Invalid saved history must not be overwritten."
     }
+    Stop-HistoryApp
+    $pagedHistory = @(0..204 | ForEach-Object {
+        @{ completedAt = ([DateTimeOffset]::Parse("2026-11-01T12:00:00Z").AddSeconds($_)).ToString("o")
+           networkId = "ui-review-network"; subnet = "127.0.0.1/32"; present = ($_ % 4 -lt 2) }
+    })
+    $data.devices.'020000000001'.scanHistory = $pagedHistory + $decoyHistory
+    $normal.lastSeen = "2026-11-01T12:03:24+00:00"
+    $normal.lastChecked = $normal.lastSeen
+    $normal.present = $true
+    @{ version = 3; data = $data } | ConvertTo-Json -Depth 15 | Set-Content -LiteralPath $inventory -Encoding UTF8
+    Remove-Item -LiteralPath $database
+    Start-HistoryApp
+    Open-HistoryDetails "History normal"
+    $reachable = @{}
+    foreach ($pageIndex in 0..2) {
+        $start = 1 + 100 * $pageIndex
+        $end = [Math]::Min(100 * ($pageIndex + 1), 205)
+        Wait-HistoryState {
+            (Find-HistoryControl DeviceHistoryPageStatus).Current.Name -like "Showing $start-$end of 205.*"
+        } "bounded history page $($pageIndex + 1)"
+        if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "205 completed scan observations") {
+            throw "Paging must retain the exact scoped observation count."
+        }
+        $list = Show-HistorySection DeviceScanHistoryList
+        $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        $condition = [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::ListItem)
+        $pageRows = @{}
+        foreach ($percent in 0..100) {
+            if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
+            Start-Sleep -Milliseconds 20
+            foreach ($item in $list.FindAll([System.Windows.Automation.TreeScope]::Children, $condition)) {
+                $label = $item.Current.Name
+                if ($label -match '; Observed (present|absent)$') { $pageRows[$label] = $true }
+            }
+        }
+        if ($pageRows.Count -ne $end - $start + 1) { throw "Not every observation on page $pageIndex is reachable: $($pageRows.Count)." }
+        foreach ($label in $pageRows.Keys) {
+            if ($reachable.ContainsKey($label)) { throw "Observation duplicated across history pages: $label." }
+            $reachable[$label] = $true
+        }
+        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
+        Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-page-$($pageIndex + 1).png")
+        if ($pageIndex -lt 2) {
+            $older = Show-HistorySection DeviceHistoryOlder
+            $older.SetFocus()
+            [System.Windows.Forms.SendKeys]::SendWait(" ")
+        }
+    }
+    if ($reachable.Count -ne 205) { throw "All 205 retained observations must remain reachable." }
+    if ((Find-HistoryControl DeviceHistoryOlder).Current.IsEnabled) { throw "Older navigation must stop at the oldest page." }
+    (Show-HistorySection DeviceHistoryNewer).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Wait-HistoryState { (Find-HistoryControl DeviceHistoryPageStatus).Current.Name -like "Showing 101-200 of 205.*" } "reverse history paging"
+    (Show-HistorySection DeviceHistoryOlder).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Open-HistoryDetails "History imported"
+    if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "0 completed scan observations") {
+        throw "Selection changes must not retain the previous device's page."
+    }
+    Open-HistoryDetails "History normal"
+    Wait-HistoryState { (Find-HistoryControl DeviceHistoryPageStatus).Current.Name -like "Showing 1-100 of 205.*" } "reset history traversal after selection change"
+    if ((Find-HistoryControl DeviceHistoryNewer).Current.IsEnabled) { throw "Newer navigation must stop at the newest page." }
     Write-Host "Device scan-history native UI checks passed."
 }
 finally {

@@ -34,7 +34,7 @@ public sealed partial class MainWindow
     {
         try
         {
-            var saved = IsUiReview && string.IsNullOrEmpty(ReviewInventoryPath) ? null : await _inventoryStore.LoadAsync();
+            var saved = IsUiReview && string.IsNullOrEmpty(ReviewInventoryPath) ? null : await _inventoryStore.LoadMetadataAsync();
             if (saved is not null)
             {
                 ApplyInventoryData(saved);
