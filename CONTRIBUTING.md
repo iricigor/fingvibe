@@ -84,9 +84,10 @@ implement, repair, and finalize assignments to the existing **⏩ Epic Developer
 Only Dispatcher is scheduled; Developer starts inert without an assignment.
 See [description templates, coordination records, and trial requirements](docs/automation-prompts/dispatcher.md)
 and the [local exception](docs/development-backlog.md#local-dispatcher-exception).
-The human supplies one target Epic, the configured Developer Automation identity,
-and unattended implementation/merge authorization. No individual readiness labels
-are required in that explicitly authorized mode.
+The short kickoff names the target Epic and Developer Automation. Dispatcher
+discovers the actual Automation ID; the agent instructions carry the recorded
+authorization and execution policy. The first approved target is #191.
+No individual readiness labels are required in that explicitly authorized mode.
 
 The repository supplies instructions and a local serialization helper, not
 installed Automations or guaranteed desktop tools. Use an updated repository

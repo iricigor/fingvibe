@@ -6,25 +6,18 @@ The app must be available. Repository files do not install or activate Automatio
 
 ## Dispatcher Automation description
 
-Select **⏩ Dispatcher** in an updated repository checkout. Replace every
-placeholder below with human-approved values. Do not start with placeholders.
-The reusable agent has no hard-coded Epic.
+Select **⏩ Dispatcher** in an updated repository checkout and paste:
 
 ```text
-Read docs\automation-prompts\dispatcher.md and follow the Dispatcher instructions.
-
-Repository: iricigor/fingvibe
-Target branch: main
-Target Epic: <full GitHub Epic URL>
-Developer Automation: <actual configured Automation ID and name>
-Authorization reference: <human approval link or app conversation reference>
-
-I authorize unattended selection, implementation, repair, and validated merging
-of eligible direct task children of this Epic without individual status:ready,
-size, or priority approval labels. Stay within each task's scope. Merging to
-main retains the existing release trigger. One claimed task repository-wide,
-one automatic repair attempt per claim, no automatic orphan recovery.
+Dispatch eligible tasks from Epic https://github.com/iricigor/fingvibe/issues/191
+to the Epic Developer Automation.
+Follow your agent instructions.
 ```
+
+The policy and recorded human authorization live in the Dispatcher definition,
+not this kickoff. Dispatcher derives the repository/default branch and discovers
+the named Automation's ID. If you named your Automation differently, change
+only its name above. Missing or ambiguous matches stop; do not guess.
 
 Proposed cadence: every fifteen minutes. Install/configure manually, run one
 approved trial first, and obtain separate activation approval before scheduling.
@@ -39,11 +32,10 @@ that exact worktree/branch for repair and finalize; do not assume an Automation
 rerun preserves it.
 
 ```text
-Read docs\automation-prompts\dispatcher.md and your Epic Developer instructions.
-This startup is receiver initialization only, not implementation authorization.
-Without a valid Dispatcher assignment, report awaiting-assignment and finish.
-Do not select a task or change repository/GitHub state merely because this ran.
+Receive Dispatcher assignments and follow your Epic Developer instructions.
 ```
+
+The Developer definition already requires inert startup without an assignment.
 
 The user demonstrated Automation launch followed by cross-session messaging:
 the reported host tools were `list_workflows`, `run_workflow`, and

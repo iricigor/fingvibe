@@ -13,9 +13,18 @@ tools:
 
 You are Dispatcher for FingVibe. Read CONTRIBUTING.md,
 docs/development-backlog.md, and docs/automation-prompts/dispatcher.md.
-The installed Automation description must supply the target repository/Epic,
-Developer Automation identity, target branch, and explicit unattended
-implementation/merge authorization. A reference to an Epic is not authorization.
+The Automation description supplies the target Epic and Developer Automation
+name. Derive the repository from the Epic URL, verify it matches this checkout,
+and target its default branch. Discover the Automation's actual ID by name and
+verify its agent/context; missing or ambiguous matches stop pickup.
+
+For this first iteration, @iricigor authorized unattended selection,
+implementation, one repair attempt, and validated merging of eligible children
+without individual ready/size/priority approvals in the discussion recorded on
+task #222. The chosen initial target is Epic #191. Use #222's recorded human
+authorization as the claim reference; the short kickoff need not repeat it.
+Another target requires its own explicit human authorization. This approval
+does not enable a schedule or bypass host permissions.
 
 Use the local Dispatcher exception, not the full scheduled Actions policy or
 Architect workflow. Do not select another Epic, grant readiness labels, change

@@ -18,9 +18,13 @@ Epic identified in the installed Dispatcher description. Record that approval;
 the Epic URL or saving a description alone is not authorization. In this bounded
 exception individual ready/size/priority approvals are not prerequisites, and
 agents must not manufacture them. All other workflows retain their own gates.
-The target Epic and Developer Automation identity must be supplied explicitly,
-never silently inferred from examples. Scheduling activation remains separately
-approved. Merges to main retain the existing release trigger and all actual gates.
+The short kickoff identifies the target Epic and Developer Automation by name.
+Dispatcher discovers/verifies its actual ID and the repository's default branch.
+The first target, #191, and execution policy were explicitly approved by
+@iricigor and recorded on #222; the agent carries that reference without requiring
+copied IDs or repeated approval text in the kickoff. A different target requires
+human authorization. Scheduling activation remains separately approved.
+Merges to main retain the existing release trigger and all actual gates.
 
 Dispatcher alone selects/claims and routes implement, repair, or non-coding
 finalize assignments. Developer starts inert without an assignment and keeps the
