@@ -11,4 +11,5 @@ public sealed record DeviceTableSettings(
     bool EnlargedCellPreviews = true,
     bool CombineVendorOs = false,
     bool CompactRows = true,
-    int DensityVersion = 0);
+    int DensityVersion = 0,
+    InventoryDeviceStatus[]? StatusFilters = null);

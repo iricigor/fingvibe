@@ -21,6 +21,8 @@ public sealed partial class MainWindow : IScanExecutionSteps
     private string? _scanMessage;
     private string? _discoveryMessage;
     private string _retainedResultsMessage = string.Empty;
+    private DeviceInventoryData? _scanDiscoveryBaseline;
+    private bool _initialResultsPublished;
 
     private string ScanProgressPrefix => _scanTrigger == ScanTrigger.Scheduled ? "Scheduled scan · " : string.Empty;
 
@@ -62,6 +64,16 @@ public sealed partial class MainWindow : IScanExecutionSteps
             return;
         }
 
+        try
+        {
+            if (_networkActivityCoordinator.ActiveKind is null) network = RefreshScanNetwork(network);
+        }
+        catch (Exception exception) when (exception is NetworkInformationException or InvalidOperationException)
+        {
+            _scanMessage = $"Unable to scan the selected LAN: {exception.Message}";
+            UpdateScanStatus();
+            return;
+        }
         var outcome = await _scanExecution.RunAsync(new ScanRequest(ScanTrigger.Manual, network));
         if (outcome.Status == ScanRunStatus.Busy)
         {
@@ -82,31 +94,45 @@ public sealed partial class MainWindow : IScanExecutionSteps
             return Task.FromResult(new ScanRunOutcome(ScanRunStatus.Unavailable) { Message = "No LAN is selected." });
         }
 
-        if (!IsUiReview)
+        if (_networkActivityCoordinator.ActiveKind is null)
         {
-            IReadOnlyList<LanNetwork> available;
             try
             {
-                available = _networkDiscovery.GetAvailableNetworks();
+                network = RefreshScanNetwork(network);
             }
-            catch (NetworkInformationException exception)
+            catch (Exception exception) when (exception is NetworkInformationException or InvalidOperationException)
             {
                 return Task.FromResult(new ScanRunOutcome(ScanRunStatus.Unavailable)
                 {
-                    Message = $"Network adapters could not be read: {exception.Message}"
-                });
-            }
-
-            if (!PeriodicScanTarget.IsAvailable(available, network))
-            {
-                return Task.FromResult(new ScanRunOutcome(ScanRunStatus.Unavailable)
-                {
-                    Message = $"{network.InterfaceName} ({network.Cidr}) is not connected."
+                    Message = $"The selected LAN is unavailable: {exception.Message}"
                 });
             }
         }
 
         return _scanExecution.RunAsync(new ScanRequest(ScanTrigger.Scheduled, network), cancellationToken);
+    }
+
+    private LanNetwork RefreshScanNetwork(LanNetwork selected)
+    {
+        if (IsUiReview) return selected;
+        var available = _networkDiscovery.GetAvailableNetworks();
+        LanNetwork current;
+        try
+        {
+            current = NetworkDiscoveryService.RefreshSelectedNetwork(available, selected);
+        }
+        catch (InvalidOperationException)
+        {
+            NetworkPicker.ItemsSource = available;
+            NetworkPicker.SelectedItem = null;
+            throw;
+        }
+        if (current != selected)
+        {
+            NetworkPicker.ItemsSource = available;
+            NetworkPicker.SelectedItem = current;
+        }
+        return current;
     }
 
     void IScanExecutionSteps.BeginScan(ScanRequest request, CancellationTokenSource cancellation)
@@ -115,6 +141,8 @@ public sealed partial class MainWindow : IScanExecutionSteps
         _isScanning = true;
         _scanTrigger = request.Trigger;
         _scanCancelledByUser = false;
+        _initialResultsPublished = false;
+        _scanDiscoveryBaseline = _persistedInventory;
         ToolsPage.InvalidateImportAnalysis("A scan started. Wait for it to finish and analyze again.");
         DevicesPage.SetInteractionsEnabled(false);
         UpdateEmptyState();
@@ -138,7 +166,15 @@ public sealed partial class MainWindow : IScanExecutionSteps
 
     string? IScanExecutionSteps.CaptureNetworkIdentity(LanNetwork network) => GetScanNetworkIdentity(network);
 
-    async Task<IReadOnlyList<ScanResult>> IScanExecutionSteps.ScanAsync(ScanRequest request, CancellationToken cancellationToken)
+    Task<IReadOnlyList<ScanResult>> IScanExecutionSteps.ScanAsync(ScanRequest request, CancellationToken cancellationToken) =>
+        ScanWithCheckpointsAsync(request, null, cancellationToken);
+
+    Task<IReadOnlyList<ScanResult>> IScanExecutionSteps.ScanAsync(ScanRequest request,
+        Func<IReadOnlyList<ScanResult>, ScanCheckpointState, Task> checkpoint, CancellationToken cancellationToken) =>
+        ScanWithCheckpointsAsync(request, checkpoint, cancellationToken);
+
+    private async Task<IReadOnlyList<ScanResult>> ScanWithCheckpointsAsync(ScanRequest request,
+        Func<IReadOnlyList<ScanResult>, ScanCheckpointState, Task>? checkpoint, CancellationToken cancellationToken)
     {
         var network = request.Network;
         var total = SubnetCalculator.GetUsableHostCount(network.PrefixLength);
@@ -147,7 +183,8 @@ public sealed partial class MainWindow : IScanExecutionSteps
         var cancellation = _scanCancellation;
         var scanProgress = new Progress<LanScanProgress>(progress =>
         {
-            if (!_isScanning || _scanCancellation != cancellation || cancellationToken.IsCancellationRequested)
+            if (!_isScanning || _scanCancellation != cancellation || cancellationToken.IsCancellationRequested
+                || _initialResultsPublished && _currentScanSnapshot?.State != ScanCheckpointState.Pending)
             {
                 return;
             }
@@ -175,13 +212,41 @@ public sealed partial class MainWindow : IScanExecutionSteps
             PresentScanProgress(new LanScanProgress(LanScanPhase.FirstPass, 0, total), retainedResults);
         }
         if (IsUiReview && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_SCAN_RESULTS") is { Length: > 0 } completedFixturePath)
-            return (await new ScanSnapshotStore(completedFixturePath).LoadAsync(cancellationToken)
-                ?? throw new InvalidOperationException("The UI-review completed-scan fixture is missing.")).Results;
+        {
+            var fixtureStore = new ScanSnapshotStore(completedFixturePath);
+            var fixture = await fixtureStore.LoadAsync(cancellationToken)
+                ?? throw new InvalidOperationException("The UI-review completed-scan fixture is missing.");
+            if (checkpoint is not null
+                && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD") is { Length: > 0 } checkpointHold)
+            {
+                await checkpoint(fixture.Results, ScanCheckpointState.Pending);
+                PresentScanProgress(new LanScanProgress(LanScanPhase.Arp, 0, 1), retainedResults);
+                var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+                while (File.Exists(checkpointHold))
+                {
+                    if (DateTimeOffset.UtcNow >= deadline)
+                        throw new InvalidOperationException("The UI-review checkpoint hold was not released within 30 seconds.");
+                    await Task.Delay(50, cancellationToken);
+                }
+                fixture = await fixtureStore.LoadAsync(cancellationToken)
+                    ?? throw new InvalidOperationException("The UI-review final checkpoint fixture is missing.");
+                await checkpoint(fixture.Results, ScanCheckpointState.Complete);
+            }
+            return fixture.Results;
+        }
 
-        await _scanner.ScanAsync(network, resultProgress, scanProgress, cancellationToken);
-        return resultProgress.Results.Select(result => IsUiReview && System.Net.IPAddress.IsLoopback(result.Address)
-            ? result with { MacAddress = System.Net.NetworkInformation.PhysicalAddress.Parse("020000000001") } : result).ToArray();
+        await _scanner.ScanAsync(network, resultProgress, scanProgress, cancellationToken,
+            checkpoint is null ? null : (results, state) => checkpoint(PrepareScannerResults(results), state));
+        return PrepareScannerResults(resultProgress.Results);
     }
+
+    private static IReadOnlyList<ScanResult> PrepareScannerResults(IReadOnlyList<ScanResult> results) =>
+        results.Select(result => IsUiReview && System.Net.IPAddress.IsLoopback(result.Address)
+            ? result with { MacAddress = System.Net.NetworkInformation.PhysicalAddress.Parse("020000000001") }
+            : result).ToArray();
+
+    Task<ScanSaveResult> IScanExecutionSteps.SaveCheckpointAsync(ScanRequest request, ScanSnapshot snapshot) =>
+        SaveScanCheckpointAsync(snapshot);
 
     async Task<ScanSaveResult> IScanExecutionSteps.SaveAsync(
         ScanRequest request, IReadOnlyList<ScanResult> results, string? networkId, bool networkChanged, TimeSpan duration)
@@ -197,13 +262,31 @@ public sealed partial class MainWindow : IScanExecutionSteps
 
     void IScanExecutionSteps.EndScan(ScanRequest request, ScanRunOutcome outcome)
     {
+        if (_initialResultsPublished && _currentScanSnapshot is { State: ScanCheckpointState.Pending } pending)
+        {
+            // A failed incomplete-state write still leaves a durable Pending checkpoint, never a running scan.
+            _currentScanSnapshot = pending with { State = ScanCheckpointState.Incomplete };
+            _liveCompletedAt = null;
+            _inventory = _inventory with
+            {
+                Devices = _inventory.Devices.ToDictionary(pair => pair.Key, pair => pair.Value with
+                {
+                    CurrentCompletedAt = null, CurrentNetworkId = null, CurrentSubnet = null
+                }),
+                VirtualDevices = _inventory.VirtualDevices.Select(slot => slot with { CurrentCompletedAt = null }).ToArray()
+            };
+            _displayedScan = new OverviewScanContext(pending.Subnet, pending.CompletedAt, ScanDisplayStatus.Incomplete);
+            RefreshInventoryRows();
+        }
         var scheduled = request.Trigger == ScanTrigger.Scheduled;
         if (outcome.Status == ScanRunStatus.Cancelled)
             _scanMessage = !scheduled
                 ? $"Scan of {request.Network.Cidr} cancelled{_retainedResultsMessage}"
                 : _scanCancelledByUser
                     ? $"Scheduled scan of {request.Network.Cidr} cancelled{_retainedResultsMessage}"
-                    : $"Scheduled scan of {request.Network.Cidr} stopped; nothing was saved{_retainedResultsMessage}";
+                    : $"Scheduled scan of {request.Network.Cidr} stopped{_retainedResultsMessage}";
+        else if (outcome.Status == ScanRunStatus.SaveFailed)
+            _scanMessage = $"Scan persistence failed: {outcome.Message}";
         else if (outcome.Status == ScanRunStatus.Failed)
             _scanMessage = scheduled
                 ? $"Unable to complete scheduled scan of {request.Network.Cidr}: {outcome.Message}{_retainedResultsMessage}"
@@ -212,6 +295,7 @@ public sealed partial class MainWindow : IScanExecutionSteps
         var restoreFocus = _restoreScanActionFocus || CancelButton.FocusState != FocusState.Unfocused;
         _restoreScanActionFocus = false;
         _isScanning = false;
+        _scanDiscoveryBaseline = null;
         DevicesPage.SetInteractionsEnabled(true);
         UpdateEmptyState();
         UpdatePeopleRoomsPages();
@@ -233,7 +317,9 @@ public sealed partial class MainWindow : IScanExecutionSteps
         ScanProgressBar.Maximum = progress.Total;
         ScanProgressBar.Value = progress.Completed;
         UpdateScanPulseWidth();
-        _scanMessage = $"{ScanProgressPrefix}{ScanProgressPresentation.Message(progress)}{retainedResults}";
+        _scanMessage = _initialResultsPublished
+            ? $"{ScanProgressPrefix}Initial results shown · {ScanProgressPresentation.Message(progress)}"
+            : $"{ScanProgressPrefix}{ScanProgressPresentation.Message(progress)}{retainedResults}";
         UpdateScanStatus();
     }
 

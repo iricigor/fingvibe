@@ -121,11 +121,19 @@ public sealed partial class MainWindow
     private void RefreshInventoryRows(IEnumerable<ScanResult>? unkeyed = null)
     {
         var selectedKey = DevicesPage.SelectedResult?.IdentityKey;
+        var retainedRows = _isScanning
+            ? _allResults.ToDictionary(row => row.IdentityKey) : new Dictionary<string, ScanResultRow>();
         _allResults.Clear();
         _minimumLatency = long.MaxValue;
         _maximumLatency = 0;
-        foreach (var row in ScanResultRow.CreateInventoryRows(CurrentDeviceData))
+        foreach (var updated in ScanResultRow.CreateInventoryRows(CurrentDeviceData))
         {
+            var row = updated;
+            if (retainedRows.TryGetValue(updated.IdentityKey, out var retained))
+            {
+                retained.UpdateObservation(updated);
+                row = retained;
+            }
             ApplyPeopleRoomAssignments(row);
             _allResults.Add(row);
             UpdateLatencyRange(row);
@@ -135,12 +143,24 @@ public sealed partial class MainWindow
         {
             var prefix = _currentScanSnapshot is null ? 0 : int.Parse(_currentScanSnapshot.Subnet.Split('/')[1]);
             var row = CreateResultRow(result, prefix, historical: _liveCompletedAt is null);
+            if (retainedRows.TryGetValue(row.IdentityKey, out var retained))
+            {
+                retained.UpdateObservation(row);
+                row = retained;
+            }
             _allResults.Add(row);
             UpdateLatencyRange(row);
         }
         UpdateLastSeen();
         RefreshVisibleResults();
         DevicesPage.SelectedResult = _allResults.FirstOrDefault(row => row.IdentityKey == selectedKey);
+        if (_isScanning && _selectedDeviceRow is { } selected
+            && _allResults.FirstOrDefault(row => row.IdentityKey == selected.IdentityKey) is { } displayed)
+        {
+            _selectedDeviceRow = displayed;
+            DevicePage.UpdateScanObservation(displayed);
+            UpdateDeviceNameActions();
+        }
         _onlineDeviceCount = _liveCompletedAt is null ? null : _allResults.Count(row => row.IsOnline);
         UpdateNetworkIdentity();
         UpdatePeopleRoomsPages();

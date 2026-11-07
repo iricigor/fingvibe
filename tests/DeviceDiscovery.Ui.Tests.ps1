@@ -36,7 +36,10 @@ function Start-DiscoveryApp {
     Wait-DiscoveryState { Find-DiscoveryControl DevicesNavItem -Optional } "device navigation"
     (Find-DiscoveryControl DevicesNavItem).GetCurrentPattern(
         [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-    Wait-DiscoveryState { (Find-DiscoveryControl ScanButton).Current.IsEnabled } "ready scan"
+    Wait-DiscoveryState {
+        $scan = Find-DiscoveryControl ScanButton -Optional
+        $scan -and $scan.Current.IsEnabled
+    } "ready scan"
     Assert-NoDiscovery
 }
 
@@ -99,7 +102,8 @@ function Assert-DiscoveryEntries([string[]] $Macs, [string] $Capture) {
 $previous = @{}
 foreach ($key in @("FINGVIBE_UI_REVIEW", "FINGVIBE_UI_REVIEW_INVENTORY", "FINGVIBE_UI_REVIEW_SNAPSHOT",
     "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT", "FINGVIBE_UI_REVIEW_SCAN_RESULTS", "FINGVIBE_UI_REVIEW_NETWORK",
-    "FINGVIBE_UI_REVIEW_SCAN_HOLD", "FINGVIBE_UI_REVIEW_PERIODIC_SCAN", "FINGVIBE_UI_REVIEW_PERIODIC_SCAN_TIME_SCALE")) {
+    "FINGVIBE_UI_REVIEW_SCAN_HOLD", "FINGVIBE_UI_REVIEW_PERIODIC_SCAN", "FINGVIBE_UI_REVIEW_PERIODIC_SCAN_TIME_SCALE",
+    "FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD", "FINGVIBE_UI_REVIEW_DEVICE_TABLE")) {
     $previous[$key] = [Environment]::GetEnvironmentVariable($key)
 }
 $directory = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-discovery-ui-$([Guid]::NewGuid().ToString('N'))"
@@ -108,6 +112,7 @@ $database = [System.IO.Path]::ChangeExtension($inventory, ".sqlite")
 $fixture = Join-Path $directory "results.json"
 $snapshot = Join-Path $directory "snapshot.json"
 $hold = Join-Path $directory "scan.hold"
+$checkpointHold = Join-Path $directory "checkpoint.hold"
 $periodicScan = Join-Path $directory "periodic-scan.json"
 $script:process = $null
 $lock = $null
@@ -121,6 +126,8 @@ try {
     $env:FINGVIBE_UI_REVIEW_SCAN_RESULTS = $fixture
     $env:FINGVIBE_UI_REVIEW_SCAN_HOLD = $hold
     $env:FINGVIBE_UI_REVIEW_NETWORK = "ui-review-network"
+    $env:FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD = $null
+    $env:FINGVIBE_UI_REVIEW_DEVICE_TABLE = $null
     $observation = @{
         networkId = "ui-review-network"; subnet = "127.0.0.1/32"; address = "127.0.0.1"; hostname = $null
         vendor = "Example"; ports = @(); latency = 1; probeDuration = "00:00:00.001"
@@ -192,7 +199,7 @@ try {
         [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
     Invoke-DiscoveryScan
     Assert-NoDiscovery
-    if ((Find-DiscoveryControl ScanStatusText).Current.Name -notlike "*inventory and scan history could not be saved*") {
+    if ((Find-DiscoveryControl ScanStatusText).Current.Name -notlike "*Scan checkpoint could not be saved*") {
         throw "Discovery persistence failure was hidden."
     }
     if ((Get-InventoryFingerprint $database) -cne $before) { throw "Failed save changed durable newness." }
@@ -229,6 +236,80 @@ try {
     Invoke-DiscoveryScan
     Assert-NoDiscovery
     Stop-DiscoveryApp
+    # Initial checkpoints restore browsing but retain cancellation and defer discoveries until completion.
+    $env:FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD = $checkpointHold
+    Set-Content -LiteralPath $checkpointHold -Value "pending retries"
+    Set-DiscoveryResults @("001122334466", "0011223344AA")
+    Start-DiscoveryApp
+    (Find-DiscoveryControl ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Wait-DiscoveryState {
+        (Find-DiscoveryControl ScanStatusText).Current.Name -like "*Initial results shown*(1/5) Background ARP:*"
+    } "checkpointed initial results"
+    $pendingScanButton = Find-DiscoveryControl ScanButton -Optional
+    if (($pendingScanButton -and $pendingScanButton.Current.IsEnabled) -or
+        -not (Find-DiscoveryControl CancelButton).Current.IsEnabled) { throw "Pending retries must retain scan exclusion and cancellation." }
+    Assert-NoDiscovery
+    $checkpoint = Get-Content -LiteralPath $snapshot -Raw | ConvertFrom-Json
+    if ($checkpoint.state -ne 1) { throw "Initial checkpoint was not durably marked Pending." }
+    $condition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)
+    Wait-DiscoveryState {
+        (Find-DiscoveryControl ResultsList).FindAll([System.Windows.Automation.TreeScope]::Children, $condition).Count -gt 0
+    } "realized initial result rows"
+    $row = (Find-DiscoveryControl ResultsList).FindAll([System.Windows.Automation.TreeScope]::Children, $condition)[0]
+    $row.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    $row.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+    Wait-DiscoveryState {
+        $details = Find-DiscoveryControl DeviceDetailsScroll -Optional
+        $details -and -not $details.Current.IsOffscreen
+    } "browsable initial results"
+    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "scan-initial-checkpoint.png")
+    # Closing during the pending phase drains its incomplete checkpoint before the process exits.
+    Stop-DiscoveryApp
+    $checkpoint = Get-Content -LiteralPath $snapshot -Raw | ConvertFrom-Json
+    if ($checkpoint.state -ne 2) { throw "Normal close did not retain an Incomplete checkpoint." }
+    Start-DiscoveryApp
+    if ((Find-DiscoveryControl ScanFreshnessText).Current.Name -notlike "*Incomplete scan*") {
+        throw "Restart misrepresented an interrupted checkpoint as complete."
+    }
+    if (-not (Find-DiscoveryControl ScanButton).Current.IsEnabled) { throw "Restart resumed an old retry timer." }
+    Assert-NoDiscovery
+    # A later final checkpoint updates the same scan without stealing focus from browsing.
+    (Find-DiscoveryControl ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Wait-DiscoveryState {
+        (Find-DiscoveryControl ScanStatusText).Current.Name -like "*Initial results shown*(1/5) Background ARP:*"
+    } "second initial checkpoint"
+    Wait-DiscoveryState {
+        (Find-DiscoveryControl ResultsList).FindAll([System.Windows.Automation.TreeScope]::Children, $condition).Count -gt 0
+    } "realized second result rows"
+    $row = (Find-DiscoveryControl ResultsList).FindAll([System.Windows.Automation.TreeScope]::Children, $condition)[0]
+    $row.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+    Wait-DiscoveryState {
+        $details = Find-DiscoveryControl DeviceDetailsScroll -Optional
+        $details -and -not $details.Current.IsOffscreen
+    } "details during background confirmation"
+    (Find-DiscoveryControl DeviceRenameButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $nameInput = Find-DiscoveryControl DeviceNameInput
+    $nameInput.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("Keep this draft")
+    $nameInput.SetFocus()
+    $id = (Get-Content -LiteralPath $snapshot -Raw | ConvertFrom-Json).scanId
+    Remove-Item -LiteralPath $checkpointHold
+    Wait-DiscoveryState {
+        $saved = Get-Content -LiteralPath $snapshot -Raw | ConvertFrom-Json
+        $cancel = Find-DiscoveryControl CancelButton -Optional
+        $saved.state -eq 0 -and (-not $cancel -or -not $cancel.Current.IsEnabled)
+    } "final checkpoint"
+    if (-not $nameInput.Current.HasKeyboardFocus -or $nameInput.Current.IsOffscreen -or
+        $nameInput.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value -ne "Keep this draft") {
+        throw "Final checkpoint stole focus or discarded an in-progress device-name edit."
+    }
+    $checkpoint = Get-Content -LiteralPath $snapshot -Raw | ConvertFrom-Json
+    if ($checkpoint.state -ne 0 -or $checkpoint.scanId -ne $id) { throw "Finalization did not complete the same logical scan." }
+    Assert-NoDiscovery
+    Stop-DiscoveryApp
+    $env:FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD = $null
     # Scheduled scans keep running while minimized and defer discoveries until the window is restored.
     Set-Content -LiteralPath $periodicScan -Value '{"isEnabled":true,"intervalMinutes":15}' -Encoding ASCII
     $env:FINGVIBE_UI_REVIEW_PERIODIC_SCAN = $periodicScan
@@ -259,7 +340,56 @@ try {
     }
     (Find-DiscoveryControl CloseDiscoveryPopup).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Stop-DiscoveryApp
+    $env:FINGVIBE_UI_REVIEW_PERIODIC_SCAN = $null
+    $tableSettings = Join-Path $directory "device-table.json"
+    $env:FINGVIBE_UI_REVIEW_DEVICE_TABLE = $tableSettings
+    Start-DiscoveryApp
+    (Find-DiscoveryControl OnlineChip).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
+    Wait-DiscoveryState {
+        (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: Online"
+    } "Online Status filter"
+    Stop-DiscoveryApp
+    Start-DiscoveryApp
+    if ((Find-DiscoveryControl InventoryStatusFilter).Current.Name -ne "Status: Online" -or
+        (Find-DiscoveryControl OnlineChip).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne
+            [System.Windows.Automation.ToggleState]::On) {
+        throw "Online Status selection was not restored in the dropdown and summary chip."
+    }
+    (Find-DiscoveryControl OfflineChip).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
+    Wait-DiscoveryState {
+        (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: Online, Offline"
+    } "multiple Status selections"
+    Stop-DiscoveryApp
+    Start-DiscoveryApp
+    if ((Find-DiscoveryControl InventoryStatusFilter).Current.Name -ne "Status: Online, Offline") {
+        throw "Multiple Status selections were not restored."
+    }
+    (Find-DiscoveryControl ClearFiltersLink).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Wait-DiscoveryState {
+        (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: All"
+    } "cleared Status selection"
+    Stop-DiscoveryApp
+    Start-DiscoveryApp
+    if ((Find-DiscoveryControl InventoryStatusFilter).Current.Name -ne "Status: All") {
+        throw "Cleared Status selection was not restored."
+    }
+    Stop-DiscoveryApp
+    $invalidTableSettings = '{"columns":{},"statusFilters":[99]}'
+    Set-Content -LiteralPath $tableSettings -Value $invalidTableSettings -Encoding ASCII
+    Start-DiscoveryApp
+    (Find-DiscoveryControl OnlineChip).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
+    Wait-DiscoveryState {
+        (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: Online"
+    } "session-only selection after invalid preferences"
+    if ((Get-Content -LiteralPath $tableSettings -Raw).Trim() -ne $invalidTableSettings) {
+        throw "Changing Status must not overwrite invalid saved table preferences."
+    }
+    Stop-DiscoveryApp
     Write-Host "Device discovery native UI checks passed."
+}
+catch {
+    Write-Host $_.ScriptStackTrace
+    throw
 }
 finally {
     if ($lock) { $lock.Dispose() }

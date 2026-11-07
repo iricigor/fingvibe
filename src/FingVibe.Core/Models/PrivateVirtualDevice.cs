@@ -65,6 +65,7 @@ public static class PrivateVirtualDeviceAllocator
     public static IReadOnlyList<PrivateVirtualDevice> Observe(
         DeviceInventoryData data, string? networkId, ScanSnapshot snapshot, bool historical)
     {
+        var complete = snapshot.State == ScanCheckpointState.Complete;
         var slots = data.VirtualDevices.Select(slot => slot with
         {
             CurrentCompletedAt = !historical && slot.NetworkId == networkId && slot.Subnet == snapshot.Subnet
@@ -98,7 +99,7 @@ public static class PrivateVirtualDeviceAllocator
         {
             var candidates = slots.Where(slot => slot.NetworkId == networkId
                 && slot.Subnet == snapshot.Subnet && slot.Prefix == mac[..6]).ToArray();
-            var slot = candidates.Where(slot => !allocated.Contains(slot.Id)).OrderBy(slot => slot.Number).FirstOrDefault();
+            var slot = candidates.Where(slot => complete && !allocated.Contains(slot.Id)).OrderBy(slot => slot.Number).FirstOrDefault();
             if (slot is null)
             {
                 slot = new(Guid.NewGuid(), networkId, snapshot.Subnet, mac[..6],
@@ -110,7 +111,7 @@ public static class PrivateVirtualDeviceAllocator
             allocated.Add(slot.Id);
         }
 
-        foreach (var device in data.Devices.Values.Where(device => IsEligible(data, device)
+        foreach (var device in data.Devices.Values.Where(device => complete && IsEligible(data, device)
                      && !assignments.ContainsKey(device.Mac)).OrderBy(device => device.Mac, StringComparer.Ordinal))
         {
             var observations = device.Observations.Where(item => item.NetworkId == networkId
@@ -133,9 +134,11 @@ public static class PrivateVirtualDeviceAllocator
             var slot = slots[i];
             if (slot.NetworkId != networkId || slot.Subnet != snapshot.Subnet) continue;
             var currentMac = assignments.FirstOrDefault(pair => pair.Value == slot.Id).Key;
+            if (!complete && currentMac is null) continue;
             var history = slot.History.Select(item => item with
             {
-                Observation = item.Observation with { Present = false, LastChecked = snapshot.CompletedAt }
+                Observation = complete ? item.Observation with { Present = false, LastChecked = snapshot.CompletedAt }
+                    : item.Observation
             }).ToList();
             if (currentMac is not null)
             {
@@ -159,8 +162,8 @@ public static class PrivateVirtualDeviceAllocator
                 LastChecked = snapshot.CompletedAt,
                 Present = currentMac is not null,
                 History = history,
-                ScanHistory = new AppendedScanHistory(slot.ScanHistory, new(snapshot.CompletedAt, networkId,
-                    snapshot.Subnet, currentMac is not null)),
+                ScanHistory = complete ? new AppendedScanHistory(slot.ScanHistory, new(snapshot.CompletedAt, networkId,
+                    snapshot.Subnet, currentMac is not null)) : slot.ScanHistory,
                 CurrentCompletedAt = snapshot.CompletedAt
             };
         }

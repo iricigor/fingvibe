@@ -56,9 +56,13 @@ dotnet restore FingVibe.sln
 dotnet run --project src\FingVibe.App\FingVibe.App.csproj -p:Platform=x64
 ```
 
-The scanner uses ICMP echo requests. Firewall rules and devices configured not to answer ICMP can prevent an active device from appearing in the results.
+The scanner uses fresh ICMP echo replies and fresh ARP responses on the selected directly connected IPv4 LAN. Devices that answer neither can remain undetected; no fixed device count is guaranteed.
 
-Each scan first probes every address in the target with a 700 ms timeout and up to 256 concurrent probes. If any address does not reply, FingVibe waits one second and then probes each missed address exactly once more with the same settings, including addresses it has never seen before; addresses that replied are not probed again and there is no third attempt. An address counts as online only when one of those two attempts receives a reply during this scan; inventory, history and the neighbor cache never make a device online. The retry sends one extra probe for every address that did not reply, so ICMP traffic can nearly double on a sparsely populated subnet, and it adds at least a second whenever anything was missed. It recovers devices that miss a single reply, but cannot reveal devices that never answer ICMP and does not guarantee a fixed device count between scans.
+Manual and scheduled scans first ping every usable address with a 700 ms timeout and up to 256 concurrent probes, then attempt fresh ARP resolution once for each ping miss on the selected adapter. Windows `ResolveIpNetEntry2` flushes the entry and requests fresh resolution; cached, stale or permanent neighbor membership is never Online evidence. The ARP MAC is preserved for enrichment, without inventing an ICMP latency or TTL. Blocking ARP calls are limited to eight workers across scans, and cancellation drains in-flight calls before releasing the measurement lease. `WindowsFreshArpTests` verifies native resolution and adapter scoping against the disposable Windows CI runner's directly connected gateway; it is skipped locally to avoid probing the user's LAN.
+
+After initial ICMP probing and enrichment, confirmed observations are durably checkpointed and become browsable before ARP starts. Background ARP checks the initial ping misses and checkpoints its recovered observations. Only addresses still unconfirmed are then pinged after a cancellable ten-second wait, and again after another ten-second wait following that retry phase. Confirmed addresses are never retried or downgraded. No remaining misses means no further work or wait; misses remaining through both rounds add at least twenty seconds plus ARP, probing, enrichment and persistence time. There are at most three ICMP attempts and one ARP fallback per address. A changed source IPv4 can be refreshed only on the same selected adapter and subnet; it does not change a device's MAC identity. A disconnected adapter, different subnet, or changed Windows network profile cannot silently substitute another LAN.
+
+SQLite inventory and the latest logical checkpoint commit in one transaction with explicit Pending, Complete or Incomplete state. Checkpoints do not infer Offline, append completed history, establish a discovery baseline or emit discovery alerts until finalization. Each completed scan adds history and discovery alerts only once. The separate `latest-scan.json` cache is atomically replaced after the database commit; SQLite is authoritative on restart, including when a cache update failed. Save failures are visible and stop retries rather than claiming an unsaved checkpoint is durable. Normal close or cancellation drains checkpoint writes and retains the last committed observations as incomplete. Forced termination can lose observations since the last committed checkpoint. Restart treats saved observations as historical, not current Online evidence, and never resumes old retry timers.
 
 On first use, vendor detection downloads the official IEEE MA-L, MA-M, and MA-S registries and caches them under the current user's local application data for 30 days.
 
@@ -80,7 +84,7 @@ Without a saved theme preference, FingVibe starts with Standard Light or Standar
 
 Appearance choices apply immediately and are saved to `%LOCALAPPDATA%\FingVibe\appearance.json` for the next launch; existing saved themes remain compatible and take precedence over Windows app mode. Ordinary Windows light/dark changes do not switch the theme while FingVibe is running. Unsupported backdrop materials fall back to a solid theme background without discarding your selection. Material rendering also follows Windows transparency settings; Windows high contrast takes precedence and uses system colors instead.
 
-Settings places the appearance selectors side by side when space permits and stacks them in narrower windows. Appearance feedback is one sentence in normal operation; save failures, unavailable materials, and high contrast remain explicit. The **Devices page** card starts with matching **Compact rows** and **Cell hover previews** switches in one row, stacking them in narrow windows. Both use rounded-rectangle tracks and thumbs while retaining native Windows toggle, keyboard, focus, and theme behavior. Compact off selects Standard/relaxed rows; hover off uses ordinary tooltips. Visible and combined column choices share the same up-to-three-column layout and responsive thresholds. Name and IP address are always shown. Column visibility, combination choices, and individual/combined widths are saved atomically in `%LOCALAPPDATA%\FingVibe\device-table.json`. **Reset columns** restores visibility, widths and combination defaults but preserves both switches. Load failures are shown in Settings and prevent overwriting the unreadable file; save failures keep the current layout and report that it could not be saved. UI-review mode never reads or writes these preferences. The page remains scrollable for small windows and larger text.
+Settings places the appearance selectors side by side when space permits and stacks them in narrower windows. Appearance feedback is one sentence in normal operation; save failures, unavailable materials, and high contrast remain explicit. The **Devices page** card starts with matching **Compact rows** and **Cell hover previews** switches in one row, stacking them in narrow windows. Both use rounded-rectangle tracks and thumbs while retaining native Windows toggle, keyboard, focus, and theme behavior. Compact off selects Standard/relaxed rows; hover off uses ordinary tooltips. Visible and combined column choices share the same up-to-three-column layout and responsive thresholds. Name and IP address are always shown. Column visibility, combination choices, individual/combined widths and the Status filter are saved atomically in `%LOCALAPPDATA%\FingVibe\device-table.json`. **Reset columns** restores visibility, widths and combination defaults but preserves both switches and the Status selection. Load failures are shown in Settings and prevent overwriting the unreadable file; save failures keep the current layout and report that it could not be saved. UI-review mode uses table preferences only through an explicit isolated fixture path, never the user's saved file. The page remains scrollable for small windows and larger text.
 
 Public IP and ISP details are retrieved from `ipwho.is`. This optional display depends on internet access and sends the connection's public IP to that provider as part of the HTTPS request. LAN discovery and scanning continue to work when the lookup is unavailable.
 
@@ -196,6 +200,18 @@ a far-right connected funnel/reset control. The funnel reveals **Device type**, 
 collapsed. Hiding that row preserves its restrictions; the funnel displays the
 number of active secondary categories, excluding Status and search.
 
+Status selections, including multiple categories or the unrestricted selection,
+are saved with the existing table preferences and restored after restart.
+Dropdown changes, status summary chips, Overview shortcuts and Clear filters
+use the same persisted selection. Search and other filter categories are not
+restored. Remembering **Status: Online** does not preserve Online evidence:
+restored observations are historical, so that filter can initially show no rows
+until fresh ICMP results are checkpointed. Starting a scan retains the displayed
+rows until that checkpoint; later stages update the current scan's evidence.
+UI-review mode reads/writes table settings only when an explicit isolated
+`FINGVIBE_UI_REVIEW_DEVICE_TABLE` fixture path is supplied, never the user's
+normal preferences. Native restart coverage uses and removes that fixture.
+
 Category dropdowns contain native checkboxes and stay open while selecting
 multiple values. Selections combine with OR inside a category and AND between
 categories and search; no selections means no restriction. Person/Room include
@@ -282,17 +298,17 @@ Both modes retain 13px primary names/latencies and a 20px far-left type icon wit
 
 IPv4 MAC enrichment first checks Windows' neighbor table for the exact IP on the route-selected interface, accepting only valid unicast six-byte addresses in usable states. If absent, it attempts `SendARP` once and rechecks the table. It never substitutes a gateway MAC or an unrelated interface's neighbor; a ping response can still lack a resolvable MAC.
 
-Starting a scan keeps the displayed list visible and scrollable but prevents opening device details by pointer or keyboard. Results are collected separately and replace the list only when the scan succeeds; cancellation or failure retains the displayed results and reports the outcome explicitly. Progress first counts all checked addresses (**Scanning** *n*/*total* **addresses**), then, when anything was missed, restarts for a separate retry phase (**Retrying** *n*/*missed* **missed addresses**); the retry pause appears as **Retrying 0**/*missed*. The scan is not complete until the retry and enrichment finish, and cancelling during the pause or retry saves nothing. Completed scans update inventory observations, same-network absence, and per-device scan history; no new discovery probes are added.
+Starting a scan retains the displayed list while initial ICMP results are collected. After that durable checkpoint, browsing, filtering, sorting and device details become available before background ARP. Later checkpoints update the table quietly while preserving selection, without moving focus or showing a retry popup. Scan LAN remains unavailable and Cancel scan remains accessible until the logical scan finishes or stops. Initial ICMP progress is unnumbered. Background status keeps **Initial results shown** visible and names five ordered stages: **(1/5) Background ARP**, **(2/5) Waiting 10 seconds before ICMP attempt 2**, **(3/5) Background ICMP attempt 2**, **(4/5) Waiting 10 seconds before ICMP attempt 3**, and **(5/5) Background ICMP attempt 3**. Each probing stage counts its own remaining addresses, including ARP nonresponses; waits are explicitly distinguished from active probes. Silent addresses can make bounded ARP substantially longer than ICMP, but the initial results remain usable throughout. Confirming every address skips the remaining stages and finalizes immediately. Cancellation or failure retains the last committed checkpoint, without making silent devices Offline.
 
 Manual and scheduled scans share one execution path. It holds the app's single network-activity slot for the whole scan, so LAN scans never overlap speed tests, troubleshooting or device-service scans; a busy request is rejected, not queued. If the Windows network identity changes during a scan, its observations are saved unscoped and no device is marked Offline.
 
 ### Scheduled scans
 
-**Settings > Scheduled scans** is off by default. Turning it on scans the network selected in the shared header every 15 minutes, 30 minutes, 1 hour (default), 2 hours, or 4 hours while FingVibe is open, including when it is minimized. There is no tray, service, background task, or catch-up scan: the first scheduled scan runs one full interval after you enable it, FingVibe finishes loading, or Windows resumes, and changing the interval restarts that wait. Closing FingVibe or turning scheduling off stops it immediately; turning it off during a scheduled scan cancels that scan without saving partial results.
+**Settings > Scheduled scans** is off by default. Turning it on scans the network selected in the shared header every 15 minutes, 30 minutes, 1 hour (default), 2 hours, or 4 hours while FingVibe is open, including when it is minimized. There is no tray, service, background task, or catch-up scan: the first scheduled scan runs one full interval after you enable it, FingVibe finishes loading, or Windows resumes, and changing the interval restarts that wait. Closing FingVibe or turning scheduling off cancels scheduled work and drains any pending checkpoint write; committed observations are retained as incomplete.
 
 Scheduled scans use the same execution path, progress, cancellation, retained-result, inventory, history and discovery handling as **Scan LAN**. Their progress and outcomes are labeled **Scheduled scan**, and **Cancel scan** stays available on every page. A scan you cancel waits a full interval before the next attempt; cancellation by disabling, sleep or closing is reported as stopped with nothing saved. Busy network activity, an unavailable LAN, or a failed scan or save is retried after one minute (or the interval if shorter), doubling up to the chosen interval, with the reason shown in Settings. Scheduling pauses while Windows reports sleep, cancelling any in-progress scheduled scan; on resume, it waits a full interval.
 
-Settings explains the current state in one sentence: off, waiting for loading, in progress, next approximate time, or a paused, skipped, or failed attempt and its retry time. While scheduling is on, the shared header's freshness line ends with **Scheduled every** *interval* (or **Scheduled scans paused**/**retrying**). Each scheduled scan samples which devices answer at that moment; missed responses between scans are not proof that a device was offline, and FingVibe does not record a continuous availability timeline.
+Settings explains the current state in one sentence: off, waiting for loading, in progress, next approximate time, or a paused, skipped, or failed attempt and its retry time. While scheduling is on, the shared header's freshness line ends with **Scheduled every** *interval* **while app is open** (or **Scheduled scans paused**/**retrying**). Each scheduled scan samples which devices answer at that moment; missed responses between scans are not proof that a device was offline, and FingVibe does not record a continuous availability timeline.
 
 Newly observed devices from a scheduled scan use the same in-app discovery popup. Discoveries made while FingVibe is minimized are combined and shown once the window is restored, noting that they were found while minimized.
 
@@ -473,7 +489,7 @@ Short-name limits count visible characters, so a multi-code-point emoji such as 
 
 The **People** and **Rooms** pages manage manually named people and locations. Each entry has a full name, a unique 1–3-character short name within its category, and optional notes. New entries suggest initials from the first two words as you type (`Igor` → `I`, `Igor Iric` → `II`, `Living Room` → `LR`); editing the short name manually stops automatic updates. Device details can assign one person and one room independently; either can remain unassigned. The Devices table shows plain short-name text in optional **Person** and **Room** columns, with muted dashes for unassigned values, while filters and search match both short and full names. Hover over a short name or keyboard-focus it to access its full-name tooltip and accessible label.
 
-People, rooms, and their assignments are saved separately from scan snapshots within `%LOCALAPPDATA%\FingVibe\device-inventory.sqlite`. Existing `people-rooms.json` data is migrated without deleting or rewriting the legacy file. Assignments require a six-byte MAC address, including an imported MAC, and never use an IP address alone. Private or randomized MAC addresses may change, so their assignments are only retained when the same MAC is observed again. Deleting a person or room clears only that category's assignments; it does not delete devices or scan history. Last-scan response counts report devices that answered ICMP during the displayed scan, not human presence; no response does not prove a device is powered off. Load and save errors are displayed, and a failed load disables changes to protect the saved file.
+People, rooms, and their assignments are saved separately from scan snapshots within `%LOCALAPPDATA%\FingVibe\device-inventory.sqlite`. Existing `people-rooms.json` data is migrated without deleting or rewriting the legacy file. Assignments require a six-byte MAC address, including an imported MAC, and never use an IP address alone. Private or randomized MAC addresses may change, so their assignments are only retained when the same MAC is observed again. Deleting a person or room clears only that category's assignments; it does not delete devices or scan history. Last-scan response counts report devices that answered ICMP or fresh ARP during the displayed scan, not human presence; no response does not prove a device is powered off. Load and save errors are displayed, and a failed load disables changes to protect the saved file.
 
 Assignments edited on a private-prefix virtual device belong to its persistent identity and follow inferred MAC changes, rather than being copied to its member MACs.
 
@@ -543,7 +559,8 @@ Import does not create people/rooms, infer owners, import Group, or migrate
 Fing events/timestamps. Invalid MACs and all duplicate-MAC rows are skipped
 with explicit warnings. Devices sharing an IP remain distinct by MAC.
 
-Online means a response in this session's latest completed local scan;
+Online means a fresh ping or ARP response in this session's latest local scan,
+including its checkpointed initial results while background confirmation is pending;
 Offline means locally observed previously but absent from a subsequent
 successful scan of that same Windows network profile and subnet. Other-network,
 cancelled, and failed scans do not infer absence. When network identity is
@@ -551,9 +568,12 @@ unavailable or changes during a scan, a warning is shown and absence is not
 inferred. Fing Only means the inventory has no local observation of the imported
 MAC, regardless of Fing's State field. First local discovery removes that state.
 After restart, retained observations are Unknown, not Online or freshly Offline.
-Observations outside the latest successful scan's network/subnet are also
-Unknown; their last-seen information is retained. A failed or cancelled refresh
-keeps the previous successful scan's evidence unchanged. People/Rooms
+Observations outside the latest displayed scan's network/subnet are also
+Unknown; their last-seen information is retained. Before an initial checkpoint,
+a failed or cancelled refresh leaves the previous results unchanged. After a
+checkpoint, it retains those observations as incomplete/historical without
+inferring absence. A scan already finalized by a committed Complete checkpoint
+remains complete if cancellation races its final cleanup. People/Rooms
 live-response summaries do not count imported or restored records. Overview and
 Network Online counts count current device identities, not historical members
 or duplicate IPs for one MAC. Historical/Fing-only addresses cannot

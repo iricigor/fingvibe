@@ -32,7 +32,9 @@ public sealed partial class MainWindow
         _hasRestoredSnapshot = true;
         try
         {
-            var snapshot = await _snapshotStore.LoadAsync();
+            var snapshot = await _snapshotStore.LoadForRestoreAsync(_inventory.LatestScan);
+            if (_inventoryUnavailable && snapshot is { ScanId: var id } && id != Guid.Empty)
+                throw new InvalidDataException("The authoritative inventory checkpoint is unavailable.");
             if (snapshot is null)
             {
                 RefreshInventoryRows();
@@ -41,8 +43,10 @@ public sealed partial class MainWindow
 
             _currentScanSnapshot = snapshot;
             var isCurrentReviewSnapshot = IsUiReview
+                && _inventory.LatestScan is null
                 && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT") == "1"
-                && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_SNAPSHOT") is { Length: > 0 };
+                && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_SNAPSHOT") is { Length: > 0 }
+                && snapshot.State == ScanCheckpointState.Complete;
             var missingObservations = snapshot.Results.Where(result => result.MacAddress is { } mac
                 && (!_inventory.Devices.TryGetValue(mac.ToString(), out var device) || device.Observations.Count == 0)).ToArray();
             _inventory = _inventory.ObserveCompletedScan(
@@ -61,7 +65,7 @@ public sealed partial class MainWindow
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
         {
             RefreshInventoryRows();
-            ShowSnapshotError("The saved scan could not be loaded. Scan LAN to create a new snapshot.");
+            ShowSnapshotError($"The saved scan could not be loaded: {exception.Message}. Scan LAN to create a new snapshot.");
         }
     }
 
@@ -107,16 +111,21 @@ public sealed partial class MainWindow
             network.Cidr,
             DateTimeOffset.UtcNow,
             results.ToArray(),
-            duration);
-        _currentScanSnapshot = snapshot;
-        _liveCompletedAt = snapshot.CompletedAt;
+            duration) { ScanId = Guid.NewGuid(), NetworkId = networkId };
+        return await SaveScanCheckpointAsync(snapshot);
+    }
+
+    private async Task<ScanSaveResult> SaveScanCheckpointAsync(ScanSnapshot snapshot)
+    {
+        var networkId = snapshot.NetworkId;
         IReadOnlyList<DeviceDiscovery> discoveries = [];
         string? persistenceError = null;
         await _deviceDataSaveLock.WaitAsync();
         try
         {
-            var observed = CurrentDeviceData.ObserveCompletedScan(networkId, snapshot);
-            var candidates = DeviceDiscovery.FindNewDevices(_persistedInventory, observed, networkId, snapshot);
+            var observed = CurrentDeviceData.ObserveCompletedScan(networkId, snapshot,
+                historical: snapshot.State == ScanCheckpointState.Incomplete) with { LatestScan = snapshot };
+            var candidates = DeviceDiscovery.FindNewDevices(_scanDiscoveryBaseline ?? _persistedInventory, observed, networkId, snapshot);
             try
             {
                 await PersistDeviceDataAsync(observed);
@@ -125,14 +134,29 @@ public sealed partial class MainWindow
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
             {
-                _inventory = observed;
                 persistenceError = exception.Message;
-                _inventoryError = $"Scan completed, but inventory and scan history could not be saved: {exception.Message}";
+                _inventoryError = $"Scan checkpoint could not be saved; retaining the last committed observations: {exception.Message}";
             }
         }
         finally { _deviceDataSaveLock.Release(); }
+        if (persistenceError is not null)
+        {
+            UpdateScanStatus();
+            return new ScanSaveResult([], persistenceError);
+        }
+        _currentScanSnapshot = snapshot;
+        _liveCompletedAt = snapshot.State == ScanCheckpointState.Incomplete ? null : snapshot.CompletedAt;
         RefreshInventoryRows();
-        _displayedScan = new OverviewScanContext(snapshot.Subnet, snapshot.CompletedAt, ScanDisplayStatus.Completed);
+        _initialResultsPublished = true;
+        _retainedResultsMessage = " · Retaining checkpointed observations";
+        DevicesPage.SetInteractionsEnabled(true);
+        UpdateEmptyState();
+        _scanMessage = snapshot.State == ScanCheckpointState.Pending
+            ? "Initial results shown · background confirmation pending"
+            : snapshot.State == ScanCheckpointState.Incomplete ? "Incomplete scan · checkpointed observations retained" : null;
+        if (snapshot.State == ScanCheckpointState.Complete && networkId is null)
+            _discoveryMessage = "New-device alerts and baseline establishment are disabled for this scan because network identity is unavailable.";
+        ShowSavedSnapshotStatus(snapshot);
         UpdateOverview();
         try
         {
@@ -141,14 +165,20 @@ public sealed partial class MainWindow
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
         {
-            ShowSnapshotError("The completed scan could not be saved.");
+            persistenceError = $"The inventory checkpoint was saved, but the latest-scan cache could not be updated: {exception.Message}";
+            ShowSnapshotError(persistenceError);
         }
-        return new ScanSaveResult(discoveries, persistenceError);
+        return new ScanSaveResult(discoveries, persistenceError) { CheckpointCommitted = true };
     }
 
     private void ShowSavedSnapshotStatus(ScanSnapshot snapshot)
     {
-        _displayedScan = new OverviewScanContext(snapshot.Subnet, snapshot.CompletedAt, ScanDisplayStatus.Completed);
+        _displayedScan = new OverviewScanContext(snapshot.Subnet, snapshot.CompletedAt, snapshot.State switch
+        {
+            ScanCheckpointState.Pending => ScanDisplayStatus.Scanning,
+            ScanCheckpointState.Incomplete => ScanDisplayStatus.Incomplete,
+            _ => ScanDisplayStatus.Completed
+        });
         _snapshotError = null;
         UpdateOverview();
     }
@@ -159,9 +189,16 @@ public sealed partial class MainWindow
         await _deviceDataSaveLock.WaitAsync();
         try
         {
+            var updatedSnapshot = _currentScanSnapshot is { } current ? current with
+            {
+                Results = current.Results.Select(item => item.Address.Equals(result.Address) ? result : item).ToArray()
+            } : null;
             if (result.MacAddress?.GetAddressBytes().Length == 6)
             {
-                var updated = CurrentDeviceData.UpdateProbeResults(result);
+                var updated = CurrentDeviceData.UpdateProbeResults(result) with
+                {
+                    LatestScan = updatedSnapshot ?? CurrentDeviceData.LatestScan
+                };
                 try { await PersistDeviceDataAsync(updated); }
                 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
                 {
@@ -174,12 +211,9 @@ public sealed partial class MainWindow
                     UpdateDeviceHistory();
                 }
             }
-            if (_currentScanSnapshot is { } snapshot)
+            if (updatedSnapshot is not null)
             {
-                _currentScanSnapshot = snapshot with
-                {
-                    Results = snapshot.Results.Select(item => item.Address.Equals(result.Address) ? result : item).ToArray()
-                };
+                _currentScanSnapshot = updatedSnapshot;
                 try { await _snapshotStore.SaveAsync(_currentScanSnapshot); }
                 catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException)
                 {

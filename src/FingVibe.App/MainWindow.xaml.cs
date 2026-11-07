@@ -42,7 +42,7 @@ public sealed partial class MainWindow : Window
     private async void MainWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
     {
         if (_allowWindowClose
-            || (!ToolsPage.HasActiveTest && _devicePortScanCancellation is null && !_periodicScanController.IsActive))
+            || (!ToolsPage.HasActiveTest && _devicePortScanCancellation is null && !_periodicScanController.IsActive && !_isScanning))
         {
             return;
         }
@@ -57,7 +57,9 @@ public sealed partial class MainWindow : Window
         try
         {
             // Stop scheduling first so no scheduled scan can start while other activity winds down.
+            _scanCancellation?.Cancel();
             await _periodicScanController.ShutdownAsync();
+            await _scanExecution.StopAsync();
             await StopDevicePortScanAsync();
             await ToolsPage.StopForWindowCloseAsync();
         }

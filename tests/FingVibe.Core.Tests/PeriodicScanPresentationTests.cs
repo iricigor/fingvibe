@@ -39,7 +39,7 @@ public sealed class PeriodicScanPresentationTests
     [Theory]
     [InlineData(null, null, "First scheduled scan around 09:00.")]
     [InlineData(nameof(ScanRunStatus.Completed), null, "Last scheduled scan completed. Next around 09:00.")]
-    [InlineData(nameof(ScanRunStatus.Cancelled), null, "Last scheduled scan was cancelled; nothing was saved. Next around 09:00.")]
+    [InlineData(nameof(ScanRunStatus.Cancelled), null, "Last scheduled scan was cancelled; committed checkpoints are retained as incomplete. Next around 09:00.")]
     [InlineData(nameof(ScanRunStatus.Unavailable), "Wi-Fi (192.168.1.0/24) is not connected.",
         "Paused: Wi-Fi (192.168.1.0/24) is not connected. Checking again around 09:00.")]
     [InlineData(nameof(ScanRunStatus.Failed), "socket failure",
@@ -98,8 +98,8 @@ public sealed class PeriodicScanPresentationTests
         var failed = waiting with { LastOutcome = new ScanRunOutcome(ScanRunStatus.Failed), ConsecutiveUnsuccessfulAttempts = 2 };
 
         Assert.Null(PeriodicScanPresentation.HeaderSummary(PeriodicScanSettings.Default, waiting, false));
-        Assert.Equal("Scheduled every 1 hour", PeriodicScanPresentation.HeaderSummary(Enabled, waiting, false));
-        Assert.Equal("Scheduled every 4 hours", PeriodicScanPresentation.HeaderSummary(new(true, 240), waiting, false));
+        Assert.Equal("Scheduled every 1 hour while app is open", PeriodicScanPresentation.HeaderSummary(Enabled, waiting, false));
+        Assert.Equal("Scheduled every 4 hours while app is open", PeriodicScanPresentation.HeaderSummary(new(true, 240), waiting, false));
         Assert.Equal("Scheduled scans paused", PeriodicScanPresentation.HeaderSummary(Enabled, waiting, true));
         Assert.Equal("Scheduled scans paused", PeriodicScanPresentation.HeaderSummary(Enabled, unavailable, false));
         Assert.Equal("Scheduled scans retrying", PeriodicScanPresentation.HeaderSummary(Enabled, failed, false));

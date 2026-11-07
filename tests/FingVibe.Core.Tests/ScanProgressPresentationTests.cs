@@ -32,10 +32,15 @@ public sealed class ScanProgressPresentationTests
     }
 
     [Theory]
-    [InlineData(LanScanPhase.FirstPass, 0, 254, "Scanning 0/254 addresses")]
-    [InlineData(LanScanPhase.FirstPass, 254, 254, "Scanning 254/254 addresses")]
-    [InlineData(LanScanPhase.Retry, 0, 230, "Retrying 0/230 missed addresses")]
-    [InlineData(LanScanPhase.Retry, 17, 230, "Retrying 17/230 missed addresses")]
+    [InlineData(LanScanPhase.FirstPass, 0, 254, "Scanning ICMP: 0/254 addresses")]
+    [InlineData(LanScanPhase.FirstPass, 254, 254, "Scanning ICMP: 254/254 addresses")]
+    [InlineData(LanScanPhase.Arp, 0, 230, "(1/5) Background ARP: 0/230 misses")]
+    [InlineData(LanScanPhase.Arp, 230, 230, "(1/5) Background ARP: 230/230 misses")]
+    [InlineData(LanScanPhase.RetryWait, 0, 230, "(2/5) Waiting 10 seconds before ICMP attempt 2")]
+    [InlineData(LanScanPhase.Retry, 0, 230, "(3/5) Background ICMP attempt 2: 0/230 misses")]
+    [InlineData(LanScanPhase.Retry, 17, 230, "(3/5) Background ICMP attempt 2: 17/230 misses")]
+    [InlineData(LanScanPhase.FinalRetryWait, 0, 213, "(4/5) Waiting 10 seconds before ICMP attempt 3")]
+    [InlineData(LanScanPhase.FinalRetry, 213, 213, "(5/5) Background ICMP attempt 3: 213/213 misses")]
     public void ProgressMessageNamesTheScanPhaseAndItsOwnCount(LanScanPhase phase, int completed, int total, string expected)
     {
         Assert.Equal(expected, ScanProgressPresentation.Message(new LanScanProgress(phase, completed, total)));

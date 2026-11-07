@@ -11,7 +11,7 @@ public sealed class LanScannerService
 {
     internal const int DefaultTimeoutMilliseconds = 700;
     internal const int DefaultMaximumConcurrency = 256;
-    internal static readonly TimeSpan RetryPause = TimeSpan.FromSeconds(1);
+    internal static readonly TimeSpan RetryPause = TimeSpan.FromSeconds(10);
 
     private readonly int _timeoutMilliseconds;
     private readonly int _maximumConcurrency;
@@ -19,6 +19,7 @@ public sealed class LanScannerService
     private readonly Func<IPAddress, CancellationToken, Task<ScanDiscovery>> _discover;
     private readonly Func<IPAddress, int, Task<IcmpEchoReply>> _sendEcho;
     private readonly TimeProvider _timeProvider;
+    private readonly Func<IPAddress, LanNetwork, CancellationToken, Task<PhysicalAddress?>> _arp;
 
     public LanScannerService(
         int timeoutMilliseconds = DefaultTimeoutMilliseconds,
@@ -36,7 +37,8 @@ public sealed class LanScannerService
             resultEnricher ?? new ScanResultEnricher(nameResolver, portScanner, macAddressResolver, vendorRegistry),
             CreateDiscovery(ssdpDiscovery ?? new SsdpDiscoveryService(), mdnsDiscovery ?? new MdnsDeviceDiscoveryService()),
             SendPingAsync,
-            TimeProvider.System)
+            TimeProvider.System,
+            FreshArpProbe.ResolveAsync)
     {
     }
 
@@ -46,7 +48,8 @@ public sealed class LanScannerService
         IScanResultEnricher resultEnricher,
         Func<IPAddress, CancellationToken, Task<ScanDiscovery>> discover,
         Func<IPAddress, int, Task<IcmpEchoReply>> sendEcho,
-        TimeProvider timeProvider)
+        TimeProvider timeProvider,
+        Func<IPAddress, LanNetwork, CancellationToken, Task<PhysicalAddress?>>? arp = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timeoutMilliseconds);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumConcurrency);
@@ -56,64 +59,120 @@ public sealed class LanScannerService
         _discover = discover;
         _sendEcho = sendEcho;
         _timeProvider = timeProvider;
+        _arp = arp ?? ((_, _, _) => Task.FromResult<PhysicalAddress?>(null));
     }
 
-    // Probes every usable address once, then, after a cancellable pause, probes each first-pass miss exactly once
-    // more with the same settings. Each address is reported once with its final outcome: first-pass responders
-    // immediately, misses only after their retry. Only a fresh reply during this scan counts as Alive.
     public async Task<ScanSummary> ScanAsync(
         LanNetwork network,
         IProgress<ScanResult> resultProgress,
         IProgress<LanScanProgress>? scanProgress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Func<IReadOnlyList<ScanResult>, ScanCheckpointState, Task>? checkpoint = null)
     {
         ArgumentNullException.ThrowIfNull(network);
         ArgumentNullException.ThrowIfNull(resultProgress);
 
         var total = SubnetCalculator.GetUsableHostCount(network.PrefixLength);
         var addresses = SubnetCalculator.EnumerateUsableHosts(network.NetworkAddress, network.PrefixLength).ToArray();
-        var missed = new bool[addresses.Length];
+        var confirmed = new ScanResult?[addresses.Length];
         var alive = 0;
+        using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cancellationToken = lifetime.Token;
         var discoveryTask = _discover(network.LocalAddress, cancellationToken);
         using var enrichmentSlots = new SemaphoreSlim(32, 32);
 
-        await ProbePhaseAsync(LanScanPhase.FirstPass, Enumerable.Range(0, addresses.Length).ToArray(), total, (index, result) =>
+        try
         {
-            if (result.Status == HostStatus.Alive)
-            {
-                Interlocked.Increment(ref alive);
-                resultProgress.Report(result);
-            }
-            else
-            {
-                missed[index] = true;
-            }
-        }).ConfigureAwait(false);
-
-        var retries = Enumerable.Range(0, addresses.Length).Where(index => missed[index]).ToArray();
-        if (retries.Length > 0)
-        {
-            // The pause timer starts before the phase is announced, so observers never race the wait.
-            var pause = Task.Delay(RetryPause, _timeProvider, cancellationToken);
-            scanProgress?.Report(new LanScanProgress(LanScanPhase.Retry, 0, retries.Length));
-            await pause.ConfigureAwait(false);
-            await ProbePhaseAsync(LanScanPhase.Retry, retries, retries.Length, (_, result) =>
+            await ProbePhaseAsync(LanScanPhase.FirstPass, Enumerable.Range(0, addresses.Length).ToArray(), total, (index, result) =>
             {
                 if (result.Status == HostStatus.Alive)
                 {
+                    confirmed[index] = result;
                     Interlocked.Increment(ref alive);
+                    resultProgress.Report(result);
                 }
-
-                resultProgress.Report(result);
             }).ConfigureAwait(false);
+
+            await discoveryTask.ConfigureAwait(false);
+            await CheckpointAsync().ConfigureAwait(false);
+            var arpAddresses = Remaining();
+            var arpCompleted = 0;
+            if (arpAddresses.Length > 0)
+                scanProgress?.Report(new LanScanProgress(LanScanPhase.Arp, 0, arpAddresses.Length));
+            await Parallel.ForEachAsync(arpAddresses, new ParallelOptions
+            {
+                CancellationToken = cancellationToken,
+                MaxDegreeOfParallelism = 8
+            }, async (index, token) =>
+            {
+                var stopwatch = Stopwatch.StartNew();
+                var mac = await _arp(addresses[index], network, token).ConfigureAwait(false);
+                token.ThrowIfCancellationRequested();
+                if (mac is not null)
+                {
+                    if (!MacAddressResolver.IsUsableNeighbor(mac.GetAddressBytes(), 5))
+                        throw new InvalidOperationException($"Fresh ARP returned an invalid MAC for {addresses[index]}.");
+                    var result = await EnrichAsync(addresses[index], network, discoveryTask, enrichmentSlots,
+                        token, stopwatch.Elapsed, null, null, mac).ConfigureAwait(false);
+                    token.ThrowIfCancellationRequested();
+                    confirmed[index] = result;
+                    Interlocked.Increment(ref alive);
+                    resultProgress.Report(result);
+                }
+                var completedCount = Interlocked.Increment(ref arpCompleted);
+                scanProgress?.Report(new LanScanProgress(LanScanPhase.Arp, completedCount, arpAddresses.Length));
+            }).ConfigureAwait(false);
+
+            if (arpAddresses.Length > 0)
+                await CheckpointAsync().ConfigureAwait(false);
+            for (var round = 0; round < 2 && Remaining().Length > 0; round++)
+            {
+                var retries = Remaining();
+                var pause = Task.Delay(RetryPause, _timeProvider, cancellationToken);
+                scanProgress?.Report(new LanScanProgress(
+                    round == 0 ? LanScanPhase.RetryWait : LanScanPhase.FinalRetryWait, 0, retries.Length));
+                await pause.ConfigureAwait(false);
+                await ProbePhaseAsync(round == 0 ? LanScanPhase.Retry : LanScanPhase.FinalRetry,
+                    retries, retries.Length, (index, result) =>
+                {
+                    if (result.Status == HostStatus.Alive)
+                    {
+                        confirmed[index] = result;
+                        Interlocked.Increment(ref alive);
+                        resultProgress.Report(result);
+                    }
+                }).ConfigureAwait(false);
+                await CheckpointAsync(final: round == 1).ConfigureAwait(false);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            foreach (var index in Remaining())
+                resultProgress.Report(new ScanResult(addresses[index], HostStatus.Unreachable, null, TimeSpan.Zero));
+            return new ScanSummary(total, alive, total - alive);
+        }
+        finally
+        {
+            lifetime.Cancel();
+            try { await discoveryTask.ConfigureAwait(false); }
+            catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
         }
 
-        await discoveryTask.ConfigureAwait(false);
-        return new ScanSummary(total, alive, total - alive);
+        int[] Remaining() => Enumerable.Range(0, addresses.Length).Where(index => confirmed[index] is null).ToArray();
+
+        async Task CheckpointAsync(bool final = false)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (checkpoint is not null)
+                await checkpoint(confirmed.OfType<ScanResult>().ToArray(),
+                    final || Remaining().Length == 0 ? ScanCheckpointState.Complete : ScanCheckpointState.Pending)
+                    .ConfigureAwait(false);
+        }
 
         Task ProbePhaseAsync(LanScanPhase phase, int[] indexes, int phaseTotal, Action<int, ScanResult> record)
         {
             var completed = 0;
+            if (phase != LanScanPhase.FirstPass)
+                scanProgress?.Report(new LanScanProgress(phase, 0, phaseTotal));
             return Parallel.ForEachAsync(
                 indexes,
                 new ParallelOptions
@@ -129,6 +188,7 @@ public sealed class LanScannerService
                         discoveryTask,
                         enrichmentSlots,
                         token).ConfigureAwait(false);
+                    token.ThrowIfCancellationRequested();
                     record(index, result);
                     var completedCount = Interlocked.Increment(ref completed);
                     scanProgress?.Report(new LanScanProgress(phase, completedCount, phaseTotal));
@@ -174,35 +234,33 @@ public sealed class LanScannerService
                 return new ScanResult(address, HostStatus.Unreachable, null, stopwatch.Elapsed);
             }
 
-            await enrichmentSlots.WaitAsync(cancellationToken).ConfigureAwait(false);
-            try
-            {
-                var responseTtl = address.Equals(network.GatewayAddress) ? null : reply.Ttl;
-                var enrichment = await _resultEnricher
-                    .EnrichAsync(address, discoveryTask, cancellationToken, responseTtl)
-                    .ConfigureAwait(false);
-
-                return new ScanResult(
-                    address,
-                    HostStatus.Alive,
-                    reply.RoundtripTimeMilliseconds,
-                    stopwatch.Elapsed,
-                    enrichment.DeviceName,
-                    enrichment.MacAddress,
-                    enrichment.VendorName,
-                    enrichment.OpenPorts,
-                    DeviceClassifier.ApplyNetworkContext(
-                        enrichment.Classification ?? DeviceClassification.Unknown, address, network));
-            }
-            finally
-            {
-                enrichmentSlots.Release();
-            }
+            return await EnrichAsync(address, network, discoveryTask, enrichmentSlots, cancellationToken,
+                stopwatch.Elapsed, reply.RoundtripTimeMilliseconds,
+                address.Equals(network.GatewayAddress) ? null : reply.Ttl).ConfigureAwait(false);
         }
         catch (PingException)
         {
             stopwatch.Stop();
             return new ScanResult(address, HostStatus.Unreachable, null, stopwatch.Elapsed);
         }
+
+    }
+
+    private async Task<ScanResult> EnrichAsync(
+        IPAddress address, LanNetwork network, Task<ScanDiscovery> discoveryTask,
+        SemaphoreSlim enrichmentSlots, CancellationToken cancellationToken, TimeSpan duration,
+        long? latency, int? ttl, PhysicalAddress? confirmedMac = null)
+    {
+        await enrichmentSlots.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var enrichment = await _resultEnricher.EnrichAsync(address, discoveryTask, cancellationToken,
+                ttl, confirmedMac).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            return new ScanResult(address, HostStatus.Alive, latency, duration, enrichment.DeviceName,
+                confirmedMac ?? enrichment.MacAddress, enrichment.VendorName, enrichment.OpenPorts,
+                DeviceClassifier.ApplyNetworkContext(enrichment.Classification ?? DeviceClassification.Unknown, address, network));
+        }
+        finally { enrichmentSlots.Release(); }
     }
 }

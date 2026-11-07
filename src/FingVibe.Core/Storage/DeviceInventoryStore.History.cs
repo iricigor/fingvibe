@@ -19,6 +19,7 @@ public sealed partial class DeviceInventoryStore
                 ON CONFLICT(kind,id) DO UPDATE SET count=count+1;
             END;
             UPDATE inventory SET version=2;
+            CREATE TABLE IF NOT EXISTS scan_checkpoint(id INTEGER PRIMARY KEY CHECK(id=1),data TEXT NOT NULL);
             """);
     }
 
@@ -27,7 +28,11 @@ public sealed partial class DeviceInventoryStore
         using var versionCommand = connection.CreateCommand();
         versionCommand.CommandText = "SELECT version FROM inventory WHERE id=1";
         var version = Convert.ToInt32(versionCommand.ExecuteScalar(), CultureInfo.InvariantCulture);
-        if (version == 2) return;
+        if (version == 2)
+        {
+            Execute(connection, null, "CREATE TABLE IF NOT EXISTS scan_checkpoint(id INTEGER PRIMARY KEY CHECK(id=1),data TEXT NOT NULL)");
+            return;
+        }
         if (version != 1) throw new InvalidDataException("The SQLite inventory has an unsupported format.");
         using var transaction = connection.BeginTransaction();
         CreateHistoryIndexes(connection, transaction);

@@ -7,7 +7,7 @@ public sealed record DeviceDiscovery(string Mac, Guid? VirtualDeviceId = null)
     public static IReadOnlyList<DeviceDiscovery> FindNewDevices(
         DeviceInventoryData persisted, DeviceInventoryData observed, string? networkId, ScanSnapshot scan)
     {
-        if (networkId is null) return [];
+        if (networkId is null || scan.State != ScanCheckpointState.Complete) return [];
 
         bool InScope(DeviceObservation observation) =>
             observation.NetworkId == networkId && observation.Subnet == scan.Subnet;
@@ -20,7 +20,8 @@ public sealed record DeviceDiscovery(string Mac, Guid? VirtualDeviceId = null)
         var knownMacs = persisted.Devices.Values.Where(Seen).Select(device => device.Mac).ToHashSet();
         var knownSlots = persisted.VirtualDevices.Where(InScopeSlot).ToArray();
         if (!persisted.DiscoveryBaselines.Contains(new(networkId, scan.Subnet))
-            && knownMacs.Count == 0 && knownSlots.Length == 0)
+            && (persisted.LatestScan is { State: not ScanCheckpointState.Complete }
+                || knownMacs.Count == 0 && knownSlots.Length == 0))
             return [];
 
         var responding = scan.Results.Where(result => result.Status == HostStatus.Alive

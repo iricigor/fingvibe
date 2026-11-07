@@ -668,7 +668,7 @@ function Test-DeviceRefresh {
             throw "Refresh must retain the displayed devices and explain their status."
         }
         Select-SidebarPage Overview "Online devices"
-        if ((Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "Scanning*") {
+        if ((Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "Scanning ICMP:*") {
             throw "Live scan progress must remain visible after navigation."
         }
         (Find-SidebarElement Name "Cancel scan").GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
@@ -693,7 +693,7 @@ function Test-DeviceRefresh {
             $scan.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
             Wait-DeviceScan
             Select-SidebarPage Overview "Online devices"
-            if ((Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "*The completed scan could not be saved.*") {
+            if ((Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "*latest-scan cache could not be updated*") {
                 throw "A successful scan must preserve persistence errors across navigation."
             }
             Select-SidebarPage Devices "Search devices"
@@ -1008,22 +1008,27 @@ function Assert-ScheduledScanSettings([bool] $IsEnabled, [int] $IntervalMinutes)
 function Show-ScheduledScansCard {
     $page = Find-SidebarElement AutomationId SettingsPage
     $scroll = $page.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-    if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
-    Start-Sleep -Milliseconds 300
-    $pageBounds = $page.Current.BoundingRectangle
-    foreach ($id in @("ScheduledScansHeading", "ScheduledScansSwitch", "ScanIntervalPicker",
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
+        Start-Sleep -Milliseconds 300
+        $pageBounds = $page.Current.BoundingRectangle
+        $ready = $true
+        foreach ($id in @("ScheduledScansHeading", "ScheduledScansSwitch", "ScanIntervalPicker",
             "ScheduledScanStatus", "ScheduledScanEvidenceNote")) {
-        try { $bounds = (Find-SidebarElement AutomationId $id).Current.BoundingRectangle }
-        catch {
-            Save-ScheduledScanFailure "scheduled-scans-missing"
-            throw
+            $element = Find-SidebarElement AutomationId $id -Optional
+            if (-not $element) { $ready = $false; break }
+            $bounds = $element.Current.BoundingRectangle
+            if ($bounds.Left -lt $pageBounds.Left -or $bounds.Right -gt $pageBounds.Right + 1 -or
+                $bounds.Top -lt $pageBounds.Top -or $bounds.Bottom -gt $pageBounds.Bottom + 1) {
+                $ready = $false
+                break
+            }
         }
-        if ($bounds.Left -lt $pageBounds.Left -or $bounds.Right -gt $pageBounds.Right + 1 -or
-            $bounds.Top -lt $pageBounds.Top -or $bounds.Bottom -gt $pageBounds.Bottom + 1) {
-            Save-ScheduledScanFailure "scheduled-scans-clipped"
-            throw "Scheduled scan control '$id' must be fully visible in Settings. Control=$bounds; page=$pageBounds."
-        }
-    }
+        if ($ready) { return }
+    } while ([DateTime]::UtcNow -lt $deadline)
+    Save-ScheduledScanFailure "scheduled-scans-clipped"
+    throw "Scheduled scan control '$id' did not become fully visible in Settings."
 }
 
 function Hide-ScheduledScansCard {
@@ -1119,26 +1124,27 @@ function Test-ScheduledScans {
         Switch-ScheduledScansWithKeyboard $true
         Assert-ScheduledScanSettings $true 60
         $null = Wait-SidebarText ScheduledScanStatus "First scheduled scan around *."
-        $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 1 hour"
+        $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 1 hour while app is open"
 
         # The hold keeps scheduled scans in progress until they are cancelled or disabled.
         [IO.File]::WriteAllText($scanHoldPath, "Hold scheduled scans for cancellation checks.")
         Set-UiReviewAppearanceChoice -Root $root -Picker ScanIntervalPicker -Choice "15 minutes"
         Assert-ScheduledScanSettings $true 15
-        $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 15 minutes"
-        $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Scanning *"
+        $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 15 minutes while app is open"
+        $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Scanning ICMP:*"
         $null = Wait-SidebarText ScheduledScanStatus "Scheduled scan in progress."
         Show-ScheduledScansCard
         Save-SidebarAppearance "scheduled-scans-running"
         (Find-SidebarElement AutomationId CancelButton).GetCurrentPattern(
             [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
         $null = Wait-SidebarText ScanStatusText "Scheduled scan of 127.0.0.1/32 cancelled*"
-        $null = Wait-SidebarText ScheduledScanStatus "Last scheduled scan was cancelled; nothing was saved. Next around *."
-        $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 15 minutes"
+        Show-ScheduledScansCard
+        $null = Wait-SidebarText ScheduledScanStatus "Last scheduled scan was cancelled; committed checkpoints are retained as incomplete. Next around *."
+        $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 15 minutes while app is open"
 
-        $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Scanning *"
+        $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Scanning ICMP:*"
         Switch-ScheduledScansWithKeyboard $false
-        $null = Wait-SidebarText ScanStatusText "Scheduled scan of 127.0.0.1/32 stopped; nothing was saved*"
+        $null = Wait-SidebarText ScanStatusText "Scheduled scan of 127.0.0.1/32 stopped*"
         $null = Wait-SidebarText ScheduledScanStatus "Off. Scans run only when you select Scan LAN."
         Assert-ScheduledScanSettings $false 15
         if ((Find-SidebarElement AutomationId ScanFreshnessText).Current.Name -like "*Scheduled*") {
@@ -1152,7 +1158,7 @@ function Test-ScheduledScans {
         Switch-ScheduledScansWithKeyboard $true
         Assert-ScheduledScanSettings $true 15
         $null = Wait-SidebarText ScheduledScanStatus "Last scheduled scan completed. Next around *."
-        $null = Wait-SidebarText ScanFreshnessText "*127.0.0.1/32 $dot Scheduled every 15 minutes"
+        $null = Wait-SidebarText ScanFreshnessText "*127.0.0.1/32 $dot Scheduled every 15 minutes while app is open"
         if (-not (Test-Path -LiteralPath $env:FINGVIBE_UI_REVIEW_SNAPSHOT)) {
             throw "A completed scheduled scan must save its results."
         }
@@ -1200,7 +1206,7 @@ function Test-ScheduledScans {
         Show-ScheduledScansCard
         Assert-ScheduledScansSelection On "2 hours"
         $null = Wait-SidebarText ScheduledScanStatus "First scheduled scan around *."
-        $null = Wait-SidebarText ScanFreshnessText "*127.0.0.1/32 $dot Scheduled every 2 hours"
+        $null = Wait-SidebarText ScanFreshnessText "*127.0.0.1/32 $dot Scheduled every 2 hours while app is open"
         (Find-SidebarElement AutomationId ScheduledScansSwitch).GetCurrentPattern(
             [System.Windows.Automation.TogglePattern]::Pattern).Toggle()
         Assert-ScheduledScanSettings $false 120

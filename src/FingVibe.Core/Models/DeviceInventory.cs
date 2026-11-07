@@ -85,6 +85,8 @@ public sealed record DeviceInventoryData(
 {
     public IReadOnlyList<PrivateVirtualDevice> VirtualDevices { get; init; } = [];
     public IReadOnlyList<DeviceDiscoveryBaseline> DiscoveryBaselines { get; init; } = [];
+    [JsonIgnore]
+    public ScanSnapshot? LatestScan { get; init; }
 
     public static DeviceInventoryData Empty { get; } = new(Guid.Empty,
         new Dictionary<string, InventoryDevice>(), new Dictionary<string, string>(),
@@ -126,6 +128,10 @@ public sealed record DeviceInventoryData(
     public DeviceInventoryData ObserveCompletedScan(
         string? networkId, ScanSnapshot snapshot, bool historical = false)
     {
+        if (!historical && snapshot.ScanId != Guid.Empty && LatestScan is { State: ScanCheckpointState.Complete } saved
+            && saved.ScanId == snapshot.ScanId)
+            return this;
+        var complete = snapshot.State == ScanCheckpointState.Complete;
         var devices = Devices.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
         var responses = snapshot.Results.Where(result => result.Status == HostStatus.Alive
             && result.MacAddress?.GetAddressBytes().Length == 6).ToArray();
@@ -148,7 +154,7 @@ public sealed record DeviceInventoryData(
         }
 
         // A CIDR alone cannot identify a network, including when migrating an old snapshot.
-        if (!historical && networkId is not null)
+        if (!historical && complete && networkId is not null)
         {
             foreach (var (mac, device) in devices.ToArray())
             {
@@ -169,7 +175,7 @@ public sealed record DeviceInventoryData(
                 item.NetworkId == networkId && item.Subnet == snapshot.Subnet);
             devices[mac] = device with
             {
-                ScanHistory = !historical && relevant
+                ScanHistory = !historical && complete && relevant
                     ? new AppendedScanHistory(device.ScanHistory, new(snapshot.CompletedAt, networkId, snapshot.Subnet, present))
                     : device.ScanHistory,
                 CurrentCompletedAt = historical ? null : snapshot.CompletedAt,
@@ -177,11 +183,11 @@ public sealed record DeviceInventoryData(
                 CurrentSubnet = historical ? null : snapshot.Subnet
             };
         }
-        var observed = this with { Devices = devices };
+        var observed = this with { Devices = devices, LatestScan = historical ? LatestScan : snapshot with { NetworkId = networkId } };
         return observed with
         {
             VirtualDevices = PrivateVirtualDeviceAllocator.Observe(observed, networkId, snapshot, historical),
-            DiscoveryBaselines = !historical && networkId is not null
+            DiscoveryBaselines = !historical && complete && networkId is not null
                 ? DiscoveryBaselines.Append(new(networkId, snapshot.Subnet)).Distinct().ToArray()
                 : DiscoveryBaselines
         };

@@ -7,7 +7,8 @@ public enum ScanDisplayStatus
     Scanning,
     Completed,
     Cancelled,
-    Failed
+    Failed,
+    Incomplete
 }
 
 public sealed record OverviewScanContext(
@@ -21,6 +22,7 @@ public sealed record OverviewScanContext(
         ScanDisplayStatus.Scanning => "Scan in progress - partial results",
         ScanDisplayStatus.Cancelled => "Scan cancelled - partial results",
         ScanDisplayStatus.Failed => "Scan failed - partial results",
+        ScanDisplayStatus.Incomplete => "Incomplete scan - checkpointed observations",
         _ => $"Updated {ScanAgeFormatter.FormatAge(now - ObservedAt)} ago"
     };
 

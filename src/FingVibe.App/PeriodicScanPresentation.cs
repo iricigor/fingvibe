@@ -64,7 +64,7 @@ internal static class PeriodicScanPresentation
 
         return status.ConsecutiveUnsuccessfulAttempts > 0
             ? "Scheduled scans retrying"
-            : $"Scheduled every {IntervalLabel(settings.IntervalMinutes)}";
+            : $"Scheduled every {IntervalLabel(settings.IntervalMinutes)} while app is open";
     }
 
     // Discoveries waiting for the window to be restored are listed once, in the order they were first found.
@@ -81,7 +81,7 @@ internal static class PeriodicScanPresentation
         {
             null => $"First scheduled scan around {next}.",
             ScanRunStatus.Completed => $"Last scheduled scan completed. Next around {next}.",
-            ScanRunStatus.Cancelled => $"Last scheduled scan was cancelled; nothing was saved. Next around {next}.",
+            ScanRunStatus.Cancelled => $"Last scheduled scan was cancelled; committed checkpoints are retained as incomplete. Next around {next}.",
             ScanRunStatus.Busy =>
                 $"Skipped because {ActivityName(last.BlockingActivity)} was in progress. Retrying around {next}.",
             ScanRunStatus.Unavailable => $"Paused: {Sentence(last.Message, "The selected LAN is unavailable.")} Checking again around {next}.",

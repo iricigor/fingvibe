@@ -546,7 +546,7 @@ try {
         [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
     Invoke-HistoryScan
     Wait-HistoryScan
-    if ((Find-HistoryControl ScanStatusText).Current.Name -notlike "*inventory and scan history could not be saved*") {
+    if ((Find-HistoryControl ScanStatusText).Current.Name -notlike "*Scan checkpoint could not be saved*") {
         throw "Failed history persistence must be visibly reported."
     }
     if ((Get-InventoryFingerprint $database) -cne $beforeStop) { throw "A failed save changed durable history." }
@@ -556,7 +556,7 @@ try {
     Set-Content -LiteralPath $database -Value "invalid inventory fixture"
     Invoke-HistoryScan
     Wait-HistoryScan
-    if ((Find-HistoryControl ScanStatusText).Current.Name -notlike "*inventory and scan history could not be saved*") {
+    if ((Find-HistoryControl ScanStatusText).Current.Name -notlike "*Scan checkpoint could not be saved*") {
         throw "Invalid saved history encountered while saving must be visibly reported."
     }
     if ((Get-Content -LiteralPath $database -Raw).Trim() -ne "invalid inventory fixture") {
