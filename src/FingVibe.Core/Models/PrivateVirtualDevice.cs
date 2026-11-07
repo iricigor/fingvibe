@@ -163,7 +163,8 @@ public static class PrivateVirtualDeviceAllocator
                 Present = currentMac is not null,
                 History = history,
                 ScanHistory = complete ? new AppendedScanHistory(slot.ScanHistory, new(snapshot.CompletedAt, networkId,
-                    snapshot.Subnet, currentMac is not null)) : slot.ScanHistory,
+                    snapshot.Subnet, currentMac is not null)
+                    { ScanId = snapshot.ScanId == Guid.Empty ? null : snapshot.ScanId }) : slot.ScanHistory,
                 CurrentCompletedAt = snapshot.CompletedAt
             };
         }

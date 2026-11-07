@@ -64,7 +64,12 @@ public sealed partial class DeviceInventoryStore
                 if (!identities.Add((observation.NetworkId, observation.Subnet, observation.Address)))
                     throw new InvalidDataException("The device inventory contains invalid local observations.");
             }
-            ValidateScanHistory(AppendedHistory(device.ScanHistory, previous?.Devices.GetValueOrDefault(key)?.ScanHistory));
+            var appended = AppendedHistory(device.ScanHistory, previous?.Devices.GetValueOrDefault(key)?.ScanHistory);
+            ValidateScanHistory(appended);
+            if (appended.Any(item => item.VirtualDeviceId is { } id
+                    && data.VirtualDevices?.Any(slot => slot.Id == id && slot.NetworkId == item.NetworkId
+                        && slot.Subnet == item.Subnet && slot.History.Any(connection => connection.Mac == key)) != true))
+                throw new InvalidDataException("A scan observation has no matching virtual association.");
         }
         foreach (var (key, name) in data.Names)
             if (key != PeopleRoomsData.NormalizeMacAddress(key) || string.IsNullOrWhiteSpace(name))
@@ -117,7 +122,7 @@ public sealed partial class DeviceInventoryStore
                 throw new InvalidDataException("A responding MAC cannot occupy multiple virtual devices.");
             var appended = AppendedHistory(slot.ScanHistory, previousSlot?.ScanHistory);
             ValidateScanHistory(appended);
-            if (appended.Any(item => item.NetworkId != slot.NetworkId || item.Subnet != slot.Subnet))
+            if (appended.Any(item => item.NetworkId != slot.NetworkId || item.Subnet != slot.Subnet || item.VirtualDeviceId is not null))
                 throw new InvalidDataException("Virtual scan history must belong to its device's network and subnet.");
         }
     }
@@ -125,6 +130,8 @@ public sealed partial class DeviceInventoryStore
     private static void ValidateScanHistory(IReadOnlyList<DeviceScanObservation> history)
     {
         if (history is null || history.Any(item => item is null || item.CompletedAt == default
+            || item.ScanId == Guid.Empty || item.VirtualDeviceId == Guid.Empty
+            || item.VirtualDeviceId is not null && (!item.Present || item.ScanId is null)
             || !ValidSubnet(item.Subnet)
             || item.NetworkId is not null && string.IsNullOrWhiteSpace(item.NetworkId)
             || !item.Present && item.NetworkId is null))

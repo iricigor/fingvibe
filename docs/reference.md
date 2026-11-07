@@ -395,6 +395,50 @@ additional port checks, and reopening saved data do not fabricate observations.
 These are scan results, not proof of uninterrupted physical availability or
 the actual time a device connected/disconnected.
 
+The analytics foundation also retains a small historical scan-evidence ledger
+in the same SQLite transaction as device history, the latest checkpoint and the
+inventory revision. Logical scan IDs keep repeated saves/finalization from
+counting twice, including completed scans with no responses or no devices.
+Pending and incomplete records retain only identity, network/subnet, time and
+coverage metadata; they never finalize absence. No second snapshot store,
+scanner change or retention policy is introduced. SQLite format 3 adds nullable
+scan and explicit virtual-association links to existing history. Upgrades keep
+older rows intact and do not invent completed ledger entries from old checkpoints,
+imported metadata or aggregate first/last-seen timestamps. Replaying a historical
+finalization with appended duplicate history is rejected transactionally.
+
+`DeviceInventoryStore.QueryAnalyticsAsync` takes network ID **and** subnet,
+a captured query time, 7 or 30 local calendar dates, a `TimeZoneInfo`, the expected
+inventory revision, and optional logical MAC/virtual identities. A null selection
+means the network's current logical roster (including imported-only identities
+with unavailable evidence); an empty selection remains empty. Querying requires
+loading/upgrading an existing inventory first. Reads run off the UI thread in a
+read-only snapshot, use indexed selected-window history plus first reliable
+local sighting and latest-scan lookups, and never materialize retained history.
+
+The result aligns every scan's response/nonresponse/unknown array with its device
+identity array. It retains scan IDs, UTC instants, local completion times,
+completion state, exact/partial/unknown coverage, unidentified responses, first
+reliable sightings and the data revision. `Scans` contains only the requested
+calendar window; `LatestScan` is the latest selected-network logical scan at or
+before query time, even if it is incomplete or predates the window. No scan is
+an unknown gap, not a synthetic zero. A null scan ID denotes explicit legacy
+device evidence with incomplete group coverage, never a reconstructed full scan.
+Missing device rows, imported-only identities and pre-first-sighting history
+remain unknown. Explicit per-scan virtual associations prevent double-counting
+MAC copies after naming/identity presentation changes; ambiguous older mappings
+are not reconstructed. Existing paged history and identity allocation are unchanged.
+
+The window starts at local midnight 6 or 29 dates before today and includes
+evidence through the captured query instant. Local completion timestamps preserve
+both UTC offsets in a repeated DST hour; a skipped hour has no invented
+observation. Consumers own midnight-aligned buckets, skipped-hour applicability,
+classification and rendering; this foundation adds none of those screens.
+Consumers must cancel obsolete work and compare the returned revision and their
+current selection before displaying it. Invalid requests, malformed storage,
+contention and stale revisions fail explicitly; cancellation throws
+`OperationCanceledException`, not an empty successful result.
+
 The Devices table's optional **Last seen** column, visible by default as the
 final column, applies the same selected network identity/subnet scope and the
 details page's last-seen evidence, so the two never disagree. A device that
@@ -710,6 +754,39 @@ regressions run with `pwsh -File tests\SqlEditor.Script.Tests.ps1`.
 ```powershell
 dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj
 ```
+
+The analytics F1.7 resource test is opt-in because it creates and removes an
+isolated approximately 4.6 GiB SQLite fixture in the system temporary directory:
+
+```powershell
+$env:FINGVIBE_ANALYTICS_BENCHMARK = '1'
+dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj --configuration Release `
+    --filter FullyQualifiedName~AnalyticsEvidenceBenchmark --logger "console;verbosity=detailed"
+Remove-Item Env:\FINGVIBE_ANALYTICS_BENCHMARK
+```
+
+Run on Windows SSD hardware with at least four logical cores, 16 GiB RAM and
+sufficient temporary disk space. The reproducible generator retains 1,000 logical
+devices (900 ordinary and 100 virtual, plus their 100 associated MACs), 10 million
+device observations and 100,000 scan records across three networks sharing one
+subnet. Scan instants are 864 seconds apart over 1,000 days. Each identity has
+10,000 rows, 20% negative and 2% unlinked legacy; selected network 0 has 400
+logical identities and 130,800/28,800 rows in the selected 30/7-date windows.
+Equipment selects 50 of these identities. The exact generator, counts, first-query
+result, 20 warm samples after warmup, nearest-rank p95, managed allocations and
+process RSS are printed. First-query measurements do not force an OS cache flush.
+Additional managed allocation is a conservative total-allocation ceiling, not
+process RSS or a claim that native SQLite memory is managed.
+
+The benchmark includes small reference bucket-union and classification-count
+consumers, not the later product classifier/grid implementations. It enforces
+p95 at most 1 second for one device and 2 seconds each for network, equipment and
+all selected-device classification evidence; at most 128 MiB additional managed
+allocation; and at most 250 ms cancellation including subsequent exclusive-lock
+acquisition to verify resource release. Deterministic `AnalyticsEvidenceTests`
+run normally and cover shape, zero/unknown/partial, legacy/imported/virtual
+evidence, restart/rollback, network isolation, local calendar/DST, stale
+revisions and cancellation/contention without touching the working inventory.
 
 On an interactive Windows desktop at least 1024 logical pixels wide, run the native sidebar regression checks against a built application:
 

@@ -161,7 +161,7 @@ public sealed class SqliteHistoryQueryTests(ITestOutputHelper output) : IDisposa
         DowngradeFixture();
         var loaded = (await store.LoadMetadataAsync())!;
         Assert.Equal(Start, Assert.Single(DeviceHistoryQuery.ReadPage(loaded.Devices[Mac].ScanHistory, Network, Subnet).Items).CompletedAt);
-        Assert.Equal(2L, Scalar("SELECT version FROM inventory"));
+        Assert.Equal(3L, Scalar("SELECT version FROM inventory"));
         DowngradeFixture();
         Sql("UPDATE scan_history SET completed_at='invalid';");
         await Assert.ThrowsAsync<InvalidDataException>(() => store.LoadMetadataAsync());
@@ -181,7 +181,7 @@ public sealed class SqliteHistoryQueryTests(ITestOutputHelper output) : IDisposa
         {
             command.CommandText = """
                 WITH RECURSIVE numbers(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM numbers WHERE n<9999)
-                INSERT INTO scan_history
+                INSERT INTO scan_history(kind,id,sequence,completed_at,network_id,subnet,present,completed_ticks)
                 SELECT 'mac',devices.id,n,
                     strftime('%Y-%m-%dT%H:%M:%S+00:00',$start,'+' || CAST(n/2 AS TEXT) || ' seconds'),
                     CASE WHEN n%10=0 THEN 'other' ELSE 'network' END,'192.0.2.0/24',
@@ -261,6 +261,10 @@ public sealed class SqliteHistoryQueryTests(ITestOutputHelper output) : IDisposa
     }
 
     private void DowngradeFixture() => Sql("""
+        DROP TABLE scan_evidence;
+        DROP INDEX history_scan_identity;
+        ALTER TABLE scan_history DROP COLUMN scan_id;
+        ALTER TABLE scan_history DROP COLUMN virtual_id;
         DROP TRIGGER history_count_insert;
         DROP TABLE history_counts;
         DROP INDEX history_scope_time;

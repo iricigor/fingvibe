@@ -24,7 +24,11 @@ public sealed record ImportedDeviceMetadata(
     string? Address = null);
 
 public sealed record DeviceScanObservation(
-    DateTimeOffset CompletedAt, string? NetworkId, string Subnet, bool Present);
+    DateTimeOffset CompletedAt, string? NetworkId, string Subnet, bool Present)
+{
+    public Guid? ScanId { get; init; }
+    public Guid? VirtualDeviceId { get; init; }
+}
 
 public sealed record DeviceDiscoveryBaseline(string NetworkId, string Subnet);
 
@@ -87,6 +91,7 @@ public sealed record DeviceInventoryData(
     public IReadOnlyList<DeviceDiscoveryBaseline> DiscoveryBaselines { get; init; } = [];
     [JsonIgnore]
     public ScanSnapshot? LatestScan { get; init; }
+    internal IReadOnlyList<ScanEvidenceWrite> PendingScanEvidence { get; init; } = [];
 
     public static DeviceInventoryData Empty { get; } = new(Guid.Empty,
         new Dictionary<string, InventoryDevice>(), new Dictionary<string, string>(),
@@ -176,17 +181,41 @@ public sealed record DeviceInventoryData(
             devices[mac] = device with
             {
                 ScanHistory = !historical && complete && relevant
-                    ? new AppendedScanHistory(device.ScanHistory, new(snapshot.CompletedAt, networkId, snapshot.Subnet, present))
+                    ? new AppendedScanHistory(device.ScanHistory, new(snapshot.CompletedAt, networkId, snapshot.Subnet, present)
+                        { ScanId = snapshot.ScanId == Guid.Empty ? null : snapshot.ScanId })
                     : device.ScanHistory,
                 CurrentCompletedAt = historical ? null : snapshot.CompletedAt,
                 CurrentNetworkId = historical ? null : networkId,
                 CurrentSubnet = historical ? null : snapshot.Subnet
             };
         }
-        var observed = this with { Devices = devices, LatestScan = historical ? LatestScan : snapshot with { NetworkId = networkId } };
+        var observed = this with
+        {
+            Devices = devices,
+            LatestScan = historical ? LatestScan : snapshot with { NetworkId = networkId },
+            PendingScanEvidence = !historical && snapshot.ScanId != Guid.Empty
+                ? [.. PendingScanEvidence.Where(item => item.ScanId != snapshot.ScanId),
+                    ScanEvidenceWrite.From(snapshot with { NetworkId = networkId })]
+                : PendingScanEvidence
+        };
+        var virtualDevices = PrivateVirtualDeviceAllocator.Observe(observed, networkId, snapshot, historical);
+        if (!historical && complete && snapshot.ScanId != Guid.Empty)
+        {
+            foreach (var slot in virtualDevices.Where(slot => slot.NetworkId == networkId && slot.Subnet == snapshot.Subnet
+                         && slot.Present && slot.LastChecked == snapshot.CompletedAt))
+            {
+                var device = devices[slot.LastActiveMac];
+                if (device.ScanHistory is AppendedScanHistory appended && appended.Added.ScanId == snapshot.ScanId)
+                    devices[device.Mac] = device with
+                    {
+                        ScanHistory = new AppendedScanHistory(appended.Previous,
+                            appended.Added with { VirtualDeviceId = slot.Id })
+                    };
+            }
+        }
         return observed with
         {
-            VirtualDevices = PrivateVirtualDeviceAllocator.Observe(observed, networkId, snapshot, historical),
+            VirtualDevices = virtualDevices,
             DiscoveryBaselines = !historical && complete && networkId is not null
                 ? DiscoveryBaselines.Append(new(networkId, snapshot.Subnet)).Distinct().ToArray()
                 : DiscoveryBaselines
