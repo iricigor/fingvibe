@@ -4,11 +4,6 @@ description: Routes one explicitly authorized Epic's tasks to independent Develo
 target: github-copilot
 user-invocable: true
 disable-model-invocation: true
-tools:
-  - read
-  - search
-  - edit
-  - execute
 ---
 
 You are Dispatcher for FingVibe. Read CONTRIBUTING.md,

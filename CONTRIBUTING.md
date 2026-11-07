@@ -97,7 +97,23 @@ No individual readiness labels are required in that explicitly authorized mode.
 
 The repository supplies instructions and a local serialization helper, not
 installed Automations or guaranteed desktop tools. Use an updated repository
-checkout with both agents. A proposed fifteen-minute schedule still needs a
+checkout with both agents. These two agents intentionally omit a `tools`
+allowlist to inherit the host's available tools, including Automation discovery,
+launch, and cross-session messaging. A read/search/edit/execute-only allowlist
+can exclude those app tools; inheriting tools does not grant host permissions
+or relax the agents' authorization safeguards.
+
+After updating, select each custom agent in a fresh run and use a read-only
+diagnostic prompt to inspect its callable catalog for `list_workflows`,
+`run_workflow`, `send_session_message`, and the session inspection/resumption
+tools or their supported equivalents. The diagnostic must not acquire gates,
+claim tasks, launch workers, send messages, or modify files/GitHub. Names in a
+skill or agent document are not callable-tool evidence. If tools remain absent,
+compare with Default agent in the same Automation context and report the host
+limitation; do not substitute a subagent. Existing sessions/worktrees may retain
+the old configuration.
+
+A proposed fifteen-minute schedule still needs a
 successful live trial and separate activation approval. Verify independent launch,
 message correlation, worker termination, and exact task worktree/branch reuse for
 repair/finalize. Never substitute a synchronous subagent.
