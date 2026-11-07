@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="550" viewBox="0 0 960 550" role="img" aria-labelledby="title description">
+  <title id="title">Autonomous agentic loop - simplest case</title>
+  <desc id="description">An hourly trigger starts the agent and checks the queue. If a task is in progress, finish. Otherwise take the first task, work and push a PR, run GitHub workflows, approve the PR and close the task, then finish.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#526579"/>
+    </marker>
+    <style>
+      text { font-family: "Segoe UI", Arial, sans-serif; font-size: 24px; fill: #172b4d; text-anchor: middle; }
+      .group { fill: #f1f5f9; stroke: #b6c4d2; stroke-width: 2; }
+      .box { fill: #ffffff; stroke: #526579; stroke-width: 2; }
+      .line { fill: none; stroke: #526579; stroke-width: 2.5; stroke-linejoin: round; marker-end: url(#arrow); }
+      .heading { font-size: 21px; font-weight: 600; text-anchor: start; fill: #475569; }
+      .label { font-size: 22px; font-weight: 600; }
+    </style>
+  </defs>
+  <rect width="960" height="550" rx="12" fill="#ffffff"/>
+
+  <circle cx="155" cy="182" r="32" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <g transform="translate(155 182)" fill="none" stroke="#2563eb" stroke-linecap="round">
+    <path d="M0 -26 V-22 M26 0 H22 M0 26 V22 M-26 0 H-22" stroke-width="2"/>
+    <path d="M0 0 V-18 M0 0 L8 -14" stroke-width="3"/>
+    <circle r="2" fill="#2563eb"/>
+  </g>
+  <text x="155" y="239" font-weight="600">1h</text>
+  <path class="line" d="M187 182 H235"/>
+
+  <rect class="group" x="235" y="112" width="410" height="116" rx="12"/>
+  <text class="heading" x="251" y="140">Check for work</text>
+  <rect class="box" x="251" y="155" width="170" height="54" rx="8"/>
+  <text x="336" y="190">1. Start agent</text>
+  <path class="line" d="M421 182 H451"/>
+  <rect class="box" x="451" y="155" width="178" height="54" rx="8"/>
+  <text x="540" y="190">2. Check queue</text>
+
+  <path class="line" d="M440 228 V254"/>
+  <path d="M440 254 L540 309 L440 364 L340 309 Z" fill="#fff7db" stroke="#a97812" stroke-width="2"/>
+  <text x="440" y="303">
+    <tspan x="440">Task in</tspan>
+    <tspan x="440" dy="27">progress?</tspan>
+  </text>
+
+  <path class="line" d="M340 309 H116 V414"/>
+  <text class="label" x="302" y="297">No</text>
+  <path class="line" d="M540 309 H894 V456"/>
+  <text class="label" x="578" y="297">Yes</text>
+
+  <rect class="group" x="20" y="414" width="792" height="116" rx="12"/>
+  <text class="heading" x="36" y="442">Process one task</text>
+  <rect class="box" x="36" y="456" width="160" height="58" rx="8"/>
+  <text x="116" y="480">
+    <tspan x="116">3. Take</tspan>
+    <tspan x="116" dy="26">first task</tspan>
+  </text>
+  <path class="line" d="M196 485 H216"/>
+  <rect class="box" x="216" y="456" width="170" height="58" rx="8"/>
+  <text x="301" y="480">
+    <tspan x="301">4. Work and</tspan>
+    <tspan x="301" dy="26">push PR</tspan>
+  </text>
+  <path class="line" d="M386 485 H406"/>
+  <rect class="box" x="406" y="456" width="170" height="58" rx="8"/>
+  <text x="491" y="480">
+    <tspan x="491">5. Run GH</tspan>
+    <tspan x="491" dy="26">workflows</tspan>
+  </text>
+  <path class="line" d="M576 485 H596"/>
+  <rect class="box" x="596" y="456" width="200" height="58" rx="8"/>
+  <text x="696" y="480">
+    <tspan x="696">6. Approve PR</tspan>
+    <tspan x="696" dy="26">and close task</tspan>
+  </text>
+
+  <path class="line" d="M812 485 H840"/>
+  <rect x="840" y="456" width="108" height="58" rx="29" fill="#dcfce7" stroke="#27804a" stroke-width="2"/>
+  <text x="894" y="493" font-weight="600">Finish</text>
+</svg>

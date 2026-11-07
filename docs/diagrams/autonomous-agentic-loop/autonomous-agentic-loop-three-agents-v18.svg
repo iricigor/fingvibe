@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="2120" viewBox="0 0 1100 2120" role="img" aria-labelledby="title description">
+  <title id="title">Case 3: Dispatcher, Developer, and Tester</title>
+  <desc id="description">Dispatcher polls GitHub hourly and calls Developer for a new task or failed PR feedback. Developer pushes the PR, calls Tester and finishes. Tester verifies minimal changes, requirements, and UX. If all is good, Tester calls the final pipeline and merges only after it passes. Otherwise Tester marks PR validation failed with feedback. Dispatcher calls Developer for failures on its next run.</desc>
+  <defs>
+    <linearGradient id="developerCall" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e8f8ed"/>
+    </linearGradient>
+    <linearGradient id="testerCall" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#fcecec"/>
+    </linearGradient>
+    <linearGradient id="pipelineCall" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f1f4f8"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#526579"/>
+    </marker>
+    <style>
+      text { font-family: "Segoe UI", Arial, sans-serif; font-size: 23px; fill: #172b4d; text-anchor: middle; }
+      .box { fill: #fff; stroke: #94a3b8; stroke-width: 2; rx: 0; }
+      .call-developer { fill: url(#developerCall); stroke: #27804a; }
+      .call-tester { fill: url(#testerCall); stroke: #dc2626; }
+      .call-pipeline { fill: url(#pipelineCall); stroke: #64748b; }
+      .line { fill: none; stroke: #526579; stroke-width: 2.5; stroke-linejoin: round; marker-end: url(#arrow); }
+      .heading { font-size: 24px; font-weight: 600; text-anchor: start; }
+      .label { font-size: 21px; font-weight: 600; }
+    </style>
+  </defs>
+  <rect width="1100" height="2120" rx="12" fill="#fff"/>
+
+  <rect x="120" y="30" width="960" height="690" rx="16" fill="#eff6ff" stroke="#60a5fa" stroke-width="2"/>
+  <circle cx="185" cy="135" r="32" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <g transform="translate(185 135)" fill="none" stroke="#2563eb" stroke-linecap="round">
+    <path d="M0 -26 V-22 M26 0 H22 M0 26 V22 M-26 0 H-22" stroke-width="2"/>
+    <path d="M0 0 V-18 M0 0 L8 -14" stroke-width="3"/>
+    <circle r="2" fill="#2563eb"/>
+  </g>
+  <text x="185" y="192" font-weight="600">1h</text>
+  <text class="heading" x="140" y="65" fill="#1d4ed8">Dispatcher - check GitHub, call Developer, finish</text>
+  <text class="label" x="600" y="100">Triggered by schedule</text>
+  <ellipse cx="600" cy="150" rx="75" ry="25" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="600" y="158">START</text>
+  <path class="line" d="M600 175 V220"/>
+  <g transform="translate(0 100)">
+  <path d="M445 110 V595 M765 110 V595" fill="none" stroke="#cbdff5" stroke-width="2" stroke-dasharray="4 6"/>
+  <rect class="box" x="490" y="120" width="220" height="60" rx="10"/>
+  <text x="600" y="145"><tspan x="600">1. Check queue</tspan><tspan x="600" dy="26">and existing PR</tspan></text>
+  <path class="line" d="M600 180 V210"/>
+  <path d="M600 210 L710 260 L600 310 L490 260 Z" fill="#fff7db" stroke="#a97812" stroke-width="2"/>
+  <text x="600" y="254"><tspan x="600">Active</tspan><tspan x="600" dy="26">tasks?</tspan></text>
+  <path class="line" d="M490 260 H302 Q290 260 290 272 V475"/>
+  <text class="label" x="395" y="245">No</text>
+  <path class="line" d="M600 310 V340"/>
+  <text class="label" x="635" y="333">Yes</text>
+  <path d="M600 340 L710 390 L600 440 L490 390 Z" fill="#fff7db" stroke="#a97812" stroke-width="2"/>
+  <text x="600" y="384"><tspan x="600">Failed</tspan><tspan x="600" dy="26">PRs?</tspan></text>
+  <path class="line" d="M710 390 H918 Q930 390 930 402 V475"/>
+  <text class="label" x="825" y="375">Yes</text>
+  <rect class="box" x="180" y="475" width="220" height="50" rx="10"/>
+  <text x="290" y="508">Take first task</text>
+  <rect class="box" x="820" y="475" width="220" height="50" rx="10"/>
+  <text x="930" y="508">Take PR comment</text>
+  <path class="line" d="M290 525 V545"/>
+  <path class="line" d="M930 525 V545"/>
+  <rect class="box call-developer" x="180" y="545" width="220" height="40" rx="10"/>
+  <text x="290" y="573">2. Call Developer</text>
+  <rect class="box call-developer" x="820" y="545" width="220" height="40" rx="10"/>
+  <text x="930" y="573">2. Call Developer</text>
+  <path class="line" d="M400 565 H525"/>
+  <path class="line" d="M820 565 H675"/>
+  <path class="line" d="M600 440 V545"/>
+  <text class="label" x="635" y="490">No</text>
+  <ellipse cx="600" cy="565" rx="75" ry="20" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="600" y="573">FINISH</text>
+  </g>
+
+  <g transform="translate(0 100)">
+  <rect x="120" y="690" width="960" height="590" rx="16" fill="#f0fdf4" stroke="#4ade80" stroke-width="2"/>
+  <text class="heading" x="140" y="725" fill="#166534">Developer - triggered only</text>
+  <text class="label" x="600" y="760">Triggered by Dispatcher</text>
+  <ellipse cx="600" cy="800" rx="75" ry="25" fill="#dcfce7" stroke="#27804a" stroke-width="2"/>
+  <text x="600" y="808">START</text>
+  <path class="line" d="M600 825 V850"/>
+  <g transform="translate(0 100)">
+  <rect class="box" x="445" y="750" width="310" height="60" rx="10"/>
+  <text x="600" y="775"><tspan x="600">3. Receive task</tspan><tspan x="600" dy="26">or PR feedback</tspan></text>
+  <path class="line" d="M600 810 V845"/>
+  <rect class="box" x="445" y="845" width="310" height="60" rx="10"/>
+  <text x="600" y="870"><tspan x="600">4. Implement / fix</tspan><tspan x="600" dy="26">and validate</tspan></text>
+  <path class="line" d="M600 905 V940"/>
+  <rect class="box" x="445" y="940" width="310" height="60" rx="10"/>
+  <text x="600" y="977">5. Push PR / update</text>
+  <path class="line" d="M600 1000 V1030"/>
+  <rect class="box call-tester" x="445" y="1030" width="310" height="50" rx="10"/>
+  <text x="600" y="1063">6. Call Tester</text>
+  <path class="line" d="M600 1080 V1110"/>
+  <ellipse cx="600" cy="1135" rx="75" ry="25" fill="#dcfce7" stroke="#27804a" stroke-width="2"/>
+  <text x="600" y="1143">FINISH</text>
+  </g>
+  </g>
+
+  <g transform="translate(0 830)">
+  <rect x="120" y="590" width="960" height="670" rx="16" fill="#fff5f5" stroke="#f87171" stroke-width="2"/>
+  <text class="heading" x="140" y="625" fill="#b91c1c">Tester - verify scope, requirements, and UX</text>
+  <text class="label" x="600" y="660">Triggered by Developer</text>
+  <ellipse cx="600" cy="700" rx="75" ry="25" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+  <text x="600" y="708">START</text>
+  <path class="line" d="M600 725 V750"/>
+  <g transform="translate(0 100)">
+  <rect class="box" x="445" y="650" width="310" height="90" rx="10"/>
+  <text x="600" y="675"><tspan x="600">7. Verify minimal changes</tspan><tspan x="600" dy="26">Match requirements</tspan><tspan x="600" dy="26">Validate UX</tspan></text>
+  <path class="line" d="M600 740 V780"/>
+  <path d="M600 780 L710 835 L600 890 L490 835 Z" fill="#fff7db" stroke="#a97812" stroke-width="2"/>
+  <text x="600" y="829"><tspan x="600">8. Is all</tspan><tspan x="600" dy="26">good?</tspan></text>
+  <path class="line" d="M490 835 H297 Q285 835 285 847 V940"/>
+  <text class="label" x="395" y="820">Yes</text>
+  <rect class="box call-pipeline" x="145" y="940" width="280" height="90" rx="10"/>
+  <text x="285" y="965"><tspan x="285">9. Call final pipeline</tspan><tspan x="285" dy="26">On pass: merge PR</tspan><tspan x="285" dy="26">and close task</tspan></text>
+  <path class="line" d="M710 835 H903 Q915 835 915 847 V940"/>
+  <text class="label" x="815" y="820">No</text>
+  <rect class="box" x="775" y="940" width="280" height="90" rx="10"/>
+  <text x="915" y="970"><tspan x="915">10. Mark PR validation</tspan><tspan x="915" dy="28">failed; add feedback</tspan></text>
+  <path class="line" d="M285 1030 V1090 H525"/>
+  <path class="line" d="M915 1030 V1090 H675"/>
+  <ellipse cx="600" cy="1090" rx="75" ry="25" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+  <text x="600" y="1098">FINISH</text>
+
+  </g>
+  </g>
+  <path class="line" d="M600 720 V790" stroke-dasharray="7 5"/>
+  <path class="line" d="M600 1380 V1420" stroke-dasharray="7 5"/>
+</svg>
