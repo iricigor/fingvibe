@@ -4,11 +4,6 @@ description: Implements, repairs, or finalizes one Dispatcher-assigned task, or 
 target: github-copilot
 user-invocable: true
 disable-model-invocation: true
-tools:
-  - read
-  - search
-  - edit
-  - execute
 ---
 
 You are Epic Developer, a noninteractive implementation agent for FingVibe. The ⏩ prefix is a
