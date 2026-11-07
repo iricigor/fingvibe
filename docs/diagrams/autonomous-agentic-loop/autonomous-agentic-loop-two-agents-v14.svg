@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="1160" viewBox="0 0 1100 1160" role="img" aria-labelledby="title description">
+  <title id="title">Case 2: Dispatcher and Developer - direct handoff</title>
+  <desc id="description">The hourly Dispatcher checks tasks and PRs. No active tasks: take the first task and call Developer. Active task with failed PR: take the PR comment and call Developer. Otherwise finish. After calling Developer the Dispatcher finishes without waiting. Developer implements or fixes the same PR. GitHub validation results are polled on the next scheduled Dispatcher run.</desc>
+  <defs>
+    <linearGradient id="developerCall" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#e8f8ed"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 Z" fill="#526579"/>
+    </marker>
+    <style>
+      text { font-family: "Segoe UI", Arial, sans-serif; font-size: 23px; fill: #172b4d; text-anchor: middle; }
+      .box { fill: #fff; stroke: #94a3b8; stroke-width: 2; }
+      .call-developer { fill: url(#developerCall); stroke: #27804a; }
+      .line { fill: none; stroke: #526579; stroke-width: 2.5; stroke-linejoin: round; marker-end: url(#arrow); }
+      .heading { font-size: 24px; font-weight: 600; text-anchor: start; }
+      .label { font-size: 21px; font-weight: 600; }
+    </style>
+  </defs>
+  <rect width="1100" height="1160" rx="12" fill="#fff"/>
+
+  <circle cx="55" cy="150" r="32" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <g transform="translate(55 150)" fill="none" stroke="#2563eb" stroke-linecap="round">
+    <path d="M0 -26 V-22 M26 0 H22 M0 26 V22 M-26 0 H-22" stroke-width="2"/>
+    <path d="M0 0 V-18 M0 0 L8 -14" stroke-width="3"/>
+    <circle r="2" fill="#2563eb"/>
+  </g>
+  <text x="55" y="207" font-weight="600">1h</text>
+  <path class="line" d="M87 150 H120"/>
+
+  <rect x="120" y="50" width="960" height="570" rx="16" fill="#eff6ff" stroke="#60a5fa" stroke-width="2"/>
+  <text class="heading" x="140" y="85" fill="#1d4ed8">Dispatcher agent</text>
+  <path d="M445 110 V595 M765 110 V595" fill="none" stroke="#cbdff5" stroke-width="2" stroke-dasharray="4 6"/>
+  <rect class="box" x="490" y="120" width="220" height="60" rx="10"/>
+  <text x="600" y="145"><tspan x="600">1. Check queue</tspan><tspan x="600" dy="26">and existing PR</tspan></text>
+  <path class="line" d="M600 180 V210"/>
+  <path d="M600 210 L710 260 L600 310 L490 260 Z" fill="#fff7db" stroke="#a97812" stroke-width="2"/>
+  <text x="600" y="254"><tspan x="600">Active</tspan><tspan x="600" dy="26">tasks?</tspan></text>
+  <path class="line" d="M490 260 H302 Q290 260 290 272 V475"/>
+  <text class="label" x="395" y="245">No</text>
+  <path class="line" d="M600 310 V340"/>
+  <text class="label" x="635" y="333">Yes</text>
+  <path d="M600 340 L710 390 L600 440 L490 390 Z" fill="#fff7db" stroke="#a97812" stroke-width="2"/>
+  <text x="600" y="384"><tspan x="600">Failed</tspan><tspan x="600" dy="26">PRs?</tspan></text>
+  <rect class="box" x="180" y="475" width="220" height="50" rx="10"/>
+  <text x="290" y="508">Take first task</text>
+  <path class="line" d="M710 390 H918 Q930 390 930 402 V475"/>
+  <text class="label" x="825" y="375">Yes</text>
+  <rect class="box" x="820" y="475" width="220" height="50" rx="10"/>
+  <text x="930" y="508">Take PR comment</text>
+  <path class="line" d="M290 525 V545"/>
+  <rect class="box call-developer" x="180" y="545" width="220" height="40" rx="10"/>
+  <text x="290" y="573">2. Call Developer</text>
+  <path class="line" d="M930 525 V545"/>
+  <rect class="box call-developer" x="820" y="545" width="220" height="40" rx="10"/>
+  <text x="930" y="573">2. Call Developer</text>
+  <path class="line" d="M400 565 H525"/>
+  <path class="line" d="M820 565 H675"/>
+  <rect x="525" y="545" width="150" height="40" rx="20" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="600" y="573">Finish run</text>
+  <path class="line" d="M600 440 V545"/>
+  <text class="label" x="635" y="490">No</text>
+  <path class="line" d="M290 585 V638 Q290 650 302 650 H348 Q360 650 360 662 V690" stroke-dasharray="7 5"/>
+  <path class="line" d="M930 585 V638 Q930 650 918 650 H852 Q840 650 840 662 V690" stroke-dasharray="7 5"/>
+  <text class="label" x="600" y="654">Trigger only; do not wait</text>
+
+  <g transform="translate(0 340)">
+  <rect x="120" y="350" width="960" height="145" rx="12" fill="#f0fdf4" stroke="#4ade80" stroke-width="2"/>
+  <text class="heading" x="140" y="385" fill="#166534">Developer agent - triggered, not scheduled</text>
+  <rect class="box" x="260" y="410" width="200" height="60" rx="8"/>
+  <text x="360" y="435"><tspan x="360">3. Receive task</tspan><tspan x="360" dy="26">or PR feedback</tspan></text>
+  <path class="line" d="M460 440 H510"/>
+  <rect class="box" x="510" y="410" width="240" height="60" rx="8"/>
+  <text x="630" y="435"><tspan x="630">4. Implement / fix</tspan><tspan x="630" dy="26">and validate</tspan></text>
+  <path class="line" d="M750 440 H800"/>
+  <rect class="box" x="800" y="410" width="250" height="60" rx="8"/>
+  <text x="925" y="435"><tspan x="925">5. Push PR / update</tspan><tspan x="925" dy="26">and finish run</tspan></text>
+
+  <path class="line" d="M925 495 V535"/>
+  <rect x="120" y="535" width="960" height="205" rx="12" fill="#f8fafc" stroke="#b6c4d2" stroke-width="2"/>
+  <text class="heading" x="140" y="570">GitHub - PR validation and completion</text>
+  <rect class="box" x="805" y="600" width="245" height="60" rx="8"/>
+  <text x="927" y="625"><tspan x="927">6. Run workflows</tspan><tspan x="927" dy="26">on latest PR revision</tspan></text>
+  <path class="line" d="M925 535 V600"/>
+  <path class="line" d="M805 630 H670"/>
+  <path d="M560 575 L670 630 L560 685 L450 630 Z" fill="#fff7db" stroke="#a97812" stroke-width="2"/>
+  <text x="560" y="624"><tspan x="560">Validation</tspan><tspan x="560" dy="26">passed?</tspan></text>
+  <path class="line" d="M450 630 H375"/>
+  <text class="label" x="411" y="615">Yes</text>
+  <rect class="box" x="140" y="600" width="235" height="60" rx="8"/>
+  <text x="257" y="625"><tspan x="257">PR approved</tspan><tspan x="257" dy="26">Task closed</tspan></text>
+  </g>
+
+  <path class="line" d="M560 1025 V1103 Q560 1115 548 1115 H77 Q65 1115 65 1103 V292 Q65 280 77 280 H120" stroke-dasharray="7 5"/>
+  <text class="label" x="600" y="1056">No</text>
+  <text class="label" x="440" y="1147">Failure stored in GitHub; Dispatcher polls next hour</text>
+</svg>

@@ -6,6 +6,13 @@ describe state; they do not enforce authorization, locking, or merge protection.
 
 ## Development-environment planning
 
+For the exploratory single-agent through four-agent designs and diagrams, see
+[Autonomous agentic loop discussion](autonomous-agentic-loop.md), published
+under [#216](https://github.com/iricigor/fingvibe/issues/216). Remaining Architect
+and Tester UI/UX decisions belong to
+[#217](https://github.com/iricigor/fingvibe/issues/217). These sketches do not
+replace this contract or authorize implementation, merge automation, or activation.
+
 [Epic #92](https://github.com/iricigor/fingvibe/issues/92) organizes the seven
 development-environment task groups. Its completed child
 [#80](https://github.com/iricigor/fingvibe/issues/80), delivered in
