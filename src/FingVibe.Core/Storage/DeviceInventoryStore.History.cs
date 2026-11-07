@@ -28,9 +28,14 @@ public sealed partial class DeviceInventoryStore
         using var versionCommand = connection.CreateCommand();
         versionCommand.CommandText = "SELECT version FROM inventory WHERE id=1";
         var version = Convert.ToInt32(versionCommand.ExecuteScalar(), CultureInfo.InvariantCulture);
+        if (version == 3) return;
         if (version == 2)
         {
-            Execute(connection, null, "CREATE TABLE IF NOT EXISTS scan_checkpoint(id INTEGER PRIMARY KEY CHECK(id=1),data TEXT NOT NULL)");
+            using var upgrade = connection.BeginTransaction();
+            Execute(connection, upgrade, "CREATE TABLE IF NOT EXISTS scan_checkpoint(id INTEGER PRIMARY KEY CHECK(id=1),data TEXT NOT NULL)");
+            CreateAnalyticsSchema(connection, upgrade);
+            cancellationToken.ThrowIfCancellationRequested();
+            upgrade.Commit();
             return;
         }
         if (version != 1) throw new InvalidDataException("The SQLite inventory has an unsupported format.");
@@ -59,6 +64,7 @@ public sealed partial class DeviceInventoryStore
             }
         }
         cancellationToken.ThrowIfCancellationRequested();
+        CreateAnalyticsSchema(connection, transaction);
         transaction.Commit();
     }
 
@@ -83,6 +89,7 @@ public sealed partial class DeviceInventoryStore
 
     private DeviceInventoryData SnapshotHistories(DeviceInventoryData data) => data with
     {
+        PendingScanEvidence = [],
         Devices = data.Devices.ToDictionary(pair => pair.Key, pair => pair.Value with
         {
             ScanHistory = new SqliteScanHistory(_databasePath, "mac", pair.Key, pair.Value.ScanHistory.Count)

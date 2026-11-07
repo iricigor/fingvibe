@@ -102,7 +102,7 @@ public sealed class InventoryQueryService(string databasePath)
                 var step = raw.sqlite3_step(metadata);
                 Check(step);
                 if (step != raw.SQLITE_ROW || raw.sqlite3_column_int(metadata, 0) != 1
-                    || raw.sqlite3_column_int(metadata, 1) != 2
+                    || raw.sqlite3_column_int(metadata, 1) is not (2 or 3)
                     || !Guid.TryParse(raw.sqlite3_column_text(metadata, 2).utf8_to_string(), out var revision)
                     || revision == Guid.Empty)
                     throw new InvalidDataException("Saved inventory has an unsupported or incomplete format. Load it in FingVibe first.");

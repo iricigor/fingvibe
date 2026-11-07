@@ -219,6 +219,7 @@ public sealed partial class DeviceInventoryStore
                         PRIMARY KEY(kind,id,sequence));
                     """);
                 CreateHistoryIndexes(connection, transaction);
+                CreateAnalyticsSchema(connection, transaction);
                 foreach (var table in EntityTables)
                     Execute(connection, transaction, $"CREATE TABLE {table} (id TEXT PRIMARY KEY, data TEXT NOT NULL)");
                 WriteChanges(connection, transaction, data, DeviceInventoryData.Empty, cancellationToken);
@@ -244,6 +245,7 @@ public sealed partial class DeviceInventoryStore
     private static void WriteChanges(SqliteConnection connection, SqliteTransaction transaction,
         DeviceInventoryData data, DeviceInventoryData previous, CancellationToken cancellationToken)
     {
+        WriteScanEvidence(connection, transaction, data, previous, cancellationToken);
         if (data.LatestScan is { } checkpoint)
             Execute(connection, transaction, """
                 INSERT INTO scan_checkpoint(id,data) VALUES(1,$data)
@@ -289,6 +291,7 @@ public sealed partial class DeviceInventoryStore
 
     private static DeviceInventoryData Committed(DeviceInventoryData data) => data with
     {
+        PendingScanEvidence = [],
         Devices = data.Devices.ToDictionary(pair => pair.Key, pair => pair.Value with
         {
             ScanHistory = pair.Value.ScanHistory is AppendedScanHistory history ? history.Committed : pair.Value.ScanHistory
@@ -348,11 +351,14 @@ public sealed partial class DeviceInventoryStore
         foreach (var item in AppendedHistory(history, previous))
         {
             cancellationToken.ThrowIfCancellationRequested();
+            if (item.ScanId is { } scanId)
+                ValidateScanLink(connection, transaction, scanId, item);
             Execute(connection, transaction, """
-                INSERT INTO scan_history VALUES($kind,$id,$sequence,$time,$network,$subnet,$present,$ticks)
+                INSERT INTO scan_history VALUES($kind,$id,$sequence,$time,$network,$subnet,$present,$ticks,$scan,$virtual)
                 """, ("$kind", kind), ("$id", id), ("$sequence", sequence++),
                 ("$time", item.CompletedAt.ToString("O")), ("$network", item.NetworkId),
-                ("$subnet", item.Subnet), ("$present", item.Present ? 1 : 0), ("$ticks", item.CompletedAt.UtcTicks));
+                ("$subnet", item.Subnet), ("$present", item.Present ? 1 : 0), ("$ticks", item.CompletedAt.UtcTicks),
+                ("$scan", item.ScanId?.ToString("D")), ("$virtual", item.VirtualDeviceId?.ToString("D")));
         }
     }
 
@@ -378,7 +384,7 @@ public sealed partial class DeviceInventoryStore
     {
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
-        command.CommandText = "SELECT kind,id,sequence,completed_at,network_id,subnet,present FROM scan_history ORDER BY kind,id,sequence";
+        command.CommandText = "SELECT kind,id,sequence,completed_at,network_id,subnet,present,scan_id,virtual_id FROM scan_history ORDER BY kind,id,sequence";
         using var reader = command.ExecuteReader();
         var histories = new Dictionary<(string, string), List<DeviceScanObservation>>();
         while (reader.Read())
@@ -389,7 +395,11 @@ public sealed partial class DeviceInventoryStore
             if (reader.GetInt32(2) != history.Count || reader.GetInt32(6) is not (0 or 1))
                 throw new InvalidDataException("The inventory contains invalid scan sequences or states.");
             history.Add(new(DateTimeOffset.Parse(reader.GetString(3), System.Globalization.CultureInfo.InvariantCulture),
-                reader.IsDBNull(4) ? null : reader.GetString(4), reader.GetString(5), reader.GetInt32(6) == 1));
+                reader.IsDBNull(4) ? null : reader.GetString(4), reader.GetString(5), reader.GetInt32(6) == 1)
+                {
+                    ScanId = reader.IsDBNull(7) ? null : Guid.Parse(reader.GetString(7)),
+                    VirtualDeviceId = reader.IsDBNull(8) ? null : Guid.Parse(reader.GetString(8))
+                });
         }
         return histories;
     }
@@ -400,7 +410,7 @@ public sealed partial class DeviceInventoryStore
         command.Transaction = transaction;
         command.CommandText = "SELECT id,version,revision FROM inventory";
         using var reader = command.ExecuteReader();
-        if (!reader.Read() || reader.GetInt32(0) != 1 || reader.GetInt32(1) != 2
+        if (!reader.Read() || reader.GetInt32(0) != 1 || reader.GetInt32(1) != 3
             || !Guid.TryParse(reader.GetString(2), out var revision) || revision == Guid.Empty || reader.Read())
             throw new InvalidDataException("The SQLite inventory has an unsupported or incomplete format.");
         return revision;

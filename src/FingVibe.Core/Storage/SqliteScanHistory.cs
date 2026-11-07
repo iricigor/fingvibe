@@ -47,17 +47,18 @@ internal sealed class SqliteScanHistory(string path, string kind, string id, int
                 DeviceInventoryStore.Execute(connection, null, """
                     CREATE TEMP TABLE pending_history (
                         kind TEXT, id TEXT, sequence INTEGER, completed_at TEXT,
-                        network_id TEXT, subnet TEXT, present INTEGER, completed_ticks INTEGER);
+                        network_id TEXT, subnet TEXT, present INTEGER, completed_ticks INTEGER, scan_id TEXT, virtual_id TEXT);
                     """);
                 for (var index = 0; index < _pending.Count; index++)
                 {
                     var item = _pending[index];
                     DeviceInventoryStore.Execute(connection, null, """
-                        INSERT INTO pending_history VALUES($kind,$id,$sequence,$time,$network,$subnet,$present,$ticks)
+                        INSERT INTO pending_history VALUES($kind,$id,$sequence,$time,$network,$subnet,$present,$ticks,$scan,$virtual)
                         """, ("$kind", kind), ("$id", id), ("$sequence", savedCount + index),
                         ("$time", item.CompletedAt.ToString("O")), ("$network", item.NetworkId),
                         ("$subnet", item.Subnet), ("$present", item.Present ? 1 : 0),
-                        ("$ticks", item.CompletedAt.UtcTicks));
+                        ("$ticks", item.CompletedAt.UtcTicks), ("$scan", item.ScanId?.ToString("D")),
+                        ("$virtual", item.VirtualDeviceId?.ToString("D")));
                 }
             }
             return query(connection);
@@ -94,7 +95,7 @@ internal sealed class SqliteScanHistory(string path, string kind, string id, int
             ? $"scan_history INDEXED BY {(filter.Contains("present=", StringComparison.Ordinal) ? "history_scope_presence" : "history_scope_time")}"
             : Source;
         using var command = Command(connection,
-            $"SELECT completed_at,network_id,subnet,present,sequence,completed_ticks FROM {source} WHERE {Identity} AND {filter} ORDER BY {order} LIMIT {limit}",
+            $"SELECT completed_at,network_id,subnet,present,sequence,completed_ticks,scan_id,virtual_id FROM {source} WHERE {Identity} AND {filter} ORDER BY {order} LIMIT {limit}",
             parameters);
         using var reader = command.ExecuteReader();
         var rows = new List<(DeviceScanObservation, int)>();
@@ -105,7 +106,11 @@ internal sealed class SqliteScanHistory(string path, string kind, string id, int
             if (timestamp == default || timestamp.UtcTicks != reader.GetInt64(5) || state is not (0 or 1))
                 throw new InvalidDataException("Saved scan history contains an invalid time or state.");
             rows.Add((new(timestamp, reader.IsDBNull(1) ? null : reader.GetString(1),
-                reader.GetString(2), state == 1), reader.GetInt32(4)));
+                reader.GetString(2), state == 1)
+                {
+                    ScanId = reader.IsDBNull(6) ? null : Guid.Parse(reader.GetString(6)),
+                    VirtualDeviceId = reader.IsDBNull(7) ? null : Guid.Parse(reader.GetString(7))
+                }, reader.GetInt32(4)));
         }
         return rows;
     }
