@@ -154,6 +154,8 @@ public sealed partial class MainWindow
         _scanMessage = snapshot.State == ScanCheckpointState.Pending
             ? "Initial results · background confirmation pending"
             : snapshot.State == ScanCheckpointState.Incomplete ? "Incomplete scan · checkpointed observations retained" : null;
+        if (snapshot.State == ScanCheckpointState.Complete && networkId is null)
+            _discoveryMessage = "New-device alerts and baseline establishment are disabled for this scan because network identity is unavailable.";
         ShowSavedSnapshotStatus(snapshot);
         UpdateOverview();
         try

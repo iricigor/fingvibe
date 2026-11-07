@@ -118,6 +118,22 @@ public sealed class ScanCheckpointTests : IDisposable
     }
 
     [Fact]
+    public async Task LateCheckpointCannotDowngradeAFinalizedScanOrChangeItsNetwork()
+    {
+        var store = new DeviceInventoryStore(Database);
+        var complete = Checkpoint(Guid.NewGuid(), ScanCheckpointState.Complete, Response(Known));
+        var data = await store.SaveAsync(Observe(DeviceInventoryData.Empty, complete), Guid.Empty);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            store.SaveAsync(data with { LatestScan = complete with { State = ScanCheckpointState.Incomplete } }, data.Revision));
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            store.SaveAsync(data with { LatestScan = complete with { NetworkId = "another-network" } }, data.Revision));
+        var restored = (await new DeviceInventoryStore(Database).LoadAsync())!;
+        Assert.Equal(ScanCheckpointState.Complete, restored.LatestScan!.State);
+        Assert.Equal(NetworkId, restored.LatestScan.NetworkId);
+        Assert.Single(restored.Devices[Known].ScanHistory);
+    }
+
+    [Fact]
     public async Task RestartUsesDatabaseEvenWhenCacheIsStaleCompleteOrCorrupt()
     {
         var pending = Checkpoint(Guid.NewGuid(), ScanCheckpointState.Pending, Response(Added));

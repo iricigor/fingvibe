@@ -126,6 +126,11 @@ public sealed partial class DeviceInventoryStore
             if (_loaded is null || _loaded.Revision != expectedRevision)
                 throw new InvalidOperationException("Load the saved inventory before changing it.");
             Validate(data, _loaded);
+            if (data.LatestScan is { } checkpoint && _loaded.LatestScan is { } previous
+                && checkpoint.ScanId != Guid.Empty && checkpoint.ScanId == previous.ScanId
+                && (checkpoint.NetworkId != previous.NetworkId || checkpoint.Subnet != previous.Subnet
+                    || previous.State == ScanCheckpointState.Complete && checkpoint.State != ScanCheckpointState.Complete))
+                throw new InvalidOperationException("A logical scan checkpoint cannot change network scope or downgrade a finalized scan.");
             var updated = data with { Revision = Guid.NewGuid() };
             WriteChanges(connection, transaction, updated, _loaded, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
