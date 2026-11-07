@@ -1133,6 +1133,7 @@ function Test-ScheduledScans {
         (Find-SidebarElement AutomationId CancelButton).GetCurrentPattern(
             [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
         $null = Wait-SidebarText ScanStatusText "Scheduled scan of 127.0.0.1/32 cancelled*"
+        Show-ScheduledScansCard
         $null = Wait-SidebarText ScheduledScanStatus "Last scheduled scan was cancelled; committed checkpoints are retained as incomplete. Next around *."
         $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 15 minutes"
 
