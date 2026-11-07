@@ -32,8 +32,10 @@ public sealed class ScanProgressPresentationTests
     }
 
     [Theory]
-    [InlineData(LanScanPhase.FirstPass, 0, 254, "Scanning 0/254 addresses")]
-    [InlineData(LanScanPhase.FirstPass, 254, 254, "Scanning 254/254 addresses")]
+    [InlineData(LanScanPhase.FirstPass, 0, 254, "Pass 1/2 (ICMP): Scanning 0/254 addresses")]
+    [InlineData(LanScanPhase.FirstPass, 254, 254, "Pass 1/2 (ICMP): Scanning 254/254 addresses")]
+    [InlineData(LanScanPhase.Arp, 0, 230, "Pass 2/2 (ARP): Scanning 0/230 missed addresses")]
+    [InlineData(LanScanPhase.Arp, 230, 230, "Pass 2/2 (ARP): Scanning 230/230 missed addresses")]
     [InlineData(LanScanPhase.Retry, 0, 230, "Retrying 0/230 missed addresses")]
     [InlineData(LanScanPhase.Retry, 17, 230, "Retrying 17/230 missed addresses")]
     public void ProgressMessageNamesTheScanPhaseAndItsOwnCount(LanScanPhase phase, int completed, int total, string expected)

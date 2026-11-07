@@ -64,7 +64,7 @@ internal static class PeriodicScanPresentation
 
         return status.ConsecutiveUnsuccessfulAttempts > 0
             ? "Scheduled scans retrying"
-            : $"Scheduled every {IntervalLabel(settings.IntervalMinutes)}";
+            : $"Scheduled every {IntervalLabel(settings.IntervalMinutes)} while app is open";
     }
 
     // Discoveries waiting for the window to be restored are listed once, in the order they were first found.

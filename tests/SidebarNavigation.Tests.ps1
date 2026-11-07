@@ -668,7 +668,7 @@ function Test-DeviceRefresh {
             throw "Refresh must retain the displayed devices and explain their status."
         }
         Select-SidebarPage Overview "Online devices"
-        if ((Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "Scanning*") {
+        if ((Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "Pass 1/2 (ICMP): Scanning*") {
             throw "Live scan progress must remain visible after navigation."
         }
         (Find-SidebarElement Name "Cancel scan").GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
@@ -1124,14 +1124,14 @@ function Test-ScheduledScans {
         Switch-ScheduledScansWithKeyboard $true
         Assert-ScheduledScanSettings $true 60
         $null = Wait-SidebarText ScheduledScanStatus "First scheduled scan around *."
-        $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 1 hour"
+        $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 1 hour while app is open"
 
         # The hold keeps scheduled scans in progress until they are cancelled or disabled.
         [IO.File]::WriteAllText($scanHoldPath, "Hold scheduled scans for cancellation checks.")
         Set-UiReviewAppearanceChoice -Root $root -Picker ScanIntervalPicker -Choice "15 minutes"
         Assert-ScheduledScanSettings $true 15
-        $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 15 minutes"
-        $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Scanning *"
+        $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 15 minutes while app is open"
+        $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Pass 1/2 (ICMP): Scanning *"
         $null = Wait-SidebarText ScheduledScanStatus "Scheduled scan in progress."
         Show-ScheduledScansCard
         Save-SidebarAppearance "scheduled-scans-running"
@@ -1140,9 +1140,9 @@ function Test-ScheduledScans {
         $null = Wait-SidebarText ScanStatusText "Scheduled scan of 127.0.0.1/32 cancelled*"
         Show-ScheduledScansCard
         $null = Wait-SidebarText ScheduledScanStatus "Last scheduled scan was cancelled; committed checkpoints are retained as incomplete. Next around *."
-        $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 15 minutes"
+        $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 15 minutes while app is open"
 
-        $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Scanning *"
+        $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Pass 1/2 (ICMP): Scanning *"
         Switch-ScheduledScansWithKeyboard $false
         $null = Wait-SidebarText ScanStatusText "Scheduled scan of 127.0.0.1/32 stopped*"
         $null = Wait-SidebarText ScheduledScanStatus "Off. Scans run only when you select Scan LAN."
@@ -1158,7 +1158,7 @@ function Test-ScheduledScans {
         Switch-ScheduledScansWithKeyboard $true
         Assert-ScheduledScanSettings $true 15
         $null = Wait-SidebarText ScheduledScanStatus "Last scheduled scan completed. Next around *."
-        $null = Wait-SidebarText ScanFreshnessText "*127.0.0.1/32 $dot Scheduled every 15 minutes"
+        $null = Wait-SidebarText ScanFreshnessText "*127.0.0.1/32 $dot Scheduled every 15 minutes while app is open"
         if (-not (Test-Path -LiteralPath $env:FINGVIBE_UI_REVIEW_SNAPSHOT)) {
             throw "A completed scheduled scan must save its results."
         }
@@ -1206,7 +1206,7 @@ function Test-ScheduledScans {
         Show-ScheduledScansCard
         Assert-ScheduledScansSelection On "2 hours"
         $null = Wait-SidebarText ScheduledScanStatus "First scheduled scan around *."
-        $null = Wait-SidebarText ScanFreshnessText "*127.0.0.1/32 $dot Scheduled every 2 hours"
+        $null = Wait-SidebarText ScanFreshnessText "*127.0.0.1/32 $dot Scheduled every 2 hours while app is open"
         (Find-SidebarElement AutomationId ScheduledScansSwitch).GetCurrentPattern(
             [System.Windows.Automation.TogglePattern]::Pattern).Toggle()
         Assert-ScheduledScanSettings $false 120

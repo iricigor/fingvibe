@@ -105,9 +105,12 @@ public sealed class LanScannerServiceTests
 
         var progress = _progress.Items.ToArray();
         var firstPass = progress.TakeWhile(item => item.Phase == LanScanPhase.FirstPass).ToArray();
-        var retry = progress.Skip(firstPass.Length).ToArray();
+        var arp = progress.Where(item => item.Phase == LanScanPhase.Arp).ToArray();
+        var retry = progress.Where(item => item.Phase == LanScanPhase.Retry).ToArray();
         Assert.Equal(Enumerable.Range(1, 6), firstPass.Select(item => item.Completed).Order());
         Assert.All(firstPass, item => Assert.Equal(6, item.Total));
+        Assert.Equal(Enumerable.Range(0, 5), arp.Select(item => item.Completed).Order());
+        Assert.All(arp, item => Assert.Equal(4, item.Total));
         Assert.All(retry, item => Assert.Equal(LanScanPhase.Retry, item.Phase));
         Assert.Equal(new LanScanProgress(LanScanPhase.Retry, 0, 4), retry[0]);
         Assert.Equal(Enumerable.Range(0, 5), retry.Take(5).Select(item => item.Completed).Order());
@@ -115,6 +118,39 @@ public sealed class LanScannerServiceTests
         Assert.Equal(Enumerable.Range(0, 4), retry.Skip(5).Select(item => item.Completed).Order());
         Assert.All(retry.Skip(5), item => Assert.Equal(3, item.Total));
         Assert.Equal(6, _results.Items.Count);
+    }
+
+    [Fact]
+    public async Task SlowArpOnAFullSubnetReplacesTheCompletedIcmpCounterAndThenFinishesBothRetries()
+    {
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var arpCalls = 0;
+        _arp = async (_, _, token) =>
+        {
+            if (Interlocked.Increment(ref arpCalls) == 8) started.TrySetResult();
+            await release.Task.WaitAsync(token);
+            return null;
+        };
+        var scan = Scanner().ScanAsync(Network with { PrefixLength = 24 }, _results, _progress);
+        Assert.Equal(new LanScanProgress(LanScanPhase.Arp, 0, 254),
+            await _progress.WaitForAsync(item => item.Phase == LanScanPhase.Arp));
+        await started.Task.WaitAsync(Timeout);
+        Assert.Equal(254, _icmp.Attempts.Count);
+        Assert.Equal(8, Volatile.Read(ref arpCalls));
+        Assert.Equal(LanScanPhase.Arp, _progress.Items.Last().Phase);
+        Assert.False(scan.IsCompleted);
+
+        release.SetResult();
+        await _progress.WaitForAsync(item => item.Phase == LanScanPhase.Retry);
+        _time.Advance(LanScannerService.RetryPause);
+        await FinishSecondRetryAsync();
+        Assert.Equal(new ScanSummary(254, 0, 254), await scan.WaitAsync(Timeout));
+        Assert.Equal(254, arpCalls);
+        Assert.Equal(254 * 3, _icmp.Attempts.Count);
+        Assert.Equal(Enumerable.Range(0, 255),
+            _progress.Items.Where(item => item.Phase == LanScanPhase.Arp).Select(item => item.Completed).Order());
+        Assert.Equal(254, _results.Items.Count);
     }
 
     [Fact]

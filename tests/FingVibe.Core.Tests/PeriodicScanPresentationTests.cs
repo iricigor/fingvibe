@@ -98,8 +98,8 @@ public sealed class PeriodicScanPresentationTests
         var failed = waiting with { LastOutcome = new ScanRunOutcome(ScanRunStatus.Failed), ConsecutiveUnsuccessfulAttempts = 2 };
 
         Assert.Null(PeriodicScanPresentation.HeaderSummary(PeriodicScanSettings.Default, waiting, false));
-        Assert.Equal("Scheduled every 1 hour", PeriodicScanPresentation.HeaderSummary(Enabled, waiting, false));
-        Assert.Equal("Scheduled every 4 hours", PeriodicScanPresentation.HeaderSummary(new(true, 240), waiting, false));
+        Assert.Equal("Scheduled every 1 hour while app is open", PeriodicScanPresentation.HeaderSummary(Enabled, waiting, false));
+        Assert.Equal("Scheduled every 4 hours while app is open", PeriodicScanPresentation.HeaderSummary(new(true, 240), waiting, false));
         Assert.Equal("Scheduled scans paused", PeriodicScanPresentation.HeaderSummary(Enabled, waiting, true));
         Assert.Equal("Scheduled scans paused", PeriodicScanPresentation.HeaderSummary(Enabled, unavailable, false));
         Assert.Equal("Scheduled scans retrying", PeriodicScanPresentation.HeaderSummary(Enabled, failed, false));

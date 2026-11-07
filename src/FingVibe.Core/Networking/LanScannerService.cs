@@ -93,7 +93,11 @@ public sealed class LanScannerService
                 }
             }).ConfigureAwait(false);
 
-            await Parallel.ForEachAsync(Remaining(), new ParallelOptions
+            var arpAddresses = Remaining();
+            var arpCompleted = 0;
+            if (arpAddresses.Length > 0)
+                scanProgress?.Report(new LanScanProgress(LanScanPhase.Arp, 0, arpAddresses.Length));
+            await Parallel.ForEachAsync(arpAddresses, new ParallelOptions
             {
                 CancellationToken = cancellationToken,
                 MaxDegreeOfParallelism = 8
@@ -101,15 +105,20 @@ public sealed class LanScannerService
             {
                 var stopwatch = Stopwatch.StartNew();
                 var mac = await _arp(addresses[index], network, token).ConfigureAwait(false);
-                if (mac is null) return;
-                if (!MacAddressResolver.IsUsableNeighbor(mac.GetAddressBytes(), 5))
-                    throw new InvalidOperationException($"Fresh ARP returned an invalid MAC for {addresses[index]}.");
-                var result = await EnrichAsync(addresses[index], network, discoveryTask, enrichmentSlots,
-                    token, stopwatch.Elapsed, null, null, mac).ConfigureAwait(false);
                 token.ThrowIfCancellationRequested();
-                confirmed[index] = result;
-                Interlocked.Increment(ref alive);
-                resultProgress.Report(result);
+                if (mac is not null)
+                {
+                    if (!MacAddressResolver.IsUsableNeighbor(mac.GetAddressBytes(), 5))
+                        throw new InvalidOperationException($"Fresh ARP returned an invalid MAC for {addresses[index]}.");
+                    var result = await EnrichAsync(addresses[index], network, discoveryTask, enrichmentSlots,
+                        token, stopwatch.Elapsed, null, null, mac).ConfigureAwait(false);
+                    token.ThrowIfCancellationRequested();
+                    confirmed[index] = result;
+                    Interlocked.Increment(ref alive);
+                    resultProgress.Report(result);
+                }
+                var completedCount = Interlocked.Increment(ref arpCompleted);
+                scanProgress?.Report(new LanScanProgress(LanScanPhase.Arp, completedCount, arpAddresses.Length));
             }).ConfigureAwait(false);
 
             await discoveryTask.ConfigureAwait(false);
