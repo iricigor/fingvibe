@@ -8,7 +8,7 @@ namespace FingVibe.Core.Storage;
 
 public sealed class ScanSnapshotStore
 {
-    private const int CurrentVersion = 3;
+    private const int CurrentVersion = 4;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -20,6 +20,15 @@ public sealed class ScanSnapshotStore
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
         _filePath = filePath;
+    }
+
+    public async Task<ScanSnapshot?> LoadForRestoreAsync(
+        ScanSnapshot? authoritative, CancellationToken cancellationToken = default)
+    {
+        var snapshot = authoritative ?? await LoadAsync(cancellationToken).ConfigureAwait(false);
+        return snapshot is not null && (snapshot.State == ScanCheckpointState.Pending
+            || authoritative is null && snapshot.ScanId != Guid.Empty)
+            ? snapshot with { State = ScanCheckpointState.Incomplete } : snapshot;
     }
 
     public async Task<ScanSnapshot?> LoadAsync(CancellationToken cancellationToken = default)
@@ -52,8 +61,28 @@ public sealed class ScanSnapshotStore
             throw new InvalidDataException("The saved scan cache is invalid.", exception);
         }
 
+        return FromDocument(document);
+    }
+
+    internal static string Serialize(ScanSnapshot snapshot)
+    {
+        var document = ToDocument(snapshot);
+        _ = FromDocument(document);
+        return JsonSerializer.Serialize(document, JsonOptions);
+    }
+
+    internal static ScanSnapshot Deserialize(string json)
+    {
+        try { return FromDocument(JsonSerializer.Deserialize<CacheDocument>(json, JsonOptions)); }
+        catch (JsonException exception) { throw new InvalidDataException("The saved scan checkpoint is invalid.", exception); }
+    }
+
+    private static ScanSnapshot FromDocument(CacheDocument? document)
+    {
         if (document is null
-            || document.Version is not (1 or 2 or CurrentVersion)
+            || document.Version is not (1 or 2 or 3 or CurrentVersion)
+            || !Enum.IsDefined(document.State)
+            || document.State != ScanCheckpointState.Complete && document.ScanId == Guid.Empty
             || document.CompletedAt == default
             || (document.Duration is { } duration && duration < TimeSpan.Zero)
             || document.Results is null
@@ -103,7 +132,10 @@ public sealed class ScanSnapshotStore
                     result.UdpObservations);
             }).ToArray();
 
-            return new ScanSnapshot(document.Subnet, document.CompletedAt, results, document.Duration);
+            return new ScanSnapshot(document.Subnet, document.CompletedAt, results, document.Duration)
+            {
+                ScanId = document.ScanId, State = document.State, NetworkId = document.NetworkId
+            };
         }
         catch (FormatException exception)
         {
@@ -123,7 +155,29 @@ public sealed class ScanSnapshotStore
             ?? throw new ArgumentException("The scan cache path must include a directory.", nameof(_filePath));
         Directory.CreateDirectory(directory);
         var temporaryPath = Path.Combine(directory, $".{Path.GetFileName(_filePath)}.{Guid.NewGuid():N}.tmp");
-        var document = new CacheDocument(
+        var document = ToDocument(snapshot);
+        _ = FromDocument(document);
+
+        try
+        {
+            await using (var stream = new FileStream(
+                temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096,
+                FileOptions.Asynchronous | FileOptions.SequentialScan))
+            {
+                await JsonSerializer.SerializeAsync(stream, document, JsonOptions, cancellationToken).ConfigureAwait(false);
+                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                stream.Flush(flushToDisk: true);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(temporaryPath, _filePath, true);
+        }
+        finally
+        {
+            if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+        }
+    }
+
+    private static CacheDocument ToDocument(ScanSnapshot snapshot) => new(
             CurrentVersion,
             snapshot.Subnet,
             snapshot.CompletedAt,
@@ -139,33 +193,7 @@ public sealed class ScanSnapshotStore
                 result.Classification,
                 result.UdpObservationItems))
                 .ToArray(),
-            snapshot.Duration);
-
-        try
-        {
-            await using (var stream = new FileStream(
-                temporaryPath,
-                FileMode.CreateNew,
-                FileAccess.Write,
-                FileShare.None,
-                4096,
-                FileOptions.Asynchronous | FileOptions.SequentialScan))
-            {
-                await JsonSerializer.SerializeAsync(stream, document, JsonOptions, cancellationToken)
-                    .ConfigureAwait(false);
-                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
-            }
-
-            File.Move(temporaryPath, _filePath, true);
-        }
-        finally
-        {
-            if (File.Exists(temporaryPath))
-            {
-                File.Delete(temporaryPath);
-            }
-        }
-    }
+            snapshot.Duration, snapshot.ScanId, snapshot.State, snapshot.NetworkId);
 
     private static bool TryGetPrefixLength(string? subnet, out int prefixLength)
     {
@@ -188,7 +216,10 @@ public sealed class ScanSnapshotStore
         string Subnet,
         DateTimeOffset CompletedAt,
         CachedScanResult[]? Results,
-        TimeSpan? Duration = null);
+        TimeSpan? Duration = null,
+        Guid ScanId = default,
+        ScanCheckpointState State = ScanCheckpointState.Complete,
+        string? NetworkId = null);
 
     private sealed record CachedScanResult(
         string? Address,

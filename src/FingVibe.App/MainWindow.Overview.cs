@@ -54,7 +54,7 @@ public sealed partial class MainWindow
             ? $"{freshness} ({context.Subnet})"
             : freshness;
         var resultsContext = _displayedScan is { } scan
-            ? $"{scan.Describe(network?.Cidr)}{(!_isScanning && scanResponses.Length == 0 ? " No devices answered this scan; active devices may block ICMP." : string.Empty)}"
+            ? $"{scan.Describe(network?.Cidr)}{(!_isScanning && scanResponses.Length == 0 ? " No devices answered this scan; active devices may not answer ICMP or ARP." : string.Empty)}"
             : network is null
                 ? "Connect to an IPv4 network to scan for devices."
                 : "Run your first scan to discover devices.";

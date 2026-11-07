@@ -19,12 +19,12 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     private bool _isAlternateRow;
     private bool _isSelected;
     private bool _isPointerOver;
-    private readonly InventoryDevice? _inventoryDevice;
-    private readonly bool _historical;
-    private readonly bool _showLatency = true;
-    private readonly DeviceInventoryData? _sourceData;
+    private InventoryDevice? _inventoryDevice;
+    private bool _historical;
+    private bool _showLatency = true;
+    private DeviceInventoryData? _sourceData;
     private readonly Dictionary<string, ScanResult> _connectionOverrides = new();
-    private readonly int _prefixLength;
+    private int _prefixLength;
     public PrivateVirtualDevice? VirtualDevice { get; private set; }
     public string IdentityKey => VirtualDevice?.Id.ToString("D") ?? MacAddress?.ToString() ?? AddressText;
     public string? CustomName => _customName;
@@ -202,6 +202,29 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         SetClassificationOverride(device.Classification);
     }
 
+    internal void UpdateObservation(ScanResultRow updated)
+    {
+        if (IdentityKey != updated.IdentityKey)
+            throw new ArgumentException("The device identity must not change.", nameof(updated));
+        var address = AddressText;
+        _inventoryDevice = updated._inventoryDevice;
+        _historical = updated._historical;
+        _showLatency = updated._showLatency;
+        _sourceData = updated._sourceData;
+        _prefixLength = updated._prefixLength;
+        VirtualDevice = updated.VirtualDevice;
+        Result = updated.Result;
+        _customName = updated._customName;
+        _classificationOverride = updated._classificationOverride;
+        _connectionOverrides.Clear();
+        AddressPrefix = updated.AddressPrefix;
+        AddressHost = updated.AddressHost;
+        MacOui = updated.MacOui;
+        MacNic = updated.MacNic;
+        if (CurrentConnections.Any(item => item.AddressText == address)) SelectAddress(address);
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(string.Empty));
+    }
+
     public void SelectAddress(string address)
     {
         var connection = CurrentConnections.FirstOrDefault(item => item.AddressText == address)
@@ -290,8 +313,8 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     };
     public string AddressPrefix { get; private set; }
     public string AddressHost { get; private set; }
-    public string MacOui { get; }
-    public string MacNic { get; }
+    public string MacOui { get; private set; }
+    public string MacNic { get; private set; }
     public Guid? PersonId => _personId;
     public Guid? RoomId => _roomId;
     public bool HasPersonAssignment => _personId is not null && !string.IsNullOrWhiteSpace(_personShortName);

@@ -39,7 +39,7 @@ public sealed class PeriodicScanPresentationTests
     [Theory]
     [InlineData(null, null, "First scheduled scan around 09:00.")]
     [InlineData(nameof(ScanRunStatus.Completed), null, "Last scheduled scan completed. Next around 09:00.")]
-    [InlineData(nameof(ScanRunStatus.Cancelled), null, "Last scheduled scan was cancelled; nothing was saved. Next around 09:00.")]
+    [InlineData(nameof(ScanRunStatus.Cancelled), null, "Last scheduled scan was cancelled; committed checkpoints are retained as incomplete. Next around 09:00.")]
     [InlineData(nameof(ScanRunStatus.Unavailable), "Wi-Fi (192.168.1.0/24) is not connected.",
         "Paused: Wi-Fi (192.168.1.0/24) is not connected. Checking again around 09:00.")]
     [InlineData(nameof(ScanRunStatus.Failed), "socket failure",

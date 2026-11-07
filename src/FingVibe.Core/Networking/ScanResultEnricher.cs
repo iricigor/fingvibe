@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.NetworkInformation;
 
 namespace FingVibe.Core.Networking;
 
@@ -28,11 +29,16 @@ public sealed class ScanResultEnricher : IScanResultEnricher
         IPAddress address,
         Task<ScanDiscovery> discoveryTask,
         CancellationToken cancellationToken,
-        int? responseTtl = null)
+        int? responseTtl = null) =>
+        await EnrichAsync(address, discoveryTask, cancellationToken, responseTtl, null).ConfigureAwait(false);
+
+    public async Task<ScanEnrichment> EnrichAsync(
+        IPAddress address, Task<ScanDiscovery> discoveryTask, CancellationToken cancellationToken,
+        int? responseTtl, PhysicalAddress? confirmedMac)
     {
         var portsTask = _portScanner.ScanAsync(address, cancellationToken);
         var bannersTask = ProbeBannersAsync(address, portsTask, cancellationToken);
-        var macAddress = _macAddressResolver.Resolve(address);
+        var macAddress = confirmedMac ?? _macAddressResolver.Resolve(address);
         var vendorTask = _vendorRegistry.ResolveAsync(macAddress, cancellationToken);
         var discovery = await discoveryTask.ConfigureAwait(false);
         var ssdpNames = SsdpDiscoveryService.GetDisplayNames(discovery.SsdpDevices);

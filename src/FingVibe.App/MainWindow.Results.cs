@@ -57,13 +57,16 @@ public sealed partial class MainWindow
             .ToList();
         sortedResults.Sort(CompareResults);
 
-        _visibleResults.Clear();
+        if (!_isScanning || !_initialResultsPublished) _visibleResults.Clear();
         for (var index = 0; index < sortedResults.Count; index++)
         {
             var result = sortedResults[index];
             result.IsAlternateRow = index % 2 == 1;
-            _visibleResults.Add(result);
+            var existing = _visibleResults.IndexOf(result);
+            if (existing < 0) _visibleResults.Insert(index, result);
+            else if (existing != index) _visibleResults.Move(existing, index);
         }
+        while (_visibleResults.Count > sortedResults.Count) _visibleResults.RemoveAt(_visibleResults.Count - 1);
 
         if (selectedResult is ScanResultRow selectedRow && _visibleResults.Contains(selectedRow))
         {
@@ -130,11 +133,11 @@ public sealed partial class MainWindow
         string emptyMessage;
         if (_allResults.Count == 0)
         {
-            emptyMessage = _isScanning
+            emptyMessage = _isScanning && !_initialResultsPublished
                 ? "Waiting for scan results..."
                 : _displayedScan is null
                     ? "Select Scan LAN to discover devices on the detected subnet."
-                    : "No devices answered this scan; active devices may block ICMP.";
+                    : "No devices answered this scan; active devices may not answer ICMP or ARP.";
         }
         else if (!string.IsNullOrWhiteSpace(DevicesPage.SearchText))
         {

@@ -19,7 +19,7 @@ public sealed partial class MainWindow
     private void ShowDeviceDetails(ScanResultRow row)
     {
         _devicePortScanCancellation?.Cancel();
-        if (_isScanning)
+        if (_isScanning && !_initialResultsPublished)
         {
             return;
         }

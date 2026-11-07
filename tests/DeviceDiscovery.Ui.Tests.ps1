@@ -99,7 +99,8 @@ function Assert-DiscoveryEntries([string[]] $Macs, [string] $Capture) {
 $previous = @{}
 foreach ($key in @("FINGVIBE_UI_REVIEW", "FINGVIBE_UI_REVIEW_INVENTORY", "FINGVIBE_UI_REVIEW_SNAPSHOT",
     "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT", "FINGVIBE_UI_REVIEW_SCAN_RESULTS", "FINGVIBE_UI_REVIEW_NETWORK",
-    "FINGVIBE_UI_REVIEW_SCAN_HOLD", "FINGVIBE_UI_REVIEW_PERIODIC_SCAN", "FINGVIBE_UI_REVIEW_PERIODIC_SCAN_TIME_SCALE")) {
+    "FINGVIBE_UI_REVIEW_SCAN_HOLD", "FINGVIBE_UI_REVIEW_PERIODIC_SCAN", "FINGVIBE_UI_REVIEW_PERIODIC_SCAN_TIME_SCALE",
+    "FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD")) {
     $previous[$key] = [Environment]::GetEnvironmentVariable($key)
 }
 $directory = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-discovery-ui-$([Guid]::NewGuid().ToString('N'))"
@@ -108,6 +109,7 @@ $database = [System.IO.Path]::ChangeExtension($inventory, ".sqlite")
 $fixture = Join-Path $directory "results.json"
 $snapshot = Join-Path $directory "snapshot.json"
 $hold = Join-Path $directory "scan.hold"
+$checkpointHold = Join-Path $directory "checkpoint.hold"
 $periodicScan = Join-Path $directory "periodic-scan.json"
 $script:process = $null
 $lock = $null
@@ -121,6 +123,7 @@ try {
     $env:FINGVIBE_UI_REVIEW_SCAN_RESULTS = $fixture
     $env:FINGVIBE_UI_REVIEW_SCAN_HOLD = $hold
     $env:FINGVIBE_UI_REVIEW_NETWORK = "ui-review-network"
+    $env:FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD = $null
     $observation = @{
         networkId = "ui-review-network"; subnet = "127.0.0.1/32"; address = "127.0.0.1"; hostname = $null
         vendor = "Example"; ports = @(); latency = 1; probeDuration = "00:00:00.001"
@@ -192,7 +195,7 @@ try {
         [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
     Invoke-DiscoveryScan
     Assert-NoDiscovery
-    if ((Find-DiscoveryControl ScanStatusText).Current.Name -notlike "*inventory and scan history could not be saved*") {
+    if ((Find-DiscoveryControl ScanStatusText).Current.Name -notlike "*Scan checkpoint could not be saved*") {
         throw "Discovery persistence failure was hidden."
     }
     if ((Get-InventoryFingerprint $database) -cne $before) { throw "Failed save changed durable newness." }
@@ -229,6 +232,59 @@ try {
     Invoke-DiscoveryScan
     Assert-NoDiscovery
     Stop-DiscoveryApp
+    # Initial checkpoints restore browsing but retain cancellation and defer discoveries until completion.
+    $env:FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD = $checkpointHold
+    Set-Content -LiteralPath $checkpointHold -Value "pending retries"
+    Set-DiscoveryResults @("001122334466", "0011223344AA")
+    Start-DiscoveryApp
+    (Find-DiscoveryControl ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Wait-DiscoveryState {
+        (Find-DiscoveryControl ScanStatusText).Current.Name -like "*background confirmation pending*"
+    } "checkpointed initial results"
+    if ((Find-DiscoveryControl ScanButton).Current.IsEnabled -or
+        -not (Find-DiscoveryControl CancelButton).Current.IsEnabled) { throw "Pending retries must retain scan exclusion and cancellation." }
+    Assert-NoDiscovery
+    $checkpoint = Get-Content -LiteralPath $snapshot -Raw | ConvertFrom-Json
+    if ($checkpoint.state -ne 1) { throw "Initial checkpoint was not durably marked Pending." }
+    $condition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)
+    $row = (Find-DiscoveryControl ResultsList).FindAll([System.Windows.Automation.TreeScope]::Children, $condition)[0]
+    $row.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    $row.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+    Wait-DiscoveryState {
+        $details = Find-DiscoveryControl DeviceDetailsScroll -Optional
+        $details -and -not $details.Current.IsOffscreen
+    } "browsable initial results"
+    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "scan-initial-checkpoint.png")
+    # Closing during the pending phase drains its incomplete checkpoint before the process exits.
+    Stop-DiscoveryApp
+    $checkpoint = Get-Content -LiteralPath $snapshot -Raw | ConvertFrom-Json
+    if ($checkpoint.state -ne 2) { throw "Normal close did not retain an Incomplete checkpoint." }
+    Start-DiscoveryApp
+    if ((Find-DiscoveryControl ScanFreshnessText).Current.Name -notlike "*Incomplete scan*") {
+        throw "Restart misrepresented an interrupted checkpoint as complete."
+    }
+    if (-not (Find-DiscoveryControl ScanButton).Current.IsEnabled) { throw "Restart resumed an old retry timer." }
+    Assert-NoDiscovery
+    # A later final checkpoint updates the same scan without stealing focus from browsing.
+    (Find-DiscoveryControl ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Wait-DiscoveryState {
+        (Find-DiscoveryControl ScanStatusText).Current.Name -like "*background confirmation pending*"
+    } "second initial checkpoint"
+    $searchCondition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::NameProperty, "Search devices")
+    $search = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $searchCondition)
+    $search.SetFocus()
+    $id = (Get-Content -LiteralPath $snapshot -Raw | ConvertFrom-Json).scanId
+    Remove-Item -LiteralPath $checkpointHold
+    Wait-DiscoveryState { (Find-DiscoveryControl ScanButton).Current.IsEnabled } "final checkpoint"
+    if (-not $search.Current.HasKeyboardFocus) { throw "Final checkpoint stole focus from browsing." }
+    $checkpoint = Get-Content -LiteralPath $snapshot -Raw | ConvertFrom-Json
+    if ($checkpoint.state -ne 0 -or $checkpoint.scanId -ne $id) { throw "Finalization did not complete the same logical scan." }
+    Assert-NoDiscovery
+    Stop-DiscoveryApp
+    $env:FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD = $null
     # Scheduled scans keep running while minimized and defer discoveries until the window is restored.
     Set-Content -LiteralPath $periodicScan -Value '{"isEnabled":true,"intervalMinutes":15}' -Encoding ASCII
     $env:FINGVIBE_UI_REVIEW_PERIODIC_SCAN = $periodicScan

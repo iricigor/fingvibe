@@ -77,7 +77,8 @@ public sealed partial class DeviceInventoryStore
                     ReadEntities<DeviceAssignment>(connection, transaction, "assignments", cancellationToken)))
             {
                 VirtualDevices = slots.Values.ToArray(),
-                DiscoveryBaselines = baselines.Values.ToArray()
+                DiscoveryBaselines = baselines.Values.ToArray(),
+                LatestScan = ReadLatestScan(connection, transaction)
             };
             Validate(dataLoaded, metadataOnly ? dataLoaded : null);
             transaction.Commit();
@@ -238,6 +239,11 @@ public sealed partial class DeviceInventoryStore
     private static void WriteChanges(SqliteConnection connection, SqliteTransaction transaction,
         DeviceInventoryData data, DeviceInventoryData previous, CancellationToken cancellationToken)
     {
+        if (data.LatestScan is { } checkpoint)
+            Execute(connection, transaction, """
+                INSERT INTO scan_checkpoint(id,data) VALUES(1,$data)
+                ON CONFLICT(id) DO UPDATE SET data=excluded.data
+                """, ("$data", ScanSnapshotStore.Serialize(checkpoint)));
         Sync(connection, transaction, "devices",
             data.Devices.ToDictionary(pair => pair.Key, pair => pair.Value with { ScanHistory = [] }),
             previous.Devices.ToDictionary(pair => pair.Key, pair => pair.Value with { ScanHistory = [] }), cancellationToken);
@@ -264,6 +270,14 @@ public sealed partial class DeviceInventoryStore
             throw new InvalidOperationException("Removing saved device identities is not supported.");
         Execute(connection, transaction, "UPDATE inventory SET revision=$revision WHERE id=1",
             ("$revision", data.Revision.ToString("D")));
+    }
+
+    private static ScanSnapshot? ReadLatestScan(SqliteConnection connection, SqliteTransaction transaction)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT data FROM scan_checkpoint WHERE id=1";
+        return command.ExecuteScalar() is string json ? ScanSnapshotStore.Deserialize(json) : null;
     }
 
     private static string BaselineKey(DeviceDiscoveryBaseline item) => JsonSerializer.Serialize(item, Options);

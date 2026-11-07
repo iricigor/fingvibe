@@ -693,7 +693,7 @@ function Test-DeviceRefresh {
             $scan.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
             Wait-DeviceScan
             Select-SidebarPage Overview "Online devices"
-            if ((Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "*The completed scan could not be saved.*") {
+            if ((Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "*latest-scan cache could not be updated*") {
                 throw "A successful scan must preserve persistence errors across navigation."
             }
             Select-SidebarPage Devices "Search devices"
@@ -1133,7 +1133,7 @@ function Test-ScheduledScans {
         (Find-SidebarElement AutomationId CancelButton).GetCurrentPattern(
             [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
         $null = Wait-SidebarText ScanStatusText "Scheduled scan of 127.0.0.1/32 cancelled*"
-        $null = Wait-SidebarText ScheduledScanStatus "Last scheduled scan was cancelled; nothing was saved. Next around *."
+        $null = Wait-SidebarText ScheduledScanStatus "Last scheduled scan was cancelled; committed checkpoints are retained as incomplete. Next around *."
         $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 15 minutes"
 
         $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Scanning *"
