@@ -210,10 +210,15 @@ public sealed partial class MainWindow : IScanExecutionSteps
             return fixture.Results;
         }
 
-        await _scanner.ScanAsync(network, resultProgress, scanProgress, cancellationToken, checkpoint);
-        return resultProgress.Results.Select(result => IsUiReview && System.Net.IPAddress.IsLoopback(result.Address)
-            ? result with { MacAddress = System.Net.NetworkInformation.PhysicalAddress.Parse("020000000001") } : result).ToArray();
+        await _scanner.ScanAsync(network, resultProgress, scanProgress, cancellationToken,
+            checkpoint is null ? null : (results, state) => checkpoint(PrepareScannerResults(results), state));
+        return PrepareScannerResults(resultProgress.Results);
     }
+
+    private static IReadOnlyList<ScanResult> PrepareScannerResults(IReadOnlyList<ScanResult> results) =>
+        results.Select(result => IsUiReview && System.Net.IPAddress.IsLoopback(result.Address)
+            ? result with { MacAddress = System.Net.NetworkInformation.PhysicalAddress.Parse("020000000001") }
+            : result).ToArray();
 
     Task<ScanSaveResult> IScanExecutionSteps.SaveCheckpointAsync(ScanRequest request, ScanSnapshot snapshot) =>
         SaveScanCheckpointAsync(snapshot);
