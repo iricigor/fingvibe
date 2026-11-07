@@ -37,7 +37,7 @@ public sealed class LanScannerServiceTests
 
     private async Task FinishSecondRetryAsync()
     {
-        await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry && progress.Completed == 0);
+        await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.FinalRetryWait);
         _time.Advance(LanScannerService.RetryPause);
     }
 
@@ -63,8 +63,8 @@ public sealed class LanScannerServiceTests
         };
 
         var scan = Scanner().ScanAsync(Network, _results, _progress);
-        Assert.Equal(new LanScanProgress(LanScanPhase.Retry, 0, 5),
-            await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry));
+        Assert.Equal(new LanScanProgress(LanScanPhase.RetryWait, 0, 5),
+            await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.RetryWait));
         Assert.Equal(6, _icmp.Attempts.Count);
 
         _time.Advance(LanScannerService.RetryPause - TimeSpan.FromMilliseconds(1));
@@ -98,7 +98,7 @@ public sealed class LanScannerServiceTests
             ? ScriptedIcmp.Reply() : ScriptedIcmp.Miss();
 
         var scan = Scanner().ScanAsync(Network, _results, _progress);
-        await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry);
+        await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.RetryWait);
         _time.Advance(LanScannerService.RetryPause);
         await FinishSecondRetryAsync();
         Assert.Equal(new ScanSummary(6, 3, 3), await scan.WaitAsync(Timeout));
@@ -106,12 +106,14 @@ public sealed class LanScannerServiceTests
         var progress = _progress.Items.ToArray();
         var firstPass = progress.TakeWhile(item => item.Phase == LanScanPhase.FirstPass).ToArray();
         var arp = progress.Where(item => item.Phase == LanScanPhase.Arp).ToArray();
-        var retry = progress.Where(item => item.Phase == LanScanPhase.Retry).ToArray();
+        var retry = progress.Where(item => item.Phase is LanScanPhase.Retry or LanScanPhase.FinalRetry).ToArray();
         Assert.Equal(Enumerable.Range(1, 6), firstPass.Select(item => item.Completed).Order());
         Assert.All(firstPass, item => Assert.Equal(6, item.Total));
         Assert.Equal(Enumerable.Range(0, 5), arp.Select(item => item.Completed).Order());
         Assert.All(arp, item => Assert.Equal(4, item.Total));
-        Assert.All(retry, item => Assert.Equal(LanScanPhase.Retry, item.Phase));
+        Assert.Equal([LanScanPhase.FirstPass, LanScanPhase.Arp, LanScanPhase.RetryWait,
+            LanScanPhase.Retry, LanScanPhase.FinalRetryWait, LanScanPhase.FinalRetry],
+            progress.Select(item => item.Phase).Distinct());
         Assert.Equal(new LanScanProgress(LanScanPhase.Retry, 0, 4), retry[0]);
         Assert.Equal(Enumerable.Range(0, 5), retry.Take(5).Select(item => item.Completed).Order());
         Assert.All(retry.Take(5), item => Assert.Equal(4, item.Total));
@@ -123,6 +125,7 @@ public sealed class LanScannerServiceTests
     [Fact]
     public async Task SlowArpOnAFullSubnetReplacesTheCompletedIcmpCounterAndThenFinishesBothRetries()
     {
+        _icmp.Respond = (address, _) => address == "192.0.2.1" ? ScriptedIcmp.Reply() : ScriptedIcmp.Miss();
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var arpCalls = 0;
@@ -132,23 +135,32 @@ public sealed class LanScannerServiceTests
             await release.Task.WaitAsync(token);
             return null;
         };
-        var scan = Scanner().ScanAsync(Network with { PrefixLength = 24 }, _results, _progress);
-        Assert.Equal(new LanScanProgress(LanScanPhase.Arp, 0, 254),
+        var checkpoints = new Recorder<(IReadOnlyList<ScanResult> Results, ScanCheckpointState State)>();
+        var scan = Scanner().ScanAsync(Network with { PrefixLength = 24 }, _results, _progress,
+            checkpoint: (results, state) =>
+            {
+                checkpoints.Report((results, state));
+                return Task.CompletedTask;
+            });
+        Assert.Equal(new LanScanProgress(LanScanPhase.Arp, 0, 253),
             await _progress.WaitForAsync(item => item.Phase == LanScanPhase.Arp));
         await started.Task.WaitAsync(Timeout);
         Assert.Equal(254, _icmp.Attempts.Count);
         Assert.Equal(8, Volatile.Read(ref arpCalls));
         Assert.Equal(LanScanPhase.Arp, _progress.Items.Last().Phase);
         Assert.False(scan.IsCompleted);
+        var initial = Assert.Single(checkpoints.Items);
+        Assert.Equal(ScanCheckpointState.Pending, initial.State);
+        Assert.Equal("192.0.2.1", Assert.Single(initial.Results).AddressText);
 
         release.SetResult();
-        await _progress.WaitForAsync(item => item.Phase == LanScanPhase.Retry);
+        await _progress.WaitForAsync(item => item.Phase == LanScanPhase.RetryWait);
         _time.Advance(LanScannerService.RetryPause);
         await FinishSecondRetryAsync();
-        Assert.Equal(new ScanSummary(254, 0, 254), await scan.WaitAsync(Timeout));
-        Assert.Equal(254, arpCalls);
-        Assert.Equal(254 * 3, _icmp.Attempts.Count);
-        Assert.Equal(Enumerable.Range(0, 255),
+        Assert.Equal(new ScanSummary(254, 1, 253), await scan.WaitAsync(Timeout));
+        Assert.Equal(253, arpCalls);
+        Assert.Equal(254 + 253 * 2, _icmp.Attempts.Count);
+        Assert.Equal(Enumerable.Range(0, 254),
             _progress.Items.Where(item => item.Phase == LanScanPhase.Arp).Select(item => item.Completed).Order());
         Assert.Equal(254, _results.Items.Count);
     }
@@ -157,20 +169,43 @@ public sealed class LanScannerServiceTests
     public async Task NoFirstPassMissesSkipsThePauseAndRetry()
     {
         _icmp.Respond = (_, _) => ScriptedIcmp.Reply();
-
-        var summary = await Scanner().ScanAsync(Network, _results, _progress).WaitAsync(Timeout);
+        var checkpoints = new Recorder<ScanCheckpointState>();
+        var summary = await Scanner().ScanAsync(Network, _results, _progress, checkpoint: (_, state) =>
+        {
+            checkpoints.Report(state);
+            return Task.CompletedTask;
+        }).WaitAsync(Timeout);
 
         Assert.Equal(new ScanSummary(6, 6, 0), summary);
         Assert.Equal(Enumerable.Repeat(1, 6), Addresses.Select(_icmp.AttemptsFor));
         Assert.DoesNotContain(_progress.Items, item => item.Phase == LanScanPhase.Retry);
+        Assert.All(_progress.Items, item => Assert.Equal(LanScanPhase.FirstPass, item.Phase));
+        Assert.Equal(ScanCheckpointState.Complete, Assert.Single(checkpoints.Items));
         Assert.Equal(Addresses, _results.Items.Select(result => result.AddressText).Order());
+    }
+
+    [Fact]
+    public async Task InitialCheckpointFailureStopsBeforeAnyBackgroundArp()
+    {
+        var arpCalls = 0;
+        _arp = (_, _, _) =>
+        {
+            Interlocked.Increment(ref arpCalls);
+            return Task.FromResult<PhysicalAddress?>(null);
+        };
+        var error = await Assert.ThrowsAsync<IOException>(() =>
+            Scanner().ScanAsync(Network, _results, _progress, checkpoint: (_, _) =>
+                Task.FromException(new IOException("Initial checkpoint failed."))));
+        Assert.Equal("Initial checkpoint failed.", error.Message);
+        Assert.Equal(0, arpCalls);
+        Assert.All(_progress.Items, item => Assert.Equal(LanScanPhase.FirstPass, item.Phase));
     }
 
     [Fact]
     public async Task PersistentMissesProduceOneUnreachableResultPerAddressAndNoFourthAttempt()
     {
         var scan = Scanner().ScanAsync(Network, _results, _progress);
-        await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry);
+        await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.RetryWait);
         Assert.Empty(_results.Items);
         _time.Advance(LanScannerService.RetryPause);
         await FinishSecondRetryAsync();
@@ -192,7 +227,7 @@ public sealed class LanScannerServiceTests
         };
 
         var scan = Scanner(timeoutMilliseconds: 123, maximumConcurrency: 2).ScanAsync(Network, _results, _progress);
-        await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry);
+        await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.RetryWait);
         _time.Advance(LanScannerService.RetryPause);
         await FinishSecondRetryAsync();
         await scan.WaitAsync(Timeout);
@@ -210,7 +245,7 @@ public sealed class LanScannerServiceTests
         using var cancellation = new CancellationTokenSource();
 
         var scan = Scanner().ScanAsync(Network, _results, _progress, cancellation.Token);
-        await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry);
+        await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.RetryWait);
         cancellation.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => scan.WaitAsync(Timeout));
@@ -233,7 +268,7 @@ public sealed class LanScannerServiceTests
         using var cancellation = new CancellationTokenSource();
 
         var scan = Scanner().ScanAsync(Network, _results, _progress, cancellation.Token);
-        await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry);
+        await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.RetryWait);
         _time.Advance(LanScannerService.RetryPause);
         await retryStarted.Task.WaitAsync(Timeout);
         cancellation.Cancel();
@@ -258,7 +293,7 @@ public sealed class LanScannerServiceTests
         var scan = Scanner().ScanAsync(Network, _results, _progress);
         if (failingAttempt == 2)
         {
-            await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry);
+            await _progress.WaitForAsync(progress => progress.Phase == LanScanPhase.RetryWait);
             _time.Advance(LanScannerService.RetryPause);
         }
 
@@ -278,10 +313,10 @@ public sealed class LanScannerServiceTests
         var execution = new ScanExecution(new NetworkActivityCoordinator(), steps);
 
         var run = execution.RunAsync(new ScanRequest(Enum.Parse<ScanTrigger>(triggerName), Network));
-        await steps.Progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry);
+        await steps.Progress.WaitForAsync(progress => progress.Phase == LanScanPhase.RetryWait);
         Assert.Empty(steps.Saves);
         _time.Advance(LanScannerService.RetryPause);
-        await steps.Progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry && progress.Completed == 0);
+        await steps.Progress.WaitForAsync(progress => progress.Phase == LanScanPhase.FinalRetryWait);
         _time.Advance(LanScannerService.RetryPause);
         var outcome = await run.WaitAsync(Timeout);
 
@@ -310,7 +345,7 @@ public sealed class LanScannerServiceTests
         var execution = new ScanExecution(new NetworkActivityCoordinator(), steps);
 
         var run = execution.RunAsync(new ScanRequest(ScanTrigger.Scheduled, Network));
-        await steps.Progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry);
+        await steps.Progress.WaitForAsync(progress => progress.Phase == LanScanPhase.RetryWait);
         if (duringRetry)
         {
             _time.Advance(LanScannerService.RetryPause);
@@ -338,7 +373,7 @@ public sealed class LanScannerServiceTests
         var execution = new ScanExecution(new NetworkActivityCoordinator(), steps);
 
         var run = execution.RunAsync(new ScanRequest(ScanTrigger.Manual, Network));
-        await steps.Progress.WaitForAsync(progress => progress.Phase == LanScanPhase.Retry);
+        await steps.Progress.WaitForAsync(progress => progress.Phase == LanScanPhase.RetryWait);
         _time.Advance(LanScannerService.RetryPause);
         var outcome = await run.WaitAsync(Timeout);
 
@@ -370,7 +405,10 @@ public sealed class LanScannerServiceTests
         Assert.Equal(new ScanSummary(6, 6, 0), summary);
         Assert.Equal(Addresses.Skip(1), arpCalls.Order());
         Assert.Equal(Enumerable.Repeat(1, 6), Addresses.Select(_icmp.AttemptsFor));
-        var saved = Assert.Single(checkpoints.Items);
+        Assert.Equal(2, checkpoints.Items.Count);
+        Assert.Equal(ScanCheckpointState.Pending, checkpoints.Items.First().State);
+        Assert.Single(checkpoints.Items.First().Results);
+        var saved = checkpoints.Items.Last();
         Assert.Equal(ScanCheckpointState.Complete, saved.State);
         Assert.Equal(6, saved.Results.Count);
         Assert.All(saved.Results.Where(result => result.AddressText != "192.0.2.1"), result =>
@@ -399,22 +437,23 @@ public sealed class LanScannerServiceTests
         Assert.Single(initial.Results);
         _time.Advance(TimeSpan.FromMinutes(1));
         Assert.Equal(6, _icmp.Attempts.Count);
+        Assert.DoesNotContain(_progress.Items, item => item.Phase == LanScanPhase.Arp);
         initialWrite.SetResult();
-        await _progress.WaitForAsync(item => item.Phase == LanScanPhase.Retry && item.Completed == 0);
+        await _progress.WaitForAsync(item => item.Phase == LanScanPhase.RetryWait);
         _time.Advance(TimeSpan.FromMilliseconds(9999));
         await Task.Delay(20);
         Assert.Equal(6, _icmp.Attempts.Count);
         _time.Advance(TimeSpan.FromMilliseconds(1));
-        await _progress.WaitForAsync(item => item.Phase == LanScanPhase.Retry && item.Completed == 0);
+        await _progress.WaitForAsync(item => item.Phase == LanScanPhase.FinalRetryWait);
         Assert.Equal(11, _icmp.Attempts.Count);
         _time.Advance(TimeSpan.FromMilliseconds(9999));
         await Task.Delay(20);
         Assert.Equal(11, _icmp.Attempts.Count);
         _time.Advance(TimeSpan.FromMilliseconds(1));
         Assert.Equal(new ScanSummary(6, 2, 4), await scan.WaitAsync(Timeout));
-        Assert.Equal([ScanCheckpointState.Pending, ScanCheckpointState.Pending, ScanCheckpointState.Complete],
+        Assert.Equal([ScanCheckpointState.Pending, ScanCheckpointState.Pending, ScanCheckpointState.Pending, ScanCheckpointState.Complete],
             checkpoints.Items.Select(item => item.State));
-        Assert.Equal([1, 1, 2], checkpoints.Items.Select(item => item.Results.Count));
+        Assert.Equal([1, 1, 1, 2], checkpoints.Items.Select(item => item.Results.Count));
     }
 
     [Fact]
@@ -427,10 +466,10 @@ public sealed class LanScannerServiceTests
             checkpoints.Report(state);
             return Task.CompletedTask;
         });
-        await _progress.WaitForAsync(item => item.Phase == LanScanPhase.Retry);
+        await _progress.WaitForAsync(item => item.Phase == LanScanPhase.RetryWait);
         _time.Advance(LanScannerService.RetryPause);
         Assert.Equal(new ScanSummary(6, 6, 0), await scan.WaitAsync(Timeout));
-        Assert.Equal([ScanCheckpointState.Pending, ScanCheckpointState.Complete], checkpoints.Items);
+        Assert.Equal([ScanCheckpointState.Pending, ScanCheckpointState.Pending, ScanCheckpointState.Complete], checkpoints.Items);
         Assert.Equal(Enumerable.Repeat(2, 6), Addresses.Select(_icmp.AttemptsFor));
     }
 
@@ -490,7 +529,7 @@ public sealed class LanScannerServiceTests
         };
         using var cancellation = new CancellationTokenSource();
         var scan = Scanner().ScanAsync(Network with { PrefixLength = 27 }, _results, _progress, cancellation.Token);
-        await _progress.WaitForAsync(item => item.Phase == LanScanPhase.Retry);
+        await _progress.WaitForAsync(item => item.Phase == LanScanPhase.RetryWait);
         cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => scan.WaitAsync(Timeout));
         Assert.InRange(peak, 1, 8);
@@ -508,13 +547,13 @@ public sealed class LanScannerServiceTests
             checkpoints.Report(state);
             return Task.CompletedTask;
         });
-        await _progress.WaitForAsync(item => item.Phase == LanScanPhase.Retry && item.Completed == 0);
+        await _progress.WaitForAsync(item => item.Phase == LanScanPhase.RetryWait);
         _time.Advance(LanScannerService.RetryPause);
-        await _progress.WaitForAsync(item => item.Phase == LanScanPhase.Retry && item.Completed == 0);
+        await _progress.WaitForAsync(item => item.Phase == LanScanPhase.FinalRetryWait);
         cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => scan.WaitAsync(Timeout));
         Assert.Equal(Enumerable.Repeat(2, 6), Addresses.Select(_icmp.AttemptsFor));
-        Assert.Equal([ScanCheckpointState.Pending, ScanCheckpointState.Pending], checkpoints.Items);
+        Assert.Equal([ScanCheckpointState.Pending, ScanCheckpointState.Pending, ScanCheckpointState.Pending], checkpoints.Items);
         Assert.Empty(_results.Items);
     }
 

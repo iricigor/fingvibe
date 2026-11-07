@@ -668,7 +668,7 @@ function Test-DeviceRefresh {
             throw "Refresh must retain the displayed devices and explain their status."
         }
         Select-SidebarPage Overview "Online devices"
-        if ((Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "Pass 1/2 (ICMP): Scanning*") {
+        if ((Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "Scanning ICMP:*") {
             throw "Live scan progress must remain visible after navigation."
         }
         (Find-SidebarElement Name "Cancel scan").GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
@@ -1131,7 +1131,7 @@ function Test-ScheduledScans {
         Set-UiReviewAppearanceChoice -Root $root -Picker ScanIntervalPicker -Choice "15 minutes"
         Assert-ScheduledScanSettings $true 15
         $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 15 minutes while app is open"
-        $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Pass 1/2 (ICMP): Scanning *"
+        $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Scanning ICMP:*"
         $null = Wait-SidebarText ScheduledScanStatus "Scheduled scan in progress."
         Show-ScheduledScansCard
         Save-SidebarAppearance "scheduled-scans-running"
@@ -1142,7 +1142,7 @@ function Test-ScheduledScans {
         $null = Wait-SidebarText ScheduledScanStatus "Last scheduled scan was cancelled; committed checkpoints are retained as incomplete. Next around *."
         $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 15 minutes while app is open"
 
-        $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Pass 1/2 (ICMP): Scanning *"
+        $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Scanning ICMP:*"
         Switch-ScheduledScansWithKeyboard $false
         $null = Wait-SidebarText ScanStatusText "Scheduled scan of 127.0.0.1/32 stopped*"
         $null = Wait-SidebarText ScheduledScanStatus "Off. Scans run only when you select Scan LAN."

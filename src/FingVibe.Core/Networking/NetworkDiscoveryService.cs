@@ -18,7 +18,23 @@ public sealed class NetworkDiscoveryService
             .ThenBy(network => network.InterfaceName, StringComparer.OrdinalIgnoreCase)
             .ToArray();
 
-    private static IEnumerable<LanNetwork> CreateNetworks(NetworkInterface networkInterface)
+    public static LanNetwork RefreshSelectedNetwork(IReadOnlyList<LanNetwork> available, LanNetwork selected)
+    {
+        ArgumentNullException.ThrowIfNull(available);
+        ArgumentNullException.ThrowIfNull(selected);
+        if (string.IsNullOrWhiteSpace(selected.InterfaceId))
+            throw new InvalidOperationException("The selected LAN has no adapter identifier; select an available LAN again.");
+        var candidates = available.Where(candidate =>
+            string.Equals(candidate.InterfaceId, selected.InterfaceId, StringComparison.OrdinalIgnoreCase)
+            && candidate.NetworkAddress.Equals(selected.NetworkAddress)
+            && candidate.PrefixLength == selected.PrefixLength).ToArray();
+        return candidates.FirstOrDefault(candidate => candidate.LocalAddress.Equals(selected.LocalAddress))
+            ?? candidates.FirstOrDefault()
+            ?? throw new InvalidOperationException(
+                $"{selected.InterfaceName} no longer reports the selected LAN ({selected.Cidr}); reconnect or select an available LAN.");
+    }
+
+    internal static IEnumerable<LanNetwork> CreateNetworks(NetworkInterface networkInterface)
     {
         var properties = networkInterface.GetIPProperties();
         var gatewayAddress = properties.GatewayAddresses.FirstOrDefault(gateway =>

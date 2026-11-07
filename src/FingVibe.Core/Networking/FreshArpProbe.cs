@@ -20,14 +20,16 @@ internal static class FreshArpProbe
             || !SubnetCalculator.GetNetworkAddress(address, network.PrefixLength).Equals(network.NetworkAddress))
             throw new InvalidOperationException("Fresh ARP requires an address on the selected directly connected IPv4 LAN.");
         uint index;
+        IPAddress source;
         try
         {
             var adapter = NetworkInterface.GetAllNetworkInterfaces().FirstOrDefault(item =>
-                item.Id == network.InterfaceId && item.OperationalStatus == OperationalStatus.Up
-                && item.GetIPProperties().UnicastAddresses.Any(unicast =>
-                    unicast.Address.Equals(network.LocalAddress) && unicast.PrefixLength == network.PrefixLength));
+                string.Equals(item.Id, network.InterfaceId, StringComparison.OrdinalIgnoreCase)
+                && item.OperationalStatus == OperationalStatus.Up);
             if (adapter is null)
                 throw new InvalidOperationException("The selected LAN adapter is no longer connected.");
+            source = NetworkDiscoveryService.RefreshSelectedNetwork(
+                NetworkDiscoveryService.CreateNetworks(adapter).ToArray(), network).LocalAddress;
             index = (uint)adapter.GetIPProperties().GetIPv4Properties().Index;
         }
         catch (NetworkInformationException exception)
@@ -48,7 +50,7 @@ internal static class FreshArpProbe
         {
             // ResolveIpNetEntry2 flushes the entry and performs fresh resolution. Do not read the neighbor cache.
             // Keep the slot until the blocking Windows call returns, including during cancellation.
-            var mac = await Task.Run(() => Resolve(address, network.LocalAddress, index), CancellationToken.None)
+            var mac = await Task.Run(() => Resolve(address, source, index), CancellationToken.None)
                 .ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             return mac;

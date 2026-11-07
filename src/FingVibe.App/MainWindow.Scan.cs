@@ -64,6 +64,16 @@ public sealed partial class MainWindow : IScanExecutionSteps
             return;
         }
 
+        try
+        {
+            if (_networkActivityCoordinator.ActiveKind is null) network = RefreshScanNetwork(network);
+        }
+        catch (Exception exception) when (exception is NetworkInformationException or InvalidOperationException)
+        {
+            _scanMessage = $"Unable to scan the selected LAN: {exception.Message}";
+            UpdateScanStatus();
+            return;
+        }
         var outcome = await _scanExecution.RunAsync(new ScanRequest(ScanTrigger.Manual, network));
         if (outcome.Status == ScanRunStatus.Busy)
         {
@@ -84,31 +94,45 @@ public sealed partial class MainWindow : IScanExecutionSteps
             return Task.FromResult(new ScanRunOutcome(ScanRunStatus.Unavailable) { Message = "No LAN is selected." });
         }
 
-        if (!IsUiReview)
+        if (_networkActivityCoordinator.ActiveKind is null)
         {
-            IReadOnlyList<LanNetwork> available;
             try
             {
-                available = _networkDiscovery.GetAvailableNetworks();
+                network = RefreshScanNetwork(network);
             }
-            catch (NetworkInformationException exception)
+            catch (Exception exception) when (exception is NetworkInformationException or InvalidOperationException)
             {
                 return Task.FromResult(new ScanRunOutcome(ScanRunStatus.Unavailable)
                 {
-                    Message = $"Network adapters could not be read: {exception.Message}"
-                });
-            }
-
-            if (!PeriodicScanTarget.IsAvailable(available, network))
-            {
-                return Task.FromResult(new ScanRunOutcome(ScanRunStatus.Unavailable)
-                {
-                    Message = $"{network.InterfaceName} ({network.Cidr}) is not connected."
+                    Message = $"The selected LAN is unavailable: {exception.Message}"
                 });
             }
         }
 
         return _scanExecution.RunAsync(new ScanRequest(ScanTrigger.Scheduled, network), cancellationToken);
+    }
+
+    private LanNetwork RefreshScanNetwork(LanNetwork selected)
+    {
+        if (IsUiReview) return selected;
+        var available = _networkDiscovery.GetAvailableNetworks();
+        LanNetwork current;
+        try
+        {
+            current = NetworkDiscoveryService.RefreshSelectedNetwork(available, selected);
+        }
+        catch (InvalidOperationException)
+        {
+            NetworkPicker.ItemsSource = available;
+            NetworkPicker.SelectedItem = null;
+            throw;
+        }
+        if (current != selected)
+        {
+            NetworkPicker.ItemsSource = available;
+            NetworkPicker.SelectedItem = current;
+        }
+        return current;
     }
 
     void IScanExecutionSteps.BeginScan(ScanRequest request, CancellationTokenSource cancellation)
@@ -196,6 +220,7 @@ public sealed partial class MainWindow : IScanExecutionSteps
                 && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD") is { Length: > 0 } checkpointHold)
             {
                 await checkpoint(fixture.Results, ScanCheckpointState.Pending);
+                PresentScanProgress(new LanScanProgress(LanScanPhase.Arp, 0, 1), retainedResults);
                 var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
                 while (File.Exists(checkpointHold))
                 {
@@ -293,7 +318,7 @@ public sealed partial class MainWindow : IScanExecutionSteps
         ScanProgressBar.Value = progress.Completed;
         UpdateScanPulseWidth();
         _scanMessage = _initialResultsPublished
-            ? $"{ScanProgressPrefix}Initial results · background confirmation pending · {ScanProgressPresentation.Message(progress)}"
+            ? $"{ScanProgressPrefix}Initial results shown · {ScanProgressPresentation.Message(progress)}"
             : $"{ScanProgressPrefix}{ScanProgressPresentation.Message(progress)}{retainedResults}";
         UpdateScanStatus();
     }

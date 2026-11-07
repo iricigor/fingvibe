@@ -99,7 +99,10 @@ public enum LanScanPhase
 {
     FirstPass,
     Retry,
-    Arp
+    Arp,
+    RetryWait,
+    FinalRetry,
+    FinalRetryWait
 }
 
 // Each phase counts its own addresses; ARP and retries cover only addresses still unconfirmed.

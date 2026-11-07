@@ -242,7 +242,7 @@ try {
     Start-DiscoveryApp
     (Find-DiscoveryControl ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-DiscoveryState {
-        (Find-DiscoveryControl ScanStatusText).Current.Name -like "*background confirmation pending*"
+        (Find-DiscoveryControl ScanStatusText).Current.Name -like "*Initial results shown*(1/5) Background ARP:*"
     } "checkpointed initial results"
     $pendingScanButton = Find-DiscoveryControl ScanButton -Optional
     if (($pendingScanButton -and $pendingScanButton.Current.IsEnabled) -or
@@ -277,7 +277,7 @@ try {
     # A later final checkpoint updates the same scan without stealing focus from browsing.
     (Find-DiscoveryControl ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-DiscoveryState {
-        (Find-DiscoveryControl ScanStatusText).Current.Name -like "*background confirmation pending*"
+        (Find-DiscoveryControl ScanStatusText).Current.Name -like "*Initial results shown*(1/5) Background ARP:*"
     } "second initial checkpoint"
     Wait-DiscoveryState {
         (Find-DiscoveryControl ResultsList).FindAll([System.Windows.Automation.TreeScope]::Children, $condition).Count -gt 0

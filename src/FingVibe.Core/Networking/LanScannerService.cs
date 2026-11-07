@@ -93,6 +93,8 @@ public sealed class LanScannerService
                 }
             }).ConfigureAwait(false);
 
+            await discoveryTask.ConfigureAwait(false);
+            await CheckpointAsync().ConfigureAwait(false);
             var arpAddresses = Remaining();
             var arpCompleted = 0;
             if (arpAddresses.Length > 0)
@@ -121,15 +123,17 @@ public sealed class LanScannerService
                 scanProgress?.Report(new LanScanProgress(LanScanPhase.Arp, completedCount, arpAddresses.Length));
             }).ConfigureAwait(false);
 
-            await discoveryTask.ConfigureAwait(false);
-            await CheckpointAsync().ConfigureAwait(false);
+            if (arpAddresses.Length > 0)
+                await CheckpointAsync().ConfigureAwait(false);
             for (var round = 0; round < 2 && Remaining().Length > 0; round++)
             {
                 var retries = Remaining();
                 var pause = Task.Delay(RetryPause, _timeProvider, cancellationToken);
-                scanProgress?.Report(new LanScanProgress(LanScanPhase.Retry, 0, retries.Length));
+                scanProgress?.Report(new LanScanProgress(
+                    round == 0 ? LanScanPhase.RetryWait : LanScanPhase.FinalRetryWait, 0, retries.Length));
                 await pause.ConfigureAwait(false);
-                await ProbePhaseAsync(LanScanPhase.Retry, retries, retries.Length, (index, result) =>
+                await ProbePhaseAsync(round == 0 ? LanScanPhase.Retry : LanScanPhase.FinalRetry,
+                    retries, retries.Length, (index, result) =>
                 {
                     if (result.Status == HostStatus.Alive)
                     {
@@ -167,6 +171,8 @@ public sealed class LanScannerService
         Task ProbePhaseAsync(LanScanPhase phase, int[] indexes, int phaseTotal, Action<int, ScanResult> record)
         {
             var completed = 0;
+            if (phase != LanScanPhase.FirstPass)
+                scanProgress?.Report(new LanScanProgress(phase, 0, phaseTotal));
             return Parallel.ForEachAsync(
                 indexes,
                 new ParallelOptions
