@@ -341,6 +341,10 @@ try {
     Stop-DiscoveryApp
     Write-Host "Device discovery native UI checks passed."
 }
+catch {
+    Write-Host $_.ScriptStackTrace
+    throw
+}
 finally {
     if ($lock) { $lock.Dispose() }
     if ($script:process -and -not $script:process.HasExited) { Stop-Process -Id $script:process.Id -Force }
