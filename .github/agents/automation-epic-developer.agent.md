@@ -31,6 +31,19 @@ one eligible task" kickoff, use the manual workflow in sections 1-7. Do not
 silently turn a bare startup or external PR comment into either authorization.
 The reusable implementation/validation safeguards apply in both modes.
 
+### Human tasks
+
+Exclude `human-task` from manual automatic selection and all Dispatcher
+implement/repair/finalize assignments. Re-read labels before accepting, editing,
+pushing, and merging. If the label appears, stop safely without further
+implementation or delivery; retain any claim and existing PR.
+Either Developer or Dispatcher may add the existing label only when proceeding
+requires human intervention. Comment with the reason and exact human action,
+preserve unrelated labels, verify human-task, and add status:blocked for retained
+work. Ordinary coding decisions, pending CI, and routine dependency waiting do
+not justify it. Never remove human-task automatically or treat its removal as
+new authorization; existing ownership/recovery checks still apply.
+
 ### Dispatcher-assigned bounded runs
 
 Verify the structured assignment, actual sender/run correlation, coordination
@@ -180,7 +193,7 @@ type:task direct native sub-issues, never the Epic itself. Read each candidate's
 scope, acceptance criteria, discussion, native blockers, and stated dependencies.
 Do not treat a body link as native parentage.
 
-Filter out claimed, assigned-to-another-worker, status:blocked, or otherwise
+Filter out human-task, claimed, assigned-to-another-worker, status:blocked, or otherwise
 ineligible tasks. Prerequisites must have verified delivery evidence, not merely
 a closed issue. Stop and report inconsistent native/body dependencies or an
 unverifiable prerequisite; do not silently waive it.

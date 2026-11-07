@@ -217,6 +217,7 @@ defect/feature intent; do not duplicate them with `type:bug` / `type:feature`.
 | --- | --- |
 | `type:epic` | Organizing issue, never executable by pickup |
 | `type:task` | Issue refined into bounded execution work |
+| `human-task` | Human-led work, optionally assisted by Copilot; excluded from unattended Developer selection and implement/repair/finalize handoffs |
 | `size:micro` | One narrowly scoped change in one owning component with focused validation |
 | `size:small` | A bounded related set of changes with clear acceptance criteria and validation |
 | `priority:high` | Human-prioritized ahead of normal work |
@@ -226,6 +227,16 @@ defect/feature intent; do not duplicate them with `type:bug` / `type:feature`.
 | `active` | Authorized implementation underway; existing Architect semantics remain unchanged |
 | `status:review` | Verified published PR awaiting checks/review/merge; not available for pickup |
 | `status:blocked` | Cannot advance; reason and recovery action must be recorded |
+
+`human-task` applies in both manual-worker and local Dispatcher exceptions.
+Dispatcher skips it; Developer independently checks before accepting and before
+edits, pushes, or merges. Either agent may add it only when human intervention is
+necessary, with a verified label and task comment specifying the reason/action.
+Preserve unrelated labels; retained work also becomes blocked without releasing
+its claim. Ordinary coding choices, pending CI, and routine dependency waiting
+are not reasons to add it. Only humans remove it, and removal does not by itself
+authorize resumption or release ownership. Human-led tasks may still be discussed
+with Copilot interactively, as in #225.
 
 Exactly one size and priority are required for pickup. No size means not
 eligible; larger work must be split. `type:epic` and `type:task` are mutually
@@ -275,7 +286,7 @@ as idle capacity.
 
 1. Check the human-controlled pause setting and reconcile work in progress.
 2. Consider only open `type:task` issues with human-approved current scope,
-   `status:ready`, one permitted size and priority, no conflicting state,
+   `status:ready`, one permitted size and priority, no `human-task` or conflicting state,
    no existing claim/PR/agent assignment, and no unresolved blockers.
    Closed-but-unmerged prerequisites are not automatically satisfied: require
    evidence that their acceptance criteria were delivered or a human waiver.

@@ -32,6 +32,18 @@ scope/protection/releases, create or enable Automations, or substitute a
 synchronous subagent for an independent Developer run. Host permissions apply.
 Merging to main retains release-on-main behavior.
 
+## Human tasks
+
+Never assign a task labeled `human-task` to Developer, including repair or
+finalize. Re-read labels before claiming, launching, and sending an assignment.
+Unclaimed human tasks are skipped; a labeled retained claim still holds the slot.
+Either Dispatcher or Developer may add the existing label only when human action
+is necessary to proceed, recording the reason and exact required action in a task
+comment and verifying the label. Preserve unrelated labels and any claim; add
+status:blocked for retained work and stop further handoffs. Do not use human-task
+for ordinary implementation choices, pending CI, or routine delivered-dependency
+waiting. Only a human removes it; removal alone does not release or restart work.
+
 ## 1. Enter one serialized local tick
 
 Capture actual UTC start time and generate a fresh UUID with a tool. From this
@@ -90,7 +102,7 @@ If nothing changed, finish without heartbeat comments.
 Only when capacity is verifiably empty, read the configured Epic and verify
 type:epic. Consider its open type:task direct native children. Read scope,
 acceptance criteria, discussion, native/body dependencies, and delivery evidence.
-Filter claimed, assigned-to-another-worker, blocked, and undelivered prerequisites.
+Filter human-task, claimed, assigned-to-another-worker, blocked, and undelivered prerequisites.
 Stop on inconsistent dependencies or unverifiable delivery. Follow explicit Epic
 order, otherwise ascending issue number. Do not create/split tasks or require
 individual ready/size/priority labels in this explicitly authorized exception.
