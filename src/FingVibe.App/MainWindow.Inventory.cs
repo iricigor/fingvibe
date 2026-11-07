@@ -121,7 +121,7 @@ public sealed partial class MainWindow
     private void RefreshInventoryRows(IEnumerable<ScanResult>? unkeyed = null)
     {
         var selectedKey = DevicesPage.SelectedResult?.IdentityKey;
-        var retainedRows = _isScanning && _initialResultsPublished
+        var retainedRows = _isScanning
             ? _allResults.ToDictionary(row => row.IdentityKey) : new Dictionary<string, ScanResultRow>();
         _allResults.Clear();
         _minimumLatency = long.MaxValue;
@@ -154,6 +154,13 @@ public sealed partial class MainWindow
         UpdateLastSeen();
         RefreshVisibleResults();
         DevicesPage.SelectedResult = _allResults.FirstOrDefault(row => row.IdentityKey == selectedKey);
+        if (_isScanning && _selectedDeviceRow is { } selected
+            && _allResults.FirstOrDefault(row => row.IdentityKey == selected.IdentityKey) is { } displayed)
+        {
+            _selectedDeviceRow = displayed;
+            DevicePage.UpdateScanObservation(displayed);
+            UpdateDeviceNameActions();
+        }
         _onlineDeviceCount = _liveCompletedAt is null ? null : _allResults.Count(row => row.IsOnline);
         UpdateNetworkIdentity();
         UpdatePeopleRoomsPages();

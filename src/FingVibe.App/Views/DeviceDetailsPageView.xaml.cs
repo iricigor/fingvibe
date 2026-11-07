@@ -69,14 +69,6 @@ public sealed partial class DeviceDetailsPageView : UserControl
         DeviceNameEditor.Visibility = Visibility.Collapsed;
         SetClassificationEditing(false);
         DeviceClassificationStatusText.Text = string.Empty;
-        _updatingAddresses = true;
-        try
-        {
-            DeviceAddressPicker.ItemsSource = row.CurrentConnections.Select(item => item.AddressText).ToArray();
-            DeviceAddressPicker.SelectedItem = row.AddressText;
-            DeviceAddressPicker.Visibility = row.CurrentConnections.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
-        }
-        finally { _updatingAddresses = false; }
         ShowConnection(row);
         DeviceIncludeUdpCheckBox.IsChecked = false;
         DeviceImportedMetadata.IsExpanded = false;
@@ -191,8 +183,34 @@ public sealed partial class DeviceDetailsPageView : UserControl
 
     internal void ShowConnection(ScanResultRow row)
     {
+        UpdateScanObservation(row);
+        DeviceBrowserStatusText.Text = string.Empty;
+        DeviceImportedFields.Children.Clear();
+        foreach (var field in DeviceDetailsPresentation.ImportedFields(row.ImportedMetadata))
+            DeviceImportedFields.Children.Add(new DeviceDetailValue { Label = field.Label, Value = field.Value });
+        if (DeviceImportedFields.Children.Count == 0)
+            DeviceImportedFields.Children.Add(new TextBlock { Text = "No imported Fing metadata.", TextWrapping = TextWrapping.Wrap });
+        ShowPorts(row.Result?.OpenPortItems ?? []);
+        ShowUdpObservations(row.Result?.UdpObservationItems ?? []);
+        DevicePortScanStatusText.Text = string.Empty;
+        DeviceUdpScanStatusText.Text = string.Empty;
+        ShowClassification(row);
+    }
+
+    internal void UpdateScanObservation(ScanResultRow row)
+    {
         var result = row.Result;
         _row = row;
+        var addresses = row.CurrentConnections.Select(item => item.AddressText).ToArray();
+        _updatingAddresses = true;
+        try
+        {
+            if (DeviceAddressPicker.ItemsSource is not IEnumerable<string> previous || !previous.SequenceEqual(addresses))
+                DeviceAddressPicker.ItemsSource = addresses;
+            DeviceAddressPicker.SelectedItem = row.AddressText;
+            DeviceAddressPicker.Visibility = addresses.Length > 1 ? Visibility.Visible : Visibility.Collapsed;
+        }
+        finally { _updatingAddresses = false; }
         DeviceNameValue.Value = row.NameText;
         DeviceAddressText.Value = row.AddressText;
         DeviceMacText.Value = row.MacAddressText;
@@ -205,18 +223,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
         DeviceAddressSourceText.Text = result is null ? "Historical IP from Fing; never observed locally."
             : row.IsCurrentScanResponse ? "Responded in the current local scan."
             : "Last-known local address; not a current response.";
-        DeviceBrowserStatusText.Text = string.Empty;
-        DeviceImportedFields.Children.Clear();
-        foreach (var field in DeviceDetailsPresentation.ImportedFields(row.ImportedMetadata))
-            DeviceImportedFields.Children.Add(new DeviceDetailValue { Label = field.Label, Value = field.Value });
-        if (DeviceImportedFields.Children.Count == 0)
-            DeviceImportedFields.Children.Add(new TextBlock { Text = "No imported Fing metadata.", TextWrapping = TextWrapping.Wrap });
         SetPortScanRunning(false, row.CanProbe);
-        ShowPorts(row.Result?.OpenPortItems ?? []);
-        ShowUdpObservations(row.Result?.UdpObservationItems ?? []);
-        DevicePortScanStatusText.Text = string.Empty;
-        DeviceUdpScanStatusText.Text = string.Empty;
-        ShowClassification(row);
     }
 
     internal void ResetScroll() => DevicePage.ChangeView(null, 0, null, disableAnimation: true);

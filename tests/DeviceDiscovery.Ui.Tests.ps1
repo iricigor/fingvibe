@@ -272,14 +272,24 @@ try {
     Wait-DiscoveryState {
         (Find-DiscoveryControl ScanStatusText).Current.Name -like "*background confirmation pending*"
     } "second initial checkpoint"
-    $searchCondition = [System.Windows.Automation.PropertyCondition]::new(
-        [System.Windows.Automation.AutomationElement]::NameProperty, "Search devices")
-    $search = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $searchCondition)
-    $search.SetFocus()
+    $row = (Find-DiscoveryControl ResultsList).FindAll([System.Windows.Automation.TreeScope]::Children, $condition)[0]
+    $row.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+    Wait-DiscoveryState {
+        $details = Find-DiscoveryControl DeviceDetailsScroll -Optional
+        $details -and -not $details.Current.IsOffscreen
+    } "details during background confirmation"
+    (Find-DiscoveryControl DeviceRenameButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $nameInput = Find-DiscoveryControl DeviceNameInput
+    $nameInput.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("Keep this draft")
+    $nameInput.SetFocus()
     $id = (Get-Content -LiteralPath $snapshot -Raw | ConvertFrom-Json).scanId
     Remove-Item -LiteralPath $checkpointHold
     Wait-DiscoveryState { (Find-DiscoveryControl ScanButton).Current.IsEnabled } "final checkpoint"
-    if (-not $search.Current.HasKeyboardFocus) { throw "Final checkpoint stole focus from browsing." }
+    if (-not $nameInput.Current.HasKeyboardFocus -or $nameInput.Current.IsOffscreen -or
+        $nameInput.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value -ne "Keep this draft") {
+        throw "Final checkpoint stole focus or discarded an in-progress device-name edit."
+    }
     $checkpoint = Get-Content -LiteralPath $snapshot -Raw | ConvertFrom-Json
     if ($checkpoint.state -ne 0 -or $checkpoint.scanId -ne $id) { throw "Finalization did not complete the same logical scan." }
     Assert-NoDiscovery
