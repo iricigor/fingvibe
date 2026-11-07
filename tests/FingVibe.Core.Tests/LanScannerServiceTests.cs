@@ -426,6 +426,62 @@ public sealed class LanScannerServiceTests
         Assert.Empty(_results.Items);
     }
 
+    [Fact]
+    public async Task UnexpectedArpFailuresFailExplicitlyInsteadOfBecomingMisses()
+    {
+        _arp = (_, _, _) => Task.FromException<PhysicalAddress?>(new InvalidOperationException("ARP adapter failure"));
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            Scanner().ScanAsync(Network, _results, _progress));
+        Assert.Equal("ARP adapter failure", error.Message);
+        Assert.Empty(_results.Items);
+        Assert.DoesNotContain(_progress.Items, item => item.Phase == LanScanPhase.Retry);
+    }
+
+    [Fact]
+    public async Task ArpConcurrencyIsBoundedIndependentlyOfPingConcurrency()
+    {
+        var inFlight = 0;
+        var peak = 0;
+        _arp = async (_, _, _) =>
+        {
+            var current = Interlocked.Increment(ref inFlight);
+            int previous;
+            while (current > (previous = Volatile.Read(ref peak))
+                && Interlocked.CompareExchange(ref peak, current, previous) != previous) { }
+            await Task.Delay(10);
+            Interlocked.Decrement(ref inFlight);
+            return null;
+        };
+        using var cancellation = new CancellationTokenSource();
+        var scan = Scanner().ScanAsync(Network with { PrefixLength = 27 }, _results, _progress, cancellation.Token);
+        await _progress.WaitForAsync(item => item.Phase == LanScanPhase.Retry);
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => scan.WaitAsync(Timeout));
+        Assert.InRange(peak, 1, 8);
+        Assert.Equal(0, inFlight);
+        Assert.Equal(30, _icmp.Attempts.Count);
+    }
+
+    [Fact]
+    public async Task CancellationDuringTheSecondPauseDoesNotStartAThirdPingRound()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var checkpoints = new Recorder<ScanCheckpointState>();
+        var scan = Scanner().ScanAsync(Network, _results, _progress, cancellation.Token, (_, state) =>
+        {
+            checkpoints.Report(state);
+            return Task.CompletedTask;
+        });
+        await _progress.WaitForAsync(item => item.Phase == LanScanPhase.Retry && item.Completed == 0);
+        _time.Advance(LanScannerService.RetryPause);
+        await _progress.WaitForAsync(item => item.Phase == LanScanPhase.Retry && item.Completed == 0);
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => scan.WaitAsync(Timeout));
+        Assert.Equal(Enumerable.Repeat(2, 6), Addresses.Select(_icmp.AttemptsFor));
+        Assert.Equal([ScanCheckpointState.Pending, ScanCheckpointState.Pending], checkpoints.Items);
+        Assert.Empty(_results.Items);
+    }
+
     private sealed class ScriptedIcmp
     {
         private readonly ConcurrentDictionary<string, int> _counts = new();

@@ -238,6 +238,22 @@ public sealed class ScanCheckpointTests : IDisposable
         Assert.False(steps.Writes.Reader.TryRead(out _));
     }
 
+    [Fact]
+    public async Task FailedIncompleteStateWriteIsReportedRatherThanClaimingSuccessfulCancellation()
+    {
+        var steps = new CheckpointSteps { FailIncomplete = true };
+        var execution = new ScanExecution(new NetworkActivityCoordinator(), steps);
+        var run = execution.RunAsync(new(ScanTrigger.Manual, ScanExecutionFixture.Network));
+        await steps.Writes.ReadNextAsync();
+        var stop = execution.StopAsync();
+        steps.ReleaseWrite.SetResult();
+        var outcome = await run.WaitAsync(ScanExecutionFixture.Timeout);
+        await stop.WaitAsync(ScanExecutionFixture.Timeout);
+        Assert.Equal(ScanRunStatus.SaveFailed, outcome.Status);
+        Assert.Equal("incomplete write failed", outcome.Message);
+        Assert.Equal(ScanCheckpointState.Incomplete, (await steps.Writes.ReadNextAsync()).State);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -289,6 +305,7 @@ public sealed class ScanCheckpointTests : IDisposable
         public string Identity { get; set; } = NetworkId;
         public bool Finish { get; set; }
         public bool FailComplete { get; set; }
+        public bool FailIncomplete { get; set; }
         public void BeginScan(ScanRequest request, CancellationTokenSource cancellation) { }
         public string CaptureNetworkIdentity(LanNetwork network) => Identity;
         public Task<IReadOnlyList<ScanResult>> ScanAsync(ScanRequest request, CancellationToken cancellationToken) =>
@@ -311,6 +328,7 @@ public sealed class ScanCheckpointTests : IDisposable
             Assert.True(Writes.Writer.TryWrite(snapshot));
             if (snapshot.State == ScanCheckpointState.Pending) await ReleaseWrite.Task;
             if (snapshot.State == ScanCheckpointState.Complete && FailComplete) return new([], "disk failed");
+            if (snapshot.State == ScanCheckpointState.Incomplete && FailIncomplete) return new([], "incomplete write failed");
             return new([]) { CheckpointCommitted = true };
         }
         public Task<ScanSaveResult> SaveAsync(ScanRequest request, IReadOnlyList<ScanResult> results,

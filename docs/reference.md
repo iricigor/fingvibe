@@ -60,7 +60,7 @@ The scanner uses fresh ICMP echo replies and fresh ARP responses on the selected
 
 Manual and scheduled scans first ping every usable address with a 700 ms timeout and up to 256 concurrent probes, then attempt fresh ARP resolution once for each ping miss on the selected adapter. Windows `ResolveIpNetEntry2` flushes the entry and requests fresh resolution; cached, stale or permanent neighbor membership is never Online evidence. The ARP MAC is preserved for enrichment, without inventing an ICMP latency or TTL. Blocking ARP calls are limited to eight workers across scans, and cancellation drains in-flight calls before releasing the measurement lease. `WindowsFreshArpTests` verifies native resolution and adapter scoping against the disposable Windows CI runner's directly connected gateway; it is skipped locally to avoid probing the user's LAN.
 
-After initial probing and enrichment, confirmed observations are checkpointed and become browsable. Only addresses still unconfirmed are pinged after a cancellable ten-second wait, and again after another ten-second wait following that retry phase. Confirmed addresses are never retried or downgraded. No remaining misses means no further wait; otherwise a scan adds at least twenty seconds plus ARP, probing, enrichment and persistence time. There are at most three ICMP attempts and one ARP fallback per address.
+After initial probing and enrichment, confirmed observations are checkpointed and become browsable. Only addresses still unconfirmed are pinged after a cancellable ten-second wait, and again after another ten-second wait following that retry phase. Confirmed addresses are never retried or downgraded. No remaining misses means no further wait; misses remaining through both rounds add at least twenty seconds plus ARP, probing, enrichment and persistence time. There are at most three ICMP attempts and one ARP fallback per address.
 
 SQLite inventory and the latest logical checkpoint commit in one transaction with explicit Pending, Complete or Incomplete state. Checkpoints do not infer Offline, append completed history, establish a discovery baseline or emit discovery alerts until finalization. Each completed scan adds history and discovery alerts only once. The separate `latest-scan.json` cache is atomically replaced after the database commit; SQLite is authoritative on restart, including when a cache update failed. Save failures are visible and stop retries rather than claiming an unsaved checkpoint is durable. Normal close or cancellation drains checkpoint writes and retains the last committed observations as incomplete. Forced termination can lose observations since the last committed checkpoint. Restart treats saved observations as historical, not current Online evidence, and never resumes old retry timers.
 
@@ -547,7 +547,8 @@ Import does not create people/rooms, infer owners, import Group, or migrate
 Fing events/timestamps. Invalid MACs and all duplicate-MAC rows are skipped
 with explicit warnings. Devices sharing an IP remain distinct by MAC.
 
-Online means a response in this session's latest completed local scan;
+Online means a fresh ping or ARP response in this session's latest local scan,
+including its checkpointed initial results while background confirmation is pending;
 Offline means locally observed previously but absent from a subsequent
 successful scan of that same Windows network profile and subnet. Other-network,
 cancelled, and failed scans do not infer absence. When network identity is
@@ -555,9 +556,12 @@ unavailable or changes during a scan, a warning is shown and absence is not
 inferred. Fing Only means the inventory has no local observation of the imported
 MAC, regardless of Fing's State field. First local discovery removes that state.
 After restart, retained observations are Unknown, not Online or freshly Offline.
-Observations outside the latest successful scan's network/subnet are also
-Unknown; their last-seen information is retained. A failed or cancelled refresh
-keeps the previous successful scan's evidence unchanged. People/Rooms
+Observations outside the latest displayed scan's network/subnet are also
+Unknown; their last-seen information is retained. Before an initial checkpoint,
+a failed or cancelled refresh leaves the previous results unchanged. After a
+checkpoint, it retains those observations as incomplete/historical without
+inferring absence. A scan already finalized by a committed Complete checkpoint
+remains complete if cancellation races its final cleanup. People/Rooms
 live-response summaries do not count imported or restored records. Overview and
 Network Online counts count current device identities, not historical members
 or duplicate IPs for one MAC. Historical/Fing-only addresses cannot

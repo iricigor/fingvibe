@@ -232,6 +232,22 @@ public sealed partial class MainWindow : IScanExecutionSteps
 
     void IScanExecutionSteps.EndScan(ScanRequest request, ScanRunOutcome outcome)
     {
+        if (_initialResultsPublished && _currentScanSnapshot is { State: ScanCheckpointState.Pending } pending)
+        {
+            // A failed incomplete-state write still leaves a durable Pending checkpoint, never a running scan.
+            _currentScanSnapshot = pending with { State = ScanCheckpointState.Incomplete };
+            _liveCompletedAt = null;
+            _inventory = _inventory with
+            {
+                Devices = _inventory.Devices.ToDictionary(pair => pair.Key, pair => pair.Value with
+                {
+                    CurrentCompletedAt = null, CurrentNetworkId = null, CurrentSubnet = null
+                }),
+                VirtualDevices = _inventory.VirtualDevices.Select(slot => slot with { CurrentCompletedAt = null }).ToArray()
+            };
+            _displayedScan = new OverviewScanContext(pending.Subnet, pending.CompletedAt, ScanDisplayStatus.Incomplete);
+            RefreshInventoryRows();
+        }
         var scheduled = request.Trigger == ScanTrigger.Scheduled;
         if (outcome.Status == ScanRunStatus.Cancelled)
             _scanMessage = !scheduled
