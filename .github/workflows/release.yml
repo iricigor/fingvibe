@@ -29,8 +29,8 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          "number=1.0.${{ github.run_number }}" >> $env:GITHUB_OUTPUT
-          "tag=v1.0.${{ github.run_number }}" >> $env:GITHUB_OUTPUT
+          "number=1.1.${{ github.run_number }}" >> $env:GITHUB_OUTPUT
+          "tag=v1.1.${{ github.run_number }}" >> $env:GITHUB_OUTPUT
 
       - name: Test networking core
         run: dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj --configuration Release
@@ -71,9 +71,9 @@ jobs:
         shell: pwsh
         run: .\tests\ApplicationIcon.Tests.ps1 -AppDirectory "${{ github.workspace }}\artifacts\fingvibe-win-x64"
 
-      - name: Verify published build timestamp
+      - name: Verify published build timestamp and version
         shell: pwsh
-        run: .\tests\BuildIdentity.Metadata.Tests.ps1 -AppDirectory "${{ github.workspace }}\artifacts\fingvibe-win-x64" -BuildTimestamp "${{ steps.publish.outputs.build-timestamp }}"
+        run: .\tests\BuildIdentity.Metadata.Tests.ps1 -AppDirectory "${{ github.workspace }}\artifacts\fingvibe-win-x64" -BuildTimestamp "${{ steps.publish.outputs.build-timestamp }}" -Version "${{ steps.version.outputs.number }}"
 
       - name: Create release archive
         shell: pwsh

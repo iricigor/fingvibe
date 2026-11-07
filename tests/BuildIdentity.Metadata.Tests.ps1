@@ -1,6 +1,7 @@
 param(
     [string] $AppDirectory,
-    [string] $BuildTimestamp
+    [string] $BuildTimestamp,
+    [string] $Version
 )
 
 $ErrorActionPreference = "Stop"
@@ -49,7 +50,10 @@ if ($metadata.Timestamp -cne $override -or $metadata.Stamps.Count -ne 1 -or $met
 }
 
 if ($AppDirectory) {
-    if (-not $BuildTimestamp) { throw "Published assembly checks require the expected BuildTimestamp." }
+    if (-not $BuildTimestamp -or -not $Version) {
+        throw "Published assembly checks require the expected BuildTimestamp and Version."
+    }
+    $expectedVersion = [version] $Version
     $assemblyPath = (Resolve-Path (Join-Path $AppDirectory "FingVibe.App.dll")).Path
     $assembly = [Reflection.Assembly]::LoadFrom($assemblyPath)
     $attributes = @($assembly.GetCustomAttributesData() | Where-Object {
@@ -59,6 +63,19 @@ if ($AppDirectory) {
     if ($attributes.Count -ne 1 -or $attributes[0].ConstructorArguments[1].Value -cne $BuildTimestamp) {
         throw "Published assembly does not contain the expected build timestamp."
     }
+    # About and the window title show the informational version without any +commit suffix.
+    $informational = @($assembly.GetCustomAttributesData() | Where-Object {
+        $_.AttributeType.FullName -eq "System.Reflection.AssemblyInformationalVersionAttribute"
+    })
+    if ($informational.Count -ne 1 -or ([string] $informational[0].ConstructorArguments[0].Value).Split('+')[0] -cne $Version) {
+        throw "Published assembly informational version does not match $Version."
+    }
+    # Setup falls back to this file version when adopting an unregistered ZIP/script installation.
+    $file = [Diagnostics.FileVersionInfo]::GetVersionInfo($assemblyPath)
+    if ($file.FileMajorPart -ne $expectedVersion.Major -or $file.FileMinorPart -ne $expectedVersion.Minor -or
+        $file.FileBuildPart -ne $expectedVersion.Build) {
+        throw "Published assembly file version $($file.FileVersion) does not match $Version."
+    }
 }
 
-Write-Host "UTC metadata stamping, all build kinds, explicit override, and requested artifact checks passed."
+Write-Host "UTC metadata stamping, all build kinds, explicit override, and requested artifact timestamp/version checks passed."

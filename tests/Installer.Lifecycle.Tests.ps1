@@ -47,7 +47,24 @@ function Uninstall-App([string] $Name) {
     Assert-True (-not (Test-Path -LiteralPath $versionKey)) "Installer version was not removed."
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $app "FingVibe.App.exe"))) "Installed executable was not removed."
 }
+function Get-SavedDataHashes {
+    $hashes = @{}
+    Get-ChildItem -LiteralPath $data -Recurse -File | ForEach-Object {
+        $hashes[[IO.Path]::GetRelativePath($data, $_.FullName)] = (Get-FileHash -LiteralPath $_.FullName).Hash
+    }
+    $hashes
+}
+function Assert-SavedDataUnchanged([hashtable] $Expected, [string] $Message) {
+    $actual = Get-SavedDataHashes
+    Assert-True ($actual.Count -eq $Expected.Count) "$Message (file count changed)"
+    foreach ($relative in $Expected.Keys) {
+        Assert-True ($actual[$relative] -eq $Expected[$relative]) "$Message ($relative)"
+    }
+}
 try {
+    $v = [version] $Version
+    if ($v.Build -ge 65533) { throw "Lifecycle fixture versions require two additional build numbers." }
+    $builder = Join-Path $PSScriptRoot "..\tools\New-Installer.ps1"
     $source = (Resolve-Path -LiteralPath $AppDirectory).Path
     $installer = (Resolve-Path -LiteralPath $InstallerPath).Path
     $null = New-Item -ItemType Directory -Path $fixture
@@ -87,6 +104,34 @@ try {
     Assert-True (-not (Test-Path -LiteralPath $startShortcut)) "Start menu shortcut survived uninstall."
     Assert-True ((Get-Content -LiteralPath $savedData) -eq "keep saved data") "Saved data was changed by uninstall."
 
+    # A 1.0 installation, even with a higher run number, must upgrade to the 1.1 feature version.
+    # Release runs upgrade with the actual 1.1 installer; other runs use a test-only 1.1 fixture.
+    $legacyVersion = "1.0.$($v.Build + 1)"
+    & $builder -AppDirectory $source -Version $legacyVersion -OutputDirectory $fixture | Out-Host
+    $legacyInstaller = Join-Path $fixture "FingVibe-$legacyVersion-win-x64-Setup.exe"
+    if ($v -ge [version] "1.1") {
+        $featureVersion = $Version
+        $featureInstaller = $installer
+    } else {
+        $featureVersion = "1.1.$($v.Build)"
+        & $builder -AppDirectory $source -Version $featureVersion -OutputDirectory $fixture | Out-Host
+        $featureInstaller = Join-Path $fixture "FingVibe-$featureVersion-win-x64-Setup.exe"
+    }
+    Invoke-Setup $legacyInstaller "legacy-1.0-install"
+    Assert-True ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $legacyVersion) "1.0 fixture was not installed."
+    foreach ($name in @("device-inventory.sqlite", "latest-scan.json", "people-rooms.json", "appearance.json", "device-table.json", "periodic-scan.json")) {
+        "synthetic 1.0 $name" | Set-Content -LiteralPath (Join-Path $data $name)
+    }
+    $legacyData = Get-SavedDataHashes
+    Invoke-Setup $featureInstaller "feature-upgrade-from-1.0"
+    Assert-True ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $featureVersion) "1.0 installation was not upgraded to $featureVersion."
+    Assert-SavedDataUnchanged $legacyData "Feature-version upgrade changed saved inventory, history, or settings."
+    Invoke-Setup $legacyInstaller "reject-feature-downgrade" -ExpectFailure
+    Assert-True ((Get-Content -LiteralPath (Join-Path $logs "reject-feature-downgrade.log") -Raw) -match 'Downgrades are not supported') "1.0 downgrade rejection was not reported."
+    Assert-True ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $featureVersion) "Rejected 1.0 downgrade changed installed version."
+    Uninstall-App "feature-upgrade-uninstall"
+    Assert-SavedDataUnchanged $legacyData "Uninstall after feature-version upgrade changed saved inventory, history, or settings."
+
     # Emulate the existing ZIP script, including a file the installer must not own.
     $null = New-Item -ItemType Directory -Path $app -Force
     Copy-Item -Path (Join-Path $source "*") -Destination $app -Recurse -Force
@@ -96,15 +141,12 @@ try {
     Assert-True (Test-Path -LiteralPath $desktopShortcut) "Selected desktop shortcut is missing."
     Assert-True ((Get-Content -LiteralPath $unknown) -eq "keep unknown file") "Adoption removed an unknown file."
 
-    $v = [version] $Version
-    if ($v.Build -ge 65533) { throw "Lifecycle fixture versions require two additional build numbers." }
     $next = "$($v.Major).$($v.Minor).$($v.Build + 1)"
     $latest = "$($v.Major).$($v.Minor).$($v.Build + 2)"
     $fixtureApp = Join-Path $fixture "app"
     $null = New-Item -ItemType Directory -Path $fixtureApp
     Copy-Item -Path (Join-Path $source "*") -Destination $fixtureApp -Recurse
     "obsolete managed file" | Set-Content -LiteralPath (Join-Path $fixtureApp "obsolete-test.txt")
-    $builder = Join-Path $PSScriptRoot "..\tools\New-Installer.ps1"
     & $builder -AppDirectory $fixtureApp -Version $next -OutputDirectory $fixture | Out-Host
     Invoke-Setup (Join-Path $fixture "FingVibe-$next-win-x64-Setup.exe") "upgrade-with-owned-file"
     Remove-Item -LiteralPath (Join-Path $fixtureApp "obsolete-test.txt")
@@ -120,7 +162,7 @@ try {
     Assert-True ((Get-Content -LiteralPath $unknown) -eq "keep unknown file") "Uninstall removed an unknown file."
     Assert-True ((Get-Content -LiteralPath $savedData) -eq "keep saved data") "Uninstall removed saved data."
     Assert-True (-not (Test-Path -LiteralPath $desktopShortcut)) "Desktop shortcut survived uninstall."
-    Write-Host "Installer fresh install, launch, adoption, upgrade, downgrade, and uninstall checks passed."
+    Write-Host "Installer fresh install, launch, 1.0 feature-version upgrade, adoption, upgrade, downgrade, and uninstall checks passed."
 } finally {
     $env:FINGVIBE_UI_REVIEW = $savedReview
     if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force }
