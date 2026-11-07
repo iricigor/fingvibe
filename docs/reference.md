@@ -84,7 +84,7 @@ Without a saved theme preference, FingVibe starts with Standard Light or Standar
 
 Appearance choices apply immediately and are saved to `%LOCALAPPDATA%\FingVibe\appearance.json` for the next launch; existing saved themes remain compatible and take precedence over Windows app mode. Ordinary Windows light/dark changes do not switch the theme while FingVibe is running. Unsupported backdrop materials fall back to a solid theme background without discarding your selection. Material rendering also follows Windows transparency settings; Windows high contrast takes precedence and uses system colors instead.
 
-Settings places the appearance selectors side by side when space permits and stacks them in narrower windows. Appearance feedback is one sentence in normal operation; save failures, unavailable materials, and high contrast remain explicit. The **Devices page** card starts with matching **Compact rows** and **Cell hover previews** switches in one row, stacking them in narrow windows. Both use rounded-rectangle tracks and thumbs while retaining native Windows toggle, keyboard, focus, and theme behavior. Compact off selects Standard/relaxed rows; hover off uses ordinary tooltips. Visible and combined column choices share the same up-to-three-column layout and responsive thresholds. Name and IP address are always shown. Column visibility, combination choices, and individual/combined widths are saved atomically in `%LOCALAPPDATA%\FingVibe\device-table.json`. **Reset columns** restores visibility, widths and combination defaults but preserves both switches. Load failures are shown in Settings and prevent overwriting the unreadable file; save failures keep the current layout and report that it could not be saved. UI-review mode never reads or writes these preferences. The page remains scrollable for small windows and larger text.
+Settings places the appearance selectors side by side when space permits and stacks them in narrower windows. Appearance feedback is one sentence in normal operation; save failures, unavailable materials, and high contrast remain explicit. The **Devices page** card starts with matching **Compact rows** and **Cell hover previews** switches in one row, stacking them in narrow windows. Both use rounded-rectangle tracks and thumbs while retaining native Windows toggle, keyboard, focus, and theme behavior. Compact off selects Standard/relaxed rows; hover off uses ordinary tooltips. Visible and combined column choices share the same up-to-three-column layout and responsive thresholds. Name and IP address are always shown. Column visibility, combination choices, individual/combined widths and the Status filter are saved atomically in `%LOCALAPPDATA%\FingVibe\device-table.json`. **Reset columns** restores visibility, widths and combination defaults but preserves both switches and the Status selection. Load failures are shown in Settings and prevent overwriting the unreadable file; save failures keep the current layout and report that it could not be saved. UI-review mode uses table preferences only through an explicit isolated fixture path, never the user's saved file. The page remains scrollable for small windows and larger text.
 
 Public IP and ISP details are retrieved from `ipwho.is`. This optional display depends on internet access and sends the connection's public IP to that provider as part of the HTTPS request. LAN discovery and scanning continue to work when the lookup is unavailable.
 
@@ -199,6 +199,18 @@ a far-right connected funnel/reset control. The funnel reveals **Device type**, 
 **Vendor**, **Person**, **Room**, and **Ports** in exactly one second row, initially
 collapsed. Hiding that row preserves its restrictions; the funnel displays the
 number of active secondary categories, excluding Status and search.
+
+Status selections, including multiple categories or the unrestricted selection,
+are saved with the existing table preferences and restored after restart.
+Dropdown changes, status summary chips, Overview shortcuts and Clear filters
+use the same persisted selection. Search and other filter categories are not
+restored. Remembering **Status: Online** does not preserve Online evidence:
+restored observations are historical, so that filter can initially show no rows
+until fresh ICMP results are checkpointed. Starting a scan retains the displayed
+rows until that checkpoint; later stages update the current scan's evidence.
+UI-review mode reads/writes table settings only when an explicit isolated
+`FINGVIBE_UI_REVIEW_DEVICE_TABLE` fixture path is supplied, never the user's
+normal preferences. Native restart coverage uses and removes that fixture.
 
 Category dropdowns contain native checkboxes and stay open while selecting
 multiple values. Selections combine with OR inside a category and AND between

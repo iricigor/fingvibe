@@ -64,6 +64,16 @@ public sealed partial class DevicesPageView : UserControl
             OnFiltersChanged();
         }
     }
+    internal IReadOnlySet<InventoryDeviceStatus> StatusFilters => _statuses.Selected;
+
+    internal void RestoreStatusFilters(IEnumerable<InventoryDeviceStatus> statuses)
+    {
+        _updatingFilters = true;
+        try { _statuses.SelectOnly(statuses); }
+        finally { _updatingFilters = false; }
+        OnFiltersChanged();
+    }
+
     internal ScanResultRow? SelectedResult
     {
         get => ResultsList.SelectedItem as ScanResultRow;

@@ -1,25 +1,33 @@
 using System.Text.Json;
+using FingVibe.Core.Models;
 using FingVibe.Core.Storage;
 
 namespace FingVibe.App;
 
 public sealed partial class MainWindow
 {
-    private readonly DeviceTableSettingsStore _deviceTableStore = new(Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FingVibe", "device-table.json"));
+    private readonly DeviceTableSettingsStore _deviceTableStore = new(
+        IsUiReview && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_DEVICE_TABLE") is { Length: > 0 } fixture
+            ? fixture : Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FingVibe", "device-table.json"));
+    private readonly bool _deviceTableSettingsEnabled = !IsUiReview
+        || Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_DEVICE_TABLE") is { Length: > 0 };
     private bool _deviceTableLoadFailed;
+    private bool _deviceTableSettingsReady;
+    private InventoryDeviceStatus[] _savedStatusFilters = [];
 
     private void InitializeDeviceTableSettings()
     {
         var columns = DeviceColumnLayout.Current;
         var migrateDensity = false;
-        if (!IsUiReview)
+        if (_deviceTableSettingsEnabled)
         {
             try
             {
                 if (_deviceTableStore.Load() is { } settings)
                 {
                     columns.Restore(settings);
+                    DevicesPage.RestoreStatusFilters(settings.StatusFilters ?? []);
                     migrateDensity = settings.DensityVersion == 0;
                 }
             }
@@ -29,6 +37,8 @@ public sealed partial class MainWindow
                 SettingsPage.ColumnSaveStatus = "Saved table settings could not be loaded. Defaults are shown; the file will not be overwritten.";
             }
         }
+        _savedStatusFilters = DevicesPage.StatusFilters.Order().ToArray();
+        _deviceTableSettingsReady = true;
         columns.SettingsChanged += DeviceTableSettings_Changed;
         Closed += (_, _) => columns.SettingsChanged -= DeviceTableSettings_Changed;
         if (migrateDensity) DeviceTableSettings_Changed(this, EventArgs.Empty);
@@ -36,15 +46,24 @@ public sealed partial class MainWindow
 
     private void DeviceTableSettings_Changed(object? sender, EventArgs e)
     {
-        if (IsUiReview || _deviceTableLoadFailed) return;
+        if (!_deviceTableSettingsEnabled || !_deviceTableSettingsReady || _deviceTableLoadFailed) return;
         try
         {
-            _deviceTableStore.Save(DeviceColumnLayout.Current.Capture());
+            var statuses = DevicesPage.StatusFilters.Order().ToArray();
+            _deviceTableStore.Save(DeviceColumnLayout.Current.Capture() with { StatusFilters = statuses });
+            _savedStatusFilters = statuses;
             SettingsPage.ColumnSaveStatus = "Table preferences are saved automatically.";
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             SettingsPage.ColumnSaveStatus = "Table changes are applied, but could not be saved for the next launch.";
         }
+    }
+
+    private void SaveStatusFilterSettings()
+    {
+        if (!_deviceTableSettingsReady) return;
+        if (!DevicesPage.StatusFilters.Order().SequenceEqual(_savedStatusFilters))
+            DeviceTableSettings_Changed(this, EventArgs.Empty);
     }
 }

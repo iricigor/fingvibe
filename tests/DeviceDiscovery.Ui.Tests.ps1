@@ -103,7 +103,7 @@ $previous = @{}
 foreach ($key in @("FINGVIBE_UI_REVIEW", "FINGVIBE_UI_REVIEW_INVENTORY", "FINGVIBE_UI_REVIEW_SNAPSHOT",
     "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT", "FINGVIBE_UI_REVIEW_SCAN_RESULTS", "FINGVIBE_UI_REVIEW_NETWORK",
     "FINGVIBE_UI_REVIEW_SCAN_HOLD", "FINGVIBE_UI_REVIEW_PERIODIC_SCAN", "FINGVIBE_UI_REVIEW_PERIODIC_SCAN_TIME_SCALE",
-    "FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD")) {
+    "FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD", "FINGVIBE_UI_REVIEW_DEVICE_TABLE")) {
     $previous[$key] = [Environment]::GetEnvironmentVariable($key)
 }
 $directory = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-discovery-ui-$([Guid]::NewGuid().ToString('N'))"
@@ -127,6 +127,7 @@ try {
     $env:FINGVIBE_UI_REVIEW_SCAN_HOLD = $hold
     $env:FINGVIBE_UI_REVIEW_NETWORK = "ui-review-network"
     $env:FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD = $null
+    $env:FINGVIBE_UI_REVIEW_DEVICE_TABLE = $null
     $observation = @{
         networkId = "ui-review-network"; subnet = "127.0.0.1/32"; address = "127.0.0.1"; hostname = $null
         vendor = "Example"; ports = @(); latency = 1; probeDuration = "00:00:00.001"
@@ -338,6 +339,51 @@ try {
         throw "Restored discoveries must say they were found while FingVibe was minimized."
     }
     (Find-DiscoveryControl CloseDiscoveryPopup).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Stop-DiscoveryApp
+    $env:FINGVIBE_UI_REVIEW_PERIODIC_SCAN = $null
+    $tableSettings = Join-Path $directory "device-table.json"
+    $env:FINGVIBE_UI_REVIEW_DEVICE_TABLE = $tableSettings
+    Start-DiscoveryApp
+    (Find-DiscoveryControl OnlineChip).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
+    Wait-DiscoveryState {
+        (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: Online"
+    } "Online Status filter"
+    Stop-DiscoveryApp
+    Start-DiscoveryApp
+    if ((Find-DiscoveryControl InventoryStatusFilter).Current.Name -ne "Status: Online" -or
+        (Find-DiscoveryControl OnlineChip).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne
+            [System.Windows.Automation.ToggleState]::On) {
+        throw "Online Status selection was not restored in the dropdown and summary chip."
+    }
+    (Find-DiscoveryControl OfflineChip).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
+    Wait-DiscoveryState {
+        (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: Online, Offline"
+    } "multiple Status selections"
+    Stop-DiscoveryApp
+    Start-DiscoveryApp
+    if ((Find-DiscoveryControl InventoryStatusFilter).Current.Name -ne "Status: Online, Offline") {
+        throw "Multiple Status selections were not restored."
+    }
+    (Find-DiscoveryControl ClearFiltersLink).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Wait-DiscoveryState {
+        (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: All"
+    } "cleared Status selection"
+    Stop-DiscoveryApp
+    Start-DiscoveryApp
+    if ((Find-DiscoveryControl InventoryStatusFilter).Current.Name -ne "Status: All") {
+        throw "Cleared Status selection was not restored."
+    }
+    Stop-DiscoveryApp
+    $invalidTableSettings = '{"columns":{},"statusFilters":[99]}'
+    Set-Content -LiteralPath $tableSettings -Value $invalidTableSettings -Encoding ASCII
+    Start-DiscoveryApp
+    (Find-DiscoveryControl OnlineChip).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
+    Wait-DiscoveryState {
+        (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: Online"
+    } "session-only selection after invalid preferences"
+    if ((Get-Content -LiteralPath $tableSettings -Raw).Trim() -ne $invalidTableSettings) {
+        throw "Changing Status must not overwrite invalid saved table preferences."
+    }
     Stop-DiscoveryApp
     Write-Host "Device discovery native UI checks passed."
 }

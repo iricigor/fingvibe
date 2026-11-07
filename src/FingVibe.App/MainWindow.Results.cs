@@ -17,6 +17,7 @@ public sealed partial class MainWindow
     private void DeviceFiltersChanged(object? sender, EventArgs e)
     {
         RefreshVisibleResults();
+        SaveStatusFilterSettings();
     }
 
     private void DeviceSortRequested(object? sender, string columnName)

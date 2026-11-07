@@ -34,7 +34,46 @@ public sealed class DeviceTableSettingsStoreTests : IDisposable
         Assert.False(loaded.EnlargedCellPreviews);
         Assert.True(loaded.CombineVendorOs);
         Assert.True(loaded.CompactRows);
+        Assert.Null(loaded.StatusFilters);
         Assert.Single(Directory.GetFiles(_directory));
+    }
+
+    [Theory]
+    [InlineData(new[] { InventoryDeviceStatus.Online })]
+    [InlineData(new[] { InventoryDeviceStatus.Online, InventoryDeviceStatus.Offline })]
+    [InlineData(new[] { InventoryDeviceStatus.Unknown, InventoryDeviceStatus.FingOnly })]
+    [InlineData(new InventoryDeviceStatus[0])]
+    public void StatusSelectionsSurviveReplacementAndFreshStoreInstances(InventoryDeviceStatus[] statuses)
+    {
+        var store = new DeviceTableSettingsStore(FilePath);
+        store.Save(new(new() { ["Name"] = new(230, true) }) { StatusFilters = [InventoryDeviceStatus.Online] });
+        store.Save(new(new() { ["Name"] = new(230, true) }) { StatusFilters = statuses });
+        var restored = new DeviceTableSettingsStore(FilePath).Load()!;
+        Assert.Equal(statuses, restored.StatusFilters);
+        Assert.Equal(230, restored.Columns["Name"].Width);
+        Assert.Single(Directory.GetFiles(_directory));
+    }
+
+    [Theory]
+    [InlineData("{\"columns\":{},\"statusFilters\":[99]}")]
+    [InlineData("{\"columns\":{},\"statusFilters\":[0,0]}")]
+    [InlineData("{\"columns\":{},\"statusFilters\":\"Online\"}")]
+    public void InvalidStatusSelectionsAreReportedAndTheOriginalFileIsPreserved(string json)
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(FilePath, json);
+        Assert.Throws<JsonException>(() => new DeviceTableSettingsStore(FilePath).Load());
+        Assert.Equal(json, File.ReadAllText(FilePath));
+    }
+
+    [Fact]
+    public void InvalidStatusSelectionsCannotReplaceSavedPreferences()
+    {
+        var store = new DeviceTableSettingsStore(FilePath);
+        var valid = new DeviceTableSettings(new()) { StatusFilters = [InventoryDeviceStatus.Online] };
+        store.Save(valid);
+        Assert.Throws<ArgumentException>(() => store.Save(valid with { StatusFilters = [(InventoryDeviceStatus)99] }));
+        Assert.Equal(valid.StatusFilters, store.Load()!.StatusFilters);
     }
 
     [Theory]
