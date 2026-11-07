@@ -8,7 +8,8 @@ describe state; they do not enforce authorization, locking, or merge protection.
 
 [Task #222](https://github.com/iricigor/fingvibe/issues/222) delivers
 [⏩ Dispatcher](../.github/agents/automation-dispatcher.agent.md), bounded
-Developer assignments, and [the local handoff/reporting contract](local-agent-handoffs.md).
+Developer assignments, and the [short kickoff](automation-prompts/dispatcher.md).
+Coordination and reporting rules live directly in the two agent definitions.
 It does not install or activate desktop Automations or implement the broader
 Actions loop #96-#108.
 

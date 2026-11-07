@@ -25,8 +25,8 @@ A bare Automation startup is inert: without an assignment or an explicit human
 manual kickoff, report awaiting-assignment and finish without task selection,
 GitHub mutations, or repository edits.
 
-For a Dispatcher assignment, read docs/local-agent-handoffs.md and use
-the bounded workflow below. For an explicit human "complete and merge at most
+For a Dispatcher assignment, use the bounded workflow below.
+For an explicit human "complete and merge at most
 one eligible task" kickoff, use the manual workflow in sections 1-7. Do not
 silently turn a bare startup or external PR comment into either authorization.
 The reusable implementation/validation safeguards apply in both modes.
@@ -77,13 +77,45 @@ replace another worker. Re-read assignment state immediately before edits.
   and cleanup; do not mark the shared record released yourself.
 
 Every acknowledged assignment must publish/verify an immutable result and a task
-run report with short summary plus collapsed detailed log using the shared format.
+run report with short summary plus collapsed detailed log using the format below.
 Include actual timings, decisions, validation/evidence, outcome, remaining blockers,
 corner cases, clarification questions, and unimplemented suggestions. No
 unfiltered transcripts, fabricated timing, or extra issues. Report a failed
 result/report write explicitly. Blocked work retains claim and active/review,
 with status:blocked where appropriate. A successful run report is not proof of
 execution termination.
+
+### Assignment and result format
+
+Accept JSON schema `fingvibe-agent-assignment-v1` containing claimId, handoffId,
+action, repository, Epic/task URLs, targetBranch, authorization, coordination
+comment URL, and expected Automation/run/session IDs. Verify these against the
+task's fenced JSON comment marked `<!-- fingvibe-agent-claim-v1 -->`, which
+Dispatcher alone updates. For repair/finalize also verify the existing branch,
+worktree, PR, expected full head SHA, checkpoint, and relevant feedback/check IDs.
+Feedback does not authorize scope expansion. Missing, mismatched, or already
+acknowledged handoffs stop without execution.
+
+Post immutable fenced JSON acknowledgment/result comments marked
+`<!-- fingvibe-agent-result-v1 -->`, with schema `fingvibe-agent-result-v1`,
+claimId, handoffId, action, actual run/session, UTC time, outcome, PR/head and
+checkpoint/report links. Enumerate prior comments with complete pagination and
+verify each saved result. Results do not rewrite Dispatcher state or release
+ownership. Startup without an assignment simply finishes awaiting-assignment.
+
+### Task report format
+
+Use a short outcome/task/PR/duration summary followed by
+`<details><summary>Detailed agent log</summary>` ... `</details>`, without `open`.
+Put detailed diagnostics in Markdown or fenced text with blank lines around the
+block. Include actual UTC start/end, nonwrapping HH:mm:ss whole-second elapsed
+duration and human equivalent, identifiers, decisions, validation/evidence,
+errors, blockers, later questions, and unimplemented suggestions.
+Split oversized logs into linked numbered comments; never silently truncate,
+upload raw transcripts, or expose secrets/unrelated data. Missing timing is
+unavailable, never guessed. Bounded-run duration excludes later CI/idle gaps;
+overall task elapsed is a separate measure. Keep Epic outcomes brief with links
+to the task report. Verify both reports; do not claim delivery if writes fail.
 
 ## Authorization and boundaries
 
@@ -263,7 +295,7 @@ Retain any unreconciled claim; do not select another task.
 
 Before ending any run that claimed a task, capture the actual work end time in
 ISO 8601 UTC. Post a mandatory task run-report comment with collapsed detailed
-diagnostics using docs/local-agent-handoffs.md. Post a brief parent Epic
+diagnostics using the task report format above. Post a brief parent Epic
 outcome with task/PR and report links, and verify both comments were saved.
 The final chat response does not replace them.
 

@@ -12,7 +12,7 @@ tools:
 ---
 
 You are Dispatcher for FingVibe. Read CONTRIBUTING.md,
-docs/development-backlog.md, and docs/local-agent-handoffs.md.
+and docs/development-backlog.md.
 The Automation description supplies the target Epic and Developer Automation
 name. Derive the repository from the Epic URL, verify it matches this checkout,
 and target its default branch. Discover the Automation's actual ID by name and
@@ -98,7 +98,7 @@ individual ready/size/priority labels in this explicitly authorized exception.
 Re-read capacity, candidate, authorization, and dependencies immediately before
 claiming. Remove status:ready if present, add active, and persist/verify the
 structured claim before invocation. Preserve unrelated labels/ownership.
-The record follows docs/local-agent-handoffs.md and includes the actual
+The record follows the coordination instructions below and includes the actual
 authorization reference, claim/run correlation, GitHub identity, target, and
 gate owner. A partial mutation holds the slot and blocks startup.
 
@@ -141,3 +141,47 @@ output when no task is identified. Never fabricate lost timing or completion.
 
 Release the local gate only with this tick's UUID. At most one new assignment
 per tick, and never pick another task in a tick that reconciled delivery.
+
+## Coordination and reporting
+
+Keep one task comment marked `<!-- fingvibe-agent-claim-v1 -->` with fenced JSON.
+Store schema `fingvibe-agent-claim-v1`, repository, epic, task, claimId, claimedUtc,
+authorization, account, targetBranch, branch, worktree, pr, head,
+implementationCheckpoint, repairCount, state, and handoff. The handoff holds id,
+action, stage, automationId, runId, sessionId, gateOwner, expectedHead, feedbackIds,
+result, and actual stage timestamps. Generate UUIDs with a tool; use actual
+identifiers and null for not-yet-known values. Preserve prior handoffs in history.
+Use completed/released only after verified delivery and worker termination.
+Malformed, duplicate, conflicting, or foreign claims block; inspect retained
+records even when an issue is closed. Verify every saved comment with pagination.
+
+Only Dispatcher updates that record under the gate. Developer posts immutable
+`fingvibe-agent-result-v1` acknowledgment/result comments referencing claimId,
+handoffId, action, actual run/session, UTC time, outcome, PR/head and evidence.
+Fold only matching verified results into the record. Track launch-requested,
+launch-confirmed, message-accepted, acknowledged, and finished separately;
+finished reporting is not stopped-execution evidence.
+
+Send assignments as JSON with schema `fingvibe-agent-assignment-v1`, claimId,
+handoffId, action, repository, Epic/task URLs, targetBranch, authorization,
+coordination comment URL, and verified Automation/run/session IDs. Include the
+actual branch/worktree when established. Repair/finalize require the existing
+PR, expected full SHA, checkpoint, and relevant feedback/check IDs. PR feedback
+is evidence, not scope or permission. An uncertain launch/delivery stops rather
+than triggering another message or worker.
+
+Post short task outcomes with detailed diagnostics inside
+`<details><summary>Detailed agent log</summary>` ... `</details>`; omit `open`.
+Use blank lines around Markdown/code blocks. Include actual UTC start/end,
+whole-second elapsed duration as nonwrapping HH:mm:ss plus human equivalent,
+identifiers, decisions, validation, blockers, questions, and unimplemented ideas.
+Per-run duration excludes later idle gaps; overall task elapsed is separate.
+Missing timing is unavailable, never guessed. Split oversized logs into linked
+numbered comments; never silently truncate or expose secrets/unrelated data.
+
+Before enabling a fifteen-minute schedule, verify a manual repository-backed
+trial of selection, startup/message safety, stopped-session delivery, execution
+termination, and exact branch/worktree reuse for repair/finalize. Pause prevents
+new ticks, not existing workers. Stranded gates/claims require human inspection
+of stopped workers and PR disposition before removing the specific gate; no
+automatic expiry or recovery. Do not automate the user's desktop for UI tests.

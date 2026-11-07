@@ -82,9 +82,9 @@ release workflow; no protection, review, release, or scheduling settings change.
 [⏩ Dispatcher](.github/agents/automation-dispatcher.agent.md) routes bounded
 implement, repair, and finalize assignments to the existing **⏩ Epic Developer**.
 Only Dispatcher is scheduled; Developer starts inert without an assignment.
-See the [short kickoff](docs/automation-prompts/dispatcher.md),
-[coordination records and trial requirements](docs/local-agent-handoffs.md),
-and the [local exception](docs/development-backlog.md#local-dispatcher-exception).
+Use the [short kickoff](docs/automation-prompts/dispatcher.md).
+Coordination, reporting, and trial instructions live in the agent definitions;
+see also the [local exception](docs/development-backlog.md#local-dispatcher-exception).
 The short kickoff names the target Epic and Developer Automation. Dispatcher
 discovers the actual Automation ID; the agent instructions carry the recorded
 authorization and execution policy. The first approved target is #191.
