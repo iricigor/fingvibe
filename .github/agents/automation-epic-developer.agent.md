@@ -172,6 +172,19 @@ repository-wide slot, even outside the target Epic. Stop with issue/PR links.
 Unclaimed blocked backlog items do not consume the slot. An assignee alone is not
 proof of a live worker or a free claim; ambiguous ownership stops pickup.
 
+For closed historical tasks with verified merged linked PRs and no genuine
+unfinished work, reconcile stale lifecycle labels/missing historical manual
+release records only among the target Epic's direct native children. Outside
+that Epic those records alone do not consume capacity; leave labels/ownership
+unchanged. An undiscoverable historical manual session alone is not a live
+worker or unresolved Dispatcher claim. Verify native membership and merged PR
+disposition; missing/inaccessible/ambiguous evidence or closed-unmerged PRs do
+not qualify. Within-Epic historical cleanup still blocks until reconciled.
+Known running workers, explicit unresolved Dispatcher claims, and genuine
+unfinished work remain repository-wide blockers even after issue closure/merge.
+Partial or uncertain Dispatcher launches/messages never qualify for this
+historical exception; do not automatically release ownership or remove labels.
+
 Do not resume another session's work, clear its labels, or infer abandonment
 from elapsed time, issue closure, a missing PR, or unavailable session evidence.
 Orphan detection/recovery is outside this iteration. Inaccessible APIs,

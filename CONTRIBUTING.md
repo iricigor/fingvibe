@@ -121,6 +121,15 @@ repair/finalize. Never substitute a synchronous subagent.
 Compliant Dispatchers on the same PC share the helper's default persistent gate.
 Unknown workers, partial launches, stale gates, or missing host capabilities stop
 pickup and retain claims for human reconciliation; there is no age-based recovery.
+Open PRs, open active/review work, known running workers, and explicit unresolved
+Dispatcher claims are checked repository-wide. Closed historical tasks with
+verified merged linked PRs and no genuine unfinished work need label-only or
+missing historical manual-release cleanup only within the target Epic's direct
+native children. Out-of-Epic historical records alone do not block and remain
+unchanged; missing historical session discovery alone is not a live-worker
+claim. Verify membership/delivery before excluding them; unknown/unmerged
+disposition and real unresolved claims still block. Within-Epic cleanup is not
+automatic ownership release. See the local exception's full capacity contract.
 Task issues contain short summaries, collapsed detailed diagnostics, and separate
 structured handoff state. Epic outcomes remain brief, linked to task reports.
 The original Timeline human-invoked kickoff remains available and is not an
