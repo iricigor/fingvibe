@@ -145,6 +145,8 @@ WHERE o.network_id = 'your-saved-network-id';
 isolated synthetic databases. The Windows Tools regression suite also runs
 `SqlEditor.Ui.Tests.ps1`, with explicit isolated inventory/snapshot paths, and
 captures result/error/limit/cancellation/narrow states. That script refuses to
-automate a non-disposable desktop. The `SqlEditor` capture scenario covers the
-page and navigation in the existing UI review; screenshot evidence and remote
-checks must still be reviewed before delivery.
+automate a non-disposable desktop. `SqlEditor.Script.Tests.ps1` checks delayed,
+hidden, disabled, missing, and failing automation peers without driving a
+desktop; missing controls retain bounded timeout failures. The `SqlEditor`
+capture scenario covers the page and navigation in the existing UI review;
+screenshot evidence and remote checks must still be reviewed before delivery.

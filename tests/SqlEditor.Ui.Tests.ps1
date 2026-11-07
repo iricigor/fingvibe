@@ -28,6 +28,14 @@ function Wait-SqlState([scriptblock] $Predicate, [string] $Description, [int] $S
     throw "Timed out waiting for $Description."
 }
 
+function Wait-SqlControl([string] $Id, [switch] $Visible, [switch] $Enabled, [int] $Seconds = 10) {
+    Wait-SqlState {
+        $control = Find-SqlControl $Id -Optional
+        $control -and (-not $Visible -or -not $control.Current.IsOffscreen) -and
+            (-not $Enabled -or $control.Current.IsEnabled)
+    } "SQL control '$Id' readiness" $Seconds
+}
+
 function Invoke-SqlControl([string] $Id) {
     (Find-SqlControl $Id).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
 }
@@ -35,9 +43,9 @@ function Invoke-SqlControl([string] $Id) {
 function Select-SqlTools {
     (Find-SqlControl ToolsNavItem).GetCurrentPattern(
         [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-    Wait-SqlState { Find-SqlControl SqlEditorCard -Optional } "SQL editor card"
+    Wait-SqlControl SqlEditorCard -Visible -Enabled
     Invoke-SqlControl SqlEditorCard
-    Wait-SqlState { -not (Find-SqlControl SqlText).Current.IsOffscreen } "SQL query editor"
+    Wait-SqlControl SqlText -Visible -Enabled
 }
 
 function Start-SqlQuery([string] $Sql) {
@@ -48,8 +56,9 @@ function Start-SqlQuery([string] $Sql) {
 
 function Assert-SqlResult([string] $Pattern) {
     Wait-SqlState {
-        $status = (Find-SqlControl QueryStatus).Current.Name
-        $status -like $Pattern -and (Find-SqlControl RunButton).Current.IsEnabled
+        $status = Find-SqlControl QueryStatus -Optional
+        $run = Find-SqlControl RunButton -Optional
+        $status -and $run -and $status.Current.Name -like $Pattern -and $run.Current.IsEnabled
     } "SQL result '$Pattern'"
 }
 
@@ -107,15 +116,17 @@ try {
     foreach ($column in @("imported_name", "imported_model", "imported_os")) {
         $condition = [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::NameProperty, $column)
-        if (-not (Find-SqlControl ResultScroll).FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)) {
-            throw "Result header '$column' must preserve the returned SQL column name."
-        }
+        Wait-SqlState {
+            $results = Find-SqlControl ResultScroll -Optional
+            $results -and $results.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        } "result header '$column' preserving the returned SQL column name"
     }
     $nameCondition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::NameProperty, "Synthetic SQL device")
-    if (-not (Find-SqlControl ResultRows).FindFirst([System.Windows.Automation.TreeScope]::Descendants, $nameCondition)) {
-        throw "Persisted synthetic inventory was not rendered in the result table."
-    }
+    Wait-SqlState {
+        $rows = Find-SqlControl ResultRows -Optional
+        $rows -and $rows.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $nameCondition)
+    } "persisted synthetic inventory rendered in the result table"
     Save-SqlCapture "sql-results" 25
     Save-SqlCapture "sql-editor"
 
@@ -134,7 +145,7 @@ try {
 
     $expensive = "WITH RECURSIVE n(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM n) SELECT sum(i) FROM n;"
     Start-SqlQuery $expensive
-    Wait-SqlState { (Find-SqlControl CancelButton).Current.IsEnabled } "responsive cancellation"
+    Wait-SqlControl CancelButton -Enabled
     Invoke-SqlControl CancelButton
     Assert-SqlResult "Cancelled*"
     Save-SqlCapture "sql-cancelled"
@@ -143,9 +154,10 @@ try {
 
     (Find-SqlControl SchemaExpander).GetCurrentPattern(
         [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
-    if (-not (Find-SqlControl SchemaColumns).Current.Name.Contains("device_id")) {
-        throw "Schema browser must expose the reporting columns."
-    }
+    Wait-SqlState {
+        $columns = Find-SqlControl SchemaColumns -Optional
+        $columns -and $columns.Current.Name.Contains("device_id")
+    } "schema browser reporting columns"
     $null = [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
         0, 0, 640, 800, 0x0044)
     Initialize-UiReviewWindow $script:process.MainWindowHandle
@@ -159,7 +171,7 @@ try {
         }
     }
     Start-SqlQuery $expensive
-    Wait-SqlState { (Find-SqlControl CancelButton).Current.IsEnabled } "running query before navigation"
+    Wait-SqlControl CancelButton -Enabled
     (Find-SqlControl OverviewNavItem).GetCurrentPattern(
         [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
     Start-Sleep -Milliseconds 300
@@ -168,7 +180,7 @@ try {
     if ((Get-InventoryFingerprint $database) -cne $fingerprint) { throw "Queries changed the persisted fixture." }
 
     Start-SqlQuery $expensive
-    Wait-SqlState { (Find-SqlControl CancelButton).Current.IsEnabled } "running query before close"
+    Wait-SqlControl CancelButton -Enabled
     $clock = [Diagnostics.Stopwatch]::StartNew()
     $null = $script:process.CloseMainWindow()
     if (-not $script:process.WaitForExit(3000)) { throw "Window close did not cancel SQL promptly." }
