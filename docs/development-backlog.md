@@ -4,6 +4,56 @@ This contract prepares issue intake and future scheduled pickup. It does not
 implement dispatch, agent invocation, review automation, or merging. Labels
 describe state; they do not enforce authorization, locking, or merge protection.
 
+## Local Dispatcher exception
+
+[Task #222](https://github.com/iricigor/fingvibe/issues/222) delivers
+[⏩ Dispatcher](../.github/agents/automation-dispatcher.agent.md), bounded
+Developer assignments, and [the local handoff/reporting contract](automation-prompts/dispatcher.md).
+It does not install or activate desktop Automations or implement the broader
+Actions loop #96-#108.
+
+A human may explicitly authorize unattended selection, implementation, one
+automatic repair, and validated merging of eligible native task children of one
+Epic identified in the installed Dispatcher description. Record that approval;
+the Epic URL or saving a description alone is not authorization. In this bounded
+exception individual ready/size/priority approvals are not prerequisites, and
+agents must not manufacture them. All other workflows retain their own gates.
+The target Epic and Developer Automation identity must be supplied explicitly,
+never silently inferred from examples. Scheduling activation remains separately
+approved. Merges to main retain the existing release trigger and all actual gates.
+
+Dispatcher alone selects/claims and routes implement, repair, or non-coding
+finalize assignments. Developer starts inert without an assignment and keeps the
+same isolated task branch/PR through subsequent runs. Dispatcher does not wait
+for coding/CI. One repository-wide claim includes startup, implementation, draft
+validation, review, and blocked/uncertain work. Worker reports, issue closure,
+and queue admission are not proof that execution stopped. Slot release requires
+verified delivery, stopped worker, and reconciled cleanup.
+
+All compliant local ticks use the persistent, atomic-create repository gate in
+.github/scripts/Invoke-DispatcherGate.ps1, with the same default local state root.
+This is single-PC serialization, not a GitHub/Actions lock or protection against
+humans/other hosts. Re-read GitHub state before consequential writes. Durable
+task-comment correlation is required before launch. Partial launch/message
+results hold the claim; do not retry uncertain starts. No claim/gate expiry,
+automatic worker replacement, or orphan recovery is authorized. Human inspection
+approximately every six hours does not make uncertain state safe.
+
+The Dispatcher description proposes fifteen-minute pickup. Human-controlled
+pause prevents new ticks; it does not terminate workers. One automatic repair
+attempt per claim is permitted only for actionable implementation-related
+feedback. Persistent failures, unrelated validation problems, material scope
+changes/conflicts, and unavailable capabilities/evidence block for human action.
+
+Task issues hold structured coordination/result comments and short per-run
+summaries with collapsed-by-default detailed logs. Epic reporting is a brief
+terminal/blocker outcome linked to those task reports plus its child checklist.
+This presentation also replaces detailed Epic diagnostics in the manual-worker
+mode below; it does not change that mode's execution/merge authority. Per-run
+duration and overall task elapsed time are distinct; never fabricate interruption
+timing. Live launch/context reuse/termination must be trialed in the intended
+desktop host before scheduling; instruction delivery is not runtime verification.
+
 ## Explicitly invoked manual-worker exception
 
 [Task #189](https://github.com/iricigor/fingvibe/issues/189) adds the
@@ -22,9 +72,9 @@ In this explicitly invoked mode, `status:ready`, size, and priority labels and
 per-candidate readiness approval records are not prerequisites. The worker
 checks delivered dependencies, follows explicit Epic task order (otherwise
 ascending issue number), resolves ordinary ambiguities autonomously, and records
-decisions, assumptions, questions, corner cases, and unimplemented suggestions on
-the parent Epic. It cannot drop acceptance criteria, expand scope, change gates,
-or manufacture completion. Only requested changes and directly necessary tests
+decisions, assumptions, questions, corner cases, and unimplemented suggestions in
+the task's collapsed report, linked from its parent Epic. It cannot drop acceptance
+criteria, expand scope, change gates, or manufacture completion. Only requested changes and directly necessary tests
 and documentation are allowed.
 
 The worker checks repository-wide claims and open PRs, including drafts, before
@@ -39,8 +89,9 @@ The worker waits for actual applicable final-revision validation and blocking
 reviews, repairs implementation-caused failures within scope, and merges only
 verified work without bypass. Unrelated failures or unavailable evidence block
 delivery. It verifies merge, issue closure, lifecycle cleanup, and the Epic
-checklist, then posts and verifies a mandatory parent Epic work summary and stops
-after one task. The summary records actual run start/work end times in ISO 8601
+checklist, then posts and verifies a mandatory task report with collapsed detailed
+logs, a brief linked parent Epic outcome, and stops after one task.
+The task report records actual run start/work end times in ISO 8601
 UTC and total elapsed run duration calculated from those timestamps, task and
 PR links, delivered work and validation outcome, decisions,
 post-work comments, corner cases, questions to clarify later, and unimplemented
@@ -61,7 +112,8 @@ This narrow instruction-only mode does not deliver or waive the full scheduled
 loop's policy/protection/activation tasks #104–#108.
 
 All other workflows retain the approval, selection, serialization, recovery, and
-activation requirements below. In particular, Architect remains discussion-first
+activation requirements below, except for the separately authorized local
+Dispatcher mode above. In particular, Architect remains discussion-first
 and publishes for human review without automatically merging its own delivery.
 Host permissions and higher-priority instructions still apply to every agent.
 

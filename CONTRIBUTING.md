@@ -56,7 +56,8 @@ This delivery creates or enables no Automation and verifies no live picker/run.
 A local scheduled run requires the app/computer to be available and separate
 activation approval. Start manually; do not overlap invocations. Existing
 claims/draft PRs block pickup even after an hour, and orphan recovery is excluded.
-Every claimed run must publish and verify a parent Epic work-summary comment:
+Every claimed run must publish and verify a task report with collapsed detailed
+logs, plus a brief parent Epic outcome linking to that report:
 actual UTC start/end times and calculated total elapsed run duration, task and
 PR links, work/validation outcome, decisions,
 post-work comments, corner cases, later clarification questions, and unimplemented
@@ -75,6 +76,38 @@ GitHub identity; it does not enable GitHub's repository auto-merge setting.
 Host access must support issue updates, pushes, PRs, checks/log retrieval, comments,
 and merge. Missing permissions are blockers. Merges to `main` trigger the existing
 release workflow; no protection, review, release, or scheduling settings change.
+
+## Local Dispatcher and Developer
+
+[⏩ Dispatcher](.github/agents/automation-dispatcher.agent.md) routes bounded
+implement, repair, and finalize assignments to the existing **⏩ Epic Developer**.
+Only Dispatcher is scheduled; Developer starts inert without an assignment.
+See [description templates, coordination records, and trial requirements](docs/automation-prompts/dispatcher.md)
+and the [local exception](docs/development-backlog.md#local-dispatcher-exception).
+The human supplies one target Epic, the configured Developer Automation identity,
+and unattended implementation/merge authorization. No individual readiness labels
+are required in that explicitly authorized mode.
+
+The repository supplies instructions and a local serialization helper, not
+installed Automations or guaranteed desktop tools. Use an updated repository
+checkout with both agents. A proposed fifteen-minute schedule still needs a
+successful live trial and separate activation approval. Verify independent launch,
+message correlation, worker termination, and exact task worktree/branch reuse for
+repair/finalize. Never substitute a synchronous subagent.
+
+Compliant Dispatchers on the same PC share the helper's default persistent gate.
+Unknown workers, partial launches, stale gates, or missing host capabilities stop
+pickup and retain claims for human reconciliation; there is no age-based recovery.
+Task issues contain short summaries, collapsed detailed diagnostics, and separate
+structured handoff state. Epic outcomes remain brief, linked to task reports.
+The original Timeline human-invoked kickoff remains available and is not an
+unattended Dispatcher description.
+
+Run the deterministic gate regression checks without starting real agents:
+
+```powershell
+.\tests\DispatcherGate.Tests.ps1
+```
 
 ## Architecture discussions with Architect
 
