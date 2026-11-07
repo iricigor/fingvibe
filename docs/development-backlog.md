@@ -35,6 +35,25 @@ validation, review, and blocked/uncertain work. Worker reports, issue closure,
 and queue admission are not proof that execution stopped. Slot release requires
 verified delivery, stopped worker, and reconciled cleanup.
 
+Capacity checks distinguish genuine unfinished work from historical label-only
+cleanup. Open PRs (including drafts), open active/review work, known running
+workers, and explicit unresolved Dispatcher claims remain repository-wide
+blockers even after issue closure or PR merge. Partial/uncertain Dispatcher
+launches or messages never qualify for a historical exception.
+
+Closed historical tasks with verified merged linked PRs and no evidence of
+genuine unfinished work require stale lifecycle-label/missing manual-release
+reconciliation only within the configured Epic's direct native children.
+Outside that Epic, those historical records alone do not consume capacity;
+leave labels and ownership unchanged. An undiscoverable historical manual
+session alone is not evidence of a running worker or unresolved Dispatcher
+claim. Verify native membership and merged PR disposition before excluding
+historical records; inaccessible/ambiguous membership, missing delivery evidence,
+and closed-unmerged PRs remain blockers. Within-Epic historical cleanup still
+requires reconciliation, not automatic label removal or ownership release.
+This exception does not weaken the release requirements for genuine claims or
+change the broader scheduled Actions policy.
+
 All compliant local ticks use the persistent, atomic-create repository gate in
 .github/scripts/Invoke-DispatcherGate.ps1, with the same default local state root.
 This is single-PC serialization, not a GitHub/Actions lock or protection against

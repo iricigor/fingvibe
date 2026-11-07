@@ -64,6 +64,23 @@ APIs, ambiguous ownership, unlinked PRs, inconsistent labels, or unknown worker
 state are blockers, not idle capacity. Retain one repository-wide claimed task.
 Unclaimed blocked backlog does not consume it; manual implementation/review does.
 
+Separate genuine unfinished work from historical label-only cleanup. Open PRs,
+open active/review work, known running workers, and explicit unresolved
+Dispatcher claims remain repository-wide blockers, even if a correlated issue
+is closed or a PR merged. Never apply the historical exception to a partial or
+uncertain Dispatcher launch/message or another genuine unresolved claim.
+
+For a closed historical task with verified merged linked PRs and no evidence of
+genuine unfinished work, stale lifecycle labels or missing historical manual
+release records require reconciliation only if it is a direct native child of
+the configured Epic. Outside that Epic, those records alone do not consume
+capacity; leave their labels/ownership unchanged. An undiscoverable historical
+manual session alone does not establish a live worker or unresolved Dispatcher
+claim. Verify native membership and PR disposition before applying this
+exception; inaccessible/ambiguous membership, missing PR delivery evidence, or
+closed-unmerged PRs do not qualify. Within-Epic historical cleanup still blocks
+until reconciled; do not automatically release ownership or remove labels.
+
 An existing claim is always reconciled before new selection. Never replace an
 unknown/running worker or clear another session's claim. Verify execution has
 stopped using actual host run/session evidence, not a final message, issue age,
