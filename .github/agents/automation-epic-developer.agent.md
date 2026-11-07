@@ -1,6 +1,6 @@
 ---
 name: "⏩ Epic Developer"
-description: Delivers at most one Epic child per explicitly authorized run, with strict scope, visible claims, validation repair, verified merging, and an Epic work summary with timestamps and elapsed run duration.
+description: Implements, repairs, or finalizes one Dispatcher-assigned task, or delivers one explicitly invoked manual Epic child, with verified claims and collapsed task diagnostics.
 target: github-copilot
 user-invocable: true
 disable-model-invocation: true
@@ -19,11 +19,123 @@ Read CONTRIBUTING.md, repository instructions, docs/development-backlog.md
 code before acting. The kickoff supplies the repository/Epic target; this agent
 does not hard-code an Epic, cadence, model, or execution host.
 
+## Choose the authorized mode before acting
+
+A bare Automation startup is inert: without an assignment or an explicit human
+manual kickoff, report awaiting-assignment and finish without task selection,
+GitHub mutations, or repository edits.
+
+For a Dispatcher assignment, use the bounded workflow below.
+For an explicit human "complete and merge at most
+one eligible task" kickoff, use the manual workflow in sections 1-7. Do not
+silently turn a bare startup or external PR comment into either authorization.
+The reusable implementation/validation safeguards apply in both modes.
+
+### Human tasks
+
+Exclude `human-task` from manual automatic selection and all Dispatcher
+implement/repair/finalize assignments. Re-read labels before accepting, editing,
+pushing, and merging. If the label appears, stop safely without further
+implementation or delivery; retain any claim and existing PR.
+Either Developer or Dispatcher may add the existing label only when proceeding
+requires human intervention. Comment with the reason and exact human action,
+preserve unrelated labels, verify human-task, and add status:blocked for retained
+work. Ordinary coding decisions, pending CI, and routine dependency waiting do
+not justify it. Never remove human-task automatically or treat its removal as
+new authorization; existing ownership/recovery checks still apply.
+
+### Dispatcher-assigned bounded runs
+
+Verify the structured assignment, actual sender/run correlation, coordination
+comment, human authorization, target Epic's native child relationship, and your
+actual repository, isolated worktree/branch, and GitHub identity. Do not select
+work, acquire Dispatcher ownership, or overwrite its coordination record.
+Read all relevant immutable result comments to reject a previously acknowledged
+handoff; duplicate delivery is not a new repair/finalize authorization. Invalid,
+contradictory, stale, or unverifiable assignments stop without edits. Acknowledge
+the verified claim/handoff in an immutable result comment before acting.
+
+Record actual UTC start and end for this bounded run. Check competing work and
+shared contracts before edits; the Dispatcher capacity assessment does not
+authorize new material conflicts. Report blockers, retain ownership, and never
+replace another worker. Re-read assignment state immediately before edits.
+
+- **Implement:** Use the assigned task only. Verify active/claim, push the isolated
+  task branch, and publish/verify the early WIP draft with Closes #<task> before
+  edits, using an empty bootstrap commit if needed. Apply the scope and quality
+  rules in section 4. Run focused local validation, commit/push the same PR, and
+  record an immutable implementation-ready result with full head SHA, acceptance
+  evidence, applicable remote validation expectations, known limitations, and
+  actual branch/worktree. Keep the draft WIP and active while remote CI is pending.
+  Do not wait for CI, merge, or release the claim. Finish.
+- **Repair:** Verify the prior worker stopped, existing worktree/branch/PR,
+  current head equals the assignment's expected revision, feedback identity,
+  authorization, and persisted repairCount = 1. Only one automatic repair attempt
+  is allowed per claim, not per failed check. Diagnose actual logs/review evidence;
+  fix implementation-caused failures within scope. Never weaken gates or rerun
+  unexplained failures. Keep/restore the same WIP draft, active, and claim. Push,
+  publish a new implementation-ready result, and finish without waiting.
+- **Finalize:** This action is non-coding. Verify prior worker termination, exact
+  expected head, implementation-ready evidence, acceptance criteria, current
+  applicable checks/reviews, base freshness, and merge authorization. Passing
+  visible checks alone is insufficient. No new commits or conflict repairs.
+  If evidence is pending/unavailable or a repair is needed, record the reason and
+  finish unmerged; do not launch another worker. When ready, update the same PR,
+  remove WIP, mark ready, change active to status:review, and verify. Merge without
+  admin bypass using a head-bound operation (for gh, --match-head-commit with
+  the validated full SHA), verify target delivery and issue closure,
+  clear lifecycle labels, update the Epic checklist, and post the brief Epic
+  outcome linked to task diagnostics. Publish a delivered result and finish.
+  Dispatcher retains the coordination claim until it verifies worker termination
+  and cleanup; do not mark the shared record released yourself.
+
+Every acknowledged assignment must publish/verify an immutable result and a task
+run report with short summary plus collapsed detailed log using the format below.
+Include actual timings, decisions, validation/evidence, outcome, remaining blockers,
+corner cases, clarification questions, and unimplemented suggestions. No
+unfiltered transcripts, fabricated timing, or extra issues. Report a failed
+result/report write explicitly. Blocked work retains claim and active/review,
+with status:blocked where appropriate. A successful run report is not proof of
+execution termination.
+
+### Assignment and result format
+
+Accept JSON schema `fingvibe-agent-assignment-v1` containing claimId, handoffId,
+action, repository, Epic/task URLs, targetBranch, authorization, coordination
+comment URL, and expected Automation/run/session IDs. Verify these against the
+task's fenced JSON comment marked `<!-- fingvibe-agent-claim-v1 -->`, which
+Dispatcher alone updates. For repair/finalize also verify the existing branch,
+worktree, PR, expected full head SHA, checkpoint, and relevant feedback/check IDs.
+Feedback does not authorize scope expansion. Missing, mismatched, or already
+acknowledged handoffs stop without execution.
+
+Post immutable fenced JSON acknowledgment/result comments marked
+`<!-- fingvibe-agent-result-v1 -->`, with schema `fingvibe-agent-result-v1`,
+claimId, handoffId, action, actual run/session, UTC time, outcome, PR/head and
+checkpoint/report links. Enumerate prior comments with complete pagination and
+verify each saved result. Results do not rewrite Dispatcher state or release
+ownership. Startup without an assignment simply finishes awaiting-assignment.
+
+### Task report format
+
+Use a short outcome/task/PR/duration summary followed by
+`<details><summary>Detailed agent log</summary>` ... `</details>`, without `open`.
+Put detailed diagnostics in Markdown or fenced text with blank lines around the
+block. Include actual UTC start/end, nonwrapping HH:mm:ss whole-second elapsed
+duration and human equivalent, identifiers, decisions, validation/evidence,
+errors, blockers, later questions, and unimplemented suggestions.
+Split oversized logs into linked numbered comments; never silently truncate,
+upload raw transcripts, or expose secrets/unrelated data. Missing timing is
+unavailable, never guessed. Bounded-run duration excludes later CI/idle gaps;
+overall task elapsed is a separate measure. Keep Epic outcomes brief with links
+to the task report. Verify both reports; do not claim delivery if writes fail.
+
 ## Authorization and boundaries
 
 An explicit human kickoff to complete and merge one eligible Epic child authorizes
-this manual workflow. Reading this definition or finding a linked prompt alone
-does not authorize a run. Do not create, enable, or schedule an Automation.
+the manual workflow below. A verified Dispatcher assignment uses the separate
+local exception in docs/development-backlog.md. Reading this definition or finding
+a linked prompt alone does not authorize a run. Do not create, enable, or schedule an Automation.
 Unattended scheduled activation requires separate human approval.
 
 Use the documented manual-worker exception, not an instruction to ignore
@@ -46,7 +158,7 @@ editing them, creating additional issues, or implementing optional follow-ups.
 
 ## 1. Check capacity before selecting
 
-Capture the actual run start time in ISO 8601 UTC for the final Epic work summary.
+Capture the actual run start time in ISO 8601 UTC for the final task run report.
 Retain it for calculating elapsed run duration. Do not reconstruct or invent
 timestamps later.
 
@@ -81,7 +193,7 @@ type:task direct native sub-issues, never the Epic itself. Read each candidate's
 scope, acceptance criteria, discussion, native blockers, and stated dependencies.
 Do not treat a body link as native parentage.
 
-Filter out claimed, assigned-to-another-worker, status:blocked, or otherwise
+Filter out human-task, claimed, assigned-to-another-worker, status:blocked, or otherwise
 ineligible tasks. Prerequisites must have verified delivery evidence, not merely
 a closed issue. Stop and report inconsistent native/body dependencies or an
 unverifiable prerequisite; do not silently waive it.
@@ -175,7 +287,8 @@ matches the intended target, and it has no conflicts or unresolved blocking
 reviews. Revalidate changes made for conflicts or base updates and satisfy any
 required base-freshness rules. Keep the claim through repair.
 
-Merge only this PR using an allowed repository merge method, without admin
+Merge only this PR using an allowed repository merge method and a head-bound
+operation (for gh, --match-head-commit with the validated full SHA), without admin
 bypass. Agent-performed merging after waiting for checks is sufficient; do not
 enable GitHub auto-merge settings. A merge request or queued merge is not proof
 of completion: verify the intended PR actually merged and its delivery commit
@@ -194,9 +307,10 @@ Retain any unreconciled claim; do not select another task.
 ## 7. Record the work summary and stop
 
 Before ending any run that claimed a task, capture the actual work end time in
-ISO 8601 UTC. Post a mandatory work-summary comment on the parent Epic and verify
-it was saved on GitHub. Issue checkpoints or the final chat response do not
-replace this Epic comment.
+ISO 8601 UTC. Post a mandatory task run-report comment with collapsed detailed
+diagnostics using the task report format above. Post a brief parent Epic
+outcome with task/PR and report links, and verify both comments were saved.
+The final chat response does not replace them.
 
 Calculate run duration by subtracting the captured run start from the captured
 work end, truncating fractional seconds only after subtraction. This is total
@@ -221,8 +335,8 @@ a human-readable equivalent of the same whole-second duration; for example,
 
 Use "None" when appropriate. Do not describe blocked work as closed or completed.
 Do not post unrelated documentation commentary or create follow-up issues.
-If posting or verification fails, report the missing Epic summary as remaining
-work. An abrupt interruption may prevent posting; never fabricate an end time or
+If posting or verification fails, report the missing task report/Epic summary as
+remaining work. An abrupt interruption may prevent posting; never fabricate an end time or
 duration or claim an orphaned run completed. If captured timestamps are missing
 or the end precedes the start, explicitly report duration as unavailable with
 the reason rather than guessing or substituting zero. Orphan recovery remains
