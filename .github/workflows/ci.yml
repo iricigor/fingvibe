@@ -135,9 +135,9 @@ jobs:
         shell: pwsh
         run: .\tests\ApplicationIcon.Tests.ps1 -AppDirectory "${{ github.workspace }}\artifacts\fingvibe-win-x64"
 
-      - name: Verify published build timestamp
+      - name: Verify published build timestamp and version
         shell: pwsh
-        run: .\tests\BuildIdentity.Metadata.Tests.ps1 -AppDirectory "${{ github.workspace }}\artifacts\fingvibe-win-x64" -BuildTimestamp "${{ steps.publish.outputs.build-timestamp }}"
+        run: .\tests\BuildIdentity.Metadata.Tests.ps1 -AppDirectory "${{ github.workspace }}\artifacts\fingvibe-win-x64" -BuildTimestamp "${{ steps.publish.outputs.build-timestamp }}" -Version "0.0.${{ github.run_number }}"
 
       - name: Upload unvalidated payload for downstream checks
         id: upload

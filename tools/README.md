@@ -47,7 +47,7 @@ You can also run the script directly:
 
 ```powershell
 & "$env:USERPROFILE\Scripts\Install-FingVibe.ps1" `
-    -ZipPath "$env:USERPROFILE\Downloads\FingVibe-1.0.123-win-x64.zip"
+    -ZipPath "$env:USERPROFILE\Downloads\FingVibe-1.1.123-win-x64.zip"
 ```
 
 ## Trust and limitations
