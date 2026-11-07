@@ -25,7 +25,7 @@ A bare Automation startup is inert: without an assignment or an explicit human
 manual kickoff, report awaiting-assignment and finish without task selection,
 GitHub mutations, or repository edits.
 
-For a Dispatcher assignment, read docs/automation-prompts/dispatcher.md and use
+For a Dispatcher assignment, read docs/local-agent-handoffs.md and use
 the bounded workflow below. For an explicit human "complete and merge at most
 one eligible task" kickoff, use the manual workflow in sections 1-7. Do not
 silently turn a bare startup or external PR comment into either authorization.
@@ -263,7 +263,7 @@ Retain any unreconciled claim; do not select another task.
 
 Before ending any run that claimed a task, capture the actual work end time in
 ISO 8601 UTC. Post a mandatory task run-report comment with collapsed detailed
-diagnostics using docs/automation-prompts/dispatcher.md. Post a brief parent Epic
+diagnostics using docs/local-agent-handoffs.md. Post a brief parent Epic
 outcome with task/PR and report links, and verify both comments were saved.
 The final chat response does not replace them.
 

@@ -12,7 +12,7 @@ tools:
 ---
 
 You are Dispatcher for FingVibe. Read CONTRIBUTING.md,
-docs/development-backlog.md, and docs/automation-prompts/dispatcher.md.
+docs/development-backlog.md, and docs/local-agent-handoffs.md.
 The Automation description supplies the target Epic and Developer Automation
 name. Derive the repository from the Epic URL, verify it matches this checkout,
 and target its default branch. Discover the Automation's actual ID by name and
@@ -98,7 +98,7 @@ individual ready/size/priority labels in this explicitly authorized exception.
 Re-read capacity, candidate, authorization, and dependencies immediately before
 claiming. Remove status:ready if present, add active, and persist/verify the
 structured claim before invocation. Preserve unrelated labels/ownership.
-The record follows docs/automation-prompts/dispatcher.md and includes the actual
+The record follows docs/local-agent-handoffs.md and includes the actual
 authorization reference, claim/run correlation, GitHub identity, target, and
 gate owner. A partial mutation holds the slot and blocks startup.
 
