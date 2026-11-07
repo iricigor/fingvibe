@@ -1,0 +1,73 @@
+<UserControl
+    x:Class="FingVibe.App.SqlEditorPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer x:Name="SqlPageScroll" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="24,0,24,24" Spacing="12">
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <FontIcon Glyph="&#xE943;" FontFamily="Segoe Fluent Icons"
+                          FontSize="48" Width="48" Height="48"
+                          Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                          IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                <TextBlock Grid.Column="1" Text="SQL editor" Style="{StaticResource ScannerPageTitleStyle}"
+                           Margin="0" VerticalAlignment="Center" TextWrapping="Wrap" />
+                <Button Grid.Column="2" Content="&#x2190; Tools" Click="Back_Click"
+                        AutomationProperties.Name="Back to Tools" VerticalAlignment="Center" />
+            </Grid>
+            <TextBlock Text="Read saved inventory, not live scans or unsaved edits. One statement; 5 seconds, 1,000 rows, 1 MiB. NULL means a missing value."
+                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <TextBox x:Name="SqlText" Header="SQL query" AcceptsReturn="True" TextWrapping="Wrap"
+                     FontFamily="Consolas" Height="136" MaxLength="65536"
+                     AutomationProperties.Name="SQL query" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button x:Name="RunButton" Content="Run" Click="Run_Click" Style="{StaticResource AccentButtonStyle}"
+                        AutomationProperties.Name="Run SQL query" />
+                <Button x:Name="CancelButton" Content="Cancel" Click="Cancel_Click" IsEnabled="False"
+                        AutomationProperties.Name="Cancel SQL query" />
+                <ProgressRing x:Name="QueryProgress" Width="24" Height="24" IsActive="False"
+                              Visibility="Collapsed" AutomationProperties.Name="SQL query running" />
+            </StackPanel>
+            <TextBlock x:Name="QueryStatus" Text="Ready. Choose an example or enter a SELECT query."
+                       TextWrapping="Wrap" IsTextSelectionEnabled="True"
+                       AutomationProperties.LiveSetting="Polite" />
+            <ScrollViewer x:Name="ResultScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                          HorizontalScrollMode="Enabled" VerticalScrollMode="Disabled" Visibility="Collapsed">
+                <StackPanel>
+                    <Grid x:Name="ResultHeader" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                          AutomationProperties.Name="SQL result columns" />
+                    <ListView x:Name="ResultRows" Height="240" SelectionMode="None" IsItemClickEnabled="False"
+                              Padding="0"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                              AutomationProperties.Name="SQL query results">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="0" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                    </ListView>
+                </StackPanel>
+            </ScrollViewer>
+            <Expander x:Name="SchemaExpander" Header="Schema and examples" HorizontalAlignment="Stretch">
+                <StackPanel Spacing="12">
+                    <ComboBox x:Name="ExamplePicker" Header="Example query" HorizontalAlignment="Stretch"
+                              DisplayMemberPath="Name" AutomationProperties.Name="SQL example query" />
+                    <Button Content="Use example" Click="UseExample_Click" AutomationProperties.Name="Use SQL example" />
+                    <TextBlock Text="Boolean values are 0/1. Enums use stored numeric codes. Timestamps retain their offsets; use SQLite datetime/date functions for UTC grouping. Observation indices belong to this saved snapshot, not an event archive. MAC and virtual histories are separate; summing both can double-count devices."
+                               TextWrapping="Wrap" />
+                    <ComboBox x:Name="SchemaPicker" Header="Reporting view" HorizontalAlignment="Stretch"
+                              DisplayMemberPath="Name" SelectionChanged="Schema_SelectionChanged"
+                              AutomationProperties.Name="Reporting view" />
+                    <TextBlock x:Name="SchemaDescription" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                    <TextBlock x:Name="SchemaColumns" FontFamily="Consolas" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                </StackPanel>
+            </Expander>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

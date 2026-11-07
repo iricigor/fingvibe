@@ -20,6 +20,7 @@ heading. **Run checks** and **Start test** use the same accent-button styling;
 - [Device identification](#device-identification)
 - [People and rooms](#people-and-rooms)
 - [Inventory and Fing import](#inventory-and-fing-import)
+- [Read-only SQL editor](sql-reporting.md)
 - [Tests](#test)
 - [Download builds](#download-builds)
 - [Pull request review gates](#pull-request-review-gates)
@@ -689,6 +690,16 @@ synthetic preview, management return/re-analysis, completion, inventory counts,
 and status filtering on an interactive Windows desktop. UI-review mode keeps
 inventory edits in memory and never imports the user's private export.
 
+## Read-only SQL editor
+
+**Tools > SQL editor** queries saved SQLite inventory and scan history through
+named reporting views without JSON paths. It provides Run/Cancel, a result table,
+elapsed time, explicit errors/limits, and a schema/example browser. See
+[SQL reporting](sql-reporting.md) for all columns, observation/virtual-connection
+keys, timestamp semantics, read-only enforcement, and the 5-second / 1,000-row /
+1-MiB limits. Native SQL results, error/limit states and cancellation are covered
+in the existing disposable Windows Tools regression suite.
+
 ## Test
 
 ```powershell
@@ -796,7 +807,7 @@ When UI review runs, the capture plan always includes **Devices** after its scan
 
 Navigation verification is independent of screenshot selection: every supported scenario is exercised, even when only Devices is captured. Existing scan/filter, overview navigation, People/Rooms suggestions, and assignment smoke tests remain enabled. Each capture verifies the selected navigation item and visible page-specific controls; required navigation or capture failures stop the review instead of silently showing the wrong page.
 
-The workflow logs selection reasons and uploads the capture plan, completed manifest, and all PNGs together. Available partial captures, WinAppDriver output, startup/crash diagnostics, and the smoke-test transcript are retained on failure; a completed manifest is written only after all required checks pass. Its existing PR screenshot comment is updated with labeled images, without repeating the detailed file-by-file selection reasons. Security/UI failure comments are still updated and cleared when resolved; only build-artifact comments are append-only. Manual runs can request extra scenarios through the comma-separated `additional_scenarios` input: `Overview`, `Network`, `DeviceDetails`, `People`, `PersonDetails`, `Rooms`, `RoomDetails`, `Tools`, `SpeedTest`, `About`, `Settings`, and `DevicesEmpty`. People and Rooms captures use in-memory review records instead of loading or changing saved user data. New pages or required states must be added to the scenario catalog, selection, navigation, and regression tests. Run the scenario regression tests with `pwsh -File tests\UiReviewScenarios.Tests.ps1`, and validation-planning/comment/gate regression tests with `pwsh -File tests\PrValidation.Tests.ps1`.
+The workflow logs selection reasons and uploads the capture plan, completed manifest, and all PNGs together. Available partial captures, WinAppDriver output, startup/crash diagnostics, and the smoke-test transcript are retained on failure; a completed manifest is written only after all required checks pass. Its existing PR screenshot comment is updated with labeled images, without repeating the detailed file-by-file selection reasons. Security/UI failure comments are still updated and cleared when resolved; only build-artifact comments are append-only. Manual runs can request extra scenarios through the comma-separated `additional_scenarios` input: `Overview`, `Network`, `DeviceDetails`, `People`, `PersonDetails`, `Rooms`, `RoomDetails`, `Tools`, `SpeedTest`, `About`, `SqlEditor`, `Settings`, and `DevicesEmpty`. People and Rooms captures use in-memory review records instead of loading or changing saved user data. New pages or required states must be added to the scenario catalog, selection, navigation, and regression tests. Run the scenario regression tests with `pwsh -File tests\UiReviewScenarios.Tests.ps1`, and validation-planning/comment/gate regression tests with `pwsh -File tests\PrValidation.Tests.ps1`.
 
 The workflow publishes screenshots to the `gh-pages` branch so the bot can embed the PNGs directly in its review comment. After the workflow creates that branch for the first time, open **Settings > Pages**, choose **Deploy from a branch**, select `gh-pages` and `/ (root)`, then save. Published image URLs use `https://<owner>.github.io/<repository>/ui-review/pr-<number>/run-<run-id>/<filename>.png`, keeping captures from different runs separate.
 

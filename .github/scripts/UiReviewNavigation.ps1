@@ -68,6 +68,7 @@ function Show-UiReviewCaptureScenario {
         "Troubleshooting" { "Tools" }
         "About" { "Tools" }
         "FingImport" { "Tools" }
+        "SqlEditor" { "Tools" }
         "PersonDetails" { "People" }
         "RoomDetails" { "Rooms" }
         default { $Scenario }
@@ -131,6 +132,7 @@ function Show-UiReviewCaptureScenario {
         "Troubleshooting" { "Network troubleshooting" }
         "About" { "About FingVibe" }
         "FingImport" { "Import from Fing" }
+        "SqlEditor" { "SQL editor" }
         "People" { "Search people" }
         "Rooms" { "Search rooms" }
         "Settings" { "Window backdrop" }
@@ -170,5 +172,14 @@ function Show-UiReviewCaptureScenario {
         $null = Assert-VisibleUiReviewElement -Value "Analyze again"
         $null = Find-WebDriverElement -Using name -Value "Import reviewed Fing changes"
         $null = Find-WebDriverElement -Using name -Value "Fing import preview"
+    }
+    elseif ($Scenario -eq "SqlEditor") {
+        $cardId = Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@Name='SQL editor']"
+        Invoke-WebDriverElement -ElementId $cardId
+        $null = Assert-VisibleUiReviewElement -Value "Back to Tools"
+        $null = Assert-VisibleUiReviewElement -Value "SQL query"
+        $null = Assert-VisibleUiReviewElement -Value "Run SQL query"
+        $null = Assert-VisibleUiReviewElement -Value "Cancel SQL query"
+        $null = Find-WebDriverElement -Using name -Value "Schema and examples"
     }
 }

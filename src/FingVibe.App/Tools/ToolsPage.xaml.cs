@@ -25,7 +25,9 @@ public sealed partial class ToolsPage : UserControl
         }
     }
 
-    public bool HasActiveTest => SpeedTestView.HasActiveTest || TroubleshootingView.HasActiveTest;
+    public bool HasActiveTest => SpeedTestView.HasActiveTest || TroubleshootingView.HasActiveTest || SqlEditorView.IsRunning;
+
+    internal void ConfigureSqlEditor(string? databasePath) => SqlEditorView.Configure(databasePath);
 
     internal void ConfigureImport(Func<DeviceInventoryData> getData, Func<bool> canEdit,
         Func<FingImportAnalysis, Task<string>> import, Action<string> showManagement, nint windowHandle)
@@ -53,13 +55,28 @@ public sealed partial class ToolsPage : UserControl
         AboutView.Visibility = Visibility.Collapsed;
         TroubleshootingView.Visibility = Visibility.Collapsed;
         FingImportView.Visibility = Visibility.Collapsed;
+        SqlEditorView.Visibility = Visibility.Collapsed;
         ToolsLanding.Visibility = Visibility.Visible;
-        await Task.WhenAll(SpeedTestView.StopForNavigationAsync(), TroubleshootingView.StopForNavigationAsync());
+        await Task.WhenAll(SpeedTestView.StopForNavigationAsync(), TroubleshootingView.StopForNavigationAsync(),
+            SqlEditorView.StopAsync());
         SpeedTestView.ResetForNavigation();
     }
 
     public Task StopForWindowCloseAsync() => Task.WhenAll(
-        SpeedTestView.StopForWindowCloseAsync(), TroubleshootingView.StopForWindowCloseAsync());
+        SpeedTestView.StopForWindowCloseAsync(), TroubleshootingView.StopForWindowCloseAsync(), SqlEditorView.StopAsync());
+
+    private void SqlEditorCard_Click(object sender, RoutedEventArgs e)
+    {
+        ToolsLanding.Visibility = Visibility.Collapsed;
+        SqlEditorView.Visibility = Visibility.Visible;
+        SqlEditorView.Open();
+    }
+
+    private async void SqlEditorView_BackRequested(object? sender, EventArgs e)
+    {
+        await StopForNavigationAsync();
+        SqlEditorCard.Focus(FocusState.Programmatic);
+    }
 
     private async void TroubleshootingCard_Click(object sender, RoutedEventArgs e)
     {

@@ -11,6 +11,7 @@ $UiReviewScenarios = [ordered]@{
     Troubleshooting = @{ Label = "Network troubleshooting"; FileName = "fingvibe-troubleshooting.png"; Page = "ToolsPage" }
     About = @{ Label = "About FingVibe"; FileName = "fingvibe-about.png"; Page = "ToolsPage" }
     FingImport = @{ Label = "Import from Fing - synthetic analysis"; FileName = "fingvibe-fing-import.png"; Page = "ToolsPage" }
+    SqlEditor = @{ Label = "SQL editor - read-only query and schema"; FileName = "fingvibe-sql-editor.png"; Page = "ToolsPage" }
     RoomDetails = @{ Label = "Room details"; FileName = "fingvibe-room-details.png"; Page = "RoomDetailPage" }
     Settings = @{ Label = "Settings - appearance and columns"; FileName = "fingvibe-settings.png"; Page = "SettingsPage" }
     DevicesEmpty = @{ Label = "Devices - no matching hosts"; FileName = "fingvibe-devices-empty.png"; Page = "DevicesPage" }
@@ -127,7 +128,7 @@ function Get-UiReviewCapturePlan {
                 Add-Scenarios @("Devices", "DevicesEmpty", "Settings") "$path changed results, filtering, or table controls."
             }
             elseif ($path -match '^src/FingVibe.App/.+Page\.xaml$' -and
-                [System.IO.Path]::GetFileName($path) -notin @("ToolsPage.xaml", "SpeedTestPage.xaml", "AboutPage.xaml", "NetworkTroubleshootingPage.xaml", "FingImportPage.xaml")) {
+                [System.IO.Path]::GetFileName($path) -notin @("ToolsPage.xaml", "SpeedTestPage.xaml", "AboutPage.xaml", "NetworkTroubleshootingPage.xaml", "FingImportPage.xaml", "SqlEditorPage.xaml")) {
                 throw "View '$path' has no selection rule. Extend the scenario catalog, selection, navigation, and tests."
             }
             elseif ($path -match '^src/FingVibe.App/Tools/AboutPage\.xaml(\.cs)?$') {
@@ -136,14 +137,19 @@ function Get-UiReviewCapturePlan {
             elseif ($path -match '^src/FingVibe.App/Tools/FingImportPage\.xaml(\.cs)?$') {
                 Add-Scenarios @("Tools", "FingImport") "$path changed Fing import."
             }
+            elseif ($path -match '^src/FingVibe.App/Tools/SqlEditorPage\.xaml(\.cs)?$' -or
+                $path -match '^src/FingVibe.Core/Storage/Inventory(QueryService|ReportingSchema).cs$' -or
+                $path -eq 'tests/SqlEditor.Ui.Tests.ps1') {
+                Add-Scenarios @("Tools", "SqlEditor") "$path changed SQL reporting."
+            }
             elseif ($path -eq "src/FingVibe.App/MainWindow.Inventory.cs") {
-                Add-Scenarios @("Devices", "Overview", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails", "FingImport") "$path changed inventory orchestration."
+                Add-Scenarios @("Devices", "Overview", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails", "FingImport", "SqlEditor") "$path changed inventory orchestration."
             }
             elseif ($path -match '^src/FingVibe.App/Tools/NetworkTroubleshootingPage\.xaml(\.cs)?$') {
                 Add-Scenarios @("Tools", "Troubleshooting") "$path changed network troubleshooting."
             }
             elseif ($path -match '^src/FingVibe.App/(Tools/|Assets/SpeedTest/)') {
-                Add-Scenarios @("Tools", "SpeedTest", "Troubleshooting", "About", "FingImport") "$path changed Tools or the speed test."
+                Add-Scenarios @("Tools", "SpeedTest", "Troubleshooting", "About", "FingImport", "SqlEditor") "$path changed Tools or the speed test."
             }
             elseif ($path -match '^src/FingVibe.App/(MainWindow.PeopleRooms.cs|ManagedPeopleRoomsRows.cs|PeopleRoomsIcons.cs|Views/PeopleRoomsIconPicker.cs)$') {
                 Add-Scenarios @("People", "PersonDetails", "Rooms", "RoomDetails", "DeviceDetails") "$path changed people, rooms, or assignments."
