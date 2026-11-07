@@ -10,9 +10,9 @@ public sealed partial class MainWindow
 {
     private static string? ReviewInventoryPath => IsUiReview
         ? Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_INVENTORY") : null;
-    private readonly DeviceInventoryStore _inventoryStore = new(
-        ReviewInventoryPath is { Length: > 0 } ? ReviewInventoryPath : Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FingVibe", "device-inventory.sqlite"));
+    private static string InventoryPath => ReviewInventoryPath is { Length: > 0 } ? Path.ChangeExtension(ReviewInventoryPath, ".sqlite") : Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FingVibe", "device-inventory.sqlite");
+    private readonly DeviceInventoryStore _inventoryStore = new(InventoryPath);
     private readonly SemaphoreSlim _deviceDataSaveLock = new(1, 1);
     private DeviceInventoryData _inventory = DeviceInventoryData.Empty;
     private DeviceInventoryData _persistedInventory = DeviceInventoryData.Empty;

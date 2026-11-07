@@ -7,6 +7,26 @@
         <ScrollViewer x:Name="ToolsLanding" HorizontalScrollBarVisibility="Disabled">
             <StackPanel Margin="24,0,24,24" Spacing="16">
                 <TextBlock Text="Tools" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+                <Button x:Name="SqlEditorCard" Click="SqlEditorCard_Click"
+                        Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="SQL editor">
+                    <StackPanel Spacing="8">
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE943;" FontFamily="Segoe Fluent Icons"
+                                      FontSize="48" Width="48" Height="48"
+                                      Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                            <TextBlock Grid.Column="1" Text="SQL editor" Style="{ThemeResource SubtitleTextBlockStyle}"
+                                       VerticalAlignment="Center" TextWrapping="Wrap" />
+                        </Grid>
+                        <TextBlock Text="Explore saved inventory and scan history with read-only SQL."
+                                   TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="Open SQL editor &#x2192;" />
+                    </StackPanel>
+                </Button>
                 <Button x:Name="FingImportCard" Click="FingImportCard_Click"
                         Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="Import from Fing">
                     <StackPanel Spacing="8">
@@ -104,5 +124,6 @@
         <local:FingImportPage x:Name="FingImportView" Visibility="Collapsed"
                               BackRequested="FingImportView_BackRequested"
                               ManagementRequested="FingImportView_ManagementRequested" />
+        <local:SqlEditorPage x:Name="SqlEditorView" Visibility="Collapsed" BackRequested="SqlEditorView_BackRequested" />
     </Grid>
 </UserControl>

@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       additional_scenarios:
-        description: "Extra captures (comma-separated): Overview, Network, DeviceDetails, People, PersonDetails, Rooms, RoomDetails, Tools, SpeedTest, Troubleshooting, About, FingImport, Settings, DevicesEmpty"
+        description: "Extra captures (comma-separated): Overview, Network, DeviceDetails, People, PersonDetails, Rooms, RoomDetails, Tools, SpeedTest, Troubleshooting, About, FingImport, SqlEditor, Settings, DevicesEmpty"
         type: string
         required: false
 
@@ -71,6 +71,10 @@ jobs:
       - name: Test additional service UI helpers without desktop automation
         shell: pwsh
         run: .\tests\AdditionalServices.Script.Tests.ps1
+
+      - name: Test SQL editor UI helpers without desktop automation
+        shell: pwsh
+        run: .\tests\SqlEditor.Script.Tests.ps1
 
       - name: Test validation planning and comments
         shell: pwsh
