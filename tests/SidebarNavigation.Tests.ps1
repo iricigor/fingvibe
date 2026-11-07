@@ -1008,22 +1008,27 @@ function Assert-ScheduledScanSettings([bool] $IsEnabled, [int] $IntervalMinutes)
 function Show-ScheduledScansCard {
     $page = Find-SidebarElement AutomationId SettingsPage
     $scroll = $page.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-    if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
-    Start-Sleep -Milliseconds 300
-    $pageBounds = $page.Current.BoundingRectangle
-    foreach ($id in @("ScheduledScansHeading", "ScheduledScansSwitch", "ScanIntervalPicker",
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
+        Start-Sleep -Milliseconds 300
+        $pageBounds = $page.Current.BoundingRectangle
+        $ready = $true
+        foreach ($id in @("ScheduledScansHeading", "ScheduledScansSwitch", "ScanIntervalPicker",
             "ScheduledScanStatus", "ScheduledScanEvidenceNote")) {
-        try { $bounds = (Find-SidebarElement AutomationId $id).Current.BoundingRectangle }
-        catch {
-            Save-ScheduledScanFailure "scheduled-scans-missing"
-            throw
+            $element = Find-SidebarElement AutomationId $id -Optional
+            if (-not $element) { $ready = $false; break }
+            $bounds = $element.Current.BoundingRectangle
+            if ($bounds.Left -lt $pageBounds.Left -or $bounds.Right -gt $pageBounds.Right + 1 -or
+                $bounds.Top -lt $pageBounds.Top -or $bounds.Bottom -gt $pageBounds.Bottom + 1) {
+                $ready = $false
+                break
+            }
         }
-        if ($bounds.Left -lt $pageBounds.Left -or $bounds.Right -gt $pageBounds.Right + 1 -or
-            $bounds.Top -lt $pageBounds.Top -or $bounds.Bottom -gt $pageBounds.Bottom + 1) {
-            Save-ScheduledScanFailure "scheduled-scans-clipped"
-            throw "Scheduled scan control '$id' must be fully visible in Settings. Control=$bounds; page=$pageBounds."
-        }
-    }
+        if ($ready) { return }
+    } while ([DateTime]::UtcNow -lt $deadline)
+    Save-ScheduledScanFailure "scheduled-scans-clipped"
+    throw "Scheduled scan control '$id' did not become fully visible in Settings."
 }
 
 function Hide-ScheduledScansCard {

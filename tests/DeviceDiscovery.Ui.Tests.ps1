@@ -252,6 +252,9 @@ try {
     if ($checkpoint.state -ne 1) { throw "Initial checkpoint was not durably marked Pending." }
     $condition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem)
+    Wait-DiscoveryState {
+        (Find-DiscoveryControl ResultsList).FindAll([System.Windows.Automation.TreeScope]::Children, $condition).Count -gt 0
+    } "realized initial result rows"
     $row = (Find-DiscoveryControl ResultsList).FindAll([System.Windows.Automation.TreeScope]::Children, $condition)[0]
     $row.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
     $row.SetFocus()
@@ -276,6 +279,9 @@ try {
     Wait-DiscoveryState {
         (Find-DiscoveryControl ScanStatusText).Current.Name -like "*background confirmation pending*"
     } "second initial checkpoint"
+    Wait-DiscoveryState {
+        (Find-DiscoveryControl ResultsList).FindAll([System.Windows.Automation.TreeScope]::Children, $condition).Count -gt 0
+    } "realized second result rows"
     $row = (Find-DiscoveryControl ResultsList).FindAll([System.Windows.Automation.TreeScope]::Children, $condition)[0]
     $row.SetFocus()
     [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
