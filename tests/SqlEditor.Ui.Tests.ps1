@@ -40,9 +40,19 @@ function Invoke-SqlControl([string] $Id) {
     (Find-SqlControl $Id).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
 }
 
-function Select-SqlTools {
-    (Find-SqlControl ToolsNavItem).GetCurrentPattern(
+function Select-SqlPage([string] $Id) {
+    $item = Find-SqlControl $Id -Optional
+    if (-not $item -or $item.Current.IsOffscreen) {
+        Wait-SqlControl TogglePaneButton -Visible -Enabled
+        Invoke-SqlControl TogglePaneButton
+    }
+    Wait-SqlControl $Id -Visible -Enabled
+    (Find-SqlControl $Id).GetCurrentPattern(
         [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+}
+
+function Select-SqlTools {
+    Select-SqlPage ToolsNavItem
     Wait-SqlControl SqlEditorCard -Visible -Enabled
     Invoke-SqlControl SqlEditorCard
     Wait-SqlControl SqlText -Visible -Enabled
@@ -69,6 +79,19 @@ function Save-SqlCapture([string] $Name, [double] $Scroll = 0) {
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Name.png")
 }
 
+function Stop-SqlApp {
+    if (-not $script:process) { return }
+    try {
+        if (-not $script:process.HasExited) {
+            Stop-Process -Id $script:process.Id -Force
+        }
+        if (-not $script:process.WaitForExit(5000)) {
+            throw "SQL editor app did not exit during fixture cleanup."
+        }
+    }
+    finally { $script:process.Dispose() }
+}
+
 $previous = @{}
 foreach ($key in @("FINGVIBE_UI_REVIEW", "FINGVIBE_UI_REVIEW_INVENTORY", "FINGVIBE_UI_REVIEW_SNAPSHOT")) {
     $previous[$key] = [Environment]::GetEnvironmentVariable($key)
@@ -77,6 +100,7 @@ $fixtureDirectory = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-sql-ui-$([Gui
 $inventory = Join-Path $fixtureDirectory "inventory.json"
 $database = [IO.Path]::ChangeExtension($inventory, ".sqlite")
 $script:process = $null
+$testFailure = $null
 try {
     $null = New-Item -ItemType Directory -Path $fixtureDirectory
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
@@ -172,8 +196,7 @@ try {
     }
     Start-SqlQuery $expensive
     Wait-SqlControl CancelButton -Enabled
-    (Find-SqlControl OverviewNavItem).GetCurrentPattern(
-        [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Select-SqlPage OverviewNavItem
     Start-Sleep -Milliseconds 300
     Select-SqlTools
     Assert-SqlResult "Cancelled*"
@@ -187,8 +210,22 @@ try {
     if ((Get-InventoryFingerprint $database) -cne $fingerprint) { throw "Window close changed the persisted fixture." }
     Write-Host "SQL editor native results/errors/limits/schema/narrow layout/cancellation/lifecycle passed ($($clock.ElapsedMilliseconds) ms close)."
 }
+catch {
+    $testFailure = $_
+    Write-Host "SQL editor native failure: $($_.Exception.Message)"
+    Write-Host $_.ScriptStackTrace
+    throw
+}
 finally {
-    if ($script:process -and -not $script:process.HasExited) { Stop-Process -Id $script:process.Id -Force }
-    foreach ($key in $previous.Keys) { [Environment]::SetEnvironmentVariable($key, $previous[$key]) }
-    if (Test-Path -LiteralPath $fixtureDirectory) { Remove-Item -LiteralPath $fixtureDirectory -Recurse -Force }
+    try {
+        try { Stop-SqlApp }
+        finally {
+            foreach ($key in $previous.Keys) { [Environment]::SetEnvironmentVariable($key, $previous[$key]) }
+        }
+        if (Test-Path -LiteralPath $fixtureDirectory) { Remove-Item -LiteralPath $fixtureDirectory -Recurse -Force }
+    }
+    catch {
+        if (-not $testFailure) { throw }
+        Write-Warning "SQL fixture cleanup also failed: $($_.Exception.Message). Fixture: $fixtureDirectory"
+    }
 }
