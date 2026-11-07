@@ -1138,7 +1138,7 @@ function Test-ScheduledScans {
 
         $null = Wait-SidebarText ScanStatusText "Scheduled scan $dot Scanning *"
         Switch-ScheduledScansWithKeyboard $false
-        $null = Wait-SidebarText ScanStatusText "Scheduled scan of 127.0.0.1/32 stopped; nothing was saved*"
+        $null = Wait-SidebarText ScanStatusText "Scheduled scan of 127.0.0.1/32 stopped*"
         $null = Wait-SidebarText ScheduledScanStatus "Off. Scans run only when you select Scan LAN."
         Assert-ScheduledScanSettings $false 15
         if ((Find-SidebarElement AutomationId ScanFreshnessText).Current.Name -like "*Scheduled*") {

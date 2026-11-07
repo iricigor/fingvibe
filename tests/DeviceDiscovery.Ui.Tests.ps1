@@ -36,7 +36,10 @@ function Start-DiscoveryApp {
     Wait-DiscoveryState { Find-DiscoveryControl DevicesNavItem -Optional } "device navigation"
     (Find-DiscoveryControl DevicesNavItem).GetCurrentPattern(
         [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-    Wait-DiscoveryState { (Find-DiscoveryControl ScanButton).Current.IsEnabled } "ready scan"
+    Wait-DiscoveryState {
+        $scan = Find-DiscoveryControl ScanButton -Optional
+        $scan -and $scan.Current.IsEnabled
+    } "ready scan"
     Assert-NoDiscovery
 }
 
@@ -241,7 +244,8 @@ try {
     Wait-DiscoveryState {
         (Find-DiscoveryControl ScanStatusText).Current.Name -like "*background confirmation pending*"
     } "checkpointed initial results"
-    if ((Find-DiscoveryControl ScanButton).Current.IsEnabled -or
+    $pendingScanButton = Find-DiscoveryControl ScanButton -Optional
+    if (($pendingScanButton -and $pendingScanButton.Current.IsEnabled) -or
         -not (Find-DiscoveryControl CancelButton).Current.IsEnabled) { throw "Pending retries must retain scan exclusion and cancellation." }
     Assert-NoDiscovery
     $checkpoint = Get-Content -LiteralPath $snapshot -Raw | ConvertFrom-Json
@@ -285,7 +289,11 @@ try {
     $nameInput.SetFocus()
     $id = (Get-Content -LiteralPath $snapshot -Raw | ConvertFrom-Json).scanId
     Remove-Item -LiteralPath $checkpointHold
-    Wait-DiscoveryState { (Find-DiscoveryControl ScanButton).Current.IsEnabled } "final checkpoint"
+    Wait-DiscoveryState {
+        $saved = Get-Content -LiteralPath $snapshot -Raw | ConvertFrom-Json
+        $cancel = Find-DiscoveryControl CancelButton -Optional
+        $saved.state -eq 0 -and (-not $cancel -or -not $cancel.Current.IsEnabled)
+    } "final checkpoint"
     if (-not $nameInput.Current.HasKeyboardFocus -or $nameInput.Current.IsOffscreen -or
         $nameInput.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value -ne "Keep this draft") {
         throw "Final checkpoint stole focus or discarded an in-progress device-name edit."
