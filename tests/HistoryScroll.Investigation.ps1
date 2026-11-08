@@ -19,9 +19,9 @@ function Get-HistoryProbeRectangle($Rectangle) {
 }
 
 function Test-HistoryProbeIntersection($Bounds, $Clip) {
-    return -not $Bounds.IsEmpty -and $Bounds.Width -gt 0 -and $Bounds.Height -gt 0 -and
-        $Bounds.Right -gt $Clip.Left -and $Bounds.Left -lt $Clip.Right -and
-        $Bounds.Bottom -gt $Clip.Top -and $Bounds.Top -lt $Clip.Bottom
+    return -not $Bounds.empty -and -not $Clip.empty -and $Bounds.width -gt 0 -and $Bounds.height -gt 0 -and
+        $Bounds.right -gt $Clip.left -and $Bounds.left -lt $Clip.right -and
+        $Bounds.bottom -gt $Clip.top -and $Bounds.top -lt $Clip.bottom
 }
 
 function Write-HistoryProbeEvent([string] $Event, $Data) {
@@ -34,26 +34,39 @@ function Write-HistoryProbeEvent([string] $Event, $Data) {
         Add-Content -LiteralPath $script:probeTrace -Encoding utf8
 }
 
-function Get-HistoryProbeElement([string] $Id) {
+function Get-HistoryProbeElement([string] $Id, $Within = $script:root) {
+    if (-not $Within) { throw "Missing owner when locating diagnostic peer '$Id'." }
     $probeCondition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Id)
-    return $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $probeCondition)
+    return $Within.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $probeCondition)
 }
 
-function Get-HistoryProbePeer($Element) {
+function Get-HistoryProbePeer($Element, [switch] $Patterns) {
     if (-not $Element) { return @{ status = "missing" } }
     try {
-        $probeCurrent = $Element.Current
-        $probePatterns = @($Element.GetSupportedPatterns() | ForEach-Object { $_.ProgrammaticName })
+        $probeCache = [System.Windows.Automation.CacheRequest]::new()
+        foreach ($probeProperty in @(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
+            [System.Windows.Automation.AutomationElement]::NameProperty,
+            [System.Windows.Automation.AutomationElement]::BoundingRectangleProperty,
+            [System.Windows.Automation.AutomationElement]::IsOffscreenProperty,
+            [System.Windows.Automation.AutomationElement]::IsKeyboardFocusableProperty,
+            [System.Windows.Automation.AutomationElement]::HasKeyboardFocusProperty)) {
+            $probeCache.Add($probeProperty)
+        }
+        $probeCurrent = $Element.GetUpdatedCache($probeCache).Cached
         $probePeer = @{
             status = "available"; id = $probeCurrent.AutomationId; name = $probeCurrent.Name
-            runtimeId = @($Element.GetRuntimeId()); patterns = $probePatterns
+            runtimeId = @($Element.GetRuntimeId())
             bounds = Get-HistoryProbeRectangle $probeCurrent.BoundingRectangle
             offscreen = $probeCurrent.IsOffscreen; focusable = $probeCurrent.IsKeyboardFocusable
             focused = $probeCurrent.HasKeyboardFocus
         }
         $probePattern = $null
-        if ($Element.TryGetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern, [ref]$probePattern)) {
+        if ($Patterns) {
+            $probePeer.patterns = @($Element.GetSupportedPatterns() | ForEach-Object { $_.ProgrammaticName })
+        }
+        if ($Patterns -and $Element.TryGetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern, [ref]$probePattern)) {
             $probePeer.scroll = @{
                 percent = $probePattern.Current.VerticalScrollPercent
                 viewSize = $probePattern.Current.VerticalViewSize
@@ -61,7 +74,7 @@ function Get-HistoryProbePeer($Element) {
             }
         }
         $probePattern = $null
-        if ($Element.TryGetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern, [ref]$probePattern)) {
+        if ($Patterns -and $Element.TryGetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern, [ref]$probePattern)) {
             $probePeer.expansion = "$($probePattern.Current.ExpandCollapseState)"
         }
         return $probePeer
@@ -73,21 +86,30 @@ function Get-HistoryProbePeer($Element) {
 }
 
 function Write-HistoryProbeSnapshot([string] $Phase, [string] $Command) {
+    $probeSampleClock = [Diagnostics.Stopwatch]::StartNew()
     $probeWindow = $script:root.Current.BoundingRectangle
+    $probeWindowBounds = Get-HistoryProbeRectangle $probeWindow
     $probeDetails = Get-HistoryProbeElement DeviceDetailsScroll
-    $probeList = Get-HistoryProbeElement DeviceScanHistoryList
-    $probeListPeer = Get-HistoryProbePeer $probeList
+    $probeExpanderElement = if ($probeDetails) {
+        Get-HistoryProbeElement DeviceScanHistoryExpander $probeDetails
+    } else { $null }
+    $probeList = if ($probeExpanderElement) {
+        Get-HistoryProbeElement DeviceScanHistoryList $probeExpanderElement
+    } else { $null }
+    $probePage = if ($probeExpanderElement) {
+        Get-HistoryProbeElement DeviceHistoryPageStatus $probeExpanderElement
+    } else { $null }
+    $probeListPeer = Get-HistoryProbePeer $probeList -Patterns
     $probeRows = @()
-    if ($probeList) {
+    if ($probeList -and $Experiment -eq "list") {
         $probeRowCondition = [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
             [System.Windows.Automation.ControlType]::ListItem)
         foreach ($probeItem in $probeList.FindAll([System.Windows.Automation.TreeScope]::Children, $probeRowCondition)) {
             $probeRowPeer = Get-HistoryProbePeer $probeItem
             if ($probeRowPeer.status -eq "available") {
-                $probeBounds = $probeItem.Current.BoundingRectangle
-                $probeRowPeer.intersectsWindow = Test-HistoryProbeIntersection $probeBounds $probeWindow
-                $probeRowPeer.intersectsList = Test-HistoryProbeIntersection $probeBounds $probeList.Current.BoundingRectangle
+                $probeRowPeer.intersectsWindow = Test-HistoryProbeIntersection $probeRowPeer.bounds $probeWindowBounds
+                $probeRowPeer.intersectsList = Test-HistoryProbeIntersection $probeRowPeer.bounds $probeListPeer.bounds
                 $probeRowPeer.visibleCandidate = -not $probeRowPeer.offscreen -and
                     $probeRowPeer.intersectsWindow -and $probeRowPeer.intersectsList
             }
@@ -97,15 +119,21 @@ function Write-HistoryProbeSnapshot([string] $Phase, [string] $Command) {
     $probeVisible = @($probeRows | Where-Object { $_.visibleCandidate })
     $probeSnapshot = @{
         phase = $Phase; command = $Command
-        window = Get-HistoryProbeRectangle $probeWindow
-        details = Get-HistoryProbePeer $probeDetails
-        expander = Get-HistoryProbePeer (Get-HistoryProbeElement DeviceScanHistoryExpander)
+        window = $probeWindowBounds
+        nativeWindow = Get-HistoryProbeRectangle (Get-UiReviewWindowBounds $script:process.MainWindowHandle)
+        details = Get-HistoryProbePeer $probeDetails -Patterns
+        expander = Get-HistoryProbePeer $probeExpanderElement -Patterns
+        cachedDetails = Get-HistoryProbePeer $script:detailsRoot
+        cachedObservations = Get-HistoryProbePeer $script:observationsRoot
         list = $probeListPeer
-        page = Get-HistoryProbePeer (Get-HistoryProbeElement DeviceHistoryPageStatus)
+        page = Get-HistoryProbePeer $probePage
         focused = Get-HistoryProbePeer ([System.Windows.Automation.AutomationElement]::FocusedElement)
         enumeratedCount = $probeRows.Count; visibleCandidateCount = $probeVisible.Count
         visibleLabels = @($probeVisible | ForEach-Object { $_.name }); rows = $probeRows
+        rowsSampled = $Experiment -eq "list"
     }
+    $probeSampleClock.Stop()
+    $probeSnapshot.samplingMs = $probeSampleClock.Elapsed.TotalMilliseconds
     Write-HistoryProbeEvent snapshot $probeSnapshot
     return $probeSnapshot
 }
@@ -121,6 +149,11 @@ function Invoke-HistoryObservedCommand([string] $CommandText, [scriptblock] $Com
         text = $CommandText; arguments = @($CommandArguments)
         ownerInstance = if ($CommandOwner) { [Runtime.CompilerServices.RuntimeHelpers]::GetHashCode($CommandOwner) } else { $null }
         ownerType = if ($CommandOwner) { $CommandOwner.GetType().FullName } else { $null }
+        ownerScroll = if ($CommandOwner -is [System.Windows.Automation.ScrollPattern]) {
+            @{ percent = $CommandOwner.Current.VerticalScrollPercent
+                viewSize = $CommandOwner.Current.VerticalViewSize
+                scrollable = $CommandOwner.Current.VerticallyScrollable }
+        } else { $null }
     }
     $probeBefore = Write-HistoryProbeSnapshot before $CommandText
     $probeCommandClock = [Diagnostics.Stopwatch]::StartNew()
@@ -135,6 +168,11 @@ function Invoke-HistoryObservedCommand([string] $CommandText, [scriptblock] $Com
     $probeAfter = Write-HistoryProbeSnapshot immediate $CommandText
     Write-HistoryProbeEvent command-duration @{
         command = $CommandText; milliseconds = $probeCommandClock.Elapsed.TotalMilliseconds
+        ownerScrollAfter = if ($CommandOwner -is [System.Windows.Automation.ScrollPattern]) {
+            @{ percent = $CommandOwner.Current.VerticalScrollPercent
+                viewSize = $CommandOwner.Current.VerticalViewSize
+                scrollable = $CommandOwner.Current.VerticallyScrollable }
+        } else { $null }
     }
     if ($script:probeQuiet) {
         for ($probePoll = 0; $probePoll -lt 8; $probePoll++) {
@@ -196,6 +234,11 @@ function Get-HistoryInvestigationSource([string] $Path) {
             $_.Extent.StartOffset -lt $probeFixtureLoop[0].Extent.StartOffset
         })
         sectionLoop = $probeFixtureLoop[0].Extent.Text
+        seedFixture = @($probeFixtureLoop[0].Body.Statements | Where-Object {
+            $_.Extent.StartOffset -lt (@($probeFixtureLoop[0].Body.Statements | Where-Object {
+                $_.Extent.Text -eq "Start-HistoryApp"
+            })[0].Extent.StartOffset)
+        })
         themeLoop = $probeThemeLoop[0].Extent.Text
         pagedFixture = @($probeBody | Where-Object {
             $_.Extent.StartOffset -ge $probePaged[0].Extent.StartOffset -and
@@ -256,6 +299,7 @@ $probeProvenance = @{
     sourceCommit = $script:pinnedCommit; diagnosticCommit = $env:GITHUB_SHA
     runId = $env:GITHUB_RUN_ID; attempt = $env:GITHUB_RUN_ATTEMPT; experiment = $Experiment
     appSha256 = (Get-FileHash -LiteralPath $AppPath -Algorithm SHA256).Hash
+    appVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($AppPath).FileVersion
     os = [Environment]::OSVersion.VersionString
     note = "Read-only UIA sampling can itself realize peers and alter timing. Replay has no added polling delays; controlled commands have a two-second quiet interval."
 }
@@ -272,7 +316,10 @@ try {
         Save-HistoryProbeScreenshot section-replay-end
     }
     else {
+        $index = 4
+        foreach ($probeStatement in $probeSource.seedFixture) { Invoke-Expression $probeStatement.Extent.Text }
         Start-HistoryApp
+        $null = Assert-HistoryLastSeenCell "History normal" "Last seen: $(Get-HistoryExactTime 4)"
         Stop-HistoryApp
         foreach ($probeStatement in $probeSource.pagedFixture) { Invoke-Expression $probeStatement.Extent.Text }
         Start-HistoryApp

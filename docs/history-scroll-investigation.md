@@ -16,6 +16,9 @@ If those complete, it also replays the pinned light/dark, narrow-resize,
 collapse/position/restore-width sequence. Only the section helper's scrolling,
 bring-into-view and focus calls are instrumented; production decisions are
 unchanged. Replay sampling adds observation overhead, but no polling delays.
+Replay does not enumerate observation rows; row sampling is confined to the
+independent list experiment to limit observer-driven realization. Properties are
+batch-cached for each measurement, and snapshots report their sampling cost.
 
 The list experiment starts in a separate process with the pinned 205-observation
 fixture and first 100-row page. It positions the outer page independently of the
@@ -31,6 +34,9 @@ Download the workflow's `history-investigation-<run>-attempt-<attempt>` artifact
 - Each snapshot includes raw window/owner/target/row geometry, runtime IDs,
   supported patterns, scroll metrics, expansion/focus, page status, all enumerated
   rows and candidate-visible rows.
+- Source-helper cached containers and fresh peers are recorded separately;
+  command records retain the issuing object's identity, resolved arguments and
+  its scroll metrics before/after, rather than only freshly acquired metrics.
 - `observation` records compare visible labels and both inner/outer percentages
   after a quiet interval. `command-error` and `experiment-error` retain messages
   and script stack traces.

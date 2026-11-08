@@ -16,12 +16,13 @@ foreach ($probeTestName in @("Get-HistoryProbeRectangle", "Test-HistoryProbeInte
     Invoke-Expression $probeTestFunction.Extent.Text
 }
 Add-Type -AssemblyName WindowsBase
-$probeTestEmpty = [System.Windows.Rect]::Empty
-if (-not (Get-HistoryProbeRectangle $probeTestEmpty).empty) { throw "Native empty rectangles must stay explicit." }
-$probeTestWindow = [System.Windows.Rect]::new(100, 100, 500, 400)
-$probeTestInside = [System.Windows.Rect]::new(110, 110, 40, 20)
-$probeTestOutside = [System.Windows.Rect]::new(110, -1000, 40, 20)
-$probeTestClipped = [System.Windows.Rect]::new(110, 495, 40, 20)
+Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+$probeTestEmpty = Get-HistoryProbeRectangle ([System.Windows.Rect]::Empty)
+if (-not $probeTestEmpty.empty) { throw "Native empty rectangles must stay explicit." }
+$probeTestWindow = Get-HistoryProbeRectangle ([System.Windows.Rect]::new(100, 100, 500, 400))
+$probeTestInside = Get-HistoryProbeRectangle ([System.Windows.Rect]::new(110, 110, 40, 20))
+$probeTestOutside = Get-HistoryProbeRectangle ([System.Windows.Rect]::new(110, -1000, 40, 20))
+$probeTestClipped = Get-HistoryProbeRectangle ([System.Windows.Rect]::new(110, 495, 40, 20))
 if (-not (Test-HistoryProbeIntersection $probeTestInside $probeTestWindow) -or
     -not (Test-HistoryProbeIntersection $probeTestClipped $probeTestWindow) -or
     (Test-HistoryProbeIntersection $probeTestOutside $probeTestWindow) -or
@@ -34,6 +35,7 @@ if ($probeTestParts.fixture.Count -lt 10 -or
     $probeTestParts.sectionLoop -notmatch 'Assert-HistorySummary' -or
     $probeTestParts.sectionLoop -notmatch 'Assert-HistoryRows' -or
     $probeTestParts.themeLoop -notmatch '640' -or
+    ($probeTestParts.seedFixture.Extent.Text -join "`n") -notmatch 'Set-Content -LiteralPath \$inventory' -or
     ($probeTestParts.pagedFixture.Extent.Text -join "`n") -notmatch '0\.\.204') {
     throw "Diagnostic must reuse the real fixture/reproduction sequences, not invent replacements."
 }
