@@ -112,6 +112,9 @@ dotnet run --project src\FingVibe.App\FingVibe.App.csproj -p:Platform=x64
 
 ## 📚 Documentation and contributing
 
+- **[User manual](https://iricigor.github.io/fingvibe/)** - step-by-step guides,
+  screenshots, troubleshooting, privacy, and saved data in plain English.
+  [Read the manual in this repository](docs/index.md).
 - [Usage, identification, people/rooms, and persistence](docs/reference.md#run-locally)
 - [Builds and native/core regression checks](docs/reference.md#test)
 - [Contributor guide and module ownership](CONTRIBUTING.md)

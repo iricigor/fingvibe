@@ -1,0 +1,102 @@
+site_name: FingVibe user manual
+site_description: Clear, practical instructions for the FingVibe Windows LAN scanner.
+site_url: https://iricigor.github.io/fingvibe/
+repo_url: https://github.com/iricigor/fingvibe
+repo_name: iricigor/fingvibe
+edit_uri: edit/main/docs/
+docs_dir: docs
+site_dir: site
+strict: true
+
+theme:
+  name: material
+  custom_dir: docs/theme
+  language: en
+  font: false
+  logo: branding/network-radar.png
+  favicon: branding/network-radar.png
+  features:
+    - navigation.sections
+    - navigation.footer
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+# The manual is the public site. Existing technical records stay in the repository.
+exclude_docs: |
+  /**/*.md
+  !/index.md
+  !/manual/**/*.md
+  /archive/
+  /automation-prompts/
+  /theme/
+  /screenshots/*.json
+
+validation:
+  nav:
+    omitted_files: warn
+    not_found: warn
+    absolute_links: warn
+  links:
+    not_found: warn
+    anchors: warn
+    absolute_links: relative_to_docs
+    unrecognized_links: warn
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Install and update: manual/install.md
+      - Your first scan: manual/first-scan.md
+      - Find your way around: manual/navigation.md
+  - User manual:
+      - Understand device results: manual/devices.md
+      - Identify and inspect a device: manual/device-details.md
+      - People and rooms: manual/people-rooms.md
+      - Scheduled scans and discoveries: manual/scheduled-scans.md
+      - History and usage categories: manual/history.md
+      - Appearance and table settings: manual/settings.md
+  - Tools:
+      - Import from Fing: manual/import.md
+      - SQL reports: manual/sql.md
+      - Network troubleshooting: manual/network-checks.md
+      - Speed test: manual/speed-test.md
+  - Help:
+      - Privacy and network requests: manual/privacy.md
+      - Saved data and backups: manual/data.md
+      - Common problems: manual/problems.md
+      - Version and support: manual/support.md
+      - Terms and icons: manual/glossary.md
+  - Contributing:
+      - Build and contribute: manual/contributing.md
+      - Maintain this documentation: manual/documentation.md
+      - Screenshot sources: manual/screenshots.md
