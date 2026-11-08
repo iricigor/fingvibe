@@ -7,7 +7,9 @@ on:
       - "mkdocs.yml"
       - "tools/requirements-docs.txt"
       - "tools/Check-Documentation.py"
+      - "tools/Publish-Documentation.py"
       - "tests/Documentation.Tests.py"
+      - "tests/DocumentationPublish.Tests.py"
       - ".github/workflows/documentation.yml"
   push:
     branches: [main]
@@ -16,7 +18,9 @@ on:
       - "mkdocs.yml"
       - "tools/requirements-docs.txt"
       - "tools/Check-Documentation.py"
+      - "tools/Publish-Documentation.py"
       - "tests/Documentation.Tests.py"
+      - "tests/DocumentationPublish.Tests.py"
       - ".github/workflows/documentation.yml"
   workflow_dispatch:
 
@@ -48,13 +52,26 @@ jobs:
         run: python -m pip install -r tools/requirements-docs.txt
 
       - name: Test documentation checks
-        run: python tests/Documentation.Tests.py
+        run: |
+          python tests/Documentation.Tests.py
+          python tests/DocumentationPublish.Tests.py
 
       - name: Build the site strictly
         run: python -m mkdocs build --strict
 
       - name: Check published links, images, icons, and search
         run: python tools/Check-Documentation.py site
+
+      - name: Record the checked revision
+        run: printf '%s\n' "$GITHUB_SHA" > site/documentation-revision.txt
+
+      - name: Rehearse the complete generated-site overlay
+        run: |
+          mkdir -p publication-fixture/ui-review
+          printf 'preserved-review-image' > publication-fixture/ui-review/example.bin
+          python tools/Publish-Documentation.py site publication-fixture
+          test "$(cat publication-fixture/ui-review/example.bin)" = 'preserved-review-image'
+          python tools/Check-Documentation.py publication-fixture
 
       - name: Upload the site
         uses: actions/upload-pages-artifact@v4
@@ -66,16 +83,107 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
+      contents: write
       pages: write
-      id-token: write
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: https://iricigor.github.io/fingvibe/
     steps:
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
+      - name: Check out the tested publisher
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
 
-      - name: Deploy the checked site
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Check out existing public pages
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: gh-pages
+          path: published
+          persist-credentials: false
+
+      - name: Download the checked site
+        uses: actions/download-artifact@v8.0.2
+        with:
+          name: github-pages
+          path: pages-artifact
+
+      - name: Publish without replacing UI-review screenshots
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir checked-site
+          tar -xf pages-artifact/artifact.tar -C checked-site
+          python tools/Publish-Documentation.py checked-site published
+          gh auth setup-git
+          git -C published config user.name 'github-actions[bot]'
+          git -C published config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C published add --all
+          if git -C published diff --cached --quiet; then
+            echo 'Checked documentation is already published.'
+          else
+            status=$?
+            if [ "$status" -ne 1 ]; then
+              echo '::error::Could not inspect documentation changes.'
+              exit "$status"
+            fi
+            git -C published commit -m "Publish checked documentation for $GITHUB_SHA"
+            pushed=false
+            for attempt in 1 2 3; do
+              echo "Publication attempt $attempt"
+              if git -C published push origin HEAD:gh-pages; then
+                pushed=true
+                break
+              fi
+              git -C published fetch origin gh-pages
+              git -C published rebase origin/gh-pages
+            done
+            if [ "$pushed" != true ]; then
+              echo '::error::Could not publish documentation after three attempts.'
+              exit 1
+            fi
+          fi
+          build_url=$(gh api --method POST "repos/$GITHUB_REPOSITORY/pages/builds" --jq '.url')
+          status=queued
+          for attempt in $(seq 1 60); do
+            status=$(gh api "$build_url" --jq '.status')
+            case "$status" in
+              built) break ;;
+              queued|building) echo "Waiting for Pages build ($attempt/60)"; sleep 5 ;;
+              *) gh api "$build_url"; echo '::error::Pages build failed.'; exit 1 ;;
+            esac
+          done
+          if [ "$status" != built ]; then
+            echo '::error::Pages build did not finish within five minutes.'
+            exit 1
+          fi
+
+      - name: Verify the live project site
+        run: |
+          set -euo pipefail
+          base=https://iricigor.github.io/fingvibe
+          revision=''
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error --max-time 15 "$base/documentation-revision.txt?revision=$GITHUB_SHA" -o live-revision.txt; then
+              revision=$(cat live-revision.txt)
+            fi
+            if [ "$revision" = "$GITHUB_SHA" ]; then
+              break
+            fi
+            echo "Waiting for the checked revision to reach Pages ($attempt/30)"
+            sleep 5
+          done
+          if [ "$revision" != "$GITHUB_SHA" ]; then
+            echo '::error::Live Pages revision does not match the checked source.'
+            exit 1
+          fi
+          curl --fail --silent --show-error --max-time 15 "$base/" -o live-index.html
+          grep -q 'id="fingvibe-user-manual"' live-index.html
+          curl --fail --silent --show-error --max-time 15 "$base/search/search_index.json" -o live-search.json
+          jq -e '.docs | any(.title == "FingVibe user manual")' live-search.json > /dev/null
+          for image in about device-details devices-empty devices import network-checks network overview people person-details settings speed-test sql; do
+            curl --fail --silent --show-error --max-time 15 "$base/screenshots/manual/$image.png" -o /dev/null
+          done
+          echo 'Verified live revision, manual homepage, search data, and all 13 new screenshots.'

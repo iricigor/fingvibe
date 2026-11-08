@@ -19,6 +19,7 @@ A virtual environment keeps documentation dependencies separate:
 python -m venv .venv-docs
 .\.venv-docs\Scripts\python.exe -m pip install -r tools\requirements-docs.txt
 .\.venv-docs\Scripts\python.exe tests\Documentation.Tests.py
+.\.venv-docs\Scripts\python.exe tests\DocumentationPublish.Tests.py
 .\.venv-docs\Scripts\python.exe -m mkdocs build --strict
 .\.venv-docs\Scripts\python.exe tools\Check-Documentation.py site
 ```
@@ -39,21 +40,33 @@ The **Documentation** workflow builds changed documentation on pull requests.
 It checks links, fragments, assets, image alternative text, decorative icon
 accessibility, and search output before uploading a Pages artifact.
 Pull requests and feature-branch manual runs do **not** deploy.
+Publisher regression tests verify archive preservation, bounded file ownership,
+stale-file cleanup, unsafe-path rejection, and repeat publication.
 
 After a matching push to **main**, the deployment job publishes the checked
 artifact to [GitHub Pages](https://iricigor.github.io/fingvibe/).
 A manual workflow run on main can republish it without changing app releases.
-The deployment has only Pages and OIDC permissions, not repository write access.
+The main-only publication job has narrowly scoped contents/Pages write
+permissions so it can update the existing publishing branch and request a build.
 
-The repository previously published from the `gh-pages` branch.
-This workflow uses **Settings > Pages > Source: GitHub Actions** instead.
-The `github-pages` environment must allow the main branch.
-These are deployment settings, not changes to application release policy or
-branch protection. The old branch can remain for provenance.
+The repository already publishes native PR screenshots under `ui-review/` on
+the `gh-pages` branch. Documentation shares that branch without replacing this
+archive. A manifest tracks only documentation-owned files so obsolete manual
+files can be removed without deleting screenshots or unrelated content.
+Concurrent branch updates are rebased before a bounded push retry.
+
+Keep **Settings > Pages > Source: Deploy from a branch**, using `gh-pages` and
+its root folder. The `github-pages` environment must allow main for the publishing
+job; its existing `gh-pages` allowance is preserved. The job explicitly requests
+a Pages build after publication, rather than relying on a token-generated push
+to trigger another workflow. Existing screenshot publishing remains unchanged.
+These settings do not change application release policy or branch protection.
 
 A successful PR build is not proof that the live site was deployed.
-After merge, check the deployment result and the real `/fingvibe/` project URL.
-Verify search, links, and images there.
+After publication, the main job waits for the Pages build and verifies the live
+revision marker, manual homepage, local search data, and all thirteen new images.
+After merge, check that result and the real `/fingvibe/` project URL.
+Inspect interactive search and navigation there too.
 
 ## Writing rules
 

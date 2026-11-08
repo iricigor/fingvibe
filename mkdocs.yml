@@ -58,6 +58,8 @@ exclude_docs: |
   !/manual/**/*.md
   /archive/
   /automation-prompts/
+  /diagrams/
+  /branding/icon-concepts/
   /theme/
   /screenshots/*.json
 
