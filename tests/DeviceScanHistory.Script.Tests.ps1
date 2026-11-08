@@ -26,6 +26,53 @@ function Assert-HistoryFailure([scriptblock] $Action, [string] $Pattern) {
     throw "Expected explicit failure matching '$Pattern'."
 }
 
+& {
+    $entry = $ast.EndBlock.Statements | Where-Object {
+        $_ -is [System.Management.Automation.Language.IfStatementAst] -and
+            $_.Clauses[0].Item1.Extent.Text -eq '$Group -eq "All"'
+    }
+    if (-not $entry) { throw "Missing all-group entry point." }
+    $Group = "All"
+    $historyEntryPath = "Invoke-HistoryGroupFixture"
+    $AppPath = "fixture-app"
+    $ScreenshotDirectory = Join-Path ([IO.Path]::GetTempPath()) "history-group-tests-$([Guid]::NewGuid())"
+    $state = @{ Calls = [Collections.Generic.List[string]]::new(); Fail = $true }
+    function Invoke-HistoryGroupFixture {
+        param($AppPath, $ScreenshotDirectory, $Group)
+        $state.Calls.Add($Group)
+        if ($state.Fail -and $Group -eq "Semantics") { throw "fixture semantics failure" }
+    }
+    try {
+        Assert-HistoryFailure { Invoke-Expression $entry.Extent.Text } "*Scan-history groups failed: Semantics*fixture semantics failure*"
+        Assert-HistoryTest $state.Calls.ToArray() @("Semantics", "Rendering", "Persistence", "Paging") "Independent groups continue after failure"
+        if (-not (Test-Path (Join-Path $ScreenshotDirectory "Semantics-failure.txt"))) { throw "Group failure diagnostics must persist." }
+        $state.Fail = $false
+        $state.Calls.Clear()
+        Invoke-Expression $entry.Extent.Text
+        Assert-HistoryTest $state.Calls.Count 4 "All groups required on success"
+    }
+    finally {
+        if (Test-Path -LiteralPath $ScreenshotDirectory) { Remove-Item -LiteralPath $ScreenshotDirectory -Recurse -Force }
+    }
+}
+foreach ($case in @(
+    @{ Group = "Semantics"; Markers = @("History legacy", "History imported", "history-imported.png") },
+    @{ Group = "Rendering"; Markers = @("Standard Light", "Standard Dark", "history-summary-") },
+    @{ Group = "Persistence"; Markers = @("history-restarted", "history-virtual-restarted", "hold for cancellation",
+        "history-save-error.png", "history-load-error.png", "invalid inventory fixture") },
+    @{ Group = "Paging"; Markers = @("0..204", "All 205 retained observations", "reverse history paging", "reset history traversal") }
+)) {
+    $blocks = $ast.FindAll({
+        param($node)
+        $node -is [System.Management.Automation.Language.IfStatementAst] -and
+            $node.Clauses[0].Item1.Extent.Text -eq ('$Group -eq "' + $case.Group + '"')
+    }, $true)
+    $text = ($blocks | ForEach-Object { $_.Extent.Text }) -join "`n"
+    foreach ($marker in $case.Markers) {
+        if (-not $text.Contains($marker)) { throw "$($case.Group) lost required coverage '$marker'." }
+    }
+}
+
 Assert-HistoryTest (Get-HistoryNextViewport 0 20) 20 "One viewport with 20% overlap"
 Assert-HistoryTest (Get-HistoryNextViewport 95 20) 100 "Last boundary"
 Assert-HistoryTest (Get-HistoryNextViewport 0 80) 100 "Almost non-scrollable list"

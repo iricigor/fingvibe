@@ -1,9 +1,39 @@
 param(
     [Parameter(Mandatory)][string] $AppPath,
-    [Parameter(Mandatory)][string] $ScreenshotDirectory
+    [Parameter(Mandatory)][string] $ScreenshotDirectory,
+    [ValidateSet("All", "Semantics", "Rendering", "Persistence", "Paging")]
+    [string] $Group = "All"
 )
 
 $ErrorActionPreference = "Stop"
+$historyEntryPath = $PSCommandPath
+if ($Group -eq "All") {
+    $failures = [System.Collections.Generic.List[string]]::new()
+    $total = [Diagnostics.Stopwatch]::StartNew()
+    foreach ($name in @("Semantics", "Rendering", "Persistence", "Paging")) {
+        $clock = [Diagnostics.Stopwatch]::StartNew()
+        Write-Host "Starting scan-history group: $name"
+        try {
+            & $historyEntryPath -AppPath $AppPath -ScreenshotDirectory (Join-Path $ScreenshotDirectory $name.ToLowerInvariant()) -Group $name
+        }
+        catch {
+            $failures.Add("$name : $($_.Exception.Message)")
+            Write-Host "Scan-history group $name failed: $_"
+            $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
+            $_ | Format-List * -Force | Out-String |
+                Set-Content -LiteralPath (Join-Path $ScreenshotDirectory "$name-failure.txt")
+        }
+        finally {
+            $timing = "History group $name elapsed: $($clock.Elapsed.TotalSeconds.ToString('F3', [Globalization.CultureInfo]::InvariantCulture)) seconds"
+            Write-Host $timing
+            if ($env:GITHUB_STEP_SUMMARY) { $timing >> $env:GITHUB_STEP_SUMMARY }
+        }
+    }
+    Write-Host "Combined history groups elapsed: $($total.Elapsed.TotalSeconds.ToString('F3', [Globalization.CultureInfo]::InvariantCulture)) seconds"
+    if ($failures.Count) { throw "Scan-history groups failed: $($failures -join '; ')" }
+    Write-Host "All four scan-history groups passed."
+    return
+}
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
 . (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
@@ -639,7 +669,8 @@ try {
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $snapshot
     $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT = "0"
     $env:FINGVIBE_UI_REVIEW_SCAN_HOLD = $hold
-    foreach ($index in 0..4) {
+    $indices = if ($Group -eq "Semantics") { 0..4 } else { @(4) }
+    foreach ($index in $indices) {
         $lastSeen = @(0, 1, 1, 1, 4)[$index]
         $present = $index -notin @(2, 3)
         $time = "2026-11-01T12:0${index}:00+00:00"
@@ -663,6 +694,7 @@ try {
         $data.devices.'020000000001'.scanHistory = @($history[0..$index]) + $decoyHistory
         @{ version = 3; data = $data } | ConvertTo-Json -Depth 15 | Set-Content -LiteralPath $inventory -Encoding UTF8
         if (Test-Path -LiteralPath $database) { Remove-Item -LiteralPath $database }
+        if ($Group -ne "Semantics") { continue }
         Start-HistoryApp
         foreach ($kind in @("normal", "virtual")) {
             $null = Assert-HistoryLastSeenCell "History $kind" "Last seen: $(Get-HistoryExactTime $lastSeen)"
@@ -673,243 +705,263 @@ try {
         }
         Stop-HistoryApp
     }
-    $original = Get-Content -LiteralPath $inventory -Raw
-    $originalDatabase = Get-InventoryFingerprint $database
-    Start-HistoryApp
-    $null = Assert-HistoryLastSeenCell "History legacy" `
-        "Last seen: $(Get-HistoryExactTime 4) (historical aggregate; individual scan unavailable)"
-    Assert-HistoryLastSeenAge "History legacy" 4
-    $null = Assert-HistoryLastSeenCell "History unmatched" `
-        "Last seen: Unavailable - no matching local presence evidence for the current network/subnet."
-    if ((Get-HistoryLastSeenCell "History unmatched" -Rendered) -cne "Unavailable") { throw "Missing evidence must stay Unavailable." }
-    $null = Assert-HistoryLastSeenCell "History imported" `
-        "Last seen: Never - not observed by a local scan.*not mean the device was never present on any network."
-    if ((Get-HistoryLastSeenCell "History imported" -Rendered) -cne "Never") { throw "Imported-only devices must render Never." }
-    Open-HistoryDetails "History legacy"
-    foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen")) {
-        if ((Find-HistoryControl $id).Current.Name -notlike "*historical aggregate; individual scan unavailable*") {
-            throw "Legacy timestamps must retain their aggregate provenance."
+    if ($Group -eq "Semantics") {
+        $original = Get-Content -LiteralPath $inventory -Raw
+        $originalDatabase = Get-InventoryFingerprint $database
+        Start-HistoryApp
+        $null = Assert-HistoryLastSeenCell "History legacy" `
+            "Last seen: $(Get-HistoryExactTime 4) (historical aggregate; individual scan unavailable)"
+        Assert-HistoryLastSeenAge "History legacy" 4
+        $null = Assert-HistoryLastSeenCell "History unmatched" `
+            "Last seen: Unavailable - no matching local presence evidence for the current network/subnet."
+        if ((Get-HistoryLastSeenCell "History unmatched" -Rendered) -cne "Unavailable") { throw "Missing evidence must stay Unavailable." }
+        $null = Assert-HistoryLastSeenCell "History imported" `
+            "Last seen: Never - not observed by a local scan.*not mean the device was never present on any network."
+        if ((Get-HistoryLastSeenCell "History imported" -Rendered) -cne "Never") { throw "Imported-only devices must render Never." }
+        Open-HistoryDetails "History legacy"
+        foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen")) {
+            if ((Find-HistoryControl $id).Current.Name -notlike "*historical aggregate; individual scan unavailable*") {
+                throw "Legacy timestamps must retain their aggregate provenance."
+            }
         }
+        if ((Find-HistoryControl DeviceHistorySince).Current.Name -notlike "*Unavailable*") { throw "Legacy aggregates fabricated since." }
+        $null = Show-HistorySection DeviceHistoryFirstSeen
+        Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-legacy-summary.png")
+        Open-HistoryDetails "History unmatched"
+        foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince")) {
+            if ((Find-HistoryControl $id).Current.Name -notlike "*Unavailable*") { throw "Other-network/subnet evidence leaked into $id." }
+        }
+        if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "0 completed scan observations") { throw "Other-scope history leaked." }
+        Open-HistoryDetails "History imported"
+        foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince")) {
+            if ((Find-HistoryControl $id).Current.Name -notlike "*Unavailable*") { throw "Imported-only history fabricated $id." }
+        }
+        $empty = Show-HistorySection DeviceScanHistoryEmpty
+        if ($empty.Current.Name -ne "No local scan history. Imported Fing data is not a local scan observation.") {
+            throw "Imported-only history needs an explanatory empty state."
+        }
+        Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-imported.png")
+        Stop-HistoryApp
     }
-    if ((Find-HistoryControl DeviceHistorySince).Current.Name -notlike "*Unavailable*") { throw "Legacy aggregates fabricated since." }
-    $null = Show-HistorySection DeviceHistoryFirstSeen
-    Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-legacy-summary.png")
-    Open-HistoryDetails "History unmatched"
-    foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince")) {
-        if ((Find-HistoryControl $id).Current.Name -notlike "*Unavailable*") { throw "Other-network/subnet evidence leaked into $id." }
+    if ($Group -in @("Rendering", "Persistence")) {
+        Start-HistoryApp
+        Wait-HistoryState { Test-Path -LiteralPath $database } "fixture migration"
+        Stop-HistoryApp
+        $original = Get-Content -LiteralPath $inventory -Raw
+        $originalDatabase = Get-InventoryFingerprint $database
     }
-    if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "0 completed scan observations") { throw "Other-scope history leaked." }
-    Open-HistoryDetails "History imported"
-    foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince")) {
-        if ((Find-HistoryControl $id).Current.Name -notlike "*Unavailable*") { throw "Imported-only history fabricated $id." }
-    }
-    $empty = Show-HistorySection DeviceScanHistoryEmpty
-    if ($empty.Current.Name -ne "No local scan history. Imported Fing data is not a local scan observation.") {
-        throw "Imported-only history needs an explanatory empty state."
-    }
-    Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-imported.png")
-    Stop-HistoryApp
-    Start-HistoryApp
-    Open-HistoryDetails "History normal"
-    Assert-HistorySummary "history-restarted"
-    Assert-HistoryRows "history-restarted"
-    foreach ($theme in @("Standard Light", "Standard Dark")) {
-        $condition = [System.Windows.Automation.AndCondition]::new(
-            [System.Windows.Automation.PropertyCondition]::new(
-                [System.Windows.Automation.AutomationElement]::NameProperty, "Settings"),
-            [System.Windows.Automation.PropertyCondition]::new(
-                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-                [System.Windows.Automation.ControlType]::ListItem))
-        $settings = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
-        if (-not $settings) { throw "Settings navigation was not found." }
-        $settings.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-        Wait-HistoryState {
-            $picker = Find-HistoryControl ModePicker -Optional
-            $picker -and -not $picker.Current.IsOffscreen
-        } "appearance settings"
-        Set-UiReviewTheme -Root $script:root -Theme $theme
+    if ($Group -eq "Persistence") {
+        Start-HistoryApp
         Open-HistoryDetails "History normal"
-        $label = $theme.Replace(" ", "-").ToLowerInvariant()
-        Assert-HistoryTableRendering "history-table-$label"
-        $bounds = Get-UiReviewWindowBounds $script:process.MainWindowHandle
-        if (-not [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
-            $bounds.Left, $bounds.Top, 640, $bounds.Height, 0x0044)) { throw "Cannot resize history review window." }
-        Start-Sleep -Milliseconds 500
-        Assert-HistoryTableRendering "history-table-$label-narrow"
-        (Find-HistoryControl DeviceScanHistoryExpander).GetCurrentPattern(
-            [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse()
-        $null = Show-HistorySection DeviceScanHistoryExpander
-        Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-summary-$label-narrow.png")
-        $null = [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
-            $bounds.Left, $bounds.Top, $bounds.Width, $bounds.Height, 0x0044)
-        Start-Sleep -Milliseconds 500
+        Assert-HistorySummary "history-restarted"
+        Assert-HistoryRows "history-restarted"
     }
-    Open-HistoryDetails "History virtual"
-    Assert-HistorySummary "history-virtual-restarted"
-    if ((Get-Content -LiteralPath $inventory -Raw) -cne $original) { throw "Restoration must not write new scan entries." }
-    if ((Get-InventoryFingerprint $database) -cne $originalDatabase) { throw "Restoration changed SQLite history." }
-    foreach ($count in @(8, 9)) {
+    if ($Group -eq "Rendering") {
+        Start-HistoryApp
+        Open-HistoryDetails "History normal"
+        foreach ($theme in @("Standard Light", "Standard Dark")) {
+            $condition = [System.Windows.Automation.AndCondition]::new(
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::NameProperty, "Settings"),
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                    [System.Windows.Automation.ControlType]::ListItem))
+            $settings = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+            if (-not $settings) { throw "Settings navigation was not found." }
+            $settings.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+            Wait-HistoryState {
+                $picker = Find-HistoryControl ModePicker -Optional
+                $picker -and -not $picker.Current.IsOffscreen
+            } "appearance settings"
+            Set-UiReviewTheme -Root $script:root -Theme $theme
+            Open-HistoryDetails "History normal"
+            $label = $theme.Replace(" ", "-").ToLowerInvariant()
+            Assert-HistoryTableRendering "history-table-$label"
+            $bounds = Get-UiReviewWindowBounds $script:process.MainWindowHandle
+            if (-not [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
+                $bounds.Left, $bounds.Top, 640, $bounds.Height, 0x0044)) { throw "Cannot resize history review window." }
+            Start-Sleep -Milliseconds 500
+            Assert-HistoryTableRendering "history-table-$label-narrow"
+            (Find-HistoryControl DeviceScanHistoryExpander).GetCurrentPattern(
+                [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse()
+            $null = Show-HistorySection DeviceScanHistoryExpander
+            Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-summary-$label-narrow.png")
+            $null = [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
+                $bounds.Left, $bounds.Top, $bounds.Width, $bounds.Height, 0x0044)
+            Start-Sleep -Milliseconds 500
+        }
+        Stop-HistoryApp
+    }
+    if ($Group -eq "Persistence") {
+        Open-HistoryDetails "History virtual"
+        Assert-HistorySummary "history-virtual-restarted"
+        if ((Get-Content -LiteralPath $inventory -Raw) -cne $original) { throw "Restoration must not write new scan entries." }
+        if ((Get-InventoryFingerprint $database) -cne $originalDatabase) { throw "Restoration changed SQLite history." }
+        foreach ($count in @(8, 9)) {
+            Invoke-HistoryScan
+            Wait-HistoryScan
+            if ((Get-InventorySqliteValue $database "SELECT COUNT(*) FROM scan_history WHERE kind='mac' AND id='020000000001'") -ne $count) {
+                throw "Each successful repeated scan must persist one new observation."
+            }
+            if ((Get-InventorySqliteValue $database "SELECT COUNT(*) FROM scan_history WHERE kind='virtual'") -ne $count - 2) { throw "Same-network scan did not record virtual absence." }
+        }
+        $normalPresent = Get-InventorySqliteValue $database "SELECT present FROM scan_history WHERE kind='mac' AND id='020000000001' ORDER BY sequence DESC LIMIT 1"
+        $expectedNormal = if ("$normalPresent" -eq "1") { "Last seen: Online - responded in the displayed scan (*)" } else { "Last seen: $(Get-HistoryExactTime 4)" }
+        $beforeLastSeen = @{
+            "History normal" = Assert-HistoryLastSeenCell "History normal" $expectedNormal
+            "History virtual" = Assert-HistoryLastSeenCell "History virtual" "Last seen: $(Get-HistoryExactTime 4)"
+        }
+        $beforeStop = Get-InventoryFingerprint $database
+        Open-HistoryDetails "History normal"
+        $beforeSummary = @{}
+        foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince", "DeviceHistoryLatest")) {
+            $beforeSummary[$id] = (Find-HistoryControl $id).Current.Name
+        }
+        Set-Content -LiteralPath $hold -Value "hold for cancellation"
+        Invoke-HistoryScan
+        Wait-HistoryState { Find-HistoryControl "Cancel scan" -ByName -Optional } "cancel action"
+        (Find-HistoryControl "Cancel scan" -ByName).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        Wait-HistoryScan
+        if ((Get-InventoryFingerprint $database) -cne $beforeStop) { throw "Cancelled scan changed durable history." }
+        Open-HistoryDetails "History normal"
+        if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "7 completed scan observations") {
+            throw "Cancelled scan changed displayed history."
+        }
+        foreach ($id in $beforeSummary.Keys) {
+            if ((Find-HistoryControl $id).Current.Name -ne $beforeSummary[$id]) { throw "Cancelled scan changed $id." }
+        }
+        foreach ($name in $beforeLastSeen.Keys) {
+            if ((Get-HistoryLastSeenCell $name) -cne $beforeLastSeen[$name]) { throw "Cancelled scan changed Last seen for $name." }
+        }
+        @{ completed = -1; total = 1 } | ConvertTo-Json | Set-Content -LiteralPath "$hold.progress"
         Invoke-HistoryScan
         Wait-HistoryScan
-        if ((Get-InventorySqliteValue $database "SELECT COUNT(*) FROM scan_history WHERE kind='mac' AND id='020000000001'") -ne $count) {
-            throw "Each successful repeated scan must persist one new observation."
+        if ((Find-HistoryControl ScanStatusText).Current.Name -notlike "*UI-review progress fixture is invalid*") {
+            throw "Failed scan must display its error."
         }
-        if ((Get-InventorySqliteValue $database "SELECT COUNT(*) FROM scan_history WHERE kind='virtual'") -ne $count - 2) { throw "Same-network scan did not record virtual absence." }
-    }
-    $normalPresent = Get-InventorySqliteValue $database "SELECT present FROM scan_history WHERE kind='mac' AND id='020000000001' ORDER BY sequence DESC LIMIT 1"
-    $expectedNormal = if ("$normalPresent" -eq "1") { "Last seen: Online - responded in the displayed scan (*)" } else { "Last seen: $(Get-HistoryExactTime 4)" }
-    $beforeLastSeen = @{
-        "History normal" = Assert-HistoryLastSeenCell "History normal" $expectedNormal
-        "History virtual" = Assert-HistoryLastSeenCell "History virtual" "Last seen: $(Get-HistoryExactTime 4)"
-    }
-    $beforeStop = Get-InventoryFingerprint $database
-    Open-HistoryDetails "History normal"
-    $beforeSummary = @{}
-    foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince", "DeviceHistoryLatest")) {
-        $beforeSummary[$id] = (Find-HistoryControl $id).Current.Name
-    }
-    Set-Content -LiteralPath $hold -Value "hold for cancellation"
-    Invoke-HistoryScan
-    Wait-HistoryState { Find-HistoryControl "Cancel scan" -ByName -Optional } "cancel action"
-    (Find-HistoryControl "Cancel scan" -ByName).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-    Wait-HistoryScan
-    if ((Get-InventoryFingerprint $database) -cne $beforeStop) { throw "Cancelled scan changed durable history." }
-    Open-HistoryDetails "History normal"
-    if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "7 completed scan observations") {
-        throw "Cancelled scan changed displayed history."
-    }
-    foreach ($id in $beforeSummary.Keys) {
-        if ((Find-HistoryControl $id).Current.Name -ne $beforeSummary[$id]) { throw "Cancelled scan changed $id." }
-    }
-    foreach ($name in $beforeLastSeen.Keys) {
-        if ((Get-HistoryLastSeenCell $name) -cne $beforeLastSeen[$name]) { throw "Cancelled scan changed Last seen for $name." }
-    }
-    @{ completed = -1; total = 1 } | ConvertTo-Json | Set-Content -LiteralPath "$hold.progress"
-    Invoke-HistoryScan
-    Wait-HistoryScan
-    if ((Find-HistoryControl ScanStatusText).Current.Name -notlike "*UI-review progress fixture is invalid*") {
-        throw "Failed scan must display its error."
-    }
-    if ((Get-InventoryFingerprint $database) -cne $beforeStop) { throw "Failed scan changed durable history." }
-    Open-HistoryDetails "History normal"
-    if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "7 completed scan observations") {
-        throw "Failed scan changed displayed history."
-    }
-    foreach ($id in $beforeSummary.Keys) {
-        if ((Find-HistoryControl $id).Current.Name -ne $beforeSummary[$id]) { throw "Failed scan changed $id." }
-    }
-    foreach ($name in $beforeLastSeen.Keys) {
-        if ((Get-HistoryLastSeenCell $name) -cne $beforeLastSeen[$name]) { throw "Failed scan changed Last seen for $name." }
-    }
-    Remove-Item -LiteralPath $hold, "$hold.progress"
-    $lock = [System.IO.FileStream]::new("$inventory.lock", [System.IO.FileMode]::Open,
-        [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
-    Invoke-HistoryScan
-    Wait-HistoryScan
-    if ((Find-HistoryControl ScanStatusText).Current.Name -notlike "*Scan checkpoint could not be saved*") {
-        throw "Failed history persistence must be visibly reported."
-    }
-    if ((Get-InventoryFingerprint $database) -cne $beforeStop) { throw "A failed save changed durable history." }
-    Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-save-error.png")
-    $lock.Dispose()
-    $lock = $null
-    Set-Content -LiteralPath $database -Value "invalid inventory fixture"
-    Invoke-HistoryScan
-    Wait-HistoryScan
-    if ((Find-HistoryControl ScanStatusText).Current.Name -notlike "*Scan checkpoint could not be saved*") {
-        throw "Invalid saved history encountered while saving must be visibly reported."
-    }
-    if ((Get-Content -LiteralPath $database -Raw).Trim() -ne "invalid inventory fixture") {
-        throw "Saving must not overwrite invalid history."
-    }
-    Stop-HistoryApp
-    Start-HistoryApp
-    Wait-HistoryState {
-        $status = Find-HistoryControl ScanStatusText -Optional
-        $status -and $status.Current.Name -like "*Saved inventory could not be loaded. Changes are disabled*"
-    } "visible inventory load failure"
-    Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-load-error.png")
-    if ((Get-Content -LiteralPath $database -Raw).Trim() -ne "invalid inventory fixture") {
-        throw "Invalid saved history must not be overwritten."
-    }
-    Stop-HistoryApp
-    $pagedHistory = @(0..204 | ForEach-Object {
-        @{ completedAt = ([DateTimeOffset]::Parse("2026-11-01T12:00:00Z").AddSeconds($_)).ToString("o")
-           networkId = "ui-review-network"; subnet = "127.0.0.1/32"; present = ($_ % 4 -lt 2) }
-    })
-    $data.devices.'020000000001'.scanHistory = $pagedHistory + $decoyHistory
-    $normal.lastSeen = "2026-11-01T12:03:24+00:00"
-    $normal.lastChecked = $normal.lastSeen
-    $normal.present = $true
-    @{ version = 3; data = $data } | ConvertTo-Json -Depth 15 | Set-Content -LiteralPath $inventory -Encoding UTF8
-    Remove-Item -LiteralPath $database
-    Start-HistoryApp
-    Open-HistoryDetails "History normal"
-    $reachable = @{}
-    foreach ($pageIndex in 0..2) {
-        $start = 1 + 100 * $pageIndex
-        $end = [Math]::Min(100 * ($pageIndex + 1), 205)
+        if ((Get-InventoryFingerprint $database) -cne $beforeStop) { throw "Failed scan changed durable history." }
+        Open-HistoryDetails "History normal"
+        if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "7 completed scan observations") {
+            throw "Failed scan changed displayed history."
+        }
+        foreach ($id in $beforeSummary.Keys) {
+            if ((Find-HistoryControl $id).Current.Name -ne $beforeSummary[$id]) { throw "Failed scan changed $id." }
+        }
+        foreach ($name in $beforeLastSeen.Keys) {
+            if ((Get-HistoryLastSeenCell $name) -cne $beforeLastSeen[$name]) { throw "Failed scan changed Last seen for $name." }
+        }
+        Remove-Item -LiteralPath $hold, "$hold.progress"
+        $lock = [System.IO.FileStream]::new("$inventory.lock", [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+        Invoke-HistoryScan
+        Wait-HistoryScan
+        if ((Find-HistoryControl ScanStatusText).Current.Name -notlike "*Scan checkpoint could not be saved*") {
+            throw "Failed history persistence must be visibly reported."
+        }
+        if ((Get-InventoryFingerprint $database) -cne $beforeStop) { throw "A failed save changed durable history." }
+        Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-save-error.png")
+        $lock.Dispose()
+        $lock = $null
+        Set-Content -LiteralPath $database -Value "invalid inventory fixture"
+        Invoke-HistoryScan
+        Wait-HistoryScan
+        if ((Find-HistoryControl ScanStatusText).Current.Name -notlike "*Scan checkpoint could not be saved*") {
+            throw "Invalid saved history encountered while saving must be visibly reported."
+        }
+        if ((Get-Content -LiteralPath $database -Raw).Trim() -ne "invalid inventory fixture") {
+            throw "Saving must not overwrite invalid history."
+        }
+        Stop-HistoryApp
+        Start-HistoryApp
         Wait-HistoryState {
-            (Find-HistoryControl DeviceHistoryPageStatus).Current.Name -like "Showing $start-$end of 205.*"
-        } "bounded history page $($pageIndex + 1)"
-        if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "205 completed scan observations") {
-            throw "Paging must retain the exact scoped observation count."
+            $status = Find-HistoryControl ScanStatusText -Optional
+            $status -and $status.Current.Name -like "*Saved inventory could not be loaded. Changes are disabled*"
+        } "visible inventory load failure"
+        Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-load-error.png")
+        if ((Get-Content -LiteralPath $database -Raw).Trim() -ne "invalid inventory fixture") {
+            throw "Invalid saved history must not be overwritten."
         }
-        $list = Show-HistorySection DeviceScanHistoryList
-        $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-        $pageRows = @{}
-        $expectedRows = @{}
-        foreach ($index in (205 - $end)..(205 - $start)) {
-            $time = [DateTimeOffset]::Parse($pagedHistory[$index].completedAt).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss zzz")
-            $state = if ($pagedHistory[$index].present) { "present" } else { "absent" }
-            $expectedRows["$time; Observed $state"] = $true
-        }
-        Visit-HistoryRows {
-            param($items)
-            $labels = @()
-            foreach ($item in $items) {
-                $label = $item.Current.Name
-                if ($label -notmatch '; Observed (present|absent)$') { throw "Unexpected observation row '$label'." }
-                if (-not $expectedRows.ContainsKey($label)) { throw "Incorrect timestamp/state or page membership: '$label'." }
-                $pageRows[$label] = $true
-                $labels += $label
-            }
-            if (($labels -join "|") -cne (($labels | Sort-Object -Descending) -join "|")) {
-                throw "Paged history rows are not newest first."
-            }
-        }
-        if ($pageRows.Count -ne $end - $start + 1) { throw "Not every observation on page $pageIndex is reachable: $($pageRows.Count)." }
-        foreach ($label in $pageRows.Keys) {
-            if ($reachable.ContainsKey($label)) { throw "Observation duplicated across history pages: $label." }
-            $reachable[$label] = $true
-        }
-        $scroll = (Find-HistoryControl DeviceScanHistoryList).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
-        Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-page-$($pageIndex + 1).png")
-        if ($pageIndex -lt 2) {
-            $older = Show-HistorySection DeviceHistoryOlder
-            $older.SetFocus()
-            [System.Windows.Forms.SendKeys]::SendWait(" ")
-        }
+        Stop-HistoryApp
     }
-    if ($reachable.Count -ne 205) { throw "All 205 retained observations must remain reachable." }
-    if ((Find-HistoryControl DeviceHistoryOlder).Current.IsEnabled) { throw "Older navigation must stop at the oldest page." }
-    (Show-HistorySection DeviceHistoryNewer).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-    Wait-HistoryState { (Find-HistoryControl DeviceHistoryPageStatus).Current.Name -like "Showing 101-200 of 205.*" } "reverse history paging"
-    (Show-HistorySection DeviceHistoryOlder).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-    Open-HistoryDetails "History imported"
-    if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "0 completed scan observations") {
-        throw "Selection changes must not retain the previous device's page."
+    if ($Group -eq "Paging") {
+        $pagedHistory = @(0..204 | ForEach-Object {
+            @{ completedAt = ([DateTimeOffset]::Parse("2026-11-01T12:00:00Z").AddSeconds($_)).ToString("o")
+               networkId = "ui-review-network"; subnet = "127.0.0.1/32"; present = ($_ % 4 -lt 2) }
+        })
+        $data.devices.'020000000001'.scanHistory = $pagedHistory + $decoyHistory
+        $normal.lastSeen = "2026-11-01T12:03:24+00:00"
+        $normal.lastChecked = $normal.lastSeen
+        $normal.present = $true
+        @{ version = 3; data = $data } | ConvertTo-Json -Depth 15 | Set-Content -LiteralPath $inventory -Encoding UTF8
+        if (Test-Path -LiteralPath $database) { Remove-Item -LiteralPath $database }
+        Start-HistoryApp
+        Open-HistoryDetails "History normal"
+        $reachable = @{}
+        foreach ($pageIndex in 0..2) {
+            $start = 1 + 100 * $pageIndex
+            $end = [Math]::Min(100 * ($pageIndex + 1), 205)
+            Wait-HistoryState {
+                (Find-HistoryControl DeviceHistoryPageStatus).Current.Name -like "Showing $start-$end of 205.*"
+            } "bounded history page $($pageIndex + 1)"
+            if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "205 completed scan observations") {
+                throw "Paging must retain the exact scoped observation count."
+            }
+            $list = Show-HistorySection DeviceScanHistoryList
+            $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+            $pageRows = @{}
+            $expectedRows = @{}
+            foreach ($index in (205 - $end)..(205 - $start)) {
+                $time = [DateTimeOffset]::Parse($pagedHistory[$index].completedAt).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss zzz")
+                $state = if ($pagedHistory[$index].present) { "present" } else { "absent" }
+                $expectedRows["$time; Observed $state"] = $true
+            }
+            Visit-HistoryRows {
+                param($items)
+                $labels = @()
+                foreach ($item in $items) {
+                    $label = $item.Current.Name
+                    if ($label -notmatch '; Observed (present|absent)$') { throw "Unexpected observation row '$label'." }
+                    if (-not $expectedRows.ContainsKey($label)) { throw "Incorrect timestamp/state or page membership: '$label'." }
+                    $pageRows[$label] = $true
+                    $labels += $label
+                }
+                if (($labels -join "|") -cne (($labels | Sort-Object -Descending) -join "|")) {
+                    throw "Paged history rows are not newest first."
+                }
+            }
+            if ($pageRows.Count -ne $end - $start + 1) { throw "Not every observation on page $pageIndex is reachable: $($pageRows.Count)." }
+            foreach ($label in $pageRows.Keys) {
+                if ($reachable.ContainsKey($label)) { throw "Observation duplicated across history pages: $label." }
+                $reachable[$label] = $true
+            }
+            $scroll = (Find-HistoryControl DeviceScanHistoryList).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+            if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
+            Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-page-$($pageIndex + 1).png")
+            if ($pageIndex -lt 2) {
+                $older = Show-HistorySection DeviceHistoryOlder
+                $older.SetFocus()
+                [System.Windows.Forms.SendKeys]::SendWait(" ")
+            }
+        }
+        if ($reachable.Count -ne 205) { throw "All 205 retained observations must remain reachable." }
+        if ((Find-HistoryControl DeviceHistoryOlder).Current.IsEnabled) { throw "Older navigation must stop at the oldest page." }
+        (Show-HistorySection DeviceHistoryNewer).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        Wait-HistoryState { (Find-HistoryControl DeviceHistoryPageStatus).Current.Name -like "Showing 101-200 of 205.*" } "reverse history paging"
+        (Show-HistorySection DeviceHistoryOlder).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        Open-HistoryDetails "History imported"
+        if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "0 completed scan observations") {
+            throw "Selection changes must not retain the previous device's page."
+        }
+        Open-HistoryDetails "History normal"
+        Wait-HistoryState { (Find-HistoryControl DeviceHistoryPageStatus).Current.Name -like "Showing 1-100 of 205.*" } "reset history traversal after selection change"
+        if ((Find-HistoryControl DeviceHistoryNewer).Current.IsEnabled) { throw "Newer navigation must stop at the newest page." }
     }
-    Open-HistoryDetails "History normal"
-    Wait-HistoryState { (Find-HistoryControl DeviceHistoryPageStatus).Current.Name -like "Showing 1-100 of 205.*" } "reset history traversal after selection change"
-    if ((Find-HistoryControl DeviceHistoryNewer).Current.IsEnabled) { throw "Newer navigation must stop at the newest page." }
-    Write-Host "Device scan-history native UI checks passed."
+    Write-Host "Device scan-history $Group native UI checks passed."
 }
 finally {
     foreach ($phase in $script:historyTimings.Keys | Sort-Object) {
         $entry = $script:historyTimings[$phase]
-        $timing = "History phase $phase : $($entry.Seconds.ToString('F3', [Globalization.CultureInfo]::InvariantCulture)) seconds / $($entry.Calls) calls"
+        $timing = "History $Group phase $phase : $($entry.Seconds.ToString('F3', [Globalization.CultureInfo]::InvariantCulture)) seconds / $($entry.Calls) calls"
         Write-Host $timing
         if ($env:GITHUB_STEP_SUMMARY) { $timing >> $env:GITHUB_STEP_SUMMARY }
     }

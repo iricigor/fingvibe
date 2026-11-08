@@ -442,6 +442,23 @@ helper checks without desktop automation. Native coverage and before/after
 runtime evidence require disposable GitHub Windows runners, never the working
 desktop.
 
+The entry point runs four independent groups sequentially on that same runner:
+`Semantics` (transitions, provenance and normal/virtual/scoped evidence),
+`Rendering` (keyboard, themes, narrow tables and screenshots), `Persistence`
+(restart, scans, cancellation and storage failures), and `Paging` (all 205
+observations, ordering, page boundaries and selection reset). Each invocation
+creates and cleans up its own fixture and application. A group failure retains
+its diagnostic file and does not skip the remaining independent groups; the
+combined entry point still fails if any group fails. Screenshots are retained
+under group-named subdirectories with their existing filenames. Group timings
+include independent setup; compare their combined runtime, not a single group,
+against the previous monolithic test.
+
+On a disposable runner, select one group with
+`tests\DeviceScanHistory.Ui.Tests.ps1 -AppPath <app> -ScreenshotDirectory <output> -Group Paging`;
+omitting `-Group` runs all four. This split does not waive the outstanding native
+scroll/realization checks or replace their required passing evidence.
+
 Device details shows a **Scan history** summary for normal MAC-based devices and
 existing virtual devices. First/last-seen timestamps display in local time with
 relative ages, refreshed while the page is visible and rounded to the nearest
