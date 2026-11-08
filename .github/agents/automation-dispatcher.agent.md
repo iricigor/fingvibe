@@ -56,6 +56,29 @@ recovery opportunity, not claim or gate expiry.
 
 ## 2. Reconcile capacity before new work
 
+Start with the read-only PowerShell 7 preflight, after acquiring the gate:
+
+```powershell
+.\.github\scripts\Get-DispatcherPreflight.ps1 -Repository <owner/repo> -Epic <number>
+```
+
+Use its compact JSON to focus subsequent inspection; do not reconstruct the
+same repository-wide issue/comment inventory through repeated shell queries.
+`reconcile` identifies occupied or uncertain work, `blocked` identifies evidence
+requiring review, `candidate` is mechanical guidance only, and `no-work` means no
+mechanical candidate in the evaluated queue. Collection failures exit nonzero.
+If output points to a diagnostic artifact, read that complete artifact first.
+The script caches fully paginated GitHub reads; it never claims, changes GitHub,
+acquires/releases gates, launches workers, or proves host termination.
+
+Narrative/historical order can require `-TaskOrder` plus `-OrderEvidenceUrl`;
+read and verify the current Epic/discussion before supplying that override.
+Never invent order or use it as authorization. Inspect unresolved historical,
+design/transferred acceptance and dependency evidence rather than treating
+review findings as delivered work. Host worker reconciliation, scope and
+authorization verification, and fresh reads before every consequential write
+remain mandatory. See docs/dispatcher-preflight.md for output and limitations.
+
 With complete pagination inspect all open PRs (including drafts), open
 active/status:review issues, and retained claims including blocked/closed issues
 where correlation indicates unfinished work. Read bodies, relevant comments,
