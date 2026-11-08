@@ -48,7 +48,7 @@ jobs:
     if: needs.changes.outputs.tests == 'true'
     runs-on: windows-latest
     env:
-      NUGET_PACKAGES: ${{ runner.temp }}\nuget-packages
+      NUGET_PACKAGES: ${{ github.workspace }}\.nuget\packages
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -119,7 +119,7 @@ jobs:
     if: needs.changes.outputs.build == 'true'
     runs-on: windows-latest
     env:
-      NUGET_PACKAGES: ${{ runner.temp }}\nuget-packages
+      NUGET_PACKAGES: ${{ github.workspace }}\.nuget\packages
     outputs:
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
       build-timestamp: ${{ steps.publish.outputs.build-timestamp }}

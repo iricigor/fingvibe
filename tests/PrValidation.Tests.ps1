@@ -147,8 +147,8 @@ $regressionJob = Get-WorkflowJob ui-regression
 $publishJob = Get-WorkflowJob ui-publish
 $caches = @()
 foreach ($job in @($testJob, $buildJob)) {
-    if ($job -notmatch 'NUGET_PACKAGES: \$\{\{ runner.temp \}\}\\nuget-packages') {
-        throw "Core tests/build must use an explicit shared NuGet package cache location."
+    if ($job -notmatch 'NUGET_PACKAGES: \$\{\{ github.workspace \}\}\\\.nuget\\packages') {
+        throw "Core tests/build must use a job-env-supported context for the NuGet package cache location."
     }
     $cache = [regex]::Match($job, '(?ms)^      - name: Cache NuGet packages\r?\n.*?(?=^      - name:|\z)')
     if (-not $cache.Success -or $cache.Value -notmatch 'uses: actions/cache@v4' -or
