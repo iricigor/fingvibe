@@ -307,13 +307,14 @@ function Assert-HistorySummary([string] $Capture, [int] $LastIndex = 4) {
             [System.Windows.Automation.ExpandCollapsePattern]::Pattern)
         $expansion.Collapse()
     }
-    $null = Show-HistorySection DeviceHistoryFirstSeen
+    $null = Show-HistorySection DeviceHistorySummaryCard
     foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince")) {
         $element = Find-HistoryControl $id
         $area = (Find-HistoryControl DeviceDetailsScroll).Current.BoundingRectangle
         $bounds = $element.Current.BoundingRectangle
         if ($element.Current.IsOffscreen -or $bounds.Top -lt $area.Top -or $bounds.Bottom -gt $area.Bottom) {
-            throw "Summary field $id is clipped."
+            Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Capture-clipped.png")
+            throw "Summary field $id is clipped: bounds=$bounds; viewport=$area."
         }
     }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Capture-summary.png")

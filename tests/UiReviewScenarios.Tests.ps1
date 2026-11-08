@@ -36,6 +36,14 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
         if (-not $page.SelectSingleNode("//*[@x:Name='$id']", $namespaces)) { throw "Retained summary lacks $id." }
         if ($history.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must remain outside collapsed observations." }
     }
+    $summary = $page.SelectSingleNode("//*[@x:Name='DeviceHistorySummaryCard']", $namespaces)
+    Assert-Equal $summary.GetAttribute("AutomationProperties.AutomationId") "DeviceHistorySummaryCard" "Summary container is accessible for whole-card positioning"
+    $historyUi = Get-Content (Join-Path $PSScriptRoot "DeviceScanHistory.Ui.Tests.ps1") -Raw
+    $summaryAssertion = [regex]::Match($historyUi, '(?s)function Assert-HistorySummary.*?(?=function Invoke-HistoryScan)').Value
+    if ($summaryAssertion -notmatch 'Show-HistorySection DeviceHistorySummaryCard' -or
+        $summaryAssertion -match 'Show-HistorySection DeviceHistoryFirstSeen') {
+        throw "Summary checks must position the whole card, not stop when only its first field is visible."
+    }
     $code = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml.cs") -Raw
     foreach ($pattern in @(
         'internal static bool HistoryDetailsEnabled => false;',
