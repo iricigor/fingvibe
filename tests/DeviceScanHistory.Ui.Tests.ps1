@@ -147,11 +147,16 @@ function Get-HistoryTimestamp([int] $Index) {
 function Show-HistorySection([string] $Id, [int] $TopMargin = 35) {
     $scrollElement = Find-HistoryControl DeviceDetailsScroll
     $scroll = $scrollElement.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+    # Resolve once: a whole-tree search per scroll step also walks every Device Activity cell.
+    $element = Find-HistoryControl $Id
     foreach ($percent in 0..100) {
         if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
         Start-Sleep -Milliseconds 20
-        $element = Find-HistoryControl $Id
-        $bounds = $element.Current.BoundingRectangle
+        try { $bounds = $element.Current.BoundingRectangle }
+        catch [System.Windows.Automation.ElementNotAvailableException] {
+            $element = Find-HistoryControl $Id
+            $bounds = $element.Current.BoundingRectangle
+        }
         $area = $scrollElement.Current.BoundingRectangle
         if (-not $element.Current.IsOffscreen -and $bounds.Height -gt 0 -and
             $bounds.Top -ge $area.Top + $TopMargin -and $bounds.Bottom -le $area.Bottom - 10) { return $element }

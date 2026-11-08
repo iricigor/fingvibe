@@ -33,8 +33,18 @@ public static class ActivityReviewContrast {
 function Find-Activity([string] $Id, [switch] $ByName, [switch] $Optional) {
     if (-not $script:root -and $Optional) { return $null }
     $property = if ($ByName) { [Windows.Automation.AutomationElement]::NameProperty } else { [Windows.Automation.AutomationElement]::AutomationIdProperty }
-    $element = $script:root.FindFirst([Windows.Automation.TreeScope]::Descendants,
-        [Windows.Automation.PropertyCondition]::new($property, $Id))
+    $condition = [Windows.Automation.PropertyCondition]::new($property, $Id)
+    $scope = $script:root
+    if (-not $ByName -and $Id -like "ActivityCell-*") {
+        # Cell lookups and absence checks stay inside the grid instead of walking the whole window.
+        $scope = $script:root.FindFirst([Windows.Automation.TreeScope]::Descendants,
+            [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty, "ActivityScroll"))
+        if (-not $scope) {
+            if ($Optional) { return $null }
+            throw "Missing activity control '$Id'."
+        }
+    }
+    $element = $scope.FindFirst([Windows.Automation.TreeScope]::Descendants, $condition)
     if (-not $element -and -not $Optional) { throw "Missing activity control '$Id'." }
     return $element
 }
@@ -70,11 +80,15 @@ function Stop-ActivityApp {
 function Show-Activity([string] $Id) {
     $viewport = Find-Activity DeviceDetailsScroll
     $scroll = $viewport.GetCurrentPattern([Windows.Automation.ScrollPattern]::Pattern)
+    $control = Find-Activity $Id
     foreach ($percent in 0..100) {
         if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
         Start-Sleep -Milliseconds 10
-        $control = Find-Activity $Id
-        $bounds = $control.Current.BoundingRectangle
+        try { $bounds = $control.Current.BoundingRectangle }
+        catch [Windows.Automation.ElementNotAvailableException] {
+            $control = Find-Activity $Id
+            $bounds = $control.Current.BoundingRectangle
+        }
         $area = $viewport.Current.BoundingRectangle
         $bottom = [Math]::Min($area.Bottom, $script:root.Current.BoundingRectangle.Bottom - 16)
         if (-not $control.Current.IsOffscreen -and $bounds.Height -gt 0 -and

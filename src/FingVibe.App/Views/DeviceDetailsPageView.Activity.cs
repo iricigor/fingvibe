@@ -233,14 +233,18 @@ public sealed partial class DeviceDetailsPageView
                     };
                     content.Children.Add(hatch);
                 }
-                content.Children.Add(new TextBlock
+                var glyph = new TextBlock
                 {
                     Text = contrast && cell.IsApplicable && string.IsNullOrEmpty(cell.Value)
                         ? cell.Response == AnalyticsResponse.Responded ? "R" : cell.Response == AnalyticsResponse.DidNotRespond ? "N" : "?"
                         : cell.Value,
                     FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
                     Foreground = new SolidColorBrush(foreground)
-                });
+                };
+                // The cell button's name already carries the complete evidence; hiding the visual glyph avoids
+                // duplicate announcements and halves the automation tree for 30-day grids.
+                AutomationProperties.SetAccessibilityView(glyph, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
+                content.Children.Add(glyph);
                 var button = new Button
                 {
                     Content = content, Padding = new Thickness(0), CornerRadius = new CornerRadius(0),
