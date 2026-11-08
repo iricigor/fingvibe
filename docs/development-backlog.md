@@ -65,6 +65,9 @@ change the broader scheduled Actions policy.
 
 All compliant local ticks use the persistent, atomic-create repository gate in
 .github/scripts/Invoke-DispatcherGate.ps1, with the same default local state root.
+After acquisition, the [read-only preflight](dispatcher-preflight.md) collects
+cached GitHub evidence and compact mechanical guidance. It does not replace
+host-state reconciliation, authorization, or fresh reads before claiming.
 This is single-PC serialization, not a GitHub/Actions lock or protection against
 humans/other hosts. Re-read GitHub state before consequential writes. Durable
 task-comment correlation is required before launch. Partial launch/message
