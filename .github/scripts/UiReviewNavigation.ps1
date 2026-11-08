@@ -59,6 +59,42 @@ function Show-UiReviewToolsCard {
     return Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@Name='$Name']"
 }
 
+function Get-UiReviewDetailsScroll {
+    Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+    $root = [System.Windows.Automation.AutomationElement]::FromHandle($windowHandle)
+    $condition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceDetailsScroll")
+    $element = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+    if (-not $element) { throw "Missing the device details scroll viewer." }
+    return $element.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+}
+
+function Show-UiReviewDetailsTop {
+    $scroll = Get-UiReviewDetailsScroll
+    if ($scroll.Current.VerticallyScrollable) {
+        $scroll.SetScrollPercent(-1, 0)
+        Start-Sleep -Milliseconds 100
+    }
+}
+
+function Show-UiReviewDetailsControl {
+    param([string] $Using = "name", [Parameter(Mandatory)][string] $Value)
+    $id = Find-WebDriverElement -Using $Using -Value $Value
+    $response = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$id/displayed"
+    if (-not $response.value) {
+        $scroll = Get-UiReviewDetailsScroll
+        if ($scroll.Current.VerticallyScrollable) {
+            for ($percent = 0; $percent -le 100; $percent += 10) {
+                $scroll.SetScrollPercent(-1, $percent)
+                Start-Sleep -Milliseconds 100
+                $response = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$id/displayed"
+                if ($response.value) { break }
+            }
+        }
+    }
+    return Assert-VisibleUiReviewElement -Using $Using -Value $Value
+}
+
 function Show-UiReviewCaptureScenario {
     param([Parameter(Mandatory)][string] $Scenario)
     $menu = switch ($Scenario) {

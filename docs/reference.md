@@ -198,7 +198,8 @@ Devices shows the persistent inventory, including previously observed and import
 The primary filter row contains **Search devices**, multi-select **Status**, and
 a far-right connected funnel/reset control. The funnel reveals **Device type**, **Operating system**,
 **Vendor**, **Person**, **Room**, and **Ports** in exactly one second row, initially
-collapsed. Hiding that row preserves its restrictions; the funnel displays the
+collapsed. **Usage category** is the seventh secondary filter. Hiding that row
+preserves its restrictions; the funnel displays the
 number of active secondary categories, excluding Status and search.
 
 Status selections, including multiple categories or the unrestricted selection,
@@ -222,6 +223,57 @@ corrections and mapped Fing metadata; Vendor choices come from the full inventor
 not just filtered results. Ports currently contains only **With open ports**.
 Selected values are retained across inventory/assignment refreshes, even if a
 selected value temporarily has no matching devices.
+
+### Device usage categories
+
+The visible-by-default **Usage category** column shows Permanent, Personal,
+Guest, or Unclassified and whether it is automatic (including limited/no
+evidence) or a manual override. It can be hidden, resized, searched and sorted
+with the existing table controls. Its filter matches the effective category,
+including manual overrides. Loading or failed evidence remains explicitly
+unavailable, not a fabricated Unclassified result; a saved override stays visible.
+
+Automatic classification uses only the selected network identity and subnet,
+today and the previous six local dates, clipped to the device's first reliable
+local sighting and the current time. Completed eligible scans and reliable
+explicit legacy observations count; pending/incomplete scans, unknown responses,
+imported aggregates and unrelated networks do not become nonresponses. Rules
+run in order using exact counts before display rounding:
+
+1. No eligible evidence: Unclassified.
+2. At least 80% responded: Permanent.
+3. At most 10% responded: Guest.
+4. Otherwise, Personal requires at least 60% overnight/weekend responses,
+   at least 20 percentage points above weekday daytime, with evidence in both.
+5. Otherwise: Unclassified.
+
+Overnight means 18:00–06:00 local time; all Saturday/Sunday scans join that group
+without double counting. Weekday daytime is Monday–Friday 06:00–18:00.
+Fewer than seven observed dates or 30 eligible scans produces **Limited
+evidence**; Personal also requires at least ten scans in each comparison group
+to remove that warning. This warning never suppresses a provisional category.
+For example, 12/14 responses gives Permanent, displayed as 86%, with limited
+evidence. Estimates depend on when scans run: they do not establish device
+ownership, visitors or human presence.
+
+Device details' **Assignments** card shows the saved effective category, automatic
+recommendation, exact counts, dates, timezone and sampling caveat. Choosing a
+category creates a draft; **Save category** and **Cancel** affect only that draft,
+independently of Person/Room's existing save-on-change behavior. Assistive
+technology announces the category button as **Cancel category changes**, so it
+is distinct from the identification editor's **Cancel**. **Automatic**
+removes the override and recomputes from current evidence. Normal overrides
+belong to the MAC; private-prefix virtual overrides belong to the stable virtual
+identity through changing MACs. Both are stored in the existing inventory
+metadata, without rewriting scan history or changing legacy migration inputs.
+Save failures retain the draft and last saved effective value; concurrent changes
+require explicit **Reload saved category** before retrying. Reload discards that
+category draft and refreshes saved metadata without overwriting another writer.
+
+Evidence reads and classification run off the UI thread. Saved evidence,
+network/view changes, local date/timezone changes and explicit refresh invalidate
+the result; cancelled/stale queries cannot replace newer state. There is no
+waiting gate, hysteresis or extension into older dates to fill missing evidence.
 
 Status retains its one-DIP stronger neutral stroke and 210-DIP width. The six
 secondary dropdowns share available width equally and shrink rather than wrapping
@@ -778,8 +830,8 @@ process RSS are printed. First-query measurements do not force an OS cache flush
 Additional managed allocation is a conservative total-allocation ceiling, not
 process RSS or a claim that native SQLite memory is managed.
 
-The benchmark includes small reference bucket-union and classification-count
-consumers, not the later product classifier/grid implementations. It enforces
+The benchmark includes small reference bucket-union consumers and the production
+`DeviceUsageClassifier` over all selected devices' seven-date evidence. It enforces
 p95 at most 1 second for one device and 2 seconds each for network, equipment and
 all selected-device classification evidence; at most 128 MiB additional managed
 allocation; and at most 250 ms cancellation including subsequent exclusive-lock
@@ -787,6 +839,24 @@ acquisition to verify resource release. Deterministic `AnalyticsEvidenceTests`
 run normally and cover shape, zero/unknown/partial, legacy/imported/virtual
 evidence, restart/rollback, network isolation, local calendar/DST, stale
 revisions and cancellation/contention without touching the working inventory.
+`DeviceUsageCategoryTests` additionally covers exact rule boundaries, display
+rounding, missing comparators, limited evidence, overnight/weekend/DST behavior,
+durable normal/virtual overrides, migration, conflicts, failed drafts and table
+integration.
+
+The disposable Windows history regression suite also runs
+`tests\UsageCategory.Ui.Tests.ps1`. It uses isolated inventory/snapshot/table fixtures
+and review network identity to exercise automatic/unavailable/no-evidence states, separate Save/Cancel,
+restart persistence, retained failed-save drafts, concurrent reload, unrelated
+metadata preservation, keyboard controls, narrow layouts, light/dark themes and
+high contrast. It refuses to run outside GitHub Actions; do not automate the
+working desktop or real saved inventory for these checks.
+After the Release Core build, `pwsh -File tests\UsageCategory.Script.Tests.ps1`
+checks the native test's checkbox dispatch, scroll-before-read assertions that
+stay inside the physical window, waits for the requested device row and for the
+Settings navigation to return after a resize, failure diagnostics and exact
+synthetic JSON migration/query/classifier fixture without launching an app or
+automating the desktop.
 
 On an interactive Windows desktop at least 1024 logical pixels wide, run the native sidebar regression checks against a built application:
 

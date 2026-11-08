@@ -18,11 +18,12 @@ public sealed record DeviceResultFilter(
     public IReadOnlySet<string> Vendors { get; init; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     public IReadOnlySet<Guid?> People { get; init; } = new HashSet<Guid?>();
     public IReadOnlySet<Guid?> Rooms { get; init; } = new HashSet<Guid?>();
+    public IReadOnlySet<DeviceUsageCategory> UsageCategories { get; init; } = new HashSet<DeviceUsageCategory>();
 
     public int ActiveSecondaryCategoryCount =>
         (Types.Count > 0 ? 1 : 0) + (OperatingSystems.Count > 0 ? 1 : 0)
         + (Vendors.Count > 0 ? 1 : 0) + (People.Count > 0 ? 1 : 0)
-        + (Rooms.Count > 0 ? 1 : 0) + (OpenPortsOnly ? 1 : 0);
+        + (Rooms.Count > 0 ? 1 : 0) + (OpenPortsOnly ? 1 : 0) + (UsageCategories.Count > 0 ? 1 : 0);
 
     public bool HasRestrictions => AliveOnly || OpenPortsOnly || !string.IsNullOrEmpty(SearchText)
         || Status is not null || PersonId is not null || RoomId is not null
@@ -43,5 +44,6 @@ public sealed record DeviceResultFilter(
         && (Vendors.Count == 0 || Vendors.Contains(row.VendorText))
         && (People.Count == 0 || People.Contains(row.PersonId))
         && (Rooms.Count == 0 || Rooms.Contains(row.RoomId))
+        && (UsageCategories.Count == 0 || row.EffectiveUsageCategory is { } category && UsageCategories.Contains(category))
         && row.MatchesFilter(SearchText);
 }

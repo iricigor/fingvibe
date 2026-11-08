@@ -28,6 +28,28 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public PrivateVirtualDevice? VirtualDevice { get; private set; }
     public string IdentityKey => VirtualDevice?.Id.ToString("D") ?? MacAddress?.ToString() ?? AddressText;
     public string? CustomName => _customName;
+    public LogicalDeviceId? UsageIdentity => VirtualDevice is { } slot ? LogicalDeviceId.Virtual(slot.Id)
+        : MacAddress?.GetAddressBytes().Length == 6 ? LogicalDeviceId.Mac(MacAddress.ToString()) : null;
+    public DeviceUsageCategory? UsageCategoryOverride { get; private set; }
+    public DeviceUsageInference? UsageInference { get; private set; }
+    public string UsageStatus { get; private set; } = "Usage evidence has not been loaded.";
+    public DeviceUsageCategory? EffectiveUsageCategory => UsageCategoryOverride ?? UsageInference?.Category;
+    public string UsageCategoryText => EffectiveUsageCategory?.ToString() ?? "Unavailable";
+    public string UsageCategorySource => UsageCategoryOverride is not null ? "Manual override"
+        : UsageInference is null ? UsageStatus
+        : UsageInference.Total.Eligible == 0 ? "Auto - no eligible scans"
+        : UsageInference.LimitedEvidence ? "Auto - limited evidence" : "Automatic";
+    public string UsageCategoryDescription => UsageCategoryPresentation.Description(UsageCategoryOverride, UsageInference, UsageStatus);
+
+    public void SetUsageCategory(DeviceUsageCategory? manual, DeviceUsageInference? inference, string status)
+    {
+        UsageCategoryOverride = manual;
+        UsageInference = inference;
+        UsageStatus = status;
+        foreach (var property in new[] { nameof(UsageCategoryOverride), nameof(UsageInference), nameof(UsageStatus),
+                     nameof(EffectiveUsageCategory), nameof(UsageCategoryText), nameof(UsageCategorySource), nameof(UsageCategoryDescription) })
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
+    }
     private LanNetwork? _selectedNetwork;
     private bool EmphasizeAddress => _selectedNetwork is { PrefixLength: >= 0 and <= 32 } network
         && AddressText.Split('.').Length == 4
@@ -114,6 +136,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         : this(device.LatestObservation?.ToScanResult(device.Mac), prefixLength, customName, classificationOverride, historical)
     {
         _inventoryDevice = device;
+        UsageCategoryOverride = device.UsageCategoryOverride;
         _showLatency = showLatency;
         var octets = AddressText.Split('.');
         var count = octets.Length == 4 ? Math.Min(prefixLength / 8, 3) : 0;
@@ -136,6 +159,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
             historical: device.Status == InventoryDeviceStatus.Unknown)
     {
         VirtualDevice = device;
+        UsageCategoryOverride = device.UsageCategoryOverride;
         _sourceData = data;
         Result = device.LatestConnection.Observation.ToScanResult(device.LastActiveMac);
     }
@@ -200,6 +224,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         VirtualDevice = device;
         SetCustomName(device.Name);
         SetClassificationOverride(device.Classification);
+        SetUsageCategory(device.UsageCategoryOverride, UsageInference, UsageStatus);
     }
 
     internal void UpdateObservation(ScanResultRow updated)
@@ -216,6 +241,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         Result = updated.Result;
         _customName = updated._customName;
         _classificationOverride = updated._classificationOverride;
+        UsageCategoryOverride = updated.UsageCategoryOverride;
         _connectionOverrides.Clear();
         AddressPrefix = updated.AddressPrefix;
         AddressHost = updated.AddressHost;
@@ -410,6 +436,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
             || (_roomName?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
             || OperatingSystemText.Contains(search, StringComparison.OrdinalIgnoreCase)
             || DeviceTypeText.Contains(search, StringComparison.OrdinalIgnoreCase)
+            || (EffectiveUsageCategory?.ToString().Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
             || StatusLabel.Contains(search, StringComparison.OrdinalIgnoreCase)
             || HostnameText.Contains(search, StringComparison.OrdinalIgnoreCase)
             || AddressText.Contains(search, StringComparison.OrdinalIgnoreCase)

@@ -53,6 +53,8 @@ public sealed partial class DeviceInventoryStore
                 throw new InvalidDataException("The device inventory contains an invalid MAC or device.");
             if (device.Imported.Address is { } importedAddress && !IsIpv4(importedAddress))
                 throw new InvalidDataException("An imported address is invalid.");
+            if (device.UsageCategoryOverride is { } usage && !Enum.IsDefined(usage))
+                throw new InvalidDataException("A saved usage category is invalid.");
             if (new[] { device.Imported.Name, device.Imported.Hostname, device.Imported.Type, device.Imported.Brand,
                     device.Imported.Family, device.Imported.Model, device.Imported.OperatingSystem, device.Imported.OperatingSystemVersion }
                 .Any(value => value is not null && string.IsNullOrWhiteSpace(value)))
@@ -95,6 +97,7 @@ public sealed partial class DeviceInventoryStore
                 || slot.LastChecked == default || slot.History is null || slot.History.Count == 0
                 || slot.Name is not null && string.IsNullOrWhiteSpace(slot.Name)
                 || slot.Classification is { } classification && !classification.HasValidValues()
+                || slot.UsageCategoryOverride is { } usage && !Enum.IsDefined(usage)
                 || slot.Assignment?.PersonId is { } person && data.PeopleRooms.People.All(item => item.Id != person)
                 || slot.Assignment?.RoomId is { } room && data.PeopleRooms.Rooms.All(item => item.Id != room))
                 throw new InvalidDataException("The inventory contains invalid virtual devices.");

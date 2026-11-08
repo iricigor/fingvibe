@@ -521,7 +521,7 @@ function Set-DeviceFilterChoice([string] $Id, [string] $Label) {
         return
     }
     if ($Id -in @("InventoryStatusFilter", "TypeFilter", "OperatingSystemFilter", "VendorFilter",
-        "PersonFilter", "RoomFilter", "PortsFilter")) {
+        "PersonFilter", "RoomFilter", "PortsFilter", "UsageCategoryFilter")) {
         $labels = if ($Label -like "All *") { @() } else { @($Label) }
         Set-DeviceFilterChecks $Id $labels
         return
@@ -724,7 +724,7 @@ function Clear-DeviceFilters {
     }
     Set-SecondaryFiltersExpanded $true
     foreach ($entry in @(@("TypeFilter", "Device type"), @("OperatingSystemFilter", "Operating system"),
-        @("VendorFilter", "Vendor"), @("PersonFilter", "Person"), @("RoomFilter", "Room"))) {
+        @("VendorFilter", "Vendor"), @("PersonFilter", "Person"), @("RoomFilter", "Room"), @("UsageCategoryFilter", "Usage category"))) {
         if ((Find-DeviceElement $entry[0]).Current.Name -ne "$($entry[1]): All") {
             throw "Clear filters left '$($entry[0])' restricted."
         }
@@ -779,6 +779,7 @@ function Test-FilterChips {
         { Set-DeviceFilterChoice InventoryStatusFilter Unknown },
         { Set-DeviceFilterChoice PersonFilter Unassigned },
         { Set-DeviceFilterChoice RoomFilter Unassigned },
+        { Set-DeviceFilterChoice UsageCategoryFilter Unclassified },
         { Set-DeviceFilterChoice PortsFilter "With open ports" }
     )) {
         & $apply
@@ -826,7 +827,7 @@ function Test-FilterChips {
 function Test-RowDensity {
     Set-DeviceWidth 1880
     $measurements = @{}
-    foreach ($layout in @("Stacked", "Separate", "ConnectionOnly")) {
+    foreach ($layout in @("Stacked", "Separate", "ConnectionOnly", "UsageOnly")) {
         $measurements[$layout] = @{}
         foreach ($density in @("Standard", "Compact")) {
             Select-DevicePage Settings
@@ -834,6 +835,7 @@ function Test-RowDensity {
                 Set-ColumnOption $label ($layout -eq "Stacked")
             }
             Set-ColumnOption "Combine Status and Response" ($layout -ne "Separate")
+            Set-ColumnOption "Usage category" ($layout -in @("Stacked", "UsageOnly"))
             Set-DeviceFilterChoice CompactRowsSwitch $density
             Select-DevicePage DevicesNavItem
             $rows = @(Get-DeviceRows)
@@ -843,13 +845,13 @@ function Test-RowDensity {
             $fullyVisible = @($rows | Where-Object { $_.Current.BoundingRectangle.Bottom -le $listBounds.Bottom }).Count
             $headerHeight = (Find-DeviceElement DeviceTableHeader).Current.BoundingRectangle.Height / $scale
             $measurements[$layout][$density] = @{ heights = $heights; visibleRows = $fullyVisible; headerHeight = $headerHeight; scale = $scale }
-            $minimum = if ($layout -eq "Stacked") {
+            $minimum = if ($layout -in @("Stacked", "UsageOnly")) {
                 if ($density -eq "Compact") { 36 } else { 40 }
             } else {
                 if ($density -eq "Compact") { 30 } else { 34 }
             }
             # Native two-line name/type metrics require 44 DIPs in Standard, above its 40-DIP minimum.
-            $maximum = $minimum + $(if ($layout -eq "Stacked" -and $density -eq "Standard") { 4.5 } else { 0.5 })
+            $maximum = $minimum + $(if ($layout -in @("Stacked", "UsageOnly") -and $density -eq "Standard") { 4.5 } else { 0.5 })
             foreach ($height in $heights) {
                 if ($height -lt $minimum - 0.5 -or $height -gt $maximum) {
                     throw "$layout/$density representative height must be $minimum-$maximum DIPs, got $height."
@@ -1309,7 +1311,7 @@ try {
             }
         }
         $filters = @("ResultSearchBox", "InventoryStatusFilter", "FilterExpander", "TypeFilter",
-            "OperatingSystemFilter", "VendorFilter", "PersonFilter", "RoomFilter", "PortsFilter") |
+            "OperatingSystemFilter", "VendorFilter", "PersonFilter", "RoomFilter", "PortsFilter", "UsageCategoryFilter") |
             ForEach-Object { Find-DeviceElement $_ }
         $widths[$width] = $filters[0].Current.BoundingRectangle.Width
         if ($widths[$width] -lt 180 * $scale) { throw "Search must remain usable before filters wrap at $width." }

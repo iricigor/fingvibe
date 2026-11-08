@@ -143,6 +143,11 @@ try {
     foreach ($path in @("src\FingVibe.App\DeviceDetailsPresentation.cs", "src\FingVibe.App\Views\DeviceDetailValue.cs")) {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device details presentation"
     }
+    foreach ($path in @("src\FingVibe.App\MainWindow.UsageCategories.cs", "src\FingVibe.App\UsageCategoryPresentation.cs",
+        "src\FingVibe.App\Views\DeviceDetailsPageView.Usage.cs", "src\FingVibe.Core\Models\DeviceUsageCategory.cs",
+        "tests\UsageCategory.Ui.Tests.ps1")) {
+        Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails", "Settings") "Usage categories"
+    }
     foreach ($path in @("src\FingVibe.Core\Models\DeviceInventory.cs", "src\FingVibe.Core\Models\PrivateVirtualDevice.cs",
         "src\FingVibe.Core\Models\DeviceHistorySummary.cs",
         "src\FingVibe.Core\Models\DeviceDiscovery.cs", "src\FingVibe.App\MainWindow.DiscoveryNotifications.cs",
@@ -357,7 +362,8 @@ try {
             $viewDocument.DocumentElement.GetAttribute("Class", "http://schemas.microsoft.com/winfx/2006/xaml") -cne "FingVibe.App.Views.$view") {
             throw "$view must have its own UserControl namescope and class."
         }
-        $viewCode = Get-Content (Join-Path $appDirectory "Views\$view.xaml.cs") -Raw
+        $viewCode = (Get-ChildItem (Join-Path $appDirectory "Views\$view.*.cs") |
+            ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
         if ($viewCode -match '(?m)^\s*(public|internal)\s+(TextBlock|TextBox|ComboBox|Button|ListView|ScrollViewer|Grid|Image|FontIcon|Expander)\??\s+\w+\s*(\{|=>)') {
             throw "$view must not expose its child controls."
         }
@@ -400,9 +406,15 @@ try {
             $assignments.GetAttribute("VerticalAlignment") -ne "Stretch" -or
             $assignmentLayout.LocalName -ne "Grid" -or
             $assignmentLayout.FirstChild.LastChild.GetAttribute("Height") -ne "*" -or
-            $assignmentNote.GetAttribute("Grid.Row") -ne "2" -or
+            [int]$assignmentNote.GetAttribute("Grid.Row") -ne $assignmentLayout.FirstChild.ChildNodes.Count - 1 -or
             $assignmentNote.GetAttribute("VerticalAlignment") -ne "Bottom") {
             throw "Top-row cards must share their height, with the assignments note anchored at the bottom."
+        }
+        $networkNote = $details.SelectSingleNode("//*[@*[local-name()='Name']='DeviceAddressSourceText']")
+        if ($networkNote.ParentNode.GetAttribute("VerticalAlignment") -ne "Bottom" -or
+            $networkNote.ParentNode.GetAttribute("Grid.Row") -ne "2" -or
+            $overview.FirstChild.FirstChild.LastChild.GetAttribute("Height") -ne "*") {
+            throw "The network footnote must stay aligned with the Assignments footer when usage evidence grows."
         }
         $valueCode = Get-Content (Join-Path $appDirectory "Views\DeviceDetailValue.cs") -Raw
         if ($valueCode -notmatch 'HyperlinkButton _browser' -or
@@ -518,6 +530,10 @@ try {
     $script:toolsScrollPercent = 0
     $script:toolsScrollCalls = 0
     $script:offscreenToolsCard = ""
+    $script:detailsScrollPercent = 0
+    $script:detailsScrollCalls = 0
+    $script:detailsScrollable = $true
+    $script:offscreenDetailsControl = ""
     function Get-UiReviewToolsScroll([string] $Name) {
         $scroll = [pscustomobject]@{}
         $scroll | Add-Member ScriptMethod SetScrollPercent {
@@ -525,6 +541,16 @@ try {
             if ($Horizontal -ne -1) { throw "Tools scrolling must preserve horizontal position." }
             $script:toolsScrollPercent = $Vertical
             $script:toolsScrollCalls += 1
+        }
+        return $scroll
+    }
+    function Get-UiReviewDetailsScroll {
+        $scroll = [pscustomobject]@{ Current = [pscustomobject]@{ VerticallyScrollable = $script:detailsScrollable } }
+        $scroll | Add-Member ScriptMethod SetScrollPercent {
+            param($Horizontal, $Vertical)
+            if ($Horizontal -ne -1) { throw "Details scrolling must preserve horizontal position." }
+            $script:detailsScrollPercent = $Vertical
+            $script:detailsScrollCalls += 1
         }
         return $scroll
     }
@@ -579,6 +605,7 @@ try {
                     "control-Device name" { $script:currentPage -eq "DeviceDetails" }
                     "control-Network overview" { $script:currentPage -eq "DeviceDetails" }
                     "control-Scan additional ports" { $script:currentPage -eq "DeviceDetails" }
+                    "control-Room assignment saved." { $script:currentPage -eq "DeviceDetails" }
                     "control-Online devices" { $script:currentPage -eq "Overview" }
                     "control-Public IP address" { $script:currentPage -eq "Network" }
                     "control-Speed test" { $script:currentPage -eq "Tools" }
@@ -605,7 +632,8 @@ try {
                     "control-Window backdrop" { $script:currentPage -eq "Settings" }
                     default { throw "Unexpected control '$id'." }
                 }
-                $offscreen = $id -eq $script:offscreenToolsCard -and $script:toolsScrollPercent -lt 70
+                $offscreen = ($id -eq $script:offscreenToolsCard -and $script:toolsScrollPercent -lt 70) -or
+                    ($id -eq $script:offscreenDetailsControl -and $script:detailsScrollPercent -lt 40)
                 return @{ value = ($visible -and $id -ne $script:hiddenControl -and -not $offscreen) }
             }
         }
@@ -646,6 +674,28 @@ try {
         $script:hiddenControl = "control-Assign devices"
         Assert-Throws { Show-UiReviewCaptureScenario $scenario } "*not visible*"
     }
+    $script:hiddenControl = ""
+    # The assignment feedback lives at the bottom of the tall Assignments card, below the first viewport.
+    Show-UiReviewCaptureScenario "DeviceDetails"
+    $null = Show-UiReviewDetailsControl -Value "Room assignment saved."
+    Assert-Equal $script:detailsScrollCalls 0 "Visible details controls must not scroll"
+    $script:offscreenDetailsControl = "control-Room assignment saved."
+    $null = Show-UiReviewDetailsControl -Value "Room assignment saved."
+    Assert-Equal $script:detailsScrollPercent 40 "Scroll until the assignment feedback is visible"
+    Assert-Equal $script:detailsScrollCalls 5 "Stop scrolling immediately after visibility"
+    Show-UiReviewDetailsTop
+    Assert-Equal $script:detailsScrollPercent 0 "Return to the first viewport before using the pickers"
+    $script:hiddenControl = "control-Room assignment saved."
+    $callsBeforeFailure = $script:detailsScrollCalls
+    Assert-Throws { Show-UiReviewDetailsControl -Value "Room assignment saved." } "*not visible*"
+    Assert-Equal ($script:detailsScrollCalls - $callsBeforeFailure) 11 "Unreachable details controls retain a bounded failure"
+    $script:detailsScrollable = $false
+    $callsBeforeStatic = $script:detailsScrollCalls
+    Assert-Throws { Show-UiReviewDetailsControl -Value "Room assignment saved." } "*not visible*"
+    Show-UiReviewDetailsTop
+    Assert-Equal $script:detailsScrollCalls $callsBeforeStatic "A page that cannot scroll must not be scrolled"
+    $script:detailsScrollable = $true
+    $script:offscreenDetailsControl = ""
     $script:hiddenControl = ""
     $script:brokenNavigation = $true
     Assert-Throws { Show-UiReviewCaptureScenario "Overview" } "*Navigation did not select*"

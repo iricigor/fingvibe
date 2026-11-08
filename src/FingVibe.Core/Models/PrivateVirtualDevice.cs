@@ -21,6 +21,7 @@ public sealed record PrivateVirtualDevice(
     DeviceAssignment? Assignment = null)
 {
     public IReadOnlyList<DeviceScanObservation> ScanHistory { get; init; } = [];
+    public DeviceUsageCategory? UsageCategoryOverride { get; init; }
 
     [JsonIgnore]
     public string AutomaticName => $"Private {string.Join("-", Enumerable.Range(0, 3).Select(i => Prefix.Substring(i * 2, 2)))}"

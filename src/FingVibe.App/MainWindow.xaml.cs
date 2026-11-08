@@ -32,6 +32,7 @@ public sealed partial class MainWindow : Window
         InitializePeopleRoomsViews();
         InitializePeriodicScans();
         InitializeDiscoveryNotifications();
+        InitializeUsageCategories();
         Closed += (_, _) => _devicePortScanCancellation?.Cancel();
 
         DevicesPage.SetResults(_visibleResults);
@@ -152,6 +153,7 @@ public sealed partial class MainWindow : Window
         }
 
         if (page == ToolsPage) ToolsPage.Open();
+        _ = RefreshUsageCategoriesAsync(force: true);
         UpdateScanStatus();
     }
 

@@ -30,6 +30,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
     {
         InitializeComponent();
         InitializeClassificationPickers();
+        InitializeUsageCategory();
         _historyClock.Tick += (_, _) => RefreshHistorySummary();
         Loaded += (_, _) => { RefreshHistorySummary(); _historyClock.Start(); };
         Unloaded += (_, _) => _historyClock.Stop();

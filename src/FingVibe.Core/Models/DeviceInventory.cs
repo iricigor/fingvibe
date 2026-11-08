@@ -59,6 +59,7 @@ public sealed record InventoryDevice(
     IReadOnlyList<DeviceObservation> Observations)
 {
     public IReadOnlyList<DeviceScanObservation> ScanHistory { get; init; } = [];
+    public DeviceUsageCategory? UsageCategoryOverride { get; init; }
 
     [JsonIgnore]
     public DeviceObservation? LatestObservation => Observations.OrderByDescending(item =>
@@ -96,6 +97,30 @@ public sealed record DeviceInventoryData(
     public static DeviceInventoryData Empty { get; } = new(Guid.Empty,
         new Dictionary<string, InventoryDevice>(), new Dictionary<string, string>(),
         new Dictionary<string, DeviceClassificationOverride>(), new PeopleRoomsData());
+
+    public DeviceUsageCategory? GetUsageCategoryOverride(LogicalDeviceId identity) => identity.Kind switch
+    {
+        "mac" when Devices.TryGetValue(identity.Id, out var device) => device.UsageCategoryOverride,
+        "virtual" when VirtualDevices.FirstOrDefault(slot => slot.Id.ToString("D") == identity.Id) is { } slot
+            => slot.UsageCategoryOverride,
+        _ => throw new ArgumentException("The usage category requires an existing device identity.", nameof(identity))
+    };
+
+    public DeviceInventoryData SetUsageCategoryOverride(LogicalDeviceId identity, DeviceUsageCategory? category)
+    {
+        if (category is { } value && !Enum.IsDefined(value))
+            throw new ArgumentOutOfRangeException(nameof(category));
+        _ = GetUsageCategoryOverride(identity);
+        if (identity.Kind == "virtual")
+            return this with
+            {
+                VirtualDevices = VirtualDevices.Select(slot => slot.Id.ToString("D") == identity.Id
+                    ? slot with { UsageCategoryOverride = category } : slot).ToArray()
+            };
+        var devices = Devices.ToDictionary(pair => pair.Key, pair => pair.Value);
+        devices[identity.Id] = devices[identity.Id] with { UsageCategoryOverride = category };
+        return this with { Devices = devices };
+    }
 
     public DeviceInventoryData UpdateProbeResults(ScanResult result)
     {

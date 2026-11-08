@@ -54,9 +54,14 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Border x:Name="NetworkOverviewCard" Style="{StaticResource ScannerSummaryCardStyle}" VerticalAlignment="Stretch">
-                    <StackPanel Spacing="12">
+                    <Grid RowSpacing="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
                         <TextBlock Text="Network overview" FontSize="18" FontWeight="SemiBold" />
-                        <Grid x:Name="OverviewFields" ColumnSpacing="16" RowSpacing="12" SizeChanged="Fields_SizeChanged">
+                        <Grid x:Name="OverviewFields" Grid.Row="1" ColumnSpacing="16" RowSpacing="12" SizeChanged="Fields_SizeChanged">
                             <views:DeviceDetailValue x:Name="DeviceAddressText" Label="IP address" />
                             <views:DeviceDetailValue x:Name="DeviceMacText" Label="MAC address" />
                             <views:DeviceDetailValue x:Name="DeviceHostnameText" Label="Discovered hostname" />
@@ -64,16 +69,19 @@
                             <views:DeviceDetailValue x:Name="DeviceResponseText" Label="Response" />
                             <views:DeviceDetailValue x:Name="DeviceProbeText" Label="Probe duration" />
                         </Grid>
-                        <TextBlock x:Name="DeviceAddressSourceText" TextWrapping="Wrap"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <ComboBox x:Name="DeviceAddressPicker" Header="Current address to inspect / probe"
-                                  HorizontalAlignment="Stretch" AutomationProperties.AutomationId="DeviceAddressPicker"
-                                  Visibility="Collapsed" SelectionChanged="DeviceAddressPicker_SelectionChanged" />
-                    </StackPanel>
+                        <StackPanel Grid.Row="2" Spacing="12" VerticalAlignment="Bottom">
+                            <TextBlock x:Name="DeviceAddressSourceText" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <ComboBox x:Name="DeviceAddressPicker" Header="Current address to inspect / probe"
+                                      HorizontalAlignment="Stretch" AutomationProperties.AutomationId="DeviceAddressPicker"
+                                      Visibility="Collapsed" SelectionChanged="DeviceAddressPicker_SelectionChanged" />
+                        </StackPanel>
+                    </Grid>
                 </Border>
                 <Border x:Name="AssignmentsCard" Grid.Column="1" Style="{StaticResource ScannerSummaryCardStyle}" VerticalAlignment="Stretch">
                     <Grid RowSpacing="8">
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
@@ -85,9 +93,45 @@
                             <ComboBox x:Name="DeviceRoomPicker" Header="Room" HorizontalAlignment="Stretch"
                                       AutomationProperties.Name="Room" SelectionChanged="DeviceRoomPicker_SelectionChanged" />
                         </Grid>
-                        <TextBlock x:Name="DeviceAssignmentStatusText" Grid.Row="2" VerticalAlignment="Bottom"
+                        <TextBlock x:Name="DeviceAssignmentStatusText" Grid.Row="3" VerticalAlignment="Bottom"
                                    TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <StackPanel Grid.Row="2" Spacing="8" Margin="0,8,0,0">
+                            <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
+                            <TextBlock Text="Person and room save when changed." FontSize="12" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <ComboBox x:Name="UsageCategoryPicker" Header="Usage category" HorizontalAlignment="Stretch"
+                                      AutomationProperties.AutomationId="UsageCategoryPicker" AutomationProperties.Name="Usage category"
+                                      SelectionChanged="UsageCategory_SelectionChanged" />
+                            <TextBlock x:Name="UsageCategoryEffective" FontWeight="SemiBold" TextWrapping="Wrap"
+                                       AutomationProperties.AutomationId="UsageCategoryEffective" AutomationProperties.LiveSetting="Polite" />
+                            <TextBlock x:Name="UsageCategoryEvidence" TextWrapping="Wrap" FontSize="12"
+                                       AutomationProperties.AutomationId="UsageCategoryEvidence" />
+                            <TextBlock x:Name="UsageCategoryWindow" TextWrapping="Wrap" FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <InfoBar x:Name="UsageCategoryLimited" IsOpen="False" IsClosable="False" Severity="Warning"
+                                     Title="Limited evidence" Message="Provisional estimate, not confirmed ownership." />
+                            <InfoBar x:Name="UsageCategoryError" IsOpen="False" IsClosable="False" Severity="Error"
+                                     Title="Category could not be saved" AutomationProperties.LiveSetting="Polite" />
+                            <Grid ColumnSpacing="8" RowSpacing="8" SizeChanged="Fields_SizeChanged">
+                                <Button x:Name="UsageCategorySave" Content="Save category" HorizontalAlignment="Stretch"
+                                        Style="{StaticResource AccentButtonStyle}" Click="UsageCategorySave_Click"
+                                        AutomationProperties.AutomationId="UsageCategorySave" />
+                                <Button x:Name="UsageCategoryCancel" Content="Cancel" HorizontalAlignment="Stretch"
+                                        Click="UsageCategoryCancel_Click" AutomationProperties.AutomationId="UsageCategoryCancel"
+                                        AutomationProperties.Name="Cancel category changes" />
+                            </Grid>
+                            <TextBlock x:Name="UsageCategoryEditStatus" TextWrapping="Wrap" FontSize="12"
+                                       AutomationProperties.LiveSetting="Polite" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <Button x:Name="UsageCategoryReload" Content="Reload saved category" Visibility="Collapsed"
+                                    Click="UsageCategoryReload_Click" AutomationProperties.AutomationId="UsageCategoryReload" />
+                            <Button x:Name="UsageCategoryRefresh" Content="Refresh usage evidence" Click="UsageCategoryRefresh_Click"
+                                    AutomationProperties.AutomationId="UsageCategoryRefresh" />
+                            <TextBlock Text="A manual choice stays fixed until you save Automatic. Category Save/Cancel never changes Person or Room."
+                                       TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock x:Name="UsageCategorySampling" TextWrapping="Wrap" FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
                     </Grid>
                 </Border>
             </Grid>

@@ -76,6 +76,10 @@ jobs:
         shell: pwsh
         run: .\tests\SqlEditor.Script.Tests.ps1
 
+      - name: Test usage-category UI helpers and fixture without desktop automation
+        shell: pwsh
+        run: .\tests\UsageCategory.Script.Tests.ps1
+
       - name: Test validation planning and comments
         shell: pwsh
         run: .\tests\PrValidation.Tests.ps1
