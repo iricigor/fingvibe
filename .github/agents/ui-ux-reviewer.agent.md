@@ -27,6 +27,14 @@ and deliberate timing checks. Do not conceal failures through retries,
 increased timeouts or reduced coverage. This is review guidance, not #256's
 future mandatory-manifest gate.
 
+The independent native baseline comparison is observational, not the
+authoritative `ui-ux-review` gate. Its passing launch/scan/filter/details result
+does not establish theme, layout, scrolling, cancellation, assignment or
+feature-suite coverage. Review the existing required current-revision checks
+and affected-view captures unchanged. Standalone full validation is additional
+evidence, not permission to waive PR checks; distinguish application revision,
+run/attempt, mode and explicitly omitted dormant coverage in every comparison.
+
 Check:
 
 - The app launches and its main workflow remains usable.

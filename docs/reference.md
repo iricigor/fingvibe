@@ -933,7 +933,113 @@ and rendered/virtualized reachability. Large-data correctness/resource budgets
 belong primarily in WinUI-free tests, with native integration still required.
 Agree budgets before implementation, preserve intentional elapsed-time checks,
 and investigate failures instead of hiding them. Fast/full modes and enforced
-PR coverage manifests are not delivered by this foundation (#242/#256).
+PR coverage manifests are not delivered by this foundation (#256).
+Independent execution modes below do not change those review requirements.
+
+### Independent native validation
+
+`native-comparison.yml` automatically runs an **observational** baseline on
+relevant trusted same-repository PR updates, including drafts. Fork and
+untrusted-author native execution retain the existing restrictions. It checks
+out the exact PR head, publishes one separate Test payload, and uses that same
+revision for the feature suites and recorded build identity. The immutable
+workflow revision supplies the new execution harness; both source and harness
+revisions are recorded so a historical application is not misrepresented as a
+new build. Full feature suites, catalog/navigation and non-UI tests come from
+the selected source revision. It never consumes
+an artifact from a different run or feeds `ui-ux-review`, publishes PR comments,
+changes protection, or replaces any authoritative core/script/build/installer,
+security, capture, navigation or native requirement. Do not configure its
+independent result as a required merge check.
+
+The baseline reuses existing launch, loopback scan, text filtering/reset and
+selected-device details checks. It captures Devices, the empty filtered state
+and DeviceDetails. Refresh/cancellation, summary navigation, all-page navigation,
+assignments, themes/high contrast, layout, scrolling and exhaustive behavior
+matrices are omitted, not proven by a passing baseline. Its **60-90-second native
+execution target** excludes runner provisioning, checkout, payload/desktop setup,
+application build and focused checks; actual timings must be compared, not
+assumed. Existing/default PR smoke execution retains all its assertions.
+
+`native-full.yml` offers manual full validation against `main` without PR
+metadata. The reusable implementation forces every catalog capture and all
+currently enabled sidebar, Devices, history/discovery/usage and Tools/build
+identity suites, plus screenshot-helper, core, speed-test bridge, script,
+installer lifecycle, secret and critical dependency checks. It does not inherit
+a PR diff that could omit history/discovery. Each native suite has its own
+disposable runner and diagnostics; suites within one runner remain sequential,
+sidebar retains Windows PowerShell, and matrix fail-fast is disabled.
+
+Full means exhaustive **currently runnable** coverage, not restoration:
+Activity and the observation table disabled under #271 remain dormant on
+revisions where they are disabled. Their retained tests and assertions are not
+deleted. The shared dispatch must include Activity again after #273 is
+integrated; the observation table remains #274's separate responsibility.
+Do not count closure of abandoned #263 as delivered optimization or revive
+its unmerged traversal changes.
+
+For pre-merge evidence, manually dispatch **Native validation comparison
+(observational)** on the candidate branch with `mode: Full`. This is explicitly
+a candidate rehearsal, not evidence that `main` has that revision. The
+production standalone workflow remains pinned to `main`. The optional manual
+comparison `revision` input can select `main` or a historical same-repository
+commit, using the candidate's immutable execution harness. This permits full
+`main` and representative historical baseline evidence before merging the new
+workflow, without fabricating source provenance. PR-triggered comparison
+always uses its head SHA, ignoring the manual revision input. No PR number is
+required for manual runs and there are no merge/release/repair/issue side effects.
+
+The schedule is **not activated**. After a human approves cadence/time (UTC)
+and the failure-notification destination, the same standalone `main` workflow
+can receive the approved Actions `schedule` trigger; until then use manual
+dispatch and the visible Actions final result. No guessed cron, external
+notification integration, local Automation or working-desktop automation is
+enabled. Scheduled activation is a separate human decision.
+
+Comparison concurrency uses `native-comparison-<PR/ref>` and may cancel only
+superseded comparison runs. Standalone full concurrency uses
+`native-full-main-<repository>` with cancellation disabled; it is independent
+of both comparison and authoritative PR validation. Actions still controls
+runner availability and pending-run queuing; these are not desktop locks.
+All new workflows have read-only contents permissions, do not inherit secrets,
+and disable checkout credential persistence.
+
+Each run retains per-suite screenshots, capture plan, transcript, execution JSON,
+failure captures where available, partial diagnostics and timings for 14 days.
+Execution JSON includes source revision, PR number (zero for standalone/rehearsal),
+run/attempt, mode, suite, selected scenarios, result and elapsed seconds.
+Build and payload/desktop setup are reported separately; full-job durations,
+including provisioning/checkout and cleanup, come from Actions job timestamps.
+Required missing/failed/cancelled/skipped stages fail the independent final
+result; baseline deliberately omits full non-UI/installer stages. Cancellation
+can prevent remaining cleanup/artifact steps, so missing diagnostics are not
+success evidence.
+
+Compare the same source revision's independent result with authoritative
+checks for representative filter/details, restoration/scan and shared-layout
+changes. Record run/job identity, full-job and execution durations, failures,
+omitted coverage and artifact links. Failures found only by exhaustive checks
+are baseline omissions, not baseline successes covering those behaviors.
+No comparison evidence authorizes #256's separately approved gate cutover.
+
+The following commands are for a chosen isolated interactive Windows test
+environment or disposable CI runner, **not the user's working desktop**:
+
+```powershell
+.\.github\scripts\Invoke-NativeValidation.ps1 -Mode Baseline -Suite capture `
+  -AppPath artifacts\app\FingVibe.App.exe -ScreenshotDirectory artifacts\baseline
+.\.github\scripts\Invoke-NativeValidation.ps1 -Mode Focused -Suite history `
+  -AppPath artifacts\app\FingVibe.App.exe -ScreenshotDirectory artifacts\history
+.\.github\scripts\Invoke-NativeValidation.ps1 -Mode Focused -Suite capture `
+  -Scenarios DeviceDetails,Settings -AppPath artifacts\app\FingVibe.App.exe `
+  -ScreenshotDirectory artifacts\focused
+# Run each suite once with Full; the Actions workflow also runs non-UI/installer checks.
+.\.github\scripts\Invoke-NativeValidation.ps1 -Mode Full -Suite capture `
+  -AppPath artifacts\app\FingVibe.App.exe -ScreenshotDirectory artifacts\full-capture
+```
+
+Desktop-free execution/dispatch/trust/result contracts are exercised through
+`tests\PrValidation.Tests.ps1`, which includes `tests\NativeValidation.Tests.ps1`.
 
 ```powershell
 dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj

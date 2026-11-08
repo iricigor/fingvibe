@@ -8,16 +8,30 @@ param(
 
     [string] $CapturePlanPath,
 
+    [string] $SourceDirectory,
+
+    [ValidateSet("Current", "Baseline", "Focused", "Full")]
+    [string] $Mode = "Current",
+
     [string] $WinAppDriverPath =
         "${env:ProgramFiles(x86)}\Windows Application Driver\WinAppDriver.exe"
 )
 
 $ErrorActionPreference = "Stop"
+if (-not $SourceDirectory) { $SourceDirectory = Join-Path $PSScriptRoot "..\.." }
 . (Join-Path $PSScriptRoot "UiReviewScreenshot.ps1")
-. (Join-Path $PSScriptRoot "UiReviewScenarios.ps1")
-. (Join-Path $PSScriptRoot "UiReviewNavigation.ps1")
-$capturePlan = if ($CapturePlanPath) {
+. (Join-Path $PSScriptRoot "NativeValidation.ps1")
+. (Join-Path $SourceDirectory ".github\scripts\UiReviewScenarios.ps1")
+. (Join-Path $SourceDirectory ".github\scripts\UiReviewNavigation.ps1")
+. (Join-Path $SourceDirectory "tests\UiRegression\Helpers.ps1")
+$capturePlan = if ($Mode -in @("Baseline", "Full")) {
+    @(Get-NativeValidationPlan -Mode $Mode -Suite capture)
+}
+elseif ($CapturePlanPath) {
     @(Read-UiReviewCapturePlan -Path $CapturePlanPath)
+}
+elseif ($Mode -eq "Focused") {
+    throw "Focused capture requires a capture plan."
 }
 else {
     @(Get-UiReviewCapturePlan -RepositoryPath (Get-Location).Path)
@@ -26,6 +40,7 @@ else {
 $serverUrl = "http://127.0.0.1:4723"
 $sessionId = $null
 $driverProcess = $null
+$appProcess = $null
 $succeeded = $false
 $reviewStartedAt = Get-Date
 $logDirectory = [System.IO.Path]::GetFullPath($ScreenshotDirectory)
@@ -285,6 +300,7 @@ try {
     $windowResponse = Invoke-WebDriverRequest -Method Get `
         -Endpoint "/session/$sessionId/window_handle"
     $windowHandle = [IntPtr]::new([Convert]::ToInt64([string] $windowResponse.value, 16))
+    $appProcess = Get-Process -Id ([System.Windows.Automation.AutomationElement]::FromHandle($windowHandle).Current.ProcessId)
     Initialize-UiReviewWindow -WindowHandle $windowHandle
 
     $elements = @{}
@@ -337,26 +353,28 @@ try {
     $offline = Find-WebDriverElement -Using name -Value "Offline" -TimeoutSeconds 1 -Optional
     if ($offline) { throw "Nonresponding addresses must not appear in Devices." }
 
-    $retainedRow = Assert-VisibleUiReviewElement -Using xpath `
-        -Value "//List[@Name='Scan results']/ListItem[.//*[@Name='Online']][1]"
-    [IO.File]::WriteAllText($scanHoldPath, "Hold the refresh until retained-list interaction has been verified.")
-    Invoke-WebDriverElement -ElementId $elements["Scan LAN"]
-    $cancel = Assert-VisibleUiReviewElement -Value "Cancel scan"
-    $null = Assert-VisibleUiReviewElement -Value "Online"
-    $null = Assert-VisibleUiReviewElement -Using xpath `
-        -Value "//*[contains(@Name, 'Displaying retained results')]"
-    Invoke-WebDriverElement -ElementId $retainedRow
-    $null = Invoke-WebDriverRequest -Method Post `
-        -Endpoint "/session/$sessionId/element/$retainedRow/value" `
-        -Body @{ value = @([string] [char] 0xE007) }
-    $null = Assert-VisibleUiReviewElement -Value "Search devices"
-    $details = Find-WebDriverElement -Using name -Value "Back to devices" -TimeoutSeconds 1 -Optional
-    if ($details) { throw "A retained row opened device details during scanning." }
-    Invoke-WebDriverElement -ElementId $cancel
-    Remove-Item -LiteralPath $scanHoldPath
-    $elements["Scan LAN"] = Wait-UiReviewScan
-    $null = Assert-VisibleUiReviewElement -Value "Online"
+    if ($Mode -in @("Current", "Full")) {
+        $retainedRow = Assert-VisibleUiReviewElement -Using xpath `
+            -Value "//List[@Name='Scan results']/ListItem[.//*[@Name='Online']][1]"
+        [IO.File]::WriteAllText($scanHoldPath, "Hold the refresh until retained-list interaction has been verified.")
+        Invoke-WebDriverElement -ElementId $elements["Scan LAN"]
+        $cancel = Assert-VisibleUiReviewElement -Value "Cancel scan"
+        $null = Assert-VisibleUiReviewElement -Value "Online"
+        $null = Assert-VisibleUiReviewElement -Using xpath `
+            -Value "//*[contains(@Name, 'Displaying retained results')]"
+        Invoke-WebDriverElement -ElementId $retainedRow
+        $null = Invoke-WebDriverRequest -Method Post `
+            -Endpoint "/session/$sessionId/element/$retainedRow/value" `
+            -Body @{ value = @([string] [char] 0xE007) }
+        $null = Assert-VisibleUiReviewElement -Value "Search devices"
+        $details = Find-WebDriverElement -Using name -Value "Back to devices" -TimeoutSeconds 1 -Optional
+        if ($details) { throw "A retained row opened device details during scanning." }
+        Invoke-WebDriverElement -ElementId $cancel
+        Remove-Item -LiteralPath $scanHoldPath
+        $elements["Scan LAN"] = Wait-UiReviewScan
+        $null = Assert-VisibleUiReviewElement -Value "Online"
 
+    }
     $null = Invoke-WebDriverRequest -Method Post `
         -Endpoint "/session/$sessionId/element/$search/value" `
         -Body @{ value = @("fingvibe-no-matching-host") }
@@ -368,32 +386,34 @@ try {
 
     $elements["Scan LAN"] = Wait-UiReviewScan
 
-    # Summary navigation must replace stale filters and expose hidden restrictions through the funnel.
-    $null = Invoke-WebDriverRequest -Method Post `
-        -Endpoint "/session/$sessionId/element/$search/value" `
-        -Body @{ value = @("fingvibe-no-matching-host") }
-    $overview = Find-WebDriverElement -Using xpath -Value "//ListItem[@Name='Overview']"
-    Invoke-WebDriverElement -ElementId $overview
-    $portsCard = Assert-VisibleUiReviewElement -Value "See devices with open ports"
-    Invoke-WebDriverElement -ElementId $portsCard
-    $count = Assert-VisibleUiReviewElement -Using xpath -Value "//*[@AutomationId='ActiveFilterCount']"
-    $countText = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$count/text"
-    if ($countText.value -ne "1") { throw "The open-port summary must expose one active secondary category." }
-    $funnel = Assert-VisibleUiReviewElement -Using xpath -Value "//*[@AutomationId='FilterExpander']"
-    Invoke-WebDriverElement -ElementId $funnel
-    $null = Assert-VisibleUiReviewElement -Value "Ports: With open ports"
-    $null = Assert-VisibleUiReviewElement -Value "Clear all Devices filters"
-    $searchValue = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$search/text"
-    if ($searchValue.value) { throw "Summary navigation did not clear the stale text filter." }
+    if ($Mode -in @("Current", "Full")) {
+        # Summary navigation must replace stale filters and expose hidden restrictions through the funnel.
+        $null = Invoke-WebDriverRequest -Method Post `
+            -Endpoint "/session/$sessionId/element/$search/value" `
+            -Body @{ value = @("fingvibe-no-matching-host") }
+        $overview = Find-WebDriverElement -Using xpath -Value "//ListItem[@Name='Overview']"
+        Invoke-WebDriverElement -ElementId $overview
+        $portsCard = Assert-VisibleUiReviewElement -Value "See devices with open ports"
+        Invoke-WebDriverElement -ElementId $portsCard
+        $count = Assert-VisibleUiReviewElement -Using xpath -Value "//*[@AutomationId='ActiveFilterCount']"
+        $countText = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$count/text"
+        if ($countText.value -ne "1") { throw "The open-port summary must expose one active secondary category." }
+        $funnel = Assert-VisibleUiReviewElement -Using xpath -Value "//*[@AutomationId='FilterExpander']"
+        Invoke-WebDriverElement -ElementId $funnel
+        $null = Assert-VisibleUiReviewElement -Value "Ports: With open ports"
+        $null = Assert-VisibleUiReviewElement -Value "Clear all Devices filters"
+        $searchValue = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$search/text"
+        if ($searchValue.value) { throw "Summary navigation did not clear the stale text filter." }
 
-    Invoke-WebDriverElement -ElementId $overview
-    $onlineCard = Assert-VisibleUiReviewElement -Value "See online devices"
-    $null = Invoke-WebDriverRequest -Method Post `
-        -Endpoint "/session/$sessionId/element/$onlineCard/value" `
-        -Body @{ value = @([string] [char] 0xE007) }
-    $null = Assert-VisibleUiReviewElement -Value "Ports: All"
-    $null = Assert-VisibleUiReviewElement -Value "Online"
+        Invoke-WebDriverElement -ElementId $overview
+        $onlineCard = Assert-VisibleUiReviewElement -Value "See online devices"
+        $null = Invoke-WebDriverRequest -Method Post `
+            -Endpoint "/session/$sessionId/element/$onlineCard/value" `
+            -Body @{ value = @([string] [char] 0xE007) }
+        $null = Assert-VisibleUiReviewElement -Value "Ports: All"
+        $null = Assert-VisibleUiReviewElement -Value "Online"
 
+    }
     $captureDirectory = [System.IO.Path]::GetFullPath($ScreenshotDirectory)
     $null = New-Item -ItemType Directory -Path $captureDirectory -Force
     foreach ($capture in $capturePlan) {
@@ -407,27 +427,38 @@ try {
             throw "Required capture '$($capture.Label)' failed: $($_.Exception.Message)"
         }
     }
-    Test-UiReviewNavigation
-    Test-UiReviewNameSuggestion "Person" "Igor" "Iric" "II"
-    Test-UiReviewNameSuggestion "Room" "Living" "Room" "LR"
-    Write-Host "People and Rooms native short-name suggestion regression tests passed."
-    Show-UiReviewCaptureScenario -Scenario "DeviceDetails"
-    Set-UiReviewAssignment "Room" "UI · UI review room" "Room assignment saved."
-    Set-UiReviewAssignment "Person" "UI · UI review person" "Person assignment saved."
-    Assert-UiReviewAssignment "Room" "UI · UI review room"
-    Set-UiReviewAssignment "Room" "Unassigned" "Room assignment saved."
-    Assert-UiReviewAssignment "Person" "UI · UI review person"
-    Set-UiReviewAssignment "Person" "Unassigned" "Person assignment saved."
-    Show-UiReviewCaptureScenario -Scenario "DeviceDetails"
-    Assert-UiReviewAssignment "Room" "Unassigned"
-    Assert-UiReviewAssignment "Person" "Unassigned"
-    Write-Host "People and Rooms native assignment regression tests passed."
+    if ($Mode -in @("Current", "Full")) {
+        Test-UiReviewNavigation
+        Test-UiReviewNameSuggestion "Person" "Igor" "Iric" "II"
+        Test-UiReviewNameSuggestion "Room" "Living" "Room" "LR"
+        Write-Host "People and Rooms native short-name suggestion regression tests passed."
+        Show-UiReviewCaptureScenario -Scenario "DeviceDetails"
+        Set-UiReviewAssignment "Room" "UI · UI review room" "Room assignment saved."
+        Set-UiReviewAssignment "Person" "UI · UI review person" "Person assignment saved."
+        Assert-UiReviewAssignment "Room" "UI · UI review room"
+        Set-UiReviewAssignment "Room" "Unassigned" "Room assignment saved."
+        Assert-UiReviewAssignment "Person" "UI · UI review person"
+        Set-UiReviewAssignment "Person" "Unassigned" "Person assignment saved."
+        Show-UiReviewCaptureScenario -Scenario "DeviceDetails"
+        Assert-UiReviewAssignment "Room" "Unassigned"
+        Assert-UiReviewAssignment "Person" "Unassigned"
+        Write-Host "People and Rooms native assignment regression tests passed."
+    }
 
     # Publish a manifest only after every required view/state was verified and captured.
     ConvertTo-Json -InputObject @($capturePlan) -Depth 5 |
         Set-Content -LiteralPath (Join-Path $captureDirectory "capture-manifest.json") -Encoding utf8
 
     $succeeded = $true
+}
+catch {
+    if ($windowHandle -and $sessionId) {
+        try {
+            Save-UiReviewWindowScreenshot -WindowHandle $windowHandle -Path (Join-Path $logDirectory "smoke-failure.png")
+        }
+        catch { Write-Warning "Could not capture the failed smoke state: $($_.Exception.Message)" }
+    }
+    throw
 }
 finally {
     if (Test-Path -LiteralPath $scanHoldPath) { Remove-Item -LiteralPath $scanHoldPath }
@@ -441,9 +472,16 @@ finally {
         }
     }
 
+    $cleanupFailure = $null
+    try { Stop-UiRegressionApp -Process $appProcess }
+    catch {
+        $cleanupFailure = $_
+        $succeeded = $false
+        Write-Host "Smoke application cleanup failed: $_"
+    }
     if ($driverProcess -and -not $driverProcess.HasExited) {
         Stop-Process -Id $driverProcess.Id
-        $null = $driverProcess.WaitForExit(10000)
+        if (-not $driverProcess.WaitForExit(10000)) { throw "WinAppDriver did not terminate after cleanup." }
     }
 
     if (-not $succeeded) {
@@ -472,6 +510,7 @@ finally {
             Get-Content -LiteralPath $standardErrorPath | Write-Host
         }
     }
+    if ($cleanupFailure) { throw $cleanupFailure }
 }
 
-Write-Host "UI smoke test passed and $($capturePlan.Count) required screenshot(s) captured."
+Write-Host "$Mode UI smoke test passed and $($capturePlan.Count) required screenshot(s) captured."

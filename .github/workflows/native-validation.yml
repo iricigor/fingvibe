@@ -1,0 +1,326 @@
+name: Reusable native validation
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        required: true
+        type: string
+      revision:
+        required: true
+        type: string
+      pull-request:
+        default: 0
+        type: number
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: windows-latest
+    outputs:
+      revision: ${{ steps.plan.outputs.revision }}
+      suites: ${{ steps.plan.outputs.suites }}
+    steps:
+      - name: Check out exact validation revision
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.revision }}
+          persist-credentials: false
+
+      - name: Validate execution request and record source revision
+        id: plan
+        shell: pwsh
+        env:
+          MODE: ${{ inputs.mode }}
+        run: |
+          if ($env:MODE -notin @("Baseline", "Full")) { throw "Unsupported validation mode." }
+          $revision = git rev-parse HEAD
+          if ($LASTEXITCODE -ne 0) { throw "Could not resolve validation revision." }
+          "revision=$revision" >> $env:GITHUB_OUTPUT
+          $suites = if ($env:MODE -eq "Full") { @("sidebar", "devices", "history", "tools", "capture") } else { @("capture") }
+          "suites=$(ConvertTo-Json -InputObject $suites -Compress)" >> $env:GITHUB_OUTPUT
+          "Independent $env:MODE validation of $revision; run $env:GITHUB_RUN_ID, attempt $env:GITHUB_RUN_ATTEMPT. No authoritative PR gate or PR-bound writes." >> $env:GITHUB_STEP_SUMMARY
+          "Validation harness/workflow revision: ${{ github.workflow_sha }}." >> $env:GITHUB_STEP_SUMMARY
+
+  checks:
+    name: Independent full non-UI checks
+    needs: plan
+    if: inputs.mode == 'Full'
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      NUGET_PACKAGES: ${{ github.workspace }}\.nuget\packages
+    steps:
+      - name: Check out pinned source and history
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.revision }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6.1.0
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Check out immutable validation harness
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: validation-harness
+          persist-credentials: false
+
+      - name: Run existing core, script and security checks
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .\validation-harness\.github\scripts\Invoke-FullValidationChecks.ps1 -SourceDirectory "${{ github.workspace }}" -LogDirectory artifacts\full-checks
+
+      - name: Retain full non-UI diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: native-full-checks-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: |
+            artifacts\full-checks\*.log
+            artifacts\full-checks\*.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  build:
+    name: Independent validation build
+    needs: plan
+    runs-on: windows-latest
+    timeout-minutes: 20
+    outputs:
+      artifact-id: ${{ steps.upload.outputs.artifact-id }}
+      build-timestamp: ${{ steps.publish.outputs.build-timestamp }}
+    env:
+      NUGET_PACKAGES: ${{ github.workspace }}\.nuget\packages
+    steps:
+      - name: Check out pinned source
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.revision }}
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6.1.0
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v3
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6.1.0
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: ${{ runner.os }}-nuget-v1-${{ hashFiles('**/*.csproj', '**/Directory.*.props', '**/Directory.*.targets', '**/NuGet.Config', '**/nuget.config', 'global.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-v1-
+
+      - name: Publish independent Windows x64 payload
+        id: publish
+        shell: pwsh
+        env:
+          REVISION: ${{ needs.plan.outputs.revision }}
+        run: |
+          $null = New-Item -ItemType Directory -Path artifacts\build -Force
+          $clock = [Diagnostics.Stopwatch]::StartNew()
+          Start-Transcript -Path artifacts\build\publish.log
+          try {
+            $timestamp = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", [Globalization.CultureInfo]::InvariantCulture)
+            "build-timestamp=$timestamp" >> $env:GITHUB_OUTPUT
+            msbuild src\FingVibe.App\FingVibe.App.csproj /restore /target:Publish `
+              /property:Configuration=Release /property:Platform=x64 /property:RuntimeIdentifier=win-x64 `
+              /property:SelfContained=true /property:Version=0.0.${{ github.run_number }} /property:BuildKind=Test `
+              /property:BuildCommit="$env:REVISION" /property:BuildTimestamp="$timestamp" `
+              /property:BuildUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" `
+              /property:PublishDir="${{ github.workspace }}\artifacts\app\"
+            if ($LASTEXITCODE -ne 0) { throw "Independent application publish failed." }
+            .\tests\ApplicationIcon.Tests.ps1 -AppDirectory artifacts\app
+            .\tests\BuildIdentity.Metadata.Tests.ps1 -AppDirectory artifacts\app -BuildTimestamp $timestamp -Version "0.0.${{ github.run_number }}"
+          } finally {
+            $clock.Stop()
+            "Application build/verification: $($clock.Elapsed.TotalSeconds.ToString('F1')) seconds; separate from native execution." >> $env:GITHUB_STEP_SUMMARY
+            Stop-Transcript
+          }
+
+      - name: Retain build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: native-build-logs-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: artifacts\build
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload unvalidated independent payload
+        id: upload
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: native-payload-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: artifacts\app
+          if-no-files-found: error
+          retention-days: 1
+
+  installer:
+    name: Independent full installer checks
+    needs: [plan, build]
+    if: inputs.mode == 'Full'
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out pinned installer checks
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.revision }}
+          persist-credentials: false
+
+      - name: Download the independent payload
+        uses: actions/download-artifact@v8.0.2
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          merge-multiple: true
+          path: artifacts\app
+
+      - name: Exercise existing installer lifecycle
+        shell: pwsh
+        run: |
+          .\tools\New-Installer.ps1 -AppDirectory artifacts\app -Version "0.0.${{ github.run_number }}" -OutputDirectory artifacts\installer
+          .\tests\Installer.Lifecycle.Tests.ps1 -AppDirectory artifacts\app `
+            -InstallerPath "artifacts\installer\FingVibe-0.0.${{ github.run_number }}-win-x64-Setup.exe" `
+            -Version "0.0.${{ github.run_number }}" -LogDirectory artifacts\installer-logs
+
+      - name: Retain installer diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: native-installer-logs-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: artifacts\installer-logs
+          if-no-files-found: warn
+          retention-days: 14
+
+  native:
+    name: Independent ${{ inputs.mode }} (${{ matrix.suite }})
+    needs: [plan, build]
+    runs-on: windows-2025
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: ${{ fromJSON(needs.plan.outputs.suites) }}
+    env:
+      FINGVIBE_UI_REVIEW: "1"
+    steps:
+      - name: Check out pinned native checks
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ needs.plan.outputs.revision }}
+          persist-credentials: false
+
+      - name: Start runner setup timing
+        shell: pwsh
+        run: |
+          $null = New-Item -ItemType Directory -Path artifacts\native -Force
+          [DateTime]::UtcNow.ToString("O") | Set-Content artifacts\native\setup-start.txt
+
+      - name: Check out immutable validation harness
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: validation-harness
+          persist-credentials: false
+
+      - name: Download the independent payload
+        uses: actions/download-artifact@v8.0.2
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          merge-multiple: true
+          path: artifacts\app
+
+      - name: Prepare disposable desktop
+        shell: powershell
+        run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
+
+      - name: Record runner setup timing
+        shell: pwsh
+        run: |
+          $start = [DateTime]::Parse((Get-Content artifacts\native\setup-start.txt)).ToUniversalTime()
+          "Payload/desktop setup: $(([DateTime]::UtcNow - $start).TotalSeconds.ToString('F1')) seconds; checkout and runner provisioning excluded. Full job duration is available in Actions." >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Execute native mode
+        if: matrix.suite != 'sidebar'
+        timeout-minutes: 15
+        shell: pwsh
+        env:
+          MODE: ${{ inputs.mode }}
+          SUITE: ${{ matrix.suite }}
+          REVISION: ${{ needs.plan.outputs.revision }}
+          BUILD_TIMESTAMP: ${{ needs.build.outputs.build-timestamp }}
+          PR_NUMBER: ${{ inputs.pull-request }}
+          NATIVE_VALIDATION_HARNESS_REVISION: ${{ github.workflow_sha }}
+        run: |
+          .\validation-harness\.github\scripts\Invoke-NativeValidation.ps1 -Mode $env:MODE -Suite $env:SUITE `
+            -SourceDirectory "${{ github.workspace }}" `
+            -AppPath "${{ github.workspace }}\artifacts\app\FingVibe.App.exe" `
+            -ScreenshotDirectory artifacts\native -Version "0.0.${{ github.run_number }}" `
+            -BuildTimestamp $env:BUILD_TIMESTAMP -BuildCommit $env:REVISION -PullRequestNumber $env:PR_NUMBER
+
+      - name: Execute existing sidebar in Windows PowerShell
+        if: matrix.suite == 'sidebar'
+        timeout-minutes: 15
+        shell: powershell
+        env:
+          MODE: ${{ inputs.mode }}
+          REVISION: ${{ needs.plan.outputs.revision }}
+          NATIVE_VALIDATION_HARNESS_REVISION: ${{ github.workflow_sha }}
+        run: |
+          .\validation-harness\.github\scripts\Invoke-NativeValidation.ps1 -Mode $env:MODE -Suite sidebar `
+            -SourceDirectory "${{ github.workspace }}" `
+            -AppPath "${{ github.workspace }}\artifacts\app\FingVibe.App.exe" `
+            -ScreenshotDirectory artifacts\native -BuildCommit $env:REVISION
+
+      - name: Retain native screenshots and partial diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: native-${{ inputs.mode }}-${{ matrix.suite }}-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: artifacts\native
+          if-no-files-found: warn
+          retention-days: 14
+
+  result:
+    name: Independent ${{ inputs.mode }} result (not a merge gate)
+    needs: [plan, checks, build, installer, native]
+    if: always()
+    runs-on: windows-latest
+    steps:
+      - name: Check out result contract
+        if: needs.plan.result == 'success'
+        uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+
+      - name: Report final result and provenance
+        shell: pwsh
+        env:
+          MODE: ${{ inputs.mode }}
+          REVISION: ${{ needs.plan.outputs.revision }}
+          PLAN_RESULT: ${{ needs.plan.result }}
+          BUILD_RESULT: ${{ needs.build.result }}
+          CHECKS_RESULT: ${{ needs.checks.result }}
+          INSTALLER_RESULT: ${{ needs.installer.result }}
+          NATIVE_RESULT: ${{ needs.native.result }}
+        run: |
+          "Independent $env:MODE revision $env:REVISION; run $env:GITHUB_RUN_ID, attempt $env:GITHUB_RUN_ATTEMPT." >> $env:GITHUB_STEP_SUMMARY
+          "Validation harness revision: ${{ github.workflow_sha }}." >> $env:GITHUB_STEP_SUMMARY
+          $results = @{ build = $env:BUILD_RESULT; checks = $env:CHECKS_RESULT; installer = $env:INSTALLER_RESULT; native = $env:NATIVE_RESULT }
+          ($results | ConvertTo-Json) >> $env:GITHUB_STEP_SUMMARY
+          if ($env:PLAN_RESULT -ne "success") { throw "Validation planning failed or was cancelled." }
+          . .\.github\scripts\NativeValidation.ps1
+          Assert-NativeValidationResults -Mode $env:MODE -Results $results

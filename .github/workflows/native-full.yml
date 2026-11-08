@@ -1,0 +1,19 @@
+name: Full native validation (main)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-full-main-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  full:
+    uses: ./.github/workflows/native-validation.yml
+    with:
+      mode: Full
+      revision: main
+      pull-request: 0
