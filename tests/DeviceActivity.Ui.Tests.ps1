@@ -79,34 +79,12 @@ function Stop-ActivityApp {
 }
 
 function Test-ActivityFits($Control, $Viewport) {
-    $bounds = $Control.Current.BoundingRectangle
-    $area = $Viewport.Current.BoundingRectangle
-    $bottom = [Math]::Min($area.Bottom, $script:root.Current.BoundingRectangle.Bottom - 16)
-    return -not $Control.Current.IsOffscreen -and $bounds.Height -gt 0 -and
-        $bounds.Top -ge $area.Top -and $bounds.Bottom -le $bottom -and
-        $bounds.Left -ge $area.Left -and $bounds.Right -le $area.Right
+    Test-UiRegressionElementWithin $Control $Viewport $script:root
 }
 
 function Show-Activity([string] $Id) {
-    $viewport = Find-Activity DeviceDetailsScroll
-    $scroll = $viewport.GetCurrentPattern([Windows.Automation.ScrollPattern]::Pattern)
-    $control = Find-Activity $Id
-    if (Test-ActivityFits $control $viewport) { return $control }
-    foreach ($percent in 0..100) {
-        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
-        Start-Sleep -Milliseconds 10
-        try { $fits = Test-ActivityFits $control $viewport }
-        catch [Windows.Automation.ElementNotAvailableException] {
-            $control = Find-Activity $Id
-            $fits = Test-ActivityFits $control $viewport
-        }
-        if (-not $fits) { continue }
-        # Confirm on a fresh lookup once layout settles, as callers re-resolve the control themselves.
-        Start-Sleep -Milliseconds 150
-        $control = Find-Activity $Id
-        if (Test-ActivityFits $control $viewport) { return $control }
-    }
-    throw "Activity control '$Id' is clipped or unreachable."
+    Show-UiRegressionScrollTargets -Description "Activity control '$Id'" -BottomMargin 8 `
+        -GetViewport { Find-Activity DeviceDetailsScroll } -GetWindow { $script:root } -GetTargets { Find-Activity $Id }
 }
 
 function Open-ActivityDevice([string] $Name = "Activity laptop") {
@@ -158,12 +136,21 @@ function Select-ActivityCell([int] $Row, [int] $Column) {
     $null = Show-Activity ActivityHours
     $cell = Find-Activity "ActivityCell-$Row-$Column"
     $cell.SetFocus()
-    Wait-Activity {
-        $current = Find-Activity "ActivityCell-$Row-$Column"
-        (Find-Activity ActivityDetail).Current.Name -eq $current.Current.Name -and
-            (Test-ActivityFits $current (Find-Activity ActivityScroll)) -and
-            (Test-ActivityFits $current (Find-Activity DeviceDetailsScroll))
-    } "visible keyboard-accessible cell details"
+    try {
+        Wait-Activity {
+            $current = Find-Activity "ActivityCell-$Row-$Column"
+            (Find-Activity ActivityDetail).Current.Name -eq $current.Current.Name -and
+                (Test-ActivityFits $current (Find-Activity ActivityScroll)) -and
+                (Test-ActivityFits $current (Find-Activity DeviceDetailsScroll))
+        } "visible keyboard-accessible cell details"
+    }
+    catch {
+        foreach ($id in @("ActivityCell-$Row-$Column", "ActivityScroll", "DeviceDetailsScroll", "ActivityDetail")) {
+            $element = Find-Activity $id -Optional
+            Write-Host "$id | offscreen=$($element.Current.IsOffscreen) | bounds=$($element.Current.BoundingRectangle) | name=$($element.Current.Name)"
+        }
+        throw
+    }
     return $cell
 }
 

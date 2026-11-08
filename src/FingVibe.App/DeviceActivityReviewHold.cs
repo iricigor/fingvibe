@@ -13,13 +13,23 @@ internal static class DeviceActivityReviewHold
         File.WriteAllText(request + ".started", "");
         using var registration = cancellationToken.Register(() => File.WriteAllText(request + ".cancelled", ""));
         var clock = Stopwatch.StartNew();
-        while (File.Exists(path))
+        try
         {
-            if (clock.Elapsed >= TimeSpan.FromSeconds(30))
-                throw new InvalidOperationException("The UI-review Activity hold was not released within 30 seconds.");
-            await Task.Delay(25, cancellationToken);
+            while (File.Exists(path))
+            {
+                if (clock.Elapsed >= TimeSpan.FromSeconds(30))
+                    throw new InvalidOperationException("The UI-review Activity hold was not released within 30 seconds.");
+                await Task.Delay(25, cancellationToken);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            File.WriteAllText(request + ".released", "");
         }
-        cancellationToken.ThrowIfCancellationRequested();
-        File.WriteAllText(request + ".released", "");
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Delay's newer callback can resume inline and dispose our callback before it runs.
+            registration.Dispose();
+            File.WriteAllText(request + ".cancelled", "");
+            throw;
+        }
     }
 }

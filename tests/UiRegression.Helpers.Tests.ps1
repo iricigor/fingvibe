@@ -28,6 +28,88 @@ foreach ($condition in @({ $false }, { $null }, {})) {
 Assert-RegressionFailure { Wait-UiRegressionState -Description 'unexpected error' -Condition { throw 'unexpected condition error' } } 'unexpected condition error'
 
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+& {
+    function New-TestRectangle([double] $Left, [double] $Top, [double] $Width, [double] $Height) {
+        [pscustomobject]@{
+            Left = $Left; Top = $Top; Width = $Width; Height = $Height
+            Right = $Left + $Width; Bottom = $Top + $Height; IsEmpty = $false
+        }
+    }
+    function New-BoundedElement([double] $Left, [double] $Top, [double] $Width, [double] $Height) {
+        [pscustomobject]@{ Current = [pscustomobject]@{
+            IsOffscreen = $false
+            BoundingRectangle = New-TestRectangle $Left $Top $Width $Height
+        } }
+    }
+    $window = New-BoundedElement 0 0 600 800
+    $viewport = New-BoundedElement 20 100 560 900
+    $cell = New-BoundedElement 20 768 36 32
+    Assert-Regression (Test-UiRegressionElementWithin $cell $viewport $window) 'A cell at the visible bottom edge must not fail an invented 16-pixel inset.'
+    foreach ($bounds in @(
+        (New-TestRectangle 20 769 36 32),
+        (New-TestRectangle 19 768 36 32),
+        (New-TestRectangle 545 768 36 32),
+        (New-TestRectangle 20 99 36 32)
+    )) {
+        $cell.Current.BoundingRectangle = $bounds
+        Assert-Regression (-not (Test-UiRegressionElementWithin $cell $viewport $window)) 'Even one pixel outside the window or nested viewport must remain a failure.'
+    }
+    $cell.Current.BoundingRectangle = New-TestRectangle 20 768 36 32
+    $cell.Current.IsOffscreen = $true
+    Assert-Regression (-not (Test-UiRegressionElementWithin $cell $viewport $window)) 'Offscreen peers cannot prove rendered visibility.'
+
+    $viewport = New-BoundedElement 0 0 500 300
+    $window = New-BoundedElement 0 0 500 300
+    $first = New-BoundedElement 10 900 100 20
+    $last = New-BoundedElement 10 1100 100 30
+    $positions = [Collections.Generic.List[double]]::new()
+    $scroll = [pscustomobject]@{ Current = [pscustomobject]@{
+        VerticallyScrollable = $true; VerticalScrollPercent = 0.0; VerticalViewSize = 20.0
+    }; MoveBounds = $true }
+    $scroll | Add-Member ScriptMethod SetScrollPercent {
+        param($Horizontal, $Percent)
+        $positions.Add($Percent)
+        $delta = ($Percent - $this.Current.VerticalScrollPercent) * 12
+        $this.Current.VerticalScrollPercent = $Percent
+        if ($this.MoveBounds) {
+            foreach ($target in @($first, $last)) {
+                $bounds = $target.Current.BoundingRectangle
+                $target.Current.BoundingRectangle = New-TestRectangle $bounds.Left ($bounds.Top - $delta) $bounds.Width $bounds.Height
+            }
+        }
+    }
+    $viewport | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $scroll }
+    $arguments = @{
+        GetViewport = { $viewport }; GetWindow = { $window }; GetTargets = { $first; $last }
+        Description = 'grouped summary'; TopMargin = 35; BottomMargin = 10
+    }
+    $result = Show-UiRegressionScrollTargets @arguments
+    Assert-Regression ($result -eq $first -and $positions.Count -eq 1 -and $positions[0] -eq 70) 'Grouped controls must be positioned directly from geometry, not a percent-by-percent sweep.'
+    Assert-Regression ($last.Current.BoundingRectangle.Bottom -eq 290) 'The last target, not only the first, must fit above the bottom margin.'
+    $null = Show-UiRegressionScrollTargets @arguments
+    Assert-Regression ($positions.Count -eq 1) 'Already-visible groups must not scroll again.'
+    $last.Current.BoundingRectangle = New-TestRectangle 10 80 100 30
+    $null = Show-UiRegressionScrollTargets -Description 'Settings footer' -AlignBottom -BottomMargin 10 `
+        -GetViewport { $viewport } -GetWindow { $window } -GetTargets { $last }
+    Assert-Regression ($last.Current.BoundingRectangle.Bottom -eq 290) 'Settings positioning must retain footer alignment without sweeping through the whole page.'
+    $positions.Clear()
+    $first.Current.BoundingRectangle = New-TestRectangle 10 -20 100 20
+    $last.Current.BoundingRectangle = New-TestRectangle 10 180 100 30
+    $null = Show-UiRegressionScrollTargets @arguments
+    Assert-Regression ($positions.Count -eq 1 -and $first.Current.BoundingRectangle.Top -ge 35) 'Positioning must also move upwards while preserving every target.'
+    $last.Current.BoundingRectangle = New-TestRectangle 10 1000 100 30
+    Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*cannot fit together*'
+    $first.Current.BoundingRectangle = New-TestRectangle 10 900 100 20
+    $last.Current.BoundingRectangle = New-TestRectangle 10 1100 100 30
+    $scroll.MoveBounds = $false
+    $arguments.TimeoutMilliseconds = 20
+    $before = $positions.Count
+    Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*20 ms*grouped summary*'
+    Assert-Regression ($positions.Count -eq $before + 1) 'An accepted scroll percentage without rendered movement must fail, not repeat or masquerade as visibility.'
+    $scroll.Current.VerticallyScrollable = $false
+    Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*non-scrollable viewport*'
+}
+
 $rectangle = [pscustomobject]@{ IsEmpty = $false; Width = 100; Height = 30 }
 $element = [pscustomobject]@{ Current = [pscustomobject]@{ IsOffscreen = $false; BoundingRectangle = $rectangle } }
 $state = @{ Owners = 0; Lookups = 0 }

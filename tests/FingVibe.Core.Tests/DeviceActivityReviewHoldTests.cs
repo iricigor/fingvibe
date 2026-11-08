@@ -50,5 +50,31 @@ public sealed class DeviceActivityReviewHoldTests : IDisposable
         Assert.Empty(Directory.GetFiles(_directory, "*.started"));
     }
 
+    [Fact]
+    public async Task CancellationRecordSurvivesInlineDelayContinuation()
+    {
+        File.WriteAllText(Hold, "");
+        using var cancellation = new CancellationTokenSource();
+        var previousContext = SynchronizationContext.Current;
+        Task pending;
+        try
+        {
+            SynchronizationContext.SetSynchronizationContext(new InlineSynchronizationContext());
+            pending = DeviceActivityReviewHold.WaitAsync(Hold, cancellation.Token);
+        }
+        finally { SynchronizationContext.SetSynchronizationContext(previousContext); }
+        var started = Assert.Single(Directory.GetFiles(_directory, "*.started"));
+        cancellation.Cancel();
+        Assert.True(File.Exists(Path.ChangeExtension(started, ".cancelled")));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+        Assert.True(File.Exists(Path.ChangeExtension(started, ".cancelled")));
+        Assert.False(File.Exists(Path.ChangeExtension(started, ".released")));
+    }
+
+    private sealed class InlineSynchronizationContext : SynchronizationContext
+    {
+        public override void Post(SendOrPostCallback callback, object? state) => callback(state);
+    }
+
     public void Dispose() => Directory.Delete(_directory, recursive: true);
 }

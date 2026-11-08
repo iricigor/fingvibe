@@ -7,6 +7,7 @@ param(
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
+. (Join-Path $PSScriptRoot "UiRegression\Helpers.ps1")
 . (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
 Initialize-InventorySqlite $AppPath
 
@@ -68,14 +69,23 @@ function Select-HistoryDevices {
 
 function Find-HistoryDeviceRow([string] $Name) {
     Select-HistoryDevices
-    (Find-HistoryControl "Search devices" -ByName).GetCurrentPattern(
-        [System.Windows.Automation.ValuePattern]::Pattern).SetValue($Name)
-    Start-Sleep -Milliseconds 300
-    $condition = [System.Windows.Automation.PropertyCondition]::new(
+    $search = (Find-HistoryControl "Search devices" -ByName).GetCurrentPattern(
+        [System.Windows.Automation.ValuePattern]::Pattern)
+    if ($search.Current.Value -cne $Name) {
+        $search.SetValue($Name)
+        Start-Sleep -Milliseconds 300
+    }
+    $rowCondition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
         [System.Windows.Automation.ControlType]::ListItem)
-    $rows = (Find-HistoryControl ResultsList).FindAll([System.Windows.Automation.TreeScope]::Children, $condition)
+    $nameCondition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceNameText")
+    $rows = (Find-HistoryControl ResultsList).FindAll([System.Windows.Automation.TreeScope]::Children, $rowCondition)
     if ($rows.Count -ne 1) { throw "Expected one device matching '$Name', got $($rows.Count)." }
+    $nameCell = $rows[0].FindFirst([System.Windows.Automation.TreeScope]::Descendants, $nameCondition)
+    if (-not (Test-UiRegressionElementVisible $rows[0]) -or -not $nameCell -or $nameCell.Current.Name -cne $Name) {
+        throw "The visible history row does not match '$Name'."
+    }
     return $rows[0]
 }
 
@@ -156,31 +166,10 @@ function Get-HistoryTimestamp([int] $Index) {
 }
 
 function Show-HistorySection([string] $Id, [int] $TopMargin = 35, [string[]] $AdditionalIds = @()) {
-    $scrollElement = Find-HistoryControl DeviceDetailsScroll
-    $scroll = $scrollElement.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-    # Resolve once: a whole-tree search per scroll step also walks every Device Activity cell.
     $ids = @($Id) + $AdditionalIds
-    $elements = @($ids | ForEach-Object { Find-HistoryControl $_ })
-    foreach ($percent in 0..100) {
-        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
-        Start-Sleep -Milliseconds 20
-        $area = $scrollElement.Current.BoundingRectangle
-        $fits = $true
-        for ($index = 0; $index -lt $elements.Count; $index++) {
-            try { $current = $elements[$index].Current }
-            catch [System.Windows.Automation.ElementNotAvailableException] {
-                $elements[$index] = Find-HistoryControl $ids[$index]
-                $current = $elements[$index].Current
-            }
-            $bounds = $current.BoundingRectangle
-            if ($current.IsOffscreen -or $bounds.Height -le 0 -or
-                $bounds.Top -lt $area.Top + $TopMargin -or $bounds.Bottom -gt $area.Bottom - 10) {
-                $fits = $false
-            }
-        }
-        if ($fits) { return $elements[0] }
-    }
-    throw "Scan-history section '$Id' does not fit the details viewport."
+    Show-UiRegressionScrollTargets -Description "Scan-history section '$Id'" -TopMargin $TopMargin -BottomMargin 10 `
+        -GetViewport { Find-HistoryControl DeviceDetailsScroll } -GetWindow { $script:root } `
+        -GetTargets { $ids | ForEach-Object { Find-HistoryControl $_ } }
 }
 
 function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {

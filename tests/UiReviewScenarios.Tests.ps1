@@ -69,6 +69,8 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
 }
 
 & {
+    . (Join-Path $PSScriptRoot 'UiRegression\Helpers.ps1')
+    Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
     $historyUi = Get-Content (Join-Path $PSScriptRoot "DeviceScanHistory.Ui.Tests.ps1") -Raw
     $position = [regex]::Match($historyUi, '(?s)function Show-HistorySection.*?(?=function Assert-HistoryRows)').Value
     # Substitute only the desktop pattern token; execute the production positioning body.
@@ -76,21 +78,28 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     $script:positions = [System.Collections.Generic.List[int]]::new()
     $script:secondBottom = 320
     $script:controls = @{}
-    $script:scroll = [pscustomobject]@{ Current = [pscustomobject]@{ VerticallyScrollable = $true } }
+    $script:scroll = [pscustomobject]@{ Current = [pscustomobject]@{
+        VerticallyScrollable = $true; VerticalScrollPercent = 0.0; VerticalViewSize = 50.0
+    } }
     $script:scroll | Add-Member ScriptMethod SetScrollPercent {
         param($Horizontal, $Percent)
         $script:positions.Add($Percent)
-        $offset = [Math]::Min($Percent, 1) * 40
+        $this.Current.VerticalScrollPercent = $Percent
+        $offset = $Percent * 3
         $script:controls.First.Current.BoundingRectangle = [pscustomobject]@{
-            Top = 100 - $offset; Bottom = 120 - $offset; Height = 20
+            Left = 0; Right = 100; Top = 100 - $offset; Bottom = 120 - $offset; Width = 100; Height = 20; IsEmpty = $false
         }
         $script:controls.Since.Current.BoundingRectangle = [pscustomobject]@{
-            Top = $script:secondBottom - 30 - $offset; Bottom = $script:secondBottom - $offset; Height = 30
+            Left = 0; Right = 100; Top = $script:secondBottom - 30 - $offset
+            Bottom = $script:secondBottom - $offset; Width = 100; Height = 30; IsEmpty = $false
         }
     }
     $viewport = [pscustomobject]@{ Current = [pscustomobject]@{
-        BoundingRectangle = [pscustomobject]@{ Top = 0; Bottom = 300 }
+        IsOffscreen = $false; BoundingRectangle = [pscustomobject]@{
+            Left = 0; Right = 300; Top = 0; Bottom = 300; Width = 300; Height = 300; IsEmpty = $false
+        }
     } }
+    $script:root = $viewport
     $viewport | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $script:scroll }
     foreach ($id in @("First", "Since")) {
         $script:controls[$id] = [pscustomobject]@{ Current = [pscustomobject]@{
@@ -101,13 +110,50 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
         if ($Id -eq "DeviceDetailsScroll") { return $viewport }
         return $script:controls[$Id]
     }
-    function Start-Sleep { param($Milliseconds) }
-    $null = Show-HistorySection First -AdditionalIds Since
-    Assert-Equal $script:positions @(0, 1) "Positioning must continue when first field fits but Since is clipped"
-    $script:secondBottom = 900
+    $script:scroll.SetScrollPercent(-1, 0)
     $script:positions.Clear()
-    Assert-Throws { Show-HistorySection First -AdditionalIds Since } "*does not fit the details viewport*"
-    Assert-Equal $script:positions.Count 101 "Unreachable grouped summary fails after bounded positioning"
+    $null = Show-HistorySection First -AdditionalIds Since
+    Assert-Equal $script:positions @(10) "Positioning must directly reveal Since even when the first field already fits"
+    $script:secondBottom = 900
+    $script:scroll.SetScrollPercent(-1, 0)
+    $script:positions.Clear()
+    Assert-Throws { Show-HistorySection First -AdditionalIds Since } "*cannot fit together inside its viewport*"
+    Assert-Equal $script:positions.Count 0 "An oversized grouped summary fails without an exhaustive viewport sweep"
+}
+
+& {
+    . (Join-Path $PSScriptRoot 'UiRegression\Helpers.ps1')
+    $historyUi = Get-Content (Join-Path $PSScriptRoot "DeviceScanHistory.Ui.Tests.ps1") -Raw
+    $findRow = [regex]::Match($historyUi, '(?s)function Find-HistoryDeviceRow.*?(?=function Get-HistoryLastSeenCell)').Value
+    . ([scriptblock]::Create($findRow))
+    $waits = [Collections.Generic.List[int]]::new()
+    $searchPattern = [pscustomobject]@{ Current = [pscustomobject]@{ Value = 'previous' }; Changes = 0 }
+    $searchPattern | Add-Member ScriptMethod SetValue { param($Value) $this.Current.Value = $Value; $this.Changes++ }
+    $searchControl = [pscustomobject]@{}
+    $searchControl | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $searchPattern }
+    $nameCell = [pscustomobject]@{ Current = [pscustomobject]@{ Name = 'History normal' } }
+    $row = [pscustomobject]@{ Current = [pscustomobject]@{
+        IsOffscreen = $false; BoundingRectangle = [pscustomobject]@{ IsEmpty = $false; Width = 100; Height = 30 }
+    } }
+    $row | Add-Member ScriptMethod FindFirst { param($Scope, $Condition) return $nameCell }
+    $list = [pscustomobject]@{}
+    $list | Add-Member ScriptMethod FindAll { param($Scope, $Condition) return @($row) }
+    function Select-HistoryDevices {}
+    function Start-Sleep { param($Milliseconds) $waits.Add($Milliseconds) }
+    function Find-HistoryControl($Value, [switch] $ByName) {
+        if ($Value -eq 'Search devices') { return $searchControl }
+        if ($Value -eq 'ResultsList') { return $list }
+        throw "Unexpected history lookup '$Value'."
+    }
+    $null = Find-HistoryDeviceRow 'History normal'
+    $null = Find-HistoryDeviceRow 'History normal'
+    Assert-Equal $searchPattern.Changes 1 'Repeated assertions must not reapply the same search'
+    Assert-Equal $waits @(300) 'A changed filter retains its original debounce settling; unchanged filters need none'
+    $nameCell.Current.Name = 'History virtual'
+    Assert-Throws { Find-HistoryDeviceRow 'History normal' } "*does not match 'History normal'*"
+    $nameCell.Current.Name = 'History normal'
+    $row.Current.IsOffscreen = $true
+    Assert-Throws { Find-HistoryDeviceRow 'History normal' } "*does not match 'History normal'*"
 }
 
 & {

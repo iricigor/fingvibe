@@ -997,6 +997,14 @@ mistaking an expired exclusive SQLite lock for a loading state. Real database
 contention and stale revisions still exercise explicit errors, and Retry after
 releasing contention must restore the current selection. Native phase timings,
 partial failure captures and hold records are retained in the suite diagnostics.
+Cancellation recording also covers synchronous continuation disposal, so a
+cancelled hold cannot lose its marker or release a replacement query.
+Activity, retained-summary and Devices Settings positioning share bounded,
+geometry-based scrolling rather than exhaustive percentage sweeps. Completion
+requires every target's rendered bounds inside the viewport/window; focus at the
+visible bottom edge is valid, but even one pixel of clipping is not. Positioning
+logs report adjustments and elapsed time without replacing full-job duration
+evidence or removing intentional hover/appearance waits.
 
 The disposable Windows history regression suite also runs
 `tests\UsageCategory.Ui.Tests.ps1`. It uses isolated inventory/snapshot/table fixtures
