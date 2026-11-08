@@ -358,6 +358,12 @@ try {
     $contrast = $null
     $history = Show-Activity DeviceScanHistoryExpander
     $history.GetCurrentPattern([Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    Wait-Activity {
+        (Find-Activity DeviceHistoryOlder -Optional) -and
+            (Find-Activity DeviceScanHistoryExpander).GetCurrentPattern(
+                [Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -eq
+                    [Windows.Automation.ExpandCollapseState]::Expanded
+    } "realized completed-observation controls"
     $null = Show-Activity DeviceHistoryOlder
     Write-Host "Device Activity exact daily/weekday evidence, all stops, keyboard details, loading/error/no history, selection, narrow themes and high contrast passed; history remains reachable."
 }
