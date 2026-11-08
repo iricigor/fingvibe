@@ -59,6 +59,22 @@ function Wait-UiRegressionWindow {
     }
 }
 
+function Get-UiRegressionPageContainer {
+    param(
+        [Parameter(Mandatory)] $Root,
+        [Parameter(Mandatory)][string] $NavigationId,
+        [string] $ContainerId = 'MainNavigation'
+    )
+    $navigation = $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $NavigationId))
+    if (-not $navigation -or -not $navigation.GetCurrentPattern(
+            [System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected) { return $null }
+    $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $ContainerId))
+}
+
 function Stop-UiRegressionApp {
     param(
         $Process,

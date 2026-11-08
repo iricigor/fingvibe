@@ -885,6 +885,11 @@ capture timing. Migrated native suites create unique temporary fixture
 directories and restore their environment/DPI context even if shutdown fails.
 Forced shutdown cleans up the supplied PID but fails the suite rather than
 pretending normal close succeeded.
+Devices' XAML grid does not expose a `DevicesPage` automation peer. Lookup uses
+the real `TableViewport`/`SettingsPage` containers; peer-less Devices chrome is
+scoped to `MainNavigation` and guarded by the currently selected navigation
+item. Shell/popup lookup remains separate. Do not infer UIA container existence
+from a XAML name or namescope.
 
 Each native scenario emits a setup/behavior phase and every Devices/Sidebar
 capture emits a capture phase, with UTC start, elapsed milliseconds and success

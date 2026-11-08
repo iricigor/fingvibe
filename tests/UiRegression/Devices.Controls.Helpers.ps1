@@ -31,16 +31,20 @@ public static class DevicesReviewInput
 function Find-DeviceElement([string] $Id) {
     $condition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Id)
-    $ownerId = if ($Id -match '^(ResultsList|DevicesHeading|ResultCountText|InventoryCountsText|LastScanText)$') {
-        'DevicesPage'
+    $navigationId = $null
+    $ownerId = if ($Id -match '^(ResultsList|DeviceTableHeader)$') {
+        $navigationId = 'DevicesNavItem'
+        'TableViewport'
+    } elseif ($Id -match '^(DevicesHeading|ResultCountText|InventoryCountsText|LastScanText)$') {
+        $navigationId = 'DevicesNavItem'
+        'MainNavigation'
     } elseif ($Id -match '^(Combine|ColumnChoices|ResetColumnsButton|CompactRowsSwitch|EnlargedCellPreviews)') {
+        $navigationId = 'SettingsItem'
         'SettingsPage'
     } else { $null }
     Find-UiRegressionElement -Condition $condition -Description "visible device element '$Id'" -Container {
         if (-not $ownerId) { return $root }
-        $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
-            [System.Windows.Automation.PropertyCondition]::new(
-                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $ownerId))
+        Get-UiRegressionPageContainer -Root $root -NavigationId $navigationId -ContainerId $ownerId
     }
 }
 
@@ -59,7 +63,7 @@ function Select-DevicePage([string] $Id) {
         [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
     $pageId = switch ($Id) {
         Settings { 'SettingsPage' }
-        DevicesNavItem { 'DevicesPage' }
+        DevicesNavItem { 'ResultsList' }
         OverviewNavItem { 'OnlineDevicesText' }
     }
     if ($pageId) { $null = Find-DeviceElement $pageId }

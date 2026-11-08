@@ -115,18 +115,22 @@ function Find-SidebarElement([string] $Property, [string] $Value, [switch] $Opti
         default { throw "Unsupported automation property '$Property'." }
     }
     $condition = [System.Windows.Automation.PropertyCondition]::new($propertyId, $Value)
-    $ownerId = if ($Property -eq 'AutomationId' -and
-        $Value -match '^(ResultsList|ResultSearchBox|ResultCountText|LastScanText|FilterExpander)$') {
-        'DevicesPage'
+    $navigationId = $null
+    $ownerId = if ($Property -eq 'AutomationId' -and $Value -eq 'ResultsList') {
+        $navigationId = 'DevicesNavItem'
+        'TableViewport'
+    } elseif ($Property -eq 'AutomationId' -and
+        $Value -match '^(ResultSearchBox|ResultCountText|LastScanText|FilterExpander)$') {
+        $navigationId = 'DevicesNavItem'
+        'MainNavigation'
     } elseif ($Property -eq 'AutomationId' -and
         $Value -match '^(Scheduled|ScanIntervalPicker|ResetColumnsButton|Combine|ModePicker|ThemePicker|BackdropPicker)') {
+        $navigationId = 'SettingsItem'
         'SettingsPage'
     } else { $null }
     Find-UiRegressionElement -Condition $condition -Optional:$Optional -Description "visible sidebar element '$Value'" -Container {
         if (-not $ownerId) { return $root }
-        $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
-            [System.Windows.Automation.PropertyCondition]::new(
-                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $ownerId))
+        Get-UiRegressionPageContainer -Root $root -NavigationId $navigationId -ContainerId $ownerId
     }
 }
 

@@ -27,11 +27,7 @@ foreach ($condition in @({ $false }, { $null }, {})) {
 }
 Assert-RegressionFailure { Wait-UiRegressionState -Description 'unexpected error' -Condition { throw 'unexpected condition error' } } 'unexpected condition error'
 
-Add-Type -TypeDefinition @'
-namespace System.Windows.Automation {
-    public sealed class ElementNotAvailableException : System.Exception {}
-}
-'@
+Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 $rectangle = [pscustomobject]@{ IsEmpty = $false; Width = 100; Height = 30 }
 $element = [pscustomobject]@{ Current = [pscustomobject]@{ IsOffscreen = $false; BoundingRectangle = $rectangle } }
 $state = @{ Owners = 0; Lookups = 0 }
@@ -66,6 +62,26 @@ foreach ($invalid in @('offscreen', 'empty', 'zeroWidth', 'zeroHeight', 'absent'
 Assert-RegressionFailure { Find-UiRegressionElement -Description 'failed lookup' -Condition 'match' -Container { 'owner' } -Find { throw 'unexpected lookup error' } } 'unexpected lookup error'
 $found = Find-UiRegressionElement -Description 'missing owner' -Condition 'match' -Optional -Container { $null } -Find { throw 'Lookup must not run without an owner.' }
 Assert-Regression ($null -eq $found) 'Missing owner must not produce a control.'
+& {
+    $state = @{ Selected = $false; Calls = 0 }
+    $selection = [pscustomobject]@{ Current = [pscustomobject]@{ IsSelected = $false } }
+    $navigation = [pscustomobject]@{}
+    $navigation | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $selection }
+    $owner = [pscustomobject]@{ Id = 'TableViewport' }
+    $shell = [pscustomobject]@{}
+    $shell | Add-Member ScriptMethod FindFirst {
+        param($Scope, $Match)
+        $state.Calls++
+        if ($Match.Value -eq 'DevicesNavItem') { return $navigation }
+        if ($Match.Value -eq 'TableViewport') { return $owner }
+        throw "Unexpected page container '$($Match.Value)'."
+    }
+    $container = Get-UiRegressionPageContainer -Root $shell -NavigationId DevicesNavItem -ContainerId TableViewport
+    Assert-Regression ($null -eq $container -and $state.Calls -eq 1) 'An unselected page must not expose another page container.'
+    $selection.Current.IsSelected = $true
+    $container = Get-UiRegressionPageContainer -Root $shell -NavigationId DevicesNavItem -ContainerId TableViewport
+    Assert-Regression ($container -eq $owner -and $state.Calls -eq 3) 'Page scope must use an actual peer on the currently selected page.'
+}
 
 $app = [pscustomobject]@{ Id = 123; HasExited = $false; ExitCode = 9; MainWindowHandle = [IntPtr]::Zero; Refreshes = 0; Closed = 0; Waits = 0; Forced = 0; Mode = 'normal' }
 $app | Add-Member ScriptMethod Refresh {
