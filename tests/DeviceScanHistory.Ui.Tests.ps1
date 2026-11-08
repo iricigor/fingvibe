@@ -9,11 +9,70 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
 Initialize-InventorySqlite $AppPath
 
+$script:historyTimings = @{}
+$script:detailsRoot = $null
+$script:observationsRoot = $null
+
+function Invoke-HistoryTimed([string] $Phase, [scriptblock] $Action) {
+    $clock = [Diagnostics.Stopwatch]::StartNew()
+    try { & $Action }
+    finally {
+        $clock.Stop()
+        if (-not $script:historyTimings.ContainsKey($Phase)) {
+            $script:historyTimings[$Phase] = @{ Seconds = 0.0; Calls = 0 }
+        }
+        $script:historyTimings[$Phase].Seconds += $clock.Elapsed.TotalSeconds
+        $script:historyTimings[$Phase].Calls++
+    }
+}
+
+function Save-HistoryScreenshot($Handle, [string] $Path) {
+    Invoke-HistoryTimed screenshot { Save-UiReviewWindowScreenshot $Handle $Path }
+}
+
+function Test-HistoryStaleException([Exception] $Exception) {
+    while ($Exception) {
+        if ($Exception -is [System.Windows.Automation.ElementNotAvailableException]) { return $true }
+        $Exception = $Exception.InnerException
+    }
+    return $false
+}
+
 function Find-HistoryControl([string] $Value, [switch] $ByName, [switch] $Optional) {
     $property = if ($ByName) { [System.Windows.Automation.AutomationElement]::NameProperty }
         else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
     $condition = [System.Windows.Automation.PropertyCondition]::new($property, $Value)
-    $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+    $owner = $script:root
+    $inDetails = (-not $ByName -and $Value -match '^(DeviceHistory|DeviceScanHistory|DeviceImported|VirtualDeviceHistory)') -or
+        ($ByName -and $Value -in @("Date", "Time (local)", "Status"))
+    for ($attempt = 0; $attempt -lt 3; $attempt++) {
+        try {
+            if ($inDetails) {
+                if (-not $script:detailsRoot) {
+                    $script:detailsRoot = Find-HistoryControl DeviceDetailsScroll
+                }
+                $owner = $script:detailsRoot
+                if ($Value -match '^(DeviceHistory(Scope|Latest|Newer|Older|PageStatus)|DeviceScanHistory(Count|List|Empty))$' -or $ByName) {
+                    if (-not $script:observationsRoot) {
+                        $expanderCondition = [System.Windows.Automation.PropertyCondition]::new(
+                            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceScanHistoryExpander")
+                        $script:observationsRoot = $owner.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $expanderCondition)
+                    }
+                    $owner = $script:observationsRoot
+                    if (-not $owner) { throw "Missing completed-observations container for '$Value'." }
+                }
+            }
+            $element = $owner.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+            break
+        }
+        catch {
+            if (-not (Test-HistoryStaleException $_.Exception)) { throw }
+            if (-not $inDetails -or $attempt -eq 2) { throw }
+            Write-Host "Reacquiring stale details container for '$Value' (attempt $($attempt + 1))."
+            $script:detailsRoot = $null
+            $script:observationsRoot = $null
+        }
+    }
     if (-not $element -and -not $Optional) { throw "Missing scan-history control '$Value'." }
     return $element
 }
@@ -28,6 +87,12 @@ function Wait-HistoryState([scriptblock] $Predicate, [string] $Description) {
 }
 
 function Start-HistoryApp {
+    Invoke-HistoryTimed startup { Start-HistoryAppCore }
+}
+
+function Start-HistoryAppCore {
+    $script:detailsRoot = $null
+    $script:observationsRoot = $null
     $script:process = Start-Process -FilePath $AppPath -PassThru
     Wait-HistoryState {
         $script:process.Refresh()
@@ -51,6 +116,8 @@ function Stop-HistoryApp {
 }
 
 function Select-HistoryDevices {
+    $script:detailsRoot = $null
+    $script:observationsRoot = $null
     $back = Find-HistoryControl "Back to devices" -ByName -Optional
     if ($back -and -not $back.Current.IsOffscreen) {
         $back.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
@@ -113,6 +180,10 @@ function Get-HistoryExactTime([int] $Index) {
 }
 
 function Open-HistoryDetails([string] $Name) {
+    Invoke-HistoryTimed navigation { Open-HistoryDetailsCore $Name }
+}
+
+function Open-HistoryDetailsCore([string] $Name) {
     $row = Find-HistoryDeviceRow $Name
     $row.SetFocus()
     [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
@@ -145,23 +216,130 @@ function Get-HistoryTimestamp([int] $Index) {
 }
 
 function Show-HistorySection([string] $Id, [int] $TopMargin = 35) {
+    Invoke-HistoryTimed section-location { Show-HistorySectionCore $Id $TopMargin }
+}
+
+function Show-HistorySectionCore([string] $Id, [int] $TopMargin) {
     $scrollElement = Find-HistoryControl DeviceDetailsScroll
     $scroll = $scrollElement.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-    # Resolve once: a whole-tree search per scroll step also walks every Device Activity cell.
     $element = Find-HistoryControl $Id
-    foreach ($percent in 0..100) {
-        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
-        Start-Sleep -Milliseconds 20
-        try { $bounds = $element.Current.BoundingRectangle }
-        catch [System.Windows.Automation.ElementNotAvailableException] {
-            $element = Find-HistoryControl $Id
+    $bring = $null
+    if ($element.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern, [ref]$bring)) {
+        $bring.ScrollIntoView()
+    }
+    $deadline = [DateTime]::UtcNow.AddSeconds(10)
+    $stale = 0
+    $settled = 0
+    $direction = 1
+    $stalled = 0
+    for ($attempt = 0; $attempt -lt 40 -and [DateTime]::UtcNow -lt $deadline; $attempt++) {
+        try {
             $bounds = $element.Current.BoundingRectangle
+            $area = $scrollElement.Current.BoundingRectangle
+            if (-not $element.Current.IsOffscreen -and $bounds.Height -gt 0 -and
+                $bounds.Top -ge $area.Top + $TopMargin -and $bounds.Bottom -le $area.Bottom - 10) {
+                if (++$settled -ge 2) { return $element }
+            }
+            else {
+                $settled = 0
+                if (-not $scroll.Current.VerticallyScrollable) { break }
+                $view = $scroll.Current.VerticalViewSize
+                if ($view -le 0 -or $view -ge 100 -or $area.Height -le 0) {
+                    throw "Invalid details viewport metrics for '$Id': view=$view, height=$($area.Height)."
+                }
+                $current = $scroll.Current.VerticalScrollPercent
+                if ($bounds.Height -le 0) {
+                    # Unrealized sections have no useful geometry; search overlapping viewports once in each direction.
+                    if ($current -ge 100) { $direction = -1 }
+                    $step = 0.8 * $view / (100 - $view) * 100
+                    $target = [Math]::Min(100, [Math]::Max(0, $current + $direction * $step))
+                }
+                else {
+                    $delta = if ($bounds.Top -lt $area.Top + $TopMargin) {
+                        $bounds.Top - $area.Top - $TopMargin
+                    } else { $bounds.Bottom - $area.Bottom + 10 }
+                    $percentDelta = $delta / $area.Height * $view / (100 - $view) * 100
+                    $target = [Math]::Min(100, [Math]::Max(0, $current + $percentDelta))
+                }
+                if ([Math]::Abs($target - $current) -lt 0.001) {
+                    if (++$stalled -ge 3) { break }
+                }
+                else {
+                    $stalled = 0
+                    $scroll.SetScrollPercent(-1, $target)
+                }
+            }
         }
-        $area = $scrollElement.Current.BoundingRectangle
-        if (-not $element.Current.IsOffscreen -and $bounds.Height -gt 0 -and
-            $bounds.Top -ge $area.Top + $TopMargin -and $bounds.Bottom -le $area.Bottom - 10) { return $element }
+        catch {
+            if (-not (Test-HistoryStaleException $_.Exception)) { throw }
+            if (++$stale -gt 2) { throw }
+            Write-Host "Reacquiring stale section '$Id' (attempt $stale)."
+            $script:detailsRoot = $null
+            $script:observationsRoot = $null
+            $scrollElement = Find-HistoryControl DeviceDetailsScroll
+            $scroll = $scrollElement.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+            $element = Find-HistoryControl $Id
+            $settled = 0
+        }
+        Start-Sleep -Milliseconds 50
     }
     throw "Scan-history section '$Id' does not fit the details viewport."
+}
+
+function Get-HistoryNextViewport([double] $Percent, [double] $ViewSize) {
+    if ([double]::IsNaN($Percent) -or [double]::IsNaN($ViewSize) -or
+        $Percent -lt 0 -or $Percent -gt 100 -or $ViewSize -le 0 -or $ViewSize -ge 100) {
+        throw "Invalid scroll metrics: percent=$Percent, view=$ViewSize."
+    }
+    return [Math]::Min(100, $Percent + 0.8 * $ViewSize / (100 - $ViewSize) * 100)
+}
+
+function Visit-HistoryRows([scriptblock] $Visit) {
+    Invoke-HistoryTimed list-traversal { Visit-HistoryRowsCore $Visit }
+}
+
+function Visit-HistoryRowsCore([scriptblock] $Visit) {
+    $condition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+        [System.Windows.Automation.ControlType]::ListItem)
+    $target = 0.0
+    $stale = 0
+    $positions = 0
+    $deadline = [DateTime]::UtcNow.AddSeconds(60)
+    while ([DateTime]::UtcNow -lt $deadline -and $positions -lt 200) {
+        try {
+            $list = Find-HistoryControl DeviceScanHistoryList
+            $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+            if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $target) }
+            $realized = @{ Items = @(); Last = $null; Stable = 0 }
+            Wait-HistoryState ({
+                $realized.Items = @($list.FindAll([System.Windows.Automation.TreeScope]::Children, $condition))
+                $signature = ($realized.Items | ForEach-Object { $_.Current.Name }) -join "|"
+                $atTarget = -not $scroll.Current.VerticallyScrollable -or
+                    [Math]::Abs($scroll.Current.VerticalScrollPercent - $target) -lt 0.1
+                if ($atTarget -and $realized.Items.Count -gt 0 -and $signature -ceq $realized.Last) {
+                    $realized.Stable++
+                } else { $realized.Stable = 0 }
+                $realized.Last = $signature
+                $realized.Stable -ge 2
+            }.GetNewClosure()) "realized history rows at $target%"
+            & $Visit $realized.Items
+            $positions++
+            if (-not $scroll.Current.VerticallyScrollable -or $target -eq 100) {
+                Write-Host "History traversal visited $positions viewport positions."
+                return
+            }
+            $target = Get-HistoryNextViewport $scroll.Current.VerticalScrollPercent $scroll.Current.VerticalViewSize
+        }
+        catch {
+            if (-not (Test-HistoryStaleException $_.Exception)) { throw }
+            if (++$stale -gt 2) { throw }
+            Write-Host "Reacquiring stale history list at $target% (attempt $stale)."
+            $script:detailsRoot = $null
+            $script:observationsRoot = $null
+        }
+    }
+    throw "History viewport traversal exceeded its bounded deadline/position limit at $target%."
 }
 
 function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
@@ -172,17 +350,13 @@ function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
     $list = Show-HistorySection DeviceScanHistoryList
     $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     $seen = @{}
-    $itemCondition = [System.Windows.Automation.PropertyCondition]::new(
-        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-        [System.Windows.Automation.ControlType]::ListItem)
     $textCondition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
         [System.Windows.Automation.ControlType]::Text)
-    foreach ($percent in @(0, 50, 100)) {
-        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
-        Start-Sleep -Milliseconds 100
+    Visit-HistoryRows ({
+        param($items)
         $times = @()
-        foreach ($item in $list.FindAll([System.Windows.Automation.TreeScope]::Children, $itemCondition)) {
+        foreach ($item in $items) {
             $texts = @($item.FindAll([System.Windows.Automation.TreeScope]::Descendants, $textCondition) |
                 ForEach-Object { $_.Current.Name })
             if ($texts.Count -eq 0) { continue }
@@ -204,15 +378,16 @@ function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
         if (($times -join "|") -ne (($times | Sort-Object -Descending) -join "|")) {
             throw "Scan rows are not newest first: $times."
         }
-    }
+    }.GetNewClosure())
     if ($seen.Count -ne $count) { throw "Not all $count scans are reachable in the native history list." }
     foreach ($index in 0..$LastIndex) {
         if (-not $seen.ContainsKey((Get-HistoryLocalTime $index).ToString("yyyy-MM-dd HH:mm:ss"))) {
             throw "Scan $index is missing from history."
         }
     }
+    $scroll = (Find-HistoryControl DeviceScanHistoryList).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
-    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Capture.png")
+    Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Capture.png")
 }
 
 function Assert-HistoryTableRendering([string] $Capture) {
@@ -223,7 +398,7 @@ function Assert-HistoryTableRendering([string] $Capture) {
             [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
             [System.Windows.Automation.ControlType]::ListItem))
     $path = Join-Path $ScreenshotDirectory "$Capture.png"
-    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle $path
+    Save-HistoryScreenshot $script:process.MainWindowHandle $path
     $window = Get-UiReviewWindowBounds $script:process.MainWindowHandle
     $bitmap = [System.Drawing.Bitmap]::FromFile($path)
     try {
@@ -301,7 +476,7 @@ function Assert-HistorySummary([string] $Capture, [int] $LastIndex = 4) {
             throw "Summary field $id is clipped."
         }
     }
-    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Capture-summary.png")
+    Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Capture-summary.png")
     $expansion.Expand()
 }
 
@@ -438,7 +613,7 @@ try {
     }
     if ((Find-HistoryControl DeviceHistorySince).Current.Name -notlike "*Unavailable*") { throw "Legacy aggregates fabricated since." }
     $null = Show-HistorySection DeviceHistoryFirstSeen
-    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-legacy-summary.png")
+    Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-legacy-summary.png")
     Open-HistoryDetails "History unmatched"
     foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince")) {
         if ((Find-HistoryControl $id).Current.Name -notlike "*Unavailable*") { throw "Other-network/subnet evidence leaked into $id." }
@@ -452,7 +627,7 @@ try {
     if ($empty.Current.Name -ne "No local scan history. Imported Fing data is not a local scan observation.") {
         throw "Imported-only history needs an explanatory empty state."
     }
-    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-imported.png")
+    Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-imported.png")
     Stop-HistoryApp
     Start-HistoryApp
     Open-HistoryDetails "History normal"
@@ -484,7 +659,7 @@ try {
         (Find-HistoryControl DeviceScanHistoryExpander).GetCurrentPattern(
             [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse()
         $null = Show-HistorySection DeviceScanHistoryExpander
-        Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-summary-$label-narrow.png")
+        Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-summary-$label-narrow.png")
         $null = [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
             $bounds.Left, $bounds.Top, $bounds.Width, $bounds.Height, 0x0044)
         Start-Sleep -Milliseconds 500
@@ -555,7 +730,7 @@ try {
         throw "Failed history persistence must be visibly reported."
     }
     if ((Get-InventoryFingerprint $database) -cne $beforeStop) { throw "A failed save changed durable history." }
-    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-save-error.png")
+    Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-save-error.png")
     $lock.Dispose()
     $lock = $null
     Set-Content -LiteralPath $database -Value "invalid inventory fixture"
@@ -573,7 +748,7 @@ try {
         $status = Find-HistoryControl ScanStatusText -Optional
         $status -and $status.Current.Name -like "*Saved inventory could not be loaded. Changes are disabled*"
     } "visible inventory load failure"
-    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-load-error.png")
+    Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-load-error.png")
     if ((Get-Content -LiteralPath $database -Raw).Trim() -ne "invalid inventory fixture") {
         throw "Invalid saved history must not be overwritten."
     }
@@ -602,25 +777,35 @@ try {
         }
         $list = Show-HistorySection DeviceScanHistoryList
         $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-        $condition = [System.Windows.Automation.PropertyCondition]::new(
-            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-            [System.Windows.Automation.ControlType]::ListItem)
         $pageRows = @{}
-        foreach ($percent in 0..100) {
-            if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
-            Start-Sleep -Milliseconds 20
-            foreach ($item in $list.FindAll([System.Windows.Automation.TreeScope]::Children, $condition)) {
-                $label = $item.Current.Name
-                if ($label -match '; Observed (present|absent)$') { $pageRows[$label] = $true }
-            }
+        $expectedRows = @{}
+        foreach ($index in (205 - $end)..(205 - $start)) {
+            $time = [DateTimeOffset]::Parse($pagedHistory[$index].completedAt).ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss zzz")
+            $state = if ($pagedHistory[$index].present) { "present" } else { "absent" }
+            $expectedRows["$time; Observed $state"] = $true
         }
+        Visit-HistoryRows ({
+            param($items)
+            $labels = @()
+            foreach ($item in $items) {
+                $label = $item.Current.Name
+                if ($label -notmatch '; Observed (present|absent)$') { throw "Unexpected observation row '$label'." }
+                if (-not $expectedRows.ContainsKey($label)) { throw "Incorrect timestamp/state or page membership: '$label'." }
+                $pageRows[$label] = $true
+                $labels += $label
+            }
+            if (($labels -join "|") -cne (($labels | Sort-Object -Descending) -join "|")) {
+                throw "Paged history rows are not newest first."
+            }
+        }.GetNewClosure())
         if ($pageRows.Count -ne $end - $start + 1) { throw "Not every observation on page $pageIndex is reachable: $($pageRows.Count)." }
         foreach ($label in $pageRows.Keys) {
             if ($reachable.ContainsKey($label)) { throw "Observation duplicated across history pages: $label." }
             $reachable[$label] = $true
         }
+        $scroll = (Find-HistoryControl DeviceScanHistoryList).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
         if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
-        Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-page-$($pageIndex + 1).png")
+        Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-page-$($pageIndex + 1).png")
         if ($pageIndex -lt 2) {
             $older = Show-HistorySection DeviceHistoryOlder
             $older.SetFocus()
@@ -642,6 +827,12 @@ try {
     Write-Host "Device scan-history native UI checks passed."
 }
 finally {
+    foreach ($phase in $script:historyTimings.Keys | Sort-Object) {
+        $entry = $script:historyTimings[$phase]
+        $timing = "History phase $phase : $($entry.Seconds.ToString('F3', [Globalization.CultureInfo]::InvariantCulture)) seconds / $($entry.Calls) calls"
+        Write-Host $timing
+        if ($env:GITHUB_STEP_SUMMARY) { $timing >> $env:GITHUB_STEP_SUMMARY }
+    }
     if ($lock) { $lock.Dispose() }
     if ($script:process -and -not $script:process.HasExited) { Stop-Process -Id $script:process.Id -Force }
     foreach ($key in $previous.Keys) { [Environment]::SetEnvironmentVariable($key, $previous[$key]) }

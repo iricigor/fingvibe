@@ -171,6 +171,9 @@ function Get-UiReviewCapturePlan {
             elseif ($path -match '^src/FingVibe.App/(App.xaml|AppearancePalette.cs|MainWindow.Appearance.cs)$') {
                 Add-Scenarios @($UiReviewScenarios.Keys) "$path changed shared theme or appearance."
             }
+            elseif ($path -match '^tests/DeviceScanHistory\.(Ui|Script)\.Tests\.ps1$') {
+                Add-Scenarios @("DeviceDetails") "$path changed native history traversal."
+            }
             elseif ($path -match '^src/|^\.github/(scripts/|workflows/|agents/ui-ux-reviewer\.agent\.md)') {
                 Add-Scenarios @("Devices") "$path uses the Devices baseline; navigation smoke tests still cover every supported scenario."
             }

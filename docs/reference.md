@@ -428,6 +428,18 @@ it contains no inferred uptime or scalar duration estimates.
 
 ### Device scan history
 
+The disposable Windows history regression scopes observation lookups to their
+owning container and traverses every bounded page with 20%-overlapping viewport
+steps (including a single pass for non-scrollable pages). Section positioning
+uses ScrollItem when available and bounded geometry-based correction otherwise.
+Native logs report startup, navigation (including section location), section
+location, list traversal and screenshot timings; nested phase totals must not be
+added together. The suite dispatcher reports total script time separately from
+runner setup steps. Run `pwsh -File tests\DeviceScanHistory.Script.Tests.ps1` for
+helper checks without desktop automation. Native coverage and before/after
+runtime evidence require disposable GitHub Windows runners, never the working
+desktop.
+
 Device details shows a **Scan history** summary for normal MAC-based devices and
 existing virtual devices. First/last-seen timestamps display in local time with
 relative ages, refreshed while the page is visible and rounded to the nearest

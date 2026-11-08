@@ -80,6 +80,10 @@ jobs:
         shell: pwsh
         run: .\tests\UsageCategory.Script.Tests.ps1
 
+      - name: Test history viewport helpers without desktop automation
+        shell: pwsh
+        run: .\tests\DeviceScanHistory.Script.Tests.ps1
+
       - name: Test device activity UI fixture without desktop automation
         shell: pwsh
         run: .\tests\DeviceActivity.Script.Tests.ps1
