@@ -160,16 +160,19 @@ function Invoke-WebDriverElement {
 
 function Set-UiReviewAssignment {
     param([string] $Category, [string] $Label, [string] $Status)
+    Show-UiReviewDetailsTop
     $picker = Assert-VisibleUiReviewElement -Using xpath -Value "//ComboBox[@Name='$Category']"
     Invoke-WebDriverElement -ElementId $picker
     $item = Assert-VisibleUiReviewElement -Using xpath -Value "//ListItem[@Name='$Label']"
     Invoke-WebDriverElement -ElementId $item
-    $null = Assert-VisibleUiReviewElement -Value $Status
+    # The aligned feedback line sits at the bottom of the tall Assignments card, below the first viewport.
+    $null = Show-UiReviewDetailsControl -Value $Status
     Assert-UiReviewAssignment $Category $Label
 }
 
 function Assert-UiReviewAssignment {
     param([string] $Category, [string] $Label)
+    Show-UiReviewDetailsTop
     $picker = Assert-VisibleUiReviewElement -Using xpath -Value "//ComboBox[@Name='$Category']"
     Invoke-WebDriverElement -ElementId $picker
     $item = Assert-VisibleUiReviewElement -Using xpath -Value "//ListItem[@Name='$Label']"
