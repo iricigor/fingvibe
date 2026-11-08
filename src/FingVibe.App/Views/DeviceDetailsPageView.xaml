@@ -343,7 +343,7 @@
                               HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                               AutomationProperties.AutomationId="DeviceScanHistoryExpander">
                         <StackPanel Spacing="12">
-                            <TextBlock Text="Current-network completed manual scans, newest first. Online / offline means observed present / absent. Since is the first scan in the latest recorded run of that state, not the physical connection/disconnection time. Gaps between scans do not prove uninterrupted availability. All observations are retained."
+                            <TextBlock Text="Current-network completed manual and scheduled scans, newest first. Present / absent means observed present / absent. Pending or incomplete checkpoints are not completed history. Since is the first scan in the latest recorded run of that state, not the physical connection/disconnection time. Gaps between scans do not prove uninterrupted availability. Saved observations do not establish current live presence. All completed observations are retained."
                                        TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             <TextBlock x:Name="DeviceScanHistoryCount" AutomationProperties.AutomationId="DeviceScanHistoryCount"
                                        TextWrapping="Wrap" />
