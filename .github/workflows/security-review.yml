@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Check out source and history
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -71,7 +71,7 @@ jobs:
           }
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6.1.0
         with:
           dotnet-version: 8.0.x
 
@@ -110,7 +110,7 @@ jobs:
 
       - name: Upload dependency report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: dependency-vulnerability-report
           path: dependency-vulnerabilities.json
@@ -130,7 +130,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Check out comment publisher
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
 

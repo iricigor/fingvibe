@@ -97,6 +97,31 @@ $workflow = Get-Content (Join-Path $PSScriptRoot "..\.github\workflows\ci.yml") 
 [xml]$appProject = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\FingVibe.App.csproj") -Raw
 Assert-Equal $appProject.Project.PropertyGroup.SatelliteResourceLanguages "en" "Local and PR builds retain English managed satellite resources"
 $releaseWorkflow = Get-Content (Join-Path $PSScriptRoot "..\.github\workflows\release.yml") -Raw
+$securityWorkflow = Get-Content (Join-Path $PSScriptRoot "..\.github\workflows\security-review.yml") -Raw
+$actionVersions = @{
+    "actions/checkout" = "v7.0.1"
+    "actions/setup-dotnet" = "v6.1.0"
+    "actions/cache" = "v6.1.0"
+    "actions/upload-artifact" = "v7.0.2"
+    "actions/download-artifact" = "v8.0.2"
+    "microsoft/setup-msbuild" = "v3"
+}
+foreach ($pipeline in @($workflow, $releaseWorkflow, $securityWorkflow)) {
+    $references = [regex]::Matches($pipeline, '(?m)^\s+uses: (?<action>[\w-]+/[\w-]+)@(?<version>[^\s]+)\s*$')
+    if ($references.Count -eq 0) { throw "Pipeline action references were not found." }
+    foreach ($reference in $references) {
+        $action = $reference.Groups["action"].Value
+        if (-not $actionVersions.ContainsKey($action)) {
+            throw "Review the runtime and migration contract for unrecognized action '$action'."
+        }
+        Assert-Equal $reference.Groups["version"].Value $actionVersions[$action] "Maintained Node.js 24 release for $action"
+    }
+    if ($pipeline -match '(?m)^\s+archive:\s*false\s*$' -or
+        $pipeline -match '(?m)^\s+(include-hidden-files|skip-decompress|allow-unsafe-pr-checkout):\s*true\s*$' -or
+        $pipeline -match '(?m)^\s+digest-mismatch:\s*(warn|ignore)\s*$') {
+        throw "Action migration must preserve zipped/hidden-file defaults, extraction and secure checkout/digest behavior."
+    }
+}
 if ($releaseWorkflow -notmatch '(?m)^\s+/property:SatelliteResourceLanguages=[ \t]+`\r?$') {
     throw "Release publishing must override the language filter with an empty global MSBuild property."
 }
@@ -151,7 +176,7 @@ foreach ($job in @($testJob, $buildJob)) {
         throw "Core tests/build must use a job-env-supported context for the NuGet package cache location."
     }
     $cache = [regex]::Match($job, '(?ms)^      - name: Cache NuGet packages\r?\n.*?(?=^      - name:|\z)')
-    if (-not $cache.Success -or $cache.Value -notmatch 'uses: actions/cache@v4' -or
+    if (-not $cache.Success -or $cache.Value -notmatch 'uses: actions/cache@v6\.1\.0' -or
         $cache.Value -notmatch 'path: \$\{\{ env.NUGET_PACKAGES \}\}' -or
         $cache.Value -notmatch 'key: \$\{\{ runner.os \}\}-nuget-v1-\$\{\{ hashFiles\(' -or
         $cache.Value -notmatch '(?s)restore-keys:.*?\$\{\{ runner.os \}\}-nuget-v1-') {
@@ -180,13 +205,13 @@ if ($installerJob -notmatch 'needs: \[changes, tests, build\]' -or
     throw "Tested downloads and screenshot publication must still wait for passing core tests."
 }
 Assert-Equal ([regex]::Matches($workflow, 'artifact-ids: \$\{\{ needs.build.outputs.artifact-id \}\}').Count) 3 "Installer, capture and regression matrix consume the same payload ID"
-Assert-Equal ([regex]::Matches($buildJob, 'uses: actions/upload-artifact@v4').Count) 1 "Publish uploads only the transfer payload"
+Assert-Equal ([regex]::Matches($buildJob, 'uses: actions/upload-artifact@v7\.0\.2').Count) 1 "Publish uploads only the transfer payload"
 if ($buildJob -notmatch '(?s)name: Upload unvalidated payload.*?id: upload.*?name: fingvibe-validation-payload-pr-.*-attempt-\$\{\{ github.run_attempt \}\}.*?retention-days: 1' -or
     $buildJob -match 'New-Installer|Installer.Lifecycle|name: Upload runnable app|name: Upload tested installer') {
     throw "Publishing must not advertise tested downloads or wait for installer validation."
 }
 foreach ($job in @($installerJob, $captureJob, $regressionJob)) {
-    if ($job -notmatch 'uses: actions/download-artifact@v4' -or $job -match 'msbuild|/target:Publish') {
+    if ($job -notmatch 'uses: actions/download-artifact@v8\.0\.2' -or $job -match 'msbuild|/target:Publish') {
         throw "Downstream validation must download the single published payload, not rebuild."
     }
 }

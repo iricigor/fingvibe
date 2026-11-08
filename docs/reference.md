@@ -1021,6 +1021,15 @@ Superseded runs on the same PR are cancelled. Documentation-only changes skip te
 
 Manual runs of **🔨 Pull request build** force tests, build, and UI validation, including optional `additional_scenarios`. Read-only jobs execute tests, build, and UI automation without write permissions or persisted Git credentials. Separate publishing jobs receive only the content/comment writes they need. Fork and untrusted-contributor restrictions remain in place; Dependabot runs do not post comments.
 
+CI, release, and security-review JavaScript actions use maintained Node.js 24
+releases; this is their execution runtime, not a change to FingVibe's .NET 8 SDK.
+They require Actions Runner 2.327.1 or newer, supplied by the existing hosted
+Windows images. Artifact uploads remain zipped with the same names and retention;
+downloads extract into the existing destinations and now fail on digest mismatch
+rather than only warning. NuGet cache paths, dependency keys, and restore behavior
+are unchanged. Action migrations must review upstream metadata and breaking
+changes without opting into unsafe fork checkout or weakening artifact integrity.
+
 The UI check runs on GitHub's `windows-2025` image and uses its preinstalled WinAppDriver to launch and automate the native application in dark theme. It also exercises overview-card navigation (including keyboard activation), clearing stale filters and enabling/disabling the visible open-port filter. It runs automatically only for same-repository pull requests from trusted collaborators; fork pull requests are not executed. The workflow sets `FINGVIBE_UI_REVIEW=1`, which confines the smoke-test scan to the single loopback host `127.0.0.1/32`, allowing real discovery and enrichment to finish before capturing the hosted-runner review.
 
 Before exercising the UI, the capture script restores and centers the application window inside the monitor's working area, shrinking it only when the desktop cannot fit its initial size. It captures the complete native window (including its title bar and edges) directly from the screen using DPI-aware physical-pixel bounds rather than WinAppDriver's screenshot endpoint. Off-screen, minimized, undersized (below 640 x 480), unfocused, moving/resizing, or blank captures fail the check instead of publishing a clipped image. The workflow logs the original bounds, monitor working area, DPI, and final capture dimensions for diagnosis.

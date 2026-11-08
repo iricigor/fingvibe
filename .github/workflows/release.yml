@@ -15,15 +15,15 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6.1.0
         with:
           dotnet-version: 8.0.x
 
       - name: Set up MSBuild
-        uses: microsoft/setup-msbuild@v2
+        uses: microsoft/setup-msbuild@v3
 
       - name: Set release version
         id: version
@@ -93,7 +93,7 @@ jobs:
 
       - name: Upload installer diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: fingvibe-installer-logs-release-${{ github.run_number }}-attempt-${{ github.run_attempt }}
           path: artifacts\installer-logs
