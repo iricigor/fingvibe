@@ -248,6 +248,9 @@ function Show-HistorySectionCore([string] $Id, [int] $TopMargin) {
     if ($element.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern, [ref]$bring)) {
         $bring.ScrollIntoView()
     }
+    elseif ($element.Current.IsKeyboardFocusable) {
+        $element.SetFocus()
+    }
     $deadline = [DateTime]::UtcNow.AddSeconds(10)
     $stale = 0
     $settled = 0
@@ -287,6 +290,10 @@ function Show-HistorySectionCore([string] $Id, [int] $TopMargin) {
                 if ($bounds.Height -le 0) {
                     # Unrealized sections have no useful geometry; search overlapping viewports once in each direction.
                     if ($current -ge 100) { $direction = -1 }
+                    $script:detailsRoot = $null
+                    $script:observationsRoot = $null
+                    $scrollElement = Find-HistoryControl DeviceDetailsScroll
+                    $scroll = $scrollElement.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
                     $target = if ($direction -gt 0) { Get-HistoryNextViewport $current $view }
                         else { 100 - (Get-HistoryNextViewport (100 - $current) $view) }
                 }

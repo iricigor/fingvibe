@@ -132,6 +132,15 @@ foreach ($metrics in @(@(0, 0), @(0, 100), @(-1, 20), @(101, 20), @([double]::Na
     $null = Show-HistorySectionCore DeviceScanHistoryList 35
     Assert-HistoryTest $bringState.Calls 1 "Supported ScrollItem bring-into-view"
     $element | Add-Member ScriptMethod TryGetCurrentPattern { param($Pattern, $Result); return $false } -Force
+    $element.Current | Add-Member NoteProperty IsKeyboardFocusable $true
+    $element | Add-Member ScriptMethod SetFocus {
+        $bringState.FocusCalls = 1
+        $this.Current.BoundingRectangle = [System.Drawing.RectangleF]::new(0, 50, 100, 100)
+    }
+    $element.Current.BoundingRectangle = [System.Drawing.RectangleF]::Empty
+    $null = Show-HistorySectionCore DeviceScanHistoryExpander 35
+    Assert-HistoryTest $bringState.FocusCalls 1 "Focusable section uses native focus bring-into-view"
+    $element.Current.IsKeyboardFocusable = $false
     $scroll.Current.VerticallyScrollable = $false
     $element.Current.BoundingRectangle = [System.Drawing.RectangleF]::Empty
     $layout = @{ Polls = 0 }

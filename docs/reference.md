@@ -432,7 +432,8 @@ The disposable Windows history regression scopes observation lookups to their
 owning container and traverses every bounded page with native viewport-sized
 large scroll steps, followed by a small reverse step for overlap except at the
 last boundary (including a single pass for non-scrollable pages). Section positioning
-uses ScrollItem when available and bounded geometry-based correction otherwise.
+uses ScrollItem or native focus bring-into-view when supported, with bounded
+geometry-based correction otherwise.
 Native logs report startup, navigation (including section location), section
 location, list traversal and screenshot timings; nested phase totals must not be
 added together. The suite dispatcher reports total script time separately from
