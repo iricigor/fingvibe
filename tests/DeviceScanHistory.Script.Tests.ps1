@@ -185,7 +185,7 @@ foreach ($metrics in @(@(0, 0), @(0, 100), @(-1, 20), @(101, 20), @([double]::Na
 }
 
 & {
-    $state = @{ Rows = 100; Window = 10; Quantum = 0; Stale = 0; Reads = 0; Delay = 0
+    $state = @{ Rows = 100; Window = 10; Quantum = 0; GrowExtent = $false; Stale = 0; Reads = 0; Delay = 0
         Positions = [System.Collections.Generic.List[double]]::new(); Seen = @{}; Visits = 0 }
     $scroll = [pscustomobject]@{ Current = [pscustomobject]@{
         VerticallyScrollable = $true; VerticalViewSize = 10.0; VerticalScrollPercent = 0.0 } }
@@ -194,6 +194,12 @@ foreach ($metrics in @(@(0, 0), @(0, 100), @(-1, 20), @(101, 20), @([double]::Na
         $this.Current.VerticalScrollPercent = if ($state.Quantum -gt 0) {
             [Math]::Round($Vertical / $state.Quantum) * $state.Quantum
         } else { $Vertical }
+        if ($state.GrowExtent -and $Vertical -gt 15) {
+            $state.GrowExtent = $false
+            $state.Rows = 300
+            $this.Current.VerticalScrollPercent = $Vertical / 3
+            $this.Current.VerticalViewSize = 100.0 * $state.Window / $state.Rows
+        }
         $state.Positions.Add($Vertical)
         $state.Delay = 1
     }
@@ -236,6 +242,13 @@ foreach ($metrics in @(@(0, 0), @(0, 100), @(-1, 20), @(101, 20), @([double]::Na
     $scroll.Current.VerticalViewSize = 30
     Visit-HistoryRowsCore $visit
     Assert-HistoryTest $state.Seen.Count 100 "Quantized offsets preserve exhaustive reachability"
+    $state.Window = 10
+    $state.Quantum = 0
+    $state.GrowExtent = $true
+    $state.Seen.Clear()
+    $scroll.Current.VerticalViewSize = 10
+    Visit-HistoryRowsCore $visit
+    Assert-HistoryTest $state.Seen.Count 300 "Growing virtual extent can lower percentage without losing rows"
     $state.Rows = 5
     $state.Visits = 0
     $state.Seen.Clear()

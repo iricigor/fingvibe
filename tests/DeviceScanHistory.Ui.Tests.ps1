@@ -348,6 +348,7 @@ function Visit-HistoryRowsCore([scriptblock] $Visit) {
     $stale = 0
     $positions = 0
     $previousPercent = -1.0
+    $previousRows = $null
     $deadline = [DateTime]::UtcNow.AddSeconds(60)
     while ([DateTime]::UtcNow -lt $deadline -and $positions -lt 200) {
         try {
@@ -359,11 +360,12 @@ function Visit-HistoryRowsCore([scriptblock] $Visit) {
                 $realized.Items = @($list.FindAll([System.Windows.Automation.TreeScope]::Children, $condition))
                 $signature = ($realized.Items | ForEach-Object { $_.Current.Name }) -join "|"
                 $actual = $scroll.Current.VerticalScrollPercent
-                # Small lists quantize percentages to realizable row offsets; wait for stable progress, not exact decimals.
+                # Realizing virtual rows can grow the extent and lower the percentage even as the physical offset advances.
                 $atTarget = -not $scroll.Current.VerticallyScrollable -or
                     ($target -eq 0 -and $actual -lt 0.1) -or
                     ($target -eq 100 -and $actual -gt 99.9) -or
-                    ($target -gt 0 -and $target -lt 100 -and $actual -gt $previousPercent + 0.001)
+                    ($target -gt 0 -and $target -lt 100 -and
+                        ([Math]::Abs($actual - $previousPercent) -gt 0.001 -or $signature -cne $previousRows))
                 if ($atTarget -and $realized.Items.Count -gt 0 -and $signature -ceq $realized.Last -and
                     [Math]::Abs($actual - $realized.Percent) -lt 0.001) {
                     $realized.Stable++
@@ -379,6 +381,7 @@ function Visit-HistoryRowsCore([scriptblock] $Visit) {
                 return
             }
             $previousPercent = $realized.Percent
+            $previousRows = $realized.Last
             $target = Get-HistoryNextViewport $previousPercent $scroll.Current.VerticalViewSize
         }
         catch {
