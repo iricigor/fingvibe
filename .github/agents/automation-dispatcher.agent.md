@@ -104,6 +104,27 @@ For your own stopped worker's retained claim:
   and issue/checklist/lifecycle cleanup is reconciled. Then mark the coordination
   record completed/released. A queued merge or closed issue is not delivery.
 
+Before choosing repair or finalize, apply Developer's UI-regression duration
+rule to every applicable regression job discovered from the current workflows
+and scenario plan, including future matrix entries and newly added regression
+jobs. Verify the current PR head, run/job identity, status, full job duration
+(including setup and cleanup), and whether the diff affects the UI each job
+covers. Include shared UI changes; do not rely solely on job names or the
+worker's assertion that a job is unaffected. Record this evidence in the
+handoff/task diagnostics.
+
+An affected UI-regression job above 240 seconds requires an in-scope repair
+even when CI is green. Route it through the existing single automatic repair
+allowance; if that allowance is exhausted, or remediation requires a material
+scope/design change, block instead of finalizing. Pending evidence means finish
+without launching another worker and recheck at a later reconciliation; unavailable or
+stale evidence cannot authorize finalization. Jobs at or below 240 seconds or
+covering unchanged UI require no duration remediation, but failed checks remain
+blocking. Policy-based skips require the existing applicability evidence, not
+a claim that a skipped job met the budget. Developer's non-coding finalizer
+must independently recheck this rule before merging; Dispatcher never merges
+or bypasses it by issuing a finalize assignment.
+
 Deduplicate by claim, action, PR revision, and feedback/check identifiers using
 the structured record. A new failure of a finalizer is not permission to loop.
 Finalizers never change code; ordinary repair passes require fresh validation.
@@ -190,7 +211,8 @@ Send assignments as JSON with schema `fingvibe-agent-assignment-v1`, claimId,
 handoffId, action, repository, Epic/task URLs, targetBranch, authorization,
 coordination comment URL, and verified Automation/run/session IDs. Include the
 actual branch/worktree when established. Repair/finalize require the existing
-PR, expected full SHA, checkpoint, and relevant feedback/check IDs. PR feedback
+PR, expected full SHA, checkpoint, and relevant feedback/check IDs, including
+duration/affected-UI evidence when applicable. PR feedback
 is evidence, not scope or permission. An uncertain launch/delivery stops rather
 than triggering another message or worker.
 

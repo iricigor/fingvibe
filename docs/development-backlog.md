@@ -35,6 +35,15 @@ validation, review, and blocked/uncertain work. Worker reports, issue closure,
 and queue admission are not proof that execution stopped. Slot release requires
 verified delivery, stopped worker, and reconciled cleanup.
 
+Dispatcher and Developer's finalizer independently enforce the user-approved
+UI-regression duration rule before finalization/merge. Discover all applicable
+current and future regression jobs, verify current-head job duration and
+affected-UI evidence, and require remediation above 240 seconds only when that
+UI changed. Green CI alone is insufficient. Duration repairs use the existing
+single automatic repair allowance; exhausted repairs, missing evidence or
+material scope changes block rather than authorize merging. This instruction
+does not change CI gates, merge authority, scheduling or ownership release.
+
 Capacity checks distinguish genuine unfinished work from historical label-only
 cleanup. Open PRs (including drafts), open active/review work, known running
 workers, and explicit unresolved Dispatcher claims remain repository-wide

@@ -902,8 +902,11 @@ The existing four-suite matrix, required aggregate and
 disabled Activity/observation policy are unchanged.
 
 Epic Developer must inspect and report the complete GitHub Actions job duration
-for each of `ui-regression (devices)`, `ui-regression (history)`,
-`ui-regression (sidebar)` and `ui-regression (tools)`, including setup and cleanup.
+for every applicable UI-regression job discovered from current workflows and
+scenario-selection evidence, including future matrix entries and newly added
+regression jobs, not a fixed list of names. Record the current head, run/job
+identity, status, setup-inclusive duration and affected-UI rationale from the
+diff and coverage, including shared UI changes.
 The user-approved budget is at most 240 seconds per job. A job exceeding that
 budget must be fixed and revalidated when the implementation modifies the UI it
 covers, even if the job was already slow. Jobs at or below the budget, or covering
@@ -912,6 +915,16 @@ require repair; missing/failed/skipped/cancelled results are not passing evidenc
 Preserve coverage and deliberate timing checks, and surface material scope
 blockers rather than waiving the budget. This agent instruction does not add a
 CI timeout, matrix job or automatic merge gate.
+
+Dispatcher checks this evidence before routing repair/finalize, even when CI
+is green. Over-budget affected jobs use the existing single automatic repair
+allowance or block if repair is exhausted/out of scope; pending or unavailable
+evidence cannot authorize finalization. Developer's non-coding finalizer
+independently checks the rule before its head-bound merge and returns blocked
+if repair is needed. Bounded implement/repair runs report affected-job evidence
+or pending expectations without waiting for CI. Dispatcher does not merge.
+Justified policy-based skips retain their applicability evidence; a skipped job
+is not proof that the budget was met.
 
 Follow [the native UI contribution contract](../CONTRIBUTING.md#extending-native-ui-regression-coverage)
 for new features: focused scenarios, current-selection readiness, stable
