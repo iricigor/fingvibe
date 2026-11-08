@@ -862,6 +862,79 @@ regressions run with `pwsh -File tests\SqlEditor.Script.Tests.ps1`.
 
 ## Test
 
+Devices and Sidebar regression entry points load focused definitions and
+scenario modules from `tests\UiRegression`. `coverage.json` records the immutable
+pre-migration revision, original source ranges, function/assertion/capture
+mapping and scenario order. Unchanged bodies and representative Devices fixture
+data are signature-checked; explicitly listed readiness/lifecycle/setup changes
+are covered by desktop-free regressions. This structural inventory supplements,
+and does not replace, real native acceptance.
+For intentional changes to mapped coverage, retain the original provenance,
+explain the refactor in the inventory and add focused behavioral checks; do not
+replace baseline signatures merely to hide lost assertions or captures.
+
+```powershell
+pwsh -NoProfile -File tests\UiRegression.Helpers.Tests.ps1
+powershell.exe -NoProfile -File tests\UiRegression.Helpers.Tests.ps1
+```
+
+This check does not launch or automate the desktop. It exercises bounded waits,
+stale-owner reacquisition, visible/nonempty controls, process exit/normal/forced
+cleanup, isolated fixtures, environment restoration and failure-preserving
+capture timing. Migrated native suites create unique temporary fixture
+directories and restore their environment/DPI context even if shutdown fails.
+Forced shutdown cleans up the supplied PID but fails the suite rather than
+pretending normal close succeeded.
+Devices' XAML grid does not expose a `DevicesPage` automation peer. Lookup uses
+the real `TableViewport`/`SettingsPage` containers; peer-less Devices chrome is
+scoped to `MainNavigation` and guarded by a visible, nonempty `DevicesHeading`
+page marker. This also works when narrow/overlay navigation items are not
+realized. Shell/popup lookup remains separate. Do not infer UIA container
+existence from a XAML name or namescope.
+
+Each native scenario emits a setup/behavior phase and every Devices/Sidebar
+capture emits a capture phase, with UTC start, elapsed milliseconds and success
+in `phases.jsonl` alongside screenshots/transcripts and in the job summary.
+Compare repeated runs with the same revision/build provenance, viewport and
+selected scenarios against an equivalent baseline; retain failed phases and
+report missing evidence. No statistically established flake rate is claimed.
+The existing four-suite matrix, required aggregate and
+disabled Activity/observation policy are unchanged.
+
+Epic Developer must inspect and report the complete GitHub Actions job duration
+for every applicable UI-regression job discovered from current workflows and
+scenario-selection evidence, including future matrix entries and newly added
+regression jobs, not a fixed list of names. Record the current head, run/job
+identity, status, setup-inclusive duration and affected-UI rationale from the
+diff and coverage, including shared UI changes.
+The user-approved budget is at most 240 seconds per job. A job exceeding that
+budget must be fixed and revalidated when the implementation modifies the UI it
+covers, even if the job was already slow. Jobs at or below the budget, or covering
+unchanged UI, require no duration-related remediation. Failing checks still
+require repair; missing/failed/skipped/cancelled results are not passing evidence.
+Preserve coverage and deliberate timing checks, and surface material scope
+blockers rather than waiving the budget. This agent instruction does not add a
+CI timeout, matrix job or automatic merge gate.
+
+Dispatcher checks this evidence before routing repair/finalize, even when CI
+is green. Over-budget affected jobs use the existing single automatic repair
+allowance or block if repair is exhausted/out of scope; pending or unavailable
+evidence cannot authorize finalization. Developer's non-coding finalizer
+independently checks the rule before its head-bound merge and returns blocked
+if repair is needed. Bounded implement/repair runs report affected-job evidence
+or pending expectations without waiting for CI. Dispatcher does not merge.
+Justified policy-based skips retain their applicability evidence; a skipped job
+is not proof that the budget was met.
+
+Follow [the native UI contribution contract](../CONTRIBUTING.md#extending-native-ui-regression-coverage)
+for new features: focused scenarios, current-selection readiness, stable
+automation IDs/namescopes, isolated representative data, keyboard/accessibility
+and rendered/virtualized reachability. Large-data correctness/resource budgets
+belong primarily in WinUI-free tests, with native integration still required.
+Agree budgets before implementation, preserve intentional elapsed-time checks,
+and investigate failures instead of hiding them. Fast/full modes and enforced
+PR coverage manifests are not delivered by this foundation (#242/#256).
+
 ```powershell
 dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj
 ```

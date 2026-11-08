@@ -1,0 +1,1178 @@
+{
+  "baseline": "5c44f8d7ced45a625ce14b0af20dd49bbf9fa132",
+  "suites": [
+    {
+      "name": "Devices",
+      "entry": "DevicesList.Ui.Tests.ps1",
+      "files": [
+        {
+          "file": "Devices.Controls.Helpers.ps1",
+          "kind": "helpers",
+          "originalRanges": [
+            [
+              13,
+              152
+            ]
+          ],
+          "baselineSha256": "be4a0364e12e84a213247ad5a63f27eed018e813fdd6a37c7853ddce1f397807",
+          "refactored": true,
+          "functions": [
+            {
+              "assertions": [
+                "3ebddf50ca7112eea543ee98ed95c02c86be79075cfbd685435f0e71b33e0d52"
+              ],
+              "name": "Find-DeviceElement",
+              "refactored": true,
+              "baselineSha256": "7ee50a2b1ad24de635cfab8b1aad125f27e84b3c659f5177c1f7709633e3f46e"
+            },
+            {
+              "assertions": [
+                "ce863cf1573ecfda0b24fc357cce8d9e329a25c60544db91723fb102546ea007"
+              ],
+              "name": "Select-DevicePage",
+              "refactored": true,
+              "baselineSha256": "3f40c43046989a162ba345ee736c756acb7560a82a760ba15b2ab84b44256cd3"
+            },
+            {
+              "assertions": [
+                "55b9fa7d240c04d017c44ff20c408bd305bfc2edbaabfae9422c70e8c666eed1",
+                "39aef8f4324bab3b0660d00668a05aa68394135129f2967bc6367ee09aab35aa"
+              ],
+              "name": "Set-DeviceWidth",
+              "refactored": false,
+              "baselineSha256": "bc329b6599ff0cf9c4ae113587b08afa1a6b1c825b0b6d08a64e94f69a364fd3"
+            },
+            {
+              "assertions": [],
+              "name": "Get-DeviceRows",
+              "refactored": false,
+              "baselineSha256": "a00404ddac9d59932cc6a21cfb1724d2be34b59564dd8fa4f91ae7711d7ada62"
+            },
+            {
+              "assertions": [],
+              "name": "Get-FilterBounds",
+              "refactored": false,
+              "baselineSha256": "26dace4c1df7a8fd8760f51c2d6669f78659d24bb305499bff716a4f86b33cfe"
+            },
+            {
+              "assertions": [
+                "c7b75be162b6b84ebbeb0112687cc8c808c40d484c7e3195abc4e57b454432b6"
+              ],
+              "name": "Focus-DeviceWindow",
+              "refactored": false,
+              "baselineSha256": "cf34bca10ef20d79a6770eff264152235e767b3d12b51b3e2fe6e05d3d2b28e9"
+            },
+            {
+              "assertions": [],
+              "name": "Save-DeviceCapture",
+              "refactored": true,
+              "baselineSha256": "525f32e775bfb3f8deebefbec990e0023adfb0e64908c1af67c603c1fd155915"
+            },
+            {
+              "assertions": [
+                "a7c78ffb2425e9a9164623462533ae7b87c8c7aaf7afe8795ec3c099babe6309"
+              ],
+              "name": "Get-RowColor",
+              "refactored": false,
+              "baselineSha256": "492e8e587169899b3bfd878e8e0b0b2717d580f54b49c9371d8989d38f63c7bb"
+            }
+          ],
+          "captures": [],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Devices.Rendering.Helpers.ps1",
+          "kind": "helpers",
+          "originalRanges": [
+            [
+              153,
+              208
+            ]
+          ],
+          "baselineSha256": "0899952a8d21483dab77ab9b662035e1e9bf776314b5d827269b378d201b49e9",
+          "refactored": false,
+          "functions": [
+            {
+              "assertions": [
+                "8c83ed6fb379a1a01d093a890df7f41bcd27f905d527fb7386d982821a30091f",
+                "c495f1881eba04aef427b20891491605f444ffb30b7ae71017b6080d78d315d8",
+                "4a9d4021ff03ad82e2d120b3577ac470e92eee9b7c4000dc3be4808da2a44034"
+              ],
+              "name": "Assert-DeviceStripes",
+              "refactored": false,
+              "baselineSha256": "de910ffc1434a17354ed247783d327aef4a3d642ad2e9c17cf68e27ddcc7d502"
+            },
+            {
+              "assertions": [
+                "53eba0cefbde74f58ef851df83a0cfb51d7d4d1f3c519adcf3018467c2aa794b",
+                "5c96c75f9260dfc0c9114d44e4d361c7c43407b37dfa5f286a7ca07464a470ed",
+                "f1e4cb3013b482dcf22d3dedc5d1685e7a52c9c51be2dd18500a074d4c9708fe"
+              ],
+              "name": "Assert-HeaderUnderline",
+              "refactored": false,
+              "baselineSha256": "91894d3a0c58f5ffb6bdec23f5e2d1005bfff2f02d9010e4aa5087ecc377921f"
+            }
+          ],
+          "captures": [
+            "331834ec4ccfda50ba16cfee08762271f19913b37dfe8ca220d728f6f3612bfa"
+          ],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Devices.Previews.Helpers.ps1",
+          "kind": "helpers",
+          "originalRanges": [
+            [
+              209,
+              473
+            ]
+          ],
+          "baselineSha256": "e392bec43ba5bf9848547397f69957752fcc3f3aaeb4a6550b992d158e1b9edb",
+          "refactored": false,
+          "functions": [
+            {
+              "assertions": [],
+              "name": "Get-VisibleDeviceChild",
+              "refactored": false,
+              "baselineSha256": "ff058c2355e6f525098e2ac815e1abc41000cfa44668132f9acce2011007b5b6"
+            },
+            {
+              "assertions": [],
+              "name": "Move-ToDeviceElement",
+              "refactored": false,
+              "baselineSha256": "6f6c6502c75db539bd7517422011730bc4f4816909462a09c13319f3e1a26871"
+            },
+            {
+              "assertions": [
+                "f46b5605323e4305f3d613b4d5a317e7ff4a9701968a0ee7f7b8962e8bdff6fd"
+              ],
+              "name": "Assert-NoCellPreview",
+              "refactored": false,
+              "baselineSha256": "a52548c080f9b370193df2ccef8a3ec900d566b4b2ffad69b40f50e62b0a904f"
+            },
+            {
+              "assertions": [],
+              "name": "Get-HoverColorPixels",
+              "refactored": false,
+              "baselineSha256": "7529f7c25dd972bb0cbad31c4dba322dc50a23fb83dff00c0f5b22ec5519f4e9"
+            },
+            {
+              "assertions": [
+                "6633a3def48c03fa0214ae9fd30229bc97b2d399320a165f5f867efe10547598",
+                "1c6912a0808ebeaa848d1d26d5b8a30c80ff20d57d064d068d6464fea3c3cba6",
+                "fe4cc55bf4fbf08d53b75a8f23d664a1aedd50b107c3998ef4697f18f3f6bd30"
+              ],
+              "name": "Assert-HoverText",
+              "refactored": false,
+              "baselineSha256": "a74df14f1fd93e363fbf6bd45871ec67e4f27eb768584c386e5da977832697d3"
+            },
+            {
+              "assertions": [
+                "20efbac5dbf50185d5def860901630bc0c02b3edbc0e6ce17f19981e93c07ef3",
+                "8d78c630e3ca6c0134a42cd7233faf5560e31710baec11357a8718dc8a7e25b6"
+              ],
+              "name": "Assert-PreviewFont",
+              "refactored": false,
+              "baselineSha256": "823df5e6d2db8111d5a1f54f79988975c7153be61398e31595a05c28ad6255fe"
+            },
+            {
+              "assertions": [
+                "fe1d1ed08d421472c930193064841953e27d692b789d75fd9566cbc67b430fe4",
+                "5df5ab1fc03eb2d03d40124931049b9c0e1b1c759a4bd07fcd69ccd5d16ffba8",
+                "ca5b471e13329af0a9e6115c455ff53f2b331f1ecc0046f38c287d521fddc9bb",
+                "87b11ed0ca30d4f947ab36ed49f42cef89cf8683396e1fc135e7f86f2c5d73dc"
+              ],
+              "name": "Assert-CellPreview",
+              "refactored": false,
+              "baselineSha256": "fb00e840aadb616335d264282afdcd650fa48fd3cd017b15e4dab54a5e9af42b"
+            },
+            {
+              "assertions": [
+                "377898ff7fd85bd0ad6011c8280f84064c9d598593fa28193f4cdc89b6eb7f15",
+                "f26e0dac57d741c45a4e73634325c43166a26d933e31eca479e64108f07f052c",
+                "71d94b39d00c9467fb2d7c918144770b0a5268b233131f41d30ba3b8dffb1207",
+                "dc732a7d7be109081483ea0beb8c4e6b64ed79e4d54d02370ff46fffedfdd1a7",
+                "090315f6df205ab6ef7cc99d115791989c2687ad6fb8c3145d6717874c89c576"
+              ],
+              "name": "Test-CellPreviews",
+              "refactored": false,
+              "baselineSha256": "320e2f2cdcd3372081c5ab6cc1aebd7d81ccc9b8f5c5c66cab6fff1e41c15ab0"
+            }
+          ],
+          "captures": [
+            "ca114b3e594f5ae9e2231b4cc6692032a1cc841e5393c3a642d852e6f7fa8e32",
+            "cc276c880fd17e19928cca2f233e150ae2cd417c74e59d83d48c1af91001d3ff",
+            "4fa2d680d4c1b64940383e26e66281cd5dfe86d70fa39e17eb49496533ab9315",
+            "78d9eaf9d17fefbf7469bf9b40a486b8d223f7d0b6695a1b29ade6a0b40b225d"
+          ],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Devices.Filters.Helpers.ps1",
+          "kind": "helpers",
+          "originalRanges": [
+            [
+              474,
+              556
+            ],
+            [
+              687,
+              826
+            ]
+          ],
+          "baselineSha256": "3add6c5e7d3d623f16da520a7ee297cc1271993656bcd824a7180519a2eb50f0",
+          "refactored": false,
+          "functions": [
+            {
+              "assertions": [
+                "dded128c29ac08e072b6d78d286aa3e3e435be62b1f3fcf63f2a58111efb37aa"
+              ],
+              "name": "Set-SecondaryFiltersExpanded",
+              "refactored": false,
+              "baselineSha256": "9c70f6882dd162ad92c5d4f002c2a3d447feaa4181e715867a17c094ba47305d"
+            },
+            {
+              "assertions": [],
+              "name": "Open-DeviceFilter",
+              "refactored": false,
+              "baselineSha256": "9f1690661ab02acfb60001a6444da0bec93896561ee5bed725ba97addf15cb78"
+            },
+            {
+              "assertions": [
+                "39d533929628606ea64ae26f33c50358b9b2707c5e36f6a372a0a5190a858ed0",
+                "0a15860dc06b7f27790bfac7ac393ec0b5fac102088806a6a0a261de6956025e"
+              ],
+              "name": "Set-DeviceFilterChecks",
+              "refactored": false,
+              "baselineSha256": "ef242893d82aee8282310f055e5e847001099b37391274e4808c59900b7ee680"
+            },
+            {
+              "assertions": [
+                "8dfc4ca4a5ef953779e2e0df94cc1b97feb8f55b4821bfa2b676c060151d9ead",
+                "1edb1cd3fbe23461b16b4f9c60f7fba143446d23f84f324e786a0e222bddd5d3"
+              ],
+              "name": "Set-DeviceFilterChoice",
+              "refactored": false,
+              "baselineSha256": "e4dafc584c0d4a19703365bcb49a7d7a76dd3e895d379553ca16078125d04646"
+            },
+            {
+              "assertions": [
+                "6b0203c02e300a1346133912a1b89e06869ae9bacc8f1c0b394c1de8d00a8ec9"
+              ],
+              "name": "Assert-FilterPresentation",
+              "refactored": false,
+              "baselineSha256": "73ef651f01d563c3e01cb4e8c28baaed091268524e2dd10d4d6739ae3aaca1e6"
+            },
+            {
+              "assertions": [
+                "45337f58a4c358f8fc1e1d497c0731b0aa41ed18c52ea845caa92c5c15c3402e",
+                "bfbe44d678748469e5a70116749588fbdcfba1befd91d744367b385a6bb20d81"
+              ],
+              "name": "Assert-ClearFiltersVisible",
+              "refactored": false,
+              "baselineSha256": "f6ad6d1224bfba06add4238c66e497287182bd1d7eed7a7b8487b6fd13cc2f22"
+            },
+            {
+              "assertions": [
+                "5fcfaa624898b2a1268e33cc4893fb2cef1d68e0f73860c14a1b2bb1b5d39416",
+                "0205702027efeb9973de3cd251563b60c8d1f9ca4f2b0af878efcb0c252c87a1",
+                "554af6670d4a67e312ce3e0a3504aee4f7991bec5972285c656b35becc00d101",
+                "868ebc77278c3e8ad68ad1ee034c0551cee84570d6c41a9d19e4ec68cc2128ed",
+                "8129841108bf132eeb0167788ee89a3e5d07a85714eac278081c5c6a2500fcbf",
+                "5562d0076e224931bbf1bc0c0549becd1ccdbf82c7304fd0483bcd89ca846487"
+              ],
+              "name": "Clear-DeviceFilters",
+              "refactored": false,
+              "baselineSha256": "d16a12e70c5fbecc430e2937776c25374bb77b6a86de3c6d56bab457cf2ffe4e"
+            },
+            {
+              "assertions": [
+                "4b401c7e2ced66a9adb9fd4d048f9f18e3371d0802eed576fc1de6175c1a2abf",
+                "53418874caaf7c1c38dc8d43ec6b369716bff19b05ce1b016d03393dcc245b2e",
+                "a08f0ce745c067e2af7c3bdc4c9da2ca8bf82b6bc98932e7c59f0ff8a299f9d5",
+                "b1fe3528ca18dce8472a96d2321da441d06c641f5f730477478000ec5cd79d70",
+                "acf1496d9ea946d430f920233c80607bc2c4023d46ee3bac923c9f8d6d641c99"
+              ],
+              "name": "Test-ExpandableDeviceFilters",
+              "refactored": false,
+              "baselineSha256": "42799d8671de99c61b16d21c31551ac1baf827b4f689df72ffb0e6da21d506c1"
+            },
+            {
+              "assertions": [
+                "a0d5e6ed6c8872a531115a5b21d35f01f597338b0d8ea7ee66d1023c324bd8a0",
+                "8303f7667f36ce786183cced835404a8b2a12e24dd20742b6b0f8591bf197798",
+                "881b79f263f1692563026cc2d73ed80fb7b809e86d62d65a89bccda98b019f57",
+                "7710c302dda78e2bf6bfd94bf8a93aaec3cc6af52fcb7279655134235d2f3c96",
+                "b3b14b9fcd446c041036d10eaabac0a470d8eb533a7f2bc60bac0c0a91b69497",
+                "4112631f9a49e74e9975465e04b3f3869be68615496a2913023403b7eca2d199"
+              ],
+              "name": "Test-FilterChips",
+              "refactored": false,
+              "baselineSha256": "e95e133f49973cc3740fe90c71613e465dfffd9941a90c80555196d056302ce0"
+            }
+          ],
+          "captures": [
+            "7de78940b83eaf5cf4cf9c5bd2359d6cf7d28f73d847189c227014e3f191e5c2",
+            "dadd958378dedb1f06dfc7fc13e20c8287db7a7af4bd2081f96271142acba9f4",
+            "20e5da63808803b3bc4654da3875409af9e0723ce55c72bdbd498e8f5379a0b0"
+          ],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Devices.Columns.Helpers.ps1",
+          "kind": "helpers",
+          "originalRanges": [
+            [
+              557,
+              686
+            ],
+            [
+              827,
+              964
+            ]
+          ],
+          "baselineSha256": "6ffef120b18436d6955ca1a0f6020b87e205ca2cbd6eb30a179eae623a4a73b8",
+          "refactored": false,
+          "functions": [
+            {
+              "assertions": [
+                "5012b29cb14b17da9c4bb1aaba79c7ba31bc84ddff0dc31c17a66ed841a6153a",
+                "6875920e6686b0af86fa03a24ebc477039a81dff362a2c7257206f4d8733ad4b",
+                "cdef27d2fe35fc99ba113bc892da396a6848ad11a161f4e2a35e2b047944a193",
+                "ef978cddcc40c27a0c58407c7411f17fedb24f81bbab64d86d40f603db305337",
+                "09bc1f9ab8be340d891d07b781df05c4f84f2748cfbab0b0923917c670f608e9",
+                "2b29f4e22430639d2960fbc4c8fcd86c23fbb1e42f7ea450cfb16140a715ebf8",
+                "a8c160727cce646ee0e1091691fe43426e80e7891a27495044de2b4738cd2536"
+              ],
+              "name": "Test-ConditionalDeviceColumns",
+              "refactored": false,
+              "baselineSha256": "9a7a35743e80b6749c5c3b2f6cc829ad3c2a320c726585dcf0abbbac381123bc"
+            },
+            {
+              "assertions": [
+                "713111e477ebe2cbb46cb3f695c786fea034374f4bfa0b99c9b8e4334e48e504"
+              ],
+              "name": "Set-ColumnOption",
+              "refactored": false,
+              "baselineSha256": "d8fa80045a4292189792f3e0c28701d4e9cebda6f70645dd69d2c516fb1cc7ed"
+            },
+            {
+              "assertions": [
+                "ac633bc8f7d522ae8688e06745533938f62b655a6e889789de98a01e45795ed8",
+                "9b00b5d88722c8195d4add8adb71e40124ece0d25d66251efb6e3fb72967b103",
+                "e19cd3e68de37329f68b827f115941ebd3f056cd96ad86a682a6f36df1102fbe",
+                "aad90b1b475579d0074e443d423a94a75ec1e2e5e402179fff801543a8188f77",
+                "9288b8d8adc667fc8891aa85f3b3fa1758d6752a473afaab3c222e49fdae75a1",
+                "9d3ad812a87867fb61fb141973479f851ac168ff949325940a43d4a974a90235",
+                "6ec591d11cb74f251ed2a7fd0aac99e6349f955304304495cb0d6b50932fab04",
+                "f564eac13827e8d2d37ce15a3fb4eb958ec5224cae9ed224c6cfbaa75316ed97",
+                "7e4714e370edcb43d300165539556c14bb0f75d99188098b202c9c62792f7bed",
+                "36546cdc4eef7905c84094b68591042b138a3a1d92e1da341e2f36746f0702cc",
+                "2f81aa0fb8a9a083dfdc764ac07dd97ff34aae43b6017a0d408037864fbce3a7"
+              ],
+              "name": "Test-MergeOptions",
+              "refactored": false,
+              "baselineSha256": "0b3665469b040a8ea761a8777a1946c2a8064dff3c47288bfbe390fad99285f7"
+            },
+            {
+              "assertions": [
+                "b0e274de71e88efea8bf5eb42e6948bc096c53586aa0cf2a522a665368a86666",
+                "a7525ce5cac569291381e35fc91adc2fb19afe77689e3637baaaf33e224cee23",
+                "d4c9b076b883747cdcf3e593ef699a6c7415fe410136c870f0ff49a9eab6bb61",
+                "ef5006f8e4a5ced7a5dada9ef096ec4a1afdc4453b14da061c9de7dc06d14626",
+                "fef90f7b3d380e41c6b69165105e77b43c57d5742893cc53f76c51f500d7fd03",
+                "c581c4fc342c15b3ec440a8d6c52d769eedd7ce07a0c1f78aa5d072bf7e5a0a1"
+              ],
+              "name": "Test-RowDensity",
+              "refactored": false,
+              "baselineSha256": "63d96a48ec01ef18a038e601343e75c41919388a70f916e0cf32b1b678ae9995"
+            },
+            {
+              "assertions": [
+                "68b3bbdb02577d303e02a8519928fe50f4ad1faeac1b503503a2c73a0738f0d4",
+                "2134a12cedabfc7d53491e297c12d56a8b8da4b2704892fcbf27a18693e806be",
+                "096f85141e98ff47dcafadd5c17ee273c9eabf5a789d1239b1aa2eb45f19f75c",
+                "6798ae8c0838dc4f3da8bc2fb2c4cbd382db6a47cf5fb6efa7e58953b5d59da7",
+                "ba681dec760de26ad7bfbd96d7af5f2c2aff19f588966ef23e0b504ce0133af5",
+                "efadec3971114d1aec837726bfd5e25aba76f283ba1b6b0b096d1264e1b05d15",
+                "f0a035d91fe3619ed91e7b0dfb2fccb9b9fba9b880f062534168fc9950a6ac0d"
+              ],
+              "name": "Test-MergedAssignments",
+              "refactored": false,
+              "baselineSha256": "dd2ddf5696316a47658483e40fc99d5676e4a9c96091282fad634128dca19fbe"
+            }
+          ],
+          "captures": [
+            "059ead277a5bf662af66c234ce33b4977df4f501370056b4841388c3316e5800",
+            "a2465b25212b9f67bb5af03a1f18e79cfe38ffdd3cb40c2eb7f52539b0acad12",
+            "cdcbfe82c11c36b0d2e91c230de7849c58f3a57b267ef31d274fa4b483914166",
+            "4b6a98918da9ddca6107d679559b8d50ca677a599988ec598cc79b5d560f8bd2"
+          ],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Devices.Sorting.Helpers.ps1",
+          "kind": "helpers",
+          "originalRanges": [
+            [
+              965,
+              1127
+            ]
+          ],
+          "baselineSha256": "4e9e98ecc3193f689ae00ebe2449e217dcf56b92fae3a870022e9722f969b9a9",
+          "refactored": false,
+          "functions": [
+            {
+              "assertions": [
+                "902d8461313395d9dc9edc453688a9c4606e28e09bc44bd5124eb37270097be4"
+              ],
+              "name": "Invoke-DeviceSort",
+              "refactored": false,
+              "baselineSha256": "53adc3cf7ec0792c045046695c3016291b88191f9fdd4e9b5205161b52920f37"
+            },
+            {
+              "assertions": [
+                "a8c486a292ea328d23c3175ecb4bdd85e65d08e3141d1ec6961edab268339b11",
+                "26a6aad37ab34d8b054a8ca4494b731e03f74c4de89a319cb892d95e14844807"
+              ],
+              "name": "Assert-SortedFixture",
+              "refactored": false,
+              "baselineSha256": "6be0e5c05f2b1ea4393145528f009fb954da37bbf03d4812544949b706dadba0"
+            },
+            {
+              "assertions": [
+                "0f3cc7359cad295c29f9f72d06a92fecdeb6ae90c4fefda73caf8ec25599b31c",
+                "124d2f94f319fe8ba91280391e572e29f415bcf59e24648009e6c6da31c00c18",
+                "78bfac34169c04a3978b309bf2630c43c5d49e688ea97636b28a3e35e6af0d01",
+                "6d556501c03ba4fbd74510a6e2ce34e72f2cb997bade4bc8d293afcdbcd111ac",
+                "ccdca8abc4c3935d0088c95e8282f20dfc630f5bfcca91fe1bdf64b8e5058d49",
+                "b38e95bb35982a8d7b664121ec3716d12d67f64f7876bf39dc334925eafb63a6",
+                "8af1cf7a629b9e4d4cde1a78449e610ebe07b2af503889297e801e60f799617a"
+              ],
+              "name": "Test-DeviceColumnSorting",
+              "refactored": false,
+              "baselineSha256": "16aa8287fb09f54b730f2fd0fe0535001323a35a00b4c708840fc74371f0aec0"
+            }
+          ],
+          "captures": [
+            "29003924d6c916b6ffff8043b0da3351cbaf9b7dbc9c36120d46f34b444819bd"
+          ],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Devices.Setup.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [
+            1135,
+            1195
+          ],
+          "baselineSha256": "7dd1e0ddd6412735f7b6675ae9d34948ec4e3ac6fdb352fb2e87b2e79e48a5c3",
+          "refactored": true,
+          "functions": [],
+          "captures": [],
+          "fixtureAssignments": [
+            "55851e01774104c3621a2f0fddcf0604d774f09cea7e481fffe4fdad910473c7",
+            "bbeffad0dcf391482a03e7432dbe5f87dfac0b510ec5229915fe8af0cb3a794b"
+          ]
+        },
+        {
+          "file": "Devices.Overview.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [
+            1196,
+            1268
+          ],
+          "baselineSha256": "064bfb7c7131eac2a163f0c7f275ae7764384105ece0e24a81dcca0bf4869db4",
+          "refactored": false,
+          "functions": [],
+          "captures": [
+            "19cff7de59c354367d6ecd9d81243742c91c014e31e6b1337f8e3edeb751f7da"
+          ],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Devices.Filters.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [
+            1269,
+            1290
+          ],
+          "baselineSha256": "220e86fa068b76363e67027a723b8eedcc4affd713a41ea782e898d519a9ee6c",
+          "refactored": false,
+          "functions": [],
+          "captures": [
+            "d3695b294af677a86ec8dd5710c9a962bee4c05791972af0b0f8d30e65c1f786"
+          ],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Devices.Columns.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [
+            1291,
+            1294
+          ],
+          "baselineSha256": "1323d46b978eccd299b0e3a6b591004ed93f888ba4c954e7ca917cc6b8dd1d1e",
+          "refactored": false,
+          "functions": [],
+          "captures": [],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Devices.Previews.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [
+            1295,
+            1295
+          ],
+          "baselineSha256": "92c584907fff816c10c7d355bc5d3fa237ee34333a3814b765eab881e59d2580",
+          "refactored": false,
+          "functions": [],
+          "captures": [],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Devices.Layout.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [
+            1297,
+            1376
+          ],
+          "baselineSha256": "d05f6d814e5ce3b4110115a9f3b1f9b4226023fa3eacdc4c8032f3556d9834f5",
+          "refactored": false,
+          "functions": [],
+          "captures": [
+            "64fe7178a3bbfec6d31d6afcc8ea1990b842eb07a4768f04847d02253755ec86"
+          ],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Devices.Appearance.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [
+            1377,
+            1389
+          ],
+          "baselineSha256": "f76819ef51a57fa9adb082bd69a01241b6cf8415e6c00df188358aee3134d16b",
+          "refactored": false,
+          "functions": [],
+          "captures": [],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Devices.Interaction.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [
+            1390,
+            1542
+          ],
+          "baselineSha256": "a3df8ad2659d63a0392e12904626d7feac7d58b1f3dfaf44a9e1b68c29915380",
+          "refactored": false,
+          "functions": [],
+          "captures": [
+            "db8c2205173613efe593ac26c6973a91749f471e19e22db6bd9f2c606b4b5373",
+            "3f3d5a14505f2319802f669832f5c935ca7bddafd0ce3d3f31a2d3a6e68184a4",
+            "59ddd1516ed9dfd48857c7a7d21ef53972f08bc3bec092653766d16dcd472f5c",
+            "bf9e29da83eed77d73b843951cc0dc1b691512e14a84d1c54410ffaa0a1b4ad2",
+            "fac339945e079c8714ab5d7b7f54f8212720e385f667fcb3769e32f71bd63d62",
+            "491c76ad1dbaaff7ccee1a23ee5737ad683dccda09f2329db4b5881c29bd96c1"
+          ],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Devices.Sorting.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [
+            1543,
+            1543
+          ],
+          "baselineSha256": "2538f0d6cfff43c8a96bf820d1d7a18c8e5560f3a2281bf3aa4a5b962838a34f",
+          "refactored": false,
+          "functions": [],
+          "captures": [],
+          "fixtureAssignments": []
+        }
+      ],
+      "scenarioOrder": [
+        "Setup",
+        "Overview",
+        "Filters",
+        "Columns",
+        "Previews",
+        "Layout",
+        "Appearance",
+        "Interaction",
+        "Sorting"
+      ]
+    },
+    {
+      "name": "Sidebar",
+      "entry": "SidebarNavigation.Tests.ps1",
+      "files": [
+        {
+          "file": "Sidebar.Controls.Helpers.ps1",
+          "kind": "helpers",
+          "originalRanges": [
+            [
+              16,
+              306
+            ],
+            [
+              906,
+              930
+            ]
+          ],
+          "baselineSha256": "1d271d74235233ce04945e19051f03cf655bac5deec44bba6e1aefe15f317781",
+          "refactored": true,
+          "functions": [
+            {
+              "assertions": [
+                "70db5436e64fbbf966f82c435e221b4d97da8ad68f7a1fb1094fe0f1b0fc84ff",
+                "83bc4d751858ec38aaf44942e65a7b3c26be18900b6c2fe02f67cff699515849"
+              ],
+              "name": "Find-SidebarElement",
+              "refactored": true,
+              "baselineSha256": "afef301ab8597f287646114add925218b9fb27cfc2738355539ddb926e289a21"
+            },
+            {
+              "assertions": [
+                "edaf34cc94976830453b0794bf88396715a1396e32afeb7004e961ae92f236f6"
+              ],
+              "name": "Show-SettingsSection",
+              "refactored": false,
+              "baselineSha256": "10badd92a5f6fe082acddf5954f22f093f97bdb0b807b8ef460f968222f93d6d"
+            },
+            {
+              "assertions": [
+                "27f878ad07cb36ac264469440a88f9b4f54fd2e07d66a3476de6dd8b1b302f31",
+                "acf59522c37e384216bdabb3ae9af214ed976760d78835ee278cbce820f05a99"
+              ],
+              "name": "Select-SidebarPage",
+              "refactored": true,
+              "baselineSha256": "f4489ae4eaf3df7dffc564aaf02e9f31c4408d31939152f693e0064db86f5949"
+            },
+            {
+              "assertions": [
+                "313f794f66aef376cf915f4c651d2bb4641e4ead5d681ff382b405d3b42ec936",
+                "198ec9a1635331edb98207d64de8c2fa7e8a58b89caf94fcb812fa5a396de3fe",
+                "a3ce33997b08bc510189d4d1407029a5f450c16b897d2cb637cbd8a77ea59721",
+                "54937b2453714d98cfc26e5830bce562a55d99aa8442aa82b35df4b5c291019c"
+              ],
+              "name": "Assert-SharedNetworkHeader",
+              "refactored": false,
+              "baselineSha256": "d7d68ad7a16fedad7349bfe82a83313a628c9f08c424bd96ac86bd98d8651828"
+            },
+            {
+              "assertions": [],
+              "name": "Set-SidebarAppearance",
+              "refactored": false,
+              "baselineSha256": "d727e045926246e6b8e490b6f261fc4bc17b74cbe4fb573d48e34b38fd0aa786"
+            },
+            {
+              "assertions": [
+                "bbfbb59c1c3cae8c4ee8df82f5b6fd002cf6c3361f42dec23823ecbb2de2d336"
+              ],
+              "name": "Focus-SidebarWindow",
+              "refactored": false,
+              "baselineSha256": "2460c8b89ec11df736372b1ffaa2d0eb2c83fb8f0e256c570ea80c75caf81ef2"
+            },
+            {
+              "assertions": [
+                "daeea8e28466c699c962b3ba7e8ab6c55f9998146aeba1e6a504fb98b635840b"
+              ],
+              "name": "Save-SidebarAppearance",
+              "refactored": true,
+              "baselineSha256": "ffc7c2abbe08567b0b6f1d96d6f9c18b082f2df685ddd75ff42bf580102a3985"
+            },
+            {
+              "assertions": [
+                "79aad496577f16fc3af1a0e80f2c52230ee17a2f6673dd9138c71f2a9d82f9e4",
+                "39aef8f4324bab3b0660d00668a05aa68394135129f2967bc6367ee09aab35aa"
+              ],
+              "name": "Set-SidebarWindowWidth",
+              "refactored": false,
+              "baselineSha256": "564e6352de032c322f4279861b6f1c14e55a0af16c14011d798faf9c5edaec64"
+            },
+            {
+              "assertions": [],
+              "name": "Switch-SidebarPane",
+              "refactored": false,
+              "baselineSha256": "d8fe6be32dcb0f1c911f008658c763eb67071c83833aa7ed7b49a218ef8007ae"
+            },
+            {
+              "assertions": [],
+              "name": "Get-SidebarPaneWidth",
+              "refactored": false,
+              "baselineSha256": "d6512e96026e99faced2d83f6df5581d456c0ec3bead14b9b88e57fd0e84e40f"
+            },
+            {
+              "assertions": [
+                "cd2cc8a3d371eaf0bfc6e5adaf553f035ff0a6386570eba81b692e98a1078170",
+                "9d90b2cdbbd090c79e89ee229511d4423aad7f796ee232726c1d821afe93be37"
+              ],
+              "name": "Assert-SidebarPaneWidth",
+              "refactored": false,
+              "baselineSha256": "11a34c4d19b8da9b0d211a0b4060011171b5d449b68a58be0f138a0f2417c14c"
+            },
+            {
+              "assertions": [],
+              "name": "Resize-SidebarPane",
+              "refactored": false,
+              "baselineSha256": "c0edddd1d0e59be487fda0748ed5130082df0d828518272ef0202b21e5fbf696"
+            },
+            {
+              "assertions": [
+                "9ed1855d7b46dc13541fc3362cd403550f3a73bb167b60f74b9b57cf99d7922b",
+                "8f507b133a505a287070a7f88c84be55775ecb3df0d85974d3ddd10bd51fb2a6"
+              ],
+              "name": "Start-SidebarApp",
+              "refactored": true,
+              "baselineSha256": "70a55ebe248b5545a7331a7bac8bb328cb3292d01f655c8ebbbbd8f8c02d6b44"
+            },
+            {
+              "assertions": [],
+              "name": "Stop-SidebarApp",
+              "refactored": true,
+              "baselineSha256": "01968071b3a24627582a6cd78f8479486729ee3d5ac20a6f0d528ff72cb2dda2"
+            }
+          ],
+          "captures": [
+            "abe84220c875dea291367577fed04a9bb7610673c092598ff0fe08d593af8586",
+            "43f475051e66a9ede0f6614be8c14bd767124a264b6a9c535c82687ae8fcdb5c",
+            "83ac7b3b36b0509cd7e79b3907116be1b3b479395f9f4db811779ad5cb3e3979"
+          ],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Sidebar.Navigation.Helpers.ps1",
+          "kind": "helpers",
+          "originalRanges": [
+            [
+              307,
+              429
+            ],
+            [
+              931,
+              978
+            ]
+          ],
+          "baselineSha256": "b9779d0f161a9701c631d21763b101bc7da337e710742aa862157330acba827d",
+          "refactored": false,
+          "functions": [
+            {
+              "assertions": [
+                "7fb8b91c0be2c1292fd354c9acd479ea22741b49393ad9d788ca7195e8d2f1c7",
+                "a9d08e5175380e6127c5ef2750384d56ef34c026a54ae5f597e24ec1a170a7c1",
+                "f8397ba93e3813bee1c8168248c7d1381d682cf3daeb8ae1fa6046a8a18c2b78"
+              ],
+              "name": "Test-SidebarDividerAppearance",
+              "refactored": false,
+              "baselineSha256": "c5642974231412edb77c17bc690bf32092efa922d5c57d9b3a2403914f89851c"
+            },
+            {
+              "assertions": [
+                "937025d79cf44d2cb418dc311a01d19035cae6c70338f4103fe80aa953c80777"
+              ],
+              "name": "Test-SidebarIconDragGuide",
+              "refactored": false,
+              "baselineSha256": "d2f3cfc933a0c86c3b92945ebfd5f19e12c0fa66187beacd11c89a59d3e080f3"
+            },
+            {
+              "assertions": [
+                "e16d1bcd50f0b40e745d94eb20b0b9841c3557a565d7370b0d13b3f91590c507",
+                "4fe5744692ecde38b74be78253780056977b49f7e78471cc9f13a5fa71ff185c"
+              ],
+              "name": "Test-SidebarResizing",
+              "refactored": false,
+              "baselineSha256": "24057391b6561943e6c12f1c5f26c69e583e2cafb0755673e086d1e9f93f3597"
+            },
+            {
+              "assertions": [
+                "d4894dce2c881a6e218a9089244b2b6c02d29e30ccf3ef75e89b0548fcc167d5"
+              ],
+              "name": "Assert-SidebarNavigationPreference",
+              "refactored": false,
+              "baselineSha256": "f6ecc80596a6567a9314b779303c24bc41a04de51fb7dc255a8444f79f17175e"
+            },
+            {
+              "assertions": [
+                "e92af6f6a57dfd51b89cb320a8a7b56b6d8d18bef7b8edad0c396b9bae52fcdf"
+              ],
+              "name": "Test-SidebarPersistence",
+              "refactored": false,
+              "baselineSha256": "05dac1292f04ffb72eb89d489194f05a42480f60ba9a744577cebe9bf4f26bfa"
+            }
+          ],
+          "captures": [
+            "eb626dee7c60ad7588fbb2c6e23583b7d5adbdda02d9bce0d2d31be4f8090aed",
+            "ed2042129889364213248ed4d1b63c1b94cf0952da7f8d7c1b43e623f6745e45",
+            "fa2997b3f76392aeb34e5543ad4c16de0f699d2524b0f3bd196f6e20698acb26",
+            "dea3e378d4cf64342d2176ddfaa83743594bce9c2597cd894908839c5d2775ec",
+            "123a3c4527f9d937431851d8366ebeb205d743e0cc3d8db7d4505161138d5539",
+            "8b7c916189ba869d87ceadd71837b970d1808a6bd62134ffb0b7a7b5f6f50b59",
+            "14df28e41f95175bc9c73e4228ef5b982e515c11930f96b40f1eb0dd95a90de0"
+          ],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Sidebar.Settings.Helpers.ps1",
+          "kind": "helpers",
+          "originalRanges": [
+            [
+              430,
+              608
+            ]
+          ],
+          "baselineSha256": "841d6c1ee5453d375a30aa406d6d37de120ab4a76975fbe4f7306758b8c0a628",
+          "refactored": false,
+          "functions": [
+            {
+              "assertions": [
+                "43639ad11809136158f6fceaac3b53751fb5f6b2b5a07ec9e9097e7fa99495dd",
+                "07e6bd2d0b7571b98529cba9198d98cd5f4db0c1786ae7cd8ae235cdcd96d84b",
+                "084589ae857e7a2a2b83697b458ca8222c2d6d1283c4f71bc995ead78991510a",
+                "32b00933bdca8c5a0759592f05fe27f053b994b2b19c95f4cc95872a39c150da",
+                "7ad6f44da2341fa92a5df95672b8a06f4c00ed89ceeae16c694cd9ba4ae450b7",
+                "01cfd69dff37d96717b918d676f18faff0fa0a3a18692ab3789dbafa0bb20fc7",
+                "40f03978adc56acaa5da3c856d7f4b9506887c2dec275fd1df01ffd86c5e1f72",
+                "0c98c4ff809b0d253e407bab18aa1c1d190e712c0cb19c1ccedee1ed6f44b338",
+                "513f55e62bbba042347795806faeca50c30b68b131cf2908e4efc986a237bd4c",
+                "372fb8eba2cc894c1b691bd946700acbf4c1a7b6b6d3c0118e220121583e2ac9",
+                "2266902aa359b4f6f1698a1f921519524cc4321068c54208b0d7360d7f094cd5",
+                "db31f637a994fa412bb149b78ea0748ec4cef7702ef0ce9f08f4ab5d8ce91f34",
+                "b4b7fe3829523393f827bd4a1cc84e75f3dfca15285c583a6dff5e32e0b82d47",
+                "cb1918b6e625f194537739d67be694c12eb004813cd94d5b5347ebc003b2e155",
+                "4f4625a739d9f69cc6e2012e6905e06e287805ec39606172bbd4f7af7de3dd1b",
+                "3ba0b976d45cbc07521d7ae2f0843fe91fb184ff12f8df3e2786788883b189d5",
+                "54e2bb0b984d9930f472275de5d9cbee8a1414849181588e394a5005a0911e9d",
+                "0f48d7d6310c0eba825f2e1dac4547021339f9ec2a6b65582392ab1b551fcc9d",
+                "b49f6e7e8c94fc7188d4c8eeb5c6367f6cae8ed108f94279dc1901791b7545d4",
+                "7ccc0909127f344ede1998a4cf3f6eecdd87237680c993d9006e0b22a0bc43dd",
+                "47775c07e58a97b2c05e8692c33f1517163fdb5611bcf50553e171fdace47bcb",
+                "01d35309ba4a06af22ac4bf5c74f26a9fd5b021dbe537f2a1651e1a35a2836f6"
+              ],
+              "name": "Test-SettingsLayout",
+              "refactored": false,
+              "baselineSha256": "841d6c1ee5453d375a30aa406d6d37de120ab4a76975fbe4f7306758b8c0a628"
+            }
+          ],
+          "captures": [
+            "3ea5b73b71db3b35410b4191d5f981fdb4388b53e282c1d42276359b13a33fcc",
+            "f7174015732a8079bbee97941c6aa96d33f81984d3283809dd9a1cf7164cd158",
+            "d9dd08f2f104ab28a27f7b794b630307d1fc9a4f39948762cf1e7d03f76b27d7",
+            "e758ca3936a1a7e031b00aadb6787fdabb841d3a1fd56114c3ddbec20e9223b3",
+            "2c2018055cf8a3df2b882366e17b18a3947d252cea14192888dcb18291af04e7",
+            "3b0e7262c14b0710985155e1ec6245a795171641a4d7b215f638d2af8362dbe4"
+          ],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Sidebar.Scans.Helpers.ps1",
+          "kind": "helpers",
+          "originalRanges": [
+            [
+              609,
+              905
+            ]
+          ],
+          "baselineSha256": "bd6ab971eadfa071566d71724b00b26cdd7bffa0c35552ee3b73948a581c9a90",
+          "refactored": true,
+          "functions": [
+            {
+              "assertions": [
+                "b5efd29217df2ff28e4a120ba06b7bf80d3d2f5f1b60a6eeb232ccbc62872072"
+              ],
+              "name": "Wait-DeviceScan",
+              "refactored": true,
+              "baselineSha256": "a63fafc9cd3c216af9bac249c3106c895aeba1b836e02f21f07fb8cd6942b228"
+            },
+            {
+              "assertions": [
+                "4f200beec8e1013f2747c0359524a3ca613cb5f9b5e7d671e1c81199cf7f31d6",
+                "79f511e09d7b758835e32c125af112fc7aa01300c711fad18ad1ab0e2e593edc",
+                "b5de96fafc117a0226d5e20f06b0f56e7d95b419fee010f3dd509267a5055ac0",
+                "8df24b9f7fff32fae1b4104a28784d67e146485c0552782e4b010a05a7f1eb63",
+                "d6177c8e3be8ec934b0d48259b17d077c706d23bdfefb22d3725eb114331e9e7",
+                "abf106101a0c1e3e88e425d9df9c6760977bbe7ebfe56467eeec56bffbb5fe54",
+                "b1c19debc7444dd5a1cc1593c10e7fadf6d9fbe69d57992872437a6ebddc963e",
+                "5da9e47b4a11ffe5ba38af06d134d6afd752853e4bbe1d13170651b152f7d124",
+                "fd641048bc1aa6c670d2e9e8a8d3f0e14bd50306792ae12daa408e08a8db3cab",
+                "7c7b2d26ca0e5605f85a23e3a965c078f3645e71cd37511b037053728840ac58",
+                "62aa2521c8cecc34f6491c8550017f9e6598299c7f0e43726f0d430f1b6a7947",
+                "539bb0d1ea9e5b833315b5707d8167f4c7742c56ac2ee2465edd528b8e90065f",
+                "fd67198867a9a14770619c84de1f508769192855a0fe6d5089cf676b159443b5",
+                "b9c308267539317b5147ad27b40c9e0d51ede07917cdb73a129452b35667aefc"
+              ],
+              "name": "Test-DeviceRefresh",
+              "refactored": true,
+              "baselineSha256": "38d463171e751e15016349f36e58d0d5334a6b92a2e23f4895888c672b692685"
+            },
+            {
+              "assertions": [
+                "acd7d787212ce3c9fc5a51946435100eabb2ab1ddaddaa3e094274a9a3132aa2",
+                "e52fb83b6cce0eced376ef4de74082242e32d8745ed0b7fd841adf831e0f6818",
+                "11fbafcbb3cc1d61b945fb396f4daa926d927c04ac13e6bfae95247b33833aaf",
+                "ad3962650e9641abc1f9a565d7710e7f35e49af9a219ea3fec489289b2edb7ec",
+                "f73c94bcc4de425ed1e4bcb00140c1cb2244b5ab4199f3acb6e4b880331bb231",
+                "8a16c7dd5edb15a90995004d7acf1059ba70820fafa81c6a946cecbba95ee844",
+                "09db6c857998c34539b38af376661e4f60fa7e7dc5a77c68624cd6d4576f53b6",
+                "39aef8f4324bab3b0660d00668a05aa68394135129f2967bc6367ee09aab35aa",
+                "05ec25533ff6409d3a58926ba97df1e9fe4b5f426cdaf98899c7cd73c43b17c9",
+                "65cdfeb8d13bbe3d40adade9dd1a42b39a6efbb0cc83a5b575a869a0ad326820",
+                "39aef8f4324bab3b0660d00668a05aa68394135129f2967bc6367ee09aab35aa",
+                "3f3d3440b35fd74e4205d9d055195d46721e9d851c3c7a16c9cf57d615f88592",
+                "39aef8f4324bab3b0660d00668a05aa68394135129f2967bc6367ee09aab35aa"
+              ],
+              "name": "Test-ScanPresentation",
+              "refactored": false,
+              "baselineSha256": "44e1fa531b6ec95be1b759dd5a2d7db936db5f6cffb34fea058a73de996bc905"
+            }
+          ],
+          "captures": [
+            "fbf9b63ad539b133fa95aaf358ab9669d9c94d193d6c7dd040aff27e849c9ef7"
+          ],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Sidebar.Scheduled.Helpers.ps1",
+          "kind": "helpers",
+          "originalRanges": [
+            [
+              979,
+              1229
+            ]
+          ],
+          "baselineSha256": "dbcd501e66237ede6aa60ce4c70e95bba21e029d0bb881578bab079828a727eb",
+          "refactored": true,
+          "functions": [
+            {
+              "assertions": [
+                "f64d0971530a6f4dea41b42c019dd69e205b4299563edc035a3f405afa242ccc"
+              ],
+              "name": "Wait-SidebarText",
+              "refactored": true,
+              "baselineSha256": "7ea2e0a8cefd6f7bef91349a888fa4f5a6d37aad956fbb5b8a5ef4f099dc2524"
+            },
+            {
+              "assertions": [],
+              "name": "Save-ScheduledScanFailure",
+              "refactored": false,
+              "baselineSha256": "99372260a97014800dfa9460e3daedfe211a13f857016c928f9d8bb0c69415ce"
+            },
+            {
+              "assertions": [
+                "708465eea562148f94e70c7e7372baf3802dd21a290d4b38e1796bc38d2bd608"
+              ],
+              "name": "Assert-ScheduledScanSettings",
+              "refactored": false,
+              "baselineSha256": "bda78acfcbc54aa9ad4e846b39222bc51708459c6064227e8b677bcea96a4cb1"
+            },
+            {
+              "assertions": [
+                "57657d98a549845dc9b954ee52daca2dad4273527e20dcfa77d14f22440b90ed"
+              ],
+              "name": "Show-ScheduledScansCard",
+              "refactored": false,
+              "baselineSha256": "4dd5e495ed6dee996d2e0c20e98ab6dc7b6e6fae056a77c13e05bfbdf691d2c6"
+            },
+            {
+              "assertions": [],
+              "name": "Hide-ScheduledScansCard",
+              "refactored": false,
+              "baselineSha256": "769248f083c48ba777a12bee2279da121379f48713670c9d15ecefaac08b699b"
+            },
+            {
+              "assertions": [
+                "de0fddccc76c450cdc38fc3aecdf327f77c83687d049749010ec07d98f70d3a4"
+              ],
+              "name": "Switch-ScheduledScansWithKeyboard",
+              "refactored": false,
+              "baselineSha256": "3e12a69687906c6b31b7e982d23deaa593d5efd590142327cb165e475da1bb2d"
+            },
+            {
+              "assertions": [
+                "d6a1bb8f4a781e3a1a8b69d3175b8e71b78860d5401b4637474a357f012ade80"
+              ],
+              "name": "Assert-ScheduledScansSelection",
+              "refactored": false,
+              "baselineSha256": "cbcfda9e2a93e5ba9b63bdbd11c662fa2188c2a59d4b6b4469f36807d72803d2"
+            },
+            {
+              "assertions": [
+                "9ff885e3e8a7d1641828ff4e5b3a385d9fb2f4a1b7d5c040662b0550986c96fe",
+                "1c462b896a095c0d0f4050d9743a9458a7685fa99d3a572659519eb9ff3bea7c",
+                "952cb48d24bfc6ffa5f1b4a8438d06152f024227d4181f312d3abcfcf5d29b6c",
+                "a15016268f11845af48173b34e341304ef9ef1b6af083d2dcbcc648190567ba7",
+                "70f1ae1d038c352494716d299964891bc5c67e072657418bea2ebe32159d38d8",
+                "81d5d2fd4c24e1e25f688f34909e90959b436096df5f26c4ac9b6d31b53490f7",
+                "3029c5b920b018d68270702e976be5e912c691554171b28b6b596b9f24e82f27",
+                "bb5cdb64f798de42ac21e8a33721c7413947dee27b9bcde4e8da3bcfa44142b0",
+                "66d961c041b3e5c4872aabc734c17329e41face4ec43e481d9a701fffc05a312",
+                "88f0ba8d8566297d76d1709ebc735e39e51fec2451af782b3c35ad69d2f455f5",
+                "c421e6f614bb091eef240406a22905a140e7fab5bca6d62b30a58eb5846e0c33",
+                "e52fb83b6cce0eced376ef4de74082242e32d8745ed0b7fd841adf831e0f6818",
+                "39aef8f4324bab3b0660d00668a05aa68394135129f2967bc6367ee09aab35aa",
+                "39aef8f4324bab3b0660d00668a05aa68394135129f2967bc6367ee09aab35aa",
+                "39aef8f4324bab3b0660d00668a05aa68394135129f2967bc6367ee09aab35aa"
+              ],
+              "name": "Test-ScheduledScans",
+              "refactored": false,
+              "baselineSha256": "3350cfea27c145567cebb975148c9858456103ea0c9c1156743c1b8b5ec6cda3"
+            }
+          ],
+          "captures": [
+            "268b0d80ec6bf6d9dbd6ecc14d52a57391a95c74bb9f1dd7aeb1f5784767ff47",
+            "2eb134db9bbcb6ca25154179580717ccfde05c5ffdb3d1401662e8abecd1a529",
+            "2d453bd391d1f2e7d3d5ea5349eed66e67d49549b2d3c083356e14710a017a97",
+            "8648a6d3926ea58e92f7be606d181a6086860de1a6c2263ae1a70938f5b535cd",
+            "966090633a6bee9e7dce2353228827f3d7b721b74478e3fca742da7fe6d9530a",
+            "f569f87fc21770e925a281e0212bdf211cc696aaec6e6f3e3cd196c7f389dce1",
+            "bd602ebbda2996d8d934e05e01198314a58c01dc8c62517d85485273e7923cc7"
+          ],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Sidebar.Setup.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [
+            1244,
+            1254
+          ],
+          "baselineSha256": "918cf2a2ed383ebc4db422311acd11879fea8ffd194c08f5f5ccc08f94adae4e",
+          "refactored": true,
+          "functions": [],
+          "captures": [],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Sidebar.Navigation.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [
+            1255,
+            1285
+          ],
+          "baselineSha256": "e923750ed42f4d789b377a5c4b6807a8a38e4d28fe863a3ea37fbdc82c415e78",
+          "refactored": false,
+          "functions": [],
+          "captures": [
+            "06bdd1a47c815c22a9e23929752f4789d67617f0da0074322279e3efd9445cdf"
+          ],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Sidebar.Settings.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [
+            1286,
+            1286
+          ],
+          "baselineSha256": "ac2533494fa4c0eadf07351879757ff49c961c98bc14fed5e8b606d3e2393f64",
+          "refactored": false,
+          "functions": [],
+          "captures": [],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Sidebar.Appearance.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [
+            1287,
+            1296
+          ],
+          "baselineSha256": "291544e71d18a4cd946472975d213fe279f66481ade8c4a2277a0748fe78f539",
+          "refactored": false,
+          "functions": [],
+          "captures": [
+            "da901e1248c1b5cccdc741440da7b359ad6264edf56c82d8b6b24b5e2922d5e1",
+            "87db7c154e30e231a44628396e850c61f421749af03786696e2dc9d5c2c0a4b9"
+          ],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Sidebar.Responsive.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [
+            1298,
+            1324
+          ],
+          "baselineSha256": "450d9141e94a5cb9b59997c1cd0e7b9a8dfe0047f0ca24b7a63af389a01436f2",
+          "refactored": false,
+          "functions": [],
+          "captures": [
+            "9a972709a1fcf3a3d50edaeb9eacd40d825dee49e1042c6e2d6b66b1cb11fa46",
+            "cf337ce056fd61192cc614530acb7f9341c38669d0461aff0391f5be32648650"
+          ],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Sidebar.Refresh.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [
+            1325,
+            1325
+          ],
+          "baselineSha256": "f5f9379d04173ebb166bfab76095df8696bae22ec01e7db30b22a62a9c25c0c8",
+          "refactored": false,
+          "functions": [],
+          "captures": [],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Sidebar.Progress.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [
+            1326,
+            1326
+          ],
+          "baselineSha256": "6e2737bb3d79c6a0d317f67757c06b31f44eeb9b588cbf0d2a2d706265e718ac",
+          "refactored": false,
+          "functions": [],
+          "captures": [],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Sidebar.Persistence.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [
+            1327,
+            1327
+          ],
+          "baselineSha256": "9e40fcada5f76e15ceedb4352ebd3cab89f4399f3a20e64aeae9aede5f522fc4",
+          "refactored": false,
+          "functions": [],
+          "captures": [],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Sidebar.Scheduled.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [
+            1328,
+            1328
+          ],
+          "baselineSha256": "995da1e76de6ee9220689936979d3146fbbc8417b32b69ca58cfccb7e3028ace",
+          "refactored": false,
+          "functions": [],
+          "captures": [],
+          "fixtureAssignments": []
+        }
+      ],
+      "scenarioOrder": [
+        "Setup",
+        "Navigation",
+        "Settings",
+        "Appearance",
+        "Responsive",
+        "Refresh",
+        "Progress",
+        "Persistence",
+        "Scheduled"
+      ]
+    }
+  ],
+  "refactorNotes": [
+    "Definitions, behavioral assertions, capture call sites and module order are mapped to the immutable baseline. Hashes normalize CRLF and outer whitespace. Baseline scenario ranges first remove their enclosing try block four-space indentation, exactly as extraction did.",
+    "Explicit refactored functions migrate readiness, scoping, capture timing and process cleanup. Setup creates isolated fixtures; Test-DeviceRefresh rejects the normal user snapshot fallback. All other function bodies and scenarios remain byte-equivalent after normalization.",
+    "The shared-state top-level modules run at entry script scope in original order. These structural checks supplement, and never replace, disposable native evidence."
+  ]
+}

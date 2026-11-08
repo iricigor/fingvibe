@@ -61,19 +61,29 @@ replace another worker. Re-read assignment state immediately before edits.
   rules in section 4. Run focused local validation, commit/push the same PR, and
   record an immutable implementation-ready result with full head SHA, acceptance
   evidence, applicable remote validation expectations, known limitations, and
-  actual branch/worktree. Keep the draft WIP and active while remote CI is pending.
+  actual branch/worktree. Identify affected UI-regression jobs from the current
+  workflow/scenario plan and diff, including shared UI changes; record available
+  duration evidence or pending validation expectations. Do not claim the duration
+  budget is met before that evidence exists. Keep the draft WIP and active while
+  remote CI is pending.
   Do not wait for CI, merge, or release the claim. Finish.
 - **Repair:** Verify the prior worker stopped, existing worktree/branch/PR,
   current head equals the assignment's expected revision, feedback identity,
   authorization, and persisted repairCount = 1. Only one automatic repair attempt
   is allowed per claim, not per failed check. Diagnose actual logs/review evidence;
-  fix implementation-caused failures within scope. Never weaken gates or rerun
+  fix implementation-caused failures and assigned duration-budget violations
+  within scope. Include affected-job/duration evidence or pending expectations
+  in the new implementation-ready result. Never weaken gates or rerun
   unexplained failures. Keep/restore the same WIP draft, active, and claim. Push,
   publish a new implementation-ready result, and finish without waiting.
 - **Finalize:** This action is non-coding. Verify prior worker termination, exact
   expected head, implementation-ready evidence, acceptance criteria, current
   applicable checks/reviews, base freshness, and merge authorization. Passing
-  visible checks alone is insufficient. No new commits or conflict repairs.
+  visible checks alone is insufficient. Independently discover all applicable
+  UI-regression jobs and verify section 5's duration rule and affected-UI
+  evidence, including future jobs. Dispatcher clearance is not a substitute
+  for this check. An over-budget affected job requires repair, not merging.
+  No new commits or conflict repairs.
   If evidence is pending/unavailable or a repair is needed, record the reason and
   finish unmerged; do not launch another worker. When ready, update the same PR,
   remove WIP, mark ready, change active to status:review, and verify. Merge without
@@ -260,6 +270,34 @@ Add focused regression coverage and run the smallest relevant existing checks.
 Use existing Windows CI/native UI-review facilities for applicable UI changes.
 Never automate the user's working desktop or alter their real saved inventory.
 Use deterministic synthetic fixtures and existing test data-isolation patterns.
+Follow CONTRIBUTING's native UI regression contract: extend focused feature
+modules and shared bounded readiness/lifecycle helpers; preserve scenario order,
+automation IDs, page namescopes, keyboard and rendered/virtualized reachability.
+Use representative isolated small/empty/error and relevant large-data fixtures,
+agree measurable budgets before implementation, and keep query/resource tests
+WinUI-free where appropriate without replacing native integration. Inspect
+current-revision phase/failure diagnostics; do not hide failures by retries,
+longer timeouts or reduced assertions. This does not introduce #242/#256's
+future fast/full execution or mandatory coverage-manifest policy.
+
+Discover every applicable UI-regression job from the current workflows and
+scenario-selection evidence, including future matrix entries and newly added
+regression jobs; do not use a fixed list of job names. Check and report each
+job's latest-revision run/job identity, status, full duration and affected-UI
+rationale from the diff and scenario coverage, including shared UI changes.
+Measure each complete job, including setup, native checks and cleanup, not
+individual scripts or internal phases. If a job exceeds 240 seconds and this
+change modifies the UI that job covers, fix the cause and revalidate until the job is at most 240
+seconds, even if it was already slow before this change. Use logs/phase timings
+to diagnose costs; never drop coverage, fixtures or deliberate timing checks
+to meet the budget. A job at or below 240 seconds, or covering unchanged UI,
+requires no duration-related remediation. These exemptions do not waive failed
+checks; missing, skipped, cancelled or failed applicable results are not passing
+evidence. Justified policy-based skips retain their existing applicability
+requirements and must not be reported as meeting the duration budget.
+If remediation requires a material scope/design change, report the blocker
+rather than silently expanding scope or waiving the budget. This is an agent
+delivery requirement, not a new CI timeout, matrix entry or automated gate.
 
 Commit and push to the same PR, preserving its closing reference. Inspect the
 actual applicable workflows and authoritative checks/reviews for this change.
@@ -292,7 +330,9 @@ The open PR/review claim still consumes the slot.
 
 Before merging, confirm the PR head is still the validated revision, its base
 matches the intended target, and it has no conflicts or unresolved blocking
-reviews. Revalidate changes made for conflicts or base updates and satisfy any
+reviews. Independently verify section 5's duration rule for every applicable
+UI-regression job; green checks alone do not prove duration compliance.
+Revalidate changes made for conflicts or base updates and satisfy any
 required base-freshness rules. Keep the claim through repair.
 
 Merge only this PR using an allowed repository merge method and a head-bound

@@ -8,7 +8,7 @@ function Read-UsageTestAst([string] $Name) {
     return $ast
 }
 
-$devices = Read-UsageTestAst "DevicesList.Ui.Tests.ps1"
+$devices = Read-UsageTestAst "UiRegression\Devices.Filters.Helpers.ps1"
 $usage = Read-UsageTestAst "UsageCategory.Ui.Tests.ps1"
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 if (-not [System.Windows.Automation.SelectionPattern+SelectionPatternInformation].GetMethod("GetSelection") -or
