@@ -118,7 +118,8 @@
                                         Style="{StaticResource AccentButtonStyle}" Click="UsageCategorySave_Click"
                                         AutomationProperties.AutomationId="UsageCategorySave" />
                                 <Button x:Name="UsageCategoryCancel" Content="Cancel" HorizontalAlignment="Stretch"
-                                        Click="UsageCategoryCancel_Click" AutomationProperties.AutomationId="UsageCategoryCancel" />
+                                        Click="UsageCategoryCancel_Click" AutomationProperties.AutomationId="UsageCategoryCancel"
+                                        AutomationProperties.Name="Cancel category changes" />
                             </Grid>
                             <TextBlock x:Name="UsageCategoryEditStatus" TextWrapping="Wrap" FontSize="12"
                                        AutomationProperties.LiveSetting="Polite" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />

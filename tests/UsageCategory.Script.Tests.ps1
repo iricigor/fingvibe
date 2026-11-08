@@ -65,6 +65,41 @@ if (-not [System.Windows.Automation.SelectionPattern+SelectionPatternInformation
     }
     if (-not $failed) { throw "Wrong native category must fail, not pass after scrolling." }
 }
+& {
+    $helper = $usage.Find({
+        param($node)
+        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq "Show-Usage"
+    }, $true)
+    Invoke-Expression $helper.Extent.Text
+    function Start-Sleep { param([int] $Milliseconds) }
+    $script:root = [pscustomobject]@{ Current = [pscustomobject]@{
+        BoundingRectangle = [System.Drawing.RectangleF]::new(0, 0, 1280, 800) } }
+    $state = @{ Percent = -1; BaseBottom = 1000 }
+    $control = [pscustomobject]@{ Current = [pscustomobject]@{
+        IsOffscreen = $false; BoundingRectangle = [System.Drawing.RectangleF]::new(852, 960, 360, 40) } }
+    $scroll = [pscustomobject]@{ Current = [pscustomobject]@{ VerticallyScrollable = $true } }
+    $scroll | Add-Member ScriptMethod SetScrollPercent {
+        param($Horizontal, $Vertical)
+        $state.Percent = $Vertical
+        $control.Current.BoundingRectangle = [System.Drawing.RectangleF]::new(
+            852, $state.BaseBottom - 40 - $Vertical * 8, 360, 40)
+    }
+    $viewport = [pscustomobject]@{ Current = [pscustomobject]@{
+        BoundingRectangle = [System.Drawing.RectangleF]::new(250, 107, 1000, 733) } }
+    $viewport | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $scroll }
+    function Find-Usage([string] $Id) {
+        if ($Id -eq "DeviceDetailsScroll") { return $viewport }
+        return $control
+    }
+    $null = Show-Usage UsageCategorySave
+    if ($state.Percent -ne 27 -or $control.Current.BoundingRectangle.Bottom -gt 784) {
+        throw "Usage controls were judged against the automation viewport instead of the physical window."
+    }
+    $state.BaseBottom = 2000
+    $failure = $null
+    try { $null = Show-Usage UsageCategorySave } catch { $failure = $_.Exception.Message }
+    if ($failure -notlike "*clipped or unreachable*") { throw "A control beyond the physical window must not be reported visible." }
+}
 
 # Execute only the synthetic fixture construction, never the UI script's startup or desktop helpers.
 $fixture = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-usage-script-$([Guid]::NewGuid().ToString('N'))"

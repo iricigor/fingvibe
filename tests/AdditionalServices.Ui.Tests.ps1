@@ -213,6 +213,27 @@ function Show-ServiceScanSection([int] $ExtraSpace = 0) {
     throw "The scan controls could not fit the physical viewport: window=$window, scroll=$area, button=$button, UDP option=$heading."
 }
 
+function Show-ServiceCardFootnotes {
+    $element = Find-ServiceControl DeviceDetailsScroll
+    $scroll = $element.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+    $scale = [UiReviewNativeWindow]::GetDpiForWindow($process.MainWindowHandle) / 96.0
+    foreach ($percent in 0..100) {
+        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
+        Start-Sleep -Milliseconds 50
+        $area = $element.Current.BoundingRectangle
+        $window = Get-UiReviewWindowBounds $process.MainWindowHandle
+        $bottom = [Math]::Min($area.Bottom, $window.Bottom - 48 * $scale)
+        $networkNote = (Find-ServiceControl DeviceAddressSourceText).Current.BoundingRectangle
+        $assignmentNote = (Find-ServiceControl DeviceAssignmentStatusText).Current.BoundingRectangle
+        if ($networkNote.Width -gt 0 -and $assignmentNote.Width -gt 0 -and
+            $networkNote.Top -ge $area.Top -and $assignmentNote.Top -ge $area.Top -and
+            $networkNote.Bottom -le $bottom -and $assignmentNote.Bottom -le $bottom) {
+            return
+        }
+    }
+    throw "Both aligned card footnotes must fit the physical details viewport: window=$window, scroll=$area, network=$networkNote, assignments=$assignmentNote."
+}
+
 function Save-ServiceEvidence([string] $Name, [switch] $DevicesList) {
     if (-not $DevicesList) { Show-ServiceScanSection }
     Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Name.png")
@@ -242,21 +263,7 @@ function Test-DeviceDetailsEditing {
         throw "Network overview and Assignments must share the top row in left/right order."
     }
     Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-details-wide.png")
-    $notesVisible = $false
-    foreach ($percent in 0..100) {
-        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
-        Start-Sleep -Milliseconds 20
-        $viewport = (Find-ServiceControl DeviceDetailsScroll).Current.BoundingRectangle
-        $networkNote = (Find-ServiceControl DeviceAddressSourceText).Current.BoundingRectangle
-        $assignmentNote = (Find-ServiceControl DeviceAssignmentStatusText).Current.BoundingRectangle
-        if ($networkNote.Width -gt 0 -and $assignmentNote.Width -gt 0 -and
-            $networkNote.Top -ge $viewport.Top -and $assignmentNote.Top -ge $viewport.Top -and
-            $networkNote.Bottom -le $viewport.Bottom -and $assignmentNote.Bottom -le $viewport.Bottom) {
-            $notesVisible = $true
-            break
-        }
-    }
-    if (-not $notesVisible) { throw "Both aligned card footnotes must be reachable in the details viewport." }
+    Show-ServiceCardFootnotes
     Wait-ServiceState {
         (Find-ServiceControl DeviceAddressSourceText).Current.BoundingRectangle.Width -gt 0 -and
         (Find-ServiceControl DeviceAssignmentStatusText).Current.BoundingRectangle.Width -gt 0

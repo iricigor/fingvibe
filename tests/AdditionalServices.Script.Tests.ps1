@@ -75,7 +75,7 @@ $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile(
     (Join-Path $PSScriptRoot "AdditionalServices.Ui.Tests.ps1"), [ref]$null, [ref]$parseErrors)
 if ($parseErrors) { throw ($parseErrors.Message -join "; ") }
-foreach ($name in @("Wait-ServiceState", "Select-ServicePage", "Show-ServiceScanSection")) {
+foreach ($name in @("Wait-ServiceState", "Select-ServicePage", "Show-ServiceScanSection", "Show-ServiceCardFootnotes")) {
     $definition = $ast.Find({
         param($node)
         $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name
@@ -158,5 +158,48 @@ $callsBeforeCapture = $script:fixtureScrollCalls
 Show-ServiceScanSection
 if ($script:fixtureScrollCalls -ne $callsBeforeCapture + 1) {
     throw "The early-result capture searched the viewport instead of using its prepared position."
+}
+
+$script:footnoteNetworkBottom = 900
+$script:footnoteAssignmentBottom = 960
+$script:footnoteScrollPercent = -1
+$script:footnoteNetworkPeer = [pscustomobject]@{ Current = [pscustomobject]@{
+    BoundingRectangle = [System.Drawing.RectangleF]::new(312, 880, 520, 20)
+} }
+$script:footnoteAssignmentPeer = [pscustomobject]@{ Current = [pscustomobject]@{
+    BoundingRectangle = [System.Drawing.RectangleF]::new(852, 920, 360, 40)
+} }
+$script:footnoteScroll = [pscustomobject]@{ Current = [pscustomobject]@{ VerticallyScrollable = $true } }
+$script:footnoteScroll | Add-Member ScriptMethod SetScrollPercent {
+    param($Horizontal, $Vertical)
+    $script:footnoteScrollPercent = $Vertical
+    $offset = $Vertical * 8
+    $script:footnoteNetworkPeer.Current.BoundingRectangle = [System.Drawing.RectangleF]::new(
+        312, $script:footnoteNetworkBottom - 20 - $offset, 520, 20)
+    $script:footnoteAssignmentPeer.Current.BoundingRectangle = [System.Drawing.RectangleF]::new(
+        852, $script:footnoteAssignmentBottom - 40 - $offset, 360, 40)
+}
+$script:footnoteScrollElement = [pscustomobject]@{ Current = [pscustomobject]@{
+    BoundingRectangle = [System.Drawing.RectangleF]::new(312, 190, 900, 1500)
+} }
+$script:footnoteScrollElement | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $script:footnoteScroll }
+function Find-ServiceControl {
+    param([string] $Value, [switch] $ByName)
+    switch ($Value) {
+        "DeviceDetailsScroll" { return $script:footnoteScrollElement }
+        "DeviceAddressSourceText" { return $script:footnoteNetworkPeer }
+        "DeviceAssignmentStatusText" { return $script:footnoteAssignmentPeer }
+        default { throw "Unexpected mock control $Value." }
+    }
+}
+Show-ServiceCardFootnotes
+if ($script:footnoteScrollPercent -ne 36 -or $script:footnoteAssignmentPeer.Current.BoundingRectangle.Bottom -gt 672) {
+    throw "Card footnotes were judged against the automation viewport instead of the physical window."
+}
+$script:footnoteAssignmentBottom = 2000
+$failure = $null
+try { Show-ServiceCardFootnotes } catch { $failure = $_.Exception.Message }
+if ($failure -notlike "*physical details viewport*") {
+    throw "Unreachable card footnotes must fail with physical viewport diagnostics."
 }
 Write-Host "Additional service UI helper regression checks passed without desktop automation."

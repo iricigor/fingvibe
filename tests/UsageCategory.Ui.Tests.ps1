@@ -98,8 +98,10 @@ function Show-Usage([string] $Id) {
         $control = Find-Usage $Id
         $bounds = $control.Current.BoundingRectangle
         $area = $viewport.Current.BoundingRectangle
+        # The scroll viewer's automation bounds can extend past the physical window frame.
+        $bottom = [Math]::Min($area.Bottom, $script:root.Current.BoundingRectangle.Bottom - 16)
         if (-not $control.Current.IsOffscreen -and $bounds.Height -gt 0 -and
-            $bounds.Top -ge $area.Top -and $bounds.Bottom -le $area.Bottom) { return $control }
+            $bounds.Top -ge $area.Top -and $bounds.Bottom -le $bottom) { return $control }
     }
     throw "Usage control '$Id' is clipped or unreachable."
 }
@@ -149,7 +151,7 @@ $script:process = $null
 $lock = $null
 $contrast = $null
 foreach ($key in @("FINGVIBE_UI_REVIEW", "FINGVIBE_UI_REVIEW_INVENTORY", "FINGVIBE_UI_REVIEW_SNAPSHOT",
-    "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT", "FINGVIBE_UI_REVIEW_DEVICE_TABLE")) {
+    "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT", "FINGVIBE_UI_REVIEW_DEVICE_TABLE", "FINGVIBE_UI_REVIEW_NETWORK")) {
     $previous[$key] = [Environment]::GetEnvironmentVariable($key)
 }
 try {
@@ -190,6 +192,8 @@ try {
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $snapshot
     $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT = "0"
     $env:FINGVIBE_UI_REVIEW_DEVICE_TABLE = Join-Path $fixture "table.json"
+    # Earlier checks in the same PowerShell 7 process can leave this variable defined but empty, which the app would read as the network id.
+    $env:FINGVIBE_UI_REVIEW_NETWORK = "ui-review-network"
     Start-UsageApp
     Open-UsageDevice
     Assert-Usage Permanent "Auto - limited evidence"
@@ -298,6 +302,9 @@ finally {
     if ($lock) { $lock.Dispose() }
     if ($null -ne $contrast) { [UsageReviewContrast]::Set($contrast) }
     if ($script:process -and -not $script:process.HasExited) { Stop-Process -Id $script:process.Id }
-    foreach ($key in $previous.Keys) { [Environment]::SetEnvironmentVariable($key, $previous[$key]) }
+    foreach ($key in $previous.Keys) {
+        if ([string]::IsNullOrEmpty($previous[$key])) { Remove-Item -LiteralPath "Env:$key" -ErrorAction SilentlyContinue }
+        else { [Environment]::SetEnvironmentVariable($key, $previous[$key]) }
+    }
     if (Test-Path -LiteralPath $fixture) { Remove-Item -LiteralPath $fixture -Recurse -Force }
 }

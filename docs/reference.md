@@ -259,7 +259,9 @@ ownership, visitors or human presence.
 Device details' **Assignments** card shows the saved effective category, automatic
 recommendation, exact counts, dates, timezone and sampling caveat. Choosing a
 category creates a draft; **Save category** and **Cancel** affect only that draft,
-independently of Person/Room's existing save-on-change behavior. **Automatic**
+independently of Person/Room's existing save-on-change behavior. Assistive
+technology announces the category button as **Cancel category changes**, so it
+is distinct from the identification editor's **Cancel**. **Automatic**
 removes the override and recomputes from current evidence. Normal overrides
 belong to the MAC; private-prefix virtual overrides belong to the stable virtual
 identity through changing MACs. Both are stored in the existing inventory
@@ -843,16 +845,17 @@ durable normal/virtual overrides, migration, conflicts, failed drafts and table
 integration.
 
 The disposable Windows history regression suite also runs
-`tests\UsageCategory.Ui.Tests.ps1`. It uses isolated inventory/snapshot/table
-fixtures to exercise automatic/unavailable/no-evidence states, separate Save/Cancel,
+`tests\UsageCategory.Ui.Tests.ps1`. It uses isolated inventory/snapshot/table fixtures
+and review network identity to exercise automatic/unavailable/no-evidence states, separate Save/Cancel,
 restart persistence, retained failed-save drafts, concurrent reload, unrelated
 metadata preservation, keyboard controls, narrow layouts, light/dark themes and
 high contrast. It refuses to run outside GitHub Actions; do not automate the
 working desktop or real saved inventory for these checks.
 After the Release Core build, `pwsh -File tests\UsageCategory.Script.Tests.ps1`
-checks the native test's checkbox dispatch, scroll-before-read assertions,
-failure diagnostics and exact synthetic JSON migration/query/classifier fixture
-without launching an app or automating the desktop.
+checks the native test's checkbox dispatch, scroll-before-read assertions that
+stay inside the physical window, failure diagnostics and exact synthetic JSON
+migration/query/classifier fixture without launching an app or automating the
+desktop.
 
 On an interactive Windows desktop at least 1024 logical pixels wide, run the native sidebar regression checks against a built application:
 
