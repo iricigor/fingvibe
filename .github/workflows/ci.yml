@@ -80,6 +80,10 @@ jobs:
         shell: pwsh
         run: .\tests\UsageCategory.Script.Tests.ps1
 
+      - name: Test device activity UI fixture without desktop automation
+        shell: pwsh
+        run: .\tests\DeviceActivity.Script.Tests.ps1
+
       - name: Test validation planning and comments
         shell: pwsh
         run: .\tests\PrValidation.Tests.ps1

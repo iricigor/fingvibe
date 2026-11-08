@@ -46,6 +46,7 @@ try {
                 Invoke-RegressionCheck "DeviceScanHistory.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "scan-history") }
                 Invoke-RegressionCheck "DeviceDiscovery.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "discovery") }
                 Invoke-RegressionCheck "UsageCategory.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "usage-category") }
+                Invoke-RegressionCheck "DeviceActivity.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "device-activity") }
             }
             else {
                 Write-Host "History/discovery checks are not required by this capture plan, preserving existing selection."

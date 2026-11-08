@@ -393,6 +393,39 @@ save-failure/retry behavior through the existing Windows CI device-details revie
 Its completed-scan and network fixtures are enabled only in UI-review mode.
 Never run native UI automation on a working user's desktop.
 
+### Device activity
+
+Device details shows **Activity** above the existing scan history. Choose
+**Last 7 days**, **Last 30 days**, or **30 days by weekday**, and group each local
+date into midnight-aligned 1, 2, 3 or 4-hour cells. Three-hour groups run
+00:00-03:00 through 21:00-24:00. The displayed Windows timezone and query time
+define the window; today includes only evidence collected so far.
+
+Green means at least one reliable response, even if other scans in the cell
+had no response. Slate means eligible observations with no response; hatching
+means unknown evidence, not offline. No state is interpolated between scans.
+Weekday numbers count responding dates; green strength divides by **all
+applicable dates**, including unknown ones. Three responding Wednesdays and one
+unknown therefore show 3, 75% green and hatching, not 100%. Entirely unknown
+cells show no zero or percentage. Skipped DST hours are not applicable and are
+excluded from that cell's denominator; repeated hours combine both instants.
+
+Select or focus a cell for exact response, nonresponse, unknown and date counts.
+Arrow keys move within the grid; Home/End move within its row. Narrow grids
+scroll horizontally instead of shrinking cells; 30-day rows scroll vertically.
+High contrast uses system colors and R/N/? symbols alongside accessible text.
+Changing device, network, period or hour grouping cancels older queries; leaving
+the page or closing the window cancels pending work. Refresh failures clear old
+results and expose **Retry**. Existing scan history and category editing remain
+independent.
+
+Activity reads the selected window off the UI thread through the shared SQLite
+evidence query. Imported aggregates, incomplete scans, pre-sighting gaps and
+ambiguous mappings cannot manufacture nonresponse. Core `DeviceActivity` output
+retains aligned identities, original contributing scan evidence, counts, union
+contributors and exact/partial/unknown coverage for later aggregate consumers;
+it contains no inferred uptime or scalar duration estimates.
+
 ### Device scan history
 
 Device details shows a **Scan history** summary for normal MAC-based devices and
@@ -830,7 +863,8 @@ process RSS are printed. First-query measurements do not force an OS cache flush
 Additional managed allocation is a conservative total-allocation ceiling, not
 process RSS or a claim that native SQLite memory is managed.
 
-The benchmark includes small reference bucket-union consumers and the production
+The benchmark includes production aligned `DeviceActivity` buckets (and
+single-device weekday grouping), as well as the production
 `DeviceUsageClassifier` over all selected devices' seven-date evidence. It enforces
 p95 at most 1 second for one device and 2 seconds each for network, equipment and
 all selected-device classification evidence; at most 128 MiB additional managed
@@ -843,6 +877,17 @@ revisions and cancellation/contention without touching the working inventory.
 rounding, missing comparators, limited evidence, overnight/weekend/DST behavior,
 durable normal/virtual overrides, migration, conflicts, failed drafts and table
 integration.
+
+`DeviceActivityTests` covers every hour stop, response-wins/known-zero/unknown,
+weekday denominators, explicit legacy evidence, identity union, first-sighting
+eligibility, exact time boundaries, DST and cancellation. The disposable Windows
+history suite also runs `tests\DeviceActivity.Ui.Tests.ps1` with an isolated
+synthetic inventory, exercising all modes/stops, cell keyboard details,
+loading/error/no-history states, selection changes, narrow scrolling, themes,
+high contrast and access to existing history. It refuses to run on the working
+desktop. After the Release Core build,
+`pwsh -File tests\DeviceActivity.Script.Tests.ps1` verifies its fixture through
+the actual migration/query/grouping path without launching the app.
 
 The disposable Windows history regression suite also runs
 `tests\UsageCategory.Ui.Tests.ps1`. It uses isolated inventory/snapshot/table fixtures

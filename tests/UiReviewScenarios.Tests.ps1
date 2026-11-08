@@ -148,6 +148,11 @@ try {
         "tests\UsageCategory.Ui.Tests.ps1")) {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails", "Settings") "Usage categories"
     }
+    foreach ($path in @("src\FingVibe.App\MainWindow.DeviceActivity.cs", "src\FingVibe.App\DeviceActivityPresentation.cs",
+        "src\FingVibe.App\Views\DeviceDetailsPageView.Activity.cs", "src\FingVibe.Core\Models\DeviceActivity.cs",
+        "tests\DeviceActivity.Ui.Tests.ps1", "tests\DeviceActivity.Fixture.ps1")) {
+        Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device activity"
+    }
     foreach ($path in @("src\FingVibe.Core\Models\DeviceInventory.cs", "src\FingVibe.Core\Models\PrivateVirtualDevice.cs",
         "src\FingVibe.Core\Models\DeviceHistorySummary.cs",
         "src\FingVibe.Core\Models\DeviceDiscovery.cs", "src\FingVibe.App\MainWindow.DiscoveryNotifications.cs",

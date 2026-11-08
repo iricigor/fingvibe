@@ -22,6 +22,7 @@ Current ownership boundaries:
 - `MainWindow.NetworkIdentity.cs` owns local network selection and public/local network identity display.
 - `MainWindow.Snapshots.cs` owns snapshot restoration, persistence status, and saved-scan state.
 - `MainWindow.DeviceDetails.cs` owns the selected-device details view.
+- `MainWindow.DeviceActivity.cs` supplies selected identity/network/revision context; `Views/DeviceDetailsPageView.Activity.cs` owns Activity controls, cancellable query lifecycle and grid presentation. Core `DeviceActivity` owns aligned buckets and weekday counts.
 - `MainWindow.PeopleRooms.cs` owns People/Rooms persistence and assignment orchestration across pages.
 - `Views/*PageView.xaml(.cs)` owns each page's visual tree, child controls, local layout, and UI request events. Child controls stay private; the shell supplies display data and handles requests through focused page APIs.
 - `MainWindow.xaml` owns navigation, the shared scan header and independent build-ribbon overlay, and composes the page controls. `Tools/ToolsPage.xaml(.cs)` continues to own Tools navigation and lifecycle forwarding.

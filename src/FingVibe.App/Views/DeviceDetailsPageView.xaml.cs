@@ -31,7 +31,9 @@ public sealed partial class DeviceDetailsPageView : UserControl
         InitializeComponent();
         InitializeClassificationPickers();
         InitializeUsageCategory();
+        InitializeActivity();
         _historyClock.Tick += (_, _) => RefreshHistorySummary();
+        _historyClock.Tick += (_, _) => RefreshActivityDate();
         Loaded += (_, _) => { RefreshHistorySummary(); _historyClock.Start(); };
         Unloaded += (_, _) => _historyClock.Stop();
         GotFocus += (_, args) =>
