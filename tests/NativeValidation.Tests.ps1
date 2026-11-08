@@ -1,5 +1,6 @@
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "..\.github\scripts\NativeValidation.ps1")
+. (Join-Path $PSScriptRoot "UiRegression\Helpers.ps1")
 
 function Assert-NativeEqual($Actual, $Expected, [string] $Message) {
     if (($Actual -join "|") -cne ($Expected -join "|")) { throw "$Message : expected '$Expected', got '$Actual'." }
@@ -169,6 +170,35 @@ $workflowDirectory = Join-Path $PSScriptRoot "..\.github\workflows"
 $comparison = Get-Content (Join-Path $workflowDirectory "native-comparison.yml") -Raw
 $standalone = Get-Content (Join-Path $workflowDirectory "native-full.yml") -Raw
 $reusable = Get-Content (Join-Path $workflowDirectory "native-validation.yml") -Raw
+$planMatch = [regex]::Match($reusable, '(?s)name: Validate execution request and record source revision.*?run: \|\r?\n(.*?)\r?\n  checks:')
+if (-not $planMatch.Success) { throw "Reusable workflow planning step was not found." }
+$planScript = $planMatch.Groups[1].Value -replace '(?m)^          ', ''
+$planScript = $planScript.Replace('${{ github.workflow_sha }}', 'fixture-harness')
+$planAction = [scriptblock]::Create($planScript)
+$outputPath = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-native-output-$([Guid]::NewGuid()).txt"
+$savedPlanEnvironment = Save-UiRegressionEnvironment @("MODE", "GITHUB_OUTPUT", "GITHUB_STEP_SUMMARY")
+try {
+    $env:GITHUB_OUTPUT = $outputPath
+    $env:GITHUB_STEP_SUMMARY = "$outputPath-summary"
+    foreach ($mode in @("Baseline", "Full")) {
+        $env:MODE = $mode
+        & $planAction
+        $json = @(Get-Content $outputPath | Where-Object { $_.StartsWith("suites=") })[-1].Substring(7)
+        if (-not $json.StartsWith("[") -or -not $json.EndsWith("]")) {
+            throw "Matrix suite output must remain a JSON array even for the single baseline suite: $json"
+        }
+        $expected = if ($mode -eq "Baseline") { @("capture") } else { @("sidebar", "devices", "history", "tools", "capture") }
+        Assert-NativeEqual @($json | ConvertFrom-Json) $expected "Actual workflow matrix output selects exact suites"
+    }
+    $env:MODE = "invalid"
+    Assert-NativeThrows { & $planAction } "*Unsupported validation mode*"
+}
+finally {
+    Restore-UiRegressionEnvironment -Saved $savedPlanEnvironment
+    foreach ($path in @($outputPath, "$outputPath-summary")) {
+        if (Test-Path -LiteralPath $path) { Remove-Item -LiteralPath $path }
+    }
+}
 foreach ($workflow in @($comparison, $standalone, $reusable)) {
     if ($workflow -notmatch "contents: read" -or $workflow -match "contents: write|pull-requests: write|secrets: inherit|pull_request_target") {
         throw "Independent validation must retain read-only execution without privileged/fork triggers."
