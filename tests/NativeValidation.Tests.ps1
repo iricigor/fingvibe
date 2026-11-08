@@ -193,6 +193,10 @@ foreach ($invariant in @("fail-fast: false", "persist-credentials: false", "from
     if (-not $reusable.Contains($invariant)) { throw "Missing full execution invariant: $invariant" }
 }
 $ci = Get-Content (Join-Path $workflowDirectory "ci.yml") -Raw
+$matrix = [regex]::Match($ci, 'suite: \[([^\]]+)\]')
+if (-not $matrix.Success) { throw "Existing authoritative native suite matrix was not found." }
+$existingSuites = @($matrix.Groups[1].Value.Split(",") | ForEach-Object { $_.Trim() })
+Assert-NativeEqual $existingSuites @("sidebar", "devices", "history", "tools") "New authoritative suites must be wired into full mode explicitly"
 $ciTests = [regex]::Match($ci, '(?s)\r?\n  tests:\r?\n(.*?)\r?\n  build:').Groups[1].Value
 if (-not $ciTests) { throw "Existing CI core/script job was not found." }
 $checks = Get-Content (Join-Path $PSScriptRoot "..\.github\scripts\Invoke-FullValidationChecks.ps1") -Raw
