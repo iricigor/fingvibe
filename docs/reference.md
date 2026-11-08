@@ -917,9 +917,12 @@ blockers rather than waiving the budget. This agent instruction does not add a
 CI timeout, matrix job or automatic merge gate.
 
 Dispatcher checks this evidence before routing repair/finalize, even when CI
-is green. Over-budget affected jobs use the existing single automatic repair
-allowance or block if repair is exhausted/out of scope; pending or unavailable
-evidence cannot authorize finalization. Developer's non-coding finalizer
+is green. Over-budget affected jobs share the three-attempt automatic repair
+allowance per claim with failed checks/reviews, as approved in #285: targeted
+fix, root-cause reassessment, then evidence-backed alternative. Each repair
+requires fresh applicable validation; the counter does not reset per job or
+revision. Block if the allowance is exhausted or repair is out of scope;
+pending or unavailable evidence cannot authorize finalization. Developer's non-coding finalizer
 independently checks the rule before its head-bound merge and returns blocked
 if repair is needed. Bounded implement/repair runs report affected-job evidence
 or pending expectations without waiting for CI. Dispatcher does not merge.

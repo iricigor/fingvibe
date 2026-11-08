@@ -69,11 +69,18 @@ replace another worker. Re-read assignment state immediately before edits.
   Do not wait for CI, merge, or release the claim. Finish.
 - **Repair:** Verify the prior worker stopped, existing worktree/branch/PR,
   current head equals the assignment's expected revision, feedback identity,
-  authorization, and persisted repairCount = 1. Only one automatic repair attempt
-  is allowed per claim, not per failed check. Diagnose actual logs/review evidence;
+  authorization including #285's expanded-policy approval, and an integer
+  repairAttempt equal to persisted repairCount in the range 1-3. Verify the
+  matching repairStrategy and priorRepairEvidence against prior handoffs and
+  immutable results; the increment must follow the retained history, not reset
+  on a new revision/check. Only three automatic repair attempts are allowed per
+  claim, shared across failed checks/reviews and affected-UI duration violations.
+  Missing/inconsistent evidence, duplicate or uncertain handoffs block; remaining
+  allowance is not recovery permission. Diagnose actual logs/review evidence;
   fix implementation-caused failures and assigned duration-budget violations
-  within scope. Include affected-job/duration evidence or pending expectations
-  in the new implementation-ready result. Never weaken gates or rerun
+  within scope using the progressive strategy below. Include affected-job/duration
+  evidence or pending expectations in the new implementation-ready result.
+  Never weaken gates or rerun
   unexplained failures. Keep/restore the same WIP draft, active, and claim. Push,
   publish a new implementation-ready result, and finish without waiting.
 - **Finalize:** This action is non-coding. Verify prior worker termination, exact
@@ -91,8 +98,25 @@ replace another worker. Re-read assignment state immediately before edits.
   the validated full SHA), verify target delivery and issue closure,
   clear lifecycle labels, update the Epic checklist, and post the brief Epic
   outcome linked to task diagnostics. Publish a delivered result and finish.
-  Dispatcher retains the coordination claim until it verifies worker termination
-  and cleanup; do not mark the shared record released yourself.
+
+Dispatcher retains the coordination claim until it verifies worker termination
+and cleanup; do not mark the shared record released yourself.
+
+For repair **1 / targeted**, diagnose the evidence and make a focused correction.
+For repair **2 / reassess**, review the first repair and its validation outcome,
+challenge the earlier root-cause assumption, and investigate an alternative
+explanation before editing. For repair **3 / alternative**, review both prior
+repairs and outcomes, compare plausible in-scope solutions, and choose an
+evidence-backed alternative when earlier approaches failed. Explain why it
+should succeed where they did not. Record the diagnosis, alternatives considered,
+chosen approach, and supporting evidence in the run report linked from the
+immutable result. Do not fabricate alternatives or make arbitrary changes just
+to differ; repeating an approach requires new supporting evidence, not blind
+repetition. Broader reasoning never authorizes scope expansion, speculative
+rewrites, weakened tests/gates, timeout increases hiding failures, or unexplained
+reruns-to-green. Every repair publishes a fresh checkpoint requiring fresh
+applicable validation; after three unsuccessful repairs, retain the claim and
+report a human-action blocker rather than repair again.
 
 Every acknowledged assignment must publish/verify an immutable result and a task
 run report with short summary plus collapsed detailed log using the format below.
@@ -111,6 +135,11 @@ comment URL, and expected Automation/run/session IDs. Verify these against the
 task's fenced JSON comment marked `<!-- fingvibe-agent-claim-v1 -->`, which
 Dispatcher alone updates. For repair/finalize also verify the existing branch,
 worktree, PR, expected full head SHA, checkpoint, and relevant feedback/check IDs.
+Repair also requires repairAttempt, repairStrategy, and priorRepairEvidence
+matching the saved handoff/count/history. priorRepairEvidence may be empty only
+for attempt one; later attempts require verified prior repair results and actual
+validation/review outcomes. Existing claim counts/history must be preserved;
+the expanded policy alone does not restart blocked work or reconcile uncertainty.
 Feedback does not authorize scope expansion. Missing, mismatched, or already
 acknowledged handoffs stop without execution.
 
