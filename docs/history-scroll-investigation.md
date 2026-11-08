@@ -27,6 +27,13 @@ observed separately, with eight 250-ms polls and no compensating movement during
 that interval. Commands are bounded; unsupported focus, ineffective movement,
 setup failure and reported boundaries remain explicit.
 
+An additional independent list comparison uses the same commands and fixture,
+but parks keyboard focus on the Devices navigation item without activating it.
+This tests whether offscreen row focus/virtualization contributes to scroll
+snap-back. The control change is diagnostic only, not a production workaround.
+Its trace and screenshots are under `list-parked-focus`, with `parkFocus` recorded
+in provenance and the bounded result.
+
 Download the workflow's `history-investigation-<run>-attempt-<attempt>` artifact:
 
 - `section` and `list` contain append-only `scroll-trace.jsonl`, provenance and

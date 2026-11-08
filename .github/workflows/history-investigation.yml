@@ -82,6 +82,16 @@ jobs:
             -AppPath "${{ github.workspace }}\artifacts\pinned-app\FingVibe.App.exe" `
             -OutputDirectory "${{ github.workspace }}\artifacts\history-investigation\list"
 
+      - name: Compare list movement with focus outside rows
+        if: always() && steps.publish.outcome == 'success' && steps.desktop.outcome == 'success'
+        timeout-minutes: 6
+        shell: pwsh
+        run: |
+          .\tests\HistoryScroll.Investigation.ps1 -Experiment list -ParkFocus `
+            -SourceDirectory "${{ github.workspace }}\pinned" `
+            -AppPath "${{ github.workspace }}\artifacts\pinned-app\FingVibe.App.exe" `
+            -OutputDirectory "${{ github.workspace }}\artifacts\history-investigation\list-parked-focus"
+
       - name: Preserve investigation evidence
         if: always()
         uses: actions/upload-artifact@v4

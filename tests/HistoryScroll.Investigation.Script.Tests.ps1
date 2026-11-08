@@ -107,6 +107,11 @@ if ($probeTestInstrumented -notmatch "Invoke-HistoryObservedCommand" -or
 $probeTestSource = Get-Content -LiteralPath (Join-Path $PSScriptRoot "HistoryScroll.Investigation.ps1") -Raw
 if ($probeTestSource -notmatch 'GITHUB_ACTIONS -ne "true"' -or
     $probeTestSource -notmatch 'RUNNER_OS -ne "Windows"') { throw "Working-desktop guard is missing." }
+if ($probeTestSource -notmatch 'if \(\$ParkFocus\)' -or
+    $probeTestSource -notmatch 'Navigation did not retain focus' -or
+    $probeTestSource -notmatch 'parkFocus = \[bool\]\$ParkFocus') {
+    throw "Focus comparison must be opt-in, verified and recorded, not an implicit production change."
+}
 $probeTestWorkflow = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\.github\workflows\history-investigation.yml") -Raw
 if ($probeTestWorkflow -notmatch "ebd4f07d731d5f4df45d1949f4c3b79fb1ebb9e2" -or
     $probeTestWorkflow -notmatch "always\(\) && steps.publish.outcome" -or

@@ -2,7 +2,8 @@ param(
     [Parameter(Mandatory)][string] $SourceDirectory,
     [Parameter(Mandatory)][string] $AppPath,
     [Parameter(Mandatory)][string] $OutputDirectory,
-    [Parameter(Mandatory)][ValidateSet("section", "list")][string] $Experiment
+    [Parameter(Mandatory)][ValidateSet("section", "list")][string] $Experiment,
+    [switch] $ParkFocus
 )
 
 $ErrorActionPreference = "Stop"
@@ -298,6 +299,7 @@ foreach ($probeStatement in $probeSource.environment) { Invoke-Expression $probe
 $probeProvenance = @{
     sourceCommit = $script:pinnedCommit; diagnosticCommit = $env:GITHUB_SHA
     runId = $env:GITHUB_RUN_ID; attempt = $env:GITHUB_RUN_ATTEMPT; experiment = $Experiment
+    parkFocus = [bool]$ParkFocus
     appSha256 = (Get-FileHash -LiteralPath $AppPath -Algorithm SHA256).Hash
     appVersion = [Diagnostics.FileVersionInfo]::GetVersionInfo($AppPath).FileVersion
     os = [Environment]::OSVersion.VersionString
@@ -358,6 +360,19 @@ try {
         Save-HistoryProbeScreenshot list-start
         $probeInner = $probeListElement.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
         Invoke-HistoryObservedCommand "inner SetScrollPercent(0)" { $probeInner.SetScrollPercent(-1, 0) }
+        if ($ParkFocus) {
+            $probeNavigation = Get-HistoryProbeElement DevicesNavItem
+            if (-not $probeNavigation -or -not $probeNavigation.Current.IsKeyboardFocusable) {
+                throw "Navigation focus control is unsupported; cannot run the focus-isolation comparison."
+            }
+            Invoke-HistoryObservedCommand "park focus on Devices navigation (no activation)" {
+                $probeNavigation.SetFocus()
+            }
+            if (-not $probeNavigation.Current.HasKeyboardFocus) {
+                throw "Navigation did not retain focus for the comparison."
+            }
+            Save-HistoryProbeScreenshot list-parked-focus
+        }
         $probeSeen = @{}
         for ($probeStep = 0; $probeStep -lt 20; $probeStep++) {
             $probeState = Write-HistoryProbeSnapshot list-checkpoint "step $probeStep"
@@ -383,6 +398,7 @@ try {
         }
         Write-HistoryProbeEvent bounded-list-result @{
             steps = $probeStep; candidateLabelsSeen = $probeSeen.Count
+            parkFocus = [bool]$ParkFocus
             reachedReportedEnd = $probeState.list.scroll.percent -ge 99.9
             note = "Observed candidates only, not exhaustive regression acceptance. All commands and ineffective movement remain in the trace."
         }
