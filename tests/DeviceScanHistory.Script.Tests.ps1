@@ -85,6 +85,8 @@ foreach ($metrics in @(@(0, 0), @(0, 100), @(-1, 20), @(101, 20), @([double]::Na
     $element | Add-Member ScriptMethod TryGetCurrentPattern { param($Pattern, $Result); return $false }
     $page = [pscustomobject]@{ Current = [pscustomobject]@{
         BoundingRectangle = [System.Drawing.RectangleF]::new(0, 0, 500, 500) } }
+    $script:root = [pscustomobject]@{ Current = [pscustomobject]@{
+        BoundingRectangle = [System.Drawing.RectangleF]::new(0, 0, 500, 516) } }
     $page | Add-Member ScriptMethod GetCurrentPattern { param($Pattern); return $scroll }
     $scroll | Add-Member ScriptMethod SetScrollPercent {
         param($Horizontal, $Vertical)
@@ -140,6 +142,30 @@ foreach ($metrics in @(@(0, 0), @(0, 100), @(-1, 20), @(101, 20), @([double]::Na
     }
     $null = Show-HistorySectionCore DeviceScanHistoryList 35
     if ($layout.Polls -lt 3) { throw "Section positioning must wait for expansion layout before treating a page as non-scrollable." }
+    function Start-Sleep { param($Milliseconds) }
+    $scroll.Current.VerticallyScrollable = $true
+    $scroll.Current.VerticalScrollPercent = 0
+    $page.Current.BoundingRectangle = [System.Drawing.RectangleF]::new(0, 0, 500, 1800)
+    $state.Active = $element
+    $state.Active.Current.IsOffscreen = $true
+    $state.Active.Current.BoundingRectangle = [System.Drawing.RectangleF]::Empty
+    $state.Lookups = 0
+    function Find-HistoryControl([string] $Value) {
+        if ($Value -eq "DeviceDetailsScroll") { return $page }
+        $state.Lookups++
+        return $state.Active
+    }
+    $scroll | Add-Member ScriptMethod SetScrollPercent {
+        param($Horizontal, $Vertical)
+        $this.Current.VerticalScrollPercent = $Vertical
+        $state.Active = [pscustomobject]@{ Current = [pscustomobject]@{
+            IsOffscreen = $false; BoundingRectangle = [System.Drawing.RectangleF]::new(0, 1500 - 20 * $Vertical, 100, 100) } }
+        $state.Active | Add-Member ScriptMethod TryGetCurrentPattern { param($Pattern, $Result); return $false }
+    } -Force
+    $shown = Show-HistorySectionCore DeviceScanHistoryList 35
+    if ($state.Lookups -lt 2 -or $shown.Current.BoundingRectangle.Bottom -gt 490) {
+        throw "Positioning must reacquire realized controls and clip oversized automation bounds to the physical window."
+    }
 }
 
 & {

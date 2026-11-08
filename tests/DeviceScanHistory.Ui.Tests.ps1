@@ -233,13 +233,20 @@ function Show-HistorySectionCore([string] $Id, [int] $TopMargin) {
     $direction = 1
     $stalled = 0
     $lastState = "layout not read"
+    $resolve = $false
     for ($attempt = 0; $attempt -lt 40 -and [DateTime]::UtcNow -lt $deadline; $attempt++) {
         try {
+            if ($resolve) {
+                $element = Find-HistoryControl $Id
+                $resolve = $false
+            }
             $bounds = $element.Current.BoundingRectangle
             $area = $scrollElement.Current.BoundingRectangle
+            $bottom = [Math]::Min($area.Bottom, $script:root.Current.BoundingRectangle.Bottom - 16)
+            $viewportHeight = $bottom - $area.Top
             $lastState = "bounds=$bounds; viewport=$area; offscreen=$($element.Current.IsOffscreen); scrollable=$($scroll.Current.VerticallyScrollable); percent=$($scroll.Current.VerticalScrollPercent); view=$($scroll.Current.VerticalViewSize)"
             if (-not $element.Current.IsOffscreen -and $bounds.Height -gt 0 -and
-                $bounds.Top -ge $area.Top + $TopMargin -and $bounds.Bottom -le $area.Bottom - 10) {
+                $bounds.Top -ge $area.Top + $TopMargin -and $bounds.Bottom -le $bottom - 10) {
                 if (++$settled -ge 2) { return $element }
             }
             else {
@@ -250,8 +257,8 @@ function Show-HistorySectionCore([string] $Id, [int] $TopMargin) {
                     continue
                 }
                 $view = $scroll.Current.VerticalViewSize
-                if ($view -le 0 -or $view -ge 100 -or $area.Height -le 0) {
-                    throw "Invalid details viewport metrics for '$Id': view=$view, height=$($area.Height)."
+                if ($view -le 0 -or $view -ge 100 -or $viewportHeight -le 0) {
+                    throw "Invalid details viewport metrics for '$Id': view=$view, height=$viewportHeight."
                 }
                 $current = $scroll.Current.VerticalScrollPercent
                 if ($bounds.Height -le 0) {
@@ -263,8 +270,8 @@ function Show-HistorySectionCore([string] $Id, [int] $TopMargin) {
                 else {
                     $delta = if ($bounds.Top -lt $area.Top + $TopMargin) {
                         $bounds.Top - $area.Top - $TopMargin
-                    } else { $bounds.Bottom - $area.Bottom + 10 }
-                    $percentDelta = $delta / $area.Height * $view / (100 - $view) * 100
+                    } else { $bounds.Bottom - $bottom + 10 }
+                    $percentDelta = $delta / $viewportHeight * $view / (100 - $view) * 100
                     $target = [Math]::Min(100, [Math]::Max(0, $current + $percentDelta))
                 }
                 if ([Math]::Abs($target - $current) -lt 0.001) {
@@ -273,6 +280,7 @@ function Show-HistorySectionCore([string] $Id, [int] $TopMargin) {
                 else {
                     $stalled = 0
                     $scroll.SetScrollPercent(-1, $target)
+                    $resolve = $true
                 }
             }
         }
