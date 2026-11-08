@@ -287,8 +287,8 @@ function Show-HistorySectionCore([string] $Id, [int] $TopMargin) {
                 if ($bounds.Height -le 0) {
                     # Unrealized sections have no useful geometry; search overlapping viewports once in each direction.
                     if ($current -ge 100) { $direction = -1 }
-                    $step = 0.8 * $view / (100 - $view) * 100
-                    $target = [Math]::Min(100, [Math]::Max(0, $current + $direction * $step))
+                    $target = if ($direction -gt 0) { Get-HistoryNextViewport $current $view }
+                        else { 100 - (Get-HistoryNextViewport (100 - $current) $view) }
                 }
                 else {
                     $delta = if ($bounds.Top -lt $top + $TopMargin) {
@@ -344,7 +344,7 @@ function Visit-HistoryRowsCore([scriptblock] $Visit) {
     $condition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
         [System.Windows.Automation.ControlType]::ListItem)
-    $target = 0.0
+    $target = "first viewport"
     $stale = 0
     $positions = 0
     $previousPercent = -1.0
@@ -354,26 +354,41 @@ function Visit-HistoryRowsCore([scriptblock] $Visit) {
         try {
             $list = Find-HistoryControl DeviceScanHistoryList
             $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-            if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $target) }
-            $realized = @{ Items = @(); Last = $null; Stable = 0; Percent = -1.0 }
+            if ($scroll.Current.VerticallyScrollable) {
+                if ($positions -eq 0) { $scroll.SetScrollPercent(-1, 0) }
+                else {
+                    $scroll.Scroll([System.Windows.Automation.ScrollAmount]::NoAmount,
+                        [System.Windows.Automation.ScrollAmount]::LargeIncrement)
+                }
+            }
+            $realized = @{ Items = @(); Last = $null; Stable = 0; Percent = -1.0; Overlap = ($positions -eq 0) }
             Wait-HistoryState {
+                $list = Find-HistoryControl DeviceScanHistoryList
+                $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
                 $realized.Items = @($list.FindAll([System.Windows.Automation.TreeScope]::Children, $condition))
                 $signature = ($realized.Items | ForEach-Object { $_.Current.Name }) -join "|"
                 $actual = $scroll.Current.VerticalScrollPercent
                 # Realizing virtual rows can grow the extent and lower the percentage even as the physical offset advances.
                 $atTarget = -not $scroll.Current.VerticallyScrollable -or
-                    ($target -eq 0 -and $actual -lt 0.1) -or
-                    ($target -eq 100 -and $actual -gt 99.9) -or
-                    ($target -gt 0 -and $target -lt 100 -and
-                        ([Math]::Abs($actual - $previousPercent) -gt 0.001 -or $signature -cne $previousRows))
+                    ($positions -eq 0 -and $actual -lt 0.1) -or
+                    ($positions -gt 0 -and ($actual -gt 99.9 -or
+                        [Math]::Abs($actual - $previousPercent) -gt 0.001 -or $signature -cne $previousRows))
                 if ($atTarget -and $realized.Items.Count -gt 0 -and $signature -ceq $realized.Last -and
                     [Math]::Abs($actual - $realized.Percent) -lt 0.001) {
                     $realized.Stable++
                 } else { $realized.Stable = 0 }
                 $realized.Last = $signature
                 $realized.Percent = $actual
+                if ($realized.Stable -ge 2 -and -not $realized.Overlap) {
+                    $realized.Overlap = $true
+                    if ($scroll.Current.VerticallyScrollable -and $actual -lt 99.9) {
+                        $scroll.Scroll([System.Windows.Automation.ScrollAmount]::NoAmount,
+                            [System.Windows.Automation.ScrollAmount]::SmallDecrement)
+                        $realized.Stable = 0
+                    }
+                }
                 $realized.Stable -ge 2
-            } "realized history rows at $target%"
+            } "realized history rows at $target"
             & $Visit $realized.Items
             $positions++
             if (-not $scroll.Current.VerticallyScrollable -or $realized.Percent -gt 99.9) {
@@ -382,20 +397,20 @@ function Visit-HistoryRowsCore([scriptblock] $Visit) {
             }
             $previousPercent = $realized.Percent
             $previousRows = $realized.Last
-            $target = Get-HistoryNextViewport $previousPercent $scroll.Current.VerticalViewSize
+            $target = "viewport $($positions + 1)"
         }
         catch {
             if (-not (Test-HistoryStaleException $_.Exception)) {
-                Write-Host "History traversal failure: target=$target%, previous=$previousPercent%, actual=$($realized.Percent)%, rows=$($realized.Items.Count)."
+                Write-Host "History traversal failure: target=$target, previous=$previousPercent%, actual=$($realized.Percent)%, rows=$($realized.Items.Count)."
                 throw
             }
             if (++$stale -gt 2) { throw }
-            Write-Host "Reacquiring stale history list at $target% (attempt $stale)."
+            Write-Host "Reacquiring stale history list at $target (attempt $stale)."
             $script:detailsRoot = $null
             $script:observationsRoot = $null
         }
     }
-    throw "History viewport traversal exceeded its bounded deadline/position limit at $target%."
+    throw "History viewport traversal exceeded its bounded deadline/position limit at $target."
 }
 
 function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {

@@ -203,6 +203,14 @@ foreach ($metrics in @(@(0, 0), @(0, 100), @(-1, 20), @(101, 20), @([double]::Na
         $state.Positions.Add($Vertical)
         $state.Delay = 1
     }
+    $scroll | Add-Member ScriptMethod Scroll {
+        param($Horizontal, $Vertical)
+        $step = 100 * $this.Current.VerticalViewSize / (100 - $this.Current.VerticalViewSize)
+        $delta = if ($Vertical -eq [System.Windows.Automation.ScrollAmount]::LargeIncrement) { $step }
+            else { -0.2 * $step }
+        $target = [Math]::Min(100, [Math]::Max(0, $this.Current.VerticalScrollPercent + $delta))
+        $this.SetScrollPercent(-1, $target)
+    }
     $list = [pscustomobject]@{}
     $list | Add-Member ScriptMethod GetCurrentPattern { param($Pattern); return $scroll }
     $list | Add-Member ScriptMethod FindAll {

@@ -429,8 +429,9 @@ it contains no inferred uptime or scalar duration estimates.
 ### Device scan history
 
 The disposable Windows history regression scopes observation lookups to their
-owning container and traverses every bounded page with 20%-overlapping viewport
-steps (including a single pass for non-scrollable pages). Section positioning
+owning container and traverses every bounded page with native viewport-sized
+large scroll steps, followed by a small reverse step for overlap except at the
+last boundary (including a single pass for non-scrollable pages). Section positioning
 uses ScrollItem when available and bounded geometry-based correction otherwise.
 Native logs report startup, navigation (including section location), section
 location, list traversal and screenshot timings; nested phase totals must not be
