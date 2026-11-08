@@ -12,6 +12,7 @@ Initialize-InventorySqlite $AppPath
 $script:historyTimings = @{}
 $script:detailsRoot = $null
 $script:observationsRoot = $null
+$script:historyViewportAnchor = $null
 
 function Invoke-HistoryTimed([string] $Phase, [scriptblock] $Action) {
     $clock = [Diagnostics.Stopwatch]::StartNew()
@@ -93,6 +94,7 @@ function Start-HistoryApp {
 function Start-HistoryAppCore {
     $script:detailsRoot = $null
     $script:observationsRoot = $null
+    $script:historyViewportAnchor = $null
     $script:process = Start-Process -FilePath $AppPath -PassThru
     Wait-HistoryState {
         $script:process.Refresh()
@@ -118,6 +120,7 @@ function Stop-HistoryApp {
 function Select-HistoryDevices {
     $script:detailsRoot = $null
     $script:observationsRoot = $null
+    $script:historyViewportAnchor = $null
     $back = Find-HistoryControl "Back to devices" -ByName -Optional
     if ($back -and -not $back.Current.IsOffscreen) {
         $back.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
@@ -222,6 +225,24 @@ function Show-HistorySection([string] $Id, [int] $TopMargin = 35) {
 function Show-HistorySectionCore([string] $Id, [int] $TopMargin) {
     $scrollElement = Find-HistoryControl DeviceDetailsScroll
     $scroll = $scrollElement.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+    $window = $script:root.Current.BoundingRectangle
+    if (-not $script:historyViewportAnchor -or $script:historyViewportAnchor.Width -ne $window.Width -or
+        $script:historyViewportAnchor.Height -ne $window.Height) {
+        # WinUI's ScrollViewer peer reports moving content bounds, not a stationary viewport.
+        # Anchor once per page/resize at the top, then restore the caller's position.
+        $saved = $scroll.Current.VerticalScrollPercent
+        if ($scroll.Current.VerticallyScrollable -and $saved -gt 0) { $scroll.SetScrollPercent(-1, 0) }
+        Wait-HistoryState {
+            $area = $scrollElement.Current.BoundingRectangle
+            (-not $scroll.Current.VerticallyScrollable -or $scroll.Current.VerticalScrollPercent -eq 0) -and
+                $area.Top -ge $window.Top -and $area.Top -lt $window.Bottom - 16
+        } "stationary details viewport"
+        $script:historyViewportAnchor = @{
+            Width = $window.Width; Height = $window.Height
+            Offset = $scrollElement.Current.BoundingRectangle.Top - $window.Top
+        }
+        if ($scroll.Current.VerticallyScrollable -and $saved -gt 0) { $scroll.SetScrollPercent(-1, $saved) }
+    }
     $element = Find-HistoryControl $Id
     $bring = $null
     if ($element.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern, [ref]$bring)) {
@@ -242,11 +263,13 @@ function Show-HistorySectionCore([string] $Id, [int] $TopMargin) {
             }
             $bounds = $element.Current.BoundingRectangle
             $area = $scrollElement.Current.BoundingRectangle
-            $bottom = [Math]::Min($area.Bottom, $script:root.Current.BoundingRectangle.Bottom - 16)
-            $viewportHeight = $bottom - $area.Top
+            $window = $script:root.Current.BoundingRectangle
+            $top = $window.Top + $script:historyViewportAnchor.Offset
+            $bottom = $window.Bottom - 16
+            $viewportHeight = $bottom - $top
             $lastState = "bounds=$bounds; viewport=$area; offscreen=$($element.Current.IsOffscreen); scrollable=$($scroll.Current.VerticallyScrollable); percent=$($scroll.Current.VerticalScrollPercent); view=$($scroll.Current.VerticalViewSize)"
             if (-not $element.Current.IsOffscreen -and $bounds.Height -gt 0 -and
-                $bounds.Top -ge $area.Top + $TopMargin -and $bounds.Bottom -le $bottom - 10) {
+                $bounds.Top -ge $top + $TopMargin -and $bounds.Bottom -le $bottom - 10) {
                 if (++$settled -ge 2) { return $element }
             }
             else {
@@ -268,11 +291,16 @@ function Show-HistorySectionCore([string] $Id, [int] $TopMargin) {
                     $target = [Math]::Min(100, [Math]::Max(0, $current + $direction * $step))
                 }
                 else {
-                    $delta = if ($bounds.Top -lt $area.Top + $TopMargin) {
-                        $bounds.Top - $area.Top - $TopMargin
+                    $delta = if ($bounds.Top -lt $top + $TopMargin) {
+                        $bounds.Top - $top - $TopMargin
                     } else { $bounds.Bottom - $bottom + 10 }
+                    if ($bounds.Height -lt 10) {
+                        $delta = [Math]::Sign($delta) * $viewportHeight / 2
+                    }
                     $percentDelta = $delta / $viewportHeight * $view / (100 - $view) * 100
-                    $target = [Math]::Min(100, [Math]::Max(0, $current + $percentDelta))
+                    $target = if ($percentDelta -gt 0) { [Math]::Ceiling($current + $percentDelta) }
+                        else { [Math]::Floor($current + $percentDelta) }
+                    $target = [Math]::Min(100, [Math]::Max(0, $target))
                 }
                 if ([Math]::Abs($target - $current) -lt 0.001) {
                     if (++$stalled -ge 10) { break }

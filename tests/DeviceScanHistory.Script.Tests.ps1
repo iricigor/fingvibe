@@ -6,7 +6,7 @@ $ast = [System.Management.Automation.Language.Parser]::ParseFile(
 if ($errors) { throw ($errors.Message -join "; ") }
 foreach ($name in @("Test-HistoryStaleException", "Get-HistoryNextViewport", "Show-HistorySectionCore",
     "Visit-HistoryRowsCore", "Find-HistoryControl", "Assert-HistoryRows", "Get-HistoryLocalTime",
-    "Invoke-HistoryTimed", "Visit-HistoryRows")) {
+    "Invoke-HistoryTimed", "Visit-HistoryRows", "Wait-HistoryState")) {
     $function = $ast.Find({
         param($node)
         $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name
@@ -76,6 +76,7 @@ foreach ($metrics in @(@(0, 0), @(0, 100), @(-1, 20), @(101, 20), @([double]::Na
 }
 
 & {
+    $script:historyViewportAnchor = $null
     function Start-Sleep { param($Milliseconds) }
     $state = @{ Percent = 0.0; Moves = [System.Collections.Generic.List[double]]::new() }
     $scroll = [pscustomobject]@{ Current = [pscustomobject]@{
@@ -165,6 +166,21 @@ foreach ($metrics in @(@(0, 0), @(0, 100), @(-1, 20), @(101, 20), @([double]::Na
     $shown = Show-HistorySectionCore DeviceScanHistoryList 35
     if ($state.Lookups -lt 2 -or $shown.Current.BoundingRectangle.Bottom -gt 490) {
         throw "Positioning must reacquire realized controls and clip oversized automation bounds to the physical window."
+    }
+    $state.Active.Current.BoundingRectangle = [System.Drawing.RectangleF]::new(0, 499, 100, 2)
+    $scroll.Current.VerticalScrollPercent = 0
+    $scroll | Add-Member ScriptMethod SetScrollPercent {
+        param($Horizontal, $Vertical)
+        $this.Current.VerticalScrollPercent = [Math]::Floor($Vertical)
+        $state.LastTarget = $Vertical
+        $page.Current.BoundingRectangle = [System.Drawing.RectangleF]::new(0, -20 * $Vertical, 500, 1800)
+        $state.Active = [pscustomobject]@{ Current = [pscustomobject]@{
+            IsOffscreen = $false; BoundingRectangle = [System.Drawing.RectangleF]::new(0, 500 - 20 * $Vertical, 100, 40) } }
+        $state.Active | Add-Member ScriptMethod TryGetCurrentPattern { param($Pattern, $Result); return $false }
+    } -Force
+    $shown = Show-HistorySectionCore DeviceScanHistoryExpander 35
+    if ($state.LastTarget -le 1 -or $shown.Current.BoundingRectangle.Top -lt 35) {
+        throw "Clipped sections must make real progress with quantized scrolling and moving content bounds."
     }
 }
 
