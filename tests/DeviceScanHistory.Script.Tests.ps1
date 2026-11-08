@@ -4,7 +4,9 @@ $errors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile(
     (Join-Path $PSScriptRoot "DeviceScanHistory.Ui.Tests.ps1"), [ref]$null, [ref]$errors)
 if ($errors) { throw ($errors.Message -join "; ") }
-foreach ($name in @("Test-HistoryStaleException", "Get-HistoryNextViewport", "Show-HistorySectionCore", "Visit-HistoryRowsCore", "Find-HistoryControl")) {
+foreach ($name in @("Test-HistoryStaleException", "Get-HistoryNextViewport", "Show-HistorySectionCore",
+    "Visit-HistoryRowsCore", "Find-HistoryControl", "Assert-HistoryRows", "Get-HistoryLocalTime",
+    "Invoke-HistoryTimed", "Visit-HistoryRows")) {
     $function = $ast.Find({
         param($node)
         $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name
@@ -189,6 +191,32 @@ foreach ($metrics in @(@(0, 0), @(0, 100), @(-1, 20), @(101, 20), @([double]::Na
     Assert-HistoryFailure { Visit-HistoryRowsCore $visit } "*Timed out waiting for realized history rows*"
     $list | Add-Member ScriptMethod FindAll { throw [InvalidOperationException]::new("unexpected fixture error") } -Force
     Assert-HistoryFailure { Visit-HistoryRowsCore $visit } "*unexpected fixture error*"
+}
+
+& {
+    $script:historyTimings = @{}
+    $script:process = [pscustomobject]@{ MainWindowHandle = [IntPtr]::Zero }
+    $script:ScreenshotDirectory = "fixture-screenshots"
+    $time = Get-HistoryLocalTime 0
+    $row = [pscustomobject]@{ Current = [pscustomobject]@{
+        Name = "$($time.ToString('yyyy-MM-dd HH:mm:ss zzz')); Observed present" } }
+    $rowTexts = @($time.ToString("yyyy-MM-dd"), $time.ToString("HH:mm:ss"), "Present") |
+        ForEach-Object { [pscustomobject]@{ Current = [pscustomobject]@{ Name = $_ } } }
+    $row | Add-Member ScriptMethod FindAll { param($Scope, $Condition); return $rowTexts }
+    $scroll = [pscustomobject]@{ Current = [pscustomobject]@{ VerticallyScrollable = $false } }
+    $list = [pscustomobject]@{}
+    $list | Add-Member ScriptMethod GetCurrentPattern { param($Pattern); return $scroll }
+    function Find-HistoryControl([string] $Value) {
+        if ($Value -eq "DeviceScanHistoryCount") {
+            return [pscustomobject]@{ Current = [pscustomobject]@{ Name = "1 completed scan observations" } }
+        }
+        return $list
+    }
+    function Show-HistorySection([string] $Id) { return $list }
+    function Visit-HistoryRowsCore([scriptblock] $Visit) { & $Visit @($row) }
+    function Save-HistoryScreenshot { param($Handle, $Path) }
+    Assert-HistoryRows fixture 0
+    Assert-HistoryTest $script:historyTimings["list-traversal"].Calls 1 "Timed callback retains script-local helpers"
 }
 
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScenarios.ps1")

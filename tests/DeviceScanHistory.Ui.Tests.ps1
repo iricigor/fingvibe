@@ -312,7 +312,7 @@ function Visit-HistoryRowsCore([scriptblock] $Visit) {
             $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
             if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $target) }
             $realized = @{ Items = @(); Last = $null; Stable = 0 }
-            Wait-HistoryState ({
+            Wait-HistoryState {
                 $realized.Items = @($list.FindAll([System.Windows.Automation.TreeScope]::Children, $condition))
                 $signature = ($realized.Items | ForEach-Object { $_.Current.Name }) -join "|"
                 $atTarget = -not $scroll.Current.VerticallyScrollable -or
@@ -322,7 +322,7 @@ function Visit-HistoryRowsCore([scriptblock] $Visit) {
                 } else { $realized.Stable = 0 }
                 $realized.Last = $signature
                 $realized.Stable -ge 2
-            }.GetNewClosure()) "realized history rows at $target%"
+            } "realized history rows at $target%"
             & $Visit $realized.Items
             $positions++
             if (-not $scroll.Current.VerticallyScrollable -or $target -eq 100) {
@@ -353,7 +353,7 @@ function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
     $textCondition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
         [System.Windows.Automation.ControlType]::Text)
-    Visit-HistoryRows ({
+    Visit-HistoryRows {
         param($items)
         $times = @()
         foreach ($item in $items) {
@@ -378,7 +378,7 @@ function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
         if (($times -join "|") -ne (($times | Sort-Object -Descending) -join "|")) {
             throw "Scan rows are not newest first: $times."
         }
-    }.GetNewClosure())
+    }
     if ($seen.Count -ne $count) { throw "Not all $count scans are reachable in the native history list." }
     foreach ($index in 0..$LastIndex) {
         if (-not $seen.ContainsKey((Get-HistoryLocalTime $index).ToString("yyyy-MM-dd HH:mm:ss"))) {
@@ -784,7 +784,7 @@ try {
             $state = if ($pagedHistory[$index].present) { "present" } else { "absent" }
             $expectedRows["$time; Observed $state"] = $true
         }
-        Visit-HistoryRows ({
+        Visit-HistoryRows {
             param($items)
             $labels = @()
             foreach ($item in $items) {
@@ -797,7 +797,7 @@ try {
             if (($labels -join "|") -cne (($labels | Sort-Object -Descending) -join "|")) {
                 throw "Paged history rows are not newest first."
             }
-        }.GetNewClosure())
+        }
         if ($pageRows.Count -ne $end - $start + 1) { throw "Not every observation on page $pageIndex is reachable: $($pageRows.Count)." }
         foreach ($label in $pageRows.Keys) {
             if ($reachable.ContainsKey($label)) { throw "Observation duplicated across history pages: $label." }
