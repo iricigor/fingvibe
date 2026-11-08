@@ -252,7 +252,10 @@ try {
     Save-UsageCapture "usage-no-evidence"
     foreach ($theme in @("Standard Light", "Standard Dark")) {
         (Find-Usage "Settings" -ByName).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-        Wait-Usage { -not (Find-Usage ModePicker).Current.IsOffscreen } "Settings"
+        Wait-Usage {
+            $picker = Find-Usage ModePicker -Optional
+            $picker -and -not $picker.Current.IsOffscreen
+        } "Settings"
         Set-UiReviewTheme -Root $script:root -Theme $theme
         Open-UsageDevice "Concurrent name"
         $bounds = Get-UiReviewWindowBounds $script:process.MainWindowHandle
