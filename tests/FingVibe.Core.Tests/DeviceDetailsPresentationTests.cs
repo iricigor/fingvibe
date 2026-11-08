@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Text.Json;
+using System.Xml.Linq;
 using FingVibe.App;
 using FingVibe.Core.Import;
 using FingVibe.Core.Models;
@@ -15,6 +16,26 @@ public sealed class DeviceDetailsPresentationTests
     private static readonly DateTimeOffset Now = new(2026, 11, 4, 12, 0, 0, TimeSpan.Zero);
     private static readonly DeviceClassificationOverride Choices = new(
         DeviceOperatingSystem.Android, DeviceType.Phone, DeviceType.Tablet, "Brand", "Family", "Model");
+
+    [Fact]
+    public void CompletedObservationExplanation_DistinguishesScanSourcesAndHistoricalEvidence()
+    {
+        var page = XDocument.Load(Path.Combine(AppContext.BaseDirectory, "DeviceDetailsPageView.xaml"));
+        XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
+        var section = Assert.Single(page.Descendants(), element =>
+            (string?)element.Attribute(xaml + "Name") == "DeviceScanHistoryExpander");
+        var explanation = Assert.Single(section.Descendants().Attributes("Text"),
+            attribute => attribute.Value.StartsWith("Current-network completed", StringComparison.Ordinal)).Value;
+
+        Assert.Contains("completed manual and scheduled scans, newest first", explanation);
+        Assert.Contains("Present / absent means observed present / absent", explanation);
+        Assert.Contains("Pending or incomplete checkpoints are not completed history", explanation);
+        Assert.Contains("Since is the first scan in the latest recorded run of that state", explanation);
+        Assert.Contains("not the physical connection/disconnection time", explanation);
+        Assert.Contains("Gaps between scans do not prove uninterrupted availability", explanation);
+        Assert.Contains("Saved observations do not establish current live presence", explanation);
+        Assert.Contains("All completed observations are retained", explanation);
+    }
 
     [Theory]
     [InlineData(0, "0 minutes ago")]

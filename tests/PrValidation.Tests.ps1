@@ -109,7 +109,7 @@ foreach ($pattern in @(
     '(?s)  tests:\s+name: core-tests\s+needs: changes',
     '(?s)  build:\s+needs: changes',
     '(?s)  installer:\s+needs: \[changes, tests, build\]',
-    '(?s)  ui-capture:\s+needs: \[changes, tests, build\]',
+    '(?s)  ui-capture:\s+needs: \[changes, build\]',
     '(?s)  build-comment:\s+needs: installer',
     '(?s)  ui-publish:\s+needs: \[changes, tests, build, installer, ui-capture, ui-regression\]',
     '(?s)  ui-ux-review:\s+name: ui-ux-review\s+needs: \[changes, tests, build, installer, ui-capture, ui-regression, ui-publish\]',
@@ -139,11 +139,46 @@ function Get-WorkflowJob([string] $Name) {
     return $match.Value
 }
 
+$testJob = Get-WorkflowJob tests
 $buildJob = Get-WorkflowJob build
 $installerJob = Get-WorkflowJob installer
 $captureJob = Get-WorkflowJob ui-capture
 $regressionJob = Get-WorkflowJob ui-regression
 $publishJob = Get-WorkflowJob ui-publish
+$caches = @()
+foreach ($job in @($testJob, $buildJob)) {
+    if ($job -notmatch 'NUGET_PACKAGES: \$\{\{ github.workspace \}\}\\\.nuget\\packages') {
+        throw "Core tests/build must use a job-env-supported context for the NuGet package cache location."
+    }
+    $cache = [regex]::Match($job, '(?ms)^      - name: Cache NuGet packages\r?\n.*?(?=^      - name:|\z)')
+    if (-not $cache.Success -or $cache.Value -notmatch 'uses: actions/cache@v4' -or
+        $cache.Value -notmatch 'path: \$\{\{ env.NUGET_PACKAGES \}\}' -or
+        $cache.Value -notmatch 'key: \$\{\{ runner.os \}\}-nuget-v1-\$\{\{ hashFiles\(' -or
+        $cache.Value -notmatch '(?s)restore-keys:.*?\$\{\{ runner.os \}\}-nuget-v1-') {
+        throw "Core tests/build must cache packages with OS/dependency keys and an OS-scoped fallback."
+    }
+    foreach ($dependency in @("**/*.csproj", "**/Directory.*.props", "**/Directory.*.targets",
+        "**/NuGet.Config", "**/nuget.config", "global.json")) {
+        if (-not $cache.Value.Contains("'$dependency'")) { throw "NuGet cache key omits $dependency." }
+    }
+    $caches += $cache.Value.Trim()
+    if ($job -match '--no-restore|/property:Restore=false' -or
+        $job.IndexOf("name: Cache NuGet packages") -gt $job.IndexOf(
+            $(if ($job -eq $testJob) { "name: Test networking core" } else { "name: Publish Windows x64 app" }))) {
+        throw "Cache restoration must precede normal restore/test/publish, never replace NuGet restore."
+    }
+}
+Assert-Equal $caches[0] $caches[1] "Build and core tests share the same NuGet cache key/policy"
+if ($buildJob -notmatch '/restore') { throw "MSBuild publishing must still restore dependencies." }
+foreach ($job in @($captureJob, $regressionJob)) {
+    if ($job -notmatch 'needs: \[changes, build\]' -or $job -match 'needs.tests') {
+        throw "Native UI validation must overlap core tests after the single published build."
+    }
+}
+if ($installerJob -notmatch 'needs: \[changes, tests, build\]' -or
+    $publishJob -notmatch 'needs: \[changes, tests, build, installer, ui-capture, ui-regression\]') {
+    throw "Tested downloads and screenshot publication must still wait for passing core tests."
+}
 Assert-Equal ([regex]::Matches($workflow, 'artifact-ids: \$\{\{ needs.build.outputs.artifact-id \}\}').Count) 3 "Installer, capture and regression matrix consume the same payload ID"
 Assert-Equal ([regex]::Matches($buildJob, 'uses: actions/upload-artifact@v4').Count) 1 "Publish uploads only the transfer payload"
 if ($buildJob -notmatch '(?s)name: Upload unvalidated payload.*?id: upload.*?name: fingvibe-validation-payload-pr-.*-attempt-\$\{\{ github.run_attempt \}\}.*?retention-days: 1' -or
@@ -165,7 +200,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
     }
 }
     foreach ($pattern in @(
-        'needs: \[changes, tests, build\]',
+        'needs: \[changes, build\]',
         'runs-on: windows-2025',
         'timeout-minutes: 20',
         'fail-fast: false',
@@ -194,10 +229,14 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
     $smokeScript = Get-Content (Join-Path $PSScriptRoot "..\.github\scripts\Invoke-UiReview.ps1") -Raw
     $regressionScript = Get-Content (Join-Path $PSScriptRoot "..\.github\scripts\Invoke-UiRegression.ps1") -Raw
     foreach ($suite in @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
-        "UsageCategory.Ui", "DeviceActivity.Ui",
+        "UsageCategory.Ui",
         "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
         if ($captureJob.Contains($suite) -or $smokeScript.Contains($suite)) { throw "Capture still runs extracted suite: $suite" }
         Assert-Equal ([regex]::Matches($regressionScript, ('Invoke-RegressionCheck "' + [regex]::Escape($suite) + '"')).Count) 1 "Preserve suite exactly once: $suite"
+    }
+    if ($regressionScript -match 'Invoke-RegressionCheck "DeviceActivity.Ui"' -or
+        $regressionScript -notmatch 'SummaryOnly = \$true') {
+        throw "Disabled Activity/table checks must not run; retained summary checks remain required."
     }
     if ($regressionScript -notmatch '\$plan.Scenario -contains "DeviceDetails"' -or
         $regressionScript -notmatch 'Stop-Transcript' -or
@@ -222,7 +261,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             "UsageCategory.Ui", "DeviceActivity.Ui",
             "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
             @(
-                'param($AppPath, $ScreenshotDirectory, $Version, $BuildKind, $BuildTimestamp, $BuildCommit, $PullRequestNumber)',
+                'param($AppPath, $ScreenshotDirectory, $Version, $BuildKind, $BuildTimestamp, $BuildCommit, $PullRequestNumber, $SummaryOnly)',
                 '$name = [IO.Path]::GetFileName($PSCommandPath).Replace(".Tests.ps1", "")',
                 '@{ Name = $name; Parameters = $PSBoundParameters } | ConvertTo-Json -Compress | Add-Content $env:UI_REGRESSION_CALLS',
                 'if ($env:UI_REGRESSION_FAIL -eq $name) { throw "Simulated regression failure: $name" }'
@@ -245,18 +284,19 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         }
         $calls = @(Get-Content $env:UI_REGRESSION_CALLS | ConvertFrom-Json)
         Assert-Equal $calls.Name @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
-            "UsageCategory.Ui", "DeviceActivity.Ui",
+            "UsageCategory.Ui",
             "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "Dispatch every preserved suite once"
-        Assert-Equal ([DateTimeOffset]$calls[6].Parameters.BuildTimestamp).UtcDateTime ([DateTimeOffset]$parameters.BuildTimestamp).UtcDateTime "Forward stamped identity"
-        Assert-Equal $calls[6].Parameters.PullRequestNumber 198 "Forward PR identity"
+        Assert-Equal $calls[2].Parameters.SummaryOnly $true "History dispatch tests only retained summaries"
+        Assert-Equal ([DateTimeOffset]$calls[5].Parameters.BuildTimestamp).UtcDateTime ([DateTimeOffset]$parameters.BuildTimestamp).UtcDateTime "Forward stamped identity"
+        Assert-Equal $calls[5].Parameters.PullRequestNumber 198 "Forward PR identity"
         Assert-Equal ($calls.Parameters.AppPath | Select-Object -Unique) "synthetic.exe" "Reuse supplied app"
         & powershell.exe -NoProfile -File $runner -Suite sidebar -AppPath $parameters.AppPath `
             -ScreenshotDirectory $parameters.ScreenshotDirectory -CapturePlanPath $planPath
         if ($LASTEXITCODE -ne 0) { throw "Sidebar runner must support multi-scenario plans under Windows PowerShell." }
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 12 "Windows PowerShell dispatches the sidebar without parsing history selection"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 11 "Windows PowerShell dispatches the sidebar without parsing history selection"
         ConvertTo-Json -InputObject @($definitions | Where-Object Scenario -eq Devices) -Depth 5 | Set-Content $planPath
         & $runner -Suite history @parameters
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 12 "Unselected history must not launch native checks"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 11 "Unselected history must not launch native checks"
         $env:UI_REGRESSION_FAIL = "DevicesList.Ui"
         Assert-Throws { & $runner -Suite devices @parameters } "*Simulated regression failure*"
         if ((Get-Content (Join-Path $parameters.ScreenshotDirectory "regression.log") -Raw) -notmatch 'Simulated regression failure') {

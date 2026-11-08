@@ -1,6 +1,7 @@
 param(
     [Parameter(Mandatory)][string] $AppPath,
-    [Parameter(Mandatory)][string] $ScreenshotDirectory
+    [Parameter(Mandatory)][string] $ScreenshotDirectory,
+    [switch] $SummaryOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -120,6 +121,17 @@ function Open-HistoryDetails([string] $Name) {
         $scroll = Find-HistoryControl DeviceDetailsScroll -Optional
         $scroll -and -not $scroll.Current.IsOffscreen
     } "details for $Name"
+    if ($SummaryOnly) {
+        foreach ($id in @("DeviceActivityCard", "ActivityPeriod", "ActivityRefresh", "ActivityScroll",
+            "DeviceScanHistoryExpander", "DeviceScanHistoryList", "DeviceHistoryOlder", "DeviceHistoryNewer",
+            "DeviceHistoryTab", "DeviceViewHistory")) {
+            $element = Find-HistoryControl $id -Optional
+            if ($element -and (-not $element.Current.IsOffscreen -or $element.Current.IsKeyboardFocusable)) {
+                throw "Disabled history control '$id' remains visible or keyboard accessible."
+            }
+        }
+        return
+    }
     foreach ($id in @("DeviceScanHistoryExpander", "DeviceImportedMetadata")) {
         $pattern = (Find-HistoryControl $id).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
         if ($pattern.Current.ExpandCollapseState -ne [System.Windows.Automation.ExpandCollapseState]::Collapsed) {
@@ -144,22 +156,30 @@ function Get-HistoryTimestamp([int] $Index) {
     return (Get-HistoryLocalTime $Index).ToString("yyyy-MM-dd HH:mm:ss '(local)'", [Globalization.CultureInfo]::InvariantCulture)
 }
 
-function Show-HistorySection([string] $Id, [int] $TopMargin = 35) {
+function Show-HistorySection([string] $Id, [int] $TopMargin = 35, [string[]] $AdditionalIds = @()) {
     $scrollElement = Find-HistoryControl DeviceDetailsScroll
     $scroll = $scrollElement.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     # Resolve once: a whole-tree search per scroll step also walks every Device Activity cell.
-    $element = Find-HistoryControl $Id
+    $ids = @($Id) + $AdditionalIds
+    $elements = @($ids | ForEach-Object { Find-HistoryControl $_ })
     foreach ($percent in 0..100) {
         if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
         Start-Sleep -Milliseconds 20
-        try { $bounds = $element.Current.BoundingRectangle }
-        catch [System.Windows.Automation.ElementNotAvailableException] {
-            $element = Find-HistoryControl $Id
-            $bounds = $element.Current.BoundingRectangle
-        }
         $area = $scrollElement.Current.BoundingRectangle
-        if (-not $element.Current.IsOffscreen -and $bounds.Height -gt 0 -and
-            $bounds.Top -ge $area.Top + $TopMargin -and $bounds.Bottom -le $area.Bottom - 10) { return $element }
+        $fits = $true
+        for ($index = 0; $index -lt $elements.Count; $index++) {
+            try { $current = $elements[$index].Current }
+            catch [System.Windows.Automation.ElementNotAvailableException] {
+                $elements[$index] = Find-HistoryControl $ids[$index]
+                $current = $elements[$index].Current
+            }
+            $bounds = $current.BoundingRectangle
+            if ($current.IsOffscreen -or $bounds.Height -le 0 -or
+                $bounds.Top -lt $area.Top + $TopMargin -or $bounds.Bottom -gt $area.Bottom - 10) {
+                $fits = $false
+            }
+        }
+        if ($fits) { return $elements[0] }
     }
     throw "Scan-history section '$Id' does not fit the details viewport."
 }
@@ -289,20 +309,25 @@ function Assert-HistorySummary([string] $Capture, [int] $LastIndex = 4) {
             throw "Summary $id lacks a rounded relative age in the requested units."
         }
     }
-    $expansion = (Find-HistoryControl DeviceScanHistoryExpander).GetCurrentPattern(
-        [System.Windows.Automation.ExpandCollapsePattern]::Pattern)
-    $expansion.Collapse()
-    $null = Show-HistorySection DeviceScanHistoryExpander
+    $expansion = $null
+    if (-not $SummaryOnly) {
+        $expansion = (Find-HistoryControl DeviceScanHistoryExpander).GetCurrentPattern(
+            [System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+        $expansion.Collapse()
+    }
+    $null = Show-HistorySection DeviceHistoryFirstSeen -AdditionalIds @(
+        "DeviceHistoryLastSeen", "DeviceHistorySince", "DeviceHistoryState", "DeviceHistoryScope", "DeviceHistoryLatest")
     foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince")) {
         $element = Find-HistoryControl $id
         $area = (Find-HistoryControl DeviceDetailsScroll).Current.BoundingRectangle
         $bounds = $element.Current.BoundingRectangle
         if ($element.Current.IsOffscreen -or $bounds.Top -lt $area.Top -or $bounds.Bottom -gt $area.Bottom) {
-            throw "Summary field $id is clipped."
+            Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Capture-clipped.png")
+            throw "Summary field $id is clipped: bounds=$bounds; viewport=$area."
         }
     }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Capture-summary.png")
-    $expansion.Expand()
+    if ($expansion) { $expansion.Expand() }
 }
 
 function Invoke-HistoryScan {
@@ -414,7 +439,7 @@ try {
             Assert-HistoryLastSeenAge "History $kind" $lastSeen
             Open-HistoryDetails "History $kind"
             Assert-HistorySummary "history-$kind-$index" $index
-            Assert-HistoryRows "history-$kind-$index" $index
+            if (-not $SummaryOnly) { Assert-HistoryRows "history-$kind-$index" $index }
         }
         Stop-HistoryApp
     }
@@ -443,21 +468,24 @@ try {
     foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince")) {
         if ((Find-HistoryControl $id).Current.Name -notlike "*Unavailable*") { throw "Other-network/subnet evidence leaked into $id." }
     }
-    if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "0 completed scan observations") { throw "Other-scope history leaked." }
+    if (-not $SummaryOnly -and (Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "0 completed scan observations") { throw "Other-scope history leaked." }
     Open-HistoryDetails "History imported"
     foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince")) {
         if ((Find-HistoryControl $id).Current.Name -notlike "*Unavailable*") { throw "Imported-only history fabricated $id." }
     }
-    $empty = Show-HistorySection DeviceScanHistoryEmpty
-    if ($empty.Current.Name -ne "No local scan history. Imported Fing data is not a local scan observation.") {
-        throw "Imported-only history needs an explanatory empty state."
+    if (-not $SummaryOnly) {
+        $empty = Show-HistorySection DeviceScanHistoryEmpty
+        if ($empty.Current.Name -ne "No local scan history. Imported Fing data is not a local scan observation.") {
+            throw "Imported-only history needs an explanatory empty state."
+        }
     }
+    else { $null = Show-HistorySection DeviceHistoryFirstSeen }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-imported.png")
     Stop-HistoryApp
     Start-HistoryApp
     Open-HistoryDetails "History normal"
     Assert-HistorySummary "history-restarted"
-    Assert-HistoryRows "history-restarted"
+    if (-not $SummaryOnly) { Assert-HistoryRows "history-restarted" }
     foreach ($theme in @("Standard Light", "Standard Dark")) {
         $condition = [System.Windows.Automation.AndCondition]::new(
             [System.Windows.Automation.PropertyCondition]::new(
@@ -475,15 +503,19 @@ try {
         Set-UiReviewTheme -Root $script:root -Theme $theme
         Open-HistoryDetails "History normal"
         $label = $theme.Replace(" ", "-").ToLowerInvariant()
-        Assert-HistoryTableRendering "history-table-$label"
+        if (-not $SummaryOnly) { Assert-HistoryTableRendering "history-table-$label" }
+        else { Assert-HistorySummary "history-$label" }
         $bounds = Get-UiReviewWindowBounds $script:process.MainWindowHandle
         if (-not [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
             $bounds.Left, $bounds.Top, 640, $bounds.Height, 0x0044)) { throw "Cannot resize history review window." }
         Start-Sleep -Milliseconds 500
-        Assert-HistoryTableRendering "history-table-$label-narrow"
-        (Find-HistoryControl DeviceScanHistoryExpander).GetCurrentPattern(
-            [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse()
-        $null = Show-HistorySection DeviceScanHistoryExpander
+        if (-not $SummaryOnly) {
+            Assert-HistoryTableRendering "history-table-$label-narrow"
+            (Find-HistoryControl DeviceScanHistoryExpander).GetCurrentPattern(
+                [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse()
+        }
+        else { Assert-HistorySummary "history-$label-narrow" }
+        $null = Show-HistorySection DeviceHistoryFirstSeen
         Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-summary-$label-narrow.png")
         $null = [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
             $bounds.Left, $bounds.Top, $bounds.Width, $bounds.Height, 0x0044)
@@ -520,7 +552,7 @@ try {
     Wait-HistoryScan
     if ((Get-InventoryFingerprint $database) -cne $beforeStop) { throw "Cancelled scan changed durable history." }
     Open-HistoryDetails "History normal"
-    if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "7 completed scan observations") {
+    if (-not $SummaryOnly -and (Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "7 completed scan observations") {
         throw "Cancelled scan changed displayed history."
     }
     foreach ($id in $beforeSummary.Keys) {
@@ -537,7 +569,7 @@ try {
     }
     if ((Get-InventoryFingerprint $database) -cne $beforeStop) { throw "Failed scan changed durable history." }
     Open-HistoryDetails "History normal"
-    if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "7 completed scan observations") {
+    if (-not $SummaryOnly -and (Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "7 completed scan observations") {
         throw "Failed scan changed displayed history."
     }
     foreach ($id in $beforeSummary.Keys) {
@@ -578,6 +610,10 @@ try {
         throw "Invalid saved history must not be overwritten."
     }
     Stop-HistoryApp
+    if ($SummaryOnly) {
+        Write-Host "Retained summaries, Last seen, persistence, scan outcomes and disabled history UI checks passed."
+        return
+    }
     $pagedHistory = @(0..204 | ForEach-Object {
         @{ completedAt = ([DateTimeOffset]::Parse("2026-11-01T12:00:00Z").AddSeconds($_)).ToString("o")
            networkId = "ui-review-network"; subnet = "127.0.0.1/32"; present = ($_ % 4 -lt 2) }

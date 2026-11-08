@@ -395,7 +395,9 @@ Never run native UI automation on a working user's desktop.
 
 ### Device activity
 
-Device details shows **Activity** above the existing scan history. Choose
+**Activity is temporarily hidden by #271; the following describes its retained
+implementation for restoration.** Device details previously showed **Activity**
+above the existing scan history. Choose
 **Last 7 days**, **Last 30 days**, or **30 days by weekday**, and group each local
 date into midnight-aligned 1, 2, 3 or 4-hour cells. Three-hour groups run
 00:00-03:00 through 21:00-24:00. The displayed Windows timezone and query time
@@ -428,6 +430,27 @@ it contains no inferred uptime or scalar duration estimates.
 
 ### Device scan history
 
+**Temporarily disabled (#271):** Device Details no longer exposes Activity or
+the Completed Scan Observations expander/table. Their implementation, fixtures
+and dedicated test files remain for restoration; disabled Activity does not
+initialize or start queries, and the table does not load observation pages.
+The internal `DeviceDetailsPageView.HistoryDetailsEnabled` switch is off, not a
+user setting. The descriptions below document the retained implementation,
+not currently available controls.
+
+First/last seen, last-observed/since, network scope and latest-scan explanation
+remain visible in the summary. Devices Last seen, virtual MAC/address information,
+discovery, usage categories and all other device details are unchanged. Scans
+continue collecting and retaining evidence; no stored data is deleted.
+The CI history suite invokes `DeviceScanHistory.Ui.Tests.ps1 -SummaryOnly`,
+preserving summary/Last seen, network scope, normal/virtual/imported/legacy,
+restart, scan outcomes, persistence errors and light/dark/narrow summary checks.
+It also verifies disabled controls are not visible or keyboard accessible.
+Activity and observation-table rendering/paging checks are dormant, not waived
+for restoration. Two restoration tasks under Epic #191 must be verified before
+#271 closes; each must re-enable its UI and tests and resolve relevant failures.
+Coordinate pending tab/CI changes so later merges cannot restore disabled UI.
+
 Device details shows a **Scan history** summary for normal MAC-based devices and
 existing virtual devices. First/last-seen timestamps display in local time with
 relative ages, refreshed while the page is visible and rounded to the nearest
@@ -443,7 +466,9 @@ help track rows; status combines a green/red dot with **Present/Absent** text.
 Network identity and subnet appear once above the table, not on every row.
 Timestamp tooltips expose the full local timestamp and UTC offset to distinguish
 repeated daylight-saving times. Storage remains UTC. Each relevant completed manual
-scan contributes one observation. Repeated unchanged
+or scheduled scan contributes one observation. Pending or incomplete checkpoints
+are not completed history and do not establish current live presence after restart.
+Repeated unchanged
 scans remain separate rows. Multiple responding addresses or associated MACs
 do not duplicate a virtual device's row; its history follows its existing
 virtual identity when the active MAC changes. Existing association rules are
@@ -561,8 +586,9 @@ scoped summaries and the matching Devices **Last seen** values through repeated 
 empty imported history, restart, successful repeated scans, cancellation,
 205-row page boundaries, forward/backward reachability and selection changes,
 failure, and visible persistence errors on the disposable Windows CI desktop.
-The parallel history regression job includes this check when the capture plan
-requires device details; never run it on a working
+The parallel history regression job currently includes only its `-SummaryOnly`
+retained-functionality path when the capture plan requires device details;
+the full path is preserved for restoration. Never run it on a working
 user's desktop. Its explicit `FINGVIBE_UI_REVIEW_INVENTORY` path isolates saved
 fixtures from real user data, like the existing review snapshot override.
 
@@ -881,7 +907,8 @@ integration.
 `DeviceActivityTests` covers every hour stop, response-wins/known-zero/unknown,
 weekday denominators, explicit legacy evidence, identity union, first-sighting
 eligibility, exact time boundaries, DST and cancellation. The disposable Windows
-history suite also runs `tests\DeviceActivity.Ui.Tests.ps1` with an isolated
+history suite preserves, but does not currently invoke,
+`tests\DeviceActivity.Ui.Tests.ps1` with an isolated
 synthetic inventory, exercising all modes/stops, cell keyboard details,
 loading/error/no-history states, selection changes, narrow scrolling, themes,
 high contrast and access to existing history. It refuses to run on the working
@@ -982,13 +1009,13 @@ Pull requests expose two review checks:
 - `security-review` scans the repository for exposed secrets and fails on critical dependency vulnerabilities.
 - `ui-ux-review` launches the tested WinUI app, exercises the primary **Scan LAN** action, verifies critical accessible controls, and embeds fresh screenshots of Devices and the affected views/states on the pull request.
 
-The **🔨 Pull request build** workflow runs core/script tests and one Windows publish concurrently after change planning. Once both pass, installer validation, `ui-capture`, and the four `ui-regression` matrix suites run on separate Windows runners in parallel. Every job downloads the same published payload; none rebuilds the app. The matrix separates sidebar/appearance, Devices, history/discovery, and Tools/build identity. Suites remain sequential within each runner to avoid competing for focus and input. The sidebar retains Windows PowerShell; other suites retain PowerShell Core. UI-review mode is enabled only at runtime, so the downloaded app remains the normal executable.
+The **🔨 Pull request build** workflow runs core/script tests and one Windows publish concurrently after change planning. Build and core tests cache NuGet packages with a shared Windows/dependency-configuration key and Windows-scoped fallback; normal restore still verifies/resolves required packages on hits and misses. Native `ui-capture` and the four `ui-regression` matrix suites start once the build passes, without waiting for core tests. Installer validation still waits for both tests and build. These checks run on separate Windows runners in parallel. Every job downloads the same published payload; none rebuilds the app. The matrix separates sidebar/appearance, Devices, history/discovery, and Tools/build identity. Suites remain sequential within each runner to avoid competing for focus and input. The sidebar retains Windows PowerShell; other suites retain PowerShell Core. UI-review mode is enabled only at runtime, so the downloaded app remains the normal executable.
 
-`ui-capture` now runs only screenshot-helper validation, baseline scan/filter and cross-page smoke checks, and required captures. History/discovery retain their existing condition: they run when the capture plan includes DeviceDetails. No existing checks are removed or moved to a scheduled-only policy. Regression jobs have a 20-minute job limit and a 15-minute suite-step limit; capture has a 10-minute job limit and a 7-minute smoke-step limit. These outer bounds also stop otherwise unbounded native/process waits without changing the test fixtures. Each regression check and the smoke/capture step report elapsed seconds in logs and the job summary.
+`ui-capture` now runs only screenshot-helper validation, baseline scan/filter and cross-page smoke checks, and required captures. History/discovery retain their existing condition: they run when the capture plan includes DeviceDetails. Activity/table checks are temporarily dormant under #271; summary/Last seen and other retained checks remain required. UI/test overlap does not waive any required result or move checks to a scheduled-only policy. Regression jobs have a 20-minute job limit and a 15-minute suite-step limit; capture has a 10-minute job limit and a 7-minute smoke-step limit. These outer bounds also stop otherwise unbounded native/process waits without changing the test fixtures. Each regression check and the smoke/capture step report elapsed seconds in logs and the job summary.
 
 Each matrix suite uploads its own `fingvibe-ui-regression-<suite>-pr-*-attempt-*` artifact, including the capture plan, transcript, and available screenshots/diagnostics, even on failure. These replace the suite subdirectories previously bundled into the capture artifact. The existing `fingvibe-ui-review-pr-*` artifact contains the smoke/capture evidence. Matrix fail-fast is disabled so one failed suite does not cancel the others' diagnostics. Screenshot publication and the existing required `ui-ux-review` aggregate gate require successful capture, all regression matrix jobs, and existing installer/tests/build checks. Missing, failed, cancelled, or unexpectedly skipped required matrix results cannot pass. Separate runners shorten the sequential critical path but add startup/transfer overhead and may increase billed minutes; actual durations depend on runner availability.
 
-Publishing uploads a short-lived `fingvibe-validation-payload-pr-*` transfer artifact (one-day retention), explicitly not a tested download. Publishing may finish even if concurrent tests fail. The installer job publishes the existing runnable-app and tested-installer downloads only after core tests and installer lifecycle checks pass; the build-link comment follows that job. Screenshot publication also waits for installer and UI validation to succeed. The required `ui-ux-review` gate aggregates tests, publishing, installer/download validation, native UI checks, and screenshot publication; failed, cancelled, or unexpectedly skipped required stages cannot pass. Separate jobs add runner startup and artifact-transfer overhead, so time savings depend on the run.
+Publishing uploads a short-lived `fingvibe-validation-payload-pr-*` transfer artifact (one-day retention), explicitly not a tested download. Publishing and native UI work may finish even if concurrent tests fail; their completion does not make the build a tested download or pass the final gate. UI overlap can consume runner time on a revision whose core tests fail. The installer job publishes the existing runnable-app and tested-installer downloads only after core tests and installer lifecycle checks pass; the build-link comment follows that job. Screenshot publication also waits for installer and UI validation to succeed. The required `ui-ux-review` gate aggregates tests, publishing, installer/download validation, native UI checks, and screenshot publication; failed, cancelled, or unexpectedly skipped required stages cannot pass. Separate jobs add runner startup and artifact-transfer overhead, so time savings depend on the run.
 
 Superseded runs on the same PR are cancelled. Documentation-only changes skip tests/build/installer/capture, while ordinary test-only changes run the regression tests without publishing or launching the app. Changes to the interactive screenshot regression tests run the native UI path as well. Workflows still start for every PR, and the `ui-ux-review` gate reports intentional skips or prerequisite failures rather than leaving a required check pending. Security scanning remains independent and runs on every PR.
 
