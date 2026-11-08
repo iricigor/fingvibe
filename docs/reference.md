@@ -853,9 +853,10 @@ high contrast. It refuses to run outside GitHub Actions; do not automate the
 working desktop or real saved inventory for these checks.
 After the Release Core build, `pwsh -File tests\UsageCategory.Script.Tests.ps1`
 checks the native test's checkbox dispatch, scroll-before-read assertions that
-stay inside the physical window, failure diagnostics and exact synthetic JSON
-migration/query/classifier fixture without launching an app or automating the
-desktop.
+stay inside the physical window, waits for the requested device row and for the
+Settings navigation to return after a resize, failure diagnostics and exact
+synthetic JSON migration/query/classifier fixture without launching an app or
+automating the desktop.
 
 On an interactive Windows desktop at least 1024 logical pixels wide, run the native sidebar regression checks against a built application:
 

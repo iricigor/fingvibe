@@ -156,6 +156,102 @@ if (-not [System.Windows.Automation.SelectionPattern+SelectionPatternInformation
         throw "Opening a device must wait for its own row, not for a result count that can describe the previous filter."
     }
 }
+& {
+    $find = $usage.Find({
+        param($node)
+        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq "Find-UsageSettings"
+    }, $true)
+    $select = $usage.Find({
+        param($node)
+        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq "Select-UsageSettings"
+    }, $true)
+    Invoke-Expression $find.Extent.Text
+    Invoke-Expression $select.Extent.Text
+    $state = @{ Item = $null; Polls = 0; ReadyAfter = 1; GoneAfter = [int]::MaxValue; Selected = 0; SelectedAtPoll = -1; Picker = $null; ShowsAfterSelect = $true }
+    $script:root = [pscustomobject]@{}
+    $script:root | Add-Member ScriptMethod FindFirst {
+        param($Scope, $Condition)
+        $parts = @($Condition.GetConditions())
+        $nameId = [System.Windows.Automation.AutomationElement]::NameProperty.ProgrammaticName
+        $typeId = [System.Windows.Automation.AutomationElement]::ControlTypeProperty.ProgrammaticName
+        $name = @($parts | Where-Object { $_.Property.ProgrammaticName -eq $nameId })
+        $type = @($parts | Where-Object { $_.Property.ProgrammaticName -eq $typeId })
+        if ($Scope -ne [System.Windows.Automation.TreeScope]::Descendants -or $parts.Count -ne 2 -or $name.Count -ne 1 -or
+            $type.Count -ne 1 -or $name[0].Value -ne "Settings" -or $type[0].Value -ne [System.Windows.Automation.ControlType]::ListItem.Id) {
+            return $null
+        }
+        return $state.Item
+    }
+    function New-UsageSettingsDouble([switch] $Offscreen) {
+        $selection = [pscustomobject]@{}
+        $selection | Add-Member ScriptMethod Select {
+            $state.Selected++
+            $state.SelectedAtPoll = $state.Polls
+            if ($state.ShowsAfterSelect) {
+                $state.Picker = [pscustomobject]@{ Current = [pscustomobject]@{ IsOffscreen = $false } }
+            }
+        }
+        $item = [pscustomobject]@{ Current = [pscustomobject]@{ IsOffscreen = [bool] $Offscreen } }
+        $item | Add-Member ScriptMethod GetCurrentPattern {
+            param($PatternId)
+            if ($PatternId -ne [System.Windows.Automation.SelectionItemPattern]::Pattern) { throw "Settings must be selected through SelectionItemPattern." }
+            return $selection
+        }.GetNewClosure()
+        return $item
+    }
+
+    $state.Item = New-UsageSettingsDouble
+    if ((Find-UsageSettings) -ne $state.Item) { throw "The on-screen Settings navigation item must be found by name and list-item type." }
+    $state.Item = $null
+    if (Find-UsageSettings) { throw "A collapsed navigation pane exposes no Settings item." }
+    $state.Item = New-UsageSettingsDouble -Offscreen
+    if (Find-UsageSettings) { throw "An off-screen Settings item must not be selected." }
+
+    function Wait-Usage([scriptblock] $Condition, [string] $Description) {
+        for ($attempt = 0; $attempt -lt 5; $attempt++) { if (& $Condition) { return } }
+        throw "Timed out waiting for $Description."
+    }
+    function Find-UsageSettings {
+        $state.Polls++
+        if ($state.Polls -lt $state.ReadyAfter -or $state.Polls -gt $state.GoneAfter) { return $null }
+        return $state.Item
+    }
+    function Find-Usage([string] $Id, [switch] $ByName, [switch] $Optional) {
+        if ($Id -ne "ModePicker" -or $ByName -or -not $Optional) { throw "The Settings page must be polled through its optional appearance picker." }
+        return $state.Picker
+    }
+    $state.Item = New-UsageSettingsDouble
+    $state.ReadyAfter = 3
+    Select-UsageSettings
+    if ($state.Selected -ne 1 -or $state.SelectedAtPoll -lt 3) {
+        throw "Settings must be selected once, only after the collapsed navigation pane exposes it."
+    }
+
+    $state.Polls = 0; $state.Selected = 0; $state.Picker = $null; $state.ReadyAfter = 99
+    $failure = $null
+    try { Select-UsageSettings } catch { $failure = $_.Exception.Message }
+    if ($failure -notlike "*Settings navigation item*" -or $state.Selected -ne 0) {
+        throw "A navigation pane that never returns must time out without selecting anything."
+    }
+
+    $state.Polls = 0; $state.Selected = 0; $state.Picker = $null; $state.ReadyAfter = 1; $state.GoneAfter = 1
+    $failure = $null
+    try { Select-UsageSettings } catch { $failure = $_.Exception.Message }
+    if ($failure -notlike "*disappeared before it could be selected*" -or $state.Selected -ne 0) {
+        throw "An item that vanishes after the wait must be reported, not dereferenced."
+    }
+
+    $state.Polls = 0; $state.Selected = 0; $state.Picker = $null; $state.ReadyAfter = 1; $state.GoneAfter = [int]::MaxValue; $state.ShowsAfterSelect = $false
+    $failure = $null
+    try { Select-UsageSettings } catch { $failure = $_.Exception.Message }
+    if ($failure -ne "Timed out waiting for Settings." -or $state.Selected -ne 1) {
+        throw "A Settings page that never appears must be reported after the item was selected."
+    }
+
+    if ($usage.Extent.Text.Contains('Find-Usage "Settings"')) {
+        throw "Settings must be reached through Select-UsageSettings, which waits for the navigation pane to return after a resize."
+    }
+}
 
 # Execute only the synthetic fixture construction, never the UI script's startup or desktop helpers.
 $fixture = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-usage-script-$([Guid]::NewGuid().ToString('N'))"

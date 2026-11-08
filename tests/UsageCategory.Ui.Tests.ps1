@@ -79,6 +79,30 @@ function Find-UsageRow([string] $Name) {
     return $null
 }
 
+function Find-UsageSettings {
+    $condition = [System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, "Settings"),
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::ListItem))
+    $item = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+    if ($item -and -not $item.Current.IsOffscreen) { return $item }
+    return $null
+}
+
+function Select-UsageSettings {
+    # A resize returns before XAML lays out again, and the navigation pane stays collapsed until it does.
+    Wait-Usage { Find-UsageSettings } "the Settings navigation item"
+    $item = Find-UsageSettings
+    if (-not $item) { throw "The Settings navigation item disappeared before it could be selected." }
+    $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Wait-Usage {
+        $picker = Find-Usage ModePicker -Optional
+        $picker -and -not $picker.Current.IsOffscreen
+    } "Settings"
+}
+
 function Open-UsageDevice([string] $Name = "Usage laptop") {
     $back = Find-Usage "Back to devices" -ByName -Optional
     if ($back -and -not $back.Current.IsOffscreen) {
@@ -265,11 +289,7 @@ try {
     if ((Find-Usage UsageCategoryEvidence).Current.Name -match '%') { throw "No evidence must not fabricate a percentage." }
     Save-UsageCapture "usage-no-evidence"
     foreach ($theme in @("Standard Light", "Standard Dark")) {
-        (Find-Usage "Settings" -ByName).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-        Wait-Usage {
-            $picker = Find-Usage ModePicker -Optional
-            $picker -and -not $picker.Current.IsOffscreen
-        } "Settings"
+        Select-UsageSettings
         Set-UiReviewTheme -Root $script:root -Theme $theme
         Open-UsageDevice "Concurrent name"
         $bounds = Get-UiReviewWindowBounds $script:process.MainWindowHandle
@@ -297,9 +317,12 @@ try {
     Save-UsageCapture "usage-high-contrast" UsageCategorySave
     $picker = Show-Usage UsageCategoryPicker
     $picker.SetFocus()
-    [System.Windows.Forms.SendKeys]::SendWait("{HOME}{DOWN}{DOWN}{ENTER}")
-    $selection = $picker.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()
-    if ($selection.Count -ne 1 -or $selection[0].Current.Name -ne "Personal") { throw "Keyboard category selection failed." }
+    # On a closed ComboBox the arrow keys change the selection immediately, while Enter would only open its list.
+    [System.Windows.Forms.SendKeys]::SendWait("{HOME}{DOWN}{DOWN}{DOWN}")
+    Wait-Usage {
+        $selection = $picker.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()
+        $selection.Count -eq 1 -and $selection[0].Current.Name -eq "Guest"
+    } "keyboard category selection"
     Invoke-Usage UsageCategoryCancel
     Assert-Usage Permanent "Auto"
     [UsageReviewContrast]::Set($contrast)
