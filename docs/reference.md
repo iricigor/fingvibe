@@ -935,8 +935,8 @@ automation IDs/namescopes, isolated representative data, keyboard/accessibility
 and rendered/virtualized reachability. Large-data correctness/resource budgets
 belong primarily in WinUI-free tests, with native integration still required.
 Agree budgets before implementation, preserve intentional elapsed-time checks,
-and investigate failures instead of hiding them. Fast/full modes and enforced
-PR coverage manifests are not delivered by this foundation (#256).
+and investigate failures instead of hiding them. Enforced PR coverage
+manifests are not delivered by this foundation (#256).
 Independent execution modes below do not change those review requirements.
 
 ### Independent native validation

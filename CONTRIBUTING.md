@@ -63,8 +63,8 @@ busy timeout.
 Review current-revision disposable Windows evidence for affected behavior and
 retain coverage mappings and phase diagnostics. See the [test reference](docs/reference.md#test)
 for the desktop-free foundation check. These are contributor/reviewer
-expectations, not a new mandatory manifest or gate. Fast/full execution and
-enforced coverage selection remain separate work in #242/#256.
+expectations, not a new mandatory manifest or gate. Enforced coverage
+selection remains separate work in #256.
 
 Native execution modes reuse the existing smoke and suite implementations.
 The independent observational comparison runs a short launch/scan/filter/details

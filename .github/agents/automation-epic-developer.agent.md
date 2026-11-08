@@ -306,8 +306,9 @@ Use representative isolated small/empty/error and relevant large-data fixtures,
 agree measurable budgets before implementation, and keep query/resource tests
 WinUI-free where appropriate without replacing native integration. Inspect
 current-revision phase/failure diagnostics; do not hide failures by retries,
-longer timeouts or reduced assertions. This does not introduce #242/#256's
-future fast/full execution or mandatory coverage-manifest policy.
+longer timeouts or reduced assertions. Independent baseline/full validation
+(#242) is additional evidence, not a waiver of required checks; this does not
+introduce #256's mandatory coverage-manifest policy.
 
 Discover every applicable UI-regression job from the current workflows and
 scenario-selection evidence, including future matrix entries and newly added
