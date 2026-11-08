@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet("sidebar", "devices", "history", "tools")]
+    [ValidateSet("sidebar", "devices", "history", "history-semantics", "history-rendering",
+        "history-persistence", "history-paging", "tools")]
     [string] $Suite,
     [Parameter(Mandatory)][string] $AppPath,
     [Parameter(Mandatory)][string] $ScreenshotDirectory,
@@ -15,7 +16,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "UiReviewScenarios.ps1")
-$plan = if ($Suite -eq "history") { @(Read-UiReviewCapturePlan -Path $CapturePlanPath) } else { @() }
+$plan = if ($Suite -eq "history" -or $Suite.StartsWith("history-")) {
+    @(Read-UiReviewCapturePlan -Path $CapturePlanPath)
+} else { @() }
 $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
 
 function Invoke-RegressionCheck([string] $Name, [hashtable] $Parameters = @{}) {
@@ -34,16 +37,30 @@ function Invoke-RegressionCheck([string] $Name, [hashtable] $Parameters = @{}) {
 
 Start-Transcript -Path (Join-Path $ScreenshotDirectory "regression.log")
 try {
-    switch ($Suite) {
-        sidebar {
+    switch -Regex ($Suite) {
+        '^history-(semantics|rendering|persistence|paging)$' {
+            if ($plan.Scenario -contains "DeviceDetails") {
+                $group = @{
+                    "history-semantics" = "Semantics"; "history-rendering" = "Rendering"
+                    "history-persistence" = "Persistence"; "history-paging" = "Paging"
+                }[$Suite]
+                Invoke-RegressionCheck "DeviceScanHistory.Ui" @{
+                    Group = $group
+                    ScreenshotDirectory = (Join-Path $ScreenshotDirectory "scan-history\$($group.ToLowerInvariant())")
+                }
+            }
+            else {
+                Write-Host "$Suite is not required by this capture plan, preserving existing selection."
+            }
+        }
+        '^sidebar$' {
             Invoke-RegressionCheck "SidebarNavigation" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "sidebar") }
         }
-        devices {
+        '^devices$' {
             Invoke-RegressionCheck "DevicesList.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "devices") }
         }
-        history {
+        '^history$' {
             if ($plan.Scenario -contains "DeviceDetails") {
-                Invoke-RegressionCheck "DeviceScanHistory.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "scan-history") }
                 Invoke-RegressionCheck "DeviceDiscovery.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "discovery") }
                 Invoke-RegressionCheck "UsageCategory.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "usage-category") }
                 Invoke-RegressionCheck "DeviceActivity.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "device-activity") }
@@ -52,7 +69,7 @@ try {
                 Write-Host "History/discovery checks are not required by this capture plan, preserving existing selection."
             }
         }
-        tools {
+        '^tools$' {
             Invoke-RegressionCheck "BuildIdentity.Ui" @{
                 Version = $Version; BuildKind = $BuildKind; BuildTimestamp = $BuildTimestamp
                 BuildCommit = $BuildCommit; PullRequestNumber = $PullRequestNumber

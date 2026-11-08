@@ -442,17 +442,27 @@ helper checks without desktop automation. Native coverage and before/after
 runtime evidence require disposable GitHub Windows runners, never the working
 desktop.
 
-The entry point runs four independent groups sequentially on that same runner:
+The entry point supports four independent groups:
 `Semantics` (transitions, provenance and normal/virtual/scoped evidence),
 `Rendering` (keyboard, themes, narrow tables and screenshots), `Persistence`
 (restart, scans, cancellation and storage failures), and `Paging` (all 205
 observations, ordering, page boundaries and selection reset). Each invocation
 creates and cleans up its own fixture and application. A group failure retains
 its diagnostic file and does not skip the remaining independent groups; the
-combined entry point still fails if any group fails. Screenshots are retained
+combined local entry point still fails if any group fails. Screenshots are retained
 under group-named subdirectories with their existing filenames. Group timings
 include independent setup; compare their combined runtime, not a single group,
 against the previous monolithic test.
+
+CI runs these as separate `ui-regression (history-semantics)`,
+`ui-regression (history-rendering)`, `ui-regression (history-persistence)` and
+`ui-regression (history-paging)` matrix jobs, each on its own disposable Windows
+runner with separate status and diagnostic artifacts. They reuse the single
+published app payload. The existing `history` job runs Discovery, Usage Category
+and Device Activity only, not duplicate scan-history coverage. The matrix keeps
+`fail-fast: false`, and aggregate validation requires every applicable job to
+pass. Setup is repeated per runner; isolated results are not a claim of reduced
+total runner consumption.
 
 On a disposable runner, select one group with
 `tests\DeviceScanHistory.Ui.Tests.ps1 -AppPath <app> -ScreenshotDirectory <output> -Group Paging`;

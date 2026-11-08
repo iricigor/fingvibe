@@ -169,7 +169,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         'runs-on: windows-2025',
         'timeout-minutes: 20',
         'fail-fast: false',
-        'suite: \[sidebar, devices, history, tools\]',
+        'suite: \[sidebar, devices, history, history-semantics, history-rendering, history-persistence, history-paging, tools\]',
         '(?s)name: Run native regression suite\s+timeout-minutes: 15',
         "(?s)name: Run native regression suite\s+timeout-minutes: 15\s+if: matrix.suite != 'sidebar'\s+shell: pwsh",
         "(?s)name: Run sidebar regression in Windows PowerShell\s+timeout-minutes: 15\s+if: matrix.suite == 'sidebar'\s+shell: powershell",
@@ -222,7 +222,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             "UsageCategory.Ui", "DeviceActivity.Ui",
             "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
             @(
-                'param($AppPath, $ScreenshotDirectory, $Version, $BuildKind, $BuildTimestamp, $BuildCommit, $PullRequestNumber)',
+                'param($AppPath, $ScreenshotDirectory, $Version, $BuildKind, $BuildTimestamp, $BuildCommit, $PullRequestNumber, $Group)',
                 '$name = [IO.Path]::GetFileName($PSCommandPath).Replace(".Tests.ps1", "")',
                 '@{ Name = $name; Parameters = $PSBoundParameters } | ConvertTo-Json -Compress | Add-Content $env:UI_REGRESSION_CALLS',
                 'if ($env:UI_REGRESSION_FAIL -eq $name) { throw "Simulated regression failure: $name" }'
@@ -240,23 +240,37 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             CapturePlanPath = $planPath; Version = "0.0.123"; BuildKind = "PullRequest"
             BuildTimestamp = "2026-11-06T09:00:00Z"; BuildCommit = "test-commit"; PullRequestNumber = 198
         }
-        foreach ($suite in @("sidebar", "devices", "history", "tools")) {
+        foreach ($suite in @("sidebar", "devices", "history", "history-semantics", "history-rendering",
+            "history-persistence", "history-paging", "tools")) {
             & $runner -Suite $suite @parameters
         }
         $calls = @(Get-Content $env:UI_REGRESSION_CALLS | ConvertFrom-Json)
-        Assert-Equal $calls.Name @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
-            "UsageCategory.Ui", "DeviceActivity.Ui",
+        Assert-Equal $calls.Name @("SidebarNavigation", "DevicesList.Ui", "DeviceDiscovery.Ui",
+            "UsageCategory.Ui", "DeviceActivity.Ui", "DeviceScanHistory.Ui", "DeviceScanHistory.Ui",
+            "DeviceScanHistory.Ui", "DeviceScanHistory.Ui",
             "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "Dispatch every preserved suite once"
-        Assert-Equal ([DateTimeOffset]$calls[6].Parameters.BuildTimestamp).UtcDateTime ([DateTimeOffset]$parameters.BuildTimestamp).UtcDateTime "Forward stamped identity"
-        Assert-Equal $calls[6].Parameters.PullRequestNumber 198 "Forward PR identity"
+        Assert-Equal $calls[5..8].Parameters.Group @("Semantics", "Rendering", "Persistence", "Paging") "Each group has its own exact-once matrix dispatch"
+        Assert-Equal ([DateTimeOffset]$calls[9].Parameters.BuildTimestamp).UtcDateTime ([DateTimeOffset]$parameters.BuildTimestamp).UtcDateTime "Forward stamped identity"
+        Assert-Equal $calls[9].Parameters.PullRequestNumber 198 "Forward PR identity"
         Assert-Equal ($calls.Parameters.AppPath | Select-Object -Unique) "synthetic.exe" "Reuse supplied app"
         & powershell.exe -NoProfile -File $runner -Suite sidebar -AppPath $parameters.AppPath `
             -ScreenshotDirectory $parameters.ScreenshotDirectory -CapturePlanPath $planPath
         if ($LASTEXITCODE -ne 0) { throw "Sidebar runner must support multi-scenario plans under Windows PowerShell." }
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 12 "Windows PowerShell dispatches the sidebar without parsing history selection"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 15 "Windows PowerShell dispatches the sidebar without parsing history selection"
         ConvertTo-Json -InputObject @($definitions | Where-Object Scenario -eq Devices) -Depth 5 | Set-Content $planPath
         & $runner -Suite history @parameters
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 12 "Unselected history must not launch native checks"
+        foreach ($suite in @("history-semantics", "history-rendering", "history-persistence", "history-paging")) {
+            & $runner -Suite $suite @parameters
+        }
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 15 "Unselected history and groups must not launch native checks"
+        ConvertTo-Json -InputObject $definitions -Depth 5 | Set-Content $planPath
+        $env:UI_REGRESSION_FAIL = "DeviceScanHistory.Ui"
+        foreach ($suite in @("history-semantics", "history-rendering", "history-persistence", "history-paging")) {
+            Assert-Throws { & $runner -Suite $suite @parameters } "*Simulated regression failure*"
+            if ((Get-Content $env:GITHUB_STEP_SUMMARY -Raw) -notlike "*$suite / DeviceScanHistory.Ui elapsed:*") {
+                throw "Independent group failure must expose named job timing: $suite."
+            }
+        }
         $env:UI_REGRESSION_FAIL = "DevicesList.Ui"
         Assert-Throws { & $runner -Suite devices @parameters } "*Simulated regression failure*"
         if ((Get-Content (Join-Path $parameters.ScreenshotDirectory "regression.log") -Raw) -notmatch 'Simulated regression failure') {
