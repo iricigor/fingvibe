@@ -122,8 +122,7 @@ function Open-HistoryDetails([string] $Name) {
         $scroll -and -not $scroll.Current.IsOffscreen
     } "details for $Name"
     if ($SummaryOnly) {
-        foreach ($id in @("DeviceActivityCard", "ActivityPeriod", "ActivityRefresh", "ActivityScroll",
-            "DeviceScanHistoryExpander", "DeviceScanHistoryList", "DeviceHistoryOlder", "DeviceHistoryNewer",
+        foreach ($id in @("DeviceScanHistoryExpander", "DeviceScanHistoryList", "DeviceHistoryOlder", "DeviceHistoryNewer",
             "DeviceHistoryTab", "DeviceViewHistory")) {
             $element = Find-HistoryControl $id -Optional
             if ($element -and (-not $element.Current.IsOffscreen -or $element.Current.IsKeyboardFocusable)) {
@@ -611,7 +610,7 @@ try {
     }
     Stop-HistoryApp
     if ($SummaryOnly) {
-        Write-Host "Retained summaries, Last seen, persistence, scan outcomes and disabled history UI checks passed."
+        Write-Host "Retained summaries, Last seen, persistence, scan outcomes and disabled completed-observation UI checks passed."
         return
     }
     $pagedHistory = @(0..204 | ForEach-Object {

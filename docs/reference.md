@@ -395,9 +395,7 @@ Never run native UI automation on a working user's desktop.
 
 ### Device activity
 
-**Activity is temporarily hidden by #271; the following describes its retained
-implementation for restoration.** Device details previously showed **Activity**
-above the existing scan history. Choose
+Device details shows **Activity** above the existing scan-history summary. Choose
 **Last 7 days**, **Last 30 days**, or **30 days by weekday**, and group each local
 date into midnight-aligned 1, 2, 3 or 4-hour cells. Three-hour groups run
 00:00-03:00 through 21:00-24:00. The displayed Windows timezone and query time
@@ -430,13 +428,13 @@ it contains no inferred uptime or scalar duration estimates.
 
 ### Device scan history
 
-**Temporarily disabled (#271):** Device Details no longer exposes Activity or
-the Completed Scan Observations expander/table. Their implementation, fixtures
-and dedicated test files remain for restoration; disabled Activity does not
-initialize or start queries, and the table does not load observation pages.
-The internal `DeviceDetailsPageView.HistoryDetailsEnabled` switch is off, not a
-user setting. The descriptions below document the retained implementation,
-not currently available controls.
+**Completed observations remain temporarily disabled (#271/#274):** Device
+Details exposes Activity independently, but not the Completed Scan Observations
+expander/table. The table implementation, fixtures and dedicated tests remain
+for restoration, and observation pages are not loaded. The internal
+`DeviceDetailsPageView.CompletedObservationsEnabled` switch is off, not a user
+setting; it does not gate Activity. Descriptions of the table below document
+retained, not currently available controls.
 
 First/last seen, last-observed/since, network scope and latest-scan explanation
 remain visible in the summary. Devices Last seen, virtual MAC/address information,
@@ -446,10 +444,9 @@ The CI history suite invokes `DeviceScanHistory.Ui.Tests.ps1 -SummaryOnly`,
 preserving summary/Last seen, network scope, normal/virtual/imported/legacy,
 restart, scan outcomes, persistence errors and light/dark/narrow summary checks.
 It also verifies disabled controls are not visible or keyboard accessible.
-Activity and observation-table rendering/paging checks are dormant, not waived
-for restoration. Two restoration tasks under Epic #191 must be verified before
-#271 closes; each must re-enable its UI and tests and resolve relevant failures.
-Coordinate pending tab/CI changes so later merges cannot restore disabled UI.
+Activity checks run separately in the same suite. Observation-table
+rendering/paging checks remain dormant, not waived for #274. Restoring Activity
+does not authorize restoring the table or the deferred tab redesign.
 
 Device details shows a **Scan history** summary for normal MAC-based devices and
 existing virtual devices. First/last-seen timestamps display in local time with
@@ -980,14 +977,26 @@ integration.
 `DeviceActivityTests` covers every hour stop, response-wins/known-zero/unknown,
 weekday denominators, explicit legacy evidence, identity union, first-sighting
 eligibility, exact time boundaries, DST and cancellation. The disposable Windows
-history suite preserves, but does not currently invoke,
+history suite invokes
 `tests\DeviceActivity.Ui.Tests.ps1` with an isolated
 synthetic inventory, exercising all modes/stops, cell keyboard details,
 loading/error/no-history states, selection changes, narrow scrolling, themes,
-high contrast and access to existing history. It refuses to run on the working
+high contrast and access to the retained history summary without enabling
+completed observations. It refuses to run on the working
 desktop. After the Release Core build,
 `pwsh -File tests\DeviceActivity.Script.Tests.ps1` verifies its fixture through
-the actual migration/query/grouping path without launching the app.
+the actual migration/query/grouping path, including real SQLite contention and
+successful retry, without launching the app.
+
+The native loading/cancellation fixture uses `FINGVIBE_UI_REVIEW_ACTIVITY_HOLD`
+only with UI-review mode and an explicit fixture inventory. A bounded loader
+hold records individual starts, cancellations and releases in the isolated
+fixture; it never changes the database reader's 100-ms busy policy. This lets
+period/device/group/navigation/close checks observe pending work without
+mistaking an expired exclusive SQLite lock for a loading state. Real database
+contention and stale revisions still exercise explicit errors, and Retry after
+releasing contention must restore the current selection. Native phase timings,
+partial failure captures and hold records are retained in the suite diagnostics.
 
 The disposable Windows history regression suite also runs
 `tests\UsageCategory.Ui.Tests.ps1`. It uses isolated inventory/snapshot/table fixtures
@@ -1084,7 +1093,7 @@ Pull requests expose two review checks:
 
 The **🔨 Pull request build** workflow runs core/script tests and one Windows publish concurrently after change planning. Build and core tests cache NuGet packages with a shared Windows/dependency-configuration key and Windows-scoped fallback; normal restore still verifies/resolves required packages on hits and misses. Native `ui-capture` and the four `ui-regression` matrix suites start once the build passes, without waiting for core tests. Installer validation still waits for both tests and build. These checks run on separate Windows runners in parallel. Every job downloads the same published payload; none rebuilds the app. The matrix separates sidebar/appearance, Devices, history/discovery, and Tools/build identity. Suites remain sequential within each runner to avoid competing for focus and input. The sidebar retains Windows PowerShell; other suites retain PowerShell Core. UI-review mode is enabled only at runtime, so the downloaded app remains the normal executable.
 
-`ui-capture` now runs only screenshot-helper validation, baseline scan/filter and cross-page smoke checks, and required captures. History/discovery retain their existing condition: they run when the capture plan includes DeviceDetails. Activity/table checks are temporarily dormant under #271; summary/Last seen and other retained checks remain required. UI/test overlap does not waive any required result or move checks to a scheduled-only policy. Regression jobs have a 20-minute job limit and a 15-minute suite-step limit; capture has a 10-minute job limit and a 7-minute smoke-step limit. These outer bounds also stop otherwise unbounded native/process waits without changing the test fixtures. Each regression check and the smoke/capture step report elapsed seconds in logs and the job summary.
+`ui-capture` now runs only screenshot-helper validation, baseline scan/filter and cross-page smoke checks, and required captures. History/discovery and restored Activity retain their existing condition: they run when the capture plan includes DeviceDetails. Completed-observation table checks remain dormant for #274; summary/Last seen and other retained checks remain required. UI/test overlap does not waive any required result or move checks to a scheduled-only policy. Regression jobs have a 20-minute job limit and a 15-minute suite-step limit; capture has a 10-minute job limit and a 7-minute smoke-step limit. These outer bounds also stop otherwise unbounded native/process waits without changing the test fixtures. Each regression check and the smoke/capture step report elapsed seconds in logs and the job summary.
 
 Each matrix suite uploads its own `fingvibe-ui-regression-<suite>-pr-*-attempt-*` artifact, including the capture plan, transcript, and available screenshots/diagnostics, even on failure. These replace the suite subdirectories previously bundled into the capture artifact. The existing `fingvibe-ui-review-pr-*` artifact contains the smoke/capture evidence. Matrix fail-fast is disabled so one failed suite does not cancel the others' diagnostics. Screenshot publication and the existing required `ui-ux-review` aggregate gate require successful capture, all regression matrix jobs, and existing installer/tests/build checks. Missing, failed, cancelled, or unexpectedly skipped required matrix results cannot pass. Separate runners shorten the sequential critical path but add startup/transfer overhead and may increase billed minutes; actual durations depend on runner availability.
 

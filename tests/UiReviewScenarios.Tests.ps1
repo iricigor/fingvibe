@@ -26,7 +26,7 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     Assert-Equal $history.Header "Completed Scan Observations" "Completed observations header"
     Assert-Equal $history.Visibility "Collapsed" "Completed observations is disabled"
     $activity = $page.SelectSingleNode("//*[@x:Name='DeviceActivityCard']", $namespaces)
-    Assert-Equal $activity.Visibility "Collapsed" "Activity is disabled"
+    Assert-Equal $activity.GetAttribute("Visibility") "" "Restored Activity uses normal visible layout"
     foreach ($id in @("DeviceScanHistoryTable", "DeviceScanHistoryEmpty",
         "DeviceHistoryNewer", "DeviceHistoryOlder", "DeviceHistoryPageStatus")) {
         if (-not $history.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must be inside completed observations." }
@@ -44,16 +44,17 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     }
     $code = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml.cs") -Raw
     foreach ($pattern in @(
-        'internal static bool HistoryDetailsEnabled => false;',
-        'if \(HistoryDetailsEnabled\) InitializeActivity\(\);',
-        '(?s)if \(HistoryDetailsEnabled\)\s*\{\s*ApplyHistoryPage\(DeviceHistoryQuery.ReadPage',
-        '(?s)HistoryPage_Click.*?\{\s*if \(!HistoryDetailsEnabled\) return;'
+        'internal static bool CompletedObservationsEnabled => false;',
+        '(?m)^        InitializeActivity\(\);',
+        '(?s)if \(CompletedObservationsEnabled\)\s*\{\s*ApplyHistoryPage\(DeviceHistoryQuery.ReadPage',
+        '(?s)HistoryPage_Click.*?\{\s*if \(!CompletedObservationsEnabled\) return;'
     )) {
         if ($code -notmatch $pattern) { throw "Missing reversible history lifecycle guard: $pattern" }
     }
     $activityCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.Activity.cs") -Raw
-    if ($activityCode -notmatch '(?s)SetActivityActive\(bool active\)\s*\{\s*active &= HistoryDetailsEnabled;') {
-        throw "Hidden Activity must not activate queries or rendering."
+    if ($activityCode -match 'HistoryDetailsEnabled|CompletedObservationsEnabled' -or
+        $code -match 'DeviceActivityCard.Visibility') {
+        throw "Activity must remain independent of disabled completed observations."
     }
     $errors = $null
     $null = [Management.Automation.Language.Parser]::ParseFile(
@@ -219,6 +220,7 @@ try {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails", "Settings") "Usage categories"
     }
     foreach ($path in @("src\FingVibe.App\MainWindow.DeviceActivity.cs", "src\FingVibe.App\DeviceActivityPresentation.cs",
+        "src\FingVibe.App\DeviceActivityReviewHold.cs",
         "src\FingVibe.App\Views\DeviceDetailsPageView.Activity.cs", "src\FingVibe.Core\Models\DeviceActivity.cs",
         "tests\DeviceActivity.Ui.Tests.ps1", "tests\DeviceActivity.Fixture.ps1")) {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device activity"

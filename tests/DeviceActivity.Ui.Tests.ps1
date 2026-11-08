@@ -7,6 +7,7 @@ $ErrorActionPreference = "Stop"
 if ($env:GITHUB_ACTIONS -ne "true") { throw "Device activity UI checks require a disposable GitHub Actions desktop." }
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
+. (Join-Path $PSScriptRoot "UiRegression\Helpers.ps1")
 . (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
 . (Join-Path $PSScriptRoot "DeviceActivity.Fixture.ps1")
 Initialize-InventorySqlite $AppPath
@@ -50,12 +51,15 @@ function Find-Activity([string] $Id, [switch] $ByName, [switch] $Optional) {
 }
 
 function Wait-Activity([scriptblock] $Condition, [string] $Description) {
-    $deadline = [DateTime]::UtcNow.AddSeconds(25)
-    do {
-        if (& $Condition) { return }
-        Start-Sleep -Milliseconds 100
-    } while ([DateTime]::UtcNow -lt $deadline)
-    throw "Timed out waiting for $Description. Status: $((Find-Activity ActivityStatus -Optional).Current.Name)"
+    try {
+        $null = Wait-UiRegressionState -Condition $Condition -Description $Description -TimeoutMilliseconds 25000
+    }
+    catch {
+        Write-Host "Activity status: $((Find-Activity ActivityStatus -Optional).Current.Name)"
+        Write-Host "Activity error: $((Find-Activity ActivityError -Optional).Current.Name)"
+        Write-Host "Activity window: $((Find-Activity ActivityWindow -Optional).Current.Name)"
+        throw
+    }
 }
 
 function Start-ActivityApp {
@@ -71,10 +75,7 @@ function Start-ActivityApp {
 }
 
 function Stop-ActivityApp {
-    if ($script:process -and -not $script:process.HasExited) {
-        $null = $script:process.CloseMainWindow()
-        if (-not $script:process.WaitForExit(5000)) { throw "Activity app failed to close." }
-    }
+    Stop-UiRegressionApp -Process $script:process
 }
 
 function Test-ActivityFits($Control, $Viewport) {
@@ -82,13 +83,15 @@ function Test-ActivityFits($Control, $Viewport) {
     $area = $Viewport.Current.BoundingRectangle
     $bottom = [Math]::Min($area.Bottom, $script:root.Current.BoundingRectangle.Bottom - 16)
     return -not $Control.Current.IsOffscreen -and $bounds.Height -gt 0 -and
-        $bounds.Top -ge $area.Top -and $bounds.Bottom -le $bottom
+        $bounds.Top -ge $area.Top -and $bounds.Bottom -le $bottom -and
+        $bounds.Left -ge $area.Left -and $bounds.Right -le $area.Right
 }
 
 function Show-Activity([string] $Id) {
     $viewport = Find-Activity DeviceDetailsScroll
     $scroll = $viewport.GetCurrentPattern([Windows.Automation.ScrollPattern]::Pattern)
     $control = Find-Activity $Id
+    if (Test-ActivityFits $control $viewport) { return $control }
     foreach ($percent in 0..100) {
         if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
         Start-Sleep -Milliseconds 10
@@ -155,12 +158,47 @@ function Select-ActivityCell([int] $Row, [int] $Column) {
     $null = Show-Activity ActivityHours
     $cell = Find-Activity "ActivityCell-$Row-$Column"
     $cell.SetFocus()
-    Wait-Activity { (Find-Activity ActivityDetail).Current.Name -eq $cell.Current.Name } "keyboard-accessible cell details"
+    Wait-Activity {
+        $current = Find-Activity "ActivityCell-$Row-$Column"
+        (Find-Activity ActivityDetail).Current.Name -eq $current.Current.Name -and
+            (Test-ActivityFits $current (Find-Activity ActivityScroll)) -and
+            (Test-ActivityFits $current (Find-Activity DeviceDetailsScroll))
+    } "visible keyboard-accessible cell details"
     return $cell
 }
 
 function Capture-Activity([string] $Name) {
-    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Name.png")
+    Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Name.png")
+}
+
+function Get-ActivityRequests {
+    @([IO.Directory]::GetFiles($fixture, "activity-hold.*.started"))
+}
+
+function Wait-ActivityRequest([string[]] $Previous) {
+    $script:startedRequest = $null
+    Wait-Activity {
+        $requests = @(Get-ActivityRequests | Where-Object { $_ -notin $Previous })
+        if ($requests.Count -gt 1) { throw "One selection started multiple held Activity queries." }
+        if ($requests.Count -eq 1) { $script:startedRequest = $requests[0]; return $true }
+        return $false
+    } "the selected Activity loader to start"
+    return [IO.Path]::ChangeExtension($script:startedRequest, $null)
+}
+
+function Start-HeldActivityRefresh {
+    $previousRequests = @(Get-ActivityRequests)
+    Set-Content -LiteralPath $holdPath -Value "hold"
+    (Show-Activity ActivityRefresh).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $request = Wait-ActivityRequest $previousRequests
+    Wait-Activity { (Find-Activity ActivityStatus).Current.Name -like "Loading*" } "held loading state"
+    if (Find-Activity ActivityCell-0-0 -Optional) { throw "Old cells remain during loading." }
+    return $request
+}
+
+function Assert-ActivityCancelled([string] $Request) {
+    Wait-Activity { Test-Path -LiteralPath "$Request.cancelled" } "obsolete Activity loader cancellation"
+    if (Test-Path -LiteralPath "$Request.released") { throw "Obsolete Activity loader was released instead of cancelled." }
 }
 
 $fixture = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-activity-ui-$([Guid]::NewGuid().ToString('N'))"
@@ -169,13 +207,18 @@ $script:process = $null
 $script:root = $null
 $contrast = $null
 $lock = $null
+$holdPath = Join-Path $fixture "activity-hold"
+$phase = $null
+$succeeded = $false
 foreach ($key in @("FINGVIBE_UI_REVIEW", "FINGVIBE_UI_REVIEW_INVENTORY", "FINGVIBE_UI_REVIEW_SNAPSHOT",
-    "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT", "FINGVIBE_UI_REVIEW_DEVICE_TABLE", "FINGVIBE_UI_REVIEW_NETWORK")) {
+    "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT", "FINGVIBE_UI_REVIEW_DEVICE_TABLE", "FINGVIBE_UI_REVIEW_NETWORK",
+    "FINGVIBE_UI_REVIEW_ACTIVITY_HOLD")) {
     $previous[$key] = [Environment]::GetEnvironmentVariable($key)
 }
 try {
     $null = New-Item -ItemType Directory -Path $fixture
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
+    $phase = Start-UiRegressionPhase -Name "activity/evidence-and-lifecycle"
     New-DeviceActivityFixture $fixture
     $env:FINGVIBE_UI_REVIEW = "1"
     $env:FINGVIBE_UI_REVIEW_INVENTORY = Join-Path $fixture "inventory.json"
@@ -183,6 +226,7 @@ try {
     $env:FINGVIBE_UI_REVIEW_DEVICE_TABLE = Join-Path $fixture "table.json"
     $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT = "0"
     $env:FINGVIBE_UI_REVIEW_NETWORK = "ui-review-network"
+    $env:FINGVIBE_UI_REVIEW_ACTIVITY_HOLD = $holdPath
     $database = Join-Path $fixture "inventory.sqlite"
     Start-ActivityApp
     Open-ActivityDevice
@@ -223,28 +267,30 @@ try {
     [Windows.Forms.SendKeys]::SendWait("{RIGHT}{LEFT}{ENTER}")
     Wait-Activity { (Find-Activity ActivityDetail).Current.Name -eq $wednesday.Current.Name } "arrow and Enter cell navigation"
 
-    $lock = [Microsoft.Data.Sqlite.SqliteConnection]::new("Data Source=$database;Pooling=False")
-    $lock.Open()
-    $command = $lock.CreateCommand()
-    $command.CommandText = "BEGIN EXCLUSIVE"
-    $null = $command.ExecuteNonQuery()
-    (Show-Activity ActivityRefresh).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
-    Wait-Activity { (Find-Activity ActivityStatus).Current.Name -like "Loading*" } "loading state"
-    if (Find-Activity ActivityCell-2-9 -Optional) { throw "Old cells remain during loading." }
+    $weekdayRequest = Start-HeldActivityRefresh
     Capture-Activity "activity-loading"
+    $previousRequests = @(Get-ActivityRequests)
     $null = Show-Activity ActivityPeriod
     Set-UiReviewAppearanceChoice -Root $script:root -Picker ActivityPeriod -Choice "Last 30 days"
-    $command.CommandText = "ROLLBACK"
-    $null = $command.ExecuteNonQuery()
-    $command.Dispose()
-    $lock.Dispose()
-    $lock = $null
+    Assert-ActivityCancelled $weekdayRequest
+    $dailyRequest = Wait-ActivityRequest $previousRequests
+    Remove-Item -LiteralPath $holdPath
     Wait-Activity {
         (Find-Activity ActivityCell-29-0 -Optional) -and
+            (Find-Activity ActivityWindow).Current.Name -like "*(30 calendar dates)*" -and
             (Find-Activity ActivityStatus).Current.Name -like "Scan evidence in*"
     } "new selection after cancelling the blocked weekday query"
+    if (-not (Test-Path -LiteralPath "$dailyRequest.released") -or
+        (Find-Activity ActivityCell-28-11).Current.Name -notlike "*1 responses, 2 nonresponses*") {
+        throw "The replacement daily query did not render its exact current-selection evidence."
+    }
     Choose-ActivityPeriod "30 days by weekday" 6
+    $deviceRequest = Start-HeldActivityRefresh
+    $previousRequests = @(Get-ActivityRequests)
     Open-ActivityDevice "Activity imported"
+    Assert-ActivityCancelled $deviceRequest
+    $null = Wait-ActivityRequest $previousRequests
+    Remove-Item -LiteralPath $holdPath
     Wait-Activity { (Find-Activity ActivityStatus).Current.Name -like "No completed scan history*" } "no-history selection"
     $empty = Select-ActivityCell 2 9
     if ($empty.Current.Name -notlike "*0 responding days*" -or $empty.Current.Name -notmatch '[45] dates without eligible evidence') {
@@ -253,6 +299,49 @@ try {
     Capture-Activity "activity-no-history"
     Open-ActivityDevice
     Wait-Activity { (Find-Activity ActivityStatus).Current.Name -like "Scan evidence in*" } "restored device selection"
+
+    $hoursRequest = Start-HeldActivityRefresh
+    $previousRequests = @(Get-ActivityRequests)
+    (Show-Activity ActivityHours).GetCurrentPattern([Windows.Automation.RangeValuePattern]::Pattern).SetValue(2)
+    Assert-ActivityCancelled $hoursRequest
+    $null = Wait-ActivityRequest $previousRequests
+    Remove-Item -LiteralPath $holdPath
+    Wait-Activity {
+        (Find-Activity ActivityCell-6-11 -Optional) -and -not (Find-Activity ActivityCell-6-12 -Optional) -and
+            (Find-Activity ActivityStatus).Current.Name -like "Scan evidence in*"
+    } "replacement two-hour weekday grid"
+    (Show-Activity ActivityHours).GetCurrentPattern([Windows.Automation.RangeValuePattern]::Pattern).SetValue(1)
+    Wait-Activity { Find-Activity ActivityCell-6-23 -Optional } "restored one-hour weekday grid"
+
+    $navigationRequest = Start-HeldActivityRefresh
+    (Find-Activity DevicesNavItem).GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Assert-ActivityCancelled $navigationRequest
+    Remove-Item -LiteralPath $holdPath
+    Open-ActivityDevice
+    Wait-Activity { (Find-Activity ActivityStatus).Current.Name -like "Scan evidence in*" } "activity after leaving the page"
+
+    # Real SQLite contention is an error/retry fixture, not a way to hold the loading UI.
+    $lock = [Microsoft.Data.Sqlite.SqliteConnection]::new("Data Source=$database;Pooling=False")
+    $lock.Open()
+    $command = $lock.CreateCommand()
+    $command.CommandText = "BEGIN EXCLUSIVE"
+    $null = $command.ExecuteNonQuery()
+    (Show-Activity ActivityRefresh).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Wait-Activity { (Find-Activity ActivityRefresh).Current.Name -eq "Retry" } "explicit database contention error"
+    if (Find-Activity ActivityCell-0-0 -Optional) { throw "Failed query kept stale cells." }
+    $null = Show-Activity ActivityError
+    Capture-Activity "activity-busy-error"
+    $command.CommandText = "ROLLBACK"
+    $null = $command.ExecuteNonQuery()
+    $command.Dispose()
+    $lock.Dispose()
+    $lock = $null
+    (Show-Activity ActivityRefresh).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Wait-Activity {
+        (Find-Activity ActivityStatus).Current.Name -like "Scan evidence in*" -and
+            (Find-Activity ActivityRefresh).Current.Name -eq "Refresh activity" -and
+            (Find-Activity ActivityCell-2-9 -Optional)
+    } "successful Retry after database contention"
     $connection = [Microsoft.Data.Sqlite.SqliteConnection]::new("Data Source=$database;Pooling=False")
     try {
         $connection.Open()
@@ -313,10 +402,26 @@ try {
     Capture-Activity "activity-high-contrast"
     [ActivityReviewContrast]::Set($contrast)
     $contrast = $null
-    $history = Show-Activity DeviceScanHistoryExpander
-    $history.GetCurrentPattern([Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
-    $null = Show-Activity DeviceHistoryOlder
-    Write-Host "Device Activity exact daily/weekday evidence, all stops, keyboard details, loading/error/no history, selection, narrow themes and high contrast passed; history remains reachable."
+    $summary = Show-Activity DeviceHistoryFirstSeen
+    if ($summary.Current.Name -notlike "First seen:*") { throw "Existing history summary is unreachable." }
+    foreach ($id in @("DeviceScanHistoryExpander", "DeviceScanHistoryList", "DeviceHistoryOlder", "DeviceHistoryNewer")) {
+        $control = Find-Activity $id -Optional
+        if ($control -and (-not $control.Current.IsOffscreen -or $control.Current.IsKeyboardFocusable)) {
+            throw "Restoring Activity also enabled completed-observation control '$id'."
+        }
+    }
+    $closeRequest = Start-HeldActivityRefresh
+    Stop-ActivityApp
+    if (-not (Test-Path -LiteralPath "$closeRequest.cancelled")) { throw "Closing did not cancel the pending Activity loader." }
+    $succeeded = $true
+    Write-Host "Device Activity exact evidence, keyboard reachability, held-query cancellation, error/Retry, themes and narrow layouts passed; summaries remain reachable and completed observations disabled."
+}
+catch {
+    Write-Host $_
+    if ($script:process -and -not $script:process.HasExited -and $script:process.MainWindowHandle -ne [IntPtr]::Zero) {
+        Capture-Activity "activity-failure"
+    }
+    throw
 }
 finally {
     if ($lock) { $lock.Dispose() }
@@ -324,6 +429,10 @@ finally {
     if ($script:process -and -not $script:process.HasExited) {
         $null = $script:process.CloseMainWindow()
         if (-not $script:process.WaitForExit(5000)) { Stop-Process -Id $script:process.Id -Force }
+    }
+    if ($phase) { Complete-UiRegressionPhase -Phase $phase -Directory $ScreenshotDirectory -Succeeded $succeeded }
+    if (Test-Path -LiteralPath $fixture) {
+        Get-ChildItem -LiteralPath $fixture -Filter "activity-hold.*" | Copy-Item -Destination $ScreenshotDirectory
     }
     foreach ($key in $previous.Keys) { [Environment]::SetEnvironmentVariable($key, $previous[$key]) }
     if (Test-Path -LiteralPath $fixture) { Remove-Item -LiteralPath $fixture -Recurse -Force }

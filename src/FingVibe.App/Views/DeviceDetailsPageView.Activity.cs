@@ -59,7 +59,6 @@ public sealed partial class DeviceDetailsPageView
 
     internal void SetActivityActive(bool active)
     {
-        active &= HistoryDetailsEnabled;
         if (_activityActive == active) return;
         _activityActive = active;
         if (active) _ = LoadActivityAsync();

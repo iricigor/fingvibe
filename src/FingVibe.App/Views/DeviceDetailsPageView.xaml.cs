@@ -12,8 +12,8 @@ public sealed record DeviceAssignmentChoice(Guid? Id = null, bool AddNew = false
 
 public sealed partial class DeviceDetailsPageView : UserControl
 {
-    // #271: keep the implementations dormant until both restoration tasks are delivered.
-    internal static bool HistoryDetailsEnabled => false;
+    // Completed observations remain disabled until #274 is delivered, independently of Activity.
+    internal static bool CompletedObservationsEnabled => false;
 
     private bool _updatingAssignments;
     private bool _updatingAddresses;
@@ -34,9 +34,9 @@ public sealed partial class DeviceDetailsPageView : UserControl
         InitializeComponent();
         InitializeClassificationPickers();
         InitializeUsageCategory();
-        DeviceActivityCard.Visibility = DeviceScanHistoryExpander.Visibility =
-            HistoryDetailsEnabled ? Visibility.Visible : Visibility.Collapsed;
-        if (HistoryDetailsEnabled) InitializeActivity();
+        DeviceScanHistoryExpander.Visibility =
+            CompletedObservationsEnabled ? Visibility.Visible : Visibility.Collapsed;
+        InitializeActivity();
         _historyClock.Tick += (_, _) => RefreshHistorySummary();
         _historyClock.Tick += (_, _) => RefreshActivityDate();
         Loaded += (_, _) => { RefreshHistorySummary(); _historyClock.Start(); };
@@ -102,7 +102,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
             DeviceHistoryLatest.Text = summary.Latest is { } latest
                 ? $"Latest recorded scan: {DeviceDetailsPresentation.HistoryTimestamp(latest.CompletedAt)}. Saved observations do not establish current live presence."
                 : "No individual scans in this scope. Historical aggregates cannot establish an observed state or since time.";
-            if (HistoryDetailsEnabled)
+            if (CompletedObservationsEnabled)
             {
                 ApplyHistoryPage(DeviceHistoryQuery.ReadPage(_history, networkId, subnet));
                 DeviceScanHistoryEmpty.Text = _historyPage?.TotalCount == 0
@@ -149,7 +149,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
 
     private async void HistoryPage_Click(object sender, RoutedEventArgs e)
     {
-        if (!HistoryDetailsEnabled) return;
+        if (!CompletedObservationsEnabled) return;
         if (_historyPage is not { } current) return;
         var newer = ReferenceEquals(sender, DeviceHistoryNewer);
         var history = _history;

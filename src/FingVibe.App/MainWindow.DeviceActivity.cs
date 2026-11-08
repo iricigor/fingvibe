@@ -28,6 +28,9 @@ public sealed partial class MainWindow
         var subnet = network!.Cidr;
         DevicePage.ConfigureActivity(key, async (days, hours, cancellation) =>
         {
+            if (IsUiReview && !string.IsNullOrEmpty(ReviewInventoryPath)
+                && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_ACTIVITY_HOLD") is { Length: > 0 } holdPath)
+                await DeviceActivityReviewHold.WaitAsync(holdPath, cancellation);
             var now = DateTimeOffset.UtcNow;
             var zone = TimeZoneInfo.Local;
             AnalyticsEvidence evidence;
