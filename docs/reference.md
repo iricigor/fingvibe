@@ -410,7 +410,9 @@ help track rows; status combines a green/red dot with **Present/Absent** text.
 Network identity and subnet appear once above the table, not on every row.
 Timestamp tooltips expose the full local timestamp and UTC offset to distinguish
 repeated daylight-saving times. Storage remains UTC. Each relevant completed manual
-scan contributes one observation. Repeated unchanged
+or scheduled scan contributes one observation. Pending or incomplete checkpoints
+are not completed history and do not establish current live presence after restart.
+Repeated unchanged
 scans remain separate rows. Multiple responding addresses or associated MACs
 do not duplicate a virtual device's row; its history follows its existing
 virtual identity when the active MAC changes. Existing association rules are

@@ -53,5 +53,7 @@
     <Compile Include="..\..\src\FingVibe.App\PeopleRoomsIcons.cs" Link="PeopleRoomsIcons.cs" />
     <None Include="..\..\src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml"
           Link="NetworkTroubleshootingPage.xaml" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml"
+          Link="DeviceDetailsPageView.xaml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
