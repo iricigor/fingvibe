@@ -161,8 +161,7 @@ function Invoke-WebDriverElement {
 
 function Set-UiReviewAssignment {
     param([string] $Category, [string] $Label, [string] $Status)
-    Show-UiReviewDetailsTop
-    $picker = Assert-VisibleUiReviewElement -Using xpath -Value "//ComboBox[@Name='$Category']"
+    $picker = Show-UiReviewAssignmentPicker $Category
     Invoke-WebDriverElement -ElementId $picker
     $item = Assert-VisibleUiReviewElement -Using xpath -Value "//ListItem[@Name='$Label']"
     Invoke-WebDriverElement -ElementId $item
@@ -173,8 +172,7 @@ function Set-UiReviewAssignment {
 
 function Assert-UiReviewAssignment {
     param([string] $Category, [string] $Label)
-    Show-UiReviewDetailsTop
-    $picker = Assert-VisibleUiReviewElement -Using xpath -Value "//ComboBox[@Name='$Category']"
+    $picker = Show-UiReviewAssignmentPicker $Category
     Invoke-WebDriverElement -ElementId $picker
     $item = Assert-VisibleUiReviewElement -Using xpath -Value "//ListItem[@Name='$Label']"
     $selected = Invoke-WebDriverRequest -Method Get -Endpoint "/session/$sessionId/element/$item/selected"
@@ -182,6 +180,37 @@ function Assert-UiReviewAssignment {
         throw "$Category assignment '$Label' did not remain selected."
     }
     Invoke-WebDriverElement -ElementId $picker
+}
+
+function Show-UiReviewAssignmentPicker {
+    param([string] $Category)
+    Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+    $root = [System.Windows.Automation.AutomationElement]::FromHandle($windowHandle)
+    Select-UiReviewDeviceTab -Root $root -Tab Overview
+    $element = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.AndCondition]::new(
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::NameProperty, $Category),
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::ComboBox)))
+    if (-not $element) { throw "Missing $Category assignment picker." }
+    $element.SetFocus()
+    $viewport = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceDetailsScroll"))
+    if (-not $viewport) { throw "Missing Overview viewport for $Category assignment." }
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+        $bounds = $element.Current.BoundingRectangle
+        $area = $viewport.Current.BoundingRectangle
+        if (-not $element.Current.IsOffscreen -and $bounds.Width -gt 0 -and $area.Contains($bounds) -and
+            $root.Current.BoundingRectangle.Contains($bounds)) {
+            return Assert-VisibleUiReviewElement -Using xpath -Value "//ComboBox[@Name='$Category']"
+        }
+        Start-Sleep -Milliseconds 50
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "$Category assignment picker did not fit the physical window after keyboard focus."
 }
 
 function Assert-UiReviewText {

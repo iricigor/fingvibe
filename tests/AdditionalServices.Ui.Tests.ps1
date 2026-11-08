@@ -239,6 +239,21 @@ function Save-ServiceEvidence([string] $Name, [switch] $DevicesList) {
     Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Name.png")
 }
 
+function Get-ServiceContentTop($Control) {
+    $viewer = Find-ServiceControl DeviceDetailsScroll
+    $scroll = $viewer.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+    $area = $viewer.Current.BoundingRectangle
+    $bounds = $Control.Current.BoundingRectangle
+    if ($bounds.Width -le 0 -or $bounds.Height -le 0) { throw "Cannot measure an unrealized details control." }
+    $offset = 0.0
+    if ($scroll.Current.VerticallyScrollable) {
+        $size = $scroll.Current.VerticalViewSize
+        if ($size -le 0 -or $size -ge 100) { throw "Invalid details scroll view size: $size." }
+        $offset = $scroll.Current.VerticalScrollPercent / 100 * $area.Height * (100 - $size) / $size
+    }
+    return $bounds.Top - $area.Top + $offset
+}
+
 function Open-IdentificationEditor {
     $edit = Find-ServiceControl "Edit device identification" -ByName
     Wait-ServiceState { $edit.Current.IsEnabled } "identification read mode"
@@ -339,28 +354,32 @@ function Test-DeviceDetailsEditing {
     (Find-ServiceControl "Edit device identification" -ByName).SetFocus()
     Wait-ServiceState {
         (Find-ServiceControl "Device type" -ByName).Current.BoundingRectangle.Width -gt 0 -and
-        (Find-ServiceControl "Ports & services" -ByName).Current.BoundingRectangle.Width -gt 0
+        (Find-ServiceControl DeviceImportedMetadata).Current.BoundingRectangle.Width -gt 0
     } "wide identification fields"
-    $ports = (Find-ServiceControl "Ports & services" -ByName).Current.BoundingRectangle
     $type = (Find-ServiceControl "Device type" -ByName).Current.BoundingRectangle
     $os = (Find-ServiceControl "Operating system" -ByName).Current.BoundingRectangle
     $brand = (Find-ServiceControl Brand -ByName).Current.BoundingRectangle
     $identification = (Find-ServiceControl "Device identification" -ByName).Current.BoundingRectangle
     if ($type.Width -le 0 -or $os.Left -le $type.Left -or $brand.Left -le $os.Left -or
         [Math]::Abs($type.Top - $os.Top) -gt 3 -or [Math]::Abs($type.Top - $brand.Top) -gt 3 -or
-        [Math]::Abs($identification.Left - $network.Left) -gt 3 -or
-        [Math]::Abs($ports.Left - $network.Left) -gt 3) {
-        throw "Wide identification must span the page in three field columns, followed by full-width ports."
+        [Math]::Abs($identification.Left - $network.Left) -gt 3) {
+        throw "Wide identification must span the page in three field columns."
     }
     $imported = Find-ServiceControl DeviceImportedMetadata
     $evidence = Find-ServiceControl "How this device was identified" -ByName
     if ($imported.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -ne
         [System.Windows.Automation.ExpandCollapseState]::Collapsed -or
-        $imported.Current.BoundingRectangle.Top -lt $evidence.Current.BoundingRectangle.Bottom -or
-        $imported.Current.BoundingRectangle.Bottom -gt $ports.Top) {
-        throw "Collapsed Imported Fing data must follow identification evidence, before Ports & services."
+        $imported.Current.BoundingRectangle.Top -lt $evidence.Current.BoundingRectangle.Bottom) {
+        throw "Collapsed Imported Fing data must follow identification evidence."
     }
+    $importedBottom = (Get-ServiceContentTop $imported) + $imported.Current.BoundingRectangle.Height
     Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-identification-read-wide.png")
+    Show-ServiceScanSection
+    $portsElement = Find-ServiceControl "Ports & services" -ByName
+    $ports = $portsElement.Current.BoundingRectangle
+    if ([Math]::Abs($ports.Left - $network.Left) -gt 3 -or (Get-ServiceContentTop $portsElement) -lt $importedBottom - 3) {
+        throw "Full-width Ports & services must follow imported identification evidence."
+    }
     Open-IdentificationEditor
     Invoke-ServiceControl "Reset saved identification"
     Wait-ServiceState { (Find-ServiceControl "Edit device identification" -ByName).Current.IsEnabled } "identification reset"

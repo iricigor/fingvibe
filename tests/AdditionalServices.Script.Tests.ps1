@@ -75,13 +75,34 @@ $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile(
     (Join-Path $PSScriptRoot "AdditionalServices.Ui.Tests.ps1"), [ref]$null, [ref]$parseErrors)
 if ($parseErrors) { throw ($parseErrors.Message -join "; ") }
-foreach ($name in @("Wait-ServiceState", "Select-ServicePage", "Show-ServiceScanSection", "Show-ServiceCardFootnotes")) {
+foreach ($name in @("Wait-ServiceState", "Select-ServicePage", "Show-ServiceScanSection", "Show-ServiceCardFootnotes", "Get-ServiceContentTop")) {
     $definition = $ast.Find({
         param($node)
         $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name
     }, $true)
     if (-not $definition) { throw "Missing UI helper $name." }
     Invoke-Expression $definition.Extent.Text
+}
+
+& {
+    $metrics = [pscustomobject]@{ Current = [pscustomobject]@{
+        VerticallyScrollable = $true; VerticalScrollPercent = 25; VerticalViewSize = 20
+    } }
+    $viewer = [pscustomobject]@{ Current = [pscustomobject]@{
+        BoundingRectangle = [System.Drawing.RectangleF]::new(0, 100, 1000, 400)
+    } }
+    $viewer | Add-Member ScriptMethod GetCurrentPattern { param($Pattern); return $metrics }
+    function Find-ServiceControl { param($Value); return $viewer }
+    $control = [pscustomobject]@{ Current = [pscustomobject]@{
+        BoundingRectangle = [System.Drawing.RectangleF]::new(10, 200, 200, 40)
+    } }
+    if ((Get-ServiceContentTop $control) -ne 500) { throw "Document coordinates must include the current scroll offset." }
+    $metrics.Current.VerticalScrollPercent = 50
+    $control.Current.BoundingRectangle = [System.Drawing.RectangleF]::new(10, -200, 200, 40)
+    if ((Get-ServiceContentTop $control) -ne 500) { throw "Document order must not change across capture positions." }
+    $metrics.Current.VerticallyScrollable = $false
+    $control.Current.BoundingRectangle = [System.Drawing.RectangleF]::new(10, 200, 200, 40)
+    if ((Get-ServiceContentTop $control) -ne 100) { throw "Short viewports must have no scroll offset." }
 }
 
 function Start-Sleep { param([int] $Milliseconds) }

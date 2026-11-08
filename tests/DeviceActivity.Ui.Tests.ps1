@@ -142,7 +142,7 @@ function Open-ActivityDevice([string] $Name = "Activity laptop") {
         throw "A newly opened device must select Overview."
     }
     $overview.SetFocus()
-    [Windows.Forms.SendKeys]::SendWait("{RIGHT}")
+    [Windows.Forms.SendKeys]::SendWait("^{TAB}")
     Wait-Activity {
         (Get-UiReviewDeviceTab -Root $script:root -Tab History).GetCurrentPattern(
             [Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected
