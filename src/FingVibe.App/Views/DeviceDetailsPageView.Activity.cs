@@ -30,7 +30,6 @@ public sealed partial class DeviceDetailsPageView
     private readonly List<Button> _activityButtons = [];
     private readonly UISettings _activityColors = new();
     private (DateOnly Date, string Zone)? _activityDate;
-    private int _activityFocus;
 
     private void InitializeActivity()
     {
@@ -91,7 +90,6 @@ public sealed partial class DeviceDetailsPageView
     {
         if (!_activityInitialized || !_activityActive) return;
         CancelActivity();
-        _activityFocus = 0;
         var generation = _activityGeneration;
         var hours = (int)ActivityHours.Value;
         var weekdays = ActivityPeriod.SelectedIndex == 2;
@@ -248,7 +246,7 @@ public sealed partial class DeviceDetailsPageView
                     Content = content, Padding = new Thickness(0), CornerRadius = new CornerRadius(0),
                     HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch,
                     HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch,
-                    IsTabStop = index == _activityFocus, Tag = index
+                    Tag = index
                 };
                 AutomationProperties.SetAutomationId(button, $"ActivityCell-{row}-{column}");
                 AutomationProperties.SetName(button, cell.Details);
@@ -256,9 +254,6 @@ public sealed partial class DeviceDetailsPageView
                 button.Click += (_, _) => ActivityDetail.Text = cell.Details;
                 button.GotFocus += (_, _) =>
                 {
-                    if (_activityFocus < _activityButtons.Count) _activityButtons[_activityFocus].IsTabStop = false;
-                    _activityFocus = index;
-                    button.IsTabStop = true;
                     ActivityDetail.Text = cell.Details;
                     button.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false });
                 };

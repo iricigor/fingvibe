@@ -15,6 +15,12 @@ if (-not $card -or -not $card.NextSibling.SelectSingleNode(".//*[@Text='Scan his
 foreach ($id in @("ActivityPeriod", "ActivityHours", "ActivityStatus", "ActivityScroll", "ActivityDetail", "ActivityRefresh")) {
     if (-not $card.SelectSingleNode(".//*[@*[local-name()='Name']='$id']")) { throw "Missing native activity control $id." }
 }
+if ($card.SelectSingleNode(".//*[@*[local-name()='Name']='ActivityGrid']").GetAttribute("TabFocusNavigation") -cne "Once") {
+    throw "Activity grid must expose one Tab stop through TabFocusNavigation=Once."
+}
+if ((Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.Activity.cs") -Raw) -match 'IsTabStop') {
+    throw "Activity cells must remain keyboard focusable for UI Automation; do not disable IsTabStop."
+}
 $fixture = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-activity-script-$([Guid]::NewGuid().ToString('N'))"
 try {
     $null = New-Item -ItemType Directory -Path $fixture

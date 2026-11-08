@@ -286,7 +286,8 @@
                     <ScrollViewer x:Name="ActivityScroll" MaxHeight="560" HorizontalScrollBarVisibility="Auto"
                                   VerticalScrollBarVisibility="Auto" HorizontalScrollMode="Enabled"
                                   AutomationProperties.AutomationId="ActivityScroll" AutomationProperties.Name="Device activity grid">
-                        <Grid x:Name="ActivityGrid" RowSpacing="4" ColumnSpacing="4" />
+                        <!-- Once keeps one Tab stop while every cell stays focusable for UI Automation. -->
+                        <Grid x:Name="ActivityGrid" RowSpacing="4" ColumnSpacing="4" TabFocusNavigation="Once" />
                     </ScrollViewer>
                     <TextBlock x:Name="ActivityLegend" TextWrapping="Wrap" FontSize="12"
                                AutomationProperties.AutomationId="ActivityLegend" />
