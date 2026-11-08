@@ -28,7 +28,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: native-comparison-${{ github.event.pull_request.number || github.ref }}
+  group: native-comparison-${{ github.event.pull_request.number || format('{0}-{1}-{2}', github.ref, inputs.mode, inputs.revision || github.sha) }}
   cancel-in-progress: true
 
 jobs:

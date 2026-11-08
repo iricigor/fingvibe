@@ -23,7 +23,7 @@ if (-not $SourceDirectory) { $SourceDirectory = Join-Path $PSScriptRoot "..\.." 
 . (Join-Path $PSScriptRoot "NativeValidation.ps1")
 . (Join-Path $SourceDirectory ".github\scripts\UiReviewScenarios.ps1")
 . (Join-Path $SourceDirectory ".github\scripts\UiReviewNavigation.ps1")
-. (Join-Path $SourceDirectory "tests\UiRegression\Helpers.ps1")
+. (Join-Path $PSScriptRoot "..\..\tests\UiRegression\Helpers.ps1")
 $capturePlan = if ($Mode -in @("Baseline", "Full")) {
     @(Get-NativeValidationPlan -Mode $Mode -Suite capture)
 }

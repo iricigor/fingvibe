@@ -996,8 +996,10 @@ dispatch and the visible Actions final result. No guessed cron, external
 notification integration, local Automation or working-desktop automation is
 enabled. Scheduled activation is a separate human decision.
 
-Comparison concurrency uses `native-comparison-<PR/ref>` and may cancel only
-superseded comparison runs. Standalone full concurrency uses
+Comparison concurrency uses `native-comparison-<PR>` and may cancel only
+superseded comparison runs. Manual rehearsal groups additionally distinguish
+branch, mode and source revision, so historical comparisons cannot cancel a
+different source or full rehearsal. Standalone full concurrency uses
 `native-full-main-<repository>` with cancellation disabled; it is independent
 of both comparison and authoritative PR validation. Actions still controls
 runner availability and pending-run queuing; these are not desktop locks.
