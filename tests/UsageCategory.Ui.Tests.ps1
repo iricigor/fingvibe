@@ -84,9 +84,9 @@ function Open-UsageDevice([string] $Name = "Usage laptop") {
     $row.SetFocus()
     [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
     Wait-Usage {
-        $effective = Find-Usage UsageCategoryEffective -Optional
-        $effective -and $effective.Current.Name -notlike "*Loading*"
-    } "category evidence"
+        $scroll = Find-Usage DeviceDetailsScroll -Optional
+        $scroll -and -not $scroll.Current.IsOffscreen
+    } "device details"
 }
 
 function Show-Usage([string] $Id) {
@@ -114,7 +114,15 @@ function Invoke-Usage([string] $Id) {
 }
 
 function Assert-Usage([string] $Category, [string] $Source) {
-    Wait-Usage { (Find-Usage UsageCategoryEffective).Current.Name -like "Saved effective category: $Category | $Source*" } "$Category / $Source"
+    $null = Show-Usage UsageCategoryEffective
+    try {
+        Wait-Usage { (Find-Usage UsageCategoryEffective).Current.Name -like "Saved effective category: $Category | $Source*" } "$Category / $Source"
+    }
+    catch {
+        $effective = (Find-Usage UsageCategoryEffective).Current.Name
+        $evidence = (Find-Usage UsageCategoryEvidence).Current.Name
+        throw "Expected $Category / $Source; actual effective='$effective'; evidence='$evidence'. $($_.Exception.Message)"
+    }
 }
 
 function Save-UsageCapture([string] $Name, [string] $Control = "UsageCategoryPicker") {
@@ -214,6 +222,7 @@ try {
     if ((Find-Usage UsageCategorySave).Current.IsEnabled) { throw "Conflict must require reload, not blind retry." }
     Save-UsageCapture "usage-concurrent-conflict" UsageCategoryError
     Invoke-Usage UsageCategoryReload
+    Wait-Usage { (Find-Usage UsageCategoryEditStatus).Current.Name -eq "No unsaved category changes." } "completed conflict reload"
     Assert-Usage Personal "Manual override"
     Choose-Usage Automatic
     Invoke-Usage UsageCategorySave
@@ -262,18 +271,28 @@ try {
     $contrast = [UsageReviewContrast]::Get()
     [UsageReviewContrast]::Set($contrast -bor 1)
     Start-Sleep -Seconds 2
+    if (([UsageReviewContrast]::Get() -band 1) -eq 0) { throw "High contrast did not activate." }
     Choose-Usage Personal
     Save-UsageCapture "usage-high-contrast" UsageCategorySave
     $picker = Show-Usage UsageCategoryPicker
     $picker.SetFocus()
     [System.Windows.Forms.SendKeys]::SendWait("{HOME}{DOWN}{DOWN}{ENTER}")
-    $selection = $picker.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).GetCurrentSelection()
+    $selection = $picker.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()
     if ($selection.Count -ne 1 -or $selection[0].Current.Name -ne "Personal") { throw "Keyboard category selection failed." }
     Invoke-Usage UsageCategoryCancel
     Assert-Usage Permanent "Auto"
     [UsageReviewContrast]::Set($contrast)
     $contrast = $null
     Write-Host "Usage-category inference, Save/Cancel, failed draft, restart, conflict reload, unavailable/no evidence, themes, contrast and narrow keyboard-accessible controls passed."
+}
+catch {
+    if ($script:process -and -not $script:process.HasExited -and $script:process.MainWindowHandle -ne [IntPtr]::Zero) {
+        try {
+            Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "usage-failure.png")
+        }
+        catch { Write-Warning "Could not capture usage failure: $($_.Exception.Message)" }
+    }
+    throw
 }
 finally {
     if ($lock) { $lock.Dispose() }

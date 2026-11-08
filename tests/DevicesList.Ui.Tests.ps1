@@ -521,7 +521,7 @@ function Set-DeviceFilterChoice([string] $Id, [string] $Label) {
         return
     }
     if ($Id -in @("InventoryStatusFilter", "TypeFilter", "OperatingSystemFilter", "VendorFilter",
-        "PersonFilter", "RoomFilter", "PortsFilter")) {
+        "PersonFilter", "RoomFilter", "PortsFilter", "UsageCategoryFilter")) {
         $labels = if ($Label -like "All *") { @() } else { @($Label) }
         Set-DeviceFilterChecks $Id $labels
         return

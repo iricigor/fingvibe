@@ -406,9 +406,15 @@ try {
             $assignments.GetAttribute("VerticalAlignment") -ne "Stretch" -or
             $assignmentLayout.LocalName -ne "Grid" -or
             $assignmentLayout.FirstChild.LastChild.GetAttribute("Height") -ne "*" -or
-            $assignmentNote.GetAttribute("Grid.Row") -ne "2" -or
+            [int]$assignmentNote.GetAttribute("Grid.Row") -ne $assignmentLayout.FirstChild.ChildNodes.Count - 1 -or
             $assignmentNote.GetAttribute("VerticalAlignment") -ne "Bottom") {
             throw "Top-row cards must share their height, with the assignments note anchored at the bottom."
+        }
+        $networkNote = $details.SelectSingleNode("//*[@*[local-name()='Name']='DeviceAddressSourceText']")
+        if ($networkNote.ParentNode.GetAttribute("VerticalAlignment") -ne "Bottom" -or
+            $networkNote.ParentNode.GetAttribute("Grid.Row") -ne "2" -or
+            $overview.FirstChild.FirstChild.LastChild.GetAttribute("Height") -ne "*") {
+            throw "The network footnote must stay aligned with the Assignments footer when usage evidence grows."
         }
         $valueCode = Get-Content (Join-Path $appDirectory "Views\DeviceDetailValue.cs") -Raw
         if ($valueCode -notmatch 'HyperlinkButton _browser' -or

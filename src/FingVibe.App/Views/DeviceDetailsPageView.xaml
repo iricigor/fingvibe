@@ -54,9 +54,14 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Border x:Name="NetworkOverviewCard" Style="{StaticResource ScannerSummaryCardStyle}" VerticalAlignment="Stretch">
-                    <StackPanel Spacing="12">
+                    <Grid RowSpacing="12">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
                         <TextBlock Text="Network overview" FontSize="18" FontWeight="SemiBold" />
-                        <Grid x:Name="OverviewFields" ColumnSpacing="16" RowSpacing="12" SizeChanged="Fields_SizeChanged">
+                        <Grid x:Name="OverviewFields" Grid.Row="1" ColumnSpacing="16" RowSpacing="12" SizeChanged="Fields_SizeChanged">
                             <views:DeviceDetailValue x:Name="DeviceAddressText" Label="IP address" />
                             <views:DeviceDetailValue x:Name="DeviceMacText" Label="MAC address" />
                             <views:DeviceDetailValue x:Name="DeviceHostnameText" Label="Discovered hostname" />
@@ -64,12 +69,14 @@
                             <views:DeviceDetailValue x:Name="DeviceResponseText" Label="Response" />
                             <views:DeviceDetailValue x:Name="DeviceProbeText" Label="Probe duration" />
                         </Grid>
-                        <TextBlock x:Name="DeviceAddressSourceText" TextWrapping="Wrap"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <ComboBox x:Name="DeviceAddressPicker" Header="Current address to inspect / probe"
-                                  HorizontalAlignment="Stretch" AutomationProperties.AutomationId="DeviceAddressPicker"
-                                  Visibility="Collapsed" SelectionChanged="DeviceAddressPicker_SelectionChanged" />
-                    </StackPanel>
+                        <StackPanel Grid.Row="2" Spacing="12" VerticalAlignment="Bottom">
+                            <TextBlock x:Name="DeviceAddressSourceText" TextWrapping="Wrap"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <ComboBox x:Name="DeviceAddressPicker" Header="Current address to inspect / probe"
+                                      HorizontalAlignment="Stretch" AutomationProperties.AutomationId="DeviceAddressPicker"
+                                      Visibility="Collapsed" SelectionChanged="DeviceAddressPicker_SelectionChanged" />
+                        </StackPanel>
+                    </Grid>
                 </Border>
                 <Border x:Name="AssignmentsCard" Grid.Column="1" Style="{StaticResource ScannerSummaryCardStyle}" VerticalAlignment="Stretch">
                     <Grid RowSpacing="8">
@@ -86,10 +93,10 @@
                             <ComboBox x:Name="DeviceRoomPicker" Header="Room" HorizontalAlignment="Stretch"
                                       AutomationProperties.Name="Room" SelectionChanged="DeviceRoomPicker_SelectionChanged" />
                         </Grid>
-                        <TextBlock x:Name="DeviceAssignmentStatusText" Grid.Row="2" VerticalAlignment="Bottom"
+                        <TextBlock x:Name="DeviceAssignmentStatusText" Grid.Row="3" VerticalAlignment="Bottom"
                                    TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <StackPanel Grid.Row="3" Spacing="8" Margin="0,8,0,0">
+                        <StackPanel Grid.Row="2" Spacing="8" Margin="0,8,0,0">
                             <Border Height="1" Background="{ThemeResource DividerStrokeColorDefaultBrush}" />
                             <TextBlock Text="Person and room save when changed." FontSize="12" TextWrapping="Wrap"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />

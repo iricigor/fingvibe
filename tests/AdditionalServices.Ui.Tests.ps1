@@ -241,6 +241,22 @@ function Test-DeviceDetailsEditing {
     if ([Math]::Abs($network.Top - $assignment.Top) -gt 3 -or $assignment.Left -le $network.Left + 300) {
         throw "Network overview and Assignments must share the top row in left/right order."
     }
+    Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-details-wide.png")
+    $notesVisible = $false
+    foreach ($percent in 0..100) {
+        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
+        Start-Sleep -Milliseconds 20
+        $viewport = (Find-ServiceControl DeviceDetailsScroll).Current.BoundingRectangle
+        $networkNote = (Find-ServiceControl DeviceAddressSourceText).Current.BoundingRectangle
+        $assignmentNote = (Find-ServiceControl DeviceAssignmentStatusText).Current.BoundingRectangle
+        if ($networkNote.Width -gt 0 -and $assignmentNote.Width -gt 0 -and
+            $networkNote.Top -ge $viewport.Top -and $assignmentNote.Top -ge $viewport.Top -and
+            $networkNote.Bottom -le $viewport.Bottom -and $assignmentNote.Bottom -le $viewport.Bottom) {
+            $notesVisible = $true
+            break
+        }
+    }
+    if (-not $notesVisible) { throw "Both aligned card footnotes must be reachable in the details viewport." }
     Wait-ServiceState {
         (Find-ServiceControl DeviceAddressSourceText).Current.BoundingRectangle.Width -gt 0 -and
         (Find-ServiceControl DeviceAssignmentStatusText).Current.BoundingRectangle.Width -gt 0
@@ -250,7 +266,7 @@ function Test-DeviceDetailsEditing {
     if ([Math]::Abs($networkNote.Bottom - $assignmentNote.Bottom) -gt 3) {
         throw "The assignments explanation must follow the aligned card bottom: network=$networkNote assignments=$assignmentNote."
     }
-    Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-details-wide.png")
+    Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-details-aligned-footnotes.png")
     Invoke-ServiceControl "Rename device"
     Wait-ServiceState {
         [System.Windows.Automation.AutomationElement]::FocusedElement.Current.Name -eq "Device name"
