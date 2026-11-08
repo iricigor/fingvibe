@@ -298,8 +298,7 @@
                     </Expander>
                 </StackPanel>
             </Border>
-            <Border x:Name="DeviceHistorySummaryCard" AutomationProperties.AutomationId="DeviceHistorySummaryCard"
-                    Style="{StaticResource ScannerSummaryCardStyle}">
+            <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="16">
                     <TextBlock Text="Scan history" FontSize="18" FontWeight="SemiBold" />
                     <Grid ColumnSpacing="24" RowSpacing="12" SizeChanged="Fields_SizeChanged">

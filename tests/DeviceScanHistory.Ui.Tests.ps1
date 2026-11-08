@@ -156,22 +156,30 @@ function Get-HistoryTimestamp([int] $Index) {
     return (Get-HistoryLocalTime $Index).ToString("yyyy-MM-dd HH:mm:ss '(local)'", [Globalization.CultureInfo]::InvariantCulture)
 }
 
-function Show-HistorySection([string] $Id, [int] $TopMargin = 35) {
+function Show-HistorySection([string] $Id, [int] $TopMargin = 35, [string[]] $AdditionalIds = @()) {
     $scrollElement = Find-HistoryControl DeviceDetailsScroll
     $scroll = $scrollElement.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     # Resolve once: a whole-tree search per scroll step also walks every Device Activity cell.
-    $element = Find-HistoryControl $Id
+    $ids = @($Id) + $AdditionalIds
+    $elements = @($ids | ForEach-Object { Find-HistoryControl $_ })
     foreach ($percent in 0..100) {
         if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
         Start-Sleep -Milliseconds 20
-        try { $bounds = $element.Current.BoundingRectangle }
-        catch [System.Windows.Automation.ElementNotAvailableException] {
-            $element = Find-HistoryControl $Id
-            $bounds = $element.Current.BoundingRectangle
-        }
         $area = $scrollElement.Current.BoundingRectangle
-        if (-not $element.Current.IsOffscreen -and $bounds.Height -gt 0 -and
-            $bounds.Top -ge $area.Top + $TopMargin -and $bounds.Bottom -le $area.Bottom - 10) { return $element }
+        $fits = $true
+        for ($index = 0; $index -lt $elements.Count; $index++) {
+            try { $current = $elements[$index].Current }
+            catch [System.Windows.Automation.ElementNotAvailableException] {
+                $elements[$index] = Find-HistoryControl $ids[$index]
+                $current = $elements[$index].Current
+            }
+            $bounds = $current.BoundingRectangle
+            if ($current.IsOffscreen -or $bounds.Height -le 0 -or
+                $bounds.Top -lt $area.Top + $TopMargin -or $bounds.Bottom -gt $area.Bottom - 10) {
+                $fits = $false
+            }
+        }
+        if ($fits) { return $elements[0] }
     }
     throw "Scan-history section '$Id' does not fit the details viewport."
 }
@@ -307,7 +315,8 @@ function Assert-HistorySummary([string] $Capture, [int] $LastIndex = 4) {
             [System.Windows.Automation.ExpandCollapsePattern]::Pattern)
         $expansion.Collapse()
     }
-    $null = Show-HistorySection DeviceHistorySummaryCard
+    $null = Show-HistorySection DeviceHistoryFirstSeen -AdditionalIds @(
+        "DeviceHistoryLastSeen", "DeviceHistorySince", "DeviceHistoryState", "DeviceHistoryScope", "DeviceHistoryLatest")
     foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince")) {
         $element = Find-HistoryControl $id
         $area = (Find-HistoryControl DeviceDetailsScroll).Current.BoundingRectangle

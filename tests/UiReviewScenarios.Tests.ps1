@@ -36,13 +36,11 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
         if (-not $page.SelectSingleNode("//*[@x:Name='$id']", $namespaces)) { throw "Retained summary lacks $id." }
         if ($history.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must remain outside collapsed observations." }
     }
-    $summary = $page.SelectSingleNode("//*[@x:Name='DeviceHistorySummaryCard']", $namespaces)
-    Assert-Equal $summary.GetAttribute("AutomationProperties.AutomationId") "DeviceHistorySummaryCard" "Summary container is accessible for whole-card positioning"
     $historyUi = Get-Content (Join-Path $PSScriptRoot "DeviceScanHistory.Ui.Tests.ps1") -Raw
     $summaryAssertion = [regex]::Match($historyUi, '(?s)function Assert-HistorySummary.*?(?=function Invoke-HistoryScan)').Value
-    if ($summaryAssertion -notmatch 'Show-HistorySection DeviceHistorySummaryCard' -or
-        $summaryAssertion -match 'Show-HistorySection DeviceHistoryFirstSeen') {
-        throw "Summary checks must position the whole card, not stop when only its first field is visible."
+    if ($summaryAssertion -notmatch 'Show-HistorySection DeviceHistoryFirstSeen -AdditionalIds' -or
+        $summaryAssertion -match 'DeviceHistorySummaryCard') {
+        throw "Summary checks must position existing text peers together, not a Border without an automation peer."
     }
     $code = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml.cs") -Raw
     foreach ($pattern in @(
@@ -67,6 +65,48 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     if ($imported.ParentNode.ParentNode.GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml") -ne "IdentificationCard") {
         throw "Imported metadata must belong to Device identification."
     }
+}
+
+& {
+    $historyUi = Get-Content (Join-Path $PSScriptRoot "DeviceScanHistory.Ui.Tests.ps1") -Raw
+    $position = [regex]::Match($historyUi, '(?s)function Show-HistorySection.*?(?=function Assert-HistoryRows)').Value
+    # Substitute only the desktop pattern token; execute the production positioning body.
+    . ([scriptblock]::Create($position.Replace('[System.Windows.Automation.ScrollPattern]::Pattern', '0')))
+    $script:positions = [System.Collections.Generic.List[int]]::new()
+    $script:secondBottom = 320
+    $script:controls = @{}
+    $script:scroll = [pscustomobject]@{ Current = [pscustomobject]@{ VerticallyScrollable = $true } }
+    $script:scroll | Add-Member ScriptMethod SetScrollPercent {
+        param($Horizontal, $Percent)
+        $script:positions.Add($Percent)
+        $offset = [Math]::Min($Percent, 1) * 40
+        $script:controls.First.Current.BoundingRectangle = [pscustomobject]@{
+            Top = 100 - $offset; Bottom = 120 - $offset; Height = 20
+        }
+        $script:controls.Since.Current.BoundingRectangle = [pscustomobject]@{
+            Top = $script:secondBottom - 30 - $offset; Bottom = $script:secondBottom - $offset; Height = 30
+        }
+    }
+    $viewport = [pscustomobject]@{ Current = [pscustomobject]@{
+        BoundingRectangle = [pscustomobject]@{ Top = 0; Bottom = 300 }
+    } }
+    $viewport | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $script:scroll }
+    foreach ($id in @("First", "Since")) {
+        $script:controls[$id] = [pscustomobject]@{ Current = [pscustomobject]@{
+            IsOffscreen = $false; BoundingRectangle = $null
+        } }
+    }
+    function Find-HistoryControl($Id) {
+        if ($Id -eq "DeviceDetailsScroll") { return $viewport }
+        return $script:controls[$Id]
+    }
+    function Start-Sleep { param($Milliseconds) }
+    $null = Show-HistorySection First -AdditionalIds Since
+    Assert-Equal $script:positions @(0, 1) "Positioning must continue when first field fits but Since is clipped"
+    $script:secondBottom = 900
+    $script:positions.Clear()
+    Assert-Throws { Show-HistorySection First -AdditionalIds Since } "*does not fit the details viewport*"
+    Assert-Equal $script:positions.Count 101 "Unreachable grouped summary fails after bounded positioning"
 }
 
 & {
