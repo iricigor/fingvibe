@@ -65,6 +65,20 @@ function Stop-UsageApp {
     }
 }
 
+function Find-UsageRow([string] $Name) {
+    $list = Find-Usage ResultsList -Optional
+    if (-not $list -or $list.Current.IsOffscreen) { return $null }
+    $rows = $list.FindAll([System.Windows.Automation.TreeScope]::Children,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem))
+    if ($rows.Count -ne 1) { return $null }
+    $cell = $rows[0].FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceNameText"))
+    if ($cell -and $cell.Current.Name -ceq $Name) { return $rows[0] }
+    return $null
+}
+
 function Open-UsageDevice([string] $Name = "Usage laptop") {
     $back = Find-Usage "Back to devices" -ByName -Optional
     if ($back -and -not $back.Current.IsOffscreen) {
@@ -77,10 +91,10 @@ function Open-UsageDevice([string] $Name = "Usage laptop") {
         $list -and -not $list.Current.IsOffscreen
     } "Devices"
     (Find-Usage "Search devices" -ByName).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Name)
-    Wait-Usage { (Find-Usage ResultCountText).Current.Name -match '^Showing 1 (device|of \d+ devices)$' } "one selected fixture device"
-    $row = (Find-Usage ResultsList).FindFirst([System.Windows.Automation.TreeScope]::Children,
-        [System.Windows.Automation.PropertyCondition]::new(
-            [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem))
+    # The result count can still describe the previous filter, and every filter change rebuilds the rows.
+    Wait-Usage { Find-UsageRow $Name } "the only '$Name' device row"
+    $row = Find-UsageRow $Name
+    if (-not $row) { throw "The '$Name' device row disappeared before it could be opened." }
     $row.SetFocus()
     [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
     Wait-Usage {

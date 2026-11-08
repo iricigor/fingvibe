@@ -100,6 +100,62 @@ if (-not [System.Windows.Automation.SelectionPattern+SelectionPatternInformation
     try { $null = Show-Usage UsageCategorySave } catch { $failure = $_.Exception.Message }
     if ($failure -notlike "*clipped or unreachable*") { throw "A control beyond the physical window must not be reported visible." }
 }
+& {
+    $helper = $usage.Find({
+        param($node)
+        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq "Find-UsageRow"
+    }, $true)
+    Invoke-Expression $helper.Extent.Text
+    $state = @{ List = $null }
+    function Find-Usage([string] $Id, [switch] $ByName, [switch] $Optional) {
+        if ($Id -ne "ResultsList" -or $ByName -or -not $Optional) { throw "Row lookup must poll the Devices list optionally." }
+        return $state.List
+    }
+    function New-UsageRowDouble([string] $Id, $Name) {
+        $cell = if ($null -ne $Name) { [pscustomobject]@{ Current = [pscustomobject]@{ Name = $Name } } }
+        $row = [pscustomobject]@{ Id = $Id; Cell = $cell }
+        $row | Add-Member ScriptMethod FindFirst {
+            param($Scope, $Condition)
+            if ($Scope -ne [System.Windows.Automation.TreeScope]::Descendants -or $Condition.Value -ne "DeviceNameText") { return $null }
+            return $this.Cell
+        }
+        return $row
+    }
+    function New-UsageListDouble($Rows, [switch] $Offscreen) {
+        $list = [pscustomobject]@{ Current = [pscustomobject]@{ IsOffscreen = [bool] $Offscreen }; Rows = @($Rows) }
+        $list | Add-Member ScriptMethod FindAll {
+            param($Scope, $Condition)
+            if ($Scope -ne [System.Windows.Automation.TreeScope]::Children -or
+                $Condition.Value -ne [System.Windows.Automation.ControlType]::ListItem.Id) { return , @() }
+            return , @($this.Rows)
+        }
+        return $list
+    }
+    $concurrent = New-UsageRowDouble "concurrent" "Concurrent name"
+    $imported = New-UsageRowDouble "imported" "Usage imported"
+    $state.List = New-UsageListDouble @($concurrent)
+    if ((Find-UsageRow "Concurrent name").Id -ne "concurrent") { throw "The only row with the requested device name must be returned." }
+    if (Find-UsageRow "Usage imported") { throw "A stale row from the previous filter must not be opened." }
+    if (Find-UsageRow "concurrent name") { throw "Device names must match exactly." }
+    $state.List = New-UsageListDouble @($concurrent, $imported)
+    if (Find-UsageRow "Concurrent name") { throw "An unfiltered list must not be mistaken for the filtered result." }
+    $state.List = New-UsageListDouble @()
+    if (Find-UsageRow "Concurrent name") { throw "A list that is still rebuilding has no row to open." }
+    $state.List = New-UsageListDouble @($concurrent) -Offscreen
+    if (Find-UsageRow "Concurrent name") { throw "A hidden Devices list has no row to open." }
+    $state.List = $null
+    if (Find-UsageRow "Concurrent name") { throw "A missing Devices list has no row to open." }
+    $state.List = New-UsageListDouble @((New-UsageRowDouble "unnamed" $null))
+    if (Find-UsageRow "Concurrent name") { throw "A row without a device name cell must not match." }
+
+    $open = $usage.Find({
+        param($node)
+        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq "Open-UsageDevice"
+    }, $true)
+    if ($open.Extent.Text -notmatch 'Wait-Usage \{ Find-UsageRow \$Name \}' -or $open.Extent.Text.Contains("ResultCountText")) {
+        throw "Opening a device must wait for its own row, not for a result count that can describe the previous filter."
+    }
+}
 
 # Execute only the synthetic fixture construction, never the UI script's startup or desktop helpers.
 $fixture = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-usage-script-$([Guid]::NewGuid().ToString('N'))"
