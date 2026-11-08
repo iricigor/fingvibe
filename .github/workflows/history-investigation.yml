@@ -1,0 +1,92 @@
+name: History scrolling investigation
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/history-investigation.yml"
+      - "tests/HistoryScroll.Investigation*.ps1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: windows-2025
+    timeout-minutes: 20
+    env:
+      FINGVIBE_UI_REVIEW: "1"
+    steps:
+      - name: Check out investigation
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Check out immutable app and fixture source
+        uses: actions/checkout@v4
+        with:
+          ref: ebd4f07d731d5f4df45d1949f4c3b79fb1ebb9e2
+          path: pinned
+          persist-credentials: false
+
+      - name: Check diagnostic helpers without desktop automation
+        shell: pwsh
+        run: .\tests\HistoryScroll.Investigation.Script.Tests.ps1 -SourceDirectory "${{ github.workspace }}\pinned"
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Set up MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Publish pinned application
+        id: publish
+        shell: pwsh
+        run: |
+          $stamp = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+          msbuild pinned\src\FingVibe.App\FingVibe.App.csproj /restore /target:Publish `
+            /property:Configuration=Release /property:Platform=x64 `
+            /property:RuntimeIdentifier=win-x64 /property:SelfContained=true `
+            /property:Version=0.0.${{ github.run_number }} /property:BuildKind=Test `
+            /property:BuildCommit=ebd4f07d731d5f4df45d1949f4c3b79fb1ebb9e2 `
+            /property:BuildTimestamp="$stamp" `
+            /property:BuildUrl="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" `
+            /property:PublishDir="${{ github.workspace }}\artifacts\pinned-app\"
+          if ($LASTEXITCODE -ne 0) { throw "Pinned application publish failed." }
+
+      - name: Prepare disposable desktop
+        id: desktop
+        shell: powershell
+        run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
+
+      - name: Observe section replay
+        if: success()
+        timeout-minutes: 6
+        shell: pwsh
+        run: |
+          .\tests\HistoryScroll.Investigation.ps1 -Experiment section `
+            -SourceDirectory "${{ github.workspace }}\pinned" `
+            -AppPath "${{ github.workspace }}\artifacts\pinned-app\FingVibe.App.exe" `
+            -OutputDirectory "${{ github.workspace }}\artifacts\history-investigation\section"
+
+      - name: Observe independent 100-row list
+        if: always() && steps.publish.outcome == 'success' && steps.desktop.outcome == 'success'
+        timeout-minutes: 6
+        shell: pwsh
+        run: |
+          .\tests\HistoryScroll.Investigation.ps1 -Experiment list `
+            -SourceDirectory "${{ github.workspace }}\pinned" `
+            -AppPath "${{ github.workspace }}\artifacts\pinned-app\FingVibe.App.exe" `
+            -OutputDirectory "${{ github.workspace }}\artifacts\history-investigation\list"
+
+      - name: Preserve investigation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: history-investigation-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: artifacts\history-investigation
+          if-no-files-found: warn
+          retention-days: 14
