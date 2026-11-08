@@ -102,12 +102,56 @@ Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
     $first.Current.BoundingRectangle = New-TestRectangle 10 900 100 20
     $last.Current.BoundingRectangle = New-TestRectangle 10 1100 100 30
     $scroll.MoveBounds = $false
-    $arguments.TimeoutMilliseconds = 20
+    $arguments.TimeoutMilliseconds = 500
     $before = $positions.Count
-    Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*20 ms*grouped summary*'
+    Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*did not move after a measured scroll adjustment*'
     Assert-Regression ($positions.Count -eq $before + 1) 'An accepted scroll percentage without rendered movement must fail, not repeat or masquerade as visibility.'
     $scroll.Current.VerticallyScrollable = $false
     Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*non-scrollable viewport*'
+
+    $viewport = New-BoundedElement 0 0 500 300
+    $window = New-BoundedElement 0 0 500 300
+    $target = [pscustomobject]@{ Current = [pscustomobject]@{
+        IsOffscreen = $true; BoundingRectangle = [pscustomobject]@{
+            Left = 0; Top = 0; Right = 0; Bottom = 0; Width = 0; Height = 0; IsEmpty = $true
+        }
+    } }
+    $positions = [Collections.Generic.List[double]]::new()
+    $scroll = [pscustomobject]@{ Current = [pscustomobject]@{
+        VerticallyScrollable = $true; VerticalScrollPercent = 0.0; VerticalViewSize = 20.0
+    }; DocumentTop = 900.0 }
+    $scroll | Add-Member ScriptMethod SetScrollPercent {
+        param($Horizontal, $Percent)
+        $positions.Add($Percent)
+        $this.Current.VerticalScrollPercent = $Percent
+        $top = $this.DocumentTop - $Percent * 12
+        if ($top + 30 -le 0 -or $top -ge 300) {
+            $target.Current.IsOffscreen = $true
+            $target.Current.BoundingRectangle = [pscustomobject]@{
+                Left = 0; Top = 0; Right = 0; Bottom = 0; Width = 0; Height = 0; IsEmpty = $true
+            }
+        } else {
+            $target.Current.IsOffscreen = $false
+            $target.Current.BoundingRectangle = New-TestRectangle 10 $top 100 30
+        }
+    }
+    $viewport | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $scroll }
+    $arguments = @{
+        GetViewport = { $viewport }; GetWindow = { $window }; GetTargets = { $target }
+        Description = 'offscreen text target'; TopMargin = 35; BottomMargin = 10
+    }
+    $result = Show-UiRegressionScrollTargets @arguments
+    Assert-Regression ($result -eq $target -and $positions.Count -eq 4) 'An empty offscreen UIA rectangle must trigger bounded discovery followed by measured positioning.'
+    Assert-Regression ($target.Current.BoundingRectangle.Top -ge 35 -and $target.Current.BoundingRectangle.Bottom -le 290) 'A discovered target must satisfy the complete viewport margins.'
+
+    $scroll.Current.VerticalScrollPercent = 100
+    $positions.Clear()
+    $target.Current.IsOffscreen = $true
+    $target.Current.BoundingRectangle = [pscustomobject]@{
+        Left = 0; Top = 0; Right = 0; Bottom = 0; Width = 0; Height = 0; IsEmpty = $true
+    }
+    $result = Show-UiRegressionScrollTargets @arguments
+    Assert-Regression ($result -eq $target -and $positions.Count -le 4) 'Unknown bounds from the lower endpoint must discover content by moving back toward the viewport.'
 }
 
 $rectangle = [pscustomobject]@{ IsEmpty = $false; Width = 100; Height = 30 }

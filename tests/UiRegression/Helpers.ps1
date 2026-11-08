@@ -50,7 +50,7 @@ function Show-UiRegressionScrollTargets {
         [switch] $AlignBottom,
         [ValidateRange(1, 10000)][int] $TimeoutMilliseconds = 10000
     )
-    $state = @{ Moves = 0; Geometry = $null }
+    $state = @{ Moves = 0; Geometry = $null; MissingBoundsMoves = 0; Direction = 0; Reversals = 0 }
     $targetDescription = $Description
     $positionClock = [Diagnostics.Stopwatch]::StartNew()
     $positioned = Wait-UiRegressionState -Description "$Description inside its viewport" -TimeoutMilliseconds $TimeoutMilliseconds -Condition {
@@ -58,18 +58,47 @@ function Show-UiRegressionScrollTargets {
             $viewportElement = & $GetViewport
             $windowElement = & $GetWindow
             $elements = @(& $GetTargets)
-            if (-not $viewportElement -or -not $windowElement -or $elements.Count -eq 0 -or
-                @($elements | Where-Object { -not $_ -or $_.Current.BoundingRectangle.IsEmpty }).Count) { return $null }
+            if (-not (Test-UiRegressionElementVisible $viewportElement) -or
+                -not (Test-UiRegressionElementVisible $windowElement) -or $elements.Count -eq 0 -or
+                @($elements | Where-Object { -not $_ }).Count) { return $null }
             $area = $viewportElement.Current.BoundingRectangle
             $windowArea = $windowElement.Current.BoundingRectangle
-            $top = [Math]::Max($area.Top, $windowArea.Top) + $TopMargin
-            $bottom = [Math]::Min($area.Bottom, $windowArea.Bottom) - $BottomMargin
+            $viewportTop = [Math]::Max($area.Top, $windowArea.Top)
+            $viewportBottom = [Math]::Min($area.Bottom, $windowArea.Bottom)
+            $top = $viewportTop + $TopMargin
+            $bottom = $viewportBottom - $BottomMargin
+            if ($bottom -le $top) { throw "$targetDescription has no usable viewport inside the window." }
+            $scroll = $viewportElement.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+            $missingBounds = @($elements | Where-Object { $_.Current.BoundingRectangle.IsEmpty })
+            if ($missingBounds.Count) {
+                if (-not $scroll.Current.VerticallyScrollable) {
+                    throw "$targetDescription has no rendered bounds in a non-scrollable viewport."
+                }
+                if ($state.Direction -eq 0) {
+                    $state.Direction = if ($scroll.Current.VerticalScrollPercent -ge 50) { -1 } else { 1 }
+                }
+                if ($state.MissingBoundsMoves -ge 8) {
+                    throw "$targetDescription remained unrealized after eight bounded viewport moves."
+                }
+                $currentPercent = $scroll.Current.VerticalScrollPercent
+                $nextPercent = [Math]::Max(0, [Math]::Min(100, $currentPercent + 25 * $state.Direction))
+                if ($nextPercent -eq $currentPercent) {
+                    if ($state.Reversals -ge 1) {
+                        throw "$targetDescription has no rendered bounds after reaching both scroll limits."
+                    }
+                    $state.Direction = -$state.Direction
+                    $state.Reversals++
+                    $nextPercent = [Math]::Max(0, [Math]::Min(100, $currentPercent + 25 * $state.Direction))
+                }
+                $state.MissingBoundsMoves++
+                $scroll.SetScrollPercent(-1, $nextPercent)
+                return $null
+            }
             $targetTop = ($elements | ForEach-Object { $_.Current.BoundingRectangle.Top } | Measure-Object -Minimum).Minimum
             $targetBottom = ($elements | ForEach-Object { $_.Current.BoundingRectangle.Bottom } | Measure-Object -Maximum).Maximum
             if ($targetBottom - $targetTop -gt $bottom - $top) { throw "$targetDescription cannot fit together inside its viewport." }
             $fits = $targetTop -ge $top -and $targetBottom -le $bottom -and
                 @($elements | Where-Object { -not (Test-UiRegressionElementWithin $_ $viewportElement $windowElement) }).Count -eq 0
-            $scroll = $viewportElement.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
             if ($fits -and (-not $AlignBottom -or [Math]::Abs($targetBottom - $bottom) -le 1 -or
                     $scroll.Current.VerticalScrollPercent -eq 0)) { return $elements[0] }
             if (-not $scroll.Current.VerticallyScrollable) {
@@ -78,10 +107,11 @@ function Show-UiRegressionScrollTargets {
             $viewSize = $scroll.Current.VerticalViewSize
             if ($viewSize -le 0 -or $viewSize -ge 100) { return $null }
             $geometry = "$targetTop|$targetBottom|$top|$bottom|$viewSize"
-            if ($geometry -eq $state.Geometry) { return $null }
+            if ($geometry -eq $state.Geometry) { throw "$targetDescription did not move after a measured scroll adjustment." }
             if ($state.Moves -ge 8) { throw "$targetDescription did not settle after eight measured scroll adjustments." }
             $delta = if ($AlignBottom -or $targetBottom -gt $bottom) { $targetBottom - $bottom } else { $targetTop - $top }
-            $extent = $area.Height * (100 / $viewSize - 1)
+            $extent = ($viewportBottom - $viewportTop) * (100 / $viewSize - 1)
+            if ($extent -le 0) { throw "$targetDescription has an invalid scroll extent." }
             $percent = [Math]::Max(0, [Math]::Min(100, $scroll.Current.VerticalScrollPercent + 100 * $delta / $extent))
             $state.Geometry = $geometry
             $state.Moves++
