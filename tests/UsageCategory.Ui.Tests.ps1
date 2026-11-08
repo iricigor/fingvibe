@@ -7,6 +7,7 @@ $ErrorActionPreference = "Stop"
 if ($env:GITHUB_ACTIONS -ne "true") { throw "Usage-category UI checks require a disposable GitHub Actions desktop." }
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
+. (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewDeviceTabs.ps1")
 . (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
 Initialize-InventorySqlite $AppPath
 
@@ -240,6 +241,14 @@ try {
     }
     Save-UsageCapture "usage-automatic"
     Choose-Usage Personal
+    $beforeTabs = Get-InventoryFingerprint $database
+    Select-UiReviewDeviceTab -Root $script:root -Tab History
+    Select-UiReviewDeviceTab -Root $script:root -Tab Overview
+    $picker = Find-Usage UsageCategoryPicker
+    if ($picker.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()[0].Current.Name -ne "Personal") {
+        throw "Switching tabs discarded the unsaved category."
+    }
+    if ((Get-InventoryFingerprint $database) -cne $beforeTabs) { throw "Switching tabs saved an unsaved category." }
     Save-UsageCapture "usage-unsaved" UsageCategorySave
     Invoke-Usage UsageCategoryCancel
     Assert-Usage Permanent "Auto"

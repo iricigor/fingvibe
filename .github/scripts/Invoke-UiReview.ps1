@@ -16,6 +16,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "UiReviewScreenshot.ps1")
 . (Join-Path $PSScriptRoot "UiReviewScenarios.ps1")
 . (Join-Path $PSScriptRoot "UiReviewNavigation.ps1")
+. (Join-Path $PSScriptRoot "UiReviewDeviceTabs.ps1")
 $capturePlan = if ($CapturePlanPath) {
     @(Read-UiReviewCapturePlan -Path $CapturePlanPath)
 }
@@ -402,6 +403,16 @@ try {
             Show-UiReviewCaptureScenario -Scenario $capture.Scenario
             $path = Join-Path $captureDirectory $capture.FileName
             Save-UiReviewWindowScreenshot -WindowHandle $windowHandle -Path $path
+            if ($capture.Scenario -eq "DeviceDetails") {
+                Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+                $root = [System.Windows.Automation.AutomationElement]::FromHandle($windowHandle)
+                Select-UiReviewDeviceTab -Root $root -Tab History
+                $null = Assert-VisibleUiReviewElement -Value "Back to devices"
+                $null = Assert-VisibleUiReviewElement -Value "Activity"
+                Save-UiReviewWindowScreenshot -WindowHandle $windowHandle `
+                    -Path (Join-Path $captureDirectory "fingvibe-device-history.png")
+                Select-UiReviewDeviceTab -Root $root -Tab Overview
+            }
         }
         catch {
             throw "Required capture '$($capture.Label)' failed: $($_.Exception.Message)"

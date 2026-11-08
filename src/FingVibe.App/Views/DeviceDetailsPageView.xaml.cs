@@ -24,6 +24,8 @@ public sealed partial class DeviceDetailsPageView : UserControl
     private DeviceHistoryPage? _historyPage;
     private int _historyPageIndex;
     private int _historyGeneration;
+    private bool _resetOverviewScroll;
+    private bool _resetHistoryScroll;
     private readonly DispatcherTimer _historyClock = new() { Interval = TimeSpan.FromSeconds(30) };
 
     public DeviceDetailsPageView()
@@ -32,6 +34,8 @@ public sealed partial class DeviceDetailsPageView : UserControl
         InitializeClassificationPickers();
         InitializeUsageCategory();
         InitializeActivity();
+        DevicePage.Loaded += (_, _) => ResetDeviceScroll(DevicePage, ref _resetOverviewScroll);
+        HistoryPage.Loaded += (_, _) => ResetDeviceScroll(HistoryPage, ref _resetHistoryScroll);
         _historyClock.Tick += (_, _) => RefreshHistorySummary();
         _historyClock.Tick += (_, _) => RefreshActivityDate();
         Loaded += (_, _) => { RefreshHistorySummary(); _historyClock.Start(); };
@@ -69,6 +73,8 @@ public sealed partial class DeviceDetailsPageView : UserControl
     {
         _historyGeneration++;
         _row = row;
+        _resetOverviewScroll = _resetHistoryScroll = true;
+        DetailsTabs.SelectedItem = OverviewTab;
         DeviceNameEditor.Visibility = Visibility.Collapsed;
         SetClassificationEditing(false);
         DeviceClassificationStatusText.Text = string.Empty;
@@ -89,6 +95,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
         _historyPage = null;
         DeviceHistoryPageStatus.Text = string.Empty;
         DeviceHistoryScope.Text = $"Current network: {networkId ?? "identity unavailable"} | {subnet ?? "subnet unavailable"}";
+        DeviceHistorySummaryScope.Text = DeviceHistoryScope.Text;
         try
         {
             var summary = row.GetHistorySummary(networkId, subnet);
@@ -229,7 +236,25 @@ public sealed partial class DeviceDetailsPageView : UserControl
         SetPortScanRunning(false, row.CanProbe);
     }
 
-    internal void ResetScroll() => DevicePage.ChangeView(null, 0, null, disableAnimation: true);
+    internal void ResetScroll()
+    {
+        _resetOverviewScroll = _resetHistoryScroll = true;
+        ResetDeviceScroll(DevicePage, ref _resetOverviewScroll);
+        ResetDeviceScroll(HistoryPage, ref _resetHistoryScroll);
+    }
+
+    private static void ResetDeviceScroll(ScrollViewer viewer, ref bool reset)
+    {
+        if (!reset || !viewer.IsLoaded) return;
+        viewer.ChangeView(null, 0, null, disableAnimation: true);
+        reset = false;
+    }
+
+    private void ViewHistory_Click(object sender, RoutedEventArgs e)
+    {
+        DetailsTabs.SelectedItem = HistoryTab;
+        HistoryTab.Focus(FocusState.Programmatic);
+    }
 
     private void Rename_Click(object sender, RoutedEventArgs e)
     {

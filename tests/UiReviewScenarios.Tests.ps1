@@ -21,6 +21,28 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     [xml] $page = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml") -Raw
     $namespaces = [System.Xml.XmlNamespaceManager]::new($page.NameTable)
     $namespaces.AddNamespace("x", "http://schemas.microsoft.com/winfx/2006/xaml")
+    $tabs = $page.SelectSingleNode("//*[@x:Name='DetailsTabs']", $namespaces)
+    Assert-Equal $tabs.SelectedIndex "0" "Overview is the initial tab"
+    Assert-Equal $tabs.IsAddTabButtonVisible "False" "Device tabs cannot be added"
+    Assert-Equal $tabs.CanReorderTabs "False" "Device tabs cannot be reordered"
+    $overviewTab = $tabs.SelectSingleNode("./*[@x:Name='OverviewTab']", $namespaces)
+    $historyTab = $tabs.SelectSingleNode("./*[@x:Name='HistoryTab']", $namespaces)
+    Assert-Equal @($overviewTab.Header, $historyTab.Header) @("Overview", "History") "Native local tabs"
+    Assert-Equal @($overviewTab.IsClosable, $historyTab.IsClosable) @("False", "False") "Device tabs cannot be closed"
+    foreach ($id in @("DetailsColumns", "IdentificationCard", "PortsServicesCard", "DeviceHistoryFirstSeen",
+        "DeviceHistoryLastSeen", "DeviceHistoryState", "DeviceHistorySince", "DeviceHistorySummaryScope", "DeviceViewHistory")) {
+        if (-not $overviewTab.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must remain on Overview." }
+    }
+    foreach ($id in @("DeviceActivityCard", "DeviceScanHistoryExpander", "VirtualDeviceHistoryCard")) {
+        if (-not $historyTab.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must belong to History." }
+    }
+    foreach ($id in @("DeviceNameValue", "DeviceNameEditor")) {
+        if ($tabs.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must remain shared above the tabs." }
+    }
+    Assert-Equal $overviewTab.SelectSingleNode("./*", $namespaces).GetAttribute("AutomationProperties.AutomationId") `
+        "DeviceDetailsScroll" "Overview retains its scroll automation ID"
+    Assert-Equal $historyTab.SelectSingleNode("./*", $namespaces).GetAttribute("AutomationProperties.AutomationId") `
+        "DeviceHistoryScroll" "History has its own scroll owner"
     $history = $page.SelectSingleNode("//*[@x:Name='DeviceScanHistoryExpander']", $namespaces)
     Assert-Equal $history.IsExpanded "False" "Completed observations starts collapsed"
     Assert-Equal $history.Header "Completed Scan Observations" "Completed observations header"
@@ -37,6 +59,43 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     if ($imported.ParentNode.ParentNode.GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml") -ne "IdentificationCard") {
         throw "Imported metadata must belong to Device identification."
     }
+}
+
+& {
+    Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+    . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewDeviceTabs.ps1")
+    $overviewPattern = [pscustomobject]@{ Current = [pscustomobject]@{ IsSelected = $true } }
+    $historyPattern = [pscustomobject]@{ Current = [pscustomobject]@{ IsSelected = $false } }
+    $overviewPattern | Add-Member ScriptMethod Select {
+        $this.Current.IsSelected = $true
+        $historyPattern.Current.IsSelected = $false
+    }
+    $historyPattern | Add-Member ScriptMethod Select {
+        $this.Current.IsSelected = $true
+        $overviewPattern.Current.IsSelected = $false
+    }
+    $overviewElement = [pscustomobject]@{}
+    $overviewElement | Add-Member ScriptMethod GetCurrentPattern { param($Pattern); return $overviewPattern }
+    $historyElement = [pscustomobject]@{}
+    $historyElement | Add-Member ScriptMethod GetCurrentPattern { param($Pattern); return $historyPattern }
+    $root = [pscustomobject]@{}
+    $root | Add-Member ScriptMethod FindFirst {
+        param($Scope, $Condition)
+        switch ($Condition.Value) {
+            DeviceOverviewTab { return $overviewElement }
+            DeviceHistoryTab { return $historyElement }
+            DeviceDetailsScroll { return [pscustomobject]@{ Current = [pscustomobject]@{ IsOffscreen = -not $overviewPattern.Current.IsSelected } } }
+            DeviceHistoryScroll { return [pscustomobject]@{ Current = [pscustomobject]@{ IsOffscreen = -not $historyPattern.Current.IsSelected } } }
+        }
+    }
+    Assert-Equal (Get-UiReviewDeviceDetailsScrollId $root) "DeviceDetailsScroll" "Overview scroll owner"
+    Select-UiReviewDeviceTab -Root $root -Tab History
+    Assert-Equal (Get-UiReviewDeviceDetailsScrollId $root) "DeviceHistoryScroll" "Selected History scroll owner"
+    Select-UiReviewDeviceTab -Root $root -Tab Overview
+    Assert-Equal (Get-UiReviewDeviceDetailsScrollId $root) "DeviceDetailsScroll" "Return to Overview"
+    $missing = [pscustomobject]@{}
+    $missing | Add-Member ScriptMethod FindFirst { param($Scope, $Condition); return $null }
+    Assert-Throws { Select-UiReviewDeviceTab -Root $missing -Tab History } "*Missing Device Details History tab*"
 }
 
 & {
@@ -143,6 +202,7 @@ try {
     foreach ($path in @("src\FingVibe.App\DeviceDetailsPresentation.cs", "src\FingVibe.App\Views\DeviceDetailValue.cs")) {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device details presentation"
     }
+    Test-Change @{ ".github\scripts\UiReviewDeviceTabs.ps1" = "changed" } @("Devices", "DeviceDetails") "Device-local tab helpers"
     foreach ($path in @("src\FingVibe.App\MainWindow.UsageCategories.cs", "src\FingVibe.App\UsageCategoryPresentation.cs",
         "src\FingVibe.App\Views\DeviceDetailsPageView.Usage.cs", "src\FingVibe.Core\Models\DeviceUsageCategory.cs",
         "tests\UsageCategory.Ui.Tests.ps1")) {

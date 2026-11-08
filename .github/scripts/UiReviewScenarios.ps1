@@ -2,7 +2,7 @@ $UiReviewScenarios = [ordered]@{
     Devices = @{ Label = "Devices - online results"; FileName = "fingvibe-ui-review.png"; Page = "DevicesPage" }
     Overview = @{ Label = "Overview - scan summary"; FileName = "fingvibe-overview.png"; Page = "OverviewPage" }
     Network = @{ Label = "Network - network details"; FileName = "fingvibe-network.png"; Page = "NetworkPage" }
-    DeviceDetails = @{ Label = "Device details - selected online device"; FileName = "fingvibe-device-details.png"; Page = "DevicePage" }
+    DeviceDetails = @{ Label = "Device details - Overview and History"; FileName = "fingvibe-device-details.png"; Page = "DevicePage" }
     People = @{ Label = "People"; FileName = "fingvibe-people.png"; Page = "PeoplePage" }
     PersonDetails = @{ Label = "Person details"; FileName = "fingvibe-person-details.png"; Page = "PersonDetailPage" }
     Rooms = @{ Label = "Rooms"; FileName = "fingvibe-rooms.png"; Page = "RoomsPage" }
@@ -117,7 +117,8 @@ function Get-UiReviewCapturePlan {
                 $path -eq 'src/FingVibe.Core/Models/DeviceUsageCategory.cs' -or $path -eq 'tests/UsageCategory.Ui.Tests.ps1') {
                 Add-Scenarios @("Devices", "DeviceDetails", "Settings") "$path changed usage classification or editing."
             }
-            elseif ($path -match '^src/FingVibe.App/(MainWindow.DeviceDetails.cs|DeviceDetailsPresentation.cs|Views/DeviceDetailValue.cs)$') {
+            elseif ($path -match '^src/FingVibe.App/(MainWindow.DeviceDetails.cs|DeviceDetailsPresentation.cs|Views/DeviceDetailValue.cs)$' -or
+                $path -eq '.github/scripts/UiReviewDeviceTabs.ps1') {
                 Add-Scenarios @("DeviceDetails") "$path changed device details behavior."
             }
             elseif ($path -match '^src/FingVibe.App/(MainWindow.DeviceActivity.cs|DeviceActivityPresentation.cs|Views/DeviceDetailsPageView.Activity.cs)$' -or

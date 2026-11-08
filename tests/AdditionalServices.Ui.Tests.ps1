@@ -251,6 +251,7 @@ function Open-IdentificationEditor {
 }
 
 function Test-DeviceDetailsEditing {
+    . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewDeviceTabs.ps1")
     $scroll = (Find-ServiceControl DeviceDetailsScroll).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     $scroll.SetScrollPercent(-1, 0)
     Wait-ServiceState {
@@ -278,6 +279,14 @@ function Test-DeviceDetailsEditing {
     Wait-ServiceState {
         [System.Windows.Automation.AutomationElement]::FocusedElement.Current.Name -eq "Device name"
     } "name editor focus"
+    (Find-ServiceControl DeviceNameInput).GetCurrentPattern(
+        [System.Windows.Automation.ValuePattern]::Pattern).SetValue("Unsaved tab name")
+    Select-UiReviewDeviceTab -Root $root -Tab History
+    Select-UiReviewDeviceTab -Root $root -Tab Overview
+    if ((Find-ServiceControl DeviceNameInput).GetCurrentPattern(
+        [System.Windows.Automation.ValuePattern]::Pattern).Current.Value -ne "Unsaved tab name") {
+        throw "Switching tabs discarded the unsaved name."
+    }
     Invoke-ServiceControl Done
     Wait-ServiceState {
         [System.Windows.Automation.AutomationElement]::FocusedElement.Current.Name -eq "Rename device"
@@ -300,6 +309,12 @@ function Test-DeviceDetailsEditing {
     Open-IdentificationEditor
     $brand = Find-ServiceControl DeviceBrandInput
     $brand.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("Unsaved brand")
+    Select-UiReviewDeviceTab -Root $root -Tab History
+    Select-UiReviewDeviceTab -Root $root -Tab Overview
+    $brand = Find-ServiceControl DeviceBrandInput
+    if ($brand.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value -ne "Unsaved brand") {
+        throw "Switching tabs discarded unsaved identification."
+    }
     Invoke-ServiceControl Cancel
     Open-IdentificationEditor
     if ($brand.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value -ne "") {

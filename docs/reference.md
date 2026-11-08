@@ -393,9 +393,36 @@ save-failure/retry behavior through the existing Windows CI device-details revie
 Its completed-scan and network fixtures are enabled only in UI-review mode.
 Never run native UI automation on a working user's desktop.
 
+### Device Details tabs
+
+Opening a device selects the local **Overview** tab. The device heading, rename
+editor and **Devices** Back navigation stay shared above **Overview** and
+**History**. Native tabs support keyboard selection and accessibility tools;
+each tab has its own vertical scroll area.
+
+Overview retains network information, assignments, the existing usage-category
+editor, identification and ports/services. Its compact **Saved observation
+summary** keeps First seen, Last seen and last observed state/since with the
+current network/subnet scope and evidence limitations. **View history** selects
+History for Activity, detailed completed observations and, when applicable,
+virtual-device MAC/address history.
+
+Switching tabs preserves unsaved name, identification and category edits,
+Activity period/grouping, and the current history page. It does not save changes
+or record observations. Opening another device or reopening details selects
+Overview and resets both scroll positions and the completed-observation traversal.
+Persistence, probing and historical-evidence rules are unchanged.
+
+The existing DeviceDetails review scenario covers both tabs. Its main capture
+is Overview; `fingvibe-device-history.png` is a supplementary History capture in
+the disposable-runner artifacts. Native history, Activity, category and service
+checks retain their assertions and exercise tab navigation, selection reset and
+unsaved edits. Activity captures both tabs at wide/narrow widths in all supported
+appearance variants and checks high contrast. Never automate the working desktop.
+
 ### Device activity
 
-Device details shows **Activity** above the existing scan history. Choose
+Device Details' **History** tab shows **Activity** above detailed scan history. Choose
 **Last 7 days**, **Last 30 days**, or **30 days by weekday**, and group each local
 date into midnight-aligned 1, 2, 3 or 4-hour cells. Three-hour groups run
 00:00-03:00 through 21:00-24:00. The displayed Windows timezone and query time
@@ -428,14 +455,14 @@ it contains no inferred uptime or scalar duration estimates.
 
 ### Device scan history
 
-Device details shows a **Scan history** summary for normal MAC-based devices and
+Device Details' **Overview** tab shows a saved-observation summary for normal MAC-based devices and
 existing virtual devices. First/last-seen timestamps display in local time with
 relative ages, refreshed while the page is visible and rounded to the nearest
 whole minute, hour, day, month (approximately 30 days), or year (365 days).
 **Last observed: Present/Absent** pairs a semantic green/red dot with text; it is
 not live status. Missing evidence and historical aggregates remain explicit.
 
-The **Completed Scan Observations** section starts collapsed each time a device
+On **History**, the **Completed Scan Observations** section starts collapsed each time a device
 is opened. Expand it for the current-network context, latest-scan explanation,
 observation semantics, and a scrollable newest-first table with **Date**,
 **Time (local)**, and **Status** columns. Zebra stripes and subtle separators
@@ -460,8 +487,8 @@ observations; changing devices/networks discards the previous traversal.
 Page-load errors remain visible and can be retried without replacing a valid page.
 
 The list and its **First seen**, **Last seen**, and **Observed online/offline since**
-summary use only the selected current network identity and subnet, shown above
-the summary. Changing networks never falls back to another network's evidence;
+summary use only the selected current network identity and subnet, shown on
+Overview and above the detailed observations on History. Changing networks never falls back to another network's evidence;
 unavailable identity or missing matching evidence explains unavailable values.
 Other-network history remains saved. First/last seen use presence observations;
 absence does not advance last seen. Since is the first scan in the latest

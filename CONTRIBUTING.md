@@ -25,6 +25,7 @@ Current ownership boundaries:
 - `MainWindow.DeviceActivity.cs` supplies selected identity/network/revision context; `Views/DeviceDetailsPageView.Activity.cs` owns Activity controls, cancellable query lifecycle and grid presentation. Core `DeviceActivity` owns aligned buckets and weekday counts.
 - `MainWindow.PeopleRooms.cs` owns People/Rooms persistence and assignment orchestration across pages.
 - `Views/*PageView.xaml(.cs)` owns each page's visual tree, child controls, local layout, and UI request events. Child controls stay private; the shell supplies display data and handles requests through focused page APIs.
+- `Views/DeviceDetailsPageView.xaml(.cs)` owns the device-local Overview/History tabs, their scroll positions and tab selection. Switching tabs preserves edits and historical traversal; opening details resets local navigation without changing persistence.
 - `MainWindow.xaml` owns navigation, the shared scan header and independent build-ribbon overlay, and composes the page controls. `Tools/ToolsPage.xaml(.cs)` continues to own Tools navigation and lifecycle forwarding.
 - `LanScannerService` owns scan orchestration and probe lifecycle. `IScanResultEnricher` and `ScanResultEnricher` own device name, vendor, MAC, and port enrichment.
 

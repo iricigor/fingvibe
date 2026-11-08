@@ -5,6 +5,10 @@ foreach ($name in @("DeviceActivity.Ui.Tests.ps1", "DeviceActivity.Fixture.ps1")
     $null = [Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot $name), [ref]$null, [ref]$errors)
     if ($errors) { throw ($errors.Message -join "; ") }
 }
+$errors = $null
+$null = [Management.Automation.Language.Parser]::ParseFile(
+    (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewDeviceTabs.ps1"), [ref]$null, [ref]$errors)
+if ($errors) { throw ($errors.Message -join "; ") }
 $ui = Get-Content -LiteralPath (Join-Path $PSScriptRoot "DeviceActivity.Ui.Tests.ps1") -Raw
 if ($ui -notmatch '\$env:GITHUB_ACTIONS -ne "true"' -or $ui -match 'Stop-Process -Name') {
     throw "Native checks must remain isolated to the disposable runner and owned processes."
@@ -12,6 +16,7 @@ if ($ui -notmatch '\$env:GITHUB_ACTIONS -ne "true"' -or $ui -match 'Stop-Process
 [xml]$page = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml") -Raw
 $card = $page.SelectSingleNode("//*[@*[local-name()='Name']='DeviceActivityCard']")
 if (-not $card -or -not $card.NextSibling.SelectSingleNode(".//*[@Text='Scan history']")) { throw "Activity must precede existing scan history." }
+if (-not $card.SelectSingleNode("ancestor::*[@*[local-name()='Name']='HistoryTab']")) { throw "Activity must be on History." }
 foreach ($id in @("ActivityPeriod", "ActivityHours", "ActivityStatus", "ActivityScroll", "ActivityDetail", "ActivityRefresh")) {
     if (-not $card.SelectSingleNode(".//*[@*[local-name()='Name']='$id']")) { throw "Missing native activity control $id." }
 }

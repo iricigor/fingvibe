@@ -7,6 +7,7 @@ $ErrorActionPreference = "Stop"
 if ($env:GITHUB_ACTIONS -ne "true") { throw "Device activity UI checks require a disposable GitHub Actions desktop." }
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
+. (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewDeviceTabs.ps1")
 . (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
 . (Join-Path $PSScriptRoot "DeviceActivity.Fixture.ps1")
 Initialize-InventorySqlite $AppPath
@@ -86,7 +87,7 @@ function Test-ActivityFits($Control, $Viewport) {
 }
 
 function Show-Activity([string] $Id) {
-    $viewport = Find-Activity DeviceDetailsScroll
+    $viewport = Find-Activity DeviceHistoryScroll
     $scroll = $viewport.GetCurrentPattern([Windows.Automation.ScrollPattern]::Pattern)
     $control = Find-Activity $Id
     foreach ($percent in 0..100) {
@@ -136,6 +137,17 @@ function Open-ActivityDevice([string] $Name = "Activity laptop") {
         $scroll = Find-Activity DeviceDetailsScroll -Optional
         $scroll -and -not $scroll.Current.IsOffscreen
     } "device details"
+    $overview = Get-UiReviewDeviceTab -Root $script:root -Tab Overview
+    if (-not $overview.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected) {
+        throw "A newly opened device must select Overview."
+    }
+    $overview.SetFocus()
+    [Windows.Forms.SendKeys]::SendWait("{RIGHT}")
+    Wait-Activity {
+        (Get-UiReviewDeviceTab -Root $script:root -Tab History).GetCurrentPattern(
+            [Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected
+    } "keyboard tab selection"
+    Select-UiReviewDeviceTab -Root $script:root -Tab History
 }
 
 function Choose-ActivityPeriod([string] $Label, [int] $LastRow) {
@@ -220,6 +232,11 @@ try {
         throw "Weekday denominator/count is incorrect: $($wednesday.Current.Name)"
     }
     Capture-Activity "activity-weekdays"
+    Select-UiReviewDeviceTab -Root $script:root -Tab Overview
+    Select-UiReviewDeviceTab -Root $script:root -Tab History
+    if ((Find-Activity ActivityPeriod).GetCurrentPattern([Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()[0].Current.Name -ne
+        "30 days by weekday") { throw "Switching tabs discarded the selected Activity period." }
+    $wednesday = Select-ActivityCell 2 9
     [Windows.Forms.SendKeys]::SendWait("{RIGHT}{LEFT}{ENTER}")
     Wait-Activity { (Find-Activity ActivityDetail).Current.Name -eq $wednesday.Current.Name } "arrow and Enter cell navigation"
 
@@ -271,7 +288,7 @@ try {
     Start-ActivityApp
     Open-ActivityDevice
     Wait-Activity { Find-Activity ActivityCell-5-11 -Optional } "restarted activity"
-    foreach ($theme in @("Standard Light", "Standard Dark")) {
+    foreach ($theme in $UiReviewAppearanceThemes) {
         $settings = $null
         Wait-Activity {
             $script:activitySettings = $script:root.FindFirst([Windows.Automation.TreeScope]::Descendants,
@@ -291,6 +308,16 @@ try {
             $null = [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
                 $bounds.Left, $bounds.Top, $width, $bounds.Height, 0x0044)
             Start-Sleep -Milliseconds 300
+            foreach ($tab in @("Overview", "History")) {
+                Select-UiReviewDeviceTab -Root $script:root -Tab $tab
+                foreach ($id in @("DeviceOverviewTab", "DeviceHistoryTab")) {
+                    if (-not $script:root.Current.BoundingRectangle.Contains((Find-Activity $id).Current.BoundingRectangle)) {
+                        throw "$id is clipped in $theme at width $width."
+                    }
+                }
+                if ((Find-Activity "Back to devices" -ByName).Current.IsOffscreen) { throw "Shared Back navigation is hidden." }
+                Capture-Activity "device-$tab-$($theme.Replace(' ', '-'))-$width"
+            }
             foreach ($id in @("ActivityPeriod", "ActivityHours", "ActivityRefresh")) {
                 $control = Show-Activity $id
                 if (-not $script:root.Current.BoundingRectangle.Contains($control.Current.BoundingRectangle)) { throw "$id is clipped." }
@@ -309,6 +336,11 @@ try {
     [ActivityReviewContrast]::Set($contrast -bor 1)
     Start-Sleep -Seconds 2
     if (([ActivityReviewContrast]::Get() -band 1) -eq 0) { throw "High contrast did not activate." }
+    Select-UiReviewDeviceTab -Root $script:root -Tab Overview
+    if ((Find-Activity DeviceOverviewTab).Current.IsOffscreen -or
+        (Find-Activity DeviceHistoryTab).Current.IsOffscreen) { throw "High contrast hides the local tabs." }
+    Capture-Activity "device-overview-high-contrast"
+    Select-UiReviewDeviceTab -Root $script:root -Tab History
     $null = Select-ActivityCell 5 11
     Capture-Activity "activity-high-contrast"
     [ActivityReviewContrast]::Set($contrast)

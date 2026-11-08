@@ -6,10 +6,25 @@ param(
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
+. (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewDeviceTabs.ps1")
 . (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
 Initialize-InventorySqlite $AppPath
 
 function Find-HistoryControl([string] $Value, [switch] $ByName, [switch] $Optional) {
+    if (-not $ByName) {
+        if ($Value -match '^DeviceHistory(FirstSeen|LastSeen|Since|State|Summary)') {
+            Select-UiReviewDeviceTab -Root $script:root -Tab Overview
+        }
+        elseif ($Value -match '^(DeviceScanHistory|VirtualDeviceHistory|DeviceHistory(Scope|Latest|Newer|Older|PageStatus))') {
+            Select-UiReviewDeviceTab -Root $script:root -Tab History
+        }
+        elseif ($Value -eq "DeviceDetailsScroll" -and
+            $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceHistoryTab"))) {
+            $Value = Get-UiReviewDeviceDetailsScrollId -Root $script:root
+        }
+    }
     $property = if ($ByName) { [System.Windows.Automation.AutomationElement]::NameProperty }
         else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
     $condition = [System.Windows.Automation.PropertyCondition]::new($property, $Value)
@@ -120,7 +135,18 @@ function Open-HistoryDetails([string] $Name) {
         $scroll = Find-HistoryControl DeviceDetailsScroll -Optional
         $scroll -and -not $scroll.Current.IsOffscreen
     } "details for $Name"
-    foreach ($id in @("DeviceScanHistoryExpander", "DeviceImportedMetadata")) {
+    $overview = Get-UiReviewDeviceTab -Root $script:root -Tab Overview
+    if (-not $overview.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected) {
+        throw "Opening a device must reset to Overview."
+    }
+    (Show-HistorySection DeviceViewHistory).GetCurrentPattern(
+        [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Wait-HistoryState {
+        (Get-UiReviewDeviceTab -Root $script:root -Tab History).GetCurrentPattern(
+            [System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected
+    } "Overview summary link to History"
+    Select-UiReviewDeviceTab -Root $script:root -Tab Overview
+    foreach ($id in @("DeviceImportedMetadata", "DeviceScanHistoryExpander")) {
         $pattern = (Find-HistoryControl $id).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
         if ($pattern.Current.ExpandCollapseState -ne [System.Windows.Automation.ExpandCollapseState]::Collapsed) {
             throw "$id must start collapsed on opening a device."
@@ -145,10 +171,10 @@ function Get-HistoryTimestamp([int] $Index) {
 }
 
 function Show-HistorySection([string] $Id, [int] $TopMargin = 35) {
+    $element = Find-HistoryControl $Id
     $scrollElement = Find-HistoryControl DeviceDetailsScroll
     $scroll = $scrollElement.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     # Resolve once: a whole-tree search per scroll step also walks every Device Activity cell.
-    $element = Find-HistoryControl $Id
     foreach ($percent in 0..100) {
         if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
         Start-Sleep -Milliseconds 20
@@ -274,6 +300,7 @@ function Assert-HistorySummary([string] $Capture, [int] $LastIndex = 4) {
     $state = if ($LastIndex -in @(2, 3)) { "offline" } else { "online" }
     $expected = @{
         DeviceHistoryScope = "Current network: ui-review-network | 127.0.0.1/32"
+        DeviceHistorySummaryScope = "Current network: ui-review-network | 127.0.0.1/32"
         DeviceHistoryFirstSeen = "First seen: $(Get-HistoryTimestamp 0)"
         DeviceHistoryLastSeen = "Last seen: $(Get-HistoryTimestamp $lastSeen)"
         DeviceHistorySince = "Observed $state since: $(Get-HistoryTimestamp $since)"
@@ -292,7 +319,7 @@ function Assert-HistorySummary([string] $Capture, [int] $LastIndex = 4) {
     $expansion = (Find-HistoryControl DeviceScanHistoryExpander).GetCurrentPattern(
         [System.Windows.Automation.ExpandCollapsePattern]::Pattern)
     $expansion.Collapse()
-    $null = Show-HistorySection DeviceScanHistoryExpander
+    $null = Show-HistorySection DeviceHistoryFirstSeen
     foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince")) {
         $element = Find-HistoryControl $id
         $area = (Find-HistoryControl DeviceDetailsScroll).Current.BoundingRectangle
@@ -302,7 +329,8 @@ function Assert-HistorySummary([string] $Capture, [int] $LastIndex = 4) {
         }
     }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Capture-summary.png")
-    $expansion.Expand()
+    (Find-HistoryControl DeviceScanHistoryExpander).GetCurrentPattern(
+        [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
 }
 
 function Invoke-HistoryScan {
@@ -483,7 +511,7 @@ try {
         Assert-HistoryTableRendering "history-table-$label-narrow"
         (Find-HistoryControl DeviceScanHistoryExpander).GetCurrentPattern(
             [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse()
-        $null = Show-HistorySection DeviceScanHistoryExpander
+        $null = Show-HistorySection DeviceHistoryFirstSeen
         Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-summary-$label-narrow.png")
         $null = [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
             $bounds.Left, $bounds.Top, $bounds.Width, $bounds.Height, 0x0044)
@@ -491,6 +519,15 @@ try {
     }
     Open-HistoryDetails "History virtual"
     Assert-HistorySummary "history-virtual-restarted"
+    Select-UiReviewDeviceTab -Root $script:root -Tab History
+    (Find-HistoryControl "MAC and address history" -ByName).GetCurrentPattern(
+        [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    $virtualHistory = Show-HistorySection VirtualDeviceHistory
+    if ($virtualHistory.Current.Name -notlike "*D0-C9-07-00-00-01*" -or
+        $virtualHistory.Current.Name -notlike "*D0-C9-07-00-00-02*") {
+        throw "Virtual MAC/address history was lost from History."
+    }
+    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-virtual-addresses.png")
     if ((Get-Content -LiteralPath $inventory -Raw) -cne $original) { throw "Restoration must not write new scan entries." }
     if ((Get-InventoryFingerprint $database) -cne $originalDatabase) { throw "Restoration changed SQLite history." }
     foreach ($count in @(8, 9)) {
@@ -597,6 +634,13 @@ try {
         Wait-HistoryState {
             (Find-HistoryControl DeviceHistoryPageStatus).Current.Name -like "Showing $start-$end of 205.*"
         } "bounded history page $($pageIndex + 1)"
+        $beforeTabs = Get-InventoryFingerprint $database
+        Select-UiReviewDeviceTab -Root $script:root -Tab Overview
+        Select-UiReviewDeviceTab -Root $script:root -Tab History
+        if ((Find-HistoryControl DeviceHistoryPageStatus).Current.Name -notlike "Showing $start-$end of 205.*") {
+            throw "Switching tabs reset the current history page."
+        }
+        if ((Get-InventoryFingerprint $database) -cne $beforeTabs) { throw "Switching tabs changed saved inventory." }
         if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "205 completed scan observations") {
             throw "Paging must retain the exact scoped observation count."
         }
