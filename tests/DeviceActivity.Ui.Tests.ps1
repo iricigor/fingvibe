@@ -294,7 +294,10 @@ try {
         } "Settings navigation after resizing"
         $settings = $script:activitySettings
         $settings.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
-        Wait-Activity { -not (Find-Activity ModePicker).Current.IsOffscreen } "Settings"
+        Wait-Activity {
+            $picker = Find-Activity ModePicker -Optional
+            $picker -and -not $picker.Current.IsOffscreen
+        } "Settings"
         Set-UiReviewTheme -Root $script:root -Theme $theme
         Open-ActivityDevice
         Wait-Activity { Find-Activity ActivityCell-5-11 -Optional } "themed grid"
