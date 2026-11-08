@@ -862,6 +862,48 @@ regressions run with `pwsh -File tests\SqlEditor.Script.Tests.ps1`.
 
 ## Test
 
+Devices and Sidebar regression entry points load focused definitions and
+scenario modules from `tests\UiRegression`. `coverage.json` records the immutable
+pre-migration revision, original source ranges, function/assertion/capture
+mapping and scenario order. Unchanged bodies and representative Devices fixture
+data are signature-checked; explicitly listed readiness/lifecycle/setup changes
+are covered by desktop-free regressions. This structural inventory supplements,
+and does not replace, real native acceptance.
+For intentional changes to mapped coverage, retain the original provenance,
+explain the refactor in the inventory and add focused behavioral checks; do not
+replace baseline signatures merely to hide lost assertions or captures.
+
+```powershell
+pwsh -NoProfile -File tests\UiRegression.Helpers.Tests.ps1
+powershell.exe -NoProfile -File tests\UiRegression.Helpers.Tests.ps1
+```
+
+This check does not launch or automate the desktop. It exercises bounded waits,
+stale-owner reacquisition, visible/nonempty controls, process exit/normal/forced
+cleanup, isolated fixtures, environment restoration and failure-preserving
+capture timing. Migrated native suites create unique temporary fixture
+directories and restore their environment/DPI context even if shutdown fails.
+Forced shutdown cleans up the supplied PID but fails the suite rather than
+pretending normal close succeeded.
+
+Each native scenario emits a setup/behavior phase and every Devices/Sidebar
+capture emits a capture phase, with UTC start, elapsed milliseconds and success
+in `phases.jsonl` alongside screenshots/transcripts and in the job summary.
+Compare repeated runs with the same revision/build provenance, viewport and
+selected scenarios against an equivalent baseline; retain failed phases and
+report missing evidence. No fixed runtime or statistically established flake
+rate is claimed. The existing four-suite matrix, required aggregate and
+disabled Activity/observation policy are unchanged.
+
+Follow [the native UI contribution contract](../CONTRIBUTING.md#extending-native-ui-regression-coverage)
+for new features: focused scenarios, current-selection readiness, stable
+automation IDs/namescopes, isolated representative data, keyboard/accessibility
+and rendered/virtualized reachability. Large-data correctness/resource budgets
+belong primarily in WinUI-free tests, with native integration still required.
+Agree budgets before implementation, preserve intentional elapsed-time checks,
+and investigate failures instead of hiding them. Fast/full modes and enforced
+PR coverage manifests are not delivered by this foundation (#242/#256).
+
 ```powershell
 dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj
 ```

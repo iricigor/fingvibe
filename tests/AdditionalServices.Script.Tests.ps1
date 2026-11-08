@@ -3,7 +3,7 @@ Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 & {
     $sidebarParseErrors = $null
     $sidebarAst = [System.Management.Automation.Language.Parser]::ParseFile(
-        (Join-Path $PSScriptRoot "SidebarNavigation.Tests.ps1"), [ref]$null, [ref]$sidebarParseErrors)
+        (Join-Path $PSScriptRoot "UiRegression\Sidebar.Controls.Helpers.ps1"), [ref]$null, [ref]$sidebarParseErrors)
     if ($sidebarParseErrors) { throw ($sidebarParseErrors.Message -join "; ") }
     $nativeHelper = $sidebarAst.Find({
         param($node)
@@ -26,7 +26,7 @@ Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
     function Start-Sleep { param([int] $Milliseconds) }
     function Find-SidebarElement { throw "Narrow Settings captures must not require visible navigation items." }
     function Get-UiReviewWindowBounds { throw "Background comparison bounds are not needed for a layout capture." }
-    function Save-UiReviewWindowScreenshot {
+    function Save-UiRegressionScreenshot {
         param($WindowHandle, [string] $Path)
         $captures.Add($Path)
     }

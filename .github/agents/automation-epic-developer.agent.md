@@ -260,6 +260,15 @@ Add focused regression coverage and run the smallest relevant existing checks.
 Use existing Windows CI/native UI-review facilities for applicable UI changes.
 Never automate the user's working desktop or alter their real saved inventory.
 Use deterministic synthetic fixtures and existing test data-isolation patterns.
+Follow CONTRIBUTING's native UI regression contract: extend focused feature
+modules and shared bounded readiness/lifecycle helpers; preserve scenario order,
+automation IDs, page namescopes, keyboard and rendered/virtualized reachability.
+Use representative isolated small/empty/error and relevant large-data fixtures,
+agree measurable budgets before implementation, and keep query/resource tests
+WinUI-free where appropriate without replacing native integration. Inspect
+current-revision phase/failure diagnostics; do not hide failures by retries,
+longer timeouts or reduced assertions. This does not introduce #242/#256's
+future fast/full execution or mandatory coverage-manifest policy.
 
 Commit and push to the same PR, preserving its closing reference. Inspect the
 actual applicable workflows and authoritative checks/reviews for this change.

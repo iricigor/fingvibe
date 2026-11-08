@@ -78,6 +78,10 @@ jobs:
         shell: pwsh
         run: .\tests\UiReviewScenarios.Tests.ps1
 
+      - name: Test native regression foundation without desktop automation
+        shell: pwsh
+        run: .\tests\UiRegression.Helpers.Tests.ps1
+
       - name: Test additional service UI helpers without desktop automation
         shell: pwsh
         run: .\tests\AdditionalServices.Script.Tests.ps1

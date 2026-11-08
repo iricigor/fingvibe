@@ -17,6 +17,16 @@ Always capture a current Devices screenshot after the scan/filter smoke test. Ad
 
 Post all captures in the pull request with descriptive view/state labels. Keep the screenshot comment concise; do not repeat file-by-file selection reasons under the images. The automated pipeline selects scenarios from the PR diff and records its detailed reasons in the capture plan and workflow logs. Navigation-only changes are visible in Devices; page-specific changes add their affected screens. Tools/speed-test changes add Tools, Speed test, and About FingVibe, not unrelated pages; About-specific changes add Tools and About. Shared window layout and theme changes select all supported scenarios; other application/core or pipeline changes use the baseline unless a page-specific rule applies. Verify navigation across all supported scenarios independently of screenshot selection. Extend the scenario selection, navigation, and tests when adding a new view or a state not covered by the existing scenarios. A required view/state that cannot be reached, verified, or captured fails the review with an actionable explanation.
 
+For new or data-heavy UI, follow CONTRIBUTING's native UI regression contract.
+Keep focused feature scenarios, isolated small/empty/error and relevant
+large/virtualized fixtures, agreed budgets and current-selection readiness.
+Review actual current-revision native phase/failure diagnostics, keyboard paths
+and visible paging/reachability; Core resource tests and source inventories do
+not replace rendered integration. Preserve stable automation/scenario mappings
+and deliberate timing checks. Do not conceal failures through retries,
+increased timeouts or reduced coverage. This is review guidance, not #256's
+future mandatory-manifest gate.
+
 Check:
 
 - The app launches and its main workflow remains usable.

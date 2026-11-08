@@ -32,6 +32,40 @@ Keep page-specific layout and state with the page when adding or substantially c
 
 Extracted pages have separate WinUI XAML namescopes and compiled-binding roots. Preserve automation names/IDs and shared `DeviceColumnLayout.Current` bindings when changing page boundaries. Update the page-to-scenario rules in `.github/scripts/UiReviewScenarios.ps1` and their regression tests whenever a view is added or renamed.
 
+## Extending native UI regression coverage
+
+Devices and Sidebar keep their existing test entry points; focused behavior
+modules live in `tests/UiRegression`. Keep shared lifecycle/readiness/input
+helpers separate from feature assertions. Entry points dot-source scenario
+modules at script scope, in the recorded order, because scenarios share fixture,
+selection and rendering state. Do not invoke them through a new function scope
+or append unrelated feature matrices to the baseline.
+
+Use the shared bounded waits, visible/nonempty page-scoped lookup, isolated
+fixture directories, normal shutdown and process-specific cleanup. Reacquire
+controls after navigation, filtering, reconstruction or virtualization;
+automation enumeration alone does not establish visible reachability. Wait for
+the current selection's completed state, not just control existence or a changed
+scroll percentage. Preserve intentional hover/dwell, debounce, animation and
+appearance-settling checks. Failures must remain failures with partial
+diagnostics, not retries-to-green or longer timeouts hiding the cause.
+
+For data-heavy features, agree measurable budgets before implementation and
+reuse existing performance requirements. Test data correctness, query cost,
+aggregation/allocation and cancellation in Core/storage where possible. Add an
+isolated representative native fixture with small/empty/error and relevant
+large/virtualized states; native tests still prove real binding, paging,
+reachability, keyboard/accessibility and layout. Exercise loading, selection
+changes, stale-completion protection and cancellation through controllable
+dependencies or scoped fixtures, not a database lock beyond the production
+busy timeout.
+
+Review current-revision disposable Windows evidence for affected behavior and
+retain coverage mappings and phase diagnostics. See the [test reference](docs/reference.md#test)
+for the desktop-free foundation check. These are contributor/reviewer
+expectations, not a new mandatory manifest or gate. Fast/full execution and
+enforced coverage selection remain separate work in #242/#256.
+
 ## Explicitly invoked Epic Developer
 
 [⏩ Epic Developer](.github/agents/automation-epic-developer.agent.md) is an ordinary
