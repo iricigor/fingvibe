@@ -17,6 +17,14 @@
     throw "Timed out after $TimeoutMilliseconds ms waiting for $Description."
 }
 
+function Test-UiRegressionElementVisible {
+    param($Element)
+    $Element -and -not $Element.Current.IsOffscreen -and
+        -not $Element.Current.BoundingRectangle.IsEmpty -and
+        $Element.Current.BoundingRectangle.Width -gt 0 -and
+        $Element.Current.BoundingRectangle.Height -gt 0
+}
+
 function Find-UiRegressionElement {
     param(
         [Parameter(Mandatory)][scriptblock] $Container,
@@ -34,10 +42,7 @@ function Find-UiRegressionElement {
             $owner = & $Container
             if (-not $owner) { return $null }
             $element = & $Find $owner $matchCondition
-            if ($element -and -not $element.Current.IsOffscreen -and
-                -not $element.Current.BoundingRectangle.IsEmpty -and
-                $element.Current.BoundingRectangle.Width -gt 0 -and
-                $element.Current.BoundingRectangle.Height -gt 0) { return $element }
+            if (Test-UiRegressionElementVisible $element) { return $element }
         }
         catch {
             if ($_.Exception.GetBaseException().GetType().FullName -ne
@@ -62,14 +67,13 @@ function Wait-UiRegressionWindow {
 function Get-UiRegressionPageContainer {
     param(
         [Parameter(Mandatory)] $Root,
-        [Parameter(Mandatory)][string] $NavigationId,
+        [Parameter(Mandatory)][string] $PageMarkerId,
         [string] $ContainerId = 'MainNavigation'
     )
-    $navigation = $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+    $marker = $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new(
-            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $NavigationId))
-    if (-not $navigation -or -not $navigation.GetCurrentPattern(
-            [System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected) { return $null }
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $PageMarkerId))
+    if (-not (Test-UiRegressionElementVisible $marker)) { return $null }
     $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $ContainerId))

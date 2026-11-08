@@ -31,20 +31,20 @@ public static class DevicesReviewInput
 function Find-DeviceElement([string] $Id) {
     $condition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Id)
-    $navigationId = $null
+    $pageMarkerId = $null
     $ownerId = if ($Id -match '^(ResultsList|DeviceTableHeader)$') {
-        $navigationId = 'DevicesNavItem'
+        $pageMarkerId = 'DevicesHeading'
         'TableViewport'
     } elseif ($Id -match '^(DevicesHeading|ResultCountText|InventoryCountsText|LastScanText)$') {
-        $navigationId = 'DevicesNavItem'
+        $pageMarkerId = 'DevicesHeading'
         'MainNavigation'
     } elseif ($Id -match '^(Combine|ColumnChoices|ResetColumnsButton|CompactRowsSwitch|EnlargedCellPreviews)') {
-        $navigationId = 'SettingsItem'
+        $pageMarkerId = 'SettingsPage'
         'SettingsPage'
     } else { $null }
     Find-UiRegressionElement -Condition $condition -Description "visible device element '$Id'" -Container {
         if (-not $ownerId) { return $root }
-        Get-UiRegressionPageContainer -Root $root -NavigationId $navigationId -ContainerId $ownerId
+        Get-UiRegressionPageContainer -Root $root -PageMarkerId $pageMarkerId -ContainerId $ownerId
     }
 }
 
