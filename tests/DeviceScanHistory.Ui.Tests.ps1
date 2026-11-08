@@ -252,6 +252,49 @@ function Show-HistorySection([string] $Id, [int] $TopMargin = 35) {
     Invoke-HistoryTimed section-location { Show-HistorySectionCore $Id $TopMargin }
 }
 
+function Wait-HistoryScrollSettled($Scroll, [string] $Description) {
+    $state = @{ Percent = [double]::NaN; View = [double]::NaN; Stable = 0 }
+    Wait-HistoryState {
+        $percent = [double]$Scroll.Current.VerticalScrollPercent
+        $view = [double]$Scroll.Current.VerticalViewSize
+        if ([Math]::Abs($percent - $state.Percent) -lt 0.001 -and
+            [Math]::Abs($view - $state.View) -lt 0.001) { $state.Stable++ } else { $state.Stable = 0 }
+        $state.Percent = $percent
+        $state.View = $view
+        $state.Stable -ge 3
+    } $Description
+}
+
+function Get-HistoryCachedRows($List) {
+    $cache = [System.Windows.Automation.CacheRequest]::new()
+    $cache.TreeScope = [System.Windows.Automation.TreeScope]::Subtree
+    $cache.AutomationElementMode = [System.Windows.Automation.AutomationElementMode]::None
+    foreach ($property in @(
+        [System.Windows.Automation.AutomationElement]::NameProperty,
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+        [System.Windows.Automation.AutomationElement]::IsOffscreenProperty,
+        [System.Windows.Automation.AutomationElement]::BoundingRectangleProperty)) { $cache.Add($property) }
+    $snapshot = $List.GetUpdatedCache($cache)
+    foreach ($child in $snapshot.CachedChildren) {
+        if ($child.Cached.ControlType -ne [System.Windows.Automation.ControlType]::ListItem) { continue }
+        $texts = [Collections.Generic.List[string]]::new()
+        $pending = [Collections.Generic.Stack[object]]::new()
+        $pending.Push($child)
+        while ($pending.Count) {
+            $node = $pending.Pop()
+            if ($node.Cached.ControlType -eq [System.Windows.Automation.ControlType]::Text) {
+                $texts.Add($node.Cached.Name)
+            }
+            $children = $node.CachedChildren
+            for ($index = $children.Count - 1; $index -ge 0; $index--) { $pending.Push($children[$index]) }
+        }
+        [pscustomobject]@{
+            Name = $child.Cached.Name; Texts = $texts.ToArray()
+            IsOffscreen = $child.Cached.IsOffscreen; Bounds = $child.Cached.BoundingRectangle
+        }
+    }
+}
+
 function Show-HistorySectionCore([string] $Id, [int] $TopMargin) {
     $scrollElement = Find-HistoryControl DeviceDetailsScroll
     $scroll = $scrollElement.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
@@ -345,6 +388,7 @@ function Show-HistorySectionCore([string] $Id, [int] $TopMargin) {
                 else {
                     $stalled = 0
                     $scroll.SetScrollPercent(-1, $target)
+                    Wait-HistoryScrollSettled $scroll "section '$Id' scroll/layout settlement"
                     $resolve = $true
                 }
             }
@@ -378,14 +422,13 @@ function Visit-HistoryRows([scriptblock] $Visit) {
 }
 
 function Visit-HistoryRowsCore([scriptblock] $Visit) {
-    $condition = [System.Windows.Automation.PropertyCondition]::new(
-        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-        [System.Windows.Automation.ControlType]::ListItem)
     $target = "first viewport"
     $stale = 0
     $positions = 0
     $previousPercent = -1.0
     $previousRows = $null
+    $seenLabels = @{}
+    $noProgress = 0
     $deadline = [DateTime]::UtcNow.AddSeconds(60)
     while ([DateTime]::UtcNow -lt $deadline -and $positions -lt 200) {
         try {
@@ -398,12 +441,13 @@ function Visit-HistoryRowsCore([scriptblock] $Visit) {
                         [System.Windows.Automation.ScrollAmount]::LargeIncrement)
                 }
             }
+            Wait-HistoryScrollSettled $scroll "history viewport scroll/layout settlement"
             $realized = @{ Items = @(); Last = $null; Stable = 0; Percent = -1.0; Overlap = ($positions -eq 0) }
             Wait-HistoryState {
                 $list = Find-HistoryControl DeviceScanHistoryList
                 $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-                $realized.Items = @($list.FindAll([System.Windows.Automation.TreeScope]::Children, $condition))
-                $signature = ($realized.Items | ForEach-Object { $_.Current.Name }) -join "|"
+                $realized.Items = @(Get-HistoryCachedRows $list)
+                $signature = ($realized.Items | ForEach-Object { $_.Name }) -join "|"
                 $actual = $scroll.Current.VerticalScrollPercent
                 # Realizing virtual rows can grow the extent and lower the percentage even as the physical offset advances.
                 $atTarget = -not $scroll.Current.VerticallyScrollable -or
@@ -427,6 +471,17 @@ function Visit-HistoryRowsCore([scriptblock] $Visit) {
                 $realized.Stable -ge 2
             } "realized history rows at $target"
             & $Visit $realized.Items
+            $newLabels = 0
+            foreach ($item in $realized.Items) {
+                if (-not $seenLabels.ContainsKey($item.Name)) {
+                    $seenLabels[$item.Name] = $true
+                    $newLabels++
+                }
+            }
+            if ($newLabels -eq 0) { $noProgress++ } else { $noProgress = 0 }
+            if ($noProgress -ge 3 -and $realized.Percent -lt 99.9) {
+                throw "History traversal repeated viewports without new observations: positions=$positions, distinct=$($seenLabels.Count), percent=$($realized.Percent), rows=$($realized.Last)."
+            }
             $positions++
             if (-not $scroll.Current.VerticallyScrollable -or $realized.Percent -gt 99.9) {
                 Write-Host "History traversal visited $positions viewport positions."
@@ -458,15 +513,11 @@ function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
     $list = Show-HistorySection DeviceScanHistoryList
     $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     $seen = @{}
-    $textCondition = [System.Windows.Automation.PropertyCondition]::new(
-        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-        [System.Windows.Automation.ControlType]::Text)
     Visit-HistoryRows {
         param($items)
         $times = @()
         foreach ($item in $items) {
-            $texts = @($item.FindAll([System.Windows.Automation.TreeScope]::Descendants, $textCondition) |
-                ForEach-Object { $_.Current.Name })
+            $texts = $item.Texts
             if ($texts.Count -eq 0) { continue }
             if ($texts.Count -ne 3) { throw "Each scan row must expose date, local time and state, without repeated network: $texts." }
             $time = "$($texts[0]) $($texts[1])"
@@ -477,7 +528,7 @@ function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
                 throw "Incorrect scan observation: $texts."
             }
             $label = "$((Get-HistoryLocalTime $matching[0]).ToString('yyyy-MM-dd HH:mm:ss zzz')); Observed $($state.ToLowerInvariant())"
-            if ($item.Current.Name -ne $label) {
+            if ($item.Name -ne $label) {
                 throw "Scan row lacks an accessible full timestamp with UTC offset and observed state."
             }
             $seen[$time] = $true
@@ -919,7 +970,7 @@ try {
                 param($items)
                 $labels = @()
                 foreach ($item in $items) {
-                    $label = $item.Current.Name
+                    $label = $item.Name
                     if ($label -notmatch '; Observed (present|absent)$') { throw "Unexpected observation row '$label'." }
                     if (-not $expectedRows.ContainsKey($label)) { throw "Incorrect timestamp/state or page membership: '$label'." }
                     $pageRows[$label] = $true

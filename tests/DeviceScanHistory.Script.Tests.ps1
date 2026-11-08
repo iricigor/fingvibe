@@ -6,7 +6,8 @@ $ast = [System.Management.Automation.Language.Parser]::ParseFile(
 if ($errors) { throw ($errors.Message -join "; ") }
 foreach ($name in @("Test-HistoryStaleException", "Get-HistoryNextViewport", "Show-HistorySectionCore",
     "Visit-HistoryRowsCore", "Find-HistoryControl", "Assert-HistoryRows", "Get-HistoryLocalTime",
-    "Invoke-HistoryTimed", "Visit-HistoryRows", "Wait-HistoryState")) {
+    "Invoke-HistoryTimed", "Visit-HistoryRows", "Wait-HistoryState", "Wait-HistoryScrollSettled",
+    "Get-HistoryCachedRows")) {
     $function = $ast.Find({
         param($node)
         $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name
@@ -78,6 +79,29 @@ Assert-HistoryTest (Get-HistoryNextViewport 95 20) 100 "Last boundary"
 Assert-HistoryTest (Get-HistoryNextViewport 0 80) 100 "Almost non-scrollable list"
 foreach ($metrics in @(@(0, 0), @(0, 100), @(-1, 20), @(101, 20), @([double]::NaN, 20))) {
     Assert-HistoryFailure { Get-HistoryNextViewport $metrics[0] $metrics[1] } "*Invalid scroll metrics*"
+}
+
+& {
+    $leaf = [pscustomobject]@{ Cached = [pscustomobject]@{
+        Name = "2026-11-01"; ControlType = [System.Windows.Automation.ControlType]::Text
+    }; CachedChildren = @() }
+    $row = [pscustomobject]@{ Cached = [pscustomobject]@{
+        Name = "observation"; ControlType = [System.Windows.Automation.ControlType]::ListItem
+        IsOffscreen = $false; BoundingRectangle = [System.Drawing.RectangleF]::new(0, 0, 100, 40)
+    }; CachedChildren = @($leaf) }
+    $list = [pscustomobject]@{}
+    $list | Add-Member ScriptMethod GetUpdatedCache {
+        param($Request)
+        if ($Request.AutomationElementMode -ne [System.Windows.Automation.AutomationElementMode]::None -or
+            $Request.TreeScope -ne [System.Windows.Automation.TreeScope]::Subtree) {
+            throw "Rows and text must be captured in one immutable cache-only snapshot."
+        }
+        return [pscustomobject]@{ CachedChildren = @($row) }
+    }
+    $row | Add-Member ScriptProperty Current { throw "Do not query live row peers during traversal." }
+    $snapshot = @(Get-HistoryCachedRows $list)
+    Assert-HistoryTest $snapshot[0].Name observation "Cached accessible identity"
+    Assert-HistoryTest $snapshot[0].Texts @("2026-11-01") "Cached text columns"
 }
 
 & {
@@ -284,6 +308,11 @@ foreach ($metrics in @(@(0, 0), @(0, 100), @(-1, 20), @(101, 20), @([double]::Na
         return @($first..$last | ForEach-Object { [pscustomobject]@{ Current = [pscustomobject]@{ Name = "row-$_" } } })
     }
     function Find-HistoryControl([string] $Value) { return $list }
+    function Get-HistoryCachedRows($List) {
+        foreach ($row in $List.FindAll($null, $null)) {
+            [pscustomobject]@{ Name = $row.Current.Name; Texts = @() }
+        }
+    }
     function Wait-HistoryState([scriptblock] $Predicate, [string] $Description) {
         for ($attempt = 0; $attempt -lt 20; $attempt++) {
             if (& $Predicate) { return }
@@ -293,7 +322,7 @@ foreach ($metrics in @(@(0, 0), @(0, 100), @(-1, 20), @(101, 20), @([double]::Na
     $visit = {
         param($Items)
         $state.Visits++
-        foreach ($item in $Items) { $state.Seen[$item.Current.Name] = $true }
+        foreach ($item in $Items) { $state.Seen[$item.Name] = $true }
     }.GetNewClosure()
     Visit-HistoryRowsCore $visit
     Assert-HistoryTest $state.Seen.Count 100 "Exhaustive virtualized reachability"
@@ -313,6 +342,15 @@ foreach ($metrics in @(@(0, 0), @(0, 100), @(-1, 20), @(101, 20), @([double]::Na
     $scroll.Current.VerticalViewSize = 10
     Visit-HistoryRowsCore $visit
     Assert-HistoryTest $state.Seen.Count 300 "Growing virtual extent can lower percentage without losing rows"
+    $state.Rows = 100
+    $scroll.Current.VerticalViewSize = 10
+    $originalRead = $list.PSObject.Methods["FindAll"].Script
+    $list | Add-Member ScriptMethod FindAll {
+        param($Scope, $Condition)
+        return @([pscustomobject]@{ Current = [pscustomobject]@{ Name = "repeated-row" } })
+    } -Force
+    Assert-HistoryFailure { Visit-HistoryRowsCore $visit } "*repeated viewports without new observations*"
+    $list | Add-Member ScriptMethod FindAll $originalRead -Force
     $state.Rows = 5
     $state.Visits = 0
     $state.Seen.Clear()
@@ -337,11 +375,10 @@ foreach ($metrics in @(@(0, 0), @(0, 100), @(-1, 20), @(101, 20), @([double]::Na
     $script:process = [pscustomobject]@{ MainWindowHandle = [IntPtr]::Zero }
     $script:ScreenshotDirectory = "fixture-screenshots"
     $time = Get-HistoryLocalTime 0
-    $row = [pscustomobject]@{ Current = [pscustomobject]@{
-        Name = "$($time.ToString('yyyy-MM-dd HH:mm:ss zzz')); Observed present" } }
-    $rowTexts = @($time.ToString("yyyy-MM-dd"), $time.ToString("HH:mm:ss"), "Present") |
-        ForEach-Object { [pscustomobject]@{ Current = [pscustomobject]@{ Name = $_ } } }
-    $row | Add-Member ScriptMethod FindAll { param($Scope, $Condition); return $rowTexts }
+    $row = [pscustomobject]@{
+        Name = "$($time.ToString('yyyy-MM-dd HH:mm:ss zzz')); Observed present"
+        Texts = @($time.ToString("yyyy-MM-dd"), $time.ToString("HH:mm:ss"), "Present")
+    }
     $scroll = [pscustomobject]@{ Current = [pscustomobject]@{ VerticallyScrollable = $false } }
     $list = [pscustomobject]@{}
     $list | Add-Member ScriptMethod GetCurrentPattern { param($Pattern); return $scroll }

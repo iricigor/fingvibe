@@ -442,6 +442,13 @@ helper checks without desktop automation. Native coverage and before/after
 runtime evidence require disposable GitHub Windows runners, never the working
 desktop.
 
+Scroll commands wait for stable offset and view-size readings before issuing the
+next movement. Traversal reads row identities and text from one cache-only UIA
+subtree snapshot rather than repeatedly querying live virtualized row peers.
+Repeated viewports without new observation identities fail explicitly with
+progress diagnostics; the deadline remains a final safety bound, not a substitute
+for forward progress or exhaustive reachability.
+
 The entry point supports four independent groups:
 `Semantics` (transitions, provenance and normal/virtual/scoped evidence),
 `Rendering` (keyboard, themes, narrow tables and screenshots), `Persistence`
