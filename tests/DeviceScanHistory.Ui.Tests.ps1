@@ -232,17 +232,23 @@ function Show-HistorySectionCore([string] $Id, [int] $TopMargin) {
     $settled = 0
     $direction = 1
     $stalled = 0
+    $lastState = "layout not read"
     for ($attempt = 0; $attempt -lt 40 -and [DateTime]::UtcNow -lt $deadline; $attempt++) {
         try {
             $bounds = $element.Current.BoundingRectangle
             $area = $scrollElement.Current.BoundingRectangle
+            $lastState = "bounds=$bounds; viewport=$area; offscreen=$($element.Current.IsOffscreen); scrollable=$($scroll.Current.VerticallyScrollable); percent=$($scroll.Current.VerticalScrollPercent); view=$($scroll.Current.VerticalViewSize)"
             if (-not $element.Current.IsOffscreen -and $bounds.Height -gt 0 -and
                 $bounds.Top -ge $area.Top + $TopMargin -and $bounds.Bottom -le $area.Bottom - 10) {
                 if (++$settled -ge 2) { return $element }
             }
             else {
                 $settled = 0
-                if (-not $scroll.Current.VerticallyScrollable) { break }
+                if (-not $scroll.Current.VerticallyScrollable) {
+                    Start-Sleep -Milliseconds 50
+                    $element = Find-HistoryControl $Id
+                    continue
+                }
                 $view = $scroll.Current.VerticalViewSize
                 if ($view -le 0 -or $view -ge 100 -or $area.Height -le 0) {
                     throw "Invalid details viewport metrics for '$Id': view=$view, height=$($area.Height)."
@@ -262,7 +268,7 @@ function Show-HistorySectionCore([string] $Id, [int] $TopMargin) {
                     $target = [Math]::Min(100, [Math]::Max(0, $current + $percentDelta))
                 }
                 if ([Math]::Abs($target - $current) -lt 0.001) {
-                    if (++$stalled -ge 3) { break }
+                    if (++$stalled -ge 10) { break }
                 }
                 else {
                     $stalled = 0
@@ -283,7 +289,7 @@ function Show-HistorySectionCore([string] $Id, [int] $TopMargin) {
         }
         Start-Sleep -Milliseconds 50
     }
-    throw "Scan-history section '$Id' does not fit the details viewport."
+    throw "Scan-history section '$Id' does not fit the details viewport after $attempt attempts: $lastState."
 }
 
 function Get-HistoryNextViewport([double] $Percent, [double] $ViewSize) {
@@ -467,6 +473,7 @@ function Assert-HistorySummary([string] $Capture, [int] $LastIndex = 4) {
     $expansion = (Find-HistoryControl DeviceScanHistoryExpander).GetCurrentPattern(
         [System.Windows.Automation.ExpandCollapsePattern]::Pattern)
     $expansion.Collapse()
+    $script:observationsRoot = $null
     $null = Show-HistorySection DeviceScanHistoryExpander
     foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince")) {
         $element = Find-HistoryControl $id
@@ -478,6 +485,7 @@ function Assert-HistorySummary([string] $Capture, [int] $LastIndex = 4) {
     }
     Save-HistoryScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Capture-summary.png")
     $expansion.Expand()
+    $script:observationsRoot = $null
 }
 
 function Invoke-HistoryScan {

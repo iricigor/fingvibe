@@ -128,6 +128,18 @@ foreach ($metrics in @(@(0, 0), @(0, 100), @(-1, 20), @(101, 20), @([double]::Na
     } -Force
     $null = Show-HistorySectionCore DeviceScanHistoryList 35
     Assert-HistoryTest $bringState.Calls 1 "Supported ScrollItem bring-into-view"
+    $element | Add-Member ScriptMethod TryGetCurrentPattern { param($Pattern, $Result); return $false } -Force
+    $scroll.Current.VerticallyScrollable = $false
+    $element.Current.BoundingRectangle = [System.Drawing.RectangleF]::Empty
+    $layout = @{ Polls = 0 }
+    function Start-Sleep {
+        param($Milliseconds)
+        if (++$layout.Polls -ge 3) {
+            $element.Current.BoundingRectangle = [System.Drawing.RectangleF]::new(0, 50, 100, 100)
+        }
+    }
+    $null = Show-HistorySectionCore DeviceScanHistoryList 35
+    if ($layout.Polls -lt 3) { throw "Section positioning must wait for expansion layout before treating a page as non-scrollable." }
 }
 
 & {
