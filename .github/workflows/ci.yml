@@ -47,6 +47,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.tests == 'true'
     runs-on: windows-latest
+    env:
+      NUGET_PACKAGES: ${{ github.workspace }}\.nuget\packages
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -57,6 +59,14 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: ${{ runner.os }}-nuget-v1-${{ hashFiles('**/*.csproj', '**/Directory.*.props', '**/Directory.*.targets', '**/NuGet.Config', '**/nuget.config', 'global.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-v1-
 
       - name: Test networking core
         run: dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj --configuration Release
@@ -79,6 +89,10 @@ jobs:
       - name: Test usage-category UI helpers and fixture without desktop automation
         shell: pwsh
         run: .\tests\UsageCategory.Script.Tests.ps1
+
+      - name: Test device activity UI fixture without desktop automation
+        shell: pwsh
+        run: .\tests\DeviceActivity.Script.Tests.ps1
 
       - name: Test validation planning and comments
         shell: pwsh
@@ -104,6 +118,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.build == 'true'
     runs-on: windows-latest
+    env:
+      NUGET_PACKAGES: ${{ github.workspace }}\.nuget\packages
     outputs:
       artifact-id: ${{ steps.upload.outputs.artifact-id }}
       build-timestamp: ${{ steps.publish.outputs.build-timestamp }}
@@ -120,6 +136,14 @@ jobs:
 
       - name: Set up MSBuild
         uses: microsoft/setup-msbuild@v2
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: ${{ runner.os }}-nuget-v1-${{ hashFiles('**/*.csproj', '**/Directory.*.props', '**/Directory.*.targets', '**/NuGet.Config', '**/nuget.config', 'global.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-v1-
 
       - name: Publish Windows x64 app
         id: publish
@@ -257,7 +281,7 @@ jobs:
 
   ui-regression:
     name: ui-regression (${{ matrix.suite }})
-    needs: [changes, tests, build]
+    needs: [changes, build]
     if: >
       needs.changes.outputs.ui == 'true'
       && (
@@ -345,7 +369,7 @@ jobs:
           retention-days: 14
 
   ui-capture:
-    needs: [changes, tests, build]
+    needs: [changes, build]
     if: >
       needs.changes.outputs.ui == 'true'
       && (

@@ -237,6 +237,67 @@
                     </ItemsControl>
                 </StackPanel>
             </Border>
+            <Border x:Name="DeviceActivityCard" Style="{StaticResource ScannerSummaryCardStyle}" Visibility="Collapsed">
+                <StackPanel Spacing="12">
+                    <Grid ColumnSpacing="16" RowSpacing="8" SizeChanged="Fields_SizeChanged">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="Activity" FontSize="20" FontWeight="SemiBold" />
+                            <TextBlock Text="Scan observations by time of day - not proof of continuous connectivity."
+                                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <ComboBox x:Name="ActivityPeriod" HorizontalAlignment="Stretch" VerticalAlignment="Top"
+                                  AutomationProperties.AutomationId="ActivityPeriod" AutomationProperties.Name="Activity period"
+                                  SelectedIndex="0" SelectionChanged="ActivityPeriod_SelectionChanged">
+                            <ComboBoxItem Content="Last 7 days" />
+                            <ComboBoxItem Content="Last 30 days" />
+                            <ComboBoxItem Content="30 days by weekday" />
+                        </ComboBox>
+                    </Grid>
+                    <TextBlock x:Name="ActivityWindow" TextWrapping="Wrap" FontSize="12"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               AutomationProperties.AutomationId="ActivityWindow" />
+                    <StackPanel Spacing="4" MaxWidth="340" HorizontalAlignment="Left">
+                        <TextBlock x:Name="ActivityHoursLabel" Text="Group hours: 1 hour per cell" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <Slider x:Name="ActivityHours" Minimum="1" Maximum="4" Value="1" StepFrequency="1"
+                                TickFrequency="1" TickPlacement="BottomRight" SnapsTo="Ticks" MinWidth="200"
+                                HorizontalAlignment="Stretch" ValueChanged="ActivityHours_ValueChanged"
+                                AutomationProperties.AutomationId="ActivityHours" AutomationProperties.Name="Activity group hours" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="1 h" FontSize="12" />
+                            <TextBlock Text="2 h" FontSize="12" Grid.Column="1" HorizontalAlignment="Center" />
+                            <TextBlock Text="3 h" FontSize="12" Grid.Column="2" HorizontalAlignment="Center" />
+                            <TextBlock Text="4 h" FontSize="12" Grid.Column="3" HorizontalAlignment="Right" />
+                        </Grid>
+                    </StackPanel>
+                    <TextBlock x:Name="ActivityStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
+                               AutomationProperties.AutomationId="ActivityStatus" />
+                    <ProgressBar x:Name="ActivityLoading" IsIndeterminate="False" Visibility="Collapsed"
+                                 AutomationProperties.Name="Loading completed scan evidence" />
+                    <InfoBar x:Name="ActivityError" IsOpen="False" IsClosable="False" Severity="Error"
+                             Title="Activity could not be loaded" AutomationProperties.AutomationId="ActivityError" />
+                    <Button x:Name="ActivityRefresh" Content="Refresh activity" Click="ActivityRefresh_Click"
+                            AutomationProperties.AutomationId="ActivityRefresh" />
+                    <ScrollViewer x:Name="ActivityScroll" MaxHeight="560" HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto" HorizontalScrollMode="Enabled"
+                                  AutomationProperties.AutomationId="ActivityScroll" AutomationProperties.Name="Device activity grid">
+                        <!-- Once keeps one Tab stop while every cell stays focusable for UI Automation. -->
+                        <Grid x:Name="ActivityGrid" RowSpacing="4" ColumnSpacing="4" TabFocusNavigation="Once" />
+                    </ScrollViewer>
+                    <TextBlock x:Name="ActivityLegend" TextWrapping="Wrap" FontSize="12"
+                               AutomationProperties.AutomationId="ActivityLegend" />
+                    <TextBlock x:Name="ActivityDetail" TextWrapping="Wrap" IsTextSelectionEnabled="True"
+                               AutomationProperties.LiveSetting="Polite" AutomationProperties.AutomationId="ActivityDetail" />
+                    <Expander Header="How to read this grid" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <TextBlock TextWrapping="Wrap" Text="Green means at least one response, not online for the whole interval. Slate means eligible scans with no response. Hatching means unknown evidence, not offline. Weekday numbers count responding dates; green strength uses all applicable dates, including unknown dates. A skipped DST hour is not applicable (-); repeated clock hours share a cell and retain both scan instants. Use arrow keys within the grid; Enter or focus exposes counts. Scroll horizontally at narrow widths." />
+                    </Expander>
+                </StackPanel>
+            </Border>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="16">
                     <TextBlock Text="Scan history" FontSize="18" FontWeight="SemiBold" />
@@ -273,14 +334,15 @@
                                    TextWrapping="Wrap" IsTextSelectionEnabled="True"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </StackPanel>
+                    <TextBlock x:Name="DeviceHistoryScope" AutomationProperties.AutomationId="DeviceHistoryScope"
+                               TextWrapping="Wrap" FontWeight="SemiBold" />
+                    <TextBlock x:Name="DeviceHistoryLatest" AutomationProperties.AutomationId="DeviceHistoryLatest"
+                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <Expander x:Name="DeviceScanHistoryExpander" Header="Completed Scan Observations"
-                              IsExpanded="False" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                              IsExpanded="False" Visibility="Collapsed"
+                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                               AutomationProperties.AutomationId="DeviceScanHistoryExpander">
                         <StackPanel Spacing="12">
-                            <TextBlock x:Name="DeviceHistoryScope" AutomationProperties.AutomationId="DeviceHistoryScope"
-                                       TextWrapping="Wrap" FontWeight="SemiBold" />
-                            <TextBlock x:Name="DeviceHistoryLatest" AutomationProperties.AutomationId="DeviceHistoryLatest"
-                                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             <TextBlock Text="Current-network completed manual scans, newest first. Online / offline means observed present / absent. Since is the first scan in the latest recorded run of that state, not the physical connection/disconnection time. Gaps between scans do not prove uninterrupted availability. All observations are retained."
                                        TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             <TextBlock x:Name="DeviceScanHistoryCount" AutomationProperties.AutomationId="DeviceScanHistoryCount"

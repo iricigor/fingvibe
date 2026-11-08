@@ -34,6 +34,7 @@ public sealed partial class MainWindow : Window
         InitializeDiscoveryNotifications();
         InitializeUsageCategories();
         Closed += (_, _) => _devicePortScanCancellation?.Cancel();
+        Closed += (_, _) => DevicePage.SetActivityActive(false);
 
         DevicesPage.SetResults(_visibleResults);
         UpdateSortGlyphs();
@@ -153,6 +154,8 @@ public sealed partial class MainWindow : Window
         }
 
         if (page == ToolsPage) ToolsPage.Open();
+        UpdateDeviceActivity();
+        DevicePage.SetActivityActive(page == DevicePage);
         _ = RefreshUsageCategoriesAsync(force: true);
         UpdateScanStatus();
     }

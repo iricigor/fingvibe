@@ -12,6 +12,9 @@ public sealed record DeviceAssignmentChoice(Guid? Id = null, bool AddNew = false
 
 public sealed partial class DeviceDetailsPageView : UserControl
 {
+    // #271: keep the implementations dormant until both restoration tasks are delivered.
+    internal static bool HistoryDetailsEnabled => false;
+
     private bool _updatingAssignments;
     private bool _updatingAddresses;
     private bool _editingClassification;
@@ -31,7 +34,11 @@ public sealed partial class DeviceDetailsPageView : UserControl
         InitializeComponent();
         InitializeClassificationPickers();
         InitializeUsageCategory();
+        DeviceActivityCard.Visibility = DeviceScanHistoryExpander.Visibility =
+            HistoryDetailsEnabled ? Visibility.Visible : Visibility.Collapsed;
+        if (HistoryDetailsEnabled) InitializeActivity();
         _historyClock.Tick += (_, _) => RefreshHistorySummary();
+        _historyClock.Tick += (_, _) => RefreshActivityDate();
         Loaded += (_, _) => { RefreshHistorySummary(); _historyClock.Start(); };
         Unloaded += (_, _) => _historyClock.Stop();
         GotFocus += (_, args) =>
@@ -95,16 +102,19 @@ public sealed partial class DeviceDetailsPageView : UserControl
             DeviceHistoryLatest.Text = summary.Latest is { } latest
                 ? $"Latest recorded scan: {DeviceDetailsPresentation.HistoryTimestamp(latest.CompletedAt)}. Saved observations do not establish current live presence."
                 : "No individual scans in this scope. Historical aggregates cannot establish an observed state or since time.";
-            ApplyHistoryPage(DeviceHistoryQuery.ReadPage(_history, networkId, subnet));
-            DeviceScanHistoryEmpty.Text = _historyPage?.TotalCount == 0
-                ? DeviceDetailsPresentation.EmptyScanHistory(row, networkId, subnet) : string.Empty;
-            DeviceScanHistoryEmpty.Visibility = _historyPage?.TotalCount == 0 ? Visibility.Visible : Visibility.Collapsed;
+            if (HistoryDetailsEnabled)
+            {
+                ApplyHistoryPage(DeviceHistoryQuery.ReadPage(_history, networkId, subnet));
+                DeviceScanHistoryEmpty.Text = _historyPage?.TotalCount == 0
+                    ? DeviceDetailsPresentation.EmptyScanHistory(row, networkId, subnet) : string.Empty;
+                DeviceScanHistoryEmpty.Visibility = _historyPage?.TotalCount == 0 ? Visibility.Visible : Visibility.Collapsed;
+            }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
         {
             _historySummary = new([], null, null, null, false, false);
             RefreshHistorySummary();
-            DeviceHistoryLatest.Text = "Saved history is unavailable.";
+            DeviceHistoryLatest.Text = $"Saved history is unavailable: {exception.Message}";
             DeviceScanHistoryCount.Text = string.Empty;
             DeviceScanHistoryList.ItemsSource = null;
             DeviceScanHistoryTable.Visibility = Visibility.Collapsed;
@@ -139,6 +149,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
 
     private async void HistoryPage_Click(object sender, RoutedEventArgs e)
     {
+        if (!HistoryDetailsEnabled) return;
         if (_historyPage is not { } current) return;
         var newer = ReferenceEquals(sender, DeviceHistoryNewer);
         var history = _history;

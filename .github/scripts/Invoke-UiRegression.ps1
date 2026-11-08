@@ -43,7 +43,9 @@ try {
         }
         history {
             if ($plan.Scenario -contains "DeviceDetails") {
-                Invoke-RegressionCheck "DeviceScanHistory.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "scan-history") }
+                Invoke-RegressionCheck "DeviceScanHistory.Ui" @{
+                    ScreenshotDirectory = (Join-Path $ScreenshotDirectory "scan-history"); SummaryOnly = $true
+                }
                 Invoke-RegressionCheck "DeviceDiscovery.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "discovery") }
                 Invoke-RegressionCheck "UsageCategory.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "usage-category") }
             }

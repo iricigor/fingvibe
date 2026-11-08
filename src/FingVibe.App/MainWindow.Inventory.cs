@@ -96,6 +96,7 @@ public sealed partial class MainWindow
             : await _inventoryStore.SaveAsync(data, _inventory.Revision);
         ApplyInventoryData(saved);
         ToolsPage.InvalidateImportAnalysis("Saved device data changed. Analyze again before importing.");
+        UpdateDeviceActivity();
         _ = RefreshUsageCategoriesAsync(force: true);
     }
 
@@ -165,6 +166,7 @@ public sealed partial class MainWindow
         _onlineDeviceCount = _liveCompletedAt is null ? null : _allResults.Count(row => row.IsOnline);
         UpdateNetworkIdentity();
         UpdatePeopleRoomsPages();
+        UpdateDeviceActivity();
         _ = RefreshUsageCategoriesAsync(force: true);
     }
 

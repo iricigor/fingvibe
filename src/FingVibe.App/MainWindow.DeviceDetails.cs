@@ -46,6 +46,7 @@ public sealed partial class MainWindow
         if (_selectedDeviceRow is not { } row) return;
         var network = NetworkPicker.SelectedItem as LanNetwork;
         DevicePage.ShowHistory(row, network is null ? null : GetScanNetworkIdentity(network), network?.Cidr);
+        UpdateDeviceActivity();
     }
 
     private void DeviceNameInput_TextChanged(object sender, TextChangedEventArgs e)

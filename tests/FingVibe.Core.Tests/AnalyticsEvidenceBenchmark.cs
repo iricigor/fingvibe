@@ -60,9 +60,9 @@ public sealed class AnalyticsEvidenceBenchmark(ITestOutputHelper output) : IDisp
         var single = request with { Devices = [LogicalDeviceId.Mac("001122000000")] };
         var roster = Enumerable.Range(0, 900).Where(i => i % 3 == 0).Take(50)
             .Select(i => LogicalDeviceId.Mac($"001122{i:X6}")).ToArray();
-        await Measure("single device 30-date query + reference bucket fold", 1000, single, store, classify: false);
-        await Measure("network 30-date query + reference distinct aggregation", 2000, request, store, classify: false);
-        await Measure("equipment 30-date query + reference distinct aggregation", 2000,
+        await Measure("single device 30-date query + production activity buckets", 1000, single, store, classify: false);
+        await Measure("network 30-date query + production aligned bucket union", 2000, request, store, classify: false);
+        await Measure("equipment 30-date query + production aligned bucket union", 2000,
             request with { Devices = roster }, store, classify: false);
         await Measure("all-device 7-date query + production usage classification", 2000,
             request with { CalendarDays = 7 }, store, classify: true);
@@ -71,9 +71,11 @@ public sealed class AnalyticsEvidenceBenchmark(ITestOutputHelper output) : IDisp
         for (var run = 0; run < 20; run++)
         {
             using var cancellation = new CancellationTokenSource();
-            var query = Task.Run(async () => DeviceUsageClassifier.Classify(
-                await store.QueryAnalyticsAsync(request with { CalendarDays = 7 }, cancellation.Token), cancellation.Token),
-                cancellation.Token);
+            var query = Task.Run(async () =>
+            {
+                var evidence = await store.QueryAnalyticsAsync(request, cancellation.Token);
+                return DeviceActivity.Group(evidence, 1, cancellation.Token);
+            }, cancellation.Token);
             await Task.Delay(20);
             var clock = Stopwatch.StartNew();
             cancellation.Cancel();
@@ -127,18 +129,12 @@ public sealed class AnalyticsEvidenceBenchmark(ITestOutputHelper output) : IDisp
         Assert.True(maxAllocation <= 128 * 1048576L, $"{label}: allocation {maxAllocation} exceeds 128MiB.");
     }
 
-    // This reference fold measures consumer work without implementing the separate bucket delivery.
     private static long BucketUnion(AnalyticsEvidence evidence)
     {
-        var buckets = new Dictionary<(DateOnly Date, int Hour), HashSet<int>>();
-        foreach (var scan in evidence.Scans)
-        {
-            var key = (DateOnly.FromDateTime(scan.LocalCompletedAt.DateTime), scan.LocalCompletedAt.Hour);
-            if (!buckets.TryGetValue(key, out var devices)) buckets.Add(key, devices = []);
-            for (var index = 0; index < scan.Responses.Count; index++)
-                if (scan.Responses[index] == AnalyticsResponse.Responded) devices.Add(index);
-        }
-        return buckets.Values.Sum(devices => (long)devices.Count);
+        var buckets = DeviceActivity.Group(evidence, 1);
+        if (evidence.Devices.Count == 1)
+            Assert.Equal(7 * 24, DeviceActivity.ByWeekday(buckets, 0).Count);
+        return buckets.Days.Sum(bucket => (long)bucket.RespondingIdentities.Count);
     }
 
     private static long ClassificationCounts(AnalyticsEvidence evidence)
