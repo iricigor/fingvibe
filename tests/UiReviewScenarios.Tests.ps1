@@ -24,19 +24,89 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     $history = $page.SelectSingleNode("//*[@x:Name='DeviceScanHistoryExpander']", $namespaces)
     Assert-Equal $history.IsExpanded "False" "Completed observations starts collapsed"
     Assert-Equal $history.Header "Completed Scan Observations" "Completed observations header"
-    foreach ($id in @("DeviceHistoryScope", "DeviceHistoryLatest", "DeviceScanHistoryTable", "DeviceScanHistoryEmpty",
+    Assert-Equal $history.Visibility "Collapsed" "Completed observations is disabled"
+    $activity = $page.SelectSingleNode("//*[@x:Name='DeviceActivityCard']", $namespaces)
+    Assert-Equal $activity.Visibility "Collapsed" "Activity is disabled"
+    foreach ($id in @("DeviceScanHistoryTable", "DeviceScanHistoryEmpty",
         "DeviceHistoryNewer", "DeviceHistoryOlder", "DeviceHistoryPageStatus")) {
         if (-not $history.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must be inside completed observations." }
     }
-    foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistoryState", "DeviceHistorySince")) {
+    foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistoryState", "DeviceHistorySince",
+        "DeviceHistoryScope", "DeviceHistoryLatest")) {
+        if (-not $page.SelectSingleNode("//*[@x:Name='$id']", $namespaces)) { throw "Retained summary lacks $id." }
         if ($history.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must remain outside collapsed observations." }
     }
+    $historyUi = Get-Content (Join-Path $PSScriptRoot "DeviceScanHistory.Ui.Tests.ps1") -Raw
+    $summaryAssertion = [regex]::Match($historyUi, '(?s)function Assert-HistorySummary.*?(?=function Invoke-HistoryScan)').Value
+    if ($summaryAssertion -notmatch 'Show-HistorySection DeviceHistoryFirstSeen -AdditionalIds' -or
+        $summaryAssertion -match 'DeviceHistorySummaryCard') {
+        throw "Summary checks must position existing text peers together, not a Border without an automation peer."
+    }
+    $code = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml.cs") -Raw
+    foreach ($pattern in @(
+        'internal static bool HistoryDetailsEnabled => false;',
+        'if \(HistoryDetailsEnabled\) InitializeActivity\(\);',
+        '(?s)if \(HistoryDetailsEnabled\)\s*\{\s*ApplyHistoryPage\(DeviceHistoryQuery.ReadPage',
+        '(?s)HistoryPage_Click.*?\{\s*if \(!HistoryDetailsEnabled\) return;'
+    )) {
+        if ($code -notmatch $pattern) { throw "Missing reversible history lifecycle guard: $pattern" }
+    }
+    $activityCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.Activity.cs") -Raw
+    if ($activityCode -notmatch '(?s)SetActivityActive\(bool active\)\s*\{\s*active &= HistoryDetailsEnabled;') {
+        throw "Hidden Activity must not activate queries or rendering."
+    }
+    $errors = $null
+    $null = [Management.Automation.Language.Parser]::ParseFile(
+        (Join-Path $PSScriptRoot "DeviceScanHistory.Ui.Tests.ps1"), [ref]$null, [ref]$errors)
+    if ($errors) { throw ($errors.Message -join "; ") }
     $imported = $page.SelectSingleNode("//*[@x:Name='DeviceImportedMetadata']", $namespaces)
     Assert-Equal $imported.IsExpanded "False" "Imported metadata starts collapsed"
     Assert-Equal $imported.PreviousSibling.Header "How this device was identified" "Imported data immediately follows identification evidence"
     if ($imported.ParentNode.ParentNode.GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml") -ne "IdentificationCard") {
         throw "Imported metadata must belong to Device identification."
     }
+}
+
+& {
+    $historyUi = Get-Content (Join-Path $PSScriptRoot "DeviceScanHistory.Ui.Tests.ps1") -Raw
+    $position = [regex]::Match($historyUi, '(?s)function Show-HistorySection.*?(?=function Assert-HistoryRows)').Value
+    # Substitute only the desktop pattern token; execute the production positioning body.
+    . ([scriptblock]::Create($position.Replace('[System.Windows.Automation.ScrollPattern]::Pattern', '0')))
+    $script:positions = [System.Collections.Generic.List[int]]::new()
+    $script:secondBottom = 320
+    $script:controls = @{}
+    $script:scroll = [pscustomobject]@{ Current = [pscustomobject]@{ VerticallyScrollable = $true } }
+    $script:scroll | Add-Member ScriptMethod SetScrollPercent {
+        param($Horizontal, $Percent)
+        $script:positions.Add($Percent)
+        $offset = [Math]::Min($Percent, 1) * 40
+        $script:controls.First.Current.BoundingRectangle = [pscustomobject]@{
+            Top = 100 - $offset; Bottom = 120 - $offset; Height = 20
+        }
+        $script:controls.Since.Current.BoundingRectangle = [pscustomobject]@{
+            Top = $script:secondBottom - 30 - $offset; Bottom = $script:secondBottom - $offset; Height = 30
+        }
+    }
+    $viewport = [pscustomobject]@{ Current = [pscustomobject]@{
+        BoundingRectangle = [pscustomobject]@{ Top = 0; Bottom = 300 }
+    } }
+    $viewport | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $script:scroll }
+    foreach ($id in @("First", "Since")) {
+        $script:controls[$id] = [pscustomobject]@{ Current = [pscustomobject]@{
+            IsOffscreen = $false; BoundingRectangle = $null
+        } }
+    }
+    function Find-HistoryControl($Id) {
+        if ($Id -eq "DeviceDetailsScroll") { return $viewport }
+        return $script:controls[$Id]
+    }
+    function Start-Sleep { param($Milliseconds) }
+    $null = Show-HistorySection First -AdditionalIds Since
+    Assert-Equal $script:positions @(0, 1) "Positioning must continue when first field fits but Since is clipped"
+    $script:secondBottom = 900
+    $script:positions.Clear()
+    Assert-Throws { Show-HistorySection First -AdditionalIds Since } "*does not fit the details viewport*"
+    Assert-Equal $script:positions.Count 101 "Unreachable grouped summary fails after bounded positioning"
 }
 
 & {
@@ -147,6 +217,11 @@ try {
         "src\FingVibe.App\Views\DeviceDetailsPageView.Usage.cs", "src\FingVibe.Core\Models\DeviceUsageCategory.cs",
         "tests\UsageCategory.Ui.Tests.ps1")) {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails", "Settings") "Usage categories"
+    }
+    foreach ($path in @("src\FingVibe.App\MainWindow.DeviceActivity.cs", "src\FingVibe.App\DeviceActivityPresentation.cs",
+        "src\FingVibe.App\Views\DeviceDetailsPageView.Activity.cs", "src\FingVibe.Core\Models\DeviceActivity.cs",
+        "tests\DeviceActivity.Ui.Tests.ps1", "tests\DeviceActivity.Fixture.ps1")) {
+        Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device activity"
     }
     foreach ($path in @("src\FingVibe.Core\Models\DeviceInventory.cs", "src\FingVibe.Core\Models\PrivateVirtualDevice.cs",
         "src\FingVibe.Core\Models\DeviceHistorySummary.cs",
