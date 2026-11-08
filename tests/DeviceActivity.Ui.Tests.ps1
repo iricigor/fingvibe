@@ -121,18 +121,31 @@ function Open-ActivityDevice([string] $Name = "Activity laptop") {
     (Find-Activity "Search devices" -ByName).GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue($Name)
     $script:row = $null
     Wait-Activity {
-        $rows = (Find-Activity ResultsList).FindAll([Windows.Automation.TreeScope]::Children,
-            [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,
-                [Windows.Automation.ControlType]::ListItem))
-        if ($rows.Count -ne 1) { return $false }
-        $cell = $rows[0].FindFirst([Windows.Automation.TreeScope]::Descendants,
-            [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceNameText"))
-        if ($cell.Current.Name -cne $Name) { return $false }
-        $script:row = $rows[0]
-        return $true
-    } "the requested device row"
-    $script:row.SetFocus()
-    [Windows.Forms.SendKeys]::SendWait("{ENTER}")
+        try {
+            $rows = (Find-Activity ResultsList).FindAll([Windows.Automation.TreeScope]::Children,
+                [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,
+                    [Windows.Automation.ControlType]::ListItem))
+            if ($rows.Count -ne 1) { return $false }
+            $cell = $rows[0].FindFirst([Windows.Automation.TreeScope]::Descendants,
+                [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceNameText"))
+            if (-not $cell -or $cell.Current.Name -cne $Name -or $rows[0].Current.IsOffscreen -or
+                -not $rows[0].Current.IsKeyboardFocusable -or $rows[0].Current.BoundingRectangle.Height -le 0) { return $false }
+            $rows[0].GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+            $rows[0].SetFocus()
+            if (-not [Windows.Automation.AutomationElement]::FocusedElement.Equals($rows[0])) { return $false }
+            $script:row = $rows[0]
+            [Windows.Forms.SendKeys]::SendWait("{ENTER}")
+            return $true
+        }
+        catch [Windows.Automation.ElementNotAvailableException] {
+            Write-Warning "Device row was reconstructed during keyboard activation; reacquiring '$Name'."
+            return $false
+        }
+        catch [InvalidOperationException] {
+            Write-Warning "Device row keyboard activation is not ready for '$Name': $($_.Exception.Message)"
+            return $false
+        }
+    } "keyboard activation of the requested device row"
     Wait-Activity {
         $scroll = Find-Activity DeviceDetailsScroll -Optional
         $scroll -and -not $scroll.Current.IsOffscreen
