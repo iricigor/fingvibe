@@ -73,7 +73,9 @@ PR check or reviewer requirement. Full validation forces every currently
 enabled suite and catalog capture, with core/script/security and installer
 checks, independently of PR scenario selection. Temporarily disabled features
 remain omitted until their separately authorized restoration; full execution
-does not re-enable them. See [execution modes and evidence](docs/reference.md#independent-native-validation).
+does not re-enable them. Standalone full validation runs automatically on
+pushes to `main` (including merges) and remains manually dispatchable, without
+changing PR or release gates. See [execution modes and evidence](docs/reference.md#independent-native-validation).
 Enforced specifications and any gate cutover remain #256, not this comparison.
 
 ## Explicitly invoked Epic Developer

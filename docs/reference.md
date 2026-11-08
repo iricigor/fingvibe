@@ -961,8 +961,13 @@ execution target** excludes runner provisioning, checkout, payload/desktop setup
 application build and focused checks; actual timings must be compared, not
 assumed. Existing/default PR smoke execution retains all its assertions.
 
-`native-full.yml` offers manual full validation against `main` without PR
-metadata. The reusable implementation forces every catalog capture and all
+`native-full.yml` automatically requests full validation on every push to
+`main`, including merges, and retains manual dispatch without PR metadata.
+Automatic runs validate the triggering commit SHA, not a later moving branch
+tip; manual runs resolve `main` once before execution. Automatic triggering
+starts when the workflow reaches `main`; feature-branch pushes, tags and PR
+events do not trigger this standalone workflow. The reusable implementation
+forces every catalog capture and all
 currently enabled sidebar, Devices, history/discovery/usage and Tools/build
 identity suites, plus screenshot-helper, core, speed-test bridge, script,
 installer lifecycle, secret and critical dependency checks. It does not inherit
@@ -981,7 +986,7 @@ its unmerged traversal changes.
 For pre-merge evidence, manually dispatch **Native validation comparison
 (observational)** on the candidate branch with `mode: Full`. This is explicitly
 a candidate rehearsal, not evidence that `main` has that revision. The
-production standalone workflow remains pinned to `main`. The optional manual
+production standalone workflow always targets a `main` revision. The optional manual
 comparison `revision` input can select `main` or a historical same-repository
 commit, using the candidate's immutable execution harness. This permits full
 `main` and representative historical baseline evidence before merging the new
@@ -989,12 +994,14 @@ workflow, without fabricating source provenance. PR-triggered comparison
 always uses its head SHA, ignoring the manual revision input. No PR number is
 required for manual runs and there are no merge/release/repair/issue side effects.
 
-The schedule is **not activated**. After a human approves cadence/time (UTC)
-and the failure-notification destination, the same standalone `main` workflow
-can receive the approved Actions `schedule` trigger; until then use manual
-dispatch and the visible Actions final result. No guessed cron, external
-notification integration, local Automation or working-desktop automation is
-enabled. Scheduled activation is a separate human decision.
+Automatic execution is **event-driven**, not nightly: no clock-based schedule
+is configured. Results and failures appear under **Actions > Full native
+validation (main)**, with the existing final result, logs and artifacts.
+Personal email/web notification delivery follows each user's GitHub Actions
+notification preferences; no external notification integration is added.
+A clock-based schedule still requires a separate cadence/time (UTC) and
+notification decision. No local Automation or working-desktop automation is
+enabled, and the full workflow neither waits for nor gates the release workflow.
 
 Comparison concurrency uses `native-comparison-<PR>` and may cancel only
 superseded comparison runs. Manual rehearsal groups additionally distinguish
@@ -1002,7 +1009,9 @@ branch, mode and source revision, so historical comparisons cannot cancel a
 different source or full rehearsal. Standalone full concurrency uses
 `native-full-main-<repository>` with cancellation disabled; it is independent
 of both comparison and authoritative PR validation. Actions still controls
-runner availability and pending-run queuing; these are not desktop locks.
+runner availability and pending-run queuing: an active full run is not cancelled,
+but a newer request can replace an older pending request in the same group.
+These are not desktop locks.
 All new workflows have read-only contents permissions, do not inherit secrets,
 and disable checkout credential persistence.
 

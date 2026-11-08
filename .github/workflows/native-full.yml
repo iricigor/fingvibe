@@ -1,6 +1,9 @@
 name: Full native validation (main)
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
@@ -15,5 +18,5 @@ jobs:
     uses: ./.github/workflows/native-validation.yml
     with:
       mode: Full
-      revision: main
+      revision: ${{ github.event_name == 'push' && github.sha || 'main' }}
       pull-request: 0

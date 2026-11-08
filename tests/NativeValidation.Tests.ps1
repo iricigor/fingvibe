@@ -212,10 +212,20 @@ foreach ($restriction in @("github.event.pull_request.head.repo.full_name == git
     "github.event.pull_request.head.sha || inputs.revision || github.sha", "group: native-comparison-")) {
     if (-not $comparison.Contains($restriction)) { throw "Missing comparison trust/provenance/concurrency restriction: $restriction" }
 }
-if ($standalone -notmatch "revision: main" -or $standalone -notmatch "pull-request: 0" -or
-    $standalone -notmatch "group: native-full-main-" -or $standalone -notmatch "cancel-in-progress: false" -or
-    $standalone -match "schedule:|cron:") {
-    throw "Standalone full execution must target main without PR metadata; scheduling remains unactivated."
+$standaloneTriggers = [regex]::Match($standalone, '(?ms)^on:\r?\n(.*?)^permissions:').Groups[1].Value.TrimEnd()
+$expectedStandaloneTriggers = @'
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+'@
+Assert-NativeEqual ($standaloneTriggers -replace "`r", "") ($expectedStandaloneTriggers -replace "`r", "") `
+    "Standalone full validation runs automatically on main pushes and manually, without path filters or extra triggers"
+$standaloneRevision = '${{ github.event_name == ''push'' && github.sha || ''main'' }}'
+if (-not $standalone.Contains("revision: $standaloneRevision") -or $standalone -notmatch "mode: Full" -or
+    $standalone -notmatch "pull-request: 0" -or $standalone -notmatch "group: native-full-main-" -or
+    $standalone -notmatch "cancel-in-progress: false") {
+    throw "Standalone full execution must pin the pushed main commit (manual: main), without PR metadata or cancellation."
 }
 foreach ($invariant in @("fail-fast: false", "persist-credentials: false", "fromJSON(needs.plan.outputs.suites)",
     '@("sidebar", "devices", "history", "tools", "capture")', "ref: `${{ needs.plan.outputs.revision }}",
