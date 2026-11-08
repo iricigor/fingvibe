@@ -143,6 +143,11 @@ try {
     foreach ($path in @("src\FingVibe.App\DeviceDetailsPresentation.cs", "src\FingVibe.App\Views\DeviceDetailValue.cs")) {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device details presentation"
     }
+    foreach ($path in @("src\FingVibe.App\MainWindow.UsageCategories.cs", "src\FingVibe.App\UsageCategoryPresentation.cs",
+        "src\FingVibe.App\Views\DeviceDetailsPageView.Usage.cs", "src\FingVibe.Core\Models\DeviceUsageCategory.cs",
+        "tests\UsageCategory.Ui.Tests.ps1")) {
+        Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails", "Settings") "Usage categories"
+    }
     foreach ($path in @("src\FingVibe.Core\Models\DeviceInventory.cs", "src\FingVibe.Core\Models\PrivateVirtualDevice.cs",
         "src\FingVibe.Core\Models\DeviceHistorySummary.cs",
         "src\FingVibe.Core\Models\DeviceDiscovery.cs", "src\FingVibe.App\MainWindow.DiscoveryNotifications.cs",
@@ -357,7 +362,8 @@ try {
             $viewDocument.DocumentElement.GetAttribute("Class", "http://schemas.microsoft.com/winfx/2006/xaml") -cne "FingVibe.App.Views.$view") {
             throw "$view must have its own UserControl namescope and class."
         }
-        $viewCode = Get-Content (Join-Path $appDirectory "Views\$view.xaml.cs") -Raw
+        $viewCode = (Get-ChildItem (Join-Path $appDirectory "Views\$view.*.cs") |
+            ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
         if ($viewCode -match '(?m)^\s*(public|internal)\s+(TextBlock|TextBox|ComboBox|Button|ListView|ScrollViewer|Grid|Image|FontIcon|Expander)\??\s+\w+\s*(\{|=>)') {
             throw "$view must not expose its child controls."
         }

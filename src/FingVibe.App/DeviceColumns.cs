@@ -89,7 +89,7 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
 
     public DeviceColumnLayout()
     {
-        All = [Name, Address, Vendor, Ports, Status, Response, Mac, OperatingSystem, Type, Person, Room, LastSeen];
+        All = [Name, Address, Vendor, Ports, Status, Response, Mac, OperatingSystem, Type, UsageCategory, Person, Room, LastSeen];
         foreach (var column in All)
         {
             column.PropertyChanged += (_, args) =>
@@ -148,7 +148,7 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
     public bool CombinePersonRoom { get => _combinePersonRoom; set => SetCombination(ref _combinePersonRoom, value); }
     public bool CombineVendorOs { get => _combineVendorOs; set => SetCombination(ref _combineVendorOs, value); }
     public bool CompactRows { get => _compactRows; set => SetCombination(ref _compactRows, value); }
-    public bool HasStackedColumns => ShowMergedType || ShowMergedMac || ShowMergedOs || ShowMergedRoom;
+    public bool HasStackedColumns => ShowMergedType || ShowMergedMac || ShowMergedOs || ShowMergedRoom || UsageCategory.IsVisible;
     public double RowMinimumHeight => CompactRows ? (HasStackedColumns ? 36 : 30) : (HasStackedColumns ? 40 : 34);
     public double RowVerticalPadding => CompactRows ? 1 : 4;
     public double RowSpacing => CompactRows ? 1 : 3;
@@ -181,6 +181,7 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
     public DeviceColumn Mac { get; } = new("Mac", "MAC address", 150);
     public DeviceColumn OperatingSystem { get; } = new("OperatingSystem", "OS", 120);
     public DeviceColumn Type { get; } = new("Type", "Device type", 150);
+    public DeviceColumn UsageCategory { get; } = new("UsageCategory", "Usage category", 180);
     public DeviceColumn Person { get; } = new("Person", "Person", 90);
     public DeviceColumn Room { get; } = new("Room", "Room", 100);
     public DeviceColumn LastSeen { get; } = new("LastSeen", "Last seen", 130);
@@ -219,7 +220,7 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
         .. ShowSeparateMac ? new[] { Mac } : Array.Empty<DeviceColumn>(),
         .. ShowSeparateOs ? new[] { OperatingSystem } : Array.Empty<DeviceColumn>(),
         .. ShowSeparateType ? new[] { Type } : Array.Empty<DeviceColumn>(),
-        Assignments,
+        UsageCategory, Assignments,
         .. ShowSeparateRoom && Person.IsVisible ? new[] { Room } : Array.Empty<DeviceColumn>(),
         LastSeen];
 

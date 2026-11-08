@@ -21,6 +21,7 @@ public sealed partial class DevicesPageView : UserControl
     private readonly MultiSelectFilter<string> _vendors;
     private readonly MultiSelectFilter<Guid?> _people;
     private readonly MultiSelectFilter<Guid?> _rooms;
+    private readonly MultiSelectFilter<DeviceUsageCategory> _usageCategories;
     private readonly DeviceLastSeenAgeRefresh _lastSeenAges;
     private IEnumerable<ScanResultRow> _results = [];
 
@@ -38,6 +39,8 @@ public sealed partial class DevicesPageView : UserControl
         _vendors = new(VendorFilter, "Vendor", OnFiltersChanged, StringComparer.OrdinalIgnoreCase);
         _people = new(PersonFilter, "Person", OnFiltersChanged);
         _rooms = new(RoomFilter, "Room", OnFiltersChanged);
+        _usageCategories = new(UsageCategoryFilter, "Usage category", OnFiltersChanged);
+        _usageCategories.SetChoices(Enum.GetValues<DeviceUsageCategory>().Select(value => (value, value.ToString())));
         _statuses.SetChoices([
             (InventoryDeviceStatus.Online, "Online"), (InventoryDeviceStatus.Offline, "Offline"),
             (InventoryDeviceStatus.Unknown, "Unknown"), (InventoryDeviceStatus.FingOnly, "Fing Only")]);
@@ -86,7 +89,8 @@ public sealed partial class DevicesPageView : UserControl
         OperatingSystems = _operatingSystems.Selected,
         Vendors = _vendors.Selected,
         People = _people.Selected,
-        Rooms = _rooms.Selected
+        Rooms = _rooms.Selected,
+        UsageCategories = _usageCategories.Selected
     };
 
     internal void SetVendorFilters(IEnumerable<string> vendors) =>
@@ -168,6 +172,7 @@ public sealed partial class DevicesPageView : UserControl
         OperatingSystemSortGlyph.Text = MergedOperatingSystemSortGlyph.Text = Glyph(ResultSortColumn.OperatingSystem);
         DeviceTypeSortGlyph.Text = SeparateDeviceTypeSortGlyph.Text = Glyph(ResultSortColumn.DeviceType);
         LastSeenSortGlyph.Text = Glyph(ResultSortColumn.LastSeen);
+        UsageCategorySortGlyph.Text = Glyph(ResultSortColumn.UsageCategory);
     }
 
     internal void SetPeopleRoomFilters(IEnumerable<(Guid Id, string Label)> people,
@@ -241,6 +246,14 @@ public sealed partial class DevicesPageView : UserControl
             Grid.SetRow(chips[index], index / columns);
             Grid.SetColumn(chips[index], index % columns);
         }
+    }
+
+    internal void RefreshRowDescriptions()
+    {
+        if (ResultsList.ItemsPanelRoot is not { } panel) return;
+        foreach (var container in panel.Children.OfType<ListViewItem>())
+            if (ResultsList.ItemFromContainer(container) is ScanResultRow row)
+                AutomationProperties.SetHelpText(container, FullRowValues(row));
     }
 
     private void ResultsList_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
@@ -356,6 +369,7 @@ public sealed partial class DevicesPageView : UserControl
             _vendors.Clear();
             _people.Clear();
             _rooms.Clear();
+            _usageCategories.Clear();
             OpenPortsOnly = false;
         }
         finally { _updatingFilters = false; }

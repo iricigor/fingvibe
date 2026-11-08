@@ -263,6 +263,7 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -285,6 +286,7 @@
                                         </Flyout>
                                     </DropDownButton.Flyout>
                                 </DropDownButton>
+                                <DropDownButton x:Name="UsageCategoryFilter" Grid.Column="6" Style="{StaticResource FilterStyle}" />
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -314,6 +316,7 @@
                                 <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.SeparateMacWidth), Mode=OneWay}" />
                                 <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.SeparateOsWidth), Mode=OneWay}" />
                                 <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.SeparateTypeWidth), Mode=OneWay}" />
+                                <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.UsageCategory.EffectiveWidth), Mode=OneWay}" />
                                 <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Assignments.EffectiveWidth), Mode=OneWay}" />
                                 <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.SeparateRoomWidth), Mode=OneWay}" />
                                 <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.LastSeen.EffectiveWidth), Mode=OneWay}" />
@@ -473,7 +476,19 @@
                                 <local:ColumnResizeGrip Column="{x:Bind Columns.Type}" AutomationProperties.Name="{x:Bind Columns.Type.ResizeLabel}"
                                                         SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Type.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
-                            <Grid Grid.Column="9" Visibility="{x:Bind Columns.Assignments.IsVisible, Mode=OneWay}">
+                            <Grid Grid.Column="9" Visibility="{x:Bind Columns.UsageCategory.IsVisible, Mode=OneWay}">
+                                <Button x:Name="UsageCategorySortButton" Tag="UsageCategory" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
+                                        Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
+                                        Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by effective usage category">
+                                    <StackPanel Orientation="Horizontal" Spacing="6">
+                                        <TextBlock Text="Usage category" FontWeight="SemiBold" />
+                                        <TextBlock x:Name="UsageCategorySortGlyph" />
+                                    </StackPanel>
+                                </Button>
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.UsageCategory}" AutomationProperties.Name="{x:Bind Columns.UsageCategory.ResizeLabel}"
+                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.UsageCategory.HasFollowingVisibleColumn), Mode=OneWay}" />
+                            </Grid>
+                            <Grid Grid.Column="10" Visibility="{x:Bind Columns.Assignments.IsVisible, Mode=OneWay}">
                                 <Button x:Name="PersonSortButton" Tag="Person" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
                                         Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
                                         Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by person's full name"
@@ -513,7 +528,7 @@
                                 <local:ColumnResizeGrip Column="{x:Bind Columns.Assignments, Mode=OneWay}" AutomationProperties.Name="{x:Bind Columns.Assignments.ResizeLabel, Mode=OneWay}"
                                                         SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Assignments.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
-                            <Grid Grid.Column="10" Visibility="{x:Bind Columns.ShowSeparateRoom, Mode=OneWay}">
+                            <Grid Grid.Column="11" Visibility="{x:Bind Columns.ShowSeparateRoom, Mode=OneWay}">
                                 <Button x:Name="RoomSortButton" Tag="Room" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
                                         Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
                                         Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by room's full name">
@@ -525,7 +540,7 @@
                                 <local:ColumnResizeGrip Column="{x:Bind Columns.Room}" AutomationProperties.Name="{x:Bind Columns.Room.ResizeLabel}"
                                                         SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Room.HasFollowingVisibleColumn), Mode=OneWay}" />
                             </Grid>
-                            <Grid Grid.Column="11" Visibility="{x:Bind Columns.LastSeen.IsVisible, Mode=OneWay}">
+                            <Grid Grid.Column="12" Visibility="{x:Bind Columns.LastSeen.IsVisible, Mode=OneWay}">
                                 <Button x:Name="LastSeenSortButton" Tag="LastSeen" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
                                         Padding="{x:Bind local:DeviceColumnLayoutHelpers.HeaderButtonPadding(Columns.HeaderButtonVerticalPadding), Mode=OneWay}"
                                         Style="{StaticResource ScannerHeaderButtonStyle}" ToolTipService.ToolTip="Sort by last seen time">
@@ -596,6 +611,7 @@
                                             <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.SeparateMacWidth), Mode=OneWay}" />
                                             <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.SeparateOsWidth), Mode=OneWay}" />
                                             <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.SeparateTypeWidth), Mode=OneWay}" />
+                                            <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.UsageCategory.EffectiveWidth), Mode=OneWay}" />
                                             <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.Assignments.EffectiveWidth), Mode=OneWay}" />
                                             <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.SeparateRoomWidth), Mode=OneWay}" />
                                             <ColumnDefinition Width="{x:Bind local:DeviceColumnLayoutHelpers.ToGridLength(Columns.LastSeen.EffectiveWidth), Mode=OneWay}" />
@@ -730,7 +746,18 @@
                                                    Margin="0,0,12,0" TextTrimming="CharacterEllipsis" Opacity="{x:Bind DeviceTypeOpacity, Mode=OneWay}"
                                                    ToolTipService.ToolTip="{x:Bind DeviceTypeSource, Mode=OneWay}"
                                                    Visibility="{x:Bind Columns.ShowSeparateType, Mode=OneWay}" />
-                                        <Grid Grid.Column="9" Visibility="{x:Bind Columns.ShowMergedRoom, Mode=OneWay}">
+                                        <StackPanel Grid.Column="9" Margin="0,0,12,0" VerticalAlignment="Center"
+                                                    Spacing="{x:Bind Columns.RowSpacing, Mode=OneWay}"
+                                                    Visibility="{x:Bind Columns.UsageCategory.IsVisible, Mode=OneWay}">
+                                            <TextBlock x:Name="DeviceUsageCategoryText" Text="{x:Bind UsageCategoryText, Mode=OneWay}"
+                                                       FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                       views:DevicesPageView.PreviewText="{x:Bind UsageCategoryDescription, Mode=OneWay}" />
+                                            <TextBlock Text="{x:Bind UsageCategorySource, Mode=OneWay}" FontSize="11"
+                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"
+                                                       AutomationProperties.Name="{x:Bind UsageCategoryDescription, Mode=OneWay}"
+                                                       ToolTipService.ToolTip="{x:Bind UsageCategoryDescription, Mode=OneWay}" />
+                                        </StackPanel>
+                                        <Grid Grid.Column="10" Visibility="{x:Bind Columns.ShowMergedRoom, Mode=OneWay}">
                                             <StackPanel x:Name="MergedAssignments" Spacing="{x:Bind Columns.AssignmentSpacing, Mode=OneWay}" VerticalAlignment="Center">
                                                 <Grid x:Name="MergedPersonLine" ColumnSpacing="4" HorizontalAlignment="Center" Background="Transparent"
                                                       Visibility="{x:Bind HasPersonAssignment, Mode=OneWay}"
@@ -768,21 +795,21 @@
                                                        views:DevicesPageView.PreviewText="Person and room: Unassigned"
                                                        AutomationProperties.Name="Person and room: Unassigned" />
                                         </Grid>
-                                        <Button Grid.Column="9" Content="{x:Bind local:DeviceColumnLayoutHelpers.AssignmentText(PersonId, PersonShortName), Mode=OneWay}"
+                                        <Button Grid.Column="10" Content="{x:Bind local:DeviceColumnLayoutHelpers.AssignmentText(PersonId, PersonShortName), Mode=OneWay}"
                                                 FontSize="12" Style="{StaticResource ScannerAssignmentTextStyle}"
                                                 VerticalAlignment="Center"
                                                 Visibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.ShowSeparatePerson), Mode=OneWay}"
                                                 Opacity="{x:Bind PersonOpacity, Mode=OneWay}"
                                                 views:DevicesPageView.PreviewText="{x:Bind PersonFullName, Mode=OneWay}"
                                                 AutomationProperties.Name="{x:Bind PersonFullName, Mode=OneWay}" />
-                                        <Button Grid.Column="9" Content="{x:Bind local:DeviceColumnLayoutHelpers.AssignmentText(RoomId, RoomShortName), Mode=OneWay}"
+                                        <Button Grid.Column="10" Content="{x:Bind local:DeviceColumnLayoutHelpers.AssignmentText(RoomId, RoomShortName), Mode=OneWay}"
                                                 FontSize="12" Style="{StaticResource ScannerAssignmentTextStyle}" FontFamily="Segoe UI Emoji"
                                                 VerticalAlignment="Center"
                                                 Visibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.ShowRoomOnly), Mode=OneWay}"
                                                 Opacity="{x:Bind RoomOpacity, Mode=OneWay}"
                                                 views:DevicesPageView.PreviewText="{x:Bind RoomFullName, Mode=OneWay}"
                                                 AutomationProperties.Name="{x:Bind RoomFullName, Mode=OneWay}" />
-                                        <Button Grid.Column="10" Content="{x:Bind local:DeviceColumnLayoutHelpers.AssignmentText(RoomId, RoomShortName), Mode=OneWay}"
+                                        <Button Grid.Column="11" Content="{x:Bind local:DeviceColumnLayoutHelpers.AssignmentText(RoomId, RoomShortName), Mode=OneWay}"
                                                 Style="{StaticResource ScannerAssignmentTextStyle}"
                                                 VerticalAlignment="Center"
                                                 FontFamily="Segoe UI Emoji"
@@ -790,7 +817,7 @@
                                                 Visibility="{x:Bind Columns.ShowSeparateRoom, Mode=OneWay}"
                                                 views:DevicesPageView.PreviewText="{x:Bind RoomFullName, Mode=OneWay}"
                                                 AutomationProperties.Name="{x:Bind RoomFullName, Mode=OneWay}" />
-                                        <TextBlock x:Name="DeviceLastSeenText" Grid.Column="11" Text="{x:Bind LastSeenText, Mode=OneWay}"
+                                        <TextBlock x:Name="DeviceLastSeenText" Grid.Column="12" Text="{x:Bind LastSeenText, Mode=OneWay}"
                                                    Margin="0,0,12,0" TextTrimming="CharacterEllipsis"
                                                    Opacity="{x:Bind LastSeenOpacity, Mode=OneWay}"
                                                    Visibility="{x:Bind Columns.LastSeen.IsVisible, Mode=OneWay}"

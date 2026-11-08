@@ -64,6 +64,7 @@ public sealed partial class MainWindow
         UpdateLastSeen();
         RefreshVisibleResults();
         UpdateDeviceHistory();
+        _ = RefreshUsageCategoriesAsync(force: true);
         ToolsPage.SetNetworkContext(selectedNetwork);
         OverviewPage.ShowSubnet(selectedNetwork);
         NetworkPage.ShowLocalNetwork(selectedNetwork);

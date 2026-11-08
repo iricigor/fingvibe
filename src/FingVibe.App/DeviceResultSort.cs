@@ -15,7 +15,8 @@ internal enum ResultSortColumn
     OpenPorts,
     Person,
     Room,
-    LastSeen
+    LastSeen,
+    UsageCategory
 }
 
 internal static class DeviceResultSort
@@ -28,6 +29,7 @@ internal static class DeviceResultSort
             ResultSortColumn.Person => (left.PersonId is null).CompareTo(right.PersonId is null),
             ResultSortColumn.Room => (left.RoomId is null).CompareTo(right.RoomId is null),
             ResultSortColumn.LastSeen => MissingLastSeenRank(left.LastSeen).CompareTo(MissingLastSeenRank(right.LastSeen)),
+            ResultSortColumn.UsageCategory => (left.EffectiveUsageCategory is null).CompareTo(right.EffectiveUsageCategory is null),
             _ => 0
         };
         if (assignmentPresence != 0) return assignmentPresence;
@@ -46,6 +48,7 @@ internal static class DeviceResultSort
             ResultSortColumn.Response => Nullable.Compare(left.LatencyMilliseconds, right.LatencyMilliseconds),
             ResultSortColumn.MacAddress => CompareText(left.MacAddressText, right.MacAddressText),
             ResultSortColumn.LastSeen => Nullable.Compare(left.LastSeen.Timestamp, right.LastSeen.Timestamp),
+            ResultSortColumn.UsageCategory => CompareText(left.UsageCategoryText, right.UsageCategoryText),
             _ => throw new ArgumentOutOfRangeException(nameof(column), column, "Unknown Devices sort column.")
         };
 

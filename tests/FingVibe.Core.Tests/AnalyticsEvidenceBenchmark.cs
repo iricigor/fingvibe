@@ -64,14 +64,16 @@ public sealed class AnalyticsEvidenceBenchmark(ITestOutputHelper output) : IDisp
         await Measure("network 30-date query + reference distinct aggregation", 2000, request, store, classify: false);
         await Measure("equipment 30-date query + reference distinct aggregation", 2000,
             request with { Devices = roster }, store, classify: false);
-        await Measure("all-device 7-date query + reference classification counts", 2000,
+        await Measure("all-device 7-date query + production usage classification", 2000,
             request with { CalendarDays = 7 }, store, classify: true);
 
         var cancellations = new List<double>();
         for (var run = 0; run < 20; run++)
         {
             using var cancellation = new CancellationTokenSource();
-            var query = store.QueryAnalyticsAsync(request, cancellation.Token);
+            var query = Task.Run(async () => DeviceUsageClassifier.Classify(
+                await store.QueryAnalyticsAsync(request with { CalendarDays = 7 }, cancellation.Token), cancellation.Token),
+                cancellation.Token);
             await Task.Delay(20);
             var clock = Stopwatch.StartNew();
             cancellation.Cancel();
@@ -125,7 +127,7 @@ public sealed class AnalyticsEvidenceBenchmark(ITestOutputHelper output) : IDisp
         Assert.True(maxAllocation <= 128 * 1048576L, $"{label}: allocation {maxAllocation} exceeds 128MiB.");
     }
 
-    // These are benchmark consumers, not the production classifier or bucket contract owned by #230/#240.
+    // This reference fold measures consumer work without implementing the separate bucket delivery.
     private static long BucketUnion(AnalyticsEvidence evidence)
     {
         var buckets = new Dictionary<(DateOnly Date, int Hour), HashSet<int>>();
@@ -141,19 +143,11 @@ public sealed class AnalyticsEvidenceBenchmark(ITestOutputHelper output) : IDisp
 
     private static long ClassificationCounts(AnalyticsEvidence evidence)
     {
-        var counts = new long[evidence.Devices.Count, 4];
-        foreach (var scan in evidence.Scans)
-        {
-            var time = scan.LocalCompletedAt;
-            var preferred = time.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday || time.Hour < 6 || time.Hour >= 18;
-            for (var index = 0; index < scan.Responses.Count; index++)
-            {
-                if (scan.Responses[index] == AnalyticsResponse.Unknown) continue;
-                counts[index, preferred ? 0 : 2]++;
-                if (scan.Responses[index] == AnalyticsResponse.Responded) counts[index, preferred ? 1 : 3]++;
-            }
-        }
-        return counts.Cast<long>().Sum();
+        var classified = DeviceUsageClassifier.Classify(evidence);
+        Assert.Equal(evidence.Devices.Count, classified.Count);
+        Assert.All(classified.Values, value => Assert.Equal(
+            value.OvernightWeekend.Eligible + value.WeekdayDaytime.Eligible, value.Total.Eligible));
+        return classified.Values.Sum(value => (long)value.Total.Eligible + value.Total.Responded + (int)value.Category);
     }
 
     private async Task<(DeviceInventoryStore Store, DeviceInventoryData Data)> Seed()
