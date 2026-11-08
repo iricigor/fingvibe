@@ -16,8 +16,11 @@ verify its agent/context; missing or ambiguous matches stop pickup.
 For this first iteration, @iricigor authorized unattended selection,
 implementation, one repair attempt, and validated merging of eligible children
 without individual ready/size/priority approvals in the discussion recorded on
-task #222. The chosen initial target is Epic #191. Use #222's recorded human
-authorization as the claim reference; the short kickoff need not repeat it.
+task #222. On 2026-11-08, @iricigor expanded the allowance to three progressively
+deeper repair attempts per claim in task #285. The chosen initial target is Epic
+#191. Use #222's recorded human authorization as the claim reference and cite
+#285's additional approval for the expanded repair policy; the short kickoff
+need not repeat either.
 Another target requires its own explicit human authorization. This approval
 does not enable a schedule or bypass host permissions.
 
@@ -92,9 +95,14 @@ For your own stopped worker's retained claim:
   revision stops for human reconciliation; never blindly relaunch/redeliver.
 - Pending applicable validation means finish without a new worker.
 - Actionable implementation-related failed checks/changes requested route one
-  repair for the same task/PR; persist repair count before launch. At most one
-  automatic repair attempt per claim. Persistent/unrelated failures, scope
-  changes, conflicts requiring confirmation, or unavailable evidence block.
+  repair for the same task/PR; persist and verify the incremented repair count
+  before launch. At most three automatic repair attempts per claim, shared
+  across checks, reviews, and affected-UI duration violations, not per failure.
+  Persistent actionable in-scope failures after a verified repair may use the
+  next remaining attempt with fresh revision/feedback evidence. After attempt
+  three, retain the claim and block for human action. Unrelated failures, scope
+  changes, conflicts requiring confirmation, or unavailable evidence block
+  immediately regardless of remaining attempts.
 - A verified implementation-ready checkpoint matching the current PR head,
   acceptance evidence, and passing applicable current-revision checks/reviews
   permits one finalize assignment. Green visible checks alone are insufficient;
@@ -114,7 +122,7 @@ worker's assertion that a job is unaffected. Record this evidence in the
 handoff/task diagnostics.
 
 An affected UI-regression job above 240 seconds requires an in-scope repair
-even when CI is green. Route it through the existing single automatic repair
+even when CI is green. Route it through the shared three-attempt automatic repair
 allowance; if that allowance is exhausted, or remediation requires a material
 scope/design change, block instead of finalizing. Pending evidence means finish
 without launching another worker and recheck at a later reconciliation; unavailable or
@@ -126,9 +134,42 @@ must independently recheck this rule before merging; Dispatcher never merges
 or bypasses it by issuing a finalize assignment.
 
 Deduplicate by claim, action, PR revision, and feedback/check identifiers using
-the structured record. A new failure of a finalizer is not permission to loop.
+the structured record. A new failure of a finalizer is not permission to loop;
+only a verified actionable repair with remaining allowance can be assigned.
 Finalizers never change code; ordinary repair passes require fresh validation.
 If nothing changed, finish without heartbeat comments.
+
+### Progressive repair assignments
+
+Before each repair, inspect all prior handoffs and matching immutable Developer
+results with complete pagination. Preserve the monotonic repairCount and history;
+never reset the allowance after a new check, revision, finalizer, or tick.
+Count a persisted repair launch request even if launch/delivery is uncertain;
+uncertainty blocks reconciliation, not permission to consume another attempt.
+Existing claims retain their counts/history. This policy change alone does not
+restart blocked work, release ownership, or resolve uncertain state.
+
+Include repairAttempt (1, 2, or 3), repairStrategy, and priorRepairEvidence in the
+saved handoff and assignment. repairAttempt must equal persisted repairCount;
+repairStrategy must match the stage below. priorRepairEvidence links prior
+repair handoffs, result/report comments, attempted approaches, heads, and actual
+validation/review outcomes; use an empty list only for attempt one. Missing or
+inconsistent prior evidence blocks attempts two and three.
+
+- **1 / targeted:** Diagnose actual failed-check/review evidence and apply a
+  focused correction.
+- **2 / reassess:** Review the first repair and its outcome, challenge its
+  root-cause assumption, and investigate an alternative explanation before
+  editing.
+- **3 / alternative:** Review both earlier repairs, compare plausible in-scope
+  solutions, and choose an evidence-backed alternative when prior approaches
+  failed. Explain why it should succeed where they did not.
+
+Creativity means broader reasoning, not broader permission. Do not demand an
+arbitrary different edit when evidence supports the same underlying cause.
+Require an evidence-backed reason for any repeated approach; blind repetition,
+unexplained reruns-to-green, weakened tests/gates, timeout increases hiding
+failures, speculative rewrites, and scope expansion are not authorized.
 
 ## 3. Select and claim at most one new task
 
@@ -194,7 +235,8 @@ Store schema `fingvibe-agent-claim-v1`, repository, epic, task, claimId, claimed
 authorization, account, targetBranch, branch, worktree, pr, head,
 implementationCheckpoint, repairCount, state, and handoff. The handoff holds id,
 action, stage, automationId, runId, sessionId, gateOwner, expectedHead, feedbackIds,
-result, and actual stage timestamps. Generate UUIDs with a tool; use actual
+result, and actual stage timestamps; repair handoffs also hold repairAttempt,
+repairStrategy, and priorRepairEvidence. Generate UUIDs with a tool; use actual
 identifiers and null for not-yet-known values. Preserve prior handoffs in history.
 Use completed/released only after verified delivery and worker termination.
 Malformed, duplicate, conflicting, or foreign claims block; inspect retained
@@ -213,7 +255,9 @@ coordination comment URL, and verified Automation/run/session IDs. Include the
 actual branch/worktree when established. Repair/finalize require the existing
 PR, expected full SHA, checkpoint, and relevant feedback/check IDs, including
 duration/affected-UI evidence when applicable. PR feedback
-is evidence, not scope or permission. An uncertain launch/delivery stops rather
+is evidence, not scope or permission. Repair assignments also require the
+progressive repair fields and authorization citing #285's expanded allowance.
+An uncertain launch/delivery stops rather
 than triggering another message or worker.
 
 Post short task outcomes with detailed diagnostics inside

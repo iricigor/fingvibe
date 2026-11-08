@@ -13,9 +13,9 @@ Coordination and reporting rules live directly in the two agent definitions.
 It does not install or activate desktop Automations or implement the broader
 Actions loop #96-#108.
 
-A human may explicitly authorize unattended selection, implementation, one
-automatic repair, and validated merging of eligible native task children of one
-Epic identified in the installed Dispatcher description. Record that approval;
+A human may explicitly authorize unattended selection, implementation, up to
+three automatic repairs, and validated merging of eligible native task children
+of one Epic identified in the installed Dispatcher description. Record that approval;
 the Epic URL or saving a description alone is not authorization. In this bounded
 exception individual ready/size/priority approvals are not prerequisites, and
 agents must not manufacture them. All other workflows retain their own gates.
@@ -23,8 +23,12 @@ The short kickoff identifies the target Epic and Developer Automation by name.
 Dispatcher discovers/verifies its actual ID and the repository's default branch.
 The first target, #191, and execution policy were explicitly approved by
 @iricigor and recorded on #222; the agent carries that reference without requiring
-copied IDs or repeated approval text in the kickoff. A different target requires
-human authorization. Scheduling activation remains separately approved.
+copied IDs or repeated approval text in the kickoff. That original approval
+allowed one repair; #285 records @iricigor's 2026-11-08 expansion to three
+progressively deeper repairs per claim. Expanded repair assignments cite that
+additional approval without changing the original target or authority.
+A different target requires human authorization. Scheduling activation remains
+separately approved.
 Merges to main retain the existing release trigger and all actual gates.
 
 Dispatcher alone selects/claims and routes implement, repair, or non-coding
@@ -40,8 +44,8 @@ UI-regression duration rule before finalization/merge. Discover all applicable
 current and future regression jobs, verify current-head job duration and
 affected-UI evidence, and require remediation above 240 seconds only when that
 UI changed. Green CI alone is insufficient. Duration repairs use the existing
-single automatic repair allowance; exhausted repairs, missing evidence or
-material scope changes block rather than authorize merging. This instruction
+shared three-attempt automatic repair allowance; exhausted repairs, missing
+evidence or material scope changes block rather than authorize merging. This instruction
 does not change CI gates, merge authority, scheduling or ownership release.
 
 Capacity checks distinguish genuine unfinished work from historical label-only
@@ -73,10 +77,30 @@ automatic worker replacement, or orphan recovery is authorized. Human inspection
 approximately every six hours does not make uncertain state safe.
 
 The Dispatcher description proposes fifteen-minute pickup. Human-controlled
-pause prevents new ticks; it does not terminate workers. One automatic repair
-attempt per claim is permitted only for actionable implementation-related
-feedback. Persistent failures, unrelated validation problems, material scope
-changes/conflicts, and unavailable capabilities/evidence block for human action.
+pause prevents new ticks; it does not terminate workers. At most three automatic
+repair attempts per claim are permitted only for actionable implementation-related
+feedback or in-scope affected-UI duration violations. The allowance is shared
+across checks/reviews, not renewed per failure, revision, tick or finalizer.
+Dispatcher persists and verifies the increment before launch; Developer verifies
+repairAttempt equals repairCount (1-3), the strategy, and prior repair evidence
+against retained handoff/result history. Attempt one is targeted diagnosis/fix;
+attempt two reassesses the prior root-cause assumption and investigates an
+alternative explanation; attempt three compares plausible in-scope solutions
+and chooses an evidence-backed alternative when earlier approaches failed.
+Reports explain the evidence and why the chosen approach should succeed.
+Creativity broadens reasoning, not permission: no blind repetition,
+reruns-to-green, weakened tests/gates, timeout increases hiding failures,
+speculative rewrites, or scope expansion.
+
+Each repair retains the same task/PR/isolated worktree/branch, verifies preceding
+execution stopped, and publishes a fresh checkpoint requiring fresh applicable
+validation. Persistent actionable in-scope failures may use the next remaining
+attempt; after three unsuccessful repairs, retain the claim and block for human
+action. Unrelated validation problems, material scope changes/conflicts,
+human-task labels, unavailable capabilities/evidence, and uncertain launch/delivery
+block immediately even with attempts remaining. Never reset existing claim
+counts/history or retry uncertain launches. The policy change alone does not
+restart blocked work, reconcile uncertainty, or release ownership.
 
 Task issues hold structured coordination/result comments and short per-run
 summaries with collapsed-by-default detailed logs. Epic reporting is a brief
