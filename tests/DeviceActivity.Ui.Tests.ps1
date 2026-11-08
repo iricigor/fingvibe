@@ -77,6 +77,14 @@ function Stop-ActivityApp {
     }
 }
 
+function Test-ActivityFits($Control, $Viewport) {
+    $bounds = $Control.Current.BoundingRectangle
+    $area = $Viewport.Current.BoundingRectangle
+    $bottom = [Math]::Min($area.Bottom, $script:root.Current.BoundingRectangle.Bottom - 16)
+    return -not $Control.Current.IsOffscreen -and $bounds.Height -gt 0 -and
+        $bounds.Top -ge $area.Top -and $bounds.Bottom -le $bottom
+}
+
 function Show-Activity([string] $Id) {
     $viewport = Find-Activity DeviceDetailsScroll
     $scroll = $viewport.GetCurrentPattern([Windows.Automation.ScrollPattern]::Pattern)
@@ -84,15 +92,16 @@ function Show-Activity([string] $Id) {
     foreach ($percent in 0..100) {
         if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
         Start-Sleep -Milliseconds 10
-        try { $bounds = $control.Current.BoundingRectangle }
+        try { $fits = Test-ActivityFits $control $viewport }
         catch [Windows.Automation.ElementNotAvailableException] {
             $control = Find-Activity $Id
-            $bounds = $control.Current.BoundingRectangle
+            $fits = Test-ActivityFits $control $viewport
         }
-        $area = $viewport.Current.BoundingRectangle
-        $bottom = [Math]::Min($area.Bottom, $script:root.Current.BoundingRectangle.Bottom - 16)
-        if (-not $control.Current.IsOffscreen -and $bounds.Height -gt 0 -and
-            $bounds.Top -ge $area.Top -and $bounds.Bottom -le $bottom) { return $control }
+        if (-not $fits) { continue }
+        # Confirm on a fresh lookup once layout settles, as callers re-resolve the control themselves.
+        Start-Sleep -Milliseconds 150
+        $control = Find-Activity $Id
+        if (Test-ActivityFits $control $viewport) { return $control }
     }
     throw "Activity control '$Id' is clipped or unreachable."
 }
@@ -199,6 +208,9 @@ try {
     }
     $slider = Show-Activity ActivityHours
     $slider.GetCurrentPattern([Windows.Automation.RangeValuePattern]::Pattern).SetValue(1)
+    Wait-Activity {
+        (Find-Activity ActivityCell-6-23 -Optional) -and (Find-Activity ActivityStatus).Current.Name -notlike "Loading*"
+    } "one-hour grid after the slider reset"
     Choose-ActivityPeriod "Last 30 days" 29
     $null = Select-ActivityCell 28 11
     Capture-Activity "activity-thirty-days"
