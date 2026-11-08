@@ -185,13 +185,15 @@ foreach ($metrics in @(@(0, 0), @(0, 100), @(-1, 20), @(101, 20), @([double]::Na
 }
 
 & {
-    $state = @{ Rows = 100; Stale = 0; Reads = 0; Delay = 0
+    $state = @{ Rows = 100; Window = 10; Quantum = 0; Stale = 0; Reads = 0; Delay = 0
         Positions = [System.Collections.Generic.List[double]]::new(); Seen = @{}; Visits = 0 }
     $scroll = [pscustomobject]@{ Current = [pscustomobject]@{
         VerticallyScrollable = $true; VerticalViewSize = 10.0; VerticalScrollPercent = 0.0 } }
     $scroll | Add-Member ScriptMethod SetScrollPercent {
         param($Horizontal, $Vertical)
-        $this.Current.VerticalScrollPercent = $Vertical
+        $this.Current.VerticalScrollPercent = if ($state.Quantum -gt 0) {
+            [Math]::Round($Vertical / $state.Quantum) * $state.Quantum
+        } else { $Vertical }
         $state.Positions.Add($Vertical)
         $state.Delay = 1
     }
@@ -206,9 +208,9 @@ foreach ($metrics in @(@(0, 0), @(0, 100), @(-1, 20), @(101, 20), @([double]::Na
         }
         if ($state.Delay-- -gt 0) { return @() }
         $first = if ($scroll.Current.VerticallyScrollable) {
-            [int][Math]::Floor($scroll.Current.VerticalScrollPercent / 100 * ($state.Rows - 10))
+            [int][Math]::Floor($scroll.Current.VerticalScrollPercent / 100 * ($state.Rows - $state.Window))
         } else { 0 }
-        $last = [Math]::Min($state.Rows - 1, $first + 9)
+        $last = [Math]::Min($state.Rows - 1, $first + $state.Window - 1)
         return @($first..$last | ForEach-Object { [pscustomobject]@{ Current = [pscustomobject]@{ Name = "row-$_" } } })
     }
     function Find-HistoryControl([string] $Value) { return $list }
@@ -228,6 +230,12 @@ foreach ($metrics in @(@(0, 0), @(0, 100), @(-1, 20), @(101, 20), @([double]::Na
     Assert-HistoryTest $state.Positions[0] 0 "First boundary"
     Assert-HistoryTest $state.Positions[-1] 100 "Last boundary"
     if ($state.Visits -ge 20) { throw "Viewport traversal must not take 101 positions." }
+    $state.Window = 30
+    $state.Quantum = 100.0 / 3
+    $state.Seen.Clear()
+    $scroll.Current.VerticalViewSize = 30
+    Visit-HistoryRowsCore $visit
+    Assert-HistoryTest $state.Seen.Count 100 "Quantized offsets preserve exhaustive reachability"
     $state.Rows = 5
     $state.Visits = 0
     $state.Seen.Clear()

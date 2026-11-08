@@ -347,34 +347,45 @@ function Visit-HistoryRowsCore([scriptblock] $Visit) {
     $target = 0.0
     $stale = 0
     $positions = 0
+    $previousPercent = -1.0
     $deadline = [DateTime]::UtcNow.AddSeconds(60)
     while ([DateTime]::UtcNow -lt $deadline -and $positions -lt 200) {
         try {
             $list = Find-HistoryControl DeviceScanHistoryList
             $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
             if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $target) }
-            $realized = @{ Items = @(); Last = $null; Stable = 0 }
+            $realized = @{ Items = @(); Last = $null; Stable = 0; Percent = -1.0 }
             Wait-HistoryState {
                 $realized.Items = @($list.FindAll([System.Windows.Automation.TreeScope]::Children, $condition))
                 $signature = ($realized.Items | ForEach-Object { $_.Current.Name }) -join "|"
+                $actual = $scroll.Current.VerticalScrollPercent
+                # Small lists quantize percentages to realizable row offsets; wait for stable progress, not exact decimals.
                 $atTarget = -not $scroll.Current.VerticallyScrollable -or
-                    [Math]::Abs($scroll.Current.VerticalScrollPercent - $target) -lt 0.1
-                if ($atTarget -and $realized.Items.Count -gt 0 -and $signature -ceq $realized.Last) {
+                    ($target -eq 0 -and $actual -lt 0.1) -or
+                    ($target -eq 100 -and $actual -gt 99.9) -or
+                    ($target -gt 0 -and $target -lt 100 -and $actual -gt $previousPercent + 0.001)
+                if ($atTarget -and $realized.Items.Count -gt 0 -and $signature -ceq $realized.Last -and
+                    [Math]::Abs($actual - $realized.Percent) -lt 0.001) {
                     $realized.Stable++
                 } else { $realized.Stable = 0 }
                 $realized.Last = $signature
+                $realized.Percent = $actual
                 $realized.Stable -ge 2
             } "realized history rows at $target%"
             & $Visit $realized.Items
             $positions++
-            if (-not $scroll.Current.VerticallyScrollable -or $target -eq 100) {
+            if (-not $scroll.Current.VerticallyScrollable -or $realized.Percent -gt 99.9) {
                 Write-Host "History traversal visited $positions viewport positions."
                 return
             }
-            $target = Get-HistoryNextViewport $scroll.Current.VerticalScrollPercent $scroll.Current.VerticalViewSize
+            $previousPercent = $realized.Percent
+            $target = Get-HistoryNextViewport $previousPercent $scroll.Current.VerticalViewSize
         }
         catch {
-            if (-not (Test-HistoryStaleException $_.Exception)) { throw }
+            if (-not (Test-HistoryStaleException $_.Exception)) {
+                Write-Host "History traversal failure: target=$target%, previous=$previousPercent%, actual=$($realized.Percent)%, rows=$($realized.Items.Count)."
+                throw
+            }
             if (++$stale -gt 2) { throw }
             Write-Host "Reacquiring stale history list at $target% (attempt $stale)."
             $script:detailsRoot = $null
