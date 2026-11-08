@@ -896,9 +896,21 @@ capture emits a capture phase, with UTC start, elapsed milliseconds and success
 in `phases.jsonl` alongside screenshots/transcripts and in the job summary.
 Compare repeated runs with the same revision/build provenance, viewport and
 selected scenarios against an equivalent baseline; retain failed phases and
-report missing evidence. No fixed runtime or statistically established flake
-rate is claimed. The existing four-suite matrix, required aggregate and
+report missing evidence. No statistically established flake rate is claimed.
+The existing four-suite matrix, required aggregate and
 disabled Activity/observation policy are unchanged.
+
+Epic Developer must inspect and report the complete GitHub Actions job duration
+for each of `ui-regression (devices)`, `ui-regression (history)`,
+`ui-regression (sidebar)` and `ui-regression (tools)`, including setup and cleanup.
+The user-approved budget is at most 240 seconds per job. A job exceeding that
+budget must be fixed and revalidated when the implementation modifies the UI it
+covers, even if the job was already slow. Jobs at or below the budget, or covering
+unchanged UI, require no duration-related remediation. Failing checks still
+require repair; missing/failed/skipped/cancelled results are not passing evidence.
+Preserve coverage and deliberate timing checks, and surface material scope
+blockers rather than waiving the budget. This agent instruction does not add a
+CI timeout, matrix job or automatic merge gate.
 
 Follow [the native UI contribution contract](../CONTRIBUTING.md#extending-native-ui-regression-coverage)
 for new features: focused scenarios, current-selection readiness, stable

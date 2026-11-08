@@ -270,6 +270,21 @@ current-revision phase/failure diagnostics; do not hide failures by retries,
 longer timeouts or reduced assertions. This does not introduce #242/#256's
 future fast/full execution or mandatory coverage-manifest policy.
 
+Check and report the latest-revision GitHub Actions job durations for
+`ui-regression (devices)`, `ui-regression (history)`,
+`ui-regression (sidebar)` and `ui-regression (tools)`. Measure each complete
+job, including setup, native checks and cleanup, not individual scripts or
+internal phases. If a job exceeds 240 seconds and this change modifies the UI
+that job covers, fix the cause and revalidate until the job is at most 240
+seconds, even if it was already slow before this change. Use logs/phase timings
+to diagnose costs; never drop coverage, fixtures or deliberate timing checks
+to meet the budget. A job at or below 240 seconds, or covering unchanged UI,
+requires no duration-related remediation. These exemptions do not waive failed
+checks; missing, skipped, cancelled or failed results are not passing evidence.
+If remediation requires a material scope/design change, report the blocker
+rather than silently expanding scope or waiving the budget. This is an agent
+delivery requirement, not a new CI timeout, matrix entry or automated gate.
+
 Commit and push to the same PR, preserving its closing reference. Inspect the
 actual applicable workflows and authoritative checks/reviews for this change.
 Wait for completion on the latest revision; monitor pending validation without
