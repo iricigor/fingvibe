@@ -24,13 +24,35 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     $history = $page.SelectSingleNode("//*[@x:Name='DeviceScanHistoryExpander']", $namespaces)
     Assert-Equal $history.IsExpanded "False" "Completed observations starts collapsed"
     Assert-Equal $history.Header "Completed Scan Observations" "Completed observations header"
-    foreach ($id in @("DeviceHistoryScope", "DeviceHistoryLatest", "DeviceScanHistoryTable", "DeviceScanHistoryEmpty",
+    Assert-Equal $history.Visibility "Collapsed" "Completed observations is disabled"
+    $activity = $page.SelectSingleNode("//*[@x:Name='DeviceActivityCard']", $namespaces)
+    Assert-Equal $activity.Visibility "Collapsed" "Activity is disabled"
+    foreach ($id in @("DeviceScanHistoryTable", "DeviceScanHistoryEmpty",
         "DeviceHistoryNewer", "DeviceHistoryOlder", "DeviceHistoryPageStatus")) {
         if (-not $history.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must be inside completed observations." }
     }
-    foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistoryState", "DeviceHistorySince")) {
+    foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistoryState", "DeviceHistorySince",
+        "DeviceHistoryScope", "DeviceHistoryLatest")) {
+        if (-not $page.SelectSingleNode("//*[@x:Name='$id']", $namespaces)) { throw "Retained summary lacks $id." }
         if ($history.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must remain outside collapsed observations." }
     }
+    $code = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml.cs") -Raw
+    foreach ($pattern in @(
+        'internal static bool HistoryDetailsEnabled => false;',
+        'if \(HistoryDetailsEnabled\) InitializeActivity\(\);',
+        '(?s)if \(HistoryDetailsEnabled\)\s*\{\s*ApplyHistoryPage\(DeviceHistoryQuery.ReadPage',
+        '(?s)HistoryPage_Click.*?\{\s*if \(!HistoryDetailsEnabled\) return;'
+    )) {
+        if ($code -notmatch $pattern) { throw "Missing reversible history lifecycle guard: $pattern" }
+    }
+    $activityCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.Activity.cs") -Raw
+    if ($activityCode -notmatch '(?s)SetActivityActive\(bool active\)\s*\{\s*active &= HistoryDetailsEnabled;') {
+        throw "Hidden Activity must not activate queries or rendering."
+    }
+    $errors = $null
+    $null = [Management.Automation.Language.Parser]::ParseFile(
+        (Join-Path $PSScriptRoot "DeviceScanHistory.Ui.Tests.ps1"), [ref]$null, [ref]$errors)
+    if ($errors) { throw ($errors.Message -join "; ") }
     $imported = $page.SelectSingleNode("//*[@x:Name='DeviceImportedMetadata']", $namespaces)
     Assert-Equal $imported.IsExpanded "False" "Imported metadata starts collapsed"
     Assert-Equal $imported.PreviousSibling.Header "How this device was identified" "Imported data immediately follows identification evidence"

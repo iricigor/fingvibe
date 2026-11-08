@@ -194,10 +194,14 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
     $smokeScript = Get-Content (Join-Path $PSScriptRoot "..\.github\scripts\Invoke-UiReview.ps1") -Raw
     $regressionScript = Get-Content (Join-Path $PSScriptRoot "..\.github\scripts\Invoke-UiRegression.ps1") -Raw
     foreach ($suite in @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
-        "UsageCategory.Ui", "DeviceActivity.Ui",
+        "UsageCategory.Ui",
         "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
         if ($captureJob.Contains($suite) -or $smokeScript.Contains($suite)) { throw "Capture still runs extracted suite: $suite" }
         Assert-Equal ([regex]::Matches($regressionScript, ('Invoke-RegressionCheck "' + [regex]::Escape($suite) + '"')).Count) 1 "Preserve suite exactly once: $suite"
+    }
+    if ($regressionScript -match 'Invoke-RegressionCheck "DeviceActivity.Ui"' -or
+        $regressionScript -notmatch 'SummaryOnly = \$true') {
+        throw "Disabled Activity/table checks must not run; retained summary checks remain required."
     }
     if ($regressionScript -notmatch '\$plan.Scenario -contains "DeviceDetails"' -or
         $regressionScript -notmatch 'Stop-Transcript' -or
@@ -222,7 +226,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             "UsageCategory.Ui", "DeviceActivity.Ui",
             "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
             @(
-                'param($AppPath, $ScreenshotDirectory, $Version, $BuildKind, $BuildTimestamp, $BuildCommit, $PullRequestNumber)',
+                'param($AppPath, $ScreenshotDirectory, $Version, $BuildKind, $BuildTimestamp, $BuildCommit, $PullRequestNumber, $SummaryOnly)',
                 '$name = [IO.Path]::GetFileName($PSCommandPath).Replace(".Tests.ps1", "")',
                 '@{ Name = $name; Parameters = $PSBoundParameters } | ConvertTo-Json -Compress | Add-Content $env:UI_REGRESSION_CALLS',
                 'if ($env:UI_REGRESSION_FAIL -eq $name) { throw "Simulated regression failure: $name" }'
@@ -245,18 +249,19 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         }
         $calls = @(Get-Content $env:UI_REGRESSION_CALLS | ConvertFrom-Json)
         Assert-Equal $calls.Name @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
-            "UsageCategory.Ui", "DeviceActivity.Ui",
+            "UsageCategory.Ui",
             "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "Dispatch every preserved suite once"
-        Assert-Equal ([DateTimeOffset]$calls[6].Parameters.BuildTimestamp).UtcDateTime ([DateTimeOffset]$parameters.BuildTimestamp).UtcDateTime "Forward stamped identity"
-        Assert-Equal $calls[6].Parameters.PullRequestNumber 198 "Forward PR identity"
+        Assert-Equal $calls[2].Parameters.SummaryOnly $true "History dispatch tests only retained summaries"
+        Assert-Equal ([DateTimeOffset]$calls[5].Parameters.BuildTimestamp).UtcDateTime ([DateTimeOffset]$parameters.BuildTimestamp).UtcDateTime "Forward stamped identity"
+        Assert-Equal $calls[5].Parameters.PullRequestNumber 198 "Forward PR identity"
         Assert-Equal ($calls.Parameters.AppPath | Select-Object -Unique) "synthetic.exe" "Reuse supplied app"
         & powershell.exe -NoProfile -File $runner -Suite sidebar -AppPath $parameters.AppPath `
             -ScreenshotDirectory $parameters.ScreenshotDirectory -CapturePlanPath $planPath
         if ($LASTEXITCODE -ne 0) { throw "Sidebar runner must support multi-scenario plans under Windows PowerShell." }
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 12 "Windows PowerShell dispatches the sidebar without parsing history selection"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 11 "Windows PowerShell dispatches the sidebar without parsing history selection"
         ConvertTo-Json -InputObject @($definitions | Where-Object Scenario -eq Devices) -Depth 5 | Set-Content $planPath
         & $runner -Suite history @parameters
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 12 "Unselected history must not launch native checks"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 11 "Unselected history must not launch native checks"
         $env:UI_REGRESSION_FAIL = "DevicesList.Ui"
         Assert-Throws { & $runner -Suite devices @parameters } "*Simulated regression failure*"
         if ((Get-Content (Join-Path $parameters.ScreenshotDirectory "regression.log") -Raw) -notmatch 'Simulated regression failure') {

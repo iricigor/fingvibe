@@ -395,7 +395,9 @@ Never run native UI automation on a working user's desktop.
 
 ### Device activity
 
-Device details shows **Activity** above the existing scan history. Choose
+**Activity is temporarily hidden by #271; the following describes its retained
+implementation for restoration.** Device details previously showed **Activity**
+above the existing scan history. Choose
 **Last 7 days**, **Last 30 days**, or **30 days by weekday**, and group each local
 date into midnight-aligned 1, 2, 3 or 4-hour cells. Three-hour groups run
 00:00-03:00 through 21:00-24:00. The displayed Windows timezone and query time
@@ -427,6 +429,27 @@ contributors and exact/partial/unknown coverage for later aggregate consumers;
 it contains no inferred uptime or scalar duration estimates.
 
 ### Device scan history
+
+**Temporarily disabled (#271):** Device Details no longer exposes Activity or
+the Completed Scan Observations expander/table. Their implementation, fixtures
+and dedicated test files remain for restoration; disabled Activity does not
+initialize or start queries, and the table does not load observation pages.
+The internal `DeviceDetailsPageView.HistoryDetailsEnabled` switch is off, not a
+user setting. The descriptions below document the retained implementation,
+not currently available controls.
+
+First/last seen, last-observed/since, network scope and latest-scan explanation
+remain visible in the summary. Devices Last seen, virtual MAC/address information,
+discovery, usage categories and all other device details are unchanged. Scans
+continue collecting and retaining evidence; no stored data is deleted.
+The CI history suite invokes `DeviceScanHistory.Ui.Tests.ps1 -SummaryOnly`,
+preserving summary/Last seen, network scope, normal/virtual/imported/legacy,
+restart, scan outcomes, persistence errors and light/dark/narrow summary checks.
+It also verifies disabled controls are not visible or keyboard accessible.
+Activity and observation-table rendering/paging checks are dormant, not waived
+for restoration. Two restoration tasks under Epic #191 must be verified before
+#271 closes; each must re-enable its UI and tests and resolve relevant failures.
+Coordinate pending tab/CI changes so later merges cannot restore disabled UI.
 
 Device details shows a **Scan history** summary for normal MAC-based devices and
 existing virtual devices. First/last-seen timestamps display in local time with
@@ -561,8 +584,9 @@ scoped summaries and the matching Devices **Last seen** values through repeated 
 empty imported history, restart, successful repeated scans, cancellation,
 205-row page boundaries, forward/backward reachability and selection changes,
 failure, and visible persistence errors on the disposable Windows CI desktop.
-The parallel history regression job includes this check when the capture plan
-requires device details; never run it on a working
+The parallel history regression job currently includes only its `-SummaryOnly`
+retained-functionality path when the capture plan requires device details;
+the full path is preserved for restoration. Never run it on a working
 user's desktop. Its explicit `FINGVIBE_UI_REVIEW_INVENTORY` path isolates saved
 fixtures from real user data, like the existing review snapshot override.
 
@@ -881,7 +905,8 @@ integration.
 `DeviceActivityTests` covers every hour stop, response-wins/known-zero/unknown,
 weekday denominators, explicit legacy evidence, identity union, first-sighting
 eligibility, exact time boundaries, DST and cancellation. The disposable Windows
-history suite also runs `tests\DeviceActivity.Ui.Tests.ps1` with an isolated
+history suite preserves, but does not currently invoke,
+`tests\DeviceActivity.Ui.Tests.ps1` with an isolated
 synthetic inventory, exercising all modes/stops, cell keyboard details,
 loading/error/no-history states, selection changes, narrow scrolling, themes,
 high contrast and access to existing history. It refuses to run on the working
