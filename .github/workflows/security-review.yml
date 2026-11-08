@@ -27,19 +27,29 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Test Gitleaks download helper
+        shell: pwsh
+        run: .\tests\GitleaksDownload.Tests.ps1
+
       - name: Scan for exposed secrets
         id: secrets
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
           $version = "8.30.1"
           $archiveName = "gitleaks_${version}_windows_x64.zip"
-          $releaseUrl = "https://github.com/gitleaks/gitleaks/releases/download/v${version}"
           $archivePath = Join-Path $env:RUNNER_TEMP $archiveName
-          $checksumsPath = Join-Path $env:RUNNER_TEMP "gitleaks_checksums.txt"
+          $checksumsName = "gitleaks_${version}_checksums.txt"
+          $checksumsPath = Join-Path $env:RUNNER_TEMP $checksumsName
           $toolDirectory = Join-Path $env:RUNNER_TEMP "gitleaks"
 
-          Invoke-WebRequest "$releaseUrl/$archiveName" -OutFile $archivePath
-          Invoke-WebRequest "$releaseUrl/gitleaks_${version}_checksums.txt" -OutFile $checksumsPath
+          .\.github\scripts\Download-Gitleaks.ps1 `
+            -Version $version `
+            -ArchiveName $archiveName `
+            -ArchivePath $archivePath `
+            -ChecksumsName $checksumsName `
+            -ChecksumsPath $checksumsPath
 
           $checksumLine = Get-Content $checksumsPath |
             Where-Object { $_ -match "\s$([Regex]::Escape($archiveName))$" } |
