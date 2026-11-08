@@ -13,6 +13,14 @@ $ui = Get-Content -LiteralPath (Join-Path $PSScriptRoot "DeviceActivity.Ui.Tests
 if ($ui -notmatch '\$env:GITHUB_ACTIONS -ne "true"' -or $ui -match 'Stop-Process -Name') {
     throw "Native checks must remain isolated to the disposable runner and owned processes."
 }
+if ($ui -notmatch 'FINGVIBE_UI_REVIEW_ACTIVITY_HOLD' -or $ui -match 'BEGIN EXCLUSIVE') {
+    throw "Loading/cancellation captures need a cancellable test hold, not a writer lock beyond the query's 100ms busy budget."
+}
+$loader = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\src\FingVibe.App\MainWindow.DeviceActivity.cs") -Raw
+if ($loader -notmatch 'IsUiReview && Environment.GetEnvironmentVariable\("FINGVIBE_UI_REVIEW_ACTIVITY_HOLD"\)' -or
+    $loader -notmatch 'await Task.Delay\(25, cancellation\)' -or $loader -notmatch 'AddSeconds\(30\)') {
+    throw "Activity test holds must remain UI-review-only, cancellable and bounded."
+}
 [xml]$page = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml") -Raw
 $card = $page.SelectSingleNode("//*[@*[local-name()='Name']='DeviceActivityCard']")
 if (-not $card -or -not $card.NextSibling.SelectSingleNode(".//*[@Text='Scan history']")) { throw "Activity must precede existing scan history." }

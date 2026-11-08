@@ -185,6 +185,7 @@ foreach ($key in @("FINGVIBE_UI_REVIEW", "FINGVIBE_UI_REVIEW_INVENTORY", "FINGVI
     "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT", "FINGVIBE_UI_REVIEW_DEVICE_TABLE", "FINGVIBE_UI_REVIEW_NETWORK")) {
     $previous[$key] = [Environment]::GetEnvironmentVariable($key)
 }
+$previous["FINGVIBE_UI_REVIEW_ACTIVITY_HOLD"] = [Environment]::GetEnvironmentVariable("FINGVIBE_UI_REVIEW_ACTIVITY_HOLD")
 try {
     $null = New-Item -ItemType Directory -Path $fixture
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
@@ -196,6 +197,8 @@ try {
     $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT = "0"
     $env:FINGVIBE_UI_REVIEW_NETWORK = "ui-review-network"
     $database = Join-Path $fixture "inventory.sqlite"
+    $hold = Join-Path $fixture "activity.hold"
+    $env:FINGVIBE_UI_REVIEW_ACTIVITY_HOLD = $hold
     Start-ActivityApp
     Open-ActivityDevice
     Wait-Activity { Find-Activity ActivityCell-5-11 -Optional } "seven-date activity"
@@ -240,26 +243,18 @@ try {
     [Windows.Forms.SendKeys]::SendWait("{RIGHT}{LEFT}{ENTER}")
     Wait-Activity { (Find-Activity ActivityDetail).Current.Name -eq $wednesday.Current.Name } "arrow and Enter cell navigation"
 
-    $lock = [Microsoft.Data.Sqlite.SqliteConnection]::new("Data Source=$database;Pooling=False")
-    $lock.Open()
-    $command = $lock.CreateCommand()
-    $command.CommandText = "BEGIN EXCLUSIVE"
-    $null = $command.ExecuteNonQuery()
+    Set-Content -LiteralPath $hold -Value "Hold Activity for loading and cancellation evidence."
     (Show-Activity ActivityRefresh).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-Activity { (Find-Activity ActivityStatus).Current.Name -like "Loading*" } "loading state"
     if (Find-Activity ActivityCell-2-9 -Optional) { throw "Old cells remain during loading." }
     Capture-Activity "activity-loading"
     $null = Show-Activity ActivityPeriod
     Set-UiReviewAppearanceChoice -Root $script:root -Picker ActivityPeriod -Choice "Last 30 days"
-    $command.CommandText = "ROLLBACK"
-    $null = $command.ExecuteNonQuery()
-    $command.Dispose()
-    $lock.Dispose()
-    $lock = $null
+    Remove-Item -LiteralPath $hold
     Wait-Activity {
         (Find-Activity ActivityCell-29-0 -Optional) -and
             (Find-Activity ActivityStatus).Current.Name -like "Scan evidence in*"
-    } "new selection after cancelling the blocked weekday query"
+    } "new selection after cancelling the held weekday request"
     Choose-ActivityPeriod "30 days by weekday" 6
     Open-ActivityDevice "Activity imported"
     Wait-Activity { (Find-Activity ActivityStatus).Current.Name -like "No completed scan history*" } "no-history selection"
@@ -349,6 +344,20 @@ try {
     $history.GetCurrentPattern([Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
     $null = Show-Activity DeviceHistoryOlder
     Write-Host "Device Activity exact daily/weekday evidence, all stops, keyboard details, loading/error/no history, selection, narrow themes and high contrast passed; history remains reachable."
+}
+catch {
+    if ($script:process -and -not $script:process.HasExited -and $script:process.MainWindowHandle -ne [IntPtr]::Zero) {
+        $errorBar = Find-Activity ActivityError -Optional
+        if ($errorBar) {
+            foreach ($text in $errorBar.FindAll([Windows.Automation.TreeScope]::Descendants,
+                [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,
+                    [Windows.Automation.ControlType]::Text))) {
+                Write-Host "Activity failure evidence: $($text.Current.Name)"
+            }
+        }
+        Capture-Activity "activity-failure"
+    }
+    throw
 }
 finally {
     if ($lock) { $lock.Dispose() }

@@ -419,6 +419,11 @@ the disposable-runner artifacts. Native history, Activity, category and service
 checks retain their assertions and exercise tab navigation, selection reset and
 unsaved edits. Activity captures both tabs at wide/narrow widths in all supported
 appearance variants and checks high contrast. Never automate the working desktop.
+Loading/cancellation captures use the UI-review-only
+`FINGVIBE_UI_REVIEW_ACTIVITY_HOLD` file, with cancellation and a 30-second failure
+bound. Removing the file releases the real evidence query. This avoids treating
+a long fixture writer lock as a valid loading state beyond Core's 100ms busy
+budget; production query and lock behavior are unchanged.
 
 ### Device activity
 

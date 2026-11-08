@@ -28,6 +28,16 @@ public sealed partial class MainWindow
         var subnet = network!.Cidr;
         DevicePage.ConfigureActivity(key, async (days, hours, cancellation) =>
         {
+            if (IsUiReview && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_ACTIVITY_HOLD") is { Length: > 0 } hold)
+            {
+                var deadline = DateTimeOffset.UtcNow.AddSeconds(30);
+                while (File.Exists(hold))
+                {
+                    if (DateTimeOffset.UtcNow >= deadline)
+                        throw new IOException("UI-review Activity hold was not released within 30 seconds.");
+                    await Task.Delay(25, cancellation);
+                }
+            }
             var now = DateTimeOffset.UtcNow;
             var zone = TimeZoneInfo.Local;
             AnalyticsEvidence evidence;
