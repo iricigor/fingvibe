@@ -51,11 +51,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
         GotFocus += (_, args) =>
         {
             if (args.OriginalSource is FrameworkElement element)
-            {
-                var target = element is ListViewItem item && DeviceScanHistoryList.IndexFromContainer(item) >= 0
-                    ? DeviceScanHistoryList : element;
-                target.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false });
-            }
+                element.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false });
         };
     }
 
@@ -132,7 +128,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
             RefreshHistorySummary();
             DeviceHistoryLatest.Text = $"Saved history is unavailable: {exception.Message}";
             DeviceScanHistoryCount.Text = string.Empty;
-            DeviceScanHistoryList.ItemsSource = null;
+            DeviceScanHistoryRows.ItemsSource = null;
             DeviceScanHistoryTable.Visibility = Visibility.Collapsed;
             DeviceScanHistoryEmpty.Text = $"Scan history could not be loaded: {exception.Message}";
             DeviceScanHistoryEmpty.Visibility = Visibility.Visible;
@@ -149,10 +145,9 @@ public sealed partial class DeviceDetailsPageView : UserControl
     {
         _historyPage = page;
         DeviceScanHistoryCount.Text = $"{page.TotalCount:N0} completed scan observations";
-        DeviceScanHistoryList.ItemsSource = page.Items.Select((item, index) => new DeviceScanHistoryRow(
+        DeviceScanHistoryRows.ItemsSource = page.Items.Select((item, index) => new DeviceScanHistoryRow(
             item.CompletedAt, item.Present, index % 2 == 1, TimeZoneInfo.Local)).ToArray();
-        if (DeviceScanHistoryList.Items.Count > 0)
-            DeviceScanHistoryList.ScrollIntoView(DeviceScanHistoryList.Items[0], ScrollIntoViewAlignment.Leading);
+        DeviceScanHistoryList.ChangeView(null, 0, null, disableAnimation: true);
         DeviceScanHistoryTable.Visibility = page.TotalCount == 0 ? Visibility.Collapsed : Visibility.Visible;
         var start = _historyPageIndex * DeviceHistoryQuery.DefaultPageSize;
         DeviceHistoryPageStatus.Text = page.TotalCount == 0 ? string.Empty

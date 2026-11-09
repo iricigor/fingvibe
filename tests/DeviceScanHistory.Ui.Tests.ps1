@@ -219,8 +219,8 @@ function Assert-HistoryPage([int] $PageIndex, [switch] $Traverse) {
     $pageViewport = Find-HistoryControl DeviceDetailsScroll
     $condition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-        [System.Windows.Automation.ControlType]::ListItem)
-    $items = $list.FindAll([System.Windows.Automation.TreeScope]::Children, $condition)
+        [System.Windows.Automation.ControlType]::DataItem)
+    $items = $list.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition)
     if ($items.Count -ne $count) { throw "Expected $count bounded rows, got $($items.Count)." }
     $rowHeight = ($items | ForEach-Object { $_.Current.BoundingRectangle.Height } | Measure-Object -Maximum).Maximum
     if ($rowHeight -le 0) { throw "The observation page has no rendered row geometry." }
@@ -247,20 +247,23 @@ function Assert-HistoryPage([int] $PageIndex, [switch] $Traverse) {
 
 function Assert-HistoryScrollMovement {
     $list = Show-HistorySection DeviceScanHistoryList
-    $items = $list.FindAll([System.Windows.Automation.TreeScope]::Children,
+    $items = $list.FindAll([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-            [System.Windows.Automation.ControlType]::ListItem))
+            [System.Windows.Automation.ControlType]::DataItem))
     $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     if (-not $scroll.Current.VerticallyScrollable) { throw "The 100-row page must be scrollable." }
     $scroll.SetScrollPercent(-1, 0)
     $firstVisible = {
         for ($index = 0; $index -lt $items.Count; $index++) {
-            if (Test-UiRegressionElementWithin $items[$index] $list $script:root) {
+            $bounds = $items[$index].Current.BoundingRectangle
+            $viewport = $list.Current.BoundingRectangle
+            if (-not $bounds.IsEmpty -and $bounds.Height -gt 0 -and $bounds.Width -gt 0 -and
+                -not $items[$index].Current.IsOffscreen -and
+                $bounds.Top -ge $viewport.Top -and $bounds.Bottom -le $viewport.Bottom) {
                 return [pscustomobject]@{
                     Index = $index; Label = $items[$index].Current.Name
-                    Top = $items[$index].Current.BoundingRectangle.Top
-                    Bottom = $items[$index].Current.BoundingRectangle.Bottom
+                    Top = $bounds.Top; Bottom = $bounds.Bottom
                 }
             }
         }
@@ -321,7 +324,7 @@ function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
     $seen = @{}
     $itemCondition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-        [System.Windows.Automation.ControlType]::ListItem)
+        [System.Windows.Automation.ControlType]::DataItem)
     $textCondition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
         [System.Windows.Automation.ControlType]::Text)
@@ -329,7 +332,7 @@ function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
         if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
         Start-Sleep -Milliseconds 100
         $times = @()
-        foreach ($item in $list.FindAll([System.Windows.Automation.TreeScope]::Children, $itemCondition)) {
+        foreach ($item in $list.FindAll([System.Windows.Automation.TreeScope]::Descendants, $itemCondition)) {
             if (-not (Test-UiRegressionElementWithin $item $list $script:root)) { continue }
             $texts = @($item.FindAll([System.Windows.Automation.TreeScope]::Descendants, $textCondition) |
                 ForEach-Object { $_.Current.Name })
@@ -366,10 +369,10 @@ function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
 function Assert-HistoryTableRendering([string] $Capture) {
     $list = Show-HistorySection DeviceScanHistoryList 85
     $headers = @("Date", "Time (local)", "Status") | ForEach-Object { Find-HistoryControl $_ -ByName }
-    $items = $list.FindAll([System.Windows.Automation.TreeScope]::Children,
+    $items = $list.FindAll([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-            [System.Windows.Automation.ControlType]::ListItem))
+            [System.Windows.Automation.ControlType]::DataItem))
     $path = Join-Path $ScreenshotDirectory "$Capture.png"
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle $path
     $window = Get-UiReviewWindowBounds $script:process.MainWindowHandle
@@ -814,9 +817,9 @@ try {
         throw "Page errors must be explicit without replacing valid rows."
     }
     $retained = @((Show-HistorySection DeviceScanHistoryList).FindAll(
-        [System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-            [System.Windows.Automation.ControlType]::ListItem)) | ForEach-Object { $_.Current.Name })
+            [System.Windows.Automation.ControlType]::DataItem)) | ForEach-Object { $_.Current.Name })
     if (($retained -join "|") -cne ($beforeError -join "|")) { throw "A failed page load replaced the last valid page." }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-page-error.png")
     [IO.File]::WriteAllBytes($database, $savedDatabase)

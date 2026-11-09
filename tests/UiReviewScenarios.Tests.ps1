@@ -25,7 +25,7 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     Assert-Equal $history.IsExpanded "False" "Completed observations starts collapsed"
     Assert-Equal $history.Header "Completed Scan Observations" "Completed observations header"
     Assert-Equal $history.GetAttribute("Visibility") "" "Completed observations uses visible layout"
-    if (-not $history.SelectSingleNode(".//*[@x:Name='DeviceScanHistoryList']/*[local-name()='ListView.ItemsPanel']//*[local-name()='StackPanel']", $namespaces)) {
+    if (-not $history.SelectSingleNode(".//*[local-name()='ScrollViewer' and @x:Name='DeviceScanHistoryList']/*[local-name()='ItemsControl' and @x:Name='DeviceScanHistoryRows']", $namespaces)) {
         throw "The bounded observation page must keep stable, non-recycled rows."
     }
     Assert-Equal $history.SelectSingleNode(".//*[@x:Name='DeviceScanHistoryList']", $namespaces).IsTabStop "True" "The observation viewport must be reachable by keyboard focus"
@@ -58,8 +58,10 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     )) {
         if ($code -notmatch $pattern) { throw "Missing reversible history lifecycle guard: $pattern" }
     }
-    if ($code -notmatch 'DeviceScanHistoryList.IndexFromContainer\(item\) >= 0') {
-        throw "Focusing an observation row must bring the whole bounded viewport into the outer page."
+    $itemCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceScanHistoryItem.cs") -Raw
+    if ($itemCode -notmatch 'AutomationControlType.DataItem' -or $itemCode -notmatch 'IScrollItemProvider' -or
+        $itemCode -notmatch 'owner.StartBringIntoView') {
+        throw "Passive observation rows must retain accessible data-item and bring-into-view support."
     }
     $activityCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.Activity.cs") -Raw
     if ($activityCode -match 'HistoryDetailsEnabled|CompletedObservationsEnabled' -or
@@ -349,7 +351,8 @@ try {
     $base = $originalBase
     Test-Change @{ "src\FingVibe.App\MainWindow.DeviceDetails.cs" = "changed" } `
         @("Devices", "DeviceDetails") "Device details code"
-    foreach ($path in @("src\FingVibe.App\DeviceDetailsPresentation.cs", "src\FingVibe.App\Views\DeviceDetailValue.cs")) {
+    foreach ($path in @("src\FingVibe.App\DeviceDetailsPresentation.cs", "src\FingVibe.App\Views\DeviceDetailValue.cs",
+        "src\FingVibe.App\Views\DeviceScanHistoryItem.cs")) {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device details presentation"
     }
     foreach ($path in @("src\FingVibe.App\MainWindow.UsageCategories.cs", "src\FingVibe.App\UsageCategoryPresentation.cs",

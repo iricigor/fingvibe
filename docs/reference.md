@@ -477,11 +477,14 @@ History is fetched in bounded 100-observation pages. **Older scans** and
 **Newer scans** reach every retained observation; each page remains scrollable,
 and the page indicator reports the displayed range and scoped total. Only one
 page is held by the view. Equal-time observations keep their insertion order.
-The bounded page uses stable, non-recycled row containers, avoiding focus and
-automation peer realization moving the viewport during traversal. Every row must
-be physically reachable; enumerated offscreen peers do not establish visibility.
-Keyboard focus on the list or an observation brings the whole bounded viewport
-inside the outer details page, rather than leaving its lower rows clipped.
+The bounded page uses a native ScrollViewer and passive ItemsControl rather than
+a selectable ListView. Its stable rows expose the UI Automation DataItem role,
+the same complete timestamp/state names, and ScrollItem bring-into-view support.
+This avoids selector focus/recycling changing the viewport during read-only
+traversal. The viewport is a keyboard tab stop; rows do not add 100 tab stops.
+Every row must be physically reachable at full height; enumerated offscreen or
+clipped peers do not establish visibility. Focusing the viewport brings it
+inside the outer details page.
 The expander publishes the page's Loading/Ready/Empty/Error request state through
 UI Automation ItemStatus, after layout completes.
 A traversal captures a saved sequence boundary, so scans appended meanwhile
