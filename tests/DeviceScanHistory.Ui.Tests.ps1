@@ -799,12 +799,18 @@ try {
         $null = Assert-HistoryPage $pageIndex
     }
     if ((Find-HistoryControl DeviceHistoryNewer).Current.IsEnabled) { throw "Newer navigation must stop at the newest page." }
+    $beforeError = @(Assert-HistoryPage 0)
     $savedDatabase = [IO.File]::ReadAllBytes($database)
     Set-Content -LiteralPath $database -Value "invalid observation page fixture"
     Move-HistoryPage DeviceHistoryOlder 2 -State Error
     if ((Find-HistoryControl DeviceHistoryPageStatus).Current.Name -notlike "Scan history page could not be loaded:*") {
         throw "Page errors must be explicit without replacing valid rows."
     }
+    $retained = @((Show-HistorySection DeviceScanHistoryList).FindAll(
+        [System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::ListItem)) | ForEach-Object { $_.Current.Name })
+    if (($retained -join "|") -cne ($beforeError -join "|")) { throw "A failed page load replaced the last valid page." }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-page-error.png")
     [IO.File]::WriteAllBytes($database, $savedDatabase)
     Move-HistoryPage DeviceHistoryOlder 2
