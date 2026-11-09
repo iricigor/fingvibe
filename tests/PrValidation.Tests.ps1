@@ -448,4 +448,5 @@ try {
     foreach ($name in $names) { [Environment]::SetEnvironmentVariable($name, $saved[$name]) }
     if (Test-Path -LiteralPath $summary) { Remove-Item -LiteralPath $summary }
 }
+& (Join-Path $PSScriptRoot "NativeValidation.Tests.ps1")
 Write-Host "PR validation planning, comment history, and required-check regression tests passed."

@@ -82,3 +82,4 @@ try {
     if (Test-Path -LiteralPath $root) { Remove-Item -LiteralPath $root }
 }
 Write-Output "Dispatcher gate tests passed."
+& (Join-Path $PSScriptRoot "DispatcherPreflight.Tests.ps1")
