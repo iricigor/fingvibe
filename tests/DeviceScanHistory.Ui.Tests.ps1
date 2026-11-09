@@ -222,6 +222,8 @@ function Assert-HistoryPage([int] $PageIndex, [switch] $Traverse) {
         [System.Windows.Automation.ControlType]::ListItem)
     $items = $list.FindAll([System.Windows.Automation.TreeScope]::Children, $condition)
     if ($items.Count -ne $count) { throw "Expected $count bounded rows, got $($items.Count)." }
+    $rowHeight = ($items | ForEach-Object { $_.Current.BoundingRectangle.Height } | Measure-Object -Maximum).Maximum
+    if ($rowHeight -le 0) { throw "The observation page has no rendered row geometry." }
     $labels = @()
     for ($index = 0; $index -lt $count; $index++) {
         $second = 204 - $start - $index
@@ -233,7 +235,8 @@ function Assert-HistoryPage([int] $PageIndex, [switch] $Traverse) {
         if ($Traverse) {
             $item.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView()
             $null = Wait-UiRegressionState -Description "physically visible observation '$expected'" -Condition {
-                if ((Test-UiRegressionElementWithin $item $list $script:root) -and
+                if ($item.Current.BoundingRectangle.Height -ge $rowHeight - 1 -and
+                    (Test-UiRegressionElementWithin $item $list $script:root) -and
                     (Test-UiRegressionElementWithin $item $pageViewport $script:root)) { return $true }
             }
         }
@@ -257,25 +260,28 @@ function Assert-HistoryScrollMovement {
                 return [pscustomobject]@{
                     Index = $index; Label = $items[$index].Current.Name
                     Top = $items[$index].Current.BoundingRectangle.Top
+                    Bottom = $items[$index].Current.BoundingRectangle.Bottom
                 }
             }
         }
     }
     $before = Wait-UiRegressionState -Condition $firstVisible -Description "first visible history row"
     foreach ($amount in @("LargeIncrement", "LargeIncrement", "LargeIncrement", "SmallDecrement", "LargeIncrement")) {
-        Write-Host "History $amount before: row $($before.Index), top $($before.Top), scroll $($scroll.Current.VerticalScrollPercent)%."
+        Write-Host "History $amount before: row $($before.Index), bounds $($before.Top)-$($before.Bottom), scroll $($scroll.Current.VerticalScrollPercent)%."
         $scroll.Scroll([System.Windows.Automation.ScrollAmount]::NoAmount,
             [System.Windows.Automation.ScrollAmount]::$amount)
         $after = Wait-UiRegressionState -Description "$amount to move actual visible rows without snap-back" -Condition {
             $current = & $firstVisible
             if ($current -and $(if ($amount -eq "SmallDecrement") {
-                    $current.Index -lt $before.Index -or ($current.Index -eq $before.Index -and $current.Top -gt $before.Top)
+                    $current.Index -lt $before.Index -or ($current.Index -eq $before.Index -and
+                        ($current.Top -gt $before.Top -or $current.Bottom -gt $before.Bottom))
                 }
                 else {
-                    $current.Index -gt $before.Index -or ($current.Index -eq $before.Index -and $current.Top -lt $before.Top)
+                    $current.Index -gt $before.Index -or ($current.Index -eq $before.Index -and
+                        ($current.Top -lt $before.Top -or $current.Bottom -lt $before.Bottom))
                 })) { return $current }
         }
-        Write-Host "History $amount moved row $($before.Index) at $($before.Top) '$($before.Label)' -> $($after.Index) at $($after.Top) '$($after.Label)'."
+        Write-Host "History $amount moved row $($before.Index) at $($before.Top)-$($before.Bottom) '$($before.Label)' -> $($after.Index) at $($after.Top)-$($after.Bottom) '$($after.Label)'."
         $before = $after
     }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-scroll-movement.png")

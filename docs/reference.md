@@ -1122,8 +1122,8 @@ eligibility, exact time boundaries, DST and cancellation. The disposable Windows
 `tests\DeviceActivity.Ui.Tests.ps1` with an isolated
 synthetic inventory, exercising all modes/stops, cell keyboard details,
 loading/error/no-history states, selection changes, narrow scrolling, themes,
-high contrast and access to the retained history summary without enabling
-completed observations. It waits for Activity's observable state for each
+high contrast and access to the retained history summary while leaving
+completed observations independently collapsed. It waits for Activity's observable state for each
 selection and request, then asserts the rendered grid once, and checks that
 identified Activity controls keep their UI Automation peers while loading, after
 an error and after Retry. `AsyncSurfaceSessionTests` prove cancellation,

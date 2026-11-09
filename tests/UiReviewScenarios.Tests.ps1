@@ -178,7 +178,10 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
             $time = ([DateTimeOffset]::Parse("2026-11-01T12:00:00Z").AddSeconds($second)).ToLocalTime()
             $state = if ($second % 4 -lt 2) { "present" } else { "absent" }
             $item = [pscustomobject]@{
-                Current = [pscustomobject]@{ Name = "$($time.ToString('yyyy-MM-dd HH:mm:ss zzz')); Observed $state" }
+                Current = [pscustomobject]@{
+                    Name = "$($time.ToString('yyyy-MM-dd HH:mm:ss zzz')); Observed $state"
+                    BoundingRectangle = [pscustomobject]@{ Height = 36 }
+                }
                 Visible = $false
             }
             $item | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $this }
@@ -194,6 +197,14 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     }
     Assert-Equal $script:reached.Count 205 "Every observation needs a physical reachability assertion"
     Assert-Equal @($script:reached | Select-Object -Unique).Count 205 "No cross-page duplicate may satisfy traversal"
+    $script:fakeItems[0].Current.Name = $script:reached[200]
+    $script:fakeItems[0].Current.BoundingRectangle.Height = 12
+    function Wait-UiRegressionState($Condition, $Description) {
+        $result = & $Condition
+        if (-not $result) { throw "Row is not fully physically visible: $Description" }
+        return $result
+    }
+    Assert-Throws { Assert-HistoryPage 2 -Traverse } "*not fully physically visible*"
     $script:fakeItems = @()
     Assert-Throws { Assert-HistoryPage 2 } "*Expected 5 bounded rows*"
 }
