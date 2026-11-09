@@ -56,6 +56,9 @@ try {
                 Invoke-RegressionCheck "UsageCategory.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "usage-category") }
             }
             else {
+                Invoke-RegressionCheck "DeviceScanHistory.Ui" @{
+                    ScreenshotDirectory = (Join-Path $ScreenshotDirectory "observations"); ObservationsOnly = $true
+                }
                 Invoke-RegressionCheck "DeviceActivity.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "activity") }
             }
         }

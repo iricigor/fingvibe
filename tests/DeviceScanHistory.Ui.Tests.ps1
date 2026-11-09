@@ -1,15 +1,36 @@
 param(
     [Parameter(Mandatory)][string] $AppPath,
     [Parameter(Mandatory)][string] $ScreenshotDirectory,
-    [switch] $SummaryOnly
+    [switch] $SummaryOnly,
+    [switch] $ObservationsOnly
 )
 
 $ErrorActionPreference = "Stop"
+if ($SummaryOnly -and $ObservationsOnly) { throw "Choose summary or observation coverage, not both." }
+if ($env:GITHUB_ACTIONS -ne "true") { throw "History UI checks require a disposable GitHub Actions desktop." }
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
 . (Join-Path $PSScriptRoot "UiRegression\Helpers.ps1")
 . (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
 Initialize-InventorySqlite $AppPath
+
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public static class HistoryReviewContrast {
+    [StructLayout(LayoutKind.Sequential)] private struct HC { public uint Size; public uint Flags; public IntPtr Scheme; }
+    [DllImport("user32.dll", SetLastError=true)] private static extern bool SystemParametersInfo(uint action, uint parameter, ref HC value, uint flags);
+    public static uint Get() {
+        var value = new HC { Size = (uint)Marshal.SizeOf<HC>() };
+        if (!SystemParametersInfo(0x0042, value.Size, ref value, 0)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+        return value.Flags;
+    }
+    public static void Set(uint flags) {
+        var value = new HC { Size = (uint)Marshal.SizeOf<HC>(), Flags = flags };
+        if (!SystemParametersInfo(0x0043, value.Size, ref value, 2)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+    }
+}
+'@
 
 function Find-HistoryControl([string] $Value, [switch] $ByName, [switch] $Optional) {
     $property = if ($ByName) { [System.Windows.Automation.AutomationElement]::NameProperty }
@@ -145,21 +166,12 @@ function Open-HistoryDetails([string] $Name) {
         $scroll = Find-HistoryControl DeviceDetailsScroll -Optional
         $scroll -and -not $scroll.Current.IsOffscreen
     } "details for $Name"
-    if ($SummaryOnly) {
-        foreach ($id in @("DeviceScanHistoryExpander", "DeviceScanHistoryList", "DeviceHistoryOlder", "DeviceHistoryNewer",
-            "DeviceHistoryTab", "DeviceViewHistory")) {
-            $element = Find-HistoryControl $id -Optional
-            if ($element -and (-not $element.Current.IsOffscreen -or $element.Current.IsKeyboardFocusable)) {
-                throw "Disabled history control '$id' remains visible or keyboard accessible."
-            }
-        }
-        return
-    }
     foreach ($id in @("DeviceScanHistoryExpander", "DeviceImportedMetadata")) {
         $pattern = (Find-HistoryControl $id).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
         if ($pattern.Current.ExpandCollapseState -ne [System.Windows.Automation.ExpandCollapseState]::Collapsed) {
             throw "$id must start collapsed on opening a device."
         }
+        if ($SummaryOnly) { return }
     }
     $expander = Show-HistorySection DeviceScanHistoryExpander
     $expander.SetFocus()
@@ -179,10 +191,122 @@ function Get-HistoryTimestamp([int] $Index) {
     return (Get-HistoryLocalTime $Index).ToString("yyyy-MM-dd HH:mm:ss '(local)'", [Globalization.CultureInfo]::InvariantCulture)
 }
 
+function Wait-HistoryPage([int] $Page, [int] $After = 0, [string] $State = "Ready") {
+    Wait-UiRegressionSurfaceState -GetElement { Find-HistoryControl DeviceScanHistoryExpander -Optional } `
+        -Description "Completed observations" -Selection "Page $Page" -State $State -After $After
+}
+
+function Move-HistoryPage([string] $Id, [int] $Page, [switch] $Keyboard, [string] $State = "Ready") {
+    $before = (Get-UiRegressionSurfaceState -GetElement { Find-HistoryControl DeviceScanHistoryExpander } `
+        -Description "Completed observations").Request
+    $button = Show-HistorySection $Id
+    if ($Keyboard) {
+        $button.SetFocus()
+        [System.Windows.Forms.SendKeys]::SendWait(" ")
+    }
+    else { $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke() }
+    $null = Wait-HistoryPage $Page $before $State
+}
+
+function Assert-HistoryPage([int] $PageIndex, [switch] $Traverse) {
+    $start = 100 * $PageIndex
+    $count = [Math]::Min(100, 205 - $start)
+    if ((Find-HistoryControl DeviceHistoryPageStatus).Current.Name -notlike "Showing $($start + 1)-$($start + $count) of 205.*" -or
+        (Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "205 completed scan observations") {
+        throw "Incorrect scoped count/range on observation page $PageIndex."
+    }
+    $list = Show-HistorySection DeviceScanHistoryList
+    $pageViewport = Find-HistoryControl DeviceDetailsScroll
+    $condition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+        [System.Windows.Automation.ControlType]::DataItem)
+    $items = $list.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition)
+    if ($items.Count -ne $count) { throw "Expected $count bounded rows, got $($items.Count)." }
+    $rowHeight = ($items | ForEach-Object { $_.Current.BoundingRectangle.Height } | Measure-Object -Maximum).Maximum
+    if ($rowHeight -le 0) { throw "The observation page has no rendered row geometry." }
+    $labels = @()
+    for ($index = 0; $index -lt $count; $index++) {
+        $second = 204 - $start - $index
+        $time = ([DateTimeOffset]::Parse("2026-11-01T12:00:00Z").AddSeconds($second)).ToLocalTime()
+        $state = if ($second % 4 -lt 2) { "present" } else { "absent" }
+        $expected = "$($time.ToString('yyyy-MM-dd HH:mm:ss zzz')); Observed $state"
+        $item = $items[$index]
+        if ($item.Current.Name -cne $expected) { throw "Wrong row/order/state on page ${PageIndex}: '$($item.Current.Name)', expected '$expected'." }
+        if ($Traverse) {
+            $item.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView()
+            $null = Wait-UiRegressionState -Description "physically visible observation '$expected'" -Condition {
+                if ($item.Current.BoundingRectangle.Height -ge $rowHeight - 1 -and
+                    (Test-UiRegressionElementWithin $item $list $script:root) -and
+                    (Test-UiRegressionElementWithin $item $pageViewport $script:root)) { return $true }
+            }
+        }
+        $labels += $expected
+    }
+    return $labels
+}
+
+function Assert-HistoryScrollMovement {
+    $list = Show-HistorySection DeviceScanHistoryList
+    $items = $list.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::DataItem))
+    $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+    if (-not $scroll.Current.VerticallyScrollable) { throw "The 100-row page must be scrollable." }
+    $scroll.SetScrollPercent(-1, 0)
+    $firstVisible = {
+        for ($index = 0; $index -lt $items.Count; $index++) {
+            $bounds = $items[$index].Current.BoundingRectangle
+            $viewport = $list.Current.BoundingRectangle
+            if (-not $bounds.IsEmpty -and $bounds.Height -gt 0 -and $bounds.Width -gt 0 -and
+                -not $items[$index].Current.IsOffscreen -and
+                $bounds.Top -ge $viewport.Top -and $bounds.Bottom -le $viewport.Bottom) {
+                return [pscustomobject]@{
+                    Index = $index; Label = $items[$index].Current.Name
+                    Top = $bounds.Top; Bottom = $bounds.Bottom
+                }
+            }
+        }
+    }
+    $before = Wait-UiRegressionState -Condition $firstVisible -Description "first visible history row"
+    foreach ($amount in @("LargeIncrement", "LargeIncrement", "LargeIncrement", "SmallDecrement", "LargeIncrement")) {
+        Write-Host "History $amount before: row $($before.Index), bounds $($before.Top)-$($before.Bottom), scroll $($scroll.Current.VerticalScrollPercent)%."
+        $scroll.Scroll([System.Windows.Automation.ScrollAmount]::NoAmount,
+            [System.Windows.Automation.ScrollAmount]::$amount)
+        $after = Wait-UiRegressionState -Description "$amount to move actual visible rows without snap-back" -Condition {
+            $current = & $firstVisible
+            if ($current -and $(if ($amount -eq "SmallDecrement") {
+                    $current.Index -lt $before.Index -or ($current.Index -eq $before.Index -and
+                        ($current.Top -gt $before.Top -or $current.Bottom -gt $before.Bottom))
+                }
+                else {
+                    $current.Index -gt $before.Index -or ($current.Index -eq $before.Index -and
+                        ($current.Top -lt $before.Top -or $current.Bottom -lt $before.Bottom))
+                })) { return $current }
+        }
+        Write-Host "History $amount moved row $($before.Index) at $($before.Top)-$($before.Bottom) '$($before.Label)' -> $($after.Index) at $($after.Top)-$($after.Bottom) '$($after.Label)'."
+        $before = $after
+    }
+    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-scroll-movement.png")
+    $scroll.SetScrollPercent(-1, 0)
+}
+
 function Show-HistorySection([string] $Id, [int] $TopMargin = 35, [string[]] $AdditionalIds = @()) {
     $ids = @($Id) + $AdditionalIds
     $call = Start-UiRegressionCall positioning
     try {
+        $target = Find-HistoryControl $Id
+        $scrollItem = $null
+        if ($AdditionalIds.Count -eq 0 -and ($target.Current.IsKeyboardFocusable -or
+            $target.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern, [ref] $scrollItem))) {
+            if ($target.Current.IsKeyboardFocusable) { $target.SetFocus() }
+            if ($scrollItem -or $target.TryGetCurrentPattern(
+                [System.Windows.Automation.ScrollItemPattern]::Pattern, [ref] $scrollItem)) { $scrollItem.ScrollIntoView() }
+            return Wait-UiRegressionState -Description "visible history section '$Id'" -Condition {
+                $current = Find-HistoryControl $Id -Optional
+                if (Test-UiRegressionElementWithin $current (Find-HistoryControl DeviceDetailsScroll) $script:root) { return $current }
+            }
+        }
         Show-UiRegressionScrollTargets -Description "Scan-history section '$Id'" -TopMargin $TopMargin -BottomMargin 10 `
             -GetViewport { Find-HistoryControl DeviceDetailsScroll } -GetWindow { $script:root } `
             -GetTargets { $ids | ForEach-Object { Find-HistoryControl $_ } }
@@ -193,14 +317,14 @@ function Show-HistorySection([string] $Id, [int] $TopMargin = 35, [string[]] $Ad
 function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
     $count = $LastIndex + 1
     if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "$count completed scan observations") {
-        throw "The history must contain exactly $count individual completed scans in the current scope."
+        throw "Expected $count individual completed scans; got '$((Find-HistoryControl DeviceScanHistoryCount).Current.Name)' in '$((Find-HistoryControl DeviceHistoryScope).Current.Name)'."
     }
     $list = Show-HistorySection DeviceScanHistoryList
     $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     $seen = @{}
     $itemCondition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-        [System.Windows.Automation.ControlType]::ListItem)
+        [System.Windows.Automation.ControlType]::DataItem)
     $textCondition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
         [System.Windows.Automation.ControlType]::Text)
@@ -208,7 +332,8 @@ function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
         if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
         Start-Sleep -Milliseconds 100
         $times = @()
-        foreach ($item in $list.FindAll([System.Windows.Automation.TreeScope]::Children, $itemCondition)) {
+        foreach ($item in $list.FindAll([System.Windows.Automation.TreeScope]::Descendants, $itemCondition)) {
+            if (-not (Test-UiRegressionElementWithin $item $list $script:root)) { continue }
             $texts = @($item.FindAll([System.Windows.Automation.TreeScope]::Descendants, $textCondition) |
                 ForEach-Object { $_.Current.Name })
             if ($texts.Count -eq 0) { continue }
@@ -244,10 +369,10 @@ function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
 function Assert-HistoryTableRendering([string] $Capture) {
     $list = Show-HistorySection DeviceScanHistoryList 85
     $headers = @("Date", "Time (local)", "Status") | ForEach-Object { Find-HistoryControl $_ -ByName }
-    $items = $list.FindAll([System.Windows.Automation.TreeScope]::Children,
+    $items = $list.FindAll([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-            [System.Windows.Automation.ControlType]::ListItem))
+            [System.Windows.Automation.ControlType]::DataItem))
     $path = Join-Path $ScreenshotDirectory "$Capture.png"
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle $path
     $window = Get-UiReviewWindowBounds $script:process.MainWindowHandle
@@ -354,7 +479,7 @@ function Wait-HistoryScan {
 
 $previous = @{}
 foreach ($key in @("FINGVIBE_UI_REVIEW", "FINGVIBE_UI_REVIEW_INVENTORY", "FINGVIBE_UI_REVIEW_SNAPSHOT",
-    "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT", "FINGVIBE_UI_REVIEW_SCAN_HOLD")) {
+    "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT", "FINGVIBE_UI_REVIEW_SCAN_HOLD", "FINGVIBE_UI_REVIEW_NETWORK")) {
     $previous[$key] = [Environment]::GetEnvironmentVariable($key)
 }
 $fixtureDirectory = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-history-ui-$([Guid]::NewGuid().ToString('N'))"
@@ -364,6 +489,7 @@ $snapshot = Join-Path $fixtureDirectory "snapshot.json"
 $hold = Join-Path $fixtureDirectory "scan.hold"
 $script:process = $null
 $lock = $null
+$contrast = $null
 $phase = $null
 $failed = $false
 try {
@@ -417,6 +543,7 @@ try {
     $env:FINGVIBE_UI_REVIEW_INVENTORY = $inventory
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $snapshot
     $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT = "0"
+    $env:FINGVIBE_UI_REVIEW_NETWORK = "ui-review-network"
     $env:FINGVIBE_UI_REVIEW_SCAN_HOLD = $hold
     $phase = Step-UiRegressionPhase $phase "history/summary-cases" $ScreenshotDirectory
     foreach ($index in 0..4) {
@@ -445,10 +572,12 @@ try {
         if (Test-Path -LiteralPath $database) { Remove-Item -LiteralPath $database }
         Start-HistoryApp
         foreach ($kind in @("normal", "virtual")) {
-            $null = Assert-HistoryLastSeenCell "History $kind" "Last seen: $(Get-HistoryExactTime $lastSeen)"
-            Assert-HistoryLastSeenAge "History $kind" $lastSeen
+            if (-not $ObservationsOnly) {
+                $null = Assert-HistoryLastSeenCell "History $kind" "Last seen: $(Get-HistoryExactTime $lastSeen)"
+                Assert-HistoryLastSeenAge "History $kind" $lastSeen
+            }
             Open-HistoryDetails "History $kind"
-            Assert-HistorySummary "history-$kind-$index" $index
+            if (-not $ObservationsOnly) { Assert-HistorySummary "history-$kind-$index" $index }
             if (-not $SummaryOnly) { Assert-HistoryRows "history-$kind-$index" $index }
         }
         Stop-HistoryApp
@@ -533,7 +662,18 @@ try {
             $bounds.Left, $bounds.Top, $bounds.Width, $bounds.Height, 0x0044)
         Start-Sleep -Milliseconds 500
     }
+    if (-not $SummaryOnly) {
+        $contrast = [HistoryReviewContrast]::Get()
+        [HistoryReviewContrast]::Set($contrast -bor 1)
+        Start-Sleep -Seconds 2
+        if (([HistoryReviewContrast]::Get() -band 1) -eq 0) { throw "High contrast did not activate." }
+        Open-HistoryDetails "History normal"
+        Assert-HistoryRows "history-high-contrast"
+        [HistoryReviewContrast]::Set($contrast)
+        $contrast = $null
+    }
     $phase = Step-UiRegressionPhase $phase "history/scan-outcomes" $ScreenshotDirectory
+    if (-not $ObservationsOnly) {
     Open-HistoryDetails "History virtual"
     Assert-HistorySummary "history-virtual-restarted"
     if ((Get-Content -LiteralPath $inventory -Raw) -cne $original) { throw "Restoration must not write new scan entries." }
@@ -624,9 +764,11 @@ try {
         throw "Invalid saved history must not be overwritten."
     }
     Stop-HistoryApp
+    }
+    else { Stop-HistoryApp }
     if ($SummaryOnly) {
         $phase = Step-UiRegressionPhase $phase $null $ScreenshotDirectory
-        Write-Host "Retained summaries, Last seen, persistence, scan outcomes and disabled completed-observation UI checks passed."
+        Write-Host "Summaries, Last seen, persistence, scan outcomes and collapsed completed-observation checks passed."
         return
     }
     $phase = Step-UiRegressionPhase $phase "history/paging" $ScreenshotDirectory
@@ -643,54 +785,56 @@ try {
     Start-HistoryApp
     Open-HistoryDetails "History normal"
     $reachable = @{}
+    Assert-HistoryScrollMovement
     foreach ($pageIndex in 0..2) {
-        $start = 1 + 100 * $pageIndex
-        $end = [Math]::Min(100 * ($pageIndex + 1), 205)
-        Wait-HistoryState {
-            (Find-HistoryControl DeviceHistoryPageStatus).Current.Name -like "Showing $start-$end of 205.*"
-        } "bounded history page $($pageIndex + 1)"
-        if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "205 completed scan observations") {
-            throw "Paging must retain the exact scoped observation count."
-        }
-        $list = Show-HistorySection DeviceScanHistoryList
-        $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-        $condition = [System.Windows.Automation.PropertyCondition]::new(
-            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-            [System.Windows.Automation.ControlType]::ListItem)
-        $pageRows = @{}
-        foreach ($percent in 0..100) {
-            if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
-            Start-Sleep -Milliseconds 20
-            foreach ($item in $list.FindAll([System.Windows.Automation.TreeScope]::Children, $condition)) {
-                $label = $item.Current.Name
-                if ($label -match '; Observed (present|absent)$') { $pageRows[$label] = $true }
-            }
-        }
-        if ($pageRows.Count -ne $end - $start + 1) { throw "Not every observation on page $pageIndex is reachable: $($pageRows.Count)." }
-        foreach ($label in $pageRows.Keys) {
+        $null = Wait-HistoryPage ($pageIndex + 1)
+        $pageRows = @(Assert-HistoryPage $pageIndex -Traverse)
+        foreach ($label in $pageRows) {
             if ($reachable.ContainsKey($label)) { throw "Observation duplicated across history pages: $label." }
             $reachable[$label] = $true
         }
+        $list = Show-HistorySection DeviceScanHistoryList
+        $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
         if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
         Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-page-$($pageIndex + 1).png")
+        $pageRows | ConvertTo-Json | Set-Content (Join-Path $ScreenshotDirectory "history-page-$($pageIndex + 1).json")
         if ($pageIndex -lt 2) {
-            $older = Show-HistorySection DeviceHistoryOlder
-            $older.SetFocus()
-            [System.Windows.Forms.SendKeys]::SendWait(" ")
+            Move-HistoryPage DeviceHistoryOlder ($pageIndex + 2) -Keyboard
         }
     }
     if ($reachable.Count -ne 205) { throw "All 205 retained observations must remain reachable." }
     if ((Find-HistoryControl DeviceHistoryOlder).Current.IsEnabled) { throw "Older navigation must stop at the oldest page." }
-    (Show-HistorySection DeviceHistoryNewer).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-    Wait-HistoryState { (Find-HistoryControl DeviceHistoryPageStatus).Current.Name -like "Showing 101-200 of 205.*" } "reverse history paging"
-    (Show-HistorySection DeviceHistoryOlder).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    foreach ($pageIndex in @(1, 0)) {
+        Move-HistoryPage DeviceHistoryNewer ($pageIndex + 1)
+        $null = Assert-HistoryPage $pageIndex
+    }
+    if ((Find-HistoryControl DeviceHistoryNewer).Current.IsEnabled) { throw "Newer navigation must stop at the newest page." }
+    $beforeError = @(Assert-HistoryPage 0)
+    $savedDatabase = [IO.File]::ReadAllBytes($database)
+    Set-Content -LiteralPath $database -Value "invalid observation page fixture"
+    Move-HistoryPage DeviceHistoryOlder 2 -State Error
+    if ((Find-HistoryControl DeviceHistoryPageStatus).Current.Name -notlike "Scan history page could not be loaded:*") {
+        throw "Page errors must be explicit without replacing valid rows."
+    }
+    $retained = @((Show-HistorySection DeviceScanHistoryList).FindAll(
+        [System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::DataItem)) | ForEach-Object { $_.Current.Name })
+    if (($retained -join "|") -cne ($beforeError -join "|")) { throw "A failed page load replaced the last valid page." }
+    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-page-error.png")
+    [IO.File]::WriteAllBytes($database, $savedDatabase)
+    Move-HistoryPage DeviceHistoryOlder 2
+    $null = Assert-HistoryPage 1
+    Move-HistoryPage DeviceHistoryOlder 3
     Open-HistoryDetails "History imported"
     if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "0 completed scan observations") {
         throw "Selection changes must not retain the previous device's page."
     }
     Open-HistoryDetails "History normal"
-    Wait-HistoryState { (Find-HistoryControl DeviceHistoryPageStatus).Current.Name -like "Showing 1-100 of 205.*" } "reset history traversal after selection change"
+    $null = Wait-HistoryPage 1
+    $null = Assert-HistoryPage 0
     if ((Find-HistoryControl DeviceHistoryNewer).Current.IsEnabled) { throw "Newer navigation must stop at the newest page." }
+    Stop-HistoryApp
     $phase = Step-UiRegressionPhase $phase $null $ScreenshotDirectory
     Write-Host "Device scan-history native UI checks passed."
 }
@@ -708,6 +852,7 @@ finally {
         { if ($phase) { Complete-UiRegressionPhase -Phase $phase -Directory $ScreenshotDirectory -Succeeded $false } },
         { Write-UiRegressionCallCosts -Directory $ScreenshotDirectory -Name "DeviceScanHistory.Ui" },
         { if ($lock) { $lock.Dispose() } },
+        { if ($null -ne $contrast) { [HistoryReviewContrast]::Set($contrast) } },
         { if ($script:process -and -not $script:process.HasExited) { Stop-Process -Id $script:process.Id -Force } },
         { foreach ($key in $previous.Keys) { [Environment]::SetEnvironmentVariable($key, $previous[$key]) } },
         { if (Test-Path -LiteralPath $fixtureDirectory) { Remove-Item -LiteralPath $fixtureDirectory -Recurse -Force } }

@@ -12,8 +12,7 @@ public sealed record DeviceAssignmentChoice(Guid? Id = null, bool AddNew = false
 
 public sealed partial class DeviceDetailsPageView : UserControl
 {
-    // Completed observations remain disabled until #274 is delivered, independently of Activity.
-    internal static bool CompletedObservationsEnabled => false;
+    internal static bool CompletedObservationsEnabled => true;
 
     private bool _updatingAssignments;
     private bool _updatingAddresses;
@@ -27,6 +26,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
     private DeviceHistoryPage? _historyPage;
     private int _historyPageIndex;
     private int _historyGeneration;
+    private readonly AsyncSurfaceSession _historySession = new();
     private readonly DispatcherTimer _historyClock = new() { Interval = TimeSpan.FromSeconds(30) };
 
     public DeviceDetailsPageView()
@@ -36,11 +36,18 @@ public sealed partial class DeviceDetailsPageView : UserControl
         InitializeUsageCategory();
         DeviceScanHistoryExpander.Visibility =
             CompletedObservationsEnabled ? Visibility.Visible : Visibility.Collapsed;
+        _historySession.StateChanged += (_, _) =>
+            AutomationProperties.SetItemStatus(DeviceScanHistoryExpander, _historySession.Status);
         InitializeActivity();
         _historyClock.Tick += (_, _) => RefreshHistorySummary();
         _historyClock.Tick += (_, _) => RefreshActivityDate();
         Loaded += (_, _) => { RefreshHistorySummary(); _historyClock.Start(); };
-        Unloaded += (_, _) => _historyClock.Stop();
+        Unloaded += (_, _) =>
+        {
+            _historyClock.Stop();
+            _historyGeneration++;
+            _historySession.Cancel();
+        };
         GotFocus += (_, args) =>
         {
             if (args.OriginalSource is FrameworkElement element)
@@ -73,6 +80,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
     internal void ShowDevice(ScanResultRow row)
     {
         _historyGeneration++;
+        _historySession.Cancel();
         _row = row;
         DeviceNameEditor.Visibility = Visibility.Collapsed;
         SetClassificationEditing(false);
@@ -92,6 +100,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
         _historySubnet = subnet;
         _historyPageIndex = 0;
         _historyPage = null;
+        var request = _historySession.Start("Page 1");
         DeviceHistoryPageStatus.Text = string.Empty;
         DeviceHistoryScope.Text = $"Current network: {networkId ?? "identity unavailable"} | {subnet ?? "subnet unavailable"}";
         try
@@ -108,6 +117,9 @@ public sealed partial class DeviceDetailsPageView : UserControl
                 DeviceScanHistoryEmpty.Text = _historyPage?.TotalCount == 0
                     ? DeviceDetailsPresentation.EmptyScanHistory(row, networkId, subnet) : string.Empty;
                 DeviceScanHistoryEmpty.Visibility = _historyPage?.TotalCount == 0 ? Visibility.Visible : Visibility.Collapsed;
+                if (request is not null)
+                    _historySession.Complete(request, _historyPage?.TotalCount == 0 ? AsyncSurfaceState.Empty : AsyncSurfaceState.Ready,
+                        () => DeviceScanHistoryExpander.UpdateLayout());
             }
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
@@ -116,10 +128,12 @@ public sealed partial class DeviceDetailsPageView : UserControl
             RefreshHistorySummary();
             DeviceHistoryLatest.Text = $"Saved history is unavailable: {exception.Message}";
             DeviceScanHistoryCount.Text = string.Empty;
-            DeviceScanHistoryList.ItemsSource = null;
+            DeviceScanHistoryRows.ItemsSource = null;
             DeviceScanHistoryTable.Visibility = Visibility.Collapsed;
             DeviceScanHistoryEmpty.Text = $"Scan history could not be loaded: {exception.Message}";
             DeviceScanHistoryEmpty.Visibility = Visibility.Visible;
+            if (request is not null)
+                _historySession.Complete(request, AsyncSurfaceState.Error, () => DeviceScanHistoryExpander.UpdateLayout());
         }
         UpdateHistoryPageActions();
         VirtualDeviceHistoryCard.Visibility = row.VirtualDevice is { } device
@@ -131,8 +145,9 @@ public sealed partial class DeviceDetailsPageView : UserControl
     {
         _historyPage = page;
         DeviceScanHistoryCount.Text = $"{page.TotalCount:N0} completed scan observations";
-        DeviceScanHistoryList.ItemsSource = page.Items.Select((item, index) => new DeviceScanHistoryRow(
+        DeviceScanHistoryRows.ItemsSource = page.Items.Select((item, index) => new DeviceScanHistoryRow(
             item.CompletedAt, item.Present, index % 2 == 1, TimeZoneInfo.Local)).ToArray();
+        DeviceScanHistoryList.ChangeView(null, 0, null, disableAnimation: true);
         DeviceScanHistoryTable.Visibility = page.TotalCount == 0 ? Visibility.Collapsed : Visibility.Visible;
         var start = _historyPageIndex * DeviceHistoryQuery.DefaultPageSize;
         DeviceHistoryPageStatus.Text = page.TotalCount == 0 ? string.Empty
@@ -156,6 +171,9 @@ public sealed partial class DeviceDetailsPageView : UserControl
         var network = _historyNetwork;
         var subnet = _historySubnet;
         var generation = ++_historyGeneration;
+        var pageIndex = _historyPageIndex + (newer ? -1 : 1);
+        var request = _historySession.Start($"Page {pageIndex + 1}");
+        if (request is null) return;
         DeviceHistoryNewer.IsEnabled = DeviceHistoryOlder.IsEnabled = false;
         DeviceHistoryPageStatus.Text = "Loading scan observations...";
         try
@@ -163,14 +181,22 @@ public sealed partial class DeviceDetailsPageView : UserControl
             var page = await Task.Run(() => DeviceHistoryQuery.ReadPage(history, network, subnet,
                 newer ? current.First : current.Last, newer));
             if (generation != _historyGeneration) return;
-            _historyPageIndex += newer ? -1 : 1;
-            ApplyHistoryPage(page);
+            _historySession.Complete(request, page.TotalCount == 0 ? AsyncSurfaceState.Empty : AsyncSurfaceState.Ready, () =>
+            {
+                _historyPageIndex = pageIndex;
+                ApplyHistoryPage(page);
+                DeviceScanHistoryExpander.UpdateLayout();
+            });
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException or InvalidOperationException)
         {
             if (generation != _historyGeneration) return;
-            DeviceHistoryPageStatus.Text = $"Scan history page could not be loaded: {exception.Message}";
-            UpdateHistoryPageActions();
+            _historySession.Complete(request, AsyncSurfaceState.Error, () =>
+            {
+                DeviceHistoryPageStatus.Text = $"Scan history page could not be loaded: {exception.Message}";
+                UpdateHistoryPageActions();
+                DeviceScanHistoryExpander.UpdateLayout();
+            });
         }
     }
 

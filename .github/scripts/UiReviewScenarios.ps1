@@ -117,7 +117,7 @@ function Get-UiReviewCapturePlan {
                 $path -eq 'src/FingVibe.Core/Models/DeviceUsageCategory.cs' -or $path -eq 'tests/UsageCategory.Ui.Tests.ps1') {
                 Add-Scenarios @("Devices", "DeviceDetails", "Settings") "$path changed usage classification or editing."
             }
-            elseif ($path -match '^src/FingVibe.App/(MainWindow.DeviceDetails.cs|DeviceDetailsPresentation.cs|Views/DeviceDetailValue.cs)$') {
+            elseif ($path -match '^src/FingVibe.App/(MainWindow.DeviceDetails.cs|DeviceDetailsPresentation.cs|Views/Device(DetailValue|ScanHistoryItem).cs)$') {
                 Add-Scenarios @("DeviceDetails") "$path changed device details behavior."
             }
             elseif ($path -match '^src/FingVibe.App/(MainWindow.DeviceActivity.cs|DeviceActivityPresentation.cs|DeviceActivityReviewHold.cs|Views/DeviceDetailsPageView.Activity.cs)$' -or

@@ -437,14 +437,6 @@ it contains no inferred uptime or scalar duration estimates.
 
 ### Device scan history
 
-**Completed observations remain temporarily disabled (#271/#274):** Device
-Details exposes Activity independently, but not the Completed Scan Observations
-expander/table. The table implementation, fixtures and dedicated tests remain
-for restoration, and observation pages are not loaded. The internal
-`DeviceDetailsPageView.CompletedObservationsEnabled` switch is off, not a user
-setting; it does not gate Activity. Descriptions of the table below document
-retained, not currently available controls.
-
 First/last seen, last-observed/since, network scope and latest-scan explanation
 remain visible in the summary. Devices Last seen, virtual MAC/address information,
 discovery, usage categories and all other device details are unchanged. Scans
@@ -452,10 +444,11 @@ continue collecting and retaining evidence; no stored data is deleted.
 The CI `details-summary` suite invokes `DeviceScanHistory.Ui.Tests.ps1 -SummaryOnly`,
 preserving summary/Last seen, network scope, normal/virtual/imported/legacy,
 restart, scan outcomes, persistence errors and light/dark/narrow summary checks.
-It also verifies disabled controls are not visible or keyboard accessible.
-Activity checks run separately in the `details-history` suite. Observation-table
-rendering/paging checks remain dormant, not waived for #274. Restoring Activity
-does not authorize restoring the table or the deferred tab redesign.
+The `details-history` suite runs Activity and the independent `-ObservationsOnly`
+path: normal/virtual/imported/legacy rendering, themes/narrow layout, exhaustive
+205-row physical reachability, exact page count/order/state, reverse paging,
+page-error recovery and selection reset. Neither feature changes the other's
+enablement. The current single-page layout remains; the tab redesign is deferred.
 
 Device details shows a **Scan history** summary for normal MAC-based devices and
 existing virtual devices. First/last-seen timestamps display in local time with
@@ -484,6 +477,16 @@ History is fetched in bounded 100-observation pages. **Older scans** and
 **Newer scans** reach every retained observation; each page remains scrollable,
 and the page indicator reports the displayed range and scoped total. Only one
 page is held by the view. Equal-time observations keep their insertion order.
+The bounded page uses a native ScrollViewer and passive ItemsControl rather than
+a selectable ListView. Its stable rows expose the UI Automation DataItem role,
+the same complete timestamp/state names, and ScrollItem bring-into-view support.
+This avoids selector focus/recycling changing the viewport during read-only
+traversal. The viewport is a keyboard tab stop; rows do not add 100 tab stops.
+Every row must be physically reachable at full height; enumerated offscreen or
+clipped peers do not establish visibility. Focusing the viewport brings it
+inside the outer details page.
+The expander publishes the page's Loading/Ready/Empty/Error request state through
+UI Automation ItemStatus, after layout completes.
 A traversal captures a saved sequence boundary, so scans appended meanwhile
 cannot shift pages, skip observations, or duplicate rows. Reopening the device
 or refreshing its network context starts at the newest page and includes new
@@ -592,9 +595,9 @@ scoped summaries and the matching Devices **Last seen** values through repeated 
 empty imported history, restart, successful repeated scans, cancellation,
 205-row page boundaries, forward/backward reachability and selection changes,
 failure, and visible persistence errors on the disposable Windows CI desktop.
-The parallel history regression job currently includes only its `-SummaryOnly`
-retained-functionality path when the capture plan requires device details;
-the full path is preserved for restoration. Never run it on a working
+The parallel summary and history jobs run complementary `-SummaryOnly` and
+`-ObservationsOnly` paths when the capture plan requires device details;
+running without either switch exercises both. Never run it on a working
 user's desktop. Its explicit `FINGVIBE_UI_REVIEW_INVENTORY` path isolates saved
 fixtures from real user data, like the existing review snapshot override.
 
@@ -904,13 +907,13 @@ in `phases.jsonl` alongside screenshots/transcripts and in the job summary.
 Compare repeated runs with the same revision/build provenance, viewport and
 selected scenarios against an equivalent baseline; retain failed phases and
 report missing evidence. No statistically established flake rate is claimed.
-The required aggregate and disabled Activity/observation policy are unchanged.
+The required aggregate and independently restored Activity/observation coverage are unchanged.
 
 Device Details regression follows the planned #262 Overview/History boundary
 across three independent matrix jobs (#292): `details-summary`
 (`DeviceScanHistory.Ui -SummaryOnly`), `details-identity` (`DeviceDiscovery.Ui`,
-`UsageCategory.Ui`) and `details-history` (`DeviceActivity.Ui`; restored
-observation checks belong here). Each job launches its own fixtures and app
+`UsageCategory.Ui`) and `details-history` (`DeviceActivity.Ui`,
+`DeviceScanHistory.Ui -ObservationsOnly`). Each job launches its own fixtures and app
 instances, is selected by the `DeviceDetails` capture-plan scenario, and must
 dispatch at least one check. Checks within a script still share sequential
 fixture state. History, discovery and usage checks also write
@@ -1124,8 +1127,8 @@ eligibility, exact time boundaries, DST and cancellation. The disposable Windows
 `tests\DeviceActivity.Ui.Tests.ps1` with an isolated
 synthetic inventory, exercising all modes/stops, cell keyboard details,
 loading/error/no-history states, selection changes, narrow scrolling, themes,
-high contrast and access to the retained history summary without enabling
-completed observations. It waits for Activity's observable state for each
+high contrast and access to the retained history summary while leaving
+completed observations independently collapsed. It waits for Activity's observable state for each
 selection and request, then asserts the rendered grid once, and checks that
 identified Activity controls keep their UI Automation peers while loading, after
 an error and after Retry. `AsyncSurfaceSessionTests` prove cancellation,

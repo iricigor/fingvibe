@@ -339,7 +339,7 @@
                     <TextBlock x:Name="DeviceHistoryLatest" AutomationProperties.AutomationId="DeviceHistoryLatest"
                                TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <Expander x:Name="DeviceScanHistoryExpander" Header="Completed Scan Observations"
-                              IsExpanded="False" Visibility="Collapsed"
+                              IsExpanded="False"
                               HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                               AutomationProperties.AutomationId="DeviceScanHistoryExpander">
                         <StackPanel Spacing="12">
@@ -372,52 +372,49 @@
                                         <TextBlock Grid.Column="2" Text="Status" FontWeight="SemiBold" TextWrapping="Wrap" />
                                     </Grid>
                                 </Border>
-                                <ListView x:Name="DeviceScanHistoryList" MaxHeight="320" SelectionMode="None"
-                                          HorizontalContentAlignment="Stretch"
-                                          AutomationProperties.AutomationId="DeviceScanHistoryList"
-                                          AutomationProperties.Name="Completed scan history, newest first">
-                                    <ListView.ItemContainerStyle>
-                                        <Style TargetType="ListViewItem">
-                                            <Setter Property="Padding" Value="0" />
-                                            <Setter Property="Margin" Value="0" />
-                                            <Setter Property="MinHeight" Value="0" />
-                                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                            <Setter Property="AutomationProperties.Name" Value="{Binding AccessibleLabel}" />
-                                        </Style>
-                                    </ListView.ItemContainerStyle>
-                                    <ListView.ItemTemplate>
-                                        <DataTemplate x:DataType="app:DeviceScanHistoryRow">
-                                            <Border Padding="12,8" BorderThickness="0,0,0,1"
-                                                    BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
-                                                    Background="{x:Bind IsAlternateRow, Converter={StaticResource ResultRowBackgroundConverter}}"
-                                                    AutomationProperties.Name="{x:Bind AccessibleLabel}"
-                                                    ToolTipService.ToolTip="{x:Bind FullTimestamp}">
-                                                <Grid ColumnSpacing="12">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="*" />
-                                                        <ColumnDefinition Width="*" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <TextBlock Text="{x:Bind Date}" TextWrapping="Wrap" />
-                                                    <TextBlock Grid.Column="1" Text="{x:Bind Time}" TextWrapping="Wrap" />
-                                                    <Grid Grid.Column="2" ColumnSpacing="8">
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="Auto" />
-                                                            <ColumnDefinition Width="*" />
-                                                        </Grid.ColumnDefinitions>
-                                                        <Grid VerticalAlignment="Center">
-                                                            <Ellipse Width="10" Height="10" Fill="{ThemeResource SystemFillColorSuccessBrush}"
-                                                                     Visibility="{x:Bind Present}" />
-                                                            <Ellipse Width="10" Height="10" Fill="{ThemeResource SystemFillColorCriticalBrush}"
-                                                                     Visibility="{x:Bind Absent}" />
+                                <ScrollViewer x:Name="DeviceScanHistoryList" MaxHeight="320" IsTabStop="True"
+                                              HorizontalScrollBarVisibility="Disabled"
+                                              AutomationProperties.AutomationId="DeviceScanHistoryList"
+                                              AutomationProperties.Name="Completed scan history, newest first">
+                                    <ItemsControl x:Name="DeviceScanHistoryRows">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="app:DeviceScanHistoryRow">
+                                                <views:DeviceScanHistoryItem HorizontalContentAlignment="Stretch"
+                                                                            IsTabStop="False"
+                                                                            AutomationProperties.Name="{x:Bind AccessibleLabel}">
+                                                    <Border Padding="12,8" BorderThickness="0,0,0,1"
+                                                            BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                                            Background="{x:Bind IsAlternateRow, Converter={StaticResource ResultRowBackgroundConverter}}"
+                                                            AutomationProperties.Name="{x:Bind AccessibleLabel}"
+                                                            ToolTipService.ToolTip="{x:Bind FullTimestamp}">
+                                                        <Grid ColumnSpacing="12">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBlock Text="{x:Bind Date}" TextWrapping="Wrap" />
+                                                            <TextBlock Grid.Column="1" Text="{x:Bind Time}" TextWrapping="Wrap" />
+                                                            <Grid Grid.Column="2" ColumnSpacing="8">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                </Grid.ColumnDefinitions>
+                                                                <Grid VerticalAlignment="Center">
+                                                                    <Ellipse Width="10" Height="10" Fill="{ThemeResource SystemFillColorSuccessBrush}"
+                                                                             Visibility="{x:Bind Present}" />
+                                                                    <Ellipse Width="10" Height="10" Fill="{ThemeResource SystemFillColorCriticalBrush}"
+                                                                             Visibility="{x:Bind Absent}" />
+                                                                </Grid>
+                                                                <TextBlock Grid.Column="1" Text="{x:Bind State}" TextWrapping="Wrap" />
+                                                            </Grid>
                                                         </Grid>
-                                                        <TextBlock Grid.Column="1" Text="{x:Bind State}" TextWrapping="Wrap" />
-                                                    </Grid>
-                                                </Grid>
-                                            </Border>
-                                        </DataTemplate>
-                                    </ListView.ItemTemplate>
-                                </ListView>
+                                                    </Border>
+                                                </views:DeviceScanHistoryItem>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
                             </StackPanel>
                         </StackPanel>
                     </Expander>

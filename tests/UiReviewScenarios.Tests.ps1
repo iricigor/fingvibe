@@ -24,7 +24,11 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     $history = $page.SelectSingleNode("//*[@x:Name='DeviceScanHistoryExpander']", $namespaces)
     Assert-Equal $history.IsExpanded "False" "Completed observations starts collapsed"
     Assert-Equal $history.Header "Completed Scan Observations" "Completed observations header"
-    Assert-Equal $history.Visibility "Collapsed" "Completed observations is disabled"
+    Assert-Equal $history.GetAttribute("Visibility") "" "Completed observations uses visible layout"
+    if (-not $history.SelectSingleNode(".//*[local-name()='ScrollViewer' and @x:Name='DeviceScanHistoryList']/*[local-name()='ItemsControl' and @x:Name='DeviceScanHistoryRows']", $namespaces)) {
+        throw "The bounded observation page must keep stable, non-recycled rows."
+    }
+    Assert-Equal $history.SelectSingleNode(".//*[@x:Name='DeviceScanHistoryList']", $namespaces).IsTabStop "True" "The observation viewport must be reachable by keyboard focus"
     $activity = $page.SelectSingleNode("//*[@x:Name='DeviceActivityCard']", $namespaces)
     Assert-Equal $activity.GetAttribute("Visibility") "" "Restored Activity uses normal visible layout"
     foreach ($id in @("DeviceScanHistoryTable", "DeviceScanHistoryEmpty",
@@ -37,6 +41,9 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
         if ($history.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must remain outside collapsed observations." }
     }
     $historyUi = Get-Content (Join-Path $PSScriptRoot "DeviceScanHistory.Ui.Tests.ps1") -Raw
+    if ($historyUi -notmatch '\$env:FINGVIBE_UI_REVIEW_NETWORK = "ui-review-network"') {
+        throw "History fixtures must select their own network independently of preceding suites."
+    }
     $summaryAssertion = [regex]::Match($historyUi, '(?s)function Assert-HistorySummary.*?(?=function Invoke-HistoryScan)').Value
     if ($summaryAssertion -notmatch 'Show-HistorySection DeviceHistoryFirstSeen -AdditionalIds' -or
         $summaryAssertion -match 'DeviceHistorySummaryCard') {
@@ -44,17 +51,22 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     }
     $code = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml.cs") -Raw
     foreach ($pattern in @(
-        'internal static bool CompletedObservationsEnabled => false;',
+        'internal static bool CompletedObservationsEnabled => true;',
         '(?m)^        InitializeActivity\(\);',
         '(?s)if \(CompletedObservationsEnabled\)\s*\{\s*ApplyHistoryPage\(DeviceHistoryQuery.ReadPage',
         '(?s)HistoryPage_Click.*?\{\s*if \(!CompletedObservationsEnabled\) return;'
     )) {
         if ($code -notmatch $pattern) { throw "Missing reversible history lifecycle guard: $pattern" }
     }
+    $itemCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceScanHistoryItem.cs") -Raw
+    if ($itemCode -notmatch 'AutomationControlType.DataItem' -or $itemCode -notmatch 'IScrollItemProvider' -or
+        $itemCode -notmatch 'owner.StartBringIntoView') {
+        throw "Passive observation rows must retain accessible data-item and bring-into-view support."
+    }
     $activityCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.Activity.cs") -Raw
     if ($activityCode -match 'HistoryDetailsEnabled|CompletedObservationsEnabled' -or
         $code -match 'DeviceActivityCard.Visibility') {
-        throw "Activity must remain independent of disabled completed observations."
+        throw "Activity must remain independent of completed observations."
     }
     $errors = $null
     $null = [Management.Automation.Language.Parser]::ParseFile(
@@ -119,6 +131,88 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     $script:positions.Clear()
     Assert-Throws { Show-HistorySection First -AdditionalIds Since } "*cannot fit together inside its viewport*"
     Assert-Equal $script:positions.Count 0 "An oversized grouped summary fails without an exhaustive viewport sweep"
+
+    $script:focusCalls = [Collections.Generic.List[string]]::new()
+    $script:controls.Focusable = [pscustomobject]@{ Current = [pscustomobject]@{
+        IsKeyboardFocusable = $true; IsOffscreen = $true; BoundingRectangle = $null
+    } }
+    $script:controls.Focusable | Add-Member ScriptMethod SetFocus {
+        $script:focusCalls.Add("focus")
+    }
+    $script:bring = [pscustomobject]@{}
+    $script:bring | Add-Member ScriptMethod ScrollIntoView {
+        $script:focusCalls.Add("bring")
+        $script:controls.Focusable.Current.IsOffscreen = $false
+        $script:controls.Focusable.Current.BoundingRectangle = [pscustomobject]@{
+            Left = 0; Right = 100; Top = 100; Bottom = 120; Width = 100; Height = 20; IsEmpty = $false
+        }
+    }
+    $script:controls.Focusable | Add-Member ScriptMethod TryGetCurrentPattern {
+        param($Pattern, $Result)
+        $Result.Value = $script:bring
+        return $true
+    }
+    $script:positions.Clear()
+    $null = Show-HistorySection Focusable
+    $null = Show-HistorySection Focusable
+    Assert-Equal $script:focusCalls @("focus", "bring", "focus", "bring") "Focus precedes bring-into-view even for a previously focused section"
+    Assert-Equal $script:positions.Count 0 "Supported section positioning must not fight focus with percentage scrolling"
+}
+
+& {
+    . (Join-Path $PSScriptRoot 'UiRegression\Helpers.ps1')
+    $historyUi = Get-Content (Join-Path $PSScriptRoot "DeviceScanHistory.Ui.Tests.ps1") -Raw
+    . ([scriptblock]::Create([regex]::Match($historyUi, '(?s)function Assert-HistoryPage.*?(?=function Show-HistorySection)').Value))
+    $script:pageIndex = 0
+    $script:fakeItems = @()
+    $script:reached = [Collections.Generic.List[string]]::new()
+    $script:fakeList = [pscustomobject]@{}
+    $script:fakeList | Add-Member ScriptMethod FindAll { param($Scope, $Condition) return $script:fakeItems }
+    function Show-HistorySection($Id) { return $script:fakeList }
+    function Find-HistoryControl($Id) {
+        $name = switch ($Id) {
+            DeviceHistoryPageStatus { "Showing $(100 * $script:pageIndex + 1)-$([Math]::Min(100 * ($script:pageIndex + 1), 205)) of 205." }
+            DeviceScanHistoryCount { "205 completed scan observations" }
+        }
+        [pscustomobject]@{ Current = [pscustomobject]@{ Name = $name } }
+    }
+    function Test-UiRegressionElementWithin($Element, $Viewport, $Window) { $Element.Visible }
+    foreach ($script:pageIndex in 0..2) {
+        $count = [Math]::Min(100, 205 - 100 * $script:pageIndex)
+        $script:fakeItems = @(0..($count - 1) | ForEach-Object {
+            $second = 204 - 100 * $script:pageIndex - $_
+            $time = ([DateTimeOffset]::Parse("2026-11-01T12:00:00Z").AddSeconds($second)).ToLocalTime()
+            $state = if ($second % 4 -lt 2) { "present" } else { "absent" }
+            $item = [pscustomobject]@{
+                Current = [pscustomobject]@{
+                    Name = "$($time.ToString('yyyy-MM-dd HH:mm:ss zzz')); Observed $state"
+                    BoundingRectangle = [pscustomobject]@{ Height = 36 }
+                }
+                Visible = $false
+            }
+            $item | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $this }
+            $item | Add-Member ScriptMethod ScrollIntoView {
+                $this.Visible = $true
+                $script:reached.Add($this.Current.Name)
+            }
+            $item
+        })
+        Assert-Equal @(Assert-HistoryPage $script:pageIndex -Traverse).Count $count "Validate every exact bounded row"
+        $script:fakeItems[0].Current.Name = "wrong timestamp; Observed absent"
+        Assert-Throws { Assert-HistoryPage $script:pageIndex } "*Wrong row/order/state*"
+    }
+    Assert-Equal $script:reached.Count 205 "Every observation needs a physical reachability assertion"
+    Assert-Equal @($script:reached | Select-Object -Unique).Count 205 "No cross-page duplicate may satisfy traversal"
+    $script:fakeItems[0].Current.Name = $script:reached[200]
+    $script:fakeItems[0].Current.BoundingRectangle.Height = 12
+    function Wait-UiRegressionState($Condition, $Description) {
+        $result = & $Condition
+        if (-not $result) { throw "Row is not fully physically visible: $Description" }
+        return $result
+    }
+    Assert-Throws { Assert-HistoryPage 2 -Traverse } "*not fully physically visible*"
+    $script:fakeItems = @()
+    Assert-Throws { Assert-HistoryPage 2 } "*Expected 5 bounded rows*"
 }
 
 & {
@@ -257,7 +351,8 @@ try {
     $base = $originalBase
     Test-Change @{ "src\FingVibe.App\MainWindow.DeviceDetails.cs" = "changed" } `
         @("Devices", "DeviceDetails") "Device details code"
-    foreach ($path in @("src\FingVibe.App\DeviceDetailsPresentation.cs", "src\FingVibe.App\Views\DeviceDetailValue.cs")) {
+    foreach ($path in @("src\FingVibe.App\DeviceDetailsPresentation.cs", "src\FingVibe.App\Views\DeviceDetailValue.cs",
+        "src\FingVibe.App\Views\DeviceScanHistoryItem.cs")) {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device details presentation"
     }
     foreach ($path in @("src\FingVibe.App\MainWindow.UsageCategories.cs", "src\FingVibe.App\UsageCategoryPresentation.cs",

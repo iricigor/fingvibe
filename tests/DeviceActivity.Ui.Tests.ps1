@@ -468,20 +468,20 @@ try {
     $contrast = $null
     $summary = Show-Activity DeviceHistoryFirstSeen
     if ($summary.Current.Name -notlike "First seen:*") { throw "Existing history summary is unreachable." }
-    foreach ($id in @("DeviceScanHistoryExpander", "DeviceScanHistoryList", "DeviceHistoryOlder", "DeviceHistoryNewer")) {
-        $control = Find-Activity $id -Optional
-        if ($control -and (-not $control.Current.IsOffscreen -or $control.Current.IsKeyboardFocusable)) {
-            throw "Restoring Activity also enabled completed-observation control '$id'."
-        }
+    if ((Find-Activity DeviceScanHistoryExpander).GetCurrentPattern(
+        [Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -ne
+        [Windows.Automation.ExpandCollapseState]::Collapsed) {
+        throw "Activity interaction must leave completed observations collapsed."
     }
     $closeRequest = Start-HeldActivityRefresh
     Stop-ActivityApp
     if (-not (Test-Path -LiteralPath "$($closeRequest.Path).cancelled")) { throw "Closing did not cancel the pending Activity loader." }
     $succeeded = $true
-    Write-Host "Device Activity exact evidence, keyboard reachability, held-query cancellation, error/Retry, themes and narrow layouts passed; summaries remain reachable and completed observations disabled."
+    Write-Host "Device Activity exact evidence, keyboard reachability, held-query cancellation, error/Retry, themes and narrow layouts passed; summaries remain reachable and completed observations independently collapsed."
 }
 catch {
     Write-Host $_
+    Write-Host $_.ScriptStackTrace
     if ($script:process -and -not $script:process.HasExited -and $script:process.MainWindowHandle -ne [IntPtr]::Zero) {
         Capture-Activity "activity-failure"
     }
