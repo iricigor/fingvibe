@@ -184,7 +184,7 @@ internal static class PeopleRoomsDialogs
         content.Children.Add(iconPicker);
         content.Children.Add(notesBox);
         content.Children.Add(validation);
-        return new ContentDialog
+        var dialog = new ContentDialog
         {
             XamlRoot = root,
             Title = title,
@@ -193,6 +193,8 @@ internal static class PeopleRoomsDialogs
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Primary
         };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(dialog, "PeopleRoomsDialog");
+        return dialog;
     }
 
     internal static async Task<bool> ConfirmDeleteAsync(XamlRoot root, string name, string category)
@@ -206,6 +208,7 @@ internal static class PeopleRoomsDialogs
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Close
         };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(dialog, "PeopleRoomsDialog");
         return await dialog.ShowAsync() == ContentDialogResult.Primary;
     }
 
@@ -238,6 +241,7 @@ internal static class PeopleRoomsDialogs
             CloseButtonText = "Cancel",
             DefaultButton = ContentDialogButton.Primary
         };
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetAutomationId(dialog, "PeopleRoomsDialog");
         return await dialog.ShowAsync() == ContentDialogResult.Primary
             ? (picker.SelectedItem as ComboBoxItem)?.Tag as ScanResultRow : null;
     }

@@ -68,6 +68,13 @@ for the desktop-free foundation check. These are contributor/reviewer
 expectations, not a new mandatory manifest or gate. Enforced coverage
 selection remains separate work in #256.
 
+The Sidebar People/Rooms module covers list/detail editors, search, validation,
+cancel/save, selection refresh, assignments and deletion. Its isolated inventory
+fixture also checks a retained failed-save draft, retry, restart and unavailable
+data restrictions. The capture smoke keeps short-name suggestion coverage and
+checks add-and-assign and cancellation from Device Details. Run these native
+paths on disposable CI desktops, not the user's working desktop.
+
 Native execution modes reuse the existing smoke and suite implementations.
 The independent observational comparison runs a short launch/scan/filter/details
 baseline on the exact trusted PR head; it does not replace any authoritative

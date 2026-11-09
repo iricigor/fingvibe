@@ -4,10 +4,20 @@ function Find-PeopleRoomsElement([string] $Property, [string] $Value, [string] $
     } else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
     $condition = [System.Windows.Automation.PropertyCondition]::new($propertyId, $Value)
     Find-UiRegressionElement -Condition $condition -Description "People/Rooms '$Value'" -Container {
-        if (-not $OwnerId) { return $root }
+        if (-not $OwnerId) {
+            $dialog = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'PeopleRoomsDialog'))
+            if (Test-UiRegressionElementVisible $dialog) { return $dialog }
+            return $root
+        }
         $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
             [System.Windows.Automation.PropertyCondition]::new(
                 [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $OwnerId))
+    } -Find {
+        param($Owner, $Match)
+        $Owner.FindAll([System.Windows.Automation.TreeScope]::Descendants, $Match) |
+            Where-Object { Test-UiRegressionElementVisible $_ } | Select-Object -First 1
     }
 }
 
@@ -33,6 +43,7 @@ function Open-PeopleRoomsDetails([string] $Name, [string] $PageId) {
 }
 
 function Test-PeopleRoomsFlows {
+    Set-SidebarWindowWidth $expandedWidth
     foreach ($category in @('Person', 'Room')) {
         $page = if ($category -eq 'Person') { 'People' } else { 'Rooms' }
         $singular = $category.ToLowerInvariant()
