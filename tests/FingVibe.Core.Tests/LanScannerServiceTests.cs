@@ -42,10 +42,11 @@ public sealed class LanScannerServiceTests
     }
 
     [Fact]
-    public void FirstPassKeepsTheExistingTimeoutAndConcurrencyWithTenSecondRetryPauses()
+    public void ScanKeepsIcmpDefaultsWithThirtyTwoArpWorkersAndTenSecondRetryPauses()
     {
         Assert.Equal(700, LanScannerService.DefaultTimeoutMilliseconds);
         Assert.Equal(256, LanScannerService.DefaultMaximumConcurrency);
+        Assert.Equal(32, FreshArpProbe.MaximumConcurrency);
         Assert.Equal(TimeSpan.FromSeconds(10), LanScannerService.RetryPause);
     }
 
@@ -131,7 +132,7 @@ public sealed class LanScannerServiceTests
         var arpCalls = 0;
         _arp = async (_, _, token) =>
         {
-            if (Interlocked.Increment(ref arpCalls) == 8) started.TrySetResult();
+            if (Interlocked.Increment(ref arpCalls) == 32) started.TrySetResult();
             await release.Task.WaitAsync(token);
             return null;
         };
@@ -146,7 +147,7 @@ public sealed class LanScannerServiceTests
             await _progress.WaitForAsync(item => item.Phase == LanScanPhase.Arp));
         await started.Task.WaitAsync(Timeout);
         Assert.Equal(254, _icmp.Attempts.Count);
-        Assert.Equal(8, Volatile.Read(ref arpCalls));
+        Assert.Equal(32, Volatile.Read(ref arpCalls));
         Assert.Equal(LanScanPhase.Arp, _progress.Items.Last().Phase);
         Assert.False(scan.IsCompleted);
         var initial = Assert.Single(checkpoints.Items);
@@ -486,19 +487,80 @@ public sealed class LanScannerServiceTests
     }
 
     [Fact]
-    public async Task CancellationDuringArpDrainsTheProbeAndRejectsItsLateReply()
+    public async Task CancellationDuringArpDrainsAllProbesWithoutStartingQueuedAddressesOrRetries()
     {
-        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var reply = new TaskCompletionSource<PhysicalAddress?>(TaskCreationOptions.RunContinuationsAsynchronously);
-        _arp = (_, _, _) => { started.TrySetResult(); return reply.Task; };
+        var network = Network with { PrefixLength = 26 };
+        var started = new Recorder<IPAddress>();
+        var completed = new Recorder<IPAddress>();
+        var release = new TaskCompletionSource<PhysicalAddress?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var lastReply = new TaskCompletionSource<PhysicalAddress?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var lastAddress = IPAddress.Parse("192.0.2.1");
+        var inFlight = 0;
+        _arp = async (address, selectedNetwork, _) =>
+        {
+            Assert.Equal(network, selectedNetwork);
+            Interlocked.Increment(ref inFlight);
+            started.Report(address);
+            try
+            {
+                // A blocking native call cannot finish cancellation before Windows returns.
+                return await (address.Equals(lastAddress) ? lastReply.Task : release.Task);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref inFlight);
+                completed.Report(address);
+            }
+        };
         using var cancellation = new CancellationTokenSource();
-        var scan = Scanner().ScanAsync(Network, _results, _progress, cancellation.Token);
-        await started.Task.WaitAsync(Timeout);
-        cancellation.Cancel();
-        Assert.False(scan.IsCompleted);
-        reply.SetResult(PhysicalAddress.Parse("001122334455"));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => scan.WaitAsync(Timeout));
-        Assert.Empty(_results.Items);
+        var checkpoints = new Recorder<ScanCheckpointState>();
+        var scan = Scanner().ScanAsync(network, _results, _progress, cancellation.Token, (_, state) =>
+        {
+            checkpoints.Report(state);
+            return Task.CompletedTask;
+        });
+        try
+        {
+            for (var index = 0; index < 32; index++)
+                await started.WaitForAsync(_ => true);
+            Assert.Equal(32, Volatile.Read(ref inFlight));
+            Assert.Equal(32, started.Items.Count);
+            Assert.Contains(lastAddress, started.Items);
+
+            cancellation.Cancel();
+            Assert.False(scan.IsCompleted);
+            release.SetResult(PhysicalAddress.Parse("001122334455"));
+            for (var index = 0; index < 31; index++)
+                await completed.WaitForAsync(_ => true);
+            Assert.Equal(1, Volatile.Read(ref inFlight));
+            Assert.False(scan.IsCompleted);
+            Assert.Equal(32, started.Items.Count);
+            Assert.Empty(_results.Items);
+            Assert.Empty(_enricher.Enriched);
+
+            lastReply.SetResult(PhysicalAddress.Parse("001122334455"));
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => scan.WaitAsync(Timeout));
+            Assert.Equal(0, Volatile.Read(ref inFlight));
+            Assert.Equal(32, started.Items.Count);
+            Assert.Equal(32, completed.Items.Count);
+            Assert.Equal(62, _icmp.Attempts.Count);
+            Assert.All(_icmp.Attempts, attempt => Assert.Equal(1, attempt.Attempt));
+            Assert.Empty(_results.Items);
+            Assert.Empty(_enricher.Enriched);
+            Assert.Equal(ScanCheckpointState.Pending, Assert.Single(checkpoints.Items));
+            Assert.Equal(new LanScanProgress(LanScanPhase.Arp, 0, 62),
+                Assert.Single(_progress.Items, item => item.Phase == LanScanPhase.Arp));
+            Assert.All(_progress.Items,
+                item => Assert.True(item.Phase is LanScanPhase.FirstPass or LanScanPhase.Arp));
+        }
+        finally
+        {
+            cancellation.Cancel();
+            release.TrySetResult(null);
+            lastReply.TrySetResult(null);
+            try { await scan.WaitAsync(Timeout); }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+        }
     }
 
     [Fact]
@@ -512,29 +574,88 @@ public sealed class LanScannerServiceTests
         Assert.DoesNotContain(_progress.Items, item => item.Phase == LanScanPhase.Retry);
     }
 
-    [Fact]
-    public async Task ArpConcurrencyIsBoundedIndependentlyOfPingConcurrency()
+    [Theory]
+    [InlineData(nameof(ScanTrigger.Manual), 1)]
+    [InlineData(nameof(ScanTrigger.Scheduled), 1)]
+    [InlineData(nameof(ScanTrigger.Manual), 256)]
+    [InlineData(nameof(ScanTrigger.Scheduled), 256)]
+    public async Task ArpUsesThirtyTwoWorkersAndRefillsSlotsIndependentlyOfPingConcurrency(
+        string triggerName, int maximumConcurrency)
     {
+        var network = Network with { PrefixLength = 26 };
+        var started = new Recorder<IPAddress>();
+        var release = new TaskCompletionSource<PhysicalAddress?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstReply = new TaskCompletionSource<PhysicalAddress?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var firstAddress = IPAddress.Parse("192.0.2.2");
+        var mac = PhysicalAddress.Parse("001122334499");
         var inFlight = 0;
         var peak = 0;
-        _arp = async (_, _, _) =>
+        _icmp.Respond = (address, _) => address == "192.0.2.1" ? ScriptedIcmp.Reply() : ScriptedIcmp.Miss();
+        _arp = async (address, selectedNetwork, _) =>
         {
+            Assert.Equal(network, selectedNetwork);
             var current = Interlocked.Increment(ref inFlight);
             int previous;
             while (current > (previous = Volatile.Read(ref peak))
                 && Interlocked.CompareExchange(ref peak, current, previous) != previous) { }
-            await Task.Delay(10);
-            Interlocked.Decrement(ref inFlight);
-            return null;
+            started.Report(address);
+            try
+            {
+                return await (address.Equals(firstAddress) ? firstReply.Task : release.Task);
+            }
+            finally
+            {
+                Interlocked.Decrement(ref inFlight);
+            }
         };
+        var steps = new ScannerSteps(Scanner(maximumConcurrency: maximumConcurrency));
+        var execution = new ScanExecution(new NetworkActivityCoordinator(), steps);
         using var cancellation = new CancellationTokenSource();
-        var scan = Scanner().ScanAsync(Network with { PrefixLength = 27 }, _results, _progress, cancellation.Token);
-        await _progress.WaitForAsync(item => item.Phase == LanScanPhase.RetryWait);
-        cancellation.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => scan.WaitAsync(Timeout));
-        Assert.InRange(peak, 1, 8);
-        Assert.Equal(0, inFlight);
-        Assert.Equal(30, _icmp.Attempts.Count);
+        var run = execution.RunAsync(new ScanRequest(Enum.Parse<ScanTrigger>(triggerName), network), cancellation.Token);
+        try
+        {
+            for (var index = 0; index < 32; index++)
+                await started.WaitForAsync(_ => true);
+            Assert.Equal(32, Volatile.Read(ref inFlight));
+            Assert.Equal(32, started.Items.Count);
+            Assert.Contains(firstAddress, started.Items);
+            Assert.Equal(62, _icmp.Attempts.Count);
+            Assert.InRange(_icmp.PeakConcurrency, 1, maximumConcurrency);
+            Assert.Empty(steps.Saves);
+
+            firstReply.SetResult(mac);
+            Assert.NotEqual(firstAddress, await started.WaitForAsync(_ => true));
+            Assert.Equal(33, started.Items.Count);
+            Assert.Equal(32, Volatile.Read(ref inFlight));
+            Assert.False(release.Task.IsCompleted);
+
+            release.SetResult(mac);
+            Assert.Equal(ScanRunStatus.Completed, (await run.WaitAsync(Timeout)).Status);
+            Assert.Equal(32, peak);
+            Assert.Equal(0, inFlight);
+            Assert.Equal(Enumerable.Range(2, 61).Select(host => $"192.0.2.{host}").Order(),
+                started.Items.Select(address => address.ToString()).Order());
+            Assert.Equal(62, _icmp.Attempts.Count);
+            Assert.All(_icmp.Attempts, attempt => Assert.Equal(1, attempt.Attempt));
+            var saved = Assert.Single(steps.Saves);
+            Assert.Equal(62, saved.Count);
+            Assert.All(saved, result => Assert.Equal(HostStatus.Alive, result.Status));
+            Assert.All(saved.Where(result => result.AddressText != "192.0.2.1"), result =>
+            {
+                Assert.Equal(mac, result.MacAddress);
+                Assert.Null(result.RoundtripTimeMilliseconds);
+            });
+            Assert.All(_enricher.Ttls.Where(item => item.Address != "192.0.2.1"), item => Assert.Null(item.Ttl));
+            Assert.Equal([LanScanPhase.FirstPass, LanScanPhase.Arp],
+                steps.Progress.Items.Select(item => item.Phase).Distinct());
+        }
+        finally
+        {
+            cancellation.Cancel();
+            firstReply.TrySetResult(null);
+            release.TrySetResult(null);
+            await run.WaitAsync(Timeout);
+        }
     }
 
     [Fact]
