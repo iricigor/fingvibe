@@ -253,20 +253,28 @@ function Assert-HistoryScrollMovement {
     $firstVisible = {
         for ($index = 0; $index -lt $items.Count; $index++) {
             if (Test-UiRegressionElementWithin $items[$index] $list $script:root) {
-                return [pscustomobject]@{ Index = $index; Label = $items[$index].Current.Name }
+                return [pscustomobject]@{
+                    Index = $index; Label = $items[$index].Current.Name
+                    Top = $items[$index].Current.BoundingRectangle.Top
+                }
             }
         }
     }
     $before = Wait-UiRegressionState -Condition $firstVisible -Description "first visible history row"
     foreach ($amount in @("LargeIncrement", "LargeIncrement", "LargeIncrement", "SmallDecrement", "LargeIncrement")) {
+        Write-Host "History $amount before: row $($before.Index), top $($before.Top), scroll $($scroll.Current.VerticalScrollPercent)%."
         $scroll.Scroll([System.Windows.Automation.ScrollAmount]::NoAmount,
             [System.Windows.Automation.ScrollAmount]::$amount)
         $after = Wait-UiRegressionState -Description "$amount to move actual visible rows without snap-back" -Condition {
             $current = & $firstVisible
-            if ($current -and $(if ($amount -eq "SmallDecrement") { $current.Index -lt $before.Index }
-                else { $current.Index -gt $before.Index })) { return $current }
+            if ($current -and $(if ($amount -eq "SmallDecrement") {
+                    $current.Index -lt $before.Index -or ($current.Index -eq $before.Index -and $current.Top -gt $before.Top)
+                }
+                else {
+                    $current.Index -gt $before.Index -or ($current.Index -eq $before.Index -and $current.Top -lt $before.Top)
+                })) { return $current }
         }
-        Write-Host "History $amount moved row $($before.Index) '$($before.Label)' -> $($after.Index) '$($after.Label)'."
+        Write-Host "History $amount moved row $($before.Index) at $($before.Top) '$($before.Label)' -> $($after.Index) at $($after.Top) '$($after.Label)'."
         $before = $after
     }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-scroll-movement.png")
