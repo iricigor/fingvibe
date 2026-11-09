@@ -229,7 +229,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         'runs-on: windows-2025',
         'timeout-minutes: 20',
         'fail-fast: false',
-        'suite: \[sidebar, devices, history, tools\]',
+        'suite: \[sidebar, devices, details-summary, details-identity, details-history, tools\]',
         '(?s)name: Run native regression suite\s+timeout-minutes: 15',
         "(?s)name: Run native regression suite\s+timeout-minutes: 15\s+if: matrix.suite != 'sidebar'\s+shell: pwsh",
         "(?s)name: Run sidebar regression in Windows PowerShell\s+timeout-minutes: 15\s+if: matrix.suite == 'sidebar'\s+shell: powershell",
@@ -262,7 +262,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
     if ($regressionScript -notmatch 'SummaryOnly = \$true') {
         throw "Completed-observation checks remain disabled; retained summary checks remain required."
     }
-    if ($regressionScript -notmatch '\$plan.Scenario -contains "DeviceDetails"' -or
+    if ($regressionScript -notmatch '\$plan.Scenario -notcontains "DeviceDetails"' -or
         $regressionScript -notmatch 'Stop-Transcript' -or
         $captureJob -notmatch 'timeout-minutes: 10' -or
         $captureJob -notmatch '(?s)id: smoke\s+timeout-minutes: 7') {
@@ -303,24 +303,42 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             CapturePlanPath = $planPath; Version = "0.0.123"; BuildKind = "PullRequest"
             BuildTimestamp = "2026-11-06T09:00:00Z"; BuildCommit = "test-commit"; PullRequestNumber = 198
         }
-        foreach ($suite in @("sidebar", "devices", "history", "tools")) {
+        $matrixSuites = @([regex]::Match($regressionJob, 'suite: \[([^\]]+)\]').Groups[1].Value.Split(",") | ForEach-Object { $_.Trim() })
+        $expectedSuiteChecks = [ordered]@{
+            "sidebar" = @("SidebarNavigation")
+            "devices" = @("DevicesList.Ui")
+            "details-summary" = @("DeviceScanHistory.Ui")
+            "details-identity" = @("DeviceDiscovery.Ui", "UsageCategory.Ui")
+            "details-history" = @("DeviceActivity.Ui")
+            "tools" = @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")
+        }
+        Assert-Equal $matrixSuites @($expectedSuiteChecks.Keys) "CI matrix dispatches every split suite"
+        foreach ($suite in $matrixSuites) {
+            $before = if (Test-Path $env:UI_REGRESSION_CALLS) { @(Get-Content $env:UI_REGRESSION_CALLS).Count } else { 0 }
             & $runner -Suite $suite @parameters
+            $suiteCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json)
+            # A dispatched matrix job must never pass without running a native check.
+            if ($suiteCalls.Count -eq 0) { throw "Matrix suite '$suite' dispatched no native checks." }
+            Assert-Equal $suiteCalls.Name $expectedSuiteChecks[$suite] "Suite '$suite' runs exactly its assigned checks"
         }
         $calls = @(Get-Content $env:UI_REGRESSION_CALLS | ConvertFrom-Json)
         Assert-Equal $calls.Name @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
             "UsageCategory.Ui", "DeviceActivity.Ui",
             "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "Dispatch every preserved suite once"
-        Assert-Equal $calls[2].Parameters.SummaryOnly $true "History dispatch tests only retained summaries"
+        Assert-Equal $calls[2].Parameters.SummaryOnly $true "Details summary dispatch tests only retained summaries"
         Assert-Equal ([DateTimeOffset]$calls[6].Parameters.BuildTimestamp).UtcDateTime ([DateTimeOffset]$parameters.BuildTimestamp).UtcDateTime "Forward stamped identity"
         Assert-Equal $calls[6].Parameters.PullRequestNumber 198 "Forward PR identity"
         Assert-Equal ($calls.Parameters.AppPath | Select-Object -Unique) "synthetic.exe" "Reuse supplied app"
         & powershell.exe -NoProfile -File $runner -Suite sidebar -AppPath $parameters.AppPath `
             -ScreenshotDirectory $parameters.ScreenshotDirectory -CapturePlanPath $planPath
         if ($LASTEXITCODE -ne 0) { throw "Sidebar runner must support multi-scenario plans under Windows PowerShell." }
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 12 "Windows PowerShell dispatches the sidebar without parsing history selection"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 12 "Windows PowerShell dispatches the sidebar without parsing details selection"
         ConvertTo-Json -InputObject @($definitions | Where-Object Scenario -eq Devices) -Depth 5 | Set-Content $planPath
-        & $runner -Suite history @parameters
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 12 "Unselected history must not launch native checks"
+        foreach ($suite in @("details-summary", "details-identity", "details-history")) {
+            & $runner -Suite $suite @parameters
+            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 12 "Unselected $suite must not launch native checks"
+        }
+        Assert-Throws { & $runner -Suite history @parameters } "*history*"
         $env:UI_REGRESSION_FAIL = "DevicesList.Ui"
         Assert-Throws { & $runner -Suite devices @parameters } "*Simulated regression failure*"
         if ((Get-Content (Join-Path $parameters.ScreenshotDirectory "regression.log") -Raw) -notmatch 'Simulated regression failure') {
@@ -448,4 +466,5 @@ try {
     foreach ($name in $names) { [Environment]::SetEnvironmentVariable($name, $saved[$name]) }
     if (Test-Path -LiteralPath $summary) { Remove-Item -LiteralPath $summary }
 }
+& (Join-Path $PSScriptRoot "NativeValidation.Tests.ps1")
 Write-Host "PR validation planning, comment history, and required-check regression tests passed."

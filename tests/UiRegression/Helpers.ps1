@@ -246,6 +246,78 @@ function Complete-UiRegressionPhase {
     if ($env:GITHUB_STEP_SUMMARY) { $line >> $env:GITHUB_STEP_SUMMARY }
 }
 
+function Step-UiRegressionPhase {
+    param($Current, [string] $Name, [Parameter(Mandatory)][string] $Directory)
+    if ($Current) { Complete-UiRegressionPhase -Phase $Current -Directory $Directory -Succeeded $true }
+    $script:UiRegressionCurrentPhase = $Name
+    if ($Name) { return Start-UiRegressionPhase -Name $Name }
+}
+
+function Start-UiRegressionCall {
+    param([Parameter(Mandatory)][ValidateSet("lookup", "positioning", "wait", "launch", "close", "scan")][string] $Category)
+    if ($null -eq $script:UiRegressionCallStack) { $script:UiRegressionCallStack = [Collections.Generic.Stack[object]]::new() }
+    $call = [pscustomobject]@{ Category = $Category; Clock = [Diagnostics.Stopwatch]::StartNew(); ChildMilliseconds = 0.0 }
+    $script:UiRegressionCallStack.Push($call)
+    return $call
+}
+
+function Complete-UiRegressionCall {
+    param([Parameter(Mandatory)] $Call)
+    $Call.Clock.Stop()
+    while ($script:UiRegressionCallStack.Count -gt 0 -and
+        -not [object]::ReferenceEquals($script:UiRegressionCallStack.Pop(), $Call)) { }
+    $inclusive = $Call.Clock.Elapsed.TotalMilliseconds
+    # Exclusive time removes nested measured calls, e.g. lookups inside a wait or positioning loop.
+    if ($script:UiRegressionCallStack.Count -gt 0) { $script:UiRegressionCallStack.Peek().ChildMilliseconds += $inclusive }
+    if ($null -eq $script:UiRegressionCallCosts) { $script:UiRegressionCallCosts = [ordered]@{} }
+    $phase = if ($script:UiRegressionCurrentPhase) { $script:UiRegressionCurrentPhase } else { "(none)" }
+    $key = "$phase|$($Call.Category)"
+    $entry = $script:UiRegressionCallCosts[$key]
+    if (-not $entry) {
+        $entry = [pscustomobject]@{
+            phase = $phase; category = $Call.Category; calls = 0
+            inclusiveMilliseconds = 0.0; exclusiveMilliseconds = 0.0; maxMilliseconds = 0.0
+        }
+        $script:UiRegressionCallCosts[$key] = $entry
+    }
+    $entry.calls++
+    $entry.inclusiveMilliseconds += $inclusive
+    $entry.exclusiveMilliseconds += [Math]::Max(0.0, $inclusive - $Call.ChildMilliseconds)
+    $entry.maxMilliseconds = [Math]::Max($entry.maxMilliseconds, $inclusive)
+}
+
+function Write-UiRegressionCallCosts {
+    param([Parameter(Mandatory)][string] $Directory, [Parameter(Mandatory)][string] $Name)
+    $entries = @(if ($script:UiRegressionCallCosts) { $script:UiRegressionCallCosts.Values })
+    $null = New-Item -ItemType Directory -Path $Directory -Force
+    [ordered]@{
+        check = $Name
+        note = "Exclusive time removes nested measured calls; positioning and wait exclusive time is property reads, scrolling and polling sleeps."
+        entries = $entries
+    } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $Directory "call-costs.json") -Encoding UTF8
+    $culture = [Globalization.CultureInfo]::InvariantCulture
+    $totals = @($entries | Group-Object category | Sort-Object Name | ForEach-Object {
+        $calls = ($_.Group | Measure-Object calls -Sum).Sum
+        $seconds = (($_.Group | Measure-Object exclusiveMilliseconds -Sum).Sum / 1000).ToString("F1", $culture)
+        "$($_.Name) $calls calls $seconds s"
+    })
+    $line = "$Name call costs (exclusive): $(if ($totals) { $totals -join '; ' } else { 'none recorded' })"
+    Write-Host $line
+    if ($env:GITHUB_STEP_SUMMARY) { $line >> $env:GITHUB_STEP_SUMMARY }
+}
+
+function Invoke-UiRegressionCleanup {
+    param([Parameter(Mandatory)][scriptblock[]] $Steps, [bool] $PrimaryFailed)
+    $errors = @()
+    foreach ($step in $Steps) {
+        try { & $step }
+        catch { $errors += $_ }
+    }
+    foreach ($failure in $errors) { Write-Warning "UI regression cleanup failed: $($failure.Exception.Message)" }
+    # A cleanup failure must not replace the original check failure.
+    if ($errors.Count -gt 0 -and -not $PrimaryFailed) { throw $errors[0] }
+}
+
 function Save-UiRegressionScreenshot {
     param([Parameter(Mandatory)][IntPtr] $WindowHandle, [Parameter(Mandatory)][string] $Path)
     $phase = Start-UiRegressionPhase -Name "capture/$([IO.Path]::GetFileName($Path))"

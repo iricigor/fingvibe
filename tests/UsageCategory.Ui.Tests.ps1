@@ -7,6 +7,7 @@ $ErrorActionPreference = "Stop"
 if ($env:GITHUB_ACTIONS -ne "true") { throw "Usage-category UI checks require a disposable GitHub Actions desktop." }
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
+. (Join-Path $PSScriptRoot "UiRegression\Helpers.ps1")
 . (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
 Initialize-InventorySqlite $AppPath
 
@@ -31,38 +32,54 @@ public static class UsageReviewContrast {
 function Find-Usage([string] $Value, [switch] $ByName, [switch] $Optional) {
     $property = if ($ByName) { [System.Windows.Automation.AutomationElement]::NameProperty }
         else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
-    $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
-        [System.Windows.Automation.PropertyCondition]::new($property, $Value))
+    $call = Start-UiRegressionCall lookup
+    try {
+        $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new($property, $Value))
+    }
+    finally { Complete-UiRegressionCall $call }
     if (-not $element -and -not $Optional) { throw "Missing usage-category control '$Value'." }
     return $element
 }
 
 function Wait-Usage([scriptblock] $Condition, [string] $Description) {
-    $deadline = [DateTime]::UtcNow.AddSeconds(25)
-    do {
-        if (& $Condition) { return }
-        Start-Sleep -Milliseconds 100
-    } while ([DateTime]::UtcNow -lt $deadline)
-    throw "Timed out waiting for $Description."
+    $call = Start-UiRegressionCall wait
+    try {
+        $deadline = [DateTime]::UtcNow.AddSeconds(25)
+        do {
+            if (& $Condition) { return }
+            Start-Sleep -Milliseconds 100
+        } while ([DateTime]::UtcNow -lt $deadline)
+        throw "Timed out waiting for $Description."
+    }
+    finally { Complete-UiRegressionCall $call }
 }
 
 function Start-UsageApp {
-    $script:process = Start-Process -FilePath $AppPath -PassThru
-    Wait-Usage {
-        $script:process.Refresh()
-        if ($script:process.HasExited) { throw "Usage-category app exited: $($script:process.ExitCode)." }
-        $script:process.MainWindowHandle -ne [IntPtr]::Zero
-    } "app startup"
-    Initialize-UiReviewWindow $script:process.MainWindowHandle
-    $script:root = [System.Windows.Automation.AutomationElement]::FromHandle($script:process.MainWindowHandle)
-    Wait-Usage { Find-Usage DevicesNavItem -Optional } "navigation"
+    $call = Start-UiRegressionCall launch
+    try {
+        $script:process = Start-Process -FilePath $AppPath -PassThru
+        Wait-Usage {
+            $script:process.Refresh()
+            if ($script:process.HasExited) { throw "Usage-category app exited: $($script:process.ExitCode)." }
+            $script:process.MainWindowHandle -ne [IntPtr]::Zero
+        } "app startup"
+        Initialize-UiReviewWindow $script:process.MainWindowHandle
+        $script:root = [System.Windows.Automation.AutomationElement]::FromHandle($script:process.MainWindowHandle)
+        Wait-Usage { Find-Usage DevicesNavItem -Optional } "navigation"
+    }
+    finally { Complete-UiRegressionCall $call }
 }
 
 function Stop-UsageApp {
-    if ($script:process -and -not $script:process.HasExited) {
-        $null = $script:process.CloseMainWindow()
-        if (-not $script:process.WaitForExit(5000)) { throw "Usage-category app did not close normally." }
+    $call = Start-UiRegressionCall close
+    try {
+        if ($script:process -and -not $script:process.HasExited) {
+            $null = $script:process.CloseMainWindow()
+            if (-not $script:process.WaitForExit(5000)) { throw "Usage-category app did not close normally." }
+        }
     }
+    finally { Complete-UiRegressionCall $call }
 }
 
 function Find-UsageRow([string] $Name) {
@@ -128,20 +145,24 @@ function Open-UsageDevice([string] $Name = "Usage laptop") {
 }
 
 function Show-Usage([string] $Id) {
-    $viewport = Find-Usage DeviceDetailsScroll
-    $scroll = $viewport.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-    foreach ($percent in 0..100) {
-        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
-        Start-Sleep -Milliseconds 10
-        $control = Find-Usage $Id
-        $bounds = $control.Current.BoundingRectangle
-        $area = $viewport.Current.BoundingRectangle
-        # The scroll viewer's automation bounds can extend past the physical window frame.
-        $bottom = [Math]::Min($area.Bottom, $script:root.Current.BoundingRectangle.Bottom - 16)
-        if (-not $control.Current.IsOffscreen -and $bounds.Height -gt 0 -and
-            $bounds.Top -ge $area.Top -and $bounds.Bottom -le $bottom) { return $control }
+    $call = Start-UiRegressionCall positioning
+    try {
+        $viewport = Find-Usage DeviceDetailsScroll
+        $scroll = $viewport.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        foreach ($percent in 0..100) {
+            if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
+            Start-Sleep -Milliseconds 10
+            $control = Find-Usage $Id
+            $bounds = $control.Current.BoundingRectangle
+            $area = $viewport.Current.BoundingRectangle
+            # The scroll viewer's automation bounds can extend past the physical window frame.
+            $bottom = [Math]::Min($area.Bottom, $script:root.Current.BoundingRectangle.Bottom - 16)
+            if (-not $control.Current.IsOffscreen -and $bounds.Height -gt 0 -and
+                $bounds.Top -ge $area.Top -and $bounds.Bottom -le $bottom) { return $control }
+        }
+        throw "Usage control '$Id' is clipped or unreachable."
     }
-    throw "Usage control '$Id' is clipped or unreachable."
+    finally { Complete-UiRegressionCall $call }
 }
 
 function Choose-Usage([string] $Choice) {
@@ -188,6 +209,8 @@ $previous = @{}
 $script:process = $null
 $lock = $null
 $contrast = $null
+$phase = $null
+$failed = $false
 foreach ($key in @("FINGVIBE_UI_REVIEW", "FINGVIBE_UI_REVIEW_INVENTORY", "FINGVIBE_UI_REVIEW_SNAPSHOT",
     "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT", "FINGVIBE_UI_REVIEW_DEVICE_TABLE", "FINGVIBE_UI_REVIEW_NETWORK")) {
     $previous[$key] = [Environment]::GetEnvironmentVariable($key)
@@ -195,6 +218,7 @@ foreach ($key in @("FINGVIBE_UI_REVIEW", "FINGVIBE_UI_REVIEW_INVENTORY", "FINGVI
 try {
     $null = New-Item -ItemType Directory -Path $fixture
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
+    $phase = Step-UiRegressionPhase $phase "usage/fixture" $ScreenshotDirectory
     $time = [DateTimeOffset]::UtcNow.AddDays(-1)
     $person = [Guid]::NewGuid().ToString()
     $room = [Guid]::NewGuid().ToString()
@@ -232,6 +256,7 @@ try {
     $env:FINGVIBE_UI_REVIEW_DEVICE_TABLE = Join-Path $fixture "table.json"
     # Earlier checks in the same PowerShell 7 process can leave this variable defined but empty, which the app would read as the network id.
     $env:FINGVIBE_UI_REVIEW_NETWORK = "ui-review-network"
+    $phase = Step-UiRegressionPhase $phase "usage/save-cancel-failure" $ScreenshotDirectory
     Start-UsageApp
     Open-UsageDevice
     Assert-Usage Permanent "Auto - limited evidence"
@@ -254,6 +279,7 @@ try {
     Invoke-Usage UsageCategorySave
     Assert-Usage Personal "Manual override"
     Stop-UsageApp
+    $phase = Step-UiRegressionPhase $phase "usage/restart-conflict" $ScreenshotDirectory
     Start-UsageApp
     Open-UsageDevice
     Assert-Usage Personal "Manual override"
@@ -275,6 +301,7 @@ try {
         (Get-InventorySqliteValue $database "SELECT COUNT(*) FROM scan_history") -ne 14) {
         throw "Category edits changed unrelated metadata or history."
     }
+    $phase = Step-UiRegressionPhase $phase "usage/evidence-unavailable" $ScreenshotDirectory
     Write-UsageSql "UPDATE inventory SET revision='$([Guid]::NewGuid())';"
     Invoke-Usage UsageCategoryRefresh
     Wait-Usage { (Find-Usage UsageCategoryEffective).Current.Name -like "*Unavailable*could not be loaded*" } "stale-evidence error"
@@ -288,6 +315,7 @@ try {
     Assert-Usage Unclassified "Auto - no eligible scans"
     if ((Find-Usage UsageCategoryEvidence).Current.Name -match '%') { throw "No evidence must not fabricate a percentage." }
     Save-UsageCapture "usage-no-evidence"
+    $phase = Step-UiRegressionPhase $phase "usage/themes-narrow" $ScreenshotDirectory
     foreach ($theme in @("Standard Light", "Standard Dark")) {
         Select-UsageSettings
         Set-UiReviewTheme -Root $script:root -Theme $theme
@@ -309,6 +337,7 @@ try {
         $null = [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
             $bounds.Left, $bounds.Top, $bounds.Width, $bounds.Height, 0x0044)
     }
+    $phase = Step-UiRegressionPhase $phase "usage/high-contrast-keyboard" $ScreenshotDirectory
     $contrast = [UsageReviewContrast]::Get()
     [UsageReviewContrast]::Set($contrast -bor 1)
     Start-Sleep -Seconds 2
@@ -327,9 +356,11 @@ try {
     Assert-Usage Permanent "Auto"
     [UsageReviewContrast]::Set($contrast)
     $contrast = $null
+    $phase = Step-UiRegressionPhase $phase $null $ScreenshotDirectory
     Write-Host "Usage-category inference, Save/Cancel, failed draft, restart, conflict reload, unavailable/no evidence, themes, contrast and narrow keyboard-accessible controls passed."
 }
 catch {
+    $failed = $true
     if ($script:process -and -not $script:process.HasExited -and $script:process.MainWindowHandle -ne [IntPtr]::Zero) {
         try {
             Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "usage-failure.png")
@@ -339,12 +370,18 @@ catch {
     throw
 }
 finally {
-    if ($lock) { $lock.Dispose() }
-    if ($null -ne $contrast) { [UsageReviewContrast]::Set($contrast) }
-    if ($script:process -and -not $script:process.HasExited) { Stop-Process -Id $script:process.Id }
-    foreach ($key in $previous.Keys) {
-        if ([string]::IsNullOrEmpty($previous[$key])) { Remove-Item -LiteralPath "Env:$key" -ErrorAction SilentlyContinue }
-        else { [Environment]::SetEnvironmentVariable($key, $previous[$key]) }
-    }
-    if (Test-Path -LiteralPath $fixture) { Remove-Item -LiteralPath $fixture -Recurse -Force }
+    Invoke-UiRegressionCleanup -PrimaryFailed $failed -Steps @(
+        { if ($phase) { Complete-UiRegressionPhase -Phase $phase -Directory $ScreenshotDirectory -Succeeded $false } },
+        { Write-UiRegressionCallCosts -Directory $ScreenshotDirectory -Name "UsageCategory.Ui" },
+        { if ($lock) { $lock.Dispose() } },
+        { if ($null -ne $contrast) { [UsageReviewContrast]::Set($contrast) } },
+        { if ($script:process -and -not $script:process.HasExited) { Stop-Process -Id $script:process.Id } },
+        {
+            foreach ($key in $previous.Keys) {
+                if ([string]::IsNullOrEmpty($previous[$key])) { Remove-Item -LiteralPath "Env:$key" -ErrorAction SilentlyContinue }
+                else { [Environment]::SetEnvironmentVariable($key, $previous[$key]) }
+            }
+        },
+        { if (Test-Path -LiteralPath $fixture) { Remove-Item -LiteralPath $fixture -Recurse -Force } }
+    )
 }

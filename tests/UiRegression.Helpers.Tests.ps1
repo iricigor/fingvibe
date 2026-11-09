@@ -373,4 +373,47 @@ if (`$failAt -eq '$name') { throw 'Synthetic module failure: $name' }
     }
     finally { Remove-Item -LiteralPath $fixtureRoot -Recurse -Force }
 }
+& {
+    $directory = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-call-costs-$([Guid]::NewGuid().ToString('N'))"
+    $savedSummary = $env:GITHUB_STEP_SUMMARY
+    try {
+        $env:GITHUB_STEP_SUMMARY = $null
+        $null = New-Item -ItemType Directory -Path $directory
+        $script:UiRegressionCallCosts = $null
+        $script:UiRegressionCallStack = $null
+        $phase = Step-UiRegressionPhase $null 'costs/first' $directory
+        $outer = Start-UiRegressionCall positioning
+        $inner = Start-UiRegressionCall lookup
+        Start-Sleep -Milliseconds 30
+        Complete-UiRegressionCall $inner
+        Complete-UiRegressionCall $outer
+        $phase = Step-UiRegressionPhase $phase 'costs/second' $directory
+        $abandoned = Start-UiRegressionCall wait
+        $closing = Start-UiRegressionCall close
+        Complete-UiRegressionCall $closing
+        Complete-UiRegressionCall $abandoned
+        $phase = Step-UiRegressionPhase $phase $null $directory
+        Assert-Regression ($null -eq $phase) 'Completing the last phase must leave no open phase.'
+        Write-UiRegressionCallCosts -Directory $directory -Name 'Synthetic.Ui'
+        $costs = Get-Content -LiteralPath (Join-Path $directory 'call-costs.json') -Raw | ConvertFrom-Json
+        $lookup = @($costs.entries | Where-Object { $_.phase -eq 'costs/first' -and $_.category -eq 'lookup' })[0]
+        $positioning = @($costs.entries | Where-Object { $_.phase -eq 'costs/first' -and $_.category -eq 'positioning' })[0]
+        Assert-Regression ($costs.check -eq 'Synthetic.Ui' -and $lookup.calls -eq 1 -and $lookup.exclusiveMilliseconds -ge 25) 'Call costs must record per-phase lookups.'
+        Assert-Regression ($positioning.inclusiveMilliseconds -ge $lookup.inclusiveMilliseconds -and
+            $positioning.exclusiveMilliseconds -lt $lookup.exclusiveMilliseconds) 'Nested lookup time must be excluded from positioning.'
+        Assert-Regression (@($costs.entries | Where-Object phase -eq 'costs/second').Count -eq 2) 'Calls must be attributed to the active phase.'
+        $phases = @(Get-Content -LiteralPath (Join-Path $directory 'phases.jsonl') | ConvertFrom-Json)
+        Assert-Regression ((($phases.phase) -join ',') -eq 'costs/first,costs/second' -and -not ($phases.succeeded -contains $false)) 'Phase steps must close each phase successfully.'
+    }
+    finally {
+        $env:GITHUB_STEP_SUMMARY = $savedSummary
+        if (Test-Path -LiteralPath $directory) { Remove-Item -LiteralPath $directory -Recurse -Force }
+    }
+}
+& {
+    $ran = [Collections.Generic.List[string]]::new()
+    Invoke-UiRegressionCleanup -PrimaryFailed $true -Steps @({ $ran.Add('first'); throw 'cleanup broke' }, { $ran.Add('second') }) 3>$null
+    Assert-Regression (($ran -join ',') -eq 'first,second') 'Cleanup must run every step after a failing step.'
+    Assert-RegressionFailure { Invoke-UiRegressionCleanup -PrimaryFailed $false -Steps @({ throw 'cleanup broke' }) 3>$null } 'cleanup broke'
+}
 Write-Host 'UI regression helper, cleanup, timing, and orchestration checks passed.'
