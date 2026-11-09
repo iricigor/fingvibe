@@ -216,6 +216,7 @@ function Assert-HistoryPage([int] $PageIndex, [switch] $Traverse) {
         throw "Incorrect scoped count/range on observation page $PageIndex."
     }
     $list = Show-HistorySection DeviceScanHistoryList
+    $pageViewport = Find-HistoryControl DeviceDetailsScroll
     $condition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
         [System.Windows.Automation.ControlType]::ListItem)
@@ -233,7 +234,7 @@ function Assert-HistoryPage([int] $PageIndex, [switch] $Traverse) {
             $item.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView()
             $null = Wait-UiRegressionState -Description "physically visible observation '$expected'" -Condition {
                 if ((Test-UiRegressionElementWithin $item $list $script:root) -and
-                    (Test-UiRegressionElementWithin $item (Find-HistoryControl DeviceDetailsScroll) $script:root)) { return $true }
+                    (Test-UiRegressionElementWithin $item $pageViewport $script:root)) { return $true }
             }
         }
         $labels += $expected
@@ -824,6 +825,7 @@ try {
     $null = Wait-HistoryPage 1
     $null = Assert-HistoryPage 0
     if ((Find-HistoryControl DeviceHistoryNewer).Current.IsEnabled) { throw "Newer navigation must stop at the newest page." }
+    Stop-HistoryApp
     $phase = Step-UiRegressionPhase $phase $null $ScreenshotDirectory
     Write-Host "Device scan-history native UI checks passed."
 }

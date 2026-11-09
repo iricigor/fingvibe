@@ -481,6 +481,7 @@ try {
 }
 catch {
     Write-Host $_
+    Write-Host $_.ScriptStackTrace
     if ($script:process -and -not $script:process.HasExited -and $script:process.MainWindowHandle -ne [IntPtr]::Zero) {
         Capture-Activity "activity-failure"
     }

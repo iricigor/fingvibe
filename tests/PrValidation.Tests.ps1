@@ -310,7 +310,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             "devices" = @("DevicesList.Ui")
             "details-summary" = @("DeviceScanHistory.Ui")
             "details-identity" = @("DeviceDiscovery.Ui", "UsageCategory.Ui")
-            "details-history" = @("DeviceActivity.Ui", "DeviceScanHistory.Ui")
+            "details-history" = @("DeviceScanHistory.Ui", "DeviceActivity.Ui")
             "tools" = @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")
         }
         Assert-Equal $matrixSuites @($expectedSuiteChecks.Keys) "CI matrix dispatches every split suite"
@@ -324,10 +324,10 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         }
         $calls = @(Get-Content $env:UI_REGRESSION_CALLS | ConvertFrom-Json)
         Assert-Equal $calls.Name @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
-            "UsageCategory.Ui", "DeviceActivity.Ui", "DeviceScanHistory.Ui",
+            "UsageCategory.Ui", "DeviceScanHistory.Ui", "DeviceActivity.Ui",
             "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "Dispatch every preserved suite once"
         Assert-Equal $calls[2].Parameters.SummaryOnly $true "Details summary dispatch tests only retained summaries"
-        Assert-Equal $calls[6].Parameters.ObservationsOnly $true "Details history dispatch includes full observation rendering and paging"
+        Assert-Equal $calls[5].Parameters.ObservationsOnly $true "Details history dispatch includes full observation rendering and paging"
         Assert-Equal ([DateTimeOffset]$calls[7].Parameters.BuildTimestamp).UtcDateTime ([DateTimeOffset]$parameters.BuildTimestamp).UtcDateTime "Forward stamped identity"
         Assert-Equal $calls[7].Parameters.PullRequestNumber 198 "Forward PR identity"
         Assert-Equal ($calls.Parameters.AppPath | Select-Object -Unique) "synthetic.exe" "Reuse supplied app"
