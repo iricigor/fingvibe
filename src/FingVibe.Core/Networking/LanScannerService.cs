@@ -102,7 +102,7 @@ public sealed class LanScannerService
             await Parallel.ForEachAsync(arpAddresses, new ParallelOptions
             {
                 CancellationToken = cancellationToken,
-                MaxDegreeOfParallelism = 8
+                MaxDegreeOfParallelism = FreshArpProbe.MaximumConcurrency
             }, async (index, token) =>
             {
                 var stopwatch = Stopwatch.StartNew();

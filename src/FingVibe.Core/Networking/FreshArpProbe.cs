@@ -9,7 +9,9 @@ namespace FingVibe.Core.Networking;
 
 internal static class FreshArpProbe
 {
-    private static readonly SemaphoreSlim Slots = new(8, 8);
+    internal const int MaximumConcurrency = 32;
+
+    private static readonly SemaphoreSlim Slots = new(MaximumConcurrency, MaximumConcurrency);
 
     internal static async Task<PhysicalAddress?> ResolveAsync(
         IPAddress address, LanNetwork network, CancellationToken cancellationToken)
