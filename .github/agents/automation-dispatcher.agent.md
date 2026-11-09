@@ -103,9 +103,37 @@ the configured Epic. Outside that Epic, those records alone do not consume
 capacity; leave their labels/ownership unchanged. An undiscoverable historical
 manual session alone does not establish a live worker or unresolved Dispatcher
 claim. Verify native membership and PR disposition before applying this
-exception; inaccessible/ambiguous membership, missing PR delivery evidence, or
-closed-unmerged PRs do not qualify. Within-Epic historical cleanup still blocks
-until reconciled; do not automatically release ownership or remove labels.
+exception. An authoritative successful response with an explicit null parent
+also establishes that the historical task is outside the configured Epic;
+merged delivery and the host check are still required. Report missing Epic
+organization separately for human-approved intake reconciliation, not as occupied
+implementation capacity. Missing fields, API failures, non-Epic parents and
+contradictory membership are not verified absence. Within-Epic historical cleanup
+still blocks until reconciled; do not automatically release ownership or remove
+labels.
+
+Preflight historical/prose findings are requests to review evidence, not proof
+of live ownership or permanent vetoes. Read all findings and their current
+task discussions, including linked reconciliation reports. A verified prior
+manual release with stopped-host evidence satisfies historical cleanup; do not
+demand repeated release or manufacture a Dispatcher claim. Distinguish abandoned
+work (explicit human decision, stopped execution and closed-unmerged PRs),
+human design/trial acceptance, transferred backlog and nested merged delivery
+from unfinished implementation. Verify each disposition and any actual worker
+state; closure alone never suffices. Abandonment/design acceptance is not
+implementation delivery and cannot silently satisfy implementation dependencies.
+Epic progress reports and task authorization discussing "ownership" are not
+themselves claims; explicit task ownership or structured claims still block.
+Do not delete historical prose or add fictitious closing PRs to silence findings.
+
+If every historical/prose finding is resolved by verified evidence, record the
+finding URLs, disposition and supporting evidence in the task diagnostics and
+continue selection from the cached native-child inventory under the normal
+ordering, dependency and fresh-read rules. Do not require the helper to return
+`candidate` after human-evidence reconciliation: it intentionally cannot certify
+those dispositions. Collection failures, contradictory evidence, live work,
+unresolved claims and uncertain execution cannot be overridden this way. Do not
+repeat repository-wide collection just to rediscover unchanged historical prose.
 
 An existing claim is always reconciled before new selection. Never replace an
 unknown/running worker or clear another session's claim. Verify execution has

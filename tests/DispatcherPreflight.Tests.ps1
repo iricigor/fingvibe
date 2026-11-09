@@ -62,18 +62,28 @@ function New-PreflightFixture {
                 $pageIndex = if ($Query -match 'after:"page-(\d+)"') { [int] $Matches[1] } else { 0 }
                 $pageCount = if ($delivery.pages) { $delivery.pages.Count } else { 1 }
                 $nodes = if ($delivery.pages) { @($delivery.pages[$pageIndex].nodes) } elseif ($delivery) { @($delivery.prs) } else { @() }
+                $parent = if ($delivery -and $null -eq $delivery.parent) { $null } else {
+                    @{
+                        number = if ($delivery) { $delivery.parent } else { 164 }
+                        labels = @{ nodes = @(@{ name = "type:epic" }); pageInfo = @{ hasNextPage = $false } }
+                    }
+                }
                 $object = @{
                     data = @{ repository = @{ issue = @{
                         number = $number
-                        parent = @{
-                            number = if ($delivery) { $delivery.parent } else { 164 }
-                            labels = @{ nodes = @(@{ name = "type:epic" }); pageInfo = @{ hasNextPage = $false } }
-                        }
+                        parent = $parent
                         closedByPullRequestsReferences = @{
                             nodes = $nodes
                             pageInfo = @{ hasNextPage = $pageIndex -lt ($pageCount - 1); endCursor = "page-$($pageIndex + 1)" }
                         }
                     } } }
+                }
+                switch ($delivery.membershipMutation) {
+                    "missing" { $object.data.repository.issue.Remove("parent") }
+                    "empty" { $object.data.repository.issue.parent = @{} }
+                    "incomplete-labels" { $parent.labels.pageInfo.hasNextPage = $true }
+                    "non-epic" { $parent.labels.nodes = @(@{ name = "type:task" }) }
+                    "changed-page" { if ($pageIndex -gt 0) { $object.data.repository.issue.parent = $null } }
                 }
                 break
             }
@@ -112,7 +122,7 @@ function Add-PreflightClaim($Fixture, [int] $Number, [string] $State = "claimed"
     }
 }
 
-function Add-PreflightDelivery($Fixture, [int] $Number, [int] $Parent = 164, [bool] $Merged = $true) {
+function Add-PreflightDelivery($Fixture, [int] $Number, [Nullable[int]] $Parent = 164, [bool] $Merged = $true) {
     $Fixture.state.deliveries[$Number] = @{
         parent = $Parent
         prs = @(@{ number = 900 + $Number; url = "https://github.com/test/repo/pull/$(900 + $Number)"; merged = $Merged; baseRefName = "main"; state = "CLOSED" })
@@ -204,7 +214,7 @@ $fixture = New-PreflightFixture
 $fixture.state.issues += New-PreflightIssue 190 "closed"
 $fixture.state.dependencies[200] = @(190)
 $fixture.state.issues[1].body = "## Dependencies and parent Epic`nNative blockers: #190`nParent: #164"
-Add-PreflightDelivery $fixture 190
+Add-PreflightDelivery $fixture 190 111
 $result = Invoke-PreflightFixture $fixture
 Assert-Preflight ($result.candidate.issue -eq 200 -and $result.candidate.dependencies[0].issue -eq 190) "Merged native prerequisites must carry delivery evidence."
 $fixture.state.deliveries[190].pages = @(@{ nodes = @() }, @{ nodes = $fixture.state.deliveries[190].prs })
@@ -229,19 +239,76 @@ $fixture.state.dependencies[200] = @(201)
 $fixture.state.dependencies[201] = @(200)
 Assert-Preflight ([bool] (Invoke-PreflightFixture $fixture).collectionFailure) "Indirect open dependency cycles must fail, not appear as no-work."
 
-foreach ($parent in @(164, 111)) {
+foreach ($parent in @(164, 111, $null)) {
     $fixture = New-PreflightFixture
     $fixture.state.issues += New-PreflightIssue 190 "closed" @("type:task", "active")
+    if ($parent -eq 164) { $fixture.state.children += 190 }
     Add-PreflightDelivery $fixture 190 $parent
     $result = Invoke-PreflightFixture $fixture
     if ($parent -eq 164) {
         Assert-Preflight ($result.decision -eq "reconcile" -and $result.findings[0].kind -eq "historical-cleanup") "Within-Epic historical cleanup must block."
     } else {
         Assert-Preflight ($result.decision -eq "candidate" -and $result.skipped[0].issue -eq 190) "Verified out-of-Epic historical label-only work must not occupy capacity."
+        if ($null -eq $parent) {
+            Assert-Preflight ($result.skipped[0].reason -match "missing Epic organization") "Parentless history must visibly retain the separate organization requirement."
+        }
         $fixture.state.deliveries[190].prs[0].merged = $false
         Assert-Preflight ((Invoke-PreflightFixture $fixture).decision -eq "reconcile") "Out-of-Epic unknown/unmerged history does not qualify for the exception."
+        $fixture.state.deliveries[190].prs[0].merged = $true
+        $fixture.state.deliveries[190].prs[0].baseRefName = "other-branch"
+        Assert-Preflight ((Invoke-PreflightFixture $fixture).findings[0].kind -eq "historical-delivery-unknown") "Merged history targeting another branch is not default-branch delivery."
     }
 }
+
+foreach ($mutation in @("missing", "empty", "incomplete-labels", "non-epic", "changed-page", "contradictory-child")) {
+    $fixture = New-PreflightFixture
+    $fixture.state.issues += New-PreflightIssue 190 "closed" @("type:task", "status:review")
+    Add-PreflightDelivery $fixture 190 111
+    $fixture.state.deliveries[190].membershipMutation = $mutation
+    if ($mutation -eq "changed-page") {
+        $fixture.state.deliveries[190].pages = @(@{ nodes = @() }, @{ nodes = $fixture.state.deliveries[190].prs })
+    }
+    if ($mutation -eq "contradictory-child") { $fixture.state.children += 190 }
+    $result = Invoke-PreflightFixture $fixture
+    Assert-Preflight ($result.decision -in @("blocked", "reconcile") -and -not $result.candidate) "$mutation membership must not qualify for the historical exception."
+    if ($mutation -ne "non-epic") {
+        Assert-Preflight ([bool] $result.collectionFailure) "$mutation membership must report an explicit collection failure."
+    }
+}
+
+$fixture = New-PreflightFixture
+$fixture.state.issues += New-PreflightIssue 190 "closed" @("type:task", "status:review")
+Add-PreflightDelivery $fixture 190 $null
+$fixture.state.failEndpoint = "graphql"
+$result = Invoke-PreflightFixture $fixture
+Assert-Preflight ($result.collectionFailure -and -not $result.candidate) "Inaccessible membership must not be interpreted as a verified null parent."
+$fixture.state.failEndpoint = $null
+$fixture.state.deliveries[190].prs = @()
+Assert-Preflight ((Invoke-PreflightFixture $fixture).findings[0].kind -eq "historical-delivery-unknown") "Parentless closure without merged PRs still requires delivery review."
+Add-PreflightClaim $fixture 190
+Assert-Preflight ((Invoke-PreflightFixture $fixture).findings[0].kind -eq "retained-claim") "Parentless history must never hide an unresolved structured claim."
+
+foreach ($state in @("open", "closed")) {
+    $fixture = New-PreflightFixture
+    $organizingEpic = New-PreflightIssue 111 $state @("type:epic")
+    $fixture.state.issues += $organizingEpic
+    $fixture.state.comments = @(@{
+        id = 9
+        issue_url = $organizingEpic.url
+        html_url = "$($organizingEpic.html_url)#issuecomment-9"
+        body = "Historical task ownership and claimed work are discussed here; this is an organizing Epic."
+    })
+    $result = Invoke-PreflightFixture $fixture
+    Assert-Preflight ($result.candidate.issue -eq 200 -and $result.skipped[0].issue -eq 111) "Organizing Epic prose must not be treated as task ownership."
+    if ($state -eq "open") {
+        $organizingEpic.labels += @{ name = "active" }
+        Assert-Preflight ((Invoke-PreflightFixture $fixture).findings[0].kind -eq "open-active-or-review") "Epic prose filtering must not hide live lifecycle evidence."
+    }
+}
+
+$fixture = New-PreflightFixture
+Add-PreflightClaim $fixture 164
+Assert-Preflight ((Invoke-PreflightFixture $fixture).findings[0].kind -eq "retained-claim") "An explicit coordination record on an Epic must still block, not be discarded as discussion."
 
 $fixture = New-PreflightFixture
 $fixture.state.comments = @(@{
