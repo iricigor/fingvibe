@@ -16,14 +16,17 @@ function Assert-NativeThrows([scriptblock] $Action, [string] $Pattern) {
 
 $baseline = @(Get-NativeValidationPlan -Mode Baseline -Suite capture)
 Assert-NativeEqual $baseline.Scenario @("Devices", "DeviceDetails", "DevicesEmpty") "Baseline captures only its demonstrated states"
-foreach ($suite in @("capture", "sidebar", "devices", "history", "tools")) {
+foreach ($suite in @("capture", "sidebar", "devices", "details-summary", "details-identity", "details-history", "tools")) {
     $full = @(Get-NativeValidationPlan -Mode Full -Suite $suite)
     Assert-NativeEqual $full.Scenario @($UiReviewScenarios.Keys) "Full always forces every catalog scenario, without PR metadata"
 }
 $focused = @(Get-NativeValidationPlan -Mode Focused -Suite capture -Scenarios @("Settings", "DeviceDetails"))
 Assert-NativeEqual $focused.Scenario @("Devices", "DeviceDetails", "Settings") "Focused captures reuse catalog ordering"
-Assert-NativeEqual @(Get-NativeValidationPlan -Mode Focused -Suite history).Scenario @("Devices", "DeviceDetails") "Focused history cannot inherit a plan that skips history/discovery"
-Assert-NativeThrows { Get-NativeValidationPlan -Mode Baseline -Suite history } "*only the capture*"
+foreach ($suite in @("details-summary", "details-identity", "details-history")) {
+    Assert-NativeEqual @(Get-NativeValidationPlan -Mode Focused -Suite $suite).Scenario @("Devices", "DeviceDetails") "Focused $suite cannot inherit a plan that skips Device Details"
+    Assert-NativeThrows { Get-NativeValidationPlan -Mode Baseline -Suite $suite } "*only the capture*"
+}
+Assert-NativeThrows { Get-NativeValidationPlan -Mode Focused -Suite history } "*history*"
 Assert-NativeThrows { Get-NativeValidationPlan -Mode Full -Suite capture -Scenarios Settings } "*only in Focused*"
 Assert-NativeThrows { Get-NativeValidationPlan -Mode Focused -Suite capture } "*requires at least one*"
 Assert-NativeThrows { Get-NativeValidationPlan -Mode Focused -Suite devices -Scenarios Settings } "*cannot select native*"
@@ -53,7 +56,7 @@ $dispatchSource = Get-Content (Join-Path $PSScriptRoot "..\.github\scripts\Invok
 $expectedChecks = @([regex]::Matches($dispatchSource, 'Invoke-RegressionCheck "([^"]+)"') |
     ForEach-Object { $_.Groups[1].Value })
 foreach ($name in @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
-    "UsageCategory.Ui", "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
+    "UsageCategory.Ui", "DeviceActivity.Ui", "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
     Assert-NativeEqual @($expectedChecks | Where-Object { $_ -eq $name }).Count 1 "Existing native checks remain present exactly once"
 }
 try {
@@ -93,7 +96,7 @@ if ($env:NATIVE_TEST_FAIL -eq $name) { throw "Simulated native failure: $name" }
         AppPath = "synthetic.exe"; ScreenshotDirectory = (Join-Path $fixture "diagnostics")
         Version = "0.0.123"; BuildCommit = "fixture-head"; BuildTimestamp = "2026-11-08T22:00:00Z"
     }
-    foreach ($suite in @("sidebar", "devices", "history", "tools", "capture")) {
+    foreach ($suite in @("sidebar", "devices", "details-summary", "details-identity", "details-history", "tools", "capture")) {
         & $runner -Mode Full -Suite $suite @parameters
         foreach ($name in @("FINGVIBE_UI_REVIEW", "FINGVIBE_UI_REVIEW_INVENTORY",
             "FINGVIBE_UI_REVIEW_SNAPSHOT", "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT")) {
@@ -187,7 +190,7 @@ try {
         if (-not $json.StartsWith("[") -or -not $json.EndsWith("]")) {
             throw "Matrix suite output must remain a JSON array even for the single baseline suite: $json"
         }
-        $expected = if ($mode -eq "Baseline") { @("capture") } else { @("sidebar", "devices", "history", "tools", "capture") }
+        $expected = if ($mode -eq "Baseline") { @("capture") } else { @("sidebar", "devices", "details-summary", "details-identity", "details-history", "tools", "capture") }
         Assert-NativeEqual @($json | ConvertFrom-Json) $expected "Actual workflow matrix output selects exact suites"
     }
     $env:MODE = "invalid"
@@ -228,7 +231,7 @@ if (-not $standalone.Contains("revision: $standaloneRevision") -or $standalone -
     throw "Standalone full execution must pin the pushed main commit (manual: main), without PR metadata or cancellation."
 }
 foreach ($invariant in @("fail-fast: false", "persist-credentials: false", "fromJSON(needs.plan.outputs.suites)",
-    '@("sidebar", "devices", "history", "tools", "capture")', "ref: `${{ needs.plan.outputs.revision }}",
+    '@("sidebar", "devices", "details-summary", "details-identity", "details-history", "tools", "capture")', "ref: `${{ needs.plan.outputs.revision }}",
     "Assert-NativeValidationResults", "if: always()", "shell: powershell", "execution request")) {
     if (-not $reusable.Contains($invariant)) { throw "Missing full execution invariant: $invariant" }
 }
@@ -236,7 +239,7 @@ $ci = Get-Content (Join-Path $workflowDirectory "ci.yml") -Raw
 $matrix = [regex]::Match($ci, 'suite: \[([^\]]+)\]')
 if (-not $matrix.Success) { throw "Existing authoritative native suite matrix was not found." }
 $existingSuites = @($matrix.Groups[1].Value.Split(",") | ForEach-Object { $_.Trim() })
-Assert-NativeEqual $existingSuites @("sidebar", "devices", "history", "tools") "New authoritative suites must be wired into full mode explicitly"
+Assert-NativeEqual $existingSuites @("sidebar", "devices", "details-summary", "details-identity", "details-history", "tools") "New authoritative suites must be wired into full mode explicitly"
 $ciTests = [regex]::Match($ci, '(?s)\r?\n  tests:\r?\n(.*?)\r?\n  build:').Groups[1].Value
 if (-not $ciTests) { throw "Existing CI core/script job was not found." }
 $checks = Get-Content (Join-Path $PSScriptRoot "..\.github\scripts\Invoke-FullValidationChecks.ps1") -Raw

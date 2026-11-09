@@ -440,11 +440,11 @@ First/last seen, last-observed/since, network scope and latest-scan explanation
 remain visible in the summary. Devices Last seen, virtual MAC/address information,
 discovery, usage categories and all other device details are unchanged. Scans
 continue collecting and retaining evidence; no stored data is deleted.
-The CI history suite invokes `DeviceScanHistory.Ui.Tests.ps1 -SummaryOnly`,
+The CI `details-summary` suite invokes `DeviceScanHistory.Ui.Tests.ps1 -SummaryOnly`,
 preserving summary/Last seen, network scope, normal/virtual/imported/legacy,
 restart, scan outcomes, persistence errors and light/dark/narrow summary checks.
 It also verifies disabled controls are not visible or keyboard accessible.
-Activity checks run separately in the same suite. Observation-table
+Activity checks run separately in the `details-history` suite. Observation-table
 rendering/paging checks remain dormant, not waived for #274. Restoring Activity
 does not authorize restoring the table or the deferred tab redesign.
 
@@ -895,8 +895,22 @@ in `phases.jsonl` alongside screenshots/transcripts and in the job summary.
 Compare repeated runs with the same revision/build provenance, viewport and
 selected scenarios against an equivalent baseline; retain failed phases and
 report missing evidence. No statistically established flake rate is claimed.
-The existing four-suite matrix, required aggregate and
-disabled Activity/observation policy are unchanged.
+The required aggregate and disabled Activity/observation policy are unchanged.
+
+Device Details regression follows the planned #262 Overview/History boundary
+across three independent matrix jobs (#292): `details-summary`
+(`DeviceScanHistory.Ui -SummaryOnly`), `details-identity` (`DeviceDiscovery.Ui`,
+`UsageCategory.Ui`) and `details-history` (`DeviceActivity.Ui`; restored
+observation checks belong here). Each job launches its own fixtures and app
+instances, is selected by the `DeviceDetails` capture-plan scenario, and must
+dispatch at least one check. Checks within a script still share sequential
+fixture state. History, discovery and usage checks also write
+`call-costs.json`: per-phase calls and inclusive/exclusive milliseconds for
+lookup, positioning, wait, launch, close and scan categories. Exclusive time
+removes nested measured calls, so positioning/wait exclusive time is property
+reads, scrolling and polling sleeps. A failure in these checks captures a
+failure screenshot, records the open phase as failed, and cleanup errors never
+replace the original failure.
 
 Epic Developer must inspect and report the complete GitHub Actions job duration
 for every applicable UI-regression job discovered from current workflows and
@@ -968,7 +982,7 @@ tip; manual runs resolve `main` once before execution. Automatic triggering
 starts when the workflow reaches `main`; feature-branch pushes, tags and PR
 events do not trigger this standalone workflow. The reusable implementation
 forces every catalog capture and all
-currently enabled sidebar, Devices, history/discovery/usage and Tools/build
+currently enabled sidebar, Devices, Device Details summary/identity/history and Tools/build
 identity suites, plus screenshot-helper, core, speed-test bridge, script,
 installer lifecycle, secret and critical dependency checks. It does not inherit
 a PR diff that could omit history/discovery. Each native suite has its own
@@ -1039,8 +1053,8 @@ environment or disposable CI runner, **not the user's working desktop**:
 ```powershell
 .\.github\scripts\Invoke-NativeValidation.ps1 -Mode Baseline -Suite capture `
   -AppPath artifacts\app\FingVibe.App.exe -ScreenshotDirectory artifacts\baseline
-.\.github\scripts\Invoke-NativeValidation.ps1 -Mode Focused -Suite history `
-  -AppPath artifacts\app\FingVibe.App.exe -ScreenshotDirectory artifacts\history
+.\.github\scripts\Invoke-NativeValidation.ps1 -Mode Focused -Suite details-summary `
+  -AppPath artifacts\app\FingVibe.App.exe -ScreenshotDirectory artifacts\details-summary
 .\.github\scripts\Invoke-NativeValidation.ps1 -Mode Focused -Suite capture `
   -Scenarios DeviceDetails,Settings -AppPath artifacts\app\FingVibe.App.exe `
   -ScreenshotDirectory artifacts\focused
@@ -1097,7 +1111,7 @@ integration.
 `DeviceActivityTests` covers every hour stop, response-wins/known-zero/unknown,
 weekday denominators, explicit legacy evidence, identity union, first-sighting
 eligibility, exact time boundaries, DST and cancellation. The disposable Windows
-history suite invokes
+`details-history` suite invokes
 `tests\DeviceActivity.Ui.Tests.ps1` with an isolated
 synthetic inventory, exercising all modes/stops, cell keyboard details,
 loading/error/no-history states, selection changes, narrow scrolling, themes,
@@ -1130,7 +1144,7 @@ clipping is not. Positioning logs report adjustments and elapsed time without
 replacing full-job duration evidence or removing intentional hover/appearance
 waits.
 
-The disposable Windows history regression suite also runs
+The disposable Windows `details-identity` regression suite also runs
 `tests\UsageCategory.Ui.Tests.ps1`. It uses isolated inventory/snapshot/table fixtures
 and review network identity to exercise automatic/unavailable/no-evidence states, separate Save/Cancel,
 restart persistence, retained failed-save drafts, concurrent reload, unrelated

@@ -15,41 +15,55 @@ function Find-HistoryControl([string] $Value, [switch] $ByName, [switch] $Option
     $property = if ($ByName) { [System.Windows.Automation.AutomationElement]::NameProperty }
         else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
     $condition = [System.Windows.Automation.PropertyCondition]::new($property, $Value)
-    $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+    $call = Start-UiRegressionCall lookup
+    try { $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition) }
+    finally { Complete-UiRegressionCall $call }
     if (-not $element -and -not $Optional) { throw "Missing scan-history control '$Value'." }
     return $element
 }
 
 function Wait-HistoryState([scriptblock] $Predicate, [string] $Description) {
-    $deadline = [DateTime]::UtcNow.AddSeconds(30)
-    do {
-        if (& $Predicate) { return }
-        Start-Sleep -Milliseconds 100
-    } while ([DateTime]::UtcNow -lt $deadline)
-    throw "Timed out waiting for $Description."
+    $call = Start-UiRegressionCall wait
+    try {
+        $deadline = [DateTime]::UtcNow.AddSeconds(30)
+        do {
+            if (& $Predicate) { return }
+            Start-Sleep -Milliseconds 100
+        } while ([DateTime]::UtcNow -lt $deadline)
+        throw "Timed out waiting for $Description."
+    }
+    finally { Complete-UiRegressionCall $call }
 }
 
 function Start-HistoryApp {
-    $script:process = Start-Process -FilePath $AppPath -PassThru
-    Wait-HistoryState {
-        $script:process.Refresh()
-        if ($script:process.HasExited) { throw "Scan-history app exited: $($script:process.ExitCode)." }
-        $script:process.MainWindowHandle -ne [IntPtr]::Zero
-    } "scan-history app window"
-    Initialize-UiReviewWindow $script:process.MainWindowHandle
-    $script:root = [System.Windows.Automation.AutomationElement]::FromHandle($script:process.MainWindowHandle)
-    Wait-HistoryState { Find-HistoryControl DevicesNavItem -Optional } "device navigation"
-    Start-Sleep -Milliseconds 500
+    $call = Start-UiRegressionCall launch
+    try {
+        $script:process = Start-Process -FilePath $AppPath -PassThru
+        Wait-HistoryState {
+            $script:process.Refresh()
+            if ($script:process.HasExited) { throw "Scan-history app exited: $($script:process.ExitCode)." }
+            $script:process.MainWindowHandle -ne [IntPtr]::Zero
+        } "scan-history app window"
+        Initialize-UiReviewWindow $script:process.MainWindowHandle
+        $script:root = [System.Windows.Automation.AutomationElement]::FromHandle($script:process.MainWindowHandle)
+        Wait-HistoryState { Find-HistoryControl DevicesNavItem -Optional } "device navigation"
+        Start-Sleep -Milliseconds 500
+    }
+    finally { Complete-UiRegressionCall $call }
 }
 
 function Stop-HistoryApp {
-    if ($script:process -and -not $script:process.HasExited) {
-        $null = $script:process.CloseMainWindow()
-        if (-not $script:process.WaitForExit(5000)) {
-            Stop-Process -Id $script:process.Id -Force
-            throw "Scan-history app did not close normally."
+    $call = Start-UiRegressionCall close
+    try {
+        if ($script:process -and -not $script:process.HasExited) {
+            $null = $script:process.CloseMainWindow()
+            if (-not $script:process.WaitForExit(5000)) {
+                Stop-Process -Id $script:process.Id -Force
+                throw "Scan-history app did not close normally."
+            }
         }
     }
+    finally { Complete-UiRegressionCall $call }
 }
 
 function Select-HistoryDevices {
@@ -167,9 +181,13 @@ function Get-HistoryTimestamp([int] $Index) {
 
 function Show-HistorySection([string] $Id, [int] $TopMargin = 35, [string[]] $AdditionalIds = @()) {
     $ids = @($Id) + $AdditionalIds
-    Show-UiRegressionScrollTargets -Description "Scan-history section '$Id'" -TopMargin $TopMargin -BottomMargin 10 `
-        -GetViewport { Find-HistoryControl DeviceDetailsScroll } -GetWindow { $script:root } `
-        -GetTargets { $ids | ForEach-Object { Find-HistoryControl $_ } }
+    $call = Start-UiRegressionCall positioning
+    try {
+        Show-UiRegressionScrollTargets -Description "Scan-history section '$Id'" -TopMargin $TopMargin -BottomMargin 10 `
+            -GetViewport { Find-HistoryControl DeviceDetailsScroll } -GetWindow { $script:root } `
+            -GetTargets { $ids | ForEach-Object { Find-HistoryControl $_ } }
+    }
+    finally { Complete-UiRegressionCall $call }
 }
 
 function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
@@ -346,9 +364,12 @@ $snapshot = Join-Path $fixtureDirectory "snapshot.json"
 $hold = Join-Path $fixtureDirectory "scan.hold"
 $script:process = $null
 $lock = $null
+$phase = $null
+$failed = $false
 try {
     $null = New-Item -ItemType Directory -Path $fixtureDirectory
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
+    $phase = Step-UiRegressionPhase $phase "history/fixture" $ScreenshotDirectory
     $history = @(0..4 | ForEach-Object {
         @{ completedAt = "2026-11-01T12:0${_}:00+00:00"; networkId = "ui-review-network"
            subnet = "127.0.0.1/32"; present = ($_ -notin @(2, 3)) }
@@ -397,6 +418,7 @@ try {
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $snapshot
     $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT = "0"
     $env:FINGVIBE_UI_REVIEW_SCAN_HOLD = $hold
+    $phase = Step-UiRegressionPhase $phase "history/summary-cases" $ScreenshotDirectory
     foreach ($index in 0..4) {
         $lastSeen = @(0, 1, 1, 1, 4)[$index]
         $present = $index -notin @(2, 3)
@@ -431,6 +453,7 @@ try {
         }
         Stop-HistoryApp
     }
+    $phase = Step-UiRegressionPhase $phase "history/provenance-and-scope" $ScreenshotDirectory
     $original = Get-Content -LiteralPath $inventory -Raw
     $originalDatabase = Get-InventoryFingerprint $database
     Start-HistoryApp
@@ -470,6 +493,7 @@ try {
     else { $null = Show-HistorySection DeviceHistoryFirstSeen }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-imported.png")
     Stop-HistoryApp
+    $phase = Step-UiRegressionPhase $phase "history/restart-and-appearance" $ScreenshotDirectory
     Start-HistoryApp
     Open-HistoryDetails "History normal"
     Assert-HistorySummary "history-restarted"
@@ -509,6 +533,7 @@ try {
             $bounds.Left, $bounds.Top, $bounds.Width, $bounds.Height, 0x0044)
         Start-Sleep -Milliseconds 500
     }
+    $phase = Step-UiRegressionPhase $phase "history/scan-outcomes" $ScreenshotDirectory
     Open-HistoryDetails "History virtual"
     Assert-HistorySummary "history-virtual-restarted"
     if ((Get-Content -LiteralPath $inventory -Raw) -cne $original) { throw "Restoration must not write new scan entries." }
@@ -588,6 +613,7 @@ try {
         throw "Saving must not overwrite invalid history."
     }
     Stop-HistoryApp
+    $phase = Step-UiRegressionPhase $phase "history/load-failure" $ScreenshotDirectory
     Start-HistoryApp
     Wait-HistoryState {
         $status = Find-HistoryControl ScanStatusText -Optional
@@ -599,9 +625,11 @@ try {
     }
     Stop-HistoryApp
     if ($SummaryOnly) {
+        $phase = Step-UiRegressionPhase $phase $null $ScreenshotDirectory
         Write-Host "Retained summaries, Last seen, persistence, scan outcomes and disabled completed-observation UI checks passed."
         return
     }
+    $phase = Step-UiRegressionPhase $phase "history/paging" $ScreenshotDirectory
     $pagedHistory = @(0..204 | ForEach-Object {
         @{ completedAt = ([DateTimeOffset]::Parse("2026-11-01T12:00:00Z").AddSeconds($_)).ToString("o")
            networkId = "ui-review-network"; subnet = "127.0.0.1/32"; present = ($_ % 4 -lt 2) }
@@ -663,11 +691,25 @@ try {
     Open-HistoryDetails "History normal"
     Wait-HistoryState { (Find-HistoryControl DeviceHistoryPageStatus).Current.Name -like "Showing 1-100 of 205.*" } "reset history traversal after selection change"
     if ((Find-HistoryControl DeviceHistoryNewer).Current.IsEnabled) { throw "Newer navigation must stop at the newest page." }
+    $phase = Step-UiRegressionPhase $phase $null $ScreenshotDirectory
     Write-Host "Device scan-history native UI checks passed."
 }
+catch {
+    $failed = $true
+    Write-Host $_.ScriptStackTrace
+    if ($script:process -and -not $script:process.HasExited -and $script:process.MainWindowHandle -ne [IntPtr]::Zero) {
+        try { Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-failure.png") }
+        catch { Write-Warning "Could not capture scan-history failure: $($_.Exception.Message)" }
+    }
+    throw
+}
 finally {
-    if ($lock) { $lock.Dispose() }
-    if ($script:process -and -not $script:process.HasExited) { Stop-Process -Id $script:process.Id -Force }
-    foreach ($key in $previous.Keys) { [Environment]::SetEnvironmentVariable($key, $previous[$key]) }
-    if (Test-Path -LiteralPath $fixtureDirectory) { Remove-Item -LiteralPath $fixtureDirectory -Recurse -Force }
+    Invoke-UiRegressionCleanup -PrimaryFailed $failed -Steps @(
+        { if ($phase) { Complete-UiRegressionPhase -Phase $phase -Directory $ScreenshotDirectory -Succeeded $false } },
+        { Write-UiRegressionCallCosts -Directory $ScreenshotDirectory -Name "DeviceScanHistory.Ui" },
+        { if ($lock) { $lock.Dispose() } },
+        { if ($script:process -and -not $script:process.HasExited) { Stop-Process -Id $script:process.Id -Force } },
+        { foreach ($key in $previous.Keys) { [Environment]::SetEnvironmentVariable($key, $previous[$key]) } },
+        { if (Test-Path -LiteralPath $fixtureDirectory) { Remove-Item -LiteralPath $fixtureDirectory -Recurse -Force } }
+    )
 }

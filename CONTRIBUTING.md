@@ -66,6 +66,14 @@ for the desktop-free foundation check. These are contributor/reviewer
 expectations, not a new mandatory manifest or gate. Enforced coverage
 selection remains separate work in #256.
 
+Device Details checks run in three independent CI jobs that follow the planned
+Overview/History tab boundary: `details-summary`, `details-identity` and
+`details-history`. Add Activity or observation-table checks to `details-history`,
+and keep every job within the 240-second budget using its `call-costs.json` and
+`phases.jsonl` evidence. Mark each logical segment with a phase, keep the
+original failure when cleanup also fails, and do not dispatch a matrix job that
+runs no checks. Ship harness changes like these separately from feature changes.
+
 Native execution modes reuse the existing smoke and suite implementations.
 The independent observational comparison runs a short launch/scan/filter/details
 baseline on the exact trusted PR head; it does not replace any authoritative
