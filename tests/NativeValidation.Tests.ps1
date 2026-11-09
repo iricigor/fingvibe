@@ -23,7 +23,7 @@ foreach ($suite in @("capture", "sidebar", "devices", "details-summary", "detail
 $focused = @(Get-NativeValidationPlan -Mode Focused -Suite capture -Scenarios @("Settings", "DeviceDetails"))
 Assert-NativeEqual $focused.Scenario @("Devices", "DeviceDetails", "Settings") "Focused captures reuse catalog ordering"
 foreach ($suite in @("details-summary", "details-identity", "details-history")) {
-    $expected = if ($suite -eq "details-history") { @("Devices", "Network", "DeviceDetails") } else { @("Devices", "DeviceDetails") }
+    $expected = if ($suite -eq "details-identity") { @("Devices", "Network", "DeviceDetails") } else { @("Devices", "DeviceDetails") }
     Assert-NativeEqual @(Get-NativeValidationPlan -Mode Focused -Suite $suite).Scenario $expected "Focused $suite cannot inherit a plan that skips its activity surfaces"
     Assert-NativeThrows { Get-NativeValidationPlan -Mode Baseline -Suite $suite } "*only the capture*"
 }
@@ -108,7 +108,7 @@ if ($env:NATIVE_TEST_FAIL -eq $name) { throw "Simulated native failure: $name" }
     $calls = @(Get-Content $env:NATIVE_TEST_CALLS | ConvertFrom-Json)
     Assert-NativeEqual $calls.name ($expectedChecks + @("UiReviewScreenshot", "capture")) "Full dispatch inherits all current suites exactly once, including independently restored coverage"
     Assert-NativeEqual $calls[2].parameters.SummaryOnly $true "Full preserves summary coverage"
-    Assert-NativeEqual $calls[5].parameters.ObservationsOnly $true "Full includes restored observation rendering/paging coverage"
+    Assert-NativeEqual $calls[6].parameters.ObservationsOnly $true "Full includes restored observation rendering/paging coverage"
     Assert-NativeEqual @($calls | Where-Object name -eq "BuildIdentity.Ui")[0].parameters.BuildCommit "fixture-head" "Native identity uses exact built revision"
     Assert-NativeEqual $calls[-1].plan.Scenario @($UiReviewScenarios.Keys) "Full capture cannot omit history/details or discovery selection"
     & $runner -Mode Baseline -Suite capture @parameters

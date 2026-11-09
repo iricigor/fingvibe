@@ -473,7 +473,8 @@ isolation and calendar boundaries. The disposable native `NetworkActivity.Ui`
 module uses an isolated 1,000-device fixture and verifies all periods/groupings,
 filter combinations, 720-cell reachability, keyboard/light/dark/narrow layout, loading,
 replacement/cancellation, error/Retry and empty history. It runs in the existing
-`details-history` job when Network is selected; full validation includes it.
+`details-identity` job when Network is selected, because `details-history` has no
+room within the 240-second job budget; full validation includes it.
 `tests\NetworkActivity.Script.Tests.ps1` verifies that fixture and its production
 query without desktop automation. The shared renderer also retains the existing
 Device Activity light/dark/high-contrast native coverage. No native test runs on
@@ -959,7 +960,9 @@ across three independent matrix jobs (#292): `details-summary`
 `UsageCategory.Ui`) and `details-history` (`DeviceActivity.Ui`,
 `DeviceScanHistory.Ui -ObservationsOnly`). Each job launches its own fixtures and app
 instances, is selected by the `DeviceDetails` capture-plan scenario, and must
-dispatch at least one check. Checks within a script still share sequential
+dispatch at least one check. `details-identity` also runs the Network page's
+`NetworkActivity.Ui` when the `Network` scenario is selected, using that job's
+budget headroom. Checks within a script still share sequential
 fixture state. History, discovery and usage checks also write
 `call-costs.json`: per-phase calls and inclusive/exclusive milliseconds for
 lookup, positioning, wait, launch, close and scan categories. Exclusive time

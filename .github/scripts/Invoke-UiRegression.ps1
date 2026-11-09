@@ -55,14 +55,15 @@ try {
                 Invoke-RegressionCheck "DeviceDiscovery.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "discovery") }
                 Invoke-RegressionCheck "UsageCategory.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "usage-category") }
             }
-            else {
+            # Network Activity uses details-identity's duration headroom; details-history is near the 240-second budget.
+            if ($Suite -eq "details-identity" -and $plan.Scenario -contains "Network") {
+                Invoke-RegressionCheck "NetworkActivity.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "network-activity") }
+            }
+            if ($Suite -eq "details-history" -and $plan.Scenario -contains "DeviceDetails") {
                 Invoke-RegressionCheck "DeviceScanHistory.Ui" @{
                     ScreenshotDirectory = (Join-Path $ScreenshotDirectory "observations"); ObservationsOnly = $true
                 }
                 Invoke-RegressionCheck "DeviceActivity.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "activity") }
-            }
-            if ($Suite -eq "details-history" -and $plan.Scenario -contains "Network") {
-                Invoke-RegressionCheck "NetworkActivity.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "network-activity") }
             }
         }
         tools {

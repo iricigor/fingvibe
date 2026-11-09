@@ -343,9 +343,22 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 13 "Unselected $suite must not launch native checks"
         }
         ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios Network) -Depth 5 | Set-Content $planPath
-        & $runner -Suite details-history @parameters
+        foreach ($suite in @("details-summary", "details-history")) {
+            & $runner -Suite $suite @parameters
+            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 13 "Network-only plan adds no checks to $suite"
+        }
+        & $runner -Suite details-identity @parameters
         $networkCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip 13 | ConvertFrom-Json)
         Assert-Equal $networkCalls.Name @("NetworkActivity.Ui") "Network-only plan still runs its activity regression"
+        ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios DeviceDetails, Network) -Depth 5 |
+            Set-Content $planPath
+        foreach ($suite in @("details-identity", "details-history")) {
+            $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
+            & $runner -Suite $suite @parameters
+            $suiteCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json)
+            $expected = if ($suite -eq "details-identity") { @($expectedSuiteChecks[$suite]) + "NetworkActivity.Ui" } else { $expectedSuiteChecks[$suite] }
+            Assert-Equal $suiteCalls.Name $expected "Combined plan runs Network Activity once, in details-identity"
+        }
         Assert-Throws { & $runner -Suite history @parameters } "*history*"
         $env:UI_REGRESSION_FAIL = "DevicesList.Ui"
         Assert-Throws { & $runner -Suite devices @parameters } "*Simulated regression failure*"
