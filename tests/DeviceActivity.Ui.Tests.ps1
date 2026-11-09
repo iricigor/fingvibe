@@ -116,8 +116,10 @@ function Show-Activity([string] $Id) {
         $target.SetFocus()
         $script:shownActivity = $null
         Wait-Activity {
-            $current = Find-Activity $Id
-            if (Test-ActivityFits $current (Find-Activity DeviceDetailsScroll)) { $script:shownActivity = $current; return $true }
+            # Peers can be briefly absent while bring-into-view re-realizes the page; retry instead of failing.
+            $current = Find-Activity $Id -Optional
+            $viewport = Find-Activity DeviceDetailsScroll -Optional
+            if ($current -and $viewport -and (Test-ActivityFits $current $viewport)) { $script:shownActivity = $current; return $true }
             return $false
         } "focused Activity control '$Id' inside the details viewport"
         return $script:shownActivity
@@ -175,12 +177,20 @@ function Select-ActivityCell([int] $Row, [int] $Column) {
     $null = Show-Activity ActivityHours
     $cell = Find-Activity "ActivityCell-$Row-$Column"
     $cell.SetFocus()
+    $script:selectedActivityCell = $null
     try {
         Wait-Activity {
-            $current = Find-Activity "ActivityCell-$Row-$Column"
-            (Find-Activity ActivityDetail).Current.Name -eq $current.Current.Name -and
-                (Test-ActivityFits $current (Find-Activity ActivityScroll)) -and
-                (Test-ActivityFits $current (Find-Activity DeviceDetailsScroll))
+            # Peers can be briefly absent while bring-into-view re-realizes the grid; retry instead of failing.
+            $current = Find-Activity "ActivityCell-$Row-$Column" -Optional
+            $detail = Find-Activity ActivityDetail -Optional
+            $grid = Find-Activity ActivityScroll -Optional
+            $page = Find-Activity DeviceDetailsScroll -Optional
+            if (-not ($current -and $detail -and $grid -and $page)) { return $false }
+            if ($detail.Current.Name -eq $current.Current.Name -and (Test-ActivityFits $current $grid) -and (Test-ActivityFits $current $page)) {
+                $script:selectedActivityCell = $current
+                return $true
+            }
+            return $false
         } "visible keyboard-accessible cell details"
     }
     catch {
@@ -190,7 +200,7 @@ function Select-ActivityCell([int] $Row, [int] $Column) {
         }
         throw
     }
-    return $cell
+    return $script:selectedActivityCell
 }
 
 function Capture-Activity([string] $Name) {
