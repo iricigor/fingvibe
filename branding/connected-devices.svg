@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">FingVibe connected devices</title>
+  <desc id="desc">A central cyan network hub connects a computer, phone, storage device, and media screen.</desc>
+  <defs><linearGradient id="base" x2="1" y2="1"><stop stop-color="#173967"/><stop offset="1" stop-color="#111d38"/></linearGradient></defs>
+  <rect x="12" y="12" width="232" height="232" rx="54" fill="url(#base)" stroke="#5385bd" stroke-width="3"/>
+  <g stroke="#68a7d7" stroke-width="6" stroke-linecap="round" fill="none">
+    <path d="m128 128-62-60m62 60 62-60m-62 60-62 62m62-62 62 62"/>
+  </g>
+  <g stroke-width="4" stroke-linejoin="round">
+    <rect x="38" y="42" width="56" height="38" rx="5" fill="#243b5c" stroke="#ffc45c"/>
+    <path d="M66 80v10m-18 0h36" stroke="#ffc45c" stroke-linecap="round"/>
+    <rect x="174" y="38" width="32" height="54" rx="7" fill="#243b5c" stroke="#ff809a"/>
+    <path d="M184 83h12" stroke="#ff809a" stroke-linecap="round"/>
+    <rect x="43" y="165" width="46" height="48" rx="7" fill="#243b5c" stroke="#bd9aff"/>
+    <path d="M53 177h26m-26 12h26" stroke="#bd9aff" stroke-linecap="round"/>
+    <circle cx="77" cy="202" r="3" fill="#bd9aff"/>
+    <rect x="163" y="168" width="56" height="36" rx="5" fill="#243b5c" stroke="#65c8ed"/>
+    <path d="m184 180 12 7-12 7Z" fill="#65c8ed" stroke="#65c8ed"/>
+    <path d="M182 213h18" stroke="#65c8ed" stroke-linecap="round"/>
+  </g>
+  <circle cx="128" cy="128" r="29" fill="#153c55" stroke="#4df0d3" stroke-width="4"/>
+  <circle cx="128" cy="128" r="11" fill="#4df0d3"/>
+  <g fill="#e6ffff"><circle cx="128" cy="108" r="3"/><circle cx="148" cy="128" r="3"/><circle cx="128" cy="148" r="3"/><circle cx="108" cy="128" r="3"/></g>
+</svg>
