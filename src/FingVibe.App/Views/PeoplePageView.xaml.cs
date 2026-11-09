@@ -7,29 +7,37 @@ namespace FingVibe.App.Views;
 public sealed partial class PeoplePageView : UserControl
 {
     private bool _canEdit;
+    private IReadOnlyList<ManagedPersonListRow> _rows = [];
 
     public PeoplePageView() => InitializeComponent();
 
-    public event TextChangedEventHandler? SearchChanged;
     public event RoutedEventHandler? AddRequested;
     public event EventHandler<ManagedPerson>? PersonRequested;
     public event EventHandler<Guid>? EditRequested;
     public event EventHandler<Guid>? DeleteRequested;
 
-    internal string SearchText => PeopleSearchBox.Text;
     internal string Status { set => PeopleStatusText.Text = value; }
 
-    internal void ShowRows(IReadOnlyList<ManagedPersonListRow> rows, string emptyMessage, bool canEdit)
+    internal void ShowPeople(PeopleRoomsData data, IReadOnlyList<AssignedDeviceListRow> devices,
+        bool hasCurrentScan, bool canEdit)
     {
         _canEdit = canEdit;
-        PeopleList.ItemsSource = rows;
-        PeopleTableBorder.Visibility = rows.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        PeopleEmptyState.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        PeopleEmptyText.Text = emptyMessage;
+        _rows = PeopleRoomsPresentation.PeopleRows(data, devices, hasCurrentScan);
+        ApplySearch();
         AddPersonButton.IsEnabled = canEdit;
     }
 
-    private void PeopleSearchBox_TextChanged(object sender, TextChangedEventArgs e) => SearchChanged?.Invoke(this, e);
+    private void ApplySearch()
+    {
+        var rows = _rows.Where(row => PeopleRoomsPresentation.MatchesSearch(
+            row.Person.ShortName, row.Person.Name, PeopleSearchBox.Text)).ToArray();
+        PeopleList.ItemsSource = rows;
+        PeopleTableBorder.Visibility = rows.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        PeopleEmptyState.Visibility = rows.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        PeopleEmptyText.Text = _rows.Count == 0 ? "No people yet" : "No people match your search.";
+    }
+
+    private void PeopleSearchBox_TextChanged(object sender, TextChangedEventArgs e) => ApplySearch();
     private void AddPersonButton_Click(object sender, RoutedEventArgs e) => AddRequested?.Invoke(this, e);
 
     private void PeopleList_ItemClick(object sender, ItemClickEventArgs e)

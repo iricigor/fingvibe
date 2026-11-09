@@ -19,6 +19,7 @@ $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot 'UiRegression\Sidebar.Settings.Helpers.ps1')
 . (Join-Path $PSScriptRoot 'UiRegression\Sidebar.Scans.Helpers.ps1')
 . (Join-Path $PSScriptRoot 'UiRegression\Sidebar.Scheduled.Helpers.ps1')
+. (Join-Path $PSScriptRoot 'UiRegression\Sidebar.PeopleRooms.Helpers.ps1')
 
 $regressionSavedEnvironment = Save-UiRegressionEnvironment @(
     'FINGVIBE_UI_REVIEW', 'FINGVIBE_UI_REVIEW_SCAN_HOLD', 'FINGVIBE_UI_REVIEW_NAVIGATION',
@@ -29,7 +30,7 @@ $process = $null
 $windowHandle = [IntPtr]::Zero
 $previousContext = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext([IntPtr]::new(-4))
 try {
-    foreach ($regressionModule in @('Setup', 'Navigation', 'Settings', 'Appearance', 'Responsive', 'Refresh', 'Progress', 'Persistence', 'Scheduled')) {
+    foreach ($regressionModule in @('Setup', 'Navigation', 'Settings', 'Appearance', 'Responsive', 'Refresh', 'Progress', 'PeopleRooms', 'Persistence', 'Scheduled')) {
         $regressionPhase = Start-UiRegressionPhase -Name "Sidebar/$regressionModule"
         $regressionSucceeded = $false
         try {

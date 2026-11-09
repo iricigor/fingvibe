@@ -1032,6 +1032,31 @@
           "fixtureAssignments": []
         },
         {
+          "file": "Sidebar.PeopleRooms.Helpers.ps1",
+          "kind": "helpers",
+          "originalRanges": [],
+          "refactored": true,
+          "functions": [
+            { "name": "Find-PeopleRoomsElement", "refactored": true },
+            { "name": "Invoke-PeopleRoomsElement", "refactored": true },
+            { "name": "Set-PeopleRoomsText", "refactored": true },
+            { "name": "Open-PeopleRoomsDetails", "refactored": true },
+            { "name": "Test-PeopleRoomsFlows", "refactored": true },
+            { "name": "Test-PeopleRoomsPersistenceErrors", "refactored": true }
+          ],
+          "captures": [],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Sidebar.PeopleRooms.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [],
+          "refactored": true,
+          "functions": [],
+          "captures": [],
+          "fixtureAssignments": []
+        },
+        {
           "file": "Sidebar.Setup.Scenario.ps1",
           "kind": "scenario",
           "originalRanges": [
@@ -1165,6 +1190,7 @@
         "Responsive",
         "Refresh",
         "Progress",
+        "PeopleRooms",
         "Persistence",
         "Scheduled"
       ]
