@@ -335,7 +335,8 @@ try {
     Assert-NoDiscovery
     Stop-DiscoveryApp
     $env:FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD = $null
-    $phase = Step-UiRegressionPhase $phase "discovery/minimized-scheduled" $ScreenshotDirectory keep running while minimized and defer discoveries until the window is restored.
+    $phase = Step-UiRegressionPhase $phase "discovery/minimized-scheduled" $ScreenshotDirectory
+    # Scheduled scans keep running while minimized and defer discoveries until the window is restored.
     Set-Content -LiteralPath $periodicScan -Value '{"isEnabled":true,"intervalMinutes":15}' -Encoding ASCII
     $env:FINGVIBE_UI_REVIEW_PERIODIC_SCAN = $periodicScan
     $env:FINGVIBE_UI_REVIEW_PERIODIC_SCAN_TIME_SCALE = "60"
