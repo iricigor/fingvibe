@@ -110,6 +110,18 @@ function Test-ActivityFits($Control, $Viewport) {
 }
 
 function Show-Activity([string] $Id) {
+    $target = Find-Activity $Id
+    if ($target.Current.IsKeyboardFocusable) {
+        # Like a keyboard user: the page brings the focused control into view, so no scroll arithmetic is needed.
+        $target.SetFocus()
+        $script:shownActivity = $null
+        Wait-Activity {
+            $current = Find-Activity $Id
+            if (Test-ActivityFits $current (Find-Activity DeviceDetailsScroll)) { $script:shownActivity = $current; return $true }
+            return $false
+        } "focused Activity control '$Id' inside the details viewport"
+        return $script:shownActivity
+    }
     Show-UiRegressionScrollTargets -Description "Activity control '$Id'" -BottomMargin 8 `
         -GetViewport { Find-Activity DeviceDetailsScroll } -GetWindow { $script:root } -GetTargets { Find-Activity $Id }
 }
