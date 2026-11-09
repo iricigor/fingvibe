@@ -57,7 +57,8 @@ $expectedChecks = @([regex]::Matches($dispatchSource, 'Invoke-RegressionCheck "(
     ForEach-Object { $_.Groups[1].Value })
 foreach ($name in @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
     "UsageCategory.Ui", "DeviceActivity.Ui", "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
-    Assert-NativeEqual @($expectedChecks | Where-Object { $_ -eq $name }).Count 1 "Existing native checks remain present exactly once"
+    $count = if ($name -eq "DeviceScanHistory.Ui") { 2 } else { 1 }
+    Assert-NativeEqual @($expectedChecks | Where-Object { $_ -eq $name }).Count $count "Existing native checks retain independent summary/observation coverage"
 }
 try {
     foreach ($name in @("NATIVE_TEST_CALLS", "NATIVE_TEST_FAIL", "GITHUB_STEP_SUMMARY",
@@ -82,7 +83,7 @@ if ($env:NATIVE_TEST_FAIL -eq "capture") { throw "Simulated capture failure" }
 '@ | Set-Content -LiteralPath (Join-Path $scripts "Invoke-UiReview.ps1")
     foreach ($name in (@("UiReviewScreenshot") + $expectedChecks)) {
         @'
-param($AppPath, $ScreenshotDirectory, $Version, $BuildKind, $BuildTimestamp, $BuildCommit, $PullRequestNumber, $SummaryOnly)
+param($AppPath, $ScreenshotDirectory, $Version, $BuildKind, $BuildTimestamp, $BuildCommit, $PullRequestNumber, $SummaryOnly, $ObservationsOnly)
 $name = [IO.Path]::GetFileName($PSCommandPath).Replace(".Tests.ps1", "")
 @{ name = $name; parameters = $PSBoundParameters } | ConvertTo-Json -Depth 5 -Compress | Add-Content $env:NATIVE_TEST_CALLS
 if ($env:NATIVE_TEST_FAIL -eq $name) { throw "Simulated native failure: $name" }
@@ -105,7 +106,8 @@ if ($env:NATIVE_TEST_FAIL -eq $name) { throw "Simulated native failure: $name" }
     }
     $calls = @(Get-Content $env:NATIVE_TEST_CALLS | ConvertFrom-Json)
     Assert-NativeEqual $calls.name ($expectedChecks + @("UiReviewScreenshot", "capture")) "Full dispatch inherits all current suites exactly once, including independently restored coverage"
-    Assert-NativeEqual $calls[2].parameters.SummaryOnly $true "Full preserves deliberately dormant observation UI"
+    Assert-NativeEqual $calls[2].parameters.SummaryOnly $true "Full preserves summary coverage"
+    Assert-NativeEqual $calls[6].parameters.ObservationsOnly $true "Full includes restored observation rendering/paging coverage"
     Assert-NativeEqual @($calls | Where-Object name -eq "BuildIdentity.Ui")[0].parameters.BuildCommit "fixture-head" "Native identity uses exact built revision"
     Assert-NativeEqual $calls[-1].plan.Scenario @($UiReviewScenarios.Keys) "Full capture cannot omit history/details or discovery selection"
     & $runner -Mode Baseline -Suite capture @parameters

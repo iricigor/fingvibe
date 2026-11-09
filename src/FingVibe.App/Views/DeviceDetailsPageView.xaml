@@ -339,7 +339,7 @@
                     <TextBlock x:Name="DeviceHistoryLatest" AutomationProperties.AutomationId="DeviceHistoryLatest"
                                TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <Expander x:Name="DeviceScanHistoryExpander" Header="Completed Scan Observations"
-                              IsExpanded="False" Visibility="Collapsed"
+                              IsExpanded="False"
                               HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                               AutomationProperties.AutomationId="DeviceScanHistoryExpander">
                         <StackPanel Spacing="12">
@@ -376,6 +376,12 @@
                                           HorizontalContentAlignment="Stretch"
                                           AutomationProperties.AutomationId="DeviceScanHistoryList"
                                           AutomationProperties.Name="Completed scan history, newest first">
+                                    <ListView.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <!-- Queries already bound this list to 100 rows. Keep peers stable while scrolling. -->
+                                            <StackPanel />
+                                        </ItemsPanelTemplate>
+                                    </ListView.ItemsPanel>
                                     <ListView.ItemContainerStyle>
                                         <Style TargetType="ListViewItem">
                                             <Setter Property="Padding" Value="0" />

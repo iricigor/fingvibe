@@ -257,10 +257,11 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         "UsageCategory.Ui", "DeviceActivity.Ui",
         "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
         if ($captureJob.Contains($suite) -or $smokeScript.Contains($suite)) { throw "Capture still runs extracted suite: $suite" }
-        Assert-Equal ([regex]::Matches($regressionScript, ('Invoke-RegressionCheck "' + [regex]::Escape($suite) + '"')).Count) 1 "Preserve suite exactly once: $suite"
+        $expectedCount = if ($suite -eq "DeviceScanHistory.Ui") { 2 } else { 1 }
+        Assert-Equal ([regex]::Matches($regressionScript, ('Invoke-RegressionCheck "' + [regex]::Escape($suite) + '"')).Count) $expectedCount "Preserve suite dispatch: $suite"
     }
     if ($regressionScript -notmatch 'SummaryOnly = \$true') {
-        throw "Completed-observation checks remain disabled; retained summary checks remain required."
+        throw "Retained summary checks remain required independently of observation checks."
     }
     if ($regressionScript -notmatch '\$plan.Scenario -notcontains "DeviceDetails"' -or
         $regressionScript -notmatch 'Stop-Transcript' -or
@@ -285,7 +286,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             "UsageCategory.Ui", "DeviceActivity.Ui",
             "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
             @(
-                'param($AppPath, $ScreenshotDirectory, $Version, $BuildKind, $BuildTimestamp, $BuildCommit, $PullRequestNumber, $SummaryOnly)',
+                'param($AppPath, $ScreenshotDirectory, $Version, $BuildKind, $BuildTimestamp, $BuildCommit, $PullRequestNumber, $SummaryOnly, $ObservationsOnly)',
                 '$name = [IO.Path]::GetFileName($PSCommandPath).Replace(".Tests.ps1", "")',
                 '@{ Name = $name; Parameters = $PSBoundParameters } | ConvertTo-Json -Compress | Add-Content $env:UI_REGRESSION_CALLS',
                 'if ($env:UI_REGRESSION_FAIL -eq $name) { throw "Simulated regression failure: $name" }'
@@ -309,7 +310,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             "devices" = @("DevicesList.Ui")
             "details-summary" = @("DeviceScanHistory.Ui")
             "details-identity" = @("DeviceDiscovery.Ui", "UsageCategory.Ui")
-            "details-history" = @("DeviceActivity.Ui")
+            "details-history" = @("DeviceActivity.Ui", "DeviceScanHistory.Ui")
             "tools" = @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")
         }
         Assert-Equal $matrixSuites @($expectedSuiteChecks.Keys) "CI matrix dispatches every split suite"
@@ -323,20 +324,21 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         }
         $calls = @(Get-Content $env:UI_REGRESSION_CALLS | ConvertFrom-Json)
         Assert-Equal $calls.Name @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
-            "UsageCategory.Ui", "DeviceActivity.Ui",
+            "UsageCategory.Ui", "DeviceActivity.Ui", "DeviceScanHistory.Ui",
             "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "Dispatch every preserved suite once"
         Assert-Equal $calls[2].Parameters.SummaryOnly $true "Details summary dispatch tests only retained summaries"
-        Assert-Equal ([DateTimeOffset]$calls[6].Parameters.BuildTimestamp).UtcDateTime ([DateTimeOffset]$parameters.BuildTimestamp).UtcDateTime "Forward stamped identity"
-        Assert-Equal $calls[6].Parameters.PullRequestNumber 198 "Forward PR identity"
+        Assert-Equal $calls[6].Parameters.ObservationsOnly $true "Details history dispatch includes full observation rendering and paging"
+        Assert-Equal ([DateTimeOffset]$calls[7].Parameters.BuildTimestamp).UtcDateTime ([DateTimeOffset]$parameters.BuildTimestamp).UtcDateTime "Forward stamped identity"
+        Assert-Equal $calls[7].Parameters.PullRequestNumber 198 "Forward PR identity"
         Assert-Equal ($calls.Parameters.AppPath | Select-Object -Unique) "synthetic.exe" "Reuse supplied app"
         & powershell.exe -NoProfile -File $runner -Suite sidebar -AppPath $parameters.AppPath `
             -ScreenshotDirectory $parameters.ScreenshotDirectory -CapturePlanPath $planPath
         if ($LASTEXITCODE -ne 0) { throw "Sidebar runner must support multi-scenario plans under Windows PowerShell." }
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 12 "Windows PowerShell dispatches the sidebar without parsing details selection"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 13 "Windows PowerShell dispatches the sidebar without parsing details selection"
         ConvertTo-Json -InputObject @($definitions | Where-Object Scenario -eq Devices) -Depth 5 | Set-Content $planPath
         foreach ($suite in @("details-summary", "details-identity", "details-history")) {
             & $runner -Suite $suite @parameters
-            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 12 "Unselected $suite must not launch native checks"
+            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 13 "Unselected $suite must not launch native checks"
         }
         Assert-Throws { & $runner -Suite history @parameters } "*history*"
         $env:UI_REGRESSION_FAIL = "DevicesList.Ui"

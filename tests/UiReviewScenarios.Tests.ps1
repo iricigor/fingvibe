@@ -24,7 +24,10 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     $history = $page.SelectSingleNode("//*[@x:Name='DeviceScanHistoryExpander']", $namespaces)
     Assert-Equal $history.IsExpanded "False" "Completed observations starts collapsed"
     Assert-Equal $history.Header "Completed Scan Observations" "Completed observations header"
-    Assert-Equal $history.Visibility "Collapsed" "Completed observations is disabled"
+    Assert-Equal $history.GetAttribute("Visibility") "" "Completed observations uses visible layout"
+    if (-not $history.SelectSingleNode(".//*[@x:Name='DeviceScanHistoryList']/*[local-name()='ListView.ItemsPanel']//*[local-name()='StackPanel']", $namespaces)) {
+        throw "The bounded observation page must keep stable, non-recycled rows."
+    }
     $activity = $page.SelectSingleNode("//*[@x:Name='DeviceActivityCard']", $namespaces)
     Assert-Equal $activity.GetAttribute("Visibility") "" "Restored Activity uses normal visible layout"
     foreach ($id in @("DeviceScanHistoryTable", "DeviceScanHistoryEmpty",
@@ -44,7 +47,7 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     }
     $code = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml.cs") -Raw
     foreach ($pattern in @(
-        'internal static bool CompletedObservationsEnabled => false;',
+        'internal static bool CompletedObservationsEnabled => true;',
         '(?m)^        InitializeActivity\(\);',
         '(?s)if \(CompletedObservationsEnabled\)\s*\{\s*ApplyHistoryPage\(DeviceHistoryQuery.ReadPage',
         '(?s)HistoryPage_Click.*?\{\s*if \(!CompletedObservationsEnabled\) return;'
@@ -54,7 +57,7 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     $activityCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.Activity.cs") -Raw
     if ($activityCode -match 'HistoryDetailsEnabled|CompletedObservationsEnabled' -or
         $code -match 'DeviceActivityCard.Visibility') {
-        throw "Activity must remain independent of disabled completed observations."
+        throw "Activity must remain independent of completed observations."
     }
     $errors = $null
     $null = [Management.Automation.Language.Parser]::ParseFile(
