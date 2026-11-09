@@ -24,16 +24,20 @@ public sealed partial class DeviceDetailsPageView
     private bool _activitySourceLoading;
     private bool _activityActive;
     private bool _activityInitialized;
-    private CancellationTokenSource? _activityCancellation;
-    private int _activityGeneration;
+    private readonly AsyncSurfaceSession _activitySession = new();
     private IReadOnlyList<DeviceActivityCell> _activityCells = [];
     private readonly List<Button> _activityButtons = [];
     private readonly UISettings _activityColors = new();
     private (DateOnly Date, string Zone)? _activityDate;
+    private const string ActivityDetailPrompt = "Select a cell to show its scan evidence.";
 
     private void InitializeActivity()
     {
         _activityInitialized = true;
+        // ItemStatus on the grid's always-present ScrollViewer is the observable Activity state for UI Automation.
+        _activitySession.StateChanged += (_, _) => AutomationProperties.SetItemStatus(ActivityScroll, _activitySession.Status);
+        AutomationProperties.SetItemStatus(ActivityScroll, _activitySession.Status);
+        ClearActivity();
         ActualThemeChanged += (_, _) => RenderActivity();
         Loaded += (_, _) => _activityColors.ColorValuesChanged += ActivityColors_Changed;
         Unloaded += (_, _) =>
@@ -59,7 +63,6 @@ public sealed partial class DeviceDetailsPageView
 
     internal void SetActivityActive(bool active)
     {
-        active &= HistoryDetailsEnabled;
         if (_activityActive == active) return;
         _activityActive = active;
         if (active) _ = LoadActivityAsync();
@@ -68,14 +71,27 @@ public sealed partial class DeviceDetailsPageView
 
     private void CancelActivity()
     {
-        _activityGeneration++;
-        _activityCancellation?.Cancel();
+        _activitySession.Cancel();
+        ClearActivity();
+    }
+
+    // Text elements keep non-empty content in every state so their UI Automation peers stay stable.
+    private void ClearActivity()
+    {
         _activityCells = [];
         _activityDate = null;
         ActivityLoading.IsIndeterminate = false;
         ActivityLoading.Visibility = Visibility.Collapsed;
-        ActivityDetail.Text = ActivityWindow.Text = ActivityLegend.Text = string.Empty;
+        ActivityWindow.Text = ActivitySelection();
+        ActivityDetail.Text = ActivityDetailPrompt;
+        if (string.IsNullOrEmpty(ActivityStatus.Text)) ActivityStatus.Text = "Activity is not loaded.";
         RenderActivity();
+    }
+
+    private string ActivitySelection()
+    {
+        var period = (ActivityPeriod.SelectedItem as ComboBoxItem)?.Content as string ?? "Last 7 days";
+        return $"{period}, {(int)ActivityHours.Value}-hour cells";
     }
 
     private void RefreshActivityDate()
@@ -90,8 +106,9 @@ public sealed partial class DeviceDetailsPageView
     private async Task LoadActivityAsync()
     {
         if (!_activityInitialized || !_activityActive) return;
-        CancelActivity();
-        var generation = _activityGeneration;
+        var request = _activitySession.Start(ActivitySelection());
+        if (request is null) return;
+        ClearActivity();
         var hours = (int)ActivityHours.Value;
         var weekdays = ActivityPeriod.SelectedIndex == 2;
         var days = ActivityPeriod.SelectedIndex == 0 ? 7 : 30;
@@ -103,52 +120,57 @@ public sealed partial class DeviceDetailsPageView
         {
             ActivityLoading.Visibility = _activitySourceLoading ? Visibility.Visible : Visibility.Collapsed;
             ActivityLoading.IsIndeterminate = _activitySourceLoading;
+            // A loading source stays Loading until its configuration replaces this request.
+            if (!_activitySourceLoading) _activitySession.Complete(request, AsyncSurfaceState.Empty, () => ActivityGrid.UpdateLayout());
             return;
         }
         ActivityLoading.Visibility = Visibility.Visible;
         ActivityLoading.IsIndeterminate = true;
         RenderActivityLoading(hours);
-        using var cancellation = new CancellationTokenSource();
-        _activityCancellation = cancellation;
+        var token = request.CancellationToken;
         try
         {
             var (buckets, cells) = await Task.Run(async () =>
             {
-                var result = await loader(days, hours, cancellation.Token);
-                cancellation.Token.ThrowIfCancellationRequested();
+                var result = await loader(days, hours, token);
+                token.ThrowIfCancellationRequested();
                 return (result, DeviceActivityPresentation.Cells(result, weekdays));
-            }, cancellation.Token);
-            if (!_activityActive || generation != _activityGeneration || cancellation.IsCancellationRequested) return;
-            _activityCells = cells;
-            _activityDate = (buckets.LastDate, buckets.TimeZoneId);
-            ActivityWindow.Text = $"{buckets.FirstDate:d MMM yyyy} - {buckets.LastDate:d MMM yyyy} ({days} calendar dates) | " +
-                $"Local time: {buckets.TimeZoneId} | Today through {TimeZoneInfo.ConvertTimeBySystemTimeZoneId(buckets.QueryTime, buckets.TimeZoneId):HH:mm}; later hours are unknown.";
-            var known = buckets.Days.Count(bucket => bucket.Devices[0].Eligible > 0);
-            ActivityStatus.Text = known == 0
-                ? "No completed scan history for this selection. Imported details do not provide scan evidence."
-                : $"Scan evidence in {known} daily time cells. Gaps remain unknown; no continuity is inferred.";
-            RenderActivity();
+            }, token);
+            _activitySession.Complete(request, AsyncSurfaceState.Ready, () =>
+            {
+                _activityCells = cells;
+                _activityDate = (buckets.LastDate, buckets.TimeZoneId);
+                ActivityWindow.Text = $"{buckets.FirstDate:d MMM yyyy} - {buckets.LastDate:d MMM yyyy} ({days} calendar dates) | " +
+                    $"Local time: {buckets.TimeZoneId} | Today through {TimeZoneInfo.ConvertTimeBySystemTimeZoneId(buckets.QueryTime, buckets.TimeZoneId):HH:mm}; later hours are unknown.";
+                var known = buckets.Days.Count(bucket => bucket.Devices[0].Eligible > 0);
+                ActivityStatus.Text = known == 0
+                    ? "No completed scan history for this selection. Imported details do not provide scan evidence."
+                    : $"Scan evidence in {known} daily time cells. Gaps remain unknown; no continuity is inferred.";
+                FinishActivityRender();
+            });
         }
-        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
             or InvalidOperationException or ArgumentException or TimeZoneNotFoundException or InvalidTimeZoneException)
         {
-            if (!_activityActive || generation != _activityGeneration) return;
-            ActivityError.Message = $"Saved evidence is unavailable. No results are shown for this selection. {exception.Message}";
-            ActivityError.IsOpen = true;
-            ActivityStatus.Text = "Activity could not be loaded. Retry; restart if another writer changed the saved inventory.";
-            ActivityRefresh.Content = "Retry";
-            RenderActivity();
-        }
-        finally
-        {
-            if (ReferenceEquals(_activityCancellation, cancellation)) _activityCancellation = null;
-            if (generation == _activityGeneration)
+            _activitySession.Complete(request, AsyncSurfaceState.Error, () =>
             {
-                ActivityLoading.IsIndeterminate = false;
-                ActivityLoading.Visibility = Visibility.Collapsed;
-            }
+                ActivityError.Message = $"Saved evidence is unavailable. No results are shown for this selection. {exception.Message}";
+                ActivityError.IsOpen = true;
+                ActivityStatus.Text = "Activity could not be loaded. Retry; restart if another writer changed the saved inventory.";
+                ActivityRefresh.Content = "Retry";
+                FinishActivityRender();
+            });
         }
+    }
+
+    // Completes layout before the session reports the outcome, so Ready means the content is rendered.
+    private void FinishActivityRender()
+    {
+        ActivityLoading.IsIndeterminate = false;
+        ActivityLoading.Visibility = Visibility.Collapsed;
+        RenderActivity();
+        ActivityGrid.UpdateLayout();
     }
 
     private void ActivityPeriod_SelectionChanged(object sender, SelectionChangedEventArgs e) => _ = LoadActivityAsync();
@@ -180,6 +202,7 @@ public sealed partial class DeviceDetailsPageView
         ActivityGrid.RowDefinitions.Clear();
         ActivityGrid.ColumnDefinitions.Clear();
         _activityButtons.Clear();
+        RenderActivityLegend(new AccessibilitySettings().HighContrast);
         if (_activityCells.Count == 0) return;
         var columns = 24 / _activityCells[0].Hours;
         var rows = _activityCells.Count / columns;
@@ -208,7 +231,6 @@ public sealed partial class DeviceDetailsPageView
         Grid.SetColumnSpan(header, columns);
         ActivityGrid.Children.Add(header);
         var contrast = new AccessibilitySettings().HighContrast;
-        RenderActivityLegend(contrast);
         for (var row = 0; row < rows; row++)
         {
             var first = _activityCells[row * columns];

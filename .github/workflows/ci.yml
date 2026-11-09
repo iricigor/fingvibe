@@ -303,7 +303,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [sidebar, devices, history, tools]
+        suite: [sidebar, devices, details-summary, details-identity, details-history, tools]
     env:
       FINGVIBE_UI_REVIEW: "1"
     steps:

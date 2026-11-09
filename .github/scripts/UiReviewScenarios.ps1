@@ -120,7 +120,7 @@ function Get-UiReviewCapturePlan {
             elseif ($path -match '^src/FingVibe.App/(MainWindow.DeviceDetails.cs|DeviceDetailsPresentation.cs|Views/DeviceDetailValue.cs)$') {
                 Add-Scenarios @("DeviceDetails") "$path changed device details behavior."
             }
-            elseif ($path -match '^src/FingVibe.App/(MainWindow.DeviceActivity.cs|DeviceActivityPresentation.cs|Views/DeviceDetailsPageView.Activity.cs)$' -or
+            elseif ($path -match '^src/FingVibe.App/(MainWindow.DeviceActivity.cs|DeviceActivityPresentation.cs|DeviceActivityReviewHold.cs|Views/DeviceDetailsPageView.Activity.cs)$' -or
                 $path -eq 'src/FingVibe.Core/Models/DeviceActivity.cs' -or $path -match '^tests/DeviceActivity\.(Ui.Tests|Fixture)\.ps1$') {
                 Add-Scenarios @("DeviceDetails") "$path changed device activity evidence or its grid."
             }

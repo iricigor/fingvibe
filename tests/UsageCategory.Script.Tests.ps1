@@ -1,4 +1,5 @@
 $ErrorActionPreference = "Stop"
+. (Join-Path $PSScriptRoot "UiRegression\Helpers.ps1")
 
 function Read-UsageTestAst([string] $Name) {
     $errors = $null

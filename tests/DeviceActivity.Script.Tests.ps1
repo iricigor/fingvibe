@@ -9,6 +9,29 @@ $ui = Get-Content -LiteralPath (Join-Path $PSScriptRoot "DeviceActivity.Ui.Tests
 if ($ui -notmatch '\$env:GITHUB_ACTIONS -ne "true"' -or $ui -match 'Stop-Process -Name') {
     throw "Native checks must remain isolated to the disposable runner and owned processes."
 }
+foreach ($required in @(
+    'Wait-UiRegressionState', 'Stop-UiRegressionApp', 'Complete-UiRegressionPhase',
+    'Assert-ActivityCancelled $weekdayRequest', 'Assert-ActivityCancelled $deviceRequest',
+    'Assert-ActivityCancelled $hoursRequest', 'Assert-ActivityCancelled $navigationRequest',
+    '"$($closeRequest.Path).cancelled"', '"$dailyRequest.released"',
+    'Wait-UiRegressionSurfaceState', 'Wait-ActivityState "Last 30 days, 1-hour cells" $weekdayRequest.Request',
+    'Wait-ActivityState -State Loading', 'Wait-ActivityState -State Error', '$retried = Wait-ActivityState',
+    'Assert-ActivityPeers "loading"', 'Assert-ActivityPeers "error"', 'Assert-ActivityPeers "Retry"', 'activity-failure'
+)) {
+    if (-not $ui.Contains($required)) { throw "Missing native Activity lifecycle evidence: $required" }
+}
+if ($ui -match 'Current\.Name -(not)?like "Loading\*"') {
+    throw "Native Activity checks must wait for the observable Activity state, not loading text."
+}
+$view = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.Activity.cs") -Raw
+if ($view -notmatch 'AsyncSurfaceSession' -or $view -notmatch 'AutomationProperties\.SetItemStatus\(ActivityScroll, _activitySession\.Status\)' -or
+    $view -match '_activityGeneration') {
+    throw "Activity must use the shared AsyncSurfaceSession lifecycle and publish its state on ActivityScroll."
+}
+$loader = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\src\FingVibe.App\MainWindow.DeviceActivity.cs") -Raw
+if ($loader -notmatch '(?s)if \(IsUiReview && !string.IsNullOrEmpty\(ReviewInventoryPath\).*?FINGVIBE_UI_REVIEW_ACTIVITY_HOLD.*?await DeviceActivityReviewHold.WaitAsync\(holdPath, cancellation\)') {
+    throw "Controllable Activity loading must require UI review and an explicitly isolated inventory."
+}
 [xml]$page = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml") -Raw
 $card = $page.SelectSingleNode("//*[@*[local-name()='Name']='DeviceActivityCard']")
 if (-not $card -or -not $card.NextSibling.SelectSingleNode(".//*[@Text='Scan history']")) { throw "Activity must precede existing scan history." }
@@ -53,8 +76,27 @@ try {
     $wednesday = @($weekdays | Where-Object { $_.Day.ToString() -eq "Wednesday" -and $_.StartHour -eq 9 })[0]
     if ($wednesday.RespondingDates -ne 3 -or $wednesday.ApplicableDates -notin @(4, 5) -or
         $wednesday.UnknownDates -ne $wednesday.ApplicableDates - 3) { throw "Native weekday fixture denominator is incorrect." }
+    $writer = [Microsoft.Data.Sqlite.SqliteConnection]::new("Data Source=$(Join-Path $fixture 'inventory.sqlite');Pooling=False")
+    try {
+        $writer.Open()
+        $command = $writer.CreateCommand()
+        try {
+            $command.CommandText = "BEGIN EXCLUSIVE"
+            $null = $command.ExecuteNonQuery()
+            $busyError = $null
+            try { $null = $store.QueryAnalyticsAsync($request, $token).GetAwaiter().GetResult() }
+            catch { $busyError = $_.Exception.GetBaseException() }
+            if ($busyError -isnot [IO.IOException] -or $busyError.Message -notlike "*SQLite 5*") {
+                throw "An exclusive UI-fixture lock must surface SQLITE_BUSY, not simulate indefinite loading: $busyError"
+            }
+            $command.CommandText = "ROLLBACK"
+            $null = $command.ExecuteNonQuery()
+        } finally { $command.Dispose() }
+    } finally { $writer.Dispose() }
+    $retried = $store.QueryAnalyticsAsync($request, $token).GetAwaiter().GetResult()
+    if ($retried.Scans.Count -ne $evidence.Scans.Count) { throw "Retry after releasing contention changed fixture evidence." }
 }
 finally {
     if (Test-Path -LiteralPath $fixture) { Remove-Item -LiteralPath $fixture -Recurse -Force }
 }
-Write-Host "Device Activity native script syntax, placement and exact migrated evidence fixture passed without desktop automation."
+Write-Host "Device Activity lifecycle contracts, exact migrated evidence and SQLite contention/Retry fixture passed without desktop automation."

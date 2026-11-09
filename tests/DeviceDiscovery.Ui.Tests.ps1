@@ -5,47 +5,62 @@ param(
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
+. (Join-Path $PSScriptRoot "UiRegression\Helpers.ps1")
 . (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
 
 function Find-DiscoveryControl([string] $Id, [switch] $Optional) {
     $condition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Id)
-    $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+    $call = Start-UiRegressionCall lookup
+    try { $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition) }
+    finally { Complete-UiRegressionCall $call }
     if (-not $element -and -not $Optional) { throw "Missing discovery control '$Id'." }
     return $element
 }
 
 function Wait-DiscoveryState([scriptblock] $Predicate, [string] $Description) {
-    $deadline = [DateTime]::UtcNow.AddSeconds(30)
-    do {
-        if (& $Predicate) { return }
-        Start-Sleep -Milliseconds 100
-    } while ([DateTime]::UtcNow -lt $deadline)
-    throw "Timed out waiting for $Description."
+    $call = Start-UiRegressionCall wait
+    try {
+        $deadline = [DateTime]::UtcNow.AddSeconds(30)
+        do {
+            if (& $Predicate) { return }
+            Start-Sleep -Milliseconds 100
+        } while ([DateTime]::UtcNow -lt $deadline)
+        throw "Timed out waiting for $Description."
+    }
+    finally { Complete-UiRegressionCall $call }
 }
 
 function Start-DiscoveryApp {
-    $script:process = Start-Process -FilePath $AppPath -PassThru
-    Wait-DiscoveryState {
-        $script:process.Refresh()
-        if ($script:process.HasExited) { throw "Discovery app exited: $($script:process.ExitCode)." }
-        $script:process.MainWindowHandle -ne [IntPtr]::Zero
-    } "discovery window"
-    Initialize-UiReviewWindow $script:process.MainWindowHandle
-    $script:root = [System.Windows.Automation.AutomationElement]::FromHandle($script:process.MainWindowHandle)
-    Wait-DiscoveryState { Find-DiscoveryControl DevicesNavItem -Optional } "device navigation"
-    (Find-DiscoveryControl DevicesNavItem).GetCurrentPattern(
-        [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-    Wait-DiscoveryState {
-        $scan = Find-DiscoveryControl ScanButton -Optional
-        $scan -and $scan.Current.IsEnabled
-    } "ready scan"
-    Assert-NoDiscovery
+    $call = Start-UiRegressionCall launch
+    try {
+        $script:process = Start-Process -FilePath $AppPath -PassThru
+        Wait-DiscoveryState {
+            $script:process.Refresh()
+            if ($script:process.HasExited) { throw "Discovery app exited: $($script:process.ExitCode)." }
+            $script:process.MainWindowHandle -ne [IntPtr]::Zero
+        } "discovery window"
+        Initialize-UiReviewWindow $script:process.MainWindowHandle
+        $script:root = [System.Windows.Automation.AutomationElement]::FromHandle($script:process.MainWindowHandle)
+        Wait-DiscoveryState { Find-DiscoveryControl DevicesNavItem -Optional } "device navigation"
+        (Find-DiscoveryControl DevicesNavItem).GetCurrentPattern(
+            [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+        Wait-DiscoveryState {
+            $scan = Find-DiscoveryControl ScanButton -Optional
+            $scan -and $scan.Current.IsEnabled
+        } "ready scan"
+        Assert-NoDiscovery
+    }
+    finally { Complete-UiRegressionCall $call }
 }
 
 function Stop-DiscoveryApp {
-    $null = $script:process.CloseMainWindow()
-    if (-not $script:process.WaitForExit(5000)) { throw "Discovery app did not close normally." }
+    $call = Start-UiRegressionCall close
+    try {
+        $null = $script:process.CloseMainWindow()
+        if (-not $script:process.WaitForExit(5000)) { throw "Discovery app did not close normally." }
+    }
+    finally { Complete-UiRegressionCall $call }
 }
 
 function Assert-NoDiscovery {
@@ -64,18 +79,22 @@ function Set-DiscoveryResults([string[]] $Macs) {
 }
 
 function Invoke-DiscoveryScan {
-    $backCondition = [System.Windows.Automation.PropertyCondition]::new(
-        [System.Windows.Automation.AutomationElement]::NameProperty, "Back to devices")
-    $back = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $backCondition)
-    if ($back -and -not $back.Current.IsOffscreen) {
-        $back.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $call = Start-UiRegressionCall scan
+    try {
+        $backCondition = [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, "Back to devices")
+        $back = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $backCondition)
+        if ($back -and -not $back.Current.IsOffscreen) {
+            $back.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        }
+        (Find-DiscoveryControl ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        Wait-DiscoveryState {
+            $scan = Find-DiscoveryControl ScanButton -Optional
+            $scan -and -not $scan.Current.IsOffscreen -and $scan.Current.IsEnabled
+        } "completed scan"
+        Start-Sleep -Milliseconds 300
     }
-    (Find-DiscoveryControl ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-    Wait-DiscoveryState {
-        $scan = Find-DiscoveryControl ScanButton -Optional
-        $scan -and -not $scan.Current.IsOffscreen -and $scan.Current.IsEnabled
-    } "completed scan"
-    Start-Sleep -Milliseconds 300
+    finally { Complete-UiRegressionCall $call }
 }
 
 function Assert-DiscoveryEntries([string[]] $Macs, [string] $Capture) {
@@ -116,9 +135,12 @@ $checkpointHold = Join-Path $directory "checkpoint.hold"
 $periodicScan = Join-Path $directory "periodic-scan.json"
 $script:process = $null
 $lock = $null
+$phase = $null
+$failed = $false
 try {
     $null = New-Item -ItemType Directory -Path $directory
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
+    $phase = Step-UiRegressionPhase $phase "discovery/target-links" $ScreenshotDirectory
     $env:FINGVIBE_UI_REVIEW = "1"
     $env:FINGVIBE_UI_REVIEW_INVENTORY = $inventory
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $snapshot
@@ -172,6 +194,7 @@ try {
         Assert-NoDiscovery
         Stop-DiscoveryApp
     }
+    $phase = Step-UiRegressionPhase $phase "discovery/cancel-failure-save" $ScreenshotDirectory
     Start-DiscoveryApp
     Set-DiscoveryResults @()
     Invoke-DiscoveryScan
@@ -210,6 +233,7 @@ try {
     Assert-DiscoveryEntries @("001122334477") "discovery-save-retry"
     (Find-DiscoveryControl CloseDiscoveryPopup).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Stop-DiscoveryApp
+    $phase = Step-UiRegressionPhase $phase "discovery/network-scope" $ScreenshotDirectory
     $env:FINGVIBE_UI_REVIEW_NETWORK = "unavailable"
     Start-DiscoveryApp
     Set-DiscoveryResults @("001122334488")
@@ -236,6 +260,7 @@ try {
     Invoke-DiscoveryScan
     Assert-NoDiscovery
     Stop-DiscoveryApp
+    $phase = Step-UiRegressionPhase $phase "discovery/checkpoint" $ScreenshotDirectory
     # Initial checkpoints restore browsing but retain cancellation and defer discoveries until completion.
     $env:FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD = $checkpointHold
     Set-Content -LiteralPath $checkpointHold -Value "pending retries"
@@ -310,6 +335,7 @@ try {
     Assert-NoDiscovery
     Stop-DiscoveryApp
     $env:FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD = $null
+    $phase = Step-UiRegressionPhase $phase "discovery/minimized-scheduled" $ScreenshotDirectory
     # Scheduled scans keep running while minimized and defer discoveries until the window is restored.
     Set-Content -LiteralPath $periodicScan -Value '{"isEnabled":true,"intervalMinutes":15}' -Encoding ASCII
     $env:FINGVIBE_UI_REVIEW_PERIODIC_SCAN = $periodicScan
@@ -341,6 +367,7 @@ try {
     (Find-DiscoveryControl CloseDiscoveryPopup).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Stop-DiscoveryApp
     $env:FINGVIBE_UI_REVIEW_PERIODIC_SCAN = $null
+    $phase = Step-UiRegressionPhase $phase "discovery/status-filter-persistence" $ScreenshotDirectory
     $tableSettings = Join-Path $directory "device-table.json"
     $env:FINGVIBE_UI_REVIEW_DEVICE_TABLE = $tableSettings
     Start-DiscoveryApp
@@ -385,15 +412,25 @@ try {
         throw "Changing Status must not overwrite invalid saved table preferences."
     }
     Stop-DiscoveryApp
+    $phase = Step-UiRegressionPhase $phase $null $ScreenshotDirectory
     Write-Host "Device discovery native UI checks passed."
 }
 catch {
+    $failed = $true
     Write-Host $_.ScriptStackTrace
+    if ($script:process -and -not $script:process.HasExited -and $script:process.MainWindowHandle -ne [IntPtr]::Zero) {
+        try { Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "discovery-failure.png") }
+        catch { Write-Warning "Could not capture discovery failure: $($_.Exception.Message)" }
+    }
     throw
 }
 finally {
-    if ($lock) { $lock.Dispose() }
-    if ($script:process -and -not $script:process.HasExited) { Stop-Process -Id $script:process.Id -Force }
-    foreach ($key in $previous.Keys) { [Environment]::SetEnvironmentVariable($key, $previous[$key]) }
-    if (Test-Path -LiteralPath $directory) { Remove-Item -LiteralPath $directory -Recurse -Force }
+    Invoke-UiRegressionCleanup -PrimaryFailed $failed -Steps @(
+        { if ($phase) { Complete-UiRegressionPhase -Phase $phase -Directory $ScreenshotDirectory -Succeeded $false } },
+        { Write-UiRegressionCallCosts -Directory $ScreenshotDirectory -Name "DeviceDiscovery.Ui" },
+        { if ($lock) { $lock.Dispose() } },
+        { if ($script:process -and -not $script:process.HasExited) { Stop-Process -Id $script:process.Id -Force } },
+        { foreach ($key in $previous.Keys) { [Environment]::SetEnvironmentVariable($key, $previous[$key]) } },
+        { if (Test-Path -LiteralPath $directory) { Remove-Item -LiteralPath $directory -Recurse -Force } }
+    )
 }

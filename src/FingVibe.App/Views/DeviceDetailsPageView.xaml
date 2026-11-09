@@ -237,7 +237,7 @@
                     </ItemsControl>
                 </StackPanel>
             </Border>
-            <Border x:Name="DeviceActivityCard" Style="{StaticResource ScannerSummaryCardStyle}" Visibility="Collapsed">
+            <Border x:Name="DeviceActivityCard" Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="12">
                     <Grid ColumnSpacing="16" RowSpacing="8" SizeChanged="Fields_SizeChanged">
                         <StackPanel Spacing="4">

@@ -28,6 +28,132 @@ foreach ($condition in @({ $false }, { $null }, {})) {
 Assert-RegressionFailure { Wait-UiRegressionState -Description 'unexpected error' -Condition { throw 'unexpected condition error' } } 'unexpected condition error'
 
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+& {
+    function New-TestRectangle([double] $Left, [double] $Top, [double] $Width, [double] $Height) {
+        [pscustomobject]@{
+            Left = $Left; Top = $Top; Width = $Width; Height = $Height
+            Right = $Left + $Width; Bottom = $Top + $Height; IsEmpty = $false
+        }
+    }
+    function New-BoundedElement([double] $Left, [double] $Top, [double] $Width, [double] $Height) {
+        [pscustomobject]@{ Current = [pscustomobject]@{
+            IsOffscreen = $false
+            BoundingRectangle = New-TestRectangle $Left $Top $Width $Height
+        } }
+    }
+    $window = New-BoundedElement 0 0 600 800
+    $viewport = New-BoundedElement 20 100 560 900
+    $cell = New-BoundedElement 20 768 36 32
+    Assert-Regression (Test-UiRegressionElementWithin $cell $viewport $window) 'A cell at the visible bottom edge must not fail an invented 16-pixel inset.'
+    foreach ($bounds in @(
+        (New-TestRectangle 20 769 36 32),
+        (New-TestRectangle 19 768 36 32),
+        (New-TestRectangle 545 768 36 32),
+        (New-TestRectangle 20 99 36 32)
+    )) {
+        $cell.Current.BoundingRectangle = $bounds
+        Assert-Regression (-not (Test-UiRegressionElementWithin $cell $viewport $window)) 'Even one pixel outside the window or nested viewport must remain a failure.'
+    }
+    $cell.Current.BoundingRectangle = New-TestRectangle 20 768 36 32
+    $cell.Current.IsOffscreen = $true
+    Assert-Regression (-not (Test-UiRegressionElementWithin $cell $viewport $window)) 'Offscreen peers cannot prove rendered visibility.'
+
+    $viewport = New-BoundedElement 0 0 500 300
+    $window = New-BoundedElement 0 0 500 300
+    $first = New-BoundedElement 10 900 100 20
+    $last = New-BoundedElement 10 1100 100 30
+    $positions = [Collections.Generic.List[double]]::new()
+    $scroll = [pscustomobject]@{ Current = [pscustomobject]@{
+        VerticallyScrollable = $true; VerticalScrollPercent = 0.0; VerticalViewSize = 20.0
+    }; MoveBounds = $true }
+    $scroll | Add-Member ScriptMethod SetScrollPercent {
+        param($Horizontal, $Percent)
+        $positions.Add($Percent)
+        $delta = ($Percent - $this.Current.VerticalScrollPercent) * 12
+        $this.Current.VerticalScrollPercent = $Percent
+        if ($this.MoveBounds) {
+            foreach ($target in @($first, $last)) {
+                $bounds = $target.Current.BoundingRectangle
+                $target.Current.BoundingRectangle = New-TestRectangle $bounds.Left ($bounds.Top - $delta) $bounds.Width $bounds.Height
+            }
+        }
+    }
+    $viewport | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $scroll }
+    $arguments = @{
+        GetViewport = { $viewport }; GetWindow = { $window }; GetTargets = { $first; $last }
+        Description = 'grouped summary'; TopMargin = 35; BottomMargin = 10
+    }
+    $result = Show-UiRegressionScrollTargets @arguments
+    Assert-Regression ($result -eq $first -and $positions.Count -eq 1 -and $positions[0] -eq 70) 'Grouped controls must be positioned directly from geometry, not a percent-by-percent sweep.'
+    Assert-Regression ($last.Current.BoundingRectangle.Bottom -eq 290) 'The last target, not only the first, must fit above the bottom margin.'
+    $null = Show-UiRegressionScrollTargets @arguments
+    Assert-Regression ($positions.Count -eq 1) 'Already-visible groups must not scroll again.'
+    $last.Current.BoundingRectangle = New-TestRectangle 10 80 100 30
+    $null = Show-UiRegressionScrollTargets -Description 'Settings footer' -AlignBottom -BottomMargin 10 `
+        -GetViewport { $viewport } -GetWindow { $window } -GetTargets { $last }
+    Assert-Regression ($last.Current.BoundingRectangle.Bottom -eq 290) 'Settings positioning must retain footer alignment without sweeping through the whole page.'
+    $positions.Clear()
+    $first.Current.BoundingRectangle = New-TestRectangle 10 -20 100 20
+    $last.Current.BoundingRectangle = New-TestRectangle 10 180 100 30
+    $null = Show-UiRegressionScrollTargets @arguments
+    Assert-Regression ($positions.Count -eq 1 -and $first.Current.BoundingRectangle.Top -ge 35) 'Positioning must also move upwards while preserving every target.'
+    $last.Current.BoundingRectangle = New-TestRectangle 10 1000 100 30
+    Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*cannot fit together*'
+    $first.Current.BoundingRectangle = New-TestRectangle 10 900 100 20
+    $last.Current.BoundingRectangle = New-TestRectangle 10 1100 100 30
+    $scroll.MoveBounds = $false
+    $arguments.TimeoutMilliseconds = 500
+    $before = $positions.Count
+    Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*did not move after a measured scroll adjustment*'
+    Assert-Regression ($positions.Count -eq $before + 1) 'An accepted scroll percentage without rendered movement must fail, not repeat or masquerade as visibility.'
+    $scroll.Current.VerticallyScrollable = $false
+    Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*non-scrollable viewport*'
+
+    $viewport = New-BoundedElement 0 0 500 300
+    $window = New-BoundedElement 0 0 500 300
+    $target = [pscustomobject]@{ Current = [pscustomobject]@{
+        IsOffscreen = $true; BoundingRectangle = [pscustomobject]@{
+            Left = 0; Top = 0; Right = 0; Bottom = 0; Width = 0; Height = 0; IsEmpty = $true
+        }
+    } }
+    $positions = [Collections.Generic.List[double]]::new()
+    $scroll = [pscustomobject]@{ Current = [pscustomobject]@{
+        VerticallyScrollable = $true; VerticalScrollPercent = 0.0; VerticalViewSize = 20.0
+    }; DocumentTop = 900.0 }
+    $scroll | Add-Member ScriptMethod SetScrollPercent {
+        param($Horizontal, $Percent)
+        $positions.Add($Percent)
+        $this.Current.VerticalScrollPercent = $Percent
+        $top = $this.DocumentTop - $Percent * 12
+        if ($top + 30 -le 0 -or $top -ge 300) {
+            $target.Current.IsOffscreen = $true
+            $target.Current.BoundingRectangle = [pscustomobject]@{
+                Left = 0; Top = 0; Right = 0; Bottom = 0; Width = 0; Height = 0; IsEmpty = $true
+            }
+        } else {
+            $target.Current.IsOffscreen = $false
+            $target.Current.BoundingRectangle = New-TestRectangle 10 $top 100 30
+        }
+    }
+    $viewport | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $scroll }
+    $arguments = @{
+        GetViewport = { $viewport }; GetWindow = { $window }; GetTargets = { $target }
+        Description = 'offscreen text target'; TopMargin = 35; BottomMargin = 10
+    }
+    $result = Show-UiRegressionScrollTargets @arguments
+    Assert-Regression ($result -eq $target -and $positions.Count -eq 4) 'An empty offscreen UIA rectangle must trigger bounded discovery followed by measured positioning.'
+    Assert-Regression ($target.Current.BoundingRectangle.Top -ge 35 -and $target.Current.BoundingRectangle.Bottom -le 290) 'A discovered target must satisfy the complete viewport margins.'
+
+    $scroll.Current.VerticalScrollPercent = 100
+    $positions.Clear()
+    $target.Current.IsOffscreen = $true
+    $target.Current.BoundingRectangle = [pscustomobject]@{
+        Left = 0; Top = 0; Right = 0; Bottom = 0; Width = 0; Height = 0; IsEmpty = $true
+    }
+    $result = Show-UiRegressionScrollTargets @arguments
+    Assert-Regression ($result -eq $target -and $positions.Count -le 4) 'Unknown bounds from the lower endpoint must discover content by moving back toward the viewport.'
+}
+
 $rectangle = [pscustomobject]@{ IsEmpty = $false; Width = 100; Height = 30 }
 $element = [pscustomobject]@{ Current = [pscustomobject]@{ IsOffscreen = $false; BoundingRectangle = $rectangle } }
 $state = @{ Owners = 0; Lookups = 0 }
@@ -247,4 +373,77 @@ if (`$failAt -eq '$name') { throw 'Synthetic module failure: $name' }
     }
     finally { Remove-Item -LiteralPath $fixtureRoot -Recurse -Force }
 }
-Write-Host 'UI regression helper, cleanup, timing, and orchestration checks passed.'
+& {
+    $directory = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-call-costs-$([Guid]::NewGuid().ToString('N'))"
+    $savedSummary = $env:GITHUB_STEP_SUMMARY
+    try {
+        $env:GITHUB_STEP_SUMMARY = $null
+        $null = New-Item -ItemType Directory -Path $directory
+        $script:UiRegressionCallCosts = $null
+        $script:UiRegressionCallStack = $null
+        $phase = Step-UiRegressionPhase $null 'costs/first' $directory
+        $outer = Start-UiRegressionCall positioning
+        $inner = Start-UiRegressionCall lookup
+        Start-Sleep -Milliseconds 30
+        Complete-UiRegressionCall $inner
+        Complete-UiRegressionCall $outer
+        $phase = Step-UiRegressionPhase $phase 'costs/second' $directory
+        $abandoned = Start-UiRegressionCall wait
+        $closing = Start-UiRegressionCall close
+        Complete-UiRegressionCall $closing
+        Complete-UiRegressionCall $abandoned
+        $phase = Step-UiRegressionPhase $phase $null $directory
+        Assert-Regression ($null -eq $phase) 'Completing the last phase must leave no open phase.'
+        Write-UiRegressionCallCosts -Directory $directory -Name 'Synthetic.Ui'
+        $costs = Get-Content -LiteralPath (Join-Path $directory 'call-costs.json') -Raw | ConvertFrom-Json
+        $lookup = @($costs.entries | Where-Object { $_.phase -eq 'costs/first' -and $_.category -eq 'lookup' })[0]
+        $positioning = @($costs.entries | Where-Object { $_.phase -eq 'costs/first' -and $_.category -eq 'positioning' })[0]
+        Assert-Regression ($costs.check -eq 'Synthetic.Ui' -and $lookup.calls -eq 1 -and $lookup.exclusiveMilliseconds -ge 25) 'Call costs must record per-phase lookups.'
+        Assert-Regression ($positioning.inclusiveMilliseconds -ge $lookup.inclusiveMilliseconds -and
+            $positioning.exclusiveMilliseconds -lt $lookup.exclusiveMilliseconds) 'Nested lookup time must be excluded from positioning.'
+        Assert-Regression (@($costs.entries | Where-Object phase -eq 'costs/second').Count -eq 2) 'Calls must be attributed to the active phase.'
+        $phases = @(Get-Content -LiteralPath (Join-Path $directory 'phases.jsonl') | ConvertFrom-Json)
+        Assert-Regression ((($phases.phase) -join ',') -eq 'costs/first,costs/second' -and -not ($phases.succeeded -contains $false)) 'Phase steps must close each phase successfully.'
+    }
+    finally {
+        $env:GITHUB_STEP_SUMMARY = $savedSummary
+        if (Test-Path -LiteralPath $directory) { Remove-Item -LiteralPath $directory -Recurse -Force }
+    }
+}
+& {
+    $ran = [Collections.Generic.List[string]]::new()
+    Invoke-UiRegressionCleanup -PrimaryFailed $true -Steps @({ $ran.Add('first'); throw 'cleanup broke' }, { $ran.Add('second') }) 3>$null
+    Assert-Regression (($ran -join ',') -eq 'first,second') 'Cleanup must run every step after a failing step.'
+    Assert-RegressionFailure { Invoke-UiRegressionCleanup -PrimaryFailed $false -Steps @({ throw 'cleanup broke' }) 3>$null } 'cleanup broke'
+}
+& {
+    $idle = ConvertFrom-UiRegressionSurfaceStatus 'Idle'
+    Assert-Regression ($idle.State -eq 'Idle' -and $idle.Request -eq 0) 'Idle must parse without a request.'
+    $ready = ConvertFrom-UiRegressionSurfaceStatus 'Ready (request 12): Last 30 days, 1-hour cells'
+    Assert-Regression ($ready.State -eq 'Ready' -and $ready.Request -eq 12 -and $ready.Selection -eq 'Last 30 days, 1-hour cells') 'Status must parse state, request and selection.'
+    foreach ($status in @($null, '', 'ready (request 1): x', 'Ready (request 0): x', 'Ready: x', 'Done (request 1): x')) {
+        Assert-RegressionFailure { ConvertFrom-UiRegressionSurfaceStatus $status } '*Unrecognized async surface status*'
+    }
+
+    $states = [Collections.Generic.Queue[string]]::new()
+    function New-StateElement([string] $Status) { [pscustomobject]@{ Current = [pscustomobject]@{ ItemStatus = $Status } } }
+    $script:surfaceStatus = $null
+    $getElement = { $next = if ($states.Count -gt 0) { $states.Dequeue() } else { $script:surfaceStatus }; $script:surfaceStatus = $next; New-StateElement $next }
+    foreach ($status in @('Ready (request 3): old', 'Loading (request 4): new', 'Ready (request 4): other', 'Ready (request 5): new')) { $states.Enqueue($status) }
+    $result = Wait-UiRegressionSurfaceState -GetElement $getElement -Description 'surface' -Selection 'new' -After 3 -PollMilliseconds 1
+    Assert-Regression ($result.Request -eq 5 -and $result.Selection -eq 'new') 'Wait must skip old requests, loading and other selections.'
+
+    $states.Enqueue('Error (request 6): new')
+    Assert-RegressionFailure { Wait-UiRegressionSurfaceState -GetElement $getElement -Description 'surface' -After 5 -PollMilliseconds 1 } '*surface reported Error (request 6)*'
+    $states.Enqueue('Error (request 7): new')
+    $failed = Wait-UiRegressionSurfaceState -GetElement $getElement -Description 'surface' -State Error -After 6 -PollMilliseconds 1
+    Assert-Regression ($failed.Request -eq 7) 'Error must be awaitable when expected.'
+
+    $script:surfaceStatus = 'Ready (request 7): new'
+    Assert-RegressionFailure { Wait-UiRegressionSurfaceState -GetElement $getElement -Description 'surface' -After 7 -TimeoutMilliseconds 20 -PollMilliseconds 1 } '*Last state: Ready (request 7): new'
+    Assert-RegressionFailure { Wait-UiRegressionSurfaceState -GetElement { $null } -Description 'surface' -TimeoutMilliseconds 20 -PollMilliseconds 1 } 'Timed out*has no UI Automation peer.'
+    $script:surfacePolls = 0
+    $appearing = { $script:surfacePolls++; if ($script:surfacePolls -gt 2) { [pscustomobject]@{ Current = [pscustomobject]@{ ItemStatus = 'Ready (request 9): later' } } } }
+    Assert-Regression ((Wait-UiRegressionSurfaceState -GetElement $appearing -Description 'surface' -After 8 -PollMilliseconds 1).Request -eq 9) 'A surface hidden during navigation is awaited, not failed'
+}
+Write-Host 'UI regression helper, cleanup, timing, async state, and orchestration checks passed.'
