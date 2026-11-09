@@ -86,6 +86,39 @@ pushes to `main` (including merges) and remains manually dispatchable, without
 changing PR or release gates. See [execution modes and evidence](docs/reference.md#independent-native-validation).
 Enforced specifications and any gate cutover remain #256, not this comparison.
 
+### Asynchronous surfaces
+
+New or changed UI surfaces that load asynchronously expose one observable state
+and keep their lifecycle testable without WinUI:
+
+- **Observable state.** Publish `AsyncSurfaceSession.Status` as UI Automation
+  `ItemStatus` on an always-present control of the surface (Activity uses
+  `ActivityScroll`). The format is `<State> (request <n>): <selection>` with
+  `Loading`, `Ready`, `Empty` or `Error`, or `Idle` while inactive. Request
+  numbers only increase, and the selection names what the user chose. An
+  outcome is reported only after it is rendered and laid out. Controls with
+  automation IDs keep their peers in every state; keep text non-empty instead of
+  clearing it.
+- **Native waits.** Read the request number before an action, then use
+  `Wait-UiRegressionSurfaceState -After <n>` (with `-Selection` or `-State` as
+  needed) and assert the rendered content once. Do not poll incidental cells,
+  text or scroll positions to infer readiness. An unexpected `Error` fails
+  immediately with its status; a surface that is briefly absent (for example
+  while its page opens) is awaited rather than failed. `Assert-UiRegressionPeers`
+  checks that identified controls survive loading and error states.
+- **Positioning.** Bring a control into view the way the app does: focus it if
+  it is focusable, then use UI Automation `ScrollItemPattern.ScrollIntoView()`.
+  Reserve scroll-percentage arithmetic for targets without either, and treat a
+  momentarily missing peer inside a wait as "not yet" rather than a failure.
+- **Lifecycle tests.** Prove cancellation, replacement, stale completion and
+  Retry deterministically in `FingVibe.Core.Tests` against `AsyncSurfaceSession`
+  (or a surface-specific component linked the same way) with a controllable
+  loader. Native tests prove wiring, binding, reachability, keyboard access,
+  accessibility, layout and appearance; they do not use timing to prove races.
+- **Applicability.** This applies to new or changed asynchronous surfaces.
+  Convert existing surfaces, such as Discovery, only when a task already
+  changes them; there is no bulk retrofit.
+
 ## Explicitly invoked Epic Developer
 
 [⏩ Epic Developer](.github/agents/automation-epic-developer.agent.md) is an ordinary

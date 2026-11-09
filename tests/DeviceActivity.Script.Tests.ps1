@@ -13,10 +13,20 @@ foreach ($required in @(
     'Wait-UiRegressionState', 'Stop-UiRegressionApp', 'Complete-UiRegressionPhase',
     'Assert-ActivityCancelled $weekdayRequest', 'Assert-ActivityCancelled $deviceRequest',
     'Assert-ActivityCancelled $hoursRequest', 'Assert-ActivityCancelled $navigationRequest',
-    '"$closeRequest.cancelled"', '"$dailyRequest.released"', 'successful Retry after database contention',
-    'new selection after cancelling the blocked weekday query', 'activity-failure'
+    '"$($closeRequest.Path).cancelled"', '"$dailyRequest.released"',
+    'Wait-UiRegressionSurfaceState', 'Wait-ActivityState "Last 30 days, 1-hour cells" $weekdayRequest.Request',
+    'Wait-ActivityState -State Loading', 'Wait-ActivityState -State Error', '$retried = Wait-ActivityState',
+    'Assert-ActivityPeers "loading"', 'Assert-ActivityPeers "error"', 'Assert-ActivityPeers "Retry"', 'activity-failure'
 )) {
     if (-not $ui.Contains($required)) { throw "Missing native Activity lifecycle evidence: $required" }
+}
+if ($ui -match 'Current\.Name -(not)?like "Loading\*"') {
+    throw "Native Activity checks must wait for the observable Activity state, not loading text."
+}
+$view = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.Activity.cs") -Raw
+if ($view -notmatch 'AsyncSurfaceSession' -or $view -notmatch 'AutomationProperties\.SetItemStatus\(ActivityScroll, _activitySession\.Status\)' -or
+    $view -match '_activityGeneration') {
+    throw "Activity must use the shared AsyncSurfaceSession lifecycle and publish its state on ActivityScroll."
 }
 $loader = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\src\FingVibe.App\MainWindow.DeviceActivity.cs") -Raw
 if ($loader -notmatch '(?s)if \(IsUiReview && !string.IsNullOrEmpty\(ReviewInventoryPath\).*?FINGVIBE_UI_REVIEW_ACTIVITY_HOLD.*?await DeviceActivityReviewHold.WaitAsync\(holdPath, cancellation\)') {
