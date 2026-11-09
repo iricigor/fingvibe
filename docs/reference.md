@@ -417,7 +417,16 @@ High contrast uses system colors and R/N/? symbols alongside accessible text.
 Changing device, network, period or hour grouping cancels older queries; leaving
 the page or closing the window cancels pending work. Refresh failures clear old
 results and expose **Retry**. Existing scan history and category editing remain
-independent.
+independent. While no grid is shown, the window line names the selected period
+and grouping, the detail line prompts for a cell, and the legend stays visible.
+
+Activity reports one observable state through the grid's UI Automation item
+status: `Loading`, `Ready`, `Empty` or `Error` with an increasing request number
+and the selected period and grouping (for example
+`Ready (request 4): Last 30 days, 1-hour cells`), or `Idle` when the page is not
+shown. `Ready` follows rendering and layout. The WinUI-free `AsyncSurfaceSession`
+owns cancellation, replacement, stale-completion rejection and Retry; see
+[asynchronous surfaces](../CONTRIBUTING.md#asynchronous-surfaces).
 
 Activity reads the selected window off the UI thread through the shared SQLite
 evidence query. Imported aggregates, incomplete scans, pre-sighting gaps and
@@ -1116,7 +1125,11 @@ eligibility, exact time boundaries, DST and cancellation. The disposable Windows
 synthetic inventory, exercising all modes/stops, cell keyboard details,
 loading/error/no-history states, selection changes, narrow scrolling, themes,
 high contrast and access to the retained history summary without enabling
-completed observations. It refuses to run on the working
+completed observations. It waits for Activity's observable state for each
+selection and request, then asserts the rendered grid once, and checks that
+identified Activity controls keep their UI Automation peers while loading, after
+an error and after Retry. `AsyncSurfaceSessionTests` prove cancellation,
+replacement, stale completion, render-before-Ready and Retry without WinUI. It refuses to run on the working
 desktop. After the Release Core build,
 `pwsh -File tests\DeviceActivity.Script.Tests.ps1` verifies its fixture through
 the actual migration/query/grouping path, including real SQLite contention and

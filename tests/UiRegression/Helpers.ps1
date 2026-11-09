@@ -158,6 +158,71 @@ function Find-UiRegressionElement {
     Wait-UiRegressionState -Condition $lookup -Description $Description
 }
 
+# Async surfaces publish "<State> (request <n>): <selection>" or "Idle" through UI Automation ItemStatus
+# (see CONTRIBUTING.md, "Asynchronous surfaces"). Native tests wait for that state instead of incidental UI.
+function ConvertFrom-UiRegressionSurfaceStatus {
+    param([AllowNull()][AllowEmptyString()][string] $Status)
+    if ($Status -ceq 'Idle') { return [pscustomobject]@{ State = 'Idle'; Request = 0; Selection = '' } }
+    if ($Status -cmatch '^(?<state>Loading|Ready|Empty|Error) \(request (?<request>[1-9][0-9]*)\): (?<selection>.+)$') {
+        return [pscustomobject]@{ State = $Matches.state; Request = [int]$Matches.request; Selection = $Matches.selection }
+    }
+    throw "Unrecognized async surface status '$Status'; expected '<State> (request <n>): <selection>' or 'Idle'."
+}
+
+function Get-UiRegressionSurfaceState {
+    param([Parameter(Mandatory)][scriptblock] $GetElement, [Parameter(Mandatory)][string] $Description)
+    $element = & $GetElement
+    if (-not $element) { throw "The state element of $Description has no UI Automation peer." }
+    ConvertFrom-UiRegressionSurfaceStatus $element.Current.ItemStatus
+}
+
+function Wait-UiRegressionSurfaceState {
+    param(
+        [Parameter(Mandatory)][scriptblock] $GetElement,
+        [Parameter(Mandatory)][string] $Description,
+        [ValidateSet('Loading', 'Ready', 'Empty', 'Error')][string] $State = 'Ready',
+        [string] $Selection,
+        [ValidateRange(0, [int]::MaxValue)][int] $After = 0,
+        [ValidateRange(1, 120000)][int] $TimeoutMilliseconds = 25000,
+        [ValidateRange(1, 1000)][int] $PollMilliseconds = 100
+    )
+    $observed = @{ Last = $null }
+    $surface = $Description
+    $condition = {
+        # The state element must keep its peer in every state, so a missing element fails immediately.
+        $current = Get-UiRegressionSurfaceState -GetElement $GetElement -Description $surface
+        $observed.Last = $current
+        if ($current.Request -le $After) { return $null }
+        if ($current.State -eq 'Error' -and $State -ne 'Error') {
+            throw "$surface reported Error (request $($current.Request)): $($current.Selection)"
+        }
+        if ($current.State -ne $State -or ($Selection -and $current.Selection -cne $Selection)) { return $null }
+        return $current
+    }
+    try {
+        Wait-UiRegressionState -Condition $condition -TimeoutMilliseconds $TimeoutMilliseconds -PollMilliseconds $PollMilliseconds `
+            -Description "$Description to report $State$(if ($Selection) { " for '$Selection'" }) after request $After"
+    }
+    catch {
+        $last = $observed.Last
+        if ($last -and $_.Exception.Message -like 'Timed out*') {
+            throw "$($_.Exception.Message) Last state: $($last.State) (request $($last.Request)): $($last.Selection)"
+        }
+        throw
+    }
+}
+
+function Assert-UiRegressionPeers {
+    param([Parameter(Mandatory)] $Root, [Parameter(Mandatory)][string[]] $AutomationIds, [Parameter(Mandatory)][string] $Description)
+    $conditions = [System.Windows.Automation.Condition[]]@($AutomationIds | ForEach-Object {
+        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $_)
+    })
+    $match = if ($conditions.Count -eq 1) { $conditions[0] } else { [System.Windows.Automation.OrCondition]::new($conditions) }
+    $found = @($Root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $match) | ForEach-Object { $_.Current.AutomationId })
+    $missing = @($AutomationIds | Where-Object { $_ -notin $found })
+    if ($missing) { throw "UI Automation peers missing during ${Description}: $($missing -join ', ')." }
+}
+
 function Wait-UiRegressionWindow {
     param([Parameter(Mandatory)] $Process, [int] $TimeoutMilliseconds = 30000)
     Wait-UiRegressionState -TimeoutMilliseconds $TimeoutMilliseconds -Description "app window (PID $($Process.Id))" -Condition {
