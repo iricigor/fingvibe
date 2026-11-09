@@ -57,6 +57,13 @@ closing PRs to the current default branch. Within-Epic cleanup still blocks.
 Unresolved structured claims always hold capacity, even on closed issues.
 Prose cues are intentionally conservative and can require Dispatcher judgment;
 the helper does not automatically release ownership or prove a worker stopped.
+GitHub's repository issues and issue-comments APIs also include PR records and
+PR discussion comments. The helper retains PR identities from the all-state
+inventory so their prose comments are not mistaken for task ownership evidence.
+Open PRs still occupy capacity, structured claims on PRs remain invalid, and
+ownership comments for unknown or foreign records fail closed with the offending
+comment URL. Ignoring PR discussion prose does not establish task delivery,
+release a task claim, or prove that a worker stopped.
 
 Unambiguous `Delivery order: #200 -> #201` (also execution/implementation order)
 in the Epic body is recognized. Otherwise explicit narrative/historical order
