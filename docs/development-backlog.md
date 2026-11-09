@@ -61,11 +61,29 @@ Outside that Epic, those historical records alone do not consume capacity;
 leave labels and ownership unchanged. An undiscoverable historical manual
 session alone is not evidence of a running worker or unresolved Dispatcher
 claim. Verify native membership and merged PR disposition before excluding
-historical records; inaccessible/ambiguous membership, missing delivery evidence,
-and closed-unmerged PRs remain blockers. Within-Epic historical cleanup still
-requires reconciliation, not automatic label removal or ownership release.
+historical records. A successful authoritative explicit null parent also
+establishes out-of-target history, subject to merged delivery and host checks;
+report its missing Epic organization separately for human-approved reconciliation.
+This does not waive the repository's native Epic membership requirement for issue
+intake or permit automatic historical migration. API failures, missing fields,
+non-Epic parents and contradictory membership are not verified absence.
+Within-Epic historical cleanup still requires reconciliation, not automatic
+label removal or ownership release.
 This exception does not weaken the release requirements for genuine claims or
 change the broader scheduled Actions policy.
+
+Conservative historical/prose preflight findings require evidence review, not
+automatic refusal. Verify existing manual releases with actual stopped-host
+evidence instead of requiring repeated cleanup. Verify human abandonment,
+design/trial acceptance, transferred backlog and nested merged delivery as
+distinct dispositions; neither closure nor abandonment/design acceptance proves
+implementation delivery for dependencies. Epic progress reports and authorization
+prose are not task claims. Once every finding is reconciled, Dispatcher records
+the finding/disposition/evidence and may select from the cached native inventory,
+still checking order, prerequisites, authorization and fresh live capacity.
+No collection failure, genuine claim, live work or uncertain execution may be
+overridden; do not delete comments or fabricate claims/closing PRs to silence
+historical findings. See the [preflight review path](dispatcher-preflight.md#reviewing-historical-findings).
 
 All compliant local ticks use the persistent, atomic-create repository gate in
 .github/scripts/Invoke-DispatcherGate.ps1, with the same default local state root.

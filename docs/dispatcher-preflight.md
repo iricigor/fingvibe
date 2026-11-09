@@ -52,8 +52,13 @@ immediately without expensive historical/dependency investigation.
 
 When capacity is mechanically empty, historical active/review labels and prose
 ownership cues are reviewed. Closed historical records qualify for the local
-out-of-Epic exception only with verified native Epic membership and merged
-closing PRs to the current default branch. Within-Epic cleanup still blocks.
+out-of-Epic exception with verified membership outside the configured Epic
+or an authoritative explicit null parent, plus merged closing PRs to the current
+default branch. Parentless records appear in `skipped` with an explicit separate
+Epic-organization requirement; this does not waive native membership for intake
+or authorize historical migration. API failures, omitted/malformed fields,
+non-Epic parents and contradictions with native children do not qualify.
+Within-Epic cleanup still blocks.
 Unresolved structured claims always hold capacity, even on closed issues.
 Prose cues are intentionally conservative and can require Dispatcher judgment;
 the helper does not automatically release ownership or prove a worker stopped.
@@ -64,6 +69,41 @@ Open PRs still occupy capacity, structured claims on PRs remain invalid, and
 ownership comments for unknown or foreign records fail closed with the offending
 comment URL. Ignoring PR discussion prose does not establish task delivery,
 release a task claim, or prove that a worker stopped.
+Likewise, prose on a `type:epic` organizing issue is not task ownership and is
+reported in `skipped`. This filtering runs after explicit coordination records,
+open PRs and open active/review labels have been checked; it cannot hide those
+blockers or a real task's manual ownership evidence.
+
+### Reviewing historical findings
+
+`reconcile` is guidance to inspect every finding, not a requirement to invent a
+PR for accepted design work or repeatedly release already-reconciled history.
+Use current task discussions and linked reconciliation reports to verify:
+
+| Evidence | Disposition |
+| --- | --- |
+| Manual release plus actual stopped-host evidence | Historical ownership already reconciled; preserve its audit trail. |
+| Explicit human abandonment, stopped execution and closed-unmerged PRs | Not planned, not delivered implementation. |
+| Explicit human design/trial acceptance | Accepted non-code scope, not application implementation. |
+| Recorded source-ideas transfer | Backlog disposition, not delivery of remaining ideas. |
+| Nested PR merge followed by verified integration into the default branch | Delivery only after checking the actual integration evidence, not merely a PR body link. |
+| Authorization/progress prose mentioning ownership | Not itself a task claim; check for actual task claims and live work. |
+
+Closure, a final worker message or absent session discovery alone proves none
+of these dispositions. Unresolved claims and unknown execution still block.
+Human acceptance/abandonment must not silently satisfy an implementation
+prerequisite. Missing or contradictory evidence stops pickup.
+
+After all historical/prose findings have been independently reconciled,
+Dispatcher records finding URLs, dispositions and supporting evidence in its
+normal task diagnostics, then may select from the cached native-child inventory
+using all normal ordering, dependency, authorization and fresh-read checks.
+The helper intentionally still returns review findings it cannot certify; no
+new override parameter, automatic ownership release or comment deletion is
+needed. Collection failures and genuine occupied/uncertain capacity cannot be
+overridden. Do not repeatedly recollect unchanged history hoping for `candidate`.
+
+### Ordering and dependencies
 
 Unambiguous `Delivery order: #200 -> #201` (also execution/implementation order)
 in the Epic body is recognized. Otherwise explicit narrative/historical order
