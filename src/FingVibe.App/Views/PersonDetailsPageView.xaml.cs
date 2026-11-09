@@ -16,6 +16,25 @@ public sealed partial class PersonDetailsPageView : UserControl
     public event EventHandler<ScanResultRow>? DeviceRequested;
 
     internal string Status { set => PersonDetailStatusText.Text = value; }
+    internal ManagedPerson? SelectedPerson { get; set; }
+
+    internal void Refresh(PeopleRoomsData data, IReadOnlyList<AssignedDeviceListRow> devices,
+        bool hasCurrentScan, bool canEdit)
+    {
+        SetActionsEnabled(canEdit);
+        if (SelectedPerson is not { } selected)
+        {
+            return;
+        }
+
+        SelectedPerson = data.People.FirstOrDefault(person => person.Id == selected.Id);
+        if (SelectedPerson is { } person)
+        {
+            var assigned = PeopleRoomsPresentation.AssignedTo(data, devices, person.Id, null);
+            ShowPerson(person, assigned, $"{PeopleRoomsPresentation.DeviceCount(assigned.Count)} assigned",
+                PeopleRoomsPresentation.DetailResponses(assigned, hasCurrentScan), assigned.Count == 0);
+        }
+    }
 
     internal void SetActionsEnabled(bool enabled)
     {
@@ -24,7 +43,7 @@ public sealed partial class PersonDetailsPageView : UserControl
         AssignPersonDevicesButton.IsEnabled = enabled;
     }
 
-    internal void ShowPerson(ManagedPerson person, IReadOnlyList<AssignedDeviceListRow> devices,
+    private void ShowPerson(ManagedPerson person, IReadOnlyList<AssignedDeviceListRow> devices,
         string count, string responses, bool isEmpty)
     {
         PersonDetailShortName.Text = person.ShortName;

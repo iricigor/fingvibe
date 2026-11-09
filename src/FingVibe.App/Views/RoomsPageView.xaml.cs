@@ -7,29 +7,37 @@ namespace FingVibe.App.Views;
 public sealed partial class RoomsPageView : UserControl
 {
     private bool _canEdit;
+    private IReadOnlyList<ManagedRoomListRow> _rows = [];
 
     public RoomsPageView() => InitializeComponent();
 
-    public event TextChangedEventHandler? SearchChanged;
     public event RoutedEventHandler? AddRequested;
     public event EventHandler<ManagedRoom>? RoomRequested;
     public event EventHandler<Guid>? EditRequested;
     public event EventHandler<Guid>? DeleteRequested;
 
-    internal string SearchText => RoomsSearchBox.Text;
     internal string Status { set => RoomsStatusText.Text = value; }
 
-    internal void ShowRows(IReadOnlyList<ManagedRoomListRow> rows, string emptyMessage, bool canEdit)
+    internal void ShowRooms(PeopleRoomsData data, IReadOnlyList<AssignedDeviceListRow> devices,
+        bool hasCurrentScan, bool canEdit)
     {
         _canEdit = canEdit;
-        RoomsList.ItemsSource = rows;
-        RoomsTableBorder.Visibility = rows.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        RoomsEmptyState.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        RoomsEmptyText.Text = emptyMessage;
+        _rows = PeopleRoomsPresentation.RoomRows(data, devices, hasCurrentScan);
+        ApplySearch();
         AddRoomButton.IsEnabled = canEdit;
     }
 
-    private void RoomsSearchBox_TextChanged(object sender, TextChangedEventArgs e) => SearchChanged?.Invoke(this, e);
+    private void ApplySearch()
+    {
+        var rows = _rows.Where(row => PeopleRoomsPresentation.MatchesSearch(
+            row.Room.ShortName, row.Room.Name, RoomsSearchBox.Text)).ToArray();
+        RoomsList.ItemsSource = rows;
+        RoomsTableBorder.Visibility = rows.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        RoomsEmptyState.Visibility = rows.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        RoomsEmptyText.Text = _rows.Count == 0 ? "No rooms yet" : "No rooms match your search.";
+    }
+
+    private void RoomsSearchBox_TextChanged(object sender, TextChangedEventArgs e) => ApplySearch();
     private void AddRoomButton_Click(object sender, RoutedEventArgs e) => AddRequested?.Invoke(this, e);
 
     private void RoomsList_ItemClick(object sender, ItemClickEventArgs e)

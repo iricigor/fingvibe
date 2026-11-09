@@ -16,6 +16,25 @@ public sealed partial class RoomDetailsPageView : UserControl
     public event EventHandler<ScanResultRow>? DeviceRequested;
 
     internal string Status { set => RoomDetailStatusText.Text = value; }
+    internal ManagedRoom? SelectedRoom { get; set; }
+
+    internal void Refresh(PeopleRoomsData data, IReadOnlyList<AssignedDeviceListRow> devices,
+        bool hasCurrentScan, bool canEdit)
+    {
+        SetActionsEnabled(canEdit);
+        if (SelectedRoom is not { } selected)
+        {
+            return;
+        }
+
+        SelectedRoom = data.Rooms.FirstOrDefault(room => room.Id == selected.Id);
+        if (SelectedRoom is { } room)
+        {
+            var assigned = PeopleRoomsPresentation.AssignedTo(data, devices, null, room.Id);
+            ShowRoom(room, assigned, $"{PeopleRoomsPresentation.DeviceCount(assigned.Count)} assigned",
+                PeopleRoomsPresentation.DetailResponses(assigned, hasCurrentScan), assigned.Count == 0);
+        }
+    }
 
     internal void SetActionsEnabled(bool enabled)
     {
@@ -24,7 +43,7 @@ public sealed partial class RoomDetailsPageView : UserControl
         AssignRoomDevicesButton.IsEnabled = enabled;
     }
 
-    internal void ShowRoom(ManagedRoom room, IReadOnlyList<AssignedDeviceListRow> devices,
+    private void ShowRoom(ManagedRoom room, IReadOnlyList<AssignedDeviceListRow> devices,
         string count, string responses, bool isEmpty)
     {
         RoomDetailShortName.Text = room.ShortName;

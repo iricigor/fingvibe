@@ -1032,6 +1032,31 @@
           "fixtureAssignments": []
         },
         {
+          "file": "Sidebar.PeopleRooms.Helpers.ps1",
+          "kind": "helpers",
+          "originalRanges": [],
+          "refactored": true,
+          "functions": [
+            { "name": "Find-PeopleRoomsElement", "refactored": true },
+            { "name": "Invoke-PeopleRoomsElement", "refactored": true },
+            { "name": "Set-PeopleRoomsText", "refactored": true },
+            { "name": "Open-PeopleRoomsDetails", "refactored": true },
+            { "name": "Test-PeopleRoomsFlows", "refactored": true },
+            { "name": "Test-PeopleRoomsPersistenceErrors", "refactored": true }
+          ],
+          "captures": [],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Sidebar.PeopleRooms.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [],
+          "refactored": true,
+          "functions": [],
+          "captures": [],
+          "fixtureAssignments": []
+        },
+        {
           "file": "Sidebar.Setup.Scenario.ps1",
           "kind": "scenario",
           "originalRanges": [
@@ -1165,6 +1190,7 @@
         "Responsive",
         "Refresh",
         "Progress",
+        "PeopleRooms",
         "Persistence",
         "Scheduled"
       ]
@@ -1173,6 +1199,7 @@
   "refactorNotes": [
     "Definitions, behavioral assertions, capture call sites and module order are mapped to the immutable baseline. Hashes normalize CRLF and outer whitespace. Baseline scenario ranges first remove their enclosing try block four-space indentation, exactly as extraction did.",
     "Explicit refactored functions migrate readiness, scoping, capture timing and process cleanup. Setup creates isolated fixtures; Test-DeviceRefresh rejects the normal user snapshot fallback. All other function bodies and scenarios remain byte-equivalent after normalization.",
-    "The shared-state top-level modules run at entry script scope in original order. These structural checks supplement, and never replace, disposable native evidence."
+    "The shared-state top-level modules run at entry script scope in original order. These structural checks supplement, and never replace, disposable native evidence.",
+    "PeopleRooms is additional #284 coverage between Progress and Persistence; it preserves the relative order and assertions of every baseline scenario."
   ]
 }

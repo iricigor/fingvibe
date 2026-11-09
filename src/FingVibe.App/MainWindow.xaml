@@ -254,7 +254,6 @@
 
                 <!-- People -->
                 <views:PeoplePageView x:Name="PeoplePage" Grid.Row="1" Visibility="Collapsed"
-                        SearchChanged="PeopleSearchBox_TextChanged"
                         AddRequested="AddPersonButton_Click"
                         PersonRequested="PersonRequested"
                         EditRequested="PersonEditRequested"
@@ -262,7 +261,6 @@
 
                 <!-- Rooms -->
                 <views:RoomsPageView x:Name="RoomsPage" Grid.Row="1" Visibility="Collapsed"
-                        SearchChanged="RoomsSearchBox_TextChanged"
                         AddRequested="AddRoomButton_Click"
                         RoomRequested="RoomRequested"
                         EditRequested="RoomEditRequested"
