@@ -372,7 +372,7 @@
                                         <TextBlock Grid.Column="2" Text="Status" FontWeight="SemiBold" TextWrapping="Wrap" />
                                     </Grid>
                                 </Border>
-                                <ListView x:Name="DeviceScanHistoryList" MaxHeight="320" SelectionMode="None"
+                                <ListView x:Name="DeviceScanHistoryList" MaxHeight="320" SelectionMode="None" IsTabStop="True"
                                           HorizontalContentAlignment="Stretch"
                                           AutomationProperties.AutomationId="DeviceScanHistoryList"
                                           AutomationProperties.Name="Completed scan history, newest first">

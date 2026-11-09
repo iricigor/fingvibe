@@ -480,6 +480,8 @@ page is held by the view. Equal-time observations keep their insertion order.
 The bounded page uses stable, non-recycled row containers, avoiding focus and
 automation peer realization moving the viewport during traversal. Every row must
 be physically reachable; enumerated offscreen peers do not establish visibility.
+Keyboard focus on the list or an observation brings the whole bounded viewport
+inside the outer details page, rather than leaving its lower rows clipped.
 The expander publishes the page's Loading/Ready/Empty/Error request state through
 UI Automation ItemStatus, after layout completes.
 A traversal captures a saved sequence boundary, so scans appended meanwhile

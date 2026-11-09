@@ -28,6 +28,7 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     if (-not $history.SelectSingleNode(".//*[@x:Name='DeviceScanHistoryList']/*[local-name()='ListView.ItemsPanel']//*[local-name()='StackPanel']", $namespaces)) {
         throw "The bounded observation page must keep stable, non-recycled rows."
     }
+    Assert-Equal $history.SelectSingleNode(".//*[@x:Name='DeviceScanHistoryList']", $namespaces).IsTabStop "True" "The observation viewport must be reachable by keyboard focus"
     $activity = $page.SelectSingleNode("//*[@x:Name='DeviceActivityCard']", $namespaces)
     Assert-Equal $activity.GetAttribute("Visibility") "" "Restored Activity uses normal visible layout"
     foreach ($id in @("DeviceScanHistoryTable", "DeviceScanHistoryEmpty",
@@ -56,6 +57,9 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
         '(?s)HistoryPage_Click.*?\{\s*if \(!CompletedObservationsEnabled\) return;'
     )) {
         if ($code -notmatch $pattern) { throw "Missing reversible history lifecycle guard: $pattern" }
+    }
+    if ($code -notmatch 'DeviceScanHistoryList.IndexFromContainer\(item\) >= 0') {
+        throw "Focusing an observation row must bring the whole bounded viewport into the outer page."
     }
     $activityCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.Activity.cs") -Raw
     if ($activityCode -match 'HistoryDetailsEnabled|CompletedObservationsEnabled' -or

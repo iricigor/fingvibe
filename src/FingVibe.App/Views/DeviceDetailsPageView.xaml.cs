@@ -51,7 +51,11 @@ public sealed partial class DeviceDetailsPageView : UserControl
         GotFocus += (_, args) =>
         {
             if (args.OriginalSource is FrameworkElement element)
-                element.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false });
+            {
+                var target = element is ListViewItem item && DeviceScanHistoryList.IndexFromContainer(item) >= 0
+                    ? DeviceScanHistoryList : element;
+                target.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false });
+            }
         };
     }
 
