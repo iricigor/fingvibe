@@ -61,6 +61,9 @@ try {
                 }
                 Invoke-RegressionCheck "DeviceActivity.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "activity") }
             }
+            if ($Suite -eq "details-history" -and $plan.Scenario -contains "Network") {
+                Invoke-RegressionCheck "NetworkActivity.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "network-activity") }
+            }
         }
         tools {
             Invoke-RegressionCheck "BuildIdentity.Ui" @{

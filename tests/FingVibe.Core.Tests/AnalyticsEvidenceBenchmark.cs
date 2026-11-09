@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
+using FingVibe.App;
 using FingVibe.Core.Models;
 using FingVibe.Core.Storage;
 using Microsoft.Data.Sqlite;
@@ -66,6 +67,8 @@ public sealed class AnalyticsEvidenceBenchmark(ITestOutputHelper output) : IDisp
             request with { Devices = roster }, store, classify: false);
         await Measure("all-device 7-date query + production usage classification", 2000,
             request with { CalendarDays = 7 }, store, classify: true);
+        await Measure("Network page 30-date query + current filters/classification + count presentation", 2000,
+            request, store, classify: false, networkData: data);
 
         var cancellations = new List<double>();
         for (var run = 0; run < 20; run++)
@@ -74,7 +77,7 @@ public sealed class AnalyticsEvidenceBenchmark(ITestOutputHelper output) : IDisp
             var query = Task.Run(async () =>
             {
                 var evidence = await store.QueryAnalyticsAsync(request, cancellation.Token);
-                return DeviceActivity.Group(evidence, 1, cancellation.Token);
+                return NetworkActivityPresentation.Create(evidence, data, 1, true, new(), cancellation.Token);
             }, cancellation.Token);
             await Task.Delay(20);
             var clock = Stopwatch.StartNew();
@@ -93,7 +96,7 @@ public sealed class AnalyticsEvidenceBenchmark(ITestOutputHelper output) : IDisp
     }
 
     private async Task Measure(string label, double milliseconds, AnalyticsEvidenceRequest request,
-        DeviceInventoryStore store, bool classify)
+        DeviceInventoryStore store, bool classify, DeviceInventoryData? networkData = null)
     {
         async Task<(double Milliseconds, long Allocated, long Rss, long Checksum)> Run()
         {
@@ -103,7 +106,9 @@ public sealed class AnalyticsEvidenceBenchmark(ITestOutputHelper output) : IDisp
             var before = GC.GetTotalAllocatedBytes(precise: true);
             var clock = Stopwatch.StartNew();
             var evidence = await store.QueryAnalyticsAsync(request);
-            var checksum = classify ? ClassificationCounts(evidence) : BucketUnion(evidence);
+            var checksum = networkData is not null
+                ? NetworkActivityPresentation.Create(evidence, networkData, 1, true, new()).Cells.Sum(cell => (long)cell.Details.Length)
+                : classify ? ClassificationCounts(evidence) : BucketUnion(evidence);
             clock.Stop();
             var allocated = GC.GetTotalAllocatedBytes(precise: true) - before;
             return (clock.Elapsed.TotalMilliseconds, allocated, Process.GetCurrentProcess().WorkingSet64, checksum);

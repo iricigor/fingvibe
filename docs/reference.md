@@ -435,6 +435,50 @@ retains aligned identities, original contributing scan evidence, counts, union
 contributors and exact/partial/unknown coverage for later aggregate consumers;
 it contains no inferred uptime or scalar duration estimates.
 
+### Network activity
+
+The Network page retains its existing information cards and adds **Device
+activity** below them. The 7-day, 30-day and weekday modes use the same local
+calendar, 1-4 hour grouping, keyboard navigation and scrollable grid as Device
+Activity. Daily values count the union of distinct logical devices across scans,
+not summed responses or the maximum simultaneous count. Weekday values average
+only exact daily counts, including known zero, and display up to one decimal;
+cell details retain the exact sum, denominator and contributing daily counts.
+
+Room, device type and usage category filters apply together using **current**
+metadata. All rooms/types/categories, Unassigned, Unknown type and Unclassified
+remain explicit choices. Current automatic categories reuse the seven-date
+classifier; manual overrides take precedence. Saved metadata changes, completed
+scans, network/period/filter changes, returning to the page and local date/timezone
+rollover refresh the evidence. No historical assignment reconstruction is used.
+
+Green intensity and its numeric legend rescale to the current filtered grid.
+Slate is known zero; hatching is unavailable or incomplete evidence. `N+` means
+**at least N**, including `0+`, and incomplete daily counts never enter an exact
+weekday mean. Imported-only or ambiguous contributors are disclosed rather than
+treated as offline. A zero-only grid has no invented positive range; an entirely
+unknown grid reports unavailable. Today is explicitly partial and skipped DST
+hours are excluded from applicable dates.
+
+The page uses `AsyncSurfaceSession`, publishing its state and selection on
+`NetworkActivityScroll`. Loading and errors clear old cells; Retry starts a new
+request, and selection, navigation and close cancel obsolete work. Query,
+classification, filtering and aggregation run off the UI thread against the
+same captured saved revision. Both Activity surfaces share the grid renderer;
+their different count/response semantics remain separate.
+
+`NetworkActivityTests` covers count unions, exact means, filters, lower bounds,
+zero/unknown, current normal/virtual metadata, identity deduplication, network
+isolation and calendar boundaries. The disposable native `NetworkActivity.Ui`
+module uses an isolated 1,000-device fixture and verifies all periods/groupings,
+filter combinations, 720-cell reachability, keyboard/light/dark/narrow layout, loading,
+replacement/cancellation, error/Retry and empty history. It runs in the existing
+`details-history` job when Network is selected; full validation includes it.
+`tests\NetworkActivity.Script.Tests.ps1` verifies that fixture and its production
+query without desktop automation. The shared renderer also retains the existing
+Device Activity light/dark/high-contrast native coverage. No native test runs on
+the user's working desktop.
+
 ### Device scan history
 
 First/last seen, last-observed/since, network scope and latest-scan explanation
@@ -1106,7 +1150,8 @@ Additional managed allocation is a conservative total-allocation ceiling, not
 process RSS or a claim that native SQLite memory is managed.
 
 The benchmark includes production aligned `DeviceActivity` buckets (and
-single-device weekday grouping), as well as the production
+single-device weekday grouping), the complete Network page query, current
+metadata/category filtering and count presentation, as well as the production
 `DeviceUsageClassifier` over all selected devices' seven-date evidence. It enforces
 p95 at most 1 second for one device and 2 seconds each for network, equipment and
 all selected-device classification evidence; at most 128 MiB additional managed

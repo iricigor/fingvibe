@@ -120,8 +120,16 @@ function Get-UiReviewCapturePlan {
             elseif ($path -match '^src/FingVibe.App/(MainWindow.DeviceDetails.cs|DeviceDetailsPresentation.cs|Views/Device(DetailValue|ScanHistoryItem).cs)$') {
                 Add-Scenarios @("DeviceDetails") "$path changed device details behavior."
             }
-            elseif ($path -match '^src/FingVibe.App/(MainWindow.DeviceActivity.cs|DeviceActivityPresentation.cs|DeviceActivityReviewHold.cs|Views/DeviceDetailsPageView.Activity.cs)$' -or
-                $path -eq 'src/FingVibe.Core/Models/DeviceActivity.cs' -or $path -match '^tests/DeviceActivity\.(Ui.Tests|Fixture)\.ps1$') {
+            elseif ($path -match '^src/FingVibe.App/(Views/ActivityGridRenderer.cs|DeviceActivityPresentation.cs|DeviceActivityReviewHold.cs)$' -or
+                $path -eq 'src/FingVibe.Core/Models/DeviceActivity.cs') {
+                Add-Scenarios @("Network", "DeviceDetails") "$path changed shared activity grid behavior."
+            }
+            elseif ($path -match '^src/FingVibe.App/(MainWindow.NetworkActivity.cs|NetworkActivityPresentation.cs|Views/NetworkPageView.Activity.cs)$' -or
+                $path -eq 'src/FingVibe.Core/Models/NetworkActivity.cs' -or $path -match '^tests/NetworkActivity\.(Ui.Tests|Fixture)\.ps1$') {
+                Add-Scenarios @("Network") "$path changed Network activity evidence, filters or its grid."
+            }
+            elseif ($path -match '^src/FingVibe.App/(MainWindow.DeviceActivity.cs|Views/DeviceDetailsPageView.Activity.cs)$' -or
+                $path -match '^tests/DeviceActivity\.(Ui.Tests|Fixture)\.ps1$') {
                 Add-Scenarios @("DeviceDetails") "$path changed device activity evidence or its grid."
             }
             elseif ($path -match '^src/FingVibe.Core/(Models/(DeviceInventory|PrivateVirtualDevice|DeviceHistorySummary|DeviceHistoryQuery|DeviceDiscovery|AppendedScanHistory).cs|Storage/(DeviceInventoryStore(\.(Json|History))?|SqliteScanHistory).cs)$' -or
@@ -151,7 +159,7 @@ function Get-UiReviewCapturePlan {
                 Add-Scenarios @("Tools", "SqlEditor") "$path changed SQL reporting."
             }
             elseif ($path -eq "src/FingVibe.App/MainWindow.Inventory.cs") {
-                Add-Scenarios @("Devices", "Overview", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails", "FingImport", "SqlEditor") "$path changed inventory orchestration."
+                Add-Scenarios @("Devices", "Overview", "Network", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails", "FingImport", "SqlEditor") "$path changed inventory orchestration."
             }
             elseif ($path -match '^src/FingVibe.App/Tools/NetworkTroubleshootingPage\.xaml(\.cs)?$') {
                 Add-Scenarios @("Tools", "Troubleshooting") "$path changed network troubleshooting."

@@ -27,6 +27,8 @@ foreach ($case in @(
     @{ Paths = @("tests/DeviceScanHistory.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/DeviceActivity.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/DeviceActivity.Fixture.ps1"); Expected = @($true, $true, $true) },
+    @{ Paths = @("tests/NetworkActivity.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
+    @{ Paths = @("tests/NetworkActivity.Fixture.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/Installer.Lifecycle.Tests.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/Installer.Script.Tests.ps1"); Expected = @($true, $false, $false) },
     @{ Paths = @("tools/installer/FingVibe.iss"); Expected = @($true, $true, $true) },
@@ -254,7 +256,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
     $smokeScript = Get-Content (Join-Path $PSScriptRoot "..\.github\scripts\Invoke-UiReview.ps1") -Raw
     $regressionScript = Get-Content (Join-Path $PSScriptRoot "..\.github\scripts\Invoke-UiRegression.ps1") -Raw
     foreach ($suite in @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
-        "UsageCategory.Ui", "DeviceActivity.Ui",
+        "UsageCategory.Ui", "DeviceActivity.Ui", "NetworkActivity.Ui",
         "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
         if ($captureJob.Contains($suite) -or $smokeScript.Contains($suite)) { throw "Capture still runs extracted suite: $suite" }
         $expectedCount = if ($suite -eq "DeviceScanHistory.Ui") { 2 } else { 1 }
@@ -283,7 +285,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             Copy-Item (Join-Path $PSScriptRoot "..\.github\scripts\$name") $scripts
         }
         foreach ($name in @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
-            "UsageCategory.Ui", "DeviceActivity.Ui",
+            "UsageCategory.Ui", "DeviceActivity.Ui", "NetworkActivity.Ui",
             "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
             @(
                 'param($AppPath, $ScreenshotDirectory, $Version, $BuildKind, $BuildTimestamp, $BuildCommit, $PullRequestNumber, $SummaryOnly, $ObservationsOnly)',
@@ -340,6 +342,10 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             & $runner -Suite $suite @parameters
             Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 13 "Unselected $suite must not launch native checks"
         }
+        ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios Network) -Depth 5 | Set-Content $planPath
+        & $runner -Suite details-history @parameters
+        $networkCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip 13 | ConvertFrom-Json)
+        Assert-Equal $networkCalls.Name @("NetworkActivity.Ui") "Network-only plan still runs its activity regression"
         Assert-Throws { & $runner -Suite history @parameters } "*history*"
         $env:UI_REGRESSION_FAIL = "DevicesList.Ui"
         Assert-Throws { & $runner -Suite devices @parameters } "*Simulated regression failure*"

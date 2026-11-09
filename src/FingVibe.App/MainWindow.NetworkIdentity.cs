@@ -36,6 +36,7 @@ public sealed partial class MainWindow
             OverviewPage.ShowNetwork("No active IPv4 network", string.Empty);
             NetworkPage.ShowPublicIdentity(null);
             NetworkPage.ShowLocalNetwork(null);
+            UpdateNetworkActivity();
             UpdateScanStatus();
             UpdateOverview();
             return;
@@ -64,6 +65,7 @@ public sealed partial class MainWindow
         UpdateLastSeen();
         RefreshVisibleResults();
         UpdateDeviceHistory();
+        UpdateNetworkActivity();
         _ = RefreshUsageCategoriesAsync(force: true);
         ToolsPage.SetNetworkContext(selectedNetwork);
         OverviewPage.ShowSubnet(selectedNetwork);
