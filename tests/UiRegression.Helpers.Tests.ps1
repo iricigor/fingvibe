@@ -441,6 +441,9 @@ if (`$failAt -eq '$name') { throw 'Synthetic module failure: $name' }
 
     $script:surfaceStatus = 'Ready (request 7): new'
     Assert-RegressionFailure { Wait-UiRegressionSurfaceState -GetElement $getElement -Description 'surface' -After 7 -TimeoutMilliseconds 20 -PollMilliseconds 1 } '*Last state: Ready (request 7): new'
-    Assert-RegressionFailure { Wait-UiRegressionSurfaceState -GetElement { $null } -Description 'surface' -PollMilliseconds 1 } '*has no UI Automation peer.'
+    Assert-RegressionFailure { Wait-UiRegressionSurfaceState -GetElement { $null } -Description 'surface' -TimeoutMilliseconds 20 -PollMilliseconds 1 } 'Timed out*has no UI Automation peer.'
+    $script:surfacePolls = 0
+    $appearing = { $script:surfacePolls++; if ($script:surfacePolls -gt 2) { [pscustomobject]@{ Current = [pscustomobject]@{ ItemStatus = 'Ready (request 9): later' } } } }
+    Assert-Regression ((Wait-UiRegressionSurfaceState -GetElement $appearing -Description 'surface' -After 8 -PollMilliseconds 1).Request -eq 9) 'A surface hidden during navigation is awaited, not failed'
 }
 Write-Host 'UI regression helper, cleanup, timing, async state, and orchestration checks passed.'

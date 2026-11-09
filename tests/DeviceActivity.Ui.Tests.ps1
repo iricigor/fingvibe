@@ -35,17 +35,21 @@ function Find-Activity([string] $Id, [switch] $ByName, [switch] $Optional) {
     if (-not $script:root -and $Optional) { return $null }
     $property = if ($ByName) { [Windows.Automation.AutomationElement]::NameProperty } else { [Windows.Automation.AutomationElement]::AutomationIdProperty }
     $condition = [Windows.Automation.PropertyCondition]::new($property, $Id)
-    $scope = $script:root
-    if (-not $ByName -and $Id -like "ActivityCell-*") {
-        # Cell lookups and absence checks stay inside the grid instead of walking the whole window.
-        $scope = $script:root.FindFirst([Windows.Automation.TreeScope]::Descendants,
-            [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty, "ActivityScroll"))
-        if (-not $scope) {
-            if ($Optional) { return $null }
-            throw "Missing activity control '$Id'."
+    $isCell = -not $ByName -and $Id -like "ActivityCell-*"
+    # A descendant search can miss while WinUI rebuilds the grid; required lookups and the always-present
+    # ActivityScroll scope get a short retry, while Optional absence checks still answer immediately.
+    $deadline = [DateTime]::UtcNow.AddSeconds(2)
+    while ($true) {
+        $scope = $script:root
+        if ($isCell) {
+            # Cell lookups and absence checks stay inside the grid instead of walking the whole window.
+            $scope = $script:root.FindFirst([Windows.Automation.TreeScope]::Descendants,
+                [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty, "ActivityScroll"))
         }
+        $element = if ($scope) { $scope.FindFirst([Windows.Automation.TreeScope]::Descendants, $condition) }
+        if ($element -or ($scope -and $Optional) -or [DateTime]::UtcNow -ge $deadline) { break }
+        Start-Sleep -Milliseconds 50
     }
-    $element = $scope.FindFirst([Windows.Automation.TreeScope]::Descendants, $condition)
     if (-not $element -and -not $Optional) { throw "Missing activity control '$Id'." }
     return $element
 }
@@ -111,9 +115,14 @@ function Test-ActivityFits($Control, $Viewport) {
 
 function Show-Activity([string] $Id) {
     $target = Find-Activity $Id
-    if ($target.Current.IsKeyboardFocusable) {
-        # Like a keyboard user: the page brings the focused control into view, so no scroll arithmetic is needed.
-        $target.SetFocus()
+    $scrollItem = $null
+    $focusable = $target.Current.IsKeyboardFocusable
+    if ($focusable -or $target.TryGetCurrentPattern([Windows.Automation.ScrollItemPattern]::Pattern, [ref] $scrollItem)) {
+        # Like a keyboard user, or WinUI's own bring-into-view: the page positions the control, so no scroll arithmetic is needed.
+        # Focus first so a previously focused control cannot pull the view back, then bring the target into view,
+        # because focusing an already-focused control does not scroll.
+        if ($focusable) { $target.SetFocus() }
+        if ($scrollItem -or $target.TryGetCurrentPattern([Windows.Automation.ScrollItemPattern]::Pattern, [ref] $scrollItem)) { $scrollItem.ScrollIntoView() }
         $script:shownActivity = $null
         Wait-Activity {
             # Peers can be briefly absent while bring-into-view re-realizes the page; retry instead of failing.
@@ -121,7 +130,7 @@ function Show-Activity([string] $Id) {
             $viewport = Find-Activity DeviceDetailsScroll -Optional
             if ($current -and $viewport -and (Test-ActivityFits $current $viewport)) { $script:shownActivity = $current; return $true }
             return $false
-        } "focused Activity control '$Id' inside the details viewport"
+        } "Activity control '$Id' brought inside the details viewport"
         return $script:shownActivity
     }
     Show-UiRegressionScrollTargets -Description "Activity control '$Id'" -BottomMargin 8 `
@@ -219,7 +228,8 @@ function Wait-ActivityRequest([string[]] $Previous) {
         if ($requests.Count -eq 1) { $script:startedRequest = $requests[0]; return $true }
         return $false
     } "the selected Activity loader to start"
-    return [IO.Path]::ChangeExtension($script:startedRequest, $null)
+    # ChangeExtension(path, $null) would keep a trailing dot because PowerShell passes $null as "".
+    return $script:startedRequest -replace '\.started$', ''
 }
 
 function Start-HeldActivityRefresh {

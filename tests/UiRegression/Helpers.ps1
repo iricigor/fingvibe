@@ -186,11 +186,14 @@ function Wait-UiRegressionSurfaceState {
         [ValidateRange(1, 120000)][int] $TimeoutMilliseconds = 25000,
         [ValidateRange(1, 1000)][int] $PollMilliseconds = 100
     )
-    $observed = @{ Last = $null }
+    $observed = @{ Last = $null; Missing = $false }
     $surface = $Description
     $condition = {
-        # The state element must keep its peer in every state, so a missing element fails immediately.
-        $current = Get-UiRegressionSurfaceState -GetElement $GetElement -Description $surface
+        # Navigation can briefly remove the surface's peer, so a wait treats absence as "not yet" and reports it on timeout.
+        $element = & $GetElement
+        $observed.Missing = -not $element
+        if (-not $element) { return $null }
+        $current = ConvertFrom-UiRegressionSurfaceStatus $element.Current.ItemStatus
         $observed.Last = $current
         if ($current.Request -le $After) { return $null }
         if ($current.State -eq 'Error' -and $State -ne 'Error') {
@@ -205,6 +208,9 @@ function Wait-UiRegressionSurfaceState {
     }
     catch {
         $last = $observed.Last
+        if ($_.Exception.Message -like 'Timed out*' -and $observed.Missing) {
+            throw "$($_.Exception.Message) The state element of $Description has no UI Automation peer."
+        }
         if ($last -and $_.Exception.Message -like 'Timed out*') {
             throw "$($_.Exception.Message) Last state: $($last.State) (request $($last.Request)): $($last.Selection)"
         }

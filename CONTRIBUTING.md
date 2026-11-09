@@ -103,8 +103,13 @@ and keep their lifecycle testable without WinUI:
   `Wait-UiRegressionSurfaceState -After <n>` (with `-Selection` or `-State` as
   needed) and assert the rendered content once. Do not poll incidental cells,
   text or scroll positions to infer readiness. An unexpected `Error` fails
-  immediately with its status. `Assert-UiRegressionPeers` checks that identified
-  controls survive loading and error states.
+  immediately with its status; a surface that is briefly absent (for example
+  while its page opens) is awaited rather than failed. `Assert-UiRegressionPeers`
+  checks that identified controls survive loading and error states.
+- **Positioning.** Bring a control into view the way the app does: focus it if
+  it is focusable, then use UI Automation `ScrollItemPattern.ScrollIntoView()`.
+  Reserve scroll-percentage arithmetic for targets without either, and treat a
+  momentarily missing peer inside a wait as "not yet" rather than a failure.
 - **Lifecycle tests.** Prove cancellation, replacement, stale completion and
   Retry deterministically in `FingVibe.Core.Tests` against `AsyncSurfaceSession`
   (or a surface-specific component linked the same way) with a controllable
