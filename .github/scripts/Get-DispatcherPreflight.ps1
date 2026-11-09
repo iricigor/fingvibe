@@ -159,17 +159,23 @@ function Get-DispatcherPreflight {
             throw "Configured Epic #$Epic is not a verified type:epic issue."
         }
         $pulls = @(Read-DispatcherEvidence "repos/$Repository/pulls?state=open&per_page=100" $true)
-        $issues = @(Read-DispatcherEvidence "repos/$Repository/issues?state=all&per_page=100" $true |
-            Where-Object { -not $_.pull_request })
+        $repositoryItems = @(Read-DispatcherEvidence "repos/$Repository/issues?state=all&per_page=100" $true)
+        $issues = @($repositoryItems | Where-Object { -not $_.pull_request })
         $comments = @(Read-DispatcherEvidence "repos/$Repository/issues/comments?per_page=100" $true)
         $children = @(Read-DispatcherEvidence "repos/$Repository/issues/$Epic/sub_issues?per_page=100" $true)
         $issueByNumber = @{}
-        foreach ($issue in $issues) {
+        $pullRequestByNumber = @{}
+        foreach ($issue in $repositoryItems) {
             if (-not $issue.number -or $issueByNumber.ContainsKey([int] $issue.number) -or
+                $pullRequestByNumber.ContainsKey([int] $issue.number) -or
                 $issue.state -notin @("open", "closed") -or -not $issue.html_url) {
                 throw "Invalid/duplicate issue in repository enumeration."
             }
-            $issueByNumber[[int] $issue.number] = $issue
+            if ($issue.pull_request) {
+                $pullRequestByNumber[[int] $issue.number] = $issue
+            } else {
+                $issueByNumber[[int] $issue.number] = $issue
+            }
         }
         $childNumbers = @{}
         foreach ($child in $children) {
@@ -262,9 +268,14 @@ function Get-DispatcherPreflight {
             foreach ($comment in $comments) {
                 if ($comment.body -match "fingvibe-agent-(claim|result)-v1" -or
                     $comment.body -notmatch '(?i)\b(claiming|claimed|claim retained|retained claim|ownership)\b') { continue }
-                if ($comment.issue_url -notmatch '/issues/(\d+)$') { throw "Uncorrelated ownership comment." }
+                if ($comment.issue_url -notmatch ('^' + [regex]::Escape($repo.url) + '/issues/(\d+)$')) {
+                    throw "Uncorrelated ownership comment: $($comment.html_url)."
+                }
                 $number = [int] $Matches[1]
-                if (-not $issueByNumber.ContainsKey($number)) { throw "Ownership comment has no enumerated issue." }
+                if ($pullRequestByNumber.ContainsKey($number)) { continue }
+                if (-not $issueByNumber.ContainsKey($number)) {
+                    throw "Ownership comment has no enumerated issue (#$number): $($comment.html_url)."
+                }
                 if ($issueByNumber[$number].state -eq "closed" -and $claimsByTask.ContainsKey($number)) { continue }
                 $manualEvidence[$number] = $comment.html_url
             }

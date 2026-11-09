@@ -252,6 +252,49 @@ $fixture.state.comments = @(@{
 })
 Assert-Preflight ((Invoke-PreflightFixture $fixture).findings[0].kind -eq "manual-ownership-review") "Manual claims without lifecycle labels need reconciliation."
 
+foreach ($state in @("open", "closed")) {
+    $fixture = New-PreflightFixture
+    $fixture.state.multiPage = $true
+    $pr = New-PreflightIssue 300 $state
+    $pr.html_url = "https://github.com/test/repo/pull/300"
+    $pr | Add-Member -NotePropertyName pull_request -NotePropertyValue @{
+        url = "https://api.github.com/repos/test/repo/pulls/300"
+    }
+    $fixture.state.issues += $pr
+    $fixture.state.comments = @(@{
+        id = 9
+        issue_url = "https://api.github.com/repos/test/repo/issues/300"
+        html_url = "https://github.com/test/repo/pull/300#issuecomment-9"
+        body = "Retrospective: ownership remains with the task worker."
+    })
+    if ($state -eq "open") { $fixture.state.pulls = @($pr) }
+    $result = Invoke-PreflightFixture $fixture
+    Assert-Preflight (-not $result.collectionFailure -and $result.counts.issues -eq 3) "PR discussion comments must correlate without becoming task issues."
+    if ($state -eq "open") {
+        Assert-Preflight ($result.decision -eq "reconcile" -and $result.findings[0].kind -eq "open-pr") "PR comment handling must preserve open-PR capacity blockers."
+    } else {
+        Assert-Preflight ($result.decision -eq "candidate" -and $result.candidate.issue -eq 200) "Closed PR prose alone must not become task ownership evidence, regardless of merge status."
+        $fixture.state.comments[0].issue_url = "https://api.github.com/repos/other/repo/issues/300"
+        $result = Invoke-PreflightFixture $fixture
+        Assert-Preflight ($result.decision -eq "blocked" -and $result.collectionFailure -match "Uncorrelated ownership comment") "Foreign PR comment URLs must fail closed."
+        $fixture.state.comments = @()
+        Add-PreflightClaim $fixture 300
+        $result = Invoke-PreflightFixture $fixture
+        Assert-Preflight ($result.decision -eq "blocked" -and $result.collectionFailure -match "coordination record") "Structured claims on PRs must not be silently ignored."
+    }
+}
+
+$fixture = New-PreflightFixture
+$fixture.state.comments = @(@{
+    id = 9
+    issue_url = "https://api.github.com/repos/test/repo/issues/999"
+    html_url = "https://github.com/test/repo/issues/999#issuecomment-9"
+    body = "Claiming this task."
+})
+$result = Invoke-PreflightFixture $fixture
+Assert-Preflight ($result.decision -eq "blocked" -and -not $result.candidate -and
+    $result.collectionFailure.Contains("#999") -and $result.collectionFailure.Contains($fixture.state.comments[0].html_url)) "Unknown ownership evidence must fail closed with the offending issue and comment URL."
+
 $fixture = New-PreflightFixture
 $fixture.state.issues += New-PreflightIssue 190 "closed"
 $fixture.state.comments += @{
