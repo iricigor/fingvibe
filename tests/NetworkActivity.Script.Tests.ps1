@@ -16,6 +16,17 @@ $view = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\NetworkP
 if ($view -notmatch 'AsyncSurfaceSession' -or
     $view -notmatch 'AutomationProperties.SetItemStatus\(NetworkActivityScroll, _activitySession.Status\)' -or
     $view -notmatch 'Task.Run' -or $view -notmatch '_activitySession.Cancel\(\)') { throw "Network activity lifecycle wiring is incomplete." }
+$xaml = [xml](Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\NetworkPageView.xaml") -Raw)
+$namespaces = [Xml.XmlNamespaceManager]::new($xaml.NameTable)
+$namespaces.AddNamespace("ui", "http://schemas.microsoft.com/winfx/2006/xaml/presentation")
+$namespaces.AddNamespace("x", "http://schemas.microsoft.com/winfx/2006/xaml")
+$cards = $xaml.SelectNodes("//ui:ScrollViewer[@x:Name='NetworkPage']/ui:StackPanel/ui:Border", $namespaces)
+if ($cards.Count -ne 3 -or
+    -not $cards[0].SelectSingleNode(".//ui:TextBlock[@x:Name='PublicAddressText']", $namespaces) -or
+    -not $cards[1].SelectSingleNode(".//ui:TextBlock[@x:Name='SubnetSizeText']", $namespaces) -or
+    -not $cards[2].SelectSingleNode(".//ui:ComboBox[@x:Name='NetworkActivityPeriod']", $namespaces)) {
+    throw "Network identity, subnet details and Activity must remain separate top-level cards in that order."
+}
 $bin = Join-Path $PSScriptRoot "FingVibe.Core.Tests\bin\Release\net8.0"
 $null = [Runtime.InteropServices.NativeLibrary]::Load((Join-Path $bin "runtimes\win-x64\native\e_sqlite3.dll"))
 foreach ($name in @("FingVibe.Core.dll", "SQLitePCLRaw.core.dll", "SQLitePCLRaw.provider.e_sqlite3.dll",
