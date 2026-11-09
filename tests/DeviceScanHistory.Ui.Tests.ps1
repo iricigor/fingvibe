@@ -241,6 +241,38 @@ function Assert-HistoryPage([int] $PageIndex, [switch] $Traverse) {
     return $labels
 }
 
+function Assert-HistoryScrollMovement {
+    $list = Show-HistorySection DeviceScanHistoryList
+    $items = $list.FindAll([System.Windows.Automation.TreeScope]::Children,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::ListItem))
+    $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+    if (-not $scroll.Current.VerticallyScrollable) { throw "The 100-row page must be scrollable." }
+    $scroll.SetScrollPercent(-1, 0)
+    $firstVisible = {
+        for ($index = 0; $index -lt $items.Count; $index++) {
+            if (Test-UiRegressionElementWithin $items[$index] $list $script:root) {
+                return [pscustomobject]@{ Index = $index; Label = $items[$index].Current.Name }
+            }
+        }
+    }
+    $before = Wait-UiRegressionState -Condition $firstVisible -Description "first visible history row"
+    foreach ($amount in @("LargeIncrement", "LargeIncrement", "LargeIncrement", "SmallDecrement", "LargeIncrement")) {
+        $scroll.Scroll([System.Windows.Automation.ScrollAmount]::NoAmount,
+            [System.Windows.Automation.ScrollAmount]::$amount)
+        $after = Wait-UiRegressionState -Description "$amount to move actual visible rows without snap-back" -Condition {
+            $current = & $firstVisible
+            if ($current -and $(if ($amount -eq "SmallDecrement") { $current.Index -lt $before.Index }
+                else { $current.Index -gt $before.Index })) { return $current }
+        }
+        Write-Host "History $amount moved row $($before.Index) '$($before.Label)' -> $($after.Index) '$($after.Label)'."
+        $before = $after
+    }
+    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-scroll-movement.png")
+    $scroll.SetScrollPercent(-1, 0)
+}
+
 function Show-HistorySection([string] $Id, [int] $TopMargin = 35, [string[]] $AdditionalIds = @()) {
     $ids = @($Id) + $AdditionalIds
     $call = Start-UiRegressionCall positioning
@@ -267,7 +299,7 @@ function Show-HistorySection([string] $Id, [int] $TopMargin = 35, [string[]] $Ad
 function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
     $count = $LastIndex + 1
     if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "$count completed scan observations") {
-        throw "The history must contain exactly $count individual completed scans in the current scope."
+        throw "Expected $count individual completed scans; got '$((Find-HistoryControl DeviceScanHistoryCount).Current.Name)' in '$((Find-HistoryControl DeviceHistoryScope).Current.Name)'."
     }
     $list = Show-HistorySection DeviceScanHistoryList
     $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
@@ -429,7 +461,7 @@ function Wait-HistoryScan {
 
 $previous = @{}
 foreach ($key in @("FINGVIBE_UI_REVIEW", "FINGVIBE_UI_REVIEW_INVENTORY", "FINGVIBE_UI_REVIEW_SNAPSHOT",
-    "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT", "FINGVIBE_UI_REVIEW_SCAN_HOLD")) {
+    "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT", "FINGVIBE_UI_REVIEW_SCAN_HOLD", "FINGVIBE_UI_REVIEW_NETWORK")) {
     $previous[$key] = [Environment]::GetEnvironmentVariable($key)
 }
 $fixtureDirectory = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-history-ui-$([Guid]::NewGuid().ToString('N'))"
@@ -493,6 +525,7 @@ try {
     $env:FINGVIBE_UI_REVIEW_INVENTORY = $inventory
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $snapshot
     $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT = "0"
+    $env:FINGVIBE_UI_REVIEW_NETWORK = "ui-review-network"
     $env:FINGVIBE_UI_REVIEW_SCAN_HOLD = $hold
     $phase = Step-UiRegressionPhase $phase "history/summary-cases" $ScreenshotDirectory
     foreach ($index in 0..4) {
@@ -734,6 +767,7 @@ try {
     Start-HistoryApp
     Open-HistoryDetails "History normal"
     $reachable = @{}
+    Assert-HistoryScrollMovement
     foreach ($pageIndex in 0..2) {
         $null = Wait-HistoryPage ($pageIndex + 1)
         $pageRows = @(Assert-HistoryPage $pageIndex -Traverse)

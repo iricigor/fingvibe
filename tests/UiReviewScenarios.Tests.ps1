@@ -40,6 +40,9 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
         if ($history.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must remain outside collapsed observations." }
     }
     $historyUi = Get-Content (Join-Path $PSScriptRoot "DeviceScanHistory.Ui.Tests.ps1") -Raw
+    if ($historyUi -notmatch '\$env:FINGVIBE_UI_REVIEW_NETWORK = "ui-review-network"') {
+        throw "History fixtures must select their own network independently of preceding suites."
+    }
     $summaryAssertion = [regex]::Match($historyUi, '(?s)function Assert-HistorySummary.*?(?=function Invoke-HistoryScan)').Value
     if ($summaryAssertion -notmatch 'Show-HistorySection DeviceHistoryFirstSeen -AdditionalIds' -or
         $summaryAssertion -match 'DeviceHistorySummaryCard') {
@@ -122,6 +125,77 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     $script:positions.Clear()
     Assert-Throws { Show-HistorySection First -AdditionalIds Since } "*cannot fit together inside its viewport*"
     Assert-Equal $script:positions.Count 0 "An oversized grouped summary fails without an exhaustive viewport sweep"
+
+    $script:focusCalls = [Collections.Generic.List[string]]::new()
+    $script:controls.Focusable = [pscustomobject]@{ Current = [pscustomobject]@{
+        IsKeyboardFocusable = $true; IsOffscreen = $true; BoundingRectangle = $null
+    } }
+    $script:controls.Focusable | Add-Member ScriptMethod SetFocus {
+        $script:focusCalls.Add("focus")
+    }
+    $script:bring = [pscustomobject]@{}
+    $script:bring | Add-Member ScriptMethod ScrollIntoView {
+        $script:focusCalls.Add("bring")
+        $script:controls.Focusable.Current.IsOffscreen = $false
+        $script:controls.Focusable.Current.BoundingRectangle = [pscustomobject]@{
+            Left = 0; Right = 100; Top = 100; Bottom = 120; Width = 100; Height = 20; IsEmpty = $false
+        }
+    }
+    $script:controls.Focusable | Add-Member ScriptMethod TryGetCurrentPattern {
+        param($Pattern, $Result)
+        $Result.Value = $script:bring
+        return $true
+    }
+    $script:positions.Clear()
+    $null = Show-HistorySection Focusable
+    $null = Show-HistorySection Focusable
+    Assert-Equal $script:focusCalls @("focus", "bring", "focus", "bring") "Focus precedes bring-into-view even for a previously focused section"
+    Assert-Equal $script:positions.Count 0 "Supported section positioning must not fight focus with percentage scrolling"
+}
+
+& {
+    . (Join-Path $PSScriptRoot 'UiRegression\Helpers.ps1')
+    $historyUi = Get-Content (Join-Path $PSScriptRoot "DeviceScanHistory.Ui.Tests.ps1") -Raw
+    . ([scriptblock]::Create([regex]::Match($historyUi, '(?s)function Assert-HistoryPage.*?(?=function Show-HistorySection)').Value))
+    $script:pageIndex = 0
+    $script:fakeItems = @()
+    $script:reached = [Collections.Generic.List[string]]::new()
+    $script:fakeList = [pscustomobject]@{}
+    $script:fakeList | Add-Member ScriptMethod FindAll { param($Scope, $Condition) return $script:fakeItems }
+    function Show-HistorySection($Id) { return $script:fakeList }
+    function Find-HistoryControl($Id) {
+        $name = switch ($Id) {
+            DeviceHistoryPageStatus { "Showing $(100 * $script:pageIndex + 1)-$([Math]::Min(100 * ($script:pageIndex + 1), 205)) of 205." }
+            DeviceScanHistoryCount { "205 completed scan observations" }
+        }
+        [pscustomobject]@{ Current = [pscustomobject]@{ Name = $name } }
+    }
+    function Test-UiRegressionElementWithin($Element, $Viewport, $Window) { $Element.Visible }
+    foreach ($script:pageIndex in 0..2) {
+        $count = [Math]::Min(100, 205 - 100 * $script:pageIndex)
+        $script:fakeItems = @(0..($count - 1) | ForEach-Object {
+            $second = 204 - 100 * $script:pageIndex - $_
+            $time = ([DateTimeOffset]::Parse("2026-11-01T12:00:00Z").AddSeconds($second)).ToLocalTime()
+            $state = if ($second % 4 -lt 2) { "present" } else { "absent" }
+            $item = [pscustomobject]@{
+                Current = [pscustomobject]@{ Name = "$($time.ToString('yyyy-MM-dd HH:mm:ss zzz')); Observed $state" }
+                Visible = $false
+            }
+            $item | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $this }
+            $item | Add-Member ScriptMethod ScrollIntoView {
+                $this.Visible = $true
+                $script:reached.Add($this.Current.Name)
+            }
+            $item
+        })
+        Assert-Equal @(Assert-HistoryPage $script:pageIndex -Traverse).Count $count "Validate every exact bounded row"
+        $script:fakeItems[0].Current.Name = "wrong timestamp; Observed absent"
+        Assert-Throws { Assert-HistoryPage $script:pageIndex } "*Wrong row/order/state*"
+    }
+    Assert-Equal $script:reached.Count 205 "Every observation needs a physical reachability assertion"
+    Assert-Equal @($script:reached | Select-Object -Unique).Count 205 "No cross-page duplicate may satisfy traversal"
+    $script:fakeItems = @()
+    Assert-Throws { Assert-HistoryPage 2 } "*Expected 5 bounded rows*"
 }
 
 & {
