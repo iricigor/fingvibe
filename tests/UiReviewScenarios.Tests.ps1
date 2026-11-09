@@ -282,7 +282,8 @@ try {
         "src\FingVibe.Core\Models\DeviceHistoryQuery.cs")) {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device scan history"
     }
-    foreach ($iconPath in @("src\FingVibe.App\PeopleRoomsIcons.cs", "src\FingVibe.App\Views\PeopleRoomsIconPicker.cs")) {
+    foreach ($iconPath in @("src\FingVibe.App\PeopleRoomsIcons.cs", "src\FingVibe.App\Views\PeopleRoomsIconPicker.cs",
+        "src\FingVibe.App\PeopleRoomsPresentation.cs", "src\FingVibe.App\Views\PeopleRoomsDialogs.cs")) {
         Test-Change @{ $iconPath = "changed" } `
             @("Devices", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails") "People/Rooms icon surfaces"
     }

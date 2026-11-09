@@ -244,6 +244,33 @@ function Test-UiReviewNameSuggestion {
     Invoke-WebDriverElement -ElementId $cancel
 }
 
+function Test-UiReviewAddAssignment {
+    param([string] $Category, [string] $Name, [string] $ShortName)
+    foreach ($save in @($false, $true)) {
+        Show-UiReviewDetailsTop
+        $picker = Assert-VisibleUiReviewElement -Using xpath -Value "//ComboBox[@Name='$Category']"
+        Invoke-WebDriverElement -ElementId $picker
+        $addLabel = "Add $($Category.ToLowerInvariant())$([char]0x2026)"
+        $add = Assert-VisibleUiReviewElement -Using xpath -Value "//ListItem[@Name='$addLabel']"
+        Invoke-WebDriverElement -ElementId $add
+        $nameBox = Assert-VisibleUiReviewElement -Value "Full name"
+        $shortBox = Assert-VisibleUiReviewElement -Value "Short name"
+        $null = Invoke-WebDriverRequest -Method Post -Endpoint "/session/$sessionId/element/$nameBox/value" `
+            -Body @{ value = @($Name) }
+        $null = Invoke-WebDriverRequest -Method Post -Endpoint "/session/$sessionId/element/$shortBox/clear" -Body @{}
+        $null = Invoke-WebDriverRequest -Method Post -Endpoint "/session/$sessionId/element/$shortBox/value" `
+            -Body @{ value = @($ShortName) }
+        Invoke-WebDriverElement -ElementId (Assert-VisibleUiReviewElement -Value $(if ($save) { "Save" } else { "Cancel" }))
+        if ($save) {
+            $null = Show-UiReviewDetailsControl -Value "$Category assignment saved."
+            Assert-UiReviewAssignment $Category "$ShortName $([char]0x00B7) $Name"
+        }
+        else {
+            Assert-UiReviewAssignment $Category "Unassigned"
+        }
+    }
+}
+
 if (-not (Test-Path -LiteralPath $AppPath -PathType Leaf)) {
     throw "The published application was not found at '$AppPath'."
 }
@@ -442,6 +469,8 @@ try {
         Show-UiReviewCaptureScenario -Scenario "DeviceDetails"
         Assert-UiReviewAssignment "Room" "Unassigned"
         Assert-UiReviewAssignment "Person" "Unassigned"
+        Test-UiReviewAddAssignment "Person" "Entry person" "EP"
+        Test-UiReviewAddAssignment "Room" "Entry room" "ER"
         Write-Host "People and Rooms native assignment regression tests passed."
     }
 
