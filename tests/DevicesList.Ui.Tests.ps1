@@ -27,7 +27,7 @@ $fixture = $null
 $fixtureDirectory = $null
 $previousContext = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext([IntPtr]::new(-4))
 try {
-    foreach ($regressionModule in @('Setup', 'Overview', 'Filters', 'Columns', 'Previews', 'Layout', 'Appearance', 'Interaction', 'Sorting')) {
+    foreach ($regressionModule in @('Setup', 'Overview', 'Filters', 'Refinements', 'Columns', 'Previews', 'Layout', 'Appearance', 'Interaction', 'Sorting')) {
         $regressionPhase = Start-UiRegressionPhase -Name "Devices/$regressionModule"
         $regressionSucceeded = $false
         try {

@@ -342,8 +342,7 @@
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.Name}" AutomationProperties.Name="{x:Bind Columns.Name.ResizeLabel}"
-                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Name.HasFollowingVisibleColumn), Mode=OneWay}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.Name}" AutomationProperties.Name="{x:Bind Columns.Name.ResizeLabel}" />
                             </Grid>
                             <Grid Grid.Column="1" Visibility="{x:Bind Columns.Address.IsVisible, Mode=OneWay}">
                                 <StackPanel Margin="0,0,12,0">
@@ -362,8 +361,7 @@
                                     </StackPanel>
                                 </Button>
                                 </StackPanel>
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.Addresses, Mode=OneWay}" AutomationProperties.Name="{x:Bind Columns.Addresses.ResizeLabel, Mode=OneWay}"
-                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Addresses.HasFollowingVisibleColumn), Mode=OneWay}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.Addresses, Mode=OneWay}" AutomationProperties.Name="{x:Bind Columns.Addresses.ResizeLabel, Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="2" Visibility="{x:Bind Columns.Vendor.IsVisible, Mode=OneWay}">
                                 <StackPanel Margin="0,0,12,0" VerticalAlignment="Center">
@@ -384,8 +382,7 @@
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.VendorOs, Mode=OneWay}" AutomationProperties.Name="{x:Bind Columns.VendorOs.ResizeLabel, Mode=OneWay}"
-                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.VendorOs.HasFollowingVisibleColumn), Mode=OneWay}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.VendorOs, Mode=OneWay}" AutomationProperties.Name="{x:Bind Columns.VendorOs.ResizeLabel, Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="3" Visibility="{x:Bind Columns.Ports.IsVisible, Mode=OneWay}">
                                 <Button x:Name="OpenPortsSortButton" Tag="OpenPorts" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
@@ -396,8 +393,7 @@
                                         <TextBlock x:Name="OpenPortsSortGlyph" />
                                     </StackPanel>
                                 </Button>
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.Ports}" AutomationProperties.Name="{x:Bind Columns.Ports.ResizeLabel}"
-                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Ports.HasFollowingVisibleColumn), Mode=OneWay}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.Ports}" AutomationProperties.Name="{x:Bind Columns.Ports.ResizeLabel}" />
                             </Grid>
                             <Grid Grid.Column="4" Visibility="{x:Bind Columns.Connection.IsVisible, Mode=OneWay}">
                                 <Grid.ColumnDefinitions>
@@ -425,8 +421,7 @@
                                     </Button>
                                 </Grid>
                                 <local:ColumnResizeGrip x:Name="ConnectionResizeGrip" Grid.ColumnSpan="2"
-                                                        Column="{x:Bind Columns.Connection, Mode=OneWay}" AutomationProperties.Name="{x:Bind Columns.Connection.ResizeLabel, Mode=OneWay}"
-                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Connection.HasFollowingVisibleColumn), Mode=OneWay}" />
+                                                        Column="{x:Bind Columns.Connection, Mode=OneWay}" AutomationProperties.Name="{x:Bind Columns.Connection.ResizeLabel, Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="5" Visibility="{x:Bind Columns.ShowSeparateResponse, Mode=OneWay}">
                                 <Button Tag="Response" Click="SortHeader_Click" Margin="0,0,12,0" HorizontalContentAlignment="Right" MinHeight="0"
@@ -437,8 +432,7 @@
                                         <TextBlock x:Name="SeparateResponseSortGlyph" />
                                     </StackPanel>
                                 </Button>
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.Response}" AutomationProperties.Name="{x:Bind Columns.Response.ResizeLabel}"
-                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Response.HasFollowingVisibleColumn), Mode=OneWay}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.Response}" AutomationProperties.Name="{x:Bind Columns.Response.ResizeLabel}" />
                             </Grid>
                             <Grid Grid.Column="6" Visibility="{x:Bind Columns.ShowSeparateMac, Mode=OneWay}">
                                 <Button Tag="MacAddress" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
@@ -449,8 +443,7 @@
                                         <TextBlock x:Name="MacAddressSortGlyph" />
                                     </StackPanel>
                                 </Button>
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.Mac}" AutomationProperties.Name="{x:Bind Columns.Mac.ResizeLabel}"
-                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Mac.HasFollowingVisibleColumn), Mode=OneWay}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.Mac}" AutomationProperties.Name="{x:Bind Columns.Mac.ResizeLabel}" />
                             </Grid>
                             <Grid Grid.Column="7" Visibility="{x:Bind Columns.ShowSeparateOs, Mode=OneWay}">
                                 <Button Tag="OperatingSystem" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
@@ -461,8 +454,7 @@
                                         <TextBlock x:Name="OperatingSystemSortGlyph" />
                                     </StackPanel>
                                 </Button>
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.OperatingSystem}" AutomationProperties.Name="{x:Bind Columns.OperatingSystem.ResizeLabel}"
-                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.OperatingSystem.HasFollowingVisibleColumn), Mode=OneWay}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.OperatingSystem}" AutomationProperties.Name="{x:Bind Columns.OperatingSystem.ResizeLabel}" />
                             </Grid>
                             <Grid Grid.Column="8" Visibility="{x:Bind Columns.ShowSeparateType, Mode=OneWay}">
                                 <Button Tag="DeviceType" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
@@ -473,8 +465,7 @@
                                         <TextBlock x:Name="SeparateDeviceTypeSortGlyph" />
                                     </StackPanel>
                                 </Button>
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.Type}" AutomationProperties.Name="{x:Bind Columns.Type.ResizeLabel}"
-                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Type.HasFollowingVisibleColumn), Mode=OneWay}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.Type}" AutomationProperties.Name="{x:Bind Columns.Type.ResizeLabel}" />
                             </Grid>
                             <Grid Grid.Column="9" Visibility="{x:Bind Columns.UsageCategory.IsVisible, Mode=OneWay}">
                                 <Button x:Name="UsageCategorySortButton" Tag="UsageCategory" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
@@ -485,8 +476,7 @@
                                         <TextBlock x:Name="UsageCategorySortGlyph" />
                                     </StackPanel>
                                 </Button>
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.UsageCategory}" AutomationProperties.Name="{x:Bind Columns.UsageCategory.ResizeLabel}"
-                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.UsageCategory.HasFollowingVisibleColumn), Mode=OneWay}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.UsageCategory}" AutomationProperties.Name="{x:Bind Columns.UsageCategory.ResizeLabel}" />
                             </Grid>
                             <Grid Grid.Column="10" Visibility="{x:Bind Columns.Assignments.IsVisible, Mode=OneWay}">
                                 <Button x:Name="PersonSortButton" Tag="Person" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
@@ -525,8 +515,7 @@
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.Assignments, Mode=OneWay}" AutomationProperties.Name="{x:Bind Columns.Assignments.ResizeLabel, Mode=OneWay}"
-                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Assignments.HasFollowingVisibleColumn), Mode=OneWay}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.Assignments, Mode=OneWay}" AutomationProperties.Name="{x:Bind Columns.Assignments.ResizeLabel, Mode=OneWay}" />
                             </Grid>
                             <Grid Grid.Column="11" Visibility="{x:Bind Columns.ShowSeparateRoom, Mode=OneWay}">
                                 <Button x:Name="RoomSortButton" Tag="Room" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
@@ -537,8 +526,7 @@
                                         <TextBlock x:Name="RoomSortGlyph" />
                                     </StackPanel>
                                 </Button>
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.Room}" AutomationProperties.Name="{x:Bind Columns.Room.ResizeLabel}"
-                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.Room.HasFollowingVisibleColumn), Mode=OneWay}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.Room}" AutomationProperties.Name="{x:Bind Columns.Room.ResizeLabel}" />
                             </Grid>
                             <Grid Grid.Column="12" Visibility="{x:Bind Columns.LastSeen.IsVisible, Mode=OneWay}">
                                 <Button x:Name="LastSeenSortButton" Tag="LastSeen" Click="SortHeader_Click" Margin="0,0,12,0" MinHeight="0"
@@ -549,8 +537,7 @@
                                         <TextBlock x:Name="LastSeenSortGlyph" />
                                     </StackPanel>
                                 </Button>
-                                <local:ColumnResizeGrip Column="{x:Bind Columns.LastSeen}" AutomationProperties.Name="{x:Bind Columns.LastSeen.ResizeLabel}"
-                                                        SeparatorVisibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(Columns.LastSeen.HasFollowingVisibleColumn), Mode=OneWay}" />
+                                <local:ColumnResizeGrip Column="{x:Bind Columns.LastSeen}" AutomationProperties.Name="{x:Bind Columns.LastSeen.ResizeLabel}" />
                             </Grid>
                         </Grid>
                         <ListView x:Name="ResultsList" Grid.Row="1" SelectionMode="Single"
@@ -651,7 +638,8 @@
                                         </StackPanel>
                                         <StackPanel Grid.Column="2" Spacing="{x:Bind Columns.RowSpacing, Mode=OneWay}" VerticalAlignment="Center" Margin="0,0,12,0"
                                                     Visibility="{x:Bind Columns.Vendor.IsVisible, Mode=OneWay}">
-                                        <TextBlock Text="{x:Bind local:DeviceColumnLayoutHelpers.MetadataText(VendorDisplayText), Mode=OneWay}"
+                                        <TextBlock x:Name="DeviceVendorText" Text="{x:Bind VendorDisplayText, Mode=OneWay}"
+                                                   AutomationProperties.HelpText="{x:Bind VendorDescription, Mode=OneWay}"
                                                    Opacity="{x:Bind VendorOpacity, Mode=OneWay}"
                                                    Visibility="{x:Bind Columns.Vendor.IsVisible, Mode=OneWay}"
                                                    views:DevicesPageView.PreviewText="{x:Bind views:DevicesPageView.VendorPreviewText(VendorDisplayText, VendorDescription), Mode=OneWay}"
@@ -746,17 +734,41 @@
                                                    Margin="0,0,12,0" TextTrimming="CharacterEllipsis" Opacity="{x:Bind DeviceTypeOpacity, Mode=OneWay}"
                                                    ToolTipService.ToolTip="{x:Bind DeviceTypeSource, Mode=OneWay}"
                                                    Visibility="{x:Bind Columns.ShowSeparateType, Mode=OneWay}" />
-                                        <StackPanel Grid.Column="9" Margin="0,0,12,0" VerticalAlignment="Center"
-                                                    Spacing="{x:Bind Columns.RowSpacing, Mode=OneWay}"
-                                                    Visibility="{x:Bind Columns.UsageCategory.IsVisible, Mode=OneWay}">
-                                            <TextBlock x:Name="DeviceUsageCategoryText" Text="{x:Bind UsageCategoryText, Mode=OneWay}"
-                                                       FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
-                                                       views:DevicesPageView.PreviewText="{x:Bind UsageCategoryDescription, Mode=OneWay}" />
-                                            <TextBlock Text="{x:Bind UsageCategorySource, Mode=OneWay}" FontSize="11"
-                                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis"
-                                                       AutomationProperties.Name="{x:Bind UsageCategoryDescription, Mode=OneWay}"
-                                                       ToolTipService.ToolTip="{x:Bind UsageCategoryDescription, Mode=OneWay}" />
-                                        </StackPanel>
+                                        <Button Grid.Column="9" Margin="0,0,12,0" Padding="0" MinWidth="0" MinHeight="0"
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                VerticalAlignment="Center" Background="Transparent" BorderThickness="0"
+                                                UseSystemFocusVisuals="True" AutomationProperties.AutomationId="UsageCategoryCell"
+                                                AutomationProperties.Name="{x:Bind UsageCategoryCellName, Mode=OneWay}"
+                                                AutomationProperties.HelpText="{x:Bind UsageCategoryDescription, Mode=OneWay}"
+                                                Visibility="{x:Bind Columns.UsageCategory.IsVisible, Mode=OneWay}">
+                                            <ToolTipService.ToolTip>
+                                                <ToolTip>
+                                                    <TextBlock Text="{x:Bind UsageCategoryDescription, Mode=OneWay}"
+                                                               MaxWidth="360" TextWrapping="Wrap" />
+                                                </ToolTip>
+                                            </ToolTipService.ToolTip>
+                                            <Button.Flyout>
+                                                <Flyout>
+                                                    <TextBlock x:Name="UsageCategoryCellDetailsText"
+                                                               Text="{x:Bind UsageCategoryDescription, Mode=OneWay}"
+                                                               MaxWidth="360" TextWrapping="Wrap" />
+                                                </Flyout>
+                                            </Button.Flyout>
+                                            <Grid ColumnSpacing="6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock x:Name="DeviceUsageCategoryText" Text="{x:Bind UsageCategoryCellText, Mode=OneWay}"
+                                                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
+                                                           Opacity="{x:Bind UsageCategoryOpacity, Mode=OneWay}" />
+                                                <FontIcon Grid.Column="1" Glyph="{x:Bind UsageCategoryIndicatorGlyph, Mode=OneWay}"
+                                                          FontFamily="Segoe Fluent Icons" FontSize="12"
+                                                          Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                          AutomationProperties.AccessibilityView="Raw"
+                                                          Visibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(HasUsageCategoryIndicator), Mode=OneWay}" />
+                                            </Grid>
+                                        </Button>
                                         <Grid Grid.Column="10" Visibility="{x:Bind Columns.ShowMergedRoom, Mode=OneWay}">
                                             <StackPanel x:Name="MergedAssignments" Spacing="{x:Bind Columns.AssignmentSpacing, Mode=OneWay}" VerticalAlignment="Center">
                                                 <Grid x:Name="MergedPersonLine" ColumnSpacing="4" HorizontalAlignment="Center" Background="Transparent"

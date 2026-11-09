@@ -30,10 +30,27 @@ internal static class UsageCategoryPresentation
         $"{inference.FirstDate:d} - {inference.LastDate:d} | {inference.ObservedDates} observed dates | {inference.TimeZoneId}\n"
         + $"Network: {inference.NetworkId} | {inference.Subnet}. Today is partial; only evidence collected so far is used.";
 
+    internal static string Limitations(DeviceUsageInference inference)
+    {
+        if (!inference.LimitedEvidence) return string.Empty;
+        var reasons = new List<string>();
+        if (inference.ObservedDates < 7) reasons.Add($"{inference.ObservedDates} of 7 observed dates");
+        if (inference.Total.Eligible < 30) reasons.Add($"{inference.Total.Eligible} of 30 eligible scans");
+        if (inference.Category == DeviceUsageCategory.Personal)
+        {
+            if (inference.OvernightWeekend.Eligible < 10)
+                reasons.Add($"{inference.OvernightWeekend.Eligible} of 10 overnight/weekend scans");
+            if (inference.WeekdayDaytime.Eligible < 10)
+                reasons.Add($"{inference.WeekdayDaytime.Eligible} of 10 weekday daytime scans");
+        }
+        return "\nLimited evidence - provisional estimate."
+            + (reasons.Count > 0 ? $" {string.Join("; ", reasons)}." : string.Empty);
+    }
+
     internal static string Description(DeviceUsageCategory? manual, DeviceUsageInference? inference, string status) =>
         (manual is { } category ? $"{category} - Manual override. " : inference is { } result ? $"{result.Category} - Automatic. " : string.Empty)
         + (inference is null ? status : $"{Evidence(inference)}\n{Window(inference)}"
-            + (inference.LimitedEvidence ? "\nLimited evidence - provisional estimate." : string.Empty))
+            + Limitations(inference))
         + $"\n{SamplingNotice}";
 }
 

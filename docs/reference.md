@@ -227,11 +227,16 @@ selected value temporarily has no matching devices.
 ### Device usage categories
 
 The visible-by-default **Usage category** column shows Permanent, Personal,
-Guest, or Unclassified and whether it is automatic (including limited/no
-evidence) or a manual override. It can be hidden, resized, searched and sorted
-with the existing table controls. Its filter matches the effective category,
-including manual overrides. Loading or failed evidence remains explicitly
-unavailable, not a fabricated Unclassified result; a saved override stays visible.
+Guest, or muted Unclassified on one line. A small pin identifies a manual
+override; an information indicator identifies limited automatic evidence or
+an unavailable result. The source is not repeated on a second line. Hover,
+accessible help text, or keyboard focus and Enter/Space expose the reason,
+responded/eligible counts, observation period and specific missing evidence.
+It can be hidden, resized, searched and sorted with the existing table controls.
+Its filter matches the effective category, including manual overrides. Loading
+and failed evidence remain explicitly Loading/Unavailable, not a fabricated
+Unclassified result; a saved override stays visible and is not marked provisional
+merely because its underlying automatic recommendation has limited evidence.
 
 Automatic classification uses only the selected network identity and subnet,
 today and the previous six local dates, clipped to the device's first reliable
@@ -274,6 +279,20 @@ Evidence reads and classification run off the UI thread. Saved evidence,
 network/view changes, local date/timezone changes and explicit refresh invalidate
 the result; cancelled/stale queries cannot replace newer state. There is no
 waiting gate, hysteresis or extension into older dates to fill missing evidence.
+
+**Any** is an exclusive any-known-value filter mode, not a snapshot of checked
+items or a synonym for clearing the category. It appears immediately after
+Unknown, Unassigned or Unclassified when at least two distinct known choices
+are offered. Selecting a specific/missing value exits Any; clearing includes
+all values again. Any Person/Room means assigned; Any Usage category excludes
+Unclassified and unavailable results. Any Vendor excludes both Unknown (including
+the raw Private registry result) and Randomized MAC; neither placeholder counts
+toward its two-choice threshold. Newly available known values match automatically.
+If choices shrink, an active Any restriction remains visible in the dropdown
+summary and can still be cleared rather than silently broadened.
+The existing Status preference stores this mode separately from explicit
+status selections; older settings default to the previous selection behavior.
+Other filter selections remain session-only.
 
 Status retains its one-DIP stronger neutral stroke and 210-DIP width. The six
 secondary dropdowns share available width equally and shrink rather than wrapping
@@ -337,7 +356,7 @@ and 1-DIP line gaps. With visible stacked columns, the minimum heights are
 36 DIP in Compact and 40 DIP in Standard; without them, they are 30 and 34 DIP.
 Stacking is determined by enabled Name/Type, IP/MAC, Vendor/OS, and Person/Room
 combinations with both members visible. Hidden secondary members do not count;
-the side-by-side Status/Response combination does not count either.
+the side-by-side Status/Response combination and one-line Usage category do not count either.
 The policy applies across the table, not separately to devices with missing
 metadata or assignments. Fonts, icons, and horizontal spacing are unchanged.
 Column titles follow the same setting through tighter vertical
@@ -347,7 +366,7 @@ Vendor/OS merge are saved in `device-table.json`; changing density preserves
 selection, filters, sorting and columns. **Reset columns** resets Vendor/OS merge
 but leaves density and hover-preview preferences unchanged.
 
-Both modes retain 13px primary names/latencies and a 20px far-left type icon within the content-driven row envelope. Smaller monospaced MAC addresses use contrasting prefix/suffix colors; muted metadata preserves name hierarchy. Missing metadata uses a muted dash; the meaningful Unknown device status is not replaced. The vendor label **Private MAC** means a locally administered address, not a proven randomized address or known manufacturer; its tooltip explains the limitation. Unassigned People/Rooms cannot display stale labels, while valid assigned digits and emoji are preserved. Green Online, neutral Offline/Unknown, and amber Fing Only badges pair text with a dot. Subtle theme-aware zebra stripes follow the displayed row order, with native hover, selection, and focus indicators taking precedence; decorative stripes are disabled in Windows high contrast. A 1px theme-aware line below the contrasting column headers separates them from the rows, using system colors in high contrast. The final visible column has no trailing divider suggesting an extra column; its resize handle remains available.
+Both modes retain 13px primary names/latencies and a 20px far-left type icon within the content-driven row envelope. Smaller monospaced MAC addresses use contrasting prefix/suffix colors; muted metadata preserves name hierarchy. Missing metadata uses a muted dash, except meaningful Unknown status/vendor labels. **Randomized MAC** labels a locally administered address, not a proven randomized address or known manufacturer; accessible help and its tooltip explain the limitation. A raw **Private** registry vendor is displayed as **Unknown**, with the source limitation explained; raw values, meaningful corrections/imported brands and identity grouping are unchanged. Unassigned People/Rooms cannot display stale labels, while valid assigned digits and emoji are preserved. Green Online, neutral Offline/Unknown, and amber Fing Only badges pair text with a dot. Subtle theme-aware zebra stripes follow the displayed row order, with native hover, selection, and focus indicators taking precedence; decorative stripes are disabled in Windows high contrast. A 1px theme-aware line below the contrasting column headers separates them from the rows, using system colors in high contrast. The final visible column retains its right-edge divider and resize handle, making unused trailing space distinct without changing configured widths or viewport layout.
 
 IPv4 MAC enrichment first checks Windows' neighbor table for the exact IP on the route-selected interface, accepting only valid unicast six-byte addresses in usable states. If absent, it attempts `SendARP` once and rechecks the table. It never substitutes a gateway MAC or an unrelated interface's neighbor; a ping response can still lack a resolvable MAC.
 

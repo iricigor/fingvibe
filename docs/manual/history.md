@@ -56,6 +56,12 @@ meet the app's evidence thresholds. The category may still appear.
 For example, 12 responses out of 14 eligible scans can suggest Permanent,
 but with limited evidence.
 
+In Devices, the category stays on one line. A small information indicator
+provides the provisional estimate's explanation; a pin identifies a manual
+override. Hover or use keyboard focus and Enter/Space to read the counts and
+observation period. Unclassified is muted, while loading and unavailable
+evidence remain distinguishable. See [the Devices column](devices.md#usage-category).
+
 Incomplete scans, imported totals, unknown gaps, and unrelated networks do not
 become nonresponses. The time of day you scan affects the recommendation.
 **Guest does not prove a visitor, and Personal does not prove ownership.**

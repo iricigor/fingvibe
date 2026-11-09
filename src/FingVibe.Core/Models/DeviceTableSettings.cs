@@ -12,4 +12,5 @@ public sealed record DeviceTableSettings(
     bool CombineVendorOs = false,
     bool CompactRows = true,
     int DensityVersion = 0,
-    InventoryDeviceStatus[]? StatusFilters = null);
+    InventoryDeviceStatus[]? StatusFilters = null,
+    bool StatusAnyKnown = false);

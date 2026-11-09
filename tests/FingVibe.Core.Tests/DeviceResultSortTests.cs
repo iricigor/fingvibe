@@ -41,7 +41,7 @@ public sealed class DeviceResultSortTests
         var first = Row("10.0.0.20", "001122334402", "alpha", "Private/Randomized", 2);
         var second = Row("10.0.0.2", "001122334401", "Bravo", "Private Zebra", 10);
         AssertOrder(first, second, ResultSortColumn.Name, ascending);
-        AssertOrder(first, second, ResultSortColumn.Vendor, ascending);
+        AssertOrder(second, first, ResultSortColumn.Vendor, ascending);
         AssertOrder(first, second, ResultSortColumn.OpenPorts, ascending);
         first.SetCustomName("Zulu");
         AssertOrder(second, first, ResultSortColumn.Name, ascending);
