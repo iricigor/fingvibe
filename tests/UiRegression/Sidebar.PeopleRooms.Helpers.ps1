@@ -24,6 +24,14 @@ function Find-PeopleRoomsElement([string] $Property, [string] $Value, [string] $
 function Invoke-PeopleRoomsElement([string] $Property, [string] $Value, [string] $OwnerId) {
     (Find-PeopleRoomsElement $Property $Value $OwnerId).GetCurrentPattern(
         [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    if ($Property -eq 'Name' -and $Value -in @('Cancel', 'Delete')) {
+        $null = Wait-UiRegressionState -Description "People/Rooms '$Value' dialog dismissal" -Condition {
+            $dialog = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'PeopleRoomsDialog'))
+            -not (Test-UiRegressionElementVisible $dialog)
+        }
+    }
 }
 
 function Set-PeopleRoomsText([string] $Name, [string] $Value) {

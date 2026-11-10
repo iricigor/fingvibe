@@ -169,11 +169,11 @@ function Open-ActivityDevice([string] $Name = "Activity laptop") {
         $script:row = & $findRequestedRow
         $null -ne $script:row
     } "the requested visible device row"
-    $script:row.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
     Wait-Activity {
         $script:row = & $findRequestedRow
         $script:row -and $script:row.Current.IsKeyboardFocusable
     } "the requested device row ready for keyboard focus"
+    $script:row.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
     $script:row.SetFocus()
     [Windows.Forms.SendKeys]::SendWait("{ENTER}")
     Wait-Activity {
