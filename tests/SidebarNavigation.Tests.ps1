@@ -37,6 +37,10 @@ try {
             . (Join-Path $PSScriptRoot "UiRegression\Sidebar.$regressionModule.Scenario.ps1")
             $regressionSucceeded = $true
         }
+        catch {
+            Write-Host $_.ScriptStackTrace
+            throw
+        }
         finally {
             Complete-UiRegressionPhase -Phase $regressionPhase -Directory $ScreenshotDirectory -Succeeded $regressionSucceeded
         }
