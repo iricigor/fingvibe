@@ -158,7 +158,10 @@ public sealed partial class MainWindow
                     _openingDiscoveryNotification = false;
             }
         };
-        var popup = new Flyout { Content = content };
+        var presenterStyle = new Style(typeof(FlyoutPresenter));
+        presenterStyle.Setters.Add(new Setter(FrameworkElement.MaxWidthProperty, content.Width + 32));
+        presenterStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(16)));
+        var popup = new Flyout { Content = content, FlyoutPresenterStyle = presenterStyle };
         _discoveryPopup = popup;
         content.DismissRequested += (_, _) => popup.Hide();
         content.DetailsRequested += (_, identity) =>

@@ -5,6 +5,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
+. (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
 . (Join-Path $PSScriptRoot "UiRegression\Helpers.ps1")
 . (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
 
@@ -79,11 +80,13 @@ function Start-DiscoveryApp([string] $Activation = "") {
             (Find-DiscoveryControl DevicesNavItem).GetCurrentPattern(
                 [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
         }
-        Wait-DiscoveryState {
-            $scan = Find-DiscoveryControl ScanButton -Optional
-            $scan -and $scan.Current.IsEnabled
-        } "ready scan"
-        if (-not $Activation) { Assert-NoDiscovery }
+        if (-not $Activation) {
+            Wait-DiscoveryState {
+                $scan = Find-DiscoveryControl ScanButton -Optional
+                $scan -and $scan.Current.IsEnabled
+            } "ready scan"
+            Assert-NoDiscovery
+        }
     }
     finally { Complete-UiRegressionCall $call }
 }
@@ -158,7 +161,7 @@ $previous = @{}
 foreach ($key in @("FINGVIBE_UI_REVIEW", "FINGVIBE_UI_REVIEW_INVENTORY", "FINGVIBE_UI_REVIEW_SNAPSHOT",
     "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT", "FINGVIBE_UI_REVIEW_SCAN_RESULTS", "FINGVIBE_UI_REVIEW_NETWORK",
     "FINGVIBE_UI_REVIEW_SCAN_HOLD", "FINGVIBE_UI_REVIEW_PERIODIC_SCAN", "FINGVIBE_UI_REVIEW_PERIODIC_SCAN_TIME_SCALE",
-    "FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD", "FINGVIBE_UI_REVIEW_DEVICE_TABLE", "FINGVIBE_UI_REVIEW_APPEARANCE")) {
+    "FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD", "FINGVIBE_UI_REVIEW_DEVICE_TABLE")) {
     $previous[$key] = [Environment]::GetEnvironmentVariable($key)
 }
 $directory = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-discovery-ui-$([Guid]::NewGuid().ToString('N'))"
@@ -187,7 +190,6 @@ try {
     $env:FINGVIBE_UI_REVIEW_NETWORK = "ui-review-network"
     $env:FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD = $null
     $env:FINGVIBE_UI_REVIEW_DEVICE_TABLE = $null
-    $env:FINGVIBE_UI_REVIEW_APPEARANCE = Join-Path $directory "appearance.json"
     $observation = @{
         networkId = "ui-review-network"; subnet = "127.0.0.1/32"; address = "127.0.0.1"; hostname = $null
         vendor = "Example"; ports = @(); latency = 1; probeDuration = "00:00:00.001"
@@ -430,32 +432,53 @@ try {
             [DiscoveryReviewAppearance]::SetFlags($highContrastFlags -bor 1)
             Start-Sleep -Milliseconds 500
         }
-        @{ backdrop = "Solid"; theme = $(if ($theme -eq "HighContrast") { "StandardDark" } else { $theme }) } | ConvertTo-Json |
-            Set-Content -LiteralPath $env:FINGVIBE_UI_REVIEW_APPEARANCE -Encoding UTF8
-        Start-DiscoveryApp -Activation $notificationId
-        $null = Wait-UiRegressionSurfaceState -GetElement { Find-DiscoveryControl ScanFreshnessText -Optional } `
-            -Description "discovery activation" -State Ready -Selection "Discovery notification" -After 0
+        $prefix = if ($theme -eq "StandardLight") { "00112233AB" } else { "00112233AA" }
+        if ($theme -eq "StandardLight") {
+            Start-DiscoveryApp
+            $settingsCondition = [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::NameProperty, "Settings")
+            $settings = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $settingsCondition)
+            $settings.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+            Set-UiReviewTheme -Root $script:root -Theme "Standard Light"
+            (Find-DiscoveryControl DevicesNavItem).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+            $macs = @(0..15 | ForEach-Object { "$prefix{0:X2}" -f $_ })
+            $names = @{}; $names["${prefix}00"] = $longName
+            Set-DiscoveryResults $macs $names
+            Invoke-DiscoveryScan
+            Wait-DiscoveryState { Find-DiscoveryControl DiscoveryPopup -Optional } "light-theme discovery popup"
+        }
+        else {
+            Start-DiscoveryApp -Activation $notificationId
+            $null = Wait-UiRegressionSurfaceState -GetElement { Find-DiscoveryControl ScanFreshnessText -Optional } `
+                -Description "discovery activation" -State Ready -Selection "Discovery notification" -After 0
+        }
         $header = Find-DiscoveryControl DiscoveryPopup
         if ($header.Current.Name -ne "16 new devices") { throw "Discovery count must lead the popup." }
         $footer = Find-DiscoveryControl CloseDiscoveryPopup
         $headerBounds = $header.Current.BoundingRectangle
         $footerBounds = $footer.Current.BoundingRectangle
-        if ($footer.Current.IsOffscreen -or $footer.Current.Name -ne "Dismiss") { throw "Discovery footer must stay visible." }
-        $first = Find-DiscoveryControl Discovery-00112233AA00
+        $close = Find-DiscoveryControl DiscoveryPopupClose
+        if ($footer.Current.IsOffscreen -or $footer.Current.Name -ne "Dismiss" -or $close.Current.IsOffscreen) {
+            throw "Discovery close and footer actions must stay visible."
+        }
+        $first = Find-DiscoveryControl "Discovery-${prefix}00"
         if ($first.Current.Name -notlike "*$longName*" -or -not $first.Current.IsEnabled) {
             throw "Long-name discovery must retain a reachable details action."
         }
-        $missing = Find-DiscoveryControl Discovery-00112233AA01
-        if ($missing.Current.IsEnabled -or $missing.Current.Name -notlike "*Details unavailable*") {
-            throw "Unavailable discovery must remain explicit and must not navigate to another device."
+        if ($theme -ne "StandardLight") {
+            $missing = Find-DiscoveryControl "Discovery-${prefix}01"
+            if ($missing.Current.IsEnabled -or $missing.Current.Name -notlike "*Details unavailable*") {
+                throw "Unavailable discovery must remain explicit and must not navigate to another device."
+            }
         }
-        $last = Find-DiscoveryControl Discovery-00112233AA0F
-        if ($last.Current.Name -notlike "*Unnamed device*192.168.1.115*") { throw "Unnamed discoveries must retain their address." }
+        $last = Find-DiscoveryControl "Discovery-${prefix}0F"
+        $expectedAddress = if ($theme -eq "StandardLight") { "127.0.0.1" } else { "192.168.1.115" }
+        if ($last.Current.Name -notlike "*Unnamed device*$expectedAddress*") { throw "Unnamed discoveries must retain their address." }
         $scroll = (Find-DiscoveryControl DiscoveryList).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
         if (-not $scroll.Current.VerticallyScrollable) { throw "Large discovery lists must be scrollable." }
         $scroll.SetScrollPercent(-1, 100)
         Wait-DiscoveryState {
-            $last = Find-DiscoveryControl Discovery-00112233AA0F
+            $last = Find-DiscoveryControl "Discovery-${prefix}0F"
             -not $last.Current.IsOffscreen
         } "last discovery row"
         if ((Find-DiscoveryControl DiscoveryPopup).Current.BoundingRectangle -ne $headerBounds -or
