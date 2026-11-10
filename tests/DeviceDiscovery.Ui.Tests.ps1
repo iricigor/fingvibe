@@ -465,6 +465,16 @@ try {
         if ($first.Current.Name -notlike "*$longName*" -or -not $first.Current.IsEnabled) {
             throw "Long-name discovery must retain a reachable details action."
         }
+        $nameCondition = [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, $longName)
+        $nameText = $first.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $nameCondition)
+        if (-not $nameText) { throw "The long discovery name must remain readable text." }
+        $nameBounds = $nameText.Current.BoundingRectangle
+        $rowBounds = $first.Current.BoundingRectangle
+        if ($nameBounds.Height -lt 36 -or $nameBounds.Left -lt $rowBounds.Left -or
+            $nameBounds.Right -gt $rowBounds.Right - 20 -or $nameBounds.Bottom -gt $rowBounds.Bottom) {
+            throw "Long discovery names must wrap within their row without overlapping the details chevron."
+        }
         if ($theme -ne "StandardLight") {
             $missing = Find-DiscoveryControl "Discovery-${prefix}01"
             if ($missing.Current.IsEnabled -or $missing.Current.Name -notlike "*Details unavailable*") {
@@ -476,6 +486,7 @@ try {
         if ($last.Current.Name -notlike "*Unnamed device*$expectedAddress*") { throw "Unnamed discoveries must retain their address." }
         $scroll = (Find-DiscoveryControl DiscoveryList).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
         if (-not $scroll.Current.VerticallyScrollable) { throw "Large discovery lists must be scrollable." }
+        Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "discovery-long-name-$theme.png")
         $scroll.SetScrollPercent(-1, 100)
         Wait-DiscoveryState {
             $last = Find-DiscoveryControl "Discovery-${prefix}0F"
