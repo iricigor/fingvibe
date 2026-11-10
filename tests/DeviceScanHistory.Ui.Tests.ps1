@@ -344,9 +344,15 @@ function Show-HistorySection([string] $Id, [int] $TopMargin = 35, [string[]] $Ad
             if ($target.Current.IsKeyboardFocusable) { $target.SetFocus() }
             if ($scrollItem -or $target.TryGetCurrentPattern(
                 [System.Windows.Automation.ScrollItemPattern]::Pattern, [ref] $scrollItem)) { $scrollItem.ScrollIntoView() }
+            $script:historySectionBounds = $null
             return Wait-UiRegressionState -Description "visible history section '$Id'" -Condition {
                 $current = Find-HistoryControl $Id -Optional
-                if (Test-UiRegressionElementWithin $current (Find-HistoryControl DeviceDetailsScroll) $script:root) { return $current }
+                if (-not (Test-UiRegressionElementWithin $current (Find-HistoryControl DeviceDetailsScroll) $script:root)) { return }
+                # Expander and tab layout can still be moving; require the same position on consecutive polls.
+                $bounds = $current.Current.BoundingRectangle
+                $stable = $bounds -eq $script:historySectionBounds
+                $script:historySectionBounds = $bounds
+                if ($stable) { return $current }
             }
         }
         Show-UiRegressionScrollTargets -Description "Scan-history section '$Id'" -TopMargin $TopMargin -BottomMargin 10 `
@@ -362,6 +368,7 @@ function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
         throw "Expected $count individual completed scans; got '$((Find-HistoryControl DeviceScanHistoryCount).Current.Name)' in '$((Find-HistoryControl DeviceHistoryScope).Current.Name)'."
     }
     $list = Show-HistorySection DeviceScanHistoryList
+    $positioned = "list $($list.Current.BoundingRectangle) in page $((Find-HistoryControl DeviceDetailsScroll).Current.BoundingRectangle)"
     $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     $seen = @{}
     $itemCondition = [System.Windows.Automation.PropertyCondition]::new(
@@ -398,7 +405,9 @@ function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
             throw "Scan rows are not newest first: $times."
         }
     }
-    if ($seen.Count -ne $count) { throw "Not all $count scans are reachable in the native history list." }
+    if ($seen.Count -ne $count) {
+        throw "Not all $count scans are reachable in the native history list; saw $($seen.Keys -join ', '). Positioned $positioned; finally list $($list.Current.BoundingRectangle)."
+    }
     foreach ($index in 0..$LastIndex) {
         if (-not $seen.ContainsKey((Get-HistoryLocalTime $index).ToString("yyyy-MM-dd HH:mm:ss"))) {
             throw "Scan $index is missing from history."

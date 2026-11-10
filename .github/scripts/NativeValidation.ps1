@@ -3,7 +3,7 @@
 function Get-NativeValidationPlan {
     param(
         [Parameter(Mandatory)][ValidateSet("Baseline", "Focused", "Full")][string] $Mode,
-        [Parameter(Mandatory)][ValidateSet("capture", "sidebar", "devices", "details-summary", "details-identity", "details-history", "tools")][string] $Suite,
+        [Parameter(Mandatory)][ValidateSet("capture", "sidebar", "devices", "details-summary", "details-identity", "details-observations", "details-activity", "tools")][string] $Suite,
         [string[]] $Scenarios = @()
     )
     if ($Mode -eq "Baseline" -and $Suite -ne "capture") {

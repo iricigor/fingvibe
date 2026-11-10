@@ -229,7 +229,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         'runs-on: windows-2025',
         'timeout-minutes: 20',
         'fail-fast: false',
-        'suite: \[sidebar, devices, details-summary, details-identity, details-history, tools\]',
+        'suite: \[sidebar, devices, details-summary, details-identity, details-observations, details-activity, tools\]',
         '(?s)name: Run native regression suite\s+timeout-minutes: 15',
         "(?s)name: Run native regression suite\s+timeout-minutes: 15\s+if: matrix.suite != 'sidebar'\s+shell: pwsh",
         "(?s)name: Run sidebar regression in Windows PowerShell\s+timeout-minutes: 15\s+if: matrix.suite == 'sidebar'\s+shell: powershell",
@@ -310,7 +310,8 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             "devices" = @("DevicesList.Ui")
             "details-summary" = @("DeviceScanHistory.Ui")
             "details-identity" = @("DeviceDiscovery.Ui", "UsageCategory.Ui")
-            "details-history" = @("DeviceScanHistory.Ui", "DeviceActivity.Ui")
+            "details-observations" = @("DeviceScanHistory.Ui")
+            "details-activity" = @("DeviceActivity.Ui")
             "tools" = @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")
         }
         Assert-Equal $matrixSuites @($expectedSuiteChecks.Keys) "CI matrix dispatches every split suite"
@@ -336,7 +337,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         if ($LASTEXITCODE -ne 0) { throw "Sidebar runner must support multi-scenario plans under Windows PowerShell." }
         Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 13 "Windows PowerShell dispatches the sidebar without parsing details selection"
         ConvertTo-Json -InputObject @($definitions | Where-Object Scenario -eq Devices) -Depth 5 | Set-Content $planPath
-        foreach ($suite in @("details-summary", "details-identity", "details-history")) {
+        foreach ($suite in @("details-summary", "details-identity", "details-observations", "details-activity")) {
             & $runner -Suite $suite @parameters
             Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 13 "Unselected $suite must not launch native checks"
         }

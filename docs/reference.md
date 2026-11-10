@@ -448,11 +448,11 @@ continue collecting and retaining evidence; no stored data is deleted.
 The CI `details-summary` suite invokes `DeviceScanHistory.Ui.Tests.ps1 -SummaryOnly`,
 preserving summary/Last seen, network scope, normal/virtual/imported/legacy,
 restart, scan outcomes, persistence errors and light/dark/narrow summary checks.
-The `details-history` suite runs Activity and the independent `-ObservationsOnly`
+The `details-observations` suite runs the independent `-ObservationsOnly`
 path: normal/virtual/imported/legacy rendering, themes/narrow layout, exhaustive
 205-row physical reachability, exact page count/order/state, reverse paging,
-page-error recovery and selection reset. Neither feature changes the other's
-enablement. The `details-history` path also checks keyboard tab switching,
+page-error recovery and selection reset; `details-activity` runs Activity. Neither
+feature changes the other's enablement. The `details-observations` path also checks keyboard tab switching,
 retained identification drafts and observation pages, **View device history**,
 and that opening a device starts on Overview.
 
@@ -926,10 +926,10 @@ report missing evidence. No statistically established flake rate is claimed.
 The required aggregate and independently restored Activity/observation coverage are unchanged.
 
 Device Details regression follows the #262 Overview/History tab boundary
-across three independent matrix jobs (#292): `details-summary`
+across four independent matrix jobs (#292): `details-summary`
 (`DeviceScanHistory.Ui -SummaryOnly`), `details-identity` (`DeviceDiscovery.Ui`,
-`UsageCategory.Ui`) and `details-history` (`DeviceActivity.Ui`,
-`DeviceScanHistory.Ui -ObservationsOnly`). Each job launches its own fixtures and app
+`UsageCategory.Ui`), `details-observations` (`DeviceScanHistory.Ui -ObservationsOnly`)
+and `details-activity` (`DeviceActivity.Ui`). Each job launches its own fixtures and app
 instances, is selected by the `DeviceDetails` or `DeviceHistory` capture-plan scenario, and must
 dispatch at least one check. Checks within a script still share sequential
 fixture state. History, discovery and usage checks also write
@@ -1139,7 +1139,7 @@ integration.
 `DeviceActivityTests` covers every hour stop, response-wins/known-zero/unknown,
 weekday denominators, explicit legacy evidence, identity union, first-sighting
 eligibility, exact time boundaries, DST and cancellation. The disposable Windows
-`details-history` suite invokes
+`details-activity` suite invokes
 `tests\DeviceActivity.Ui.Tests.ps1` with an isolated
 synthetic inventory, exercising all modes/stops, cell keyboard details,
 loading/error/no-history states, selection changes, narrow scrolling, themes,

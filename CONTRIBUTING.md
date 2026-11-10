@@ -68,9 +68,10 @@ for the desktop-free foundation check. These are contributor/reviewer
 expectations, not a new mandatory manifest or gate. Enforced coverage
 selection remains separate work in #256.
 
-Device Details checks run in three independent CI jobs that follow the
-Overview/History tab boundary: `details-summary`, `details-identity` and
-`details-history`. Add Activity or observation-table checks to `details-history`.
+Device Details checks run in four independent CI jobs that follow the
+Overview/History tab boundary: `details-summary`, `details-identity`,
+`details-observations` and `details-activity`. Add observation-table checks to
+`details-observations` and Activity checks to `details-activity`.
 Collapsed tabs expose no UI Automation peers; use the tab helpers in
 `tests/UiRegression/Helpers.ps1` and reacquire controls after switching. Keep every job within the 240-second budget using its `call-costs.json` and
 `phases.jsonl` evidence. Mark each logical segment with a phase, keep the

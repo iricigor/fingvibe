@@ -149,7 +149,8 @@ function Select-UiRegressionDeviceTab {
     $byId = { param($Id) $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Id)) }
     $item = & $byId "Device${Tab}Tab"
-    if (-not $item -or $item.Current.IsOffscreen) {
+    # The tab bar scrolls with the page; only a hidden Details page removes its peers.
+    if (-not $item) {
         if ($IfOpen) { return $false }
         throw "Device Details is not open, so its $Tab tab cannot be selected."
     }
@@ -172,6 +173,17 @@ function Select-UiRegressionDeviceTab {
         $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected -and
             (& $byId $sentinel[$Tab]) -and -not (& $byId $sentinel[$hidden])
     }
+    if ($Tab -eq "History") {
+        # Activity renders when History first lays out; wait until it settles so later positioning stays valid.
+        $script:UiRegressionHistoryTop = $null
+        $null = Wait-UiRegressionState -Description "settled Device Details History layout" -Condition {
+            $activity = & $byId "ActivityScroll"
+            $top = (& $byId "DeviceHistoryScope").Current.BoundingRectangle.Top
+            $settled = $activity -and $activity.Current.ItemStatus -notlike "Loading*" -and $top -eq $script:UiRegressionHistoryTop
+            $script:UiRegressionHistoryTop = $top
+            $settled
+        }
+    }
     return $true
 }
 
@@ -182,7 +194,7 @@ function Show-UiRegressionDeviceTabFor {
     $item = $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "Device${tab}Tab"))
-    if (-not $item -or $item.Current.IsOffscreen -or
+    if (-not $item -or
         $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected) { return $false }
     Select-UiRegressionDeviceTab -Root $Root -Tab $tab
 }
