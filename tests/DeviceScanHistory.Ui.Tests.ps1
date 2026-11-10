@@ -345,7 +345,7 @@ function Show-HistorySection([string] $Id, [int] $TopMargin = 35, [string[]] $Ad
             if ($scrollItem -or $target.TryGetCurrentPattern(
                 [System.Windows.Automation.ScrollItemPattern]::Pattern, [ref] $scrollItem)) { $scrollItem.ScrollIntoView() }
             $script:historySectionBounds = $null
-            return Wait-UiRegressionState -Description "visible history section '$Id'" -Condition {
+            $shown = Wait-UiRegressionState -Description "visible history section '$Id'" -Condition {
                 $current = Find-HistoryControl $Id -Optional
                 if (-not (Test-UiRegressionElementWithin $current (Find-HistoryControl DeviceDetailsScroll) $script:root)) { return }
                 # Expander and tab layout can still be moving; require the same position on consecutive polls.
@@ -354,6 +354,20 @@ function Show-HistorySection([string] $Id, [int] $TopMargin = 35, [string[]] $Ad
                 $script:historySectionBounds = $bounds
                 if ($stable) { return $current }
             }
+            # UI Automation clips bounds to the visible area, so an element cut off at the page bottom still
+            # looks contained. Scroll the page until its bottom edge is clear of the clip.
+            $page = Find-HistoryControl DeviceDetailsScroll
+            $pageScroll = $page.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+            foreach ($step in 1..40) {
+                $limit = [Math]::Min($page.Current.BoundingRectangle.Bottom, $script:root.Current.BoundingRectangle.Bottom)
+                $bounds = $shown.Current.BoundingRectangle
+                $top = [Math]::Max($page.Current.BoundingRectangle.Top, $script:root.Current.BoundingRectangle.Top)
+                if ($bounds.Bottom -lt $limit - 2 -or $pageScroll.Current.VerticalScrollPercent -ge 99.9 -or
+                    $bounds.Top -le $top + $TopMargin) { break }
+                $pageScroll.ScrollVertical([System.Windows.Automation.ScrollAmount]::SmallIncrement)
+                Start-Sleep -Milliseconds 50
+            }
+            return $shown
         }
         Show-UiRegressionScrollTargets -Description "Scan-history section '$Id'" -TopMargin $TopMargin -BottomMargin 10 `
             -GetViewport { Find-HistoryControl DeviceDetailsScroll } -GetWindow { $script:root } `
