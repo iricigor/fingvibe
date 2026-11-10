@@ -16,7 +16,7 @@ function Assert-NativeThrows([scriptblock] $Action, [string] $Pattern) {
 
 $baseline = @(Get-NativeValidationPlan -Mode Baseline -Suite capture)
 Assert-NativeEqual $baseline.Scenario @("Devices", "DeviceDetails", "DevicesEmpty") "Baseline captures only its demonstrated states"
-foreach ($suite in @("capture", "sidebar", "devices", "details-summary", "details-identity", "details-observations", "details-activity", "tools")) {
+foreach ($suite in @("capture", "sidebar", "sidebar-presentation", "sidebar-scan-flows", "sidebar-preferences-scheduling", "devices", "details-summary", "details-identity", "details-observations", "details-activity", "tools", "tools-utilities", "tools-device-data")) {
     $full = @(Get-NativeValidationPlan -Mode Full -Suite $suite)
     Assert-NativeEqual $full.Scenario @($UiReviewScenarios.Keys) "Full always forces every catalog scenario, without PR metadata"
 }
@@ -57,7 +57,7 @@ $dispatchSource = Get-Content (Join-Path $PSScriptRoot "..\.github\scripts\Invok
 $expectedChecks = @([regex]::Matches($dispatchSource, 'Invoke-RegressionCheck "([^"]+)"') |
     ForEach-Object { $_.Groups[1].Value })
 foreach ($name in @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
-    "UsageCategory.Ui", "DeviceActivity.Ui", "NetworkActivity.Ui", "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
+    "UsageCategory.Ui", "DeviceActivity.Ui", "NetworkActivity.Ui", "Tools.Ui")) {
     $count = if ($name -eq "DeviceScanHistory.Ui") { 2 } else { 1 }
     Assert-NativeEqual @($expectedChecks | Where-Object { $_ -eq $name }).Count $count "Existing native checks retain independent summary/observation coverage"
 }
@@ -84,7 +84,7 @@ if ($env:NATIVE_TEST_FAIL -eq "capture") { throw "Simulated capture failure" }
 '@ | Set-Content -LiteralPath (Join-Path $scripts "Invoke-UiReview.ps1")
     foreach ($name in (@("UiReviewScreenshot") + $expectedChecks)) {
         @'
-param($AppPath, $ScreenshotDirectory, $Version, $BuildKind, $BuildTimestamp, $BuildCommit, $PullRequestNumber, $SummaryOnly, $ObservationsOnly)
+param($AppPath, $ScreenshotDirectory, $Version, $BuildKind, $BuildTimestamp, $BuildCommit, $PullRequestNumber, $SummaryOnly, $ObservationsOnly, $Group)
 $name = [IO.Path]::GetFileName($PSCommandPath).Replace(".Tests.ps1", "")
 @{ name = $name; parameters = $PSBoundParameters } | ConvertTo-Json -Depth 5 -Compress | Add-Content $env:NATIVE_TEST_CALLS
 if ($env:NATIVE_TEST_FAIL -eq $name) { throw "Simulated native failure: $name" }
@@ -109,7 +109,7 @@ if ($env:NATIVE_TEST_FAIL -eq $name) { throw "Simulated native failure: $name" }
     Assert-NativeEqual $calls.name ($expectedChecks + @("UiReviewScreenshot", "capture")) "Full dispatch inherits all current suites exactly once, including independently restored coverage"
     Assert-NativeEqual $calls[2].parameters.SummaryOnly $true "Full preserves summary coverage"
     Assert-NativeEqual @($calls | Where-Object { $_.name -eq "DeviceScanHistory.Ui" -and $_.parameters.ObservationsOnly }).Count 1 "Full includes restored observation rendering/paging coverage once"
-    Assert-NativeEqual @($calls | Where-Object name -eq "BuildIdentity.Ui")[0].parameters.BuildCommit "fixture-head" "Native identity uses exact built revision"
+    Assert-NativeEqual @($calls | Where-Object name -eq "Tools.Ui")[0].parameters.BuildCommit "fixture-head" "Native identity uses exact built revision"
     Assert-NativeEqual $calls[-1].plan.Scenario @($UiReviewScenarios.Keys) "Full capture cannot omit history/details or discovery selection"
     & $runner -Mode Baseline -Suite capture @parameters
     $calls = @(Get-Content $env:NATIVE_TEST_CALLS | ConvertFrom-Json)
@@ -127,6 +127,15 @@ if ($env:NATIVE_TEST_FAIL -eq $name) { throw "Simulated native failure: $name" }
     if ($evidence.executionSeconds -lt 0 -or
         (Get-Content $env:GITHUB_STEP_SUMMARY -Raw) -notmatch "Baseline / capture execution:.*failure") {
         throw "Failure timing and summary must survive."
+    }
+
+    foreach ($suite in @("sidebar-presentation", "sidebar-scan-flows", "sidebar-preferences-scheduling", "tools-utilities", "tools-device-data")) {
+        $before = @(Get-Content $env:NATIVE_TEST_CALLS).Count
+        & $runner -Mode Full -Suite $suite @parameters
+        $groupCalls = @(Get-Content $env:NATIVE_TEST_CALLS | Select-Object -Skip $before | ConvertFrom-Json)
+        $entry = if ($suite -like "sidebar-*") { "SidebarNavigation" } else { "Tools.Ui" }
+        Assert-NativeEqual $groupCalls.name $entry "Full group dispatch cannot silently omit a selected group"
+        Assert-NativeEqual $groupCalls[0].parameters.Group ($suite -replace '^(sidebar|tools)-', '') "Full forwards exact group selection"
     }
 
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot "..\.github\scripts\Invoke-FullValidationChecks.ps1") -Destination $scripts
@@ -193,7 +202,7 @@ try {
         if (-not $json.StartsWith("[") -or -not $json.EndsWith("]")) {
             throw "Matrix suite output must remain a JSON array even for the single baseline suite: $json"
         }
-        $expected = if ($mode -eq "Baseline") { @("capture") } else { @("sidebar", "devices", "details-summary", "details-identity", "details-observations", "details-activity", "tools", "capture") }
+        $expected = if ($mode -eq "Baseline") { @("capture") } else { @("sidebar-presentation", "sidebar-scan-flows", "sidebar-preferences-scheduling", "devices", "details-summary", "details-identity", "details-observations", "details-activity", "tools-utilities", "tools-device-data", "capture") }
         Assert-NativeEqual @($json | ConvertFrom-Json) $expected "Actual workflow matrix output selects exact suites"
     }
     $env:MODE = "invalid"
@@ -234,14 +243,14 @@ if (-not $standalone.Contains("revision: $standaloneRevision") -or $standalone -
     throw "Standalone full execution must pin the pushed main commit (manual: main), without PR metadata or cancellation."
 }
 foreach ($invariant in @("fail-fast: false", "persist-credentials: false", "fromJSON(needs.plan.outputs.suites)",
-    '@("sidebar", "devices", "details-summary", "details-identity", "details-observations", "details-activity", "tools", "capture")', "ref: `${{ needs.plan.outputs.revision }}",
+    '@("sidebar-presentation", "sidebar-scan-flows", "sidebar-preferences-scheduling", "devices", "details-summary", "details-identity", "details-observations", "details-activity", "tools-utilities", "tools-device-data", "capture")', "ref: `${{ needs.plan.outputs.revision }}",
     "Assert-NativeValidationResults", "if: always()", "shell: powershell", "execution request")) {
     if (-not $reusable.Contains($invariant)) { throw "Missing full execution invariant: $invariant" }
 }
 $ci = Get-Content (Join-Path $workflowDirectory "ci.yml") -Raw
 $matrix = [regex]::Match($ci, 'suite: \[([^\]]+)\]')
 if (-not $matrix.Success) { throw "Existing authoritative native suite matrix was not found." }
-$existingSuites = @($matrix.Groups[1].Value.Split(",") | ForEach-Object { $_.Trim() -replace '^devices-.+$', 'devices' } | Select-Object -Unique)
+$existingSuites = @($matrix.Groups[1].Value.Split(",") | ForEach-Object { $_.Trim() -replace '^(devices|sidebar|tools)-.+$', '$1' } | Select-Object -Unique)
 # CI runs Devices groups on separate workers; Full mode keeps the equivalent sequential devices suite.
 Assert-NativeEqual $existingSuites @("sidebar", "devices", "details-summary", "details-identity", "details-observations", "details-activity", "tools") "New authoritative suites must be wired into full mode explicitly"
 $ciTests = [regex]::Match($ci, '(?s)\r?\n  tests:\r?\n(.*?)\r?\n  build:').Groups[1].Value

@@ -307,7 +307,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [sidebar, devices-presentation, devices-filters-previews, devices-columns-sorting, details-summary, details-identity, details-observations, details-activity, tools]
+        suite: [sidebar-presentation, sidebar-scan-flows, sidebar-preferences-scheduling, devices-presentation, devices-filters-previews, devices-columns-sorting, details-summary, details-identity, details-observations, details-activity, tools-utilities, tools-device-data]
     env:
       FINGVIBE_UI_REVIEW: "1"
     steps:
@@ -342,7 +342,7 @@ jobs:
 
       - name: Run native regression suite
         timeout-minutes: 15
-        if: matrix.suite != 'sidebar'
+        if: ${{ !startsWith(matrix.suite, 'sidebar-') }}
         shell: pwsh
         run: |
           .\.github\scripts\Invoke-UiRegression.ps1 `
@@ -358,11 +358,11 @@ jobs:
 
       - name: Run sidebar regression in Windows PowerShell
         timeout-minutes: 15
-        if: matrix.suite == 'sidebar'
+        if: startsWith(matrix.suite, 'sidebar-')
         shell: powershell
         run: |
           .\.github\scripts\Invoke-UiRegression.ps1 `
-            -Suite sidebar `
+            -Suite "${{ matrix.suite }}" `
             -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
             -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-regression" `
             -CapturePlanPath "${{ github.workspace }}\artifacts\ui-regression\capture-plan.json"

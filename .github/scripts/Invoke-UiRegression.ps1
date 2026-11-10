@@ -1,8 +1,10 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet("sidebar", "devices", "devices-presentation", "devices-filters-previews", "devices-columns-sorting",
-        "details-summary", "details-identity", "details-observations", "details-activity", "tools")]
+    [ValidateSet("sidebar", "sidebar-presentation", "sidebar-scan-flows", "sidebar-preferences-scheduling",
+        "devices", "devices-presentation", "devices-filters-previews", "devices-columns-sorting",
+        "details-summary", "details-identity", "details-observations", "details-activity",
+        "tools", "tools-utilities", "tools-device-data")]
     [string] $Suite,
     [Parameter(Mandatory)][string] $AppPath,
     [Parameter(Mandatory)][string] $ScreenshotDirectory,
@@ -36,8 +38,10 @@ function Invoke-RegressionCheck([string] $Name, [hashtable] $Parameters = @{}) {
 Start-Transcript -Path (Join-Path $ScreenshotDirectory "regression.log")
 try {
     switch ($Suite) {
-        sidebar {
-            Invoke-RegressionCheck "SidebarNavigation" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "sidebar") }
+        { $_ -eq "sidebar" -or $_ -like "sidebar-*" } {
+            $sidebarParameters = @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "sidebar") }
+            if ($Suite -ne "sidebar") { $sidebarParameters.Group = $Suite.Substring("sidebar-".Length) }
+            Invoke-RegressionCheck "SidebarNavigation" $sidebarParameters
         }
         { $_ -eq "devices" -or $_ -like "devices-*" } {
             # Each Devices group launches its own fixture and app, so CI runs the groups on separate workers;
@@ -74,16 +78,14 @@ try {
                 Invoke-RegressionCheck "DeviceActivity.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "activity") }
             }
         }
-        tools {
-            Invoke-RegressionCheck "BuildIdentity.Ui" @{
+        { $_ -eq "tools" -or $_ -like "tools-*" } {
+            $toolsParameters = @{
                 Version = $Version; BuildKind = $BuildKind; BuildTimestamp = $BuildTimestamp
                 BuildCommit = $BuildCommit; PullRequestNumber = $PullRequestNumber
-                ScreenshotDirectory = (Join-Path $ScreenshotDirectory "build-identity")
+                ScreenshotDirectory = $ScreenshotDirectory
             }
-            Invoke-RegressionCheck "NetworkTroubleshooting.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "troubleshooting") }
-            Invoke-RegressionCheck "FingImport.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "fing-import") }
-            Invoke-RegressionCheck "AdditionalServices.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "additional-services") }
-            Invoke-RegressionCheck "SqlEditor.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "sql-editor") }
+            if ($Suite -ne "tools") { $toolsParameters.Group = $Suite.Substring("tools-".Length) }
+            Invoke-RegressionCheck "Tools.Ui" $toolsParameters
         }
     }
 }
