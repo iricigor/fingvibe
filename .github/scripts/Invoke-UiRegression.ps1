@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet("sidebar", "devices", "details-summary", "details-identity", "details-history", "tools")]
+    [ValidateSet("sidebar", "devices", "devices-presentation", "devices-filters-previews", "devices-columns-sorting",
+        "details-summary", "details-identity", "details-history", "tools")]
     [string] $Suite,
     [Parameter(Mandatory)][string] $AppPath,
     [Parameter(Mandatory)][string] $ScreenshotDirectory,
@@ -38,8 +39,12 @@ try {
         sidebar {
             Invoke-RegressionCheck "SidebarNavigation" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "sidebar") }
         }
-        devices {
-            Invoke-RegressionCheck "DevicesList.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "devices") }
+        { $_ -eq "devices" -or $_ -like "devices-*" } {
+            # Each Devices group launches its own fixture and app, so CI runs the groups on separate workers;
+            # the full devices suite runs every group sequentially.
+            $devicesParameters = @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "devices") }
+            if ($Suite -ne "devices") { $devicesParameters.Group = $Suite.Substring("devices-".Length) }
+            Invoke-RegressionCheck "DevicesList.Ui" $devicesParameters
         }
         { $_ -like "details-*" } {
             # Device Details suites follow the Overview/History boundary; each launches its own fixtures and app instances.

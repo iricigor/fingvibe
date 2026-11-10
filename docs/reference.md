@@ -911,6 +911,36 @@ selected scenarios against an equivalent baseline; retain failed phases and
 report missing evidence. No statistically established flake rate is claimed.
 The required aggregate and independently restored Activity/observation coverage are unchanged.
 
+Devices regression runs its behavior modules in three independent groups
+(#279), declared in `tests\UiRegression\Devices.Groups.psd1`. Each group is a
+separate `ui-regression` matrix job running in parallel on its own disposable
+runner:
+- `devices-presentation`: Overview, Layout, Appearance and Interaction
+- `devices-filters-previews`: Filters and Previews
+- `devices-columns-sorting`: Columns and Sorting
+
+Each group runs in its own scope. It creates its own fixture, launches its own
+app, then runs `Setup` and a `Ready` precondition, which opens the Devices page
+at 1280 DIPs with the 80-device fixture listed. Modules within a group keep
+their original relative order and shared state. Table settings, people and rooms
+are in memory in UI-review mode, so no state carries from one group to the next.
+
+Phases are named `Devices/<group>/<module>`. A failed group saves
+`devices-failure-<group>` diagnostics, always cleans up and restores its
+environment, and does not stop later groups. The script then fails with an
+error that names every failed group.
+`Invoke-UiRegression.ps1 -Suite devices` and the default
+`DevicesList.Ui.Tests.ps1 -Group All` still run every group in sequence;
+Native validation Full mode uses this. The desktop-free foundation check verifies
+that:
+- the groups cover every original module exactly once, in order
+- each group's state stays isolated
+- later groups still run after a failure
+- each group cleans up and restores its environment
+
+Separate runners shorten the Devices critical path but add per-runner setup,
+app launch and billed minutes.
+
 Device Details regression follows the planned #262 Overview/History boundary
 across three independent matrix jobs (#292): `details-summary`
 (`DeviceScanHistory.Ui -SummaryOnly`), `details-identity` (`DeviceDiscovery.Ui`,
@@ -1186,7 +1216,7 @@ powershell.exe -NoProfile -File tests\SidebarNavigation.Tests.ps1 `
 
 These checks use Windows UI Automation without WinAppDriver or Developer Mode. They launch a separate app in deterministic UI-review mode, verify page routing and expanded/compact/overlay navigation, compare solid sidebar/page background pixels in all six themes, and save full-window captures for each backdrop. They also verify responsive Settings, mode/theme mapping, column visibility/reset, retained devices during refresh/cancellation, filtered counts, and non-overlapping device filters at wide and narrow widths, restoring the original scan snapshot afterward. Settings checks acknowledge the non-release ribbon to compare the normal release viewport; build-identity checks independently cover its reserved space and acknowledgment. The expanded test adapts to the monitor width (up to 1280 logical pixels), with a maximum window height of 720 logical pixels; pass `-ExpandedWindowWidth 1024` to reproduce the hosted runner's 1024x720 viewport on a larger desktop. All layout assertions remain enabled. UI-review mode previews appearance changes without saving them. Verify Windows high contrast separately using the system accessibility settings.
 
-`tests\DevicesList.Ui.Tests.ps1 -AppPath "<absolute path to FingVibe.App.exe>" -ScreenshotDirectory "<capture directory>"` checks the separate inventory/results/duration hierarchy, expanding search, 140/210-DIP dropdown widths at normal text scaling, responsive filters down to 480-DIP windows, unrestricted/selected dropdown presentation, all four Status/Response visibility combinations, merged/separate layouts, denser rows, Name/Type hierarchy, keyboard resizing, six-theme stripes/header contrast, sorting/filtering, container recycling, and native interaction indicators. CI runs on a disposable 1920px desktop to cover widths through 1880 DIPs. It uses an isolated 80-device snapshot through `FINGVIBE_UI_REVIEW_SNAPSHOT`, which is honored only in UI-review mode, and deletes that fixture afterward without modifying the user's saved scan, table settings or appearance. CI retains its screenshots in the review artifact; do not run it on a working user's desktop.
+`tests\DevicesList.Ui.Tests.ps1 -AppPath "<absolute path to FingVibe.App.exe>" -ScreenshotDirectory "<capture directory>" [-Group <presentation|filters-previews|columns-sorting|All>]` checks the separate inventory/results/duration hierarchy, expanding search, 140/210-DIP dropdown widths at normal text scaling, responsive filters down to 480-DIP windows, unrestricted/selected dropdown presentation, all four Status/Response visibility combinations, merged/separate layouts, denser rows, Name/Type hierarchy, keyboard resizing, six-theme stripes/header contrast, sorting/filtering, container recycling, and native interaction indicators. CI runs on a disposable 1920px desktop to cover widths through 1880 DIPs. It uses an isolated 80-device snapshot through `FINGVIBE_UI_REVIEW_SNAPSHOT`, which is honored only in UI-review mode, and deletes that fixture afterward without modifying the user's saved scan, table settings or appearance. CI retains its screenshots in the review artifact; do not run it on a working user's desktop.
 
 The sidebar and primary-smoke refresh/cancellation tests each set an isolated `FINGVIBE_UI_REVIEW_SCAN_HOLD` file path. Only in UI-review mode, an existing file holds the scan before probing so retained results and disabled row interactions can be observed deterministically; cancellation remains live. The hold times out explicitly after 30 seconds. The sidebar suite may additionally supply a `.progress` sidecar with synthetic `Completed`/`Total` values. It verifies the real native indicator's value, painted filled thickness at 5% and 90%, single-position action, cancellation/focus cleanup and unclipped scan context at wide and 640-DIP widths in every theme. Extra 480-DIP cases retain native geometry/value/focus assertions without screenshots: the shared capture helper requires at least 640 physical pixels. On the disposable GitHub Actions desktop only, it also verifies static progress with Windows client-area animations disabled and high contrast enabled, restoring both settings in cleanup. These are rendering fixtures, not accelerated discovery; releasing the hold resets the fixture before real loopback probing. Each test removes its fixtures in cleanup, and normal scans never use them. The primary smoke test navigates to Devices before exercising its shared-header Scan LAN action.
 
@@ -1255,7 +1285,7 @@ Pull requests expose two review checks:
 - `security-review` scans the repository for exposed secrets and fails on critical dependency vulnerabilities.
 - `ui-ux-review` launches the tested WinUI app, exercises the primary **Scan LAN** action, verifies critical accessible controls, and embeds fresh screenshots of Devices and the affected views/states on the pull request.
 
-The **🔨 Pull request build** workflow runs core/script tests and one Windows publish concurrently after change planning. Build and core tests cache NuGet packages with a shared Windows/dependency-configuration key and Windows-scoped fallback; normal restore still verifies/resolves required packages on hits and misses. Native `ui-capture` and the four `ui-regression` matrix suites start once the build passes, without waiting for core tests. Installer validation still waits for both tests and build. These checks run on separate Windows runners in parallel. Every job downloads the same published payload; none rebuilds the app. The matrix separates sidebar/appearance, Devices, history/discovery, and Tools/build identity. Suites remain sequential within each runner to avoid competing for focus and input. The sidebar retains Windows PowerShell; other suites retain PowerShell Core. UI-review mode is enabled only at runtime, so the downloaded app remains the normal executable.
+The **🔨 Pull request build** workflow runs core/script tests and one Windows publish concurrently after change planning. Build and core tests cache NuGet packages with a shared Windows/dependency-configuration key and Windows-scoped fallback; normal restore still verifies/resolves required packages on hits and misses. Native `ui-capture` and the eight `ui-regression` matrix suites start once the build passes, without waiting for core tests. Installer validation still waits for both tests and build. These checks run on separate Windows runners in parallel. Every job downloads the same published payload; none rebuilds the app. The matrix separates sidebar/appearance, three independent Devices groups, three Device Details groups, and Tools/build identity. Suites remain sequential within each runner to avoid competing for focus and input. The sidebar retains Windows PowerShell; other suites retain PowerShell Core. UI-review mode is enabled only at runtime, so the downloaded app remains the normal executable.
 
 `ui-capture` now runs only screenshot-helper validation, baseline scan/filter and cross-page smoke checks, and required captures. History/discovery and restored Activity retain their existing condition: they run when the capture plan includes DeviceDetails. Completed-observation table checks remain dormant for #274; summary/Last seen and other retained checks remain required. UI/test overlap does not waive any required result or move checks to a scheduled-only policy. Regression jobs have a 20-minute job limit and a 15-minute suite-step limit; capture has a 10-minute job limit and a 7-minute smoke-step limit. These outer bounds also stop otherwise unbounded native/process waits without changing the test fixtures. Each regression check and the smoke/capture step report elapsed seconds in logs and the job summary.
 
