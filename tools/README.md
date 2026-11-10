@@ -62,3 +62,10 @@ This is a local convenience script, not a registered Windows installer. To
 remove it, close FingVibe, delete `%LOCALAPPDATA%\Programs\FingVibe`, and remove
 the shortcut from `shell:sendto`. You can also delete the local script copy.
 The app's saved settings remain in `%LOCALAPPDATA%\FingVibe`.
+
+## UI automation comparison
+
+The opt-in [UI automation experiment](UiAutomationComparison/README.md) compares
+one frozen history scenario using PowerShell/UIA and FlaUI/UIA3, with measured
+results and explicit desktop-permission requirements. It is not a replacement
+for the production regression suite.
