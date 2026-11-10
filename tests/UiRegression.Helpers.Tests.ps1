@@ -292,17 +292,103 @@ function Get-RegressionSignature([string] $Text) {
     finally { $hasher.Dispose() }
 }
 
+function Test-RegressionGroupOrchestration($Suite, [hashtable] $Definition, [string] $Root) {
+    $moduleDirectory = Join-Path $Root 'UiRegression'
+    $null = New-Item -ItemType Directory -Path $moduleDirectory
+    foreach ($name in @($Definition.Preconditions) + @($Definition.Groups | ForEach-Object { $_.Modules })) {
+        $script = if ($name -eq 'Setup') {
+            @'
+if ($null -ne $groupToken -or $null -ne $process) { throw 'Group state leaked across groups.' }
+$groupToken = [Guid]::NewGuid()
+$process = 'app'
+$env:FINGVIBE_FOUNDATION_GROUP = "$groupToken"
+$state.Events.Add('Setup')
+'@
+        } else {
+            @"
+`$state.Events.Add('$name')
+if (`$null -eq `$groupToken -or `$env:FINGVIBE_FOUNDATION_GROUP -ne "`$groupToken") { throw 'Scenario state was lost within a group.' }
+if (`$state.FailAt -eq '$name') { throw 'Synthetic module failure: $name' }
+"@
+        }
+        $script | Set-Content -LiteralPath (Join-Path $moduleDirectory "$($Suite.name).$name.Scenario.ps1")
+    }
+    $savedSummary = $env:GITHUB_STEP_SUMMARY
+    $savedGroup = $env:FINGVIBE_FOUNDATION_GROUP
+    try {
+        $env:GITHUB_STEP_SUMMARY = $null
+        $env:FINGVIBE_FOUNDATION_GROUP = 'outer'
+        $invoke = {
+            param([string] $Group, [scriptblock[]] $Cleanup = @({ $state.Cleanups.Add("$process") }))
+            Invoke-UiRegressionGroups -Suite $Suite.name -Definition $Definition -Group $Group -ModuleDirectory $moduleDirectory `
+                -Directory $Root -EnvironmentNames @('FINGVIBE_FOUNDATION_GROUP') -StateVariables @('process') `
+                -OnFailure { param($FailedGroup) $state.Failures.Add("${FailedGroup}:$process") } -Cleanup $Cleanup
+        }
+        $newState = { @{ Events = [Collections.Generic.List[string]]::new(); Cleanups = [Collections.Generic.List[string]]::new(); Failures = [Collections.Generic.List[string]]::new(); FailAt = $null } }
+        $expectedEvents = { param($Groups) @($Groups | ForEach-Object { @($Definition.Preconditions) + @($_.Modules) }) -join ',' }
+        $groups = @($Definition.Groups)
+
+        $state = & $newState
+        & $invoke All
+        Assert-Regression (($state.Events -join ',') -eq (& $expectedEvents $groups)) 'Every group must run its preconditions and modules exactly once.'
+        Assert-Regression ($state.Cleanups.Count -eq $groups.Count -and -not ($state.Cleanups -ne 'app')) 'Cleanup must run once per group with that group''s state.'
+        Assert-Regression ($state.Failures.Count -eq 0 -and $env:FINGVIBE_FOUNDATION_GROUP -eq 'outer') 'Passing groups must restore the environment.'
+
+        $state = & $newState
+        $state.FailAt = $groups[0].Modules[0]
+        Assert-RegressionFailure { & $invoke All } "*groups failed: $($groups[0].Name) (Synthetic module failure: $($state.FailAt))"
+        $failedEvents = @(@($Definition.Preconditions) + $state.FailAt) + @(& $expectedEvents ($groups | Select-Object -Skip 1))
+        Assert-Regression (($state.Events -join ',') -eq (($failedEvents | Where-Object { $_ }) -join ',')) 'A failed group must stop, and later groups must still run.'
+        Assert-Regression (($state.Failures -join ',') -eq "$($groups[0].Name):app") 'Failure diagnostics must run once with the failed group''s state.'
+        Assert-Regression ($state.Cleanups.Count -eq $groups.Count -and $env:FINGVIBE_FOUNDATION_GROUP -eq 'outer') 'Failed groups must still clean up and restore the environment.'
+        $record = @(Get-Content -LiteralPath (Join-Path $Root 'phases.jsonl') | ConvertFrom-Json |
+            Where-Object phase -eq "$($Suite.name)/$($groups[0].Name)/$($state.FailAt)")[-1]
+        Assert-Regression ($record -and -not $record.succeeded) 'Group orchestration must retain the failed phase.'
+
+        $state = & $newState
+        & $invoke $groups[-1].Name.ToUpperInvariant()
+        Assert-Regression (($state.Events -join ',') -eq (& $expectedEvents @($groups[-1]))) 'Selecting a group must run only that group.'
+        Assert-RegressionFailure { & $invoke 'no-such-group' } "Unknown UI regression group 'no-such-group'*"
+
+        $state = & $newState
+        Assert-RegressionFailure { & $invoke $groups[0].Name @({ throw 'cleanup broke' }) } "*groups failed: $($groups[0].Name) (cleanup broke)" 3>$null
+        Assert-Regression ($env:FINGVIBE_FOUNDATION_GROUP -eq 'outer') 'A failed cleanup step must not skip environment restoration.'
+    }
+    finally {
+        $env:GITHUB_STEP_SUMMARY = $savedSummary
+        $env:FINGVIBE_FOUNDATION_GROUP = $savedGroup
+    }
+}
+
 $manifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'UiRegression\coverage.json') -Raw | ConvertFrom-Json
 foreach ($suite in $manifest.suites) {
     $entry = Join-Path $PSScriptRoot $suite.entry
     $errors = $null
     $ast = [Management.Automation.Language.Parser]::ParseFile($entry, [ref]$null, [ref]$errors)
     Assert-Regression (-not $errors) "Entry $entry must parse."
-    $loop = $ast.Find({ param($node) $node -is [Management.Automation.Language.ForEachStatementAst] -and $node.Variable.VariablePath.UserPath -eq 'regressionModule' }, $true)
-    $order = @($loop.Condition.FindAll({ param($node) $node -is [Management.Automation.Language.StringConstantExpressionAst] }, $true) | ForEach-Object Value)
-    Assert-Regression (($order -join ',') -eq ($suite.scenarioOrder -join ',')) "$($suite.name) scenario order changed."
-    $execution = $loop.Body.Find({ param($node) $node -is [Management.Automation.Language.CommandAst] -and $node.InvocationOperator -eq 'Dot' }, $true)
-    Assert-Regression ($null -ne $execution) 'Modules must execute at entry script scope, preserving inter-scenario state.'
+    if ($suite.groupDefinition) {
+        $groupDefinition = Import-PowerShellDataFile -LiteralPath (Join-Path $PSScriptRoot "UiRegression\$($suite.groupDefinition)")
+        $orchestration = $ast.Find({ param($node) $node -is [Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq 'Invoke-UiRegressionGroups' }, $true)
+        Assert-Regression ($null -ne $orchestration -and $ast.Extent.Text.Contains($suite.groupDefinition)) "$($suite.name) must run its declared groups."
+        Assert-Regression ((@($groupDefinition.Preconditions) -join ',') -eq 'Setup,Ready') 'Every group must start from its own Setup and Ready preconditions.'
+        $grouped = @($groupDefinition.Groups | ForEach-Object { $_.Modules })
+        $behavior = @($suite.scenarioOrder | Where-Object { $_ -ne 'Setup' })
+        Assert-Regression ((@($grouped | Sort-Object) -join ',') -eq (@($behavior | Sort-Object) -join ',')) "$($suite.name) groups must run every behavior module exactly once."
+        Assert-Regression (@($groupDefinition.Groups.Name | Select-Object -Unique).Count -eq @($groupDefinition.Groups).Count) 'Group names must be unique.'
+        foreach ($regressionGroup in $groupDefinition.Groups) {
+            $indices = @($regressionGroup.Modules | ForEach-Object { [Array]::IndexOf([string[]]$suite.scenarioOrder, $_) })
+            Assert-Regression (($indices -join ',') -eq (@($indices | Sort-Object) -join ',')) "Group $($regressionGroup.Name) must keep the original module order."
+            Assert-Regression ($regressionGroup.Name -cmatch '^[a-z0-9-]+$') 'Group names must be valid CI suite suffixes.'
+        }
+        Assert-Regression (@($suite.files | Where-Object { $_.file -eq "$($suite.name).Ready.Scenario.ps1" -and $_.kind -eq 'precondition' }).Count -eq 1) 'The Ready precondition must be mapped.'
+    }
+    else {
+        $loop = $ast.Find({ param($node) $node -is [Management.Automation.Language.ForEachStatementAst] -and $node.Variable.VariablePath.UserPath -eq 'regressionModule' }, $true)
+        $order = @($loop.Condition.FindAll({ param($node) $node -is [Management.Automation.Language.StringConstantExpressionAst] }, $true) | ForEach-Object Value)
+        Assert-Regression (($order -join ',') -eq ($suite.scenarioOrder -join ',')) "$($suite.name) scenario order changed."
+        $execution = $loop.Body.Find({ param($node) $node -is [Management.Automation.Language.CommandAst] -and $node.InvocationOperator -eq 'Dot' }, $true)
+        Assert-Regression ($null -ne $execution) 'Modules must execute at entry script scope, preserving inter-scenario state.'
+    }
     $loadedHelpers = @($ast.FindAll({
         param($node)
         $node -is [Management.Automation.Language.StringConstantExpressionAst] -and $node.Value -match '\.Helpers\.ps1$'
@@ -345,6 +431,11 @@ foreach ($suite in $manifest.suites) {
         Assert-Regression (($fixtureAssignments -join ',') -eq ($module.fixtureAssignments -join ',')) "Synthetic fixture data changed in $path."
     }
     $fixtureRoot = New-UiRegressionFixtureDirectory -Suite foundation-test
+    if ($suite.groupDefinition) {
+        try { Test-RegressionGroupOrchestration -Suite $suite -Definition $groupDefinition -Root $fixtureRoot }
+        finally { Remove-Item -LiteralPath $fixtureRoot -Recurse -Force }
+        continue
+    }
     try {
         $null = New-Item -ItemType Directory -Path (Join-Path $fixtureRoot 'UiRegression')
         foreach ($name in $suite.scenarioOrder) {
