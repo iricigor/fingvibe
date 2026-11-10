@@ -173,16 +173,16 @@ function Select-UiRegressionDeviceTab {
         $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected -and
             (& $byId $sentinel[$Tab]) -and -not (& $byId $sentinel[$hidden])
     }
-    if ($Tab -eq "History") {
-        # Activity renders when History first lays out; wait until it settles so later positioning stays valid.
-        $script:UiRegressionHistoryTop = $null
-        $null = Wait-UiRegressionState -Description "settled Device Details History layout" -Condition {
-            $activity = & $byId "ActivityScroll"
-            $top = (& $byId "DeviceHistoryScope").Current.BoundingRectangle.Top
-            $settled = $activity -and $activity.Current.ItemStatus -notlike "Loading*" -and $top -eq $script:UiRegressionHistoryTop
-            $script:UiRegressionHistoryTop = $top
-            $settled
-        }
+    # Activity renders when History first lays out, and each tab restores its scroll offset after selection;
+    # wait until the tab's content stops moving so later positioning cannot be overridden.
+    $script:UiRegressionTabTop = $null
+    $null = Wait-UiRegressionState -Description "settled Device Details $Tab layout" -Condition {
+        $activity = & $byId "ActivityScroll"
+        $top = (& $byId $sentinel[$Tab]).Current.BoundingRectangle.Top
+        $settled = $top -eq $script:UiRegressionTabTop -and
+            ($Tab -eq "Overview" -or ($activity -and $activity.Current.ItemStatus -notlike "Loading*"))
+        $script:UiRegressionTabTop = $top
+        $settled
     }
     return $true
 }
