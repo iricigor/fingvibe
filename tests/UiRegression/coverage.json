@@ -4,6 +4,7 @@
     {
       "name": "Devices",
       "entry": "DevicesList.Ui.Tests.ps1",
+      "groupDefinition": "Devices.Groups.psd1",
       "files": [
         {
           "file": "Devices.Controls.Helpers.ps1",
@@ -474,6 +475,16 @@
             "55851e01774104c3621a2f0fddcf0604d774f09cea7e481fffe4fdad910473c7",
             "bbeffad0dcf391482a03e7432dbe5f87dfac0b510ec5229915fe8af0cb3a794b"
           ]
+        },
+        {
+          "file": "Devices.Ready.Scenario.ps1",
+          "kind": "precondition",
+          "originalRanges": [],
+          "baselineSha256": null,
+          "refactored": true,
+          "functions": [],
+          "captures": [],
+          "fixtureAssignments": []
         },
         {
           "file": "Devices.Overview.Scenario.ps1",

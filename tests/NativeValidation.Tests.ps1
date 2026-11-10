@@ -240,7 +240,8 @@ foreach ($invariant in @("fail-fast: false", "persist-credentials: false", "from
 $ci = Get-Content (Join-Path $workflowDirectory "ci.yml") -Raw
 $matrix = [regex]::Match($ci, 'suite: \[([^\]]+)\]')
 if (-not $matrix.Success) { throw "Existing authoritative native suite matrix was not found." }
-$existingSuites = @($matrix.Groups[1].Value.Split(",") | ForEach-Object { $_.Trim() })
+$existingSuites = @($matrix.Groups[1].Value.Split(",") | ForEach-Object { $_.Trim() -replace '^devices-.+$', 'devices' } | Select-Object -Unique)
+# CI runs Devices groups on separate workers; Full mode keeps the equivalent sequential devices suite.
 Assert-NativeEqual $existingSuites @("sidebar", "devices", "details-summary", "details-identity", "details-history", "tools") "New authoritative suites must be wired into full mode explicitly"
 $ciTests = [regex]::Match($ci, '(?s)\r?\n  tests:\r?\n(.*?)\r?\n  build:').Groups[1].Value
 if (-not $ciTests) { throw "Existing CI core/script job was not found." }
