@@ -123,10 +123,18 @@ function Get-UiReviewCapturePlan {
             }
             elseif ($path -match '^src/FingVibe.App/(Views/ActivityGridRenderer.cs|DeviceActivityPresentation.cs|DeviceActivityReviewHold.cs)$' -or
                 $path -eq 'src/FingVibe.Core/Models/DeviceActivity.cs') {
-                Add-Scenarios @("Network", "DeviceHistory") "$path changed shared activity grid behavior."
+                Add-Scenarios @("Network", "DeviceHistory", "PersonDetails") "$path changed shared activity grid behavior."
             }
-            elseif ($path -match '^src/FingVibe.App/(MainWindow.NetworkActivity.cs|NetworkActivityPresentation.cs|Views/NetworkPageView.Activity.cs)$' -or
-                $path -eq 'src/FingVibe.Core/Models/NetworkActivity.cs' -or $path -match '^tests/NetworkActivity\.(Ui.Tests|Fixture)\.ps1$') {
+            elseif ($path -match '^src/FingVibe.App/(MainWindow.EquipmentActivity.cs|EquipmentActivityPresentation.cs|Views/PersonDetailsPageView.Activity.cs)$' -or
+                $path -eq 'src/FingVibe.Core/Models/EquipmentActivity.cs' -or $path -eq 'tests/EquipmentActivity.Ui.Tests.ps1') {
+                Add-Scenarios @("PersonDetails") "$path changed equipment evidence, assignments or its grid."
+            }
+            elseif ($path -eq 'src/FingVibe.App/NetworkActivityPresentation.cs' -or
+                $path -eq 'src/FingVibe.Core/Models/NetworkActivity.cs' -or $path -eq 'tests/NetworkActivity.Fixture.ps1') {
+                Add-Scenarios @("Network", "PersonDetails") "$path changed shared network/equipment counts or fixtures."
+            }
+            elseif ($path -match '^src/FingVibe.App/(MainWindow.NetworkActivity.cs|Views/NetworkPageView.Activity.cs)$' -or
+                $path -eq 'tests/NetworkActivity.Ui.Tests.ps1') {
                 Add-Scenarios @("Network") "$path changed Network activity evidence, filters or its grid."
             }
             elseif ($path -match '^src/FingVibe.App/(MainWindow.DeviceActivity.cs|Views/DeviceDetailsPageView.Activity.cs)$' -or
@@ -139,7 +147,7 @@ function Get-UiReviewCapturePlan {
                 Add-Scenarios @("DeviceDetails", "DeviceHistory") "$path changed persisted device scan history."
             }
             elseif ($path -eq "src/FingVibe.App/MainWindow.NetworkIdentity.cs") {
-                Add-Scenarios @("Overview", "Network", "Troubleshooting", "DeviceDetails") "$path changed network identity."
+                Add-Scenarios @("Overview", "Network", "Troubleshooting", "DeviceDetails", "PersonDetails") "$path changed network identity."
             }
             elseif ($path -match '^src/FingVibe.App/(MainWindow.Results.cs|DeviceResult(Filter|Sort).cs|StatusFilter.*|DeviceColumn.*|ColumnResizeGrip.cs)$') {
                 Add-Scenarios @("Devices", "DevicesEmpty", "Settings") "$path changed results, filtering, or table controls."

@@ -37,6 +37,7 @@ public sealed partial class MainWindow
             NetworkPage.ShowPublicIdentity(null);
             NetworkPage.ShowLocalNetwork(null);
             UpdateNetworkActivity();
+            UpdateEquipmentActivity();
             UpdateScanStatus();
             UpdateOverview();
             return;
@@ -66,6 +67,7 @@ public sealed partial class MainWindow
         RefreshVisibleResults();
         UpdateDeviceHistory();
         UpdateNetworkActivity();
+        UpdateEquipmentActivity();
         _ = RefreshUsageCategoriesAsync(force: true);
         ToolsPage.SetNetworkContext(selectedNetwork);
         OverviewPage.ShowSubnet(selectedNetwork);

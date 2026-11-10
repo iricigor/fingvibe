@@ -98,6 +98,7 @@ public sealed partial class MainWindow
         ToolsPage.InvalidateImportAnalysis("Saved device data changed. Analyze again before importing.");
         UpdateDeviceActivity();
         UpdateNetworkActivity();
+        UpdateEquipmentActivity();
         _ = RefreshUsageCategoriesAsync(force: true);
     }
 

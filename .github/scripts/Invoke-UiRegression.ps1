@@ -56,7 +56,11 @@ try {
                     ScreenshotDirectory = (Join-Path $ScreenshotDirectory "scan-history"); SummaryOnly = $true
                 }
             }
-            elseif ($Suite -eq "details-identity") {
+            if ($Suite -eq "details-summary" -and $plan.Scenario -contains "PersonDetails") {
+                Invoke-RegressionCheck "EquipmentActivity.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "equipment-activity") }
+            }
+            if ($Suite -eq "details-identity" -and
+                ($plan.Scenario | Where-Object { $_ -in @("DeviceDetails", "DeviceHistory") })) {
                 Invoke-RegressionCheck "DeviceDiscovery.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "discovery") }
                 Invoke-RegressionCheck "UsageCategory.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "usage-category") }
             }

@@ -36,6 +36,7 @@ public sealed partial class MainWindow : Window
         Closed += (_, _) => _devicePortScanCancellation?.Cancel();
         Closed += (_, _) => DevicePage.SetActivityActive(false);
         Closed += (_, _) => NetworkPage.SetActivityActive(false);
+        Closed += (_, _) => PersonDetailPage.SetActivityActive(false);
 
         DevicesPage.SetResults(_visibleResults);
         UpdateSortGlyphs();
@@ -159,6 +160,8 @@ public sealed partial class MainWindow : Window
         DevicePage.SetActivityActive(page == DevicePage);
         UpdateNetworkActivity();
         NetworkPage.SetActivityActive(page == NetworkPage);
+        UpdateEquipmentActivity();
+        PersonDetailPage.SetActivityActive(page == PersonDetailPage);
         _ = RefreshUsageCategoriesAsync(force: true);
         UpdateScanStatus();
     }
