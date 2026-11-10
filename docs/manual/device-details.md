@@ -11,7 +11,7 @@ Device details has two tabs below the device name:
 
 Choose **View device history** in the summary, or select **History**, to switch.
 Use Left/Right arrow keys to move between tabs. Switching tabs keeps unsaved
-drafts and your place in each tab; the device name and **Rename** stay above both tabs.
+drafts, expanded sections and the observation page; the device name and **Rename** stay above both tabs.
 
 [![Device details with a sample address, MAC, hostname, and independent Person and Room assignments](../screenshots/manual/device-details.png)](../screenshots/manual/device-details.png)
 

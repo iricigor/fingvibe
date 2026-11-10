@@ -425,9 +425,7 @@ function Assert-HistoryRows([string] $Capture, [int] $LastIndex = 4) {
 }
 
 function Assert-HistoryTableRendering([string] $Capture) {
-    # Position the page status and list together so the column header row between them stays visible.
-    $null = Show-HistorySection DeviceHistoryPageStatus 85 -AdditionalIds @("DeviceScanHistoryList")
-    $list = Find-HistoryControl DeviceScanHistoryList
+    $list = Show-HistorySection DeviceScanHistoryList 85
     $headers = @("Date", "Time (local)", "Status") | ForEach-Object { Find-HistoryControl $_ -ByName }
     $items = $list.FindAll([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new(

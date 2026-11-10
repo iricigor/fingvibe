@@ -457,12 +457,13 @@ retained identification drafts and observation pages, **View device history**,
 and that opening a device starts on Overview.
 
 Device details uses local **Overview** and **History** tabs (`SelectorBar`)
-under a shared header with the device name and rename editor. Overview holds
+below the device name and rename editor. Overview holds
 network overview, assignments and usage category, identification, ports and
 the saved observation summary; History holds Activity, scan history with
-Completed Scan Observations, and virtual MAC/address history. Both tabs share
-one scroll viewer (`DeviceDetailsScroll`); hidden tabs stay loaded so drafts,
-expanders and paging survive switches, and each tab keeps its own scroll offset.
+Completed Scan Observations, and virtual MAC/address history. The header, tabs
+and both panels share one scroll viewer (`DeviceDetailsScroll`); hidden tabs stay
+loaded so drafts, expanders and paging survive switches. Switching tabs keeps the
+current scroll position, and **View device history** focuses the History tab.
 Opening a device always selects Overview at the top. UI review captures the
 History tab as `fingvibe-device-history.png` (`DeviceHistory` scenario).
 

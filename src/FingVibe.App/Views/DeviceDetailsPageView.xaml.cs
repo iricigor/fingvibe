@@ -26,8 +26,6 @@ public sealed partial class DeviceDetailsPageView : UserControl
     private DeviceHistoryPage? _historyPage;
     private int _historyPageIndex;
     private int _historyGeneration;
-    private double _overviewOffset;
-    private double _historyOffset;
     private readonly AsyncSurfaceSession _historySession = new();
     private readonly DispatcherTimer _historyClock = new() { Interval = TimeSpan.FromSeconds(30) };
 
@@ -92,8 +90,6 @@ public sealed partial class DeviceDetailsPageView : UserControl
         DeviceImportedMetadata.IsExpanded = false;
         DeviceScanHistoryExpander.IsExpanded = false;
         DeviceBrowserStatusText.Text = string.Empty;
-        _historyOffset = 0;
-        _overviewOffset = 0;
         DetailsTabs.SelectedItem = OverviewTab;
         ShowTab(OverviewTab);
     }
@@ -273,8 +269,6 @@ public sealed partial class DeviceDetailsPageView : UserControl
 
     internal void ResetScroll()
     {
-        _overviewOffset = 0;
-        _historyOffset = 0;
         DevicePage.ChangeView(null, 0, null, disableAnimation: true);
     }
 
@@ -287,13 +281,8 @@ public sealed partial class DeviceDetailsPageView : UserControl
     private void ShowTab(SelectorBarItem tab)
     {
         var history = tab == HistoryTab;
-        if (history == (HistoryPanel.Visibility == Visibility.Visible)) return;
-        if (history) _overviewOffset = DevicePage.VerticalOffset;
-        else _historyOffset = DevicePage.VerticalOffset;
         OverviewPanel.Visibility = history ? Visibility.Collapsed : Visibility.Visible;
         HistoryPanel.Visibility = history ? Visibility.Visible : Visibility.Collapsed;
-        DevicePage.UpdateLayout();
-        DevicePage.ChangeView(null, history ? _historyOffset : _overviewOffset, null, disableAnimation: true);
     }
 
     private void ViewHistory_Click(object sender, RoutedEventArgs e)

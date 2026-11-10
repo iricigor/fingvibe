@@ -21,7 +21,7 @@ Current ownership boundaries:
 - `Views/DeviceLastSeenAgeRefresh.cs` owns the Devices page's presentation-only minute refresh of Last seen ages while that page is shown.
 - `MainWindow.NetworkIdentity.cs` owns local network selection and public/local network identity display.
 - `MainWindow.Snapshots.cs` owns snapshot restoration, persistence status, and saved-scan state.
-- `MainWindow.DeviceDetails.cs` owns the selected-device details view. `Views/DeviceDetailsPageView.xaml(.cs)` owns its local Overview/History tabs: tab selection, per-tab scroll offsets and the reset to Overview on open stay in the view; hidden tabs remain loaded so drafts survive switching.
+- `MainWindow.DeviceDetails.cs` owns the selected-device details view. `Views/DeviceDetailsPageView.xaml(.cs)` owns its local Overview/History tabs: tab selection and the reset to Overview on open stay in the view; hidden tabs remain loaded so drafts survive switching.
 - `MainWindow.DeviceActivity.cs` supplies selected identity/network/revision context; `Views/DeviceDetailsPageView.Activity.cs` owns Activity controls, cancellable query lifecycle and grid presentation. Core `DeviceActivity` owns aligned buckets and weekday counts.
 - `MainWindow.PeopleRooms.cs` owns People/Rooms persistence and assignment orchestration across pages.
 - `Views/PeoplePageView` and `Views/RoomsPageView` own local search and list presentation; their detail views own the selected person/room and reconcile it with refreshed display data. `PeopleRoomsPresentation` supplies pure name validation, suggestions, assignment projections and count text.

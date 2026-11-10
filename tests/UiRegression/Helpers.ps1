@@ -173,8 +173,8 @@ function Select-UiRegressionDeviceTab {
         $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected -and
             (& $byId $sentinel[$Tab]) -and -not (& $byId $sentinel[$hidden])
     }
-    # Activity renders when History first lays out, and each tab restores its scroll offset after selection;
-    # wait until the tab's content stops moving so later positioning cannot be overridden.
+    # Activity renders when History first lays out; wait until the tab's content stops moving
+    # so later positioning measures the final layout.
     $script:UiRegressionTabTop = $null
     $null = Wait-UiRegressionState -Description "settled Device Details $Tab layout" -Condition {
         $activity = & $byId "ActivityScroll"
