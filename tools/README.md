@@ -67,5 +67,6 @@ The app's saved settings remain in `%LOCALAPPDATA%\FingVibe`.
 
 The opt-in [UI automation experiment](UiAutomationComparison/README.md) compares
 one frozen history scenario using PowerShell/UIA and FlaUI/UIA3, with measured
-results and explicit desktop-permission requirements. It is not a replacement
-for the production regression suite.
+results and explicit desktop-permission requirements. It also preserves an
+unfinished full-suite prototype, parked without merging in PR #312.
+It is not a replacement for the production regression suite.
