@@ -494,6 +494,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#usage-category" class="md-nav__link">
+    <span class="md-ellipsis">
+      Usage category
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sort-and-resize" class="md-nav__link">
     <span class="md-ellipsis">
       Sort and resize
@@ -1131,6 +1140,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#usage-category" class="md-nav__link">
+    <span class="md-ellipsis">
+      Usage category
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#sort-and-resize" class="md-nav__link">
     <span class="md-ellipsis">
       Sort and resize
@@ -1239,16 +1257,38 @@ no person or room. <strong>Unknown</strong> type or OS finds devices without tha
 <p>Hiding the second filter row does <strong>not</strong> clear it. The funnel count shows active
 secondary categories. Status is remembered after restart; search and the other
 categories are not.</p>
+<p><strong>Any</strong> means any known value, not every value. It appears immediately after
+Unknown, Unassigned or Unclassified when that dropdown offers at least two
+known choices. Selecting Any replaces individual choices; selecting an
+individual choice replaces Any. Clearing the category still includes everything.
+For Person/Room, Any means assigned; for Usage category, it excludes
+Unclassified. For Vendor, it includes identified manufacturers and excludes
+both Unknown and Randomized MAC. The threshold counts dropdown choices, not
+devices. An active Any filter keeps its meaning when new values appear.
+Status remembers Any after restart just as it remembers individual statuses.</p>
 <p><a href="../../screenshots/manual/devices-empty.png"><img alt="An empty Devices result caused by a search restriction, while inventory totals remain visible" src="../../screenshots/manual/devices-empty.png" /></a></p>
 <p><em>The sample search matches no device. It does not mean the inventory is empty.
 <a href="../screenshots/">Screenshot sources</a>.</em></p>
+<h2 id="usage-category">Usage category<a class="headerlink" href="#usage-category" title="Permanent link">&para;</a></h2>
+<p>The category uses one line. A small pin marks a manual override; an information
+indicator marks a limited automatic estimate or unavailable evidence.
+Unclassified is visually quieter, not a confirmed category or an error.
+Hover for an explanation, or focus the category button and press Enter/Space
+to open its details. They include the source, reason, eligible scan counts,
+observation period and missing evidence. Loading and Unavailable remain explicit;
+no eligible scans never produces a made-up percentage.</p>
+<p>The column does not add a second row of repeated source text or change the
+classification rules. See <a href="../history/#usage-categories">History and usage categories</a>
+for the rules and manual overrides.</p>
 <h2 id="sort-and-resize">Sort and resize<a class="headerlink" href="#sort-and-resize" title="Permanent link">&para;</a></h2>
 <p>Choose a column heading to sort ascending. Choose it again to reverse the order.
 Combined columns keep separate heading actions for their fields.
 Person and Room sort by full name, not by the short label.</p>
 <p>Drag a column boundary to resize it. Use
 <a href="../settings/#choose-device-columns">Settings</a> to show, hide, or combine columns.
-<strong>Name</strong> and <strong>IP address</strong> always remain visible.</p>
+<strong>Name</strong> and <strong>IP address</strong> always remain visible.
+The final visible column keeps a right-edge separator and resize handle.
+Space beyond it is unused table space, not an automatically enlarged column.</p>
 <h2 id="response-times-and-service-icons">Response times and service icons<a class="headerlink" href="#response-times-and-service-icons" title="Permanent link">&para;</a></h2>
 <p>Response time is the measured ping delay in milliseconds (<strong>ms</strong>).
 A smaller value means that ping returned faster, not that the device's internet
@@ -1267,9 +1307,14 @@ A relative age, such as <code>2 h ago</code>, describes saved evidence.</p>
 Hover or focus the value to see its exact time or explanation.
 Age text refreshes while Devices is open; it does not run another scan.</p>
 <h2 id="private-and-virtual-devices">Private and virtual devices<a class="headerlink" href="#private-and-virtual-devices" title="Permanent link">&para;</a></h2>
-<p><strong>Private MAC</strong> means a locally administered MAC address. It is not a known
-manufacturer and does not prove that an address changes randomly.
-<strong>Private</strong> as a vendor can mean an undisclosed IEEE registrant.</p>
+<p><strong>Randomized MAC</strong> is the display label for a locally administered MAC address.
+It is not a known manufacturer and does not prove random generation or rotation:
+the address may also have been assigned manually. Its explanation states this
+limitation.</p>
+<p><strong>Unknown</strong> means FingVibe has not identified the manufacturer. This also covers
+a raw IEEE registry entry of <strong>Private</strong>; the explanation preserves that
+distinction without claiming that other information cannot identify the device.
+Saved manufacturer corrections and imported brands still take precedence.</p>
 <p>A multiple-PC icon can mark a <strong>virtual device</strong>: FingVibe's inferred identity
 for certain sparse private-prefix observations across changing MAC addresses.
 It does not mean a virtual machine. The association is an estimate, not proof
