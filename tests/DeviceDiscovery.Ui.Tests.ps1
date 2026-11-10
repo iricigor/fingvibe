@@ -12,7 +12,12 @@ function Find-DiscoveryControl([string] $Id, [switch] $Optional) {
     $condition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Id)
     $call = Start-UiRegressionCall lookup
-    try { $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition) }
+    try {
+        $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        if (-not $element -and (Show-UiRegressionDeviceTabFor $script:root $Id)) {
+            $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        }
+    }
     finally { Complete-UiRegressionCall $call }
     if (-not $element -and -not $Optional) { throw "Missing discovery control '$Id'." }
     return $element

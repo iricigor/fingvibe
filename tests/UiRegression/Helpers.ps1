@@ -129,6 +129,62 @@ function Show-UiRegressionScrollTargets {
     return $positioned
 }
 
+# Device Details shows Overview and History as local tabs; a hidden tab's controls have no UI Automation peers.
+$script:UiRegressionDeviceHistoryPattern = '^(Activity|DeviceScanHistory|VirtualDeviceHistory|DeviceHistoryPanel$|' +
+    'DeviceHistory(Scope|Latest|Newer|Older|PageStatus)$|Refresh activity$|Completed Scan Observations$|' +
+    'Newer scans$|Older scans$|MAC and address history$|Device activity grid$|Completed scan history)'
+
+function Get-UiRegressionDeviceTabFor {
+    param([Parameter(Mandatory)][string] $Value)
+    if ($Value -cmatch $script:UiRegressionDeviceHistoryPattern) { "History" } else { "Overview" }
+}
+
+function Select-UiRegressionDeviceTab {
+    param(
+        [Parameter(Mandatory)] $Root,
+        [Parameter(Mandatory)][ValidateSet("Overview", "History")][string] $Tab,
+        [switch] $Keyboard,
+        [switch] $IfOpen
+    )
+    $byId = { param($Id) $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Id)) }
+    $item = & $byId "Device${Tab}Tab"
+    if (-not $item -or $item.Current.IsOffscreen) {
+        if ($IfOpen) { return $false }
+        throw "Device Details is not open, so its $Tab tab cannot be selected."
+    }
+    $selection = $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
+    if (-not $selection.Current.IsSelected) {
+        if ($Keyboard) {
+            $other = & $byId ($(if ($Tab -eq "History") { "DeviceOverviewTab" } else { "DeviceHistoryTab" }))
+            $other.SetFocus()
+            [System.Windows.Forms.SendKeys]::SendWait($(if ($Tab -eq "History") { "{RIGHT}" } else { "{LEFT}" }))
+            Start-Sleep -Milliseconds 200
+            # Arrow keys move focus; Space commits selection when selection does not follow focus.
+            if (-not $selection.Current.IsSelected) { [System.Windows.Forms.SendKeys]::SendWait(" ") }
+        }
+        else { $selection.Select() }
+    }
+    $null = Wait-UiRegressionState -Description "Device Details $Tab tab" -Condition {
+        $panel = & $byId "Device${Tab}Panel"
+        $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected -and
+            $panel -and -not $panel.Current.IsOffscreen
+    }
+    return $true
+}
+
+# Selects the tab that owns a missing Device Details control; returns whether the tab changed.
+function Show-UiRegressionDeviceTabFor {
+    param([Parameter(Mandatory)] $Root, [Parameter(Mandatory)][string] $Value)
+    $tab = Get-UiRegressionDeviceTabFor $Value
+    $item = $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "Device${tab}Tab"))
+    if (-not $item -or $item.Current.IsOffscreen -or
+        $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected) { return $false }
+    Select-UiRegressionDeviceTab -Root $Root -Tab $tab
+}
+
 function Find-UiRegressionElement {
     param(
         [Parameter(Mandatory)][scriptblock] $Container,

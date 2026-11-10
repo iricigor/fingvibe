@@ -39,6 +39,7 @@ function Find-Activity([string] $Id, [switch] $ByName, [switch] $Optional) {
     # A descendant search can miss while WinUI rebuilds the grid; required lookups and the always-present
     # ActivityScroll scope get a short retry, while Optional absence checks still answer immediately.
     $deadline = [DateTime]::UtcNow.AddSeconds(2)
+    $tabChecked = $false
     while ($true) {
         $scope = $script:root
         if ($isCell) {
@@ -47,6 +48,10 @@ function Find-Activity([string] $Id, [switch] $ByName, [switch] $Optional) {
                 [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty, "ActivityScroll"))
         }
         $element = if ($scope) { $scope.FindFirst([Windows.Automation.TreeScope]::Descendants, $condition) }
+        if (-not $element -and -not $tabChecked) {
+            $tabChecked = $true
+            if (Show-UiRegressionDeviceTabFor $script:root $Id) { continue }
+        }
         if ($element -or ($scope -and $Optional) -or [DateTime]::UtcNow -ge $deadline) { break }
         Start-Sleep -Milliseconds 50
     }

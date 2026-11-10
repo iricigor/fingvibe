@@ -26,6 +26,8 @@ public sealed partial class DeviceDetailsPageView : UserControl
     private DeviceHistoryPage? _historyPage;
     private int _historyPageIndex;
     private int _historyGeneration;
+    private double _overviewOffset;
+    private double _historyOffset;
     private readonly AsyncSurfaceSession _historySession = new();
     private readonly DispatcherTimer _historyClock = new() { Interval = TimeSpan.FromSeconds(30) };
 
@@ -90,6 +92,10 @@ public sealed partial class DeviceDetailsPageView : UserControl
         DeviceImportedMetadata.IsExpanded = false;
         DeviceScanHistoryExpander.IsExpanded = false;
         DeviceBrowserStatusText.Text = string.Empty;
+        _historyOffset = 0;
+        _overviewOffset = 0;
+        DetailsTabs.SelectedItem = OverviewTab;
+        ShowTab(OverviewTab);
     }
 
     internal void ShowHistory(ScanResultRow row, string? networkId, string? subnet)
@@ -103,6 +109,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
         var request = _historySession.Start("Page 1");
         DeviceHistoryPageStatus.Text = string.Empty;
         DeviceHistoryScope.Text = $"Current network: {networkId ?? "identity unavailable"} | {subnet ?? "subnet unavailable"}";
+        DeviceHistorySummaryScope.Text = DeviceHistoryScope.Text;
         try
         {
             var summary = row.GetHistorySummary(networkId, subnet);
@@ -264,7 +271,36 @@ public sealed partial class DeviceDetailsPageView : UserControl
         SetPortScanRunning(false, row.CanProbe);
     }
 
-    internal void ResetScroll() => DevicePage.ChangeView(null, 0, null, disableAnimation: true);
+    internal void ResetScroll()
+    {
+        _overviewOffset = 0;
+        _historyOffset = 0;
+        DevicePage.ChangeView(null, 0, null, disableAnimation: true);
+    }
+
+    private void DetailsTabs_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    {
+        if (sender.SelectedItem is { } item && HistoryPanel is not null) ShowTab(item);
+    }
+
+    // Panels stay loaded while hidden so drafts, editors and history paging survive tab switches.
+    private void ShowTab(SelectorBarItem tab)
+    {
+        var history = tab == HistoryTab;
+        if (history == (HistoryPanel.Visibility == Visibility.Visible)) return;
+        if (history) _overviewOffset = DevicePage.VerticalOffset;
+        else _historyOffset = DevicePage.VerticalOffset;
+        OverviewPanel.Visibility = history ? Visibility.Collapsed : Visibility.Visible;
+        HistoryPanel.Visibility = history ? Visibility.Visible : Visibility.Collapsed;
+        DevicePage.UpdateLayout();
+        DevicePage.ChangeView(null, history ? _historyOffset : _overviewOffset, null, disableAnimation: true);
+    }
+
+    private void ViewHistory_Click(object sender, RoutedEventArgs e)
+    {
+        DetailsTabs.SelectedItem = HistoryTab;
+        HistoryTab.Focus(FocusState.Programmatic);
+    }
 
     private void Rename_Click(object sender, RoutedEventArgs e)
     {

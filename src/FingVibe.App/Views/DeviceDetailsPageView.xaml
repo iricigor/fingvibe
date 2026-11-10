@@ -5,9 +5,13 @@
     xmlns:app="using:FingVibe.App"
     xmlns:views="using:FingVibe.App.Views"
     xmlns:models="using:FingVibe.Core.Models">
-    <ScrollViewer x:Name="DevicePage" AutomationProperties.AutomationId="DeviceDetailsScroll"
-                  HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="24,0,24,24" Spacing="16">
+    <Grid Margin="24,0,24,0" RowSpacing="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <StackPanel Spacing="16">
             <Button Click="BackToDevicesButton_Click" AutomationProperties.Name="Back to devices">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon Glyph="&#xE72B;" FontSize="14" />
@@ -44,6 +48,18 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
             </Border>
+        </StackPanel>
+        <SelectorBar x:Name="DetailsTabs" Grid.Row="1" SelectionChanged="DetailsTabs_SelectionChanged"
+                     AutomationProperties.AutomationId="DeviceDetailsTabs" AutomationProperties.Name="Device details sections">
+            <SelectorBarItem x:Name="OverviewTab" Text="Overview" IsSelected="True"
+                             AutomationProperties.AutomationId="DeviceOverviewTab" AutomationProperties.Name="Overview" />
+            <SelectorBarItem x:Name="HistoryTab" Text="History"
+                             AutomationProperties.AutomationId="DeviceHistoryTab" AutomationProperties.Name="History" />
+        </SelectorBar>
+        <ScrollViewer x:Name="DevicePage" Grid.Row="2" AutomationProperties.AutomationId="DeviceDetailsScroll"
+                      HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="0,8,0,24" Spacing="16">
+            <StackPanel x:Name="OverviewPanel" Spacing="16" AutomationProperties.AutomationId="DeviceOverviewPanel">
             <Grid x:Name="DetailsColumns" ColumnSpacing="16" RowSpacing="16" SizeChanged="DetailsColumns_SizeChanged">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -237,6 +253,55 @@
                     </ItemsControl>
                 </StackPanel>
             </Border>
+            <Border x:Name="DeviceHistorySummaryCard" Style="{StaticResource ScannerSummaryCardStyle}"
+                    AutomationProperties.AutomationId="DeviceHistorySummaryCard">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="Saved observation summary" FontSize="18" FontWeight="SemiBold" />
+                    <TextBlock x:Name="DeviceHistorySummaryScope" AutomationProperties.AutomationId="DeviceHistorySummaryScope"
+                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <Grid ColumnSpacing="24" RowSpacing="12" SizeChanged="Fields_SizeChanged">
+                        <StackPanel Spacing="4">
+                            <TextBlock x:Name="DeviceHistoryFirstSeen" AutomationProperties.AutomationId="DeviceHistoryFirstSeen"
+                                       TextWrapping="Wrap" IsTextSelectionEnabled="True" FontWeight="SemiBold" />
+                            <TextBlock x:Name="DeviceHistoryFirstSeenAge" AutomationProperties.AutomationId="DeviceHistoryFirstSeenAge"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel Spacing="4">
+                            <TextBlock x:Name="DeviceHistoryLastSeen" AutomationProperties.AutomationId="DeviceHistoryLastSeen"
+                                       TextWrapping="Wrap" IsTextSelectionEnabled="True" FontWeight="SemiBold" />
+                            <TextBlock x:Name="DeviceHistoryLastSeenAge" AutomationProperties.AutomationId="DeviceHistoryLastSeenAge"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                    <StackPanel Spacing="4">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid VerticalAlignment="Center">
+                                <Ellipse x:Name="DeviceHistoryPresentDot" Width="10" Height="10"
+                                         Fill="{ThemeResource SystemFillColorSuccessBrush}" Visibility="Collapsed" />
+                                <Ellipse x:Name="DeviceHistoryAbsentDot" Width="10" Height="10"
+                                         Fill="{ThemeResource SystemFillColorCriticalBrush}" Visibility="Collapsed" />
+                            </Grid>
+                            <TextBlock x:Name="DeviceHistoryState" Grid.Column="1" FontWeight="SemiBold"
+                                       AutomationProperties.AutomationId="DeviceHistoryState" TextWrapping="Wrap" />
+                        </Grid>
+                        <TextBlock x:Name="DeviceHistorySince" AutomationProperties.AutomationId="DeviceHistorySince"
+                                   TextWrapping="Wrap" IsTextSelectionEnabled="True"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                    <TextBlock Text="Saved observations do not establish current live presence." TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <HyperlinkButton x:Name="DeviceViewHistory" Content="View history" Padding="0" Click="ViewHistory_Click"
+                                     AutomationProperties.AutomationId="DeviceViewHistory"
+                                     AutomationProperties.Name="View device history" />
+                </StackPanel>
+            </Border>
+            </StackPanel>
+            <StackPanel x:Name="HistoryPanel" Spacing="16" Visibility="Collapsed"
+                        AutomationProperties.AutomationId="DeviceHistoryPanel">
             <Border x:Name="DeviceActivityCard" Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="12">
                     <Grid ColumnSpacing="16" RowSpacing="8" SizeChanged="Fields_SizeChanged">
@@ -301,39 +366,6 @@
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="16">
                     <TextBlock Text="Scan history" FontSize="18" FontWeight="SemiBold" />
-                    <Grid ColumnSpacing="24" RowSpacing="12" SizeChanged="Fields_SizeChanged">
-                        <StackPanel Spacing="4">
-                            <TextBlock x:Name="DeviceHistoryFirstSeen" AutomationProperties.AutomationId="DeviceHistoryFirstSeen"
-                                       TextWrapping="Wrap" IsTextSelectionEnabled="True" FontWeight="SemiBold" />
-                            <TextBlock x:Name="DeviceHistoryFirstSeenAge" AutomationProperties.AutomationId="DeviceHistoryFirstSeenAge"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                        </StackPanel>
-                        <StackPanel Spacing="4">
-                            <TextBlock x:Name="DeviceHistoryLastSeen" AutomationProperties.AutomationId="DeviceHistoryLastSeen"
-                                       TextWrapping="Wrap" IsTextSelectionEnabled="True" FontWeight="SemiBold" />
-                            <TextBlock x:Name="DeviceHistoryLastSeenAge" AutomationProperties.AutomationId="DeviceHistoryLastSeenAge"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Grid>
-                    <StackPanel Spacing="4">
-                        <Grid ColumnSpacing="8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Grid VerticalAlignment="Center">
-                                <Ellipse x:Name="DeviceHistoryPresentDot" Width="10" Height="10"
-                                         Fill="{ThemeResource SystemFillColorSuccessBrush}" Visibility="Collapsed" />
-                                <Ellipse x:Name="DeviceHistoryAbsentDot" Width="10" Height="10"
-                                         Fill="{ThemeResource SystemFillColorCriticalBrush}" Visibility="Collapsed" />
-                            </Grid>
-                            <TextBlock x:Name="DeviceHistoryState" Grid.Column="1" FontWeight="SemiBold"
-                                       AutomationProperties.AutomationId="DeviceHistoryState" TextWrapping="Wrap" />
-                        </Grid>
-                        <TextBlock x:Name="DeviceHistorySince" AutomationProperties.AutomationId="DeviceHistorySince"
-                                   TextWrapping="Wrap" IsTextSelectionEnabled="True"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    </StackPanel>
                     <TextBlock x:Name="DeviceHistoryScope" AutomationProperties.AutomationId="DeviceHistoryScope"
                                TextWrapping="Wrap" FontWeight="SemiBold" />
                     <TextBlock x:Name="DeviceHistoryLatest" AutomationProperties.AutomationId="DeviceHistoryLatest"
@@ -431,6 +463,8 @@
                     </Expander>
                 </StackPanel>
             </Border>
+            </StackPanel>
         </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

@@ -32,12 +32,17 @@ public static class HistoryReviewContrast {
 }
 '@
 
-function Find-HistoryControl([string] $Value, [switch] $ByName, [switch] $Optional) {
+function Find-HistoryControl([string] $Value, [switch] $ByName, [switch] $Optional, [switch] $NoTabSwitch) {
     $property = if ($ByName) { [System.Windows.Automation.AutomationElement]::NameProperty }
         else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
     $condition = [System.Windows.Automation.PropertyCondition]::new($property, $Value)
     $call = Start-UiRegressionCall lookup
-    try { $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition) }
+    try {
+        $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        if (-not $element -and -not $NoTabSwitch -and (Show-UiRegressionDeviceTabFor $script:root $Value)) {
+            $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        }
+    }
     finally { Complete-UiRegressionCall $call }
     if (-not $element -and -not $Optional) { throw "Missing scan-history control '$Value'." }
     return $element
@@ -166,6 +171,10 @@ function Open-HistoryDetails([string] $Name) {
         $scroll = Find-HistoryControl DeviceDetailsScroll -Optional
         $scroll -and -not $scroll.Current.IsOffscreen
     } "details for $Name"
+    $overview = (Find-HistoryControl DeviceOverviewTab).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
+    if (-not $overview.Current.IsSelected -or (Find-HistoryControl DeviceHistoryPanel -Optional -NoTabSwitch)) {
+        throw "Opening a device must start on its Overview tab."
+    }
     foreach ($id in @("DeviceScanHistoryExpander", "DeviceImportedMetadata")) {
         $pattern = (Find-HistoryControl $id).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
         if ($pattern.Current.ExpandCollapseState -ne [System.Windows.Automation.ExpandCollapseState]::Collapsed) {
@@ -181,6 +190,39 @@ function Open-HistoryDetails([string] $Name) {
             [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -eq
                 [System.Windows.Automation.ExpandCollapseState]::Expanded
     } "keyboard expansion of completed observations"
+}
+
+function Test-HistoryTabs {
+    $pageStatus = (Find-HistoryControl DeviceHistoryPageStatus).Current.Name
+    $null = Select-UiRegressionDeviceTab -Root $script:root -Tab Overview -Keyboard
+    $edit = Find-HistoryControl "Edit device identification" -ByName
+    $edit.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Wait-HistoryState { -not $edit.Current.IsEnabled } "identification editor"
+    $draft = "Tab draft model"
+    (Find-HistoryControl DeviceModelInput).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($draft)
+    $null = Select-UiRegressionDeviceTab -Root $script:root -Tab History -Keyboard
+    if ((Find-HistoryControl DeviceHistoryPageStatus).Current.Name -cne $pageStatus) {
+        throw "Switching tabs changed the observation page."
+    }
+    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-tab-retained-page.png")
+    $null = Select-UiRegressionDeviceTab -Root $script:root -Tab Overview -Keyboard
+    $model = (Find-HistoryControl DeviceModelInput).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value
+    if ($model -cne $draft -or (Find-HistoryControl "Edit device identification" -ByName).Current.IsEnabled) {
+        throw "Switching tabs discarded the identification draft ('$model')."
+    }
+    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "history-tab-retained-draft.png")
+    (Find-HistoryControl DeviceClassificationCancelButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Wait-HistoryState { (Find-HistoryControl "Edit device identification" -ByName).Current.IsEnabled } "cancelled identification draft"
+    $link = Show-HistorySection DeviceViewHistory
+    $link.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Wait-HistoryState {
+        $tab = Find-HistoryControl DeviceHistoryTab -NoTabSwitch
+        $tab.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected -and
+            [System.Windows.Automation.AutomationElement]::FocusedElement.Current.AutomationId -eq "DeviceHistoryTab"
+    } "View history selecting and focusing the History tab"
+    if ((Find-HistoryControl DeviceHistoryPageStatus -NoTabSwitch).Current.Name -cne $pageStatus) {
+        throw "View history changed the observation page."
+    }
 }
 
 function Get-HistoryLocalTime([int] $Index) {
@@ -424,12 +466,15 @@ function Assert-HistorySummary([string] $Capture, [int] $LastIndex = 4) {
     $since = @(0, 0, 2, 2, 4)[$LastIndex]
     $state = if ($LastIndex -in @(2, 3)) { "offline" } else { "online" }
     $expected = @{
-        DeviceHistoryScope = "Current network: ui-review-network | 127.0.0.1/32"
+        DeviceHistorySummaryScope = "Current network: ui-review-network | 127.0.0.1/32"
         DeviceHistoryFirstSeen = "First seen: $(Get-HistoryTimestamp 0)"
         DeviceHistoryLastSeen = "Last seen: $(Get-HistoryTimestamp $lastSeen)"
         DeviceHistorySince = "Observed $state since: $(Get-HistoryTimestamp $since)"
         DeviceHistoryState = "Last observed: $(if ($state -eq 'online') { 'Present' } else { 'Absent' })"
-        DeviceHistoryLatest = "Latest recorded scan: $(Get-HistoryTimestamp $LastIndex). Saved observations do not establish current live presence."
+    }
+    if (-not $SummaryOnly) {
+        $expected.DeviceHistoryScope = $expected.DeviceHistorySummaryScope
+        $expected.DeviceHistoryLatest = "Latest recorded scan: $(Get-HistoryTimestamp $LastIndex). Saved observations do not establish current live presence."
     }
     foreach ($id in $expected.Keys) {
         $actual = (Find-HistoryControl $id).Current.Name
@@ -447,7 +492,7 @@ function Assert-HistorySummary([string] $Capture, [int] $LastIndex = 4) {
         $expansion.Collapse()
     }
     $null = Show-HistorySection DeviceHistoryFirstSeen -AdditionalIds @(
-        "DeviceHistoryLastSeen", "DeviceHistorySince", "DeviceHistoryState", "DeviceHistoryScope", "DeviceHistoryLatest")
+        "DeviceHistoryLastSeen", "DeviceHistorySince", "DeviceHistoryState", "DeviceHistorySummaryScope", "DeviceViewHistory")
     foreach ($id in @("DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistorySince")) {
         $element = Find-HistoryControl $id
         $area = (Find-HistoryControl DeviceDetailsScroll).Current.BoundingRectangle
@@ -458,7 +503,11 @@ function Assert-HistorySummary([string] $Capture, [int] $LastIndex = 4) {
         }
     }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Capture-summary.png")
-    if ($expansion) { $expansion.Expand() }
+    if ($expansion) {
+        # The expander lives on the History tab, so re-resolve it after the Overview summary was shown.
+        (Find-HistoryControl DeviceScanHistoryExpander).GetCurrentPattern(
+            [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    }
 }
 
 function Invoke-HistoryScan {
@@ -825,6 +874,7 @@ try {
     [IO.File]::WriteAllBytes($database, $savedDatabase)
     Move-HistoryPage DeviceHistoryOlder 2
     $null = Assert-HistoryPage 1
+    Test-HistoryTabs
     Move-HistoryPage DeviceHistoryOlder 3
     Open-HistoryDetails "History imported"
     if ((Find-HistoryControl DeviceScanHistoryCount).Current.Name -ne "0 completed scan observations") {

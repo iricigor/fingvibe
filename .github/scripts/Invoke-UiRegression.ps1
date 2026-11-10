@@ -43,7 +43,7 @@ try {
         }
         { $_ -like "details-*" } {
             # Device Details suites follow the Overview/History boundary; each launches its own fixtures and app instances.
-            if ($plan.Scenario -notcontains "DeviceDetails") {
+            if (-not ($plan.Scenario | Where-Object { $_ -in @("DeviceDetails", "DeviceHistory") })) {
                 Write-Host "Device Details checks are not required by this capture plan, preserving existing selection."
             }
             elseif ($Suite -eq "details-summary") {

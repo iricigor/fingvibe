@@ -21,7 +21,7 @@ Current ownership boundaries:
 - `Views/DeviceLastSeenAgeRefresh.cs` owns the Devices page's presentation-only minute refresh of Last seen ages while that page is shown.
 - `MainWindow.NetworkIdentity.cs` owns local network selection and public/local network identity display.
 - `MainWindow.Snapshots.cs` owns snapshot restoration, persistence status, and saved-scan state.
-- `MainWindow.DeviceDetails.cs` owns the selected-device details view.
+- `MainWindow.DeviceDetails.cs` owns the selected-device details view. `Views/DeviceDetailsPageView.xaml(.cs)` owns its local Overview/History tabs: tab selection, per-tab scroll offsets and the reset to Overview on open stay in the view; hidden tabs remain loaded so drafts survive switching.
 - `MainWindow.DeviceActivity.cs` supplies selected identity/network/revision context; `Views/DeviceDetailsPageView.Activity.cs` owns Activity controls, cancellable query lifecycle and grid presentation. Core `DeviceActivity` owns aligned buckets and weekday counts.
 - `MainWindow.PeopleRooms.cs` owns People/Rooms persistence and assignment orchestration across pages.
 - `Views/PeoplePageView` and `Views/RoomsPageView` own local search and list presentation; their detail views own the selected person/room and reconcile it with refreshed display data. `PeopleRoomsPresentation` supplies pure name validation, suggestions, assignment projections and count text.
@@ -68,10 +68,11 @@ for the desktop-free foundation check. These are contributor/reviewer
 expectations, not a new mandatory manifest or gate. Enforced coverage
 selection remains separate work in #256.
 
-Device Details checks run in three independent CI jobs that follow the planned
+Device Details checks run in three independent CI jobs that follow the
 Overview/History tab boundary: `details-summary`, `details-identity` and
-`details-history`. Add Activity or observation-table checks to `details-history`,
-and keep every job within the 240-second budget using its `call-costs.json` and
+`details-history`. Add Activity or observation-table checks to `details-history`.
+Collapsed tabs expose no UI Automation peers; use the tab helpers in
+`tests/UiRegression/Helpers.ps1` and reacquire controls after switching. Keep every job within the 240-second budget using its `call-costs.json` and
 `phases.jsonl` evidence. Mark each logical segment with a phase, keep the
 original failure when cleanup also fails, and do not dispatch a matrix job that
 runs no checks. Ship harness changes like these separately from feature changes.

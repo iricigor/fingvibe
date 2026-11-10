@@ -263,7 +263,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
     if ($regressionScript -notmatch 'SummaryOnly = \$true') {
         throw "Retained summary checks remain required independently of observation checks."
     }
-    if ($regressionScript -notmatch '\$plan.Scenario -notcontains "DeviceDetails"' -or
+    if ($regressionScript -notmatch [regex]::Escape('$_ -in @("DeviceDetails", "DeviceHistory")') -or
         $regressionScript -notmatch 'Stop-Transcript' -or
         $captureJob -notmatch 'timeout-minutes: 10' -or
         $captureJob -notmatch '(?s)id: smoke\s+timeout-minutes: 7') {

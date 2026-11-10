@@ -397,7 +397,8 @@ Never run native UI automation on a working user's desktop.
 
 ### Device activity
 
-Device details shows **Activity** above the existing scan-history summary. Choose
+Device details shows **Activity** at the top of its **History** tab, above the
+scan-history context. Choose
 **Last 7 days**, **Last 30 days**, or **30 days by weekday**, and group each local
 date into midnight-aligned 1, 2, 3 or 4-hour cells. Three-hour groups run
 00:00-03:00 through 21:00-24:00. The displayed Windows timezone and query time
@@ -439,8 +440,9 @@ it contains no inferred uptime or scalar duration estimates.
 
 ### Device scan history
 
-First/last seen, last-observed/since, network scope and latest-scan explanation
-remain visible in the summary. Devices Last seen, virtual MAC/address information,
+First/last seen, last-observed/since and network scope appear in the Overview
+tab's **Saved observation summary**; the History tab repeats the scope with the
+latest-scan explanation. Devices Last seen, virtual MAC/address information,
 discovery, usage categories and all other device details are unchanged. Scans
 continue collecting and retaining evidence; no stored data is deleted.
 The CI `details-summary` suite invokes `DeviceScanHistory.Ui.Tests.ps1 -SummaryOnly`,
@@ -450,7 +452,19 @@ The `details-history` suite runs Activity and the independent `-ObservationsOnly
 path: normal/virtual/imported/legacy rendering, themes/narrow layout, exhaustive
 205-row physical reachability, exact page count/order/state, reverse paging,
 page-error recovery and selection reset. Neither feature changes the other's
-enablement. The current single-page layout remains; the tab redesign is deferred.
+enablement. The `details-history` path also checks keyboard tab switching,
+retained identification drafts and observation pages, **View device history**,
+and that opening a device starts on Overview.
+
+Device details uses local **Overview** and **History** tabs (`SelectorBar`)
+under a shared header with the device name and rename editor. Overview holds
+network overview, assignments and usage category, identification, ports and
+the saved observation summary; History holds Activity, scan history with
+Completed Scan Observations, and virtual MAC/address history. Both tabs share
+one scroll viewer (`DeviceDetailsScroll`); hidden tabs stay loaded so drafts,
+expanders and paging survive switches, and each tab keeps its own scroll offset.
+Opening a device always selects Overview at the top. UI review captures the
+History tab as `fingvibe-device-history.png` (`DeviceHistory` scenario).
 
 Device details shows a **Scan history** summary for normal MAC-based devices and
 existing virtual devices. First/last-seen timestamps display in local time with
@@ -911,12 +925,12 @@ selected scenarios against an equivalent baseline; retain failed phases and
 report missing evidence. No statistically established flake rate is claimed.
 The required aggregate and independently restored Activity/observation coverage are unchanged.
 
-Device Details regression follows the planned #262 Overview/History boundary
+Device Details regression follows the #262 Overview/History tab boundary
 across three independent matrix jobs (#292): `details-summary`
 (`DeviceScanHistory.Ui -SummaryOnly`), `details-identity` (`DeviceDiscovery.Ui`,
 `UsageCategory.Ui`) and `details-history` (`DeviceActivity.Ui`,
 `DeviceScanHistory.Ui -ObservationsOnly`). Each job launches its own fixtures and app
-instances, is selected by the `DeviceDetails` capture-plan scenario, and must
+instances, is selected by the `DeviceDetails` or `DeviceHistory` capture-plan scenario, and must
 dispatch at least one check. Checks within a script still share sequential
 fixture state. History, discovery and usage checks also write
 `call-costs.json`: per-phase calls and inclusive/exclusive milliseconds for
