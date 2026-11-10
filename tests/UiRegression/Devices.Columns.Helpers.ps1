@@ -149,13 +149,13 @@ function Test-RowDensity {
             $fullyVisible = @($rows | Where-Object { $_.Current.BoundingRectangle.Bottom -le $listBounds.Bottom }).Count
             $headerHeight = (Find-DeviceElement DeviceTableHeader).Current.BoundingRectangle.Height / $scale
             $measurements[$layout][$density] = @{ heights = $heights; visibleRows = $fullyVisible; headerHeight = $headerHeight; scale = $scale }
-            $minimum = if ($layout -in @("Stacked", "UsageOnly")) {
+            $minimum = if ($layout -eq "Stacked") {
                 if ($density -eq "Compact") { 36 } else { 40 }
             } else {
                 if ($density -eq "Compact") { 30 } else { 34 }
             }
             # Native two-line name/type metrics require 44 DIPs in Standard, above its 40-DIP minimum.
-            $maximum = $minimum + $(if ($layout -in @("Stacked", "UsageOnly") -and $density -eq "Standard") { 4.5 } else { 0.5 })
+            $maximum = $minimum + $(if ($layout -eq "Stacked" -and $density -eq "Standard") { 4.5 } else { 0.5 })
             foreach ($height in $heights) {
                 if ($height -lt $minimum - 0.5 -or $height -gt $maximum) {
                     throw "$layout/$density representative height must be $minimum-$maximum DIPs, got $height."

@@ -14,6 +14,7 @@ public sealed partial class MainWindow
     private (Guid Revision, string? Network, string? Subnet, DateOnly Date, string Zone)? _usageKey;
     private IReadOnlyDictionary<LogicalDeviceId, DeviceUsageInference>? _usageResults;
     private string _usageStatus = "Usage evidence has not been loaded.";
+    private bool _usageLoading;
     private bool UsageVisible => DevicesPage.Visibility == Visibility.Visible || DevicePage.Visibility == Visibility.Visible;
 
     private void InitializeUsageCategories()
@@ -68,6 +69,7 @@ public sealed partial class MainWindow
             : _inventoryUnavailable ? $"Usage evidence is unavailable: {_inventoryError}"
             : networkId is null ? $"Select a network with a reliable identity. {identityError}"
             : "Loading completed usage evidence...";
+        _usageLoading = !_inventoryReady || !_inventoryUnavailable && networkId is not null;
         ApplyUsageCategories();
         if (!_inventoryReady || _inventoryUnavailable || networkId is null || network is null) return;
 
@@ -90,6 +92,7 @@ public sealed partial class MainWindow
             if (generation != _usageGeneration || cancellation.IsCancellationRequested || _usageClosed
                 || revision != _inventory.Revision || !UsageVisible) return;
             _usageResults = results;
+            _usageLoading = false;
             _usageStatus = "No local evidence for this device on the selected network.";
             ApplyUsageCategories();
         }
@@ -99,6 +102,7 @@ public sealed partial class MainWindow
         {
             if (generation != _usageGeneration || _usageClosed) return;
             _usageResults = null;
+            _usageLoading = false;
             _usageStatus = $"Usage evidence could not be loaded: {exception.Message} Refresh to retry; restart if another writer changed the saved inventory.";
             ApplyUsageCategories();
         }
@@ -123,7 +127,8 @@ public sealed partial class MainWindow
             if (inference is null && id is not null && _usageResults is not null && _usageKey is { Network: { } network, Subnet: { } subnet } key)
                 inference = new(id, DeviceUsageCategory.Unclassified, new(0, 0), new(0, 0), new(0, 0),
                     0, true, key.Date.AddDays(-6), key.Date, network, subnet, key.Zone);
-            row.SetUsageCategory(manual, inference, id is null ? "A stable saved identity is required." : _usageStatus);
+            row.SetUsageCategory(manual, inference, id is null ? "A stable saved identity is required." : _usageStatus,
+                loading: id is not null && _usageLoading);
         }
         RefreshVisibleResults();
         DevicesPage.RefreshRowDescriptions();

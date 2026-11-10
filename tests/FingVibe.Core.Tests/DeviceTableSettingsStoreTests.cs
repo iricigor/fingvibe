@@ -35,6 +35,7 @@ public sealed class DeviceTableSettingsStoreTests : IDisposable
         Assert.True(loaded.CombineVendorOs);
         Assert.True(loaded.CompactRows);
         Assert.Null(loaded.StatusFilters);
+        Assert.False(loaded.StatusAnyKnown);
         Assert.Single(Directory.GetFiles(_directory));
     }
 
@@ -58,6 +59,7 @@ public sealed class DeviceTableSettingsStoreTests : IDisposable
     [InlineData("{\"columns\":{},\"statusFilters\":[99]}")]
     [InlineData("{\"columns\":{},\"statusFilters\":[0,0]}")]
     [InlineData("{\"columns\":{},\"statusFilters\":\"Online\"}")]
+    [InlineData("{\"columns\":{},\"statusFilters\":[1],\"statusAnyKnown\":true}")]
     public void InvalidStatusSelectionsAreReportedAndTheOriginalFileIsPreserved(string json)
     {
         Directory.CreateDirectory(_directory);
@@ -73,7 +75,29 @@ public sealed class DeviceTableSettingsStoreTests : IDisposable
         var valid = new DeviceTableSettings(new()) { StatusFilters = [InventoryDeviceStatus.Online] };
         store.Save(valid);
         Assert.Throws<ArgumentException>(() => store.Save(valid with { StatusFilters = [(InventoryDeviceStatus)99] }));
+        Assert.Throws<ArgumentException>(() => store.Save(valid with { StatusAnyKnown = true }));
         Assert.Equal(valid.StatusFilters, store.Load()!.StatusFilters);
+    }
+
+    [Fact]
+    public void AnyStatusSurvivesRestartAsAModeAndCanBeReplacedByUnrestrictedOrSpecificValues()
+    {
+        var store = new DeviceTableSettingsStore(FilePath);
+        var settings = new DeviceTableSettings(new()) { StatusAnyKnown = true, StatusFilters = [] };
+        store.Save(settings);
+        var restored = new DeviceTableSettingsStore(FilePath).Load()!;
+        Assert.True(restored.StatusAnyKnown);
+        Assert.Empty(restored.StatusFilters!);
+
+        var selection = new DeviceFilterSelection<InventoryDeviceStatus>(InventoryDeviceStatus.Unknown);
+        selection.SetChoices(Enum.GetValues<InventoryDeviceStatus>().Select(value => (value, value.ToString())));
+        selection.SetAnyKnown(restored.StatusAnyKnown);
+        Assert.True(selection.AnyKnown);
+        Assert.Empty(selection.Selected);
+        store.Save(settings with { StatusAnyKnown = false });
+        Assert.False(store.Load()!.StatusAnyKnown);
+        store.Save(settings with { StatusAnyKnown = false, StatusFilters = [InventoryDeviceStatus.Online] });
+        Assert.Equal([InventoryDeviceStatus.Online], store.Load()!.StatusFilters);
     }
 
     [Theory]
@@ -87,6 +111,7 @@ public sealed class DeviceTableSettingsStoreTests : IDisposable
         Assert.True(loaded.EnlargedCellPreviews);
         Assert.False(loaded.CombineVendorOs);
         Assert.True(loaded.CompactRows);
+        Assert.False(loaded.StatusAnyKnown);
     }
 
     [Fact]

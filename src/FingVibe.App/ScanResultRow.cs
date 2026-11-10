@@ -33,6 +33,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public DeviceUsageCategory? UsageCategoryOverride { get; private set; }
     public DeviceUsageInference? UsageInference { get; private set; }
     public string UsageStatus { get; private set; } = "Usage evidence has not been loaded.";
+    public bool UsageLoading { get; private set; }
     public DeviceUsageCategory? EffectiveUsageCategory => UsageCategoryOverride ?? UsageInference?.Category;
     public string UsageCategoryText => EffectiveUsageCategory?.ToString() ?? "Unavailable";
     public string UsageCategorySource => UsageCategoryOverride is not null ? "Manual override"
@@ -40,14 +41,23 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         : UsageInference.Total.Eligible == 0 ? "Auto - no eligible scans"
         : UsageInference.LimitedEvidence ? "Auto - limited evidence" : "Automatic";
     public string UsageCategoryDescription => UsageCategoryPresentation.Description(UsageCategoryOverride, UsageInference, UsageStatus);
+    public string UsageCategoryCellText => EffectiveUsageCategory is null && UsageLoading ? "Loading" : UsageCategoryText;
+    public double UsageCategoryOpacity => EffectiveUsageCategory == DeviceUsageCategory.Unclassified ? 0.65 : 1;
+    public string UsageCategoryCellName => $"Usage category: {UsageCategoryCellText}. {UsageCategorySource}";
+    public bool HasUsageCategoryIndicator => UsageCategoryOverride is not null
+        || UsageInference is null || UsageInference.LimitedEvidence;
+    public string UsageCategoryIndicatorGlyph => UsageCategoryOverride is not null ? "\uE718" : "\uE946";
 
-    public void SetUsageCategory(DeviceUsageCategory? manual, DeviceUsageInference? inference, string status)
+    public void SetUsageCategory(DeviceUsageCategory? manual, DeviceUsageInference? inference, string status, bool loading = false)
     {
         UsageCategoryOverride = manual;
         UsageInference = inference;
         UsageStatus = status;
+        UsageLoading = loading;
         foreach (var property in new[] { nameof(UsageCategoryOverride), nameof(UsageInference), nameof(UsageStatus),
-                     nameof(EffectiveUsageCategory), nameof(UsageCategoryText), nameof(UsageCategorySource), nameof(UsageCategoryDescription) })
+                     nameof(EffectiveUsageCategory), nameof(UsageCategoryText), nameof(UsageCategorySource), nameof(UsageCategoryDescription),
+                     nameof(UsageLoading), nameof(UsageCategoryCellText), nameof(UsageCategoryOpacity), nameof(UsageCategoryCellName),
+                     nameof(HasUsageCategoryIndicator), nameof(UsageCategoryIndicatorGlyph) })
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
     }
     private LanNetwork? _selectedNetwork;
@@ -286,9 +296,8 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         : ImportedMetadata?.Family is not null ? "Imported from Fing" : string.Empty;
     public string ModelSource => _classificationOverride?.Model is not null ? "Saved correction"
         : ImportedMetadata?.Model is not null ? "Imported from Fing" : string.Empty;
-    public string VendorDisplayText => VendorText == "Private/Randomized" ? "Private MAC" : VendorText;
-    public string VendorDescription => VendorText == "Private/Randomized"
-        ? "Locally administered address; manufacturer cannot be reliably determined." : VendorText;
+    public string VendorDisplayText => DeviceVendorPresentation.DisplayText(VendorText);
+    public string VendorDescription => DeviceVendorPresentation.Description(VendorText);
     public IReadOnlyList<OpenPort> OpenPortItems => IsCurrentScanResponse && _inventoryDevice is not null
         ? CurrentConnections.SelectMany(item => item.OpenPortItems).DistinctBy(port => port.Identity)
             .OrderBy(port => port.Port).ThenBy(port => port.Protocol).ToArray()
@@ -370,7 +379,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
             ? $"{StatusLabel}{(IsHistorical ? " · historical" : string.Empty)} · {observation.Subnet} · last seen {observation.LastSeen:g}"
             : StatusLabel + (IsHistorical ? " · historical scan observation" : string.Empty);
     public double NameOpacity => NameText == AddressText || NameText == "-" ? 0.65 : 1;
-    public double VendorOpacity => string.IsNullOrWhiteSpace(VendorText) || VendorText is "Unknown" or "-" ? 0.65 : 1;
+    public double VendorOpacity => DeviceVendorPresentation.FilterValue(VendorText) == DeviceVendorPresentation.Unknown ? 0.65 : 1;
     public double OperatingSystemOpacity => OperatingSystem == DeviceOperatingSystem.Unknown ? 0.65 : 1;
     public double DeviceTypeOpacity => Type == DeviceType.Unknown ? 0.65 : 1;
     public bool HasLatency => _showLatency && IsOnline && Result?.RoundtripTimeMilliseconds is >= 0;

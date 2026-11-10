@@ -66,7 +66,10 @@ function Set-ImportStatusFilter([string[]] $Selected) {
         [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
             [System.Windows.Automation.ControlType]::CheckBox))
-    if ($checks.Count -ne 4) { throw "Status must expose four native checkbox choices." }
+    $labels = @($checks | ForEach-Object { $_.Current.Name })
+    if (($labels -join '|') -ne 'Online|Offline|Unknown|Any|Fing Only') {
+        throw "Status must expose its four values with Any immediately after Unknown."
+    }
     foreach ($check in $checks) {
         $toggle = $check.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
         if (($toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On) -ne

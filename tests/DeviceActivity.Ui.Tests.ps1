@@ -154,18 +154,26 @@ function Open-ActivityDevice([string] $Name = "Activity laptop") {
         $list -and -not $list.Current.IsOffscreen
     } "Devices"
     (Find-Activity "Search devices" -ByName).GetCurrentPattern([Windows.Automation.ValuePattern]::Pattern).SetValue($Name)
-    $script:row = $null
-    Wait-Activity {
+    $findRequestedRow = {
         $rows = (Find-Activity ResultsList).FindAll([Windows.Automation.TreeScope]::Children,
             [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,
                 [Windows.Automation.ControlType]::ListItem))
-        if ($rows.Count -ne 1) { return $false }
+        if ($rows.Count -ne 1 -or -not (Test-UiRegressionElementVisible $rows[0]) -or
+            -not $rows[0].Current.IsEnabled) { return $null }
         $cell = $rows[0].FindFirst([Windows.Automation.TreeScope]::Descendants,
             [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceNameText"))
-        if ($cell.Current.Name -cne $Name) { return $false }
-        $script:row = $rows[0]
-        return $true
-    } "the requested device row"
+        if (-not (Test-UiRegressionElementVisible $cell) -or $cell.Current.Name -cne $Name) { return $null }
+        return $rows[0]
+    }
+    Wait-Activity {
+        $script:row = & $findRequestedRow
+        $null -ne $script:row
+    } "the requested visible device row"
+    $script:row.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Wait-Activity {
+        $script:row = & $findRequestedRow
+        $script:row -and $script:row.Current.IsKeyboardFocusable
+    } "the requested device row ready for keyboard focus"
     $script:row.SetFocus()
     [Windows.Forms.SendKeys]::SendWait("{ENTER}")
     Wait-Activity {

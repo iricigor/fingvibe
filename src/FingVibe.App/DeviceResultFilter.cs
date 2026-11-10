@@ -19,15 +19,23 @@ public sealed record DeviceResultFilter(
     public IReadOnlySet<Guid?> People { get; init; } = new HashSet<Guid?>();
     public IReadOnlySet<Guid?> Rooms { get; init; } = new HashSet<Guid?>();
     public IReadOnlySet<DeviceUsageCategory> UsageCategories { get; init; } = new HashSet<DeviceUsageCategory>();
+    public bool AnyKnownStatus { get; init; }
+    public bool AnyKnownType { get; init; }
+    public bool AnyKnownOperatingSystem { get; init; }
+    public bool AnyKnownVendor { get; init; }
+    public bool AnyAssignedPerson { get; init; }
+    public bool AnyAssignedRoom { get; init; }
+    public bool AnyClassifiedUsage { get; init; }
 
     public int ActiveSecondaryCategoryCount =>
-        (Types.Count > 0 ? 1 : 0) + (OperatingSystems.Count > 0 ? 1 : 0)
-        + (Vendors.Count > 0 ? 1 : 0) + (People.Count > 0 ? 1 : 0)
-        + (Rooms.Count > 0 ? 1 : 0) + (OpenPortsOnly ? 1 : 0) + (UsageCategories.Count > 0 ? 1 : 0);
+        (AnyKnownType || Types.Count > 0 ? 1 : 0) + (AnyKnownOperatingSystem || OperatingSystems.Count > 0 ? 1 : 0)
+        + (AnyKnownVendor || Vendors.Count > 0 ? 1 : 0) + (AnyAssignedPerson || People.Count > 0 ? 1 : 0)
+        + (AnyAssignedRoom || Rooms.Count > 0 ? 1 : 0) + (OpenPortsOnly ? 1 : 0)
+        + (AnyClassifiedUsage || UsageCategories.Count > 0 ? 1 : 0);
 
     public bool HasRestrictions => AliveOnly || OpenPortsOnly || !string.IsNullOrEmpty(SearchText)
         || Status is not null || PersonId is not null || RoomId is not null
-        || UnassignedPersonOnly || UnassignedRoomOnly || Statuses.Count > 0
+        || UnassignedPersonOnly || UnassignedRoomOnly || AnyKnownStatus || Statuses.Count > 0
         || ActiveSecondaryCategoryCount > 0;
 
     public bool Matches(ScanResultRow row) =>
@@ -38,12 +46,15 @@ public sealed record DeviceResultFilter(
         && (RoomId is null || row.RoomId == RoomId)
         && (!UnassignedPersonOnly || row.PersonId is null)
         && (!UnassignedRoomOnly || row.RoomId is null)
-        && (Statuses.Count == 0 || Statuses.Contains(row.Status))
-        && (Types.Count == 0 || Types.Contains(row.Type))
-        && (OperatingSystems.Count == 0 || OperatingSystems.Contains(row.OperatingSystem))
-        && (Vendors.Count == 0 || Vendors.Contains(row.VendorText))
-        && (People.Count == 0 || People.Contains(row.PersonId))
-        && (Rooms.Count == 0 || Rooms.Contains(row.RoomId))
-        && (UsageCategories.Count == 0 || row.EffectiveUsageCategory is { } category && UsageCategories.Contains(category))
+        && (AnyKnownStatus ? row.Status != InventoryDeviceStatus.Unknown : Statuses.Count == 0 || Statuses.Contains(row.Status))
+        && (AnyKnownType ? row.Type != DeviceType.Unknown : Types.Count == 0 || Types.Contains(row.Type))
+        && (AnyKnownOperatingSystem ? row.OperatingSystem != DeviceOperatingSystem.Unknown
+            : OperatingSystems.Count == 0 || OperatingSystems.Contains(row.OperatingSystem))
+        && (AnyKnownVendor ? DeviceVendorPresentation.IsKnown(row.VendorText)
+            : Vendors.Count == 0 || Vendors.Contains(DeviceVendorPresentation.FilterValue(row.VendorText)))
+        && (AnyAssignedPerson ? row.PersonId is not null : People.Count == 0 || People.Contains(row.PersonId))
+        && (AnyAssignedRoom ? row.RoomId is not null : Rooms.Count == 0 || Rooms.Contains(row.RoomId))
+        && (AnyClassifiedUsage ? row.EffectiveUsageCategory is not (null or DeviceUsageCategory.Unclassified)
+            : UsageCategories.Count == 0 || row.EffectiveUsageCategory is { } category && UsageCategories.Contains(category))
         && row.MatchesFilter(SearchText);
 }
