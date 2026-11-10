@@ -97,6 +97,7 @@ public sealed partial class MainWindow
         ApplyInventoryData(saved);
         ToolsPage.InvalidateImportAnalysis("Saved device data changed. Analyze again before importing.");
         UpdateDeviceActivity();
+        UpdateNetworkActivity();
         _ = RefreshUsageCategoriesAsync(force: true);
     }
 
@@ -167,6 +168,7 @@ public sealed partial class MainWindow
         UpdateNetworkIdentity();
         UpdatePeopleRoomsPages();
         UpdateDeviceActivity();
+        UpdateNetworkActivity();
         _ = RefreshUsageCategoriesAsync(force: true);
     }
 

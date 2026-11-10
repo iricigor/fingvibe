@@ -23,6 +23,7 @@ Current ownership boundaries:
 - `MainWindow.Snapshots.cs` owns snapshot restoration, persistence status, and saved-scan state.
 - `MainWindow.DeviceDetails.cs` owns the selected-device details view. `Views/DeviceDetailsPageView.xaml(.cs)` owns its local Overview/History tabs: tab selection and the reset to Overview on open stay in the view; hidden tabs remain loaded so drafts survive switching.
 - `MainWindow.DeviceActivity.cs` supplies selected identity/network/revision context; `Views/DeviceDetailsPageView.Activity.cs` owns Activity controls, cancellable query lifecycle and grid presentation. Core `DeviceActivity` owns aligned buckets and weekday counts.
+- `MainWindow.NetworkActivity.cs` supplies Network Activity's revision/network context; `Views/NetworkPageView.Activity.cs` owns its filters and asynchronous lifecycle. Core `NetworkActivity` owns filtered distinct counts and exact weekday means; `Views/ActivityGridRenderer` renders both Activity grids without changing their separate semantics.
 - `MainWindow.PeopleRooms.cs` owns People/Rooms persistence and assignment orchestration across pages.
 - `Views/PeoplePageView` and `Views/RoomsPageView` own local search and list presentation; their detail views own the selected person/room and reconcile it with refreshed display data. `PeopleRoomsPresentation` supplies pure name validation, suggestions, assignment projections and count text.
 - `Views/PeopleRoomsDialogs` owns People/Rooms add/edit, delete-confirmation and device-choice UI for all entry points. The shell supplies the window's `XamlRoot`, current records and a save callback; dialogs keep failed saves open and return a saved record only after success. Stores, serialized/revision-checked writes, navigation and cross-page refreshes remain outside the views.
@@ -82,6 +83,8 @@ Device Details checks run in four independent CI jobs that follow the
 Overview/History tab boundary: `details-summary`, `details-identity`,
 `details-observations` and `details-activity`. Add observation-table checks to
 `details-observations` and Activity checks to `details-activity`.
+The Network page's `NetworkActivity.Ui` uses `details-identity` headroom when
+Network is selected.
 Collapsed tabs expose no UI Automation peers; use the tab helpers in
 `tests/UiRegression/Helpers.ps1` and reacquire controls after switching. Keep every job within the 240-second budget using its `call-costs.json` and
 `phases.jsonl` evidence. Mark each logical segment with a phase, keep the

@@ -23,6 +23,7 @@ function Get-NativeValidationPlan {
         Full { @($UiReviewScenarios.Keys) }
         Focused {
             if ($Suite -eq "capture") { @($Scenarios) }
+            elseif ($Suite -eq "details-identity") { @("DeviceDetails", "Network") }
             elseif ($Suite -like "details-*") { @("DeviceDetails") }
             else { @("Devices") }
         }

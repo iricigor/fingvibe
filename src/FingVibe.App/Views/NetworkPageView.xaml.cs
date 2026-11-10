@@ -8,7 +8,11 @@ namespace FingVibe.App.Views;
 
 public sealed partial class NetworkPageView : UserControl
 {
-    public NetworkPageView() => InitializeComponent();
+    public NetworkPageView()
+    {
+        InitializeComponent();
+        InitializeActivity();
+    }
 
     internal void ShowSummary(string summary) => NetworkIdentityText.Text = summary;
 

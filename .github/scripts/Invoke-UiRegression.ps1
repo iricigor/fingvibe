@@ -60,12 +60,17 @@ try {
                 Invoke-RegressionCheck "DeviceDiscovery.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "discovery") }
                 Invoke-RegressionCheck "UsageCategory.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "usage-category") }
             }
-            elseif ($Suite -eq "details-observations") {
+            if ($Suite -eq "details-identity" -and $plan.Scenario -contains "Network") {
+                Invoke-RegressionCheck "NetworkActivity.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "network-activity") }
+            }
+            if ($Suite -eq "details-observations" -and
+                ($plan.Scenario | Where-Object { $_ -in @("DeviceDetails", "DeviceHistory") })) {
                 Invoke-RegressionCheck "DeviceScanHistory.Ui" @{
                     ScreenshotDirectory = (Join-Path $ScreenshotDirectory "observations"); ObservationsOnly = $true
                 }
             }
-            else {
+            elseif ($Suite -eq "details-activity" -and
+                ($plan.Scenario | Where-Object { $_ -in @("DeviceDetails", "DeviceHistory") })) {
                 Invoke-RegressionCheck "DeviceActivity.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "activity") }
             }
         }

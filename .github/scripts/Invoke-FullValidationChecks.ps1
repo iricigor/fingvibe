@@ -46,7 +46,7 @@ Invoke-FullCheck "speed-test" {
 }
 foreach ($name in @(
     "UiReviewScenarios", "UiRegression.Helpers", "AdditionalServices.Script", "SqlEditor.Script",
-    "UsageCategory.Script", "DeviceActivity.Script", "PrValidation", "DispatcherGate",
+    "UsageCategory.Script", "DeviceActivity.Script", "NetworkActivity.Script", "PrValidation", "DispatcherGate",
     "LogoDevConfiguration", "BuildIdentity.Metadata", "Installer.Script", "GitleaksDownload"
 )) {
     Invoke-FullCheck $name {

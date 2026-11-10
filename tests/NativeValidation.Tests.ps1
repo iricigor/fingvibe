@@ -23,7 +23,8 @@ foreach ($suite in @("capture", "sidebar", "devices", "details-summary", "detail
 $focused = @(Get-NativeValidationPlan -Mode Focused -Suite capture -Scenarios @("Settings", "DeviceDetails"))
 Assert-NativeEqual $focused.Scenario @("Devices", "DeviceDetails", "Settings") "Focused captures reuse catalog ordering"
 foreach ($suite in @("details-summary", "details-identity", "details-observations", "details-activity")) {
-    Assert-NativeEqual @(Get-NativeValidationPlan -Mode Focused -Suite $suite).Scenario @("Devices", "DeviceDetails") "Focused $suite cannot inherit a plan that skips Device Details"
+    $expected = if ($suite -eq "details-identity") { @("Devices", "Network", "DeviceDetails") } else { @("Devices", "DeviceDetails") }
+    Assert-NativeEqual @(Get-NativeValidationPlan -Mode Focused -Suite $suite).Scenario $expected "Focused $suite cannot inherit a plan that skips its activity surfaces"
     Assert-NativeThrows { Get-NativeValidationPlan -Mode Baseline -Suite $suite } "*only the capture*"
 }
 Assert-NativeThrows { Get-NativeValidationPlan -Mode Focused -Suite history } "*history*"
@@ -56,7 +57,7 @@ $dispatchSource = Get-Content (Join-Path $PSScriptRoot "..\.github\scripts\Invok
 $expectedChecks = @([regex]::Matches($dispatchSource, 'Invoke-RegressionCheck "([^"]+)"') |
     ForEach-Object { $_.Groups[1].Value })
 foreach ($name in @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
-    "UsageCategory.Ui", "DeviceActivity.Ui", "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
+    "UsageCategory.Ui", "DeviceActivity.Ui", "NetworkActivity.Ui", "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
     $count = if ($name -eq "DeviceScanHistory.Ui") { 2 } else { 1 }
     Assert-NativeEqual @($expectedChecks | Where-Object { $_ -eq $name }).Count $count "Existing native checks retain independent summary/observation coverage"
 }
@@ -107,7 +108,7 @@ if ($env:NATIVE_TEST_FAIL -eq $name) { throw "Simulated native failure: $name" }
     $calls = @(Get-Content $env:NATIVE_TEST_CALLS | ConvertFrom-Json)
     Assert-NativeEqual $calls.name ($expectedChecks + @("UiReviewScreenshot", "capture")) "Full dispatch inherits all current suites exactly once, including independently restored coverage"
     Assert-NativeEqual $calls[2].parameters.SummaryOnly $true "Full preserves summary coverage"
-    Assert-NativeEqual $calls[5].parameters.ObservationsOnly $true "Full includes restored observation rendering/paging coverage"
+    Assert-NativeEqual @($calls | Where-Object { $_.name -eq "DeviceScanHistory.Ui" -and $_.parameters.ObservationsOnly }).Count 1 "Full includes restored observation rendering/paging coverage once"
     Assert-NativeEqual @($calls | Where-Object name -eq "BuildIdentity.Ui")[0].parameters.BuildCommit "fixture-head" "Native identity uses exact built revision"
     Assert-NativeEqual $calls[-1].plan.Scenario @($UiReviewScenarios.Keys) "Full capture cannot omit history/details or discovery selection"
     & $runner -Mode Baseline -Suite capture @parameters
@@ -134,7 +135,7 @@ param($Version, $ArchiveName, $ArchivePath, $ChecksumsName, $ChecksumsPath)
 throw "Simulated secret asset failure"
 '@ | Set-Content -LiteralPath (Join-Path $scripts "Download-Gitleaks.ps1")
     foreach ($name in @("UiReviewScenarios", "UiRegression.Helpers", "AdditionalServices.Script",
-        "SqlEditor.Script", "UsageCategory.Script", "DeviceActivity.Script", "PrValidation",
+        "SqlEditor.Script", "UsageCategory.Script", "DeviceActivity.Script", "NetworkActivity.Script", "PrValidation",
         "DispatcherGate", "LogoDevConfiguration", "BuildIdentity.Metadata", "Installer.Script", "GitleaksDownload")) {
         @'
 $name = [IO.Path]::GetFileName($PSCommandPath).Replace(".Tests.ps1", "")

@@ -385,11 +385,19 @@ try {
         "tests\UsageCategory.Ui.Tests.ps1")) {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails", "Settings") "Usage categories"
     }
-    foreach ($path in @("src\FingVibe.App\MainWindow.DeviceActivity.cs", "src\FingVibe.App\DeviceActivityPresentation.cs",
-        "src\FingVibe.App\DeviceActivityReviewHold.cs",
-        "src\FingVibe.App\Views\DeviceDetailsPageView.Activity.cs", "src\FingVibe.Core\Models\DeviceActivity.cs",
+    foreach ($path in @("src\FingVibe.App\MainWindow.DeviceActivity.cs",
+        "src\FingVibe.App\Views\DeviceDetailsPageView.Activity.cs",
         "tests\DeviceActivity.Ui.Tests.ps1", "tests\DeviceActivity.Fixture.ps1")) {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceHistory") "Device activity"
+    }
+    foreach ($path in @("src\FingVibe.App\DeviceActivityPresentation.cs", "src\FingVibe.App\DeviceActivityReviewHold.cs",
+        "src\FingVibe.App\Views\ActivityGridRenderer.cs", "src\FingVibe.Core\Models\DeviceActivity.cs")) {
+        Test-Change @{ $path = "changed" } @("Devices", "Network", "DeviceHistory") "Shared activity grid"
+    }
+    foreach ($path in @("src\FingVibe.App\MainWindow.NetworkActivity.cs", "src\FingVibe.App\NetworkActivityPresentation.cs",
+        "src\FingVibe.App\Views\NetworkPageView.Activity.cs", "src\FingVibe.Core\Models\NetworkActivity.cs",
+        "tests\NetworkActivity.Ui.Tests.ps1", "tests\NetworkActivity.Fixture.ps1")) {
+        Test-Change @{ $path = "changed" } @("Devices", "Network") "Network activity"
     }
     foreach ($path in @("src\FingVibe.Core\Models\DeviceInventory.cs", "src\FingVibe.Core\Models\PrivateVirtualDevice.cs",
         "src\FingVibe.Core\Models\DeviceHistorySummary.cs",
@@ -439,7 +447,7 @@ try {
     Test-Change @{ "src\FingVibe.App\Tools\SqlEditorPage.xaml" = "changed" } @("Devices", "Tools", "SqlEditor") "SQL editor view"
     Test-Change @{ "src\FingVibe.Core\Storage\InventoryQueryService.cs" = "changed" } @("Devices", "Tools", "SqlEditor") "SQL query behavior"
     Test-Change @{ "src\FingVibe.App\MainWindow.Inventory.cs" = "changed" } `
-        @("Devices", "Overview", "DeviceDetails", "People", "PersonDetails", "Rooms", "FingImport", "SqlEditor", "RoomDetails") "Inventory surfaces"
+        @("Devices", "Overview", "Network", "DeviceDetails", "People", "PersonDetails", "Rooms", "FingImport", "SqlEditor", "RoomDetails") "Inventory surfaces"
     $viewScenarios = @{
         OverviewPageView = @("Devices", "Overview")
         NetworkPageView = @("Devices", "Network")
