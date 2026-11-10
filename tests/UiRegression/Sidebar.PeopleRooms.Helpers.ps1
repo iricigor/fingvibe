@@ -22,6 +22,9 @@ function Find-PeopleRoomsElement([string] $Property, [string] $Value, [string] $
 }
 
 function Invoke-PeopleRoomsElement([string] $Property, [string] $Value, [string] $OwnerId) {
+    if (-not $OwnerId -and $Property -eq 'Name' -and $Value -in @('Save', 'Cancel', 'Delete', 'Assign')) {
+        $OwnerId = 'PeopleRoomsDialog'
+    }
     (Find-PeopleRoomsElement $Property $Value $OwnerId).GetCurrentPattern(
         [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     if ($Property -eq 'Name' -and $Value -in @('Cancel', 'Delete')) {

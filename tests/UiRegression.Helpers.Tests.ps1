@@ -46,7 +46,11 @@ Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
     $invoke | Add-Member ScriptMethod Invoke { $state.Invocations++ }
     $button = [pscustomobject]@{}
     $button | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $invoke }
-    function Find-PeopleRoomsElement { param($Property, $Value, $OwnerId) return $button }
+    function Find-PeopleRoomsElement {
+        param($Property, $Value, $OwnerId)
+        Assert-Regression ($OwnerId -eq 'PeopleRoomsDialog') 'Dialog actions must not fall back to a same-named button on the underlying detail page.'
+        return $button
+    }
     foreach ($action in @('Cancel', 'Delete')) {
         $state.Observations = 0
         Invoke-PeopleRoomsElement Name $action
