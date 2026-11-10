@@ -1206,6 +1206,15 @@
 <h1 id="identify-and-inspect-a-device">Identify and inspect a device<a class="headerlink" href="#identify-and-inspect-a-device" title="Permanent link">&para;</a></h1>
 <p>Select a row on <strong>Devices</strong> to open its details.
 Use the <strong>Devices</strong> return action when finished.</p>
+<p>Device details has two tabs below the device name:</p>
+<ul>
+<li><strong>Overview</strong> (selected each time you open a device): network overview,
+  assignments, identification, ports and services, and a saved observation summary.</li>
+<li><strong>History</strong>: Activity, scan history and, for virtual devices, MAC and address history.</li>
+</ul>
+<p>Choose <strong>View device history</strong> in the summary, or select <strong>History</strong>, to switch.
+With the keyboard, move focus to a tab and press Space or Enter. Switching tabs keeps unsaved
+drafts, expanded sections and the observation page; the device name and <strong>Rename</strong> stay above both tabs.</p>
 <p><a href="../../screenshots/manual/device-details.png"><img alt="Device details with a sample address, MAC, hostname, and independent Person and Room assignments" src="../../screenshots/manual/device-details.png" /></a></p>
 <p><em>Native test-build screenshot. The hostname belongs to the disposable CI runner;
 addresses and metadata are safe review data. Lower sections require scrolling.
@@ -1275,7 +1284,7 @@ See <a href="../history/#usage-categories">Usage categories</a>.</p>
 <h2 id="virtual-device-details">Virtual-device details<a class="headerlink" href="#virtual-device-details" title="Permanent link">&para;</a></h2>
 <p>For an inferred virtual identity, names, corrections, and assignments belong
 to that identity and can follow its associated MAC changes.</p>
-<p>Expand <strong>MAC and address history</strong> for the member addresses, times, and preserved
+<p>On the <strong>History</strong> tab, expand <strong>MAC and address history</strong> for the member addresses, times, and preserved
 evidence. Do not treat this association as proof of a physical device.
 Fing import still matches full MAC addresses, not virtual names or prefixes.</p>
 <h2 id="history-availability">History availability<a class="headerlink" href="#history-availability" title="Permanent link">&para;</a></h2>
