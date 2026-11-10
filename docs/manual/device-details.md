@@ -10,7 +10,7 @@ Device details has two tabs below the device name:
 - **History**: Activity, scan history and, for virtual devices, MAC and address history.
 
 Choose **View device history** in the summary, or select **History**, to switch.
-Use Left/Right arrow keys to move between tabs. Switching tabs keeps unsaved
+With the keyboard, move focus to a tab and press Space or Enter. Switching tabs keeps unsaved
 drafts, expanded sections and the observation page; the device name and **Rename** stay above both tabs.
 
 [![Device details with a sample address, MAC, hostname, and independent Person and Room assignments](../screenshots/manual/device-details.png)](../screenshots/manual/device-details.png)

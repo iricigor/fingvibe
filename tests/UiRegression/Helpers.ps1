@@ -157,12 +157,12 @@ function Select-UiRegressionDeviceTab {
     $selection = $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
     if (-not $selection.Current.IsSelected) {
         if ($Keyboard) {
-            $other = & $byId ($(if ($Tab -eq "History") { "DeviceOverviewTab" } else { "DeviceHistoryTab" }))
-            $other.SetFocus()
-            [System.Windows.Forms.SendKeys]::SendWait($(if ($Tab -eq "History") { "{RIGHT}" } else { "{LEFT}" }))
+            # Focus the target tab like a keyboard user tabbing to it, then activate it.
+            $item.SetFocus()
+            $null = Wait-UiRegressionState -Description "keyboard focus on Device Details $Tab tab" -Condition { $item.Current.HasKeyboardFocus }
+            [System.Windows.Forms.SendKeys]::SendWait(" ")
             Start-Sleep -Milliseconds 200
-            # Arrow keys move focus; Space commits selection when selection does not follow focus.
-            if (-not $selection.Current.IsSelected) { [System.Windows.Forms.SendKeys]::SendWait(" ") }
+            if (-not $selection.Current.IsSelected) { [System.Windows.Forms.SendKeys]::SendWait("{ENTER}") }
         }
         else { $selection.Select() }
     }
