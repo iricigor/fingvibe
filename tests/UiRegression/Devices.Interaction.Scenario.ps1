@@ -135,8 +135,8 @@ if ($area.Width / $scale -ge 1880) {
             $center = $left + $bounds.Width / 2
             $hasLine = @([Math]::Floor($center), [Math]::Ceiling($center)) |
                 Where-Object { $bitmap.GetPixel([int]$_, $y).ToArgb() -ne $background }
-            if (($index -eq 0 -and -not $hasLine) -or ($index -eq 1 -and $hasLine)) {
-                throw "Only the final visible header divider should be absent."
+            if (-not $hasLine) {
+                throw "Every visible header, including the final column, must retain its right-edge divider."
             }
         }
     }
@@ -146,7 +146,7 @@ if ($area.Width / $scale -ge 1880) {
     [DevicesReviewInput]::Tap(0x27)
     Start-Sleep -Milliseconds 200
     if ([Math]::Abs($grips[1].Current.BoundingRectangle.Left - $left - 8 * $scale) -gt 1) {
-        throw "The final column must remain keyboard-resizable without a divider."
+        throw "The final column must remain keyboard-resizable at its visible divider."
     }
     Write-Host "Full-header pixel check and final-column keyboard resizing passed."
 }

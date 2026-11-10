@@ -582,7 +582,8 @@
             1542
           ],
           "baselineSha256": "a3df8ad2659d63a0392e12904626d7feac7d58b1f3dfaf44a9e1b68c29915380",
-          "refactored": false,
+          "refactored": true,
+          "changeReason": "#302 explicitly requires the final divider to remain visible. Both header pixel checks and the keyboard-resize assertion are retained with the new expected appearance.",
           "functions": [],
           "captures": [
             "db8c2205173613efe593ac26c6973a91749f471e19e22db6bd9f2c606b4b5373",
@@ -1217,6 +1218,6 @@
     "Explicit refactored functions migrate readiness, scoping, capture timing and process cleanup. Setup creates isolated fixtures; Test-DeviceRefresh rejects the normal user snapshot fallback. All other function bodies and scenarios remain byte-equivalent after normalization.",
     "The shared-state top-level modules run at entry script scope in original order. These structural checks supplement, and never replace, disposable native evidence.",
     "PeopleRooms is additional #284 coverage between Progress and Persistence; it preserves the relative order and assertions of every baseline scenario.",
-    "#302 adds Devices Refinements between Filters and Columns without changing the existing fixture or relative baseline order. It verifies exact Any/missing/unrestricted counts, exclusive selection, the assignment choice threshold, keyboard-opened usage evidence, a rendered final-column separator and fixed-width resizing. Test-RowDensity retains its original hashes/provenance, cases, assertions and captures; only UsageOnly's intended one-line height expectations change."
+    "#302 adds Devices Refinements between Filters and Columns without changing the existing fixture or relative baseline order. It verifies exact Any/missing/unrestricted counts, exclusive selection, the assignment choice threshold, keyboard-opened usage evidence, a rendered final-column separator and fixed-width resizing. Test-RowDensity retains its original hashes/provenance, cases, assertions and captures; only UsageOnly's intended one-line height expectations change. The Interaction scenario's existing pixel/resize check now requires the final divider to be visible, following the user's explicit clarification; no capture or behavior case is removed."
   ]
 }
