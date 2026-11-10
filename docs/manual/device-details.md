@@ -3,6 +3,16 @@
 Select a row on **Devices** to open its details.
 Use the **Devices** return action when finished.
 
+Device details has two tabs below the device name:
+
+- **Overview** (selected each time you open a device): network overview,
+  assignments, identification, ports and services, and a saved observation summary.
+- **History**: Activity, scan history and, for virtual devices, MAC and address history.
+
+Choose **View device history** in the summary, or select **History**, to switch.
+With the keyboard, move focus to a tab and press Space or Enter. Switching tabs keeps unsaved
+drafts, expanded sections and the observation page; the device name and **Rename** stay above both tabs.
+
 [![Device details with a sample address, MAC, hostname, and independent Person and Room assignments](../screenshots/manual/device-details.png)](../screenshots/manual/device-details.png)
 
 *Native test-build screenshot. The hostname belongs to the disposable CI runner;
@@ -90,7 +100,7 @@ See [Usage categories](history.md#usage-categories).
 For an inferred virtual identity, names, corrections, and assignments belong
 to that identity and can follow its associated MAC changes.
 
-Expand **MAC and address history** for the member addresses, times, and preserved
+On the **History** tab, expand **MAC and address history** for the member addresses, times, and preserved
 evidence. Do not treat this association as proof of a physical device.
 Fing import still matches full MAC addresses, not virtual names or prefixes.
 

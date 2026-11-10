@@ -36,6 +36,10 @@ function Find-Usage([string] $Value, [switch] $ByName, [switch] $Optional) {
     try {
         $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
             [System.Windows.Automation.PropertyCondition]::new($property, $Value))
+        if (-not $element -and (Show-UiRegressionDeviceTabFor $script:root $Value)) {
+            $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new($property, $Value))
+        }
     }
     finally { Complete-UiRegressionCall $call }
     if (-not $element -and -not $Optional) { throw "Missing usage-category control '$Value'." }

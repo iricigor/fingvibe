@@ -2,7 +2,7 @@
 param(
     [Parameter(Mandatory)]
     [ValidateSet("sidebar", "devices", "devices-presentation", "devices-filters-previews", "devices-columns-sorting",
-        "details-summary", "details-identity", "details-history", "tools")]
+        "details-summary", "details-identity", "details-observations", "details-activity", "tools")]
     [string] $Suite,
     [Parameter(Mandatory)][string] $AppPath,
     [Parameter(Mandatory)][string] $ScreenshotDirectory,
@@ -48,7 +48,7 @@ try {
         }
         { $_ -like "details-*" } {
             # Device Details suites follow the Overview/History boundary; each launches its own fixtures and app instances.
-            if ($plan.Scenario -notcontains "DeviceDetails") {
+            if (-not ($plan.Scenario | Where-Object { $_ -in @("DeviceDetails", "DeviceHistory") })) {
                 Write-Host "Device Details checks are not required by this capture plan, preserving existing selection."
             }
             elseif ($Suite -eq "details-summary") {
@@ -60,10 +60,12 @@ try {
                 Invoke-RegressionCheck "DeviceDiscovery.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "discovery") }
                 Invoke-RegressionCheck "UsageCategory.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "usage-category") }
             }
-            else {
+            elseif ($Suite -eq "details-observations") {
                 Invoke-RegressionCheck "DeviceScanHistory.Ui" @{
                     ScreenshotDirectory = (Join-Path $ScreenshotDirectory "observations"); ObservationsOnly = $true
                 }
+            }
+            else {
                 Invoke-RegressionCheck "DeviceActivity.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "activity") }
             }
         }
