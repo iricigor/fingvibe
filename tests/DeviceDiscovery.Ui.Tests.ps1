@@ -133,6 +133,8 @@ function Invoke-DiscoveryScan {
 
 function Assert-DiscoveryEntries([string[]] $Macs, [string] $Capture) {
     Wait-DiscoveryState { Find-DiscoveryControl DiscoveryPopup -Optional } "discovery popup"
+    $count = if ($Macs.Count -eq 1) { "1 new device" } else { "$($Macs.Count) new devices" }
+    if ((Find-DiscoveryControl DiscoveryPopup).Current.Name -ne $count) { throw "Incorrect discovery count '$count'." }
     $buttons = $script:root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.Condition]::TrueCondition) |
         Where-Object { $_.Current.AutomationId -like "Discovery-*" }

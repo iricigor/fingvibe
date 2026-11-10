@@ -8,6 +8,7 @@ internal sealed class WindowsDiscoveryNotifications
 {
     private readonly DiscoveryNotificationStore _store;
     private readonly Action<string> _activate;
+    private AppNotificationManager? _manager;
     private bool _registered;
     internal bool IsEnabled { get; }
     internal string? RegistrationError { get; private set; }
@@ -28,8 +29,9 @@ internal sealed class WindowsDiscoveryNotifications
         try
         {
             // Subscribe before registration so clicks on a running unpackaged app stay in this process.
-            AppNotificationManager.Default.NotificationInvoked += NotificationInvoked;
-            AppNotificationManager.Default.Register("FingVibe",
+            _manager = AppNotificationManager.Default;
+            _manager.NotificationInvoked += NotificationInvoked;
+            _manager.Register("FingVibe",
                 new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", "Scanner.ico")));
             _registered = true;
         }
@@ -42,11 +44,12 @@ internal sealed class WindowsDiscoveryNotifications
     internal async Task<string?> SendAsync(DiscoveryNotificationBatch batch)
     {
         if (!IsEnabled) return null;
-        if (!_registered) return RegistrationError;
+        if (!_registered) return RegistrationError ?? "Windows notifications are unavailable because FingVibe is closing.";
         try
         {
             await _store.SaveAsync(batch);
-            var manager = AppNotificationManager.Default;
+            if (!_registered || _manager is not { } manager)
+                return "Windows notifications are unavailable because FingVibe is closing.";
             var setting = manager.Setting;
             var notification = new AppNotification(DiscoveryNotificationPresentation.ToastXml(batch,
                 Path.Combine(AppContext.BaseDirectory, "Assets", "DiscoveryCaution.png")))
@@ -82,19 +85,20 @@ internal sealed class WindowsDiscoveryNotifications
 
     internal void Close()
     {
-        if (!IsEnabled) return;
-        AppNotificationManager.Default.NotificationInvoked -= NotificationInvoked;
-        if (_registered)
+        if (_manager is not { } manager) return;
+        try
         {
-            try
-            {
-                AppNotificationManager.Default.Unregister();
-            }
-            catch (Exception exception) when (IsIntegrationFailure(exception))
-            {
-                System.Diagnostics.Trace.TraceError($"Windows notification cleanup failed: {exception}");
-            }
+            manager.NotificationInvoked -= NotificationInvoked;
+            if (_registered) manager.Unregister();
+        }
+        catch (Exception exception) when (IsIntegrationFailure(exception))
+        {
+            System.Diagnostics.Trace.TraceError($"Windows notification cleanup failed: {exception}");
+        }
+        finally
+        {
             _registered = false;
+            _manager = null;
         }
     }
 

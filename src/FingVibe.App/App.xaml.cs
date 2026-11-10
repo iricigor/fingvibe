@@ -31,16 +31,23 @@ public partial class App : Application
             _window.Activate();
             _window.AppWindow.Resize(new Windows.Graphics.SizeInt32(1280, 800));
             _window.Closed += (_, _) => DiscoveryNotifications.Close();
-            var activation = AppInstance.GetCurrent().GetActivatedEventArgs();
-            if (activation.Kind == ExtendedActivationKind.AppNotification
-                && activation.Data is AppNotificationActivatedEventArgs notification)
-                ActivateDiscovery(notification.Argument);
-            else if (Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW") == "1"
-                && Environment.GetCommandLineArgs().FirstOrDefault(argument =>
-                    argument.StartsWith("--review-discovery=", StringComparison.Ordinal)) is { } reviewArgument)
-                ActivateDiscovery("discovery=" + reviewArgument["--review-discovery=".Length..]);
-            else if (_pendingDiscoveryActivation is { } pending)
-                ActivateDiscovery(pending);
+            try
+            {
+                var activation = AppInstance.GetCurrent().GetActivatedEventArgs();
+                if (activation.Kind == ExtendedActivationKind.AppNotification
+                    && activation.Data is AppNotificationActivatedEventArgs notification)
+                    ActivateDiscovery(notification.Argument);
+                else if (Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW") == "1"
+                    && Environment.GetCommandLineArgs().FirstOrDefault(argument =>
+                        argument.StartsWith("--review-discovery=", StringComparison.Ordinal)) is { } reviewArgument)
+                    ActivateDiscovery("discovery=" + reviewArgument["--review-discovery=".Length..]);
+                else if (_pendingDiscoveryActivation is { } pending)
+                    ActivateDiscovery(pending);
+            }
+            catch (Exception exception) when (WindowsDiscoveryNotifications.IsIntegrationFailure(exception))
+            {
+                _window.ReportDiscoveryNotificationFailure($"Unable to read Windows notification activation: {exception.Message}");
+            }
         }
 
         catch (Exception exception)

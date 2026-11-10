@@ -40,8 +40,9 @@ public sealed partial class MainWindow
     private void PresentDiscoveries(IReadOnlyList<DeviceDiscovery> discoveries)
     {
         if (_discoveryNotificationsClosed) return;
+        var rows = _allResults.ToLookup(row => row.IdentityKey, StringComparer.Ordinal);
         var devices = discoveries.Select(discovery => DiscoveryDevice.Capture(discovery,
-            _allResults.FirstOrDefault(row => row.IdentityKey == discovery.IdentityKey))).ToArray();
+            rows[discovery.IdentityKey].FirstOrDefault())).ToArray();
         _discoveryNotifications.CompleteScan(devices, IsMinimized);
     }
 
@@ -84,12 +85,22 @@ public sealed partial class MainWindow
         if (_discoveryNotificationsClosed) return;
         _pendingDiscoveryActivation = argument;
         _openingDiscoveryNotification = true;
-        if (!WindowsDiscoveryNotifications.RestoreAndFocus(this))
+        try
         {
-            _windowsNotificationMessage = "Windows did not allow FingVibe to take foreground focus. The discovery list is still available in this window.";
-            UpdateScanStatus();
+            if (!WindowsDiscoveryNotifications.RestoreAndFocus(this))
+                ReportDiscoveryNotificationFailure("Windows did not allow FingVibe to take foreground focus. The discovery list is still available in this window.");
+        }
+        catch (Exception exception) when (WindowsDiscoveryNotifications.IsIntegrationFailure(exception))
+        {
+            ReportDiscoveryNotificationFailure($"Unable to restore the discovery notification window: {exception.Message}");
         }
         OpenPendingDiscoveryNotification();
+    }
+
+    internal void ReportDiscoveryNotificationFailure(string message)
+    {
+        _windowsNotificationMessage = message;
+        UpdateScanStatus();
     }
 
     private async void OpenPendingDiscoveryNotification()
@@ -129,8 +140,13 @@ public sealed partial class MainWindow
             MaxHeight = Math.Max(180, Math.Min(620, RootGrid.ActualHeight - 100)),
             RequestedTheme = RootGrid.ActualTheme
         };
-        content.SetDiscoveries(discoveries.Select(device =>
-            new DiscoveryPopupItem(device, _allResults.Any(row => row.IdentityKey == device.IdentityKey))).ToArray(), deferred);
+        void RefreshDetailsAvailability()
+        {
+            var available = _allResults.Select(row => row.IdentityKey).ToHashSet(StringComparer.Ordinal);
+            content.SetDiscoveries(discoveries.Select(device =>
+                new DiscoveryPopupItem(device, available.Contains(device.IdentityKey))).ToArray(), deferred);
+        }
+        RefreshDetailsAvailability();
         var activationRequest = _renderingDiscoveryActivation ? _discoveryActivation.Current : null;
         content.Loaded += (_, _) =>
         {
@@ -150,6 +166,7 @@ public sealed partial class MainWindow
             var row = _allResults.FirstOrDefault(item => item.IdentityKey == identity);
             if (row is null)
             {
+                RefreshDetailsAvailability();
                 _windowsNotificationMessage = "Discovery details are unavailable: the device is not in the displayed results.";
                 UpdateScanStatus();
                 return;
