@@ -40,7 +40,8 @@ foreach ($case in @(
     }
     if ($case.Id -eq 'VendorFilter') {
         $vendorText = Get-VisibleDeviceChild (@(Get-DeviceRows)[0]) AutomationId DeviceVendorText
-        if (-not $vendorText -or $vendorText.Current.Name -ne 'Unknown' -or
+        # Cell previews append their explanation to the automation name.
+        if (-not $vendorText -or $vendorText.Current.Name -notmatch '^Unknown(?:\r?\n|$)' -or
             $vendorText.Current.HelpText -notlike '*Manufacturer not identified*') {
             throw 'Unknown vendor cells must retain an accessible explanation.'
         }

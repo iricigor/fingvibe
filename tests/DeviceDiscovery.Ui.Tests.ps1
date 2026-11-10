@@ -401,6 +401,10 @@ try {
         throw "Cleared Status selection was not restored."
     }
     (Find-DiscoveryControl InventoryStatusFilter).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Wait-DiscoveryState {
+        $any = Find-DiscoveryControl InventoryStatusFilterAny -Optional
+        $any -and -not $any.Current.IsOffscreen
+    } "visible Any Status choice"
     (Find-DiscoveryControl InventoryStatusFilterAny).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
     Wait-DiscoveryState {
         (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: Any"
