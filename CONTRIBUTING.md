@@ -38,10 +38,20 @@ Extracted pages have separate WinUI XAML namescopes and compiled-binding roots. 
 
 Devices and Sidebar keep their existing test entry points; focused behavior
 modules live in `tests/UiRegression`. Keep shared lifecycle/readiness/input
-helpers separate from feature assertions. Entry points dot-source scenario
-modules at script scope, in the recorded order, because scenarios share fixture,
+helpers separate from feature assertions. Sidebar dot-sources scenario modules
+at script scope, in the recorded order, because scenarios share fixture,
 selection and rendering state. Do not invoke them through a new function scope
 or append unrelated feature matrices to the baseline.
+
+Devices modules run in independent groups declared in
+`tests/UiRegression/Devices.Groups.psd1`. Each group runs on its own CI runner
+as a `devices-<group>` matrix job, in parallel with the others. Every group
+starts its own fixture and app through the `Setup` and `Ready` preconditions.
+Modules within a group share state in their original relative order, and no
+state carries from one group to the next. Put a new Devices module in the group
+whose state it needs, or add a group if it is independent. Do not rely on state
+from another group. `DevicesList.Ui.Tests.ps1 -Group <name>` runs one group;
+the default `All` runs every group in sequence.
 
 Use the shared bounded waits, visible/nonempty page-scoped lookup, isolated
 fixture directories, normal shutdown and process-specific cleanup. Reacquire
