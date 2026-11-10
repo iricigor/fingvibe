@@ -438,8 +438,10 @@ function Assert-HistoryTableRendering([string] $Capture) {
     try {
         $stripeColors = @()
         $states = @{}
+        # Bounds are clipped to the visible area; only rows at full height have their whole status dot rendered.
+        $fullHeight = ($items | ForEach-Object { $_.Current.BoundingRectangle.Height } | Measure-Object -Maximum).Maximum
         foreach ($item in $items) {
-            if ($item.Current.IsOffscreen) { continue }
+            if ($item.Current.IsOffscreen -or $item.Current.BoundingRectangle.Height -lt $fullHeight - 1) { continue }
             $texts = $item.FindAll([System.Windows.Automation.TreeScope]::Descendants,
                 [System.Windows.Automation.PropertyCondition]::new(
                     [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
