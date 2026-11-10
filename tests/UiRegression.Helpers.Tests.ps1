@@ -1,5 +1,6 @@
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'UiRegression\Helpers.ps1')
+. (Join-Path $PSScriptRoot 'UiRegression\Sidebar.PeopleRooms.Helpers.ps1')
 
 function Assert-Regression([bool] $Condition, [string] $Message) {
     if (-not $Condition) { throw $Message }
@@ -28,6 +29,37 @@ foreach ($condition in @({ $false }, { $null }, {})) {
 Assert-RegressionFailure { Wait-UiRegressionState -Description 'unexpected error' -Condition { throw 'unexpected condition error' } } 'unexpected condition error'
 
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+& {
+    $state = @{ Observations = 0; Invocations = 0 }
+    $dialog = [pscustomobject]@{ Current = [pscustomobject]@{
+        IsOffscreen = $false
+        BoundingRectangle = [pscustomobject]@{ IsEmpty = $false; Width = 100; Height = 100 }
+    } }
+    $root = [pscustomobject]@{}
+    $root | Add-Member ScriptMethod FindFirst {
+        param($Scope, $Match)
+        $state.Observations++
+        if ($state.Observations -lt 3) { return $dialog }
+        return $null
+    }
+    $invoke = [pscustomobject]@{}
+    $invoke | Add-Member ScriptMethod Invoke { $state.Invocations++ }
+    $button = [pscustomobject]@{}
+    $button | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $invoke }
+    function Find-PeopleRoomsElement {
+        param($Property, $Value, $OwnerId)
+        Assert-Regression ($OwnerId -eq 'PeopleRoomsDialog') 'Dialog actions must not fall back to a same-named button on the underlying detail page.'
+        return $button
+    }
+    foreach ($action in @('Cancel', 'Delete')) {
+        $state.Observations = 0
+        Invoke-PeopleRoomsElement Name $action
+        Assert-Regression ($state.Observations -eq 3) "$action must await actual dialog dismissal before another dialog or page lookup."
+    }
+    $state.Observations = 0
+    Invoke-PeopleRoomsElement Name Save
+    Assert-Regression ($state.Observations -eq 0 -and $state.Invocations -eq 3) 'Save must allow validation and persistence errors to retain their dialog.'
+}
 & {
     function New-TestRectangle([double] $Left, [double] $Top, [double] $Width, [double] $Height) {
         [pscustomobject]@{

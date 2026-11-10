@@ -41,10 +41,34 @@ Hiding the second filter row does **not** clear it. The funnel count shows activ
 secondary categories. Status is remembered after restart; search and the other
 categories are not.
 
+**Any** means any known value, not every value. It appears immediately after
+Unknown, Unassigned or Unclassified when that dropdown offers at least two
+known choices. Selecting Any replaces individual choices; selecting an
+individual choice replaces Any. Clearing the category still includes everything.
+For Person/Room, Any means assigned; for Usage category, it excludes
+Unclassified. For Vendor, it includes identified manufacturers and excludes
+both Unknown and Randomized MAC. The threshold counts dropdown choices, not
+devices. An active Any filter keeps its meaning when new values appear.
+Status remembers Any after restart just as it remembers individual statuses.
+
 [![An empty Devices result caused by a search restriction, while inventory totals remain visible](../screenshots/manual/devices-empty.png)](../screenshots/manual/devices-empty.png)
 
 *The sample search matches no device. It does not mean the inventory is empty.
 [Screenshot sources](screenshots.md).*
+
+## Usage category
+
+The category uses one line. A small pin marks a manual override; an information
+indicator marks a limited automatic estimate or unavailable evidence.
+Unclassified is visually quieter, not a confirmed category or an error.
+Hover for an explanation, or focus the category button and press Enter/Space
+to open its details. They include the source, reason, eligible scan counts,
+observation period and missing evidence. Loading and Unavailable remain explicit;
+no eligible scans never produces a made-up percentage.
+
+The column does not add a second row of repeated source text or change the
+classification rules. See [History and usage categories](history.md#usage-categories)
+for the rules and manual overrides.
 
 ## Sort and resize
 
@@ -55,6 +79,8 @@ Person and Room sort by full name, not by the short label.
 Drag a column boundary to resize it. Use
 [Settings](settings.md#choose-device-columns) to show, hide, or combine columns.
 **Name** and **IP address** always remain visible.
+The final visible column keeps a right-edge separator and resize handle.
+Space beyond it is unused table space, not an automatically enlarged column.
 
 ## Response times and service icons
 
@@ -81,9 +107,15 @@ Age text refreshes while Devices is open; it does not run another scan.
 
 ## Private and virtual devices
 
-**Private MAC** means a locally administered MAC address. It is not a known
-manufacturer and does not prove that an address changes randomly.
-**Private** as a vendor can mean an undisclosed IEEE registrant.
+**Randomized MAC** is the display label for a locally administered MAC address.
+It is not a known manufacturer and does not prove random generation or rotation:
+the address may also have been assigned manually. Its explanation states this
+limitation.
+
+**Unknown** means FingVibe has not identified the manufacturer. This also covers
+a raw IEEE registry entry of **Private**; the explanation preserves that
+distinction without claiming that other information cannot identify the device.
+Saved manufacturer corrections and imported brands still take precedence.
 
 A multiple-PC icon can mark a **virtual device**: FingVibe's inferred identity
 for certain sparse private-prefix observations across changing MAC addresses.

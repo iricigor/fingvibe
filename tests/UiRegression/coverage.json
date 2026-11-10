@@ -333,7 +333,8 @@
             ]
           ],
           "baselineSha256": "6ffef120b18436d6955ca1a0f6020b87e205ca2cbd6eb30a179eae623a4a73b8",
-          "refactored": false,
+          "refactored": true,
+          "changeReason": "#302 intentionally makes UsageOnly one line; all density cases, clipping/selection assertions and captures remain.",
           "functions": [
             {
               "assertions": [
@@ -385,7 +386,7 @@
                 "c581c4fc342c15b3ec440a8d6c52d769eedd7ce07a0c1f78aa5d072bf7e5a0a1"
               ],
               "name": "Test-RowDensity",
-              "refactored": false,
+              "refactored": true,
               "baselineSha256": "63d96a48ec01ef18a038e601343e75c41919388a70f916e0cf32b1b678ae9995"
             },
             {
@@ -517,6 +518,20 @@
           "fixtureAssignments": []
         },
         {
+          "file": "Devices.Refinements.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [],
+          "refactored": true,
+          "introducedBy": "#302: Any-known selection, accessible one-line usage details, and the final-column boundary.",
+          "functions": [],
+          "captures": [
+            "e32140f958dd8380a2a38ed4672ec848b08406cfe5fd53b2144c3441301044e2",
+            "b96e6e8374b5075fd473ea16d710b4acb73da9a1d5a7c96bee1a4c46a6621966",
+            "933f77f4637267f48e453d8fa7535c03d053183254b84f33c1c7bf8860958a56"
+          ],
+          "fixtureAssignments": []
+        },
+        {
           "file": "Devices.Columns.Scenario.ps1",
           "kind": "scenario",
           "originalRanges": [
@@ -578,7 +593,8 @@
             1542
           ],
           "baselineSha256": "a3df8ad2659d63a0392e12904626d7feac7d58b1f3dfaf44a9e1b68c29915380",
-          "refactored": false,
+          "refactored": true,
+          "changeReason": "#302 explicitly requires the final divider to remain visible. Both header pixel checks and the keyboard-resize assertion are retained with the new expected appearance.",
           "functions": [],
           "captures": [
             "db8c2205173613efe593ac26c6973a91749f471e19e22db6bd9f2c606b4b5373",
@@ -608,6 +624,7 @@
         "Setup",
         "Overview",
         "Filters",
+        "Refinements",
         "Columns",
         "Previews",
         "Layout",
@@ -1211,6 +1228,7 @@
     "Definitions, behavioral assertions, capture call sites and module order are mapped to the immutable baseline. Hashes normalize CRLF and outer whitespace. Baseline scenario ranges first remove their enclosing try block four-space indentation, exactly as extraction did.",
     "Explicit refactored functions migrate readiness, scoping, capture timing and process cleanup. Setup creates isolated fixtures; Test-DeviceRefresh rejects the normal user snapshot fallback. All other function bodies and scenarios remain byte-equivalent after normalization.",
     "The shared-state top-level modules run at entry script scope in original order. These structural checks supplement, and never replace, disposable native evidence.",
-    "PeopleRooms is additional #284 coverage between Progress and Persistence; it preserves the relative order and assertions of every baseline scenario."
+    "PeopleRooms is additional #284 coverage between Progress and Persistence; it preserves the relative order and assertions of every baseline scenario.",
+    "#302 adds Devices Refinements between Filters and Columns without changing the existing fixture or relative baseline order. It verifies exact Any/missing/unrestricted counts, exclusive selection, the assignment choice threshold, keyboard-opened usage evidence, a rendered final-column separator and fixed-width resizing. Test-RowDensity retains its original hashes/provenance, cases, assertions and captures; only UsageOnly's intended one-line height expectations change. The Interaction scenario's existing pixel/resize check now requires the final divider to be visible, following the user's explicit clarification; no capture or behavior case is removed."
   ]
 }

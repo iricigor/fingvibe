@@ -173,4 +173,99 @@ public sealed class DeviceResultFilterTests
         Assert.False((all with { Statuses = new HashSet<InventoryDeviceStatus> { InventoryDeviceStatus.FingOnly } }).Matches(row));
         Assert.True((all with { Statuses = new HashSet<InventoryDeviceStatus>() }).Matches(row));
     }
+
+    [Theory]
+    [InlineData("Unknown", false)]
+    [InlineData("Private", false)]
+    [InlineData("private", false)]
+    [InlineData("Private/Randomized", false)]
+    [InlineData("", false)]
+    [InlineData("-", false)]
+    [InlineData("Identified manufacturer", true)]
+    public void AnyVendorUsesEffectiveIdentificationWithoutChangingRawEvidence(string vendor, bool expected)
+    {
+        var row = new ScanResultRow(new ScanResult(IPAddress.Parse("192.0.2.1"),
+            HostStatus.Alive, 1, TimeSpan.Zero, VendorName: vendor), 24);
+        Assert.Equal(expected, new DeviceResultFilter(false, false, "") { AnyKnownVendor = true }.Matches(row));
+        Assert.Equal(vendor, row.VendorText);
+        row.SetClassificationOverride(new(Brand: "Saved manufacturer"));
+        Assert.True(new DeviceResultFilter(false, false, "") { AnyKnownVendor = true }.Matches(row));
+    }
+
+    [Fact]
+    public void VendorPlaceholdersRemainIndividuallySelectableAndUnknownIncludesPrivateRegistryResults()
+    {
+        var unknown = new DeviceResultFilter(false, false, "") { Vendors = new HashSet<string> { "Unknown" } };
+        var randomized = unknown with { Vendors = new HashSet<string> { "Private/Randomized" } };
+        foreach (var vendor in new[] { "Unknown", "Private", "Private/Randomized", "Example" })
+        {
+            var row = new ScanResultRow(new ScanResult(IPAddress.Parse("192.0.2.1"),
+                HostStatus.Alive, 1, TimeSpan.Zero, VendorName: vendor), 24);
+            Assert.Equal(vendor is "Unknown" or "Private", unknown.Matches(row));
+            Assert.Equal(vendor == "Private/Randomized", randomized.Matches(row));
+            Assert.True(new DeviceResultFilter(false, false, "").Matches(row));
+        }
+    }
+
+    [Fact]
+    public void AnyStatusIncludesFingOnlyButNotHistoricalUnknown()
+    {
+        var filter = new DeviceResultFilter(false, false, "") { AnyKnownStatus = true };
+        Assert.True(filter.Matches(Row(HostStatus.Alive, false)));
+        Assert.True(filter.Matches(Row(HostStatus.Unreachable, false)));
+        var historical = new ScanResultRow(new ScanResult(IPAddress.Parse("192.0.2.1"),
+            HostStatus.Alive, 1, TimeSpan.Zero), 24, historical: true);
+        Assert.Equal(InventoryDeviceStatus.Unknown, historical.Status);
+        Assert.False(filter.Matches(historical));
+        var imported = new ScanResultRow(new InventoryDevice("001122334455",
+            new ImportedDeviceMetadata(Name: "Imported device"), []), 24);
+        Assert.Equal(InventoryDeviceStatus.FingOnly, imported.Status);
+        Assert.True(filter.Matches(imported));
+        Assert.True(filter.HasRestrictions);
+        Assert.Equal(0, filter.ActiveSecondaryCategoryCount);
+    }
+
+    [Fact]
+    public void AnyKnownCategoriesCombineAndFollowNewlyAssignedValues()
+    {
+        var row = Row(HostStatus.Alive, true);
+        var filter = new DeviceResultFilter(false, true, "router")
+        {
+            AnyKnownStatus = true, AnyKnownType = true, AnyKnownOperatingSystem = true,
+            AnyKnownVendor = true, AnyAssignedPerson = true, AnyAssignedRoom = true,
+            AnyClassifiedUsage = true
+        };
+        Assert.False(filter.Matches(row));
+        row.SetClassificationOverride(new(DeviceOperatingSystem.Android, DeviceType.Phone, Brand: "Example"));
+        row.SetPeopleRoomAssignments(Guid.NewGuid(), "A", "First", Guid.NewGuid(), "R", "Room");
+        row.SetUsageCategory(DeviceUsageCategory.Personal, null, "");
+        Assert.True(filter.Matches(row));
+        Assert.Equal(7, filter.ActiveSecondaryCategoryCount);
+        Assert.False((filter with { SearchText = "missing" }).Matches(row));
+
+        row.SetPeopleRoomAssignments(Guid.NewGuid(), "B", "New person", Guid.NewGuid(), "N", "New room");
+        Assert.True(filter.Matches(row));
+        row.SetPeopleRoomAssignments(null, null, null, Guid.NewGuid(), "N", "New room");
+        Assert.False(filter.Matches(row));
+        Assert.True((filter with { AnyAssignedPerson = false }).Matches(row));
+        row.SetPeopleRoomAssignments(Guid.NewGuid(), "B", "New person", null, null, null);
+        Assert.False(filter.Matches(row));
+        Assert.True((filter with { AnyAssignedRoom = false }).Matches(row));
+    }
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData(DeviceUsageCategory.Unclassified, false)]
+    [InlineData(DeviceUsageCategory.Permanent, true)]
+    [InlineData(DeviceUsageCategory.Personal, true)]
+    [InlineData(DeviceUsageCategory.Guest, true)]
+    public void AnyUsageExcludesUnclassifiedAndUnavailableWithoutChangingTheCategory(
+        DeviceUsageCategory? category, bool expected)
+    {
+        var row = Row(HostStatus.Alive, false);
+        row.SetUsageCategory(category, null, "No evidence loaded");
+        Assert.Equal(expected, new DeviceResultFilter(false, false, "") { AnyClassifiedUsage = true }.Matches(row));
+        Assert.Equal(category, row.EffectiveUsageCategory);
+        Assert.True(new DeviceResultFilter(false, false, "").Matches(row));
+    }
 }

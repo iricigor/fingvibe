@@ -111,12 +111,28 @@ public sealed class ScanResultRowTests
     {
         var row = new ScanResultRow(new ScanResult(IPAddress.Parse("192.0.2.1"),
             HostStatus.Alive, 2, TimeSpan.FromMilliseconds(2), VendorName: "Private/Randomized"), 24);
-        Assert.Equal("Private MAC", row.VendorDisplayText);
+        Assert.Equal("Randomized MAC", row.VendorDisplayText);
         Assert.Equal("Private/Randomized", row.VendorText);
-        Assert.Contains("manufacturer cannot be reliably determined", row.VendorDescription);
-        Assert.True(row.MatchesFilter("Private MAC"));
+        Assert.Contains("Locally administered", row.VendorDescription);
+        Assert.Contains("does not prove random generation or rotation", row.VendorDescription);
+        Assert.True(row.MatchesFilter("Randomized MAC"));
         Assert.False(row.IsVirtualIdentity);
         Assert.Empty(row.VirtualIdentityDescription);
+    }
+
+    [Fact]
+    public void PrivateRegistryVendorLooksUnknownWithoutChangingIdentityOrOverridingKnownMetadata()
+    {
+        var row = new ScanResultRow(new ScanResult(IPAddress.Parse("192.0.2.1"),
+            HostStatus.Alive, 1, TimeSpan.Zero, VendorName: "Private"), 24);
+        Assert.Equal("Private", row.VendorText);
+        Assert.Equal("Unknown", row.VendorDisplayText);
+        Assert.Equal(0.65, row.VendorOpacity);
+        Assert.Contains("registry lists this prefix as Private", row.VendorDescription);
+        Assert.True(row.MatchesFilter("Unknown"));
+        row.SetClassificationOverride(new(Brand: "Known manufacturer"));
+        Assert.Equal("Known manufacturer", row.VendorDisplayText);
+        Assert.Equal(1, row.VendorOpacity);
     }
 
     [Fact]

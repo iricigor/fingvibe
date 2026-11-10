@@ -15,6 +15,7 @@ public sealed partial class MainWindow
     private bool _deviceTableLoadFailed;
     private bool _deviceTableSettingsReady;
     private InventoryDeviceStatus[] _savedStatusFilters = [];
+    private bool _savedStatusAnyKnown;
 
     private void InitializeDeviceTableSettings()
     {
@@ -27,7 +28,7 @@ public sealed partial class MainWindow
                 if (_deviceTableStore.Load() is { } settings)
                 {
                     columns.Restore(settings);
-                    DevicesPage.RestoreStatusFilters(settings.StatusFilters ?? []);
+                    DevicesPage.RestoreStatusFilters(settings.StatusFilters ?? [], settings.StatusAnyKnown);
                     migrateDensity = settings.DensityVersion == 0;
                 }
             }
@@ -38,6 +39,7 @@ public sealed partial class MainWindow
             }
         }
         _savedStatusFilters = DevicesPage.StatusFilters.Order().ToArray();
+        _savedStatusAnyKnown = DevicesPage.StatusAnyKnown;
         _deviceTableSettingsReady = true;
         columns.SettingsChanged += DeviceTableSettings_Changed;
         Closed += (_, _) => columns.SettingsChanged -= DeviceTableSettings_Changed;
@@ -50,8 +52,13 @@ public sealed partial class MainWindow
         try
         {
             var statuses = DevicesPage.StatusFilters.Order().ToArray();
-            _deviceTableStore.Save(DeviceColumnLayout.Current.Capture() with { StatusFilters = statuses });
+            _deviceTableStore.Save(DeviceColumnLayout.Current.Capture() with
+            {
+                StatusFilters = statuses,
+                StatusAnyKnown = DevicesPage.StatusAnyKnown
+            });
             _savedStatusFilters = statuses;
+            _savedStatusAnyKnown = DevicesPage.StatusAnyKnown;
             SettingsPage.ColumnSaveStatus = "Table preferences are saved automatically.";
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
@@ -63,7 +70,8 @@ public sealed partial class MainWindow
     private void SaveStatusFilterSettings()
     {
         if (!_deviceTableSettingsReady) return;
-        if (!DevicesPage.StatusFilters.Order().SequenceEqual(_savedStatusFilters))
+        if (DevicesPage.StatusAnyKnown != _savedStatusAnyKnown
+            || !DevicesPage.StatusFilters.Order().SequenceEqual(_savedStatusFilters))
             DeviceTableSettings_Changed(this, EventArgs.Empty);
     }
 }

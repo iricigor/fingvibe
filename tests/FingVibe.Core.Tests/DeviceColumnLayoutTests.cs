@@ -62,12 +62,31 @@ public sealed class DeviceColumnLayoutTests
             var stacked = (layout.CombineNameType && layout.Type.IsVisible)
                 || (layout.CombineAddresses && layout.Mac.IsVisible)
                 || (layout.CombineVendorOs && layout.Vendor.IsVisible && layout.OperatingSystem.IsVisible)
-                || (layout.CombinePersonRoom && layout.Person.IsVisible && layout.Room.IsVisible)
-                || layout.UsageCategory.IsVisible;
+                || (layout.CombinePersonRoom && layout.Person.IsVisible && layout.Room.IsVisible);
             Assert.Equal(stacked, layout.HasStackedColumns);
             Assert.Equal(compact ? (stacked ? 36 : 30) : (stacked ? 40 : 34), layout.RowMinimumHeight);
             Assert.Equal(compact ? 1 : 4, layout.RowVerticalPadding);
         }
+    }
+
+    [Theory]
+    [InlineData(true, 30)]
+    [InlineData(false, 34)]
+    public void UsageCategoryDoesNotAddASecondLineOrChangeConfiguredWidths(bool compact, double height)
+    {
+        var layout = new DeviceColumnLayout
+        {
+            CompactRows = compact, CombineNameType = false, CombineAddresses = false
+        };
+        layout.UsageCategory.Width = 220;
+        var widths = layout.Capture().Columns;
+        Assert.True(layout.UsageCategory.IsVisible);
+        Assert.False(layout.HasStackedColumns);
+        Assert.Equal(height, layout.RowMinimumHeight);
+        layout.UsageCategory.IsVisible = false;
+        Assert.Equal(height, layout.RowMinimumHeight);
+        layout.UsageCategory.IsVisible = true;
+        Assert.Equal(widths, layout.Capture().Columns);
     }
 
     [Fact]
@@ -175,7 +194,7 @@ public sealed class DeviceColumnLayoutTests
     }
 
     [Fact]
-    public void VendorOs_SeparatorTracksPhysicalColumnsWithoutEmptyOsAllocation()
+    public void VendorOs_TracksPhysicalColumnOrderWithoutEmptyOsAllocation()
     {
         var layout = new DeviceColumnLayout { CombineVendorOs = true };
         foreach (var column in layout.All.Where(column =>
@@ -218,7 +237,7 @@ public sealed class DeviceColumnLayoutTests
     }
 
     [Fact]
-    public void LastVisibleColumn_HasNoSeparatorButRemainsResizable()
+    public void LastVisibleColumn_TracksOrderingAndRemainsResizable()
     {
         var layout = new DeviceColumnLayout();
         Assert.False(layout.LastSeen.HasFollowingVisibleColumn);

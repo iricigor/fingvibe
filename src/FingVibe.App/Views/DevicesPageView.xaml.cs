@@ -33,19 +33,26 @@ public sealed partial class DevicesPageView : UserControl
         Loaded += (_, _) => UpdateLastSeenAgeRefresh();
         Unloaded += (_, _) => _lastSeenAges.SetActive(false);
         RegisterPropertyChangedCallback(VisibilityProperty, (_, _) => UpdateLastSeenAgeRefresh());
-        _statuses = new(InventoryStatusFilter, "Status", OnFiltersChanged);
-        _types = new(TypeFilter, "Device type", OnFiltersChanged);
-        _operatingSystems = new(OperatingSystemFilter, "Operating system", OnFiltersChanged);
-        _vendors = new(VendorFilter, "Vendor", OnFiltersChanged, StringComparer.OrdinalIgnoreCase);
-        _people = new(PersonFilter, "Person", OnFiltersChanged);
-        _rooms = new(RoomFilter, "Room", OnFiltersChanged);
-        _usageCategories = new(UsageCategoryFilter, "Usage category", OnFiltersChanged);
+        _statuses = new(InventoryStatusFilter, "Status", OnFiltersChanged,
+            InventoryDeviceStatus.Unknown, "Any status except Unknown.");
+        _types = new(TypeFilter, "Device type", OnFiltersChanged,
+            DeviceType.Unknown, "Any known device type, excluding Unknown.");
+        _operatingSystems = new(OperatingSystemFilter, "Operating system", OnFiltersChanged,
+            DeviceOperatingSystem.Unknown, "Any known operating system, excluding Unknown.");
+        _vendors = new(VendorFilter, "Vendor", OnFiltersChanged,
+            DeviceVendorPresentation.Unknown, "Any identified vendor, excluding Unknown and Randomized MAC.",
+            StringComparer.OrdinalIgnoreCase, DeviceVendorPresentation.IsKnown);
+        _people = new(PersonFilter, "Person", OnFiltersChanged, null, "Any assigned person, excluding Unassigned.");
+        _rooms = new(RoomFilter, "Room", OnFiltersChanged, null, "Any assigned room, excluding Unassigned.");
+        _usageCategories = new(UsageCategoryFilter, "Usage category", OnFiltersChanged,
+            DeviceUsageCategory.Unclassified, "Any classified usage category, excluding Unclassified.");
         _usageCategories.SetChoices(Enum.GetValues<DeviceUsageCategory>().Select(value => (value, value.ToString())));
         _statuses.SetChoices([
             (InventoryDeviceStatus.Online, "Online"), (InventoryDeviceStatus.Offline, "Offline"),
             (InventoryDeviceStatus.Unknown, "Unknown"), (InventoryDeviceStatus.FingOnly, "Fing Only")]);
         _types.SetChoices(Enum.GetValues<DeviceType>().Select(value => (value, value.Label())));
         _operatingSystems.SetChoices(Enum.GetValues<DeviceOperatingSystem>().Select(value => (value, value.Label())));
+        SetVendorFilters([]);
         _people.SetChoices([(null, "Unassigned")]);
         _rooms.SetChoices([(null, "Unassigned")]);
         _filtersReady = true;
@@ -68,11 +75,16 @@ public sealed partial class DevicesPageView : UserControl
         }
     }
     internal IReadOnlySet<InventoryDeviceStatus> StatusFilters => _statuses.Selected;
+    internal bool StatusAnyKnown => _statuses.AnyKnown;
 
-    internal void RestoreStatusFilters(IEnumerable<InventoryDeviceStatus> statuses)
+    internal void RestoreStatusFilters(IEnumerable<InventoryDeviceStatus> statuses, bool anyKnown = false)
     {
         _updatingFilters = true;
-        try { _statuses.SelectOnly(statuses); }
+        try
+        {
+            _statuses.SelectOnly(statuses);
+            if (anyKnown) _statuses.SelectAny();
+        }
         finally { _updatingFilters = false; }
         OnFiltersChanged();
     }
@@ -90,12 +102,23 @@ public sealed partial class DevicesPageView : UserControl
         Vendors = _vendors.Selected,
         People = _people.Selected,
         Rooms = _rooms.Selected,
-        UsageCategories = _usageCategories.Selected
+        UsageCategories = _usageCategories.Selected,
+        AnyKnownStatus = _statuses.AnyKnown,
+        AnyKnownType = _types.AnyKnown,
+        AnyKnownOperatingSystem = _operatingSystems.AnyKnown,
+        AnyKnownVendor = _vendors.AnyKnown,
+        AnyAssignedPerson = _people.AnyKnown,
+        AnyAssignedRoom = _rooms.AnyKnown,
+        AnyClassifiedUsage = _usageCategories.AnyKnown
     };
 
     internal void SetVendorFilters(IEnumerable<string> vendors) =>
-        _vendors.SetChoices(vendors.Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(value => value, StringComparer.OrdinalIgnoreCase).Select(value => (value, value)));
+        _vendors.SetChoices(vendors.Select(DeviceVendorPresentation.FilterValue)
+            .Concat([DeviceVendorPresentation.Unknown, DeviceVendorPresentation.Randomized])
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(value => value == DeviceVendorPresentation.Unknown ? 0 : 1)
+            .ThenBy(value => DeviceVendorPresentation.DisplayText(value), StringComparer.OrdinalIgnoreCase)
+            .Select(value => (value, DeviceVendorPresentation.DisplayText(value))));
 
     internal void SetResults(IEnumerable<ScanResultRow> results)
     {
@@ -387,41 +410,42 @@ public sealed partial class DevicesPageView : UserControl
         private readonly DropDownButton _button;
         private readonly string _category;
         private readonly Action _changed;
-        private readonly HashSet<T> _selected;
-        private List<(T Value, string Label)> _choices = [];
+        private readonly DeviceFilterSelection<T> _selection;
+        private readonly string _anyDescription;
         private readonly List<(T Value, CheckBox CheckBox)> _checks = [];
+        private CheckBox? _anyCheck;
+        private bool _syncing;
 
         internal MultiSelectFilter(DropDownButton button, string category, Action changed,
-            IEqualityComparer<T>? comparer = null)
+            T missingValue, string anyDescription, IEqualityComparer<T>? comparer = null,
+            Func<T, bool>? isKnown = null)
         {
             _button = button;
             _category = category;
             _changed = changed;
-            _selected = new(comparer);
+            _selection = new(missingValue, comparer, isKnown);
+            _anyDescription = anyDescription;
             UpdateLabel();
         }
 
-        internal IReadOnlySet<T> Selected => _selected;
+        internal IReadOnlySet<T> Selected => _selection.Selected;
+        internal bool AnyKnown => _selection.AnyKnown;
 
         internal void SetChoices(IEnumerable<(T Value, string Label)> values)
         {
-            var choices = values.ToList();
-            // Retain selected values during inventory/assignment refreshes instead of silently clearing restrictions.
-            choices.AddRange(_choices.Where(choice => _selected.Contains(choice.Value)
-                && !choices.Any(value => _selected.Comparer.Equals(value.Value, choice.Value))));
-            if (_choices.SequenceEqual(choices)) return;
-            _choices = choices;
+            if (!_selection.SetChoices(values)) return;
             _checks.Clear();
+            _anyCheck = null;
             var panel = new StackPanel();
             AutomationProperties.SetAutomationId(panel, _button.Name + "Choices");
             AutomationProperties.SetName(panel, _category + " choices");
             AutomationProperties.SetAccessibilityView(panel, AccessibilityView.Content);
-            foreach (var (value, label) in choices)
+            foreach (var (value, label) in _selection.Choices)
             {
                 var check = new CheckBox
                 {
                     Content = new TextBlock { Text = label, TextWrapping = TextWrapping.Wrap },
-                    IsChecked = _selected.Contains(value),
+                    IsChecked = Selected.Contains(value),
                     HorizontalAlignment = HorizontalAlignment.Stretch
                 };
                 AutomationProperties.SetName(check, label);
@@ -429,6 +453,23 @@ public sealed partial class DevicesPageView : UserControl
                 check.Unchecked += (_, _) => SetSelected(value, false);
                 panel.Children.Add(check);
                 _checks.Add((value, check));
+                if (_selection.IsMissing(value) && _selection.ShowAnyChoice)
+                {
+                    var any = new CheckBox
+                    {
+                        Content = "Any",
+                        IsChecked = AnyKnown,
+                        HorizontalAlignment = HorizontalAlignment.Stretch
+                    };
+                    AutomationProperties.SetAutomationId(any, _button.Name + "Any");
+                    AutomationProperties.SetName(any, "Any");
+                    AutomationProperties.SetHelpText(any, _anyDescription);
+                    ToolTipService.SetToolTip(any, _anyDescription);
+                    any.Checked += (_, _) => SetAnyKnown(true);
+                    any.Unchecked += (_, _) => SetAnyKnown(false);
+                    panel.Children.Add(any);
+                    _anyCheck = any;
+                }
             }
             _button.Flyout = new Flyout
             {
@@ -445,44 +486,63 @@ public sealed partial class DevicesPageView : UserControl
 
         private void SetSelected(T value, bool selected)
         {
-            if (!(selected ? _selected.Add(value) : _selected.Remove(value))) return;
-            UpdateLabel();
+            if (_syncing || !_selection.SetSelected(value, selected)) return;
+            SyncChecks();
+            _changed();
+        }
+
+        private void SetAnyKnown(bool selected)
+        {
+            if (_syncing || !_selection.SetAnyKnown(selected)) return;
+            SyncChecks();
             _changed();
         }
 
         internal void Toggle(T value)
         {
-            SetSelected(value, !_selected.Contains(value));
+            _selection.SetSelected(value, !Selected.Contains(value));
             SyncChecks();
         }
 
         internal void SelectOnly(IEnumerable<T> values)
         {
-            _selected.Clear();
-            _selected.UnionWith(values);
+            _selection.SelectOnly(values);
+            SyncChecks();
+        }
+
+        internal void SelectAny()
+        {
+            _selection.SetAnyKnown(true);
             SyncChecks();
         }
 
         internal void Clear()
         {
-            _selected.Clear();
+            _selection.Clear();
             SyncChecks();
         }
 
         private void SyncChecks()
         {
-            foreach (var (value, check) in _checks) check.IsChecked = _selected.Contains(value);
+            _syncing = true;
+            try
+            {
+                foreach (var (value, check) in _checks) check.IsChecked = Selected.Contains(value);
+                if (_anyCheck is not null) _anyCheck.IsChecked = AnyKnown;
+            }
+            finally { _syncing = false; }
             UpdateLabel();
         }
 
         private void UpdateLabel()
         {
-            var labels = _choices.Where(choice => _selected.Contains(choice.Value)).Select(choice => choice.Label);
-            var summary = _selected.Count == 0 ? "All" : string.Join(", ", labels);
-            var text = _selected.Count == 0 ? _category : $"{_category} | {summary}";
+            var labels = _selection.Choices.Where(choice => Selected.Contains(choice.Value)).Select(choice => choice.Label);
+            var summary = AnyKnown ? "Any" : Selected.Count == 0 ? "All" : string.Join(", ", labels);
+            var text = _selection.HasRestriction ? $"{_category} | {summary}" : _category;
             _button.Content = new TextBlock { Text = text, TextTrimming = TextTrimming.CharacterEllipsis };
             AutomationProperties.SetName(_button, $"{_category}: {summary}");
-            ToolTipService.SetToolTip(_button, $"{_category}: {summary}");
+            AutomationProperties.SetHelpText(_button, AnyKnown ? _anyDescription : string.Empty);
+            ToolTipService.SetToolTip(_button, AnyKnown ? $"{_category}: {_anyDescription}" : $"{_category}: {summary}");
         }
     }
 

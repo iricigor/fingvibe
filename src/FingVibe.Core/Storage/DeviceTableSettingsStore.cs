@@ -26,7 +26,7 @@ public sealed class DeviceTableSettingsStore(string filePath)
         {
             throw new JsonException("Device table column widths are invalid.");
         }
-        if (!ValidStatuses(settings.StatusFilters))
+        if (!ValidStatuses(settings.StatusFilters, settings.StatusAnyKnown))
             throw new JsonException("Device table Status filter selections are invalid.");
         return settings;
     }
@@ -38,7 +38,7 @@ public sealed class DeviceTableSettingsStore(string filePath)
                 entry.Value is null || !double.IsFinite(entry.Value.Width) || entry.Value.Width < 56
                 || entry.Value.Width > 4096))
             throw new ArgumentException("Device table column widths are invalid.", nameof(settings));
-        if (!ValidStatuses(settings.StatusFilters))
+        if (!ValidStatuses(settings.StatusFilters, settings.StatusAnyKnown))
             throw new ArgumentException("Device table Status filter selections are invalid.", nameof(settings));
         var directory = Path.GetDirectoryName(filePath)
             ?? throw new ArgumentException("The settings path must include a directory.", nameof(filePath));
@@ -59,7 +59,8 @@ public sealed class DeviceTableSettingsStore(string filePath)
         }
     }
 
-    private static bool ValidStatuses(InventoryDeviceStatus[]? statuses) =>
-        statuses is null || statuses.All(status => Enum.IsDefined(status))
-        && statuses.Distinct().Count() == statuses.Length;
+    private static bool ValidStatuses(InventoryDeviceStatus[]? statuses, bool anyKnown) =>
+        (!anyKnown || statuses is null or { Length: 0 })
+        && (statuses is null || statuses.All(status => Enum.IsDefined(status))
+            && statuses.Distinct().Count() == statuses.Length);
 }

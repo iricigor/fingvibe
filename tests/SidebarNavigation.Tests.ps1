@@ -37,6 +37,16 @@ try {
             . (Join-Path $PSScriptRoot "UiRegression\Sidebar.$regressionModule.Scenario.ps1")
             $regressionSucceeded = $true
         }
+        catch {
+            Write-Host $_.ScriptStackTrace
+            if ($root -and $process -and -not $process.HasExited) {
+                $root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.Condition]::TrueCondition) | ForEach-Object {
+                        Write-Host "$($_.Current.AutomationId) | $($_.Current.Name) | offscreen=$($_.Current.IsOffscreen)"
+                    }
+            }
+            throw
+        }
         finally {
             Complete-UiRegressionPhase -Phase $regressionPhase -Directory $ScreenshotDirectory -Succeeded $regressionSucceeded
         }
