@@ -130,7 +130,7 @@ function Show-UiRegressionScrollTargets {
 }
 
 # Device Details shows Overview and History as local tabs; a hidden tab's controls have no UI Automation peers.
-$script:UiRegressionDeviceHistoryPattern = '^(Activity|DeviceScanHistory|VirtualDeviceHistory|DeviceHistoryPanel$|' +
+$script:UiRegressionDeviceHistoryPattern = '^(Activity|DeviceScanHistory|VirtualDeviceHistory|' +
     'DeviceHistory(Scope|Latest|Newer|Older|PageStatus)$|Refresh activity$|Completed Scan Observations$|' +
     'Newer scans$|Older scans$|MAC and address history$|Device activity grid$|Completed scan history)'
 
@@ -165,10 +165,12 @@ function Select-UiRegressionDeviceTab {
         }
         else { $selection.Select() }
     }
+    # Panels have no UI Automation peers; tab-owned text controls prove which panel is realized.
+    $sentinel = @{ Overview = "DeviceHistorySummaryScope"; History = "DeviceHistoryScope" }
+    $hidden = if ($Tab -eq "History") { "Overview" } else { "History" }
     $null = Wait-UiRegressionState -Description "Device Details $Tab tab" -Condition {
-        $panel = & $byId "Device${Tab}Panel"
         $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected -and
-            $panel -and -not $panel.Current.IsOffscreen
+            (& $byId $sentinel[$Tab]) -and -not (& $byId $sentinel[$hidden])
     }
     return $true
 }

@@ -139,7 +139,7 @@ function Show-UiReviewCaptureScenario {
             $null = Find-WebDriverElement -Using name -Value "Device identification"
             $null = Find-WebDriverElement -Using name -Value "Scan additional ports"
             if ($Scenario -eq "DeviceHistory") {
-                $tabId = Assert-VisibleUiReviewElement -Using "accessibility id" -Value "DeviceHistoryTab"
+                $tabId = Assert-VisibleUiReviewElement -Using xpath -Value "//*[@AutomationId='DeviceHistoryTab']"
                 Invoke-WebDriverElement -ElementId $tabId
                 $null = Assert-VisibleUiReviewElement -Value "Activity"
             }

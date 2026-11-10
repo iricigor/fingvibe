@@ -55,8 +55,9 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     foreach ($id in @("DeviceActivityCard", "DeviceHistoryScope", "DeviceHistoryLatest", "DeviceScanHistoryExpander", "VirtualDeviceHistoryCard")) {
         if (-not $historyPanel.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must be on the History tab." }
     }
-    if ($page.SelectSingleNode("//*[@x:Name='DevicePage']//*[@x:Name='DeviceNameEditor']", $namespaces)) {
-        throw "The name editor must stay in the shared header above the tabs."
+    $header = $page.SelectSingleNode("//*[@x:Name='DeviceNameEditor']", $namespaces).ParentNode
+    if ($header.NextSibling -ne $tabs -or $tabs.ParentNode.ParentNode.GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml") -cne "DevicePage") {
+        throw "The name and rename editor must precede the tabs inside the shared details scroll area."
     }
     $detailsCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml.cs") -Raw
     if ($detailsCode -notmatch '(?s)internal void ShowDevice\(.*?DetailsTabs\.SelectedItem = OverviewTab;') {
@@ -801,6 +802,7 @@ try {
         if ($Using -eq "xpath") {
             if ($Value -match "^//ListItem\[@Name='(.+)'\]$") { return "menu-$($Matches[1])" }
             if ($Value -eq "//List[@Name='Scan results']/ListItem[.//*[@Name='Online']][1]") { return "online-row" }
+            if ($Value -eq "//*[@AutomationId='DeviceHistoryTab']") { return "control-DeviceHistoryTab" }
             if ($Value -eq "//List[@Name='People']/ListItem[.//*[@Name='UI review person']]") { return "person-row" }
             if ($Value -eq "//List[@Name='Rooms']/ListItem[.//*[@Name='UI review room']]") { return "room-row" }
             if ($Value -eq "//Button[@Name='About FingVibe']") { return "control-About FingVibe" }

@@ -172,7 +172,7 @@ function Open-HistoryDetails([string] $Name) {
         $scroll -and -not $scroll.Current.IsOffscreen
     } "details for $Name"
     $overview = (Find-HistoryControl DeviceOverviewTab).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
-    if (-not $overview.Current.IsSelected -or (Find-HistoryControl DeviceHistoryPanel -Optional -NoTabSwitch)) {
+    if (-not $overview.Current.IsSelected -or (Find-HistoryControl DeviceHistoryScope -Optional -NoTabSwitch)) {
         throw "Opening a device must start on its Overview tab."
     }
     foreach ($id in @("DeviceScanHistoryExpander", "DeviceImportedMetadata")) {

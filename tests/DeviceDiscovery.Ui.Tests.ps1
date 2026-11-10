@@ -191,8 +191,8 @@ try {
         $expectedName = if ($target -eq "001122334466") { "Imported discovery" } else { "Private D0-C9-07" }
         $nameCondition = [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::NameProperty, $expectedName)
-        if (-not (Find-DiscoveryControl DeviceDetailsScroll).FindFirst(
-            [System.Windows.Automation.TreeScope]::Descendants, $nameCondition)) {
+        # The device name lives in the shared Device Details header above the tabbed scroll area.
+        if (-not $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $nameCondition)) {
             throw "Discovery did not open details for $expectedName."
         }
         Invoke-DiscoveryScan
