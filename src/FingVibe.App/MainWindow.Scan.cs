@@ -49,7 +49,7 @@ public sealed partial class MainWindow : IScanExecutionSteps
             ? Visibility.Visible : Visibility.Collapsed;
         ScanButton.Visibility = _isScanning ? Visibility.Collapsed : Visibility.Visible;
         ScanButton.IsEnabled = !_isScanning && network is not null;
-        var status = string.Join(" · ", new[] { _scanMessage, _snapshotError, _inventoryError, _discoveryMessage, targetWarning }
+        var status = string.Join(" · ", new[] { _scanMessage, _snapshotError, _inventoryError, _discoveryMessage, _windowsNotificationMessage, targetWarning }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
         ScanStatusText.Text = status;
         ScanStatusText.Visibility = string.IsNullOrWhiteSpace(status) ? Visibility.Collapsed : Visibility.Visible;

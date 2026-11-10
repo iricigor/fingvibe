@@ -89,6 +89,7 @@ public sealed partial class MainWindow : Window
         await RestoreInventoryAsync();
         await RestoreSavedScanAsync();
         _inventoryReady = true;
+        OpenPendingDiscoveryNotification();
         UpdatePeopleRoomsPages();
         UpdatePeopleRoomFilters();
         await ActivatePeriodicScansAsync();

@@ -402,6 +402,9 @@ try {
     foreach ($path in @("src\FingVibe.Core\Models\DeviceInventory.cs", "src\FingVibe.Core\Models\PrivateVirtualDevice.cs",
         "src\FingVibe.Core\Models\DeviceHistorySummary.cs",
         "src\FingVibe.Core\Models\DeviceDiscovery.cs", "src\FingVibe.App\MainWindow.DiscoveryNotifications.cs",
+        "src\FingVibe.App\DiscoveryPopup.xaml", "src\FingVibe.App\DiscoveryPopup.xaml.cs",
+        "src\FingVibe.App\DiscoveryNotificationPresentation.cs", "src\FingVibe.App\DiscoveryNotificationStore.cs",
+        "src\FingVibe.App\WindowsDiscoveryNotifications.cs", "src\FingVibe.App\Assets\DiscoveryCaution.png",
         "src\FingVibe.App\MainWindow.Scan.cs", "tests\DeviceDiscovery.Ui.Tests.ps1",
         "src\FingVibe.Core\Storage\DeviceInventoryStore.cs", "src\FingVibe.App\MainWindow.Snapshots.cs",
         "tests\DeviceScanHistory.Ui.Tests.ps1", "tests\Inventory.Sqlite.Helpers.ps1",
@@ -489,7 +492,7 @@ try {
     $scanSource = Get-Content (Join-Path $appDirectory "MainWindow.Scan.cs") -Raw
     if ($scanSource -notmatch 'await SaveCompletedScanAsync\([^;]+\);\s*_scanMessage = null;' -or
         $scanSource -match 'Complete in ' -or
-        $scanSource -notmatch 'new\[\] \{ _scanMessage, _snapshotError, _inventoryError, _discoveryMessage, targetWarning \}' -or
+        $scanSource -notmatch 'new\[\] \{ _scanMessage, _snapshotError, _inventoryError, _discoveryMessage, _windowsNotificationMessage, targetWarning \}' -or
         $scanSource -notmatch 'ScanMessages\.Visibility = _isScanning \|\| !string\.IsNullOrWhiteSpace\(status\)\s*\? Visibility\.Visible : Visibility\.Collapsed;') {
         throw "Scan success must clear only its own message, retain independent errors/warnings, and collapse unused messages."
     }

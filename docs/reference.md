@@ -391,8 +391,32 @@ The choice is saved atomically to `%LOCALAPPDATA%\FingVibe\periodic-scan.json`; 
 ### First local discovery
 
 After a completed manual or scheduled scan saves inventory/history successfully, a single
-in-app popup lists newly observed devices' MACs with individual details links.
-It is a transient popup, not a notification archive or a Windows notification.
+in-app popup lists newly observed devices with a count-first heading, device
+icons, prominent friendly names (or **Unnamed device**), secondary MAC/IP
+addresses and full-row details actions. Its list scrolls independently of the
+header and **Saved locally / Dismiss** footer. An identity absent from the
+displayed results remains visible with **Details unavailable**, never a link
+to a different device.
+
+Each qualifying manual or scheduled scan also requests one grouped native Windows
+toast, whether FingVibe is visible or minimized. It includes a bounded name preview,
+an additional-device count and a device silhouette with an amber shield/question
+mark: unfamiliar equipment merits review, not a threat verdict. Clicking its body
+or **Review device(s)** restores FingVibe and opens that scan's discovery list.
+Restoration/activation never scans or sends another notification. Windows settings
+and Do Not Disturb can suppress banners; in-app presentation remains independent.
+Registration, request and activation failures appear in the shared scan status.
+Successful API acceptance does not claim that Windows displayed a banner.
+
+The existing Windows App SDK registers the unpackaged executable, with FingVibe's
+sender name/icon separate from the caution image; no MSIX migration is required.
+Short-lived activation payloads under
+`%LOCALAPPDATA%\FingVibe\discovery-notifications` preserve the corresponding
+list after restart. Toasts and their payloads expire after 24 hours; expired files
+are pruned on the next qualifying request. This is not a notification archive or
+an authoritative inventory store. A moved/deleted portable executable cannot
+receive activation through its old registered path; run the new copy to register
+it. No closed-app scanning is added.
 Returning devices and repeated scans, including after restart, do not alert.
 Existing virtual identities suppress separate alerts for associated MACs,
 including a new MAC assigned to an already known virtual device.
@@ -412,6 +436,15 @@ normal/virtual discovery, imported-only discovery, each details link, repeat and
 return scans, restart, MAC rotation, network scope, cancellation/failure, and
 save-failure/retry behavior through the existing Windows CI device-details review.
 Its completed-scan and network fixtures are enabled only in UI-review mode.
+It also checks long-name/unnamed/large-list presentation, fixed header/footer,
+unavailable details, keyboard dismissal, light/dark/high-contrast appearance and saved-list
+activation/error states. `--review-discovery=<id>` exercises the native
+activation handler's saved-list path only in UI-review mode; it is not evidence
+of a real Windows banner or click. Native notification registration/delivery is
+disabled by default for isolated UI-review fixtures. Opt in with
+`FINGVIBE_UI_REVIEW_NOTIFICATIONS=1` on a disposable supported Windows desktop;
+verify real notification-center/banner and body/button activation separately
+for installed and portable copies, including settings/DND suppression.
 Never run native UI automation on a working user's desktop.
 
 ### Device activity
