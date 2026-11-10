@@ -59,7 +59,9 @@ dotnet run --project src\FingVibe.App\FingVibe.App.csproj -p:Platform=x64
 
 The scanner uses fresh ICMP echo replies and fresh ARP responses on the selected directly connected IPv4 LAN. Devices that answer neither can remain undetected; no fixed device count is guaranteed.
 
-Manual and scheduled scans first ping every usable address with a 700 ms timeout and up to 256 concurrent probes, then attempt fresh ARP resolution once for each ping miss on the selected adapter. Windows `ResolveIpNetEntry2` flushes the entry and requests fresh resolution; cached, stale or permanent neighbor membership is never Online evidence. The ARP MAC is preserved for enrichment, without inventing an ICMP latency or TTL. Blocking ARP calls are limited to eight workers across scans, and cancellation drains in-flight calls before releasing the measurement lease. `WindowsFreshArpTests` verifies native resolution and adapter scoping against the disposable Windows CI runner's directly connected gateway; it is skipped locally to avoid probing the user's LAN.
+Manual and scheduled scans first ping every usable address with a 700 ms timeout and up to 256 concurrent probes, then attempt fresh ARP resolution once for each ping miss on the selected adapter. Windows `ResolveIpNetEntry2` flushes the entry and requests fresh resolution; cached, stale or permanent neighbor membership is never Online evidence. The ARP MAC is preserved for enrichment, without inventing an ICMP latency or TTL.
+
+Background ARP uses up to 32 concurrent requests independently of the ICMP concurrency setting, refilling each available scan slot as its work finishes without a fixed launch delay. The same shared limit caps in-flight blocking native ARP calls at 32 process-wide, including across scans. Windows controls the native response timeout; the higher bound does not guarantee a fixed speedup or responder count. Cancellation drains in-flight calls before releasing the measurement lease and rejects their late responses. `WindowsFreshArpTests` verifies native resolution and adapter scoping against the disposable Windows CI runner's directly connected gateway; it is skipped locally to avoid probing the user's LAN.
 
 After initial ICMP probing and enrichment, confirmed observations are durably checkpointed and become browsable before ARP starts. Background ARP checks the initial ping misses and checkpoints its recovered observations. Only addresses still unconfirmed are then pinged after a cancellable ten-second wait, and again after another ten-second wait following that retry phase. Confirmed addresses are never retried or downgraded. No remaining misses means no further work or wait; misses remaining through both rounds add at least twenty seconds plus ARP, probing, enrichment and persistence time. There are at most three ICMP attempts and one ARP fallback per address. A changed source IPv4 can be refreshed only on the same selected adapter and subnet; it does not change a device's MAC identity. A disconnected adapter, different subnet, or changed Windows network profile cannot silently substitute another LAN.
 
@@ -395,7 +397,8 @@ Never run native UI automation on a working user's desktop.
 
 ### Device activity
 
-Device details shows **Activity** above the existing scan-history summary. Choose
+Device details shows **Activity** at the top of its **History** tab, above the
+scan-history context. Choose
 **Last 7 days**, **Last 30 days**, or **30 days by weekday**, and group each local
 date into midnight-aligned 1, 2, 3 or 4-hour cells. Three-hour groups run
 00:00-03:00 through 21:00-24:00. The displayed Windows timezone and query time
@@ -473,8 +476,8 @@ isolation and calendar boundaries. The disposable native `NetworkActivity.Ui`
 module uses an isolated 1,000-device fixture and verifies all periods/groupings,
 filter combinations, 720-cell reachability, keyboard/light/dark/narrow layout, loading,
 replacement/cancellation, error/Retry and empty history. It runs in the existing
-`details-identity` job when Network is selected, because `details-history` has no
-room within the 240-second job budget; full validation includes it.
+`details-identity` job when Network is selected, using that job's budget
+headroom; full validation includes it.
 `tests\NetworkActivity.Script.Tests.ps1` verifies that fixture and its production
 query without desktop automation. The shared renderer also retains the existing
 Device Activity light/dark/high-contrast native coverage. No native test runs on
@@ -482,18 +485,32 @@ the user's working desktop.
 
 ### Device scan history
 
-First/last seen, last-observed/since, network scope and latest-scan explanation
-remain visible in the summary. Devices Last seen, virtual MAC/address information,
+First/last seen, last-observed/since and network scope appear in the Overview
+tab's **Saved observation summary**; the History tab repeats the scope with the
+latest-scan explanation. Devices Last seen, virtual MAC/address information,
 discovery, usage categories and all other device details are unchanged. Scans
 continue collecting and retaining evidence; no stored data is deleted.
 The CI `details-summary` suite invokes `DeviceScanHistory.Ui.Tests.ps1 -SummaryOnly`,
 preserving summary/Last seen, network scope, normal/virtual/imported/legacy,
 restart, scan outcomes, persistence errors and light/dark/narrow summary checks.
-The `details-history` suite runs Activity and the independent `-ObservationsOnly`
+The `details-observations` suite runs the independent `-ObservationsOnly`
 path: normal/virtual/imported/legacy rendering, themes/narrow layout, exhaustive
 205-row physical reachability, exact page count/order/state, reverse paging,
-page-error recovery and selection reset. Neither feature changes the other's
-enablement. The current single-page layout remains; the tab redesign is deferred.
+page-error recovery and selection reset; `details-activity` runs Activity. Neither
+feature changes the other's enablement. The `details-observations` path also checks keyboard tab switching,
+retained identification drafts and observation pages, **View device history**,
+and that opening a device starts on Overview.
+
+Device details uses local **Overview** and **History** tabs (`SelectorBar`)
+below the device name and rename editor. Overview holds
+network overview, assignments and usage category, identification, ports and
+the saved observation summary; History holds Activity, scan history with
+Completed Scan Observations, and virtual MAC/address history. The header, tabs
+and both panels share one scroll viewer (`DeviceDetailsScroll`); hidden tabs stay
+loaded so drafts, expanders and paging survive switches. Switching tabs keeps the
+current scroll position, and **View device history** focuses the History tab.
+Opening a device always selects Overview at the top. UI review captures the
+History tab as `fingvibe-device-history.png` (`DeviceHistory` scenario).
 
 Device details shows a **Scan history** summary for normal MAC-based devices and
 existing virtual devices. First/last-seen timestamps display in local time with
@@ -954,12 +971,42 @@ selected scenarios against an equivalent baseline; retain failed phases and
 report missing evidence. No statistically established flake rate is claimed.
 The required aggregate and independently restored Activity/observation coverage are unchanged.
 
-Device Details regression follows the planned #262 Overview/History boundary
-across three independent matrix jobs (#292): `details-summary`
+Devices regression runs its behavior modules in three independent groups
+(#279), declared in `tests\UiRegression\Devices.Groups.psd1`. Each group is a
+separate `ui-regression` matrix job running in parallel on its own disposable
+runner:
+- `devices-presentation`: Overview, Layout, Appearance and Interaction
+- `devices-filters-previews`: Filters and Previews
+- `devices-columns-sorting`: Columns and Sorting
+
+Each group runs in its own scope. It creates its own fixture, launches its own
+app, then runs `Setup` and a `Ready` precondition, which opens the Devices page
+at 1280 DIPs with the 80-device fixture listed. Modules within a group keep
+their original relative order and shared state. Table settings, people and rooms
+are in memory in UI-review mode, so no state carries from one group to the next.
+
+Phases are named `Devices/<group>/<module>`. A failed group saves
+`devices-failure-<group>` diagnostics, always cleans up and restores its
+environment, and does not stop later groups. The script then fails with an
+error that names every failed group.
+`Invoke-UiRegression.ps1 -Suite devices` and the default
+`DevicesList.Ui.Tests.ps1 -Group All` still run every group in sequence;
+Native validation Full mode uses this. The desktop-free foundation check verifies
+that:
+- the groups cover every original module exactly once, in order
+- each group's state stays isolated
+- later groups still run after a failure
+- each group cleans up and restores its environment
+
+Separate runners shorten the Devices critical path but add per-runner setup,
+app launch and billed minutes.
+
+Device Details regression follows the #262 Overview/History tab boundary
+across four independent matrix jobs (#292): `details-summary`
 (`DeviceScanHistory.Ui -SummaryOnly`), `details-identity` (`DeviceDiscovery.Ui`,
-`UsageCategory.Ui`) and `details-history` (`DeviceActivity.Ui`,
-`DeviceScanHistory.Ui -ObservationsOnly`). Each job launches its own fixtures and app
-instances, is selected by the `DeviceDetails` capture-plan scenario, and must
+`UsageCategory.Ui`), `details-observations` (`DeviceScanHistory.Ui -ObservationsOnly`)
+and `details-activity` (`DeviceActivity.Ui`). Each job launches its own fixtures and app
+instances, is selected by the `DeviceDetails` or `DeviceHistory` capture-plan scenario, and must
 dispatch at least one check. `details-identity` also runs the Network page's
 `NetworkActivity.Ui` when the `Network` scenario is selected, using that job's
 budget headroom. Checks within a script still share sequential
@@ -1171,7 +1218,7 @@ integration.
 `DeviceActivityTests` covers every hour stop, response-wins/known-zero/unknown,
 weekday denominators, explicit legacy evidence, identity union, first-sighting
 eligibility, exact time boundaries, DST and cancellation. The disposable Windows
-`details-history` suite invokes
+`details-activity` suite invokes
 `tests\DeviceActivity.Ui.Tests.ps1` with an isolated
 synthetic inventory, exercising all modes/stops, cell keyboard details,
 loading/error/no-history states, selection changes, narrow scrolling, themes,
@@ -1232,7 +1279,7 @@ powershell.exe -NoProfile -File tests\SidebarNavigation.Tests.ps1 `
 
 These checks use Windows UI Automation without WinAppDriver or Developer Mode. They launch a separate app in deterministic UI-review mode, verify page routing and expanded/compact/overlay navigation, compare solid sidebar/page background pixels in all six themes, and save full-window captures for each backdrop. They also verify responsive Settings, mode/theme mapping, column visibility/reset, retained devices during refresh/cancellation, filtered counts, and non-overlapping device filters at wide and narrow widths, restoring the original scan snapshot afterward. Settings checks acknowledge the non-release ribbon to compare the normal release viewport; build-identity checks independently cover its reserved space and acknowledgment. The expanded test adapts to the monitor width (up to 1280 logical pixels), with a maximum window height of 720 logical pixels; pass `-ExpandedWindowWidth 1024` to reproduce the hosted runner's 1024x720 viewport on a larger desktop. All layout assertions remain enabled. UI-review mode previews appearance changes without saving them. Verify Windows high contrast separately using the system accessibility settings.
 
-`tests\DevicesList.Ui.Tests.ps1 -AppPath "<absolute path to FingVibe.App.exe>" -ScreenshotDirectory "<capture directory>"` checks the separate inventory/results/duration hierarchy, expanding search, 140/210-DIP dropdown widths at normal text scaling, responsive filters down to 480-DIP windows, unrestricted/selected dropdown presentation, all four Status/Response visibility combinations, merged/separate layouts, denser rows, Name/Type hierarchy, keyboard resizing, six-theme stripes/header contrast, sorting/filtering, container recycling, and native interaction indicators. CI runs on a disposable 1920px desktop to cover widths through 1880 DIPs. It uses an isolated 80-device snapshot through `FINGVIBE_UI_REVIEW_SNAPSHOT`, which is honored only in UI-review mode, and deletes that fixture afterward without modifying the user's saved scan, table settings or appearance. CI retains its screenshots in the review artifact; do not run it on a working user's desktop.
+`tests\DevicesList.Ui.Tests.ps1 -AppPath "<absolute path to FingVibe.App.exe>" -ScreenshotDirectory "<capture directory>" [-Group <presentation|filters-previews|columns-sorting|All>]` checks the separate inventory/results/duration hierarchy, expanding search, 140/210-DIP dropdown widths at normal text scaling, responsive filters down to 480-DIP windows, unrestricted/selected dropdown presentation, all four Status/Response visibility combinations, merged/separate layouts, denser rows, Name/Type hierarchy, keyboard resizing, six-theme stripes/header contrast, sorting/filtering, container recycling, and native interaction indicators. CI runs on a disposable 1920px desktop to cover widths through 1880 DIPs. It uses an isolated 80-device snapshot through `FINGVIBE_UI_REVIEW_SNAPSHOT`, which is honored only in UI-review mode, and deletes that fixture afterward without modifying the user's saved scan, table settings or appearance. CI retains its screenshots in the review artifact; do not run it on a working user's desktop.
 
 The sidebar and primary-smoke refresh/cancellation tests each set an isolated `FINGVIBE_UI_REVIEW_SCAN_HOLD` file path. Only in UI-review mode, an existing file holds the scan before probing so retained results and disabled row interactions can be observed deterministically; cancellation remains live. The hold times out explicitly after 30 seconds. The sidebar suite may additionally supply a `.progress` sidecar with synthetic `Completed`/`Total` values. It verifies the real native indicator's value, painted filled thickness at 5% and 90%, single-position action, cancellation/focus cleanup and unclipped scan context at wide and 640-DIP widths in every theme. Extra 480-DIP cases retain native geometry/value/focus assertions without screenshots: the shared capture helper requires at least 640 physical pixels. On the disposable GitHub Actions desktop only, it also verifies static progress with Windows client-area animations disabled and high contrast enabled, restoring both settings in cleanup. These are rendering fixtures, not accelerated discovery; releasing the hold resets the fixture before real loopback probing. Each test removes its fixtures in cleanup, and normal scans never use them. The primary smoke test navigates to Devices before exercising its shared-header Scan LAN action.
 
@@ -1301,7 +1348,7 @@ Pull requests expose two review checks:
 - `security-review` scans the repository for exposed secrets and fails on critical dependency vulnerabilities.
 - `ui-ux-review` launches the tested WinUI app, exercises the primary **Scan LAN** action, verifies critical accessible controls, and embeds fresh screenshots of Devices and the affected views/states on the pull request.
 
-The **🔨 Pull request build** workflow runs core/script tests and one Windows publish concurrently after change planning. Build and core tests cache NuGet packages with a shared Windows/dependency-configuration key and Windows-scoped fallback; normal restore still verifies/resolves required packages on hits and misses. Native `ui-capture` and the four `ui-regression` matrix suites start once the build passes, without waiting for core tests. Installer validation still waits for both tests and build. These checks run on separate Windows runners in parallel. Every job downloads the same published payload; none rebuilds the app. The matrix separates sidebar/appearance, Devices, history/discovery, and Tools/build identity. Suites remain sequential within each runner to avoid competing for focus and input. The sidebar retains Windows PowerShell; other suites retain PowerShell Core. UI-review mode is enabled only at runtime, so the downloaded app remains the normal executable.
+The **🔨 Pull request build** workflow runs core/script tests and one Windows publish concurrently after change planning. Build and core tests cache NuGet packages with a shared Windows/dependency-configuration key and Windows-scoped fallback; normal restore still verifies/resolves required packages on hits and misses. Native `ui-capture` and the eight `ui-regression` matrix suites start once the build passes, without waiting for core tests. Installer validation still waits for both tests and build. These checks run on separate Windows runners in parallel. Every job downloads the same published payload; none rebuilds the app. The matrix separates sidebar/appearance, three independent Devices groups, three Device Details groups, and Tools/build identity. Suites remain sequential within each runner to avoid competing for focus and input. The sidebar retains Windows PowerShell; other suites retain PowerShell Core. UI-review mode is enabled only at runtime, so the downloaded app remains the normal executable.
 
 `ui-capture` now runs only screenshot-helper validation, baseline scan/filter and cross-page smoke checks, and required captures. History/discovery and restored Activity retain their existing condition: they run when the capture plan includes DeviceDetails. Completed-observation table checks remain dormant for #274; summary/Last seen and other retained checks remain required. UI/test overlap does not waive any required result or move checks to a scheduled-only policy. Regression jobs have a 20-minute job limit and a 15-minute suite-step limit; capture has a 10-minute job limit and a 7-minute smoke-step limit. These outer bounds also stop otherwise unbounded native/process waits without changing the test fixtures. Each regression check and the smoke/capture step report elapsed seconds in logs and the job summary.
 

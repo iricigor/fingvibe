@@ -90,6 +90,8 @@ public sealed partial class DeviceDetailsPageView : UserControl
         DeviceImportedMetadata.IsExpanded = false;
         DeviceScanHistoryExpander.IsExpanded = false;
         DeviceBrowserStatusText.Text = string.Empty;
+        DetailsTabs.SelectedItem = OverviewTab;
+        ShowTab(OverviewTab);
     }
 
     internal void ShowHistory(ScanResultRow row, string? networkId, string? subnet)
@@ -103,6 +105,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
         var request = _historySession.Start("Page 1");
         DeviceHistoryPageStatus.Text = string.Empty;
         DeviceHistoryScope.Text = $"Current network: {networkId ?? "identity unavailable"} | {subnet ?? "subnet unavailable"}";
+        DeviceHistorySummaryScope.Text = DeviceHistoryScope.Text;
         try
         {
             var summary = row.GetHistorySummary(networkId, subnet);
@@ -264,7 +267,29 @@ public sealed partial class DeviceDetailsPageView : UserControl
         SetPortScanRunning(false, row.CanProbe);
     }
 
-    internal void ResetScroll() => DevicePage.ChangeView(null, 0, null, disableAnimation: true);
+    internal void ResetScroll()
+    {
+        DevicePage.ChangeView(null, 0, null, disableAnimation: true);
+    }
+
+    private void DetailsTabs_SelectionChanged(SelectorBar sender, SelectorBarSelectionChangedEventArgs args)
+    {
+        if (sender.SelectedItem is { } item && HistoryPanel is not null) ShowTab(item);
+    }
+
+    // Panels stay loaded while hidden so drafts, editors and history paging survive tab switches.
+    private void ShowTab(SelectorBarItem tab)
+    {
+        var history = tab == HistoryTab;
+        OverviewPanel.Visibility = history ? Visibility.Collapsed : Visibility.Visible;
+        HistoryPanel.Visibility = history ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void ViewHistory_Click(object sender, RoutedEventArgs e)
+    {
+        DetailsTabs.SelectedItem = HistoryTab;
+        HistoryTab.Focus(FocusState.Programmatic);
+    }
 
     private void Rename_Click(object sender, RoutedEventArgs e)
     {

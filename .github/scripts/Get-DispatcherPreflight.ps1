@@ -89,6 +89,7 @@ function Get-DispatcherPreflight {
         $pulls = [Collections.Generic.List[object]]::new()
         $seenCursors = @{}
         $parent = $null
+        $membershipRead = $false
         do {
             $after = if ($cursor) { ',after:"' + $cursor + '"' } else { "" }
             $query = 'query { repository(owner:"' + $parts[0] + '",name:"' + $parts[1] +
@@ -99,12 +100,23 @@ function Get-DispatcherPreflight {
             $response = Read-DispatcherEvidence "graphql" $false $query
             $issue = $response.data.repository.issue
             if ($response.errors -or $null -eq $issue -or $issue.number -ne $Number -or
+                "parent" -notin $issue.PSObject.Properties.Name -or
                 $issue.closedByPullRequestsReferences.pageInfo.hasNextPage -isnot [bool] -or
-                ($issue.parent -and
-                    ($issue.parent.labels.pageInfo.hasNextPage -isnot [bool] -or $issue.parent.labels.pageInfo.hasNextPage))) {
+                ($null -ne $issue.parent -and
+                    ($issue.parent.number -isnot [long] -or $issue.parent.number -le 0 -or
+                        $issue.parent.labels.nodes -isnot [array] -or
+                        $issue.parent.labels.pageInfo.hasNextPage -isnot [bool] -or
+                        $issue.parent.labels.pageInfo.hasNextPage))) {
                 throw "Incomplete native membership/delivery evidence for #$Number."
             }
+            if (($membershipRead -and
+                    (($null -eq $parent) -ne ($null -eq $issue.parent) -or $parent.number -ne $issue.parent.number)) -or
+                ($childNumbers.ContainsKey($Number) -and $issue.parent.number -ne $Epic) -or
+                (-not $childNumbers.ContainsKey($Number) -and $issue.parent.number -eq $Epic)) {
+                throw "Inconsistent native membership evidence for #$Number."
+            }
             $parent = $issue.parent
+            $membershipRead = $true
             foreach ($pr in $issue.closedByPullRequestsReferences.nodes) { $pulls.Add($pr) }
             $page = $issue.closedByPullRequestsReferences.pageInfo
             if ($page.hasNextPage) {
@@ -276,6 +288,14 @@ function Get-DispatcherPreflight {
                 if (-not $issueByNumber.ContainsKey($number)) {
                     throw "Ownership comment has no enumerated issue (#$number): $($comment.html_url)."
                 }
+                if ("type:epic" -in $issueByNumber[$number].labels.name) {
+                    $skipped.Add([pscustomobject]@{
+                        issue = $number
+                        reason = "Organizing Epic discussion is not a task claim; explicit claims and live work still block."
+                        evidence = @($comment.html_url)
+                    })
+                    continue
+                }
                 if ($issueByNumber[$number].state -eq "closed" -and $claimsByTask.ContainsKey($number)) { continue }
                 $manualEvidence[$number] = $comment.html_url
             }
@@ -286,7 +306,7 @@ function Get-DispatcherPreflight {
             })
             foreach ($issue in $historical) {
                 $delivery = Get-DispatcherDelivery $issue.number
-                if (-not $delivery.parent -or "type:epic" -notin $delivery.parent.labels.nodes.name) {
+                if ($null -ne $delivery.parent -and "type:epic" -notin $delivery.parent.labels.nodes.name) {
                     Add-DispatcherFinding "historical-membership-unknown" $issue.number $issue.html_url "Native Epic membership is unverified."
                 } elseif (-not $delivery.delivered) {
                     Add-DispatcherFinding "historical-delivery-unknown" $issue.number $issue.html_url "No complete merged closing-PR evidence; closure is not delivery."
@@ -295,7 +315,11 @@ function Get-DispatcherPreflight {
                 } else {
                     $skipped.Add([pscustomobject]@{
                         issue = $issue.number
-                        reason = "Out-of-Epic merged historical record; host must still rule out genuine unfinished work."
+                        reason = if ($null -eq $delivery.parent) {
+                            "Merged parentless historical record; reconcile missing Epic organization separately and verify host state."
+                        } else {
+                            "Out-of-Epic merged historical record; host must still rule out genuine unfinished work."
+                        }
                         evidence = @($delivery.prs.url)
                     })
                 }

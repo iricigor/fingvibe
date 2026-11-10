@@ -217,12 +217,25 @@ release records only among the target Epic's direct native children. Outside
 that Epic those records alone do not consume capacity; leave labels/ownership
 unchanged. An undiscoverable historical manual session alone is not a live
 worker or unresolved Dispatcher claim. Verify native membership and merged PR
-disposition; missing/inaccessible/ambiguous evidence or closed-unmerged PRs do
-not qualify. Within-Epic historical cleanup still blocks until reconciled.
+disposition. A successful authoritative explicit null parent establishes
+out-of-target history too; report missing Epic organization separately for
+human-approved reconciliation, not as occupied capacity. API errors, missing
+fields, non-Epic parents and contradictory evidence are not verified absence.
+Within-Epic historical cleanup still blocks until reconciled.
 Known running workers, explicit unresolved Dispatcher claims, and genuine
 unfinished work remain repository-wide blockers even after issue closure/merge.
 Partial or uncertain Dispatcher launches/messages never qualify for this
 historical exception; do not automatically release ownership or remove labels.
+
+Review current discussions and prior reconciliation evidence before treating
+historical prose as an unresolved claim. Verified manual release and stopped-host
+evidence need no repeated release. Explicit human abandonment with stopped work,
+human design/trial acceptance, transferred backlog and nested merged delivery
+have distinct dispositions; closure alone proves none of them. Abandonment or
+design acceptance is not implementation delivery for a prerequisite. Organizing
+Epic progress reports and task authorization mentioning ownership are not task
+claims. Preserve genuine task claims and all uncertain execution blockers; never
+delete historical comments or invent delivery to make capacity appear empty.
 
 Do not resume another session's work, clear its labels, or infer abandonment
 from elapsed time, issue closure, a missing PR, or unavailable session evidence.

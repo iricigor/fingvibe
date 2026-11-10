@@ -129,6 +129,76 @@ function Show-UiRegressionScrollTargets {
     return $positioned
 }
 
+# Device Details shows Overview and History as local tabs; a hidden tab's controls have no UI Automation peers.
+$script:UiRegressionDeviceHistoryPattern = '^(Activity|DeviceScanHistory|VirtualDeviceHistory|' +
+    'DeviceHistory(Scope|Latest|Newer|Older|PageStatus)$|Refresh activity$|Completed Scan Observations$|' +
+    'Newer scans$|Older scans$|MAC and address history$|Device activity grid$|Completed scan history)'
+
+function Get-UiRegressionDeviceTabFor {
+    param([Parameter(Mandatory)][string] $Value)
+    if ($Value -cmatch $script:UiRegressionDeviceHistoryPattern) { "History" } else { "Overview" }
+}
+
+function Select-UiRegressionDeviceTab {
+    param(
+        [Parameter(Mandatory)] $Root,
+        [Parameter(Mandatory)][ValidateSet("Overview", "History")][string] $Tab,
+        [switch] $Keyboard,
+        [switch] $IfOpen
+    )
+    $byId = { param($Id) $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Id)) }
+    $item = & $byId "Device${Tab}Tab"
+    # The tab bar scrolls with the page; only a hidden Details page removes its peers.
+    if (-not $item) {
+        if ($IfOpen) { return $false }
+        throw "Device Details is not open, so its $Tab tab cannot be selected."
+    }
+    $selection = $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
+    if (-not $selection.Current.IsSelected) {
+        if ($Keyboard) {
+            # Focus the target tab like a keyboard user tabbing to it, then activate it.
+            $item.SetFocus()
+            $null = Wait-UiRegressionState -Description "keyboard focus on Device Details $Tab tab" -Condition { $item.Current.HasKeyboardFocus }
+            [System.Windows.Forms.SendKeys]::SendWait(" ")
+            Start-Sleep -Milliseconds 200
+            if (-not $selection.Current.IsSelected) { [System.Windows.Forms.SendKeys]::SendWait("{ENTER}") }
+        }
+        else { $selection.Select() }
+    }
+    # Panels have no UI Automation peers; tab-owned text controls prove which panel is realized.
+    $sentinel = @{ Overview = "DeviceHistorySummaryScope"; History = "DeviceHistoryScope" }
+    $hidden = if ($Tab -eq "History") { "Overview" } else { "History" }
+    $null = Wait-UiRegressionState -Description "Device Details $Tab tab" -Condition {
+        $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected -and
+            (& $byId $sentinel[$Tab]) -and -not (& $byId $sentinel[$hidden])
+    }
+    # Activity renders when History first lays out; wait until the tab's content stops moving
+    # so later positioning measures the final layout.
+    $script:UiRegressionTabTop = $null
+    $null = Wait-UiRegressionState -Description "settled Device Details $Tab layout" -Condition {
+        $activity = & $byId "ActivityScroll"
+        $top = (& $byId $sentinel[$Tab]).Current.BoundingRectangle.Top
+        $settled = $top -eq $script:UiRegressionTabTop -and
+            ($Tab -eq "Overview" -or ($activity -and $activity.Current.ItemStatus -notlike "Loading*"))
+        $script:UiRegressionTabTop = $top
+        $settled
+    }
+    return $true
+}
+
+# Selects the tab that owns a missing Device Details control; returns whether the tab changed.
+function Show-UiRegressionDeviceTabFor {
+    param([Parameter(Mandatory)] $Root, [Parameter(Mandatory)][string] $Value)
+    $tab = Get-UiRegressionDeviceTabFor $Value
+    $item = $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "Device${tab}Tab"))
+    if (-not $item -or
+        $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected) { return $false }
+    Select-UiRegressionDeviceTab -Root $Root -Tab $tab
+}
+
 function Find-UiRegressionElement {
     param(
         [Parameter(Mandatory)][scriptblock] $Container,
@@ -387,6 +457,82 @@ function Invoke-UiRegressionCleanup {
     foreach ($failure in $errors) { Write-Warning "UI regression cleanup failed: $($failure.Exception.Message)" }
     # A cleanup failure must not replace the original check failure.
     if ($errors.Count -gt 0 -and -not $PrimaryFailed) { throw $errors[0] }
+}
+
+function Resolve-UiRegressionGroups {
+    param([Parameter(Mandatory)][hashtable] $Definition, [Parameter(Mandatory)][string] $Group)
+    $groups = @($Definition.Groups)
+    if ($Group -eq 'All') { return $groups }
+    $selected = @($groups | Where-Object { $_.Name -eq $Group })
+    if ($selected.Count -ne 1) {
+        throw "Unknown UI regression group '$Group'; expected All or one of: $(@($groups.Name) -join ', ')."
+    }
+    return $selected
+}
+
+function Invoke-UiRegressionGroups {
+    param(
+        [Parameter(Mandatory)][string] $Suite,
+        [Parameter(Mandatory)][hashtable] $Definition,
+        [Parameter(Mandatory)][string] $Group,
+        [Parameter(Mandatory)][string] $ModuleDirectory,
+        [Parameter(Mandatory)][string] $Directory,
+        [Parameter(Mandatory)][string[]] $EnvironmentNames,
+        [string[]] $StateVariables = @(),
+        [scriptblock] $OnFailure,
+        [scriptblock[]] $Cleanup = @()
+    )
+    $uiRegressionGroupFailures = [Collections.Generic.List[string]]::new()
+    foreach ($uiRegressionGroup in @(Resolve-UiRegressionGroups -Definition $Definition -Group $Group)) {
+        $uiRegressionGroupResult = @{ Error = $null }
+        $uiRegressionGroupClock = [Diagnostics.Stopwatch]::StartNew()
+        # Each group runs in its own scope: its modules share state, but nothing leaks into later groups.
+        & {
+            foreach ($uiRegressionGroupStateName in $StateVariables) { Set-Variable -Name $uiRegressionGroupStateName -Value $null }
+            $uiRegressionGroupSavedEnvironment = Save-UiRegressionEnvironment -Names $EnvironmentNames
+            try {
+                foreach ($regressionModule in @($Definition.Preconditions) + @($uiRegressionGroup.Modules)) {
+                    $regressionPhase = Start-UiRegressionPhase -Name "$Suite/$($uiRegressionGroup.Name)/$regressionModule"
+                    $regressionSucceeded = $false
+                    try {
+                        . (Join-Path $ModuleDirectory "$Suite.$regressionModule.Scenario.ps1")
+                        $regressionSucceeded = $true
+                    }
+                    finally {
+                        Complete-UiRegressionPhase -Phase $regressionPhase -Directory $Directory -Succeeded $regressionSucceeded
+                    }
+                }
+            }
+            catch {
+                $uiRegressionGroupResult.Error = $_
+                Write-Host $_
+                Write-Host $_.ScriptStackTrace
+                if ($OnFailure) {
+                    try { & $OnFailure $uiRegressionGroup.Name }
+                    catch { Write-Warning "UI regression failure capture failed: $($_.Exception.Message)" }
+                }
+            }
+            finally {
+                try {
+                    Invoke-UiRegressionCleanup -PrimaryFailed ($null -ne $uiRegressionGroupResult.Error) -Steps (@($Cleanup) + @(
+                        { Restore-UiRegressionEnvironment -Saved $uiRegressionGroupSavedEnvironment }))
+                }
+                catch { $uiRegressionGroupResult.Error = $_ }
+            }
+        }
+        $uiRegressionGroupClock.Stop()
+        $uiRegressionGroupSeconds = $uiRegressionGroupClock.Elapsed.TotalSeconds.ToString('F1', [Globalization.CultureInfo]::InvariantCulture)
+        $uiRegressionGroupStatus = if ($uiRegressionGroupResult.Error) { 'failed' } else { 'passed' }
+        $uiRegressionGroupLine = "$Suite group $($uiRegressionGroup.Name) $uiRegressionGroupStatus in $uiRegressionGroupSeconds seconds"
+        Write-Host $uiRegressionGroupLine
+        if ($env:GITHUB_STEP_SUMMARY) { $uiRegressionGroupLine >> $env:GITHUB_STEP_SUMMARY }
+        if ($uiRegressionGroupResult.Error) {
+            $uiRegressionGroupFailures.Add("$($uiRegressionGroup.Name) ($($uiRegressionGroupResult.Error.Exception.Message))")
+        }
+    }
+    if ($uiRegressionGroupFailures.Count -gt 0) {
+        throw "$Suite groups failed: $($uiRegressionGroupFailures -join '; ')"
+    }
 }
 
 function Save-UiRegressionScreenshot {

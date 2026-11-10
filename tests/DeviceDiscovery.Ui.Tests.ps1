@@ -12,7 +12,12 @@ function Find-DiscoveryControl([string] $Id, [switch] $Optional) {
     $condition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Id)
     $call = Start-UiRegressionCall lookup
-    try { $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition) }
+    try {
+        $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        if (-not $element -and (Show-UiRegressionDeviceTabFor $script:root $Id)) {
+            $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        }
+    }
     finally { Complete-UiRegressionCall $call }
     if (-not $element -and -not $Optional) { throw "Missing discovery control '$Id'." }
     return $element
@@ -186,8 +191,8 @@ try {
         $expectedName = if ($target -eq "001122334466") { "Imported discovery" } else { "Private D0-C9-07" }
         $nameCondition = [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::NameProperty, $expectedName)
-        if (-not (Find-DiscoveryControl DeviceDetailsScroll).FindFirst(
-            [System.Windows.Automation.TreeScope]::Descendants, $nameCondition)) {
+        # The device name lives in the shared Device Details header above the tabbed scroll area.
+        if (-not $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $nameCondition)) {
             throw "Discovery did not open details for $expectedName."
         }
         Invoke-DiscoveryScan

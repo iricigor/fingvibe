@@ -5,7 +5,8 @@ uninterrupted device availability or human presence.
 
 ## First seen, last seen, and last observed
 
-Open a device's details and find its **Scan history** summary.
+Open a device's details. The **Overview** tab shows a **Saved observation summary**;
+the **History** tab holds the full **Scan history** context.
 The summary uses the selected Windows network identity and subnet.
 
 | Value | Meaning |

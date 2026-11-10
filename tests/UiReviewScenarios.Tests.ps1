@@ -41,6 +41,31 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
         if ($history.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must remain outside collapsed observations." }
     }
     $historyUi = Get-Content (Join-Path $PSScriptRoot "DeviceScanHistory.Ui.Tests.ps1") -Raw
+    $tabs = $page.SelectSingleNode("//*[@x:Name='DetailsTabs']", $namespaces)
+    Assert-Equal $tabs.LocalName "SelectorBar" "Device Details uses local section tabs"
+    Assert-Equal (@($tabs.ChildNodes | ForEach-Object { $_.Text }) -join "|") "Overview|History" "Device Details tab order"
+    Assert-Equal $tabs.FirstChild.IsSelected "True" "Overview is the initial tab"
+    $overviewPanel = $page.SelectSingleNode("//*[@x:Name='OverviewPanel']", $namespaces)
+    $historyPanel = $page.SelectSingleNode("//*[@x:Name='HistoryPanel']", $namespaces)
+    Assert-Equal $historyPanel.Visibility "Collapsed" "History starts hidden"
+    foreach ($id in @("DetailsColumns", "IdentificationCard", "PortsServicesCard", "DeviceHistorySummaryCard",
+        "DeviceHistoryFirstSeen", "DeviceHistoryLastSeen", "DeviceHistoryState", "DeviceHistorySince", "DeviceViewHistory")) {
+        if (-not $overviewPanel.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must be on the Overview tab." }
+    }
+    foreach ($id in @("DeviceActivityCard", "DeviceHistoryScope", "DeviceHistoryLatest", "DeviceScanHistoryExpander", "VirtualDeviceHistoryCard")) {
+        if (-not $historyPanel.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must be on the History tab." }
+    }
+    $header = $page.SelectSingleNode("//*[@x:Name='DeviceNameEditor']", $namespaces).ParentNode
+    if ($header.NextSibling -ne $tabs -or $tabs.ParentNode.ParentNode.GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml") -cne "DevicePage") {
+        throw "The name and rename editor must precede the tabs inside the shared details scroll area."
+    }
+    $detailsCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml.cs") -Raw
+    if ($detailsCode -notmatch '(?s)internal void ShowDevice\(.*?DetailsTabs\.SelectedItem = OverviewTab;') {
+        throw "Opening a device must reset Device Details to Overview."
+    }
+    if ($historyUi -notmatch 'Test-HistoryTabs' -or $historyUi -notmatch 'DeviceOverviewTab') {
+        throw "Native history checks must cover tab switching, retained drafts and the initial Overview tab."
+    }
     if ($historyUi -notmatch '\$env:FINGVIBE_UI_REVIEW_NETWORK = "ui-review-network"') {
         throw "History fixtures must select their own network independently of preceding suites."
     }
@@ -350,10 +375,10 @@ try {
     Test-Change @{ "src\FingVibe.App\MainWindow.xaml" = $navigationXaml } @("Devices") "Menu-only change"
     $base = $originalBase
     Test-Change @{ "src\FingVibe.App\MainWindow.DeviceDetails.cs" = "changed" } `
-        @("Devices", "DeviceDetails") "Device details code"
+        @("Devices", "DeviceDetails", "DeviceHistory") "Device details code"
     foreach ($path in @("src\FingVibe.App\DeviceDetailsPresentation.cs", "src\FingVibe.App\Views\DeviceDetailValue.cs",
         "src\FingVibe.App\Views\DeviceScanHistoryItem.cs")) {
-        Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device details presentation"
+        Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails", "DeviceHistory") "Device details presentation"
     }
     foreach ($path in @("src\FingVibe.App\MainWindow.UsageCategories.cs", "src\FingVibe.App\UsageCategoryPresentation.cs",
         "src\FingVibe.App\Views\DeviceDetailsPageView.Usage.cs", "src\FingVibe.Core\Models\DeviceUsageCategory.cs",
@@ -363,11 +388,11 @@ try {
     foreach ($path in @("src\FingVibe.App\MainWindow.DeviceActivity.cs",
         "src\FingVibe.App\Views\DeviceDetailsPageView.Activity.cs",
         "tests\DeviceActivity.Ui.Tests.ps1", "tests\DeviceActivity.Fixture.ps1")) {
-        Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device activity"
+        Test-Change @{ $path = "changed" } @("Devices", "DeviceHistory") "Device activity"
     }
     foreach ($path in @("src\FingVibe.App\DeviceActivityPresentation.cs", "src\FingVibe.App\DeviceActivityReviewHold.cs",
         "src\FingVibe.App\Views\ActivityGridRenderer.cs", "src\FingVibe.Core\Models\DeviceActivity.cs")) {
-        Test-Change @{ $path = "changed" } @("Devices", "Network", "DeviceDetails") "Shared activity grid"
+        Test-Change @{ $path = "changed" } @("Devices", "Network", "DeviceHistory") "Shared activity grid"
     }
     foreach ($path in @("src\FingVibe.App\MainWindow.NetworkActivity.cs", "src\FingVibe.App\NetworkActivityPresentation.cs",
         "src\FingVibe.App\Views\NetworkPageView.Activity.cs", "src\FingVibe.Core\Models\NetworkActivity.cs",
@@ -383,7 +408,7 @@ try {
         "src\FingVibe.Core\Storage\DeviceInventoryStore.Json.cs", "src\FingVibe.Core\Models\AppendedScanHistory.cs",
         "src\FingVibe.Core\Storage\DeviceInventoryStore.History.cs", "src\FingVibe.Core\Storage\SqliteScanHistory.cs",
         "src\FingVibe.Core\Models\DeviceHistoryQuery.cs")) {
-        Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails") "Device scan history"
+        Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails", "DeviceHistory") "Device scan history"
     }
     foreach ($iconPath in @("src\FingVibe.App\PeopleRoomsIcons.cs", "src\FingVibe.App\Views\PeopleRoomsIconPicker.cs",
         "src\FingVibe.App\PeopleRoomsPresentation.cs", "src\FingVibe.App\Views\PeopleRoomsDialogs.cs")) {
@@ -427,7 +452,7 @@ try {
         OverviewPageView = @("Devices", "Overview")
         NetworkPageView = @("Devices", "Network")
         DevicesPageView = @("Devices", "Settings", "DevicesEmpty")
-        DeviceDetailsPageView = @("Devices", "DeviceDetails")
+        DeviceDetailsPageView = @("Devices", "DeviceDetails", "DeviceHistory")
         PeoplePageView = @("Devices", "DeviceDetails", "People", "PersonDetails")
         RoomsPageView = @("Devices", "DeviceDetails", "Rooms", "RoomDetails")
         PersonDetailsPageView = @("Devices", "DeviceDetails", "People", "PersonDetails")
@@ -681,7 +706,7 @@ try {
         ".github\scripts\UiReviewNavigation.ps1" = "New navigation"
         "tests\UiReviewScenarios.Tests.ps1" = "New tests"
         "README.md" = "Tools documentation"
-    } @("Devices", "DeviceDetails", "Tools", "SpeedTest", "Troubleshooting", "About", "FingImport", "SqlEditor") "Tools structural changes include all tools and scan discovery"
+    } @("Devices", "DeviceDetails", "DeviceHistory", "Tools", "SpeedTest", "Troubleshooting", "About", "FingImport", "SqlEditor") "Tools structural changes include all tools and scan discovery"
     $base = $originalBase
 
     $planPath = Join-Path $repository "plan.json"
@@ -785,6 +810,7 @@ try {
         if ($Using -eq "xpath") {
             if ($Value -match "^//ListItem\[@Name='(.+)'\]$") { return "menu-$($Matches[1])" }
             if ($Value -eq "//List[@Name='Scan results']/ListItem[.//*[@Name='Online']][1]") { return "online-row" }
+            if ($Value -eq "//*[@AutomationId='DeviceHistoryTab']") { return "control-DeviceHistoryTab" }
             if ($Value -eq "//List[@Name='People']/ListItem[.//*[@Name='UI review person']]") { return "person-row" }
             if ($Value -eq "//List[@Name='Rooms']/ListItem[.//*[@Name='UI review room']]") { return "room-row" }
             if ($Value -eq "//Button[@Name='About FingVibe']") { return "control-About FingVibe" }
@@ -801,6 +827,7 @@ try {
             if (-not $script:brokenNavigation) { $script:currentPage = $ElementId.Substring(5) }
         }
         elseif ($ElementId -eq "online-row") { $script:currentPage = "DeviceDetails" }
+        elseif ($ElementId -eq "control-DeviceHistoryTab") { $script:currentPage = "DeviceHistory" }
         elseif ($ElementId -eq "control-Speed test") { $script:currentPage = "SpeedTest" }
         elseif ($ElementId -eq "control-About FingVibe") { $script:currentPage = "About" }
         elseif ($ElementId -eq "control-Network troubleshooting") { $script:currentPage = "Troubleshooting" }
@@ -829,6 +856,8 @@ try {
                     "room-row" { $script:currentPage -eq "Rooms" }
                     "control-No devices match the current filter." { $script:currentPage -eq "Devices" -and $script:empty }
                     "control-Back to devices" { $script:currentPage -eq "DeviceDetails" }
+                    "control-DeviceHistoryTab" { $script:currentPage -eq "DeviceDetails" }
+                    "control-Activity" { $script:currentPage -eq "DeviceHistory" }
                     "control-Device name" { $script:currentPage -eq "DeviceDetails" }
                     "control-Network overview" { $script:currentPage -eq "DeviceDetails" }
                     "control-Scan additional ports" { $script:currentPage -eq "DeviceDetails" }

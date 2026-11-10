@@ -99,6 +99,7 @@ function Show-UiReviewCaptureScenario {
     param([Parameter(Mandatory)][string] $Scenario)
     $menu = switch ($Scenario) {
         "DeviceDetails" { "Devices" }
+        "DeviceHistory" { "Devices" }
         "DevicesEmpty" { "Devices" }
         "SpeedTest" { "Tools" }
         "Troubleshooting" { "Tools" }
@@ -127,7 +128,7 @@ function Show-UiReviewCaptureScenario {
         $null = Invoke-WebDriverRequest -Method Post `
             -Endpoint "/session/$sessionId/element/$searchId/clear" -Body @{}
         $null = Assert-VisibleUiReviewElement -Value "Online"
-        if ($Scenario -eq "DeviceDetails") {
+        if ($Scenario -in @("DeviceDetails", "DeviceHistory")) {
             $rowId = Assert-VisibleUiReviewElement -Using xpath `
                 -Value "//List[@Name='Scan results']/ListItem[.//*[@Name='Online']][1]"
             Invoke-WebDriverElement -ElementId $rowId
@@ -137,6 +138,11 @@ function Show-UiReviewCaptureScenario {
             # Narrow layouts stack identification/assignments below the initial viewport.
             $null = Find-WebDriverElement -Using name -Value "Device identification"
             $null = Find-WebDriverElement -Using name -Value "Scan additional ports"
+            if ($Scenario -eq "DeviceHistory") {
+                $tabId = Assert-VisibleUiReviewElement -Using xpath -Value "//*[@AutomationId='DeviceHistoryTab']"
+                Invoke-WebDriverElement -ElementId $tabId
+                $null = Assert-VisibleUiReviewElement -Value "Activity"
+            }
         }
         elseif ($Scenario -eq "DevicesEmpty") {
             $null = Invoke-WebDriverRequest -Method Post `

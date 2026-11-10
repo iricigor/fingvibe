@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       additional_scenarios:
-        description: "Extra captures (comma-separated): Overview, Network, DeviceDetails, People, PersonDetails, Rooms, RoomDetails, Tools, SpeedTest, Troubleshooting, About, FingImport, SqlEditor, Settings, DevicesEmpty"
+        description: "Extra captures (comma-separated): Overview, Network, DeviceDetails, DeviceHistory, People, PersonDetails, Rooms, RoomDetails, Tools, SpeedTest, Troubleshooting, About, FingImport, SqlEditor, Settings, DevicesEmpty"
         type: string
         required: false
 
@@ -307,7 +307,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [sidebar, devices, details-summary, details-identity, details-history, tools]
+        suite: [sidebar, devices-presentation, devices-filters-previews, devices-columns-sorting, details-summary, details-identity, details-observations, details-activity, tools]
     env:
       FINGVIBE_UI_REVIEW: "1"
     steps:

@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet("sidebar", "devices", "details-summary", "details-identity", "details-history", "tools")]
+    [ValidateSet("sidebar", "devices", "devices-presentation", "devices-filters-previews", "devices-columns-sorting",
+        "details-summary", "details-identity", "details-observations", "details-activity", "tools")]
     [string] $Suite,
     [Parameter(Mandatory)][string] $AppPath,
     [Parameter(Mandatory)][string] $ScreenshotDirectory,
@@ -38,12 +39,16 @@ try {
         sidebar {
             Invoke-RegressionCheck "SidebarNavigation" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "sidebar") }
         }
-        devices {
-            Invoke-RegressionCheck "DevicesList.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "devices") }
+        { $_ -eq "devices" -or $_ -like "devices-*" } {
+            # Each Devices group launches its own fixture and app, so CI runs the groups on separate workers;
+            # the full devices suite runs every group sequentially.
+            $devicesParameters = @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "devices") }
+            if ($Suite -ne "devices") { $devicesParameters.Group = $Suite.Substring("devices-".Length) }
+            Invoke-RegressionCheck "DevicesList.Ui" $devicesParameters
         }
         { $_ -like "details-*" } {
             # Device Details suites follow the Overview/History boundary; each launches its own fixtures and app instances.
-            if ($plan.Scenario -notcontains "DeviceDetails") {
+            if (-not ($plan.Scenario | Where-Object { $_ -in @("DeviceDetails", "DeviceHistory") })) {
                 Write-Host "Device Details checks are not required by this capture plan, preserving existing selection."
             }
             elseif ($Suite -eq "details-summary") {
@@ -55,14 +60,17 @@ try {
                 Invoke-RegressionCheck "DeviceDiscovery.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "discovery") }
                 Invoke-RegressionCheck "UsageCategory.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "usage-category") }
             }
-            # Network Activity uses details-identity's duration headroom; details-history is near the 240-second budget.
             if ($Suite -eq "details-identity" -and $plan.Scenario -contains "Network") {
                 Invoke-RegressionCheck "NetworkActivity.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "network-activity") }
             }
-            if ($Suite -eq "details-history" -and $plan.Scenario -contains "DeviceDetails") {
+            if ($Suite -eq "details-observations" -and
+                ($plan.Scenario | Where-Object { $_ -in @("DeviceDetails", "DeviceHistory") })) {
                 Invoke-RegressionCheck "DeviceScanHistory.Ui" @{
                     ScreenshotDirectory = (Join-Path $ScreenshotDirectory "observations"); ObservationsOnly = $true
                 }
+            }
+            elseif ($Suite -eq "details-activity" -and
+                ($plan.Scenario | Where-Object { $_ -in @("DeviceDetails", "DeviceHistory") })) {
                 Invoke-RegressionCheck "DeviceActivity.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "activity") }
             }
         }

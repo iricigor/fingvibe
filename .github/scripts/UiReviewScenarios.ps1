@@ -3,6 +3,7 @@ $UiReviewScenarios = [ordered]@{
     Overview = @{ Label = "Overview - scan summary"; FileName = "fingvibe-overview.png"; Page = "OverviewPage" }
     Network = @{ Label = "Network - network details"; FileName = "fingvibe-network.png"; Page = "NetworkPage" }
     DeviceDetails = @{ Label = "Device details - selected online device"; FileName = "fingvibe-device-details.png"; Page = "DevicePage" }
+    DeviceHistory = @{ Label = "Device details - History tab"; FileName = "fingvibe-device-history.png"; Page = "DevicePage" }
     People = @{ Label = "People"; FileName = "fingvibe-people.png"; Page = "PeoplePage" }
     PersonDetails = @{ Label = "Person details"; FileName = "fingvibe-person-details.png"; Page = "PersonDetailPage" }
     Rooms = @{ Label = "Rooms"; FileName = "fingvibe-rooms.png"; Page = "RoomsPage" }
@@ -100,7 +101,7 @@ function Get-UiReviewCapturePlan {
                     OverviewPageView = @("Overview")
                     NetworkPageView = @("Network")
                     DevicesPageView = @("Devices", "DevicesEmpty", "Settings")
-                    DeviceDetailsPageView = @("DeviceDetails")
+                    DeviceDetailsPageView = @("DeviceDetails", "DeviceHistory")
                     PeoplePageView = @("People", "PersonDetails", "DeviceDetails")
                     RoomsPageView = @("Rooms", "RoomDetails", "DeviceDetails")
                     PersonDetailsPageView = @("PersonDetails", "People", "DeviceDetails")
@@ -118,11 +119,11 @@ function Get-UiReviewCapturePlan {
                 Add-Scenarios @("Devices", "DeviceDetails", "Settings") "$path changed usage classification or editing."
             }
             elseif ($path -match '^src/FingVibe.App/(MainWindow.DeviceDetails.cs|DeviceDetailsPresentation.cs|Views/Device(DetailValue|ScanHistoryItem).cs)$') {
-                Add-Scenarios @("DeviceDetails") "$path changed device details behavior."
+                Add-Scenarios @("DeviceDetails", "DeviceHistory") "$path changed device details behavior."
             }
             elseif ($path -match '^src/FingVibe.App/(Views/ActivityGridRenderer.cs|DeviceActivityPresentation.cs|DeviceActivityReviewHold.cs)$' -or
                 $path -eq 'src/FingVibe.Core/Models/DeviceActivity.cs') {
-                Add-Scenarios @("Network", "DeviceDetails") "$path changed shared activity grid behavior."
+                Add-Scenarios @("Network", "DeviceHistory") "$path changed shared activity grid behavior."
             }
             elseif ($path -match '^src/FingVibe.App/(MainWindow.NetworkActivity.cs|NetworkActivityPresentation.cs|Views/NetworkPageView.Activity.cs)$' -or
                 $path -eq 'src/FingVibe.Core/Models/NetworkActivity.cs' -or $path -match '^tests/NetworkActivity\.(Ui.Tests|Fixture)\.ps1$') {
@@ -130,12 +131,12 @@ function Get-UiReviewCapturePlan {
             }
             elseif ($path -match '^src/FingVibe.App/(MainWindow.DeviceActivity.cs|Views/DeviceDetailsPageView.Activity.cs)$' -or
                 $path -match '^tests/DeviceActivity\.(Ui.Tests|Fixture)\.ps1$') {
-                Add-Scenarios @("DeviceDetails") "$path changed device activity evidence or its grid."
+                Add-Scenarios @("DeviceHistory") "$path changed device activity evidence or its grid."
             }
             elseif ($path -match '^src/FingVibe.Core/(Models/(DeviceInventory|PrivateVirtualDevice|DeviceHistorySummary|DeviceHistoryQuery|DeviceDiscovery|AppendedScanHistory).cs|Storage/(DeviceInventoryStore(\.(Json|History))?|SqliteScanHistory).cs)$' -or
                 $path -match '^src/FingVibe.App/MainWindow.(Snapshots|DiscoveryNotifications|Scan).cs$' -or
                 $path -match '^tests/(Device(ScanHistory|Discovery).Ui.Tests|Inventory.Sqlite.Helpers).ps1$') {
-                Add-Scenarios @("DeviceDetails") "$path changed persisted device scan history."
+                Add-Scenarios @("DeviceDetails", "DeviceHistory") "$path changed persisted device scan history."
             }
             elseif ($path -eq "src/FingVibe.App/MainWindow.NetworkIdentity.cs") {
                 Add-Scenarios @("Overview", "Network", "Troubleshooting", "DeviceDetails") "$path changed network identity."

@@ -21,7 +21,7 @@ Current ownership boundaries:
 - `Views/DeviceLastSeenAgeRefresh.cs` owns the Devices page's presentation-only minute refresh of Last seen ages while that page is shown.
 - `MainWindow.NetworkIdentity.cs` owns local network selection and public/local network identity display.
 - `MainWindow.Snapshots.cs` owns snapshot restoration, persistence status, and saved-scan state.
-- `MainWindow.DeviceDetails.cs` owns the selected-device details view.
+- `MainWindow.DeviceDetails.cs` owns the selected-device details view. `Views/DeviceDetailsPageView.xaml(.cs)` owns its local Overview/History tabs: tab selection and the reset to Overview on open stay in the view; hidden tabs remain loaded so drafts survive switching.
 - `MainWindow.DeviceActivity.cs` supplies selected identity/network/revision context; `Views/DeviceDetailsPageView.Activity.cs` owns Activity controls, cancellable query lifecycle and grid presentation. Core `DeviceActivity` owns aligned buckets and weekday counts.
 - `MainWindow.NetworkActivity.cs` supplies Network Activity's revision/network context; `Views/NetworkPageView.Activity.cs` owns its filters and asynchronous lifecycle. Core `NetworkActivity` owns filtered distinct counts and exact weekday means; `Views/ActivityGridRenderer` renders both Activity grids without changing their separate semantics.
 - `MainWindow.PeopleRooms.cs` owns People/Rooms persistence and assignment orchestration across pages.
@@ -39,10 +39,20 @@ Extracted pages have separate WinUI XAML namescopes and compiled-binding roots. 
 
 Devices and Sidebar keep their existing test entry points; focused behavior
 modules live in `tests/UiRegression`. Keep shared lifecycle/readiness/input
-helpers separate from feature assertions. Entry points dot-source scenario
-modules at script scope, in the recorded order, because scenarios share fixture,
+helpers separate from feature assertions. Sidebar dot-sources scenario modules
+at script scope, in the recorded order, because scenarios share fixture,
 selection and rendering state. Do not invoke them through a new function scope
 or append unrelated feature matrices to the baseline.
+
+Devices modules run in independent groups declared in
+`tests/UiRegression/Devices.Groups.psd1`. Each group runs on its own CI runner
+as a `devices-<group>` matrix job, in parallel with the others. Every group
+starts its own fixture and app through the `Setup` and `Ready` preconditions.
+Modules within a group share state in their original relative order, and no
+state carries from one group to the next. Put a new Devices module in the group
+whose state it needs, or add a group if it is independent. Do not rely on state
+from another group. `DevicesList.Ui.Tests.ps1 -Group <name>` runs one group;
+the default `All` runs every group in sequence.
 
 Use the shared bounded waits, visible/nonempty page-scoped lookup, isolated
 fixture directories, normal shutdown and process-specific cleanup. Reacquire
@@ -69,15 +79,17 @@ for the desktop-free foundation check. These are contributor/reviewer
 expectations, not a new mandatory manifest or gate. Enforced coverage
 selection remains separate work in #256.
 
-Device Details checks run in three independent CI jobs that follow the planned
-Overview/History tab boundary: `details-summary`, `details-identity` and
-`details-history`. Add Device Activity or observation-table checks to
-`details-history`; the Network page's `NetworkActivity.Ui` uses `details-identity`
-headroom when Network is selected. Keep every job within the 240-second budget
-using its `call-costs.json` and `phases.jsonl` evidence. Mark each logical
-segment with a phase, keep the original failure when cleanup also fails, and do
-not dispatch a matrix job that runs no checks. Ship harness changes like these
-separately from feature changes.
+Device Details checks run in four independent CI jobs that follow the
+Overview/History tab boundary: `details-summary`, `details-identity`,
+`details-observations` and `details-activity`. Add observation-table checks to
+`details-observations` and Activity checks to `details-activity`.
+The Network page's `NetworkActivity.Ui` uses `details-identity` headroom when
+Network is selected.
+Collapsed tabs expose no UI Automation peers; use the tab helpers in
+`tests/UiRegression/Helpers.ps1` and reacquire controls after switching. Keep every job within the 240-second budget using its `call-costs.json` and
+`phases.jsonl` evidence. Mark each logical segment with a phase, keep the
+original failure when cleanup also fails, and do not dispatch a matrix job that
+runs no checks. Ship harness changes like these separately from feature changes.
 
 The Sidebar People/Rooms module covers list/detail editors, search, validation,
 cancel/save, selection refresh, assignments and deletion. Its isolated inventory
