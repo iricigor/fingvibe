@@ -207,6 +207,15 @@ if ($installerJob -notmatch 'needs: \[changes, tests, build\]' -or
     throw "Tested downloads and screenshot publication must still wait for passing core tests."
 }
 Assert-Equal ([regex]::Matches($workflow, 'artifact-ids: \$\{\{ needs.build.outputs.artifact-id \}\}').Count) 3 "Installer, capture and regression matrix consume the same payload ID"
+if ($captureJob -notmatch 'artifact-id: \$\{\{ steps.screenshot.outputs.artifact-id \}\}') {
+    throw "Capture must expose the exact successful upload ID for downstream failed-only reruns."
+}
+$captureDownload = [regex]::Match($publishJob, '(?ms)^      - name: Download completed captures\r?\n.*?(?=^      - name:|\z)').Value
+if ($captureDownload -notmatch 'artifact-ids: \$\{\{ needs.ui-capture.outputs.artifact-id \}\}' -or
+    $captureDownload -notmatch 'merge-multiple: true' -or
+    $captureDownload -match 'github.run_attempt|(?m)^\s+name: fingvibe-ui-review') {
+    throw "Publication must download the successful producer's artifact ID, not reconstruct a name from the publisher's rerun attempt."
+}
 Assert-Equal ([regex]::Matches($buildJob, 'uses: actions/upload-artifact@v7\.0\.2').Count) 1 "Publish uploads only the transfer payload"
 if ($buildJob -notmatch '(?s)name: Upload unvalidated payload.*?id: upload.*?name: fingvibe-validation-payload-pr-.*-attempt-\$\{\{ github.run_attempt \}\}.*?retention-days: 1' -or
     $buildJob -match 'New-Installer|Installer.Lifecycle|name: Upload runnable app|name: Upload tested installer') {

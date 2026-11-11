@@ -1020,6 +1020,12 @@ that:
 Separate runners shorten the Devices critical path but add per-runner setup,
 app launch and billed minutes.
 
+Screenshot publication consumes the capture job's uploaded artifact ID rather
+than reconstructing its attempt-specific name. Failed-only publication reruns
+therefore reuse the successful capture producer's artifact, even when that
+producer ran in an earlier attempt. Missing or expired artifacts still fail
+publication; no other run or revision is used as a fallback.
+
 Sidebar and Tools use the same group runner (#314). CI and independent Full
 validation dispatch these groups on distinct disposable Windows workers against
 one published payload:

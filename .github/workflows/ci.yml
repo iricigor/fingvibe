@@ -378,6 +378,8 @@ jobs:
 
   ui-capture:
     needs: [changes, build]
+    outputs:
+      artifact-id: ${{ steps.screenshot.outputs.artifact-id }}
     if: >
       needs.changes.outputs.ui == 'true'
       && (
@@ -489,7 +491,8 @@ jobs:
         if: needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
         uses: actions/download-artifact@v8.0.2
         with:
-          name: fingvibe-ui-review-pr-${{ github.event.pull_request.number }}-attempt-${{ github.run_attempt }}
+          artifact-ids: ${{ needs.ui-capture.outputs.artifact-id }}
+          merge-multiple: true
           path: artifacts\ui-review
 
       - name: Publish screenshots for inline review
