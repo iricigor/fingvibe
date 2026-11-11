@@ -47,7 +47,7 @@ public sealed class SqliteInventoryTests : IDisposable
             var loaded = (await new DeviceInventoryStore(DatabasePath).LoadAsync())!;
             Assert.Equal(original.Revision, loaded.Revision);
             Assert.Equal(Start, loaded.Devices[Mac].Observations[0].FirstSeen);
-            Assert.Equal(InventoryDeviceStatus.Unknown, loaded.Devices[Mac].Status);
+            Assert.Equal(InventoryDeviceStatus.Online, loaded.Devices[Mac].Status);
             Assert.Equal(version < 3 ? 0 : 2, loaded.Devices[Mac].ScanHistory.Count);
             Assert.Equal(version < 4 ? 0 : 1, loaded.DiscoveryBaselines.Count);
             Assert.Equal(bytes, await File.ReadAllBytesAsync(JsonPath));

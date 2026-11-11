@@ -105,6 +105,12 @@ function Assert-NoDiscovery {
     if ($popup -and -not $popup.Current.IsOffscreen) { throw "Unexpected discovery popup." }
 }
 
+function Get-DiscoveryOnlineCount {
+    $text = (Find-DiscoveryControl OnlineChip).Current.Name
+    if ($text -notmatch '^([\d,]+) Online$') { throw "Invalid Online summary '$text'." }
+    return [int]($Matches[1] -replace ',', '')
+}
+
 function Set-DiscoveryResults([string[]] $Macs, [hashtable] $Names = @{}) {
     $results = @($Macs | ForEach-Object {
         @{ address = "127.0.0.1"; status = 0; roundtripTimeMilliseconds = 1; probeDuration = "00:00:00.001"
@@ -243,19 +249,31 @@ try {
     Invoke-DiscoveryScan
     Assert-NoDiscovery
     $before = Get-InventoryFingerprint $database
+    (Find-DiscoveryControl OnlineChip).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
+    Wait-DiscoveryState {
+        (Find-DiscoveryControl InventoryStatusFilter).Current.Name -eq "Status: Online"
+    } "Online filter before refresh"
+    $retainedOnline = Get-DiscoveryOnlineCount
+    $retainedRows = (Find-DiscoveryControl ResultCountText).Current.Name
     Set-DiscoveryResults @("001122334477")
     Set-Content -LiteralPath $hold -Value "cancelled scan"
     (Find-DiscoveryControl ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-DiscoveryState { (Find-DiscoveryControl CancelButton).Current.IsEnabled } "cancellable scan"
+    if ((Get-DiscoveryOnlineCount) -ne $retainedOnline) { throw "Starting a scan reset retained Online membership." }
+    if ((Find-DiscoveryControl ResultCountText).Current.Name -ne $retainedRows) { throw "Scan start emptied the Online-filtered list." }
     (Find-DiscoveryControl CancelButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-DiscoveryState { (Find-DiscoveryControl ScanButton).Current.IsEnabled } "cancelled scan"
     Assert-NoDiscovery
+    if ((Get-DiscoveryOnlineCount) -ne $retainedOnline) { throw "Cancellation reset retained Online membership." }
+    if ((Find-DiscoveryControl ResultCountText).Current.Name -ne $retainedRows) { throw "Cancellation changed the retained Online-filtered list." }
     if ((Get-InventoryFingerprint $database) -cne $before) { throw "Cancellation persisted discovery evidence." }
     Remove-Item -LiteralPath $hold
     Set-Content -LiteralPath $fixture -Value "invalid scan fixture"
     Invoke-DiscoveryScan
     Assert-NoDiscovery
     if ((Find-DiscoveryControl ScanStatusText).Current.Name -notlike "*Unable to scan*") { throw "Scan failure was hidden." }
+    if ((Get-DiscoveryOnlineCount) -ne $retainedOnline) { throw "Failure reset retained Online membership." }
+    if ((Find-DiscoveryControl ResultCountText).Current.Name -ne $retainedRows) { throw "Failure changed the retained Online-filtered list." }
     if ((Get-InventoryFingerprint $database) -cne $before) { throw "Failed scan persisted discovery evidence." }
     Set-DiscoveryResults @("001122334477")
     $lock = [System.IO.FileStream]::new("$inventory.lock", [System.IO.FileMode]::Open,
@@ -286,9 +304,11 @@ try {
     Stop-DiscoveryApp
     $env:FINGVIBE_UI_REVIEW_NETWORK = "network-b"
     Start-DiscoveryApp
+    $otherNetworkOnline = Get-DiscoveryOnlineCount
     Set-DiscoveryResults @()
     Invoke-DiscoveryScan
     Assert-NoDiscovery
+    if ((Get-DiscoveryOnlineCount) -ne $otherNetworkOnline) { throw "A different-network scan changed prior statuses." }
     Stop-DiscoveryApp
     Start-DiscoveryApp
     Set-DiscoveryResults @("001122334466")
@@ -304,12 +324,17 @@ try {
     # Initial checkpoints restore browsing but retain cancellation and defer discoveries until completion.
     $env:FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD = $checkpointHold
     Set-Content -LiteralPath $checkpointHold -Value "pending retries"
-    Set-DiscoveryResults @("001122334466", "0011223344AA")
+    Set-DiscoveryResults @("0011223344AA")
     Start-DiscoveryApp
+    $previousOnline = Get-DiscoveryOnlineCount
     (Find-DiscoveryControl ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-DiscoveryState {
         (Find-DiscoveryControl ScanStatusText).Current.Name -like "*Initial results shown*(1/5) Background ARP:*"
     } "checkpointed initial results"
+    $pendingOnline = Get-DiscoveryOnlineCount
+    if ($pendingOnline -ne $previousOnline + 1) {
+        throw "A checkpoint must promote its new responder without downgrading unresolved previous devices."
+    }
     $pendingScanButton = Find-DiscoveryControl ScanButton -Optional
     if (($pendingScanButton -and $pendingScanButton.Current.IsEnabled) -or
         -not (Find-DiscoveryControl CancelButton).Current.IsEnabled) { throw "Pending retries must retain scan exclusion and cancellation." }
@@ -339,6 +364,7 @@ try {
         throw "Restart misrepresented an interrupted checkpoint as complete."
     }
     if (-not (Find-DiscoveryControl ScanButton).Current.IsEnabled) { throw "Restart resumed an old retry timer." }
+    if ((Get-DiscoveryOnlineCount) -ne $pendingOnline) { throw "Interrupted restart erased unresolved Online statuses." }
     Assert-NoDiscovery
     # A later final checkpoint updates the same scan without stealing focus from browsing.
     (Find-DiscoveryControl ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
@@ -372,6 +398,8 @@ try {
     }
     $checkpoint = Get-Content -LiteralPath $snapshot -Raw | ConvertFrom-Json
     if ($checkpoint.state -ne 0 -or $checkpoint.scanId -ne $id) { throw "Finalization did not complete the same logical scan." }
+    (Find-DiscoveryControl DevicesNavItem).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    if ((Get-DiscoveryOnlineCount) -ne $pendingOnline - 1) { throw "Only full same-network completion may downgrade the unresolved device." }
     Assert-NoDiscovery
     Stop-DiscoveryApp
     $env:FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD = $null
@@ -381,13 +409,20 @@ try {
     $env:FINGVIBE_UI_REVIEW_PERIODIC_SCAN = $periodicScan
     $env:FINGVIBE_UI_REVIEW_PERIODIC_SCAN_TIME_SCALE = "60"
     Set-DiscoveryResults @("001122334466", "001122334499")
+    Set-Content -LiteralPath $hold -Value "Observe retained statuses during a scheduled scan."
     Start-DiscoveryApp
+    $scheduledOnline = Get-DiscoveryOnlineCount
     $handle = $script:process.MainWindowHandle
     if ((Test-Path -LiteralPath $snapshot) -and (Get-Content -LiteralPath $snapshot -Raw) -like "*001122334499*") {
         throw "The scheduled scan ran before the window could be minimized."
     }
     $null = [UiReviewNativeWindow]::ShowWindow($handle, 6)
     Wait-DiscoveryState { [UiReviewNativeWindow]::IsIconic($handle) } "minimized window"
+    Wait-DiscoveryState {
+        (Find-DiscoveryControl ScanStatusText).Current.Name -like "Scheduled scan*Scanning ICMP:*"
+    } "scheduled scan retaining previous evidence"
+    if ((Get-DiscoveryOnlineCount) -ne $scheduledOnline) { throw "Scheduled scan start reset retained Online membership." }
+    Remove-Item -LiteralPath $hold
     Wait-DiscoveryState {
         # Controls in a minimized window can report as offscreen, so only check that scanning has finished.
         $scan = Find-DiscoveryControl ScanButton -Optional
@@ -524,6 +559,10 @@ try {
     $phase = Step-UiRegressionPhase $phase "discovery/status-filter-persistence" $ScreenshotDirectory
     $tableSettings = Join-Path $directory "device-table.json"
     $env:FINGVIBE_UI_REVIEW_DEVICE_TABLE = $tableSettings
+    Set-Content -LiteralPath $inventory -Value $legacy -Encoding UTF8
+    Remove-Item -LiteralPath $database
+    Set-DiscoveryResults @("020000000001")
+    Copy-Item -LiteralPath $fixture -Destination $snapshot -Force
     Start-DiscoveryApp
     (Find-DiscoveryControl OnlineChip).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
     Wait-DiscoveryState {
@@ -535,6 +574,11 @@ try {
         (Find-DiscoveryControl OnlineChip).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Current.ToggleState -ne
             [System.Windows.Automation.ToggleState]::On) {
         throw "Online Status selection was not restored in the dropdown and summary chip."
+    }
+    if ((Find-DiscoveryControl ResultCountText).Current.Name -ne "Showing 1 of 2 devices" -or
+        (Get-DiscoveryOnlineCount) -ne 1 -or
+        (Find-DiscoveryControl ScanFreshnessText).Current.Name -notlike "Updated * ago*") {
+        throw "Old saved Online evidence must restore matching rows, counts and visible scan age without scanning."
     }
     (Find-DiscoveryControl OfflineChip).GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern).Toggle()
     Wait-DiscoveryState {

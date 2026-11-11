@@ -44,7 +44,11 @@ public sealed class ScanCheckpointTests : IDisposable
         var pending = Observe(before, Checkpoint(id, ScanCheckpointState.Pending, Response(Added, 2)));
         Assert.True(before.Devices[Known].Observations[0].Present);
         Assert.True(pending.Devices[Known].Observations[0].Present);
-        Assert.Equal(InventoryDeviceStatus.Unknown, pending.Devices[Known].Status);
+        Assert.Equal(InventoryDeviceStatus.Online, pending.Devices[Known].Status);
+        var unresolved = ScanResultRow.CreateInventoryRows(pending).Single(row => row.MacAddress?.ToString() == Known);
+        Assert.True(new DeviceResultFilter(false, false, "", Status: InventoryDeviceStatus.Online).Matches(unresolved));
+        Assert.True(unresolved.IsHistorical);
+        Assert.False(unresolved.CanProbe);
         Assert.Equal(InventoryDeviceStatus.Online, pending.Devices[Added].Status);
         Assert.Empty(pending.Devices[Added].ScanHistory);
         Assert.Single(pending.Devices[Known].ScanHistory);
@@ -55,7 +59,8 @@ public sealed class ScanCheckpointTests : IDisposable
         var restored = (await new DeviceInventoryStore(Database).LoadMetadataAsync())!;
         Assert.Equal(ScanCheckpointState.Incomplete, restored.LatestScan!.State);
         Assert.Equal(id, restored.LatestScan.ScanId);
-        Assert.All(restored.Devices.Values, device => Assert.Equal(InventoryDeviceStatus.Unknown, device.Status));
+        Assert.All(restored.Devices.Values, device => Assert.Equal(InventoryDeviceStatus.Online, device.Status));
+        Assert.All(ScanResultRow.CreateInventoryRows(restored), row => Assert.False(row.IsCurrentScanResponse));
         Assert.True(restored.Devices[Known].Observations[0].Present);
         Assert.Empty(restored.Devices[Added].ScanHistory);
 
@@ -90,6 +95,8 @@ public sealed class ScanCheckpointTests : IDisposable
         Assert.Equal("Edited during retries", restored.Names[Added]);
         Assert.Single(restored.DiscoveryBaselines);
         Assert.Equal(ScanCheckpointState.Complete, restored.LatestScan!.State);
+        Assert.Equal(InventoryDeviceStatus.Offline, restored.Devices[Known].Status);
+        Assert.Equal(InventoryDeviceStatus.Online, restored.Devices[Added].Status);
     }
 
     [Fact]
@@ -97,7 +104,8 @@ public sealed class ScanCheckpointTests : IDisposable
     {
         var store = new DeviceInventoryStore(Database);
         var pending = Checkpoint(Guid.NewGuid(), ScanCheckpointState.Pending, Response(Added));
-        var data = await store.SaveAsync(Observe(DeviceInventoryData.Empty, pending), Guid.Empty);
+        var baseline = DeviceInventoryData.Empty.ObserveCompletedScan(NetworkId, new(Subnet, Start, [Response(Known)]));
+        var data = await store.SaveAsync(Observe(baseline, pending), Guid.Empty);
         using (var connection = new SqliteConnection($"Data Source={Database};Pooling=False"))
         {
             connection.Open();
@@ -113,8 +121,10 @@ public sealed class ScanCheckpointTests : IDisposable
         var restored = (await new DeviceInventoryStore(Database).LoadAsync())!;
         Assert.Equal(data.Revision, restored.Revision);
         Assert.Equal(ScanCheckpointState.Pending, restored.LatestScan!.State);
+        Assert.Equal(InventoryDeviceStatus.Online, restored.Devices[Known].Status);
+        Assert.Equal(InventoryDeviceStatus.Online, restored.Devices[Added].Status);
         Assert.Empty(restored.Devices[Added].ScanHistory);
-        Assert.Empty(restored.DiscoveryBaselines);
+        Assert.Equal(baseline.DiscoveryBaselines, restored.DiscoveryBaselines);
     }
 
     [Fact]
@@ -147,6 +157,40 @@ public sealed class ScanCheckpointTests : IDisposable
         Assert.Equal(Added, Assert.Single(restored.Results).MacAddress!.ToString());
         await File.WriteAllTextAsync(Cache, "corrupt cache");
         Assert.Equal(restored, await cache.LoadForRestoreAsync(loaded.LatestScan));
+    }
+
+    [Fact]
+    public async Task OldSavedEvidenceSurvivesEmptyCheckpointsLateResponsesAndOtherNetworkCompletion()
+    {
+        var store = new DeviceInventoryStore(Database);
+        var baseline = DeviceInventoryData.Empty.ObserveCompletedScan(NetworkId,
+            new(Subnet, Start.AddYears(-1), [Response(Known), Response(Added, 2)]));
+        var saved = await store.SaveAsync(baseline, Guid.Empty);
+        var restored = (await new DeviceInventoryStore(Database).LoadMetadataAsync())!;
+        var online = new DeviceResultFilter(false, false, "", Status: InventoryDeviceStatus.Online);
+        Assert.All(ScanResultRow.CreateInventoryRows(restored), row =>
+        {
+            Assert.True(online.Matches(row));
+            Assert.Contains("saved scan evidence", row.StatusContext);
+            Assert.False(row.CanProbe);
+        });
+        var id = Guid.NewGuid();
+        var pending = Observe(restored, Checkpoint(id, ScanCheckpointState.Pending));
+        Assert.All(pending.Devices.Values, device => Assert.Equal(InventoryDeviceStatus.Online, device.Status));
+        var retry = Observe(pending, Checkpoint(id, ScanCheckpointState.Pending, Response(Known)));
+        Assert.All(retry.Devices.Values, device => Assert.Equal(InventoryDeviceStatus.Online, device.Status));
+        Assert.True(ScanResultRow.CreateInventoryRows(retry).Single(row => row.MacAddress?.ToString() == Known).CanProbe);
+        var completed = Observe(retry, Checkpoint(id, ScanCheckpointState.Complete, Response(Known)));
+        Assert.Equal(InventoryDeviceStatus.Online, completed.Devices[Known].Status);
+        Assert.Equal(InventoryDeviceStatus.Offline, completed.Devices[Added].Status);
+        var other = completed.ObserveCompletedScan("another-network",
+            new(Subnet, Start.AddMinutes(2), []));
+        Assert.Equal(InventoryDeviceStatus.Online, other.Devices[Known].Status);
+        Assert.Equal(InventoryDeviceStatus.Offline, other.Devices[Added].Status);
+        Assert.All(ScanResultRow.CreateInventoryRows(other), row => Assert.False(row.CanProbe));
+        Assert.Single(restored.Devices[Known].ScanHistory);
+        Assert.Single(restored.Devices[Added].ScanHistory);
+        Assert.Equal(saved.Revision, restored.Revision);
     }
 
     [Fact]

@@ -166,7 +166,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
             CurrentNetworkId = device.NetworkId,
             CurrentSubnet = device.Subnet
         }, prefixLength, device.Name, device.Classification,
-            historical: device.Status == InventoryDeviceStatus.Unknown)
+            historical: device.LastChecked != device.CurrentCompletedAt)
     {
         VirtualDevice = device;
         UsageCategoryOverride = device.UsageCategoryOverride;
@@ -191,7 +191,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
                 var assignment = _sourceData?.PeopleRooms.Assignments.GetValueOrDefault(item.Mac);
                 var classification = _sourceData?.Classifications.GetValueOrDefault(item.Mac);
                 return $"{FormatMac(item.Mac)} · {observation.Address}\n"
-                    + $"{(IsOnline && item.Mac == device.LastActiveMac && observation.Present && observation.LastChecked == device.CurrentCompletedAt ? "Current response" : "Previous connection")}"
+                    + $"{(IsCurrentScanResponse && item.Mac == device.LastActiveMac && observation.Present && observation.LastChecked == device.CurrentCompletedAt ? "Current response" : "Previous connection")}"
                     + $" · first seen {observation.FirstSeen:g} · last seen {observation.LastSeen:g}\n"
                     + $"Network {observation.NetworkId} · {observation.Subnet}"
                     + (item.Inferred ? "\nInferred association by private prefix and available virtual-device number." : string.Empty)
@@ -222,7 +222,8 @@ public sealed class ScanResultRow : INotifyPropertyChanged
                 continue;
             yield return new(device, observation is null ? 0 : int.Parse(observation.Subnet.Split('/')[1]),
                 data.Names.GetValueOrDefault(device.Mac), data.Classifications.GetValueOrDefault(device.Mac),
-                historical: device.Status == InventoryDeviceStatus.Unknown);
+                historical: observation is null || observation.LastChecked != device.CurrentCompletedAt
+                    || observation.NetworkId != device.CurrentNetworkId || observation.Subnet != device.CurrentSubnet);
         }
         foreach (var device in data.VirtualDevices)
             yield return new(device, data, int.Parse(device.Subnet.Split('/')[1]));
@@ -364,25 +365,24 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public double PersonOpacity => _personId is null || string.IsNullOrWhiteSpace(_personShortName) ? 0.65 : 1;
     public double RoomOpacity => _roomId is null || string.IsNullOrWhiteSpace(_roomShortName) ? 0.65 : 1;
     public InventoryDeviceStatus Status => VirtualDevice?.Status
-        ?? (_historical && _inventoryDevice?.Status != InventoryDeviceStatus.FingOnly ? (InventoryDeviceStatus?)InventoryDeviceStatus.Unknown : null)
         ?? _inventoryDevice?.Status
         ?? (Result?.Status == HostStatus.Alive ? InventoryDeviceStatus.Online : InventoryDeviceStatus.Offline);
     public bool IsOnline => Status == InventoryDeviceStatus.Online;
     public bool IsOffline => Status == InventoryDeviceStatus.Offline;
     public bool IsFingOnly => Status == InventoryDeviceStatus.FingOnly;
-    public bool IsHistorical => !IsFingOnly && Status == InventoryDeviceStatus.Unknown;
+    public bool IsHistorical => !IsFingOnly && _historical;
     public bool IsCurrentScanResponse => IsOnline && !IsHistorical;
     public bool CanProbe => IsCurrentScanResponse && Result is not null;
     public string StatusLabel => IsFingOnly ? "Fing Only" : IsOnline ? "Online" : IsOffline ? "Offline" : "Unknown";
     public string StatusContext => IsFingOnly ? "Imported from Fing; never observed locally."
         : _inventoryDevice?.LatestObservation is { } observation
-            ? $"{StatusLabel}{(IsHistorical ? " · historical" : string.Empty)} · {observation.Subnet} · last seen {observation.LastSeen:g}"
-            : StatusLabel + (IsHistorical ? " · historical scan observation" : string.Empty);
+            ? $"{StatusLabel} · {(IsCurrentScanResponse ? "response in latest scan" : "saved scan evidence")} · {observation.Subnet} · last seen {observation.LastSeen:g}"
+            : StatusLabel + (IsHistorical ? " · saved scan evidence" : string.Empty);
     public double NameOpacity => NameText == AddressText || NameText == "-" ? 0.65 : 1;
     public double VendorOpacity => DeviceVendorPresentation.FilterValue(VendorText) == DeviceVendorPresentation.Unknown ? 0.65 : 1;
     public double OperatingSystemOpacity => OperatingSystem == DeviceOperatingSystem.Unknown ? 0.65 : 1;
     public double DeviceTypeOpacity => Type == DeviceType.Unknown ? 0.65 : 1;
-    public bool HasLatency => _showLatency && IsOnline && Result?.RoundtripTimeMilliseconds is >= 0;
+    public bool HasLatency => _showLatency && IsCurrentScanResponse && Result?.RoundtripTimeMilliseconds is >= 0;
     public long? LatencyMilliseconds => HasLatency ? Result?.RoundtripTimeMilliseconds : null;
     public string LatencyLabel => HasLatency ? Result!.RoundtripText : "-";
     public double LatencyFraction { get; private set; }
