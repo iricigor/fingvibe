@@ -344,15 +344,14 @@ try {
             if (-not [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
                 $bounds.Left, $bounds.Top, $width, $bounds.Height, 0x0044)) { throw "Unable to resize the category review window." }
             Start-Sleep -Milliseconds 300
+            Choose-Usage Personal
             foreach ($id in @("UsageCategoryPicker", "UsageCategorySave", "UsageCategoryCancel", "UsageCategoryRefresh")) {
                 $control = Show-Usage $id
                 $area = $script:root.Current.BoundingRectangle
                 if (-not $area.Contains($control.Current.BoundingRectangle)) { throw "$id is clipped." }
             }
-            Choose-Usage Personal
             Save-UsageCapture "usage-$($theme.Replace(' ', '-'))-$width" UsageCategorySave
             Invoke-Usage UsageCategoryCancel
-            if ($width -ne 640) { Choose-Usage Personal }
         }
         $null = [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
             $bounds.Left, $bounds.Top, $bounds.Width, $bounds.Height, 0x0044)

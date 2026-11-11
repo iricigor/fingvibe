@@ -35,12 +35,12 @@ public static class HistoryReviewContrast {
 function Find-HistoryControl([string] $Value, [switch] $ByName, [switch] $Optional, [switch] $NoTabSwitch) {
     $property = if ($ByName) { [System.Windows.Automation.AutomationElement]::NameProperty }
         else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
-    $condition = [System.Windows.Automation.PropertyCondition]::new($property, $Value)
+    $historyCondition = [System.Windows.Automation.PropertyCondition]::new($property, $Value)
     $call = Start-UiRegressionCall lookup
     try {
-        $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $historyCondition)
         if (-not $element -and -not $NoTabSwitch -and (Show-UiRegressionDeviceTabFor $script:root $Value)) {
-            $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+            $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $historyCondition)
         }
         if (-not $element -and -not $NoTabSwitch) {
             $disclosure = if ($Value -in @("DeviceHistorySince", "DeviceHistorySummaryScope")) { "DeviceHistorySummaryDetails" }
@@ -52,7 +52,7 @@ function Find-HistoryControl([string] $Value, [switch] $ByName, [switch] $Option
                 if ($details) {
                     $details.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
                     $element = Wait-UiRegressionState -Description "disclosed history control '$Value'" -Condition {
-                        $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+                        $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $historyCondition)
                     }
                 }
             }

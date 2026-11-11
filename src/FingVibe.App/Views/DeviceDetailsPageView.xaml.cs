@@ -563,7 +563,8 @@ public sealed partial class DeviceDetailsPageView : UserControl
         var scale = new Windows.UI.ViewManagement.UISettings().TextScaleFactor;
         DetailsTabsHost.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
         DeviceBackButton.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
-        var wide = e.NewSize.Width >= DetailsTabsHost.DesiredSize.Width + DeviceBackButton.DesiredSize.Width + 320 * scale + 32;
+        var wide = e.NewSize.Width >= Math.Max(720 * scale,
+            DetailsTabsHost.DesiredSize.Width + DeviceBackButton.DesiredSize.Width + 320 * scale + 32);
         Grid.SetRow(DetailsTabsHost, wide ? 0 : 1);
         Grid.SetColumn(DetailsTabsHost, wide ? 1 : 0);
         Grid.SetColumnSpan(DetailsTabsHost, wide ? 1 : 3);
