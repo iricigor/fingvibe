@@ -4,8 +4,14 @@ Open **Tools > SQL editor**, enter one SQLite SELECT (including CTEs), and choos
 **Run**. **Cancel**, leaving Tools, returning to the Tools landing page, and closing
 the window stop the query and release its connection. The result shows column
 names, rows, elapsed milliseconds, and explicit error or truncation feedback.
+Run and Cancel share a row with the right-aligned status. Results fill the page
+content width on a theme-aware surface; wide results scroll horizontally.
 **Schema and examples** lists every reporting view and its columns, explains its
 keys, and supplies examples that can be copied into the editor with **Use example**.
+Its **List of tables** separately shows the supported underlying tables with
+short descriptions; selecting one displays its columns. This list uses the
+query service's existing allowlist, not the database's unrestricted schema.
+Prefer reporting views: underlying JSON tables remain internal storage details.
 
 Queries read a consistent snapshot of **persisted** `device-inventory.sqlite`,
 not unsaved edits, live scanner objects, or a cache. A committed partial scan can
@@ -144,9 +150,14 @@ WHERE o.network_id = 'your-saved-network-id';
 `InventoryQueryTests`, `SqliteInventoryTests` and `SqliteHistoryQueryTests` use
 isolated synthetic databases. The Windows Tools regression suite also runs
 `SqlEditor.Ui.Tests.ps1`, with explicit isolated inventory/snapshot paths, and
-captures result/error/limit/cancellation/narrow states. That script refuses to
-automate a non-disposable desktop. `SqlEditor.Script.Tests.ps1` checks delayed,
+checks single-row controls, full-width/empty/overflow results, keyboard schema
+and example selection, limits/cancellation, narrow layout, and light/dark/high
+contrast captures with phase diagnostics. That script refuses to automate a
+non-disposable desktop. `SqlEditor.Script.Tests.ps1` checks geometry and delayed,
 hidden, disabled, missing, and failing automation peers without driving a
-desktop; missing controls retain bounded timeout failures. The `SqlEditor`
+desktop; missing controls retain bounded timeout failures. It also checks that
+schema controls revealed by the expander are awaited before keyboard selection
+and that Settings is reached by name. Result width is re-read until layout
+settles, and a mismatch reports the last editor, result, page and window bounds. The `SqlEditor`
 capture scenario covers the page and navigation in the existing UI review;
 screenshot evidence and remote checks must still be reviewed before delivery.

@@ -21,6 +21,12 @@ You can start with a built-in example without writing a query yourself.
 A **schema** describes available tables/views and columns.
 Use the listed reporting views, whose names start with `r_`.
 They are more suitable than internal storage tables.
+**List of tables** separately lists the supported underlying tables and their
+descriptions. Select a table to see its columns. This does not grant access to
+other database tables or change the editor's read-only limits.
+
+Run and Cancel stay beside the right-aligned status. The result table fills the
+available content width; scroll it horizontally when there are many columns.
 
 ## A simple equipment report
 

@@ -1039,9 +1039,13 @@ keys, timestamp semantics, read-only enforcement, and the 5-second / 1,000-row /
 in the existing disposable Windows Tools regression suite.
 The SQL lifecycle check opens the collapsed navigation pane at narrow widths
 before switching pages and waits for its fixture app to exit before deleting
-the isolated inventory. Original assertion errors and secondary cleanup errors
-are reported separately. Desktop-free polling, navigation and process-cleanup
-regressions run with `pwsh -File tests\SqlEditor.Script.Tests.ps1`.
+the isolated inventory. The schema check waits for the controls revealed by the
+expander before focusing them, selects picker entries with keys on the closed
+pickers, and reaches Settings by name because that built-in item has no
+automation id. Original assertion errors and secondary cleanup errors
+are reported separately. Desktop-free polling, schema-picker, Settings
+navigation and process-cleanup regressions run with
+`pwsh -File tests\SqlEditor.Script.Tests.ps1`.
 
 ## Test
 
