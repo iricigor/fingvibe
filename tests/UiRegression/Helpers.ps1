@@ -107,7 +107,8 @@ function Show-UiRegressionScrollTargets {
             $viewSize = $scroll.Current.VerticalViewSize
             if ($viewSize -le 0 -or $viewSize -ge 100) { return $null }
             $geometry = "$targetTop|$targetBottom|$top|$bottom|$viewSize"
-            if ($geometry -eq $state.Geometry) { throw "$targetDescription did not move after a measured scroll adjustment." }
+            # UIA may acknowledge scrolling before WinUI publishes the updated layout.
+            if ($geometry -eq $state.Geometry) { return $null }
             if ($state.Moves -ge 8) { throw "$targetDescription did not settle after eight measured scroll adjustments." }
             $delta = if ($AlignBottom -or $targetBottom -gt $bottom) { $targetBottom - $bottom } else { $targetTop - $top }
             $extent = ($viewportBottom - $viewportTop) * (100 / $viewSize - 1)
