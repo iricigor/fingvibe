@@ -39,7 +39,7 @@ jobs:
           $revision = git rev-parse HEAD
           if ($LASTEXITCODE -ne 0) { throw "Could not resolve validation revision." }
           "revision=$revision" >> $env:GITHUB_OUTPUT
-          $suites = if ($env:MODE -eq "Full") { @("sidebar-presentation", "sidebar-scan-flows", "sidebar-preferences-scheduling", "devices", "details-summary", "details-identity", "details-observations", "details-activity", "tools-utilities", "tools-device-data", "capture") } else { @("capture") }
+          $suites = if ($env:MODE -eq "Full") { @("sidebar-presentation", "sidebar-scan-flows", "sidebar-scan-presentation", "sidebar-preferences-scheduling", "devices", "details-summary", "details-identity", "details-observations", "details-activity", "tools-utilities", "tools-device-data", "capture") } else { @("capture") }
           "suites=$(ConvertTo-Json -InputObject @($suites) -Compress)" >> $env:GITHUB_OUTPUT
           "Independent $env:MODE validation of $revision; run $env:GITHUB_RUN_ID, attempt $env:GITHUB_RUN_ATTEMPT. No authoritative PR gate or PR-bound writes." >> $env:GITHUB_STEP_SUMMARY
           "Validation harness/workflow revision: ${{ github.workflow_sha }}." >> $env:GITHUB_STEP_SUMMARY

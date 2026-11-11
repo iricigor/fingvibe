@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet("sidebar", "sidebar-presentation", "sidebar-scan-flows", "sidebar-preferences-scheduling",
+    [ValidateSet("sidebar", "sidebar-presentation", "sidebar-scan-flows", "sidebar-scan-presentation", "sidebar-preferences-scheduling",
         "devices", "devices-presentation", "devices-filters-previews", "devices-columns-sorting",
         "details-summary", "details-identity", "details-observations", "details-activity",
         "tools", "tools-utilities", "tools-device-data")]

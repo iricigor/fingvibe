@@ -1263,6 +1263,7 @@
     }
   ],
   "refactorNotes": [
+    "#254 user-directed runner split: Refresh and PeopleRooms retain their shared fixture/order in scan-flows; Progress runs independently in scan-presentation from its own Setup/Ready and cleanup. Progress uses synthetic scan-hold/progress inputs, not inventory supplied by Refresh. All modules, assertions and captures are retained; scenarioOrder remains original provenance, with relative order preserved within each group.",
     "Definitions, behavioral assertions, capture call sites and module order are mapped to the immutable baseline. Hashes normalize CRLF and outer whitespace. Baseline scenario ranges first remove their enclosing try block four-space indentation, exactly as extraction did.",
     "Explicit refactored functions migrate readiness, scoping, capture timing and process cleanup. Setup creates isolated fixtures; Test-DeviceRefresh rejects the normal user snapshot fallback. All other function bodies and scenarios remain byte-equivalent after normalization.",
     "The shared-state top-level modules run at entry script scope in original order. These structural checks supplement, and never replace, disposable native evidence.",
