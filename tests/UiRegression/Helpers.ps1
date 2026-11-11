@@ -116,7 +116,7 @@ function Show-UiRegressionScrollTargets {
             $percent = [Math]::Max(0, [Math]::Min(100, $scroll.Current.VerticalScrollPercent + 100 * $delta / $extent))
             $state.Geometry = $geometry
             $state.Moves++
-            Write-Host "Positioning $targetDescription: target $targetTop-$targetBottom; viewport $top-$bottom; view $viewSize%; scroll $($scroll.Current.VerticalScrollPercent)% -> $percent%."
+            Write-Host "Positioning ${targetDescription}: target $targetTop-$targetBottom; viewport $top-$bottom; view $viewSize%; scroll $($scroll.Current.VerticalScrollPercent)% -> $percent%."
             $scroll.SetScrollPercent(-1, $percent)
             # The next bounded observation must see the actual target bounds, not just a changed percentage.
             return $null
