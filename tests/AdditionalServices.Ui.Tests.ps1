@@ -462,6 +462,12 @@ try {
     if ((Find-ServiceControl DeviceUdpScanStatus).Current.Name -notlike "UDP: checking*") {
         throw "A newly completed TCP endpoint was not exposed while UDP was still pending."
     }
+    Invoke-ServiceControl "Scan LAN"
+    if ((Find-ServiceControl ScanStatusText).Current.Name -notlike "Another network measurement is in progress.*" -or
+        (Find-ServiceControl CancelButton -Optional) -or
+        (Find-ServiceControl DeviceDetailsScroll).Current.IsOffscreen) {
+        throw "The shared LAN action must report a conflicting measurement without leaving Device Details or starting another scan."
+    }
     Save-ServiceEvidence "services-tcp-results-udp-pending"
     if ((Find-ServiceControl DeviceUdpScanStatus).Current.Name -notlike "UDP: checking*") {
         throw "UDP finished before the TCP-before-UDP screenshot was captured."

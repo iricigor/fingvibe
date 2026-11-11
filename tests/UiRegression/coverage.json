@@ -495,7 +495,8 @@
             1268
           ],
           "baselineSha256": "064bfb7c7131eac2a163f0c7f275ae7764384105ece0e24a81dcca0bf4869db4",
-          "refactored": false,
+          "refactored": true,
+          "changedBy": "#254: replace the obsolete Devices-only scan assertion with shared Overview/detail visibility; retain all device assertions and captures.",
           "functions": [],
           "captures": [
             "19cff7de59c354367d6ecd9d81243742c91c014e31e6b1337f8e3edeb751f7da"
@@ -688,7 +689,8 @@
                 "54937b2453714d98cfc26e5830bce562a55d99aa8442aa82b35df4b5c291019c"
               ],
               "name": "Assert-SharedNetworkHeader",
-              "refactored": false,
+              "refactored": true,
+              "changedBy": "#254: additionally require the enabled, accessible shared Scan LAN action beside the picker.",
               "baselineSha256": "d7d68ad7a16fedad7349bfe82a83313a628c9f08c424bd96ac86bd98d8651828"
             },
             {
@@ -916,6 +918,11 @@
               "baselineSha256": "a63fafc9cd3c216af9bac249c3106c895aeba1b836e02f21f07fb8cd6942b228"
             },
             {
+              "name": "Test-SharedScanContext",
+              "refactored": true,
+              "introducedBy": "#254: held keyboard scan proves page/LAN retention and focus across completion or cancellation."
+            },
+            {
               "assertions": [
                 "4f200beec8e1013f2747c0359524a3ca613cb5f9b5e7d671e1c81199cf7f31d6",
                 "79f511e09d7b758835e32c125af112fc7aa01300c711fad18ad1ab0e2e593edc",
@@ -937,6 +944,11 @@
               "baselineSha256": "38d463171e751e15016349f36e58d0d5334a6b92a2e23f4895888c672b692685"
             },
             {
+              "name": "Test-UnavailableScanTarget",
+              "refactored": true,
+              "introducedBy": "#254: isolated empty-network fixture keeps the shared action visible but disabled on every top-level page."
+            },
+            {
               "assertions": [
                 "acd7d787212ce3c9fc5a51946435100eabb2ab1ddaddaa3e094274a9a3132aa2",
                 "e52fb83b6cce0eced376ef4de74082242e32d8745ed0b7fd841adf831e0f6818",
@@ -953,12 +965,20 @@
                 "39aef8f4324bab3b0660d00668a05aa68394135129f2967bc6367ee09aab35aa"
               ],
               "name": "Test-ScanPresentation",
-              "refactored": false,
+              "refactored": true,
+              "changedBy": "#254: retain all progress, geometry, theme and focus checks; add idle refresh-icon captures.",
               "baselineSha256": "44e1fa531b6ec95be1b759dd5a2d7db936db5f6cffb34fea058a73de996bc905"
+            },
+            {
+              "name": "Test-ScanTextScaling",
+              "refactored": true,
+              "introducedBy": "#254: disposable CI-only 200-percent Windows text scaling, effective-scale verification, narrow geometry/keyboard checks and restoration."
             }
           ],
           "captures": [
-            "fbf9b63ad539b133fa95aaf358ab9669d9c94d193d6c7dd040aff27e849c9ef7"
+            "fbf9b63ad539b133fa95aaf358ab9669d9c94d193d6c7dd040aff27e849c9ef7",
+            "78ad2a6753f3cec789531c291bcf4a7647a30ab8dbe0f674a683e4822920840f",
+            "e423b74296f0391ddf59678063a525d52ed96fc62ac576ead74aae4d609d2784"
           ],
           "fixtureAssignments": []
         },
@@ -1045,7 +1065,8 @@
                 "39aef8f4324bab3b0660d00668a05aa68394135129f2967bc6367ee09aab35aa"
               ],
               "name": "Test-ScheduledScans",
-              "refactored": false,
+              "refactored": true,
+              "changedBy": "#254: check shared progress/cancel while navigating a scheduled scan and retain Settings after cancellation.",
               "baselineSha256": "3350cfea27c145567cebb975148c9858456103ea0c9c1156743c1b8b5ec6cda3"
             }
           ],
@@ -1174,7 +1195,8 @@
             1325
           ],
           "baselineSha256": "f5f9379d04173ebb166bfab76095df8696bae22ec01e7db30b22a62a9c25c0c8",
-          "refactored": false,
+          "refactored": true,
+          "changedBy": "#254: run the existing refresh coverage followed by isolated unavailable-network checks.",
           "functions": [],
           "captures": [],
           "fixtureAssignments": []
@@ -1187,7 +1209,8 @@
             1326
           ],
           "baselineSha256": "6e2737bb3d79c6a0d317f67757c06b31f44eeb9b588cbf0d2a2d706265e718ac",
-          "refactored": false,
+          "refactored": true,
+          "changedBy": "#254: retain presentation coverage and add the disposable CI-only text-scale check.",
           "functions": [],
           "captures": [],
           "fixtureAssignments": []

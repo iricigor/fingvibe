@@ -159,9 +159,14 @@ function Test-ScheduledScans {
         $null = Wait-SidebarText ScheduledScanStatus "Scheduled scan in progress."
         Show-ScheduledScansCard
         Save-SidebarAppearance "scheduled-scans-running"
+        Select-SidebarPage Overview "Online devices"
+        $null = Find-SidebarElement AutomationId ScanProgressBar
+        $null = Find-SidebarElement AutomationId CancelButton
+        Select-SidebarPage Settings "Window backdrop"
         (Find-SidebarElement AutomationId CancelButton).GetCurrentPattern(
             [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
         $null = Wait-SidebarText ScanStatusText "Scheduled scan of 127.0.0.1/32 cancelled*"
+        $null = Find-SidebarElement Name "Window backdrop"
         Show-ScheduledScansCard
         $null = Wait-SidebarText ScheduledScanStatus "Last scheduled scan was cancelled; committed checkpoints are retained as incomplete. Next around *."
         $null = Wait-SidebarText ScanFreshnessText "* $dot Scheduled every 15 minutes while app is open"

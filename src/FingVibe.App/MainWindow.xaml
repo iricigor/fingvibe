@@ -171,12 +171,22 @@
                         <TextBlock x:Name="ScanFreshnessText" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center"
                                    FontSize="12" TextWrapping="Wrap" Margin="0,4,0,0"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <Grid x:Name="ScanActions" Grid.Column="2" MinWidth="120" Visibility="Collapsed">
+                        <Grid x:Name="ScanActions" Grid.Column="2" MinWidth="120">
                             <Button x:Name="ScanButton"
                                     HorizontalAlignment="Stretch"
+                                    IsEnabled="False"
                                     Click="ScanButton_Click" AutomationProperties.Name="Scan LAN"
                                     Style="{ThemeResource AccentButtonStyle}">
-                                <TextBlock Text="Scan LAN" TextWrapping="Wrap" />
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Glyph="&#xE895;" FontSize="16" VerticalAlignment="Center"
+                                              IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                                    <TextBlock Grid.Column="1" Text="Scan LAN" TextWrapping="Wrap"
+                                               VerticalAlignment="Center" />
+                                </Grid>
                             </Button>
                             <Button x:Name="CancelButton"
                                     HorizontalAlignment="Stretch"

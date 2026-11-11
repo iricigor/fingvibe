@@ -45,8 +45,6 @@ public sealed partial class MainWindow : IScanExecutionSteps
             ? $"These results are not for the selected scan target ({network?.Cidr ?? "none"})."
             : null;
         ScanFreshnessText.Text = context;
-        ScanActions.Visibility = _isScanning || DevicesPage.Visibility == Visibility.Visible
-            ? Visibility.Visible : Visibility.Collapsed;
         ScanButton.Visibility = _isScanning ? Visibility.Collapsed : Visibility.Visible;
         ScanButton.IsEnabled = !_isScanning && network is not null;
         var status = string.Join(" · ", new[] { _scanMessage, _snapshotError, _inventoryError, _discoveryMessage, _windowsNotificationMessage, targetWarning }

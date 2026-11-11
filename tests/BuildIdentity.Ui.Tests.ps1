@@ -220,11 +220,9 @@ try {
             $null = [UiReviewNativeWindow]::SetWindowPos(
                 $process.MainWindowHandle, [IntPtr]::Zero, $bounds.X, $bounds.Y, 640, 480, 0x0044)
             Start-Sleep -Milliseconds 400
-            $scanButtonCondition = [System.Windows.Automation.PropertyCondition]::new(
-                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "ScanButton")
-            $scanButton = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $scanButtonCondition)
-            if ($scanButton -and -not $scanButton.Current.IsOffscreen) {
-                throw "Scan LAN must not be available on Overview."
+            $scanButton = Find-Element "Scan LAN" ([System.Windows.Automation.ControlType]::Button)
+            if ($scanButton.Current.IsOffscreen -or -not $root.Current.BoundingRectangle.Contains($scanButton.Current.BoundingRectangle)) {
+                throw "Scan LAN must remain fully visible on Overview at 640x480."
             }
             Select-Page "Devices"
             $scan = Find-Element "Scan LAN" ([System.Windows.Automation.ControlType]::Button)
