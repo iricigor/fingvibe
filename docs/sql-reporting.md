@@ -157,6 +157,7 @@ non-disposable desktop. `SqlEditor.Script.Tests.ps1` checks geometry and delayed
 hidden, disabled, missing, and failing automation peers without driving a
 desktop; missing controls retain bounded timeout failures. It also checks that
 schema controls revealed by the expander are awaited before keyboard selection
-and that Settings is reached by name. The `SqlEditor`
+and that Settings is reached by name. Result width is re-read until layout
+settles, and a mismatch reports the last editor, result, page and window bounds. The `SqlEditor`
 capture scenario covers the page and navigation in the existing UI review;
 screenshot evidence and remote checks must still be reviewed before delivery.

@@ -7,7 +7,8 @@ if ($parseErrors) { throw ($parseErrors.Message -join "; ") }
 foreach ($name in @(
         "Wait-SqlState", "Wait-SqlControl", "Select-SqlPage", "Select-SqlTools", "Assert-SqlResult", "Stop-SqlApp",
         "Test-SqlActionBounds", "Show-SqlSchemaPicker", "Send-SqlPickerKeys", "Select-SqlSchemaEndpoint",
-        "Wait-SqlKeyboardOutcome", "Find-SqlSettingsItem", "Select-SqlSettings")) {
+        "Wait-SqlKeyboardOutcome", "Find-SqlSettingsItem", "Select-SqlSettings",
+        "Test-SqlResultWidth", "Format-SqlBounds", "Assert-SqlResultWidth")) {
     $definition = $ast.Find({
         param($node)
         $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name
@@ -347,4 +348,38 @@ Assert-Throws {
 } "*SQL editor app did not exit during fixture cleanup."
 $script:process = $null
 Stop-SqlApp
-Write-Host "SQL editor polling, post-expand picker waits, keyboard selection, Settings navigation, narrow navigation and process cleanup regressions passed without desktop automation."
+
+& {
+    $content = [Windows.Rect]::new(34, 300, 572, 136)
+    Assert-Equal (Test-SqlResultWidth $content ([Windows.Rect]::new(35, 480, 570, 280))) $true "A result surface within 2 px of the editor must pass"
+    Assert-Equal (Test-SqlResultWidth $content ([Windows.Rect]::new(34, 480, 400, 280))) $false "A result surface short of the editor's right edge must fail"
+    Assert-Equal (Test-SqlResultWidth $content ([Windows.Rect]::Empty)) $false "An unmeasured result surface must fail"
+
+    $sizes = @{ SqlText = @([Windows.Rect]::new(34, 300, 572, 136)); ResultScroll = @(
+        [Windows.Rect]::Empty, [Windows.Rect]::new(34, 480, 1440, 280), [Windows.Rect]::new(34, 480, 572, 280)) }
+    $reads = @{ SqlText = 0; ResultScroll = 0 }
+    function Wait-SqlState([scriptblock] $Predicate, [string] $Description, [int] $Seconds = 10) {
+        for ($attempt = 0; $attempt -lt 5; $attempt++) { if (& $Predicate) { return } }
+        throw "Timed out waiting for $Description."
+    }
+    # Freshly shown results report empty, then unclamped, bounds until layout settles.
+    function Find-SqlControl([string] $Id, [switch] $Optional) {
+        $bounds = [Windows.Rect]::new(0, 0, 640, 800)
+        if ($sizes.ContainsKey($Id)) {
+            $values = $sizes[$Id]
+            $bounds = $values[[Math]::Min($reads[$Id], $values.Count - 1)]
+            $reads[$Id]++
+        }
+        return [pscustomobject]@{ Current = [pscustomobject]@{ BoundingRectangle = $bounds; IsOffscreen = $false } }
+    }
+    $script:root = Find-SqlControl window
+    Assert-SqlResultWidth
+    Assert-Equal $reads.ResultScroll 3 "Result width must be re-read until layout settles"
+    Assert-Equal ($reads.SqlText -ge 3) $true "Editor bounds must be re-read with each result measurement"
+
+    $sizes.ResultScroll = @([Windows.Rect]::new(34, 480, 400, 280))
+    Assert-Throws { Assert-SqlResultWidth } "The SQL result surface does not fill the editor's content width. Last geometry: SqlText ``[34, 606``]*ResultScroll ``[34, 434``]*SqlPageScroll*window*"
+    $sizes.ResultScroll = @([Windows.Rect]::Empty)
+    Assert-Throws { Assert-SqlResultWidth } "*ResultScroll empty (offscreen False)*"
+}
+Write-Host "SQL editor polling, post-expand picker waits, keyboard selection, Settings navigation, narrow navigation, result width readiness and process cleanup regressions passed without desktop automation."

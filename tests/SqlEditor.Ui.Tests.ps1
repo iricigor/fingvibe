@@ -129,14 +129,45 @@ function Assert-SqlActionLayout {
     } "Run, Cancel and right-aligned status on one non-overlapping row"
 }
 
+function Test-SqlResultWidth($Editor, $Result) {
+    foreach ($bounds in @($Editor, $Result)) {
+        if ($bounds.IsEmpty -or $bounds.Width -le 0 -or $bounds.Height -le 0) { return $false }
+    }
+    return [Math]::Abs($Result.Left - $Editor.Left) -le 2 -and [Math]::Abs($Result.Right - $Editor.Right) -le 2
+}
+
+function Format-SqlBounds([string] $Id, $Element) {
+    if (-not $Element) { return "$Id missing" }
+    $bounds = $Element.Current.BoundingRectangle
+    if ($bounds.IsEmpty) { return "$Id empty (offscreen $($Element.Current.IsOffscreen))" }
+    return "$Id [$($bounds.Left), $($bounds.Right)] x [$($bounds.Top), $($bounds.Bottom)] (offscreen $($Element.Current.IsOffscreen))"
+}
+
+function Assert-SqlResultWidth {
+    try {
+        Wait-SqlState {
+            $editor = Find-SqlControl SqlText -Optional
+            $result = Find-SqlControl ResultScroll -Optional
+            $editor -and $result -and
+                (Test-SqlResultWidth $editor.Current.BoundingRectangle $result.Current.BoundingRectangle)
+        } "SQL result surface matching the editor's content width"
+    }
+    catch {
+        $geometry = @(
+            Format-SqlBounds SqlText (Find-SqlControl SqlText -Optional)
+            Format-SqlBounds ResultScroll (Find-SqlControl ResultScroll -Optional)
+            Format-SqlBounds SqlPageScroll (Find-SqlControl SqlPageScroll -Optional)
+            Format-SqlBounds window $script:root
+        ) -join "; "
+        throw "The SQL result surface does not fill the editor's content width. Last geometry: $geometry."
+    }
+}
+
 function Assert-SqlResultLayout([switch] $Wide) {
-    $editor = (Find-SqlControl SqlText).Current.BoundingRectangle
     $null = Show-UiRegressionScrollTargets -GetViewport { Find-SqlControl SqlPageScroll } `
         -GetTargets { Find-SqlControl ResultScroll } -GetWindow { $script:root } -Description "SQL result table"
+    Assert-SqlResultWidth
     $viewport = (Find-SqlControl ResultScroll).Current.BoundingRectangle
-    if ([Math]::Abs($viewport.Left - $editor.Left) -gt 2 -or [Math]::Abs($viewport.Right - $editor.Right) -gt 2) {
-        throw "The SQL result surface does not fill the editor's content width."
-    }
     $scroll = (Find-SqlControl ResultScroll).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     Wait-SqlState { $scroll.Current.HorizontallyScrollable -eq $Wide.IsPresent } "SQL horizontal overflow (wide result: $Wide)"
     if (-not $Wide) {
