@@ -486,7 +486,7 @@ The page uses `AsyncSurfaceSession`, publishing its state and selection on
 `NetworkActivityScroll`. Loading and errors clear old cells; Retry starts a new
 request, and selection, navigation and close cancel obsolete work. Query,
 classification, filtering and aggregation run off the UI thread against the
-same captured saved revision. Both Activity surfaces share the grid renderer;
+same captured saved revision. All Activity surfaces share the grid renderer;
 their different count/response semantics remain separate.
 
 `NetworkActivityTests` covers count unions, exact means, filters, lower bounds,
@@ -501,6 +501,48 @@ headroom; full validation includes it.
 query without desktop automation. The shared renderer also retains the existing
 Device Activity light/dark/high-contrast native coverage. No native test runs on
 the user's working desktop.
+
+### Person equipment activity
+
+Person details shows **Equipment activity** above Assigned devices, preserving
+Edit, Delete, Assign, Unassign and device navigation. The 7/30-date and weekday
+views reuse Network's distinct-device counts, exact daily-count means, local
+calendar/DST rules, 1-4 hour groups, numeric legend and keyboard-accessible cells.
+Current assignments apply to historical evidence, not reconstructed ownership.
+Cell details name responding and unavailable equipment, and weekday details
+retain exact numerator/denominator and excluded dates. The assigned list shows
+the current effective usage category and Auto/Manual source.
+
+The latest logical scan in the **selected network and subnet** supplies
+Equipment online only with complete eligible equipment evidence and at least
+one response, or No equipment responded when all eligible equipment was checked
+with no response. Missing/incomplete evidence stays Unknown even with partial
+positive responses. No assignments shows No equipment assigned, without a grid
+estimate. Counts, network and scan age remain visible; age strictly greater than
+two hours adds Older scan without changing the evidence state. Age refreshes
+every 30 seconds while the page is active, without probing or background scans.
+These are equipment observations, never human-presence claims.
+
+Assignment/person/network/revision/period changes, navigation and close cancel
+obsolete requests through `AsyncSurfaceSession`; `EquipmentActivityScroll`
+publishes the observable selection/state. Loading and errors clear old results;
+Retry runs a fresh request. Queries read only selected equipment history,
+deduplicate existing virtual associations in storage, and retain out-of-network
+assignments as unknown contributors. Imported-only devices are not offline.
+Queries, counts and classification run off the UI thread.
+
+`EquipmentActivityTests` covers exact means/zero/partial evidence, latest scan
+eligibility, strict age boundaries, current assignments, virtual deduplication,
+network isolation and obsolete results. `EquipmentActivity.Script.Tests.ps1`
+checks the three-equipment/1,000-device production-query fixture without a
+desktop. The focused `EquipmentActivity.Ui` module runs in `details-summary`
+when PersonDetails is selected, retaining existing summary coverage. It covers
+all periods and groupings, contributor details, category source, loading and
+cancellation, no equipment/no history, error/Retry, light/dark/narrow layouts
+and retained action reachability on disposable CI desktops. Shared renderer
+high-contrast checks remain in Device Activity; Sidebar retains the full
+People/Rooms editing/assignment flows. Final-head affected-job durations are
+delivery evidence, not inferred from these coverage mappings.
 
 ### Device scan history
 
@@ -1271,7 +1313,9 @@ process RSS or a claim that native SQLite memory is managed.
 
 The benchmark includes production aligned `DeviceActivity` buckets (and
 single-device weekday grouping), the complete Network page query, current
-metadata/category filtering and count presentation, as well as the production
+metadata/category filtering and count presentation, the complete Person
+equipment query/count/indicator/category presentation for 50 current assignments,
+as well as the production
 `DeviceUsageClassifier` over all selected devices' seven-date evidence. It enforces
 p95 at most 1 second for one device and 2 seconds each for network, equipment and
 all selected-device classification evidence; at most 128 MiB additional managed

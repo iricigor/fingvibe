@@ -26,6 +26,7 @@ public sealed class AnalyticsEvidenceBenchmark(ITestOutputHelper output) : IDisp
     private const string Subnet = "192.0.2.0/24";
     private static readonly DateTimeOffset End = DateTimeOffset.Parse("2026-11-07T12:00:00Z");
     private static readonly DateTimeOffset Start = End.AddDays(-1000);
+    private static readonly Guid EquipmentPerson = Guid.Parse("00000000-0000-0000-0000-000000000241");
     private readonly string _directory = Path.Combine(Path.GetTempPath(), $"fingvibe-analytics-benchmark-{Guid.NewGuid():N}");
     private string Database => Path.Combine(_directory, "inventory.sqlite");
 
@@ -61,6 +62,22 @@ public sealed class AnalyticsEvidenceBenchmark(ITestOutputHelper output) : IDisp
         var single = request with { Devices = [LogicalDeviceId.Mac("001122000000")] };
         var roster = Enumerable.Range(0, 900).Where(i => i % 3 == 0).Take(50)
             .Select(i => LogicalDeviceId.Mac($"001122{i:X6}")).ToArray();
+        using (var connection = Open())
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                SELECT COUNT(*) FROM scan_history
+                WHERE kind='mac' AND id IN (SELECT value FROM json_each($equipment))
+                    AND network_id='network-0' AND subnet=$subnet AND completed_ticks>=$start AND completed_ticks<=$end
+                """;
+            command.Parameters.AddWithValue("$equipment", System.Text.Json.JsonSerializer.Serialize(roster.Select(id => id.Id)));
+            command.Parameters.AddWithValue("$subnet", Subnet);
+            command.Parameters.AddWithValue("$start", End.Date.AddDays(-29).Ticks);
+            command.Parameters.AddWithValue("$end", End.UtcTicks);
+            var count = Convert.ToInt64(command.ExecuteScalar());
+            Assert.Equal(16_350, count);
+            output.WriteLine($"Exact selected equipment observations (50 current assignments, 30 dates): {count}.");
+        }
         await Measure("single device 30-date query + production activity buckets", 1000, single, store, classify: false);
         await Measure("network 30-date query + production aligned bucket union", 2000, request, store, classify: false);
         await Measure("equipment 30-date query + production aligned bucket union", 2000,
@@ -69,34 +86,45 @@ public sealed class AnalyticsEvidenceBenchmark(ITestOutputHelper output) : IDisp
             request with { CalendarDays = 7 }, store, classify: true);
         await Measure("Network page 30-date query + current filters/classification + count presentation", 2000,
             request, store, classify: false, networkData: data);
+        await Measure("Person equipment 30-date query + assignment counts/indicator/categories/presentation", 2000,
+            request, store, classify: false, equipmentData: data);
 
-        var cancellations = new List<double>();
-        for (var run = 0; run < 20; run++)
+        foreach (var equipment in new[] { false, true })
         {
-            using var cancellation = new CancellationTokenSource();
-            var query = Task.Run(async () =>
+            var cancellations = new List<double>();
+            for (var run = 0; run < 20; run++)
             {
-                var evidence = await store.QueryAnalyticsAsync(request, cancellation.Token);
-                return NetworkActivityPresentation.Create(evidence, data, 1, true, new(), cancellation.Token);
-            }, cancellation.Token);
-            await Task.Delay(20);
-            var clock = Stopwatch.StartNew();
-            cancellation.Cancel();
-            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => query);
-            using (var connection = Open())
-            using (var command = connection.CreateCommand())
-            {
-                command.CommandText = "BEGIN EXCLUSIVE; ROLLBACK;";
-                command.ExecuteNonQuery();
+                using var cancellation = new CancellationTokenSource();
+                var query = Task.Run(async () =>
+                {
+                    if (equipment)
+                    {
+                        var display = await EquipmentActivityPresentation.LoadAsync(store, data, EquipmentPerson,
+                            request, 1, true, cancellation.Token);
+                        return display.Grid;
+                    }
+                    var evidence = await store.QueryAnalyticsAsync(request, cancellation.Token);
+                    return NetworkActivityPresentation.Create(evidence, data, 1, true, new(), cancellation.Token);
+                }, cancellation.Token);
+                await Task.Delay(20);
+                var clock = Stopwatch.StartNew();
+                cancellation.Cancel();
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => query);
+                using (var connection = Open())
+                using (var command = connection.CreateCommand())
+                {
+                    command.CommandText = "BEGIN EXCLUSIVE; ROLLBACK;";
+                    command.ExecuteNonQuery();
+                }
+                cancellations.Add(clock.Elapsed.TotalMilliseconds);
             }
-            cancellations.Add(clock.Elapsed.TotalMilliseconds);
+            output.WriteLine($"{(equipment ? "Equipment" : "Network")} cancellation + exclusive-lock resource-release ms (20): {string.Join(", ", cancellations.Select(ms => ms.ToString("F3")))}; max={cancellations.Max():F3}; ceiling=250.");
+            Assert.True(cancellations.Max() <= 250, $"Cancellation/resource release exceeded 250ms: {cancellations.Max():F3}.");
         }
-        output.WriteLine($"Cancellation + exclusive-lock resource-release ms (20): {string.Join(", ", cancellations.Select(ms => ms.ToString("F3")))}; max={cancellations.Max():F3}; ceiling=250.");
-        Assert.True(cancellations.Max() <= 250, $"Cancellation/resource release exceeded 250ms: {cancellations.Max():F3}.");
     }
 
     private async Task Measure(string label, double milliseconds, AnalyticsEvidenceRequest request,
-        DeviceInventoryStore store, bool classify, DeviceInventoryData? networkData = null)
+        DeviceInventoryStore store, bool classify, DeviceInventoryData? networkData = null, DeviceInventoryData? equipmentData = null)
     {
         async Task<(double Milliseconds, long Allocated, long Rss, long Checksum)> Run()
         {
@@ -105,10 +133,19 @@ public sealed class AnalyticsEvidenceBenchmark(ITestOutputHelper output) : IDisp
             GC.Collect();
             var before = GC.GetTotalAllocatedBytes(precise: true);
             var clock = Stopwatch.StartNew();
-            var evidence = await store.QueryAnalyticsAsync(request);
-            var checksum = networkData is not null
-                ? NetworkActivityPresentation.Create(evidence, networkData, 1, true, new()).Cells.Sum(cell => (long)cell.Details.Length)
-                : classify ? ClassificationCounts(evidence) : BucketUnion(evidence);
+            long checksum;
+            if (equipmentData is not null)
+            {
+                var display = await EquipmentActivityPresentation.LoadAsync(store, equipmentData, EquipmentPerson, request, 1, true);
+                checksum = display.Grid.Cells.Sum(cell => (long)cell.Details.Length) + display.Latest.Total;
+            }
+            else
+            {
+                var evidence = await store.QueryAnalyticsAsync(request);
+                checksum = networkData is not null
+                    ? NetworkActivityPresentation.Create(evidence, networkData, 1, true, new()).Cells.Sum(cell => (long)cell.Details.Length)
+                    : classify ? ClassificationCounts(evidence) : BucketUnion(evidence);
+            }
             clock.Stop();
             var allocated = GC.GetTotalAllocatedBytes(precise: true) - before;
             return (clock.Elapsed.TotalMilliseconds, allocated, Process.GetCurrentProcess().WorkingSet64, checksum);
@@ -164,6 +201,9 @@ public sealed class AnalyticsEvidenceBenchmark(ITestOutputHelper output) : IDisp
         data = data with
         {
             LatestScan = null,
+            PeopleRooms = new PeopleRoomsData([new(EquipmentPerson, "Benchmark equipment", "BE")],
+                assignments: normal.Where((_, index) => index % 3 == 0).Take(50)
+                    .ToDictionary(mac => mac, _ => new DeviceAssignment(PersonId: EquipmentPerson))),
             Devices = data.Devices.ToDictionary(pair => pair.Key, pair => pair.Value with
             {
                 ScanHistory = [],

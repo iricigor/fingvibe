@@ -3,8 +3,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
-using Microsoft.UI.Xaml.Documents;
-using Microsoft.UI.Xaml.Media;
 using Windows.UI.ViewManagement;
 
 namespace FingVibe.App.Views;
@@ -186,21 +184,7 @@ public sealed partial class NetworkPageView
         if (!_activityInitialized) return;
         ActivityGridRenderer.Render(NetworkActivityGrid, _activityCells, ActualTheme, _activityColors,
             "NetworkActivityCell", details => NetworkActivityDetail.Text = details);
-        NetworkActivityLegend.Inlines.Clear();
-        if (_activityMaximum is { } maximum)
-        {
-            var contrast = new AccessibilitySettings().HighContrast;
-            foreach (var fraction in maximum == 0 ? new[] { 0m } : new[] { 0m, .25m, .5m, .75m, 1m })
-            {
-                var sample = new DeviceActivityCell("", "", 0, 1, true,
-                    fraction == 0 ? AnalyticsResponse.DidNotRespond : AnalyticsResponse.Responded, fraction, false, "", "");
-                NetworkActivityLegend.Inlines.Add(new Run { Text = "\u25A0 ", Foreground = new SolidColorBrush(contrast
-                    ? _activityColors.GetColorValue(UIColorType.Foreground)
-                    : ActivityGridRenderer.CellColor(sample, false, ActualTheme, _activityColors)) });
-                NetworkActivityLegend.Inlines.Add(new Run { Text = $"{maximum * fraction:0.#}  " });
-            }
-        }
-        NetworkActivityLegend.Inlines.Add(new Run { Text = _activityLegend });
+        ActivityGridRenderer.RenderCountLegend(NetworkActivityLegend, _activityLegend, _activityMaximum, ActualTheme, _activityColors);
     }
 
     private void ActivitySelection_Changed(object sender, SelectionChangedEventArgs e) => _ = LoadActivityAsync();

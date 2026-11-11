@@ -95,6 +95,28 @@ function Show-UiReviewDetailsControl {
     return Assert-VisibleUiReviewElement -Using $Using -Value $Value
 }
 
+function Show-UiReviewPersonAssignments {
+    param([switch] $Top)
+    Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+    $root = [System.Windows.Automation.AutomationElement]::FromHandle($windowHandle)
+    $page = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "PersonDetailPage"))
+    if (-not $page) { throw "Missing Person details viewport." }
+    if ($Top) {
+        $scroll = $page.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
+        return
+    }
+    $button = $page.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "AssignPersonDevicesButton"))
+    if (-not $button) { throw "Missing Person assignment action." }
+    $button.SetFocus()
+    $item = $null
+    if ($button.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern, [ref]$item)) { $item.ScrollIntoView() }
+}
+
 function Show-UiReviewCaptureScenario {
     param([Parameter(Mandatory)][string] $Scenario)
     $menu = switch ($Scenario) {
@@ -161,8 +183,13 @@ function Show-UiReviewCaptureScenario {
         Invoke-WebDriverElement -ElementId $rowId
         $backName = if ($Scenario -eq "PersonDetails") { "Back to people" } else { "Back to rooms" }
         $null = Assert-VisibleUiReviewElement -Value $backName
+        if ($Scenario -eq "PersonDetails") { Show-UiReviewPersonAssignments }
         $null = Assert-VisibleUiReviewElement -Value "Assigned devices"
         $null = Assert-VisibleUiReviewElement -Value "Assign devices"
+        if ($Scenario -eq "PersonDetails") {
+            Show-UiReviewPersonAssignments -Top
+            $null = Assert-VisibleUiReviewElement -Value $backName
+        }
         return
     }
 

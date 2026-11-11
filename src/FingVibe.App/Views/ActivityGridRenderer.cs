@@ -2,6 +2,7 @@ using FingVibe.Core.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.Foundation;
@@ -15,6 +16,25 @@ namespace FingVibe.App.Views;
 
 internal static class ActivityGridRenderer
 {
+    internal static void RenderCountLegend(TextBlock target, string legend, decimal? maximum,
+        ElementTheme theme, UISettings colors)
+    {
+        target.Inlines.Clear();
+        if (maximum is { } max)
+        {
+            var contrast = new AccessibilitySettings().HighContrast;
+            foreach (var fraction in max == 0 ? new[] { 0m } : new[] { 0m, .25m, .5m, .75m, 1m })
+            {
+                var sample = new DeviceActivityCell("", "", 0, 1, true,
+                    fraction == 0 ? AnalyticsResponse.DidNotRespond : AnalyticsResponse.Responded, fraction, false, "", "");
+                target.Inlines.Add(new Run { Text = "\u25A0 ", Foreground = new SolidColorBrush(contrast
+                    ? colors.GetColorValue(UIColorType.Foreground) : CellColor(sample, false, theme, colors)) });
+                target.Inlines.Add(new Run { Text = $"{max * fraction:0.#}  " });
+            }
+        }
+        target.Inlines.Add(new Run { Text = legend });
+    }
+
     internal static void RenderLoading(Grid grid, int hours, UISettings colors)
     {
         grid.Children.Clear();
@@ -42,7 +62,7 @@ internal static class ActivityGridRenderer
         grid.Children.Clear();
         grid.RowDefinitions.Clear();
         grid.ColumnDefinitions.Clear();
-        if (cells.Count == 0) return;
+        if (cells.Count == 0) { grid.MinWidth = 0; return; }
         var columns = 24 / cells[0].Hours;
         var rows = cells.Count / columns;
         var scale = colors.TextScaleFactor;

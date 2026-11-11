@@ -16,6 +16,7 @@ public sealed record ManagedRoomListRow(ManagedRoom Room, string DeviceCountText
 
 public sealed record AssignedDeviceListRow(string IdentityKey, ScanResultRow? ScanResult)
 {
+    public string UsageCategoryLabel { get; init; } = "Usage category unavailable";
     public string NameText => ScanResult?.NameText ?? "Not observed in the last scan";
     public string AddressText => ScanResult?.AddressText ?? "-";
     public string StatusText => ScanResult?.StatusLabel ?? "Historical assignment";

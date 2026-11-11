@@ -23,7 +23,8 @@ foreach ($suite in @("capture", "sidebar", "sidebar-presentation", "sidebar-scan
 $focused = @(Get-NativeValidationPlan -Mode Focused -Suite capture -Scenarios @("Settings", "DeviceDetails"))
 Assert-NativeEqual $focused.Scenario @("Devices", "DeviceDetails", "Settings") "Focused captures reuse catalog ordering"
 foreach ($suite in @("details-summary", "details-identity", "details-observations", "details-activity")) {
-    $expected = if ($suite -eq "details-identity") { @("Devices", "Network", "DeviceDetails") } else { @("Devices", "DeviceDetails") }
+    $expected = if ($suite -eq "details-identity") { @("Devices", "Network", "DeviceDetails") }
+        elseif ($suite -eq "details-summary") { @("Devices", "DeviceDetails", "PersonDetails") } else { @("Devices", "DeviceDetails") }
     Assert-NativeEqual @(Get-NativeValidationPlan -Mode Focused -Suite $suite).Scenario $expected "Focused $suite cannot inherit a plan that skips its activity surfaces"
     Assert-NativeThrows { Get-NativeValidationPlan -Mode Baseline -Suite $suite } "*only the capture*"
 }
@@ -57,7 +58,7 @@ $dispatchSource = Get-Content (Join-Path $PSScriptRoot "..\.github\scripts\Invok
 $expectedChecks = @([regex]::Matches($dispatchSource, 'Invoke-RegressionCheck "([^"]+)"') |
     ForEach-Object { $_.Groups[1].Value })
 foreach ($name in @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
-    "UsageCategory.Ui", "DeviceActivity.Ui", "NetworkActivity.Ui", "Tools.Ui")) {
+    "UsageCategory.Ui", "DeviceActivity.Ui", "NetworkActivity.Ui", "EquipmentActivity.Ui", "Tools.Ui")) {
     $count = if ($name -eq "DeviceScanHistory.Ui") { 2 } else { 1 }
     Assert-NativeEqual @($expectedChecks | Where-Object { $_ -eq $name }).Count $count "Existing native checks retain independent summary/observation coverage"
 }
@@ -144,7 +145,7 @@ param($Version, $ArchiveName, $ArchivePath, $ChecksumsName, $ChecksumsPath)
 throw "Simulated secret asset failure"
 '@ | Set-Content -LiteralPath (Join-Path $scripts "Download-Gitleaks.ps1")
     foreach ($name in @("UiReviewScenarios", "UiRegression.Helpers", "AdditionalServices.Script",
-        "SqlEditor.Script", "UsageCategory.Script", "DeviceActivity.Script", "NetworkActivity.Script", "PrValidation",
+        "SqlEditor.Script", "UsageCategory.Script", "DeviceActivity.Script", "NetworkActivity.Script", "EquipmentActivity.Script", "PrValidation",
         "DispatcherGate", "LogoDevConfiguration", "BuildIdentity.Metadata", "Installer.Script", "GitleaksDownload")) {
         @'
 $name = [IO.Path]::GetFileName($PSCommandPath).Replace(".Tests.ps1", "")

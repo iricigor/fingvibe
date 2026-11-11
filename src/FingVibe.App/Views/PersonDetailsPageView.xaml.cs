@@ -6,7 +6,11 @@ namespace FingVibe.App.Views;
 
 public sealed partial class PersonDetailsPageView : UserControl
 {
-    public PersonDetailsPageView() => InitializeComponent();
+    public PersonDetailsPageView()
+    {
+        InitializeComponent();
+        InitializeActivity();
+    }
 
     public event RoutedEventHandler? BackRequested;
     public event RoutedEventHandler? EditRequested;
@@ -52,7 +56,8 @@ public sealed partial class PersonDetailsPageView : UserControl
         PersonDetailNotes.Text = person.Notes ?? string.Empty;
         PersonDeviceCountText.Text = count;
         PersonRespondedCountText.Text = responses;
-        PersonAssignedDevicesList.ItemsSource = devices;
+        _assignedDevices = devices;
+        RefreshAssignedCategories();
         PersonAssignedDevicesEmptyText.Visibility = isEmpty ? Visibility.Visible : Visibility.Collapsed;
     }
 
