@@ -206,6 +206,10 @@ if ($installerJob -notmatch 'needs: \[changes, tests, build\]' -or
     $publishJob -notmatch 'needs: \[changes, tests, build, installer, ui-capture, ui-regression\]') {
     throw "Tested downloads and screenshot publication must still wait for passing core tests."
 }
+if ($captureJob -notmatch 'outputs:\s+artifact-id: \$\{\{ steps\.screenshot\.outputs\.artifact-id \}\}' -or
+    $publishJob -notmatch 'artifact-ids: \$\{\{ needs\.ui-capture\.outputs\.artifact-id \}\}') {
+    throw "UI review publication must download the artifact produced by the successful capture job."
+}
 Assert-Equal ([regex]::Matches($workflow, 'artifact-ids: \$\{\{ needs.build.outputs.artifact-id \}\}').Count) 3 "Installer, capture and regression matrix consume the same payload ID"
 Assert-Equal ([regex]::Matches($buildJob, 'uses: actions/upload-artifact@v7\.0\.2').Count) 1 "Publish uploads only the transfer payload"
 if ($buildJob -notmatch '(?s)name: Upload unvalidated payload.*?id: upload.*?name: fingvibe-validation-payload-pr-.*-attempt-\$\{\{ github.run_attempt \}\}.*?retention-days: 1' -or
