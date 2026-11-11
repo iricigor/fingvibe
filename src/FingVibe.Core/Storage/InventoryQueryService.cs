@@ -33,7 +33,7 @@ public sealed class InventoryQueryService(string databasePath)
     private static readonly HashSet<string> ViewNames =
         InventoryReportingSchema.Views.Select(view => view.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
     private static readonly HashSet<string> StorageTables =
-        InventoryReportingSchema.EntityTables.Append("scan_history").ToHashSet(StringComparer.OrdinalIgnoreCase);
+        InventoryReportingSchema.Tables.Select(table => table.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
 
     public Task<InventoryQueryResult> RunAsync(string sql, CancellationToken cancellationToken = default) =>
         Task.Run(() => Run(sql, cancellationToken), cancellationToken);

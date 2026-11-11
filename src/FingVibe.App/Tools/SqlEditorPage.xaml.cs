@@ -24,6 +24,9 @@ public sealed partial class SqlEditorPage : UserControl
         ExamplePicker.SelectedIndex = 0;
         SchemaPicker.ItemsSource = InventoryReportingSchema.Views;
         SchemaPicker.SelectedIndex = 0;
+        TablePicker.ItemsSource = InventoryReportingSchema.Tables;
+        TablePicker.SelectedIndex = 0;
+        ResultScroll.SizeChanged += (_, _) => UpdateResultWidth();
         Unloaded += (_, _) => _cancellation?.Cancel();
     }
 
@@ -116,8 +119,8 @@ public sealed partial class SqlEditorPage : UserControl
             """);
         foreach (var column in result.Columns)
         {
-            ResultHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(width) });
-            template.Append($"<ColumnDefinition Width=\"{width}\"/>");
+            ResultHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star), MinWidth = width });
+            template.Append($"<ColumnDefinition Width=\"*\" MinWidth=\"{width}\"/>");
             var heading = new TextBlock { Text = Preview(column, 120), Margin = new Thickness(8), TextWrapping = TextWrapping.Wrap };
             Grid.SetColumn(heading, ResultHeader.Children.Count);
             ResultHeader.Children.Add(heading);
@@ -131,13 +134,18 @@ public sealed partial class SqlEditorPage : UserControl
         }
         template.Append("</Grid></DataTemplate>");
         ResultRows.ItemTemplate = (DataTemplate)XamlReader.Load(template.ToString());
-        ResultRows.Width = ResultHeader.Width = width * result.Columns.Count;
+        ResultRows.MinWidth = ResultHeader.MinWidth = width * result.Columns.Count;
+        UpdateResultWidth();
         ResultRows.ItemsSource = result.Rows.Select(row => row.Select(value => Preview(value ?? "NULL", 4096)).ToArray()).ToArray();
         AutomationProperties.SetHelpText(ResultRows, "Columns: " + string.Join(", ", result.Columns)
             + ". Missing values are displayed as NULL; blobs use hexadecimal.");
         ResultScroll.Visibility = Visibility.Visible;
         return previewLimited;
     }
+
+    // A finite shared width keeps star columns aligned even inside the horizontal scroller.
+    private void UpdateResultWidth() =>
+        ResultContent.Width = Math.Max(ResultScroll.ActualWidth, ResultHeader.MinWidth);
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => _cancellation?.Cancel();
     private async void Back_Click(object sender, RoutedEventArgs e)
@@ -154,5 +162,10 @@ public sealed partial class SqlEditorPage : UserControl
         if (SchemaPicker.SelectedItem is not ReportingView view) return;
         SchemaDescription.Text = view.Description;
         SchemaColumns.Text = view.Columns;
+    }
+    private void Table_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (TablePicker.SelectedItem is not ReportingTable table) return;
+        TableColumns.Text = table.Columns;
     }
 }

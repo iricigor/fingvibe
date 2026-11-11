@@ -1,12 +1,27 @@
 namespace FingVibe.Core.Storage;
 
 public sealed record ReportingView(string Name, string Description, string Columns, string SelectSql);
+public sealed record ReportingTable(string Name, string Description, string Columns);
 public sealed record ReportingExample(string Name, string Sql);
 
 public static class InventoryReportingSchema
 {
-    internal static readonly string[] EntityTables =
-        ["devices", "virtual_devices", "names", "classifications", "people", "rooms", "assignments", "baselines"];
+    public static IReadOnlyList<ReportingTable> Tables { get; } =
+    [
+        new("devices", "Saved MAC identities, imported metadata and aggregate observations as JSON.", "id, data"),
+        new("virtual_devices", "Saved virtual identities and their embedded connections as JSON.", "id, data"),
+        new("names", "Manual MAC-device names as JSON strings.", "id, data"),
+        new("classifications", "Manual MAC-device classification overrides as JSON.", "id, data"),
+        new("people", "Saved people and their descriptive fields as JSON.", "id, data"),
+        new("rooms", "Saved rooms and their descriptive fields as JSON.", "id, data"),
+        new("assignments", "Current MAC-device person and room assignments as JSON.", "id, data"),
+        new("baselines", "Saved network discovery baselines as JSON.", "id, data"),
+        new("scan_history", "Completed-scan states. scan_id and virtual_id require inventory format 3.",
+            "kind, id, sequence, completed_at, network_id, subnet, present, completed_ticks, scan_id, virtual_id")
+    ];
+
+    internal static readonly string[] EntityTables = Tables
+        .Where(table => table.Name != "scan_history").Select(table => table.Name).ToArray();
 
     private const string ObservationSource = """
         SELECT 'mac' AS device_kind, d.id AS device_id, o.key AS observation_index,

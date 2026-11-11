@@ -4,7 +4,7 @@ $parseErrors = $null
 $ast = [System.Management.Automation.Language.Parser]::ParseFile(
     (Join-Path $PSScriptRoot "SqlEditor.Ui.Tests.ps1"), [ref]$null, [ref]$parseErrors)
 if ($parseErrors) { throw ($parseErrors.Message -join "; ") }
-foreach ($name in @("Wait-SqlState", "Wait-SqlControl", "Select-SqlPage", "Select-SqlTools", "Assert-SqlResult", "Stop-SqlApp")) {
+foreach ($name in @("Wait-SqlState", "Wait-SqlControl", "Select-SqlPage", "Select-SqlTools", "Assert-SqlResult", "Stop-SqlApp", "Test-SqlActionBounds")) {
     $definition = $ast.Find({
         param($node)
         $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name
@@ -25,6 +25,23 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     }
     throw "Expected failure matching '$Pattern'."
 }
+
+$editor = [Windows.Rect]::new(24, 100, 600, 136)
+$run = [Windows.Rect]::new(24, 250, 60, 32)
+$cancel = [Windows.Rect]::new(92, 250, 70, 32)
+$summary = [Windows.Rect]::new(174, 256, 450, 20)
+Assert-Equal (Test-SqlActionBounds $editor $run $cancel $summary) $true "Completed status should share the action row"
+$wrapped = [Windows.Rect]::new(174, 242, 450, 48)
+Assert-Equal (Test-SqlActionBounds $editor $run $cancel $wrapped) $true "Wrapped errors should remain centered beside actions"
+$below = [Windows.Rect]::new(24, 294, 600, 20)
+Assert-Equal (Test-SqlActionBounds $editor $run $cancel $below) $false "The old separate status row must fail"
+$overlap = [Windows.Rect]::new(150, 256, 474, 20)
+Assert-Equal (Test-SqlActionBounds $editor $run $cancel $overlap) $false "Status must not overlap Cancel"
+$short = [Windows.Rect]::new(174, 256, 200, 20)
+Assert-Equal (Test-SqlActionBounds $editor $run $cancel $short) $false "Status must reach the right content edge"
+$progress = [Windows.Rect]::new(170, 254, 24, 24)
+Assert-Equal (Test-SqlActionBounds $editor $run $cancel $summary $progress) $false "Running status must leave room for progress"
+Assert-Equal (Test-SqlActionBounds $editor $run $cancel ([Windows.Rect]::new(206, 256, 418, 20)) $progress) $true "Running status should fit beside progress"
 
 $script:state = @{
     Mode = "Delayed"; Reads = @{}; Selections = 0; Invocations = 0; PaneOpen = $true; Toggles = 0
@@ -138,6 +155,8 @@ $fixtureTry = $ast.EndBlock.Statements |
 $failureHarness = "try { throw 'Original SQL assertion failure.' } " +
     $fixtureTry.CatchClauses[0].Extent.Text + " finally " + $fixtureTry.Finally.Extent.Text
 $testFailure = $null
+$highContrast = $null
+$phase = $null
 $previous = @{}
 $fixtureDirectory = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-sql-script-no-fixture"
 $script:cleanupWarnings = [Collections.Generic.List[string]]::new()

@@ -8,6 +8,9 @@ if ($env:GITHUB_ACTIONS -ne "true" -or $env:RUNNER_ENVIRONMENT -ne "github-hoste
     throw "SQL editor UI checks require a disposable GitHub-hosted desktop."
 }
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
+. (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
+. (Join-Path $PSScriptRoot "UiRegression\Helpers.ps1")
+. (Join-Path $PSScriptRoot "UiRegression\Sidebar.Controls.Helpers.ps1")
 . (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
 Initialize-InventorySqlite $AppPath
 
@@ -79,6 +82,72 @@ function Save-SqlCapture([string] $Name, [double] $Scroll = 0) {
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Name.png")
 }
 
+function Test-SqlActionBounds($Editor, $Run, $Cancel, $Status, $Progress = $null) {
+    foreach ($bounds in @($Editor, $Run, $Cancel, $Status)) {
+        if ($bounds.IsEmpty -or $bounds.Width -le 0 -or $bounds.Height -le 0) { return $false }
+    }
+    $right = if ($Progress) { $Progress.Right } else { $Cancel.Right }
+    $center = $Run.Top + $Run.Height / 2
+    return $Run.Left -ge $Editor.Left -and $Cancel.Left -ge $Run.Right -and
+        $Status.Left -ge $right -and [Math]::Abs($Status.Right - $Editor.Right) -le 2 -and
+        [Math]::Abs($Cancel.Top + $Cancel.Height / 2 - $center) -le 2 -and
+        [Math]::Abs($Status.Top + $Status.Height / 2 - $center) -le 2
+}
+
+function Assert-SqlActionLayout {
+    Wait-SqlState {
+        $progress = Find-SqlControl QueryProgress -Optional
+        $progressBounds = if ($progress -and -not $progress.Current.IsOffscreen) { $progress.Current.BoundingRectangle }
+        Test-SqlActionBounds (Find-SqlControl SqlText).Current.BoundingRectangle `
+            (Find-SqlControl RunButton).Current.BoundingRectangle (Find-SqlControl CancelButton).Current.BoundingRectangle `
+            (Find-SqlControl QueryStatus).Current.BoundingRectangle $progressBounds
+    } "Run, Cancel and right-aligned status on one non-overlapping row"
+}
+
+function Assert-SqlResultLayout([switch] $Wide) {
+    $editor = (Find-SqlControl SqlText).Current.BoundingRectangle
+    $null = Show-UiRegressionScrollTargets -GetViewport { Find-SqlControl SqlPageScroll } `
+        -GetTargets { Find-SqlControl ResultScroll } -GetWindow { $script:root } -Description "SQL result table"
+    $viewport = (Find-SqlControl ResultScroll).Current.BoundingRectangle
+    if ([Math]::Abs($viewport.Left - $editor.Left) -gt 2 -or [Math]::Abs($viewport.Right - $editor.Right) -gt 2) {
+        throw "The SQL result surface does not fill the editor's content width."
+    }
+    $scroll = (Find-SqlControl ResultScroll).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+    Wait-SqlState { $scroll.Current.HorizontallyScrollable -eq $Wide.IsPresent } "SQL horizontal overflow (wide result: $Wide)"
+    if (-not $Wide) {
+        Wait-SqlState {
+            $rows = (Find-SqlControl ResultRows).Current.BoundingRectangle
+            [Math]::Abs($rows.Left - $viewport.Left) -le 2 -and [Math]::Abs($rows.Right - $viewport.Right) -le 2
+        } "narrow SQL result rows stretching across the result surface"
+    }
+    else {
+        $scroll.SetScrollPercent(100, -1)
+        $condition = [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, "last_column")
+        Wait-SqlState {
+            $last = (Find-SqlControl ResultScroll).FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+            Test-UiRegressionElementWithin $last (Find-SqlControl ResultScroll) $script:root
+        } "last SQL column reachable by horizontal scrolling"
+        $scroll.SetScrollPercent(0, -1)
+    }
+    (Find-SqlControl SqlText).SetFocus()
+}
+
+function Show-SqlSchemaPicker([string] $Id) {
+    (Find-SqlControl SchemaExpander).GetCurrentPattern(
+        [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    (Find-SqlControl $Id).SetFocus()
+    $null = Show-UiRegressionScrollTargets -GetViewport { Find-SqlControl SqlPageScroll } `
+        -GetTargets { Find-SqlControl $Id } -GetWindow { $script:root } -Description "SQL schema picker '$Id'"
+}
+
+function Select-SqlSchemaEndpoint([string] $Id, [switch] $Last) {
+    Show-SqlSchemaPicker $Id
+    (Find-SqlControl $Id).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    [SidebarReviewKeyboard]::Tap($(if ($Last) { 0x23 } else { 0x24 }))
+    [SidebarReviewKeyboard]::Tap(0x0D)
+}
+
 function Stop-SqlApp {
     if (-not $script:process) { return }
     try {
@@ -101,9 +170,12 @@ $inventory = Join-Path $fixtureDirectory "inventory.json"
 $database = [IO.Path]::ChangeExtension($inventory, ".sqlite")
 $script:process = $null
 $testFailure = $null
+$highContrast = $null
+$phase = $null
 try {
     $null = New-Item -ItemType Directory -Path $fixtureDirectory
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
+    $phase = Step-UiRegressionPhase $phase "SQL/setup" -Directory $ScreenshotDirectory
     @{
         version = 4
         data = @{
@@ -134,9 +206,13 @@ try {
     Start-Sleep -Milliseconds 500
     $fingerprint = Get-InventoryFingerprint $database
     Select-SqlTools
+    Assert-SqlActionLayout
 
+    $phase = Step-UiRegressionPhase $phase "SQL/result-layout" -Directory $ScreenshotDirectory
     Start-SqlQuery "SELECT imported_name, imported_model, imported_os FROM r_devices;"
     Assert-SqlResult "1 row, 3 columns;*Complete."
+    Assert-SqlActionLayout
+    Assert-SqlResultLayout
     foreach ($column in @("imported_name", "imported_model", "imported_os")) {
         $condition = [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::NameProperty, $column)
@@ -154,8 +230,27 @@ try {
     Save-SqlCapture "sql-results" 25
     Save-SqlCapture "sql-editor"
 
+    Start-SqlQuery "SELECT NULL AS missing;"
+    Assert-SqlResult "1 row, 1 column;*Complete."
+    Assert-SqlResultLayout
+    $nullCondition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::NameProperty, "NULL")
+    if (-not (Find-SqlControl ResultRows).FindFirst([System.Windows.Automation.TreeScope]::Descendants, $nullCondition)) {
+        throw "Missing SQL values must still render as NULL."
+    }
+    Start-SqlQuery "SELECT device_id FROM r_devices WHERE 0;"
+    Assert-SqlResult "0 rows, 1 column;*Complete."
+    Assert-SqlResultLayout
+    $wide = "SELECT 1 AS first_column, 2 AS second_column, 3 AS third_column, 4 AS fourth_column, 5 AS fifth_column, 6 AS sixth_column, 7 AS seventh_column, 8 AS last_column;"
+    Start-SqlQuery $wide
+    Assert-SqlResult "1 row, 8 columns;*Complete."
+    Assert-SqlResultLayout -Wide
+    Save-SqlCapture "sql-wide-results"
+
+    $phase = Step-UiRegressionPhase $phase "SQL/limits-cancellation" -Directory $ScreenshotDirectory
     Start-SqlQuery "DELETE FROM devices;"
     Assert-SqlResult "Error*not authorized*"
+    Assert-SqlActionLayout
     Save-SqlCapture "sql-readonly-error"
     Start-SqlQuery "SELECT missing_column FROM r_devices;"
     Assert-SqlResult "Error*no such column*"
@@ -170,32 +265,94 @@ try {
     $expensive = "WITH RECURSIVE n(i) AS (VALUES(1) UNION ALL SELECT i+1 FROM n) SELECT sum(i) FROM n;"
     Start-SqlQuery $expensive
     Wait-SqlControl CancelButton -Enabled
+    Assert-SqlActionLayout
     Invoke-SqlControl CancelButton
     Assert-SqlResult "Cancelled*"
+    Assert-SqlActionLayout
     Save-SqlCapture "sql-cancelled"
     Start-SqlQuery $expensive
     Assert-SqlResult "Error*5-second execution limit*"
 
-    (Find-SqlControl SchemaExpander).GetCurrentPattern(
-        [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    $phase = Step-UiRegressionPhase $phase "SQL/schema-examples" -Directory $ScreenshotDirectory
+    Show-SqlSchemaPicker SchemaPicker
     Wait-SqlState {
         $columns = Find-SqlControl SchemaColumns -Optional
         $columns -and $columns.Current.Name.Contains("device_id")
     } "schema browser reporting columns"
-    $null = [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
-        0, 0, 640, 800, 0x0044)
+    Select-SqlSchemaEndpoint SchemaPicker -Last
+    Wait-SqlState {
+        (Find-SqlControl SchemaColumns).Current.Name -like "device_kind, device_id, sequence,*completed_ticks"
+    } "reporting view columns after keyboard selection"
+    Show-SqlSchemaPicker ExamplePicker
+    Set-UiReviewAppearanceChoice -Root $script:root -Picker ExamplePicker -Choice "Device, person and room"
+    $exampleButton = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, "Use SQL example"))
+    $exampleButton.SetFocus()
+    [SidebarReviewKeyboard]::Tap(0x20)
+    Wait-SqlState {
+        (Find-SqlControl SqlText).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value -like "*FROM r_assignments*"
+    } "existing example selected by keyboard"
+    Select-SqlSchemaEndpoint TablePicker -Last
+    Wait-SqlState {
+        (Find-SqlControl TableColumns).Current.Name -eq "kind, id, sequence, completed_at, network_id, subnet, present, completed_ticks, scan_id, virtual_id"
+    } "underlying scan_history columns after keyboard selection"
+    Select-SqlSchemaEndpoint TablePicker
+    Wait-SqlState { (Find-SqlControl TableColumns).Current.Name -eq "id, data" } "JSON entity columns after keyboard selection"
+    Save-SqlCapture "sql-table-discovery" 100
+
+    $phase = Step-UiRegressionPhase $phase "SQL/appearance" -Directory $ScreenshotDirectory
+    foreach ($theme in @("Standard Light", "Standard Dark")) {
+        Select-SqlPage SettingsNavItem
+        Wait-SqlControl ModePicker -Visible -Enabled
+        Set-UiReviewTheme -Root $script:root -Theme $theme
+        Select-SqlTools
+        Start-SqlQuery "SELECT imported_name FROM r_devices;"
+        Assert-SqlResult "1 row, 1 column;*Complete."
+        Assert-SqlActionLayout
+        Assert-SqlResultLayout
+        Save-SqlCapture ("sql-results-" + $theme.Replace(" ", "-").ToLowerInvariant())
+    }
+    $highContrast = [SidebarReviewKeyboard]::GetHighContrastFlags()
+    [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast -bor 1)
+    if (([SidebarReviewKeyboard]::GetHighContrastFlags() -band 1) -eq 0) { throw "SQL high contrast did not activate." }
+    Start-Sleep -Seconds 2
     Initialize-UiReviewWindow $script:process.MainWindowHandle
+    Assert-SqlActionLayout
+    Assert-SqlResultLayout
+    Save-SqlCapture "sql-high-contrast"
+    [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast)
+    $highContrast = $null
+    Start-Sleep -Seconds 2
+
+    $phase = Step-UiRegressionPhase $phase "SQL/narrow-lifecycle" -Directory $ScreenshotDirectory
+    if (-not [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
+        0, 0, 640, 800, 0x0044)) { throw [System.ComponentModel.Win32Exception]::new() }
+    Initialize-UiReviewWindow $script:process.MainWindowHandle
+    Show-SqlSchemaPicker TablePicker
     Save-SqlCapture "sql-narrow-schema" 100
+    (Find-SqlControl SqlText).SetFocus()
+    Start-SqlQuery "SELECT imported_name FROM r_devices;"
+    Assert-SqlResult "1 row, 1 column;*Complete."
+    Assert-SqlActionLayout
+    Assert-SqlResultLayout
+    Start-SqlQuery $wide
+    Assert-SqlResult "1 row, 8 columns;*Complete."
+    Assert-SqlResultLayout -Wide
     Save-SqlCapture "sql-narrow-editor"
-    foreach ($id in @("SqlText", "RunButton", "CancelButton")) {
+    foreach ($id in @("SqlText", "RunButton", "CancelButton", "QueryStatus")) {
         $bounds = (Find-SqlControl $id).Current.BoundingRectangle
         $window = $script:root.Current.BoundingRectangle
         if ($bounds.IsEmpty -or $bounds.Left -lt $window.Left -or $bounds.Right -gt $window.Right) {
             throw "Required SQL control '$id' is horizontally clipped at narrow width."
         }
     }
+    Start-SqlQuery "SELECT missing_column FROM r_devices;"
+    Assert-SqlResult "Error*no such column*"
+    Assert-SqlActionLayout
     Start-SqlQuery $expensive
     Wait-SqlControl CancelButton -Enabled
+    Assert-SqlActionLayout
     Select-SqlPage OverviewNavItem
     Start-Sleep -Milliseconds 300
     Select-SqlTools
@@ -218,9 +375,21 @@ catch {
 }
 finally {
     try {
-        try { Stop-SqlApp }
+        try {
+            if ($phase) {
+                Complete-UiRegressionPhase -Phase $phase -Directory $ScreenshotDirectory -Succeeded ($null -eq $testFailure)
+            }
+        }
         finally {
-            foreach ($key in $previous.Keys) { [Environment]::SetEnvironmentVariable($key, $previous[$key]) }
+            try { Stop-SqlApp }
+            finally {
+                try {
+                    if ($null -ne $highContrast) { [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast) }
+                }
+                finally {
+                    foreach ($key in $previous.Keys) { [Environment]::SetEnvironmentVariable($key, $previous[$key]) }
+                }
+            }
         }
         if (Test-Path -LiteralPath $fixtureDirectory) { Remove-Item -LiteralPath $fixtureDirectory -Recurse -Force }
     }

@@ -24,21 +24,28 @@
             <TextBox x:Name="SqlText" Header="SQL query" AcceptsReturn="True" TextWrapping="Wrap"
                      FontFamily="Consolas" Height="136" MaxLength="65536"
                      AutomationProperties.Name="SQL query" />
-            <StackPanel Orientation="Horizontal" Spacing="8">
-                <Button x:Name="RunButton" Content="Run" Click="Run_Click" Style="{StaticResource AccentButtonStyle}"
-                        AutomationProperties.Name="Run SQL query" />
-                <Button x:Name="CancelButton" Content="Cancel" Click="Cancel_Click" IsEnabled="False"
-                        AutomationProperties.Name="Cancel SQL query" />
-                <ProgressRing x:Name="QueryProgress" Width="24" Height="24" IsActive="False"
-                              Visibility="Collapsed" AutomationProperties.Name="SQL query running" />
-            </StackPanel>
-            <TextBlock x:Name="QueryStatus" Text="Ready. Choose an example or enter a SELECT query."
-                       TextWrapping="Wrap" IsTextSelectionEnabled="True"
-                       AutomationProperties.LiveSetting="Polite" />
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button x:Name="RunButton" Content="Run" Click="Run_Click" Style="{StaticResource AccentButtonStyle}"
+                            AutomationProperties.Name="Run SQL query" />
+                    <Button x:Name="CancelButton" Content="Cancel" Click="Cancel_Click" IsEnabled="False"
+                            AutomationProperties.Name="Cancel SQL query" />
+                    <ProgressRing x:Name="QueryProgress" Width="24" Height="24" IsActive="False"
+                                  Visibility="Collapsed" AutomationProperties.Name="SQL query running" />
+                </StackPanel>
+                <TextBlock x:Name="QueryStatus" Grid.Column="1" Text="Ready. Choose an example or enter a SELECT query."
+                           TextWrapping="Wrap" TextAlignment="Right" VerticalAlignment="Center"
+                           IsTextSelectionEnabled="True" AutomationProperties.LiveSetting="Polite" />
+            </Grid>
             <ScrollViewer x:Name="ResultScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
-                          HorizontalScrollMode="Enabled" VerticalScrollMode="Disabled" Visibility="Collapsed">
-                <StackPanel>
-                    <Grid x:Name="ResultHeader" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                          HorizontalScrollMode="Enabled" VerticalScrollMode="Disabled" Visibility="Collapsed"
+                          HorizontalContentAlignment="Stretch" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                <StackPanel x:Name="ResultContent">
+                    <Grid x:Name="ResultHeader" Background="{ThemeResource SubtleFillColorSecondaryBrush}"
                           AutomationProperties.Name="SQL result columns" />
                     <ListView x:Name="ResultRows" Height="240" SelectionMode="None" IsItemClickEnabled="False"
                               Padding="0"
@@ -66,6 +73,26 @@
                               AutomationProperties.Name="Reporting view" />
                     <TextBlock x:Name="SchemaDescription" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
                     <TextBlock x:Name="SchemaColumns" FontFamily="Consolas" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                    <TextBlock Text="Underlying tables are internal storage details. Prefer the reporting views above for reports."
+                               TextWrapping="Wrap" />
+                    <ComboBox x:Name="TablePicker" Header="List of tables" HorizontalAlignment="Stretch"
+                              SelectionChanged="Table_SelectionChanged" AutomationProperties.Name="List of tables">
+                        <ComboBox.ItemContainerStyle>
+                            <Style TargetType="ComboBoxItem">
+                                <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+                            </Style>
+                        </ComboBox.ItemContainerStyle>
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{Binding Name}" FontFamily="Consolas" />
+                                    <TextBlock Text="{Binding Description}" TextWrapping="Wrap"
+                                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                    <TextBlock x:Name="TableColumns" FontFamily="Consolas" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
                 </StackPanel>
             </Expander>
         </StackPanel>

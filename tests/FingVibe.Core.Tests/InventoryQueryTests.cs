@@ -49,13 +49,21 @@ public sealed class InventoryQueryTests : IDisposable
     }
 
     [Fact]
-    public async Task EveryDocumentedViewAndExampleExecutesWithMatchingColumns()
+    public async Task EveryDocumentedViewTableAndExampleExecutesWithMatchingColumns()
     {
         await SeedAsync();
         foreach (var view in InventoryReportingSchema.Views)
         {
             var result = await Service.RunAsync($"SELECT * FROM {view.Name}");
             Assert.Equal(view.Columns.Split(", "), result.Columns);
+            Assert.Null(result.Limit);
+        }
+        Assert.Equal(new[] { "devices", "virtual_devices", "names", "classifications", "people", "rooms",
+            "assignments", "baselines", "scan_history" }, InventoryReportingSchema.Tables.Select(table => table.Name));
+        foreach (var table in InventoryReportingSchema.Tables)
+        {
+            var result = await Service.RunAsync($"SELECT * FROM main.{table.Name} LIMIT 1");
+            Assert.Equal(table.Columns.Split(", "), result.Columns);
             Assert.Null(result.Limit);
         }
         foreach (var example in InventoryReportingSchema.Examples)
