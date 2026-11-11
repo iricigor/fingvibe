@@ -135,7 +135,7 @@ foreach ($focusable in @($true, $false)) {
     $positions = [Collections.Generic.List[double]]::new()
     $scroll = [pscustomobject]@{ Current = [pscustomobject]@{
         VerticallyScrollable = $true; VerticalScrollPercent = 0.0; VerticalViewSize = 20.0
-    }; MoveBounds = $true; PendingDelta = 0.0 }
+    }; MoveBounds = $true }
     $scroll | Add-Member ScriptMethod SetScrollPercent {
         param($Horizontal, $Percent)
         $positions.Add($Percent)
@@ -147,7 +147,6 @@ foreach ($focusable in @($true, $false)) {
                 $target.Current.BoundingRectangle = New-TestRectangle $bounds.Left ($bounds.Top - $delta) $bounds.Width $bounds.Height
             }
         }
-        else { $this.PendingDelta = $delta }
     }
     $viewport | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $scroll }
     $arguments = @{
@@ -168,36 +167,22 @@ foreach ($focusable in @($true, $false)) {
     $last.Current.BoundingRectangle = New-TestRectangle 10 180 100 30
     $null = Show-UiRegressionScrollTargets @arguments
     Assert-Regression ($positions.Count -eq 1 -and $first.Current.BoundingRectangle.Top -ge 35) 'Positioning must also move upwards while preserving every target.'
+    $scroll.Current.VerticalScrollPercent = 0.0
+    $positions.Clear()
+    $first.Current.BoundingRectangle = New-TestRectangle 10 100 100 20
+    $last.Current.BoundingRectangle = New-TestRectangle 10 260.5 100 30
+    $null = Show-UiRegressionScrollTargets @arguments
+    Assert-Regression ($positions.Count -eq 1 -and $positions[0] -gt 0 -and $positions[0] -lt 1) 'Sub-percent scroll corrections must not round to an unchanged integer percentage.'
+    Assert-Regression ($last.Current.BoundingRectangle.Bottom -eq 290) 'Fractional positioning must retain the full viewport margin without accepting clipped content.'
     $last.Current.BoundingRectangle = New-TestRectangle 10 1000 100 30
     Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*cannot fit together*'
     $first.Current.BoundingRectangle = New-TestRectangle 10 900 100 20
     $last.Current.BoundingRectangle = New-TestRectangle 10 1100 100 30
     $scroll.Current.VerticalScrollPercent = 0.0
     $scroll.MoveBounds = $false
-    $layout = @{ Observations = 0 }
-    $arguments.GetViewport = {
-        if ($scroll.PendingDelta -ne 0) {
-            $layout.Observations++
-            if ($layout.Observations -eq 3) {
-                foreach ($target in @($first, $last)) {
-                    $bounds = $target.Current.BoundingRectangle
-                    $target.Current.BoundingRectangle = New-TestRectangle $bounds.Left ($bounds.Top - $scroll.PendingDelta) $bounds.Width $bounds.Height
-                }
-                $scroll.PendingDelta = 0.0
-            }
-        }
-        $viewport
-    }
-    $before = $positions.Count
-    $null = Show-UiRegressionScrollTargets @arguments
-    Assert-Regression ($layout.Observations -eq 3 -and $positions.Count -eq $before + 1) 'Delayed rendered movement must be awaited without repeating an acknowledged scroll.'
-    $arguments.GetViewport = { $viewport }
-    $first.Current.BoundingRectangle = New-TestRectangle 10 900 100 20
-    $last.Current.BoundingRectangle = New-TestRectangle 10 1100 100 30
-    $scroll.Current.VerticalScrollPercent = 0.0
     $arguments.TimeoutMilliseconds = 500
     $before = $positions.Count
-    Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*Timed out after 500 ms*grouped summary*'
+    Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*did not move after a measured scroll adjustment*'
     Assert-Regression ($positions.Count -eq $before + 1) 'An accepted scroll percentage without rendered movement must fail, not repeat or masquerade as visibility.'
     $scroll.Current.VerticallyScrollable = $false
     Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*non-scrollable viewport*'
