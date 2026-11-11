@@ -9,8 +9,8 @@
         <ResourceDictionary>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Default">
-                    <SolidColorBrush x:Key="SelectorBarItemBackgroundSelected" Color="{ThemeResource AccentFillColorDefault}" />
-                    <SolidColorBrush x:Key="SelectorBarItemForegroundSelected" Color="{ThemeResource TextOnAccentFillColorPrimary}" />
+                    <StaticResource x:Key="SelectorBarItemBackgroundSelected" ResourceKey="AccentFillColorDefaultBrush" />
+                    <StaticResource x:Key="SelectorBarItemForegroundSelected" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
                     <SolidColorBrush x:Key="SelectorBarItemBackgroundSelected" Color="{ThemeResource SystemColorHighlightColor}" />
