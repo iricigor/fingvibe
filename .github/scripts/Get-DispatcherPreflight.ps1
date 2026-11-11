@@ -226,7 +226,7 @@ function Get-DispatcherPreflight {
                 $claimedTimestamp -notmatch '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$' -or
                 -not [DateTimeOffset]::TryParse($claimedTimestamp, [ref] $claimedUtc) -or
                 ($claim.repairCount -isnot [long] -and $claim.repairCount -isnot [int]) -or
-                $claim.repairCount -notin @(0, 1) -or
+                $claim.repairCount -notin @(0, 1, 2, 3) -or
                 -not $claim.handoff -or
                 -not [guid]::TryParse([string] $claim.handoff.id, [ref] $handoffId) -or $handoffId -eq [guid]::Empty -or
                 $claim.handoff.action -notin @("implement", "repair", "finalize") -or

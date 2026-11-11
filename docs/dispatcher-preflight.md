@@ -34,6 +34,10 @@ visible `collectionFailure`, and a nonzero command exit. Ordinary reconciliation
 or review findings are successful evidence collection, not task completion.
 Existing ISO timestamps with explicit nonzero offsets are accepted as exact
 instants; missing timezones are invalid. New Dispatcher records still use UTC.
+Claim `repairCount` must be an integer from 0 through 3, matching the approved
+three-repair policy. Accepting that range does not authorize another repair,
+reset history, or release a retained claim; normal Dispatcher reconciliation
+and stopped-worker verification still apply.
 
 Stdout is limited to 8 KiB. Larger complete results are saved to a uniquely named
 `dispatcher-preflight-<UUID>.json` in the existing absolute
