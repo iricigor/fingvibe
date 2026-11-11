@@ -365,15 +365,16 @@ function Show-HistorySection([string] $Id, [int] $TopMargin = 35, [string[]] $Ad
             if ($target.Current.IsKeyboardFocusable) { $target.SetFocus() }
             if ($scrollItem -or $target.TryGetCurrentPattern(
                 [System.Windows.Automation.ScrollItemPattern]::Pattern, [ref] $scrollItem)) { $scrollItem.ScrollIntoView() }
-            if (-not (Test-UiRegressionElementWithin $target (Find-HistoryControl DeviceDetailsScroll) $script:root)) {
-                $null = Show-UiRegressionScrollTargets -Description "Scan-history section '$Id'" -TopMargin $TopMargin -BottomMargin 10 `
-                    -GetViewport { Find-HistoryControl DeviceDetailsScroll } -GetWindow { $script:root } `
-                    -GetTargets { Find-HistoryControl $Id }
-            }
             $script:historySectionBounds = $null
             return Wait-UiRegressionState -Description "visible history section '$Id'" -Condition {
                 $current = Find-HistoryControl $Id -Optional
-                if (-not (Test-UiRegressionElementWithin $current (Find-HistoryControl DeviceDetailsScroll) $script:root)) { return }
+                if (-not (Test-UiRegressionElementWithin $current (Find-HistoryControl DeviceDetailsScroll) $script:root)) {
+                    $null = Show-UiRegressionScrollTargets -Description "Scan-history section '$Id'" -TopMargin $TopMargin -BottomMargin 10 `
+                        -GetViewport { Find-HistoryControl DeviceDetailsScroll } -GetWindow { $script:root } `
+                        -GetTargets { Find-HistoryControl $Id }
+                    $script:historySectionBounds = $null
+                    return
+                }
                 # Expander and tab layout can still be moving; require the same position on consecutive polls.
                 $bounds = $current.Current.BoundingRectangle
                 $stable = $bounds -eq $script:historySectionBounds
