@@ -297,6 +297,8 @@ public sealed partial class DeviceDetailsPageView : UserControl
     private void ShowTab(SelectorBarItem tab)
     {
         var history = tab == HistoryTab;
+        // Native selected hover states inherit the item background rather than the selected-state brush.
+        VisualStateManager.GoToState(this, history ? "HistorySelected" : "OverviewSelected", false);
         OverviewPanel.Visibility = history ? Visibility.Collapsed : Visibility.Visible;
         HistoryPanel.Visibility = history ? Visibility.Visible : Visibility.Collapsed;
         if (_activityInitialized && _activityPageActive)

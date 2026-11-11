@@ -29,6 +29,22 @@
     </UserControl.Resources>
     <ScrollViewer x:Name="DevicePage" AutomationProperties.AutomationId="DeviceDetailsScroll"
                   HorizontalScrollBarVisibility="Disabled">
+    <VisualStateManager.VisualStateGroups>
+        <VisualStateGroup x:Name="DetailsSectionSelection">
+            <VisualState x:Name="OverviewSelected">
+                <VisualState.Setters>
+                    <Setter Target="OverviewTab.Background" Value="{ThemeResource SelectorBarItemBackgroundSelected}" />
+                    <Setter Target="HistoryTab.Background" Value="Transparent" />
+                </VisualState.Setters>
+            </VisualState>
+            <VisualState x:Name="HistorySelected">
+                <VisualState.Setters>
+                    <Setter Target="OverviewTab.Background" Value="Transparent" />
+                    <Setter Target="HistoryTab.Background" Value="{ThemeResource SelectorBarItemBackgroundSelected}" />
+                </VisualState.Setters>
+            </VisualState>
+        </VisualStateGroup>
+    </VisualStateManager.VisualStateGroups>
     <StackPanel Margin="24,0,24,24" Spacing="16">
         <StackPanel Spacing="16">
             <Grid x:Name="HeaderGrid" ColumnSpacing="16" RowSpacing="12" SizeChanged="Header_SizeChanged">
