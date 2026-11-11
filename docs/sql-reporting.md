@@ -155,6 +155,8 @@ and example selection, limits/cancellation, narrow layout, and light/dark/high
 contrast captures with phase diagnostics. That script refuses to automate a
 non-disposable desktop. `SqlEditor.Script.Tests.ps1` checks geometry and delayed,
 hidden, disabled, missing, and failing automation peers without driving a
-desktop; missing controls retain bounded timeout failures. The `SqlEditor`
+desktop; missing controls retain bounded timeout failures. It also checks that
+schema controls revealed by the expander are awaited before keyboard selection
+and that Settings is reached by name. The `SqlEditor`
 capture scenario covers the page and navigation in the existing UI review;
 screenshot evidence and remote checks must still be reviewed before delivery.

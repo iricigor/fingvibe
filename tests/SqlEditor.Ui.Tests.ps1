@@ -61,6 +61,31 @@ function Select-SqlTools {
     Wait-SqlControl SqlText -Visible -Enabled
 }
 
+function Find-SqlSettingsItem {
+    $condition = [System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, "Settings"),
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::ListItem))
+    $item = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+    if ($item -and -not $item.Current.IsOffscreen) { return $item }
+    return $null
+}
+
+function Select-SqlSettings {
+    # The built-in Settings item has no automation id; it is found by name and list-item type.
+    if (-not (Find-SqlSettingsItem)) {
+        Wait-SqlControl TogglePaneButton -Visible -Enabled
+        Invoke-SqlControl TogglePaneButton
+    }
+    Wait-SqlState { Find-SqlSettingsItem } "the Settings navigation item"
+    $item = Find-SqlSettingsItem
+    if (-not $item) { throw "The Settings navigation item disappeared before it could be selected." }
+    $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Wait-SqlControl ModePicker -Visible -Enabled
+}
+
 function Start-SqlQuery([string] $Sql) {
     (Find-SqlControl SqlText).GetCurrentPattern(
         [System.Windows.Automation.ValuePattern]::Pattern).SetValue($Sql)
@@ -134,18 +159,64 @@ function Assert-SqlResultLayout([switch] $Wide) {
 }
 
 function Show-SqlSchemaPicker([string] $Id) {
-    (Find-SqlControl SchemaExpander).GetCurrentPattern(
-        [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
-    (Find-SqlControl $Id).SetFocus()
+    $expander = (Find-SqlControl SchemaExpander).GetCurrentPattern(
+        [System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+    if ($expander.Current.ExpandCollapseState -ne [System.Windows.Automation.ExpandCollapseState]::Expanded) {
+        $expander.Expand()
+    }
+    # Expanded content joins the automation tree only after XAML lays out again.
+    Wait-SqlControl $Id -Enabled
     $null = Show-UiRegressionScrollTargets -GetViewport { Find-SqlControl SqlPageScroll } `
-        -GetTargets { Find-SqlControl $Id } -GetWindow { $script:root } -Description "SQL schema picker '$Id'"
+        -GetTargets { Find-SqlControl $Id -Optional } -GetWindow { $script:root } -Description "SQL schema picker '$Id'"
+}
+
+function Focus-SqlWindow {
+    $handle = $script:process.MainWindowHandle
+    if ([UiReviewNativeWindow]::GetForegroundWindow() -eq $handle) { return }
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+        [SidebarReviewKeyboard]::Tap(0x12)
+        $null = [UiReviewNativeWindow]::SetForegroundWindow($handle)
+        Start-Sleep -Milliseconds 100
+        if ([UiReviewNativeWindow]::GetForegroundWindow() -eq $handle) { return }
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "SQL editor window could not be brought to the foreground."
+}
+
+function Send-SqlKeys([string] $Keys) {
+    [System.Windows.Forms.SendKeys]::SendWait($Keys)
+}
+
+function Send-SqlPickerKeys([string] $Id, [string] $Keys) {
+    Show-SqlSchemaPicker $Id
+    Focus-SqlWindow
+    (Find-SqlControl $Id).SetFocus()
+    Send-SqlKeys $Keys
 }
 
 function Select-SqlSchemaEndpoint([string] $Id, [switch] $Last) {
-    Show-SqlSchemaPicker $Id
-    (Find-SqlControl $Id).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
-    [SidebarReviewKeyboard]::Tap($(if ($Last) { 0x23 } else { 0x24 }))
-    [SidebarReviewKeyboard]::Tap(0x0D)
+    # On a closed ComboBox the arrow keys change the selection immediately, while Enter would only open its list.
+    Send-SqlPickerKeys $Id $(if ($Last) { "{END}" } else { "{HOME}" })
+}
+
+function Find-SqlExampleButton {
+    $condition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::NameProperty, "Use SQL example")
+    return $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+}
+
+function Get-SqlFocusState {
+    try {
+        $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
+        $foreground = [UiReviewNativeWindow]::GetForegroundWindow() -eq $script:process.MainWindowHandle
+        return "Focused: '$($focused.Current.AutomationId)' '$($focused.Current.Name)' ($($focused.Current.ControlType.ProgrammaticName)); SQL window is foreground: $foreground."
+    }
+    catch { return "Focus state unavailable: $($_.Exception.Message)" }
+}
+
+function Wait-SqlKeyboardOutcome([scriptblock] $Predicate, [string] $Description, [int] $Seconds = 10) {
+    try { Wait-SqlState $Predicate $Description $Seconds }
+    catch { throw "$($_.Exception.Message) $(Get-SqlFocusState)" }
 }
 
 function Stop-SqlApp {
@@ -280,31 +351,30 @@ try {
         $columns -and $columns.Current.Name.Contains("device_id")
     } "schema browser reporting columns"
     Select-SqlSchemaEndpoint SchemaPicker -Last
-    Wait-SqlState {
+    Wait-SqlKeyboardOutcome {
         (Find-SqlControl SchemaColumns).Current.Name -like "device_kind, device_id, sequence,*completed_ticks"
     } "reporting view columns after keyboard selection"
-    Show-SqlSchemaPicker ExamplePicker
-    Set-UiReviewAppearanceChoice -Root $script:root -Picker ExamplePicker -Choice "Device, person and room"
-    $exampleButton = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
-        [System.Windows.Automation.PropertyCondition]::new(
-            [System.Windows.Automation.AutomationElement]::NameProperty, "Use SQL example"))
-    $exampleButton.SetFocus()
+    # Home then Down selects the second example whichever one the picker showed before.
+    Send-SqlPickerKeys ExamplePicker "{HOME}{DOWN}"
+    $null = Show-UiRegressionScrollTargets -GetViewport { Find-SqlControl SqlPageScroll } `
+        -GetTargets { Find-SqlExampleButton } -GetWindow { $script:root } -Description "SQL example button"
+    Focus-SqlWindow
+    (Find-SqlExampleButton).SetFocus()
     [SidebarReviewKeyboard]::Tap(0x20)
-    Wait-SqlState {
+    Wait-SqlKeyboardOutcome {
         (Find-SqlControl SqlText).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value -like "*FROM r_assignments*"
     } "existing example selected by keyboard"
     Select-SqlSchemaEndpoint TablePicker -Last
-    Wait-SqlState {
+    Wait-SqlKeyboardOutcome {
         (Find-SqlControl TableColumns).Current.Name -eq "kind, id, sequence, completed_at, network_id, subnet, present, completed_ticks, scan_id, virtual_id"
     } "underlying scan_history columns after keyboard selection"
     Select-SqlSchemaEndpoint TablePicker
-    Wait-SqlState { (Find-SqlControl TableColumns).Current.Name -eq "id, data" } "JSON entity columns after keyboard selection"
+    Wait-SqlKeyboardOutcome { (Find-SqlControl TableColumns).Current.Name -eq "id, data" } "JSON entity columns after keyboard selection"
     Save-SqlCapture "sql-table-discovery" 100
 
     $phase = Step-UiRegressionPhase $phase "SQL/appearance" -Directory $ScreenshotDirectory
     foreach ($theme in @("Standard Light", "Standard Dark")) {
-        Select-SqlPage SettingsNavItem
-        Wait-SqlControl ModePicker -Visible -Enabled
+        Select-SqlSettings
         Set-UiReviewTheme -Root $script:root -Theme $theme
         Select-SqlTools
         Start-SqlQuery "SELECT imported_name FROM r_devices;"
