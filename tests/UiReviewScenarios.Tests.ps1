@@ -182,6 +182,17 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     $null = Show-HistorySection Focusable
     Assert-Equal $script:focusCalls @("focus", "bring", "focus", "bring") "Focus precedes bring-into-view even for a previously focused section"
     Assert-Equal $script:positions.Count 0 "Supported section positioning must not fight focus with percentage scrolling"
+
+    $script:secondBottom = 320
+    $script:scroll.SetScrollPercent(-1, 0)
+    $script:positions.Clear()
+    $script:controls.Since.Current | Add-Member NoteProperty IsKeyboardFocusable $true
+    $script:controls.Since | Add-Member ScriptMethod SetFocus { $script:focusCalls.Add("nested focus") }
+    $script:controls.Since | Add-Member ScriptMethod TryGetCurrentPattern { param($Pattern, $Result) return $false }
+    $nested = Show-HistorySection Since
+    Assert-Equal $script:focusCalls[-1] "nested focus" "Nested scroll viewers must still receive focus first"
+    Assert-Equal $script:positions @(10) "Focus that leaves a nested scroll viewer clipped must position the outer viewport"
+    Assert-Equal (Test-UiRegressionElementWithin $nested $viewport $script:root) $true "The complete nested viewer must be visible"
 }
 
 & {

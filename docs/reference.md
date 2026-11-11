@@ -541,7 +541,10 @@ all periods and groupings, contributor details, category source, loading and
 cancellation, no equipment/no history, error/Retry, light/dark/narrow layouts
 and retained action reachability on disposable CI desktops. Shared renderer
 high-contrast checks remain in Device Activity; Sidebar retains the full
-People/Rooms editing/assignment flows. Final-head affected-job durations are
+People/Rooms editing/assignment flows. Desktop-free helper regressions cover
+Person control lookups across asynchronous waits and completed-observation
+viewer positioning when focus alone leaves the nested viewer clipped.
+Final-head affected-job durations are
 delivery evidence, not inferred from these coverage mappings.
 
 ### Device scan history
