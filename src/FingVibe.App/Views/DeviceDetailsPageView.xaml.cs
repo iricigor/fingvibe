@@ -88,7 +88,10 @@ public sealed partial class DeviceDetailsPageView : UserControl
         ShowConnection(row);
         DeviceIncludeUdpCheckBox.IsChecked = false;
         DeviceImportedMetadata.IsExpanded = false;
-        DeviceScanHistoryExpander.IsExpanded = false;
+        DeviceHistorySummaryDetails.IsExpanded = false;
+        DeviceScanHistoryDetails.IsExpanded = false;
+        UsageCategoryDetails.IsExpanded = false;
+        DeviceScanHistoryExpander.IsExpanded = true;
         DeviceBrowserStatusText.Text = string.Empty;
         DetailsTabs.SelectedItem = OverviewTab;
         ShowTab(OverviewTab);
@@ -154,7 +157,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
         DeviceScanHistoryTable.Visibility = page.TotalCount == 0 ? Visibility.Collapsed : Visibility.Visible;
         var start = _historyPageIndex * DeviceHistoryQuery.DefaultPageSize;
         DeviceHistoryPageStatus.Text = page.TotalCount == 0 ? string.Empty
-            : $"Showing {start + 1:N0}-{start + page.Items.Count:N0} of {page.TotalCount:N0}. New scans appear when you reopen or refresh this device.";
+            : $"Showing {start + 1:N0}-{start + page.Items.Count:N0} of {page.TotalCount:N0}.";
         UpdateHistoryPageActions();
     }
 
@@ -207,17 +210,19 @@ public sealed partial class DeviceDetailsPageView : UserControl
     {
         if (_historySummary is not { } summary) return;
         var now = DateTimeOffset.UtcNow;
-        DeviceHistoryFirstSeen.Text = $"First seen: {DeviceDetailsPresentation.HistoryTimestamp(summary.FirstSeen, summary.FirstSeenIsAggregate)}";
-        DeviceHistoryLastSeen.Text = $"Last seen: {DeviceDetailsPresentation.HistoryTimestamp(summary.LastSeen, summary.LastSeenIsAggregate)}";
-        DeviceHistoryFirstSeenAge.Text = DeviceDetailsPresentation.HistoryAge(summary.FirstSeen, now);
-        DeviceHistoryLastSeenAge.Text = DeviceDetailsPresentation.HistoryAge(summary.LastSeen, now);
+        DeviceHistoryFirstSeen.Text = $"First seen: {DeviceDetailsPresentation.FriendlyTimestamp(summary.FirstSeen, now, aggregate: summary.FirstSeenIsAggregate)}";
+        DeviceHistoryLastSeen.Text = $"Last seen: {DeviceDetailsPresentation.FriendlyTimestamp(summary.LastSeen, now, aggregate: summary.LastSeenIsAggregate)}";
+        DeviceHistoryExactDates.Text = $"First seen: {DeviceDetailsPresentation.HistoryTimestamp(summary.FirstSeen, summary.FirstSeenIsAggregate)}\n"
+            + $"Last seen: {DeviceDetailsPresentation.HistoryTimestamp(summary.LastSeen, summary.LastSeenIsAggregate)}\n"
+            + $"Timezone: {TimeZoneInfo.Local.Id}\n"
+            + $"{DeviceDetailsPresentation.HistoryTimestampTooltip(summary.FirstSeen)} / {DeviceDetailsPresentation.HistoryTimestampTooltip(summary.LastSeen)}";
         ToolTipService.SetToolTip(DeviceHistoryFirstSeen, DeviceDetailsPresentation.HistoryTimestampTooltip(summary.FirstSeen));
         ToolTipService.SetToolTip(DeviceHistoryLastSeen, DeviceDetailsPresentation.HistoryTimestampTooltip(summary.LastSeen));
         ToolTipService.SetToolTip(DeviceHistorySince, DeviceDetailsPresentation.HistoryTimestampTooltip(summary.Since));
         DeviceHistorySince.Text = DeviceDetailsPresentation.ObservedSince(summary);
         DeviceHistoryState.Text = summary.Latest is { } latest
-            ? $"Last observed: {(latest.Present ? "Present" : "Absent")}"
-            : "Last observed: Unavailable - no matching individual scan observations.";
+            ? $"Last recorded state: {(latest.Present ? "Responded" : "Scanned, no response")}"
+            : "Last recorded state: Unavailable - no matching individual scan observations.";
         DeviceHistoryPresentDot.Visibility = summary.Latest?.Present == true ? Visibility.Visible : Visibility.Collapsed;
         DeviceHistoryAbsentDot.Visibility = summary.Latest?.Present == false ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -255,8 +260,6 @@ public sealed partial class DeviceDetailsPageView : UserControl
         DeviceNameValue.Value = row.NameText;
         DeviceAddressText.Value = row.AddressText;
         DeviceMacText.Value = row.MacAddressText;
-        DeviceVendorText.Value = row.VendorText;
-        DeviceVendorText.Opacity = row.VendorOpacity;
         DeviceStatusText.Text = row.StatusContext;
         DeviceResponseText.Value = row.LatencyLabel;
         DeviceProbeText.Value = result is null ? "-" : $"{result.ProbeDuration.TotalMilliseconds:N0} ms";
@@ -283,6 +286,14 @@ public sealed partial class DeviceDetailsPageView : UserControl
         var history = tab == HistoryTab;
         OverviewPanel.Visibility = history ? Visibility.Collapsed : Visibility.Visible;
         HistoryPanel.Visibility = history ? Visibility.Visible : Visibility.Collapsed;
+        OverviewTab.Background = (Brush)Application.Current.Resources[history
+            ? "ControlFillColorTransparentBrush" : "ControlFillColorDefaultBrush"];
+        HistoryTab.Background = (Brush)Application.Current.Resources[history
+            ? "ControlFillColorDefaultBrush" : "ControlFillColorTransparentBrush"];
+        if (_activityInitialized && _activityPageActive)
+        {
+            SetActivityTabActive(history);
+        }
     }
 
     private void ViewHistory_Click(object sender, RoutedEventArgs e)
@@ -300,7 +311,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
     private void RenameDone_Click(object sender, RoutedEventArgs e)
     {
         DeviceNameEditor.Visibility = Visibility.Collapsed;
-        DeviceRenameButton.Focus(FocusState.Programmatic);
+        DeviceNameValue.FocusRename();
     }
 
     internal void SetNameActions(bool canSave, bool canReset, string? resetToolTip)
@@ -313,6 +324,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
 
     internal void ShowPorts(IReadOnlyList<OpenPort> ports)
     {
+        DevicePortsHeading.Text = $"Ports & services ({ports.Count})";
         DevicePortsList.Children.Clear();
         if (_row is { } row)
         {
@@ -338,7 +350,12 @@ public sealed partial class DeviceDetailsPageView : UserControl
                     content.SetBrowserAction(port.Port is 80 or 443, endpoint.BrowserLabel, endpoint.BrowserUri!.AbsoluteUri);
                     content.BrowserRequested += async (_, _) => await OpenBrowserAsync(row, port);
                 }
-                DevicePortsList.Children.Add(panel);
+                DevicePortsList.Children.Add(new Border
+                {
+                    Child = panel, Padding = new Thickness(10), CornerRadius = new CornerRadius(6),
+                    BorderThickness = new Thickness(1),
+                    BorderBrush = (Brush)Application.Current.Resources["ControlStrokeColorDefaultBrush"]
+                });
             }
         }
         DeviceNoPortsText.Visibility = ports.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -378,8 +395,11 @@ public sealed partial class DeviceDetailsPageView : UserControl
         DeviceAddressPicker.IsEnabled = !running && canProbe;
     }
 
-    internal void ShowUdpObservations(IReadOnlyList<UdpServiceObservation> observations) =>
+    internal void ShowUdpObservations(IReadOnlyList<UdpServiceObservation> observations)
+    {
         DeviceUdpObservationsList.ItemsSource = observations;
+        DeviceUdpObservations.Visibility = observations.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
 
     private void InitializeClassificationPickers()
     {
@@ -428,8 +448,8 @@ public sealed partial class DeviceDetailsPageView : UserControl
         DeviceIconText.Value = row.IconText;
         DeviceIconText.Source = row.ClassificationOverride?.Icon is not null ? "Saved correction"
             : row.UsesVirtualIcon ? "Inferred virtual identity" : "Follows device type";
-        DeviceVendorText.Value = row.VendorText;
-        DeviceVendorText.Opacity = row.VendorOpacity;
+        DeviceVendorText.Text = $"Detected MAC vendor: {row.Result?.VendorName ?? "Unavailable - no detected MAC-vendor evidence"}. "
+            + "Registry evidence; may differ from the hardware manufacturer.";
         DeviceOsText.Opacity = row.OperatingSystemOpacity;
         DeviceTypeValueText.Opacity = row.DeviceTypeOpacity;
         ToolTipService.SetToolTip(DeviceOsText, row.OperatingSystemSource);
@@ -523,6 +543,23 @@ public sealed partial class DeviceDetailsPageView : UserControl
         DetailsColumns.ColumnDefinitions[1].Width = wide ? new GridLength(2, GridUnitType.Star) : new GridLength(0);
         Grid.SetColumn(AssignmentsCard, wide ? 1 : 0);
         Grid.SetRow(AssignmentsCard, wide ? 0 : 1);
+        Grid.SetColumn(DeviceHistorySummaryCard, 0);
+        Grid.SetRow(DeviceHistorySummaryCard, wide ? 1 : 2);
+        Grid.SetColumn(UsageCategoryCard, wide ? 1 : 0);
+        Grid.SetRow(UsageCategoryCard, wide ? 1 : 3);
+    }
+
+    private void Header_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var scale = new Windows.UI.ViewManagement.UISettings().TextScaleFactor;
+        DetailsTabsHost.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+        DeviceBackButton.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+        var wide = e.NewSize.Width >= DetailsTabsHost.DesiredSize.Width + DeviceBackButton.DesiredSize.Width + 320 * scale + 32;
+        Grid.SetRow(DetailsTabsHost, wide ? 0 : 1);
+        Grid.SetColumn(DetailsTabsHost, wide ? 1 : 0);
+        Grid.SetColumnSpan(DetailsTabsHost, wide ? 1 : 3);
+        Grid.SetColumn(DeviceIdentityHeader, wide ? 2 : 1);
+        Grid.SetColumnSpan(DeviceIdentityHeader, wide ? 1 : 2);
     }
 
     private void Fields_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -535,8 +572,8 @@ public sealed partial class DeviceDetailsPageView : UserControl
     {
         var scale = new Windows.UI.ViewManagement.UISettings().TextScaleFactor;
         var identification = grid == IdentificationReadFields || grid == IdentificationInputs;
-        var minimum = grid == DevicePortsList ? 400 : identification ? 260 : 210;
-        var maximum = identification ? 3 : 2;
+        var minimum = grid == DevicePortsList ? 300 : identification ? 260 : 210;
+        var maximum = identification || grid == DevicePortsList ? 3 : 2;
         var columns = Math.Clamp((int)(grid.ActualWidth / (minimum * scale)), 1, maximum);
         var rows = (grid.Children.Count + columns - 1) / columns;
         if (grid.ColumnDefinitions.Count != columns || grid.RowDefinitions.Count != rows)

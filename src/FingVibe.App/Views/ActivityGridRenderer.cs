@@ -57,7 +57,7 @@ internal static class ActivityGridRenderer
     }
 
     internal static void Render(Grid grid, IReadOnlyList<DeviceActivityCell> cells, ElementTheme theme,
-        UISettings colors, string idPrefix, Action<string> select)
+        UISettings colors, string idPrefix, Action<string> select, bool deviceStyle = false)
     {
         grid.Children.Clear();
         grid.RowDefinitions.Clear();
@@ -66,7 +66,7 @@ internal static class ActivityGridRenderer
         var columns = 24 / cells[0].Hours;
         var rows = cells.Count / columns;
         var scale = colors.TextScaleFactor;
-        grid.MinWidth = (124 + columns * 36) * scale;
+        grid.MinWidth = (124 + columns * (deviceStyle ? 28 : 36)) * scale;
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(120 * scale) });
         for (var column = 0; column < columns; column++)
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -102,7 +102,7 @@ internal static class ActivityGridRenderer
             {
                 var index = row * columns + column;
                 var cell = cells[index];
-                var background = CellColor(cell, contrast, theme, colors);
+                var background = CellColor(cell, contrast, theme, colors, deviceStyle);
                 var foreground = contrast ? colors.GetColorValue(UIColorType.Foreground) : TextColor(background);
                 var content = new Grid { MinWidth = 28, MinHeight = rows > 7 ? 22 : 32,
                     Background = new SolidColorBrush(background) };
@@ -110,11 +110,14 @@ internal static class ActivityGridRenderer
                     content.Children.Add(new Path
                     {
                         Stretch = Stretch.Fill, Opacity = contrast ? 1 : .45,
-                        Stroke = new SolidColorBrush(foreground), StrokeThickness = .7, Data = HatchGeometry()
+                        Stroke = new SolidColorBrush(foreground), StrokeThickness = .7, Data = HatchGeometry(deviceStyle ? 12 : 6)
                     });
                 var glyph = new TextBlock
                 {
-                    Text = contrast && cell.IsApplicable && string.IsNullOrEmpty(cell.Value)
+                    Text = deviceStyle
+                        ? !cell.IsApplicable ? "N/A" : cell.IsFuture ? "\u00B7" : !string.IsNullOrEmpty(cell.Value) ? cell.Value
+                            : cell.Response == AnalyticsResponse.Responded ? "R" : cell.Response == AnalyticsResponse.DidNotRespond ? "\u2212" : "?"
+                        : contrast && cell.IsApplicable && string.IsNullOrEmpty(cell.Value)
                         ? cell.Response == AnalyticsResponse.Responded ? "R" : cell.Response == AnalyticsResponse.DidNotRespond ? "N" : "?"
                         : cell.Value,
                     FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
@@ -127,7 +130,7 @@ internal static class ActivityGridRenderer
                     Content = content, Padding = new Thickness(0), CornerRadius = new CornerRadius(0),
                     HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Stretch,
                     HorizontalContentAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Stretch,
-                    Tag = index
+                    Tag = index, Opacity = deviceStyle && cell.IsFuture && !contrast ? .45 : 1
                 };
                 AutomationProperties.SetAutomationId(button, $"{idPrefix}-{row}-{column}");
                 AutomationProperties.SetName(button, cell.Details);
@@ -147,13 +150,16 @@ internal static class ActivityGridRenderer
         }
     }
 
-    internal static Color CellColor(DeviceActivityCell cell, bool contrast, ElementTheme theme, UISettings colors)
+    internal static Color CellColor(DeviceActivityCell cell, bool contrast, ElementTheme theme, UISettings colors,
+        bool deviceStyle = false)
     {
         if (contrast) return colors.GetColorValue(UIColorType.Background);
         if (!cell.IsApplicable) return theme == ElementTheme.Dark ? Color.FromArgb(255, 32, 32, 32) : Colors.White;
         if (cell.Response == AnalyticsResponse.Unknown)
-            return theme == ElementTheme.Dark ? Color.FromArgb(255, 55, 60, 67) : Color.FromArgb(255, 233, 237, 241);
-        if (cell.Response == AnalyticsResponse.DidNotRespond) return Color.FromArgb(255, 100, 116, 139);
+            return deviceStyle ? theme == ElementTheme.Dark ? Color.FromArgb(255, 32, 32, 32) : Colors.White
+                : theme == ElementTheme.Dark ? Color.FromArgb(255, 55, 60, 67) : Color.FromArgb(255, 233, 237, 241);
+        if (cell.Response == AnalyticsResponse.DidNotRespond)
+            return deviceStyle ? Color.FromArgb(255, 230, 174, 66) : Color.FromArgb(255, 100, 116, 139);
         var fraction = (double)(cell.Fraction ?? 0);
         var low = theme == ElementTheme.Dark ? Color.FromArgb(255, 38, 60, 47) : Color.FromArgb(255, 206, 232, 216);
         return Color.FromArgb(255, (byte)(low.R + (21 - low.R) * fraction),
@@ -167,10 +173,10 @@ internal static class ActivityGridRenderer
         return luminance > .179 ? Colors.Black : Colors.White;
     }
 
-    private static PathGeometry HatchGeometry()
+    private static PathGeometry HatchGeometry(int step)
     {
         var geometry = new PathGeometry();
-        for (var offset = -24; offset <= 24; offset += 6)
+        for (var offset = -24; offset <= 24; offset += step)
         {
             var figure = new PathFigure { StartPoint = new Point(Math.Max(0, offset), Math.Max(0, -offset)), IsClosed = false };
             figure.Segments.Add(new LineSegment { Point = new Point(Math.Min(24, offset + 24), Math.Min(24, 24 - offset)) });

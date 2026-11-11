@@ -40,6 +40,16 @@ function Find-Usage([string] $Value, [switch] $ByName, [switch] $Optional) {
             $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
                 [System.Windows.Automation.PropertyCondition]::new($property, $Value))
         }
+        if (-not $element -and $Value -in @("UsageCategoryEvidence", "UsageCategoryWindow", "UsageCategoryRefresh", "UsageCategorySampling")) {
+            $details = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "UsageCategoryDetails"))
+            if ($details) {
+                $details.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+                $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.PropertyCondition]::new($property, $Value))
+            }
+        }
     }
     finally { Complete-UiRegressionCall $call }
     if (-not $element -and -not $Optional) { throw "Missing usage-category control '$Value'." }
@@ -170,6 +180,7 @@ function Show-Usage([string] $Id) {
 }
 
 function Choose-Usage([string] $Choice) {
+    if (-not (Find-Usage UsageCategoryPicker -Optional)) { Invoke-Usage UsageCategoryEdit }
     $null = Show-Usage UsageCategoryPicker
     Set-UiReviewAppearanceChoice -Root $script:root -Picker UsageCategoryPicker -Choice $Choice
 }
@@ -181,7 +192,7 @@ function Invoke-Usage([string] $Id) {
 function Assert-Usage([string] $Category, [string] $Source) {
     $null = Show-Usage UsageCategoryEffective
     try {
-        Wait-Usage { (Find-Usage UsageCategoryEffective).Current.Name -like "Saved effective category: $Category | $Source*" } "$Category / $Source"
+        Wait-Usage { (Find-Usage UsageCategoryEffective).Current.Name -like "$Category | $Source*" } "$Category / $Source"
     }
     catch {
         $effective = (Find-Usage UsageCategoryEffective).Current.Name
@@ -190,7 +201,7 @@ function Assert-Usage([string] $Category, [string] $Source) {
     }
 }
 
-function Save-UsageCapture([string] $Name, [string] $Control = "UsageCategoryPicker") {
+function Save-UsageCapture([string] $Name, [string] $Control = "UsageCategoryEffective") {
     $null = Show-Usage $Control
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Name.png")
 }
@@ -263,6 +274,7 @@ try {
     $phase = Step-UiRegressionPhase $phase "usage/save-cancel-failure" $ScreenshotDirectory
     Start-UsageApp
     Open-UsageDevice
+    if (Find-Usage UsageCategoryPicker -Optional) { throw "Read mode must not expose the category editor." }
     Assert-Usage Permanent "Auto - limited evidence"
     if ((Find-Usage UsageCategoryEvidence).Current.Name -notlike "*12 of 14 eligible scans responded (86%)*") {
         throw "The native editor must expose exact F1 evidence and rounded display."
@@ -294,7 +306,7 @@ try {
     if ((Find-Usage UsageCategorySave).Current.IsEnabled) { throw "Conflict must require reload, not blind retry." }
     Save-UsageCapture "usage-concurrent-conflict" UsageCategoryError
     Invoke-Usage UsageCategoryReload
-    Wait-Usage { (Find-Usage UsageCategoryEditStatus).Current.Name -eq "No unsaved category changes." } "completed conflict reload"
+    Wait-Usage { -not (Find-Usage UsageCategoryPicker -Optional) } "completed conflict reload returning to read mode"
     Assert-Usage Personal "Manual override"
     Choose-Usage Automatic
     Invoke-Usage UsageCategorySave
@@ -314,6 +326,7 @@ try {
     Stop-UsageApp
     Start-UsageApp
     Open-UsageDevice "Concurrent name"
+    Choose-Usage Personal
     Assert-Usage Permanent "Auto"
     Open-UsageDevice "Usage imported"
     Assert-Usage Unclassified "Auto - no eligible scans"
@@ -337,6 +350,7 @@ try {
             Choose-Usage Personal
             Save-UsageCapture "usage-$($theme.Replace(' ', '-'))-$width" UsageCategorySave
             Invoke-Usage UsageCategoryCancel
+            if ($width -ne 640) { Choose-Usage Personal }
         }
         $null = [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
             $bounds.Left, $bounds.Top, $bounds.Width, $bounds.Height, 0x0044)

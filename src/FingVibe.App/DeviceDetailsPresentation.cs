@@ -13,6 +13,8 @@ public sealed record DeviceScanHistoryRow(DateTimeOffset CompletedAt, bool Prese
     public string Date => LocalTime.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
     public string Time => LocalTime.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
     public string FullTimestamp => LocalTime.ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture);
+    public string When => DeviceDetailsPresentation.FriendlyTimestamp(CompletedAt, DateTimeOffset.UtcNow, TimeZone);
+    public string Result => Present ? "Responded" : "Scanned, no response";
     public string State => Present ? "Present" : "Absent";
     public bool Absent => !Present;
     public string AccessibleLabel => $"{FullTimestamp}; Observed {State.ToLowerInvariant()}";
@@ -53,6 +55,24 @@ internal sealed record DeviceEndpointPresentation(
 
 internal static class DeviceDetailsPresentation
 {
+    internal static string FriendlyTimestamp(DateTimeOffset? timestamp, DateTimeOffset now,
+        TimeZoneInfo? timeZone = null, bool aggregate = false)
+    {
+        if (timestamp is not { } instant) return "Unavailable - no matching local presence evidence.";
+        var zone = timeZone ?? TimeZoneInfo.Local;
+        var local = TimeZoneInfo.ConvertTime(instant, zone);
+        var today = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(now, zone).DateTime);
+        var days = today.DayNumber - DateOnly.FromDateTime(local.DateTime).DayNumber;
+        var date = days switch
+        {
+            0 => "Today", 1 => "Yesterday", > 1 => $"{days} days ago",
+            _ => local.ToString("d MMM yyyy", CultureInfo.CurrentCulture)
+        };
+        return $"{date}, {local.ToString("h:mm tt", CultureInfo.CurrentCulture)}"
+            + (instant > now ? " (future timestamp)" : "")
+            + (aggregate ? " (Historical aggregate)" : "");
+    }
+
     internal static string HistoryTimestamp(DateTimeOffset? timestamp, bool aggregate = false,
         TimeZoneInfo? timeZone = null) =>
         timestamp is { } time
@@ -100,8 +120,8 @@ internal static class DeviceDetailsPresentation
 
     internal static string ObservedSince(DeviceHistorySummary summary, TimeZoneInfo? timeZone = null) =>
         summary.Latest is { } latest && summary.Since is { } since
-            ? $"Observed {(latest.Present ? "online" : "offline")} since: {HistoryTimestamp(since, timeZone: timeZone)}"
-            : "Observed state / since: Unavailable - no matching individual scan observations.";
+            ? $"Latest recorded {(latest.Present ? "responding" : "nonresponding")} run started: {HistoryTimestamp(since, timeZone: timeZone)}"
+            : "Recorded run: Unavailable - no matching individual scan observations.";
 
     internal static IReadOnlyList<DeviceScanHistoryRow> ScanHistory(DeviceHistorySummary summary,
         TimeZoneInfo? timeZone = null) =>

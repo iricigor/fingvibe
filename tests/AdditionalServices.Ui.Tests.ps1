@@ -263,6 +263,21 @@ function Test-DeviceDetailsEditing {
         throw "Network overview and Assignments must share the top row in left/right order."
     }
     Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-details-wide.png")
+    $tabs = (Find-ServiceControl DeviceDetailsTabs).Current.BoundingRectangle
+    $identity = (Find-ServiceControl "Rename device" -ByName).Current.BoundingRectangle
+    if ($tabs.Right -gt $identity.Left -or $tabs.Top -gt $identity.Bottom) {
+        throw "Wide tabs must be left of the right-side device identity."
+    }
+    $nameCopy = Find-ServiceControl "Copy Device name" -ByName
+    $rename = Find-ServiceControl "Rename device" -ByName
+    $beforeName = $identity
+    $nameCopy.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait("{TAB}")
+    Wait-ServiceState { [System.Windows.Automation.AutomationElement]::FocusedElement.Current.Name -eq "Rename device" } "copy then pencil keyboard order"
+    if ($beforeName -ne (Find-ServiceControl "Rename device" -ByName).Current.BoundingRectangle -or
+        $nameCopy.Current.BoundingRectangle.Right -gt $rename.Current.BoundingRectangle.Left) {
+        throw "Header actions must reserve stable copy-then-pencil space."
+    }
     Show-ServiceCardFootnotes
     Wait-ServiceState {
         (Find-ServiceControl DeviceAddressSourceText).Current.BoundingRectangle.Width -gt 0 -and
@@ -324,12 +339,12 @@ function Test-DeviceDetailsEditing {
     (Find-ServiceControl "Edit device identification" -ByName).SetFocus()
     Wait-ServiceState {
         (Find-ServiceControl "Device type" -ByName).Current.BoundingRectangle.Width -gt 0 -and
-        (Find-ServiceControl "Ports & services" -ByName).Current.BoundingRectangle.Width -gt 0
+        (Find-ServiceControl DevicePortsHeading).Current.BoundingRectangle.Width -gt 0
     } "wide identification fields"
-    $ports = (Find-ServiceControl "Ports & services" -ByName).Current.BoundingRectangle
+    $ports = (Find-ServiceControl DevicePortsHeading).Current.BoundingRectangle
     $type = (Find-ServiceControl "Device type" -ByName).Current.BoundingRectangle
     $os = (Find-ServiceControl "Operating system" -ByName).Current.BoundingRectangle
-    $brand = (Find-ServiceControl Brand -ByName).Current.BoundingRectangle
+    $brand = (Find-ServiceControl "Vendor / manufacturer" -ByName).Current.BoundingRectangle
     $identification = (Find-ServiceControl "Device identification" -ByName).Current.BoundingRectangle
     if ($type.Width -le 0 -or $os.Left -le $type.Left -or $brand.Left -le $os.Left -or
         [Math]::Abs($type.Top - $os.Top) -gt 3 -or [Math]::Abs($type.Top - $brand.Top) -gt 3 -or
@@ -362,6 +377,14 @@ function Test-DeviceDetailsEditing {
         $null = [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero,
             $window.Left, $window.Top, 760, $window.Height, 0x0044)
         Start-Sleep -Milliseconds 300
+        $scroll = (Find-ServiceControl DeviceDetailsScroll).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        $scroll.SetScrollPercent(-1, 0)
+        Wait-ServiceState {
+            $tabs = (Find-ServiceControl DeviceDetailsTabs).Current.BoundingRectangle
+            $identity = (Find-ServiceControl "Rename device" -ByName).Current.BoundingRectangle
+            $tabs.Top -ge $identity.Bottom
+        } "narrow tabs below the identity"
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-details-header-narrow.png")
         Open-IdentificationEditor
         (Find-ServiceControl DeviceBrandInput).GetCurrentPattern(
             [System.Windows.Automation.ValuePattern]::Pattern).SetValue("Narrow draft")
