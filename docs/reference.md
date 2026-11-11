@@ -46,6 +46,15 @@ widths are clamped to 160–320 DIPs. Save failures do not interrupt navigation.
 UI-review mode does not read or write this file unless a review-specific
 `FINGVIBE_UI_REVIEW_NAVIGATION` path is supplied.
 
+All pages, including details and Tools subpages, use a shared 12-DIP left
+content inset (previously 24 DIPs), aligned with the shared network header.
+Right and bottom margins remain 24 DIPs. Minimal-mode headers retain their
+72-DIP menu-button clearance. The navigation resize guide remains hidden at
+rest; its revealed line uses black at 10/255 opacity in light themes and white
+at 14/255 in dark themes, reduced from the native 15/255 and 21/255.
+Windows high contrast retains system text colors and native focus indicators;
+the 16-DIP resize hit target and interaction behavior are unchanged.
+
 Prerequisites:
 
 - Windows 11

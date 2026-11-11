@@ -7,7 +7,7 @@
     xmlns:models="using:FingVibe.Core.Models">
     <ScrollViewer x:Name="DevicePage" AutomationProperties.AutomationId="DeviceDetailsScroll"
                   HorizontalScrollBarVisibility="Disabled">
-    <StackPanel Margin="24,0,24,24" Spacing="16">
+    <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
         <StackPanel Spacing="16">
             <Button Click="BackToDevicesButton_Click" AutomationProperties.Name="Back to devices">
                 <StackPanel Orientation="Horizontal" Spacing="8">

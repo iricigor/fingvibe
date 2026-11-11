@@ -5,7 +5,7 @@
     xmlns:local="using:FingVibe.App"
     xmlns:models="using:FingVibe.Core.Models">
     <ScrollViewer x:Name="PersonDetailPage" AutomationProperties.AutomationId="PersonDetailPage">
-        <StackPanel Margin="24,0,24,24" Spacing="16">
+        <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
             <Button Click="BackToPeopleButton_Click" AutomationProperties.Name="Back to people">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon Glyph="&#xE72B;" FontSize="14" />

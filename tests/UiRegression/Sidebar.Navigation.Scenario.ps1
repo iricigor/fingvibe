@@ -11,6 +11,7 @@ foreach ($page in @(
 )) {
     Select-SidebarPage $page[0] $page[1]
     Assert-SharedNetworkHeader
+    Test-SidebarContentInset $page[0]
 }
 $network = Find-SidebarElement AutomationId NetworkNavItem
 $menuBounds = $network.Current.BoundingRectangle

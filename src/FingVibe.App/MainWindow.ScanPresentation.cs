@@ -14,7 +14,8 @@ public sealed partial class MainWindow
     private void ScanHeader_SizeChanged(object sender, SizeChangedEventArgs e)
     {
         ScanHeader.Margin = new Thickness(
-            MainNavigation.DisplayMode == NavigationViewDisplayMode.Minimal ? 72 : 24, 16, 224, 8);
+            MainNavigation.DisplayMode == NavigationViewDisplayMode.Minimal
+                ? 72 : ((Thickness)Application.Current.Resources["ScannerPageContentMargin"]).Left, 16, 224, 8);
         var textScale = _uiSettings.TextScaleFactor;
         var narrow = ScanHeader.ActualWidth < 480 * textScale;
         var stackedAction = ScanHeader.ActualWidth < 150 + 120 * textScale + 12;
