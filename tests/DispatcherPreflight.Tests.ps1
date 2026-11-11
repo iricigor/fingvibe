@@ -105,12 +105,12 @@ function Invoke-PreflightFixture($Fixture, [int[]] $Order, [string] $Evidence) {
     Get-DispatcherPreflight -Repository "test/repo" -Epic 164 -ApiReader $Fixture.reader -TaskOrder $Order -OrderEvidenceUrl $Evidence
 }
 
-function Add-PreflightClaim($Fixture, [int] $Number, [string] $State = "claimed") {
+function Add-PreflightClaim($Fixture, [int] $Number, [string] $State = "claimed", [object] $RepairCount = 0) {
     $claim = @{
         schema = "fingvibe-agent-claim-v1"; repository = "test/repo"; epic = 164; task = $Number
         claimId = [guid]::NewGuid().ToString(); claimedUtc = [DateTime]::UtcNow.ToString("o")
         authorization = "https://github.com/test/repo/issues/222"; account = "test"; targetBranch = "main"
-        branch = $null; worktree = $null; pr = $null; head = $null; implementationCheckpoint = $null; repairCount = 0
+        branch = $null; worktree = $null; pr = $null; head = $null; implementationCheckpoint = $null; repairCount = $RepairCount
         state = $State; handoff = @{ id = [guid]::NewGuid().ToString(); action = "implement"; stage = "launch-requested"; sessionId = $null }
     }
     $Fixture.state.comments += [pscustomobject]@{
@@ -147,15 +147,26 @@ $fixture.state.issues[1].labels += @{ name = "status:review" }
 Assert-Preflight ((Invoke-PreflightFixture $fixture).decision -eq "reconcile") "Open review work must consume capacity."
 
 foreach ($state in @("claimed", "blocked")) {
+    foreach ($repairCount in 0..3) {
+        $fixture = New-PreflightFixture
+        $fixture.state.issues[1].state = "closed"
+        Add-PreflightClaim $fixture 200 $state $repairCount
+        $result = Invoke-PreflightFixture $fixture
+        Assert-Preflight ($result.decision -eq "reconcile" -and -not $result.collectionFailure -and
+            $result.findings[0].kind -eq "retained-claim" -and -not $result.candidate) "Closed $state claims with repairCount $repairCount still hold the slot."
+    }
+}
+
+foreach ($repairCount in @(-1, 4, 0.5, "2", $null, $true)) {
     $fixture = New-PreflightFixture
-    $fixture.state.issues[1].state = "closed"
-    Add-PreflightClaim $fixture 200 $state
+    Add-PreflightClaim $fixture 200 -RepairCount $repairCount
     $result = Invoke-PreflightFixture $fixture
-    Assert-Preflight ($result.decision -eq "reconcile" -and $result.findings[0].kind -eq "retained-claim") "Closed retained claims still hold the slot."
+    Assert-Preflight ($result.decision -eq "blocked" -and $result.collectionFailure -and
+        -not $result.candidate) "Out-of-range or non-integer repairCount '$repairCount' must fail closed."
 }
 
 $fixture = New-PreflightFixture
-Add-PreflightClaim $fixture 200 "released"
+Add-PreflightClaim $fixture 200 "released" 3
 $fixture.state.issues[1].state = "closed"
 Assert-Preflight ((Invoke-PreflightFixture $fixture).candidate.issue -eq 201) "Released closed claims must not prevent mechanical selection."
 
