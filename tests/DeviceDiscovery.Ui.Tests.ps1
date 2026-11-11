@@ -439,6 +439,10 @@ try {
                 [System.Windows.Automation.AutomationElement]::NameProperty, "Settings")
             $settings = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $settingsCondition)
             $settings.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+            Wait-DiscoveryState {
+                $picker = Find-DiscoveryControl ModePicker -Optional
+                $picker -and -not $picker.Current.IsOffscreen
+            } "visible Settings appearance picker"
             Set-UiReviewTheme -Root $script:root -Theme "Standard Light"
             (Find-DiscoveryControl DevicesNavItem).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
             $macs = @(0..15 | ForEach-Object { "$prefix{0:X2}" -f $_ })

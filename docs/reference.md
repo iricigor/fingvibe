@@ -445,6 +445,8 @@ disabled by default for isolated UI-review fixtures. Opt in with
 `FINGVIBE_UI_REVIEW_NOTIFICATIONS=1` on a disposable supported Windows desktop;
 verify real notification-center/banner and body/button activation separately
 for installed and portable copies, including settings/DND suppression.
+A retained Windows history entry or a direct native COM activation probe does
+not replace checking the displayed notification and its body/button actions.
 Never run native UI automation on a working user's desktop.
 
 ### Device activity
