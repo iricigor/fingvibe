@@ -10,6 +10,13 @@ Dummy Epic: [#322](https://github.com/iricigor/fingvibe/issues/322).
 Publication: [#329](https://github.com/iricigor/fingvibe/issues/329).
 Publishing these instructions does not complete the runtime experiment.
 
+**Completed experiment:** see [results and the complete 21-incident review](experiment-results.md)
+for measured overlap, human-assisted recovery, accepted limitations and the
+separate `3️⃣` real-environment direction. The instructions below preserve the
+trial setup; they are not permission to rerun its five tasks or reset its state.
+The separate real-task successor is [#331](https://github.com/iricigor/fingvibe/issues/331)
+(intake only); extended Architect/Tester directions remain in #224.
+
 ## Local setup
 
 | Local Automation / agent | Trigger |
@@ -86,9 +93,10 @@ The existing [backlog contract](../development-backlog.md#local-dispatcher-excep
 and production single-claim/validation/merge policy are unchanged.
 
 After five verified completions, reconcile one final report and make later ticks
-no-ops. Schedule deactivation remains user-controlled. **Keep #323 open** until a
-human reviews all incidents (or explicitly acknowledges none with evidence) and
-dispositions these future plans:
+no-ops. Schedule deactivation remains user-controlled. #323's closure gate was
+manual incident review and explicit disposition of these future plans; the
+[closeout record](experiment-results.md) preserves that review without claiming
+the future work is implemented:
 
 - **Tester:** optional substantive, revision-bound validation/acceptance review;
   no sign-off-only Automation in this iteration.
