@@ -180,6 +180,7 @@ function Open-ActivityDevice([string] $Name = "Activity laptop") {
         $scroll = Find-Activity DeviceDetailsScroll -Optional
         $scroll -and -not $scroll.Current.IsOffscreen
     } "device details"
+    (Find-Activity DeviceHistoryTab).GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
 }
 
 function Choose-ActivityPeriod([string] $Label, [int] $LastRow) {
@@ -258,8 +259,8 @@ function Start-HeldActivityRefresh {
 }
 
 function Restart-Activity {
-    $null = Select-UiRegressionDeviceTab -Root $script:root -Tab Overview
-    $null = Select-UiRegressionDeviceTab -Root $script:root -Tab History
+    (Find-Activity DeviceOverviewTab).GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    (Find-Activity DeviceHistoryTab).GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
 }
 
 function Assert-ActivityCancelled($Request) {

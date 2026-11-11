@@ -173,7 +173,7 @@ function Select-UiRegressionDeviceTab {
         else { $selection.Select() }
     }
     # Panels have no UI Automation peers; tab-owned text controls prove which panel is realized.
-    $sentinel = @{ Overview = "DeviceHistorySummaryScope"; History = "DeviceHistoryScope" }
+    $sentinel = @{ Overview = "DeviceHistoryFirstSeen"; History = "ActivityWindow" }
     $hidden = if ($Tab -eq "History") { "Overview" } else { "History" }
     $null = Wait-UiRegressionState -Description "Device Details $Tab tab" -Condition {
         $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected -and
