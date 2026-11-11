@@ -91,7 +91,8 @@
             ]
           ],
           "baselineSha256": "0899952a8d21483dab77ab9b662035e1e9bf776314b5d827269b378d201b49e9",
-          "refactored": false,
+          "refactored": true,
+          "changedBy": "#318: sample row top padding at the right edge, avoiding glyphs newly exposed by the wider content viewport; retain exact full-width stripe equality.",
           "functions": [
             {
               "assertions": [
@@ -100,7 +101,7 @@
                 "4a9d4021ff03ad82e2d120b3577ac470e92eee9b7c4000dc3be4808da2a44034"
               ],
               "name": "Assert-DeviceStripes",
-              "refactored": false,
+              "refactored": true,
               "baselineSha256": "de910ffc1434a17354ed247783d327aef4a3d642ad2e9c17cf68e27ddcc7d502"
             },
             {

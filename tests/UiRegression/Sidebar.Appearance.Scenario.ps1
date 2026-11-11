@@ -12,12 +12,16 @@ try {
     if (([SidebarReviewKeyboard]::GetHighContrastFlags() -band 1) -eq 0) {
         throw "High contrast did not activate."
     }
+    Start-Sleep -Seconds 2
     Test-SidebarDividerAppearance -Name "sidebar-divider-high-contrast" -MaximumContrast 255
     (Find-SidebarElement AutomationId NavigationResizeGrip).SetFocus()
     Save-SidebarAppearance "sidebar-divider-high-contrast-focus"
 }
 finally {
-    if ($null -ne $highContrast) { [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast) }
+    if ($null -ne $highContrast) {
+        [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast)
+        Start-Sleep -Seconds 2
+    }
 }
 Set-SidebarAppearance ThemePicker "Standard Dark"
 foreach ($backdrop in @("Mica", "Mica Alt", "Acrylic", "Solid")) {
