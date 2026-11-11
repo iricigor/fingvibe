@@ -415,8 +415,9 @@ function Test-ScanTextScaling {
         Write-Host 'System text-scale checks require a disposable GitHub Actions desktop.'
         return
     }
-    Set-SidebarWindowWidth 640
+    Set-SidebarWindowWidth $expandedWidth
     Select-SidebarPage Overview "Online devices"
+    Set-SidebarWindowWidth 640
     $normalHeight = (Find-SidebarElement AutomationId ScanButton).Current.BoundingRectangle.Height
     $settings = [Windows.UI.ViewManagement.UISettings, Windows.UI.ViewManagement, ContentType = WindowsRuntime]::new()
     $originalScale = $settings.TextScaleFactor

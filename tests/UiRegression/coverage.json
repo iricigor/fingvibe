@@ -972,7 +972,7 @@
             {
               "name": "Test-ScanTextScaling",
               "refactored": true,
-              "introducedBy": "#254: disposable CI-only 200-percent Windows text scaling, effective-scale verification, narrow geometry/keyboard checks and restoration."
+              "introducedBy": "#254: disposable CI-only 200-percent Windows text scaling, effective-scale verification, narrow geometry/keyboard checks and restoration. Select Overview at expanded width before measuring the narrow baseline; desktop-free regression covers inherited closed-overlay layouts."
             }
           ],
           "captures": [

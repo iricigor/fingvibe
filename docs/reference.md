@@ -1064,7 +1064,9 @@ powershell.exe -NoProfile -File tests\UiRegression.Helpers.Tests.ps1
 This check does not launch or automate the desktop. It exercises bounded waits,
 stale-owner reacquisition, visible/nonempty controls, process exit/normal/forced
 cleanup, isolated fixtures, environment restoration and failure-preserving
-capture timing. Migrated native suites create unique temporary fixture
+capture timing. Scan text-scale setup selects Overview at expanded width before
+measuring the narrow baseline, so a preceding closed overlay pane cannot hide
+the navigation target. Migrated native suites create unique temporary fixture
 directories and restore their environment/DPI context even if shutdown fails.
 Forced shutdown cleans up the supplied PID but fails the suite rather than
 pretending normal close succeeded.

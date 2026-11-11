@@ -112,6 +112,32 @@ foreach ($case in @('completed', 'cancelled', 'hidden', 'missing', 'name')) {
         }
     }
 }
+foreach ($initialWidth in @(480, 640)) {
+    & {
+        . (Join-Path $PSScriptRoot 'UiRegression\Sidebar.Scans.Helpers.ps1')
+        $expandedWidth = 1280
+        $state = @{ Width = $initialWidth; OverviewSelected = $false; BaselineMeasured = $false }
+        function Set-SidebarWindowWidth([int] $LogicalWidth) { $state.Width = $LogicalWidth }
+        function Select-SidebarPage([string] $Name, [string] $Sentinel) {
+            Assert-Regression ($state.Width -eq $expandedWidth) 'Text-scale setup must make navigation reachable before selecting Overview.'
+            Assert-Regression ($Name -eq 'Overview' -and $Sentinel -eq 'Online devices') 'Text-scale setup must retain its Overview context.'
+            $state.OverviewSelected = $true
+        }
+        function Find-SidebarElement($Property, $Value) {
+            Assert-Regression ($state.OverviewSelected -and $state.Width -eq 640) 'The unscaled scan baseline must still be measured at 640 DIPs.'
+            Assert-Regression ($Property -eq 'AutomationId' -and $Value -eq 'ScanButton') 'Text-scale setup must measure the shared scan action.'
+            $state.BaselineMeasured = $true
+            throw 'Text-scale baseline reached without desktop automation.'
+        }
+        $previousActions = $env:GITHUB_ACTIONS
+        try {
+            $env:GITHUB_ACTIONS = 'true'
+            Assert-RegressionFailure { Test-ScanTextScaling } 'Text-scale baseline reached without desktop automation.'
+            Assert-Regression $state.BaselineMeasured 'Text-scale setup did not reach its narrow baseline.'
+        }
+        finally { $env:GITHUB_ACTIONS = $previousActions }
+    }
+}
 foreach ($focusable in @($true, $false)) {
     & {
         $state = @{ PageLookups = 0; FocusCalls = 0; PositionCalls = 0 }
