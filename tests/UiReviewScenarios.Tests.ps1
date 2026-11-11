@@ -191,7 +191,8 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     $script:controls.Since | Add-Member ScriptMethod TryGetCurrentPattern { param($Pattern, $Result) return $false }
     $nested = Show-HistorySection Since
     Assert-Equal $script:focusCalls[-1] "nested focus" "Nested scroll viewers must still receive focus first"
-    Assert-Equal $script:positions @(10) "Focus that leaves a nested scroll viewer clipped must position the outer viewport"
+    Assert-Equal $script:positions.Count 1 "Focus that leaves a nested scroll viewer clipped must position the outer viewport once"
+    Assert-Equal $nested.Current.BoundingRectangle.Top 35 "A clipped nested viewer must be revealed from its top edge"
     Assert-Equal (Test-UiRegressionElementWithin $nested $viewport $script:root) $true "The complete nested viewer must be visible"
 }
 

@@ -544,7 +544,8 @@ high-contrast checks remain in Device Activity; Sidebar retains the full
 People/Rooms editing/assignment flows. Desktop-free helper regressions cover
 Person control lookups across asynchronous waits and completed-observation
 viewer positioning when focus alone leaves the nested viewer clipped,
-including fractional scroll corrections that preserve the full viewport margin.
+including clipped UI Automation bounds and fractional scroll corrections
+that preserve the full viewport margin.
 Final-head affected-job durations are
 delivery evidence, not inferred from these coverage mappings.
 

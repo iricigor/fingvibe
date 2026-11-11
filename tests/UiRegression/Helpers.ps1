@@ -109,7 +109,12 @@ function Show-UiRegressionScrollTargets {
             $geometry = "$targetTop|$targetBottom|$top|$bottom|$viewSize"
             if ($geometry -eq $state.Geometry) { throw "$targetDescription did not move after a measured scroll adjustment." }
             if ($state.Moves -ge 8) { throw "$targetDescription did not settle after eight measured scroll adjustments." }
-            $delta = if ($AlignBottom -or $targetBottom -gt $bottom) { $targetBottom - $bottom } else { $targetTop - $top }
+            # A single UIA peer may report a bottom edge clipped to the viewport.
+            # Reveal it from its known top edge instead of chasing that clipped edge.
+            $delta = if (-not $AlignBottom -and $elements.Count -eq 1 -and
+                $targetBottom -gt $bottom -and $targetTop -gt $top) { $targetTop - $top }
+                elseif ($AlignBottom -or $targetBottom -gt $bottom) { $targetBottom - $bottom }
+                else { $targetTop - $top }
             $extent = ($viewportBottom - $viewportTop) * (100 / $viewSize - 1)
             if ($extent -le 0) { throw "$targetDescription has an invalid scroll extent." }
             $percent = [Math]::Max(0.0, [Math]::Min(100.0, $scroll.Current.VerticalScrollPercent + 100 * $delta / $extent))

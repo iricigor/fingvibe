@@ -230,6 +230,26 @@ foreach ($focusable in @($true, $false)) {
     }
     $result = Show-UiRegressionScrollTargets @arguments
     Assert-Regression ($result -eq $target -and $positions.Count -le 4) 'Unknown bounds from the lower endpoint must discover content by moving back toward the viewport.'
+
+    $actual = @{ Top = 285.0; Height = 180.0 }
+    $target.Current.IsOffscreen = $false
+    $target.Current.BoundingRectangle = New-TestRectangle 10 285 100 15
+    $scroll = [pscustomobject]@{ Current = [pscustomobject]@{
+        VerticallyScrollable = $true; VerticalScrollPercent = 0.0; VerticalViewSize = 20.0
+    } }
+    $scroll | Add-Member ScriptMethod SetScrollPercent {
+        param($Horizontal, $Percent)
+        $positions.Add($Percent)
+        $actual.Top -= ($Percent - $this.Current.VerticalScrollPercent) * 12
+        $this.Current.VerticalScrollPercent = $Percent
+        $visibleTop = [Math]::Max(0.0, $actual.Top)
+        $visibleBottom = [Math]::Min(300.0, $actual.Top + $actual.Height)
+        $target.Current.BoundingRectangle = New-TestRectangle 10 $visibleTop 100 ($visibleBottom - $visibleTop)
+    }
+    $positions.Clear()
+    $result = Show-UiRegressionScrollTargets @arguments
+    Assert-Regression ($result -eq $target -and $positions.Count -eq 1) 'A clipped UIA bottom edge must not cause repeated tiny scroll corrections.'
+    Assert-Regression ($target.Current.BoundingRectangle.Top -eq 35 -and $target.Current.BoundingRectangle.Height -eq 180) 'Positioning must reveal the full target, not accept its clipped rectangle as its true height.'
 }
 
 $rectangle = [pscustomobject]@{ IsEmpty = $false; Width = 100; Height = 30 }
