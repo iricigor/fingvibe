@@ -307,7 +307,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [sidebar, devices-presentation, devices-filters-previews, devices-columns-sorting, details-summary, details-identity, details-observations, details-activity, tools]
+        suite: [sidebar-presentation, sidebar-scan-flows, sidebar-preferences-scheduling, devices-presentation, devices-filters-previews, devices-columns-sorting, details-summary, details-identity, details-observations, details-activity, tools-utilities, tools-device-data]
     env:
       FINGVIBE_UI_REVIEW: "1"
     steps:
@@ -342,7 +342,7 @@ jobs:
 
       - name: Run native regression suite
         timeout-minutes: 15
-        if: matrix.suite != 'sidebar'
+        if: ${{ !startsWith(matrix.suite, 'sidebar-') }}
         shell: pwsh
         run: |
           .\.github\scripts\Invoke-UiRegression.ps1 `
@@ -358,11 +358,11 @@ jobs:
 
       - name: Run sidebar regression in Windows PowerShell
         timeout-minutes: 15
-        if: matrix.suite == 'sidebar'
+        if: startsWith(matrix.suite, 'sidebar-')
         shell: powershell
         run: |
           .\.github\scripts\Invoke-UiRegression.ps1 `
-            -Suite sidebar `
+            -Suite "${{ matrix.suite }}" `
             -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
             -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-regression" `
             -CapturePlanPath "${{ github.workspace }}\artifacts\ui-regression\capture-plan.json"
@@ -378,6 +378,8 @@ jobs:
 
   ui-capture:
     needs: [changes, build]
+    outputs:
+      artifact-id: ${{ steps.screenshot.outputs.artifact-id }}
     if: >
       needs.changes.outputs.ui == 'true'
       && (
@@ -489,7 +491,8 @@ jobs:
         if: needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
         uses: actions/download-artifact@v8.0.2
         with:
-          name: fingvibe-ui-review-pr-${{ github.event.pull_request.number }}-attempt-${{ github.run_attempt }}
+          artifact-ids: ${{ needs.ui-capture.outputs.artifact-id }}
+          merge-multiple: true
           path: artifacts\ui-review
 
       - name: Publish screenshots for inline review

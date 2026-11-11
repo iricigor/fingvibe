@@ -328,21 +328,21 @@ function Test-RegressionGroupOrchestration($Suite, [hashtable] $Definition, [str
     $moduleDirectory = Join-Path $Root 'UiRegression'
     $null = New-Item -ItemType Directory -Path $moduleDirectory
     foreach ($name in @($Definition.Preconditions) + @($Definition.Groups | ForEach-Object { $_.Modules })) {
-        $script = if ($name -eq 'Setup') {
+        $initializers = if ($Definition.Preconditions.Count) { @($Definition.Preconditions[0]) }
+            else { @($Definition.Groups | ForEach-Object { $_.Modules[0] }) }
+        $initialization = if ($name -in $initializers) {
             @'
 if ($null -ne $groupToken -or $null -ne $process) { throw 'Group state leaked across groups.' }
 $groupToken = [Guid]::NewGuid()
 $process = 'app'
 $env:FINGVIBE_FOUNDATION_GROUP = "$groupToken"
-$state.Events.Add('Setup')
 '@
-        } else {
-            @"
+        } else { '' }
+        $script = $initialization + "`n" + @"
 `$state.Events.Add('$name')
 if (`$null -eq `$groupToken -or `$env:FINGVIBE_FOUNDATION_GROUP -ne "`$groupToken") { throw 'Scenario state was lost within a group.' }
 if (`$state.FailAt -eq '$name') { throw 'Synthetic module failure: $name' }
 "@
-        }
         $script | Set-Content -LiteralPath (Join-Path $moduleDirectory "$($Suite.name).$name.Scenario.ps1")
     }
     $savedSummary = $env:GITHUB_STEP_SUMMARY
@@ -495,6 +495,16 @@ if (`$failAt -eq '$name') { throw 'Synthetic module failure: $name' }
         Assert-Regression (-not $record.succeeded -and $record.phase -eq "$($suite.name)/$failAt") 'Original orchestration must retain the failed phase.'
     }
     finally { Remove-Item -LiteralPath $fixtureRoot -Recurse -Force }
+}
+& {
+    $definition = Import-PowerShellDataFile -LiteralPath (Join-Path $PSScriptRoot 'UiRegression\Tools.Groups.psd1')
+    $root = New-UiRegressionFixtureDirectory -Suite tools-foundation
+    try {
+        Test-RegressionGroupOrchestration -Suite @{ name = 'Tools' } -Definition $definition -Root $root
+        $modules = @($definition.Groups | ForEach-Object { $_.Modules })
+        Assert-Regression (($modules -join ',') -eq 'Identity,Troubleshooting,Import,Services,Sql') 'Tools must retain every original check exactly once and in the original order.'
+    }
+    finally { Remove-Item -LiteralPath $root -Recurse -Force }
 }
 & {
     $directory = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-call-costs-$([Guid]::NewGuid().ToString('N'))"

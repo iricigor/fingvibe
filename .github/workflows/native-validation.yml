@@ -39,7 +39,7 @@ jobs:
           $revision = git rev-parse HEAD
           if ($LASTEXITCODE -ne 0) { throw "Could not resolve validation revision." }
           "revision=$revision" >> $env:GITHUB_OUTPUT
-          $suites = if ($env:MODE -eq "Full") { @("sidebar", "devices", "details-summary", "details-identity", "details-observations", "details-activity", "tools", "capture") } else { @("capture") }
+          $suites = if ($env:MODE -eq "Full") { @("sidebar-presentation", "sidebar-scan-flows", "sidebar-preferences-scheduling", "devices", "details-summary", "details-identity", "details-observations", "details-activity", "tools-utilities", "tools-device-data", "capture") } else { @("capture") }
           "suites=$(ConvertTo-Json -InputObject @($suites) -Compress)" >> $env:GITHUB_OUTPUT
           "Independent $env:MODE validation of $revision; run $env:GITHUB_RUN_ID, attempt $env:GITHUB_RUN_ATTEMPT. No authoritative PR gate or PR-bound writes." >> $env:GITHUB_STEP_SUMMARY
           "Validation harness/workflow revision: ${{ github.workflow_sha }}." >> $env:GITHUB_STEP_SUMMARY
@@ -253,7 +253,7 @@ jobs:
           "Payload/desktop setup: $(([DateTime]::UtcNow - $start).TotalSeconds.ToString('F1')) seconds; checkout and runner provisioning excluded. Full job duration is available in Actions." >> $env:GITHUB_STEP_SUMMARY
 
       - name: Execute native mode
-        if: matrix.suite != 'sidebar'
+        if: ${{ !startsWith(matrix.suite, 'sidebar-') }}
         timeout-minutes: 15
         shell: pwsh
         env:
@@ -271,15 +271,16 @@ jobs:
             -BuildTimestamp $env:BUILD_TIMESTAMP -BuildCommit $env:REVISION -PullRequestNumber $env:PR_NUMBER
 
       - name: Execute existing sidebar in Windows PowerShell
-        if: matrix.suite == 'sidebar'
+        if: startsWith(matrix.suite, 'sidebar-')
         timeout-minutes: 15
         shell: powershell
         env:
           MODE: ${{ inputs.mode }}
+          SUITE: ${{ matrix.suite }}
           REVISION: ${{ needs.plan.outputs.revision }}
           NATIVE_VALIDATION_HARNESS_REVISION: ${{ github.workflow_sha }}
         run: |
-          .\validation-harness\.github\scripts\Invoke-NativeValidation.ps1 -Mode $env:MODE -Suite sidebar `
+          .\validation-harness\.github\scripts\Invoke-NativeValidation.ps1 -Mode $env:MODE -Suite $env:SUITE `
             -SourceDirectory "${{ github.workspace }}" `
             -AppPath "${{ github.workspace }}\artifacts\app\FingVibe.App.exe" `
             -ScreenshotDirectory artifacts\native -BuildCommit $env:REVISION
