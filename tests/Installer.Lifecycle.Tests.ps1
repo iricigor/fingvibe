@@ -104,33 +104,37 @@ try {
     Assert-True (-not (Test-Path -LiteralPath $startShortcut)) "Start menu shortcut survived uninstall."
     Assert-True ((Get-Content -LiteralPath $savedData) -eq "keep saved data") "Saved data was changed by uninstall."
 
-    # A 1.0 installation, even with a higher run number, must upgrade to the 1.1 feature version.
-    # Release runs upgrade with the actual 1.1 installer; other runs use a test-only 1.1 fixture.
-    $legacyVersion = "1.0.$($v.Build + 1)"
-    & $builder -AppDirectory $source -Version $legacyVersion -OutputDirectory $fixture | Out-Host
-    $legacyInstaller = Join-Path $fixture "FingVibe-$legacyVersion-win-x64-Setup.exe"
-    if ($v -ge [version] "1.1") {
+    # Release runs use the actual 1.2 installer; other runs use a test-only 1.2 fixture.
+    if ($v -ge [version] "1.2") {
         $featureVersion = $Version
         $featureInstaller = $installer
     } else {
-        $featureVersion = "1.1.$($v.Build)"
+        $featureVersion = "1.2.$($v.Build)"
         & $builder -AppDirectory $source -Version $featureVersion -OutputDirectory $fixture | Out-Host
         $featureInstaller = Join-Path $fixture "FingVibe-$featureVersion-win-x64-Setup.exe"
     }
-    Invoke-Setup $legacyInstaller "legacy-1.0-install"
-    Assert-True ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $legacyVersion) "1.0 fixture was not installed."
-    foreach ($name in @("device-inventory.sqlite", "latest-scan.json", "people-rooms.json", "appearance.json", "device-table.json", "periodic-scan.json")) {
-        "synthetic 1.0 $name" | Set-Content -LiteralPath (Join-Path $data $name)
+    foreach ($minor in @(0, 1)) {
+        $legacyFeature = "1.$minor"
+        $legacyVersion = "$legacyFeature.$($v.Build + 1)"
+        Assert-True ([version] $legacyVersion -lt [version] $featureVersion) "Feature version must order above the higher-build legacy fixture."
+        & $builder -AppDirectory $source -Version $legacyVersion -OutputDirectory $fixture | Out-Host
+        $legacyInstaller = Join-Path $fixture "FingVibe-$legacyVersion-win-x64-Setup.exe"
+        Invoke-Setup $legacyInstaller "legacy-$legacyFeature-install"
+        Assert-True ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $legacyVersion) "$legacyFeature fixture was not installed."
+        foreach ($name in @("device-inventory.sqlite", "latest-scan.json", "people-rooms.json", "appearance.json", "device-table.json", "periodic-scan.json")) {
+            "synthetic $legacyFeature $name" | Set-Content -LiteralPath (Join-Path $data $name)
+        }
+        $legacyData = Get-SavedDataHashes
+        Invoke-Setup $featureInstaller "feature-upgrade-from-$legacyFeature"
+        Assert-True ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $featureVersion) "$legacyFeature installation was not upgraded to $featureVersion."
+        Assert-SavedDataUnchanged $legacyData "$legacyFeature feature-version upgrade changed saved inventory, history, or settings."
+        Invoke-Setup $legacyInstaller "reject-$legacyFeature-feature-downgrade" -ExpectFailure
+        Assert-True ((Get-Content -LiteralPath (Join-Path $logs "reject-$legacyFeature-feature-downgrade.log") -Raw) -match 'Downgrades are not supported') "$legacyFeature downgrade rejection was not reported."
+        Assert-True ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $featureVersion) "Rejected $legacyFeature downgrade changed installed version."
+        Assert-SavedDataUnchanged $legacyData "Rejected $legacyFeature downgrade changed saved inventory, history, or settings."
+        Uninstall-App "feature-upgrade-from-$legacyFeature-uninstall"
+        Assert-SavedDataUnchanged $legacyData "Uninstall after $legacyFeature feature-version upgrade changed saved inventory, history, or settings."
     }
-    $legacyData = Get-SavedDataHashes
-    Invoke-Setup $featureInstaller "feature-upgrade-from-1.0"
-    Assert-True ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $featureVersion) "1.0 installation was not upgraded to $featureVersion."
-    Assert-SavedDataUnchanged $legacyData "Feature-version upgrade changed saved inventory, history, or settings."
-    Invoke-Setup $legacyInstaller "reject-feature-downgrade" -ExpectFailure
-    Assert-True ((Get-Content -LiteralPath (Join-Path $logs "reject-feature-downgrade.log") -Raw) -match 'Downgrades are not supported') "1.0 downgrade rejection was not reported."
-    Assert-True ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $featureVersion) "Rejected 1.0 downgrade changed installed version."
-    Uninstall-App "feature-upgrade-uninstall"
-    Assert-SavedDataUnchanged $legacyData "Uninstall after feature-version upgrade changed saved inventory, history, or settings."
 
     # Emulate the existing ZIP script, including a file the installer must not own.
     $null = New-Item -ItemType Directory -Path $app -Force
@@ -162,7 +166,7 @@ try {
     Assert-True ((Get-Content -LiteralPath $unknown) -eq "keep unknown file") "Uninstall removed an unknown file."
     Assert-True ((Get-Content -LiteralPath $savedData) -eq "keep saved data") "Uninstall removed saved data."
     Assert-True (-not (Test-Path -LiteralPath $desktopShortcut)) "Desktop shortcut survived uninstall."
-    Write-Host "Installer fresh install, launch, 1.0 feature-version upgrade, adoption, upgrade, downgrade, and uninstall checks passed."
+    Write-Host "Installer fresh install, launch, 1.0 and 1.1 to 1.2 feature-version upgrades, adoption, upgrade, downgrade, and uninstall checks passed."
 } finally {
     $env:FINGVIBE_UI_REVIEW = $savedReview
     if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force }
