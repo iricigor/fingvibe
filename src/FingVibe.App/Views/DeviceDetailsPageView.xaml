@@ -11,10 +11,18 @@
                 <ResourceDictionary x:Key="Default">
                     <StaticResource x:Key="SelectorBarItemBackgroundSelected" ResourceKey="AccentFillColorDefaultBrush" />
                     <StaticResource x:Key="SelectorBarItemForegroundSelected" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+                    <StaticResource x:Key="SelectorBarItemBackgroundPointerOver" ResourceKey="AccentFillColorSecondaryBrush" />
+                    <StaticResource x:Key="SelectorBarItemForegroundPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+                    <StaticResource x:Key="SelectorBarItemBackgroundPressed" ResourceKey="AccentFillColorTertiaryBrush" />
+                    <StaticResource x:Key="SelectorBarItemForegroundPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
                     <SolidColorBrush x:Key="SelectorBarItemBackgroundSelected" Color="{ThemeResource SystemColorHighlightColor}" />
                     <SolidColorBrush x:Key="SelectorBarItemForegroundSelected" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                    <SolidColorBrush x:Key="SelectorBarItemBackgroundPointerOver" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="SelectorBarItemForegroundPointerOver" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                    <SolidColorBrush x:Key="SelectorBarItemBackgroundPressed" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="SelectorBarItemForegroundPressed" Color="{ThemeResource SystemColorHighlightTextColor}" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
