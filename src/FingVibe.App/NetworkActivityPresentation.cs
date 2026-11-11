@@ -42,8 +42,11 @@ public static class NetworkActivityPresentation
 
     public static NetworkActivityDisplay Create(AnalyticsEvidence evidence, DeviceInventoryData data,
         int hours, bool weekdays, ActivityCountFilter filter, CancellationToken cancellationToken = default)
+        => Create(evidence, Contributors(data, evidence, cancellationToken), hours, weekdays, filter, cancellationToken);
+
+    public static NetworkActivityDisplay Create(AnalyticsEvidence evidence, IReadOnlyList<ActivityContributor> contributors,
+        int hours, bool weekdays, ActivityCountFilter filter, CancellationToken cancellationToken = default)
     {
-        var contributors = Contributors(data, evidence, cancellationToken);
         var buckets = DeviceActivity.Group(evidence, hours, cancellationToken);
         var days = NetworkActivity.Count(buckets, contributors, filter, cancellationToken);
         var weekly = weekdays ? NetworkActivity.ByWeekday(days, cancellationToken) : [];

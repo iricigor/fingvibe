@@ -2,8 +2,32 @@ function Find-PeopleRoomsElement([string] $Property, [string] $Value, [string] $
     $propertyId = if ($Property -eq 'Name') {
         [System.Windows.Automation.AutomationElement]::NameProperty
     } else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
-    $condition = [System.Windows.Automation.PropertyCondition]::new($propertyId, $Value)
-    Find-UiRegressionElement -Condition $condition -Description "People/Rooms '$Value'" -Container {
+    # Wait-UiRegressionState's $Condition parameter shadows caller variables in callbacks.
+    $peopleRoomsCondition = [System.Windows.Automation.PropertyCondition]::new($propertyId, $Value)
+    if ($OwnerId -eq 'PersonDetailPage') {
+        $getPage = {
+            $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'PersonDetailPage'))
+        }
+        $getTarget = {
+            $page = & $getPage
+            if ($page) { $page.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $peopleRoomsCondition) }
+        }
+        $target = Wait-UiRegressionState -Description "Person detail '$Value' peer" -Condition $getTarget
+        if ($target.Current.IsKeyboardFocusable) {
+            $target.SetFocus()
+            $scrollItem = $null
+            if ($target.TryGetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern, [ref]$scrollItem)) {
+                $scrollItem.ScrollIntoView()
+            }
+        }
+        else {
+            $null = Show-UiRegressionScrollTargets -Description "Person detail '$Value'" `
+                -GetViewport $getPage -GetTargets $getTarget -GetWindow { $root }
+        }
+    }
+    Find-UiRegressionElement -Condition $peopleRoomsCondition -Description "People/Rooms '$Value'" -Container {
         if (-not $OwnerId) {
             $dialog = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
                 [System.Windows.Automation.PropertyCondition]::new(

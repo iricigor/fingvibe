@@ -90,6 +90,7 @@ public sealed partial class MainWindow
         RoomsPage.ShowRooms(_peopleRooms, devices, hasCurrentScan, canEdit);
         PersonDetailPage.Refresh(_peopleRooms, devices, hasCurrentScan, canEdit);
         RoomDetailPage.Refresh(_peopleRooms, devices, hasCurrentScan, canEdit);
+        UpdateEquipmentActivity();
     }
 
     private IReadOnlyList<AssignedDeviceListRow> GetAssignedDeviceRows()

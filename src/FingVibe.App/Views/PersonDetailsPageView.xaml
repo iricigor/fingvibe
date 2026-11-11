@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:FingVibe.App"
     xmlns:models="using:FingVibe.Core.Models">
-    <ScrollViewer x:Name="PersonDetailPage">
+    <ScrollViewer x:Name="PersonDetailPage" AutomationProperties.AutomationId="PersonDetailPage">
         <StackPanel Margin="24,0,24,24" Spacing="16">
             <Button Click="BackToPeopleButton_Click" AutomationProperties.Name="Back to people">
                 <StackPanel Orientation="Horizontal" Spacing="8">
@@ -35,11 +35,84 @@
             </Grid>
             <TextBlock x:Name="PersonDetailNotes" TextWrapping="Wrap"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <StackPanel Spacing="4">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Ellipse x:Name="EquipmentOnlineDot" Width="10" Height="10" Visibility="Collapsed"
+                             Fill="{ThemeResource SystemFillColorSuccessBrush}" AutomationProperties.AccessibilityView="Raw" />
+                    <TextBlock x:Name="EquipmentIndicator" Text="Unknown" FontWeight="SemiBold"
+                               AutomationProperties.AutomationId="EquipmentIndicator" AutomationProperties.LiveSetting="Polite" />
+                </StackPanel>
+                <TextBlock x:Name="EquipmentIndicatorContext" Text="Response count unavailable | No selected network | Scan age unavailable"
+                           TextWrapping="Wrap" AutomationProperties.AutomationId="EquipmentIndicatorContext"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="4">
                     <TextBlock x:Name="PersonDeviceCountText" FontWeight="SemiBold" />
                     <TextBlock x:Name="PersonRespondedCountText"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                <StackPanel Spacing="12">
+                    <Grid ColumnSpacing="16" RowSpacing="12" SizeChanged="EquipmentHeader_SizeChanged">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <TextBlock Text="Equipment activity" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <ComboBox x:Name="EquipmentActivityPeriod" Grid.Column="1" HorizontalAlignment="Stretch"
+                                  AutomationProperties.AutomationId="EquipmentActivityPeriod" AutomationProperties.Name="Equipment activity period"
+                                  SelectedIndex="0" SelectionChanged="EquipmentSelection_Changed">
+                            <ComboBoxItem Content="Last 7 days" />
+                            <ComboBoxItem Content="Last 30 days" />
+                            <ComboBoxItem Content="30 days by weekday" />
+                        </ComboBox>
+                    </Grid>
+                    <TextBlock Text="Activity of assigned devices, not an indication of whether a person is home or away."
+                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock x:Name="EquipmentActivityWindow" Text="Activity is not loaded." TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="EquipmentActivityWindow" />
+                    <TextBlock x:Name="EquipmentActivityContributors" Text="Equipment is not loaded." TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="EquipmentActivityContributors" />
+                    <TextBlock Text="Current assignments apply to historical observations; earlier ownership is not reconstructed."
+                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <StackPanel Spacing="4" MaxWidth="340" HorizontalAlignment="Left">
+                        <TextBlock x:Name="EquipmentActivityHoursLabel" Text="Group hours: 1 hour per cell" TextWrapping="Wrap" FontWeight="SemiBold" />
+                        <Slider x:Name="EquipmentActivityHours" Minimum="1" Maximum="4" Value="1" StepFrequency="1"
+                                TickFrequency="1" TickPlacement="BottomRight" SnapsTo="Ticks" MinWidth="200"
+                                HorizontalAlignment="Stretch" ValueChanged="EquipmentHours_Changed"
+                                AutomationProperties.AutomationId="EquipmentActivityHours" AutomationProperties.Name="Equipment activity group hours" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" /><ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" /><ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="1 h" FontSize="12" />
+                            <TextBlock Text="2 h" FontSize="12" Grid.Column="1" HorizontalAlignment="Center" />
+                            <TextBlock Text="3 h" FontSize="12" Grid.Column="2" HorizontalAlignment="Center" />
+                            <TextBlock Text="4 h" FontSize="12" Grid.Column="3" HorizontalAlignment="Right" />
+                        </Grid>
+                    </StackPanel>
+                    <TextBlock x:Name="EquipmentActivityStatus" Text="Activity is not loaded." TextWrapping="Wrap"
+                               AutomationProperties.LiveSetting="Polite" AutomationProperties.AutomationId="EquipmentActivityStatus" />
+                    <ProgressBar x:Name="EquipmentActivityLoading" IsIndeterminate="False" Visibility="Collapsed"
+                                 AutomationProperties.Name="Loading equipment activity" />
+                    <InfoBar x:Name="EquipmentActivityError" IsOpen="False" IsClosable="False" Severity="Error"
+                             Title="Activity could not be loaded" AutomationProperties.AutomationId="EquipmentActivityError" />
+                    <Button x:Name="EquipmentActivityRefresh" Content="Refresh activity" Click="EquipmentRefresh_Click"
+                            AutomationProperties.AutomationId="EquipmentActivityRefresh" />
+                    <ScrollViewer x:Name="EquipmentActivityScroll" MaxHeight="560" HorizontalScrollBarVisibility="Auto"
+                                  VerticalScrollBarVisibility="Auto" HorizontalScrollMode="Enabled"
+                                  AutomationProperties.AutomationId="EquipmentActivityScroll" AutomationProperties.Name="Equipment activity grid">
+                        <Grid x:Name="EquipmentActivityGrid" RowSpacing="4" ColumnSpacing="4" TabFocusNavigation="Once" />
+                    </ScrollViewer>
+                    <TextBlock x:Name="EquipmentActivityLegend" Text="Counts are unavailable until evidence is loaded."
+                               TextWrapping="Wrap" FontSize="12" AutomationProperties.AutomationId="EquipmentActivityLegend" />
+                    <TextBlock x:Name="EquipmentActivityDetail" Text="Select a cell to show its equipment and scan evidence."
+                               TextWrapping="Wrap" IsTextSelectionEnabled="True" AutomationProperties.LiveSetting="Polite"
+                               AutomationProperties.AutomationId="EquipmentActivityDetail" />
+                    <Expander Header="How to read equipment activity" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <TextBlock TextWrapping="Wrap" Text="Two devices count as two devices, never two hours. Repeated scans, addresses and private-MAC associations do not add equipment. Weekday values average exact daily counts including known zero, excluding unknown and partial dates. N+ means at least N, including 0+, never exact zero. Cell details name contributors and exact denominators. Slate is known zero; hatching is missing or partial evidence. Today contains only evidence collected so far. Skipped DST hours are not applicable; repeated hours share a cell. Use arrow keys and Home/End within the grid; focus or Enter shows details. Scroll horizontally at narrow widths. Latest-scan status uses only the selected network; Older scan means more than two hours, not offline." />
+                    </Expander>
                 </StackPanel>
             </Border>
             <Grid ColumnSpacing="12">
@@ -59,18 +132,17 @@
                         <Grid Padding="8,4">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="160" />
-                                <ColumnDefinition Width="160" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <StackPanel>
-                                <TextBlock Text="{x:Bind NameText}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{x:Bind NameText}" TextWrapping="Wrap" />
+                                <TextBlock Text="{x:Bind UsageCategoryLabel}" FontSize="12" TextWrapping="Wrap" />
                                 <TextBlock Text="{x:Bind StatusText}" ToolTipService.ToolTip="{x:Bind StatusContext}"
-                                           FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                           FontSize="11" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="{x:Bind AddressText}" FontFamily="Consolas" TextWrapping="Wrap" />
+                                <TextBlock Text="{x:Bind MacAddressText}" FontFamily="Consolas" TextWrapping="Wrap" />
                             </StackPanel>
-                            <TextBlock Grid.Column="1" Text="{x:Bind AddressText}" FontFamily="Consolas" />
-                            <TextBlock Grid.Column="2" Text="{x:Bind MacAddressText}" FontFamily="Consolas" />
-                            <Button Grid.Column="3" Content="Unassign" Tag="{x:Bind IdentityKey}"
+                            <Button Grid.Column="1" Content="Unassign" Tag="{x:Bind IdentityKey}"
                                     Click="UnassignPersonDeviceButton_Click" />
                         </Grid>
                     </DataTemplate>

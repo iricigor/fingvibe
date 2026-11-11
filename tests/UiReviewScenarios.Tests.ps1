@@ -182,6 +182,18 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     $null = Show-HistorySection Focusable
     Assert-Equal $script:focusCalls @("focus", "bring", "focus", "bring") "Focus precedes bring-into-view even for a previously focused section"
     Assert-Equal $script:positions.Count 0 "Supported section positioning must not fight focus with percentage scrolling"
+
+    $script:secondBottom = 320
+    $script:scroll.SetScrollPercent(-1, 0)
+    $script:positions.Clear()
+    $script:controls.Since.Current | Add-Member NoteProperty IsKeyboardFocusable $true
+    $script:controls.Since | Add-Member ScriptMethod SetFocus { $script:focusCalls.Add("nested focus") }
+    $script:controls.Since | Add-Member ScriptMethod TryGetCurrentPattern { param($Pattern, $Result) return $false }
+    $nested = Show-HistorySection Since
+    Assert-Equal $script:focusCalls[-1] "nested focus" "Nested scroll viewers must still receive focus first"
+    Assert-Equal $script:positions.Count 1 "Focus that leaves a nested scroll viewer clipped must position the outer viewport once"
+    Assert-Equal $nested.Current.BoundingRectangle.Top 35 "A clipped nested viewer must be revealed from its top edge"
+    Assert-Equal (Test-UiRegressionElementWithin $nested $viewport $script:root) $true "The complete nested viewer must be visible"
 }
 
 & {
@@ -392,12 +404,20 @@ try {
     }
     foreach ($path in @("src\FingVibe.App\DeviceActivityPresentation.cs", "src\FingVibe.App\DeviceActivityReviewHold.cs",
         "src\FingVibe.App\Views\ActivityGridRenderer.cs", "src\FingVibe.Core\Models\DeviceActivity.cs")) {
-        Test-Change @{ $path = "changed" } @("Devices", "Network", "DeviceHistory") "Shared activity grid"
+        Test-Change @{ $path = "changed" } @("Devices", "Network", "DeviceHistory", "PersonDetails") "Shared activity grid"
     }
-    foreach ($path in @("src\FingVibe.App\MainWindow.NetworkActivity.cs", "src\FingVibe.App\NetworkActivityPresentation.cs",
-        "src\FingVibe.App\Views\NetworkPageView.Activity.cs", "src\FingVibe.Core\Models\NetworkActivity.cs",
-        "tests\NetworkActivity.Ui.Tests.ps1", "tests\NetworkActivity.Fixture.ps1")) {
+    foreach ($path in @("src\FingVibe.App\MainWindow.NetworkActivity.cs",
+        "src\FingVibe.App\Views\NetworkPageView.Activity.cs", "tests\NetworkActivity.Ui.Tests.ps1")) {
         Test-Change @{ $path = "changed" } @("Devices", "Network") "Network activity"
+    }
+    foreach ($path in @("src\FingVibe.App\NetworkActivityPresentation.cs", "src\FingVibe.Core\Models\NetworkActivity.cs",
+        "tests\NetworkActivity.Fixture.ps1")) {
+        Test-Change @{ $path = "changed" } @("Devices", "Network", "PersonDetails") "Shared count grids"
+    }
+    foreach ($path in @("src\FingVibe.App\MainWindow.EquipmentActivity.cs", "src\FingVibe.App\EquipmentActivityPresentation.cs",
+        "src\FingVibe.App\Views\PersonDetailsPageView.Activity.cs", "src\FingVibe.Core\Models\EquipmentActivity.cs",
+        "tests\EquipmentActivity.Ui.Tests.ps1")) {
+        Test-Change @{ $path = "changed" } @("Devices", "PersonDetails") "Equipment activity"
     }
     foreach ($path in @("src\FingVibe.Core\Models\DeviceInventory.cs", "src\FingVibe.Core\Models\PrivateVirtualDevice.cs",
         "src\FingVibe.Core\Models\DeviceHistorySummary.cs",
@@ -419,7 +439,7 @@ try {
             @("Devices", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails") "People/Rooms icon surfaces"
     }
     Test-Change @{ "src\FingVibe.App\MainWindow.NetworkIdentity.cs" = "changed" } `
-        @("Devices", "Overview", "Network", "DeviceDetails", "Troubleshooting") "Network identity code"
+        @("Devices", "Overview", "Network", "DeviceDetails", "PersonDetails", "Troubleshooting") "Network identity code"
     Test-Change @{ "src\FingVibe.App\MainWindow.Results.cs" = "changed" } `
         @("Devices", "Settings", "DevicesEmpty") "Results and empty state"
     Test-Change @{ "src\FingVibe.App\DeviceResultFilter.cs" = "changed" } `
@@ -789,6 +809,10 @@ try {
     $script:detailsScrollCalls = 0
     $script:detailsScrollable = $true
     $script:offscreenDetailsControl = ""
+    $script:personAssignmentsFocused = $false
+    function Show-UiReviewPersonAssignments([switch] $Top) {
+        $script:personAssignmentsFocused = -not $Top
+    }
     function Get-UiReviewToolsScroll([string] $Name) {
         $scroll = [pscustomobject]@{}
         $scroll | Add-Member ScriptMethod SetScrollPercent {
@@ -886,8 +910,10 @@ try {
                     "control-Search rooms" { $script:currentPage -eq "Rooms" }
                     "control-Back to people" { $script:currentPage -eq "PersonDetails" }
                     "control-Back to rooms" { $script:currentPage -eq "RoomDetails" }
-                    "control-Assigned devices" { $script:currentPage -in @("PersonDetails", "RoomDetails") }
-                    "control-Assign devices" { $script:currentPage -in @("PersonDetails", "RoomDetails") }
+                    "control-Assigned devices" { $script:currentPage -eq "RoomDetails" -or
+                        ($script:currentPage -eq "PersonDetails" -and $script:personAssignmentsFocused) }
+                    "control-Assign devices" { $script:currentPage -eq "RoomDetails" -or
+                        ($script:currentPage -eq "PersonDetails" -and $script:personAssignmentsFocused) }
                     "control-Window backdrop" { $script:currentPage -eq "Settings" }
                     default { throw "Unexpected control '$id'." }
                 }

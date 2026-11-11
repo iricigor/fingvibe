@@ -29,6 +29,44 @@ foreach ($condition in @({ $false }, { $null }, {})) {
 Assert-RegressionFailure { Wait-UiRegressionState -Description 'unexpected error' -Condition { throw 'unexpected condition error' } } 'unexpected condition error'
 
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+foreach ($focusable in @($true, $false)) {
+    & {
+        $state = @{ PageLookups = 0; FocusCalls = 0; PositionCalls = 0 }
+        $target = [pscustomobject]@{ Current = [pscustomobject]@{
+            IsKeyboardFocusable = $focusable; IsOffscreen = $false
+            BoundingRectangle = [pscustomobject]@{ IsEmpty = $false; Width = 100; Height = 30 }
+        } }
+        $target | Add-Member ScriptMethod SetFocus { $state.FocusCalls++ }
+        $target | Add-Member ScriptMethod TryGetCurrentPattern { param($Pattern, $Output) return $false }
+        $page = [pscustomobject]@{}
+        $page | Add-Member ScriptMethod FindFirst {
+            param($Scope, [System.Windows.Automation.Condition] $Match)
+            Assert-Regression ($Match.Value -eq 'EditPersonDetailButton') 'Person lookup lost its target condition inside a wait.'
+            return $target
+        }
+        $page | Add-Member ScriptMethod FindAll {
+            param($Scope, [System.Windows.Automation.Condition] $Match)
+            Assert-Regression ($Match.Value -eq 'EditPersonDetailButton') 'Visible lookup must retain the same Person target.'
+            return @($target)
+        }
+        $root = [pscustomobject]@{}
+        $root | Add-Member ScriptMethod FindFirst {
+            param($Scope, [System.Windows.Automation.Condition] $Match)
+            Assert-Regression ($Match.Value -eq 'PersonDetailPage') 'Person lookup must remain page-scoped.'
+            $state.PageLookups++
+            if ($state.PageLookups -gt 1) { return $page }
+        }
+        function Show-UiRegressionScrollTargets {
+            param($Description, $GetViewport, $GetTargets, $GetWindow)
+            $state.PositionCalls++
+            Wait-UiRegressionState -Description $Description -Condition { & $GetTargets }
+        }
+        $found = Find-PeopleRoomsElement AutomationId EditPersonDetailButton PersonDetailPage
+        Assert-Regression ($found -eq $target -and $state.PageLookups -ge 3) 'Person lookup must await and reacquire its page.'
+        Assert-Regression ($state.FocusCalls -eq [int]$focusable) 'Focusable Person controls must retain focus-based positioning.'
+        Assert-Regression ($state.PositionCalls -eq [int](-not $focusable)) 'Nonfocusable Person controls must retain viewport positioning.'
+    }
+}
 & {
     $state = @{ Observations = 0; Invocations = 0 }
     $dialog = [pscustomobject]@{ Current = [pscustomobject]@{
@@ -129,10 +167,18 @@ Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
     $last.Current.BoundingRectangle = New-TestRectangle 10 180 100 30
     $null = Show-UiRegressionScrollTargets @arguments
     Assert-Regression ($positions.Count -eq 1 -and $first.Current.BoundingRectangle.Top -ge 35) 'Positioning must also move upwards while preserving every target.'
+    $scroll.Current.VerticalScrollPercent = 0.0
+    $positions.Clear()
+    $first.Current.BoundingRectangle = New-TestRectangle 10 100 100 20
+    $last.Current.BoundingRectangle = New-TestRectangle 10 260.5 100 30
+    $null = Show-UiRegressionScrollTargets @arguments
+    Assert-Regression ($positions.Count -eq 1 -and $positions[0] -gt 0 -and $positions[0] -lt 1) 'Sub-percent scroll corrections must not round to an unchanged integer percentage.'
+    Assert-Regression ($last.Current.BoundingRectangle.Bottom -eq 290) 'Fractional positioning must retain the full viewport margin without accepting clipped content.'
     $last.Current.BoundingRectangle = New-TestRectangle 10 1000 100 30
     Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*cannot fit together*'
     $first.Current.BoundingRectangle = New-TestRectangle 10 900 100 20
     $last.Current.BoundingRectangle = New-TestRectangle 10 1100 100 30
+    $scroll.Current.VerticalScrollPercent = 0.0
     $scroll.MoveBounds = $false
     $arguments.TimeoutMilliseconds = 500
     $before = $positions.Count
@@ -184,6 +230,26 @@ Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
     }
     $result = Show-UiRegressionScrollTargets @arguments
     Assert-Regression ($result -eq $target -and $positions.Count -le 4) 'Unknown bounds from the lower endpoint must discover content by moving back toward the viewport.'
+
+    $actual = @{ Top = 285.0; Height = 180.0 }
+    $target.Current.IsOffscreen = $false
+    $target.Current.BoundingRectangle = New-TestRectangle 10 285 100 15
+    $scroll = [pscustomobject]@{ Current = [pscustomobject]@{
+        VerticallyScrollable = $true; VerticalScrollPercent = 0.0; VerticalViewSize = 20.0
+    } }
+    $scroll | Add-Member ScriptMethod SetScrollPercent {
+        param($Horizontal, $Percent)
+        $positions.Add($Percent)
+        $actual.Top -= ($Percent - $this.Current.VerticalScrollPercent) * 12
+        $this.Current.VerticalScrollPercent = $Percent
+        $visibleTop = [Math]::Max(0.0, $actual.Top)
+        $visibleBottom = [Math]::Min(300.0, $actual.Top + $actual.Height)
+        $target.Current.BoundingRectangle = New-TestRectangle 10 $visibleTop 100 ($visibleBottom - $visibleTop)
+    }
+    $positions.Clear()
+    $result = Show-UiRegressionScrollTargets @arguments
+    Assert-Regression ($result -eq $target -and $positions.Count -eq 1) 'A clipped UIA bottom edge must not cause repeated tiny scroll corrections.'
+    Assert-Regression ($target.Current.BoundingRectangle.Top -eq 35 -and $target.Current.BoundingRectangle.Height -eq 180) 'Positioning must reveal the full target, not accept its clipped rectangle as its true height.'
 }
 
 $rectangle = [pscustomobject]@{ IsEmpty = $false; Width = 100; Height = 30 }

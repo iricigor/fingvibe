@@ -24,6 +24,7 @@ function Get-NativeValidationPlan {
         Focused {
             if ($Suite -eq "capture") { @($Scenarios) }
             elseif ($Suite -eq "details-identity") { @("DeviceDetails", "Network") }
+            elseif ($Suite -eq "details-summary") { @("DeviceDetails", "PersonDetails") }
             elseif ($Suite -like "details-*") { @("DeviceDetails") }
             else { @("Devices") }
         }

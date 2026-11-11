@@ -175,7 +175,13 @@ foreach ($mutation in @("malformed", "duplicate", "foreign", "invalid-state", "w
         "foreign" { $fixture.state.comments[0].body = $fixture.state.comments[0].body.Replace('"test/repo"', '"other/repo"') }
         "invalid-state" { $fixture.state.comments[0].body = $fixture.state.comments[0].body.Replace('"claimed"', '"unknown"') }
         "wrong-task" { $fixture.state.comments[0].issue_url = "https://api.github.com/repos/test/repo/issues/201" }
-        "incomplete" { $fixture.state.comments[0].body = $fixture.state.comments[0].body.Replace('"repairCount": 0,', '') }
+        "incomplete" {
+            $json = [regex]::Match($fixture.state.comments[0].body, '(?s)```json\s*(.*?)\s*```').Groups[1].Value
+            $claim = ConvertFrom-Json -InputObject $json -AsHashtable
+            $null = $claim.Remove("repairCount")
+            $fixture.state.comments[0].body = $fixture.state.comments[0].body.Replace(
+                $json, (ConvertTo-Json -InputObject $claim -Depth 15))
+        }
     }
     $result = Invoke-PreflightFixture $fixture
     Assert-Preflight ($result.decision -eq "blocked" -and $result.collectionFailure -and -not $result.candidate) "$mutation claims must fail closed explicitly."

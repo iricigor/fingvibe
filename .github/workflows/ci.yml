@@ -102,6 +102,10 @@ jobs:
         shell: pwsh
         run: .\tests\NetworkActivity.Script.Tests.ps1
 
+      - name: Test equipment activity UI fixture without desktop automation
+        shell: pwsh
+        run: .\tests\EquipmentActivity.Script.Tests.ps1
+
       - name: Test validation planning and comments
         shell: pwsh
         run: .\tests\PrValidation.Tests.ps1
