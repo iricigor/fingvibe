@@ -138,13 +138,15 @@ foreach ($initialWidth in @(480, 640)) {
         finally { $env:GITHUB_ACTIONS = $previousActions }
     }
 }
-foreach ($case in @('scaled', 'unscaled', 'clipped', 'missing', 'disabled', 'outside')) {
+foreach ($case in @('scaled', 'unscaled', 'wrapped', 'clipped', 'missing', 'disabled', 'outside')) {
     & {
         . (Join-Path $PSScriptRoot 'UiRegression\Sidebar.Scans.Helpers.ps1')
         $root = [pscustomobject]@{ Current = @{ BoundingRectangle = [System.Windows.Rect]::new(0, 0, 640, 720) } }
         $text = [pscustomobject]@{ Current = @{
             Name = 'Scan LAN'; IsOffscreen = $false
-            BoundingRectangle = [System.Windows.Rect]::new(100, 105, 110, $(if ($case -eq 'unscaled') { 19 } else { 37 }))
+            BoundingRectangle = [System.Windows.Rect]::new(100, 105,
+                $(if ($case -in @('unscaled', 'wrapped')) { 55 } else { 106 }),
+                $(if ($case -eq 'unscaled') { 19 } else { 34 }))
         } }
         $scan = [pscustomobject]@{ Current = @{
             Name = 'Scan LAN'; IsEnabled = $case -ne 'disabled'
@@ -161,11 +163,11 @@ foreach ($case in @('scaled', 'unscaled', 'clipped', 'missing', 'disabled', 'out
         function Save-SidebarAppearance($Name) { $state.Captured = $true }
         $state = @{ Captured = $false }
         if ($case -eq 'scaled') {
-            Assert-ScaledScanAction -NormalTextHeight 19 -ScaleFactor 2 -Width 640
+            Assert-ScaledScanAction -NormalTextBounds ([System.Windows.Rect]::new(0, 0, 55, 19)) -Width 640
             Assert-Regression (-not $state.Captured) 'Correctly scaled text must not produce failure evidence.'
         }
         else {
-            Assert-RegressionFailure { Assert-ScaledScanAction -NormalTextHeight 19 -ScaleFactor 2 -Width 640 } '*label must grow without clipping*'
+            Assert-RegressionFailure { Assert-ScaledScanAction -NormalTextBounds ([System.Windows.Rect]::new(0, 0, 55, 19)) -Width 640 } '*label must grow without clipping*'
             Assert-Regression $state.Captured 'Scale failures must capture evidence before settings restoration.'
         }
     }

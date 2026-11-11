@@ -1067,7 +1067,8 @@ cleanup, isolated fixtures, environment restoration and failure-preserving
 capture timing. Scan text-scale setup selects Overview at expanded width before
 measuring the narrow baseline, so a preceding closed overlay pane cannot hide
 the navigation target. Scaling assertions measure the actual label rather than
-the button's fixed padding/minimum height, require label and button containment,
+the button's fixed padding/minimum height, require growth in both label dimensions
+(not an assumed linear doubling of UIA line metrics), label and button containment,
 and capture failures before restoring Windows settings. Page-context checks use
 the Overview viewport rather than potentially scrolled-offscreen content.
 Migrated native suites create unique temporary fixture

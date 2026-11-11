@@ -972,7 +972,7 @@
             {
               "name": "Assert-ScaledScanAction",
               "refactored": true,
-              "introducedBy": "#254 manual repair: verify actual label scaling and containment, independent of fixed button padding/minimum height, with pre-restoration failure capture and desktop-free negative cases."
+              "introducedBy": "#254 manual repair: verify actual label growth in both axes and containment, independent of fixed button padding/minimum height or assumed linear UIA line metrics, with pre-restoration failure capture and desktop-free negative cases including wrapping without font growth."
             },
             {
               "name": "Test-ScanTextScaling",
