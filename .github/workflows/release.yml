@@ -29,8 +29,8 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          "number=1.1.${{ github.run_number }}" >> $env:GITHUB_OUTPUT
-          "tag=v1.1.${{ github.run_number }}" >> $env:GITHUB_OUTPUT
+          "number=1.2.${{ github.run_number }}" >> $env:GITHUB_OUTPUT
+          "tag=v1.2.${{ github.run_number }}" >> $env:GITHUB_OUTPUT
 
       - name: Test networking core
         run: dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj --configuration Release
@@ -114,6 +114,7 @@ jobs:
             gh release create $tag $archive $installer `
               --target "${{ github.sha }}" `
               --title "FingVibe ${{ steps.version.outputs.number }}" `
+              --notes-file docs\release-notes-1.2.md `
               --generate-notes
           }
           if ($LASTEXITCODE -ne 0) { throw "Release publication failed." }
