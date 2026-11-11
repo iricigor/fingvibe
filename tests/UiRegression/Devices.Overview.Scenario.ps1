@@ -1,9 +1,7 @@
 ﻿Select-DevicePage OverviewNavItem
-$scanButtonCondition = [System.Windows.Automation.PropertyCondition]::new(
-    [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "ScanButton")
-$scanButton = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $scanButtonCondition)
-if ($scanButton -and -not $scanButton.Current.IsOffscreen) {
-    throw "Scan LAN must only be available on the Devices page."
+$scanButton = Find-DeviceElement ScanButton
+if (-not $scanButton.Current.IsEnabled -or $scanButton.Current.Name -ne "Scan LAN") {
+    throw "The shared Scan LAN action must be available on Overview."
 }
 Set-DeviceWidth 1280
 Focus-DeviceWindow
@@ -66,6 +64,7 @@ $virtualRow.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::
 $virtualRow.SetFocus()
 [DevicesReviewInput]::Tap(0x0D)
 $null = Find-DeviceElement DeviceDetailsScroll
+$null = Find-DeviceElement ScanButton
 if ((Find-DeviceElement DeviceTypeIcon).Current.Name -ne "Virtual device - inferred identity across changing MAC addresses.") {
     throw "Device details must use the same accessible virtual-device icon as the list."
 }

@@ -241,7 +241,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         'runs-on: windows-2025',
         'timeout-minutes: 20',
         'fail-fast: false',
-        'suite: \[sidebar-presentation, sidebar-scan-flows, sidebar-preferences-scheduling, devices-presentation, devices-filters-previews, devices-columns-sorting, details-summary, details-identity, details-observations, details-activity, tools-utilities, tools-device-data\]',
+        'suite: \[sidebar-presentation, sidebar-scan-flows, sidebar-scan-presentation, sidebar-preferences-scheduling, devices-presentation, devices-filters-previews, devices-columns-sorting, details-summary, details-identity, details-observations, details-activity, tools-utilities, tools-device-data\]',
         '(?s)name: Run native regression suite\s+timeout-minutes: 15',
         "(?s)name: Run native regression suite\s+timeout-minutes: 15\s+if: \$\{\{ !startsWith\(matrix.suite, 'sidebar-'\) \}\}\s+shell: pwsh",
         "(?s)name: Run sidebar regression in Windows PowerShell\s+timeout-minutes: 15\s+if: startsWith\(matrix.suite, 'sidebar-'\)\s+shell: powershell",
@@ -325,6 +325,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         $expectedSuiteChecks = [ordered]@{
             "sidebar-presentation" = @("SidebarNavigation")
             "sidebar-scan-flows" = @("SidebarNavigation")
+            "sidebar-scan-presentation" = @("SidebarNavigation")
             "sidebar-preferences-scheduling" = @("SidebarNavigation")
             "devices-presentation" = @("DevicesList.Ui")
             "devices-filters-previews" = @("DevicesList.Ui")
@@ -346,7 +347,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             Assert-Equal $suiteCalls.Name $expectedSuiteChecks[$suite] "Suite '$suite' runs exactly its assigned checks"
         }
         $calls = @(Get-Content $env:UI_REGRESSION_CALLS | ConvertFrom-Json)
-        Assert-Equal $calls.Name @("SidebarNavigation", "SidebarNavigation", "SidebarNavigation", "DevicesList.Ui", "DevicesList.Ui", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
+        Assert-Equal $calls.Name @("SidebarNavigation", "SidebarNavigation", "SidebarNavigation", "SidebarNavigation", "DevicesList.Ui", "DevicesList.Ui", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
             "UsageCategory.Ui", "DeviceScanHistory.Ui", "DeviceActivity.Ui",
             "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "Dispatch every preserved suite once"
         $deviceGroups = @((Import-PowerShellDataFile -LiteralPath (Join-Path $PSScriptRoot "UiRegression\Devices.Groups.psd1")).Groups.Name)
@@ -356,28 +357,28 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             $groups = @((Import-PowerShellDataFile -LiteralPath (Join-Path $PSScriptRoot "UiRegression\$groupSuite.Groups.psd1")).Groups.Name)
             Assert-Equal @($matrixSuites | Where-Object { $_ -like "$groupSuite-*" }) @($groups | ForEach-Object { "$($groupSuite.ToLowerInvariant())-$_" }) "CI dispatches every $groupSuite group exactly once, never the full suite"
         }
-        Assert-Equal @($calls | Where-Object Name -eq "SidebarNavigation" | ForEach-Object { $_.Parameters.Group }) @("presentation", "scan-flows", "preferences-scheduling") "Sidebar forwards each independent group"
-        Assert-Equal $calls[6].Parameters.SummaryOnly $true "Details summary dispatch tests only retained summaries"
-        Assert-Equal $calls[9].Parameters.ObservationsOnly $true "Details history dispatch includes full observation rendering and paging"
-        Assert-Equal ([DateTimeOffset]$calls[11].Parameters.BuildTimestamp).UtcDateTime ([DateTimeOffset]$parameters.BuildTimestamp).UtcDateTime "Forward stamped identity"
-        Assert-Equal $calls[11].Parameters.PullRequestNumber 198 "Forward PR identity"
+        Assert-Equal @($calls | Where-Object Name -eq "SidebarNavigation" | ForEach-Object { $_.Parameters.Group }) @("presentation", "scan-flows", "scan-presentation", "preferences-scheduling") "Sidebar forwards each independent group"
+        Assert-Equal $calls[7].Parameters.SummaryOnly $true "Details summary dispatch tests only retained summaries"
+        Assert-Equal $calls[10].Parameters.ObservationsOnly $true "Details history dispatch includes full observation rendering and paging"
+        Assert-Equal ([DateTimeOffset]$calls[12].Parameters.BuildTimestamp).UtcDateTime ([DateTimeOffset]$parameters.BuildTimestamp).UtcDateTime "Forward stamped identity"
+        Assert-Equal $calls[12].Parameters.PullRequestNumber 198 "Forward PR identity"
         Assert-Equal ($calls.Parameters.AppPath | Select-Object -Unique) "synthetic.exe" "Reuse supplied app"
         & powershell.exe -NoProfile -File $runner -Suite sidebar -AppPath $parameters.AppPath `
             -ScreenshotDirectory $parameters.ScreenshotDirectory -CapturePlanPath $planPath
         if ($LASTEXITCODE -ne 0) { throw "Sidebar runner must support multi-scenario plans under Windows PowerShell." }
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 17 "Windows PowerShell dispatches the sidebar without parsing details selection"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 18 "Windows PowerShell dispatches the sidebar without parsing details selection"
         ConvertTo-Json -InputObject @($definitions | Where-Object Scenario -eq Devices) -Depth 5 | Set-Content $planPath
         foreach ($suite in @("details-summary", "details-identity", "details-observations", "details-activity")) {
             & $runner -Suite $suite @parameters
-            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 17 "Unselected $suite must not launch native checks"
+            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 18 "Unselected $suite must not launch native checks"
         }
         ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios Network) -Depth 5 | Set-Content $planPath
         foreach ($suite in @("details-summary", "details-observations", "details-activity")) {
             & $runner -Suite $suite @parameters
-            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 17 "Network-only plan adds no checks to $suite"
+            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 18 "Network-only plan adds no checks to $suite"
         }
         & $runner -Suite details-identity @parameters
-        $networkCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip 17 | ConvertFrom-Json)
+        $networkCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip 18 | ConvertFrom-Json)
         Assert-Equal $networkCalls.Name @("NetworkActivity.Ui") "Network-only plan still runs its activity regression"
         ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios DeviceDetails, Network) -Depth 5 |
             Set-Content $planPath

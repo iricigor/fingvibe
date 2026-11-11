@@ -49,6 +49,17 @@ public static class SidebarReviewKeyboard
             throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
     }
 
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr SendMessageTimeout(IntPtr window, uint message, UIntPtr parameter,
+        string setting, uint flags, uint timeout, out UIntPtr result);
+
+    public static void NotifyTextScaleChanged()
+    {
+        UIntPtr result;
+        if (SendMessageTimeout(new IntPtr(0xffff), 0x001a, UIntPtr.Zero, "Accessibility", 2, 5000, out result) == IntPtr.Zero)
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+    }
+
     [DllImport("user32.dll")]
     private static extern void keybd_event(byte key, byte scan, uint flags, UIntPtr extra);
 
@@ -201,6 +212,15 @@ function Assert-SharedNetworkHeader {
         [Math]::Abs($bounds[2].Left - $bounds[1].Left) -gt 5 * $scale) {
         Save-SidebarAppearance "header-layout-failure"
         throw "Secondary freshness must sit immediately below the network selector. Picker=$($bounds[1]); freshness=$($bounds[2])."
+    }
+    $scan = Find-SidebarElement AutomationId ScanButton
+    $scanBounds = $scan.Current.BoundingRectangle
+    if ($scan.Current.Name -ne "Scan LAN" -or -not $scan.Current.IsEnabled -or
+        -not $scan.Current.IsKeyboardFocusable -or
+        -not $root.Current.BoundingRectangle.Contains($scanBounds) -or
+        $scanBounds.Left -lt $bounds[1].Right -or
+        (Find-SidebarElement AutomationId CancelButton -Optional)) {
+        throw "Every page must share one accessible, usable Scan LAN action beside the network selector."
     }
 }
 

@@ -27,6 +27,8 @@ public sealed partial class MainWindow
                     false)
             }
             : _networkDiscovery.GetAvailableNetworks();
+        if (IsUiReview && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_NO_NETWORK") == "1")
+            networks = [];
         NetworkPicker.ItemsSource = networks;
         NetworkPicker.DisplayMemberPath = nameof(LanNetwork.DisplayLabel);
 

@@ -311,7 +311,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [sidebar-presentation, sidebar-scan-flows, sidebar-preferences-scheduling, devices-presentation, devices-filters-previews, devices-columns-sorting, details-summary, details-identity, details-observations, details-activity, tools-utilities, tools-device-data]
+        suite: [sidebar-presentation, sidebar-scan-flows, sidebar-scan-presentation, sidebar-preferences-scheduling, devices-presentation, devices-filters-previews, devices-columns-sorting, details-summary, details-identity, details-observations, details-activity, tools-utilities, tools-device-data]
     env:
       FINGVIBE_UI_REVIEW: "1"
     steps:

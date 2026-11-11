@@ -1,1 +1,2 @@
 ﻿Test-ScanPresentation
+Test-ScanTextScaling

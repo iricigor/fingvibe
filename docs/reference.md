@@ -69,9 +69,20 @@ SQLite inventory and the latest logical checkpoint commit in one transaction wit
 
 On first use, vendor detection downloads the official IEEE MA-L, MA-M, and MA-S registries and caches them under the current user's local application data for 30 days.
 
-Overview shows the selected interface as the network name, with subnet and available ISP information beneath it. Every page shares a compact **Network:** header. On Devices, **Scan LAN** sits beside the selector and is replaced in the same slot by **Cancel scan** while scanning; the disabled Scan LAN action is not shown. Cancellation remains available when navigating to another page during a scan. Narrow windows stack the controls without hiding them. Smaller displayed-scan freshness sits beneath the selector; operational text, target warnings, errors and progress stay together below it and wrap rather than being clipped. The freshness indicator describes the displayed scan, not continuous monitoring, and refreshes periodically. Displayed results retain their subnet and observation time; selecting another network explicitly identifies results from a different scan target. Progress appears only during a scan. The completed segment is 8 DIPs thick (including the native indicator's minimum height, not just its outer container), retaining the actual measured fraction. Its 10-DIP outer height also accommodates the native high-contrast outline without clipping the fill. A repeating color pulse travels only through the completed portion and stops on completion, cancellation or failure; Windows animation preferences and high contrast use static progress instead. Keyboard-initiated scans transfer focus to cancellation and back to the idle action. Before the first scan, Overview provides guidance rather than unknown counts.
+Overview shows the selected interface as the network name, with subnet and available ISP information beneath it. Every page, including detail pages, Settings and Tools subpages, shares a compact **Network:** header with **Scan LAN** beside the selector. A static, decorative refresh-arrows icon precedes the unchanged label and follows the button's theme colors. The action always scans the selected LAN, not just the current device, person or room. Starting, completing, cancelling or failing a scan keeps the current page and detail context; opening Devices remains an explicit choice. During manual or scheduled scans, **Cancel scan** replaces Scan LAN in the same slot; the disabled Scan LAN action is not shown. Progress and cancellation remain available when navigating to another page during a scan. No selected LAN disables Scan LAN, and conflicting network measurements retain their existing busy feedback. Narrow windows and larger text wrap or stack the controls without hiding them. Smaller displayed-scan freshness sits beneath the selector; operational text, target warnings, errors and progress stay together below it and wrap rather than being clipped. The freshness indicator describes the displayed scan, not continuous monitoring, and refreshes periodically. Displayed results retain their subnet and observation time; selecting another network explicitly identifies results from a different scan target. Progress appears only during a scan. The completed segment is 8 DIPs thick (including the native indicator's minimum height, not just its outer container), retaining the actual measured fraction. Its 10-DIP outer height also accommodates the native high-contrast outline without clipping the fill. A repeating color pulse travels only through the completed portion and stops on completion, cancellation or failure; Windows animation preferences and high contrast use static progress instead. Keyboard-initiated scans transfer focus to cancellation and back to the idle action. Before the first scan, Overview provides guidance rather than unknown counts.
 
 Successful scans leave no persistent completion message in the shared header, including on Devices. The message area collapses when no other status remains. Displayed-scan freshness, Devices scan duration, and Overview's online-device count remain available; live progress, cancellation feedback, scan/save errors, and selected-target warnings remain visible globally.
+
+The Sidebar scan-flow regression group exercises keyboard scan entry from every
+top-level page, retained Device Details name drafts and Person/Room context,
+cancellation after navigation, and failure feedback without forced navigation.
+Network context uses the visible page viewport, not a heading that can scroll
+offscreen; hidden or missing pages still fail the check.
+Its isolated `FINGVIBE_UI_REVIEW_NO_NETWORK=1` fixture disables network selection
+only in UI-review mode. Disposable CI additionally checks 200% Windows text size,
+verifies the effective scale before checking narrow layouts, and restores the
+original setting. Idle-action captures cover all supported themes and high
+contrast; all-page capture navigation includes Tools subpages.
 
 Select the online-device or open-port summary card to open the corresponding Devices results. This clears stale search/summary filters; the visible **With open ports** toggle chip can be cleared to return to other devices and combines with text search and People/Rooms filters. Open ports describe observed services, not a security verdict. Overview does not count unused addresses as offline devices. Inventory retains local observations and per-device scan history, not a physical-availability timeline. The compact **About FingVibe** card opens **Tools > About FingVibe** directly. About is also available from the Tools landing page and contains version/build details and links to the repository and creator's website (opened in the external browser).
 
@@ -1053,7 +1064,14 @@ powershell.exe -NoProfile -File tests\UiRegression.Helpers.Tests.ps1
 This check does not launch or automate the desktop. It exercises bounded waits,
 stale-owner reacquisition, visible/nonempty controls, process exit/normal/forced
 cleanup, isolated fixtures, environment restoration and failure-preserving
-capture timing. Migrated native suites create unique temporary fixture
+capture timing. Scan text-scale setup selects Overview at expanded width before
+measuring the narrow baseline, so a preceding closed overlay pane cannot hide
+the navigation target. Scaling assertions measure the actual label rather than
+the button's fixed padding/minimum height, require growth in both label dimensions
+(not an assumed linear doubling of UIA line metrics), label and button containment,
+and capture failures before restoring Windows settings. Page-context checks use
+the Overview viewport rather than potentially scrolled-offscreen content.
+Migrated native suites create unique temporary fixture
 directories and restore their environment/DPI context even if shutdown fails.
 Forced shutdown cleans up the supplied PID but fails the suite rather than
 pretending normal close succeeded.
@@ -1115,7 +1133,8 @@ one published payload:
 | Suite/group | Original behavior modules/checks, in order |
 | --- | --- |
 | `sidebar-presentation` | Navigation, Settings, Appearance, Responsive |
-| `sidebar-scan-flows` | Refresh, Progress, PeopleRooms |
+| `sidebar-scan-flows` | Refresh, PeopleRooms (shared scanned-inventory fixture) |
+| `sidebar-scan-presentation` | Progress (independent themes, geometry, keyboard and text-scaling checks) |
 | `sidebar-preferences-scheduling` | Persistence, Scheduled |
 | `tools-utilities` | BuildIdentity.Ui, NetworkTroubleshooting.Ui, FingImport.Ui |
 | `tools-device-data` | AdditionalServices.Ui, SqlEditor.Ui |
@@ -1502,7 +1521,7 @@ Pull requests expose two review checks:
 - `security-review` scans the repository for exposed secrets and fails on critical dependency vulnerabilities.
 - `ui-ux-review` launches the tested WinUI app, exercises the primary **Scan LAN** action, verifies critical accessible controls, and embeds fresh screenshots of Devices and the affected views/states on the pull request.
 
-The **🔨 Pull request build** workflow runs core/script tests and one Windows publish concurrently after change planning. Build and core tests cache NuGet packages with a shared Windows/dependency-configuration key and Windows-scoped fallback; normal restore still verifies/resolves required packages on hits and misses. Native `ui-capture` and the eight `ui-regression` matrix suites start once the build passes, without waiting for core tests. Installer validation still waits for both tests and build. These checks run on separate Windows runners in parallel. Every job downloads the same published payload; none rebuilds the app. The matrix separates sidebar/appearance, three independent Devices groups, three Device Details groups, and Tools/build identity. Suites remain sequential within each runner to avoid competing for focus and input. The sidebar retains Windows PowerShell; other suites retain PowerShell Core. UI-review mode is enabled only at runtime, so the downloaded app remains the normal executable.
+The **🔨 Pull request build** workflow runs core/script tests and one Windows publish concurrently after change planning. Build and core tests cache NuGet packages with a shared Windows/dependency-configuration key and Windows-scoped fallback; normal restore still verifies/resolves required packages on hits and misses. Native `ui-capture` and the thirteen `ui-regression` matrix suites start once the build passes, without waiting for core tests. Installer validation still waits for both tests and build. These checks run on separate Windows runners in parallel. Every job downloads the same published payload; none rebuilds the app. The matrix separates four Sidebar groups (including independent scan flows and scan presentation), three Devices groups, four Device Details groups, and two Tools groups. Suites remain sequential within each runner to avoid competing for focus and input. The sidebar retains Windows PowerShell; other suites retain PowerShell Core. UI-review mode is enabled only at runtime, so the downloaded app remains the normal executable.
 
 `ui-capture` now runs only screenshot-helper validation, baseline scan/filter and cross-page smoke checks, and required captures. History/discovery and restored Activity retain their existing condition: they run when the capture plan includes DeviceDetails. Completed-observation table checks remain dormant for #274; summary/Last seen and other retained checks remain required. UI/test overlap does not waive any required result or move checks to a scheduled-only policy. Regression jobs have a 20-minute job limit and a 15-minute suite-step limit; capture has a 10-minute job limit and a 7-minute smoke-step limit. These outer bounds also stop otherwise unbounded native/process waits without changing the test fixtures. Each regression check and the smoke/capture step report elapsed seconds in logs and the job summary.
 

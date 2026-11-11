@@ -5,16 +5,60 @@
     }
 }
 
+function Test-SharedScanContext([string] $Sentinel, [switch] $Cancel,
+    [ValidateSet('Name', 'AutomationId')][string] $SentinelProperty = 'Name') {
+    $null = Find-SidebarElement $SentinelProperty $Sentinel
+    $network = (Find-SidebarElement AutomationId NetworkPicker).GetCurrentPattern(
+        [System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()[0].Current.Name
+    if (Test-Path -LiteralPath $scanHoldPath) { throw 'A prior scan hold was not released.' }
+    [IO.File]::WriteAllText($scanHoldPath, 'Observe the current page before completing the shared scan.')
+    try {
+        Focus-SidebarWindow
+        (Find-SidebarElement AutomationId ScanButton).SetFocus()
+        [SidebarReviewKeyboard]::Tap(0x20)
+        $cancelButton = Wait-UiRegressionState -Description 'keyboard scan cancellation action' -Condition {
+            $button = Find-SidebarElement AutomationId CancelButton -Optional
+            if ($button -and $button.Current.IsEnabled -and $button.Current.HasKeyboardFocus) { return $button }
+        }
+        $null = Find-SidebarElement $SentinelProperty $Sentinel
+        if (-not $cancelButton.Current.IsEnabled -or -not $cancelButton.Current.HasKeyboardFocus -or
+            (Find-SidebarElement AutomationId NetworkPicker).Current.IsEnabled -or
+            (Find-SidebarElement AutomationId ScanButton -Optional)) {
+            throw 'A shared scan must preserve its page, lock its LAN and transfer keyboard focus to Cancel scan.'
+        }
+        $null = Find-SidebarElement AutomationId ScanProgressBar
+        if ($Cancel) {
+            [SidebarReviewKeyboard]::Tap(0x20)
+        }
+        else {
+            Remove-Item -LiteralPath $scanHoldPath
+        }
+        Wait-DeviceScan
+        $null = Find-SidebarElement $SentinelProperty $Sentinel
+        $selected = (Find-SidebarElement AutomationId NetworkPicker).GetCurrentPattern(
+            [System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()[0].Current.Name
+        if ($selected -ne $network -or -not (Find-SidebarElement AutomationId ScanButton).Current.HasKeyboardFocus -or
+            (Find-SidebarElement AutomationId CancelButton -Optional)) {
+            throw 'Ending a shared scan must retain the selected LAN and page and restore Scan LAN focus.'
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $scanHoldPath) { Remove-Item -LiteralPath $scanHoldPath }
+    }
+}
+
 function Test-DeviceRefresh {
     $snapshotPath = $env:FINGVIBE_UI_REVIEW_SNAPSHOT
     if (-not $snapshotPath) { throw 'Device refresh checks require an isolated review snapshot.' }
     $snapshot = if (Test-Path -LiteralPath $snapshotPath) { [IO.File]::ReadAllBytes($snapshotPath) } else { $null }
     try {
         Set-SidebarWindowWidth $expandedWidth
-        Select-SidebarPage Devices "Search devices"
+        Select-SidebarPage Overview "Online devices"
         $scan = Find-SidebarElement AutomationId ScanButton
         $scan.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
         Wait-DeviceScan
+        $null = Find-SidebarElement Name "Online devices"
+        Select-SidebarPage Devices "Search devices"
         if ((Find-SidebarElement AutomationId ResultCountText).Current.Name -ne "Showing 1 device") {
             throw "The loopback scan must display exactly one device."
         }
@@ -29,6 +73,13 @@ function Test-DeviceRefresh {
         )) {
             Select-SidebarPage $page[0] $page[1]
             Assert-SharedNetworkHeader
+            if ($page[0] -eq 'Network') {
+                # The heading can scroll offscreen without leaving the Network page.
+                Test-SharedScanContext NetworkPage -SentinelProperty AutomationId
+            }
+            else {
+                Test-SharedScanContext $page[1]
+            }
             if ((Find-SidebarElement AutomationId ScanStatusText -Optional) -or
                 (Find-SidebarElement AutomationId ScanProgressBar -Optional)) {
                 throw "Successful completion must leave no scan message or progress on $($page[0])."
@@ -43,6 +94,26 @@ function Test-DeviceRefresh {
             }
         }
         Select-SidebarPage Devices "Search devices"
+        $row = (Find-SidebarElement AutomationId ResultsList).FindFirst(
+            [System.Windows.Automation.TreeScope]::Children,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::ListItem))
+        if (-not $row) { throw 'The scan fixture has no device to open.' }
+        $row.SetFocus()
+        [SidebarReviewKeyboard]::Tap(0x0D)
+        (Find-SidebarElement Name "Rename device").GetCurrentPattern(
+            [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        (Find-SidebarElement AutomationId DeviceNameInput).GetCurrentPattern(
+            [System.Windows.Automation.ValuePattern]::Pattern).SetValue("Unsaved scan draft")
+        Test-SharedScanContext "Back to devices" -Cancel
+        Test-SharedScanContext "Back to devices"
+        if ((Find-SidebarElement AutomationId DeviceNameInput).GetCurrentPattern(
+                [System.Windows.Automation.ValuePattern]::Pattern).Current.Value -ne "Unsaved scan draft") {
+            throw 'Scanning from Device Details must retain the selected device and unsaved name.'
+        }
+        (Find-SidebarElement Name "Back to devices").GetCurrentPattern(
+            [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
         $search = (Find-SidebarElement AutomationId ResultSearchBox).GetCurrentPattern(
             [System.Windows.Automation.ValuePattern]::Pattern)
         $search.SetValue("fingvibe-no-matching-device")
@@ -52,7 +123,7 @@ function Test-DeviceRefresh {
         }
         $search.SetValue("")
         [IO.File]::WriteAllText($scanHoldPath, "Hold the refresh until retained results have been observed.")
-        $scan.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        (Find-SidebarElement AutomationId ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
         if (Find-SidebarElement AutomationId ScanButton -Optional) { throw "Scan LAN must be replaced, not left disabled, during refresh." }
         if ((Find-SidebarElement AutomationId ResultCountText).Current.Name -ne "Showing 1 device" -or
             (Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "*Displaying retained results*") {
@@ -63,8 +134,9 @@ function Test-DeviceRefresh {
             throw "Live scan progress must remain visible after navigation."
         }
         (Find-SidebarElement Name "Cancel scan").GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-        Select-SidebarPage Devices "Search devices"
         Wait-DeviceScan
+        $null = Find-SidebarElement Name "Online devices"
+        Select-SidebarPage Devices "Search devices"
         if ((Find-SidebarElement AutomationId ResultCountText).Current.Name -ne "Showing 1 device" -or
             (Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "*cancelled*") {
             throw "Cancellation must preserve the displayed devices and report its outcome."
@@ -72,16 +144,19 @@ function Test-DeviceRefresh {
         Remove-Item -LiteralPath $scanHoldPath
         [IO.File]::WriteAllText($scanHoldPath + ".progress", '{"Completed":2,"Total":1}')
         [IO.File]::WriteAllText($scanHoldPath, "Exercise explicit scan failure.")
-        $scan.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        Select-SidebarPage Settings "Window backdrop"
+        (Find-SidebarElement AutomationId ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
         Wait-DeviceScan
+        $null = Find-SidebarElement Name "Window backdrop"
         if ((Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "*Unable to scan*") {
             throw "A failed scan must retain its error instead of clearing the scan message."
         }
         Remove-Item -LiteralPath $scanHoldPath, ($scanHoldPath + ".progress")
+        Select-SidebarPage Devices "Search devices"
         Remove-Item -LiteralPath $snapshotPath
         $null = New-Item -ItemType Directory -Path $snapshotPath
         try {
-            $scan.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+            (Find-SidebarElement AutomationId ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
             Wait-DeviceScan
             Select-SidebarPage Overview "Online devices"
             if ((Find-SidebarElement AutomationId ScanStatusText).Current.Name -notlike "*latest-scan cache could not be updated*") {
@@ -133,6 +208,43 @@ function Test-DeviceRefresh {
     }
 }
 
+function Test-UnavailableScanTarget {
+    $previous = $env:FINGVIBE_UI_REVIEW_NO_NETWORK
+    $previousSnapshot = $env:FINGVIBE_UI_REVIEW_SNAPSHOT
+    $failed = $true
+    try {
+        Stop-SidebarApp
+        $env:FINGVIBE_UI_REVIEW_NO_NETWORK = '1'
+        $env:FINGVIBE_UI_REVIEW_SNAPSHOT = Join-Path $fixtureDirectory 'no-network-snapshot.json'
+        Start-SidebarApp
+        Set-SidebarWindowWidth $expandedWidth
+        Select-SidebarPage Network "No active IPv4 network"
+        foreach ($page in @(
+            @("Devices", "Search devices"), @("Overview", "Online devices"),
+            @("Network", "No active IPv4 network"), @("People", "Search people"),
+            @("Rooms", "Search rooms"), @("Tools", "Speed test"), @("Settings", "Window backdrop")
+        )) {
+            Select-SidebarPage $page[0] $page[1]
+            $scan = Find-SidebarElement AutomationId ScanButton
+            if ($scan.Current.IsEnabled -or $scan.Current.Name -ne 'Scan LAN' -or
+                (Find-SidebarElement AutomationId ScanFreshnessText).Current.Name -notlike '*Connect to a LAN to scan*' -or
+                (Find-SidebarElement AutomationId CancelButton -Optional)) {
+                throw "Without a selected LAN, $($page[0]) must retain the disabled shared action and unavailable feedback."
+            }
+        }
+        $failed = $false
+    }
+    finally {
+        Invoke-UiRegressionCleanup -PrimaryFailed $failed -Steps @(
+            { Stop-SidebarApp },
+            {
+                $env:FINGVIBE_UI_REVIEW_NO_NETWORK = $previous
+                $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $previousSnapshot
+            },
+            { Start-SidebarApp; Set-SidebarWindowWidth $expandedWidth; Wait-DeviceScan })
+    }
+}
+
 function Test-ScanPresentation {
     $highContrast = $null
     $animations = $null
@@ -164,6 +276,9 @@ function Test-ScanPresentation {
                 }
                 Set-SidebarWindowWidth $case[0]
                 $scan = Find-SidebarElement AutomationId ScanButton
+                if ($case[0] -ge 640 -and $case[1] -eq 90) {
+                    Save-SidebarAppearance "scan-action-$theme-$($case[0])-$($case[2])"
+                }
                 [IO.File]::WriteAllText($scanHoldPath + ".progress",
                     ('{"Completed":' + $case[1] + ',"Total":100}'))
                 [IO.File]::WriteAllText($scanHoldPath, "Hold synthetic progress for native geometry/pixel assertions.")
@@ -197,6 +312,7 @@ function Test-ScanPresentation {
                         throw "Scan context, action and progress must not clip at $($case[0]) DIPs."
                     }
                 }
+
                 if ($statusBounds.Top -lt $pickerBounds.Bottom -or $barBounds.Top -lt $statusBounds.Bottom) {
                     throw "Scan text and progress must stay together below the network selector."
                 }
@@ -291,5 +407,76 @@ function Test-ScanPresentation {
             throw [System.ComponentModel.Win32Exception]::new()
         }
         Wait-DeviceScan
+    }
+}
+
+function Assert-ScaledScanAction([System.Windows.Rect] $NormalTextBounds, [int] $Width) {
+    $scan = Find-SidebarElement AutomationId ScanButton
+    $text = $scan.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text))
+    $bounds = $scan.Current.BoundingRectangle
+    $textBounds = if ($text) { $text.Current.BoundingRectangle } else { [System.Windows.Rect]::Empty }
+    # Windows text scaling need not double UIA line metrics; require growth in both axes, not wrapping alone.
+    if ($scan.Current.Name -ne 'Scan LAN' -or -not $scan.Current.IsEnabled -or
+        -not $root.Current.BoundingRectangle.Contains($bounds) -or
+        -not $text -or $text.Current.IsOffscreen -or $text.Current.Name -ne 'Scan LAN' -or
+        $textBounds.IsEmpty -or $textBounds.Width -le 0 -or $textBounds.Height -le 0 -or
+        -not $bounds.Contains($textBounds) -or
+        $textBounds.Height -le $NormalTextBounds.Height -or $textBounds.Width -le $NormalTextBounds.Width) {
+        Save-SidebarAppearance "scan-action-text-scale-failure-$Width"
+        throw "The scaled Scan LAN label must grow without clipping at $Width DIPs. Baseline text=$NormalTextBounds; text=$textBounds; action=$bounds; window=$($root.Current.BoundingRectangle)."
+    }
+}
+
+function Test-ScanTextScaling {
+    if ($env:GITHUB_ACTIONS -ne 'true') {
+        Write-Host 'System text-scale checks require a disposable GitHub Actions desktop.'
+        return
+    }
+    Set-SidebarWindowWidth $expandedWidth
+    Select-SidebarPage Overview "Online devices"
+    Set-SidebarWindowWidth 640
+    $normalScan = Find-SidebarElement AutomationId ScanButton
+    $textCondition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text)
+    $normalText = Find-UiRegressionElement -Container { $normalScan } -Condition $textCondition -Description 'unscaled Scan LAN label'
+    $normalTextBounds = $normalText.Current.BoundingRectangle
+    $settings = [Windows.UI.ViewManagement.UISettings, Windows.UI.ViewManagement, ContentType = WindowsRuntime]::new()
+    $originalScale = $settings.TextScaleFactor
+    $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\Microsoft\Accessibility')
+    $originalValue = $key.GetValue('TextScaleFactor', $null)
+    $originalKind = if ($null -ne $originalValue) { $key.GetValueKind('TextScaleFactor') } else { $null }
+    $failed = $true
+    try {
+        Stop-SidebarApp
+        $key.SetValue('TextScaleFactor', 200, [Microsoft.Win32.RegistryValueKind]::DWord)
+        [SidebarReviewKeyboard]::NotifyTextScaleChanged()
+        $null = Wait-UiRegressionState -Description 'effective Windows text scale of 200 percent' -Condition {
+            [Math]::Abs($settings.TextScaleFactor - 2) -lt 0.01
+        }
+        Start-SidebarApp
+        Wait-DeviceScan
+        foreach ($width in @(640, 480)) {
+            Set-SidebarWindowWidth $width
+            Assert-ScaledScanAction -NormalTextBounds $normalTextBounds -Width $width
+            Test-SharedScanContext OverviewPage -SentinelProperty AutomationId -Cancel
+            if ($width -eq 640) { Save-SidebarAppearance 'scan-action-text-scale-200' }
+        }
+        $failed = $false
+    }
+    finally {
+        Invoke-UiRegressionCleanup -PrimaryFailed $failed -Steps @(
+            { Stop-SidebarApp },
+            {
+                if ($null -eq $originalValue) { $key.DeleteValue('TextScaleFactor', $false) }
+                else { $key.SetValue('TextScaleFactor', $originalValue, $originalKind) }
+                [SidebarReviewKeyboard]::NotifyTextScaleChanged()
+                $null = Wait-UiRegressionState -Description 'restored Windows text scale' -Condition {
+                    [Math]::Abs($settings.TextScaleFactor - $originalScale) -lt 0.01
+                }
+            },
+            { $key.Dispose() },
+            { Start-SidebarApp; Set-SidebarWindowWidth $expandedWidth; Wait-DeviceScan })
     }
 }

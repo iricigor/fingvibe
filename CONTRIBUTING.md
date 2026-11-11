@@ -56,8 +56,10 @@ from another group. `DevicesList.Ui.Tests.ps1 -Group <name>` runs one group;
 the default `All` runs every group in sequence.
 
 Sidebar uses `Sidebar.Groups.psd1`: `presentation` keeps Navigation, Settings,
-Appearance and Responsive together; `scan-flows` keeps Refresh, Progress and
-PeopleRooms together because the flows use the scanned inventory;
+Appearance and Responsive together; `scan-flows` keeps Refresh and PeopleRooms
+together because the flows use the scanned inventory; `scan-presentation` runs
+Progress (themes, geometry, keyboard cancellation and text scaling) independently
+from its own Setup/Ready, without relying on a completed inventory scan;
 `preferences-scheduling` owns Persistence and Scheduled. Each group starts with
 isolated `Setup`/`Ready` preconditions. Sidebar lifecycle helpers retain their
 entry-script-scoped handles across restarts; Setup resets those handles before

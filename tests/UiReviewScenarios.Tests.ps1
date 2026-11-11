@@ -539,6 +539,17 @@ try {
         $scan.ParentNode.LocalName -cne "Grid" -or $cancel.GetAttribute("AutomationProperties.Name") -cne "Cancel scan") {
         throw "Scan LAN and Cancel scan must occupy the same shared-header slot with their existing automation IDs."
     }
+    $scanIcon = $scan.SelectSingleNode(".//*[local-name()='FontIcon']")
+    $scanLabel = $scan.SelectSingleNode(".//*[local-name()='TextBlock']")
+    if ($scan.GetAttribute("AutomationProperties.Name") -cne "Scan LAN" -or
+        $scanIcon.GetAttribute("Glyph") -cne [string][char]0xE895 -or
+        $scanIcon.GetAttribute("AutomationProperties.AccessibilityView") -cne "Raw" -or
+        $scanIcon.GetAttribute("IsHitTestVisible") -cne "False" -or
+        $scanIcon.HasAttribute("Foreground") -or $scanIcon.GetAttribute("IsTextScaleFactorEnabled") -eq "False" -or
+        $scanIcon.NextSibling -ne $scanLabel -or $scanLabel.GetAttribute("Grid.Column") -cne "1" -or
+        $scanLabel.GetAttribute("Text") -cne "Scan LAN" -or $scanLabel.GetAttribute("TextWrapping") -cne "Wrap") {
+        throw "Scan LAN must retain its accessible label with a preceding decorative, theme-inherited, scalable refresh icon and wrapping text."
+    }
     $devicesDocument = [xml](Get-Content (Join-Path $appDirectory "Views\DevicesPageView.xaml") -Raw)
     if ($devicesDocument.SelectSingleNode("//*[@*[local-name()='Name']='ScanButton']")) {
         throw "Devices must not duplicate the shared primary scan action."
@@ -876,6 +887,7 @@ try {
             "displayed" {
                 if ($id -like "menu-*") { return @{ value = $true } }
                 $visible = switch ($id) {
+                    "control-Scan LAN" { $true }
                     "control-Search devices" { $script:currentPage -eq "Devices" }
                     "control-Online" { $script:currentPage -eq "Devices" -and -not $script:empty }
                     "online-row" { $script:currentPage -eq "Devices" -and -not $script:empty }
@@ -931,6 +943,9 @@ try {
     Show-UiReviewCaptureScenario "Devices"
     Assert-Equal $script:empty $false "Returning from empty results restores the baseline"
     Test-UiReviewNavigation
+    $script:hiddenControl = "control-Scan LAN"
+    Assert-Throws { Test-UiReviewNavigation } "*Scan LAN*not visible*"
+    $script:hiddenControl = ""
     Assert-Equal $script:toolsScrollCalls 0 "Visible Tools cards must not scroll"
     $script:offscreenToolsCard = "control-About FingVibe"
     Show-UiReviewCaptureScenario "About"

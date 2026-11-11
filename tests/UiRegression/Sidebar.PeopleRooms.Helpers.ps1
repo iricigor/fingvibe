@@ -116,6 +116,9 @@ function Test-PeopleRoomsFlows {
         Open-PeopleRoomsDetails $name $pageId
         $null = Find-PeopleRoomsElement Name 'Saved notes' $detailId
         $null = Find-PeopleRoomsElement Name '0 devices assigned' $detailId
+        Assert-SharedNetworkHeader
+        Test-SharedScanContext $name
+        $null = Find-PeopleRoomsElement Name 'Saved notes' $detailId
 
         Invoke-PeopleRoomsElement AutomationId "Edit${category}DetailButton" $detailId
         Set-PeopleRoomsText 'Full name' 'Cancelled edit'

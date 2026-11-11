@@ -8,6 +8,7 @@ $navigationPreferencePath = Join-Path $fixtureDirectory 'navigation.json'
 $periodicScanDirectory = Join-Path $fixtureDirectory 'periodic-scan'
 $periodicScanPath = Join-Path $periodicScanDirectory 'periodic-scan.json'
 $env:FINGVIBE_UI_REVIEW = "1"
+$env:FINGVIBE_UI_REVIEW_NO_NETWORK = $null
 $env:FINGVIBE_UI_REVIEW_SNAPSHOT = Join-Path $fixtureDirectory 'latest-scan.json'
 $env:FINGVIBE_UI_REVIEW_INVENTORY = $null
 $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT = '0'

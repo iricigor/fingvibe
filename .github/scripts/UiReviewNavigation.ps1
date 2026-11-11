@@ -16,6 +16,7 @@ function Test-UiReviewNavigation {
     foreach ($scenario in $UiReviewScenarios.Keys) {
         Write-Host "Verifying navigation: $scenario"
         Show-UiReviewCaptureScenario -Scenario $scenario
+        $null = Assert-VisibleUiReviewElement -Value "Scan LAN"
     }
 }
 
