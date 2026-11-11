@@ -1066,7 +1066,11 @@ stale-owner reacquisition, visible/nonempty controls, process exit/normal/forced
 cleanup, isolated fixtures, environment restoration and failure-preserving
 capture timing. Scan text-scale setup selects Overview at expanded width before
 measuring the narrow baseline, so a preceding closed overlay pane cannot hide
-the navigation target. Migrated native suites create unique temporary fixture
+the navigation target. Scaling assertions measure the actual label rather than
+the button's fixed padding/minimum height, require label and button containment,
+and capture failures before restoring Windows settings. Page-context checks use
+the Overview viewport rather than potentially scrolled-offscreen content.
+Migrated native suites create unique temporary fixture
 directories and restore their environment/DPI context even if shutdown fails.
 Forced shutdown cleans up the supplied PID but fails the suite rather than
 pretending normal close succeeded.

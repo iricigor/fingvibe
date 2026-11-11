@@ -970,14 +970,20 @@
               "baselineSha256": "44e1fa531b6ec95be1b759dd5a2d7db936db5f6cffb34fea058a73de996bc905"
             },
             {
+              "name": "Assert-ScaledScanAction",
+              "refactored": true,
+              "introducedBy": "#254 manual repair: verify actual label scaling and containment, independent of fixed button padding/minimum height, with pre-restoration failure capture and desktop-free negative cases."
+            },
+            {
               "name": "Test-ScanTextScaling",
               "refactored": true,
-              "introducedBy": "#254: disposable CI-only 200-percent Windows text scaling, effective-scale verification, narrow geometry/keyboard checks and restoration. Select Overview at expanded width before measuring the narrow baseline; desktop-free regression covers inherited closed-overlay layouts."
+              "introducedBy": "#254: disposable CI-only 200-percent Windows text scaling, effective-scale verification, narrow geometry/keyboard checks and restoration. Select Overview at expanded width before measuring the narrow label baseline; desktop-free regression covers inherited closed-overlay layouts. Keep context checks on the visible Overview viewport when scaled content scrolls offscreen."
             }
           ],
           "captures": [
             "fbf9b63ad539b133fa95aaf358ab9669d9c94d193d6c7dd040aff27e849c9ef7",
             "78ad2a6753f3cec789531c291bcf4a7647a30ab8dbe0f674a683e4822920840f",
+            "6bb6d815c29473432eed93a557a972df29ec658c387a574c6c85959ba61175aa",
             "e423b74296f0391ddf59678063a525d52ed96fc62ac576ead74aae4d609d2784"
           ],
           "fixtureAssignments": []

@@ -410,6 +410,25 @@ function Test-ScanPresentation {
     }
 }
 
+function Assert-ScaledScanAction([double] $NormalTextHeight, [double] $ScaleFactor, [int] $Width) {
+    $scan = Find-SidebarElement AutomationId ScanButton
+    $text = $scan.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text))
+    $bounds = $scan.Current.BoundingRectangle
+    $textBounds = if ($text) { $text.Current.BoundingRectangle } else { [System.Windows.Rect]::Empty }
+    # Button padding/minimum height do not scale; text line metrics can round by one pixel.
+    if ($scan.Current.Name -ne 'Scan LAN' -or -not $scan.Current.IsEnabled -or
+        -not $root.Current.BoundingRectangle.Contains($bounds) -or
+        -not $text -or $text.Current.IsOffscreen -or $text.Current.Name -ne 'Scan LAN' -or
+        $textBounds.IsEmpty -or $textBounds.Width -le 0 -or $textBounds.Height -le 0 -or
+        -not $bounds.Contains($textBounds) -or
+        $textBounds.Height -lt [Math]::Floor($NormalTextHeight * $ScaleFactor) - 1) {
+        Save-SidebarAppearance "scan-action-text-scale-failure-$Width"
+        throw "The scaled Scan LAN label must grow without clipping at $Width DIPs. Baseline text height=$NormalTextHeight; scale ratio=$ScaleFactor; text=$textBounds; action=$bounds; window=$($root.Current.BoundingRectangle)."
+    }
+}
+
 function Test-ScanTextScaling {
     if ($env:GITHUB_ACTIONS -ne 'true') {
         Write-Host 'System text-scale checks require a disposable GitHub Actions desktop.'
@@ -418,7 +437,11 @@ function Test-ScanTextScaling {
     Set-SidebarWindowWidth $expandedWidth
     Select-SidebarPage Overview "Online devices"
     Set-SidebarWindowWidth 640
-    $normalHeight = (Find-SidebarElement AutomationId ScanButton).Current.BoundingRectangle.Height
+    $normalScan = Find-SidebarElement AutomationId ScanButton
+    $textCondition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text)
+    $normalText = Find-UiRegressionElement -Container { $normalScan } -Condition $textCondition -Description 'unscaled Scan LAN label'
+    $normalTextHeight = $normalText.Current.BoundingRectangle.Height
     $settings = [Windows.UI.ViewManagement.UISettings, Windows.UI.ViewManagement, ContentType = WindowsRuntime]::new()
     $originalScale = $settings.TextScaleFactor
     $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\Microsoft\Accessibility')
@@ -436,15 +459,8 @@ function Test-ScanTextScaling {
         Wait-DeviceScan
         foreach ($width in @(640, 480)) {
             Set-SidebarWindowWidth $width
-            $scan = Find-SidebarElement AutomationId ScanButton
-            $bounds = $scan.Current.BoundingRectangle
-            if ($scan.Current.Name -ne 'Scan LAN' -or -not $scan.Current.IsEnabled -or
-                -not $root.Current.BoundingRectangle.Contains($bounds) -or
-                $bounds.Height -lt $normalHeight * (2 / $originalScale) * 0.75) {
-                Save-SidebarAppearance "scan-action-text-scale-failure-$width"
-                throw "The scaled Scan LAN action must render larger without clipping at $width DIPs. Baseline height=$normalHeight; original scale=$originalScale; effective scale=$($settings.TextScaleFactor); action=$bounds; window=$($root.Current.BoundingRectangle); enabled=$($scan.Current.IsEnabled); name=$($scan.Current.Name)."
-            }
-            Test-SharedScanContext "Online devices" -Cancel
+            Assert-ScaledScanAction -NormalTextHeight $normalTextHeight -ScaleFactor (2 / $originalScale) -Width $width
+            Test-SharedScanContext OverviewPage -SentinelProperty AutomationId -Cancel
             if ($width -eq 640) { Save-SidebarAppearance 'scan-action-text-scale-200' }
         }
         $failed = $false

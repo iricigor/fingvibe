@@ -28,7 +28,7 @@ foreach ($condition in @({ $false }, { $null }, {})) {
 }
 Assert-RegressionFailure { Wait-UiRegressionState -Description 'unexpected error' -Condition { throw 'unexpected condition error' } } 'unexpected condition error'
 
-Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, WindowsBase
 Add-Type -TypeDefinition @'
 public static class SidebarReviewKeyboard
 {
@@ -136,6 +136,38 @@ foreach ($initialWidth in @(480, 640)) {
             Assert-Regression $state.BaselineMeasured 'Text-scale setup did not reach its narrow baseline.'
         }
         finally { $env:GITHUB_ACTIONS = $previousActions }
+    }
+}
+foreach ($case in @('scaled', 'unscaled', 'clipped', 'missing', 'disabled', 'outside')) {
+    & {
+        . (Join-Path $PSScriptRoot 'UiRegression\Sidebar.Scans.Helpers.ps1')
+        $root = [pscustomobject]@{ Current = @{ BoundingRectangle = [System.Windows.Rect]::new(0, 0, 640, 720) } }
+        $text = [pscustomobject]@{ Current = @{
+            Name = 'Scan LAN'; IsOffscreen = $false
+            BoundingRectangle = [System.Windows.Rect]::new(100, 105, 110, $(if ($case -eq 'unscaled') { 19 } else { 37 }))
+        } }
+        $scan = [pscustomobject]@{ Current = @{
+            Name = 'Scan LAN'; IsEnabled = $case -ne 'disabled'
+            BoundingRectangle = [System.Windows.Rect]::new(80, 100, 240, 47)
+        } }
+        if ($case -eq 'clipped') { $text.Current.BoundingRectangle = [System.Windows.Rect]::new(300, 105, 110, 37) }
+        if ($case -eq 'outside') { $root.Current.BoundingRectangle = [System.Windows.Rect]::new(0, 0, 100, 720) }
+        $scan | Add-Member ScriptMethod FindFirst {
+            param($Scope, $Condition)
+            Assert-Regression ($Condition.Value -eq [System.Windows.Automation.ControlType]::Text.Id) 'Scale checks must measure the actual text peer, not button padding.'
+            if ($case -ne 'missing') { return $text }
+        }
+        function Find-SidebarElement($Property, $Value) { return $scan }
+        function Save-SidebarAppearance($Name) { $state.Captured = $true }
+        $state = @{ Captured = $false }
+        if ($case -eq 'scaled') {
+            Assert-ScaledScanAction -NormalTextHeight 19 -ScaleFactor 2 -Width 640
+            Assert-Regression (-not $state.Captured) 'Correctly scaled text must not produce failure evidence.'
+        }
+        else {
+            Assert-RegressionFailure { Assert-ScaledScanAction -NormalTextHeight 19 -ScaleFactor 2 -Width 640 } '*label must grow without clipping*'
+            Assert-Regression $state.Captured 'Scale failures must capture evidence before settings restoration.'
+        }
     }
 }
 foreach ($focusable in @($true, $false)) {
