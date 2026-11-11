@@ -29,6 +29,44 @@ foreach ($condition in @({ $false }, { $null }, {})) {
 Assert-RegressionFailure { Wait-UiRegressionState -Description 'unexpected error' -Condition { throw 'unexpected condition error' } } 'unexpected condition error'
 
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+foreach ($focusable in @($true, $false)) {
+    & {
+        $state = @{ PageLookups = 0; FocusCalls = 0; PositionCalls = 0 }
+        $target = [pscustomobject]@{ Current = [pscustomobject]@{
+            IsKeyboardFocusable = $focusable; IsOffscreen = $false
+            BoundingRectangle = [pscustomobject]@{ IsEmpty = $false; Width = 100; Height = 30 }
+        } }
+        $target | Add-Member ScriptMethod SetFocus { $state.FocusCalls++ }
+        $target | Add-Member ScriptMethod TryGetCurrentPattern { param($Pattern, $Output) return $false }
+        $page = [pscustomobject]@{}
+        $page | Add-Member ScriptMethod FindFirst {
+            param($Scope, [System.Windows.Automation.Condition] $Match)
+            Assert-Regression ($Match.Value -eq 'EditPersonDetailButton') 'Person lookup lost its target condition inside a wait.'
+            return $target
+        }
+        $page | Add-Member ScriptMethod FindAll {
+            param($Scope, [System.Windows.Automation.Condition] $Match)
+            Assert-Regression ($Match.Value -eq 'EditPersonDetailButton') 'Visible lookup must retain the same Person target.'
+            return @($target)
+        }
+        $root = [pscustomobject]@{}
+        $root | Add-Member ScriptMethod FindFirst {
+            param($Scope, [System.Windows.Automation.Condition] $Match)
+            Assert-Regression ($Match.Value -eq 'PersonDetailPage') 'Person lookup must remain page-scoped.'
+            $state.PageLookups++
+            if ($state.PageLookups -gt 1) { return $page }
+        }
+        function Show-UiRegressionScrollTargets {
+            param($Description, $GetViewport, $GetTargets, $GetWindow)
+            $state.PositionCalls++
+            Wait-UiRegressionState -Description $Description -Condition { & $GetTargets }
+        }
+        $found = Find-PeopleRoomsElement AutomationId EditPersonDetailButton PersonDetailPage
+        Assert-Regression ($found -eq $target -and $state.PageLookups -ge 3) 'Person lookup must await and reacquire its page.'
+        Assert-Regression ($state.FocusCalls -eq [int]$focusable) 'Focusable Person controls must retain focus-based positioning.'
+        Assert-Regression ($state.PositionCalls -eq [int](-not $focusable)) 'Nonfocusable Person controls must retain viewport positioning.'
+    }
+}
 & {
     $state = @{ Observations = 0; Invocations = 0 }
     $dialog = [pscustomobject]@{ Current = [pscustomobject]@{
