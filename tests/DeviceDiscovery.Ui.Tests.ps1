@@ -416,12 +416,13 @@ try {
     if ((Test-Path -LiteralPath $snapshot) -and (Get-Content -LiteralPath $snapshot -Raw) -like "*001122334499*") {
         throw "The scheduled scan ran before the window could be minimized."
     }
-    $null = [UiReviewNativeWindow]::ShowWindow($handle, 6)
-    Wait-DiscoveryState { [UiReviewNativeWindow]::IsIconic($handle) } "minimized window"
     Wait-DiscoveryState {
-        (Find-DiscoveryControl ScanStatusText).Current.Name -like "Scheduled scan*Scanning ICMP:*"
+        $status = Find-DiscoveryControl ScanStatusText -Optional
+        $status -and $status.Current.Name -like "Scheduled scan*Scanning ICMP:*"
     } "scheduled scan retaining previous evidence"
     if ((Get-DiscoveryOnlineCount) -ne $scheduledOnline) { throw "Scheduled scan start reset retained Online membership." }
+    $null = [UiReviewNativeWindow]::ShowWindow($handle, 6)
+    Wait-DiscoveryState { [UiReviewNativeWindow]::IsIconic($handle) } "minimized window"
     Remove-Item -LiteralPath $hold
     Wait-DiscoveryState {
         # Controls in a minimized window can report as offscreen, so only check that scanning has finished.
