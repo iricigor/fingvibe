@@ -9,127 +9,174 @@ namespace FingVibe.App;
 
 public sealed partial class MainWindow
 {
-    private IReadOnlyList<DeviceDiscovery> _deferredDiscoveries = [];
+    private DiscoveryNotificationState _discoveryNotifications = null!;
+    private readonly AsyncSurfaceSession _discoveryActivation = new();
     private bool _discoveryNotificationsClosed;
+    private string? _pendingDiscoveryActivation;
+    private Flyout? _discoveryPopup;
+    private string? _windowsNotificationMessage;
+    private bool _windowWasMinimized;
+    private bool _openingDiscoveryNotification;
+    private bool _renderingDiscoveryActivation;
 
     private bool IsMinimized => AppWindow.IsMinimized();
+    private WindowsDiscoveryNotifications WindowsNotifications => ((App)Application.Current).DiscoveryNotifications;
 
     private void InitializeDiscoveryNotifications()
     {
+        _discoveryNotifications = new(ShowDiscoveryPopup, RequestWindowsDiscoveryNotification);
+        _windowsNotificationMessage = WindowsNotifications.RegistrationError;
+        _discoveryActivation.StateChanged += (_, _) =>
+            AutomationProperties.SetItemStatus(ScanFreshnessText, _discoveryActivation.Status);
         AppWindow.Changed += DiscoveryWindow_Changed;
         Activated += DiscoveryWindow_Activated;
-        // Closed can run while AppWindow is still handling the close message, so these window-owned
-        // subscriptions are left to end with the window instead of touching AppWindow here.
         Closed += (_, _) =>
         {
             _discoveryNotificationsClosed = true;
-            _deferredDiscoveries = [];
+            _discoveryActivation.Dispose();
         };
     }
 
-    // Discoveries found while minimized, for example by scheduled scans, wait until the window is restored.
     private void PresentDiscoveries(IReadOnlyList<DeviceDiscovery> discoveries)
     {
-        if (_discoveryNotificationsClosed)
-        {
-            return;
-        }
-
-        if (IsMinimized)
-        {
-            _deferredDiscoveries = PeriodicScanPresentation.MergeDiscoveries(_deferredDiscoveries, discoveries);
-            return;
-        }
-
-        ShowDiscoveryPopup(discoveries, deferred: false);
+        if (_discoveryNotificationsClosed) return;
+        var rows = _allResults.ToLookup(row => row.IdentityKey, StringComparer.Ordinal);
+        var devices = discoveries.Select(discovery => DiscoveryDevice.Capture(discovery,
+            rows[discovery.IdentityKey].FirstOrDefault())).ToArray();
+        _discoveryNotifications.CompleteScan(devices, IsMinimized);
     }
 
-    private void DiscoveryWindow_Changed(AppWindow sender, AppWindowChangedEventArgs args) => QueueDeferredDiscoveries();
+    private async void RequestWindowsDiscoveryNotification(DiscoveryNotificationBatch batch)
+    {
+        var message = await WindowsNotifications.SendAsync(batch);
+        if (_discoveryNotificationsClosed) return;
+        _windowsNotificationMessage = message;
+        UpdateScanStatus();
+    }
+
+    private void DiscoveryWindow_Changed(AppWindow sender, AppWindowChangedEventArgs args)
+    {
+        var restored = _windowWasMinimized && !IsMinimized;
+        _windowWasMinimized = IsMinimized;
+        if (restored) QueueDeferredDiscoveries();
+    }
 
     private void DiscoveryWindow_Activated(object sender, WindowActivatedEventArgs args)
     {
-        if (args.WindowActivationState != WindowActivationState.Deactivated)
+        if (args.WindowActivationState != WindowActivationState.Deactivated && _windowWasMinimized && !IsMinimized)
         {
+            _windowWasMinimized = false;
             QueueDeferredDiscoveries();
         }
     }
 
     private void QueueDeferredDiscoveries()
     {
-        if (!_discoveryNotificationsClosed && _deferredDiscoveries.Count > 0)
+        if (!_discoveryNotificationsClosed && !IsMinimized && AppWindow.IsVisible)
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (!_discoveryNotificationsClosed && !IsMinimized && !_openingDiscoveryNotification)
+                    _discoveryNotifications.Restore();
+            });
+    }
+
+    internal void ActivateDiscoveryNotification(string argument)
+    {
+        if (_discoveryNotificationsClosed) return;
+        _pendingDiscoveryActivation = argument;
+        _openingDiscoveryNotification = true;
+        try
         {
-            // Let restoration finish before anchoring the popup to the header.
-            DispatcherQueue.TryEnqueue(ShowDeferredDiscoveries);
+            if (!WindowsDiscoveryNotifications.RestoreAndFocus(this))
+                ReportDiscoveryNotificationFailure("Windows did not allow FingVibe to take foreground focus. The discovery list is still available in this window.");
+        }
+        catch (Exception exception) when (WindowsDiscoveryNotifications.IsIntegrationFailure(exception))
+        {
+            ReportDiscoveryNotificationFailure($"Unable to restore the discovery notification window: {exception.Message}");
+        }
+        OpenPendingDiscoveryNotification();
+    }
+
+    internal void ReportDiscoveryNotificationFailure(string message)
+    {
+        _windowsNotificationMessage = message;
+        UpdateScanStatus();
+    }
+
+    private async void OpenPendingDiscoveryNotification()
+    {
+        if (!_inventoryReady || _pendingDiscoveryActivation is not { } argument) return;
+        _pendingDiscoveryActivation = null;
+        var request = _discoveryActivation.Start("Discovery notification");
+        if (request is null) return;
+        try
+        {
+            var batch = await WindowsNotifications.LoadAsync(argument);
+            if (_discoveryActivation.IsCurrent(request))
+            {
+                _renderingDiscoveryActivation = true;
+                try { _discoveryNotifications.Activate(batch.Devices); }
+                finally { _renderingDiscoveryActivation = false; }
+            }
+        }
+        catch (Exception exception) when (WindowsDiscoveryNotifications.IsIntegrationFailure(exception))
+        {
+            _discoveryActivation.Complete(request, AsyncSurfaceState.Error, () =>
+            {
+                _windowsNotificationMessage = $"Unable to open the discovery notification: {exception.Message}";
+                UpdateScanStatus();
+            });
+            if (_discoveryActivation.Number == request.Number)
+                _openingDiscoveryNotification = false;
         }
     }
 
-    private void ShowDeferredDiscoveries()
+    private void ShowDiscoveryPopup(IReadOnlyList<DiscoveryDevice> discoveries, bool deferred)
     {
-        if (_discoveryNotificationsClosed || _deferredDiscoveries.Count == 0 || IsMinimized || !AppWindow.IsVisible)
+        _discoveryPopup?.Hide();
+        var content = new DiscoveryPopup
         {
-            return;
-        }
-
-        var discoveries = _deferredDiscoveries;
-        _deferredDiscoveries = [];
-        ShowDiscoveryPopup(discoveries, deferred: true);
-    }
-
-    private void ShowDiscoveryPopup(IReadOnlyList<DeviceDiscovery> discoveries, bool deferred)
-    {
-        var content = new StackPanel { Spacing = 8, MaxWidth = 400 };
-        var title = new TextBlock
-        {
-            Text = "New devices discovered", Style = (Style)Application.Current.Resources["SubtitleTextBlockStyle"]
+            Width = Math.Max(180, Math.Min(480, RootGrid.ActualWidth - 80)),
+            MaxHeight = Math.Max(180, Math.Min(620, RootGrid.ActualHeight - 100)),
+            RequestedTheme = RootGrid.ActualTheme
         };
-        AutomationProperties.SetAutomationId(title, "DiscoveryPopup");
-        content.Children.Add(title);
-        content.Children.Add(new TextBlock
+        void RefreshDetailsAvailability()
         {
-            Text = deferred
-                ? $"{discoveries.Count} newly observed devices while FingVibe was minimized. Saved locally."
-                : $"{discoveries.Count} newly observed devices on this network. Saved locally.",
-            TextWrapping = TextWrapping.Wrap
-        });
-        var entries = new StackPanel { Spacing = 4 };
-        var popup = new Flyout { Content = content };
-        foreach (var discovery in discoveries)
+            var available = _allResults.Select(row => row.IdentityKey).ToHashSet(StringComparer.Ordinal);
+            content.SetDiscoveries(discoveries.Select(device =>
+                new DiscoveryPopupItem(device, available.Contains(device.IdentityKey))).ToArray(), deferred);
+        }
+        RefreshDetailsAvailability();
+        var activationRequest = _renderingDiscoveryActivation ? _discoveryActivation.Current : null;
+        content.Loaded += (_, _) =>
         {
-            var row = _allResults.FirstOrDefault(item => item.IdentityKey == discovery.IdentityKey);
-            var mac = string.Join("-", Enumerable.Range(0, 6).Select(i => discovery.Mac.Substring(i * 2, 2)));
+            content.UpdateLayout();
+            if (activationRequest is not null)
+            {
+                _discoveryActivation.Complete(activationRequest, AsyncSurfaceState.Ready, () => { });
+                if (_discoveryActivation.Number == activationRequest.Number)
+                    _openingDiscoveryNotification = false;
+            }
+        };
+        var presenterStyle = new Style(typeof(FlyoutPresenter));
+        presenterStyle.Setters.Add(new Setter(FrameworkElement.MaxWidthProperty, content.Width + 32));
+        presenterStyle.Setters.Add(new Setter(Control.PaddingProperty, new Thickness(16)));
+        var popup = new Flyout { Content = content, FlyoutPresenterStyle = presenterStyle };
+        _discoveryPopup = popup;
+        content.DismissRequested += (_, _) => popup.Hide();
+        content.DetailsRequested += (_, identity) =>
+        {
+            var row = _allResults.FirstOrDefault(item => item.IdentityKey == identity);
             if (row is null)
             {
-                // A later scan can replace the displayed results before a deferred popup is shown.
-                var unavailable = new TextBlock
-                {
-                    Text = $"{mac} - not in the displayed results", TextWrapping = TextWrapping.Wrap
-                };
-                AutomationProperties.SetAutomationId(unavailable, $"Discovery-{discovery.Mac}");
-                entries.Children.Add(unavailable);
-                continue;
+                RefreshDetailsAvailability();
+                _windowsNotificationMessage = "Discovery details are unavailable: the device is not in the displayed results.";
+                UpdateScanStatus();
+                return;
             }
-
-            var link = new HyperlinkButton
-            {
-                Content = new TextBlock { Text = $"{mac} - {row.NameText}", TextWrapping = TextWrapping.Wrap },
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                HorizontalContentAlignment = HorizontalAlignment.Left
-            };
-            AutomationProperties.SetAutomationId(link, $"Discovery-{discovery.Mac}");
-            AutomationProperties.SetName(link, $"Open details for {mac}");
-            link.Click += (_, _) => { popup.Hide(); ShowDeviceDetails(row); };
-            entries.Children.Add(link);
-        }
-        content.Children.Add(new ScrollViewer
-        {
-            Content = entries, MaxHeight = 300,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-        });
-        var close = new Button { Content = "Close" };
-        AutomationProperties.SetAutomationId(close, "CloseDiscoveryPopup");
-        close.Click += (_, _) => popup.Hide();
-        content.Children.Add(close);
+            popup.Hide();
+            ShowDeviceDetails(row);
+        };
         popup.ShowAt(ScanFreshnessText, new FlyoutShowOptions { Placement = FlyoutPlacementMode.Bottom });
     }
 }

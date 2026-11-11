@@ -43,15 +43,31 @@ No response between samples does not establish continuous absence.
 ## New-device discoveries
 
 After a successfully completed and saved scan, FingVibe can show an in-app
-popup for newly observed devices. It links to their details.
+popup for newly observed devices. Its count-first header and name-first rows
+show each device's icon, MAC and IP address. Select a row to open its details;
+devices absent from the displayed results remain listed as **Details unavailable**.
+Large lists scroll without moving the header or **Saved locally / Dismiss** footer.
 
 The first successful scan of a previously unknown network establishes a baseline
 and is quiet. Later first local discoveries can alert, including devices
 previously imported as Fing Only. Returning known devices do not repeatedly alert.
 
 Discoveries made while minimized are combined and shown when you restore
-FingVibe. There is currently **no Windows notification or notification archive**.
+FingVibe. Every qualifying manual or scheduled scan also requests one grouped
+native Windows notification, even when FingVibe is visible. The toast previews
+device names and an additional-device count. Its amber shield/question-mark
+image means "unfamiliar: review", not a confirmed threat.
+Select the notification or **Review device(s)** to restore FingVibe and open
+that scan's discovery list, without rescanning or resending the notification.
+Windows settings and Do Not Disturb control banner delivery; the in-app popup
+does not depend on Windows displaying a banner. Integration failures appear in
+the shared scan status. There is no notification archive or closed-app scanning.
 Cancelled, failed, or restored scans do not create discovery alerts.
+
+Notification activation lists expire after 24 hours. Short-lived local payloads
+allow a retained toast to reopen its list after FingVibe restarts; expired files
+are removed on the next qualifying notification request. They do not replace
+the inventory or scan history.
 
 If Windows network identity is unavailable, FingVibe explains why discoveries
 cannot be scoped reliably. A save error also prevents the popup.

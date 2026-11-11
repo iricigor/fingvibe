@@ -206,6 +206,7 @@ if ($installerJob -notmatch 'needs: \[changes, tests, build\]' -or
     $publishJob -notmatch 'needs: \[changes, tests, build, installer, ui-capture, ui-regression\]') {
     throw "Tested downloads and screenshot publication must still wait for passing core tests."
 }
+Assert-Equal ([regex]::Matches($captureJob, '(?m)^    outputs:').Count) 1 "Capture exposes one outputs mapping after branch integration"
 Assert-Equal ([regex]::Matches($workflow, 'artifact-ids: \$\{\{ needs.build.outputs.artifact-id \}\}').Count) 3 "Installer, capture and regression matrix consume the same payload ID"
 if ($captureJob -notmatch 'artifact-id: \$\{\{ steps.screenshot.outputs.artifact-id \}\}') {
     throw "Capture must expose the exact successful upload ID for downstream failed-only reruns."

@@ -49,6 +49,8 @@
     <Compile Include="..\..\src\FingVibe.App\PeriodicScanScheduler.cs" Link="PeriodicScanScheduler.cs" />
     <Compile Include="..\..\src\FingVibe.App\PeriodicScanController.cs" Link="PeriodicScanController.cs" />
     <Compile Include="..\..\src\FingVibe.App\PeriodicScanPresentation.cs" Link="PeriodicScanPresentation.cs" />
+    <Compile Include="..\..\src\FingVibe.App\DiscoveryNotificationPresentation.cs" Link="DiscoveryNotificationPresentation.cs" />
+    <Compile Include="..\..\src\FingVibe.App\DiscoveryNotificationStore.cs" Link="DiscoveryNotificationStore.cs" />
     <Compile Include="..\..\src\FingVibe.App\Tools\WindowsNetworkProfileIdentity.cs" Link="WindowsNetworkProfileIdentity.cs" />
     <Compile Include="..\..\src\FingVibe.App\Tools\SpeedTestBridgeMessage.cs" Link="SpeedTestBridgeMessage.cs" />
     <Compile Include="..\..\src\FingVibe.App\Tools\SpeedTestSessionState.cs" Link="SpeedTestSessionState.cs" />
