@@ -636,6 +636,7 @@
     {
       "name": "Sidebar",
       "entry": "SidebarNavigation.Tests.ps1",
+      "groupDefinition": "Sidebar.Groups.psd1",
       "files": [
         {
           "file": "Sidebar.Controls.Helpers.ps1",
@@ -1092,6 +1093,14 @@
             1254
           ],
           "baselineSha256": "918cf2a2ed383ebc4db422311acd11879fea8ffd194c08f5f5ccc08f94adae4e",
+          "refactored": true,
+          "functions": [],
+          "captures": [],
+          "fixtureAssignments": []
+        },
+        {
+          "file": "Sidebar.Ready.Scenario.ps1",
+          "kind": "precondition",
           "refactored": true,
           "functions": [],
           "captures": [],

@@ -39,10 +39,10 @@ Extracted pages have separate WinUI XAML namescopes and compiled-binding roots. 
 
 Devices and Sidebar keep their existing test entry points; focused behavior
 modules live in `tests/UiRegression`. Keep shared lifecycle/readiness/input
-helpers separate from feature assertions. Sidebar dot-sources scenario modules
-at script scope, in the recorded order, because scenarios share fixture,
-selection and rendering state. Do not invoke them through a new function scope
-or append unrelated feature matrices to the baseline.
+helpers separate from feature assertions. Scenario modules within a group are
+dot-sourced in their recorded order and share fixture, selection and rendering
+state. Never move a module across a group boundary without making its
+preconditions explicit, or append unrelated feature matrices to the baseline.
 
 Devices modules run in independent groups declared in
 `tests/UiRegression/Devices.Groups.psd1`. Each group runs on its own CI runner
@@ -53,6 +53,23 @@ state carries from one group to the next. Put a new Devices module in the group
 whose state it needs, or add a group if it is independent. Do not rely on state
 from another group. `DevicesList.Ui.Tests.ps1 -Group <name>` runs one group;
 the default `All` runs every group in sequence.
+
+Sidebar uses `Sidebar.Groups.psd1`: `presentation` keeps Navigation, Settings,
+Appearance and Responsive together; `scan-flows` keeps Refresh, Progress and
+PeopleRooms together because the flows use the scanned inventory;
+`preferences-scheduling` owns Persistence and Scheduled. Each group starts with
+isolated `Setup`/`Ready` preconditions. Sidebar lifecycle helpers retain their
+entry-script-scoped handles across restarts; Setup resets those handles before
+each group. `SidebarNavigation.Tests.ps1 -Group <name>` selects a group.
+
+Tools uses `Tools.Groups.psd1` and `Tools.Ui.Tests.ps1 -Group <name>`:
+`utilities` runs BuildIdentity, Troubleshooting and FingImport; `device-data`
+runs AdditionalServices and SqlEditor. These existing checks already own
+isolated fixtures, launches, readiness and shutdown; the group scenarios invoke
+them unchanged. Both suites default to `All`, continuing independent groups
+after a failure and failing the aggregate. CI and standalone Full validation
+dispatch `sidebar-<group>` and `tools-<group>` once each on separate disposable
+workers using the single published payload, not the full suites alongside them.
 
 Use the shared bounded waits, visible/nonempty page-scoped lookup, isolated
 fixture directories, normal shutdown and process-specific cleanup. Reacquire

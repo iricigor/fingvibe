@@ -513,11 +513,17 @@ function Invoke-UiRegressionGroups {
                 }
             }
             finally {
+                $uiRegressionCleanupPhase = Start-UiRegressionPhase -Name "$Suite/$($uiRegressionGroup.Name)/Cleanup"
+                $uiRegressionCleanupSucceeded = $false
                 try {
                     Invoke-UiRegressionCleanup -PrimaryFailed ($null -ne $uiRegressionGroupResult.Error) -Steps (@($Cleanup) + @(
                         { Restore-UiRegressionEnvironment -Saved $uiRegressionGroupSavedEnvironment }))
+                    $uiRegressionCleanupSucceeded = $true
                 }
                 catch { $uiRegressionGroupResult.Error = $_ }
+                finally {
+                    Complete-UiRegressionPhase -Phase $uiRegressionCleanupPhase -Directory $Directory -Succeeded $uiRegressionCleanupSucceeded
+                }
             }
         }
         $uiRegressionGroupClock.Stop()

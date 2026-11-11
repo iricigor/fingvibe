@@ -1053,6 +1053,57 @@ that:
 Separate runners shorten the Devices critical path but add per-runner setup,
 app launch and billed minutes.
 
+Screenshot publication consumes the capture job's uploaded artifact ID rather
+than reconstructing its attempt-specific name. Failed-only publication reruns
+therefore reuse the successful capture producer's artifact, even when that
+producer ran in an earlier attempt. Missing or expired artifacts still fail
+publication; no other run or revision is used as a fallback.
+
+Sidebar and Tools use the same group runner (#314). CI and independent Full
+validation dispatch these groups on distinct disposable Windows workers against
+one published payload:
+
+| Suite/group | Original behavior modules/checks, in order |
+| --- | --- |
+| `sidebar-presentation` | Navigation, Settings, Appearance, Responsive |
+| `sidebar-scan-flows` | Refresh, Progress, PeopleRooms |
+| `sidebar-preferences-scheduling` | Persistence, Scheduled |
+| `tools-utilities` | BuildIdentity.Ui, NetworkTroubleshooting.Ui, FingImport.Ui |
+| `tools-device-data` | AdditionalServices.Ui, SqlEditor.Ui |
+
+This is the assertion/capture ownership boundary: each original behavior module
+or check runs exactly once, unchanged, including its keyboard/accessibility,
+theme/responsive, error, persistence and lifecycle assertions. Sidebar keeps the
+scan-to-PeopleRooms inventory dependency within one group, Settings-to-Appearance
+state within presentation, and restart preference/schedule checks together.
+Every Sidebar group has its own synthetic paths, app launch and bounded
+`Setup`/`Ready`; no group consumes another's files. Existing Tools checks already
+own their synthetic fixtures, app launch/readiness and bounded cleanup, so they
+need no duplicated common launch. Their scenario wrappers preserve all original
+parameters and capture subdirectories.
+
+Definitions live in `tests\UiRegression\Sidebar.Groups.psd1` and
+`Tools.Groups.psd1`. `SidebarNavigation.Tests.ps1 -Group All`,
+`Tools.Ui.Tests.ps1 -Group All` and dispatcher suites `sidebar`/`tools` retain
+full sequential coverage. Failed groups retain distinct partial diagnostics and
+later independent groups still run; the overall invocation fails. Phase logs
+include `<suite>/<group>/<module>` and cleanup, including environment restoration.
+The existing fail-fast-disabled matrix and fail-closed aggregate remain in
+force; missing/failed/cancelled applicable matrix work cannot pass.
+
+The pre-split baseline is current main
+`af5bb73e8fffe6b38b3ba7a3cda3b1e954d9247e`,
+[run 42920807580, attempt 1](https://github.com/iricigor/fingvibe/actions/runs/42920807580/attempts/1):
+Sidebar 345s complete / 321s execution, 74 captures; Tools 264s / 232s,
+60 captures. Measured Sidebar presentation was about 163s, scan flows 89s and
+preference/schedule behavior 62s before independent setup; Tools utilities 90s
+and device data 142s. These measured state-cohesive boundaries leave headroom
+below the 240s complete-job design target without reducing fixtures or timing
+checks. They are not predicted acceptance results: compare repeated final-source
+native jobs, capture inventories, setup/download/cleanup and aggregate runner
+consumption with this baseline, keeping queue time and pipeline critical path
+separate. See #314 for the fresh Devices prerequisite and delivered measurements.
+
 Device Details regression follows the #262 Overview/History tab boundary
 across four independent matrix jobs (#292): `details-summary`
 (`DeviceScanHistory.Ui -SummaryOnly`), `details-identity` (`DeviceDiscovery.Ui`,

@@ -206,11 +206,17 @@ if ($installerJob -notmatch 'needs: \[changes, tests, build\]' -or
     $publishJob -notmatch 'needs: \[changes, tests, build, installer, ui-capture, ui-regression\]') {
     throw "Tested downloads and screenshot publication must still wait for passing core tests."
 }
-if ($captureJob -notmatch 'outputs:\s+artifact-id: \$\{\{ steps\.screenshot\.outputs\.artifact-id \}\}' -or
-    $publishJob -notmatch 'artifact-ids: \$\{\{ needs\.ui-capture\.outputs\.artifact-id \}\}') {
-    throw "UI review publication must download the artifact produced by the successful capture job."
-}
+Assert-Equal ([regex]::Matches($captureJob, '(?m)^    outputs:').Count) 1 "Capture exposes one outputs mapping after branch integration"
 Assert-Equal ([regex]::Matches($workflow, 'artifact-ids: \$\{\{ needs.build.outputs.artifact-id \}\}').Count) 3 "Installer, capture and regression matrix consume the same payload ID"
+if ($captureJob -notmatch 'artifact-id: \$\{\{ steps.screenshot.outputs.artifact-id \}\}') {
+    throw "Capture must expose the exact successful upload ID for downstream failed-only reruns."
+}
+$captureDownload = [regex]::Match($publishJob, '(?ms)^      - name: Download completed captures\r?\n.*?(?=^      - name:|\z)').Value
+if ($captureDownload -notmatch 'artifact-ids: \$\{\{ needs.ui-capture.outputs.artifact-id \}\}' -or
+    $captureDownload -notmatch 'merge-multiple: true' -or
+    $captureDownload -match 'github.run_attempt|(?m)^\s+name: fingvibe-ui-review') {
+    throw "Publication must download the successful producer's artifact ID, not reconstruct a name from the publisher's rerun attempt."
+}
 Assert-Equal ([regex]::Matches($buildJob, 'uses: actions/upload-artifact@v7\.0\.2').Count) 1 "Publish uploads only the transfer payload"
 if ($buildJob -notmatch '(?s)name: Upload unvalidated payload.*?id: upload.*?name: fingvibe-validation-payload-pr-.*-attempt-\$\{\{ github.run_attempt \}\}.*?retention-days: 1' -or
     $buildJob -match 'New-Installer|Installer.Lifecycle|name: Upload runnable app|name: Upload tested installer') {
@@ -235,10 +241,10 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         'runs-on: windows-2025',
         'timeout-minutes: 20',
         'fail-fast: false',
-        'suite: \[sidebar, devices-presentation, devices-filters-previews, devices-columns-sorting, details-summary, details-identity, details-observations, details-activity, tools\]',
+        'suite: \[sidebar-presentation, sidebar-scan-flows, sidebar-preferences-scheduling, devices-presentation, devices-filters-previews, devices-columns-sorting, details-summary, details-identity, details-observations, details-activity, tools-utilities, tools-device-data\]',
         '(?s)name: Run native regression suite\s+timeout-minutes: 15',
-        "(?s)name: Run native regression suite\s+timeout-minutes: 15\s+if: matrix.suite != 'sidebar'\s+shell: pwsh",
-        "(?s)name: Run sidebar regression in Windows PowerShell\s+timeout-minutes: 15\s+if: matrix.suite == 'sidebar'\s+shell: powershell",
+        "(?s)name: Run native regression suite\s+timeout-minutes: 15\s+if: \$\{\{ !startsWith\(matrix.suite, 'sidebar-'\) \}\}\s+shell: pwsh",
+        "(?s)name: Run sidebar regression in Windows PowerShell\s+timeout-minutes: 15\s+if: startsWith\(matrix.suite, 'sidebar-'\)\s+shell: powershell",
         '(?s)name: Upload native regression diagnostics\s+if: always\(\)',
         'name: fingvibe-ui-regression-\$\{\{ matrix.suite \}\}-pr-',
         'REGRESSION_RESULT: \$\{\{ needs.ui-regression.result \}\}'
@@ -261,7 +267,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
     $regressionScript = Get-Content (Join-Path $PSScriptRoot "..\.github\scripts\Invoke-UiRegression.ps1") -Raw
     foreach ($suite in @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
         "UsageCategory.Ui", "DeviceActivity.Ui", "NetworkActivity.Ui",
-        "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
+        "Tools.Ui")) {
         if ($captureJob.Contains($suite) -or $smokeScript.Contains($suite)) { throw "Capture still runs extracted suite: $suite" }
         $expectedCount = if ($suite -eq "DeviceScanHistory.Ui") { 2 } else { 1 }
         Assert-Equal ([regex]::Matches($regressionScript, ('Invoke-RegressionCheck "' + [regex]::Escape($suite) + '"')).Count) $expectedCount "Preserve suite dispatch: $suite"
@@ -285,6 +291,11 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         $scripts = Join-Path $runnerFixture ".github\scripts"
         $null = New-Item -ItemType Directory -Path $scripts -Force
         $null = New-Item -ItemType Directory -Path (Join-Path $runnerFixture "tests") -Force
+        $groupModules = Join-Path $runnerFixture "tests\UiRegression"
+        $null = New-Item -ItemType Directory -Path $groupModules -Force
+        Copy-Item (Join-Path $PSScriptRoot "Tools.Ui.Tests.ps1") (Join-Path $runnerFixture "tests")
+        Copy-Item (Join-Path $PSScriptRoot "UiRegression\Tools.*") $groupModules
+        Copy-Item (Join-Path $PSScriptRoot "UiRegression\Helpers.ps1") $groupModules
         foreach ($name in @("Invoke-UiRegression.ps1", "UiReviewScenarios.ps1")) {
             Copy-Item (Join-Path $PSScriptRoot "..\.github\scripts\$name") $scripts
         }
@@ -312,7 +323,9 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         }
         $matrixSuites = @([regex]::Match($regressionJob, 'suite: \[([^\]]+)\]').Groups[1].Value.Split(",") | ForEach-Object { $_.Trim() })
         $expectedSuiteChecks = [ordered]@{
-            "sidebar" = @("SidebarNavigation")
+            "sidebar-presentation" = @("SidebarNavigation")
+            "sidebar-scan-flows" = @("SidebarNavigation")
+            "sidebar-preferences-scheduling" = @("SidebarNavigation")
             "devices-presentation" = @("DevicesList.Ui")
             "devices-filters-previews" = @("DevicesList.Ui")
             "devices-columns-sorting" = @("DevicesList.Ui")
@@ -320,7 +333,8 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             "details-identity" = @("DeviceDiscovery.Ui", "UsageCategory.Ui")
             "details-observations" = @("DeviceScanHistory.Ui")
             "details-activity" = @("DeviceActivity.Ui")
-            "tools" = @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")
+            "tools-utilities" = @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui")
+            "tools-device-data" = @("AdditionalServices.Ui", "SqlEditor.Ui")
         }
         Assert-Equal $matrixSuites @($expectedSuiteChecks.Keys) "CI matrix dispatches every split suite"
         foreach ($suite in $matrixSuites) {
@@ -332,33 +346,38 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             Assert-Equal $suiteCalls.Name $expectedSuiteChecks[$suite] "Suite '$suite' runs exactly its assigned checks"
         }
         $calls = @(Get-Content $env:UI_REGRESSION_CALLS | ConvertFrom-Json)
-        Assert-Equal $calls.Name @("SidebarNavigation", "DevicesList.Ui", "DevicesList.Ui", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
+        Assert-Equal $calls.Name @("SidebarNavigation", "SidebarNavigation", "SidebarNavigation", "DevicesList.Ui", "DevicesList.Ui", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
             "UsageCategory.Ui", "DeviceScanHistory.Ui", "DeviceActivity.Ui",
             "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "Dispatch every preserved suite once"
         $deviceGroups = @((Import-PowerShellDataFile -LiteralPath (Join-Path $PSScriptRoot "UiRegression\Devices.Groups.psd1")).Groups.Name)
         Assert-Equal @($matrixSuites | Where-Object { $_ -like "devices*" }) @($deviceGroups | ForEach-Object { "devices-$_" }) "CI matrix runs every Devices group once on its own worker"
         Assert-Equal @($calls | Where-Object Name -eq "DevicesList.Ui" | ForEach-Object { $_.Parameters.Group }) $deviceGroups "Devices group jobs dispatch exactly their group"
-        Assert-Equal $calls[4].Parameters.SummaryOnly $true "Details summary dispatch tests only retained summaries"
-        Assert-Equal $calls[7].Parameters.ObservationsOnly $true "Details history dispatch includes full observation rendering and paging"
-        Assert-Equal ([DateTimeOffset]$calls[9].Parameters.BuildTimestamp).UtcDateTime ([DateTimeOffset]$parameters.BuildTimestamp).UtcDateTime "Forward stamped identity"
-        Assert-Equal $calls[9].Parameters.PullRequestNumber 198 "Forward PR identity"
+        foreach ($groupSuite in @("Sidebar", "Tools")) {
+            $groups = @((Import-PowerShellDataFile -LiteralPath (Join-Path $PSScriptRoot "UiRegression\$groupSuite.Groups.psd1")).Groups.Name)
+            Assert-Equal @($matrixSuites | Where-Object { $_ -like "$groupSuite-*" }) @($groups | ForEach-Object { "$($groupSuite.ToLowerInvariant())-$_" }) "CI dispatches every $groupSuite group exactly once, never the full suite"
+        }
+        Assert-Equal @($calls | Where-Object Name -eq "SidebarNavigation" | ForEach-Object { $_.Parameters.Group }) @("presentation", "scan-flows", "preferences-scheduling") "Sidebar forwards each independent group"
+        Assert-Equal $calls[6].Parameters.SummaryOnly $true "Details summary dispatch tests only retained summaries"
+        Assert-Equal $calls[9].Parameters.ObservationsOnly $true "Details history dispatch includes full observation rendering and paging"
+        Assert-Equal ([DateTimeOffset]$calls[11].Parameters.BuildTimestamp).UtcDateTime ([DateTimeOffset]$parameters.BuildTimestamp).UtcDateTime "Forward stamped identity"
+        Assert-Equal $calls[11].Parameters.PullRequestNumber 198 "Forward PR identity"
         Assert-Equal ($calls.Parameters.AppPath | Select-Object -Unique) "synthetic.exe" "Reuse supplied app"
         & powershell.exe -NoProfile -File $runner -Suite sidebar -AppPath $parameters.AppPath `
             -ScreenshotDirectory $parameters.ScreenshotDirectory -CapturePlanPath $planPath
         if ($LASTEXITCODE -ne 0) { throw "Sidebar runner must support multi-scenario plans under Windows PowerShell." }
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 15 "Windows PowerShell dispatches the sidebar without parsing details selection"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 17 "Windows PowerShell dispatches the sidebar without parsing details selection"
         ConvertTo-Json -InputObject @($definitions | Where-Object Scenario -eq Devices) -Depth 5 | Set-Content $planPath
         foreach ($suite in @("details-summary", "details-identity", "details-observations", "details-activity")) {
             & $runner -Suite $suite @parameters
-            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 15 "Unselected $suite must not launch native checks"
+            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 17 "Unselected $suite must not launch native checks"
         }
         ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios Network) -Depth 5 | Set-Content $planPath
         foreach ($suite in @("details-summary", "details-observations", "details-activity")) {
             & $runner -Suite $suite @parameters
-            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 15 "Network-only plan adds no checks to $suite"
+            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 17 "Network-only plan adds no checks to $suite"
         }
         & $runner -Suite details-identity @parameters
-        $networkCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip 15 | ConvertFrom-Json)
+        $networkCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip 17 | ConvertFrom-Json)
         Assert-Equal $networkCalls.Name @("NetworkActivity.Ui") "Network-only plan still runs its activity regression"
         ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios DeviceDetails, Network) -Depth 5 |
             Set-Content $planPath
@@ -390,6 +409,15 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         if ((Get-Content $env:GITHUB_STEP_SUMMARY -Raw) -notmatch 'devices / DevicesList.Ui elapsed:') {
             throw "Regression timing must be reported even on failure."
         }
+        $env:UI_REGRESSION_FAIL = $null
+        $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
+        & $runner -Suite tools @parameters
+        $toolChecks = @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name $toolChecks "Default Tools entry point preserves full sequential coverage"
+        $env:UI_REGRESSION_FAIL = "BuildIdentity.Ui"
+        $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
+        Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: utilities*Simulated regression failure*"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name @("BuildIdentity.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "An independent Tools group must still run after another group fails"
     } finally {
         foreach ($name in $runnerSaved.Keys) { [Environment]::SetEnvironmentVariable($name, $runnerSaved[$name]) }
         Remove-Item -LiteralPath $runnerFixture -Recurse -Force
