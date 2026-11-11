@@ -51,7 +51,9 @@ function Find-HistoryControl([string] $Value, [switch] $ByName, [switch] $Option
                         [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $disclosure))
                 if ($details) {
                     $details.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
-                    $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+                    $element = Wait-UiRegressionState -Description "disclosed history control '$Value'" -Condition {
+                        $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+                    }
                 }
             }
         }
@@ -195,7 +197,7 @@ function Open-HistoryDetails([string] $Name) {
         }
         if ($SummaryOnly) { return }
     }
-    $expander = Show-HistorySection DeviceScanHistoryExpander
+    $expander = Find-HistoryControl DeviceScanHistoryExpander
     Wait-HistoryState {
         (Find-HistoryControl DeviceScanHistoryExpander).GetCurrentPattern(
             [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -eq

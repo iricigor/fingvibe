@@ -5,6 +5,20 @@
     xmlns:app="using:FingVibe.App"
     xmlns:views="using:FingVibe.App.Views"
     xmlns:models="using:FingVibe.Core.Models">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="SelectorBarItemBackgroundSelected" Color="{ThemeResource AccentFillColorDefault}" />
+                    <SolidColorBrush x:Key="SelectorBarItemForegroundSelected" Color="{ThemeResource TextOnAccentFillColorPrimary}" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush x:Key="SelectorBarItemBackgroundSelected" Color="{ThemeResource SystemColorHighlightColor}" />
+                    <SolidColorBrush x:Key="SelectorBarItemForegroundSelected" Color="{ThemeResource SystemColorHighlightTextColor}" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
     <ScrollViewer x:Name="DevicePage" AutomationProperties.AutomationId="DeviceDetailsScroll"
                   HorizontalScrollBarVisibility="Disabled">
     <StackPanel Margin="24,0,24,24" Spacing="16">
@@ -32,8 +46,8 @@
                 <SelectorBar x:Name="DetailsTabs" SelectionChanged="DetailsTabs_SelectionChanged"
                              AutomationProperties.AutomationId="DeviceDetailsTabs" AutomationProperties.Name="Device details sections">
                     <SelectorBarItem x:Name="OverviewTab" Text="Overview" IsSelected="True"
-                                     Padding="16,12" AutomationProperties.AutomationId="DeviceOverviewTab" AutomationProperties.Name="Overview" />
-                    <SelectorBarItem x:Name="HistoryTab" Text="History" Padding="16,12"
+                                     Padding="16,12" CornerRadius="6" AutomationProperties.AutomationId="DeviceOverviewTab" AutomationProperties.Name="Overview" />
+                    <SelectorBarItem x:Name="HistoryTab" Text="History" Padding="16,12" CornerRadius="6"
                                      AutomationProperties.AutomationId="DeviceHistoryTab" AutomationProperties.Name="History" />
                 </SelectorBar>
             </Border>
@@ -172,9 +186,13 @@
                 </Border>
                 <Border x:Name="UsageCategoryCard" Grid.Row="1" Grid.Column="1" Style="{StaticResource ScannerSummaryCardStyle}">
                         <StackPanel Spacing="8">
-                            <Grid ColumnSpacing="8" RowSpacing="4" SizeChanged="Fields_SizeChanged">
+                            <Grid ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
                                 <TextBlock Text="Usage category" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                <Button x:Name="UsageCategoryEdit" Content="Edit" Click="UsageCategoryEdit_Click"
+                                <Button x:Name="UsageCategoryEdit" Grid.Column="1" Content="Edit" Click="UsageCategoryEdit_Click"
                                         AutomationProperties.AutomationId="UsageCategoryEdit" AutomationProperties.Name="Edit usage category" />
                             </Grid>
                             <TextBlock x:Name="UsageCategoryEffective" FontWeight="SemiBold" TextWrapping="Wrap"

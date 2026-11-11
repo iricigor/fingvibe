@@ -24,6 +24,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
     private string? _historyNetwork;
     private string? _historySubnet;
     private DeviceHistoryPage? _historyPage;
+    private (DateOnly Date, string Zone, TimeSpan Offset)? _historyDisplayContext;
     private int _historyPageIndex;
     private int _historyGeneration;
     private readonly AsyncSurfaceSession _historySession = new();
@@ -151,8 +152,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
     {
         _historyPage = page;
         DeviceScanHistoryCount.Text = $"{page.TotalCount:N0} completed scan observations";
-        DeviceScanHistoryRows.ItemsSource = page.Items.Select((item, index) => new DeviceScanHistoryRow(
-            item.CompletedAt, item.Present, index % 2 == 1, TimeZoneInfo.Local)).ToArray();
+        RefreshHistoryRows();
         DeviceScanHistoryList.ChangeView(null, 0, null, disableAnimation: true);
         DeviceScanHistoryTable.Visibility = page.TotalCount == 0 ? Visibility.Collapsed : Visibility.Visible;
         var start = _historyPageIndex * DeviceHistoryQuery.DefaultPageSize;
@@ -210,6 +210,9 @@ public sealed partial class DeviceDetailsPageView : UserControl
     {
         if (_historySummary is not { } summary) return;
         var now = DateTimeOffset.UtcNow;
+        var local = TimeZoneInfo.ConvertTime(now, TimeZoneInfo.Local);
+        if (_historyDisplayContext != (DateOnly.FromDateTime(local.DateTime), TimeZoneInfo.Local.Id, local.Offset))
+            RefreshHistoryRows();
         DeviceHistoryFirstSeen.Text = $"First seen: {DeviceDetailsPresentation.FriendlyTimestamp(summary.FirstSeen, now, aggregate: summary.FirstSeenIsAggregate)}";
         DeviceHistoryLastSeen.Text = $"Last seen: {DeviceDetailsPresentation.FriendlyTimestamp(summary.LastSeen, now, aggregate: summary.LastSeenIsAggregate)}";
         DeviceHistoryExactDates.Text = $"First seen: {DeviceDetailsPresentation.HistoryTimestamp(summary.FirstSeen, summary.FirstSeenIsAggregate)}\n"
@@ -225,6 +228,16 @@ public sealed partial class DeviceDetailsPageView : UserControl
             : "Last recorded state: Unavailable - no matching individual scan observations.";
         DeviceHistoryPresentDot.Visibility = summary.Latest?.Present == true ? Visibility.Visible : Visibility.Collapsed;
         DeviceHistoryAbsentDot.Visibility = summary.Latest?.Present == false ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void RefreshHistoryRows()
+    {
+        if (_historyPage is not { } page) return;
+        var zone = TimeZoneInfo.Local;
+        var local = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone);
+        _historyDisplayContext = (DateOnly.FromDateTime(local.DateTime), zone.Id, local.Offset);
+        DeviceScanHistoryRows.ItemsSource = page.Items.Select((item, index) => new DeviceScanHistoryRow(
+            item.CompletedAt, item.Present, index % 2 == 1, zone)).ToArray();
     }
 
     internal void ShowConnection(ScanResultRow row)
@@ -286,10 +299,6 @@ public sealed partial class DeviceDetailsPageView : UserControl
         var history = tab == HistoryTab;
         OverviewPanel.Visibility = history ? Visibility.Collapsed : Visibility.Visible;
         HistoryPanel.Visibility = history ? Visibility.Visible : Visibility.Collapsed;
-        OverviewTab.Background = (Brush)Application.Current.Resources[history
-            ? "ControlFillColorTransparentBrush" : "ControlFillColorDefaultBrush"];
-        HistoryTab.Background = (Brush)Application.Current.Resources[history
-            ? "ControlFillColorDefaultBrush" : "ControlFillColorTransparentBrush"];
         if (_activityInitialized && _activityPageActive)
         {
             SetActivityTabActive(history);

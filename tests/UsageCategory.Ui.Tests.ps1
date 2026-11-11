@@ -46,8 +46,10 @@ function Find-Usage([string] $Value, [switch] $ByName, [switch] $Optional) {
                     [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "UsageCategoryDetails"))
             if ($details) {
                 $details.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
-                $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
-                    [System.Windows.Automation.PropertyCondition]::new($property, $Value))
+                $element = Wait-UiRegressionState -Description "disclosed usage control '$Value'" -Condition {
+                    $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                        [System.Windows.Automation.PropertyCondition]::new($property, $Value))
+                }
             }
         }
     }

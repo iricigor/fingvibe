@@ -312,6 +312,7 @@ function Test-DeviceDetailsEditing {
     if ($before -ne $after) { throw "Copy activation shifted its layout." }
     [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
 
+    $detectedVendor = (Find-ServiceControl DeviceDetectedMacVendor).Current.Name
     Open-IdentificationEditor
     $brand = Find-ServiceControl DeviceBrandInput
     $brand.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("Unsaved brand")
@@ -330,6 +331,9 @@ function Test-DeviceDetailsEditing {
     Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-identification-edit.png")
     Invoke-ServiceControl "Save changes"
     Wait-ServiceState { (Find-ServiceControl "Edit device identification" -ByName).Current.IsEnabled } "identification save"
+    if ((Find-ServiceControl DeviceDetectedMacVendor).Current.Name -cne $detectedVendor) {
+        throw "Editing the manufacturer changed detected MAC-vendor evidence."
+    }
     $modelCopy = Find-ServiceControl "Copy Model" -ByName
     $modelCopy.SetFocus()
     Wait-ServiceState { -not $modelCopy.Current.IsOffscreen -and $modelCopy.Current.BoundingRectangle.Width -ge 30 } "saved metadata copy focus"

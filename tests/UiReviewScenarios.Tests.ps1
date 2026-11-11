@@ -906,7 +906,7 @@ try {
                     "control-Back to devices" { $script:currentPage -eq "DeviceDetails" }
                     "control-DeviceHistoryTab" { $script:currentPage -eq "DeviceDetails" }
                     "control-Activity" { $script:currentPage -eq "DeviceHistory" }
-                    "control-Device name" { $script:currentPage -eq "DeviceDetails" }
+                    "control-Rename device" { $script:currentPage -eq "DeviceDetails" }
                     "control-Network overview" { $script:currentPage -eq "DeviceDetails" }
                     "control-Scan additional ports" { $script:currentPage -eq "DeviceDetails" }
                     "control-Room assignment saved." { $script:currentPage -eq "DeviceDetails" }

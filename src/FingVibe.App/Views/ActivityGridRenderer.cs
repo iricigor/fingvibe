@@ -59,6 +59,9 @@ internal static class ActivityGridRenderer
     internal static void Render(Grid grid, IReadOnlyList<DeviceActivityCell> cells, ElementTheme theme,
         UISettings colors, string idPrefix, Action<string> select, bool deviceStyle = false)
     {
+        var focusedIndex = deviceStyle && grid.XamlRoot is { } root
+            && FocusManager.GetFocusedElement(root) is Button { Tag: int focusedCellIndex } focused
+            && grid.Children.Contains(focused) ? focusedCellIndex : (int?)null;
         grid.Children.Clear();
         grid.RowDefinitions.Clear();
         grid.ColumnDefinitions.Clear();
@@ -115,7 +118,8 @@ internal static class ActivityGridRenderer
                 var glyph = new TextBlock
                 {
                     Text = deviceStyle
-                        ? !cell.IsApplicable ? "N/A" : cell.IsFuture ? "\u00B7" : !string.IsNullOrEmpty(cell.Value) ? cell.Value
+                        ? !cell.IsApplicable ? "N/A" : cell.IsFuture ? "\u00B7" : !string.IsNullOrEmpty(cell.Value)
+                            ? cell.Value + (cell.Response == AnalyticsResponse.DidNotRespond ? "\u2212" : "")
                             : cell.Response == AnalyticsResponse.Responded ? "R" : cell.Response == AnalyticsResponse.DidNotRespond ? "\u2212" : "?"
                         : contrast && cell.IsApplicable && string.IsNullOrEmpty(cell.Value)
                         ? cell.Response == AnalyticsResponse.Responded ? "R" : cell.Response == AnalyticsResponse.DidNotRespond ? "N" : "?"
@@ -148,6 +152,8 @@ internal static class ActivityGridRenderer
                 grid.Children.Add(button);
             }
         }
+        if (focusedIndex is { } selected && selected < buttons.Count)
+            buttons[selected].Focus(FocusState.Programmatic);
     }
 
     internal static Color CellColor(DeviceActivityCell cell, bool contrast, ElementTheme theme, UISettings colors,

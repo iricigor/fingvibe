@@ -108,8 +108,10 @@ public sealed class DeviceDetailValue : Grid
         if (ActualWidth <= 0) return;
         _browserText.MaxWidth = ActualWidth;
         _browser.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+        _value.MaxWidth = double.PositiveInfinity;
+        _value.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
         var alternate = !_linkedValue && _browser.Visibility == Visibility.Visible;
-        var stacked = alternate && ActualWidth < _browser.DesiredSize.Width + 200;
+        var stacked = alternate && ActualWidth < _browser.DesiredSize.Width + _value.DesiredSize.Width + 44;
         SetRow(_browser, stacked ? 1 : 0);
         SetColumn(_browser, _linkedValue || stacked ? 0 : 2);
         SetColumnSpan(_browser, stacked ? 2 : 1);
