@@ -143,6 +143,9 @@ function Assert-RealTaskState {
             if (-not $workers.ContainsKey($handoff.workerId) -or
                 $handoff.action -cnotin @("implement", "repair", "finalize") -or
                 $handoff.stage -cnotin $script:Stages) { throw "Invalid handoff worker, action or stage." }
+            if ($handoff.repairAttempt -isnot [int] -and $handoff.repairAttempt -isnot [long]) {
+                throw "Repair attempt must be an integer."
+            }
             if ($null -ne $previous -and $previous.stage -cne "reconciled") {
                 throw "A task cannot have overlapping handoffs."
             }

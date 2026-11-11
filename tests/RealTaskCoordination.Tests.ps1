@@ -135,6 +135,8 @@ try {
     Assert-Throws { Add-RealTaskHandoff $repairs $task.claimId developer-1 repair -Feedback $evidence -PriorRepairEvidence $evidence } "*exhausted*"
     $bad = Copy-Record $repairs; $bad.tasks[0].repairCount = 0
     Assert-Throws { Assert-RealTaskState $bad } "*cannot reset*"
+    $bad = Copy-Record $repairs; $bad.tasks[0].handoffs[1].repairAttempt = 1.0
+    Assert-Throws { Assert-RealTaskState $bad } "*Repair attempt must be an integer*"
 
     $final = New-Fixture
     $task = Add-RealTaskClaim $final 300 $evidence
