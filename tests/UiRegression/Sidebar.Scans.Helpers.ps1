@@ -441,7 +441,8 @@ function Test-ScanTextScaling {
             if ($scan.Current.Name -ne 'Scan LAN' -or -not $scan.Current.IsEnabled -or
                 -not $root.Current.BoundingRectangle.Contains($bounds) -or
                 $bounds.Height -lt $normalHeight * (2 / $originalScale) * 0.75) {
-                throw "The scaled Scan LAN action must render larger without clipping at $width DIPs."
+                Save-SidebarAppearance "scan-action-text-scale-failure-$width"
+                throw "The scaled Scan LAN action must render larger without clipping at $width DIPs. Baseline height=$normalHeight; original scale=$originalScale; effective scale=$($settings.TextScaleFactor); action=$bounds; window=$($root.Current.BoundingRectangle); enabled=$($scan.Current.IsEnabled); name=$($scan.Current.Name)."
             }
             Test-SharedScanContext "Online devices" -Cancel
             if ($width -eq 640) { Save-SidebarAppearance 'scan-action-text-scale-200' }
