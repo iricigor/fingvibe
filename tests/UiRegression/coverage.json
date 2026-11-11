@@ -920,7 +920,7 @@
             {
               "name": "Test-SharedScanContext",
               "refactored": true,
-              "introducedBy": "#254: held keyboard scan proves page/LAN retention and focus across completion or cancellation."
+              "introducedBy": "#254: held keyboard scan proves page/LAN retention and focus across completion or cancellation. Network uses its visible page viewport rather than an incidental heading that can scroll offscreen."
             },
             {
               "assertions": [

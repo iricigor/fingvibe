@@ -76,6 +76,8 @@ Successful scans leave no persistent completion message in the shared header, in
 The Sidebar scan-flow regression group exercises keyboard scan entry from every
 top-level page, retained Device Details name drafts and Person/Room context,
 cancellation after navigation, and failure feedback without forced navigation.
+Network context uses the visible page viewport, not a heading that can scroll
+offscreen; hidden or missing pages still fail the check.
 Its isolated `FINGVIBE_UI_REVIEW_NO_NETWORK=1` fixture disables network selection
 only in UI-review mode. Disposable CI additionally checks 200% Windows text size,
 verifies the effective scale before checking narrow layouts, and restores the

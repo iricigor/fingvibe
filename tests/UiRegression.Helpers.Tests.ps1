@@ -29,6 +29,89 @@ foreach ($condition in @({ $false }, { $null }, {})) {
 Assert-RegressionFailure { Wait-UiRegressionState -Description 'unexpected error' -Condition { throw 'unexpected condition error' } } 'unexpected condition error'
 
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+Add-Type -TypeDefinition @'
+public static class SidebarReviewKeyboard
+{
+    public static int Taps;
+    public static void Tap(int key) { Taps++; }
+}
+'@
+foreach ($case in @('completed', 'cancelled', 'hidden', 'missing', 'name')) {
+    & {
+        . (Join-Path $PSScriptRoot 'UiRegression\Sidebar.Scans.Helpers.ps1')
+        $scanHoldPath = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-scan-context-$([Guid]::NewGuid().ToString('N')).hold"
+        $state = @{ Finished = $false; ContextChecks = 0 }
+        [SidebarReviewKeyboard]::Taps = 0
+        $page = [pscustomobject]@{ Current = [pscustomobject]@{
+            IsOffscreen = $false
+            BoundingRectangle = [pscustomobject]@{ IsEmpty = $false; Width = 900; Height = 600 }
+        } }
+        $heading = [pscustomobject]@{ Current = [pscustomobject]@{
+            IsOffscreen = $false
+            BoundingRectangle = [pscustomobject]@{ IsEmpty = $false; Width = 100; Height = 30 }
+        } }
+        $selection = [pscustomobject]@{}
+        $selection | Add-Member ScriptMethod GetSelection { return @([pscustomobject]@{ Current = @{ Name = 'Review LAN' } }) }
+        $picker = [pscustomobject]@{ Current = [pscustomobject]@{ IsEnabled = $true } }
+        $picker | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return [pscustomobject]@{ Current = $selection } }
+        $scan = [pscustomobject]@{ Current = [pscustomobject]@{ IsEnabled = $true; HasKeyboardFocus = $true } }
+        $scan | Add-Member ScriptMethod SetFocus {}
+        $cancelControl = [pscustomobject]@{ Current = [pscustomobject]@{ IsEnabled = $true; HasKeyboardFocus = $true } }
+        function Focus-SidebarWindow {}
+        function Wait-UiRegressionState {
+            param($Condition, $Description)
+            $result = & $Condition
+            if (-not $result) { throw "Missing $Description." }
+            return $result
+        }
+        function Wait-DeviceScan {
+            $state.Finished = $true
+            $heading.Current.IsOffscreen = $case -ne 'name'
+            $page.Current.IsOffscreen = $case -eq 'hidden'
+        }
+        function Find-SidebarElement {
+            param($Property, $Value, [switch] $Optional)
+            $scanning = [SidebarReviewKeyboard]::Taps -gt 0 -and -not $state.Finished
+            switch ($Value) {
+                NetworkPicker { $picker.Current.IsEnabled = -not $scanning; return $picker }
+                ScanButton { if (-not $scanning) { return $scan }; return $null }
+                CancelButton { if ($scanning) { return $cancelControl }; return $null }
+                ScanProgressBar { return [pscustomobject]@{} }
+            }
+            $state.ContextChecks++
+            Find-UiRegressionElement -Container { 'review window' } -Condition "$Property/$Value" `
+                -Description "visible scan context '$Value'" -Optional:$Optional -Find {
+                    param($Owner, $Match)
+                    if ($Match -eq 'AutomationId/NetworkPage') {
+                        if ($case -ne 'missing' -or -not $state.Finished) { return $page }
+                    }
+                    elseif ($Match -eq 'Name/Public IP address') { return $heading }
+                }
+        }
+        $arguments = if ($case -eq 'name') {
+            @{ Sentinel = 'Public IP address' }
+        } else {
+            @{ Sentinel = 'NetworkPage'; SentinelProperty = 'AutomationId'; Cancel = $case -eq 'cancelled' }
+        }
+        try {
+            if ($case -in @('hidden', 'missing')) {
+                Assert-RegressionFailure { Test-SharedScanContext @arguments } "*visible scan context 'NetworkPage'*"
+            }
+            else {
+                Test-SharedScanContext @arguments
+            }
+            Assert-Regression ($state.Finished -and $state.ContextChecks -eq 3) 'Scan context must be checked before, during and after scanning.'
+            Assert-Regression ([SidebarReviewKeyboard]::Taps -eq $(if ($case -eq 'cancelled') { 2 } else { 1 })) 'Context checks must preserve keyboard scan/cancel entry.'
+            Assert-Regression (-not (Test-Path -LiteralPath $scanHoldPath)) 'Context failures must still release the isolated scan hold.'
+            if ($case -in @('completed', 'cancelled')) {
+                Assert-Regression ($heading.Current.IsOffscreen -and -not $page.Current.IsOffscreen) 'The retained Network viewport must remain valid when its heading scrolls offscreen.'
+            }
+        }
+        finally {
+            if (Test-Path -LiteralPath $scanHoldPath) { Remove-Item -LiteralPath $scanHoldPath }
+        }
+    }
+}
 foreach ($focusable in @($true, $false)) {
     & {
         $state = @{ PageLookups = 0; FocusCalls = 0; PositionCalls = 0 }

@@ -5,8 +5,9 @@
     }
 }
 
-function Test-SharedScanContext([string] $Sentinel, [switch] $Cancel) {
-    $null = Find-SidebarElement Name $Sentinel
+function Test-SharedScanContext([string] $Sentinel, [switch] $Cancel,
+    [ValidateSet('Name', 'AutomationId')][string] $SentinelProperty = 'Name') {
+    $null = Find-SidebarElement $SentinelProperty $Sentinel
     $network = (Find-SidebarElement AutomationId NetworkPicker).GetCurrentPattern(
         [System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()[0].Current.Name
     if (Test-Path -LiteralPath $scanHoldPath) { throw 'A prior scan hold was not released.' }
@@ -19,7 +20,7 @@ function Test-SharedScanContext([string] $Sentinel, [switch] $Cancel) {
             $button = Find-SidebarElement AutomationId CancelButton -Optional
             if ($button -and $button.Current.IsEnabled -and $button.Current.HasKeyboardFocus) { return $button }
         }
-        $null = Find-SidebarElement Name $Sentinel
+        $null = Find-SidebarElement $SentinelProperty $Sentinel
         if (-not $cancelButton.Current.IsEnabled -or -not $cancelButton.Current.HasKeyboardFocus -or
             (Find-SidebarElement AutomationId NetworkPicker).Current.IsEnabled -or
             (Find-SidebarElement AutomationId ScanButton -Optional)) {
@@ -33,7 +34,7 @@ function Test-SharedScanContext([string] $Sentinel, [switch] $Cancel) {
             Remove-Item -LiteralPath $scanHoldPath
         }
         Wait-DeviceScan
-        $null = Find-SidebarElement Name $Sentinel
+        $null = Find-SidebarElement $SentinelProperty $Sentinel
         $selected = (Find-SidebarElement AutomationId NetworkPicker).GetCurrentPattern(
             [System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()[0].Current.Name
         if ($selected -ne $network -or -not (Find-SidebarElement AutomationId ScanButton).Current.HasKeyboardFocus -or
@@ -72,7 +73,13 @@ function Test-DeviceRefresh {
         )) {
             Select-SidebarPage $page[0] $page[1]
             Assert-SharedNetworkHeader
-            Test-SharedScanContext $page[1]
+            if ($page[0] -eq 'Network') {
+                # The heading can scroll offscreen without leaving the Network page.
+                Test-SharedScanContext NetworkPage -SentinelProperty AutomationId
+            }
+            else {
+                Test-SharedScanContext $page[1]
+            }
             if ((Find-SidebarElement AutomationId ScanStatusText -Optional) -or
                 (Find-SidebarElement AutomationId ScanProgressBar -Optional)) {
                 throw "Successful completion must leave no scan message or progress on $($page[0])."
