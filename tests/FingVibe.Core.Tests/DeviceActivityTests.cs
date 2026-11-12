@@ -28,6 +28,46 @@ public sealed class DeviceActivityTests
             devices ?? [new(A, time.AddDays(-40), false)], scans, null);
     }
 
+    [Fact]
+    public void CoverageCountsEligibleDatesAndDisplayedSquaresRatherThanScansOrUnderlyingDays()
+    {
+        var buckets = DeviceActivity.Group(Evidence([
+            Scan("2026-11-06T09:00:00Z", AnalyticsResponse.Responded),
+            Scan("2026-11-06T09:20:00Z", AnalyticsResponse.DidNotRespond),
+            Scan("2026-11-06T10:00:00Z", AnalyticsResponse.DidNotRespond),
+            Scan("2026-11-05T10:00:00Z", AnalyticsResponse.Unknown)
+        ]), 1);
+        Assert.Equal(1, DeviceActivityPresentation.CoveredDates(buckets));
+        Assert.Equal(2, DeviceActivityPresentation.PopulatedSquares(DeviceActivityPresentation.Cells(buckets, false)));
+        var empty = DeviceActivity.Group(Evidence([]), 4);
+        Assert.Equal(0, DeviceActivityPresentation.CoveredDates(empty));
+        Assert.Equal(0, DeviceActivityPresentation.PopulatedSquares(DeviceActivityPresentation.Cells(empty, false)));
+        var repeatedWeekday = DeviceActivity.Group(Evidence([
+            Scan("2026-10-14T09:00:00Z", AnalyticsResponse.Responded),
+            Scan("2026-10-21T09:00:00Z", AnalyticsResponse.Responded),
+            Scan("2026-10-28T09:00:00Z", AnalyticsResponse.DidNotRespond)
+        ], 30), 2);
+        Assert.Equal(3, DeviceActivityPresentation.CoveredDates(repeatedWeekday));
+        Assert.Equal(3, DeviceActivityPresentation.PopulatedSquares(DeviceActivityPresentation.Cells(repeatedWeekday, false)));
+        Assert.Equal(1, DeviceActivityPresentation.PopulatedSquares(DeviceActivityPresentation.Cells(repeatedWeekday, true)));
+    }
+
+    [Theory]
+    [InlineData(1, 18, false)]
+    [InlineData(1, 19, true)]
+    [InlineData(4, 16, false)]
+    [InlineData(4, 20, true)]
+    public void LaterTodayIsPresentationOnlyAndDoesNotConvertPartialOrSkippedHours(int hours, int start, bool future)
+    {
+        var cells = DeviceActivityPresentation.Cells(DeviceActivity.Group(Evidence([]), hours), false);
+        var cell = cells.Skip(cells.Count - 24 / hours).Single(item => item.StartHour == start);
+        Assert.Equal(future, cell.IsFuture);
+        Assert.Equal(AnalyticsResponse.Unknown, cell.Response);
+        Assert.Equal(!future, cell.Hatched);
+        Assert.Contains(future ? "Later today" : "Unknown - no eligible scans", cell.Details);
+        Assert.DoesNotContain(cells.Take(cells.Count - 24 / hours), item => item.IsFuture);
+    }
+
     [Theory]
     [InlineData(1, 24)]
     [InlineData(2, 12)]

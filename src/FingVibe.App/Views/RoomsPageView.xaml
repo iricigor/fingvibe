@@ -5,7 +5,7 @@
     xmlns:local="using:FingVibe.App"
     xmlns:models="using:FingVibe.Core.Models">
     <ScrollViewer x:Name="RoomsPage">
-        <StackPanel Margin="24,0,24,24" Spacing="12">
+        <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="12">
             <Grid ColumnSpacing="16">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />

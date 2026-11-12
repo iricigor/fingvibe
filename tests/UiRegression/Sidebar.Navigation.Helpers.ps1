@@ -1,19 +1,43 @@
-﻿function Test-SidebarDividerAppearance {
+﻿function Test-SidebarContentInset([string] $Page) {
+    $grip = (Find-SidebarElement AutomationId NavigationResizeGrip).Current.BoundingRectangle
+    $edge = $grip.Left + $grip.Width / 2
+    $header = (Find-SidebarElement AutomationId DetectedNetworkLabel).Current.BoundingRectangle
+    $condition = [System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, $Page),
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::Text))
+    $heading = @($root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition) |
+        Where-Object { -not $_.Current.IsOffscreen -and $_.Current.BoundingRectangle.Left -gt $edge })
+    if ($heading.Count -ne 1) { throw "Expected one visible content heading for '$Page'; got $($heading.Count)." }
+    foreach ($bounds in @($header, $heading[0].Current.BoundingRectangle)) {
+        $inset = ($bounds.Left - $edge) / $scale
+        if ([Math]::Abs($inset - 12) -gt 2) {
+            throw "'$Page' heading and shared header must align 12 DIPs from navigation; got $inset."
+        }
+        if (-not $root.Current.BoundingRectangle.Contains($bounds)) {
+            throw "'$Page' heading or shared header is clipped."
+        }
+    }
+}
+
+function Test-SidebarDividerAppearance([string] $Name = "sidebar-divider", [int] $MaximumContrast = 16) {
     Focus-SidebarWindow
     (Find-SidebarElement AutomationId NetworkNavItem).SetFocus()
     $grip = (Find-SidebarElement AutomationId NavigationResizeGrip).Current.BoundingRectangle
     $x = [int]($grip.Left + $grip.Width / 2)
     $y = [int]($grip.Top + $grip.Height / 2)
     [SidebarReviewKeyboard]::MoveTo($x + [int](100 * $scale), $y)
-    Save-SidebarAppearance "sidebar-divider-hidden"
+    Save-SidebarAppearance "$Name-hidden"
     [SidebarReviewKeyboard]::MoveTo($x + [int](5 * $scale), $y)
-    Save-SidebarAppearance "sidebar-divider-hover"
+    Save-SidebarAppearance "$Name-hover"
     [SidebarReviewKeyboard]::MoveTo($x + [int](100 * $scale), $y)
-    Save-SidebarAppearance "sidebar-divider-hidden-again"
+    Save-SidebarAppearance "$Name-hidden-again"
     $window = Get-UiReviewWindowBounds $windowHandle
-    $hidden = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "sidebar-divider-hidden.png"))
-    $hover = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "sidebar-divider-hover.png"))
-    $again = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "sidebar-divider-hidden-again.png"))
+    $hidden = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "$Name-hidden.png"))
+    $hover = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "$Name-hover.png"))
+    $again = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "$Name-hidden-again.png"))
     try {
         $changed = 0
         $sampleY = [int]($grip.Top - $window.Top + 16 * $scale)
@@ -26,7 +50,7 @@
             $contrast = [Math]::Max([Math]::Abs([int]$line.R - $background.R),
                 [Math]::Max([Math]::Abs([int]$line.G - $background.G), [Math]::Abs([int]$line.B - $background.B)))
             if ($contrast -ge 3) { $changed++ }
-            if ($contrast -gt 40) { throw "The normal-theme divider must use a subtle color, not a strong border." }
+            if ($contrast -gt $MaximumContrast) { throw "Divider contrast $contrast exceeds $MaximumContrast in '$Name'." }
         }
         if ($changed -eq 0) { throw "The divider must appear when the pointer is within five DIPs of its edge." }
     }
@@ -90,6 +114,7 @@ function Test-SidebarResizing {
     )) {
         Select-SidebarPage $page[0] $page[1]
         Assert-SidebarPaneWidth 48
+        Test-SidebarContentInset $page[0]
     }
     Save-SidebarAppearance "sidebar-resize-icons"
     Switch-SidebarPane

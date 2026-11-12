@@ -46,6 +46,15 @@ widths are clamped to 160–320 DIPs. Save failures do not interrupt navigation.
 UI-review mode does not read or write this file unless a review-specific
 `FINGVIBE_UI_REVIEW_NAVIGATION` path is supplied.
 
+All pages, including details and Tools subpages, use a shared 12-DIP left
+content inset (previously 24 DIPs), aligned with the shared network header.
+Right and bottom margins remain 24 DIPs. Minimal-mode headers retain their
+72-DIP menu-button clearance. The navigation resize guide remains hidden at
+rest; its revealed line uses black at 10/255 opacity in light themes and white
+at 14/255 in dark themes, reduced from the native 15/255 and 21/255.
+Windows high contrast retains system text colors and native focus indicators;
+the 16-DIP resize hit target and interaction behavior are unchanged.
+
 Prerequisites:
 
 - Windows 11
@@ -65,7 +74,7 @@ Background ARP uses up to 32 concurrent requests independently of the ICMP concu
 
 After initial ICMP probing and enrichment, confirmed observations are durably checkpointed and become browsable before ARP starts. Background ARP checks the initial ping misses and checkpoints its recovered observations. Only addresses still unconfirmed are then pinged after a cancellable ten-second wait, and again after another ten-second wait following that retry phase. Confirmed addresses are never retried or downgraded. No remaining misses means no further work or wait; misses remaining through both rounds add at least twenty seconds plus ARP, probing, enrichment and persistence time. There are at most three ICMP attempts and one ARP fallback per address. A changed source IPv4 can be refreshed only on the same selected adapter and subnet; it does not change a device's MAC identity. A disconnected adapter, different subnet, or changed Windows network profile cannot silently substitute another LAN.
 
-SQLite inventory and the latest logical checkpoint commit in one transaction with explicit Pending, Complete or Incomplete state. Checkpoints do not infer Offline, append completed history, establish a discovery baseline or emit discovery alerts until finalization. Each completed scan adds history and discovery alerts only once. The separate `latest-scan.json` cache is atomically replaced after the database commit; SQLite is authoritative on restart, including when a cache update failed. Save failures are visible and stop retries rather than claiming an unsaved checkpoint is durable. Normal close or cancellation drains checkpoint writes and retains the last committed observations as incomplete. Forced termination can lose observations since the last committed checkpoint. Restart treats saved observations as historical, not current Online evidence, and never resumes old retry timers.
+SQLite inventory and the latest logical checkpoint commit in one transaction with explicit Pending, Complete or Incomplete state. Checkpoints do not infer Offline, append completed history, establish a discovery baseline or emit discovery alerts until finalization. Each completed scan adds history and discovery alerts only once. The separate `latest-scan.json` cache is atomically replaced after the database commit; SQLite is authoritative on restart, including when a cache update failed. Save failures are visible and stop retries rather than claiming an unsaved checkpoint is durable. Normal close or cancellation drains checkpoint writes and retains the last committed observations as incomplete. Forced termination can lose observations since the last committed checkpoint. Restart preserves last-known Online/Offline statuses and evidence age, without claiming fresh responses or resuming old retry timers.
 
 On first use, vendor detection downloads the official IEEE MA-L, MA-M, and MA-S registries and caches them under the current user's local application data for 30 days.
 
@@ -139,10 +148,13 @@ still checks only its original 10 TCP ports. The additional scan uses at most
 Device details places **Network overview** at the top left and **Assignments**
 at the top right (roughly 60/40), with aligned bottom edges and the assignments
 explanation anchored at the bottom. They stack at natural height in narrow windows. A full-width,
+second row pairs **Observation summary** with compact **Usage category**, using
+the same column widths and equal card heights within each row. A full-width,
 read-first **Device identification** card follows, then **Ports & services**.
-Identification uses up to three field columns, and endpoints use up to two
-columns, reducing to one as width and text scaling require. **Rename** in the
-identity header reveals the existing name editor only when requested. **Ports & services**
+Identification and compact service tiles use up to three columns,
+reducing to one as width and text scaling require. The **Rename device** pencil in the
+identity header reveals the existing name editor only when requested. Copy and
+pencil actions reserve their space and appear on hover or keyboard focus. **Ports & services**
 has its own container for endpoints, scan controls, independent TCP/UDP feedback,
 and UDP observations. Discovered hostname belongs to the network overview;
 the collapsed **Imported Fing data** section sits inside **Device identification**,
@@ -206,7 +218,7 @@ GitHub Actions runners only, it temporarily stops Windows Time if running to
 release 123/UDP and restores the service afterward. The application itself
 needs no new administrator rights.
 
-Devices shows the persistent inventory, including previously observed and imported-only devices. Unused addresses never become device records. The status filter distinguishes Online, Offline, Unknown, and Fing Only; retained observations without current scan evidence are Unknown, while last-seen information remains in details. The Devices title sits above the rounded inventory card, matching Network's page-title styling. Inside the card, compact status totals, **Showing N devices** or **Showing N of M devices**, and **Scan duration 6.5s** share one summary row at wide widths. Summary metadata moves below the totals when needed in narrower windows. Freshness and scan/save errors live only in the shared shell header rather than being repeated in the inventory card.
+Devices shows the persistent inventory, including previously observed and imported-only devices. Unused addresses never become device records. The status filter distinguishes Online, Offline, Unknown, and Fing Only; saved local observations preserve their latest known scan status, with last-seen age and evidence provenance available separately. The Devices title sits above the rounded inventory card, matching Network's page-title styling. Inside the card, compact status totals, **Showing N devices** or **Showing N of M devices**, and **Scan duration 6.5s** share one summary row at wide widths. Summary metadata moves below the totals when needed in narrower windows. Freshness and scan/save errors live only in the shared shell header rather than being repeated in the inventory card.
 
 The primary filter row contains **Search devices**, multi-select **Status**, and
 a far-right connected funnel/reset control. The funnel reveals **Device type**, **Operating system**,
@@ -219,10 +231,12 @@ Status selections, including multiple categories or the unrestricted selection,
 are saved with the existing table preferences and restored after restart.
 Dropdown changes, status summary chips, Overview shortcuts and Clear filters
 use the same persisted selection. Search and other filter categories are not
-restored. Remembering **Status: Online** does not preserve Online evidence:
-restored observations are historical, so that filter can initially show no rows
-until fresh ICMP results are checkpointed. Starting a scan retains the displayed
-rows until that checkpoint; later stages update the current scan's evidence.
+restored. **Status: Online** immediately includes saved matching local evidence,
+even after a long absence. Starting a manual or scheduled scan retains rows and
+statuses; intermediate checkpoints promote responders but leave unresolved
+previous statuses unchanged until full successful completion. The header explains
+retained statuses and shows saved evidence age. This supersedes the earlier
+restart/Online-filter contract in #243; missing evidence can still yield no rows.
 UI-review mode reads/writes table settings only when an explicit isolated
 `FINGVIBE_UI_REVIEW_DEVICE_TABLE` fixture path is supplied, never the user's
 normal preferences. Native restart coverage uses and removes that fixture.
@@ -470,8 +484,9 @@ date into midnight-aligned 1, 2, 3 or 4-hour cells. Three-hour groups run
 define the window; today includes only evidence collected so far.
 
 Green means at least one reliable response, even if other scans in the cell
-had no response. Slate means eligible observations with no response; hatching
-means unknown evidence, not offline. No state is interpolated between scans.
+had no response. Amber/minus means eligible observations with no response;
+sparse hatching means unknown evidence, not offline. Dim dots distinguish
+later-today intervals from missing past evidence. No state is interpolated between scans.
 Weekday numbers count responding dates; green strength divides by **all
 applicable dates**, including unknown ones. Three responding Wednesdays and one
 unknown therefore show 3, 75% green and hatching, not 100%. Entirely unknown
@@ -481,12 +496,17 @@ excluded from that cell's denominator; repeated hours combine both instants.
 Select or focus a cell for exact response, nonresponse, unknown and date counts.
 Arrow keys move within the grid; Home/End move within its row. Narrow grids
 scroll horizontally instead of shrinking cells; 30-day rows scroll vertically.
-High contrast uses system colors and R/N/? symbols alongside accessible text.
+High contrast uses system colors and R/minus/? symbols alongside accessible text.
 Changing device, network, period or hour grouping cancels older queries; leaving
-the page or closing the window cancels pending work. Refresh failures clear old
+the tab/page or closing the window cancels pending work. Activity reloads on tab entry,
+saved-revision and local date/hour/timezone changes without a normal Refresh action.
+Load failures clear old
 results and expose **Retry**. Existing scan history and category editing remain
 independent. While no grid is shown, the window line names the selected period
 and grouping, the detail line prompts for a cell, and the legend stays visible.
+The quiet window line counts dates with eligible positive or negative evidence.
+Populated-square counts refer to displayed squares, including weekday grouping,
+not scan counts or continuous uptime; sparse history never blocks the requested window.
 
 Activity reports one observable state through the grid's UI Automation item
 status: `Loading`, `Ready`, `Empty` or `Error` with an increasing request number
@@ -598,7 +618,7 @@ delivery evidence, not inferred from these coverage mappings.
 ### Device scan history
 
 First/last seen, last-observed/since and network scope appear in the Overview
-tab's **Saved observation summary**; the History tab repeats the scope with the
+tab's **Observation summary** Details; the History tab discloses the scope with the
 latest-scan explanation. Devices Last seen, virtual MAC/address information,
 discovery, usage categories and all other device details are unchanged. Scans
 continue collecting and retaining evidence; no stored data is deleted.
@@ -614,9 +634,10 @@ retained identification drafts and observation pages, **View device history**,
 and that opening a device starts on Overview.
 
 Device details uses local **Overview** and **History** tabs (`SelectorBar`)
-below the device name and rename editor. Overview holds
-network overview, assignments and usage category, identification, ports and
-the saved observation summary; History holds Activity, scan history with
+beside the Back action, with identity on the right; tabs move below the header
+when measured content no longer fits. Overview holds network overview and assignments,
+then observation summary and usage category, followed by full-width identification and ports.
+History holds Activity and scan observations with
 Completed Scan Observations, and virtual MAC/address history. The header, tabs
 and both panels share one scroll viewer (`DeviceDetailsScroll`); hidden tabs stay
 loaded so drafts, expanders and paging survive switches. Switching tabs keeps the
@@ -624,20 +645,19 @@ current scroll position, and **View device history** focuses the History tab.
 Opening a device always selects Overview at the top. UI review captures the
 History tab as `fingvibe-device-history.png` (`DeviceHistory` scenario).
 
-Device details shows a **Scan history** summary for normal MAC-based devices and
+Device details shows an **Observation summary** for normal MAC-based devices and
 existing virtual devices. First/last-seen timestamps display in local time with
-relative ages, refreshed while the page is visible and rounded to the nearest
-whole minute, hour, day, month (approximately 30 days), or year (365 days).
-**Last observed: Present/Absent** pairs a semantic green/red dot with text; it is
+Today/Yesterday/N-days labels based on local calendar dates, retaining the time.
+Exact timestamps, timezone, network scope and recorded-run start remain in Details.
+**Last recorded state: Responded/Scanned, no response** pairs a dot with text; it is
 not live status. Missing evidence and historical aggregates remain explicit.
 
-The **Completed Scan Observations** section starts collapsed each time a device
-is opened. Expand it for the current-network context, latest-scan explanation,
-observation semantics, and a scrollable newest-first table with **Date**,
-**Time (local)**, and **Status** columns. Zebra stripes and subtle separators
-help track rows; status combines a green/red dot with **Present/Absent** text.
-Network identity and subnet appear once above the table, not on every row.
-Timestamp tooltips expose the full local timestamp and UTC offset to distinguish
+The **Completed Scan Observations** section starts expanded on History.
+Its compact newest-first table has **When (local)** and **Result** columns;
+long explanations and scope are disclosed separately. Zebra stripes and subtle separators
+help track rows; status combines a dot with **Responded/Scanned, no response** text.
+Network identity and subnet appear in Details, not on every row.
+Accessible row names and timestamp tooltips expose the full local timestamp and UTC offset to distinguish
 repeated daylight-saving times. Storage remains UTC. Each relevant completed manual
 or scheduled scan contributes one observation. Pending or incomplete checkpoints
 are not completed history and do not establish current live presence after restart.
@@ -655,7 +675,7 @@ The bounded page uses a native ScrollViewer and passive ItemsControl rather than
 a selectable ListView. Its stable rows expose the UI Automation DataItem role,
 the same complete timestamp/state names, and ScrollItem bring-into-view support.
 This avoids selector focus/recycling changing the viewport during read-only
-traversal. The viewport is a keyboard tab stop; rows do not add 100 tab stops.
+traversal. The viewport and timestamp-described rows are keyboard focusable.
 Every row must be physically reachable at full height; enumerated offscreen or
 clipped peers do not establish visibility. Focusing the viewport brings it
 inside the outer details page.
@@ -667,9 +687,9 @@ or refreshing its network context starts at the newest page and includes new
 observations; changing devices/networks discards the previous traversal.
 Page-load errors remain visible and can be retried without replacing a valid page.
 
-The list and its **First seen**, **Last seen**, and **Observed online/offline since**
-summary use only the selected current network identity and subnet, shown above
-the summary. Changing networks never falls back to another network's evidence;
+The list and its **First seen**, **Last seen**, and **Latest recorded run started**
+summary use only the selected current network identity and subnet, shown in
+Details. Changing networks never falls back to another network's evidence;
 unavailable identity or missing matching evidence explains unavailable values.
 Other-network history remains saved. First/last seen use presence observations;
 absence does not advance last seen. Since is the first scan in the latest
@@ -782,7 +802,7 @@ The expanded sidebar uses a compact 216-DIP Windows Settings-style layout with c
 Devices show a native Segoe Fluent device icon beside their name. **OS** is a sortable, resizable, optional column. **Device type** is an optional secondary line within the mandatory Name column, with a separate type-sort action in its header. Both detected and manually selected classifications are included in text filtering. Device details show the identification evidence and whether a value is user-selected. Unknown OS, device type, and vendor metadata use muted dashes in the list; details retain descriptive classification text.
 
 The identification card reads as values by default. Its single pencil + **Edit**
-button switches all six fields inline: device type, OS, brand, family, model and
+button switches all six fields inline: device type, OS, vendor / manufacturer, family, model and
 icon. It focuses device type and keeps **Save changes** / **Cancel** beneath the
 inputs. Cancel discards drafts; successful Save returns to read mode; a failed
 Save keeps entered values and displays the error. Blank brand/family/model
@@ -790,6 +810,8 @@ inputs inherit the original/default value (shown as placeholder text), rather
 than hiding it. Saved corrections take precedence over original Fing values,
 then automatic evidence where available. **Reset saved identification** clears
 all six overrides, not device names, assignments or imported evidence.
+The manufacturer uses the existing Brand override; detected MAC vendor remains
+separate supporting registry evidence, not a second editable manufacturer field.
 **How this device was identified** discloses the technical evidence separately.
 
 Identification is best-effort and local. SSDP discovery uses the selected interface, and one shared multicast DNS-SD discovery window follows service announcements through SRV, TXT, and IPv4 address records to collect models without confusing proxy responses with the responding device. It listens for multicast replies as well as requested unicast replies. SSDP `SERVER` advertisements and bounded HTTP/SSH banner reads on already-open ports can identify OS-specific platform information. Merely running SSH, SMB, nginx, or Apache is not OS proof. The computer running the scanner is identified directly from its OS, and the selected interface's configured gateway is identified as a router.
@@ -828,7 +850,7 @@ Short-name limits count visible characters, so a multi-code-point emoji such as 
 
 The **People** and **Rooms** pages manage manually named people and locations. Each entry has a full name, a unique 1–3-character short name within its category, and optional notes. New entries suggest initials from the first two words as you type (`Igor` → `I`, `Igor Iric` → `II`, `Living Room` → `LR`); editing the short name manually stops automatic updates. Device details can assign one person and one room independently; either can remain unassigned. The Devices table shows plain short-name text in optional **Person** and **Room** columns, with muted dashes for unassigned values, while filters and search match both short and full names. Hover over a short name or keyboard-focus it to access its full-name tooltip and accessible label.
 
-People, rooms, and their assignments are saved separately from scan snapshots within `%LOCALAPPDATA%\FingVibe\device-inventory.sqlite`. Existing `people-rooms.json` data is migrated without deleting or rewriting the legacy file. Assignments require a six-byte MAC address, including an imported MAC, and never use an IP address alone. Private or randomized MAC addresses may change, so their assignments are only retained when the same MAC is observed again. Deleting a person or room clears only that category's assignments; it does not delete devices or scan history. Last-scan response counts report devices that answered ICMP or fresh ARP during the displayed scan, not human presence; no response does not prove a device is powered off. Load and save errors are displayed, and a failed load disables changes to protect the saved file.
+People, rooms, and their assignments are saved separately from scan snapshots within `%LOCALAPPDATA%\FingVibe\device-inventory.sqlite`. Existing `people-rooms.json` data is migrated without deleting or rewriting the legacy file. Assignments require a six-byte MAC address, including an imported MAC, and never use an IP address alone. Private or randomized MAC addresses may change, so their assignments are only retained when the same MAC is observed again. Deleting a person or room clears only that category's assignments; it does not delete devices or scan history. Online summaries use each device's latest applicable scan evidence, including saved and unresolved prior statuses, not human presence; no response does not prove a device is powered off. Load and save errors are displayed, and a failed load disables changes to protect the saved file.
 
 Assignments edited on a private-prefix virtual device belong to its persistent identity and follow inferred MAC changes, rather than being copied to its member MACs.
 
@@ -898,24 +920,26 @@ Import does not create people/rooms, infer owners, import Group, or migrate
 Fing events/timestamps. Invalid MACs and all duplicate-MAC rows are skipped
 with explicit warnings. Devices sharing an IP remain distinct by MAC.
 
-Online means a fresh ping or ARP response in this session's latest local scan,
-including its checkpointed initial results while background confirmation is pending;
+Online means a ping or ARP response in the latest applicable local scan evidence,
+including saved evidence and checkpointed positive results;
 Offline means locally observed previously but absent from a subsequent
 successful scan of that same Windows network profile and subnet. Other-network,
 cancelled, and failed scans do not infer absence. When network identity is
 unavailable or changes during a scan, a warning is shown and absence is not
 inferred. Fing Only means the inventory has no local observation of the imported
 MAC, regardless of Fing's State field. First local discovery removes that state.
-After restart, retained observations are Unknown, not Online or freshly Offline.
-Observations outside the latest displayed scan's network/subnet are also
-Unknown; their last-seen information is retained. Before an initial checkpoint,
-a failed or cancelled refresh leaves the previous results unchanged. After a
-checkpoint, it retains those observations as incomplete/historical without
-inferring absence. A scan already finalized by a committed Complete checkpoint
-remains complete if cancellation races its final cleanup. People/Rooms
-live-response summaries do not count imported or restored records. Overview and
-Network Online counts count current device identities, not historical members
-or duplicate IPs for one MAC. Historical/Fing-only addresses cannot
+Restart, elapsed time, other-network scans and unresolved retries do not reset
+these statuses. During scanning, unresolved devices retain the previous status
+while fresh responders become Online; only a full successful same-scope scan
+can downgrade nonresponders. Failed/cancelled scans retain prior statuses and
+committed positive checkpoints, explicitly labeled incomplete rather than complete.
+A scan already finalized by a committed Complete checkpoint remains complete
+if cancellation races its final cleanup. Devices, Overview, Network and People/Rooms
+status summaries count the same last-known device identities, including restored
+records but not imported-only records, historical virtual members or duplicate IPs.
+Saved evidence is not continuous live presence or a fresh response in a running
+scan. Its age/provenance remains visible; analytical history is unchanged.
+Saved/Fing-only addresses cannot
 start an additional port probe until a current local response exists.
 
 ### Private-prefix virtual devices
@@ -1471,7 +1495,13 @@ changed by the application or by local build/test commands.
 
 Local and pull request build/publish outputs retain only English (`en`) managed satellite resources through the application's `SatelliteResourceLanguages` setting. Neutral resources, including dependencies' default English strings, remain included. Official releases retain all available languages: the release workflow overrides the setting with an empty global MSBuild property (`/property:SatelliteResourceLanguages=`), disabling this filter. Both workflows use the Release configuration, so the configuration name alone does not determine language filtering. This does not force the runtime UI culture to English or filter Windows App SDK native/PRI resources in the self-contained deployment. When checking the result locally, start with clean build and publish output directories: previously copied language folders are not removed by changing this setting.
 
-Pull requests affecting application code or validation infrastructure upload a `fingvibe-win-x64-pr-*` artifact from the **🔨 Pull request build** Actions run, plus a `fingvibe-setup-win-x64-pr-*` installer artifact. Each successful same-repository build posts a new runnable-app artifact-link comment, preserving earlier comments and links (artifacts expire after 14 days). Artifact names include the run attempt, so reruns do not replace earlier downloads. Documentation-only and ordinary test-only changes do not publish an app. Every push to `main` publishes a GitHub Release tagged `v1.1.<run number>` (version `1.1.<run number>`) with a self-contained Windows x64 ZIP and `FingVibe-<version>-win-x64-Setup.exe`, both from the same published binaries. Earlier releases used `1.0.<run number>`; the minor feature version orders above any 1.0 run number, so 1.0 installations update normally.
+Pull requests affecting application code or validation infrastructure upload a `fingvibe-win-x64-pr-*` artifact from the **🔨 Pull request build** Actions run, plus a `fingvibe-setup-win-x64-pr-*` installer artifact. Each successful same-repository build posts a new runnable-app artifact-link comment, preserving earlier comments and links (artifacts expire after 14 days). Artifact names include the run attempt, so reruns do not replace earlier downloads. Documentation-only and ordinary test-only changes do not publish an app. Every push to `main` publishes a GitHub Release tagged `v1.2.<run number>` (version `1.2.<run number>`) with a self-contained Windows x64 ZIP and `FingVibe-<version>-win-x64-Setup.exe`, both from the same published binaries. Earlier releases used `1.0.<run number>` and `1.1.<run number>`; the minor feature version orders above any earlier minor version's run number, so existing installations update normally.
+
+Release bodies begin with the [PR-linked 1.2 feature summary](release-notes-1.2.md),
+followed by GitHub's automatically generated notes for the individual release.
+The summary covers changes since the 1.1 bump, including nested deliveries and
+explicitly distinguished superseded provenance; it does not advertise abandoned
+work as a delivered feature.
 
 The unsigned Inno Setup installer supports Windows 11 x64 and installs only for
 the current user at `%LOCALAPPDATA%\Programs\FingVibe`, without requesting
@@ -1499,7 +1529,7 @@ GitHub runners). After publishing the app, run:
 
 ```powershell
 .\tools\New-Installer.ps1 -AppDirectory artifacts\fingvibe-win-x64 `
-    -Version 1.1.123 -OutputDirectory artifacts\installer
+    -Version 1.2.123 -OutputDirectory artifacts\installer
 ```
 
 `tests\Installer.Script.Tests.ps1` checks packaging helpers without installing or
@@ -1508,9 +1538,10 @@ disposable GitHub-hosted runner. PR and release builds compile the actual
 installer and verify payload hashes, fresh installation, window launch,
 running-app blocking, ZIP/script adoption, upgrade cleanup, downgrade rejection,
 shortcuts, uninstall, and saved-data/unknown-file preservation. They also upgrade
-a 1.0 installation whose run number is higher to the 1.1 feature version (the
-actual release installer on `main`) and verify that synthetic saved inventory,
-history, and settings files are unchanged and the 1.0 downgrade is rejected.
+both 1.0 and 1.1 installations whose run numbers are higher to the 1.2 feature
+version (the actual release installer on `main`) and verify that synthetic saved
+inventory, history, and settings files are unchanged through upgrade, rejected
+downgrade, and uninstall.
 Test-only past and future version installers reuse the payload to exercise
 upgrades; they are not published. Installer logs are retained as Actions
 artifacts, including on failure.

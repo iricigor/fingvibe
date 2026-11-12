@@ -146,7 +146,7 @@
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
-                <Grid x:Name="ScanHeader" Margin="24,16,224,8" SizeChanged="ScanHeader_SizeChanged">
+                <Grid x:Name="ScanHeader" Margin="12,16,224,8" SizeChanged="ScanHeader_SizeChanged">
                     <Grid x:Name="ScanBar" ColumnSpacing="12" VerticalAlignment="Top">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -303,7 +303,7 @@
         <local:ColumnResizeGrip x:Name="NavigationResizeGrip"
                                Width="16"
                                HorizontalAlignment="Left"
-                               Foreground="{ThemeResource DividerStrokeColorDefaultBrush}"
+                               Foreground="{ThemeResource ScannerNavigationDividerBrush}"
                                RevealSeparatorOnInteraction="True"
                                SeparatorVisibility="Collapsed"
                                ResizeRequested="NavigationResizeGrip_ResizeRequested"

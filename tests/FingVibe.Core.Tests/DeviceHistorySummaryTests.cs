@@ -51,7 +51,7 @@ public sealed class DeviceHistorySummaryTests
                 Assert.Equal(summary.History.Where(item => item.Present).Max(item => item.CompletedAt), summary.LastSeen);
                 Assert.False(summary.FirstSeenIsAggregate);
                 Assert.False(summary.LastSeenIsAggregate);
-                Assert.Equal($"Observed {(states[i] ? "online" : "offline")} since: 2026-11-01 12:0{since[i]}:00 (local)",
+                Assert.Equal($"Latest recorded {(states[i] ? "responding" : "nonresponding")} run started: 2026-11-01 12:0{since[i]}:00 (local)",
                     DeviceDetailsPresentation.ObservedSince(summary, TimeZoneInfo.Utc));
             }
         }
@@ -191,7 +191,8 @@ public sealed class DeviceHistorySummaryTests
                 Assert.Equal(Start.AddMinutes(1), summary.LastSeen);
                 Assert.Equal(Start, summary.Since);
                 Assert.Equal(2, summary.History.Count);
-                Assert.False(row.IsOnline);
+                Assert.True(row.IsOnline);
+                Assert.False(row.IsCurrentScanResponse);
             }
         }
         finally

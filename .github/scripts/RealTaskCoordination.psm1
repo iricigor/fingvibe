@@ -60,6 +60,15 @@ function Get-RealTaskHash($Record) {
     [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($json)))
 }
 
+function Get-RealTaskEvidenceHash([string[]] $Evidence) {
+    Assert-RealTaskEvidence $Evidence
+    $unique = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($reference in $Evidence) { $null = $unique.Add($reference) }
+    [string[]] $references = @($unique)
+    [Array]::Sort($references, [StringComparer]::Ordinal)
+    Get-RealTaskHash @{ value = $references }
+}
+
 function Find-RealTask($State, [string] $ClaimId) {
     $matches = @($State.tasks | Where-Object claimId -CEQ $ClaimId)
     if ($matches.Count -ne 1) { throw "Expected exactly one task for claim '$ClaimId'." }
@@ -71,6 +80,62 @@ function Find-RealTaskHandoff($State, [string] $ClaimId, [string] $HandoffId) {
     $matches = @($task.handoffs | Where-Object id -CEQ $HandoffId)
     if ($matches.Count -ne 1) { throw "Expected exactly one handoff '$HandoffId'." }
     return $matches[0]
+}
+
+function Test-RealTaskReplacement($Handoff) {
+    $null -ne $Handoff -and $Handoff.action -ceq "implement" -and
+        $Handoff.stage -ceq "reconciled" -and $Handoff.Contains("recovery") -and
+        $Handoff.recovery.restartImplementation
+}
+
+function Assert-RealTaskRecovery($Handoff) {
+    $recovery = $Handoff.recovery
+    Assert-RealTaskFields $recovery @("mode", "priorStage", "authorization", "evidence", "utc", "restartImplementation") -Closed
+    Assert-RealTaskText $recovery.authorization "human recovery authorization"
+    Assert-RealTaskEvidence $recovery.evidence
+    Assert-RealTaskUtc $recovery.utc
+    if ($Handoff.stage -cne "reconciled" -or $recovery.restartImplementation -isnot [bool]) {
+        throw "Recovery requires terminal reconciliation and explicit restart authority."
+    }
+    switch -CaseSensitive ($recovery.mode) {
+        "no-launch" {
+            if ($recovery.priorStage -cnotin @("prepared", "launch-requested") -or
+                $null -ne $Handoff.runId -or $null -ne $Handoff.sessionId -or
+                $null -ne $Handoff.ackEventId -or $null -ne $Handoff.resultEventId -or $null -ne $Handoff.result) {
+                throw "No-launch recovery requires verified absence of execution."
+            }
+        }
+        "stopped" {
+            if ($recovery.priorStage -cnotin @("correlated", "delivered", "acknowledged") -or
+                $null -ne $Handoff.resultEventId -or $null -ne $Handoff.result) {
+                throw "Stopped recovery requires a session without a result."
+            }
+            Assert-RealTaskText $Handoff.runId "actual run ID"
+            Assert-RealTaskText $Handoff.sessionId "actual session ID"
+        }
+        "pre-start-rejected" {
+            if ($recovery.priorStage -cnotin @("stopped-verified", "reconciled") -or
+                $null -ne $Handoff.ackEventId -or $null -eq $Handoff.result -or
+                $Handoff.result.outcome -cne "blocked-before-start") {
+                throw "Replacement requires verified stopped pre-start rejection."
+            }
+        }
+        default { throw "Unknown recovery mode." }
+    }
+    if ($recovery.restartImplementation -and
+        ($Handoff.action -cne "implement" -or $recovery.mode -cnotin @("no-launch", "pre-start-rejected"))) {
+        throw "Only a verified unstarted implementation can be replaced."
+    }
+}
+
+function Assert-RealTaskHumanDelivery($Delivery, [string] $TargetBranch) {
+    Assert-RealTaskFields $Delivery @("head", "targetBranch", "evidence", "cleanupEvidence") -Closed
+    Assert-RealTaskText $Delivery.head "delivered head"
+    if ($Delivery.head -cnotmatch '^[0-9a-f]{40}$' -or $Delivery.targetBranch -cne $TargetBranch) {
+        throw "Human delivery requires the verified head on the configured target branch."
+    }
+    Assert-RealTaskEvidence $Delivery.evidence
+    Assert-RealTaskEvidence $Delivery.cleanupEvidence
 }
 
 function Assert-RealTaskState {
@@ -136,6 +201,14 @@ function Assert-RealTaskState {
             if ($disposition.state -cnotin $script:TaskStates) { throw "Unknown disposition state." }
             Assert-RealTaskUtc $disposition.utc
             Assert-RealTaskEvidence $disposition.evidence
+            if ($disposition.Contains("independentEvidence")) {
+                if ($disposition.state -cne "blocked") { throw "Independence evidence belongs to a blocked disposition." }
+                Assert-RealTaskEvidence $disposition.independentEvidence
+            }
+            if ($disposition.Contains("humanDelivery")) {
+                if ($disposition.state -cne "delivered") { throw "Human delivery belongs to a delivered disposition." }
+                Assert-RealTaskHumanDelivery $disposition.humanDelivery $State.targetBranch
+            }
         }
         $repairs = 0
         $implementations = 0
@@ -158,10 +231,10 @@ function Assert-RealTaskState {
             }
             if ($handoff.action -ceq "implement") {
                 $implementations++
-                if ($implementations -ne 1 -or $task.handoffs[0].id -cne $handoff.id) {
-                    throw "Exactly one initial implementation is permitted."
+                if ($implementations -gt 1 -and -not (Test-RealTaskReplacement $previous)) {
+                    throw "Replacement implementation requires human-reconciled pre-start failure."
                 }
-            } elseif ($implementations -ne 1) { throw "Repair/finalize requires initial implementation history." }
+            } elseif ($implementations -lt 1) { throw "Repair/finalize requires initial implementation history." }
             if ($handoff.action -ceq "repair") {
                 $repairs++
                 $strategy = if ($repairs -eq 1) { "targeted" } else { "reassess" }
@@ -181,8 +254,11 @@ function Assert-RealTaskState {
             if ($handoff.transitions -isnot [array] -or $handoff.transitions.Count -eq 0) {
                 throw "Missing handoff transition history."
             }
+            $recovered = $handoff.Contains("recovery")
+            if ($recovered) { Assert-RealTaskRecovery $handoff }
             $last = $null
-            foreach ($transition in $handoff.transitions) {
+            for ($transitionIndex = 0; $transitionIndex -lt $handoff.transitions.Count; $transitionIndex++) {
+                $transition = $handoff.transitions[$transitionIndex]
                 Assert-RealTaskFields $transition @("stage", "utc", "evidence")
                 Assert-RealTaskUtc $transition.utc
                 Assert-RealTaskEvidence $transition.evidence
@@ -197,21 +273,36 @@ function Assert-RealTaskState {
                     "stopped-verified" { @("reconciled") }
                     default { @() }
                 }
-                if ($transition.stage -cnotin $allowed) { throw "Invalid stage transition '$last' -> '$($transition.stage)'." }
+                $recoveryExit = $recovered -and $transitionIndex -eq $handoff.transitions.Count - 1 -and
+                    $last -ceq $handoff.recovery.priorStage -and $transition.stage -ceq "reconciled" -and
+                    $transition.utc -ceq $handoff.recovery.utc -and
+                    (Get-RealTaskHash @{ value = $transition.evidence }) -ceq
+                        (Get-RealTaskHash @{ value = $handoff.recovery.evidence })
+                if ($recovered -and $transitionIndex -eq $handoff.transitions.Count - 1 -and -not $recoveryExit) {
+                    throw "Recovery differs from terminal transition evidence."
+                }
+                if ($transition.stage -cnotin $allowed -and -not $recoveryExit) {
+                    throw "Invalid stage transition '$last' -> '$($transition.stage)'."
+                }
                 $last = $transition.stage
             }
             if ($last -cne $handoff.stage) { throw "Stage differs from transition history." }
-            if ($handoff.stage -cin @("correlated", "delivered", "acknowledged", "result-recorded", "stopped-verified", "reconciled")) {
+            if (@($handoff.transitions | Where-Object stage -CEQ "acknowledged").Count -gt 0) {
+                Assert-RealTaskText $handoff.ackEventId "retained acknowledgment event ID"
+            }
+            if ($handoff.stage -cin @("correlated", "delivered", "acknowledged", "result-recorded", "stopped-verified", "reconciled") -and
+                -not ($recovered -and $handoff.recovery.mode -ceq "no-launch")) {
                 Assert-RealTaskText $handoff.runId "actual run ID"
                 Assert-RealTaskText $handoff.sessionId "actual session ID"
             }
-            if ($handoff.stage -cin @("acknowledged", "result-recorded", "stopped-verified", "reconciled")) {
+            if ($handoff.stage -cin @("acknowledged", "result-recorded", "stopped-verified", "reconciled") -and -not $recovered) {
                 if ($null -eq $handoff.ackEventId -and
                     ($null -eq $handoff.result -or $handoff.result.outcome -cne "blocked-before-start")) {
                     throw "Execution requires an acknowledgment."
                 }
             }
-            if ($handoff.stage -cin @("result-recorded", "stopped-verified", "reconciled")) {
+            if ($handoff.stage -cin @("result-recorded", "stopped-verified", "reconciled") -and
+                (-not $recovered -or $null -ne $handoff.resultEventId)) {
                 Assert-RealTaskText $handoff.resultEventId "result event ID"
                 Assert-RealTaskFields $handoff.result @("outcome", "head", "checkpoint", "evidence")
                 Assert-RealTaskEvidence $handoff.result.evidence
@@ -247,12 +338,12 @@ function Assert-RealTaskState {
                 if ($null -ne $id -and -not $eventIds.ContainsKey($id)) { throw "Missing immutable event index." }
             }
         }
-        foreach ($report in $State.reports) {
-            Assert-RealTaskFields $report @("id", "claimId", "handoffId", "url", "utc", "nextOwner", "nextAction")
-            foreach ($field in @("id", "url", "nextOwner", "nextAction")) { Assert-RealTaskText $report[$field] $field }
-            Assert-RealTaskUtc $report.utc
-            $null = Find-RealTaskHandoff $State $report.claimId $report.handoffId
-        }
+    }
+    foreach ($report in $State.reports) {
+        Assert-RealTaskFields $report @("id", "claimId", "handoffId", "url", "utc", "nextOwner", "nextAction")
+        foreach ($field in @("id", "url", "nextOwner", "nextAction")) { Assert-RealTaskText $report[$field] $field }
+        Assert-RealTaskUtc $report.utc
+        $null = Find-RealTaskHandoff $State $report.claimId $report.handoffId
     }
 }
 
@@ -274,7 +365,11 @@ function Get-RealTaskCapacity {
     $occupied = @($State.tasks | ForEach-Object { $_.handoffs } | Where-Object stage -CNE "reconciled")
     $occupiedIds = @($occupied | ForEach-Object { $_.workerId })
     $waiting = @($State.tasks | Where-Object state -CIn @("validation", "finalize-ready", "human-review"))
-    $unassigned = @($State.tasks | Where-Object { $_.state -cne "delivered" -and $_.handoffs.Count -eq 0 })
+    $unassigned = @($State.tasks | Where-Object {
+        $_.state -cne "delivered" -and $_.handoffs.Count -eq 0 -and
+            -not ($_.state -ceq "blocked" -and $_.dispositions.Count -gt 0 -and
+                $_.dispositions[-1].Contains("independentEvidence"))
+    })
     @{
         occupiedWorkers = $occupiedIds
         freeWorkers = @($State.workers.id | Where-Object { $_ -cnotin $occupiedIds })
@@ -315,7 +410,8 @@ function Add-RealTaskHandoff {
         throw "Worker/task unavailable or unauthorized."
     }
     if ($Action -ceq "implement") {
-        if ($task.handoffs.Count -ne 0 -or $capacity.occupiedWorkers.Count -ge 2 -or
+        if (($task.handoffs.Count -ne 0 -and -not (Test-RealTaskReplacement $task.handoffs[-1])) -or
+            $task.state -cnotin @("implementing", "blocked") -or $capacity.occupiedWorkers.Count -ge 2 -or
             $capacity.validationPending -ge 2 -or
             @($capacity.unassignedClaims | Where-Object { $_ -cne $ClaimId }).Count -gt 0) {
             throw "Initial implementation already assigned or backlog full."
@@ -329,7 +425,7 @@ function Add-RealTaskHandoff {
         Assert-RealTaskEvidence $Feedback
         foreach ($prior in $task.handoffs) {
             if ($prior.action -ceq "finalize" -and $prior.expectedHead -ceq $task.head -and
-                (Get-RealTaskHash @{ value = $prior.feedback }) -ceq (Get-RealTaskHash @{ value = $Feedback })) {
+                (Get-RealTaskEvidenceHash $prior.feedback) -ceq (Get-RealTaskEvidenceHash $Feedback)) {
                 throw "Duplicate finalize revision/evidence; require a meaningful evidence change."
             }
         }
@@ -381,6 +477,34 @@ function Set-RealTaskStage {
     $handoff.stage = $Stage
     $handoff.transitions += @{ stage = $Stage; utc = [DateTime]::UtcNow.ToString("o"); evidence = $Evidence }
     (Find-RealTask $State $ClaimId).changedUtc = [DateTime]::UtcNow.ToString("o")
+    Assert-RealTaskState $State
+}
+
+function Resolve-RealTaskHandoff {
+    param($State, [string] $ClaimId, [string] $HandoffId,
+        [ValidateSet("no-launch", "stopped", "pre-start-rejected")] [string] $Mode,
+        [string] $HumanAuthorization, [string[]] $Evidence, [switch] $RestartImplementation)
+    Assert-RealTaskState $State
+    Assert-RealTaskText $HumanAuthorization "human recovery authorization"
+    Assert-RealTaskEvidence $Evidence
+    $task = Find-RealTask $State $ClaimId
+    $handoff = Find-RealTaskHandoff $State $ClaimId $HandoffId
+    if ($handoff.id -cne $task.handoffs[-1].id -or $handoff.Contains("recovery")) {
+        throw "Only the latest handoff can be recovered once."
+    }
+    $utc = [DateTime]::UtcNow.ToString("o")
+    $recovery = @{ mode = $Mode; priorStage = $handoff.stage; authorization = $HumanAuthorization
+        evidence = $Evidence; utc = $utc; restartImplementation = [bool]$RestartImplementation }
+    $candidate = @{} + $handoff
+    $candidate.stage = "reconciled"
+    $candidate.recovery = $recovery
+    Assert-RealTaskRecovery $candidate
+    $handoff.recovery = $recovery
+    $handoff.stage = "reconciled"
+    $handoff.transitions += @{ stage = "reconciled"; utc = $utc; evidence = $Evidence }
+    $task.state = "blocked"
+    $task.changedUtc = $utc
+    $task.dispositions += @{ state = "blocked"; utc = $utc; evidence = $Evidence }
     Assert-RealTaskState $State
 }
 
@@ -444,6 +568,11 @@ function Add-RealTaskEvent {
         $stage = "result-recorded"
         $handoff.resultEventId = $Event.eventId
         $handoff.result = $Event.result
+        $task = Find-RealTask $State $Event.claimId
+        if ($Event.result.outcome -ceq "implementation-ready") {
+            $task.head = $Event.result.head
+            $task.checkpoint = $Event.result.checkpoint
+        }
     }
     $handoff.stage = $stage
     $handoff.transitions += @{ stage = $stage; utc = $Event.utc; evidence = $Event.evidence }
@@ -573,38 +702,63 @@ function Publish-RealTaskAcknowledgment {
 function Set-RealTaskDisposition {
     param($State, [string] $ClaimId,
         [ValidateSet("validation", "repair-needed", "finalize-ready", "human-review", "blocked", "delivered")] [string] $Disposition,
-        [string[]] $Evidence)
+        [string[]] $Evidence, [string[]] $IndependentEvidence, $HumanDelivery)
     Assert-RealTaskState $State
     Assert-RealTaskEvidence $Evidence
     $task = Find-RealTask $State $ClaimId
-    if ($task.handoffs.Count -eq 0) { throw "Task has no execution evidence." }
-    $handoff = $task.handoffs[-1]
+    if ($null -ne $IndependentEvidence) {
+        if ($Disposition -cne "blocked") { throw "Independence evidence requires a blocked disposition." }
+        Assert-RealTaskEvidence $IndependentEvidence
+    }
+    if ($null -ne $HumanDelivery) {
+        if ($Disposition -cne "delivered") { throw "Human delivery requires a delivered disposition." }
+        Assert-RealTaskHumanDelivery $HumanDelivery $State.targetBranch
+    }
+    $handoff = if ($task.handoffs.Count -gt 0) { $task.handoffs[-1] } else { $null }
+    if ($null -eq $handoff -and $Disposition -cne "blocked") { throw "Task has no execution evidence." }
     if ($Disposition -cne "blocked" -and $handoff.stage -cnotin @("stopped-verified", "reconciled")) {
         throw "Task disposition requires verified stopped session execution."
     }
     $allowed = switch ($Disposition) {
         "validation" {
-            $handoff.result.outcome -ceq "implementation-ready" -or
-                ($task.state -ceq "blocked" -and
-                    @($task.handoffs | Where-Object {
-                        $null -ne $_.result -and $_.result.outcome -ceq "implementation-ready"
-                    }).Count -gt 0)
+            $successful = @($task.handoffs | Where-Object action -CIn @("implement", "repair"))[-1]
+            $null -ne $successful.result -and $successful.result.outcome -ceq "implementation-ready" -and
+                $task.head -ceq $successful.result.head -and $task.checkpoint -ceq $successful.result.checkpoint -and
+                (($handoff.id -ceq $successful.id) -or
+                    ($task.state -ceq "blocked" -and $handoff.action -ceq "finalize" -and
+                        $handoff.expectedHead -ceq $task.head))
         }
-        "repair-needed" { $task.state -cin @("validation", "finalize-ready", "blocked") }
+        "repair-needed" { $task.state -cin @("validation", "finalize-ready", "human-review", "blocked") }
         "finalize-ready" { $task.state -ceq "validation" }
-        "human-review" { $handoff.result.outcome -ceq "pr-ready" }
-        "delivered" { $handoff.stage -ceq "reconciled" -and $handoff.result.outcome -cin @("pr-ready", "delivered") }
+        "human-review" { $null -ne $handoff.result -and $handoff.result.outcome -ceq "pr-ready" }
+        "delivered" { $handoff.stage -ceq "reconciled" -and
+            ($null -ne $HumanDelivery -or
+                ($null -ne $handoff.result -and $handoff.result.outcome -cin @("pr-ready", "delivered"))) }
         "blocked" { $true }
     }
     if (-not $allowed) { throw "Invalid task disposition '$($task.state)' -> '$Disposition'." }
     if ($Disposition -cin @("validation", "finalize-ready", "human-review") -and
-        $task.state -cnotin @("validation", "finalize-ready", "human-review") -and
-        (Get-RealTaskCapacity $State).validationPending -ge 2) {
-        throw "Validation backlog full; preserve checkpoint and retain worker until a place is available."
+        $task.state -cnotin @("validation", "finalize-ready", "human-review")) {
+        $waiting = (Get-RealTaskCapacity $State).validationPending
+        $outstanding = @($State.tasks | Where-Object {
+            $_.claimId -cne $ClaimId -and $_.state -cnotin @("validation", "finalize-ready", "human-review") -and
+                @($_.handoffs | Where-Object {
+                    $_.stage -cne "reconciled" -and $_.action -cin @("implement", "repair")
+                }).Count -gt 0
+        }).Count
+        if ($waiting -ge 2 -or ($handoff.stage -ceq "reconciled" -and $waiting + $outstanding -ge 2)) {
+            throw "Validation backlog full or reserved for outstanding implementations; preserve checkpoint and execution."
+        }
     }
     $task.state = $Disposition
     $task.changedUtc = [DateTime]::UtcNow.ToString("o")
-    $task.dispositions += @{ state = $Disposition; utc = $task.changedUtc; evidence = $Evidence }
+    $record = @{ state = $Disposition; utc = $task.changedUtc; evidence = $Evidence }
+    if ($null -ne $IndependentEvidence) { $record.independentEvidence = $IndependentEvidence }
+    if ($null -ne $HumanDelivery) {
+        $record.humanDelivery = $HumanDelivery
+        $task.head = $HumanDelivery.head
+    }
+    $task.dispositions += $record
     Assert-RealTaskState $State
 }
 
@@ -723,6 +877,11 @@ function Publish-RealTaskState {
             for ($i = 0; $i -lt $oldTask.handoffs.Count; $i++) {
                 $old = $oldTask.handoffs[$i]
                 $current = $task.handoffs[$i]
+                if ($old.Contains("recovery") -and
+                    (-not $current.Contains("recovery") -or
+                        (Get-RealTaskHash $old.recovery) -cne (Get-RealTaskHash $current.recovery))) {
+                    throw "Human recovery evidence cannot change or disappear."
+                }
                 foreach ($field in @("id", "action", "workerId", "expectedHead", "repairAttempt", "strategy", "feedback", "priorRepairEvidence")) {
                     if ((Get-RealTaskHash @{ value = $old[$field] }) -cne (Get-RealTaskHash @{ value = $current[$field] })) {
                         throw "Existing handoff identity/repair history cannot change."
@@ -743,9 +902,15 @@ function Publish-RealTaskState {
             }
         }
         foreach ($field in @("events", "reports")) {
+            $counts = @{}
+            foreach ($entry in $State[$field]) {
+                $hash = Get-RealTaskHash $entry
+                if (-not $counts.ContainsKey($hash)) { $counts[$hash] = 0 }
+                $counts[$hash]++
+            }
             foreach ($old in $previous[$field]) {
                 $hash = Get-RealTaskHash $old
-                if (@($State[$field] | Where-Object { (Get-RealTaskHash $_) -ceq $hash }).Count -ne 1) {
+                if (-not $counts.ContainsKey($hash) -or $counts[$hash] -ne 1) {
                     throw "Prior $field evidence cannot change or disappear."
                 }
             }
@@ -787,4 +952,5 @@ Export-ModuleMember -Function Assert-RealTaskState, New-RealTaskState, Get-RealT
     Set-RealTaskDisposition, Read-RealTaskJson, Publish-RealTaskEvent, Publish-RealTaskState,
     Sync-RealTaskIncidents, Get-RealTaskAssignment, Assert-RealTaskAssignment, Publish-RealTaskAcknowledgment,
     New-RealTaskMessage, Publish-RealTaskMessage, Receive-RealTaskMessage,
-    Publish-RealTaskProtocolError, Confirm-RealTaskMessage
+    Publish-RealTaskProtocolError, Confirm-RealTaskMessage,
+    Resolve-RealTaskHandoff

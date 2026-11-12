@@ -302,6 +302,9 @@ try {
     $null = Publish-RealTaskMessage $resultMessage $state $worker $dispatcher $root
     if ((Receive $resultMessage $worker $dispatcher).operation -cne "ingest-event") { throw "Result routing failed." }
     $null = Add-RealTaskEvent $state $event
+    if ($task.head -cne $event.result.head -or $task.checkpoint -cne $event.result.checkpoint) {
+        throw "Protocol event ingestion must preserve the parent's automatic checkpoint promotion."
+    }
     if ($handoff.stage -cne "result-recorded" -or (Receive $resultMessage $worker $dispatcher).disposition -cne "duplicate") {
         throw "Result must not prove stopping or release occupancy."
     }
@@ -382,7 +385,6 @@ try {
 
     Set-RealTaskStage $state $task.claimId $handoff.id stopped-verified -Evidence @("fixture://actual-session-stopped")
     $task.branch = "fixture-branch"; $task.worktree = Join-Path $root "task-worktree"; $task.pr = "fixture://pr"
-    $task.head = $event.result.head; $task.checkpoint = $event.result.checkpoint
     Set-RealTaskDisposition $state $task.claimId validation -Evidence $evidence
     Set-RealTaskStage $state $task.claimId $handoff.id reconciled -Evidence $evidence
     $finalizeFixture = Copy-Record $state
@@ -418,6 +420,12 @@ try {
     $deniedMerge.action = "finalize"; $deniedMerge.result.outcome = "delivered"
     $deniedMessage = New-Message result $deniedMerge $worker $dispatcher
     Assert-Rejected (Receive $deniedMessage $worker $dispatcher) "authority-mismatch"
+    Resolve-RealTaskHandoff $state $task.claimId $finalize.id stopped `
+        -HumanAuthorization "fixture://explicit-stopped-finalizer-recovery" -Evidence $evidence
+    if ((Receive $finalizeMessage).disposition -cne "duplicate" -or
+        $state.tasks[0].repairCount -ne 0 -or $state.tasks[0].state -cne "blocked") {
+        throw "Human-reconciled finalization must remain inert without losing the claim or repair history."
+    }
     $context.handoffId = $handoff.id
     $timer = [Diagnostics.Stopwatch]::StartNew()
     for ($i = 0; $i -lt 10; $i++) { $null = Receive $notification $worker $dispatcher }

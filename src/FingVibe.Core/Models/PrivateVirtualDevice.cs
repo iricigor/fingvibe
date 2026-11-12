@@ -29,8 +29,7 @@ public sealed record PrivateVirtualDevice(
     [JsonIgnore]
     public DateTimeOffset? CurrentCompletedAt { get; init; }
     [JsonIgnore]
-    public InventoryDeviceStatus Status => LastChecked != CurrentCompletedAt ? InventoryDeviceStatus.Unknown
-        : Present ? InventoryDeviceStatus.Online : InventoryDeviceStatus.Offline;
+    public InventoryDeviceStatus Status => Present ? InventoryDeviceStatus.Online : InventoryDeviceStatus.Offline;
     [JsonIgnore]
     public VirtualDeviceConnection LatestConnection => History
         .Where(item => item.Mac == LastActiveMac)

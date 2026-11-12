@@ -44,8 +44,9 @@ public sealed partial class MainWindow
         var network = NetworkPicker.SelectedItem as LanNetwork;
         var hasScan = _displayedScan is not null;
         var scanResponses = _currentScanSnapshot?.Results.Where(result => result.Status == HostStatus.Alive).ToArray() ?? [];
-        var online = _liveCompletedAt is not null ? _allResults.Count(row => row.IsOnline).ToString("N0") : "Not scanned";
-        var openPorts = _liveCompletedAt is not null
+        var hasEvidence = hasScan || _allResults.Any(row => !row.IsFingOnly);
+        var online = hasEvidence ? _allResults.Count(row => row.IsOnline).ToString("N0") : "Not scanned";
+        var openPorts = hasEvidence
             ? _allResults.Count(row => row.IsOnline && row.OpenPortItems.Count > 0).ToString("N0")
             : "Not scanned";
         var freshness = _displayedScan?.Freshness(DateTimeOffset.UtcNow) ?? "Not scanned yet";
@@ -63,7 +64,7 @@ public sealed partial class MainWindow
             ? "No active IPv4 network."
             : $"Interface: {network.InterfaceName}\nThis computer: {network.LocalAddress}\nSubnet: {network.Cidr}";
 
-        OverviewPage.ShowScan(online, openPorts, _liveCompletedAt is not null, freshness, resultsContext, setup);
+        OverviewPage.ShowScan(online, openPorts, hasEvidence, freshness, resultsContext, setup);
         UpdateScanStatus();
     }
 }

@@ -127,7 +127,7 @@
         </Style>
         </ResourceDictionary>
     </UserControl.Resources>
-    <Grid x:Name="DevicesPage" Margin="24,0,24,24">
+    <Grid x:Name="DevicesPage" Margin="{StaticResource ScannerPageContentMargin}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />

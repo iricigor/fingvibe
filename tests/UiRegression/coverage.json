@@ -91,7 +91,8 @@
             ]
           ],
           "baselineSha256": "0899952a8d21483dab77ab9b662035e1e9bf776314b5d827269b378d201b49e9",
-          "refactored": false,
+          "refactored": true,
+          "changedBy": "#318: sample row top padding at the right edge, avoiding glyphs newly exposed by the wider content viewport; retain exact full-width stripe equality.",
           "functions": [
             {
               "assertions": [
@@ -100,7 +101,7 @@
                 "4a9d4021ff03ad82e2d120b3577ac470e92eee9b7c4000dc3be4808da2a44034"
               ],
               "name": "Assert-DeviceStripes",
-              "refactored": false,
+              "refactored": true,
               "baselineSha256": "de910ffc1434a17354ed247783d327aef4a3d642ad2e9c17cf68e27ddcc7d502"
             },
             {
@@ -788,8 +789,14 @@
             ]
           ],
           "baselineSha256": "b9779d0f161a9701c631d21763b101bc7da337e710742aa862157330acba827d",
-          "refactored": false,
+          "refactored": true,
+          "changedBy": "#318: add rendered header/page inset checks and stricter theme-specific divider contrast checks; retain resize and persistence coverage.",
           "functions": [
+            {
+              "assertions": [],
+              "name": "Test-SidebarContentInset",
+              "refactored": true
+            },
             {
               "assertions": [
                 "7fb8b91c0be2c1292fd354c9acd479ea22741b49393ad9d788ca7195e8d2f1c7",
@@ -797,7 +804,7 @@
                 "f8397ba93e3813bee1c8168248c7d1381d682cf3daeb8ae1fa6046a8a18c2b78"
               ],
               "name": "Test-SidebarDividerAppearance",
-              "refactored": false,
+              "refactored": true,
               "baselineSha256": "c5642974231412edb77c17bc690bf32092efa922d5c57d9b3a2403914f89851c"
             },
             {
@@ -814,7 +821,7 @@
                 "4fe5744692ecde38b74be78253780056977b49f7e78471cc9f13a5fa71ff185c"
               ],
               "name": "Test-SidebarResizing",
-              "refactored": false,
+              "refactored": true,
               "baselineSha256": "24057391b6561943e6c12f1c5f26c69e583e2cafb0755673e086d1e9f93f3597"
             },
             {
@@ -835,9 +842,9 @@
             }
           ],
           "captures": [
-            "eb626dee7c60ad7588fbb2c6e23583b7d5adbdda02d9bce0d2d31be4f8090aed",
-            "ed2042129889364213248ed4d1b63c1b94cf0952da7f8d7c1b43e623f6745e45",
-            "fa2997b3f76392aeb34e5543ad4c16de0f699d2524b0f3bd196f6e20698acb26",
+            "a481b8b7f56bffd1678135d6cc5e1d1e9a8c573443ee9aa7b76edc2bbf279625",
+            "ed123854608cd41d2c690d75ec45fc7d1a3b5f83a05abbdc4d74c0dc25f06dd9",
+            "bc967c064a7f1942f7d47501633c0e3b29caafb1d23a6c0b51a693441d50f8fe",
             "dea3e378d4cf64342d2176ddfaa83743594bce9c2597cd894908839c5d2775ec",
             "123a3c4527f9d937431851d8366ebeb205d743e0cc3d8db7d4505161138d5539",
             "8b7c916189ba869d87ceadd71837b970d1808a6bd62134ffb0b7a7b5f6f50b59",
@@ -1141,7 +1148,8 @@
             1285
           ],
           "baselineSha256": "e923750ed42f4d789b377a5c4b6807a8a38e4d28fe863a3ea37fbdc82c415e78",
-          "refactored": false,
+          "refactored": true,
+          "changedBy": "#318: verify rendered left inset on every top-level page in expanded navigation.",
           "functions": [],
           "captures": [
             "06bdd1a47c815c22a9e23929752f4789d67617f0da0074322279e3efd9445cdf"
@@ -1169,10 +1177,12 @@
             1296
           ],
           "baselineSha256": "291544e71d18a4cd946472975d213fe279f66481ade8c4a2277a0748fe78f539",
-          "refactored": false,
+          "refactored": true,
+          "changedBy": "#318: exercise lower divider contrast in light/dark themes and system-color hover/focus presentation in high contrast.",
           "functions": [],
           "captures": [
             "da901e1248c1b5cccdc741440da7b359ad6264edf56c82d8b6b24b5e2922d5e1",
+            "1356830c08f2bf34384de412d8cdbf6747d9e48b7bbcb8e7b751c38c646c22a6",
             "87db7c154e30e231a44628396e850c61f421749af03786696e2dc9d5c2c0a4b9"
           ],
           "fixtureAssignments": []

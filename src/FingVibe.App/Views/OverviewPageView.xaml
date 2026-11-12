@@ -6,7 +6,7 @@
     xmlns:models="using:FingVibe.Core.Models">
     <ScrollViewer x:Name="OverviewPage" SizeChanged="OverviewPage_SizeChanged"
                   HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="24,0,24,24" Spacing="16">
+        <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
             <TextBlock Text="Overview" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
             <TextBlock x:Name="OverviewVersionText" TextWrapping="Wrap"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />

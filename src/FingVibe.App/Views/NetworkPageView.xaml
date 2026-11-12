@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:FingVibe.App">
     <ScrollViewer x:Name="NetworkPage" AutomationProperties.AutomationId="NetworkPage">
-        <StackPanel Margin="24,0,24,24" Spacing="16">
+        <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
             <TextBlock Text="Network" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <Grid ColumnSpacing="24" RowSpacing="16">

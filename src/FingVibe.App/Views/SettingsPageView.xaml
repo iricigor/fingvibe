@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:FingVibe.App">
     <ScrollViewer x:Name="SettingsPage">
-        <StackPanel Margin="24,0,24,24" Spacing="16">
+        <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
             <TextBlock Text="Settings" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="12">

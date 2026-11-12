@@ -208,15 +208,16 @@ public sealed class DeviceResultFilterTests
     }
 
     [Fact]
-    public void AnyStatusIncludesFingOnlyButNotHistoricalUnknown()
+    public void AnyStatusIncludesFingOnlyAndSavedOnlineEvidence()
     {
         var filter = new DeviceResultFilter(false, false, "") { AnyKnownStatus = true };
         Assert.True(filter.Matches(Row(HostStatus.Alive, false)));
         Assert.True(filter.Matches(Row(HostStatus.Unreachable, false)));
         var historical = new ScanResultRow(new ScanResult(IPAddress.Parse("192.0.2.1"),
             HostStatus.Alive, 1, TimeSpan.Zero), 24, historical: true);
-        Assert.Equal(InventoryDeviceStatus.Unknown, historical.Status);
-        Assert.False(filter.Matches(historical));
+        Assert.Equal(InventoryDeviceStatus.Online, historical.Status);
+        Assert.True(filter.Matches(historical));
+        Assert.False(historical.IsCurrentScanResponse);
         var imported = new ScanResultRow(new InventoryDevice("001122334455",
             new ImportedDeviceMetadata(Name: "Imported device"), []), 24);
         Assert.Equal(InventoryDeviceStatus.FingOnly, imported.Status);

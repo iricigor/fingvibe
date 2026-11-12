@@ -3,7 +3,7 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <ScrollViewer x:Name="SqlPageScroll" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="24,0,24,24" Spacing="12">
+        <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="12">
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />

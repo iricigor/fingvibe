@@ -100,6 +100,70 @@ $workflow = Get-Content (Join-Path $PSScriptRoot "..\.github\workflows\ci.yml") 
 Assert-Equal $appProject.Project.PropertyGroup.SatelliteResourceLanguages "en" "Local and PR builds retain English managed satellite resources"
 $releaseWorkflow = Get-Content (Join-Path $PSScriptRoot "..\.github\workflows\release.yml") -Raw
 $securityWorkflow = Get-Content (Join-Path $PSScriptRoot "..\.github\workflows\security-review.yml") -Raw
+$versionStep = [regex]::Match($releaseWorkflow, '(?ms)^      - name: Set release version\r?\n.*?        run: \|\r?\n(?<script>.*?)(?=^      - name:)')
+$releaseStep = [regex]::Match($releaseWorkflow, '(?ms)^      - name: Publish GitHub Release\r?\n.*?        run: \|\r?\n(?<script>.*)\z')
+if (-not $versionStep.Success -or -not $releaseStep.Success) {
+    throw "Release version and publication scripts must remain testable."
+}
+$releaseOutput = [IO.Path]::GetTempFileName()
+$savedOutput = $env:GITHUB_OUTPUT
+$savedExitCode = $global:LASTEXITCODE
+$global:PrValidationReleaseState = @{
+    Calls = [System.Collections.Generic.List[object]]::new()
+    Existing = $false
+    PublishFails = $false
+}
+function gh {
+    $global:PrValidationReleaseState.Calls.Add(@($args))
+    if ($args[1] -eq "view") {
+        $global:LASTEXITCODE = if ($global:PrValidationReleaseState.Existing) { 0 } else { 1 }
+        if ($global:PrValidationReleaseState.Existing) { "existing release" }
+    } else {
+        $global:LASTEXITCODE = if ($global:PrValidationReleaseState.PublishFails) { 1 } else { 0 }
+    }
+}
+try {
+    $env:GITHUB_OUTPUT = $releaseOutput
+    foreach ($runNumber in @(7, 123)) {
+        Clear-Content -LiteralPath $releaseOutput
+        $versionScript = $versionStep.Groups["script"].Value.Replace('${{ github.run_number }}', "$runNumber")
+        & ([scriptblock]::Create($versionScript))
+        $identity = Get-Content -LiteralPath $releaseOutput -Raw | ConvertFrom-StringData
+        Assert-Equal @($identity.number, $identity.tag) @("1.2.$runNumber", "v1.2.$runNumber") "Generated feature version and tag retain the run number"
+        $releaseScript = $releaseStep.Groups["script"].Value.
+            Replace('${{ steps.version.outputs.number }}', $identity.number).
+            Replace('${{ steps.version.outputs.tag }}', $identity.tag).
+            Replace('${{ github.sha }}', "fixture-commit")
+        $global:PrValidationReleaseState.Existing = $false
+        $global:PrValidationReleaseState.Calls.Clear()
+        & ([scriptblock]::Create($releaseScript))
+        $create = $global:PrValidationReleaseState.Calls[1]
+        Assert-Equal $create @(
+            "release", "create", $identity.tag,
+            "artifacts\FingVibe-$($identity.number)-win-x64.zip",
+            "artifacts\installer\FingVibe-$($identity.number)-win-x64-Setup.exe",
+            "--target", "fixture-commit", "--title", "FingVibe $($identity.number)",
+            "--notes-file", "docs\release-notes-1.2.md", "--generate-notes"
+        ) "Release artifacts, title and tag share the generated identity and prepend curated notes"
+        $global:PrValidationReleaseState.Existing = $true
+        $global:PrValidationReleaseState.Calls.Clear()
+        & ([scriptblock]::Create($releaseScript))
+        Assert-Equal $global:PrValidationReleaseState.Calls[1] @(
+            "release", "upload", $identity.tag,
+            "artifacts\FingVibe-$($identity.number)-win-x64.zip",
+            "artifacts\installer\FingVibe-$($identity.number)-win-x64-Setup.exe", "--clobber"
+        ) "Existing releases retain idempotent asset upload"
+    }
+    $global:PrValidationReleaseState.Existing = $false
+    $global:PrValidationReleaseState.PublishFails = $true
+    Assert-Throws { & ([scriptblock]::Create($releaseScript)) } "*Release publication failed*"
+} finally {
+    Remove-Item Function:\gh
+    Remove-Variable PrValidationReleaseState -Scope Global
+    $env:GITHUB_OUTPUT = $savedOutput
+    $global:LASTEXITCODE = $savedExitCode
+    Remove-Item -LiteralPath $releaseOutput
+}
 $actionVersions = @{
     "actions/checkout" = "v7.0.1"
     "actions/setup-dotnet" = "v6.1.0"

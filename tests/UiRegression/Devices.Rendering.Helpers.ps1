@@ -15,9 +15,10 @@
         $bounds = Get-UiReviewWindowBounds $windowHandle
         foreach ($index in 0..3) {
             $rowBounds = $rows[$index].Current.BoundingRectangle
+            # Sample top padding, not text exposed from the next horizontally clipped column.
             $rightColor = $bitmap.GetPixel(
                 [int]($rowBounds.Right - $bounds.Left - 6 * $scale),
-                [int]($rowBounds.Top - $bounds.Top + $rowBounds.Height / 2)).ToArgb()
+                [int]($rowBounds.Top - $bounds.Top + 2 * $scale)).ToArgb()
             if ($rightColor -ne $colors[$index]) { throw "Stripe is not full width in '$Name'." }
         }
     }

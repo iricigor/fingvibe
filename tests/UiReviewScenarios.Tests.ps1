@@ -22,7 +22,7 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     $namespaces = [System.Xml.XmlNamespaceManager]::new($page.NameTable)
     $namespaces.AddNamespace("x", "http://schemas.microsoft.com/winfx/2006/xaml")
     $history = $page.SelectSingleNode("//*[@x:Name='DeviceScanHistoryExpander']", $namespaces)
-    Assert-Equal $history.IsExpanded "False" "Completed observations starts collapsed"
+    Assert-Equal $history.IsExpanded "True" "Completed observations starts expanded"
     Assert-Equal $history.Header "Completed Scan Observations" "Completed observations header"
     Assert-Equal $history.GetAttribute("Visibility") "" "Completed observations uses visible layout"
     if (-not $history.SelectSingleNode(".//*[local-name()='ScrollViewer' and @x:Name='DeviceScanHistoryList']/*[local-name()='ItemsControl' and @x:Name='DeviceScanHistoryRows']", $namespaces)) {
@@ -55,9 +55,17 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     foreach ($id in @("DeviceActivityCard", "DeviceHistoryScope", "DeviceHistoryLatest", "DeviceScanHistoryExpander", "VirtualDeviceHistoryCard")) {
         if (-not $historyPanel.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must be on the History tab." }
     }
-    $header = $page.SelectSingleNode("//*[@x:Name='DeviceNameEditor']", $namespaces).ParentNode
-    if ($header.NextSibling -ne $tabs -or $tabs.ParentNode.ParentNode.GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml") -cne "DevicePage") {
-        throw "The name and rename editor must precede the tabs inside the shared details scroll area."
+    $header = $page.SelectSingleNode("//*[@x:Name='HeaderGrid']", $namespaces)
+    if (-not $header.SelectSingleNode(".//*[@x:Name='DetailsTabs']", $namespaces) -or
+        -not $header.SelectSingleNode(".//*[@x:Name='DeviceNameValue']", $namespaces) -or
+        -not $header.SelectSingleNode(".//*[@x:Name='DeviceBackButton']", $namespaces)) {
+        throw "Back, segmented tabs and identity must share the responsive details header."
+    }
+    $columns = $page.SelectSingleNode("//*[@x:Name='DetailsColumns']", $namespaces)
+    foreach ($id in @("NetworkOverviewCard", "AssignmentsCard", "DeviceHistorySummaryCard", "UsageCategoryCard")) {
+        if (-not $columns.SelectSingleNode("./*[@x:Name='$id']", $namespaces)) {
+            throw "$id must share the two-row aligned summary grid."
+        }
     }
     $detailsCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml.cs") -Raw
     if ($detailsCode -notmatch '(?s)internal void ShowDevice\(.*?DetailsTabs\.SelectedItem = OverviewTab;') {
@@ -70,9 +78,9 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
         throw "History fixtures must select their own network independently of preceding suites."
     }
     $summaryAssertion = [regex]::Match($historyUi, '(?s)function Assert-HistorySummary.*?(?=function Invoke-HistoryScan)').Value
-    if ($summaryAssertion -notmatch 'Show-HistorySection DeviceHistoryFirstSeen -AdditionalIds' -or
+    if ($summaryAssertion -notmatch 'Show-HistorySection \$id' -or
         $summaryAssertion -match 'DeviceHistorySummaryCard') {
-        throw "Summary checks must position existing text peers together, not a Border without an automation peer."
+        throw "Summary checks must position disclosed text peers individually, not a Border without an automation peer."
     }
     $code = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml.cs") -Raw
     foreach ($pattern in @(
@@ -705,7 +713,8 @@ try {
         $valueCode = Get-Content (Join-Path $appDirectory "Views\DeviceDetailValue.cs") -Raw
         if ($valueCode -notmatch 'HyperlinkButton _browser' -or
             $valueCode -notmatch '_valueRow.Children.Add\(_copy\)' -or
-            $valueCode -notmatch '_copy.Opacity = _pointerOver') {
+            $valueCode -notmatch '_copy.Opacity = _rename.Opacity = visible' -or
+            $valueCode -notmatch '_rename.FocusState != FocusState.Unfocused') {
             throw "Details must keep native browser links and reserved hover/focus copy actions beside values."
         }
     }
@@ -897,7 +906,7 @@ try {
                     "control-Back to devices" { $script:currentPage -eq "DeviceDetails" }
                     "control-DeviceHistoryTab" { $script:currentPage -eq "DeviceDetails" }
                     "control-Activity" { $script:currentPage -eq "DeviceHistory" }
-                    "control-Device name" { $script:currentPage -eq "DeviceDetails" }
+                    "control-Rename device" { $script:currentPage -eq "DeviceDetails" }
                     "control-Network overview" { $script:currentPage -eq "DeviceDetails" }
                     "control-Scan additional ports" { $script:currentPage -eq "DeviceDetails" }
                     "control-Room assignment saved." { $script:currentPage -eq "DeviceDetails" }

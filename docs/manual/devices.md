@@ -8,14 +8,18 @@ Unused IP addresses do not become device records.
 
 | Status | Meaning |
 | --- | --- |
-| Online | The device responded to fresh ping or ARP in this session's displayed scan. Initial saved results can show this while background checks continue. |
+| Online | The device responded to ping or ARP in its latest applicable scan evidence, including saved results. |
 | Offline | A previously observed device did not respond in a later successful scan of the same identified network and subnet. |
-| Unknown | There is no suitable current scan evidence, for example after restart or when results belong to another network. |
+| Unknown | No suitable local scan status is available. Restart alone does not make a known status Unknown. |
 | Fing Only | The imported MAC address has never been observed in a local FingVibe scan. |
 
 **Offline is not proof of power-off.** A device may be sleeping, blocking probes,
-or outside the scan's reachable network. After restart, saved observations are
-historical; they do not remain Online.
+or outside the scan's reachable network. After restart, saved Online/Offline
+statuses remain available, with their evidence age. Starting a scan retains
+unresolved statuses; fresh responders become Online, but only full successful
+completion can make nonresponders Offline on that same network. Cancellation
+or failure retains prior statuses and committed positive results.
+Online is scan-relative, not proof of continuous live presence.
 
 Color supports the status text. Green, gray, or amber alone is not the meaning.
 The totals describe the whole inventory, even when filters hide some rows.

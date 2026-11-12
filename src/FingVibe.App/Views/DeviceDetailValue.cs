@@ -32,6 +32,12 @@ public sealed class DeviceDetailValue : Grid
         Width = 32, Height = 32, Padding = new Thickness(4),
         VerticalAlignment = VerticalAlignment.Center, Opacity = 0
     };
+    private readonly Button _rename = new()
+    {
+        Content = new FontIcon { Glyph = "\uE70F", FontSize = 14 },
+        Width = 32, Height = 32, Padding = new Thickness(4),
+        VerticalAlignment = VerticalAlignment.Center, Visibility = Visibility.Collapsed, Opacity = 0
+    };
     private bool _pointerOver;
     private bool _linkedValue;
 
@@ -39,7 +45,7 @@ public sealed class DeviceDetailValue : Grid
     {
         var content = new StackPanel { Spacing = 2 };
         content.Children.Add(_label);
-        for (var index = 0; index < 3; index++)
+        for (var index = 0; index < 4; index++)
             _valueRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _valueRow.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         _valueRow.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -50,6 +56,19 @@ public sealed class DeviceDetailValue : Grid
         SetColumn(_browser, 2);
         _browser.Content = _browserText;
         _valueRow.Children.Add(_browser);
+        SetColumn(_rename, 3);
+        _valueRow.Children.Add(_rename);
+        AutomationProperties.SetAutomationId(_rename, "DeviceRenameButton");
+        AutomationProperties.SetName(_rename, "Rename device");
+        ToolTipService.SetToolTip(_rename, "Rename device");
+        _rename.Click += (_, args) => RenameRequested?.Invoke(this, args);
+        _rename.GotFocus += (_, _) => UpdateCopyOpacity();
+        _rename.LostFocus += (_, _) => UpdateCopyOpacity();
+        Loaded += (_, _) =>
+        {
+            _rename.Visibility = RenameRequested is null ? Visibility.Collapsed : Visibility.Visible;
+            Refresh();
+        };
         content.Children.Add(_valueRow);
         content.Children.Add(_source);
         Children.Add(content);
@@ -67,6 +86,9 @@ public sealed class DeviceDetailValue : Grid
     public string Value { get => (string)GetValue(ValueProperty); set => SetValue(ValueProperty, value); }
     public string Source { get => (string)GetValue(SourceProperty); set => SetValue(SourceProperty, value); }
     public double ValueFontSize { get => _value.FontSize; set => _value.FontSize = value; }
+    public string CopyLabel { get; set; } = "";
+    public event RoutedEventHandler? RenameRequested;
+    internal void FocusRename() => _rename.Focus(FocusState.Programmatic);
     internal event RoutedEventHandler? BrowserRequested;
 
     internal void SetBrowserAction(bool linkedValue, string label, string tooltip)
@@ -86,13 +108,16 @@ public sealed class DeviceDetailValue : Grid
         if (ActualWidth <= 0) return;
         _browserText.MaxWidth = ActualWidth;
         _browser.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+        _value.MaxWidth = double.PositiveInfinity;
+        _value.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
         var alternate = !_linkedValue && _browser.Visibility == Visibility.Visible;
-        var stacked = alternate && ActualWidth < _browser.DesiredSize.Width + 200;
+        var stacked = alternate && ActualWidth < _browser.DesiredSize.Width + _value.DesiredSize.Width + 44;
         SetRow(_browser, stacked ? 1 : 0);
         SetColumn(_browser, _linkedValue || stacked ? 0 : 2);
         SetColumnSpan(_browser, stacked ? 2 : 1);
         _browser.HorizontalAlignment = HorizontalAlignment.Left;
         var actionsWidth = (_copy.Visibility == Visibility.Visible ? 36 : 0)
+            + (_rename.Visibility == Visibility.Visible ? 36 : 0)
             + (alternate && !stacked ? _browser.DesiredSize.Width + 4 : 0);
         var available = Math.Max(0, ActualWidth - actionsWidth);
         _value.MaxWidth = available;
@@ -110,13 +135,18 @@ public sealed class DeviceDetailValue : Grid
         _source.Text = Source;
         _source.Visibility = string.IsNullOrWhiteSpace(Source) ? Visibility.Collapsed : Visibility.Visible;
         _copy.Visibility = DeviceDetailsPresentation.CanCopy(Value) ? Visibility.Visible : Visibility.Collapsed;
-        AutomationProperties.SetName(_copy, $"Copy {Label}");
-        ToolTipService.SetToolTip(_copy, $"Copy {Label}");
+        AutomationProperties.SetName(_copy, $"Copy {ActionLabel}");
+        ToolTipService.SetToolTip(_copy, $"Copy {ActionLabel}");
         ConstrainValue();
     }
 
-    private void UpdateCopyOpacity() =>
-        _copy.Opacity = _pointerOver || _copy.FocusState != FocusState.Unfocused ? 1 : 0;
+    private string ActionLabel => string.IsNullOrEmpty(CopyLabel) ? Label : CopyLabel;
+
+    private void UpdateCopyOpacity()
+    {
+        var visible = _pointerOver || _copy.FocusState != FocusState.Unfocused || _rename.FocusState != FocusState.Unfocused;
+        _copy.Opacity = _rename.Opacity = visible ? 1 : 0;
+    }
 
     private void Copy_Click(object sender, RoutedEventArgs e)
     {
@@ -128,7 +158,7 @@ public sealed class DeviceDetailValue : Grid
             data.SetText(Value);
             Clipboard.SetContent(data);
             Clipboard.Flush();
-            message.Text = $"{Label} copied.";
+            message.Text = $"{ActionLabel} copied.";
         }
         catch (Exception exception) when (exception is System.Runtime.InteropServices.COMException
             or UnauthorizedAccessException or InvalidOperationException)
@@ -136,7 +166,7 @@ public sealed class DeviceDetailValue : Grid
             var detail = string.IsNullOrWhiteSpace(exception.Message)
                 ? $"Clipboard unavailable (0x{exception.HResult:X8}). Try again."
                 : exception.Message;
-            message.Text = $"Could not copy {Label}: {detail}";
+            message.Text = $"Could not copy {ActionLabel}: {detail}";
         }
         new Flyout { Content = message }.ShowAt(_copy);
     }
