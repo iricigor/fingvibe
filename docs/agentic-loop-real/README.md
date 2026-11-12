@@ -20,6 +20,10 @@ Read the [mandatory shared operating contract](contract.md) as well as this
 guide. Inherited production safeguards apply except for its explicitly listed
 real-environment overrides.
 
+[Task #338](https://github.com/iricigor/fingvibe/issues/338) adds the
+[strict operational JSON protocol and script fast path](protocol.md) only to
+these three profiles. It does not update existing Automations or activate workers.
+
 ## Prerequisites and capability verification
 
 - One local Windows PC/account with a persistent local filesystem shared by all
@@ -89,6 +93,11 @@ worktrees:
   state.json
   events\
   incidents\
+  records\
+  messages\
+  receipts\
+  diagnostics\
+  responses\
 ```
 
 One environment per repository/account; no alternate state roots in live use.
@@ -159,12 +168,22 @@ candidate and re-read persisted state; do not continue from a partly mutated
 object. An uncertain publication requires readback/reconciliation, not retry.
 GateDirectory overrides exist only for isolated deterministic tests.
 
+Operational messages use `Invoke-RealTaskMessage.ps1` for `Prepare`, `Receive`,
+`Confirm` and `ProtocolError`. Importing the module also exports
+`New-RealTaskMessage`, `Publish-RealTaskMessage`, `Receive-RealTaskMessage`,
+`Confirm-RealTaskMessage` and `Publish-RealTaskProtocolError`.
+See [protocol schemas, fixed operations and examples](protocol.md). `Receive`
+does not execute, ingest events or acknowledge work: it returns a small packet
+pointing to the already verified payload. Existing atomic acknowledgment and
+gate-owned ingestion remain the next scripted steps.
+
 ## Validation and later trial
 
 Run deterministic checks without starting real workers or contacting GitHub:
 
 ```powershell
 .\tests\RealTaskCoordination.Tests.ps1
+.\tests\RealTaskProtocol.Tests.ps1
 .\tests\DispatcherGate.Tests.ps1
 ```
 

@@ -7,10 +7,15 @@ $script:Stages = @("prepared", "launch-requested", "correlated", "delivered",
 $script:TaskStates = @("implementing", "validation", "repair-needed", "finalize-ready",
     "human-review", "blocked", "delivered")
 
-function Assert-RealTaskFields($Record, [string[]] $Fields) {
+function Assert-RealTaskFields($Record, [string[]] $Fields, [switch] $Closed) {
     if ($Record -isnot [System.Collections.IDictionary]) { throw "Expected a JSON object." }
     foreach ($field in $Fields) {
         if ($field -cnotin @($Record.Keys)) { throw "Missing field '$field'." }
+    }
+    if ($Closed) {
+        foreach ($field in $Record.Keys) {
+            if ($field -cnotin $Fields) { throw "Unknown field '$field'." }
+        }
     }
 }
 
@@ -37,9 +42,11 @@ function Get-RealTaskHash($Record) {
     # Sort object keys recursively so JSON field order is not event identity.
     function ConvertTo-Canonical($Value) {
         if ($Value -is [System.Collections.IDictionary]) {
-            $ordered = [ordered]@{}
-            foreach ($key in @($Value.Keys | Sort-Object -CaseSensitive)) {
-                $ordered[$key] = ConvertTo-Canonical $Value[$key]
+            $ordered = [Collections.Specialized.OrderedDictionary]::new([StringComparer]::Ordinal)
+            [string[]] $keys = @($Value.Keys)
+            [Array]::Sort($keys, [StringComparer]::Ordinal)
+            foreach ($key in $keys) {
+                $ordered.Add($key, (ConvertTo-Canonical $Value[$key]))
             }
             return ,$ordered
         }
@@ -377,15 +384,14 @@ function Set-RealTaskStage {
     Assert-RealTaskState $State
 }
 
-function Add-RealTaskEvent {
+function Test-RealTaskEvent {
     param($State, $Event)
-    Assert-RealTaskState $State
     Assert-RealTaskEvent $Event
     $hash = Get-RealTaskHash $Event
     $seen = @($State.events | Where-Object id -CEQ $Event.eventId)
     if ($seen.Count -gt 0) {
-        if ($seen[0].hash -cne $hash) { throw "Conflicting duplicate event." }
-        return "duplicate"
+        if ($seen[0].hash -cne $hash) { Stop-RealTaskProtocol "conflicting-duplicate" "Conflicting duplicate event." }
+        return @{ disposition = "duplicate"; hash = $hash; handoff = $null }
     }
     $handoff = Find-RealTaskHandoff $State $Event.claimId $Event.handoffId
     foreach ($field in @("action", "workerId", "runId", "sessionId")) {
@@ -397,12 +403,6 @@ function Add-RealTaskEvent {
         if ($handoff.stage -cnotin @("correlated", "delivered") -or $null -ne $Event.result) {
             throw "Invalid acknowledgment stage/result."
         }
-        if ($handoff.stage -ceq "correlated") {
-            # A verified matching acknowledgment also proves the assignment arrived.
-            $handoff.transitions += @{ stage = "delivered"; utc = $Event.utc; evidence = $Event.evidence }
-        }
-        $stage = "acknowledged"
-        $handoff.ackEventId = $Event.eventId
     } else {
         if ($handoff.stage -cne "acknowledged" -and
             -not ($handoff.stage -cin @("correlated", "delivered") -and $Event.result.outcome -ceq "blocked-before-start")) {
@@ -422,13 +422,31 @@ function Add-RealTaskEvent {
                 throw "Merge delivery is not authorized."
             }
         }
+    }
+    return @{ disposition = "ready"; hash = $hash; handoff = $handoff }
+}
+
+function Add-RealTaskEvent {
+    param($State, $Event)
+    Assert-RealTaskState $State
+    $check = Test-RealTaskEvent $State $Event
+    if ($check.disposition -ceq "duplicate") { return "duplicate" }
+    $handoff = $check.handoff
+    if ($Event.kind -ceq "ack") {
+        if ($handoff.stage -ceq "correlated") {
+            # A verified matching acknowledgment also proves the assignment arrived.
+            $handoff.transitions += @{ stage = "delivered"; utc = $Event.utc; evidence = $Event.evidence }
+        }
+        $stage = "acknowledged"
+        $handoff.ackEventId = $Event.eventId
+    } else {
         $stage = "result-recorded"
         $handoff.resultEventId = $Event.eventId
         $handoff.result = $Event.result
     }
     $handoff.stage = $stage
     $handoff.transitions += @{ stage = $stage; utc = $Event.utc; evidence = $Event.evidence }
-    $State.events += @{ id = $Event.eventId; hash = $hash; claimId = $Event.claimId
+    $State.events += @{ id = $Event.eventId; hash = $check.hash; claimId = $Event.claimId
         handoffId = $Event.handoffId; kind = $Event.kind }
     (Find-RealTask $State $Event.claimId).changedUtc = [DateTime]::UtcNow.ToString("o")
     Assert-RealTaskState $State
@@ -438,12 +456,14 @@ function Add-RealTaskEvent {
 function Assert-RealTaskEvent($Event) {
     Assert-RealTaskFields $Event @("schema", "eventId", "kind", "claimId", "handoffId", "action",
         "workerId", "runId", "sessionId", "utc", "actor", "originalReporter", "trigger",
-        "elapsedSeconds", "result", "evidence")
+        "elapsedSeconds", "result", "evidence") -Closed
     if ($Event.schema -cne "fingvibe-real-event-v1" -or $Event.kind -cnotin @("ack", "result")) {
         throw "Unsupported event schema/kind; field aliases are not inferred."
     }
     foreach ($field in @("eventId", "claimId", "handoffId", "action", "workerId", "runId", "sessionId",
         "actor", "originalReporter", "trigger")) { Assert-RealTaskText $Event[$field] $field }
+    if ($Event.action -cnotin @("implement", "repair", "finalize") -or
+        $Event.workerId -cnotin @("developer-1", "developer-2")) { throw "Invalid event action/worker." }
     if ($Event.eventId -cne "$($Event.kind)-$($Event.handoffId)") {
         throw "Event ID must be reserved by kind and handoff."
     }
@@ -459,10 +479,26 @@ function Assert-RealTaskEvent($Event) {
     if ($Event.kind -ceq "ack") {
         if ($null -ne $Event.result) { throw "Acknowledgment cannot contain a result." }
     } else {
-        Assert-RealTaskFields $Event.result @("outcome", "head", "checkpoint", "evidence")
+        Assert-RealTaskFields $Event.result @("outcome", "head", "checkpoint", "evidence") -Closed
         Assert-RealTaskEvidence $Event.result.evidence
         if ($Event.result.outcome -cnotin @("implementation-ready", "blocked", "blocked-before-start", "pr-ready", "delivered")) {
             throw "Unknown result outcome."
+        }
+        foreach ($field in @("head", "checkpoint")) {
+            if ($null -ne $Event.result[$field]) { Assert-RealTaskText $Event.result[$field] $field }
+        }
+        if ($null -ne $Event.result.head -and $Event.result.head -cnotmatch '^[0-9a-f]{40}$') {
+            throw "Expected full result head SHA."
+        }
+        if ($Event.result.outcome -ceq "implementation-ready") {
+            if ($Event.action -ceq "finalize" -or $Event.result.head -cnotmatch '^[0-9a-f]{40}$') {
+                throw "Invalid implementation checkpoint."
+            }
+            Assert-RealTaskText $Event.result.checkpoint "implementation checkpoint"
+        }
+        if ($Event.result.outcome -cin @("pr-ready", "delivered") -and
+            ($Event.action -cne "finalize" -or $Event.result.head -cnotmatch '^[0-9a-f]{40}$')) {
+            throw "Invalid finalization result."
         }
     }
 }
@@ -470,6 +506,10 @@ function Assert-RealTaskEvent($Event) {
 function Get-RealTaskAssignment {
     param($State, [string] $ClaimId, [string] $HandoffId)
     Assert-RealTaskState $State
+    Get-RealTaskAssignmentCore $State $ClaimId $HandoffId
+}
+
+function Get-RealTaskAssignmentCore($State, [string] $ClaimId, [string] $HandoffId) {
     $task = Find-RealTask $State $ClaimId
     $handoff = Find-RealTaskHandoff $State $ClaimId $HandoffId
     if ($handoff.stage -cnotin @("correlated", "delivered")) { throw "Handoff is not deliverable." }
@@ -486,8 +526,13 @@ function Get-RealTaskAssignment {
 
 function Assert-RealTaskAssignment {
     param($State, $Assignment, [string] $WorkerId, [string] $RunId, [string] $SessionId)
+    Assert-RealTaskState $State
+    Assert-RealTaskAssignmentCore $State $Assignment $WorkerId $RunId $SessionId
+}
+
+function Assert-RealTaskAssignmentCore($State, $Assignment, [string] $WorkerId, [string] $RunId, [string] $SessionId) {
     Assert-RealTaskFields $Assignment @("claimId", "handoffId")
-    $expected = Get-RealTaskAssignment $State $Assignment.claimId $Assignment.handoffId
+    $expected = Get-RealTaskAssignmentCore $State $Assignment.claimId $Assignment.handoffId
     if (-not $State.authorization.implementation -or $expected.workerId -cne $WorkerId -or
         $expected.runId -cne $RunId -or $expected.sessionId -cne $SessionId -or
         (Get-RealTaskHash $Assignment) -cne (Get-RealTaskHash $expected)) {
@@ -566,9 +611,31 @@ function Read-RealTaskJson {
     if (-not [IO.Path]::IsPathFullyQualified($Path)) { throw "Record path must be absolute." }
     if (-not [IO.File]::Exists($Path)) { throw "Record absent: $Path. Never infer idle capacity." }
     $json = [IO.File]::ReadAllText($Path)
-    $record = ConvertFrom-Json -InputObject $json -AsHashtable -DateKind String -Depth 100 -ErrorAction Stop
-    if ($record -isnot [System.Collections.IDictionary]) { throw "Expected complete JSON object: $Path." }
-    return $record
+    ConvertFrom-RealTaskJson $json
+}
+
+function ConvertFrom-RealTaskJson([string] $Json) {
+    $options = [System.Text.Json.JsonDocumentOptions]::new()
+    $options.MaxDepth = 100
+    $document = [System.Text.Json.JsonDocument]::Parse($Json, $options)
+    try {
+        function Assert-UniqueJsonKeys([System.Text.Json.JsonElement] $Element) {
+            if ($Element.ValueKind -eq [System.Text.Json.JsonValueKind]::Object) {
+                $keys = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+                foreach ($property in $Element.EnumerateObject()) {
+                    if (-not $keys.Add($property.Name)) { throw "Duplicate JSON key '$($property.Name)'." }
+                    Assert-UniqueJsonKeys $property.Value
+                }
+            } elseif ($Element.ValueKind -eq [System.Text.Json.JsonValueKind]::Array) {
+                foreach ($item in $Element.EnumerateArray()) { Assert-UniqueJsonKeys $item }
+            }
+        }
+        if ($document.RootElement.ValueKind -ne [System.Text.Json.JsonValueKind]::Object) {
+            throw "Expected complete JSON object."
+        }
+        Assert-UniqueJsonKeys $document.RootElement
+    } finally { $document.Dispose() }
+    ConvertFrom-Json -InputObject $Json -AsHashtable -DateKind String -Depth 100 -ErrorAction Stop
 }
 
 function Write-RealTaskAtomic($Record, [string] $Path, [switch] $Immutable) {
@@ -705,7 +772,11 @@ function Sync-RealTaskIncidents {
     $State.incidents = $records
 }
 
+. (Join-Path $PSScriptRoot "RealTaskProtocol.ps1")
+
 Export-ModuleMember -Function Assert-RealTaskState, New-RealTaskState, Get-RealTaskCapacity,
     Add-RealTaskClaim, Add-RealTaskHandoff, Set-RealTaskStage, Add-RealTaskEvent,
     Set-RealTaskDisposition, Read-RealTaskJson, Publish-RealTaskEvent, Publish-RealTaskState,
-    Sync-RealTaskIncidents, Get-RealTaskAssignment, Assert-RealTaskAssignment, Publish-RealTaskAcknowledgment
+    Sync-RealTaskIncidents, Get-RealTaskAssignment, Assert-RealTaskAssignment, Publish-RealTaskAcknowledgment,
+    New-RealTaskMessage, Publish-RealTaskMessage, Receive-RealTaskMessage,
+    Publish-RealTaskProtocolError, Confirm-RealTaskMessage
