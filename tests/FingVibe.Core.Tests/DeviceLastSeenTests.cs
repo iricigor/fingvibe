@@ -72,6 +72,9 @@ public sealed class DeviceLastSeenTests
             }
             foreach (var row in ScanResultRow.CreateInventoryRows(Restarted(data)))
             {
+                Assert.Equal(states[i], row.IsOnline);
+                Assert.False(row.IsCurrentScanResponse);
+                Assert.False(row.HasLatency);
                 var restored = LastSeen(row, zone: PlusTwo);
                 Assert.Equal(DeviceLastSeenKind.Timestamp, restored.Kind);
                 Assert.Equal(Start.AddMinutes(lastSeen[i]), restored.Timestamp);

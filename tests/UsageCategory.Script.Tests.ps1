@@ -44,7 +44,7 @@ if (-not [System.Windows.Automation.SelectionPattern+SelectionPatternInformation
         $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq "Assert-Usage"
     }, $true)
     Invoke-Expression $helper.Extent.Text
-    $state = @{ Shown = $false; Effective = "Saved effective category: Permanent | Auto - limited evidence" }
+    $state = @{ Shown = $false; Effective = "Permanent | Auto - limited evidence" }
     function Show-Usage([string] $Id) {
         if ($Id -ne "UsageCategoryEffective") { throw "Wrong assertion viewport." }
         $state.Shown = $true
@@ -57,7 +57,7 @@ if (-not [System.Windows.Automation.SelectionPattern+SelectionPatternInformation
         if (-not (& $Condition)) { throw "Timed out waiting for $Description." }
     }
     Assert-Usage Permanent "Auto - limited evidence"
-    $state.Effective = "Saved effective category: Unavailable | Query failed"
+    $state.Effective = "Unavailable | Query failed"
     $failed = $false
     try { Assert-Usage Permanent "Auto - limited evidence" }
     catch {

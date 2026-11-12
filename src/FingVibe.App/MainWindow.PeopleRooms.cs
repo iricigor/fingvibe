@@ -85,7 +85,7 @@ public sealed partial class MainWindow
 
         var canEdit = _peopleRoomsReady && !_peopleRoomsUnavailable && _inventoryReady && !_inventoryUnavailable;
         var devices = GetAssignedDeviceRows();
-        var hasCurrentScan = _liveCompletedAt is not null;
+        var hasCurrentScan = _currentScanSnapshot is not null || _allResults.Any(row => !row.IsFingOnly);
         PeoplePage.ShowPeople(_peopleRooms, devices, hasCurrentScan, canEdit);
         RoomsPage.ShowRooms(_peopleRooms, devices, hasCurrentScan, canEdit);
         PersonDetailPage.Refresh(_peopleRooms, devices, hasCurrentScan, canEdit);
@@ -103,7 +103,7 @@ public sealed partial class MainWindow
                     ?? (CurrentDeviceData.Devices.TryGetValue(pair.Key, out var device)
                         ? new ScanResultRow(device, 0, _deviceNameOverrides.GetValueOrDefault(pair.Key),
                             _classificationOverrides.GetValueOrDefault(pair.Key),
-                            historical: device.Status == InventoryDeviceStatus.Unknown) : null)))
+                            historical: true) : null)))
             .Concat(_allResults.Where(row => row.VirtualDevice?.Assignment is not null)
                 .Select(row => new AssignedDeviceListRow(row.IdentityKey, row)))
             .ToArray();

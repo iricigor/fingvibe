@@ -37,8 +37,9 @@ Read **Showing N of M devices**.
 If the inventory has devices but zero are shown, use **Clear filters**.
 Hidden secondary filters still apply.
 
-A remembered **Status: Online** filter may show no rows after restart because
-saved observations are historical. Run a scan or include Unknown.
+A remembered **Status: Online** filter includes saved Online evidence after
+restart. It can still be empty if no matching evidence exists; check the saved
+scan age and any load error before running another scan.
 Do not confuse a filter result with loss of saved data.
 
 ## Windows asks about firewall access

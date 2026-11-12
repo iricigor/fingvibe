@@ -16,11 +16,12 @@ public sealed partial class DeviceDetailsPageView
     private string? _activityUnavailable;
     private bool _activitySourceLoading;
     private bool _activityActive;
+    private bool _activityPageActive;
     private bool _activityInitialized;
     private readonly AsyncSurfaceSession _activitySession = new();
     private IReadOnlyList<DeviceActivityCell> _activityCells = [];
     private readonly UISettings _activityColors = new();
-    private (DateOnly Date, string Zone)? _activityDate;
+    private (DateOnly Date, string Zone, int Hour, TimeSpan Offset)? _activityDate;
     private const string ActivityDetailPrompt = "Select a cell to show its scan evidence.";
 
     private void InitializeActivity()
@@ -55,6 +56,12 @@ public sealed partial class DeviceDetailsPageView
 
     internal void SetActivityActive(bool active)
     {
+        _activityPageActive = active;
+        SetActivityTabActive(active && DetailsTabs.SelectedItem == HistoryTab);
+    }
+
+    private void SetActivityTabActive(bool active)
+    {
         if (_activityActive == active) return;
         _activityActive = active;
         if (active) _ = LoadActivityAsync();
@@ -75,6 +82,7 @@ public sealed partial class DeviceDetailsPageView
         ActivityLoading.IsIndeterminate = false;
         ActivityLoading.Visibility = Visibility.Collapsed;
         ActivityWindow.Text = ActivitySelection();
+        ActivityScope.Text = "Exact scope is available after loading this selection.";
         ActivityDetail.Text = ActivityDetailPrompt;
         if (string.IsNullOrEmpty(ActivityStatus.Text)) ActivityStatus.Text = "Activity is not loaded.";
         RenderActivity();
@@ -91,8 +99,9 @@ public sealed partial class DeviceDetailsPageView
         if (!_activityActive) return;
         TimeZoneInfo.ClearCachedData();
         var zone = TimeZoneInfo.Local;
-        var date = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone).DateTime);
-        if (_activityDate is { } previous && previous != (date, zone.Id)) _ = LoadActivityAsync();
+        var local = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, zone);
+        var date = DateOnly.FromDateTime(local.DateTime);
+        if (_activityDate is { } previous && previous != (date, zone.Id, local.Hour, local.Offset)) _ = LoadActivityAsync();
     }
 
     private async Task LoadActivityAsync()
@@ -104,9 +113,9 @@ public sealed partial class DeviceDetailsPageView
         var hours = (int)ActivityHours.Value;
         var weekdays = ActivityPeriod.SelectedIndex == 2;
         var days = ActivityPeriod.SelectedIndex == 0 ? 7 : 30;
-        ActivityHoursLabel.Text = $"Group hours: {hours} {(hours == 1 ? "hour" : "hours")} per cell";
+        ActivityHoursLabel.Text = $"Hours per square: {hours}";
         ActivityError.IsOpen = false;
-        ActivityRefresh.Content = "Refresh activity";
+        ActivityRefresh.Visibility = Visibility.Collapsed;
         ActivityStatus.Text = _activityUnavailable ?? "Loading completed scan evidence...";
         if (_activityLoader is not { } loader)
         {
@@ -131,13 +140,17 @@ public sealed partial class DeviceDetailsPageView
             _activitySession.Complete(request, AsyncSurfaceState.Ready, () =>
             {
                 _activityCells = cells;
-                _activityDate = (buckets.LastDate, buckets.TimeZoneId);
-                ActivityWindow.Text = $"{buckets.FirstDate:d MMM yyyy} - {buckets.LastDate:d MMM yyyy} ({days} calendar dates) | " +
-                    $"Local time: {buckets.TimeZoneId} | Today through {TimeZoneInfo.ConvertTimeBySystemTimeZoneId(buckets.QueryTime, buckets.TimeZoneId):HH:mm}; later hours are unknown.";
-                var known = buckets.Days.Count(bucket => bucket.Devices[0].Eligible > 0);
+                var local = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(buckets.QueryTime, buckets.TimeZoneId);
+                _activityDate = (buckets.LastDate, buckets.TimeZoneId, local.Hour, local.Offset);
+                ActivityWindow.Text = $"{buckets.FirstDate:d MMM} - {buckets.LastDate:d MMM yyyy} | Local time | " +
+                    $"Scans on {DeviceActivityPresentation.CoveredDates(buckets)} of {days} days | " +
+                    $"Today through {TimeZoneInfo.ConvertTimeBySystemTimeZoneId(buckets.QueryTime, buckets.TimeZoneId):HH:mm}";
+                ActivityScope.Text = $"Timezone: {buckets.TimeZoneId} | Network: {buckets.NetworkId} | {buckets.Subnet}\n" +
+                    $"{days} local calendar dates; later intervals today are not yet observed.";
+                var known = DeviceActivityPresentation.PopulatedSquares(cells);
                 ActivityStatus.Text = known == 0
                     ? "No completed scan history for this selection. Imported details do not provide scan evidence."
-                    : $"Scan evidence in {known} daily time cells. Gaps remain unknown; no continuity is inferred.";
+                    : $"{known} squares have scan results. Select a square for details.";
                 FinishActivityRender();
             });
         }
@@ -151,6 +164,7 @@ public sealed partial class DeviceDetailsPageView
                 ActivityError.IsOpen = true;
                 ActivityStatus.Text = "Activity could not be loaded. Retry; restart if another writer changed the saved inventory.";
                 ActivityRefresh.Content = "Retry";
+                ActivityRefresh.Visibility = Visibility.Visible;
                 FinishActivityRender();
             });
         }
@@ -176,7 +190,7 @@ public sealed partial class DeviceDetailsPageView
         if (!_activityInitialized) return;
         RenderActivityLegend(new AccessibilitySettings().HighContrast);
         ActivityGridRenderer.Render(ActivityGrid, _activityCells, ActualTheme, _activityColors,
-            "ActivityCell", details => ActivityDetail.Text = details);
+            "ActivityCell", details => ActivityDetail.Text = details, deviceStyle: true);
     }
 
     private void RenderActivityLegend(bool contrast)
@@ -189,14 +203,14 @@ public sealed partial class DeviceDetailsPageView
                 fraction == 0 ? AnalyticsResponse.DidNotRespond : AnalyticsResponse.Responded, fraction, false, "", "");
             ActivityLegend.Inlines.Add(new Run { Text = "\u25A0 ", Foreground = new SolidColorBrush(contrast
                 ? _activityColors.GetColorValue(UIColorType.Foreground)
-                : ActivityGridRenderer.CellColor(sample, false, ActualTheme, _activityColors)) });
+                : ActivityGridRenderer.CellColor(sample, false, ActualTheme, _activityColors, deviceStyle: true)) });
             ActivityLegend.Inlines.Add(new Run { Text = weekdays ? $"{fraction:P0}  "
-                : fraction == 1 ? "At least one response  " : "Scanned, no response  " });
+                : fraction == 1 ? "R: Responded  " : "-: Scanned, no response  " });
         }
         ActivityLegend.Inlines.Add(new Run { Text = weekdays
             ? "of applicable dates responded. Hatching: some dates unknown. -: not applicable."
-            : "Hatching: Unknown - no eligible scans. -: not applicable." });
-        if (contrast) ActivityLegend.Inlines.Add(new Run { Text = " R: response; N: nonresponse; ?: unknown." });
+            : "Hatching / ?: No scan data. Dots: Later today. N/A: skipped DST hour." });
+        if (contrast) ActivityLegend.Inlines.Add(new Run { Text = " R: response; -: nonresponse; ?: unknown." });
     }
 
 }

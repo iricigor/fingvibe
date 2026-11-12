@@ -34,7 +34,7 @@ if ($loader -notmatch '(?s)if \(IsUiReview && !string.IsNullOrEmpty\(ReviewInven
 }
 [xml]$page = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml") -Raw
 $card = $page.SelectSingleNode("//*[@*[local-name()='Name']='DeviceActivityCard']")
-if (-not $card -or -not $card.NextSibling.SelectSingleNode(".//*[@Text='Scan history']")) { throw "Activity must precede existing scan history." }
+if (-not $card -or -not $card.NextSibling.SelectSingleNode(".//*[@Text='Scan observations']")) { throw "Activity must precede scan observations." }
 if ($card.ParentNode.GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml") -cne "HistoryPanel") {
     throw "Activity must be on the Device Details History tab."
 }

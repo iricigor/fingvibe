@@ -51,7 +51,9 @@ The selected network cannot silently change to a different network mid-scan.
 
 ## Read the result safely
 
-**Online** means a fresh ping or ARP response in the displayed scan.
+**Online** means a ping or ARP response in the latest applicable scan evidence,
+including saved evidence. Unresolved devices keep their previous status during
+a new scan; check the evidence age rather than assuming continuous presence.
 An ARP-only response may have no ping response time; that is not an error.
 
 Some active devices do not answer either check. Firewalls, sleeping devices,

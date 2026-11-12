@@ -148,11 +148,11 @@ public sealed partial class MainWindow
         _liveCompletedAt = snapshot.State == ScanCheckpointState.Incomplete ? null : snapshot.CompletedAt;
         RefreshInventoryRows();
         _initialResultsPublished = true;
-        _retainedResultsMessage = " · Retaining checkpointed observations";
+        _retainedResultsMessage = " · Retaining checkpointed observations and unresolved previous statuses";
         DevicesPage.SetInteractionsEnabled(true);
         UpdateEmptyState();
         _scanMessage = snapshot.State == ScanCheckpointState.Pending
-            ? "Initial results shown · background confirmation pending"
+            ? "Initial results shown · background confirmation pending · Unresolved statuses retained from the previous scan"
             : snapshot.State == ScanCheckpointState.Incomplete ? "Incomplete scan · checkpointed observations retained" : null;
         if (snapshot.State == ScanCheckpointState.Complete && networkId is null)
             _discoveryMessage = "New-device alerts and baseline establishment are disabled for this scan because network identity is unavailable.";

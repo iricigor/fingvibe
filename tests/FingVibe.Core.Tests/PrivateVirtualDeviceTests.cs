@@ -90,7 +90,8 @@ public sealed class PrivateVirtualDeviceTests
         var slot = Assert.Single(data.VirtualDevices);
         if (status == InventoryDeviceStatus.Unknown) slot = slot with { CurrentCompletedAt = null };
         var row = new ScanResultRow(slot, data, 24);
-        Assert.Equal(status, row.Status);
+        Assert.Equal(status == InventoryDeviceStatus.Unknown ? InventoryDeviceStatus.Online : status, row.Status);
+        if (status == InventoryDeviceStatus.Unknown) Assert.False(row.IsCurrentScanResponse);
         Assert.Equal("\uE975", row.IconGlyph);
         Assert.Equal("Private D0-C9-07", row.NameText);
     }
@@ -208,9 +209,10 @@ public sealed class PrivateVirtualDeviceTests
             VirtualDevices = data.VirtualDevices.Select(slot => slot with { CurrentCompletedAt = null }).ToArray()
         };
         rows = ScanResultRow.CreateInventoryRows(restored).ToArray();
-        Assert.All(rows, row => Assert.Equal("Unknown", row.StatusLabel));
+        Assert.Single(rows, row => row.IsOnline);
+        Assert.Equal(2, rows.Count(row => row.IsOffline));
         Assert.Equal(2, rows.Count(row => row.IsVirtualIdentity));
-        Assert.DoesNotContain(rows, row => row.IsOnline || row.IsOffline || row.CanProbe);
+        Assert.DoesNotContain(rows, row => row.CanProbe);
     }
 
     [Fact]
@@ -242,8 +244,9 @@ public sealed class PrivateVirtualDeviceTests
     {
         var data = Scan(DeviceInventoryData.Empty, 0, Result(First));
         data = data.ObserveCompletedScan("different-network", new("192.0.2.0/24", Start, []));
-        Assert.Equal(InventoryDeviceStatus.Unknown, data.Devices[First].Status);
-        Assert.Equal(InventoryDeviceStatus.Unknown, Assert.Single(data.VirtualDevices).Status);
+        Assert.Equal(InventoryDeviceStatus.Online, data.Devices[First].Status);
+        Assert.Equal(InventoryDeviceStatus.Online, Assert.Single(data.VirtualDevices).Status);
+        Assert.All(ScanResultRow.CreateInventoryRows(data), row => Assert.False(row.IsCurrentScanResponse));
         data = data.ObserveCompletedScan("different-network", new("192.0.2.0/24", Start, [Result(First)]));
         Assert.Equal(InventoryDeviceStatus.Online, data.Devices[First].Status);
         Assert.Equal("different-network", data.Devices[First].LatestObservation!.NetworkId);
@@ -339,8 +342,9 @@ public sealed class PrivateVirtualDeviceTests
                    (null, "192.0.2.0/24", false), ("synthetic-network", "192.0.2.0/24", true) })
         {
             var next = data.ObserveCompletedScan(network, new(subnet, Start.AddMinutes(1), []), historical);
-            Assert.Equal(InventoryDeviceStatus.Unknown, Assert.Single(next.VirtualDevices).Status);
-            Assert.Equal(InventoryDeviceStatus.Unknown, next.Devices[First].Status);
+            Assert.Equal(InventoryDeviceStatus.Online, Assert.Single(next.VirtualDevices).Status);
+            Assert.Equal(InventoryDeviceStatus.Online, next.Devices[First].Status);
+            Assert.All(ScanResultRow.CreateInventoryRows(next), row => Assert.False(row.IsCurrentScanResponse));
             Assert.True(Assert.Single(next.VirtualDevices).Present);
             Assert.True(next.Devices[First].LatestObservation!.Present);
         }
@@ -352,7 +356,7 @@ public sealed class PrivateVirtualDeviceTests
     }
 
     [Fact]
-    public async Task PersistenceRestoresUnknownStatusAndVirtualEditsFollowRotatingMac()
+    public async Task PersistenceRestoresLastKnownStatusAndVirtualEditsFollowRotatingMac()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"fingvibe-virtual-{Guid.NewGuid():N}");
         var path = Path.Combine(directory, "inventory.json");
@@ -374,15 +378,15 @@ public sealed class PrivateVirtualDeviceTests
             var store = new DeviceInventoryStore(path);
             var saved = await store.SaveAsync(data, Guid.Empty);
             var restored = (await store.LoadAsync())!;
-            Assert.Equal(InventoryDeviceStatus.Unknown, restored.Devices[First].Status);
-            Assert.Equal(InventoryDeviceStatus.Unknown, Assert.Single(restored.VirtualDevices).Status);
+            Assert.Equal(InventoryDeviceStatus.Online, restored.Devices[First].Status);
+            Assert.Equal(InventoryDeviceStatus.Online, Assert.Single(restored.VirtualDevices).Status);
             Assert.Null(restored.Devices[First].CurrentCompletedAt);
             Assert.Null(restored.VirtualDevices[0].CurrentCompletedAt);
             var historical = new ScanResultRow(Assert.Single(restored.VirtualDevices), restored, 24);
-            Assert.Equal("Unknown", historical.StatusLabel);
+            Assert.Equal("Online", historical.StatusLabel);
             Assert.False(historical.CanProbe);
-            Assert.True(new DeviceResultFilter(false, false, "", Status: InventoryDeviceStatus.Unknown).Matches(historical));
-            Assert.False(new DeviceResultFilter(false, false, "", Status: InventoryDeviceStatus.Online).Matches(historical));
+            Assert.False(new DeviceResultFilter(false, false, "", Status: InventoryDeviceStatus.Unknown).Matches(historical));
+            Assert.True(new DeviceResultFilter(false, false, "", Status: InventoryDeviceStatus.Online).Matches(historical));
             restored = Scan(restored, 1, Result(Second));
             var rotated = Assert.Single(restored.VirtualDevices);
             Assert.Equal(slot.Id, rotated.Id);

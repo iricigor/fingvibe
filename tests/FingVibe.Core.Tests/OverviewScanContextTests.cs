@@ -52,4 +52,13 @@ public sealed class OverviewScanContextTests
 
         Assert.Contains("Subnet is too large.", context.Describe(context.Subnet));
     }
+
+    [Fact]
+    public void InterruptedSavedEvidenceShowsAgeWithoutClaimingCompletion()
+    {
+        var context = new OverviewScanContext("192.0.2.0/24", ObservedAt, ScanDisplayStatus.Incomplete);
+        Assert.Equal("Incomplete scan - checkpointed observations from 1 hour ago",
+            context.Freshness(ObservedAt.AddHours(1)));
+        Assert.DoesNotContain("completed", context.Describe(context.Subnet));
+    }
 }

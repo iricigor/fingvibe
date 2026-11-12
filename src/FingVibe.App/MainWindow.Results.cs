@@ -58,7 +58,7 @@ public sealed partial class MainWindow
             .ToList();
         sortedResults.Sort(CompareResults);
 
-        if (!_isScanning || !_initialResultsPublished) _visibleResults.Clear();
+        if (!_isScanning) _visibleResults.Clear();
         for (var index = 0; index < sortedResults.Count; index++)
         {
             var result = sortedResults[index];
@@ -127,7 +127,7 @@ public sealed partial class MainWindow
             : $"Showing {_visibleResults.Count:N0} of {total:N0} devices";
         DevicesPage.ShowInventorySummary(
             _allResults.Count(row => row.IsOnline), _allResults.Count(row => row.IsOffline),
-            _allResults.Count(row => row.IsHistorical), _allResults.Count(row => row.IsFingOnly));
+            _allResults.Count(row => row.Status == InventoryDeviceStatus.Unknown), _allResults.Count(row => row.IsFingOnly));
         DevicesPage.ShowLastScan(_currentScanSnapshot);
         UpdateOverview();
 

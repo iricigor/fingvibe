@@ -141,6 +141,7 @@ public sealed partial class MainWindow : IScanExecutionSteps
         _scanCancelledByUser = false;
         _initialResultsPublished = false;
         _scanDiscoveryBaseline = _persistedInventory;
+        RetainInventoryEvidence();
         ToolsPage.InvalidateImportAnalysis("A scan started. Wait for it to finish and analyze again.");
         DevicesPage.SetInteractionsEnabled(false);
         UpdateEmptyState();
@@ -155,7 +156,8 @@ public sealed partial class MainWindow : IScanExecutionSteps
         ScanProgressBar.Maximum = total;
         ScanProgressBar.Value = 0;
         StartScanPulse();
-        _retainedResultsMessage = _displayedScan is not null ? " · Displaying retained results" : string.Empty;
+        _retainedResultsMessage = _displayedScan is not null
+            ? " · Displaying retained results; unresolved statuses are from the previous scan" : string.Empty;
         _scanMessage = $"{ScanProgressPrefix}{ScanProgressPresentation.Message(new LanScanProgress(LanScanPhase.FirstPass, 0, total))}{_retainedResultsMessage}";
         UpdateScanStatus();
         if (focusScanAction) CancelButton.Focus(FocusState.Programmatic);
@@ -264,17 +266,8 @@ public sealed partial class MainWindow : IScanExecutionSteps
         {
             // A failed incomplete-state write still leaves a durable Pending checkpoint, never a running scan.
             _currentScanSnapshot = pending with { State = ScanCheckpointState.Incomplete };
-            _liveCompletedAt = null;
-            _inventory = _inventory with
-            {
-                Devices = _inventory.Devices.ToDictionary(pair => pair.Key, pair => pair.Value with
-                {
-                    CurrentCompletedAt = null, CurrentNetworkId = null, CurrentSubnet = null
-                }),
-                VirtualDevices = _inventory.VirtualDevices.Select(slot => slot with { CurrentCompletedAt = null }).ToArray()
-            };
             _displayedScan = new OverviewScanContext(pending.Subnet, pending.CompletedAt, ScanDisplayStatus.Incomplete);
-            RefreshInventoryRows();
+            RetainInventoryEvidence();
         }
         var scheduled = request.Trigger == ScanTrigger.Scheduled;
         if (outcome.Status == ScanRunStatus.Cancelled)
@@ -316,7 +309,7 @@ public sealed partial class MainWindow : IScanExecutionSteps
         ScanProgressBar.Value = progress.Completed;
         UpdateScanPulseWidth();
         _scanMessage = _initialResultsPublished
-            ? $"{ScanProgressPrefix}Initial results shown · {ScanProgressPresentation.Message(progress)}"
+            ? $"{ScanProgressPrefix}Initial results shown · {ScanProgressPresentation.Message(progress)} · Unresolved statuses retained from the previous scan"
             : $"{ScanProgressPrefix}{ScanProgressPresentation.Message(progress)}{retainedResults}";
         UpdateScanStatus();
     }

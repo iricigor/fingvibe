@@ -17,6 +17,33 @@ public sealed class DeviceDetailsPresentationTests
     private static readonly DeviceClassificationOverride Choices = new(
         DeviceOperatingSystem.Android, DeviceType.Phone, DeviceType.Tablet, "Brand", "Family", "Model");
 
+    [Theory]
+    [InlineData("2026-11-02T03:30:00Z", "2026-11-02T04:30:00Z", "Today, 10:30 PM")]
+    [InlineData("2026-11-02T03:30:00Z", "2026-11-02T05:30:00Z", "Yesterday, 10:30 PM")]
+    [InlineData("2026-11-02T03:30:00Z", "2026-11-03T05:30:00Z", "2 days ago, 10:30 PM")]
+    [InlineData("2026-11-01T04:30:00Z", "2026-11-02T05:15:00Z", "Yesterday, 12:30 AM")]
+    public void FriendlyDates_UseLocalCalendarAcrossMidnightAndDst(string timestamp, string now, string expected)
+    {
+        var culture = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+            var zone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+            Assert.Equal(expected, DeviceDetailsPresentation.FriendlyTimestamp(
+                DateTimeOffset.Parse(timestamp), DateTimeOffset.Parse(now), zone));
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = culture; }
+    }
+
+    [Fact]
+    public void FriendlyDates_KeepAggregateMissingAndFutureEvidenceExplicit()
+    {
+        Assert.Contains("Unavailable", DeviceDetailsPresentation.FriendlyTimestamp(null, Now));
+        Assert.Contains("Historical aggregate", DeviceDetailsPresentation.FriendlyTimestamp(Now, Now, aggregate: true));
+        Assert.Contains("future timestamp", DeviceDetailsPresentation.FriendlyTimestamp(Now.AddMinutes(1), Now));
+        Assert.DoesNotContain("days ago", DeviceDetailsPresentation.FriendlyTimestamp(Now.AddDays(1), Now));
+    }
+
     [Fact]
     public void CompletedObservationExplanation_DistinguishesScanSourcesAndHistoricalEvidence()
     {

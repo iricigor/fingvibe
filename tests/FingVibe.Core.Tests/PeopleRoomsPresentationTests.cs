@@ -70,16 +70,16 @@ public sealed class PeopleRoomsPresentationTests
         var people = PeopleRoomsPresentation.PeopleRows(data, devices, false);
         Assert.Equal(new[] { Person, second }, people.Select(row => row.Person));
         Assert.Equal("2 devices", people[0].DeviceCountText);
-        Assert.Equal("No current local scan", people[0].RespondedCountText);
+        Assert.Equal("No local scan evidence", people[0].RespondedCountText);
         Assert.Equal("0 devices", people[1].DeviceCountText);
         var room = Assert.Single(PeopleRoomsPresentation.RoomRows(data, devices, true));
         Assert.Equal(Room, room.Room);
         Assert.Equal("1 device", room.DeviceCountText);
-        Assert.Equal("1 responded", room.RespondedCountText);
-        Assert.Equal("1 responded", PeopleRoomsPresentation.PeopleRows(data, devices, true)[0].RespondedCountText);
-        Assert.Equal("No current local scan. Retained device states are historical.",
+        Assert.Equal("1 online", room.RespondedCountText);
+        Assert.Equal("1 online", PeopleRoomsPresentation.PeopleRows(data, devices, true)[0].RespondedCountText);
+        Assert.Equal("No local scan evidence.",
             PeopleRoomsPresentation.DetailResponses(devices, false));
-        Assert.Equal("1 devices responded in the current local scan.",
+        Assert.Equal("1 devices Online in their latest applicable scan evidence.",
             PeopleRoomsPresentation.DetailResponses(devices, true));
     }
 
@@ -119,15 +119,16 @@ public sealed class PeopleRoomsPresentationTests
     }
 
     [Fact]
-    public void EmptyAndHistoricalOnlyDetailsUseZeroCurrentResponses()
+    public void SavedEvidenceCountsOnlineWithoutClaimingFreshResponsesAndEmptyDetailsRemainZero()
     {
         Assert.Empty(PeopleRoomsPresentation.PeopleRows(new(), [], true));
         Assert.Empty(PeopleRoomsPresentation.RoomRows(new(), [], false));
         var historical = new AssignedDeviceListRow("001122334455",
             new ScanResultRow(new ScanResult(IPAddress.Loopback, HostStatus.Alive, 1, TimeSpan.Zero),
                 32, historical: true));
-        Assert.Equal("0 responded", PeopleRoomsPresentation.ResponseCount([historical], true));
-        Assert.Equal("0 devices responded in the current local scan.",
+        Assert.False(historical.ScanResult!.IsCurrentScanResponse);
+        Assert.Equal("1 online", PeopleRoomsPresentation.ResponseCount([historical], true));
+        Assert.Equal("0 devices Online in their latest applicable scan evidence.",
             PeopleRoomsPresentation.DetailResponses([], true));
     }
 

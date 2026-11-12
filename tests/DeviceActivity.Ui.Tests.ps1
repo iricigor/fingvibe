@@ -94,7 +94,7 @@ function Wait-ActivityState([string] $Selection, [int] $After, [string] $State =
 
 function Assert-ActivityPeers([string] $Description) {
     Assert-UiRegressionPeers -Root $script:root -Description "Activity $Description" -AutomationIds @(
-        "ActivityPeriod", "ActivityWindow", "ActivityHours", "ActivityStatus", "ActivityRefresh",
+        "ActivityPeriod", "ActivityWindow", "ActivityHours", "ActivityStatus",
         "ActivityScroll", "ActivityLegend", "ActivityDetail")
 }
 
@@ -180,6 +180,7 @@ function Open-ActivityDevice([string] $Name = "Activity laptop") {
         $scroll = Find-Activity DeviceDetailsScroll -Optional
         $scroll -and -not $scroll.Current.IsOffscreen
     } "device details"
+    (Find-Activity DeviceHistoryTab).GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
 }
 
 function Choose-ActivityPeriod([string] $Label, [int] $LastRow) {
@@ -191,7 +192,7 @@ function Choose-ActivityPeriod([string] $Label, [int] $LastRow) {
     $null = Find-Activity "ActivityCell-$LastRow-0"
     $modeMatches = if ($Label -eq "30 days by weekday") {
         $first.Current.Name -like "Monday *" -and -not (Find-Activity ActivityCell-7-0 -Optional)
-    } else { (Find-Activity ActivityWindow).Current.Name -like "*($($LastRow + 1) calendar dates)*" }
+    } else { (Find-Activity ActivityWindow).Current.Name -like "*of $($LastRow + 1) days*" }
     if (-not $modeMatches) { throw "Ready Activity grid does not match '$Label'." }
 }
 
@@ -249,12 +250,17 @@ function Start-HeldActivityRefresh {
     $previousRequests = @(Get-ActivityRequests)
     $before = (Get-ActivityState).Request
     Set-Content -LiteralPath $holdPath -Value "hold"
-    (Show-Activity ActivityRefresh).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Restart-Activity
     $request = Wait-ActivityRequest $previousRequests
     $state = Wait-ActivityState -State Loading -After $before
     if (Find-Activity ActivityCell-0-0 -Optional) { throw "Old cells remain during loading." }
     Assert-ActivityPeers "loading"
     return [pscustomobject]@{ Path = $request; Request = $state.Request }
+}
+
+function Restart-Activity {
+    (Find-Activity DeviceOverviewTab).GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    (Find-Activity DeviceHistoryTab).GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
 }
 
 function Assert-ActivityCancelled($Request) {
@@ -342,8 +348,8 @@ try {
     Remove-Item -LiteralPath $holdPath
     $null = Wait-ActivityState "Last 30 days, 1-hour cells" $weekdayRequest.Request
     if (-not (Find-Activity ActivityCell-29-0 -Optional) -or
-        (Find-Activity ActivityWindow).Current.Name -notlike "*(30 calendar dates)*" -or
-        (Find-Activity ActivityStatus).Current.Name -notlike "Scan evidence in*") {
+        (Find-Activity ActivityWindow).Current.Name -notlike "*of 30 days*" -or
+        (Find-Activity ActivityStatus).Current.Name -notlike "*squares have scan results*") {
         throw "The replacement daily query did not render a 30-date grid with scan evidence."
     }
     if (-not (Test-Path -LiteralPath "$dailyRequest.released") -or
@@ -366,7 +372,7 @@ try {
     Capture-Activity "activity-no-history"
     Open-ActivityDevice
     $null = Wait-ActivityState "30 days by weekday, 1-hour cells" $imported.Request
-    if ((Find-Activity ActivityStatus).Current.Name -notlike "Scan evidence in*") { throw "Restored device selection lost scan evidence." }
+    if ((Find-Activity ActivityStatus).Current.Name -notlike "*squares have scan results*") { throw "Restored device selection lost scan evidence." }
 
     $hoursRequest = Start-HeldActivityRefresh
     $previousRequests = @(Get-ActivityRequests)
@@ -376,7 +382,7 @@ try {
     Remove-Item -LiteralPath $holdPath
     $twoHours = Wait-ActivityState "30 days by weekday, 2-hour cells" $hoursRequest.Request
     if (-not (Find-Activity ActivityCell-6-11 -Optional) -or (Find-Activity ActivityCell-6-12 -Optional) -or
-        (Find-Activity ActivityStatus).Current.Name -notlike "Scan evidence in*") {
+        (Find-Activity ActivityStatus).Current.Name -notlike "*squares have scan results*") {
         throw "Replacement two-hour weekday grid is incorrect."
     }
     (Show-Activity ActivityHours).GetCurrentPattern([Windows.Automation.RangeValuePattern]::Pattern).SetValue(1)
@@ -389,7 +395,7 @@ try {
     Remove-Item -LiteralPath $holdPath
     Open-ActivityDevice
     $null = Wait-ActivityState "30 days by weekday, 1-hour cells" $navigationRequest.Request
-    if ((Find-Activity ActivityStatus).Current.Name -notlike "Scan evidence in*") { throw "Activity after leaving the page lost scan evidence." }
+    if ((Find-Activity ActivityStatus).Current.Name -notlike "*squares have scan results*") { throw "Activity after leaving the page lost scan evidence." }
 
     # Real SQLite contention is an error/retry fixture, not a way to hold the loading UI.
     $lock = [Microsoft.Data.Sqlite.SqliteConnection]::new("Data Source=$database;Pooling=False")
@@ -398,7 +404,7 @@ try {
     $command.CommandText = "BEGIN EXCLUSIVE"
     $null = $command.ExecuteNonQuery()
     $before = (Get-ActivityState).Request
-    (Show-Activity ActivityRefresh).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Restart-Activity
     $busy = Wait-ActivityState -State Error -After $before
     if ((Find-Activity ActivityRefresh).Current.Name -ne "Retry") { throw "Database contention error does not offer Retry." }
     if (Find-Activity ActivityCell-0-0 -Optional) { throw "Failed query kept stale cells." }
@@ -412,8 +418,8 @@ try {
     $lock = $null
     (Show-Activity ActivityRefresh).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
     $retried = Wait-ActivityState "30 days by weekday, 1-hour cells" $busy.Request
-    if ((Find-Activity ActivityStatus).Current.Name -notlike "Scan evidence in*" -or
-        (Find-Activity ActivityRefresh).Current.Name -ne "Refresh activity" -or -not (Find-Activity ActivityCell-2-9 -Optional)) {
+    if ((Find-Activity ActivityStatus).Current.Name -notlike "*squares have scan results*" -or
+        (Find-Activity ActivityRefresh -Optional) -or -not (Find-Activity ActivityCell-2-9 -Optional)) {
         throw "Retry after database contention did not restore the grid."
     }
     Assert-ActivityPeers "Retry"
@@ -426,7 +432,7 @@ try {
             $null = $command.ExecuteNonQuery()
         } finally { $command.Dispose() }
     } finally { $connection.Dispose() }
-    (Show-Activity ActivityRefresh).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Restart-Activity
     $null = Wait-ActivityState -State Error -After $retried.Request
     if ((Find-Activity ActivityRefresh).Current.Name -ne "Retry") { throw "Stale-revision error does not offer Retry." }
     if (Find-Activity ActivityCell-2-9 -Optional) { throw "Failed query kept stale cells." }
@@ -457,7 +463,7 @@ try {
             $null = [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
                 $bounds.Left, $bounds.Top, $width, $bounds.Height, 0x0044)
             Start-Sleep -Milliseconds 300
-            foreach ($id in @("ActivityPeriod", "ActivityHours", "ActivityRefresh")) {
+            foreach ($id in @("ActivityPeriod", "ActivityHours")) {
                 $control = Show-Activity $id
                 if (-not $script:root.Current.BoundingRectangle.Contains($control.Current.BoundingRectangle)) { throw "$id is clipped." }
             }
@@ -483,14 +489,14 @@ try {
     if ($summary.Current.Name -notlike "First seen:*") { throw "Existing history summary is unreachable." }
     if ((Find-Activity DeviceScanHistoryExpander).GetCurrentPattern(
         [Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -ne
-        [Windows.Automation.ExpandCollapseState]::Collapsed) {
-        throw "Activity interaction must leave completed observations collapsed."
+        [Windows.Automation.ExpandCollapseState]::Expanded) {
+        throw "History must show completed observations without another expansion."
     }
     $closeRequest = Start-HeldActivityRefresh
     Stop-ActivityApp
     if (-not (Test-Path -LiteralPath "$($closeRequest.Path).cancelled")) { throw "Closing did not cancel the pending Activity loader." }
     $succeeded = $true
-    Write-Host "Device Activity exact evidence, keyboard reachability, held-query cancellation, error/Retry, themes and narrow layouts passed; summaries remain reachable and completed observations independently collapsed."
+    Write-Host "Device Activity exact evidence, automatic tab-entry reload, keyboard reachability, held-query cancellation, error/Retry, themes and narrow layouts passed; observations are immediately available."
 }
 catch {
     Write-Host $_
