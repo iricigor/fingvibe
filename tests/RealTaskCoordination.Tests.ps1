@@ -57,6 +57,30 @@ function Complete-Implementation($State, $Task, $Handoff) {
 }
 
 try {
+    $module = Get-Module RealTaskCoordination
+    $hashRecord = '{"actor":"a","Actor":"b","nested":{"z":1,"a":2}}' | ConvertFrom-Json -AsHashtable
+    $firstHash = & $module { param($r) Get-RealTaskHash $r } $hashRecord
+    $hashRecord["actor"] = "changed"
+    $secondHash = & $module { param($r) Get-RealTaskHash $r } $hashRecord
+    if ($firstHash -ceq $secondHash) { throw "Canonical hashing must preserve case-distinct fields." }
+    $reordered = '{"nested":{"a":2,"z":1},"Actor":"b","actor":"changed"}' | ConvertFrom-Json -AsHashtable
+    if ((& $module { param($r) Get-RealTaskHash $r } $reordered) -cne $secondHash) {
+        throw "Object order must not change canonical hashes."
+    }
+    $culture = [Threading.Thread]::CurrentThread.CurrentCulture
+    try {
+        [Threading.Thread]::CurrentThread.CurrentCulture = [Globalization.CultureInfo]::GetCultureInfo("tr-TR")
+        if ((& $module { param($r) Get-RealTaskHash $r } $hashRecord) -cne $secondHash) {
+            throw "Culture must not change canonical hashes."
+        }
+    } finally { [Threading.Thread]::CurrentThread.CurrentCulture = $culture }
+
+    $orphaned = New-Fixture
+    $orphaned.reports = @(@{ id = "orphan"; claimId = "missing"; handoffId = "missing"
+        url = "fixture://report"; utc = [DateTime]::UtcNow.ToString("o"); nextOwner = "human"; nextAction = "inspect" })
+    Assert-Throws { Assert-RealTaskState $orphaned } "*exactly one task*"
+    Assert-Throws { Get-RealTaskCapacity $orphaned } "*exactly one task*"
+
     $state = New-Fixture
     $first = Add-RealTaskClaim $state 100 $evidence
     $one = Add-RealTaskHandoff $state $first.claimId developer-1 implement
@@ -162,7 +186,8 @@ try {
     $handoff = Add-RealTaskHandoff $pending $task.claimId developer-1 implement
     Complete-Implementation $pending $task $handoff
     Set-RealTaskDisposition $pending $task.claimId finalize-ready -Evidence $evidence
-    $handoff = Add-RealTaskHandoff $pending $task.claimId developer-2 finalize -Feedback $evidence
+    $finalizeEvidence = @("fixture://check", "fixture://review")
+    $handoff = Add-RealTaskHandoff $pending $task.claimId developer-2 finalize -Feedback $finalizeEvidence
     Start-Handoff $pending $task $handoff
     $null = Add-RealTaskEvent $pending (New-Event $task $handoff ack)
     $null = Add-RealTaskEvent $pending (New-Event $task $handoff result blocked)
@@ -172,8 +197,13 @@ try {
     Set-RealTaskDisposition $pending $task.claimId validation -Evidence @("fixture://new-validation-observation")
     Set-RealTaskDisposition $pending $task.claimId finalize-ready -Evidence @("fixture://new-validation-observation")
     Assert-Throws {
-        Add-RealTaskHandoff $pending $task.claimId developer-1 finalize -Feedback $evidence
+        Add-RealTaskHandoff $pending $task.claimId developer-1 finalize -Feedback $finalizeEvidence
     } "*Duplicate finalize*"
+    Assert-Throws {
+        Add-RealTaskHandoff $pending $task.claimId developer-1 finalize `
+            -Feedback @("fixture://review", "fixture://check", "fixture://review")
+    } "*Duplicate finalize*"
+    if ($task.handoffs.Count -ne 2) { throw "Equivalent evidence must not reserve another finalizer." }
     $null = Add-RealTaskHandoff $pending $task.claimId developer-1 finalize -Feedback @("fixture://new-validation-observation")
 
     $stopped = New-Fixture
@@ -202,6 +232,28 @@ try {
     }
 
     $eventDirectory = Join-Path $root "events"
+    $publicationResult = New-Event $first $one result
+    foreach ($mutate in @(
+        { param($e) $e.elapsedSeconds = $null; $e.elapsed = 1.25 },
+        { param($e) $e.elapsedSeconds = $null; $e["ElapsedSeconds"] = 1.25 },
+        { param($e) $e.result.extra = $true },
+        { param($e) $e.result.head = "bad" },
+        { param($e) $e.result.head = $null },
+        { param($e) $e.result.checkpoint = $null },
+        { param($e) $e.result.checkpoint = "" },
+        { param($e) $e.action = "finalize" },
+        { param($e) $e.result.outcome = "pr-ready" },
+        { param($e) $e.action = "unknown" }
+    )) {
+        $bad = Copy-Record $publicationResult
+        & $mutate $bad
+        Assert-Throws { Publish-RealTaskEvent $bad $eventDirectory } "*"
+        if ([IO.File]::Exists((Join-Path $eventDirectory "$($publicationResult.eventId).json"))) {
+            throw "Invalid result must not reserve its immutable event ID."
+        }
+    }
+    $null = Publish-RealTaskEvent $publicationResult $eventDirectory
+    $null = Publish-RealTaskEvent (Copy-Record $publicationResult) $eventDirectory
     $eventPath = Publish-RealTaskEvent $ack $eventDirectory
     $null = Publish-RealTaskEvent (Copy-Record $ack) $eventDirectory
     $bad = Copy-Record $ack; $bad.actor = "another"
@@ -232,6 +284,50 @@ try {
     $bad = Copy-Record $published; $bad.revision++; $bad.tasks[0].handoffs[0].transitions[0].evidence = @("rewritten")
     Assert-Throws { Publish-RealTaskState $bad $path $owner 3 $gateRoot } "*Prior transition*"
     if ((Read-RealTaskJson $path).revision -ne 3) { throw "Failed publication must leave previous valid state intact." }
+
+    Complete-Implementation $published $task $handoff
+    $published.reports = @(1..40 | ForEach-Object {
+        @{ id = "report-$_"; claimId = $task.claimId; handoffId = $handoff.id; url = "fixture://report/$_"
+            utc = [DateTime]::UtcNow.ToString("o"); nextOwner = "dispatcher"; nextAction = "validate" }
+    })
+    $published.revision++
+    Publish-RealTaskState $published $path $owner 3 $gateRoot
+    $published.revision++
+    & $module {
+        param($s, $p, $o, $g)
+        $original = ${function:Get-RealTaskHash}
+        $script:reportHashCalls = 0
+        try {
+            function script:Get-RealTaskHash($Record) {
+                if ($Record.Contains("url") -and $Record.Contains("handoffId")) { $script:reportHashCalls++ }
+                & $original $Record
+            }
+            Publish-RealTaskState $s $p $o 4 $g
+            if ($script:reportHashCalls -ne 2 * $s.reports.Count) {
+                throw "Retained reports must be hashed once per current/prior entry, not once per pair."
+            }
+        } finally {
+            Set-Item Function:script:Get-RealTaskHash $original
+            Remove-Variable reportHashCalls -Scope Script
+        }
+    } $published $path $owner $gateRoot
+    foreach ($mutate in @(
+        { param($s) $s.reports = @($s.reports | Select-Object -Skip 1) },
+        { param($s) $s.reports[0].url = "fixture://altered" },
+        { param($s) $s.reports += Copy-Record $s.reports[0] },
+        { param($s) $s.events[0].hash = "changed" }
+    )) {
+        $bad = Copy-Record $published
+        $bad.revision++
+        & $mutate $bad
+        Assert-Throws { Publish-RealTaskState $bad $path $owner 5 $gateRoot } "*Prior * evidence cannot change or disappear*"
+    }
+    $bad = Copy-Record $published
+    $bad.revision++
+    $bad.events = @()
+    $bad.tasks[0].handoffs = @()
+    Assert-Throws { Publish-RealTaskState $bad $path $owner 5 $gateRoot } "*exactly one handoff*"
+    if ((Read-RealTaskJson $path).revision -ne 5) { throw "Rejected history edits must preserve the published revision." }
     $null = & $gateScript -Action Release @parameters
 
     $incidents = Join-Path $root "incidents"
