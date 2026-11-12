@@ -8,6 +8,7 @@ Keep confirmed abandoned ideas here to avoid repeating investigations. Each entr
 - [DI-002: Isolated local UI testing](#di-002-isolated-local-ui-testing)
 - [DI-003: MSIX release packaging](#di-003-msix-release-packaging)
 - [DI-004: One-time firewall setup for LAN discovery](#di-004-one-time-firewall-setup-for-lan-discovery)
+- [DI-005: Decorative Connected home application backgrounds](#di-005-decorative-connected-home-application-backgrounds)
 
 ## Entry template
 
@@ -74,3 +75,15 @@ Use the next unused `DI-NNN` identifier. Keep entries short; add references or d
 **Context:** A fixed-path installed copy normally needs one allowance for the selected network profiles, persisting across restarts and updates that retain the executable path. Moving/reinstalling to another path, using a profile not previously allowed, removal of rules, or administrator policy can require another allowance or prevent access. Repeated prompts for the same installed path and profile are unexpected and need investigation, not an assumption that repeated approval is normal. This is expected Windows behavior, not a verified diagnosis of the reported prompts.
 
 The current mDNS listener uses UDP 5353 with an ephemeral-port fallback; SSDP uses a dynamically assigned UDP port. Opening only 5353 is not an established complete solution. Discovery timeouts or missing devices do not prove firewall blocking; inspect configuration, account for explicit block rules overriding allowances and managed policies restricting local exceptions, and verify effective access before claiming success. Recording this decision does not implement firewall setup or change security configuration. See [#180](https://github.com/iricigor/fingvibe/issues/180).
+
+### DI-005: Decorative Connected home application backgrounds
+
+**Status:** Rejected | **Date:** 2026-11-13
+
+**Idea:** Place the full-color, full-detail Connected home artwork behind application page content, with very pale, dulled colors and 10-20% transparent container backgrounds while keeping text and controls opaque. Rooms and Overview PNG mockups explored the appearance.
+
+**Stopped because:** The user chose to abandon the background idea because of its impact on UX regression testing. Existing appearance checks compare sidebar and page-background pixels; intentional decoration would require revisiting those assertions and validating readability across themes, window sizes, and high-contrast behavior. The additional validation and maintenance cost is an assessment, not an observed test failure: no application background was implemented or tested.
+
+**Revisit only if:** The user explicitly chooses to reconsider the regression-testing impact.
+
+**Context:** [#349](https://github.com/iricigor/fingvibe/issues/349). This rejects the background treatment and associated container transparency, not the separate Connected home application-icon and downscaling task [#348](https://github.com/iricigor/fingvibe/issues/348), which remains unchanged.
