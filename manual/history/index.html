@@ -577,9 +577,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#temporarily-unavailable-controls" class="md-nav__link">
+  <a href="#activity-and-scan-observations" class="md-nav__link">
     <span class="md-ellipsis">
-      Temporarily unavailable controls
+      Activity and scan observations
     </span>
   </a>
   
@@ -1104,9 +1104,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#temporarily-unavailable-controls" class="md-nav__link">
+  <a href="#activity-and-scan-observations" class="md-nav__link">
     <span class="md-ellipsis">
-      Temporarily unavailable controls
+      Activity and scan observations
     </span>
   </a>
   
@@ -1153,8 +1153,8 @@
 <p>FingVibe saves scan evidence. Evidence describes what a scan observed, not
 uninterrupted device availability or human presence.</p>
 <h2 id="first-seen-last-seen-and-last-observed">First seen, last seen, and last observed<a class="headerlink" href="#first-seen-last-seen-and-last-observed" title="Permanent link">&para;</a></h2>
-<p>Open a device's details. The <strong>Overview</strong> tab shows a <strong>Saved observation summary</strong>;
-the <strong>History</strong> tab holds the full <strong>Scan history</strong> context.
+<p>Open a device's details. The <strong>Overview</strong> tab shows an <strong>Observation summary</strong>;
+the <strong>History</strong> tab holds Activity and <strong>Scan observations</strong>.
 The summary uses the selected Windows network identity and subnet.</p>
 <table>
 <thead>
@@ -1173,31 +1173,32 @@ The summary uses the selected Windows network identity and subnet.</p>
 <td>Latest suitable saved local presence observation. Missing responses do not advance it.</td>
 </tr>
 <tr>
-<td>Last observed: Present/Absent</td>
-<td>The state in the relevant recorded scan, not live status.</td>
+<td>Last recorded state: Responded/Scanned, no response</td>
+<td>The result in the relevant recorded scan, not live status or proof of absence.</td>
 </tr>
 <tr>
-<td>Observed online/offline since</td>
+<td>Latest recorded run started (in Details)</td>
 <td>The first recorded scan in the latest sequence of that state. Gaps between scans are not continuous evidence.</td>
 </tr>
 </tbody>
 </table>
-<p>Times are displayed in local time. Full timestamps include the UTC offset
-where available. A restart preserves history but does not make it current.
+<p>Times use local-calendar Today/Yesterday/day labels with time. Details preserve
+full timestamps, UTC offsets and scope. A restart preserves history but does not make it current.
 Imported Fing times do not create local presence or invented scan rows.</p>
 <p>Changing networks does not substitute another network's history.
 An unavailable value may mean the selected context has no suitable evidence.
 The <a href="../devices/#last-seen">Devices Last seen column</a> uses the same scope.</p>
-<h2 id="temporarily-unavailable-controls">Temporarily unavailable controls<a class="headerlink" href="#temporarily-unavailable-controls" title="Permanent link">&para;</a></h2>
-<p>In release <strong>v1.1.107</strong>, the <strong>Activity</strong> grid and
-<strong>Completed Scan Observations</strong> expander/table are hidden.
-They have no user-facing enable switch.</p>
-<p>The app still retains scan evidence and displays the summary.
-This manual does not give steps for controls you cannot use.
-Their restoration is tracked separately in
-<a href="https://github.com/iricigor/fingvibe/issues/273">#273</a> and
-<a href="https://github.com/iricigor/fingvibe/issues/274">#274</a>.
-Check your release notes before following instructions for a later version.</p>
+<h2 id="activity-and-scan-observations">Activity and scan observations<a class="headerlink" href="#activity-and-scan-observations" title="Permanent link">&para;</a></h2>
+<p>Select <strong>History</strong> to load Activity automatically. Choose a period and 1-4
+<strong>Hours per square</strong>. Scans on N of 7/30 days counts dates with eligible evidence;
+gaps stay unknown even when less than a full window is available.
+Green/R indicates a response, amber/minus a scan with no response, hatching no
+scan data, and dim dots later today. Select a square for details, or navigate
+with arrow keys. Narrow grids scroll horizontally without dropping hours.
+There is no normal Refresh button; failed loads offer <strong>Retry</strong>.</p>
+<p>The newest-first <strong>Scan observations</strong> list below retains paging. Each row's
+accessible description and tooltip preserve its exact local timestamp and offset.
+Saved scans are not continuous live status.</p>
 <h2 id="usage-categories">Usage categories<a class="headerlink" href="#usage-categories" title="Permanent link">&para;</a></h2>
 <p>The <strong>Usage category</strong> column can show:</p>
 <table>
@@ -1244,19 +1245,19 @@ become nonresponses. The time of day you scan affects the recommendation.
 <h2 id="set-a-category-yourself">Set a category yourself<a class="headerlink" href="#set-a-category-yourself" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Open the device's details.</li>
-<li>Find <strong>Usage category</strong> in <strong>Assignments</strong>.</li>
+<li>Find <strong>Usage category</strong>, beside Observation summary, and choose <strong>Edit</strong>.</li>
 <li>Choose the category you want.</li>
 <li>Choose <strong>Save category</strong>.</li>
 <li>Use <strong>Cancel</strong> to discard an unsaved category change.</li>
 </ol>
 <p>Choose <strong>Automatic</strong> and save to remove your override.
-The recommendation and its counts remain visible for comparison.</p>
+The recommendation, counts, scope and <strong>Refresh usage evidence</strong> remain in
+<strong>Evidence and limitations</strong> for comparison. Read mode hides the picker and
+Save/Cancel controls; failed saves retain the editor and draft.</p>
 <p>This save is independent of Person and Room, which save when changed.
 A save error retains the category draft.
 If another app instance changed the data, <strong>Reload saved category</strong> discards
 the draft and loads the saved value before you try again.</p>
-<p>There is no screenshot of the hidden Activity/table controls in this manual.
-This avoids illustrating unavailable features as usable.</p>
 
 
 
