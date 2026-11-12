@@ -196,11 +196,20 @@ and task elapsed are separate observations; corrections preserve original
 evidence and attribution. Trigger is `scheduled`, `manual`, `worker-message`
 or `unknown`, only when actually observed.
 
-Canonical full-event hashes ignore JSON object field order, not payload
-differences. Identical event ID/payload is processed once; conflicting duplicates,
+Canonical full-event hashes use ordinal, case-sensitive keys and ignore JSON
+object field order, not payload differences or the current culture. Event and
+result objects reject extra fields, including case-variant aliases. Validate
+action/outcome, full head SHA and required implementation checkpoint before
+immutable publication, so malformed results cannot reserve their event IDs.
+Identical event ID/payload is processed once; conflicting duplicates,
 unknown schema/aliases, malformed/partial records, wrong actors/correlation or
 missing evidence block the affected handoff. No new repair/finalize authority
 comes from duplicate delivery. Events never rewrite Dispatcher-owned state.
+
+Every report checkpoint must reference a retained task/handoff, even when the
+task list is empty. Publication preserves every prior event/report exactly once;
+its retained-evidence comparison hashes each current and prior entry once
+rather than comparing every pair.
 
 ### GitHub mirrors and reports
 
@@ -314,7 +323,10 @@ Finalize handoffs retain a nonempty feedback/evidence snapshot. Do not assign
 the same finalize action/head/evidence twice; a blocked finalizer can return
 to validation only from retained implementation-checkpoint evidence and fresh
 blocker-resolution evidence. A meaningful new validation snapshot is required
-before another finalize handoff, not another unchanged tick.
+before another finalize handoff, not another unchanged tick. Finalize
+deduplication compares ordinal sets of evidence references: reordering or
+repeating the same references is not new evidence. The original feedback
+snapshot remains unchanged in retained history.
 
 Finalize never edits code or creates a base-update commit. Without merge
 authority, publish ready for human review and retain ownership. With explicit

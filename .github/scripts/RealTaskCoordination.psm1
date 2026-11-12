@@ -7,10 +7,15 @@ $script:Stages = @("prepared", "launch-requested", "correlated", "delivered",
 $script:TaskStates = @("implementing", "validation", "repair-needed", "finalize-ready",
     "human-review", "blocked", "delivered")
 
-function Assert-RealTaskFields($Record, [string[]] $Fields) {
+function Assert-RealTaskFields($Record, [string[]] $Fields, [switch] $Closed) {
     if ($Record -isnot [System.Collections.IDictionary]) { throw "Expected a JSON object." }
     foreach ($field in $Fields) {
         if ($field -cnotin @($Record.Keys)) { throw "Missing field '$field'." }
+    }
+    if ($Closed) {
+        foreach ($field in $Record.Keys) {
+            if ($field -cnotin $Fields) { throw "Unknown field '$field'." }
+        }
     }
 }
 
@@ -37,9 +42,11 @@ function Get-RealTaskHash($Record) {
     # Sort object keys recursively so JSON field order is not event identity.
     function ConvertTo-Canonical($Value) {
         if ($Value -is [System.Collections.IDictionary]) {
-            $ordered = [ordered]@{}
-            foreach ($key in @($Value.Keys | Sort-Object -CaseSensitive)) {
-                $ordered[$key] = ConvertTo-Canonical $Value[$key]
+            $ordered = [Collections.Specialized.OrderedDictionary]::new([StringComparer]::Ordinal)
+            [string[]] $keys = @($Value.Keys)
+            [Array]::Sort($keys, [StringComparer]::Ordinal)
+            foreach ($key in $keys) {
+                $ordered.Add($key, (ConvertTo-Canonical $Value[$key]))
             }
             return ,$ordered
         }
@@ -51,6 +58,15 @@ function Get-RealTaskHash($Record) {
     }
     $json = ConvertTo-Canonical $Record | ConvertTo-Json -Depth 100 -Compress
     [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($json)))
+}
+
+function Get-RealTaskEvidenceHash([string[]] $Evidence) {
+    Assert-RealTaskEvidence $Evidence
+    $unique = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($reference in $Evidence) { $null = $unique.Add($reference) }
+    [string[]] $references = @($unique)
+    [Array]::Sort($references, [StringComparer]::Ordinal)
+    Get-RealTaskHash @{ value = $references }
 }
 
 function Find-RealTask($State, [string] $ClaimId) {
@@ -240,12 +256,12 @@ function Assert-RealTaskState {
                 if ($null -ne $id -and -not $eventIds.ContainsKey($id)) { throw "Missing immutable event index." }
             }
         }
-        foreach ($report in $State.reports) {
-            Assert-RealTaskFields $report @("id", "claimId", "handoffId", "url", "utc", "nextOwner", "nextAction")
-            foreach ($field in @("id", "url", "nextOwner", "nextAction")) { Assert-RealTaskText $report[$field] $field }
-            Assert-RealTaskUtc $report.utc
-            $null = Find-RealTaskHandoff $State $report.claimId $report.handoffId
-        }
+    }
+    foreach ($report in $State.reports) {
+        Assert-RealTaskFields $report @("id", "claimId", "handoffId", "url", "utc", "nextOwner", "nextAction")
+        foreach ($field in @("id", "url", "nextOwner", "nextAction")) { Assert-RealTaskText $report[$field] $field }
+        Assert-RealTaskUtc $report.utc
+        $null = Find-RealTaskHandoff $State $report.claimId $report.handoffId
     }
 }
 
@@ -322,7 +338,7 @@ function Add-RealTaskHandoff {
         Assert-RealTaskEvidence $Feedback
         foreach ($prior in $task.handoffs) {
             if ($prior.action -ceq "finalize" -and $prior.expectedHead -ceq $task.head -and
-                (Get-RealTaskHash @{ value = $prior.feedback }) -ceq (Get-RealTaskHash @{ value = $Feedback })) {
+                (Get-RealTaskEvidenceHash $prior.feedback) -ceq (Get-RealTaskEvidenceHash $Feedback)) {
                 throw "Duplicate finalize revision/evidence; require a meaningful evidence change."
             }
         }
@@ -438,12 +454,15 @@ function Add-RealTaskEvent {
 function Assert-RealTaskEvent($Event) {
     Assert-RealTaskFields $Event @("schema", "eventId", "kind", "claimId", "handoffId", "action",
         "workerId", "runId", "sessionId", "utc", "actor", "originalReporter", "trigger",
-        "elapsedSeconds", "result", "evidence")
+        "elapsedSeconds", "result", "evidence") -Closed
+    Assert-RealTaskText $Event.schema "event schema"
     if ($Event.schema -cne "fingvibe-real-event-v1" -or $Event.kind -cnotin @("ack", "result")) {
         throw "Unsupported event schema/kind; field aliases are not inferred."
     }
     foreach ($field in @("eventId", "claimId", "handoffId", "action", "workerId", "runId", "sessionId",
         "actor", "originalReporter", "trigger")) { Assert-RealTaskText $Event[$field] $field }
+    if ($Event.action -cnotin @("implement", "repair", "finalize") -or
+        $Event.workerId -cnotin @("developer-1", "developer-2")) { throw "Invalid event action/worker." }
     if ($Event.eventId -cne "$($Event.kind)-$($Event.handoffId)") {
         throw "Event ID must be reserved by kind and handoff."
     }
@@ -459,10 +478,26 @@ function Assert-RealTaskEvent($Event) {
     if ($Event.kind -ceq "ack") {
         if ($null -ne $Event.result) { throw "Acknowledgment cannot contain a result." }
     } else {
-        Assert-RealTaskFields $Event.result @("outcome", "head", "checkpoint", "evidence")
+        Assert-RealTaskFields $Event.result @("outcome", "head", "checkpoint", "evidence") -Closed
         Assert-RealTaskEvidence $Event.result.evidence
         if ($Event.result.outcome -cnotin @("implementation-ready", "blocked", "blocked-before-start", "pr-ready", "delivered")) {
             throw "Unknown result outcome."
+        }
+        foreach ($field in @("head", "checkpoint")) {
+            if ($null -ne $Event.result[$field]) { Assert-RealTaskText $Event.result[$field] $field }
+        }
+        if ($null -ne $Event.result.head -and $Event.result.head -cnotmatch '^[0-9a-f]{40}$') {
+            throw "Expected full result head SHA."
+        }
+        if ($Event.result.outcome -ceq "implementation-ready") {
+            if ($Event.action -ceq "finalize" -or $Event.result.head -cnotmatch '^[0-9a-f]{40}$') {
+                throw "Invalid implementation checkpoint."
+            }
+            Assert-RealTaskText $Event.result.checkpoint "implementation checkpoint"
+        }
+        if ($Event.result.outcome -cin @("pr-ready", "delivered") -and
+            ($Event.action -cne "finalize" -or $Event.result.head -cnotmatch '^[0-9a-f]{40}$')) {
+            throw "Invalid finalization result."
         }
     }
 }
@@ -668,9 +703,15 @@ function Publish-RealTaskState {
             }
         }
         foreach ($field in @("events", "reports")) {
+            $counts = @{}
+            foreach ($entry in $State[$field]) {
+                $hash = Get-RealTaskHash $entry
+                if (-not $counts.ContainsKey($hash)) { $counts[$hash] = 0 }
+                $counts[$hash]++
+            }
             foreach ($old in $previous[$field]) {
                 $hash = Get-RealTaskHash $old
-                if (@($State[$field] | Where-Object { (Get-RealTaskHash $_) -ceq $hash }).Count -ne 1) {
+                if (-not $counts.ContainsKey($hash) -or $counts[$hash] -ne 1) {
                     throw "Prior $field evidence cannot change or disappear."
                 }
             }
