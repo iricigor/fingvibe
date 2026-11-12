@@ -10,6 +10,7 @@
             </ResourceDictionary.MergedDictionaries>
             <ResourceDictionary.ThemeDictionaries>
                 <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="ScannerNavigationDividerBrush" Color="#0A000000" />
                     <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
                     <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="#FFFFFF" />
                     <SolidColorBrush x:Key="ControlFillColorDefaultBrush" Color="#FFFFFF" />
@@ -28,6 +29,7 @@
                     <SolidColorBrush x:Key="ScannerImportedForegroundBrush" Color="#785214" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
+                    <SolidColorBrush x:Key="ScannerNavigationDividerBrush" Color="#0EFFFFFF" />
                     <SolidColorBrush x:Key="NavigationViewContentBackground" Color="Transparent" />
                     <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush" Color="#1B1E24" />
                     <SolidColorBrush x:Key="ControlFillColorDefaultBrush" Color="#292D35" />
@@ -46,6 +48,7 @@
                     <SolidColorBrush x:Key="ScannerImportedForegroundBrush" Color="#F3D28B" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
+                    <SolidColorBrush x:Key="ScannerNavigationDividerBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                     <SolidColorBrush x:Key="NavigationViewContentBackground" Color="{ThemeResource SystemColorWindowColor}" />
                     <SolidColorBrush x:Key="ScannerPageBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
                     <SolidColorBrush x:Key="ScannerHeaderBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
@@ -60,6 +63,7 @@
                     <SolidColorBrush x:Key="ScannerImportedForegroundBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
+            <Thickness x:Key="ScannerPageContentMargin">12,0,24,24</Thickness>
             <local:PortIconGlyphConverter x:Key="PortIconGlyphConverter" />
             <local:LatencyColorConverter x:Key="LatencyColorConverter" />
             <local:ResultRowBackgroundConverter x:Key="ResultRowBackgroundConverter" />

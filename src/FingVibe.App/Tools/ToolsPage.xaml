@@ -5,7 +5,7 @@
     xmlns:local="using:FingVibe.App">
     <Grid>
         <ScrollViewer x:Name="ToolsLanding" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Margin="24,0,24,24" Spacing="16">
+            <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
                 <TextBlock Text="Tools" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
                 <Button x:Name="SqlEditorCard" Click="SqlEditorCard_Click"
                         Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="SQL editor">
