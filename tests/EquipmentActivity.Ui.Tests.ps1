@@ -71,8 +71,10 @@ function Assert-EquipmentPeers {
 function Assert-EquipmentCell([string] $Id, [string] $Pattern) {
     $cell = Show-Equipment $Id
     if ($cell.Current.Name -notlike $Pattern) { throw "Incorrect $Id`: $($cell.Current.Name)" }
-    if ((Find-Equipment EquipmentActivityDetail).Current.Name -ne $cell.Current.Name) {
-        throw "Keyboard focus must expose current equipment cell details."
+    $null = Wait-UiRegressionState -Description "keyboard focus and current equipment cell details for '$Id'" -Condition {
+        $current = Find-Equipment $Id
+        $current -and $current.Current.HasKeyboardFocus -and
+            (Find-Equipment EquipmentActivityDetail).Current.Name -eq $current.Current.Name
     }
 }
 function Choose-EquipmentPeriod([string] $Choice) {

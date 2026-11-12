@@ -8,7 +8,7 @@ foreach ($name in @(
         "Wait-SqlState", "Wait-SqlControl", "Select-SqlPage", "Select-SqlTools", "Assert-SqlResult", "Stop-SqlApp",
         "Test-SqlActionBounds", "Show-SqlSchemaPicker", "Send-SqlPickerKeys", "Select-SqlSchemaEndpoint",
         "Wait-SqlKeyboardOutcome", "Find-SqlSettingsItem", "Select-SqlSettings",
-        "Test-SqlResultWidth", "Format-SqlBounds", "Assert-SqlResultWidth")) {
+        "Test-SqlResultWidth", "Format-SqlBounds", "Assert-SqlResultWidth", "Assert-SqlActionLayout")) {
     $definition = $ast.Find({
         param($node)
         $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name
@@ -46,6 +46,39 @@ Assert-Equal (Test-SqlActionBounds $editor $run $cancel $short) $false "Status m
 $progress = [Windows.Rect]::new(170, 254, 24, 24)
 Assert-Equal (Test-SqlActionBounds $editor $run $cancel $summary $progress) $false "Running status must leave room for progress"
 Assert-Equal (Test-SqlActionBounds $editor $run $cancel ([Windows.Rect]::new(206, 256, 418, 20)) $progress) $true "Running status should fit beside progress"
+
+& {
+    $layout = @{ Positioned = $false; Positions = 0; Invalid = $false }
+    function Find-SqlControl([string] $Id, [switch] $Optional) {
+        if ($Id -eq "QueryProgress") { return $null }
+        $bounds = switch ($Id) {
+            SqlText { $editor }
+            RunButton { $run }
+            CancelButton { $cancel }
+            QueryStatus { if ($layout.Invalid) { $below } else { $summary } }
+            SqlPageScroll { [Windows.Rect]::new(0, 0, 640, 800) }
+            default { throw "Unexpected layout control '$Id'." }
+        }
+        [pscustomobject]@{ Id = $Id; Current = [pscustomobject]@{
+            BoundingRectangle = if ($layout.Positioned) { $bounds } else { [Windows.Rect]::Empty }
+            IsOffscreen = -not $layout.Positioned
+        } }
+    }
+    function Show-UiRegressionScrollTargets {
+        param($GetViewport, $GetTargets, $GetWindow, $Description)
+        Assert-Equal (& $GetViewport).Id SqlPageScroll "Action positioning must use the SQL viewport"
+        Assert-Equal ((& $GetTargets).Id -join ",") "SqlText,RunButton,CancelButton,QueryStatus" "Position all measured action controls together"
+        $layout.Positioned = $true
+        $layout.Positions++
+    }
+    function Wait-SqlState([scriptblock] $Predicate, [string] $Description) {
+        if (-not (& $Predicate)) { throw "Timed out waiting for $Description." }
+    }
+    Assert-SqlActionLayout
+    Assert-Equal $layout.Positions 1 "Action geometry must first position the complete editor/action group"
+    $layout.Invalid = $true
+    Assert-Throws { Assert-SqlActionLayout } "*SQL action layout failed:*Last geometry:*QueryStatus*"
+}
 
 $script:state = @{
     Mode = "Delayed"; Reads = @{}; Selections = 0; Invocations = 0; PaneOpen = $true; Toggles = 0

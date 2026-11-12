@@ -5,7 +5,10 @@ namespace FingVibe.App;
 
 public sealed record DeviceActivityCell(
     string RowLabel, string RowTotal, int StartHour, int Hours, bool IsApplicable,
-    AnalyticsResponse Response, decimal? Fraction, bool Hatched, string Value, string Details);
+    AnalyticsResponse Response, decimal? Fraction, bool Hatched, string Value, string Details)
+{
+    public bool IsFuture { get; init; }
+}
 
 public static class DeviceActivityPresentation
 {
@@ -33,8 +36,11 @@ public static class DeviceActivityPresentation
         {
             var count = bucket.Devices[0];
             var state = count.Response;
+            var localNow = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(buckets.QueryTime, buckets.TimeZoneId);
+            var future = bucket.Date == DateOnly.FromDateTime(localNow.DateTime) && bucket.StartHour > localNow.Hour;
             var detail = $"{bucket.Date:ddd d MMM yyyy} {Interval(bucket.StartHour, bucket.Hours)}: " +
                 (!bucket.IsApplicable ? "Not applicable - skipped DST hour. "
+                    : future ? "Later today - no scan data yet. "
                     : state == AnalyticsResponse.Unknown ? "Unknown - no eligible scans. "
                     : state == AnalyticsResponse.Responded ? "At least one response. " : "Scanned, no response. ") +
                 Counts(count) + $" {bucket.CompletedScanCount} completed ledger scans; {bucket.LegacySampleCount} explicit legacy samples." +
@@ -42,9 +48,17 @@ public static class DeviceActivityPresentation
             return new DeviceActivityCell(bucket.Date.ToString("ddd d MMM", CultureInfo.CurrentCulture), "",
                 bucket.StartHour, bucket.Hours, bucket.IsApplicable, state,
                 state == AnalyticsResponse.Unknown ? null : state == AnalyticsResponse.Responded ? 1m : 0m,
-                bucket.IsApplicable && state == AnalyticsResponse.Unknown, bucket.IsApplicable ? "" : "-", detail);
+                bucket.IsApplicable && state == AnalyticsResponse.Unknown && !future, bucket.IsApplicable ? "" : "-", detail)
+                { IsFuture = future && bucket.IsApplicable };
         }).ToArray();
     }
+
+    public static int CoveredDates(ActivityBuckets buckets) =>
+        buckets.Days.Where(bucket => bucket.IsApplicable && bucket.Devices[0].Eligible > 0)
+            .Select(bucket => bucket.Date).Distinct().Count();
+
+    public static int PopulatedSquares(IReadOnlyList<DeviceActivityCell> cells) =>
+        cells.Count(cell => cell.IsApplicable && cell.Response != AnalyticsResponse.Unknown);
 
     public static string Interval(int startHour, int hours) => $"{startHour:00}:00-{startHour + hours:00}:00";
     private static string Counts(ActivityResponseCounts counts) =>

@@ -139,10 +139,13 @@ still checks only its original 10 TCP ports. The additional scan uses at most
 Device details places **Network overview** at the top left and **Assignments**
 at the top right (roughly 60/40), with aligned bottom edges and the assignments
 explanation anchored at the bottom. They stack at natural height in narrow windows. A full-width,
+second row pairs **Observation summary** with compact **Usage category**, using
+the same column widths and equal card heights within each row. A full-width,
 read-first **Device identification** card follows, then **Ports & services**.
-Identification uses up to three field columns, and endpoints use up to two
-columns, reducing to one as width and text scaling require. **Rename** in the
-identity header reveals the existing name editor only when requested. **Ports & services**
+Identification and compact service tiles use up to three columns,
+reducing to one as width and text scaling require. The **Rename device** pencil in the
+identity header reveals the existing name editor only when requested. Copy and
+pencil actions reserve their space and appear on hover or keyboard focus. **Ports & services**
 has its own container for endpoints, scan controls, independent TCP/UDP feedback,
 and UDP observations. Discovered hostname belongs to the network overview;
 the collapsed **Imported Fing data** section sits inside **Device identification**,
@@ -472,8 +475,9 @@ date into midnight-aligned 1, 2, 3 or 4-hour cells. Three-hour groups run
 define the window; today includes only evidence collected so far.
 
 Green means at least one reliable response, even if other scans in the cell
-had no response. Slate means eligible observations with no response; hatching
-means unknown evidence, not offline. No state is interpolated between scans.
+had no response. Amber/minus means eligible observations with no response;
+sparse hatching means unknown evidence, not offline. Dim dots distinguish
+later-today intervals from missing past evidence. No state is interpolated between scans.
 Weekday numbers count responding dates; green strength divides by **all
 applicable dates**, including unknown ones. Three responding Wednesdays and one
 unknown therefore show 3, 75% green and hatching, not 100%. Entirely unknown
@@ -483,12 +487,17 @@ excluded from that cell's denominator; repeated hours combine both instants.
 Select or focus a cell for exact response, nonresponse, unknown and date counts.
 Arrow keys move within the grid; Home/End move within its row. Narrow grids
 scroll horizontally instead of shrinking cells; 30-day rows scroll vertically.
-High contrast uses system colors and R/N/? symbols alongside accessible text.
+High contrast uses system colors and R/minus/? symbols alongside accessible text.
 Changing device, network, period or hour grouping cancels older queries; leaving
-the page or closing the window cancels pending work. Refresh failures clear old
+the tab/page or closing the window cancels pending work. Activity reloads on tab entry,
+saved-revision and local date/hour/timezone changes without a normal Refresh action.
+Load failures clear old
 results and expose **Retry**. Existing scan history and category editing remain
 independent. While no grid is shown, the window line names the selected period
 and grouping, the detail line prompts for a cell, and the legend stays visible.
+The quiet window line counts dates with eligible positive or negative evidence.
+Populated-square counts refer to displayed squares, including weekday grouping,
+not scan counts or continuous uptime; sparse history never blocks the requested window.
 
 Activity reports one observable state through the grid's UI Automation item
 status: `Loading`, `Ready`, `Empty` or `Error` with an increasing request number
@@ -600,7 +609,7 @@ delivery evidence, not inferred from these coverage mappings.
 ### Device scan history
 
 First/last seen, last-observed/since and network scope appear in the Overview
-tab's **Saved observation summary**; the History tab repeats the scope with the
+tab's **Observation summary** Details; the History tab discloses the scope with the
 latest-scan explanation. Devices Last seen, virtual MAC/address information,
 discovery, usage categories and all other device details are unchanged. Scans
 continue collecting and retaining evidence; no stored data is deleted.
@@ -616,9 +625,10 @@ retained identification drafts and observation pages, **View device history**,
 and that opening a device starts on Overview.
 
 Device details uses local **Overview** and **History** tabs (`SelectorBar`)
-below the device name and rename editor. Overview holds
-network overview, assignments and usage category, identification, ports and
-the saved observation summary; History holds Activity, scan history with
+beside the Back action, with identity on the right; tabs move below the header
+when measured content no longer fits. Overview holds network overview and assignments,
+then observation summary and usage category, followed by full-width identification and ports.
+History holds Activity and scan observations with
 Completed Scan Observations, and virtual MAC/address history. The header, tabs
 and both panels share one scroll viewer (`DeviceDetailsScroll`); hidden tabs stay
 loaded so drafts, expanders and paging survive switches. Switching tabs keeps the
@@ -626,20 +636,19 @@ current scroll position, and **View device history** focuses the History tab.
 Opening a device always selects Overview at the top. UI review captures the
 History tab as `fingvibe-device-history.png` (`DeviceHistory` scenario).
 
-Device details shows a **Scan history** summary for normal MAC-based devices and
+Device details shows an **Observation summary** for normal MAC-based devices and
 existing virtual devices. First/last-seen timestamps display in local time with
-relative ages, refreshed while the page is visible and rounded to the nearest
-whole minute, hour, day, month (approximately 30 days), or year (365 days).
-**Last observed: Present/Absent** pairs a semantic green/red dot with text; it is
+Today/Yesterday/N-days labels based on local calendar dates, retaining the time.
+Exact timestamps, timezone, network scope and recorded-run start remain in Details.
+**Last recorded state: Responded/Scanned, no response** pairs a dot with text; it is
 not live status. Missing evidence and historical aggregates remain explicit.
 
-The **Completed Scan Observations** section starts collapsed each time a device
-is opened. Expand it for the current-network context, latest-scan explanation,
-observation semantics, and a scrollable newest-first table with **Date**,
-**Time (local)**, and **Status** columns. Zebra stripes and subtle separators
-help track rows; status combines a green/red dot with **Present/Absent** text.
-Network identity and subnet appear once above the table, not on every row.
-Timestamp tooltips expose the full local timestamp and UTC offset to distinguish
+The **Completed Scan Observations** section starts expanded on History.
+Its compact newest-first table has **When (local)** and **Result** columns;
+long explanations and scope are disclosed separately. Zebra stripes and subtle separators
+help track rows; status combines a dot with **Responded/Scanned, no response** text.
+Network identity and subnet appear in Details, not on every row.
+Accessible row names and timestamp tooltips expose the full local timestamp and UTC offset to distinguish
 repeated daylight-saving times. Storage remains UTC. Each relevant completed manual
 or scheduled scan contributes one observation. Pending or incomplete checkpoints
 are not completed history and do not establish current live presence after restart.
@@ -657,7 +666,7 @@ The bounded page uses a native ScrollViewer and passive ItemsControl rather than
 a selectable ListView. Its stable rows expose the UI Automation DataItem role,
 the same complete timestamp/state names, and ScrollItem bring-into-view support.
 This avoids selector focus/recycling changing the viewport during read-only
-traversal. The viewport is a keyboard tab stop; rows do not add 100 tab stops.
+traversal. The viewport and timestamp-described rows are keyboard focusable.
 Every row must be physically reachable at full height; enumerated offscreen or
 clipped peers do not establish visibility. Focusing the viewport brings it
 inside the outer details page.
@@ -669,9 +678,9 @@ or refreshing its network context starts at the newest page and includes new
 observations; changing devices/networks discards the previous traversal.
 Page-load errors remain visible and can be retried without replacing a valid page.
 
-The list and its **First seen**, **Last seen**, and **Observed online/offline since**
-summary use only the selected current network identity and subnet, shown above
-the summary. Changing networks never falls back to another network's evidence;
+The list and its **First seen**, **Last seen**, and **Latest recorded run started**
+summary use only the selected current network identity and subnet, shown in
+Details. Changing networks never falls back to another network's evidence;
 unavailable identity or missing matching evidence explains unavailable values.
 Other-network history remains saved. First/last seen use presence observations;
 absence does not advance last seen. Since is the first scan in the latest
@@ -784,7 +793,7 @@ The expanded sidebar uses a compact 216-DIP Windows Settings-style layout with c
 Devices show a native Segoe Fluent device icon beside their name. **OS** is a sortable, resizable, optional column. **Device type** is an optional secondary line within the mandatory Name column, with a separate type-sort action in its header. Both detected and manually selected classifications are included in text filtering. Device details show the identification evidence and whether a value is user-selected. Unknown OS, device type, and vendor metadata use muted dashes in the list; details retain descriptive classification text.
 
 The identification card reads as values by default. Its single pencil + **Edit**
-button switches all six fields inline: device type, OS, brand, family, model and
+button switches all six fields inline: device type, OS, vendor / manufacturer, family, model and
 icon. It focuses device type and keeps **Save changes** / **Cancel** beneath the
 inputs. Cancel discards drafts; successful Save returns to read mode; a failed
 Save keeps entered values and displays the error. Blank brand/family/model
@@ -792,6 +801,8 @@ inputs inherit the original/default value (shown as placeholder text), rather
 than hiding it. Saved corrections take precedence over original Fing values,
 then automatic evidence where available. **Reset saved identification** clears
 all six overrides, not device names, assignments or imported evidence.
+The manufacturer uses the existing Brand override; detected MAC vendor remains
+separate supporting registry evidence, not a second editable manufacturer field.
 **How this device was identified** discloses the technical evidence separately.
 
 Identification is best-effort and local. SSDP discovery uses the selected interface, and one shared multicast DNS-SD discovery window follows service announcements through SRV, TXT, and IPv4 address records to collect models without confusing proxy responses with the responding device. It listens for multicast replies as well as requested unicast replies. SSDP `SERVER` advertisements and bounded HTTP/SSH banner reads on already-open ports can identify OS-specific platform information. Merely running SSH, SMB, nginx, or Apache is not OS proof. The computer running the scanner is identified directly from its OS, and the selected interface's configured gateway is identified as a router.

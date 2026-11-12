@@ -156,7 +156,7 @@ function Show-UiReviewCaptureScenario {
                 -Value "//List[@Name='Scan results']/ListItem[.//*[@Name='Online']][1]"
             Invoke-WebDriverElement -ElementId $rowId
             $null = Assert-VisibleUiReviewElement -Value "Back to devices"
-            $null = Assert-VisibleUiReviewElement -Value "Device name"
+            $null = Find-WebDriverElement -Using name -Value "Rename device"
             $null = Assert-VisibleUiReviewElement -Value "Network overview"
             # Narrow layouts stack identification/assignments below the initial viewport.
             $null = Find-WebDriverElement -Using name -Value "Device identification"

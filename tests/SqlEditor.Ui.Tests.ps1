@@ -120,13 +120,28 @@ function Test-SqlActionBounds($Editor, $Run, $Cancel, $Status, $Progress = $null
 }
 
 function Assert-SqlActionLayout {
-    Wait-SqlState {
-        $progress = Find-SqlControl QueryProgress -Optional
-        $progressBounds = if ($progress -and -not $progress.Current.IsOffscreen) { $progress.Current.BoundingRectangle }
-        Test-SqlActionBounds (Find-SqlControl SqlText).Current.BoundingRectangle `
-            (Find-SqlControl RunButton).Current.BoundingRectangle (Find-SqlControl CancelButton).Current.BoundingRectangle `
-            (Find-SqlControl QueryStatus).Current.BoundingRectangle $progressBounds
-    } "Run, Cancel and right-aligned status on one non-overlapping row"
+    try {
+        $null = Show-UiRegressionScrollTargets -GetViewport { Find-SqlControl SqlPageScroll } `
+            -GetTargets {
+                foreach ($id in @("SqlText", "RunButton", "CancelButton", "QueryStatus")) { Find-SqlControl $id }
+            } -GetWindow { $script:root } -Description "SQL editor and action row"
+        Wait-SqlState {
+            $progress = Find-SqlControl QueryProgress -Optional
+            $progressBounds = if ($progress -and -not $progress.Current.IsOffscreen) { $progress.Current.BoundingRectangle }
+            Test-SqlActionBounds (Find-SqlControl SqlText).Current.BoundingRectangle `
+                (Find-SqlControl RunButton).Current.BoundingRectangle (Find-SqlControl CancelButton).Current.BoundingRectangle `
+                (Find-SqlControl QueryStatus).Current.BoundingRectangle $progressBounds
+        } "Run, Cancel and right-aligned status on one non-overlapping row"
+    }
+    catch {
+        $geometry = @(
+            foreach ($id in @("SqlText", "RunButton", "CancelButton", "QueryStatus", "QueryProgress", "SqlPageScroll")) {
+                Format-SqlBounds $id (Find-SqlControl $id -Optional)
+            }
+            Format-SqlBounds window $script:root
+        ) -join "; "
+        throw "SQL action layout failed: $($_.Exception.Message) Last geometry: $geometry."
+    }
 }
 
 function Test-SqlResultWidth($Editor, $Result) {
