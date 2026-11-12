@@ -764,6 +764,13 @@ try {
         "History normal" = Assert-HistoryLastSeenCell "History normal" $expectedNormal
         "History virtual" = Assert-HistoryLastSeenCell "History virtual" "Last seen: $(Get-HistoryExactTime 4)"
     }
+    if ("$normalPresent" -eq "1") {
+        if ($beforeLastSeen["History normal"] -notmatch '^Last seen: Online - responded in the displayed scan \((.+)\)$') {
+            throw "The completed response must expose its exact Last seen timestamp."
+        }
+        # A new scan removes fresh-response presentation, not the retained timestamp or Online status.
+        $beforeLastSeen["History normal"] = "Last seen: $($Matches[1])"
+    }
     $beforeStop = Get-InventoryFingerprint $database
     Open-HistoryDetails "History normal"
     $beforeSummary = @{}

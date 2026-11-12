@@ -22,7 +22,7 @@ public sealed record OverviewScanContext(
         ScanDisplayStatus.Scanning => "Scan in progress - partial results",
         ScanDisplayStatus.Cancelled => "Scan cancelled - partial results",
         ScanDisplayStatus.Failed => "Scan failed - partial results",
-        ScanDisplayStatus.Incomplete => "Incomplete scan - checkpointed observations",
+        ScanDisplayStatus.Incomplete => $"Incomplete scan - checkpointed observations from {ScanAgeFormatter.FormatAge(now - ObservedAt)} ago",
         _ => $"Updated {ScanAgeFormatter.FormatAge(now - ObservedAt)} ago"
     };
 
