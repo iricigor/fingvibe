@@ -1218,7 +1218,7 @@ Unused IP addresses do not become device records.</p>
 <tbody>
 <tr>
 <td>Online</td>
-<td>The device responded to fresh ping or ARP in this session's displayed scan. Initial saved results can show this while background checks continue.</td>
+<td>The device responded to ping or ARP in its latest applicable scan evidence, including saved results.</td>
 </tr>
 <tr>
 <td>Offline</td>
@@ -1226,7 +1226,7 @@ Unused IP addresses do not become device records.</p>
 </tr>
 <tr>
 <td>Unknown</td>
-<td>There is no suitable current scan evidence, for example after restart or when results belong to another network.</td>
+<td>No suitable local scan status is available. Restart alone does not make a known status Unknown.</td>
 </tr>
 <tr>
 <td>Fing Only</td>
@@ -1235,8 +1235,12 @@ Unused IP addresses do not become device records.</p>
 </tbody>
 </table>
 <p><strong>Offline is not proof of power-off.</strong> A device may be sleeping, blocking probes,
-or outside the scan's reachable network. After restart, saved observations are
-historical; they do not remain Online.</p>
+or outside the scan's reachable network. After restart, saved Online/Offline
+statuses remain available, with their evidence age. Starting a scan retains
+unresolved statuses; fresh responders become Online, but only full successful
+completion can make nonresponders Offline on that same network. Cancellation
+or failure retains prior statuses and committed positive results.
+Online is scan-relative, not proof of continuous live presence.</p>
 <p>Color supports the status text. Green, gray, or amber alone is not the meaning.
 The totals describe the whole inventory, even when filters hide some rows.</p>
 <h2 id="search-and-filter">Search and filter<a class="headerlink" href="#search-and-filter" title="Permanent link">&para;</a></h2>
