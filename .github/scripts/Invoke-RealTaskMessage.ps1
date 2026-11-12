@@ -2,7 +2,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet("Prepare", "Receive", "Confirm", "ProtocolError")]
+    [ValidateSet("Prepare", "Receive", "Confirm", "ProtocolError", IgnoreCase = $false)]
     [string] $Action,
     [Parameter(Mandatory)]
     [string] $InputPath,

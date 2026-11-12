@@ -385,7 +385,7 @@ function Set-RealTaskStage {
 }
 
 function Test-RealTaskEvent {
-    param($State, $Event)
+    param($State, $Event, [switch] $AcknowledgmentVerified)
     Assert-RealTaskEvent $Event
     $hash = Get-RealTaskHash $Event
     $seen = @($State.events | Where-Object id -CEQ $Event.eventId)
@@ -405,7 +405,8 @@ function Test-RealTaskEvent {
         }
     } else {
         if ($handoff.stage -cne "acknowledged" -and
-            -not ($handoff.stage -cin @("correlated", "delivered") -and $Event.result.outcome -ceq "blocked-before-start")) {
+            -not ($handoff.stage -cin @("correlated", "delivered") -and
+                ($AcknowledgmentVerified -or $Event.result.outcome -ceq "blocked-before-start"))) {
             throw "Result requires acknowledgment or verified pre-start rejection."
         }
         if ($Event.result.outcome -ceq "implementation-ready") {
@@ -457,6 +458,7 @@ function Assert-RealTaskEvent($Event) {
     Assert-RealTaskFields $Event @("schema", "eventId", "kind", "claimId", "handoffId", "action",
         "workerId", "runId", "sessionId", "utc", "actor", "originalReporter", "trigger",
         "elapsedSeconds", "result", "evidence") -Closed
+    Assert-RealTaskText $Event.schema "event schema"
     if ($Event.schema -cne "fingvibe-real-event-v1" -or $Event.kind -cnotin @("ack", "result")) {
         throw "Unsupported event schema/kind; field aliases are not inferred."
     }
@@ -640,18 +642,24 @@ function ConvertFrom-RealTaskJson([string] $Json) {
 
 function Write-RealTaskAtomic($Record, [string] $Path, [switch] $Immutable) {
     if (-not [IO.Path]::IsPathFullyQualified($Path)) { throw "Record path must be absolute." }
+    $json = $Record | ConvertTo-Json -Depth 100
+    $parsed = ConvertFrom-RealTaskJson $json
+    $expectedHash = Get-RealTaskHash $Record
+    if ((Get-RealTaskHash $parsed) -cne $expectedHash) {
+        throw "Serialized publication differs from the original record."
+    }
     $directory = [IO.Path]::GetDirectoryName($Path)
     [IO.Directory]::CreateDirectory($directory) | Out-Null
     $temporary = Join-Path $directory (".publish-" + [guid]::NewGuid() + ".tmp")
     try {
-        $bytes = [Text.Encoding]::UTF8.GetBytes(($Record | ConvertTo-Json -Depth 100))
+        $bytes = [Text.Encoding]::UTF8.GetBytes($json)
         $stream = [IO.File]::Open($temporary, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
         try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) }
         finally { $stream.Dispose() }
         if ($Immutable) { [IO.File]::Move($temporary, $Path, $false) }
         elseif ([IO.File]::Exists($Path)) { [IO.File]::Replace($temporary, $Path, [System.Management.Automation.Language.NullString]::Value) }
         else { [IO.File]::Move($temporary, $Path, $false) }
-        if ((Get-RealTaskHash (Read-RealTaskJson $Path)) -cne (Get-RealTaskHash $Record)) {
+        if ((Get-RealTaskHash (Read-RealTaskJson $Path)) -cne $expectedHash) {
             throw "Atomic publication readback mismatch: $Path."
         }
     } finally {

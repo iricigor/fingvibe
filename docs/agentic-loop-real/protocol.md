@@ -31,7 +31,14 @@ Do not hand-compose envelopes or reinterpret prose to choose an operation.
    acknowledgment race while Dispatcher records delivery.
 5. Worker events route to `ingest-event`. Under the existing owned gate, verify
    reporter/evidence, use `Add-RealTaskEvent`, then publish the expected state
-   revision. Stopping and release still require independent host evidence.
+   revision. A fast worker may publish/preflight its result before Dispatcher
+   has indexed its acknowledgment: the receiver validates the canonical
+   acknowledgment's shape, full handoff correlation and any retained hash.
+   Missing or corrupt acknowledgment evidence rejects the result, even if state
+   already says acknowledged. Dispatcher must ingest the canonical acknowledgment
+   **before** the normal result; preflight does not skip transitions or mutate
+   state. `blocked-before-start` retains its no-acknowledgment path. Stopping and
+   release still require independent host evidence.
 6. Handle informational messages without changing assignment scope or authority,
    then `Confirm` their processing. Reserved or confirmed repeats are no-ops.
    Confirmation records processing, not execution or stopping. A crash after
@@ -146,7 +153,9 @@ Error codes: `invalid-json`, `unsupported-schema`, `invalid-message`,
 Replies contain explanations, not retry instructions.
 
 Clarification replies require a durably published `clarification_request` with
-the same context and reversed exact endpoints. They explain existing approved
+the same context and reversed exact endpoints. Validation checks the original
+message ID, constrained content path and content/payload hashes, without
+reserving or replaying request handling. They explain existing approved
 requirements only. They cannot modify scope, authority, action or expected head,
 even through text. A consequential change requires verified stopping,
 reconciliation and a fresh authorized handoff; repair reservations do not reset.
@@ -164,7 +173,10 @@ Storage extends the [existing shared environment](README.md#persistent-storage-a
 | `diagnostics` | Rejected raw-input hashes, reason, first UTC observation and verified endpoints/evidence |
 | `responses` | Create-new, one-time error-response intent per original message UUID |
 
-Each write is flushed, atomically published and read back. No index is the sole
+Each write strictly parses and checks its serialized content **before** touching
+the target, then is flushed, atomically published and read back. Invalid
+serialization leaves an existing target unchanged and cannot create an initial
+immutable target. No index is the sole
 source of discovery. The receiver reads canonical acknowledgment/result files
 even before Dispatcher indexes them. A malformed or mismatched canonical event
 rejects the action instead of counting as harmless duplication.
@@ -204,6 +216,8 @@ reconcile uncertainty, but must not be sent again.
 
 All paths must be absolute in real invocations. `StatePath` identifies fresh
 persisted state. `Directory` is the single configured shared environment.
+CLI action names are case-sensitive; incorrectly cased actions fail parameter
+validation rather than silently returning no decision.
 `ObservationPath` contains **independently verified**, closed
 `{ sender, recipient, evidence }`, using the endpoint shape above; observations
 are not reconstructed from the received body. `InputPath` is:
@@ -304,6 +318,13 @@ unindexed acknowledgment. It also checks culture/order-safe hashing and a smalle
 decision packet. Run it or the existing combined `DispatcherGate.Tests.ps1`.
 
 ## Optimization and evidence limits
+
+The primary benefit is deterministic handling and reduced agent ambiguity,
+not an established end-to-end speed improvement. Scripts replace repeated
+mechanical interpretation with fixed operations and smaller decision packets;
+they also add parsing, validation and durable I/O. Host/API calls and actual
+implementation may dominate elapsed task time. Comparing packet sizes does not
+measure total context savings when agents still need to load the payload.
 
 The protocol validates authoritative state once per send/receive boundary,
 shares assignment/event guards with existing helpers, and uses direct canonical

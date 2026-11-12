@@ -17,6 +17,7 @@ function Assert-RealTaskUuid($Value) {
 
 function Assert-RealTaskEndpoint($Endpoint) {
     Assert-RealTaskFields $Endpoint @("agentId", "automationId", "runId", "sessionId") -Closed
+    Assert-RealTaskText $Endpoint.agentId "agent ID"
     if ($Endpoint.agentId -cnotin @("dispatcher", "developer-1", "developer-2")) { throw "Unknown agent identity." }
     Assert-RealTaskText $Endpoint.sessionId "actual session ID"
     foreach ($field in @("automationId", "runId")) {
@@ -44,10 +45,12 @@ function Assert-RealTaskContext($Context) {
 function Assert-RealTaskMessageShape($Message) {
     Assert-RealTaskFields $Message @("schema", "messageId", "type", "sender", "recipient",
         "context", "sentUtc", "inReplyTo", "record", "payload") -Closed
+    Assert-RealTaskText $Message.schema "message schema"
     if ($Message.schema -cne "fingvibe-real-message-v1") {
         Stop-RealTaskProtocol "unsupported-schema" "Unsupported message schema; no automatic migration."
     }
     Assert-RealTaskUuid $Message.messageId
+    Assert-RealTaskText $Message.type "message type"
     if ($Message.type -cnotin $script:MessageTypes) { throw "Unsupported message type." }
     Assert-RealTaskEndpoint $Message.sender
     Assert-RealTaskEndpoint $Message.recipient
@@ -82,13 +85,16 @@ function Assert-RealTaskMessageShape($Message) {
                 "branch", "worktree", "pr", "expectedHead", "checkpoint", "repairAttempt", "strategy",
                 "feedback", "priorRepairEvidence") -Closed
             Assert-RealTaskFields $Message.payload.authorization @("reference", "implementation", "merge") -Closed
+            Assert-RealTaskText $Message.payload.schema "assignment schema"
             if ($Message.payload.schema -cne "fingvibe-real-assignment-v1") {
                 Stop-RealTaskProtocol "unsupported-schema" "Unsupported assignment schema."
             }
             $assignment = $Message.payload
             Assert-RealTaskContext @{ repository = $assignment.repository; epic = $assignment.epic; issue = $assignment.issue
                 claimId = $assignment.claimId; handoffId = $assignment.handoffId }
-            foreach ($field in @("runId", "sessionId", "targetBranch")) { Assert-RealTaskText $assignment[$field] $field }
+            foreach ($field in @("action", "workerId", "runId", "sessionId", "targetBranch")) {
+                Assert-RealTaskText $assignment[$field] $field
+            }
             Assert-RealTaskText $assignment.authorization.reference "human authorization reference"
             foreach ($field in @("implementation", "merge")) {
                 if ($assignment.authorization[$field] -isnot [bool]) { throw "Authorization capabilities must be booleans." }
@@ -114,6 +120,7 @@ function Assert-RealTaskMessageShape($Message) {
                 throw "Repair attempt must be an integer."
             }
             if ($assignment.action -ceq "repair") {
+                Assert-RealTaskText $assignment.strategy "repair strategy"
                 $strategy = if ($assignment.repairAttempt -eq 1) { "targeted" } else { "reassess" }
                 if ($assignment.repairAttempt -lt 1 -or $assignment.repairAttempt -gt 12 -or
                     $assignment.strategy -cne $strategy) { throw "Invalid repair attempt/strategy." }
@@ -127,6 +134,7 @@ function Assert-RealTaskMessageShape($Message) {
         { $_ -cin @("acknowledgment", "result") } {
             if ($Message.recipient.agentId -cne "dispatcher") { throw "Worker events target Dispatcher." }
             Assert-RealTaskFields $Message.payload @("schema")
+            Assert-RealTaskText $Message.payload.schema "event schema"
             if ($Message.payload.schema -cne "fingvibe-real-event-v1") {
                 Stop-RealTaskProtocol "unsupported-schema" "Unsupported event schema."
             }
@@ -136,6 +144,7 @@ function Assert-RealTaskMessageShape($Message) {
         }
         "blocker" {
             Assert-RealTaskFields $Message.payload @("code", "explanation", "nextOwner", "nextAction", "evidence") -Closed
+            Assert-RealTaskText $Message.payload.code "blocker code"
             if ($Message.payload.code -cnotin @("missing-evidence", "unavailable-capability", "scope-conflict",
                 "publication-failed", "uncertain-delivery", "authorization", "other")) { throw "Unknown blocker code." }
             foreach ($field in @("explanation", "nextOwner", "nextAction")) {
@@ -155,10 +164,12 @@ function Assert-RealTaskMessageShape($Message) {
         }
         "notification" {
             Assert-RealTaskFields $Message.payload @("reason") -Closed
+            Assert-RealTaskText $Message.payload.reason "notification reason"
             if ($Message.payload.reason -cne "record-available") { throw "Unknown notification reason." }
         }
         "protocol_error" {
             Assert-RealTaskFields $Message.payload @("code", "explanation", "evidence") -Closed
+            Assert-RealTaskText $Message.payload.code "protocol error code"
             if ($Message.payload.code -cnotin $script:ProtocolCodes) { throw "Unknown protocol error code." }
             Assert-RealTaskText $Message.payload.explanation "protocol explanation"
             Assert-RealTaskEvidence $Message.payload.evidence
@@ -182,6 +193,33 @@ function Assert-RealTaskRecordPath($Message, [string] $Directory) {
     if (@($allowed | Where-Object { [string]::Equals($_, $actual, [StringComparison]::OrdinalIgnoreCase) }).Count -ne 1) {
         Stop-RealTaskProtocol "publication-mismatch" "Record must be in the configured shared records/events directory."
     }
+}
+
+function Read-RealTaskCanonicalEvent($State, [string] $ClaimId, $Handoff, [string] $Kind, [string] $Directory, [switch] $Required) {
+    $id = "$Kind-$($Handoff.id)"
+    $path = Get-RealTaskProtocolPath $Directory "events" $id
+    $indexField = if ($Kind -ceq "ack") { "ackEventId" } else { "resultEventId" }
+    if (-not [IO.File]::Exists($path)) {
+        if ($Required -or $null -ne $Handoff[$indexField]) {
+            Stop-RealTaskProtocol "publication-mismatch" "Required canonical $Kind event is missing."
+        }
+        return $null
+    }
+    $event = Read-RealTaskJson $path
+    Assert-RealTaskEvent $event
+    if ($event.eventId -cne $id -or $event.claimId -cne $ClaimId -or $event.handoffId -cne $Handoff.id) {
+        Stop-RealTaskProtocol "correlation-mismatch" "Canonical event differs from assigned claim/handoff."
+    }
+    foreach ($field in @("action", "workerId", "runId", "sessionId")) {
+        if ($event[$field] -cne $Handoff[$field]) {
+            Stop-RealTaskProtocol "correlation-mismatch" "Canonical event differs from assigned handoff: $field."
+        }
+    }
+    $indexed = @($State.events | Where-Object id -CEQ $event.eventId)
+    if ($indexed.Count -gt 0 -and $indexed[0].hash -cne (Get-RealTaskHash $event)) {
+        Stop-RealTaskProtocol "conflicting-duplicate" "Canonical execution event differs from its retained hash."
+    }
+    return $event
 }
 
 function Assert-RealTaskMessageBinding($Message, $State, $Sender, $Recipient, [string] $Directory, [switch] $Receiving) {
@@ -220,25 +258,9 @@ function Assert-RealTaskMessageBinding($Message, $State, $Sender, $Recipient, [s
             }
         }
         $consumed = $handoff.stage -cin @("acknowledged", "result-recorded", "stopped-verified", "reconciled")
-        foreach ($prefix in @("ack-", "result-")) {
-            $path = Get-RealTaskProtocolPath $Directory "events" "$prefix$($handoff.id)"
-            if ([IO.File]::Exists($path)) {
-                $event = Read-RealTaskJson $path
-                Assert-RealTaskEvent $event
-                if ($event.eventId -cne "$prefix$($handoff.id)" -or $event.claimId -cne $task.claimId -or
-                    $event.workerId -cne $handoff.workerId -or $event.runId -cne $handoff.runId -or
-                    $event.sessionId -cne $handoff.sessionId) {
-                    Stop-RealTaskProtocol "correlation-mismatch" "Canonical execution event differs from assigned handoff."
-                }
-                $indexed = @($State.events | Where-Object id -CEQ $event.eventId)
-                if ($indexed.Count -gt 0 -and $indexed[0].hash -cne (Get-RealTaskHash $event)) {
-                    Stop-RealTaskProtocol "conflicting-duplicate" "Canonical execution event differs from its retained hash."
-                }
-                $consumed = $true
-            } elseif (($prefix -ceq "ack-" -and $null -ne $handoff.ackEventId) -or
-                ($prefix -ceq "result-" -and $null -ne $handoff.resultEventId)) {
-                Stop-RealTaskProtocol "publication-mismatch" "Previously indexed execution event is missing."
-            }
+        foreach ($kind in @("ack", "result")) {
+            $event = Read-RealTaskCanonicalEvent $State $task.claimId $handoff $kind $Directory
+            if ($null -ne $event) { $consumed = $true }
         }
         if (-not ($Receiving -and $consumed)) {
             if (-not $State.authorization.implementation) {
@@ -259,17 +281,29 @@ function Assert-RealTaskMessageBinding($Message, $State, $Sender, $Recipient, [s
         }
         if ($Message.payload.kind -ceq "result" -and $Message.payload.result.outcome -ceq "delivered" -and
             -not $State.authorization.merge) { Stop-RealTaskProtocol "authority-mismatch" "Merge is not authorized." }
-        $null = Test-RealTaskEvent $State $Message.payload
+        $acknowledgmentVerified = $false
+        if ($Message.type -ceq "result") {
+            $required = $Message.payload.result.outcome -cne "blocked-before-start"
+            $ack = Read-RealTaskCanonicalEvent $State $task.claimId $handoff ack $Directory -Required:$required
+            $acknowledgmentVerified = $null -ne $ack
+        }
+        $null = Test-RealTaskEvent $State $Message.payload -AcknowledgmentVerified:$acknowledgmentVerified
     }
     if ($Message.type -ceq "clarification_reply") {
         $requestPath = Get-RealTaskProtocolPath $Directory "messages" $Message.inReplyTo
         $request = Read-RealTaskJson $requestPath
         Assert-RealTaskMessageShape $request
-        if ($request.type -cne "clarification_request" -or
+        if ($request.messageId -cne $Message.inReplyTo -or $request.type -cne "clarification_request" -or
             (Get-RealTaskHash $request.context) -cne (Get-RealTaskHash $Message.context) -or
             (Get-RealTaskHash $request.sender) -cne (Get-RealTaskHash $Recipient) -or
             (Get-RealTaskHash $request.recipient) -cne (Get-RealTaskHash $Sender)) {
             Stop-RealTaskProtocol "correlation-mismatch" "Clarification reply must answer the original request in the same handoff."
+        }
+        Assert-RealTaskRecordPath $request $Directory
+        $record = Read-RealTaskJson $request.record.path
+        if ((Get-RealTaskHash $record) -cne $request.record.hash -or
+            (Get-RealTaskHash $request.payload) -cne $request.record.hash) {
+            Stop-RealTaskProtocol "publication-mismatch" "Original clarification request record differs from its envelope."
         }
     }
 }
@@ -380,6 +414,9 @@ function Get-RealTaskDecision($Message, [string] $Disposition, [string] $Operati
                 "current-labels-head-and-conflicts", "atomic-acknowledgment-before-execution")
         } elseif ($Operation -ceq "ingest-event") {
             @("actual-event-reporter", "owned-gate-and-fresh-state", "independent-stopped-session-before-release")
+            if ($Message.type -ceq "result" -and $Message.payload.result.outcome -cne "blocked-before-start") {
+                "ingest-canonical-acknowledgment-before-result"
+            }
         } else { @() })
     }
 }
