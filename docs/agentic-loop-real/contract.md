@@ -91,6 +91,31 @@ does not. Blocked may be recorded at any point without releasing execution.
 Resuming blocked work requires current evidence resolving the blocker; clearing
 a GitHub label alone does not restart it.
 
+`Add-RealTaskEvent` promotes an accepted `implementation-ready` head/checkpoint
+into the task during ingestion, not publication or preflight. Historical
+duplicates cannot roll it back. Validation requires the latest coding handoff
+to have succeeded and its head/checkpoint to match the task. Recovery through a
+later non-coding finalizer also requires its assigned head to match; a failed
+coding repair cannot reuse an earlier success.
+
+Blocked claims without a handoff retain ownership. To allow independent new
+work, record a blocked disposition using `-IndependentEvidence` with verified
+scope/conflict observations; this adds `independentEvidence[]` to that disposition.
+Without that assessment the unassigned claim still blocks admission.
+Readmission of reconciled work to the waiting backlog reserves places for
+outstanding coding handoffs, preventing recovered tasks from filling the queue
+while both workers implement newer tasks. The backlog limit remains two.
+
+Fresh review/check feedback permits `human-review -> repair-needed` without
+changing the claim, task context or repair count. Separately verified human
+delivery uses `Set-RealTaskDisposition -Disposition delivered -HumanDelivery`
+with `{ head, targetBranch, evidence[], cleanupEvidence[] }`. Execution must
+already be reconciled; the target branch must match the environment and the
+head must be a full SHA. The disposition retains `humanDelivery` and the task
+records the externally delivered head. These references must establish actual
+target-branch delivery and completed cleanup, not just PR closure. This does
+not grant merge authority or weaken Developer `delivered` event checks.
+
 Each handoff has:
 
 ```text
@@ -126,6 +151,30 @@ to result-recorded without acknowledgment. This records rejection, not executed
 implementation; it still needs actual stopped-session proof. Uncertain launch
 without actual correlation cannot take this shortcut. Record the blocker and
 request human reconciliation instead of inventing run/session IDs.
+
+`Resolve-RealTaskHandoff` is the explicit human-authorized exception, not an
+automatic shortcut. It takes the exact claim/handoff, `-HumanAuthorization`
+and nonempty verified `-Evidence`:
+
+| Mode | Required actual observations |
+| --- | --- |
+| `no-launch` | Prepared/launch-requested intent definitively never launched; no run/session/ack/result exists |
+| `stopped` | Correlated/delivered/acknowledged session independently verified stopped, with no worker result |
+| `pre-start-rejected` | `blocked-before-start` result without acknowledgment, already stopped-verified or reconciled |
+
+It appends a terminal `reconciled` transition and a blocked task disposition,
+releasing occupancy but retaining ownership. It never creates a worker event
+or invents run/session IDs. The handoff retains an optional immutable `recovery`
+object `{ mode, priorStage, authorization, evidence[], utc, restartImplementation }`
+matching its final transition. Publish under the owned gate using normal revision
+checks. Original events, identities, counters and transitions remain unchanged.
+
+Only `no-launch` and `pre-start-rejected` initial implementations can additionally
+receive explicit `-RestartImplementation` approval. This permits a fresh initial
+handoff ID, preserving the abandoned history and repair count. A stopped coding
+run is not a pre-start failure. Without explicit restart approval, no replacement
+is allowed. Late unindexed events cannot reopen recovered handoffs, and an
+already ingested event remains an idempotent duplicate.
 
 ### Assignment: `fingvibe-real-assignment-v1`
 
@@ -346,6 +395,9 @@ worker/revision/finalizer/tick changes. Attempt 1 is targeted diagnosis; 2-12
 reassess prior outcomes, challenge failed assumptions and choose evidence-backed
 approaches. Prior repair evidence is mandatory after attempt 1. Repeating an
 approach requires new evidence, not arbitrary different edits or blind retries.
+The human-approved replacement of a proven unstarted initial handoff described
+above preserves that history; it is not an additional executed implementation
+or a reset of the repair allowance.
 
 Every repair verifies preceding execution stopped, exact existing task
 worktree/branch/PR, assignment expected head, actual fresh feedback identity,

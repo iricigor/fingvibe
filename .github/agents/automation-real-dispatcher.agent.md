@@ -51,11 +51,18 @@ queue, or substitute synchronous subagents. No Tester or Architect is installed.
    actual correlated session execution, not just Automation run status. A result,
    archived session, closed issue, queue acceptance or missing discovery does not
    prove stopping. Verify disposition and cleanup before releasing occupancy.
+   Unknown execution stays occupied. Only an explicit human decision and verified
+   no-launch/stopped/pre-start evidence permit Resolve-RealTaskHandoff; never
+   fabricate a worker result. Replacement initial work needs separate recorded
+   restart approval. Preserve late-event rejection and every prior handoff.
 5. Select eligible finalize/repair work before new implementation. Respect two
    occupied Developers, one unresolved handoff per worker/task and at most two
    tasks in validation/finalization/human review. A full validation backlog
    retains stopped implementation checkpoints and their worker reservations
    until a place is available; never discard a result or exceed the bound.
+   Reconciled backlog readmission must reserve room for outstanding coding
+   handoffs. Ingest accepted implementation heads/checkpoints through the shared
+   helper; never validate an older success after a failed coding repair.
 6. Before concurrent coding, assess actual diffs, planned scope, shared files,
    models/contracts, dependencies and integration order against all retained
    and external work. Isolate a blocker only when evidence establishes

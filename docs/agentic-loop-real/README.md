@@ -144,6 +144,7 @@ with the previous expected revision. A stale writer or changed identity fails.
 | `Read-RealTaskJson`, `Assert-RealTaskState` | Complete JSON, exact schema, history and capacity checks; absence is an error |
 | `Add-RealTaskClaim`, `Add-RealTaskHandoff` | Unique task/worker assignment and persisted cumulative repair reservation |
 | `Set-RealTaskStage` | Guarded launch, correlation, delivery, stopped and reconciliation transitions |
+| `Resolve-RealTaskHandoff` | Explicit human-authorized no-launch/stopped/pre-start recovery, retaining history and optional initial-replacement approval |
 | `Get-RealTaskAssignment`, `Assert-RealTaskAssignment` | Shared assignment shape and exact actual worker/run/session validation |
 | `Publish-RealTaskAcknowledgment` | Atomic one-time execution reservation; duplicates must never execute |
 | `Publish-RealTaskEvent`, `Add-RealTaskEvent` | Immutable worker publication and idempotent correlated event ingestion |
@@ -201,6 +202,11 @@ Never reset claims/history, fabricate termination, restart uncertain execution,
 or infer permission from a cleared label. Pause prevents new ticks, not workers.
 Human recovery records evidence, exact affected claim/handoff, stopped-session
 inspection and next owner/action before any new authorization.
+Use `Resolve-RealTaskHandoff` only after that explicit human decision; its
+`-RestartImplementation` switch is separate approval and applies only to proven
+unstarted initial implementations. See the contract for recovery modes,
+independent blocked claims, backlog readmission and separately evidenced human
+delivery. These helpers validate record shape, not the truth of host observations.
 
 The next choice in [#224](https://github.com/iricigor/fingvibe/issues/224)
 remains **unresolved**: Architect-driven recovery/self-healing versus
