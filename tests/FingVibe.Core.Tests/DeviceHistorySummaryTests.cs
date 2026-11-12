@@ -191,7 +191,8 @@ public sealed class DeviceHistorySummaryTests
                 Assert.Equal(Start.AddMinutes(1), summary.LastSeen);
                 Assert.Equal(Start, summary.Since);
                 Assert.Equal(2, summary.History.Count);
-                Assert.False(row.IsOnline);
+                Assert.True(row.IsOnline);
+                Assert.False(row.IsCurrentScanResponse);
             }
         }
         finally

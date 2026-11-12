@@ -38,7 +38,7 @@ test-build number. Their application source
 matches this release; sample values and test-only messages are not instructions.
 
 !!! warning "A scan is a sample, not continuous monitoring"
-    Online means a device responded in the displayed scan. Offline does not
+    Online means a device responded in its latest applicable scan evidence. Offline does not
     prove a device is turned off. An assigned device does not prove its owner
     is present. Only scan networks you own or have permission to inspect.
 

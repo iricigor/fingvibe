@@ -30,6 +30,20 @@ public sealed partial class MainWindow
         PeopleRooms = _peopleRooms
     };
 
+    private void RetainInventoryEvidence()
+    {
+        _liveCompletedAt = null;
+        _inventory = _inventory with
+        {
+            Devices = _inventory.Devices.ToDictionary(pair => pair.Key, pair => pair.Value with
+            {
+                CurrentCompletedAt = null, CurrentNetworkId = null, CurrentSubnet = null
+            }),
+            VirtualDevices = _inventory.VirtualDevices.Select(slot => slot with { CurrentCompletedAt = null }).ToArray()
+        };
+        RefreshInventoryRows();
+    }
+
     private async Task RestoreInventoryAsync()
     {
         try
@@ -165,7 +179,6 @@ public sealed partial class MainWindow
             DevicePage.UpdateScanObservation(displayed);
             UpdateDeviceNameActions();
         }
-        _onlineDeviceCount = _liveCompletedAt is null ? null : _allResults.Count(row => row.IsOnline);
         UpdateNetworkIdentity();
         UpdatePeopleRoomsPages();
         UpdateDeviceActivity();

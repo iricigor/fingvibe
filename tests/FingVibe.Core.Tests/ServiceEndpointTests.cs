@@ -72,7 +72,7 @@ public sealed class ServiceEndpointTests
             Assert.Equal(result.OpenPortItems, restored.OpenPortItems);
             Assert.Equal(result.UdpObservationItems, restored.UdpObservationItems);
             Assert.True(saved.LatestObservation.Present);
-            Assert.Equal(InventoryDeviceStatus.Unknown, saved.Status);
+            Assert.Equal(InventoryDeviceStatus.Online, saved.Status);
         }
         finally { Directory.Delete(directory, recursive: true); }
     }

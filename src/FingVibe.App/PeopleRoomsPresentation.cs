@@ -48,13 +48,13 @@ internal static class PeopleRoomsPresentation
 
     internal static string ResponseCount(IReadOnlyList<AssignedDeviceListRow> devices, bool hasCurrentScan) =>
         hasCurrentScan
-            ? $"{devices.Count(row => row.ScanResult?.IsCurrentScanResponse == true)} responded"
-            : "No current local scan";
+            ? $"{devices.Count(row => row.ScanResult?.IsOnline == true)} online"
+            : "No local scan evidence";
 
     internal static string DetailResponses(IReadOnlyList<AssignedDeviceListRow> devices, bool hasCurrentScan) =>
         hasCurrentScan
-            ? $"{devices.Count(row => row.ScanResult?.IsCurrentScanResponse == true)} devices responded in the current local scan."
-            : "No current local scan. Retained device states are historical.";
+            ? $"{devices.Count(row => row.ScanResult?.IsOnline == true)} devices Online in their latest applicable scan evidence."
+            : "No local scan evidence.";
 
     internal static IReadOnlyList<ManagedPersonListRow> PeopleRows(
         PeopleRoomsData data, IReadOnlyList<AssignedDeviceListRow> devices, bool hasCurrentScan) =>

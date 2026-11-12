@@ -76,9 +76,7 @@ public sealed record InventoryDevice(
     [JsonIgnore]
     public InventoryDeviceStatus Status => Observations.Count == 0
         ? InventoryDeviceStatus.FingOnly
-        : LatestObservation!.LastChecked != CurrentCompletedAt
-            || LatestObservation.NetworkId != CurrentNetworkId || LatestObservation.Subnet != CurrentSubnet ? InventoryDeviceStatus.Unknown
-        : LatestObservation.Present ? InventoryDeviceStatus.Online : InventoryDeviceStatus.Offline;
+        : LatestObservation!.Present ? InventoryDeviceStatus.Online : InventoryDeviceStatus.Offline;
 }
 
 public sealed record DeviceInventoryData(

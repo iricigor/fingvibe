@@ -65,7 +65,7 @@ Background ARP uses up to 32 concurrent requests independently of the ICMP concu
 
 After initial ICMP probing and enrichment, confirmed observations are durably checkpointed and become browsable before ARP starts. Background ARP checks the initial ping misses and checkpoints its recovered observations. Only addresses still unconfirmed are then pinged after a cancellable ten-second wait, and again after another ten-second wait following that retry phase. Confirmed addresses are never retried or downgraded. No remaining misses means no further work or wait; misses remaining through both rounds add at least twenty seconds plus ARP, probing, enrichment and persistence time. There are at most three ICMP attempts and one ARP fallback per address. A changed source IPv4 can be refreshed only on the same selected adapter and subnet; it does not change a device's MAC identity. A disconnected adapter, different subnet, or changed Windows network profile cannot silently substitute another LAN.
 
-SQLite inventory and the latest logical checkpoint commit in one transaction with explicit Pending, Complete or Incomplete state. Checkpoints do not infer Offline, append completed history, establish a discovery baseline or emit discovery alerts until finalization. Each completed scan adds history and discovery alerts only once. The separate `latest-scan.json` cache is atomically replaced after the database commit; SQLite is authoritative on restart, including when a cache update failed. Save failures are visible and stop retries rather than claiming an unsaved checkpoint is durable. Normal close or cancellation drains checkpoint writes and retains the last committed observations as incomplete. Forced termination can lose observations since the last committed checkpoint. Restart treats saved observations as historical, not current Online evidence, and never resumes old retry timers.
+SQLite inventory and the latest logical checkpoint commit in one transaction with explicit Pending, Complete or Incomplete state. Checkpoints do not infer Offline, append completed history, establish a discovery baseline or emit discovery alerts until finalization. Each completed scan adds history and discovery alerts only once. The separate `latest-scan.json` cache is atomically replaced after the database commit; SQLite is authoritative on restart, including when a cache update failed. Save failures are visible and stop retries rather than claiming an unsaved checkpoint is durable. Normal close or cancellation drains checkpoint writes and retains the last committed observations as incomplete. Forced termination can lose observations since the last committed checkpoint. Restart preserves last-known Online/Offline statuses and evidence age, without claiming fresh responses or resuming old retry timers.
 
 On first use, vendor detection downloads the official IEEE MA-L, MA-M, and MA-S registries and caches them under the current user's local application data for 30 days.
 
@@ -209,7 +209,7 @@ GitHub Actions runners only, it temporarily stops Windows Time if running to
 release 123/UDP and restores the service afterward. The application itself
 needs no new administrator rights.
 
-Devices shows the persistent inventory, including previously observed and imported-only devices. Unused addresses never become device records. The status filter distinguishes Online, Offline, Unknown, and Fing Only; retained observations without current scan evidence are Unknown, while last-seen information remains in details. The Devices title sits above the rounded inventory card, matching Network's page-title styling. Inside the card, compact status totals, **Showing N devices** or **Showing N of M devices**, and **Scan duration 6.5s** share one summary row at wide widths. Summary metadata moves below the totals when needed in narrower windows. Freshness and scan/save errors live only in the shared shell header rather than being repeated in the inventory card.
+Devices shows the persistent inventory, including previously observed and imported-only devices. Unused addresses never become device records. The status filter distinguishes Online, Offline, Unknown, and Fing Only; saved local observations preserve their latest known scan status, with last-seen age and evidence provenance available separately. The Devices title sits above the rounded inventory card, matching Network's page-title styling. Inside the card, compact status totals, **Showing N devices** or **Showing N of M devices**, and **Scan duration 6.5s** share one summary row at wide widths. Summary metadata moves below the totals when needed in narrower windows. Freshness and scan/save errors live only in the shared shell header rather than being repeated in the inventory card.
 
 The primary filter row contains **Search devices**, multi-select **Status**, and
 a far-right connected funnel/reset control. The funnel reveals **Device type**, **Operating system**,
@@ -222,10 +222,12 @@ Status selections, including multiple categories or the unrestricted selection,
 are saved with the existing table preferences and restored after restart.
 Dropdown changes, status summary chips, Overview shortcuts and Clear filters
 use the same persisted selection. Search and other filter categories are not
-restored. Remembering **Status: Online** does not preserve Online evidence:
-restored observations are historical, so that filter can initially show no rows
-until fresh ICMP results are checkpointed. Starting a scan retains the displayed
-rows until that checkpoint; later stages update the current scan's evidence.
+restored. **Status: Online** immediately includes saved matching local evidence,
+even after a long absence. Starting a manual or scheduled scan retains rows and
+statuses; intermediate checkpoints promote responders but leave unresolved
+previous statuses unchanged until full successful completion. The header explains
+retained statuses and shows saved evidence age. This supersedes the earlier
+restart/Online-filter contract in #243; missing evidence can still yield no rows.
 UI-review mode reads/writes table settings only when an explicit isolated
 `FINGVIBE_UI_REVIEW_DEVICE_TABLE` fixture path is supplied, never the user's
 normal preferences. Native restart coverage uses and removes that fixture.
@@ -839,7 +841,7 @@ Short-name limits count visible characters, so a multi-code-point emoji such as 
 
 The **People** and **Rooms** pages manage manually named people and locations. Each entry has a full name, a unique 1–3-character short name within its category, and optional notes. New entries suggest initials from the first two words as you type (`Igor` → `I`, `Igor Iric` → `II`, `Living Room` → `LR`); editing the short name manually stops automatic updates. Device details can assign one person and one room independently; either can remain unassigned. The Devices table shows plain short-name text in optional **Person** and **Room** columns, with muted dashes for unassigned values, while filters and search match both short and full names. Hover over a short name or keyboard-focus it to access its full-name tooltip and accessible label.
 
-People, rooms, and their assignments are saved separately from scan snapshots within `%LOCALAPPDATA%\FingVibe\device-inventory.sqlite`. Existing `people-rooms.json` data is migrated without deleting or rewriting the legacy file. Assignments require a six-byte MAC address, including an imported MAC, and never use an IP address alone. Private or randomized MAC addresses may change, so their assignments are only retained when the same MAC is observed again. Deleting a person or room clears only that category's assignments; it does not delete devices or scan history. Last-scan response counts report devices that answered ICMP or fresh ARP during the displayed scan, not human presence; no response does not prove a device is powered off. Load and save errors are displayed, and a failed load disables changes to protect the saved file.
+People, rooms, and their assignments are saved separately from scan snapshots within `%LOCALAPPDATA%\FingVibe\device-inventory.sqlite`. Existing `people-rooms.json` data is migrated without deleting or rewriting the legacy file. Assignments require a six-byte MAC address, including an imported MAC, and never use an IP address alone. Private or randomized MAC addresses may change, so their assignments are only retained when the same MAC is observed again. Deleting a person or room clears only that category's assignments; it does not delete devices or scan history. Online summaries use each device's latest applicable scan evidence, including saved and unresolved prior statuses, not human presence; no response does not prove a device is powered off. Load and save errors are displayed, and a failed load disables changes to protect the saved file.
 
 Assignments edited on a private-prefix virtual device belong to its persistent identity and follow inferred MAC changes, rather than being copied to its member MACs.
 
@@ -909,24 +911,26 @@ Import does not create people/rooms, infer owners, import Group, or migrate
 Fing events/timestamps. Invalid MACs and all duplicate-MAC rows are skipped
 with explicit warnings. Devices sharing an IP remain distinct by MAC.
 
-Online means a fresh ping or ARP response in this session's latest local scan,
-including its checkpointed initial results while background confirmation is pending;
+Online means a ping or ARP response in the latest applicable local scan evidence,
+including saved evidence and checkpointed positive results;
 Offline means locally observed previously but absent from a subsequent
 successful scan of that same Windows network profile and subnet. Other-network,
 cancelled, and failed scans do not infer absence. When network identity is
 unavailable or changes during a scan, a warning is shown and absence is not
 inferred. Fing Only means the inventory has no local observation of the imported
 MAC, regardless of Fing's State field. First local discovery removes that state.
-After restart, retained observations are Unknown, not Online or freshly Offline.
-Observations outside the latest displayed scan's network/subnet are also
-Unknown; their last-seen information is retained. Before an initial checkpoint,
-a failed or cancelled refresh leaves the previous results unchanged. After a
-checkpoint, it retains those observations as incomplete/historical without
-inferring absence. A scan already finalized by a committed Complete checkpoint
-remains complete if cancellation races its final cleanup. People/Rooms
-live-response summaries do not count imported or restored records. Overview and
-Network Online counts count current device identities, not historical members
-or duplicate IPs for one MAC. Historical/Fing-only addresses cannot
+Restart, elapsed time, other-network scans and unresolved retries do not reset
+these statuses. During scanning, unresolved devices retain the previous status
+while fresh responders become Online; only a full successful same-scope scan
+can downgrade nonresponders. Failed/cancelled scans retain prior statuses and
+committed positive checkpoints, explicitly labeled incomplete rather than complete.
+A scan already finalized by a committed Complete checkpoint remains complete
+if cancellation races its final cleanup. Devices, Overview, Network and People/Rooms
+status summaries count the same last-known device identities, including restored
+records but not imported-only records, historical virtual members or duplicate IPs.
+Saved evidence is not continuous live presence or a fresh response in a running
+scan. Its age/provenance remains visible; analytical history is unchanged.
+Saved/Fing-only addresses cannot
 start an additional port probe until a current local response exists.
 
 ### Private-prefix virtual devices

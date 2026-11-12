@@ -148,12 +148,14 @@ public sealed class DeviceScanHistoryTests : IDisposable
         var restored = (await store.LoadAsync())!;
         Assert.Equal(data.Devices[Normal].ScanHistory, restored.Devices[Normal].ScanHistory);
         Assert.Equal(data.VirtualDevices[0].ScanHistory, restored.VirtualDevices[0].ScanHistory);
-        Assert.Equal(InventoryDeviceStatus.Unknown, restored.VirtualDevices[0].Status);
+        Assert.Equal(InventoryDeviceStatus.Online, restored.VirtualDevices[0].Status);
         for (var i = 0; i < 2; i++)
             restored = restored.ObserveCompletedScan(null, new(Subnet, Start.AddMinutes(1), [Result(Normal)]), historical: true);
         Assert.Equal(data.Devices[Normal].ScanHistory, restored.Devices[Normal].ScanHistory);
         Assert.Equal(data.VirtualDevices[0].ScanHistory, restored.VirtualDevices[0].ScanHistory);
-        Assert.False(new ScanResultRow(restored.Devices[Normal], 24).IsOnline);
+        var row = new ScanResultRow(restored.Devices[Normal], 24);
+        Assert.True(row.IsOnline);
+        Assert.False(row.IsCurrentScanResponse);
     }
 
     [Theory]

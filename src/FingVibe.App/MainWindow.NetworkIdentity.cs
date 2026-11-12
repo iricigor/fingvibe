@@ -12,7 +12,8 @@ public sealed partial class MainWindow
     private readonly NetworkDiscoveryService _networkDiscovery = new();
     private readonly PublicNetworkIdentityService _publicNetworkIdentity = new();
     private PublicNetworkIdentity? _publicIdentity;
-    private int? _onlineDeviceCount;
+    private int? OnlineDeviceCount => _currentScanSnapshot is null && !_allResults.Any(row => !row.IsFingOnly)
+        ? null : _allResults.Count(row => row.IsOnline);
 
     private async Task InitializeNetworkAsync()
     {
@@ -81,7 +82,6 @@ public sealed partial class MainWindow
             return;
         }
 
-        _onlineDeviceCount = null;
         UpdateNetworkIdentity();
         UpdateOverview();
     }
@@ -146,7 +146,7 @@ public sealed partial class MainWindow
         NetworkPage.ShowSummary(NetworkIdentityFormatter.FormatSummary(
             network,
             _publicIdentity,
-            _onlineDeviceCount));
+            OnlineDeviceCount));
         OverviewPage.ShowNetwork(network.InterfaceName, _publicIdentity is { } identity
             ? $"{network.Cidr} - ISP: {identity.IspName}"
             : network.Cidr);
