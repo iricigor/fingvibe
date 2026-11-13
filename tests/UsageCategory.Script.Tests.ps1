@@ -41,6 +41,45 @@ if (-not [System.Windows.Automation.SelectionPattern+SelectionPatternInformation
 & {
     $helper = $usage.Find({
         param($node)
+        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq "Find-UsageIndicator"
+    }, $true)
+    if (-not $helper -or -not $helper.Extent.Text.Contains('[System.Windows.Automation.TreeWalker]::new($condition)')) {
+        throw "The raw-only decorative usage indicator must be found through a filtered tree walker."
+    }
+    Invoke-Expression $helper.Extent.Text.Replace('[System.Windows.Automation.TreeWalker]::new($condition)', 'New-UsageWalkerDouble $condition')
+    $state = @{ Cell = [pscustomobject]@{ Id = "current-usage-cell" }; Icon = [pscustomobject]@{ Id = "raw-icon" }; Calls = 0 }
+    function New-UsageWalkerDouble($Condition) {
+        if ($Condition.Property -ne [System.Windows.Automation.AutomationElement]::AutomationIdProperty -or
+            $Condition.Value -ne "DeviceUsageCategoryIndicator") {
+            throw "The raw walker must filter only the existing usage indicator identity."
+        }
+        $walker = [pscustomobject]@{}
+        $walker | Add-Member ScriptMethod GetFirstChild {
+            param($Cell)
+            if ($Cell -ne $state.Cell) { throw "Icon lookup must be confined to the currently selected usage cell." }
+            $state.Calls++
+            return $state.Icon
+        }
+        return $walker
+    }
+    function Find-Usage { throw "The raw icon must not use the control-view lookup." }
+    if ((Find-UsageIndicator $state.Cell) -ne $state.Icon -or $state.Calls -ne 1) {
+        throw "A raw-only usage indicator must be returned from its own cell."
+    }
+    $state.Icon = $null
+    if (Find-UsageIndicator $state.Cell) { throw "An absent/collapsed icon must not be replaced by another row's indicator." }
+    $assertion = $usage.Find({
+        param($node)
+        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq "Assert-UsageCell"
+    }, $true)
+    if ($assertion.Extent.Text.Contains('Find-Usage DeviceUsageCategoryIndicator') -or
+        [regex]::Matches($assertion.Extent.Text, 'Find-UsageIndicator \$cell').Count -ne 2) {
+        throw "Normal and narrow usage geometry must both reacquire the current cell's raw-only icon."
+    }
+}
+& {
+    $helper = $usage.Find({
+        param($node)
         $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq "Assert-Usage"
     }, $true)
     Invoke-Expression $helper.Extent.Text

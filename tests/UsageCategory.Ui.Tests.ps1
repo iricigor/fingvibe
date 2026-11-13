@@ -120,6 +120,14 @@ function Find-UsageRow([string] $Name) {
     return $null
 }
 
+function Find-UsageIndicator($Cell) {
+    # The decorative icon is raw-only; FindFirst excludes it from the control view.
+    $condition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceUsageCategoryIndicator")
+    $walker = [System.Windows.Automation.TreeWalker]::new($condition)
+    return $walker.GetFirstChild($Cell)
+}
+
 function Assert-UsageCell([string] $Name, [string] $Category, [bool] $Indicator, [switch] $Narrow,
     [switch] $Scaled, [string] $Capture) {
     (Find-Usage DevicesNavItem).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
@@ -138,7 +146,7 @@ function Assert-UsageCell([string] $Name, [string] $Category, [bool] $Indicator,
     } "visible $Category badge"
     $cell = Find-Usage UsageCategoryCell
     $text = Find-Usage DeviceUsageCategoryText
-    $icon = Find-Usage DeviceUsageCategoryIndicator -Optional
+    $icon = Find-UsageIndicator $cell
     $scale = [UiReviewNativeWindow]::GetDpiForWindow($script:process.MainWindowHandle) / 96.0
     $maximumHeight = if ($Scaled) { 48 } else { 24 }
     $area = $cell.Current.BoundingRectangle
@@ -147,20 +155,20 @@ function Assert-UsageCell([string] $Name, [string] $Category, [bool] $Indicator,
     if ($text.Current.Name -ne $Category -or [bool]$hasIcon -ne $Indicator -or
         [Math]::Abs($area.Width / $scale - 138) -gt 1 -or $area.Height / $scale -gt $maximumHeight -or
         -not $area.Contains($label)) {
-        throw "The $Category badge must fit the 150-DIP default with its expected indicator and unchanged one-line height."
+        throw "The $Category badge must fit the 150-DIP default with its expected indicator and unchanged one-line height. Text='$($text.Current.Name)'; expectedIndicator=$Indicator; actualIndicator=$([bool]$hasIcon); cell=$area; text=$label; scale=$scale; maximumHeight=$maximumHeight."
     }
     if ($Scaled -and $label.Height / $scale -lt 24) {
         throw "The badge must honor the actual Windows text scale rather than disabling scaling."
     }
     $header = (Find-Usage UsageCategorySortButton).Current.BoundingRectangle
-    if ([Math]::Abs($header.Width - $area.Width) -gt $scale) { throw "Usage header and cell widths must stay aligned." }
+    if ([Math]::Abs($header.Width - $area.Width) -gt $scale) { throw "Usage header and cell widths must stay aligned. Header=$header; cell=$area; scale=$scale." }
     if ($Indicator) {
         $indicatorBounds = $icon.Current.BoundingRectangle
         $gap = ($indicatorBounds.Left - $label.Right) / $scale
         if (-not $area.Contains($indicatorBounds) -or $gap -lt 12 -or $gap -gt 14 -or
             [Math]::Abs(($indicatorBounds.Top + $indicatorBounds.Height / 2) -
                 ($label.Top + $label.Height / 2)) -gt $scale) {
-            throw "The usage indicator must be immediately outside its badge and vertically centered."
+            throw "The usage indicator must be immediately outside its badge and vertically centered. Cell=$area; text=$label; icon=$indicatorBounds; gap=$gap; scale=$scale."
         }
     }
     if ($Capture) { Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Capture.png") }
@@ -174,7 +182,9 @@ function Assert-UsageCell([string] $Name, [string] $Category, [bool] $Indicator,
         if (-not $cell.Current.BoundingRectangle.Contains($text.Current.BoundingRectangle)) {
             throw "The badge text must trim inside a manually narrowed column."
         }
-        if ($Indicator -and -not $cell.Current.BoundingRectangle.Contains((Find-Usage DeviceUsageCategoryIndicator).Current.BoundingRectangle)) {
+        $icon = Find-UsageIndicator $cell
+        if ($Indicator -and (-not $icon -or $icon.Current.IsOffscreen -or
+            -not $cell.Current.BoundingRectangle.Contains($icon.Current.BoundingRectangle))) {
             throw "Narrowing the column must retain its indicator beside the trimmed badge."
         }
         if ($Capture) {
