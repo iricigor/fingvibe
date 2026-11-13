@@ -110,7 +110,8 @@ function New-PreflightFixture {
 }
 
 function Invoke-PreflightFixture($Fixture, [int[]] $Order, [string] $Evidence) {
-    Get-Agent3DispatcherPreflight -Repository "test/repo" -Epic 164 -ApiReader $Fixture.reader -TaskOrder $Order -OrderEvidenceUrl $Evidence -Now $script:preflightNow
+    Get-Agent3DispatcherPreflight -Repository "test/repo" -Epic 164 -ApiReader $Fixture.reader -TaskOrder $Order -OrderEvidenceUrl $Evidence -Now $script:preflightNow `
+        -DiscussionDirectory ([IO.Path]::GetTempPath()) -DiscussionReader { @{claims=@();reports=@()} }
 }
 
 function Add-PreflightClaim($Fixture, [int] $Number, [string] $State = "claimed", [object] $RepairCount = 0) {
@@ -143,12 +144,48 @@ function Add-PreflightDelivery($Fixture, [int] $Number, [Nullable[int]] $Parent 
 }
 
 $fixture = New-PreflightFixture
+$unconfigured = Get-Agent3DispatcherPreflight test/repo 164 -ApiReader $fixture.reader
+Assert-Preflight ($unconfigured.decision -eq "blocked" -and $unconfigured.collectionFailure -and -not $unconfigured.candidate) "Missing Discussion configuration must fail closed."
+$unconfigured = Get-Agent3DispatcherPreflight test/repo 164 -ApiReader $fixture.reader -DiscussionDirectory ""
+Assert-Preflight ($unconfigured.decision -eq "blocked" -and $unconfigured.collectionFailure) "Empty Discussion configuration must fail closed."
 $fixture.state.multiPage = $true
 $result = Invoke-PreflightFixture $fixture
 Assert-Preflight ($result.decision -eq "candidate" -and $result.candidate.issue -eq 200) "Empty capacity must select the first mechanically eligible task."
 Assert-Preflight ($result.counts.issues -eq 3 -and $result.counts.nativeChildren -eq 2) "All pages must be flattened without losing records."
 Assert-Preflight (@($fixture.state.calls | Group-Object | Where-Object Count -GT 1).Count -eq 0) "Each shared source must be collected once."
 Assert-Preflight ($result.requiresDispatcherVerification.Count -gt 0) "Candidate guidance must preserve host/authorization/fresh-write checks."
+
+$fixtureDiscussionEvidence = @{
+    claims = @(@{issue=200;url="https://github.com/test/repo/discussions/10#discussioncomment-1";claim=@{repairCount=12}})
+    reports = @()
+}
+$discussionReader = { param($Repository, $Directory) $fixtureDiscussionEvidence }
+$result = Get-Agent3DispatcherPreflight test/repo 164 -ApiReader $fixture.reader `
+    -DiscussionDirectory ([IO.Path]::GetTempPath()) -DiscussionReader $discussionReader -Now $script:preflightNow
+Assert-Preflight ($result.decision -eq "reconcile" -and $result.counts.discussionClaims -eq 1 -and
+    $result.findings[0].kind -eq "discussion-claim") "Discussion claims must prevent false free capacity without entering the legacy three-repair parser."
+$result = Get-Agent3DispatcherPreflight test/repo 164 -ApiReader $fixture.reader `
+    -DiscussionDirectory ([IO.Path]::GetTempPath()) -DiscussionReader { throw "Discussion API unavailable" } -Now $script:preflightNow
+Assert-Preflight ($result.decision -eq "blocked" -and $result.collectionFailure -and -not $result.candidate) "Failed Discussion collection is a blocker, not an empty inventory."
+
+$fixture = New-PreflightFixture
+$fixture.state.issues += New-PreflightIssue 190 "closed" @("type:task", "active")
+$fixture.state.children += 190
+Add-PreflightDelivery $fixture 190
+$template = (Invoke-PreflightFixture $fixture).findings[0].completion.record
+$template.evidence = @("fixture://verified-delivery-and-current-work")
+$fixtureDiscussionEvidence = @{claims=@();reports=@(@{
+    issue=190;url="https://github.com/test/repo/discussions/10#discussioncomment-2";authorAssociation="OWNER"
+    body="<!-- fingvibe-historical-completion-v1 -->`n" + '```json' + "`n" +
+        (ConvertTo-Json -InputObject $template -Depth 30) + "`n" + '```'
+})}
+$result = Get-Agent3DispatcherPreflight test/repo 164 -ApiReader $fixture.reader `
+    -DiscussionDirectory ([IO.Path]::GetTempPath()) -DiscussionReader $discussionReader -Now $script:preflightNow
+Assert-Preflight ($result.candidate.issue -eq 200 -and $result.skipped[0].evidence[0] -eq $fixtureDiscussionEvidence.reports[0].url) "Discussion completion notices must be reused with existing delivery/provenance gates."
+$fixtureDiscussionEvidence.reports[0].authorAssociation="NONE"
+$result = Get-Agent3DispatcherPreflight test/repo 164 -ApiReader $fixture.reader `
+    -DiscussionDirectory ([IO.Path]::GetTempPath()) -DiscussionReader $discussionReader -Now $script:preflightNow
+Assert-Preflight ([bool]$result.collectionFailure) "Untrusted Discussion completion notice cannot release historical work."
 
 $fixture = New-PreflightFixture
 $fixture.state.pulls = @(@{ number = 300; state = "open"; draft = $true; html_url = "https://github.com/test/repo/pull/300" })

@@ -196,6 +196,15 @@ The new environment uses the same default single-PC repository gate; foreign
 work still requires ownership/conflict assessment, not automatic adoption or
 release. #224's Architect-versus-Tester next choice remains unresolved.
 
+**Agent-3 Discussion reporting (#375):** Only the three `3️⃣` source profiles
+replace agent-generated task/Epic issue comments with mapped Discussions.
+Dispatcher owns setup and issue-body links; canonical readback is mandatory,
+while linked agent indexes are explicitly recoverable/nonblocking. Host
+messages, original human approvals, PR comments and authoritative state remain
+unchanged. See the [reporting/cutover contract](agentic-loop-3/discussions.md).
+Existing workers/claims must be stopped/reconciled and saved-profile updates
+explicitly approved before live cutover; source publication is not activation.
+
 ## Explicitly invoked manual-worker exception
 
 [Task #189](https://github.com/iricigor/fingvibe/issues/189) adds the

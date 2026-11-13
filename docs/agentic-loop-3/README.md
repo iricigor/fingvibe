@@ -214,11 +214,17 @@ worktrees:
   decisions\
   outgoing\
   publications\
+  discussions\
+  discussion-operations\
+  discussion-publications\
+  discussion-indexes\
+  discussion-index-errors\
 ```
 
 One environment per repository/account; no alternate state roots in live use.
 Initialize directories only after shared-access and absence verification.
-Before first initialization, inspect repository-wide agent-3 claim comments
+Before first initialization, inspect repository-wide agent-3 claim mirrors
+in legacy issue comments and mapped Discussions using the [reporting contract](discussions.md)
 and existing event/incident files. Any retained claim or unexplained evidence
 without its state is lost/uncertain state requiring human reconciliation, not
 permission to create an empty environment.
@@ -276,7 +282,12 @@ with the previous expected revision. A stale writer or changed identity fails.
 | `Publish-Agent3Acknowledgment` | Atomic one-time execution reservation; duplicates must never execute |
 | `Publish-Agent3PreStartRejection` | Consume actual Receive decision/diagnostic and observed endpoints, attach exact evidence, then guard/reserve unconsumed pre-start result |
 | `New-Agent3DeliveryRequest`, `Send-Agent3Message` | Preserve/validate the exact envelope in final host request JSON; reserve once before a verified exact-request adapter |
-| `Publish-Agent3GitHubComment` | File-backed large bodies, stable operation identity, complete readback and explicit pre-request/uncertain dispositions |
+| `Initialize-Agent3Discussion`, `Get-Agent3MappedDiscussion` | Dispatcher-owned Discussion setup/adoption and verified repository/category/label mappings |
+| `Publish-Agent3IssueDiscussionLink` | Bounded task/Epic issue-body link, preserving unrelated content |
+| `Publish-Agent3DiscussionReport`, `Publish-Agent3DiscussionComment` | Canonical Discussion publication, exact readback and explicitly pending nonblocking agent indexes |
+| `Repair-Agent3DiscussionIndex` | Index-only recovery using saved projection and verified canonical claim revision history |
+| `Get-Agent3DiscussionEvidence` | Fully paginated Discussion claims/reports, including historical replies and completion notices |
+| `Publish-Agent3GitHubComment` | Retained compatibility helper; not the task/Epic destination for the migrated three profiles |
 | `Publish-Agent3Event`, `Add-Agent3Event` | Immutable worker publication and idempotent correlated event ingestion |
 | `Set-Agent3Disposition`, `Get-Agent3Capacity` | Independent task lifecycle, worker occupancy and waiting bound |
 | `Sync-Agent3Incidents` | Discover canonical incidents even when unindexed; missing prior evidence fails |

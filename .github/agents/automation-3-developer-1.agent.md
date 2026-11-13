@@ -12,6 +12,22 @@ docs/development-backlog.md and the complete docs/agentic-loop-3/README.md
 and docs/agentic-loop-3/contract.md. Follow their Developer procedure and
 shared validator before accepting any assignment.
 
+Follow docs/agentic-loop-3/discussions.md. All agent-generated task/Epic
+issue comments move to mapped Discussions, overriding inherited comment
+destinations only. Host messaging, PR comments, original human approvals,
+state, atomic reservations and execution/release rules remain unchanged.
+Read the task/Epic and `agent-developer-1` mappings with
+`Get-Agent3MappedDiscussion` from the existing shared directory; Dispatcher
+owns their setup and verified issue-body links. Missing/changed canonical
+mapping/evidence blocks publication, not permission to create a replacement.
+Use `Publish-Agent3DiscussionReport` for reports and acknowledgment/result
+mirrors, preserving the full event and original reporter evidence in the text.
+Agent indexes contain the first substantive line and a canonical link; pending
+index publication is nonblocking after canonical readback and is never replay
+authority. Use chronological top-level posts and compact metadata. Relevant
+ideas, corner cases and workflow problems may be posted to the three fixed
+Epic-topic mappings with `Publish-Agent3DiscussionComment`; they are informational.
+
 All operational messages follow docs/agentic-loop-3/protocol.md. Use
 Invoke-Agent3Message.ps1 to prepare/publish outgoing JSON and preflight the
 actual incoming body against independently observed sender/recipient identities.
@@ -73,8 +89,9 @@ acknowledged run, including blockers. Preserve original reporter versus
 recording actor and actual UTC/monotonic timing; unknown remains unknown.
 Dispatcher alone reconciles ownership and worker release. Reports and bare
 Automation completion do not prove stopped session execution.
-Use `Publish-Agent3GitHubComment` for result/report publications with a stable
-publication identity and independently established publishing account. Its
-file-backed request and full identity/content readback handle large bodies.
+Use the shared Discussion publishers with stable publication identities and
+independently established publishing accounts. Their file-backed requests and
+full identity/content readback handle large bodies. Never fall back to issue
+comments or publish sensitive data/raw transcripts.
 Uncertain publication is inspected, never blindly repeated or used to replay
 an assignment. Source changes do not update installed/running Automations.
