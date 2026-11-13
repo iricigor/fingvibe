@@ -60,6 +60,64 @@ function Complete-Implementation($State, $Task, $Handoff) {
 }
 
 try {
+    $approvalReference = "https://github.com/TestOwner/TestRepo/issues/92#issuecomment-123"
+    $approvalComment = @{
+        id = 123; html_url = $approvalReference
+        issue_url = "https://api.github.com/repos/TestOwner/TestRepo/issues/92"
+        user = @{ login = "TestOwner"; type = "User" }
+        body = "Owner approval text retained verbatim for independent scope/permission review."
+        updated_at = "2026-11-13T08:00:00Z"
+    }
+    $approvalReader = {
+        param($endpoint)
+        if ($endpoint -cne "repos/TestOwner/TestRepo/issues/comments/123") {
+            throw "Unexpected owner approval endpoint."
+        }
+        $approvalComment | ConvertTo-Json -Depth 10 -Compress
+    }
+    $approvalParameters = @{
+        Repository = "TestOwner/TestRepo"; Reference = $approvalReference
+        OwnerLogin = "TestOwner"; ApiReader = $approvalReader
+    }
+    $approval = Get-Agent3AuthorizationEvidence @approvalParameters
+    if ($approval.body -cne $approvalComment.body -or $approval.authorLogin -cne "TestOwner" -or
+        $approval.Contains("implementation") -or $approval.Contains("merge") -or $approval.Contains("verified")) {
+        throw "Approval evidence must preserve the original text without inventing human authority or permissions."
+    }
+    foreach ($reference in @(
+        "Owner-authored kickoff retained in session dispatcher-1; implementation allowed",
+        "https://github.com/OtherOwner/OtherRepo/issues/92#issuecomment-123",
+        "https://github.com/TestOwner/TestRepo/issues/92#issuecomment-123?redirect=1"
+    )) {
+        $parameters = @{} + $approvalParameters
+        $parameters.Reference = $reference
+        $parameters.ApiReader = { throw "Invalid reference must fail before any API read." }
+        Assert-Throws { Get-Agent3AuthorizationEvidence @parameters } "*Do not claim or launch*"
+    }
+    foreach ($mutate in @(
+        { param($c) $c.user.login = "another-user" },
+        { param($c) $c.user.type = "Bot" },
+        { param($c) $c.id = 124 },
+        { param($c) $c.html_url = "https://github.com/OtherOwner/OtherRepo/issues/92#issuecomment-123" },
+        { param($c) $c.issue_url = "https://api.github.com/repos/TestOwner/TestRepo/issues/93" }
+    )) {
+        $original = Copy-Record $approvalComment
+        try {
+            & $mutate $approvalComment
+            Assert-Throws { Get-Agent3AuthorizationEvidence @approvalParameters } "*Do not claim or launch*"
+        } finally { $approvalComment = $original }
+    }
+    foreach ($reader in @(
+        { throw "Approval is inaccessible." },
+        { "" },
+        { '{"id":123}' },
+        { '{"id":' }
+    )) {
+        $parameters = @{} + $approvalParameters
+        $parameters.ApiReader = $reader
+        Assert-Throws { Get-Agent3AuthorizationEvidence @parameters } "*"
+    }
+
     $module = Get-Module Agent3Coordination
     $hashRecord = '{"actor":"a","Actor":"b","nested":{"z":1,"a":2}}' | ConvertFrom-Json -AsHashtable
     $firstHash = & $module { param($r) Get-Agent3Hash $r } $hashRecord
