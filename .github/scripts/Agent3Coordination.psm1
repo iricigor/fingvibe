@@ -581,6 +581,9 @@ function Resolve-Agent3Handoff {
         [ValidateSet("no-launch", "stopped", "pre-start-rejected")] [string] $Mode,
         [string] $HumanAuthorization, [string[]] $Evidence, [switch] $RestartImplementation)
     Assert-Agent3Text $HumanAuthorization "human recovery authorization"
+    if ($HumanAuthorization -ceq $script:PreStartRecoveryPolicy) {
+        throw "Reserved automatic recovery policy is not human authorization."
+    }
     Complete-Agent3HandoffRecovery $State $ClaimId $HandoffId $Mode `
         -Authorization $HumanAuthorization -Evidence $Evidence -RestartImplementation:$RestartImplementation
 }
@@ -592,19 +595,21 @@ function Repair-Agent3RejectedHandoff {
     Assert-Agent3Evidence $Evidence
     $task = Find-Agent3 $State $ClaimId
     $handoff = Find-Agent3Handoff $State $ClaimId $HandoffId
-    if ((Get-Agent3Hash $Authorization) -cne (Get-Agent3Hash $State.authorization) -or
+    $duplicate = $handoff.Contains("recovery") -and
+        $handoff.recovery.authorization -ceq $script:PreStartRecoveryPolicy
+    if (-not $duplicate -and ((Get-Agent3Hash $Authorization) -cne (Get-Agent3Hash $State.authorization) -or
         -not $State.authorization.implementation -or $ExpectedHead -cne $task.head -or
-        $ExpectedHead -cne $handoff.expectedHead) {
+        $ExpectedHead -cne $handoff.expectedHead)) {
         throw "Automatic recovery requires unchanged verified authority and task head."
     }
-    if ($handoff.id -cne $task.handoffs[-1].id -or
+    if ((-not $duplicate -and $handoff.id -cne $task.handoffs[-1].id) -or
         $handoff.stage -cnotin @("stopped-verified", "reconciled") -or
         $null -ne $handoff.ackEventId -or $null -eq $handoff.result -or
         $handoff.result.outcome -cne "blocked-before-start") {
         throw "Automatic recovery requires the latest verified stopped pre-start rejection without acknowledgment."
     }
     $diagnostic = Read-Agent3Json $DiagnosticPath
-    Assert-Agent3Fields $diagnostic @("schema", "id", "code", "sender", "recipient", "evidence")
+    Assert-Agent3Diagnostic $diagnostic
     $expectedPath = Get-Agent3ProtocolPath $Directory "diagnostics" $diagnostic.id
     if ($diagnostic.schema -cne "fingvibe-real-diagnostic-v1" -or
         -not [string]::Equals($expectedPath, [IO.Path]::GetFullPath($DiagnosticPath), [StringComparison]::OrdinalIgnoreCase) -or
@@ -654,6 +659,19 @@ function Repair-Agent3RejectedHandoff {
 
 function New-Agent3DispatchBatch {
     param($State, [array] $Candidates, [scriptblock] $AssessCandidate)
+    $first = New-Agent3DispatchPlan $State $Candidates $AssessCandidate
+    if ((Get-Agent3Capacity $State).freeWorkers.Count -eq 2 -and $first.reservations.Count -eq 1) {
+        $alternate = New-Agent3DispatchPlan $State $Candidates $AssessCandidate -ReverseWorkers
+        if ($alternate.reservations.Count -gt $first.reservations.Count -and
+            $alternate.reservations[0].issue -eq $first.reservations[0].issue) {
+            return $alternate
+        }
+    }
+    return $first
+}
+
+function New-Agent3DispatchPlan {
+    param($State, [array] $Candidates, [scriptblock] $AssessCandidate, [switch] $ReverseWorkers)
     Assert-Agent3State $State
     if ($null -eq $AssessCandidate) { throw "Fresh candidate assessment is required." }
     $issues = @{}
@@ -673,12 +691,16 @@ function New-Agent3DispatchBatch {
         foreach ($candidate in @($Candidates | Where-Object action -CEQ $action)) {
             $capacity = Get-Agent3Capacity $planned
             if ($capacity.freeWorkers.Count -eq 0) { break }
-            if ($action -ceq "implement" -and -not $capacity.canStartImplementation) {
+            if ($action -ceq "implement" -and
+                ($capacity.occupiedWorkers.Count -ge 2 -or $capacity.validationPending -ge 2 -or
+                    @($capacity.unassignedClaims | Where-Object { $_ -cne $candidate.claimId }).Count -gt 0)) {
                 $skipped += @{ issue = $candidate.issue; workerId = $null; reason = "implementation-capacity"
                     evidence = @("state-revision:$($State.revision)") }
                 continue
             }
-            foreach ($workerId in $capacity.freeWorkers) {
+            $workerIds = @($capacity.freeWorkers)
+            if ($ReverseWorkers) { [Array]::Reverse($workerIds) }
+            foreach ($workerId in $workerIds) {
                 # The assessment sees earlier reservations, not just the original snapshot.
                 $assessmentState = $planned | ConvertTo-Json -Depth 100 | ConvertFrom-Json -AsHashtable -DateKind String -Depth 100
                 $assessment = & $AssessCandidate $candidate $assessmentState $workerId
@@ -875,10 +897,13 @@ function Assert-Agent3Assignment {
 function Assert-Agent3AssignmentCore($State, $Assignment, [string] $WorkerId, [string] $RunId, [string] $SessionId) {
     Assert-Agent3Fields $Assignment @("claimId", "handoffId")
     $expected = Get-Agent3AssignmentCore $State $Assignment.claimId $Assignment.handoffId
+    if ((Get-Agent3Hash $Assignment.authorization) -cne (Get-Agent3Hash $expected.authorization)) {
+        Stop-Agent3Protocol "authority-mismatch" "Assignment authority differs from retained authorization."
+    }
     if (-not $State.authorization.implementation -or $expected.workerId -cne $WorkerId -or
         $expected.runId -cne $RunId -or $expected.sessionId -cne $SessionId -or
         (Get-Agent3Hash $Assignment) -cne (Get-Agent3Hash $expected)) {
-        throw "Invalid/stale assignment or actual worker/run/session mismatch."
+        Stop-Agent3Protocol "correlation-mismatch" "Invalid/stale assignment or actual worker/run/session mismatch."
     }
     $handoff = Find-Agent3Handoff $State $Assignment.claimId $Assignment.handoffId
     if ($handoff.stage -cnotin @("correlated", "delivered") -or $null -ne $handoff.ackEventId) {
@@ -1048,6 +1073,27 @@ function Publish-Agent3Event {
     return $path
 }
 
+function Publish-Agent3PreStartRejection {
+    param($State, $Event, [string] $WorkerId, [string] $RunId, [string] $SessionId, [string] $Directory)
+    Assert-Agent3State $State
+    Assert-Agent3Event $Event
+    $handoff = Find-Agent3Handoff $State $Event.claimId $Event.handoffId
+    if ($Event.kind -cne "result" -or $Event.result.outcome -cne "blocked-before-start" -or
+        $handoff.stage -cnotin @("correlated", "delivered") -or
+        $handoff.workerId -cne $WorkerId -or $handoff.runId -cne $RunId -or
+        $handoff.sessionId -cne $SessionId -or $null -ne $handoff.ackEventId -or
+        $null -ne $handoff.resultEventId -or $null -ne $handoff.result) {
+        throw "Pre-start publication requires actual unacknowledged, unexecuted handoff correlation."
+    }
+    foreach ($kind in @("ack", "result")) {
+        if ([IO.File]::Exists((Join-Path $Directory "$kind-$($handoff.id).json"))) {
+            throw "Canonical acknowledgment/result exists; preserve the existing lifecycle."
+        }
+    }
+    $null = Test-Agent3Event $State $Event
+    Publish-Agent3Event $Event $Directory
+}
+
 function Publish-Agent3State {
     param($State, [string] $Path, [guid] $GateOwner, [int] $ExpectedRevision,
         [string] $GateDirectory = (Join-Path $env:LOCALAPPDATA "FingVibe\AgentCoordination"))
@@ -1165,4 +1211,4 @@ Export-ModuleMember -Function Assert-Agent3State, New-Agent3State, Get-Agent3Cap
     New-Agent3Message, Publish-Agent3Message, Receive-Agent3Message,
     Publish-Agent3ProtocolError, Confirm-Agent3Message,
     Resolve-Agent3Handoff, Repair-Agent3RejectedHandoff, New-Agent3DispatchBatch,
-    Get-Agent3AuthorizationEvidence
+    Get-Agent3AuthorizationEvidence, Publish-Agent3PreStartRejection

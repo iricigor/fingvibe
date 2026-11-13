@@ -292,11 +292,24 @@ conditions. Include the exact absolute `diagnosticPath` in the canonical result'
 event or result evidence; an unrelated diagnostic with the same worker identity
 is insufficient. Genuine human decisions and exhausted recovery still require it.
 
+Before publishing a pre-start result, independently correlate the current actual
+worker/run/session and verify no acknowledgment, result or execution exists.
+Use `Publish-Agent3PreStartRejection` with fresh state and actual worker identity;
+it rejects consumed stages or canonical acknowledgment/result files. A malformed
+repeat after execution began preserves the diagnostic and existing lifecycle
+instead of reserving the real result's immutable slot.
+
 Pass `-Directory`, `-DiagnosticPath`, the unchanged `-Authorization` and
 `-ExpectedHead`, plus nonempty `-Evidence` tracing the fresh host, authority,
 labels, task-context and failure-cause inspections. The helper reads the
 canonical diagnostic/result, verifies its retained event hash and rejects any
 canonical acknowledgment. Evidence shape is not proof of those observations.
+Diagnostics require the complete closed producer schema, valid timestamp/reply
+identity and a canonical ID recomputed from raw-input hash and observed endpoints.
+Well-shaped assignments with changed authorization use `authority-mismatch`;
+changed head/action/task bindings use `correlation-mismatch`, not recoverable
+formatting errors. The reserved automatic-policy URI is forbidden as human
+authorization through `Resolve-Agent3Handoff`.
 
 At most **two automatic message recoveries cumulatively per claim** are allowed,
 across workers, revisions and repair attempts. The third rejection requires
@@ -305,7 +318,9 @@ human action, retaining occupancy/ownership. The helper reuses the existing
 `policy://agent3/pre-start-message-recovery-v1`; count those immutable records,
 not ticks or retries. This explicit policy uses the existing schema without
 migrating state, changing configured authorization or overwriting human recovery.
-Repeated recovery of the same handoff is a no-op; late events remain rejected.
+Repeated recovery of the same handoff is a no-op even after a replacement or
+later head change, after revalidating its canonical evidence; current-head/latest
+checks apply only to new recoveries. Late events remain rejected.
 
 Reconciliation leaves the task blocked and releases only its proven stopped
 worker reservation. It is not an assignment or task delivery. Fresh blocker
@@ -336,6 +351,13 @@ permitted unstarted initial replacement. Existing replacement guards still apply
 The helper prioritizes finalize, then repair, then implementation, preserving supplied order
 within each action. Supply only actions currently available under the shared
 transition guards; candidate ordering does not grant eligibility.
+For retained implementation claims, capacity excludes the candidate's own
+unassigned claim, not other unassigned claims or the waiting-backlog bound.
+If first-fit planning leaves one of two available workers idle, the helper tries
+the alternate worker preference from the original detached snapshot and repeats
+scope/eligibility assessments against that plan. Use the fuller batch only when
+it retains the same highest-priority first task. This lets a flexible repair use
+Developer 2 while Developer 1 resumes an independent context-constrained repair.
 
 The callback receives `(candidate, plannedState, workerId)` and must return exactly
 `{ eligible: bool, compatible: bool, reason: string, evidence: string[] }`.

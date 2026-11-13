@@ -104,6 +104,21 @@ try {
             Assert-Throws { Publish-Agent3Message $bad $state $dispatcher $worker $root } "*schema*"
         }
     }
+    $bad = Copy-Record $assignment
+    $bad.payload.authorization.merge = $true
+    Assert-Rejected (Receive $bad) "authority-mismatch"
+    $bad = Copy-Record $assignment
+    $bad.payload.expectedHead = "f" * 40
+    Assert-Rejected (Receive $bad) "correlation-mismatch"
+    $bad = Copy-Record $assignment
+    $bad.payload.action = "finalize"
+    $bad.payload.branch = "retained-branch"
+    $bad.payload.worktree = $root
+    $bad.payload.pr = "fixture://pr"
+    $bad.payload.expectedHead = "f" * 40
+    $bad.payload.checkpoint = "fixture://checkpoint"
+    $bad.payload.feedback = $evidence
+    Assert-Rejected (Receive $bad) "correlation-mismatch"
     $bad = Copy-Record $assignment; $bad.schema = "fingvibe-real-message-v2"
     $unsupported = Receive $bad
     Assert-Rejected $unsupported "unsupported-schema"

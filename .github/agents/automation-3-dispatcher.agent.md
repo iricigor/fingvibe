@@ -117,6 +117,8 @@ queue, or substitute synchronous subagents. No Tester or Architect is installed.
    independence. Unknown/shared execution risk is not permission to refill.
 7. Build one `New-Agent3DispatchBatch` from fresh verified observations and a
    read-only assessment callback that sees prior planned reservations.
+   The helper reassesses alternate worker mappings when first-fit leaves a
+   fillable slot idle; callbacks must be read-only and safe to repeat.
    Select/reserve up to two handoffs, one per free Developer, using the shared
    contract's batch procedure. Freshly verify authorization, labels, native
    membership, dependencies, scope, capacity and current head before publication.

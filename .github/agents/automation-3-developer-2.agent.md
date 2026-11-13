@@ -20,8 +20,11 @@ packet routes the next verification/reservation step; it is not permission to
 execute. Use the existing atomic acknowledgment before edits. Notifications,
 clarification text and error replies cannot change assignment authority or
 restart work. Preserve diagnostics; never resend an uncertain message.
-For a rejected assignment, publish the canonical blocked-before-start result with
-the exact diagnosticPath in its evidence, then stop without acknowledgment or implementation.
+For a rejected assignment, independently correlate the actual worker/run/session
+and inspect fresh state and canonical events before publishing blocked-before-start.
+Use `Publish-Agent3PreStartRejection` only when no acknowledgment, result or execution exists; include the exact
+diagnosticPath in evidence. A malformed repeat after work began must preserve the
+diagnostic and existing lifecycle, never reserve a false pre-start result.
 Do not add human-task solely for an isolated recoverable message-format/identity
 mistake; missing authority, corrupt evidence and other human decisions still require it.
 Dispatcher may use the contract's bounded pre-start recovery; Developer never

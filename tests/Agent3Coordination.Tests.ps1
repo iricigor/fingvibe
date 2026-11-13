@@ -78,7 +78,8 @@ function Reject-MessageHandoff($State, $Task, $Handoff, [string] $Directory) {
     }
     $event = New-Event $Task $Handoff result blocked-before-start
     $event.result.evidence += $decision.diagnosticPath
-    $null = Publish-Agent3Event $event (Join-Path $Directory "events")
+    $null = Publish-Agent3PreStartRejection $State $event $Handoff.workerId $Handoff.runId `
+        $Handoff.sessionId (Join-Path $Directory "events")
     $null = Add-Agent3Event $State $event
     Set-Agent3Disposition $State $Task.claimId blocked -Evidence $evidence
     Set-Agent3Stage $State $Task.claimId $Handoff.id stopped-verified -Evidence @("fixture://actual-session-stopped")
@@ -466,17 +467,34 @@ try {
             $unrelated = Read-Agent3Json $diagnostic
             $unrelated.recipient.sessionId = "unrelated-session"
             $unrelatedPath = Join-Path $directory "diagnostics\unrelated.json"
-            $unrelated.id = "unrelated"
+            $unrelated.id = & $module { param($d) Get-Agent3Hash @{rawHash=$d.rawHash;sender=$d.sender;recipient=$d.recipient} } $unrelated
+            $unrelatedPath = Join-Path $directory "diagnostics\$($unrelated.id).json"
             $unrelated | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $unrelatedPath
             $bad = @{} + $parameters; $bad.DiagnosticPath = $unrelatedPath
             Assert-Throws { Repair-Agent3RejectedHandoff @bad } "*actual rejected worker*"
             $unrelated.recipient.sessionId = $handoff.sessionId
+            $unrelated.rawHash = "B" * 64
+            $unrelated.id = & $module { param($d) Get-Agent3Hash @{rawHash=$d.rawHash;sender=$d.sender;recipient=$d.recipient} } $unrelated
+            $unrelatedPath = Join-Path $directory "diagnostics\$($unrelated.id).json"
+            $bad.DiagnosticPath = $unrelatedPath
             $unrelated.code = "authority-mismatch"
             $unrelated | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $unrelatedPath
             Assert-Throws { Repair-Agent3RejectedHandoff @bad } "*canonical recoverable message diagnostic*"
             $unrelated.code = "identity-mismatch"
             $unrelated | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $unrelatedPath
             Assert-Throws { Repair-Agent3RejectedHandoff @bad } "*must reference its protocol diagnostic*"
+            $truncated = Copy-Record (Read-Agent3Json $diagnostic)
+            $truncated.Remove("rawHash")
+            $truncated | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $unrelatedPath
+            Assert-Throws { Repair-Agent3RejectedHandoff @bad } "*Missing field 'rawHash'*"
+            $truncated = Copy-Record (Read-Agent3Json $diagnostic)
+            $truncated.id = "arbitrary"
+            $truncated | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $unrelatedPath
+            Assert-Throws { Repair-Agent3RejectedHandoff @bad } "*canonical diagnostic identity*"
+            Assert-Throws {
+                Resolve-Agent3Handoff $automatic $task.claimId $handoff.id pre-start-rejected `
+                    -HumanAuthorization "policy://agent3/pre-start-message-recovery-v1" -Evidence $evidence -RestartImplementation
+            } "*not human authorization*"
         }
         if ($attempt -le 2) {
             if ((Repair-Agent3RejectedHandoff @parameters) -cne "applied" -or
@@ -495,6 +513,13 @@ try {
                     $resumed.state.tasks[0].handoffs.Count -ne 2 -or $task.handoffs.Count -ne 1) {
                     throw "Batch must resume a permitted unstarted initial handoff under the same claim without mutating its input."
                 }
+                $advanced = $resumed.state
+                $advanced.tasks[0].head = $head
+                $parameters.State = $advanced
+                if ((Repair-Agent3RejectedHandoff @parameters) -cne "duplicate") {
+                    throw "Retained recovery must remain a no-op after replacement and head advancement."
+                }
+                $parameters.State = $automatic
             }
         } else {
             Assert-Throws { Repair-Agent3RejectedHandoff @parameters } "*allowance exhausted*"
@@ -593,6 +618,52 @@ try {
     $batch = New-Agent3DispatchBatch $priority @(New-DispatchCandidate 606; New-DispatchCandidate 605 repair $task.claimId) $assess
     if ($batch.reservations[0].action -cne "repair" -or $batch.reservations.Count -ne 2) {
         throw "Eligible repair must precede new implementation without suppressing the second worker."
+    }
+    $unassigned = New-Fixture
+    $own = Add-Agent3Claim $unassigned 610 $evidence
+    $batch = New-Agent3DispatchBatch $unassigned @(New-DispatchCandidate 610 implement $own.claimId) $assess
+    if ($batch.reservations.Count -ne 1 -or $batch.reservations[0].claimId -cne $own.claimId) {
+        throw "An existing unassigned claim cannot block its own admission."
+    }
+    $otherClaim = Add-Agent3Claim (New-Fixture) 614 $evidence
+    $unassigned.tasks += $otherClaim
+    Assert-Agent3State $unassigned
+    $batch = New-Agent3DispatchBatch $unassigned @(New-DispatchCandidate 610 implement $own.claimId) $assess
+    if ($batch.reservations.Count -ne 0) { throw "Another unassigned claim must still block admission." }
+    $asymmetric = New-Fixture
+    $retained = @()
+    foreach ($number in 611,612) {
+        $t = Add-Agent3Claim $asymmetric $number $evidence
+        $h = Add-Agent3Handoff $asymmetric $t.claimId developer-1 implement
+        Complete-Implementation $asymmetric $t $h
+        Set-Agent3Disposition $asymmetric $t.claimId repair-needed -Evidence $evidence
+        $retained += New-DispatchCandidate $number repair $t.claimId
+    }
+    $batch = New-Agent3DispatchBatch $asymmetric $retained {
+        param($candidate, $snapshot, $worker)
+        @{ eligible = $true; compatible = ($candidate.issue -eq 611 -or $worker -ceq "developer-1")
+            reason = "verified-context-reuse"; evidence = $evidence }
+    }
+    if ($batch.reservations.Count -ne 2 -or $batch.reservations[0].workerId -cne "developer-2" -or
+        $batch.reservations[1].workerId -cne "developer-1") {
+        throw "Flexible repair must use Developer 2 so the context-constrained repair can use Developer 1."
+    }
+    $alreadyStarted = New-Fixture
+    $t = Add-Agent3Claim $alreadyStarted 613 $evidence
+    $h = Add-Agent3Handoff $alreadyStarted $t.claimId developer-1 implement
+    Start-Handoff $alreadyStarted $t $h
+    $event = New-Event $t $h result blocked-before-start
+    $ackDirectory = Join-Path $root "already-started"
+    $null = Publish-Agent3Event (New-Event $t $h ack) $ackDirectory
+    Assert-Throws {
+        Publish-Agent3PreStartRejection $alreadyStarted $event developer-1 $h.runId $h.sessionId $ackDirectory
+    } "*Canonical acknowledgment/result exists*"
+    $null = Add-Agent3Event $alreadyStarted (New-Event $t $h ack)
+    Assert-Throws {
+        Publish-Agent3PreStartRejection $alreadyStarted $event developer-1 $h.runId $h.sessionId $ackDirectory
+    } "*actual unacknowledged*"
+    if (Test-Path -LiteralPath (Join-Path $ackDirectory "result-$($h.id).json")) {
+        throw "False pre-start rejection must not consume the actual result slot."
     }
 
     foreach ($stage in @("prepared", "launch-requested", "correlated", "delivered", "acknowledged")) {

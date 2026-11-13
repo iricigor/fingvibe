@@ -271,6 +271,7 @@ with the previous expected revision. A stale writer or changed identity fails.
 | `New-Agent3DispatchBatch` | Scan assessed compatible candidates and build up to two durable launch intents in one detached state revision |
 | `Get-Agent3Assignment`, `Assert-Agent3Assignment` | Shared assignment shape and exact actual worker/run/session validation |
 | `Publish-Agent3Acknowledgment` | Atomic one-time execution reservation; duplicates must never execute |
+| `Publish-Agent3PreStartRejection` | Guard actual worker correlation and unconsumed state/canonical events before reserving a pre-start result |
 | `Publish-Agent3Event`, `Add-Agent3Event` | Immutable worker publication and idempotent correlated event ingestion |
 | `Set-Agent3Disposition`, `Get-Agent3Capacity` | Independent task lifecycle, worker occupancy and waiting bound |
 | `Sync-Agent3Incidents` | Discover canonical incidents even when unindexed; missing prior evidence fails |
