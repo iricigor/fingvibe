@@ -187,6 +187,28 @@ try {
     $command.CommandText = "ROLLBACK"; $null = $command.ExecuteNonQuery(); $command.Dispose(); $lock.Dispose(); $lock = $null
     (Show-Equipment EquipmentActivityRefresh).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
     $null = Wait-Equipment $errorState.Request
+    $malformed = Invoke-InventoryMalformedTimestamp -Path (Join-Path $fixture 'inventory.sqlite') -Table scan_evidence -WhileMalformed {
+        $before = (Get-UiRegressionSurfaceState -GetElement { Find-Equipment EquipmentActivityScroll } -Description Equipment).Request
+        (Show-Equipment EquipmentActivityRefresh).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+        $state = Wait-Equipment $before Error
+        Assert-EquipmentPeers
+        if ((Find-Equipment EquipmentActivityRefresh).Current.Name -ne "Retry" -or
+            (Find-Equipment EquipmentIndicator).Current.Name -ne "Unknown" -or
+            (Find-Equipment EquipmentActivityCell-0-0) -or
+            (Find-Equipment "Loading equipment activity" -ByName)) {
+            throw "Malformed equipment evidence must stop loading, clear stale grid/indicator evidence and offer Retry."
+        }
+        $null = Show-Equipment EquipmentActivityError
+        Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "equipment-malformed-evidence.png")
+        return $state
+    }
+    (Show-Equipment EquipmentActivityRefresh).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $null = Wait-Equipment $malformed.Request
+    Assert-EquipmentPeers
+    if ((Find-Equipment EquipmentIndicator).Current.Name -ne "Equipment online") {
+        throw "Retry after restoring malformed equipment evidence did not recover its indicator."
+    }
+    Assert-EquipmentCell EquipmentActivityCell-5-6 "*2 distinct devices*"
     foreach ($hours in @(3, 4, 1)) {
         $before = (Get-UiRegressionSurfaceState -GetElement { Find-Equipment EquipmentActivityScroll } -Description Equipment).Request
         (Show-Equipment EquipmentActivityHours).GetCurrentPattern([Windows.Automation.RangeValuePattern]::Pattern).SetValue($hours)

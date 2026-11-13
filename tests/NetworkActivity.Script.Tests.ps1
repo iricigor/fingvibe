@@ -1,5 +1,6 @@
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "NetworkActivity.Fixture.ps1")
+. (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
 foreach ($name in @("NetworkActivity.Fixture.ps1", "NetworkActivity.Ui.Tests.ps1")) {
     $errors = $null
     $null = [Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot $name), [ref]$null, [ref]$errors)
@@ -58,7 +59,17 @@ try {
     $week = [FingVibe.Core.Models.NetworkActivity]::ByWeekday($days, $token)
     $wednesday = @($week | Where-Object { $_.Day.ToString() -eq "Wednesday" -and $_.StartHour -eq 9 })[0]
     if ($wednesday.Mean -ne 12 -or $wednesday.ExactDates -ne 3) { throw "Native exact weekday fixture is incorrect." }
+    Invoke-InventoryMalformedTimestamp -Path (Join-Path $fixture 'inventory.sqlite') -Table scan_evidence -WhileMalformed {
+        $malformedError = $null
+        try { $null = $store.QueryAnalyticsAsync($request, $token).GetAwaiter().GetResult() }
+        catch { $malformedError = $_.Exception.GetBaseException() }
+        if ($malformedError -isnot [IO.InvalidDataException] -or $malformedError.Message -notlike "*inconsistent timestamps*") {
+            throw "The malformed Network/equipment fixture must exercise InvalidDataException: $malformedError"
+        }
+    }
+    $restored = $store.QueryAnalyticsAsync($request, $token).GetAwaiter().GetResult()
+    if ($restored.Scans.Count -ne $evidence.Scans.Count) { throw "Restoring malformed Network/equipment evidence changed the fixture." }
 } finally {
     if (Test-Path -LiteralPath $fixture) { Remove-Item -LiteralPath $fixture -Recurse -Force }
 }
-Write-Host "Network activity production-query fixture, union/zero/partial/weekday and lifecycle contracts passed."
+Write-Host "Network activity production-query fixture, union/zero/partial/weekday, malformed-evidence restoration and lifecycle contracts passed."

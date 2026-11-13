@@ -1,5 +1,6 @@
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "DeviceActivity.Fixture.ps1")
+. (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
 foreach ($name in @("DeviceActivity.Ui.Tests.ps1", "DeviceActivity.Fixture.ps1")) {
     $errors = $null
     $null = [Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot $name), [ref]$null, [ref]$errors)
@@ -98,8 +99,18 @@ try {
     } finally { $writer.Dispose() }
     $retried = $store.QueryAnalyticsAsync($request, $token).GetAwaiter().GetResult()
     if ($retried.Scans.Count -ne $evidence.Scans.Count) { throw "Retry after releasing contention changed fixture evidence." }
+    Invoke-InventoryMalformedTimestamp -Path (Join-Path $fixture 'inventory.sqlite') -Table scan_history -WhileMalformed {
+        $malformedError = $null
+        try { $null = $store.QueryAnalyticsAsync($request, $token).GetAwaiter().GetResult() }
+        catch { $malformedError = $_.Exception.GetBaseException() }
+        if ($malformedError -isnot [IO.InvalidDataException] -or $malformedError.Message -notlike "*inconsistent timestamps*") {
+            throw "The malformed Device fixture must exercise InvalidDataException: $malformedError"
+        }
+    }
+    $restored = $store.QueryAnalyticsAsync($request, $token).GetAwaiter().GetResult()
+    if ($restored.Scans.Count -ne $evidence.Scans.Count) { throw "Restoring malformed Device evidence changed the fixture." }
 }
 finally {
     if (Test-Path -LiteralPath $fixture) { Remove-Item -LiteralPath $fixture -Recurse -Force }
 }
-Write-Host "Device Activity lifecycle contracts, exact migrated evidence and SQLite contention/Retry fixture passed without desktop automation."
+Write-Host "Device Activity lifecycle contracts, exact migrated evidence, SQLite contention/Retry and malformed-evidence restoration passed without desktop automation."

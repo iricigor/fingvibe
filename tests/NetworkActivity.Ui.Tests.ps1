@@ -167,6 +167,25 @@ try {
     $command.CommandText = "ROLLBACK"; $null = $command.ExecuteNonQuery(); $command.Dispose(); $lock.Dispose(); $lock = $null
     (Show-NetworkActivity NetworkActivityRefresh).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
     $null = Wait-NetworkActivity $errorState.Request
+    $malformed = Invoke-InventoryMalformedTimestamp -Path (Join-Path $fixture 'inventory.sqlite') -Table scan_evidence -WhileMalformed {
+        $before = (Get-UiRegressionSurfaceState -GetElement { Find-NetworkActivity NetworkActivityScroll } -Description Network).Request
+        (Show-NetworkActivity NetworkActivityRefresh).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+        $state = Wait-NetworkActivity $before Error
+        Assert-NetworkPeers
+        $loading = $script:root.FindFirst([Windows.Automation.TreeScope]::Descendants,
+            [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::NameProperty, "Loading network activity"))
+        if ((Find-NetworkActivity NetworkActivityRefresh).Current.Name -ne "Retry" -or
+            (Find-NetworkActivity NetworkActivityCell-0-0) -or $loading) {
+            throw "Malformed Network evidence must stop loading, clear stale cells and offer Retry."
+        }
+        $null = Show-NetworkActivity NetworkActivityError
+        Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-malformed-evidence.png")
+        return $state
+    }
+    (Show-NetworkActivity NetworkActivityRefresh).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $null = Wait-NetworkActivity $malformed.Request
+    Assert-NetworkPeers
+    Assert-NetworkCell NetworkActivityCell-5-6 "*2 distinct devices*"
     foreach ($hours in @(3, 4, 1)) {
         $before = (Get-UiRegressionSurfaceState -GetElement { Find-NetworkActivity NetworkActivityScroll } -Description Network).Request
         (Show-NetworkActivity NetworkActivityHours).GetCurrentPattern([Windows.Automation.RangeValuePattern]::Pattern).SetValue($hours)
