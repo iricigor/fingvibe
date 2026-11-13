@@ -269,6 +269,10 @@ function Get-Agent3DispatcherPreflight {
     }
 
     try {
+        if (-not $DiscussionDirectory -or -not [IO.Path]::IsPathFullyQualified($DiscussionDirectory) -or
+            -not [IO.Directory]::Exists($DiscussionDirectory)) {
+            throw "Discussion discovery requires an existing absolute DiscussionDirectory."
+        }
         $repo = Read-DispatcherEvidence "repos/$Repository"
         if ($repo.full_name -ine $Repository -or -not $repo.default_branch -or -not $repo.html_url -or -not $repo.url) {
             throw "Repository identity/default branch is unavailable."

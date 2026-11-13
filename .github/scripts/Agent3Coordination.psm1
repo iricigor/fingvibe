@@ -1256,6 +1256,6 @@ Export-ModuleMember -Function Assert-Agent3State, New-Agent3State, Get-Agent3Cap
     Get-Agent3AuthorizationEvidence, Publish-Agent3PreStartRejection,
     New-Agent3DeliveryRequest, Send-Agent3Message, Publish-Agent3GitHubComment,
     Initialize-Agent3Discussion, Get-Agent3MappedDiscussion, Get-Agent3DiscussionComments,
-    Publish-Agent3DiscussionComment, Publish-Agent3DiscussionReport, New-Agent3DiscussionBody,
+    Publish-Agent3DiscussionComment, Publish-Agent3DiscussionReport, Repair-Agent3DiscussionIndex, New-Agent3DiscussionBody,
     Get-Agent3DiscussionClaims, Get-Agent3DiscussionEvidence,
     New-Agent3TaskDiscussionLink, Publish-Agent3IssueDiscussionLink, Get-Agent3FirstMessageLine

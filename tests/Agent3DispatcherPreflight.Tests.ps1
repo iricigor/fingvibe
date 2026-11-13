@@ -110,7 +110,8 @@ function New-PreflightFixture {
 }
 
 function Invoke-PreflightFixture($Fixture, [int[]] $Order, [string] $Evidence) {
-    Get-Agent3DispatcherPreflight -Repository "test/repo" -Epic 164 -ApiReader $Fixture.reader -TaskOrder $Order -OrderEvidenceUrl $Evidence -Now $script:preflightNow
+    Get-Agent3DispatcherPreflight -Repository "test/repo" -Epic 164 -ApiReader $Fixture.reader -TaskOrder $Order -OrderEvidenceUrl $Evidence -Now $script:preflightNow `
+        -DiscussionDirectory ([IO.Path]::GetTempPath()) -DiscussionReader { @{claims=@();reports=@()} }
 }
 
 function Add-PreflightClaim($Fixture, [int] $Number, [string] $State = "claimed", [object] $RepairCount = 0) {
@@ -143,6 +144,10 @@ function Add-PreflightDelivery($Fixture, [int] $Number, [Nullable[int]] $Parent 
 }
 
 $fixture = New-PreflightFixture
+$unconfigured = Get-Agent3DispatcherPreflight test/repo 164 -ApiReader $fixture.reader
+Assert-Preflight ($unconfigured.decision -eq "blocked" -and $unconfigured.collectionFailure -and -not $unconfigured.candidate) "Missing Discussion configuration must fail closed."
+$unconfigured = Get-Agent3DispatcherPreflight test/repo 164 -ApiReader $fixture.reader -DiscussionDirectory ""
+Assert-Preflight ($unconfigured.decision -eq "blocked" -and $unconfigured.collectionFailure) "Empty Discussion configuration must fail closed."
 $fixture.state.multiPage = $true
 $result = Invoke-PreflightFixture $fixture
 Assert-Preflight ($result.decision -eq "candidate" -and $result.candidate.issue -eq 200) "Empty capacity must select the first mechanically eligible task."

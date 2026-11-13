@@ -17,6 +17,9 @@ $categoryNames = @("🛠️ Task conversations", "🧭 Epic coordination", "🤖
 $labels = @(@{id="label-0";name="3️⃣disp"}, @{id="label-1";name="3️⃣dev1"}, @{id="label-2";name="3️⃣dev2"})
 $api = {
     param($query, $variables, $directory)
+    if ($query.Contains("discussions(first:") -and -not $query.Contains("orderBy:{field:CREATED_AT,direction:ASC}")) {
+        throw "Inventory must use immutable creation ordering."
+    }
     if ($query.StartsWith("mutation")) {
         $store.writes++
         if ($store.mode -ceq "pre-request") {
@@ -53,6 +56,11 @@ $api = {
                 $comment.body = $variables.input.body
             } else {
                 $discussion = @($store.discussions | Where-Object id -CEQ $variables.input.discussionId)[0]
+                if ($store.mode -ceq "index-pre-request" -and $discussion.category.name -ceq "🤖 Agent logs") {
+                    $error=[InvalidOperationException]::new("Index process did not start.")
+                    $error.Data["agent3PublicationPhase"]="pre-request"
+                    throw $error
+                }
                 if ($store.mode -ceq "index-failure" -and $discussion.category.name -ceq "🤖 Agent logs") { throw "Index API throttled." }
                 $number = $store.next++
                 $comment = @{id="C-$number";body=$variables.input.body;author=@{login="testowner"};authorAssociation="OWNER"
@@ -66,7 +74,11 @@ $api = {
         throw "Unexpected fixture mutation: $query"
     }
     if ($query.Contains("repository(owner:")) {
-        if ($query.Contains("issue(number:")) { return @{repository=@{issue=$store.issue}} }
+        if ($query.Contains("issue(number:")) {
+            $store.issueReads++
+            if ($store.changeIssueOnRead -eq $store.issueReads) { $store.issue.body += "`nHuman edit." }
+            return @{repository=@{issue=($store.issue | ConvertTo-Json | ConvertFrom-Json -AsHashtable)}}
+        }
         $items = $store.discussions
         $more = $false
         if ($store.paginated -and $items.Count -gt 1) {
@@ -100,6 +112,7 @@ $api = {
 }
 
 try {
+    $store.issueReads=0; $store.changeIssueOnRead=-1
     $null = & $gateScript -Action Acquire -Repository testowner/testrepo -Owner $owner -StateDirectory $gateRoot
     $setup = @{Repository="testowner/testrepo";ActorLogin="testowner";Directory=$root;GateOwner=$owner;GateDirectory=$gateRoot;Api=$api}
     $wrongGate = @{} + $setup
@@ -117,6 +130,11 @@ try {
     $same = Initialize-Agent3Discussion -Kind task -Key 100 @setup
     if ($same.id -cne $task.id -or $store.discussions.Count -ne 1) { throw "Task mapping must be reused." }
     $initialIssue = $store.issue.body
+    $store.changeIssueOnRead=$store.issueReads+2
+    $before=$store.writes
+    Assert-Throws { Publish-Agent3IssueDiscussionLink $task $root $owner $gateRoot $api } "*changed before*"
+    if ($store.writes -ne $before -or -not $store.issue.body.Contains("Human edit.")) { throw "Concurrent human issue edit must survive without mutation." }
+    $store.issue.body=$initialIssue; $store.changeIssueOnRead=-1
     $null = Publish-Agent3IssueDiscussionLink $task $root $owner $gateRoot $api
     $writes = $store.writes
     $null = Publish-Agent3IssueDiscussionLink $task $root $owner $gateRoot $api
@@ -132,6 +150,10 @@ try {
     $writes=$store.writes
     $registered = Initialize-Agent3Discussion -Kind agent -Key developer-2 -ExistingId $existing.id @setup
     if ($store.writes -ne $writes -or $registered.openingBody -cne "") { throw "Explicit clean-log registration must preserve its empty opening without recreation." }
+    Assert-Throws { Initialize-Agent3Discussion -Kind task -Key 102 -ExistingId $task.id @setup } "*cannot adopt ExistingId*"
+    $missingRoot=Join-Path $root "missing-root"
+    Assert-Throws { Get-Agent3DiscussionEvidence testowner/testrepo $missingRoot $api } "*existing absolute shared directory*"
+    if (Test-Path -LiteralPath $missingRoot) { throw "Discovery must not create replacement shared storage." }
     $store.paginated=$true
     $cycleApi = {
         param($query, $variables, $directory)
@@ -146,6 +168,14 @@ try {
 
     $claim = @{schema="fingvibe-real-claim-v1";repository="testowner/testrepo";issue=100;claimId=[guid]::NewGuid().ToString()
         path='D:\Igor\"quoted"';head="a"*40}
+    $before=$store.writes
+    $wrongIssue=@{}+$claim; $wrongIssue.issue=101
+    $wrongId=@{}+$claim; $wrongId.claimId="invalid"
+    foreach ($badClaim in @(@{repository="testowner/testrepo";issue=100;claimId=$claim.claimId}, $wrongIssue, $wrongId)) {
+        Assert-Throws { Publish-Agent3DiscussionReport $task $agent invalid "Invalid claim" testowner developer-1 "2026-11-13T19:00:00Z" $root $api -Claim $badClaim } "*"
+    }
+    Assert-Throws { Publish-Agent3DiscussionReport $epic $agent invalid "Invalid claim" testowner developer-1 "2026-11-13T19:00:00Z" $root $api -Claim $claim } "*Uncorrelated*"
+    if ($store.writes -ne $before) { throw "Invalid claims must fail before mutations." }
     $text = "<!-- control -->`nImplementation checkpoint ready.`n`n" + ('D:\Igor\"quoted" {"nested":"C:\\Users\\worker"}' * 1000)
     $report = Publish-Agent3DiscussionReport $task $agent checkpoint $text testowner developer-1 "2026-11-13T19:00:00Z" $root $api -Claim $claim
     $canonical = @($store.discussions | Where-Object id -CEQ $task.id)[0].entries[0]
@@ -166,6 +196,17 @@ try {
     $canonical.body = $canonical.body.Replace('"schema": "fingvibe-real-claim-v1"', '"schema": "invalid"')
     Assert-Throws { Get-Agent3DiscussionClaims testowner/testrepo $root $api } "*Uncorrelated Discussion claim*"
     $canonical.body = $report.canonical.identity.body
+    $taskEntries=@($store.discussions[0].entries)
+    $store.discussions[0].entries=@()
+    Assert-Throws { Get-Agent3DiscussionEvidence testowner/testrepo $root $api } "*canonical comment missing or changed*"
+    $store.discussions[0].entries=$taskEntries
+    $canonical.body=$canonical.body.Replace("fingvibe-real-claim-v1","removed-claim-marker")
+    Assert-Throws { Get-Agent3DiscussionEvidence testowner/testrepo $root $api } "*canonical comment missing or changed*"
+    $canonical.body=$report.canonical.identity.body
+    $savedAgentBody=$store.discussions[1].body
+    $store.discussions[1].body="unavailable index"
+    $null=Get-Agent3DiscussionEvidence testowner/testrepo $root $api
+    $store.discussions[1].body=$savedAgentBody
     $canonical.body += "`nchanged"
     Assert-Throws { Publish-Agent3DiscussionReport $task $agent checkpoint $text testowner developer-1 "2026-11-13T19:00:00Z" $root $api -Claim $claim } "*readback mismatch*"
     $canonical.body = $report.canonical.identity.body
@@ -184,6 +225,10 @@ try {
     Assert-Throws { Publish-Agent3DiscussionComment $task lost $body testowner $root $api } "*response lost*"
     $afterLost=$store.writes
     $store.mode="success"
+    $lostRemote = @($store.discussions[0].entries | Where-Object { $_.body.Contains("agent3-publication:lost") })[0]
+    $lostRemote.body="Edited body`n<!-- agent3-publication:lost -->"
+    Assert-Throws { Publish-Agent3DiscussionComment $task lost $lostRemote.body testowner $root $api } "*Conflicting immutable*"
+    $lostRemote.body=$body
     $null = Publish-Agent3DiscussionComment $task lost $body testowner $root $api
     if ($store.writes -ne $afterLost) { throw "Lost response must reconcile existing comment without another mutation." }
     $store.mode="uncertain-absent"
@@ -196,11 +241,59 @@ try {
     $store.mode="pre-request"
     Assert-Throws { Publish-Agent3DiscussionComment $task pre "<!-- agent3-publication:pre -->" testowner $root $api } "*did not start*"
     $store.mode="success"
+    $failurePath=Join-Path $root "discussion-operations\comment-pre\pre-request-1.json"
+    $failure=[IO.File]::ReadAllText($failurePath)
+    [IO.File]::WriteAllText($failurePath, '{}')
+    Assert-Throws { Publish-Agent3DiscussionComment $task pre "<!-- agent3-publication:pre -->" testowner $root $api } "*already attempted*"
+    [IO.File]::WriteAllText($failurePath, '{"')
+    Assert-Throws { Publish-Agent3DiscussionComment $task pre "<!-- agent3-publication:pre -->" testowner $root $api } "*"
+    [IO.File]::WriteAllText($failurePath, $failure)
+    $attemptPath=Join-Path $root "discussion-operations\comment-pre\attempt-1.json"
+    $attemptText=[IO.File]::ReadAllText($attemptPath)
+    $attempt=ConvertFrom-Json $attemptText -AsHashtable
+    $attempt.identity.body="wrong"
+    [IO.File]::WriteAllText($attemptPath, ($attempt|ConvertTo-Json -Depth 100))
+    Assert-Throws { Publish-Agent3DiscussionComment $task pre "<!-- agent3-publication:pre -->" testowner $root $api } "*Conflicting Discussion attempt*"
+    [IO.File]::WriteAllText($attemptPath, $attemptText)
     $null = Publish-Agent3DiscussionComment $task pre "<!-- agent3-publication:pre -->" testowner $root $api
-    $revision = "New claim revision.`n<!-- agent3-publication:revision -->"
-    Assert-Throws { Publish-Agent3DiscussionComment $task revision $revision testowner $root $api -CommentId $canonical.id -ExpectedBody stale } "*expected body*"
+    $revision = (New-Agent3DiscussionBody developer-1 "New claim revision." "2026-11-13T19:02:00Z" -Claim $claim) + "`n<!-- agent3-publication:revision -->"
+    Assert-Throws { Publish-Agent3DiscussionComment $task revision $revision testowner $root $api -CommentId $canonical.id -ExpectedBody stale } "*claim marker*"
     $null = Publish-Agent3DiscussionComment $task revision $revision testowner $root $api -CommentId $canonical.id -ExpectedBody $canonical.body
     if ($canonical.body -cne $revision) { throw "Claim revision must preserve comment identity." }
+    $null=Get-Agent3DiscussionEvidence testowner/testrepo $root $api
+
+    $store.mode="index-pre-request"
+    $a=Publish-Agent3DiscussionReport $task $agent revision-a "Revision A." testowner developer-1 "2026-11-13T19:03:00Z" $root $api -Claim $claim `
+        -CommentId $canonical.id -ExpectedBody $revision -WarningAction SilentlyContinue
+    if ($a.indexStatus -cne "pending") { throw "Revision A index must be pending." }
+    $store.mode="success"
+    $b=Publish-Agent3DiscussionReport $task $agent revision-b "Revision B." testowner developer-1 "2026-11-13T19:04:00Z" $root $api -Claim $claim `
+        -CommentId $canonical.id -ExpectedBody $a.canonical.identity.body
+    $writes=$store.writes
+    $repaired=Repair-Agent3DiscussionIndex $task $agent revision-a $root $api
+    if ($store.writes -ne $writes+1 -or $canonical.body -cne $b.canonical.identity.body -or -not $repaired.url) {
+        throw "Index-only recovery must verify revision chain and never restore old claim content."
+    }
+    $canonical.body="unauthorized edit"
+    Assert-Throws { Repair-Agent3DiscussionIndex $task $agent revision-a $root $api } "*canonical comment missing or changed*"
+    $canonical.body=$b.canonical.identity.body
+    $aReceiptPath=Join-Path $root "discussion-publications\revision-a.json"
+    $aReceipt=[IO.File]::ReadAllText($aReceiptPath)
+    Remove-Item -LiteralPath $aReceiptPath
+    Assert-Throws { Repair-Agent3DiscussionIndex $task $agent revision-a $root $api } "*revision chain*"
+    [IO.File]::WriteAllText($aReceiptPath,$aReceipt)
+    $canonical.author.login="different-account"
+    Assert-Throws { Get-Agent3DiscussionEvidence testowner/testrepo $root $api } "*canonical comment missing or changed*"
+    $canonical.author.login="testowner"
+    $writes=$store.writes
+    $null=Repair-Agent3DiscussionIndex $task $agent revision-a $root $api
+    if ($store.writes -ne $writes) { throw "Recovered projection must remain idempotent." }
+
+    foreach ($jsonOnly in @('{"kind":"event"}', "[`n{`"kind`":`"event`"}`n]",
+        "<details><summary>Claim details</summary>`n``````json`n{}`n```````n</details>")) {
+        if ((Get-Agent3FirstMessageLine $jsonOnly) -cne "") { throw "JSON and summary labels must not become prose previews." }
+    }
+    if ((Get-Agent3FirstMessageLine "[Linked prose](https://github.com)") -cne "[Linked prose](https://github.com)") { throw "Markdown prose must remain available." }
 
     if ((Get-Agent3FirstMessageLine "<!-- marker -->`n``````json`n{}`n``````") -cne "") { throw "JSON-only message must not invent a preview." }
     $times = New-Agent3DiscussionBody developer-1 "Hello" "2026-11-13T19:00:00Z" "2026-11-13T19:01:00Z"
@@ -237,9 +330,50 @@ try {
     $store.discussions = @($store.discussions | Where-Object id -CNE $task.id)
     Assert-Throws { Initialize-Agent3Discussion -Kind task -Key 100 @setup } "*missing or changed*"
 
+    $modulePath=Join-Path $PSScriptRoot "..\.github\scripts\Agent3Coordination.psm1"
+    $processProbe = @'
+param($ModulePath,$Directory,$GateRoot,$Owner)
+$ErrorActionPreference="Stop"
+Import-Module $ModulePath -Force
+$remote=Join-Path $Directory "cross-process-remote.json"
+$api={
+    param($query,$variables,$directory)
+    if ($query.Contains("createDiscussion(")) {
+        $d=@{id="D-cross";number=998;title=$variables.input.title;body=$variables.input.body
+            url="https://github.com/testowner/testrepo/discussions/998";repository=@{nameWithOwner="testowner/testrepo"}
+            author=@{login="testowner"};category=@{id="task-category";name="🛠️ Task conversations"}
+            labels=@{nodes=@(@{name="3️⃣disp"},@{name="3️⃣dev1"},@{name="3️⃣dev2"});pageInfo=@{hasNextPage=$false}}}
+        [IO.File]::WriteAllText($remote,($d|ConvertTo-Json -Depth 100))
+        throw "Cross-process creation response lost."
+    }
+    $d=if(Test-Path -LiteralPath $remote){Get-Content -Raw -LiteralPath $remote|ConvertFrom-Json -AsHashtable}
+    if($query.Contains("repository(owner:")){
+        return @{repository=@{id="repo";dispatcher=@{id="l0";name="3️⃣disp"};developer1=@{id="l1";name="3️⃣dev1"};developer2=@{id="l2";name="3️⃣dev2"}
+            discussionCategories=@{nodes=@(@{id="task-category";name="🛠️ Task conversations"});pageInfo=@{hasNextPage=$false}}
+            discussions=@{nodes=@(if($d){$d});pageInfo=@{hasNextPage=$false;endCursor=$null}}}}
+    }
+    return @{node=$d}
+}
+try {
+    $null=Initialize-Agent3Discussion testowner/testrepo task 103 testowner $Directory $Owner $GateRoot -Api $api
+    "recovered"
+} catch { if($_.Exception.Message -cne "Cross-process creation response lost."){throw}; "lost" }
+'@
+    $probeBlock=[scriptblock]::Create($processProbe)
+    $firstProcess=& pwsh -NoProfile -Command $probeBlock -args $modulePath,$root,$gateRoot,$owner.ToString()
+    if ($LASTEXITCODE -ne 0 -or $firstProcess -cne "lost") { throw "First process must reserve creation and lose its response." }
+    $secondProcess=& pwsh -NoProfile -Command $probeBlock -args $modulePath,$root,$gateRoot,$owner.ToString()
+    if ($LASTEXITCODE -ne 0 -or $secondProcess -cne "recovered") { throw "A new process must reproduce the opening body and recover without recreation." }
+
     $module = Get-Module Agent3Coordination
     & $module {
         param($Directory)
+        try {
+            $null=Invoke-Agent3DiscussionApi "query{viewer{login}}" @{} (Join-Path $Directory "must-not-create")
+            throw "Missing API root accepted."
+        } catch {
+            if ($_.Exception.Message -notlike "*existing absolute shared directory*") { throw }
+        }
         function script:Invoke-Agent3GitHubWrite {
             param($Endpoint, $InputPath, $Method)
             if ($Endpoint -cne "graphql" -or $Method -cne "POST") { throw "Discussion request must use file-backed GraphQL." }

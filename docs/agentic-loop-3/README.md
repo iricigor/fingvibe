@@ -285,6 +285,7 @@ with the previous expected revision. A stale writer or changed identity fails.
 | `Initialize-Agent3Discussion`, `Get-Agent3MappedDiscussion` | Dispatcher-owned Discussion setup/adoption and verified repository/category/label mappings |
 | `Publish-Agent3IssueDiscussionLink` | Bounded task/Epic issue-body link, preserving unrelated content |
 | `Publish-Agent3DiscussionReport`, `Publish-Agent3DiscussionComment` | Canonical Discussion publication, exact readback and explicitly pending nonblocking agent indexes |
+| `Repair-Agent3DiscussionIndex` | Index-only recovery using saved projection and verified canonical claim revision history |
 | `Get-Agent3DiscussionEvidence` | Fully paginated Discussion claims/reports, including historical replies and completion notices |
 | `Publish-Agent3GitHubComment` | Retained compatibility helper; not the task/Epic destination for the migrated three profiles |
 | `Publish-Agent3Event`, `Add-Agent3Event` | Immutable worker publication and idempotent correlated event ingestion |

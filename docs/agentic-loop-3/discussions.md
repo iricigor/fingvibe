@@ -29,13 +29,17 @@ gate, after authorization and task selection and before first worker launch.
 Use `Initialize-Agent3Discussion`; task IDs are not guessed from titles.
 Use `Publish-Agent3IssueDiscussionLink` to add/read back a bounded link in the
 issue body, preserving scope, checklist, labels and native relationships.
+The helper rechecks the full body immediately before writing and stops on a
+change. GitHub's GraphQL issue update has no compare-and-swap precondition;
+this narrows, but cannot eliminate, the final read/write race with human edits.
 Workers obtain IDs from the shared registry using assignment issue/Epic/worker
 identity, not new host-message fields.
 
 Reuse the same live task Discussion across repair/finalize and reopening.
 Do not replay old handoffs or reset history on reopening. Epic and agent logs
 start clean; the deleted task trials are never adopted. Existing explicitly
-chosen clean logs may be registered using `-ExistingId` during approved setup.
+chosen non-task clean logs may be registered using `-ExistingId` during approved setup.
+Task mappings reject this override and always require their exact scope marker.
 This verifies repository/category/labels and retains their opening body rather
 than using the title as identity or silently remapping an active claim.
 
@@ -43,6 +47,8 @@ than using the title as identity or silently remapping an active claim.
 
 Import `Agent3Coordination.psm1`. All Discussion GraphQL requests use files,
 keeping large JSON bodies and Windows paths off the command line.
+The absolute shared root must already exist; requests and discovery never
+initialize a missing root or silently substitute another environment.
 
 Under the existing gate, with independently verified authority, use:
 
@@ -82,6 +88,8 @@ The helper emits the unchanged `fingvibe-real-claim-v1` marker and a single
 fenced JSON block inside collapsed-by-default `<details>` / "Claim details".
 Do not supply another JSON block in the prose. Raw-body readers recover and
 validate the JSON regardless of visual collapse.
+Both publication and discovery require the claim schema, repository, numeric
+issue and nonempty UUID claim ID to match a task mapping; Epic claims are rejected.
 
 Each claim revision has a distinct operation ID; use `-CommentId` and a freshly
 verified `-ExpectedBody` to update the same claim comment. Published event
@@ -105,6 +113,8 @@ mandatory. Before mutation, immutable intents reserve an operation. A definitive
 process-start failure can be retried only after fresh inspection. Throttling,
 API/response failure or interrupted publication retains an uncertain intent;
 absence from a later read is **not** permission to repeat it.
+Reserved identities and exact correlated pre-request failure records are
+validated before retry. Remote matches must also match the immutable intent.
 
 If the intended marker/body already exists exactly once, verify it rather than
 publishing again. Wrong account, wrong destination, duplicate marker, changed
@@ -119,6 +129,12 @@ and reconciles only its projection; it never replays host delivery/execution.
 An uncertain absent index still needs explicit disposition of that attempt
 before another write. Reconstruct only from the verified canonical message,
 original operation metadata and persisted pending record, not from other prose.
+If a later claim revision replaced the original comment, use
+`Repair-Agent3DiscussionIndex -Mapping $taskLog -AgentMapping $agentLog -Id $originalId
+-Directory $sharedRoot` for index-only recovery. It verifies the complete saved
+same-claim revision chain against the current canonical comment and publishes
+only the saved projection. Missing, forked or edited evidence blocks recovery;
+uncertain absent index writes still cannot be blindly retried.
 
 Publish only concise reports and necessary control JSON. Do not publish secrets,
 sensitive data or raw transcripts. Preserve original owner approval issue
@@ -149,6 +165,12 @@ conservative owning-workflow evidence: compare them with authoritative state,
 canonical events and actual stopped execution, never feed twelve-repair mirrors
 to the legacy three-repair parser or assume every historical mirror is live.
 Missing collection/mapping evidence is a blocker, not free capacity.
+Omitted or empty `-DiscussionDirectory` is an explicit collection failure.
+Inventory uses immutable creation ordering. Collection verifies saved task
+canonical receipts (ID/body/account/URL), accepting only a complete verified
+claim revision chain. Deleting a claim or editing away its marker fails closed.
+Only task mappings are preflight prerequisites: unavailable agent indexes and
+informational topic mappings do not block ownership discovery.
 
 Dispatcher's historical completion self-healing notice moves to the task
 Discussion; existing issue-comment notices remain valid and are still read.

@@ -29,7 +29,9 @@ three-repair claim records and separately collects Discussion claims/reports.
 Compare `discussion-claim` findings with authoritative state/events and actual
 execution using the agent-3 helpers. Fully paginated legacy/foreign issue
 comments remain part of collection. Never treat missing discovery as free capacity.
-Collection errors remain explicit blockers. Accepted design/trial scope,
+Collection errors remain explicit blockers, including an omitted/empty or
+nonexistent shared Discussion directory.
+Accepted design/trial scope,
 abandonment and transferred ideas require their own evidence review; this
 completion policy does not invent merged PRs for them.
 
