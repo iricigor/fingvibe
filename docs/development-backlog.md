@@ -146,6 +146,12 @@ These explicit overrides apply only to the new environment; existing `⏩` and
 All other implementation, independent validation/review, 240-second affected-UI
 duration and merge/release safeguards remain in force.
 
+[Task #338](https://github.com/iricigor/fingvibe/issues/338) extends only these
+three source profiles with a [strict operational JSON protocol](agentic-loop-real/protocol.md).
+Scripted publication/preflight and fixed-operation packets reuse their existing
+assignment/event guards; valid JSON, processing receipts and notifications
+grant no authority and do not prove execution or stopped-worker release.
+
 Source delivery neither installs/activates Automations nor grants workload or
 merge authority, and does not require another live trial. Real execution needs
 separate recorded human authorization for the selected Epic and capabilities.

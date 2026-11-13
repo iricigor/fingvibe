@@ -508,15 +508,14 @@ function Resolve-RealTaskHandoff {
     Assert-RealTaskState $State
 }
 
-function Add-RealTaskEvent {
-    param($State, $Event)
-    Assert-RealTaskState $State
+function Test-RealTaskEvent {
+    param($State, $Event, [switch] $AcknowledgmentVerified)
     Assert-RealTaskEvent $Event
     $hash = Get-RealTaskHash $Event
     $seen = @($State.events | Where-Object id -CEQ $Event.eventId)
     if ($seen.Count -gt 0) {
-        if ($seen[0].hash -cne $hash) { throw "Conflicting duplicate event." }
-        return "duplicate"
+        if ($seen[0].hash -cne $hash) { Stop-RealTaskProtocol "conflicting-duplicate" "Conflicting duplicate event." }
+        return @{ disposition = "duplicate"; hash = $hash; handoff = $null }
     }
     $handoff = Find-RealTaskHandoff $State $Event.claimId $Event.handoffId
     foreach ($field in @("action", "workerId", "runId", "sessionId")) {
@@ -528,15 +527,10 @@ function Add-RealTaskEvent {
         if ($handoff.stage -cnotin @("correlated", "delivered") -or $null -ne $Event.result) {
             throw "Invalid acknowledgment stage/result."
         }
-        if ($handoff.stage -ceq "correlated") {
-            # A verified matching acknowledgment also proves the assignment arrived.
-            $handoff.transitions += @{ stage = "delivered"; utc = $Event.utc; evidence = $Event.evidence }
-        }
-        $stage = "acknowledged"
-        $handoff.ackEventId = $Event.eventId
     } else {
         if ($handoff.stage -cne "acknowledged" -and
-            -not ($handoff.stage -cin @("correlated", "delivered") -and $Event.result.outcome -ceq "blocked-before-start")) {
+            -not ($handoff.stage -cin @("correlated", "delivered") -and
+                ($AcknowledgmentVerified -or $Event.result.outcome -ceq "blocked-before-start"))) {
             throw "Result requires acknowledgment or verified pre-start rejection."
         }
         if ($Event.result.outcome -ceq "implementation-ready") {
@@ -553,6 +547,24 @@ function Add-RealTaskEvent {
                 throw "Merge delivery is not authorized."
             }
         }
+    }
+    return @{ disposition = "ready"; hash = $hash; handoff = $handoff }
+}
+
+function Add-RealTaskEvent {
+    param($State, $Event)
+    Assert-RealTaskState $State
+    $check = Test-RealTaskEvent $State $Event
+    if ($check.disposition -ceq "duplicate") { return "duplicate" }
+    $handoff = $check.handoff
+    if ($Event.kind -ceq "ack") {
+        if ($handoff.stage -ceq "correlated") {
+            # A verified matching acknowledgment also proves the assignment arrived.
+            $handoff.transitions += @{ stage = "delivered"; utc = $Event.utc; evidence = $Event.evidence }
+        }
+        $stage = "acknowledged"
+        $handoff.ackEventId = $Event.eventId
+    } else {
         $stage = "result-recorded"
         $handoff.resultEventId = $Event.eventId
         $handoff.result = $Event.result
@@ -564,7 +576,7 @@ function Add-RealTaskEvent {
     }
     $handoff.stage = $stage
     $handoff.transitions += @{ stage = $stage; utc = $Event.utc; evidence = $Event.evidence }
-    $State.events += @{ id = $Event.eventId; hash = $hash; claimId = $Event.claimId
+    $State.events += @{ id = $Event.eventId; hash = $check.hash; claimId = $Event.claimId
         handoffId = $Event.handoffId; kind = $Event.kind }
     (Find-RealTask $State $Event.claimId).changedUtc = [DateTime]::UtcNow.ToString("o")
     Assert-RealTaskState $State
@@ -625,6 +637,10 @@ function Assert-RealTaskEvent($Event) {
 function Get-RealTaskAssignment {
     param($State, [string] $ClaimId, [string] $HandoffId)
     Assert-RealTaskState $State
+    Get-RealTaskAssignmentCore $State $ClaimId $HandoffId
+}
+
+function Get-RealTaskAssignmentCore($State, [string] $ClaimId, [string] $HandoffId) {
     $task = Find-RealTask $State $ClaimId
     $handoff = Find-RealTaskHandoff $State $ClaimId $HandoffId
     if ($handoff.stage -cnotin @("correlated", "delivered")) { throw "Handoff is not deliverable." }
@@ -641,8 +657,13 @@ function Get-RealTaskAssignment {
 
 function Assert-RealTaskAssignment {
     param($State, $Assignment, [string] $WorkerId, [string] $RunId, [string] $SessionId)
+    Assert-RealTaskState $State
+    Assert-RealTaskAssignmentCore $State $Assignment $WorkerId $RunId $SessionId
+}
+
+function Assert-RealTaskAssignmentCore($State, $Assignment, [string] $WorkerId, [string] $RunId, [string] $SessionId) {
     Assert-RealTaskFields $Assignment @("claimId", "handoffId")
-    $expected = Get-RealTaskAssignment $State $Assignment.claimId $Assignment.handoffId
+    $expected = Get-RealTaskAssignmentCore $State $Assignment.claimId $Assignment.handoffId
     if (-not $State.authorization.implementation -or $expected.workerId -cne $WorkerId -or
         $expected.runId -cne $RunId -or $expected.sessionId -cne $SessionId -or
         (Get-RealTaskHash $Assignment) -cne (Get-RealTaskHash $expected)) {
@@ -746,25 +767,53 @@ function Read-RealTaskJson {
     if (-not [IO.Path]::IsPathFullyQualified($Path)) { throw "Record path must be absolute." }
     if (-not [IO.File]::Exists($Path)) { throw "Record absent: $Path. Never infer idle capacity." }
     $json = [IO.File]::ReadAllText($Path)
-    $record = ConvertFrom-Json -InputObject $json -AsHashtable -DateKind String -Depth 100 -ErrorAction Stop
-    if ($record -isnot [System.Collections.IDictionary]) { throw "Expected complete JSON object: $Path." }
-    return $record
+    ConvertFrom-RealTaskJson $json
+}
+
+function ConvertFrom-RealTaskJson([string] $Json) {
+    $options = [System.Text.Json.JsonDocumentOptions]::new()
+    $options.MaxDepth = 100
+    $document = [System.Text.Json.JsonDocument]::Parse($Json, $options)
+    try {
+        function Assert-UniqueJsonKeys([System.Text.Json.JsonElement] $Element) {
+            if ($Element.ValueKind -eq [System.Text.Json.JsonValueKind]::Object) {
+                $keys = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+                foreach ($property in $Element.EnumerateObject()) {
+                    if (-not $keys.Add($property.Name)) { throw "Duplicate JSON key '$($property.Name)'." }
+                    Assert-UniqueJsonKeys $property.Value
+                }
+            } elseif ($Element.ValueKind -eq [System.Text.Json.JsonValueKind]::Array) {
+                foreach ($item in $Element.EnumerateArray()) { Assert-UniqueJsonKeys $item }
+            }
+        }
+        if ($document.RootElement.ValueKind -ne [System.Text.Json.JsonValueKind]::Object) {
+            throw "Expected complete JSON object."
+        }
+        Assert-UniqueJsonKeys $document.RootElement
+    } finally { $document.Dispose() }
+    ConvertFrom-Json -InputObject $Json -AsHashtable -DateKind String -Depth 100 -ErrorAction Stop
 }
 
 function Write-RealTaskAtomic($Record, [string] $Path, [switch] $Immutable) {
     if (-not [IO.Path]::IsPathFullyQualified($Path)) { throw "Record path must be absolute." }
+    $json = $Record | ConvertTo-Json -Depth 100
+    $parsed = ConvertFrom-RealTaskJson $json
+    $expectedHash = Get-RealTaskHash $Record
+    if ((Get-RealTaskHash $parsed) -cne $expectedHash) {
+        throw "Serialized publication differs from the original record."
+    }
     $directory = [IO.Path]::GetDirectoryName($Path)
     [IO.Directory]::CreateDirectory($directory) | Out-Null
     $temporary = Join-Path $directory (".publish-" + [guid]::NewGuid() + ".tmp")
     try {
-        $bytes = [Text.Encoding]::UTF8.GetBytes(($Record | ConvertTo-Json -Depth 100))
+        $bytes = [Text.Encoding]::UTF8.GetBytes($json)
         $stream = [IO.File]::Open($temporary, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
         try { $stream.Write($bytes, 0, $bytes.Length); $stream.Flush($true) }
         finally { $stream.Dispose() }
         if ($Immutable) { [IO.File]::Move($temporary, $Path, $false) }
         elseif ([IO.File]::Exists($Path)) { [IO.File]::Replace($temporary, $Path, [System.Management.Automation.Language.NullString]::Value) }
         else { [IO.File]::Move($temporary, $Path, $false) }
-        if ((Get-RealTaskHash (Read-RealTaskJson $Path)) -cne (Get-RealTaskHash $Record)) {
+        if ((Get-RealTaskHash (Read-RealTaskJson $Path)) -cne $expectedHash) {
             throw "Atomic publication readback mismatch: $Path."
         }
     } finally {
@@ -896,8 +945,12 @@ function Sync-RealTaskIncidents {
     $State.incidents = $records
 }
 
+. (Join-Path $PSScriptRoot "RealTaskProtocol.ps1")
+
 Export-ModuleMember -Function Assert-RealTaskState, New-RealTaskState, Get-RealTaskCapacity,
     Add-RealTaskClaim, Add-RealTaskHandoff, Set-RealTaskStage, Add-RealTaskEvent,
     Set-RealTaskDisposition, Read-RealTaskJson, Publish-RealTaskEvent, Publish-RealTaskState,
     Sync-RealTaskIncidents, Get-RealTaskAssignment, Assert-RealTaskAssignment, Publish-RealTaskAcknowledgment,
+    New-RealTaskMessage, Publish-RealTaskMessage, Receive-RealTaskMessage,
+    Publish-RealTaskProtocolError, Confirm-RealTaskMessage,
     Resolve-RealTaskHandoff

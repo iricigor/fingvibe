@@ -178,6 +178,13 @@ already ingested event remains an idempotent duplicate.
 
 ### Assignment: `fingvibe-real-assignment-v1`
 
+Every operational host message uses the closed
+[JSON message protocol](protocol.md), including assignments, worker events,
+blockers, clarification and notifications. Generate and publish it with the
+shared scripts; no surrounding prose or Markdown fences. The payload contracts
+below remain authoritative. GitHub human-facing reports retain their existing
+presentation and are not operational host-message bodies.
+
 Use `Get-RealTaskAssignment`, not an independently invented payload:
 
 ```text
