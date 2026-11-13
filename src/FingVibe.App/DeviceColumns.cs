@@ -181,7 +181,7 @@ public sealed class DeviceColumnLayout : INotifyPropertyChanged
     public DeviceColumn Mac { get; } = new("Mac", "MAC address", 150);
     public DeviceColumn OperatingSystem { get; } = new("OperatingSystem", "OS", 120);
     public DeviceColumn Type { get; } = new("Type", "Device type", 150);
-    public DeviceColumn UsageCategory { get; } = new("UsageCategory", "Usage category", 180);
+    public DeviceColumn UsageCategory { get; } = new("UsageCategory", "Usage category", 150);
     public DeviceColumn Person { get; } = new("Person", "Person", 90);
     public DeviceColumn Room { get; } = new("Room", "Room", 100);
     public DeviceColumn LastSeen { get; } = new("LastSeen", "Last seen", 130);

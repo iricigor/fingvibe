@@ -79,6 +79,9 @@ $categoryText = Get-VisibleDeviceChild $firstRow AutomationId DeviceUsageCategor
 if (-not $categoryText -or $categoryCell.Current.BoundingRectangle.Height -gt 24 * $scale) {
     throw 'Usage category must occupy one line rather than a persistent second source line.'
 }
+if (Get-VisibleDeviceChild $firstRow AutomationId DeviceUsageCategoryIndicator) {
+    throw 'Automatic Unclassified must retain its evidence explanation without an inline info icon.'
+}
 $categoryCell.SetFocus()
 [DevicesReviewInput]::Tap(0x0D)
 $details = Find-DeviceElement UsageCategoryCellDetailsText

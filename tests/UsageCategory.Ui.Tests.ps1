@@ -26,6 +26,14 @@ public static class UsageReviewContrast {
         var value = new HC { Size = (uint)Marshal.SizeOf<HC>(), Flags = flags };
         if (!SystemParametersInfo(0x0043, value.Size, ref value, 2)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
     }
+    [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+    private static extern IntPtr SendMessageTimeout(IntPtr window, uint message, UIntPtr parameter,
+        string setting, uint flags, uint timeout, out UIntPtr result);
+    public static void NotifyTextScaleChanged() {
+        UIntPtr result;
+        if (SendMessageTimeout(new IntPtr(0xffff), 0x001a, UIntPtr.Zero, "Accessibility", 2, 5000, out result) == IntPtr.Zero)
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+    }
 }
 '@
 
@@ -110,6 +118,114 @@ function Find-UsageRow([string] $Name) {
             [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceNameText"))
     if ($cell -and $cell.Current.Name -ceq $Name) { return $rows[0] }
     return $null
+}
+
+function Assert-UsageCell([string] $Name, [string] $Category, [bool] $Indicator, [switch] $Narrow,
+    [switch] $Scaled, [string] $Capture) {
+    (Find-Usage DevicesNavItem).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Wait-Usage {
+        $list = Find-Usage ResultsList -Optional
+        $list -and -not $list.Current.IsOffscreen
+    } "Devices table"
+    (Find-Usage "Search devices" -ByName).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Name)
+    Wait-Usage { Find-UsageRow $Name } "the '$Name' row for its usage badge"
+    $viewport = Find-Usage TableViewport
+    $scroll = $viewport.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+    if ($scroll.Current.HorizontallyScrollable) { $scroll.SetScrollPercent(100, -1) }
+    Wait-Usage {
+        $cell = Find-Usage UsageCategoryCell -Optional
+        $cell -and -not $cell.Current.IsOffscreen -and $cell.Current.Name -like "Usage category: $Category.*"
+    } "visible $Category badge"
+    $cell = Find-Usage UsageCategoryCell
+    $text = Find-Usage DeviceUsageCategoryText
+    $icon = Find-Usage DeviceUsageCategoryIndicator -Optional
+    $scale = [UiReviewNativeWindow]::GetDpiForWindow($script:process.MainWindowHandle) / 96.0
+    $maximumHeight = if ($Scaled) { 48 } else { 24 }
+    $area = $cell.Current.BoundingRectangle
+    $label = $text.Current.BoundingRectangle
+    $hasIcon = $icon -and -not $icon.Current.IsOffscreen -and $icon.Current.BoundingRectangle.Width -gt 0
+    if ($text.Current.Name -ne $Category -or [bool]$hasIcon -ne $Indicator -or
+        [Math]::Abs($area.Width / $scale - 138) -gt 1 -or $area.Height / $scale -gt $maximumHeight -or
+        -not $area.Contains($label)) {
+        throw "The $Category badge must fit the 150-DIP default with its expected indicator and unchanged one-line height."
+    }
+    if ($Scaled -and $label.Height / $scale -lt 24) {
+        throw "The badge must honor the actual Windows text scale rather than disabling scaling."
+    }
+    $header = (Find-Usage UsageCategorySortButton).Current.BoundingRectangle
+    if ([Math]::Abs($header.Width - $area.Width) -gt $scale) { throw "Usage header and cell widths must stay aligned." }
+    if ($Indicator) {
+        $indicatorBounds = $icon.Current.BoundingRectangle
+        $gap = ($indicatorBounds.Left - $label.Right) / $scale
+        if (-not $area.Contains($indicatorBounds) -or $gap -lt 12 -or $gap -gt 14 -or
+            [Math]::Abs(($indicatorBounds.Top + $indicatorBounds.Height / 2) -
+                ($label.Top + $label.Height / 2)) -gt $scale) {
+            throw "The usage indicator must be immediately outside its badge and vertically centered."
+        }
+    }
+    if ($Capture) { Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Capture.png") }
+    if ($Narrow) {
+        $grip = Find-Usage "Resize Usage category column" -ByName
+        $grip.SetFocus()
+        [System.Windows.Forms.SendKeys]::SendWait("{LEFT 11}")
+        Wait-Usage { [Math]::Abs((Find-Usage UsageCategoryCell).Current.BoundingRectangle.Width / $scale - 50) -le 1 } "62-DIP manual usage width"
+        $cell = Find-Usage UsageCategoryCell
+        $text = Find-Usage DeviceUsageCategoryText
+        if (-not $cell.Current.BoundingRectangle.Contains($text.Current.BoundingRectangle)) {
+            throw "The badge text must trim inside a manually narrowed column."
+        }
+        if ($Indicator -and -not $cell.Current.BoundingRectangle.Contains((Find-Usage DeviceUsageCategoryIndicator).Current.BoundingRectangle)) {
+            throw "Narrowing the column must retain its indicator beside the trimmed badge."
+        }
+        if ($Capture) {
+            Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Capture-narrow.png")
+        }
+    }
+    $cell.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+    Wait-Usage { Find-Usage UsageCategoryCellDetailsText -Optional } "keyboard-opened usage explanation"
+    if ((Find-Usage UsageCategoryCellDetailsText).Current.Name -ne $cell.Current.HelpText -or
+        $cell.Current.HelpText -notlike "*Usage estimates depend on when scans run*") {
+        throw "Every badge, even without an icon or when trimmed, must expose its complete accessible explanation."
+    }
+    [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
+    if ($Narrow) {
+        $grip = Find-Usage "Resize Usage category column" -ByName
+        $grip.SetFocus()
+        [System.Windows.Forms.SendKeys]::SendWait("{RIGHT 11}")
+        Wait-Usage { [Math]::Abs((Find-Usage UsageCategoryCell).Current.BoundingRectangle.Width / $scale - 138) -le 1 } "restored 150-DIP usage width"
+    }
+    Open-UsageDevice $Name
+}
+
+function Test-UsageTextScaling {
+    $settings = [Windows.UI.ViewManagement.UISettings, Windows.UI.ViewManagement, ContentType = WindowsRuntime]::new()
+    $originalScale = $settings.TextScaleFactor
+    $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\Microsoft\Accessibility')
+    $originalValue = $key.GetValue('TextScaleFactor', $null)
+    $originalKind = if ($null -ne $originalValue) { $key.GetValueKind('TextScaleFactor') } else { $null }
+    $failed = $true
+    try {
+        Stop-UsageApp
+        $key.SetValue('TextScaleFactor', 200, [Microsoft.Win32.RegistryValueKind]::DWord)
+        [UsageReviewContrast]::NotifyTextScaleChanged()
+        Wait-Usage { [Math]::Abs($settings.TextScaleFactor - 2) -lt 0.01 } "effective Windows text scale of 200 percent"
+        Start-UsageApp
+        Assert-UsageCell "Concurrent name" Permanent $true -Narrow -Scaled -Capture "usage-badge-text-scale-200"
+        $failed = $false
+    }
+    finally {
+        Invoke-UiRegressionCleanup -PrimaryFailed $failed -Steps @(
+            { Stop-UsageApp },
+            {
+                if ($null -eq $originalValue) { $key.DeleteValue('TextScaleFactor', $false) }
+                else { $key.SetValue('TextScaleFactor', $originalValue, $originalKind) }
+                [UsageReviewContrast]::NotifyTextScaleChanged()
+                Wait-Usage { [Math]::Abs($settings.TextScaleFactor - $originalScale) -lt 0.01 } "restored Windows text scale"
+            },
+            { $key.Dispose() }
+        )
+    }
 }
 
 function Find-UsageSettings {
@@ -275,7 +391,7 @@ try {
     $env:FINGVIBE_UI_REVIEW_NETWORK = "ui-review-network"
     $phase = Step-UiRegressionPhase $phase "usage/save-cancel-failure" $ScreenshotDirectory
     Start-UsageApp
-    Open-UsageDevice
+    Assert-UsageCell "Usage laptop" Permanent $true -Narrow -Capture "usage-provisional-badge"
     if (Find-Usage UsageCategoryPicker -Optional) { throw "Read mode must not expose the category editor." }
     Assert-Usage Permanent "Auto - limited evidence"
     if ((Find-Usage UsageCategoryEvidence).Current.Name -notlike "*12 of 14 eligible scans responded (86%)*") {
@@ -294,6 +410,13 @@ try {
     Save-UsageCapture "usage-save-error" UsageCategoryError
     $lock.Dispose()
     $lock = $null
+    Invoke-Usage UsageCategorySave
+    Assert-Usage Personal "Manual override"
+    Choose-Usage Unclassified
+    Invoke-Usage UsageCategorySave
+    Assert-Usage Unclassified "Manual override"
+    Assert-UsageCell "Usage laptop" Unclassified $true -Capture "usage-manual-unclassified-badge"
+    Choose-Usage Personal
     Invoke-Usage UsageCategorySave
     Assert-Usage Personal "Manual override"
     Stop-UsageApp
@@ -332,13 +455,14 @@ try {
     Assert-Usage Permanent "Auto"
     Open-UsageDevice "Usage imported"
     Assert-Usage Unclassified "Auto - no eligible scans"
+    Assert-UsageCell "Usage imported" Unclassified $false -Narrow -Capture "usage-unclassified-badge"
     if ((Find-Usage UsageCategoryEvidence).Current.Name -match '%') { throw "No evidence must not fabricate a percentage." }
     Save-UsageCapture "usage-no-evidence"
     $phase = Step-UiRegressionPhase $phase "usage/themes-narrow" $ScreenshotDirectory
     foreach ($theme in @("Standard Light", "Standard Dark")) {
         Select-UsageSettings
         Set-UiReviewTheme -Root $script:root -Theme $theme
-        Open-UsageDevice "Concurrent name"
+        Assert-UsageCell "Concurrent name" Permanent $true -Capture "usage-badge-$($theme.Replace(' ', '-'))"
         $bounds = Get-UiReviewWindowBounds $script:process.MainWindowHandle
         foreach ($width in @($bounds.Width, 640)) {
             if (-not [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
@@ -373,8 +497,11 @@ try {
     } "keyboard category selection"
     Invoke-Usage UsageCategoryCancel
     Assert-Usage Permanent "Auto"
+    Assert-UsageCell "Concurrent name" Permanent $true -Capture "usage-badge-high-contrast"
     [UsageReviewContrast]::Set($contrast)
     $contrast = $null
+    $phase = Step-UiRegressionPhase $phase "usage/text-scaling" $ScreenshotDirectory
+    Test-UsageTextScaling
     $phase = Step-UiRegressionPhase $phase $null $ScreenshotDirectory
     Write-Host "Usage-category inference, Save/Cancel, failed draft, restart, conflict reload, unavailable/no evidence, themes, contrast and narrow keyboard-accessible controls passed."
 }

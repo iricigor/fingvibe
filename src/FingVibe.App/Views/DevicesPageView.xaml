@@ -10,12 +10,21 @@
         <ResourceDictionary.ThemeDictionaries>
             <ResourceDictionary x:Key="Light">
                 <SolidColorBrush x:Key="CellHoverTextBrush" Color="#005A9E" />
+                <SolidColorBrush x:Key="UsageCategoryBadgeBackgroundBrush" Color="#0B000000" />
+                <SolidColorBrush x:Key="UsageCategoryBadgeTintBrush" Color="#1A2563EB" />
+                <SolidColorBrush x:Key="UsageCategoryBadgeStrokeBrush" Color="Transparent" />
             </ResourceDictionary>
             <ResourceDictionary x:Key="Dark">
                 <SolidColorBrush x:Key="CellHoverTextBrush" Color="#A8DFFF" />
+                <SolidColorBrush x:Key="UsageCategoryBadgeBackgroundBrush" Color="#12FFFFFF" />
+                <SolidColorBrush x:Key="UsageCategoryBadgeTintBrush" Color="#334F83F1" />
+                <SolidColorBrush x:Key="UsageCategoryBadgeStrokeBrush" Color="Transparent" />
             </ResourceDictionary>
             <ResourceDictionary x:Key="HighContrast">
                 <SolidColorBrush x:Key="CellHoverTextBrush" Color="{ThemeResource SystemColorHotlightColor}" />
+                <SolidColorBrush x:Key="UsageCategoryBadgeBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                <SolidColorBrush x:Key="UsageCategoryBadgeTintBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                <SolidColorBrush x:Key="UsageCategoryBadgeStrokeBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
             </ResourceDictionary>
         </ResourceDictionary.ThemeDictionaries>
         <DataTemplate x:Key="MacTemplate" x:DataType="local:ScanResultRow">
@@ -754,16 +763,28 @@
                                                                MaxWidth="360" TextWrapping="Wrap" />
                                                 </Flyout>
                                             </Button.Flyout>
-                                            <Grid ColumnSpacing="6">
+                                            <Grid HorizontalAlignment="Left">
                                                 <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
                                                     <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock x:Name="DeviceUsageCategoryText" Text="{x:Bind UsageCategoryCellText, Mode=OneWay}"
-                                                           FontWeight="SemiBold" TextTrimming="CharacterEllipsis"
-                                                           Opacity="{x:Bind UsageCategoryOpacity, Mode=OneWay}" />
-                                                <FontIcon Grid.Column="1" Glyph="{x:Bind UsageCategoryIndicatorGlyph, Mode=OneWay}"
-                                                          FontFamily="Segoe Fluent Icons" FontSize="12"
+                                                <Border CornerRadius="3" BorderThickness="1" VerticalAlignment="Center"
+                                                        MaxWidth="{x:Bind local:DeviceColumnLayoutHelpers.UsageCategoryBadgeMaximumWidth(Columns.UsageCategory.Width, HasUsageCategoryIndicator), Mode=OneWay}"
+                                                        Background="{ThemeResource UsageCategoryBadgeBackgroundBrush}"
+                                                        BorderBrush="{ThemeResource UsageCategoryBadgeStrokeBrush}">
+                                                    <Grid>
+                                                        <Border CornerRadius="2" Background="{ThemeResource UsageCategoryBadgeTintBrush}"
+                                                                Visibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(HasClassifiedUsageCategory), Mode=OneWay}" />
+                                                        <TextBlock x:Name="DeviceUsageCategoryText" Text="{x:Bind UsageCategoryCellText, Mode=OneWay}"
+                                                                   Margin="6,2" FontSize="12" FontWeight="SemiBold"
+                                                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                                                   VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                    </Grid>
+                                                </Border>
+                                                <FontIcon x:Name="DeviceUsageCategoryIndicator" Grid.Column="1"
+                                                          Glyph="{x:Bind UsageCategoryIndicatorGlyph, Mode=OneWay}"
+                                                          FontFamily="Segoe Fluent Icons" FontSize="12" Width="12" Height="12"
+                                                          Margin="6,0,0,0" VerticalAlignment="Center" IsTextScaleFactorEnabled="False"
                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                                           AutomationProperties.AccessibilityView="Raw"
                                                           Visibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(HasUsageCategoryIndicator), Mode=OneWay}" />
