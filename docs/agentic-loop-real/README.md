@@ -302,6 +302,16 @@ unstarted initial implementations. See the contract for recovery modes,
 independent blocked claims, backlog readmission and separately evidenced human
 delivery. These helpers validate record shape, not the truth of host observations.
 
+Historical manual completion has a separate bounded
+[automatic reconciliation path](../dispatcher-preflight.md#automatic-historical-completion-reconciliation):
+after completed issue closure and all intended PR closure/merge events are
+strictly older than 30 minutes, check current work and publish/verify one
+self-healing completion notice. Reuse matching notices on later ticks.
+Unavailable historical termination metadata alone does not require human
+recovery; preserve that uncertainty instead of inventing claims or termination
+proof. Genuine unresolved structured handoffs retain the recovery rules above.
+This does not authorize reopen/revert operations or restarting the loop.
+
 The next choice in [#224](https://github.com/iricigor/fingvibe/issues/224)
 remains **unresolved**: Architect-driven recovery/self-healing versus
 Tester-driven continuous PR validation. Neither is selected, installed or

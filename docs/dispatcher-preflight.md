@@ -1,7 +1,7 @@
 # Dispatcher preflight
 
 The local Dispatcher uses `.github\scripts\Get-DispatcherPreflight.ps1` after
-acquiring its existing serialization gate. This PowerShell 7 helper replaces
+acquiring its existing serialization gate. This PowerShell 7.5+ helper replaces
 repeated repository-wide discovery with one cached, fully paginated GitHub
 collection and compact JSON guidance. It is not a new dispatcher or an
 authorization/ownership service.
@@ -62,7 +62,7 @@ default branch. Parentless records appear in `skipped` with an explicit separate
 Epic-organization requirement; this does not waive native membership for intake
 or authorize historical migration. API failures, omitted/malformed fields,
 non-Epic parents and contradictions with native children do not qualify.
-Within-Epic cleanup still blocks.
+Within-Epic history uses the 30-minute completion reconciliation below.
 Unresolved structured claims always hold capacity, even on closed issues.
 Prose cues are intentionally conservative and can require Dispatcher judgment;
 the helper does not automatically release ownership or prove a worker stopped.
@@ -94,7 +94,7 @@ Use current task discussions and linked reconciliation reports to verify:
 | Authorization/progress prose mentioning ownership | Not itself a task claim; check for actual task claims and live work. |
 
 Closure, a final worker message or absent session discovery alone proves none
-of these dispositions. Unresolved claims and unknown execution still block.
+of these dispositions. Genuine unresolved claims and uncertain live handoffs still block.
 Human acceptance/abandonment must not silently satisfy an implementation
 prerequisite. Missing or contradictory evidence stops pickup.
 
@@ -106,6 +106,70 @@ The helper intentionally still returns review findings it cannot certify; no
 new override parameter, automatic ownership release or comment deletion is
 needed. Collection failures and genuine occupied/uncertain capacity cannot be
 overridden. Do not repeatedly recollect unchanged history hoping for `candidate`.
+
+### Automatic historical completion reconciliation
+
+For historical **manual** work within the selected Epic, Dispatcher automatically
+repairs missing completion bookkeeping rather than asking a human to prove that
+an old session stopped. This is a policy-based disposition, not termination proof
+or general orphan recovery. Do not invent a missing implementation claim.
+
+Preflight verifies native membership, current completed issue closure, and the
+complete intended closing-PR set merged into the default branch. It reads
+timezone-qualified issue `closedAt` and each PR's `closedAt` and `mergedAt`.
+All events must be **strictly more than 30 minutes old**: use the latest event,
+not the first closure or the issue's update time. Exactly 30 minutes is too soon.
+Missing, invalid or future timestamps, reopened/not-planned issues, unmerged
+or wrong-target PRs and failed collection do not qualify.
+
+| Finding | Dispatcher action |
+| --- | --- |
+| `historical-grace-period` | Defer this reconciliation until after `completion.eligibleAfterUtc`; report the wait without adding `human-task` or launching work. |
+| `historical-self-heal` | Inspect current work, then publish and verify the self-healing notice below. No human approval per historical task is required. |
+| Previously reconciled history in `skipped` | Reuse the linked notice after verifying its author/provenance and checking for current conflicting work; do not post another notice. |
+
+Before healing or reusing a notice, inspect current repository claims/open PRs
+and available correlated host execution information. Positive active-work
+evidence, a genuine retained structured claim, unresolved launch/handoff,
+contradictory evidence or failed current-work collection still blocks.
+An archived/undiscoverable historical manual session or unavailable historical
+termination endpoint **alone** does not block this path. Record which inspection
+was possible and the remaining uncertainty; never assert verified termination.
+Do not treat an API failure as an empty result.
+
+Under the existing owned Dispatcher gate, freshly recheck issue closure,
+intended PR delivery/timestamps and current work before writing. Post a short
+task comment such as: "Self-healing historical completion bookkeeping after the
+30-minute grace period. Delivery is verified and current checks found no
+correlated ongoing work. Historical termination is not proven. Manual ownership
+is reconciled by policy." Include the following marker and exactly one JSON
+block using `finding.completion.record`:
+
+```text
+<!-- fingvibe-historical-completion-v1 -->
+```
+
+Populate `checkedUtc` with the actual inspection time and fill `evidence` with
+nonempty traceable references/descriptions for the delivery and current-work
+checks (including host scope/limitations). Preserve the template's repository,
+task, target branch, issue-closure instant and complete PR timestamp set.
+Publish as a verified repository owner/member/collaborator and read the comment
+back to verify both its body and author. Preserve original claim/progress prose;
+clear and verify only stale `active`/`status:review` labels on the closed issue,
+if present. Do not alter unrelated labels, ownership records or repair counters.
+Record the notice URL in the tick diagnostics and link the brief Epic outcome.
+
+Only after publication/readback and cleanup may Dispatcher mark that cached
+finding reconciled and continue normal queue selection/fresh capacity checks.
+Do not wait for preflight to return `candidate` or recollect the whole repository.
+A later preflight revalidates delivery and reuses a matching trusted notice;
+changed issue closure or PR delivery invalidates it. The notice never overrides
+open PRs, open active/review work or genuine unresolved claims.
+
+This path does not adopt/release real-task or other structured handoffs: those
+retain their owning workflow's stopped-execution/recovery rules. Reopening
+issues or undoing/reverting merged PRs is outside the loop, while it is stopped.
+No automatic restart, replacement, merge or schedule authority is granted.
 
 ### Ordering and dependencies
 

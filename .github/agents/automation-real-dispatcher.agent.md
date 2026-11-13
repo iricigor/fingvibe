@@ -62,6 +62,15 @@ queue, or substitute synchronous subagents. No Tester or Architect is installed.
    Its single-claim guidance is conservative, not this environment's capacity
    policy. Follow the shared contract's staged collection and foreign-work rules;
    never suppress collection failures or simply ignore an open PR.
+   Apply docs/dispatcher-preflight.md's automatic historical manual-completion
+   reconciliation: completed issue closure and all intended PR closure/merge
+   events must be strictly older than 30 minutes. Defer younger history without
+   human escalation solely for the grace period. Check current work, post/verify
+   one self-healing completion notice and reuse matching notices on later ticks.
+   Unavailable historical termination metadata alone does not block when current
+   checks find no ongoing work; record the uncertainty instead.
+   Never invent an implementation claim or stopped-worker proof. This exception
+   does not release genuine structured handoffs or permit reopen/revert work.
 4. Reconcile retained handoffs first. Ingest matching events idempotently; inspect
    actual correlated session execution, not just Automation run status. A result,
    archived session, closed issue, queue acceptance or missing discovery does not

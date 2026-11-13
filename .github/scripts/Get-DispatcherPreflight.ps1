@@ -34,6 +34,7 @@ function Get-DispatcherPreflight {
         [int] $Epic,
         [int[]] $TaskOrder,
         [string] $OrderEvidenceUrl,
+        [DateTimeOffset] $Now = [DateTimeOffset]::UtcNow,
         [scriptblock] $ApiReader = ${function:Invoke-DispatcherGitHubRead}
     )
 
@@ -57,7 +58,7 @@ function Get-DispatcherPreflight {
         if ($json -isnot [string] -or [string]::IsNullOrWhiteSpace($json)) {
             throw "GitHub reader must return one nonempty JSON string: $Endpoint."
         }
-        $parsed = ConvertFrom-Json -InputObject $json -Depth 100 -NoEnumerate
+        $parsed = ConvertFrom-Json -InputObject $json -Depth 100 -NoEnumerate -DateKind String
         if ($Paginated) {
             if (-not $json.TrimStart().StartsWith("[") -or
                 @($parsed | Where-Object { $_ -isnot [array] }).Count -gt 0) {
@@ -90,13 +91,14 @@ function Get-DispatcherPreflight {
         $seenCursors = @{}
         $parent = $null
         $membershipRead = $false
+        $closure = $null
         do {
             $after = if ($cursor) { ',after:"' + $cursor + '"' } else { "" }
             $query = 'query { repository(owner:"' + $parts[0] + '",name:"' + $parts[1] +
                 '") { issue(number:' + $Number +
-                ') { number parent { number labels(first:100) { nodes { name } pageInfo { hasNextPage } } }' +
+                ') { number state stateReason closedAt parent { number labels(first:100) { nodes { name } pageInfo { hasNextPage } } }' +
                 ' closedByPullRequestsReferences(first:100' + $after +
-                ') { nodes { number url merged baseRefName state } pageInfo { hasNextPage endCursor } } } } }'
+                ') { nodes { number url merged mergedAt closedAt baseRefName state } pageInfo { hasNextPage endCursor } } } } }'
             $response = Read-DispatcherEvidence "graphql" $false $query
             $issue = $response.data.repository.issue
             if ($response.errors -or $null -eq $issue -or $issue.number -ne $Number -or
@@ -115,6 +117,11 @@ function Get-DispatcherPreflight {
                 (-not $childNumbers.ContainsKey($Number) -and $issue.parent.number -eq $Epic)) {
                 throw "Inconsistent native membership evidence for #$Number."
             }
+            $currentClosure = "$($issue.state)|$($issue.stateReason)|$($issue.closedAt)"
+            if ($membershipRead -and $currentClosure -cne $closure) {
+                throw "Issue closure changed during delivery pagination for #$Number."
+            }
+            $closure = $currentClosure
             $parent = $issue.parent
             $membershipRead = $true
             foreach ($pr in $issue.closedByPullRequestsReferences.nodes) { $pulls.Add($pr) }
@@ -129,9 +136,95 @@ function Get-DispatcherPreflight {
         } while ($page.hasNextPage)
         [pscustomobject]@{
             parent = $parent
+            issue = $issue
             prs = @($pulls)
             delivered = $pulls.Count -gt 0 -and
                 @($pulls | Where-Object { -not $_.merged -or $_.baseRefName -ne $targetBranch }).Count -eq 0
+        }
+    }
+
+    function Read-CompletionTimestamp([object] $Value) {
+        $timestamp = [DateTimeOffset]::MinValue
+        $text = [string] $Value
+        if ($text -notmatch '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$' -or
+            -not [DateTimeOffset]::TryParse($text, [ref] $timestamp) -or $timestamp -gt $Now) {
+            throw "Missing, invalid or future historical completion timestamp: '$text'."
+        }
+        $timestamp
+    }
+
+    function Get-HistoricalCompletion($Issue, $Delivery) {
+        if ($Delivery.issue.state -ne "CLOSED" -or $Delivery.issue.stateReason -ne "COMPLETED") {
+            throw "Historical self-healing requires current completed closure for #$($Issue.number)."
+        }
+        $closed = Read-CompletionTimestamp $Delivery.issue.closedAt
+        $latest = $closed
+        $prEvidence = @(
+            foreach ($pr in ($Delivery.prs | Sort-Object url)) {
+                if ($pr.state -ne "MERGED" -or -not $pr.url) {
+                    throw "Incomplete merged PR evidence for #$($Issue.number)."
+                }
+                $prClosed = Read-CompletionTimestamp $pr.closedAt
+                $merged = Read-CompletionTimestamp $pr.mergedAt
+                if ($merged -gt $prClosed) { throw "PR merge occurs after closure: $($pr.url)." }
+                if ($prClosed -gt $latest) { $latest = $prClosed }
+                if ($merged -gt $latest) { $latest = $merged }
+                [ordered]@{ url = $pr.url; closedUtc = $prClosed.ToUniversalTime().ToString("o"); mergedUtc = $merged.ToUniversalTime().ToString("o") }
+            }
+        )
+        $eligibleAfter = $latest.AddMinutes(30)
+        $record = [ordered]@{
+            schema = "fingvibe-historical-completion-v1"
+            repository = $Repository
+            task = $Issue.number
+            targetBranch = $targetBranch
+            issueClosedUtc = $closed.ToUniversalTime().ToString("o")
+            pullRequests = $prEvidence
+            checkedUtc = $Now.ToUniversalTime().ToString("o")
+            evidence = @()
+        }
+        $notice = $null
+        foreach ($comment in $comments) {
+            if ($comment.issue_url -ne $Issue.url -or
+                $comment.body -notmatch '<!--\s*fingvibe-historical-completion-v1\s*-->') { continue }
+            $blocks = [regex]::Matches($comment.body, '(?s)```json\s*(.*?)\s*```')
+            if ($blocks.Count -ne 1 -or
+                [regex]::Matches($comment.body, '<!--\s*fingvibe-historical-completion-v1\s*-->').Count -ne 1) {
+                throw "Malformed historical reconciliation notice: $($comment.html_url)."
+            }
+            $prior = ConvertFrom-Json -InputObject $blocks[0].Groups[1].Value -Depth 30 -DateKind String
+            if ($comment.author_association -notin @("OWNER", "MEMBER", "COLLABORATOR") -or
+                $prior.schema -ne $record.schema -or $prior.repository -cne $Repository -or
+                $prior.task -ne $Issue.number -or $prior.targetBranch -cne $targetBranch -or
+                $prior.pullRequests -isnot [array] -or $prior.pullRequests.Count -eq 0 -or
+                $prior.evidence -isnot [array] -or $prior.evidence.Count -eq 0 -or
+                @($prior.evidence | Where-Object { $_ -isnot [string] -or [string]::IsNullOrWhiteSpace($_) }).Count -gt 0) {
+                throw "Untrusted/incomplete historical reconciliation notice: $($comment.html_url)."
+            }
+            $checked = Read-CompletionTimestamp $prior.checkedUtc
+            $priorClosed = Read-CompletionTimestamp $prior.issueClosedUtc
+            $priorPrs = @(
+                foreach ($pr in ($prior.pullRequests | Sort-Object url)) {
+                    if (-not $pr.url) { throw "Missing PR URL in historical reconciliation: $($comment.html_url)." }
+                    [ordered]@{
+                        url = $pr.url
+                        closedUtc = (Read-CompletionTimestamp $pr.closedUtc).ToUniversalTime().ToString("o")
+                        mergedUtc = (Read-CompletionTimestamp $pr.mergedUtc).ToUniversalTime().ToString("o")
+                    }
+                }
+            )
+            if ($priorClosed -eq $closed -and
+                (ConvertTo-Json -InputObject $priorPrs -Depth 10 -Compress) -ceq
+                    (ConvertTo-Json -InputObject $prEvidence -Depth 10 -Compress) -and
+                $checked -gt $eligibleAfter) {
+                $notice = $comment.html_url
+            }
+        }
+        [pscustomobject]@{
+            eligibleAfterUtc = $eligibleAfter.ToUniversalTime().ToString("o")
+            eligible = $Now -gt $eligibleAfter
+            notice = $notice
+            record = $record
         }
     }
 
@@ -311,7 +404,27 @@ function Get-DispatcherPreflight {
                 } elseif (-not $delivery.delivered) {
                     Add-DispatcherFinding "historical-delivery-unknown" $issue.number $issue.html_url "No complete merged closing-PR evidence; closure is not delivery."
                 } elseif ($delivery.parent.number -eq $Epic) {
-                    Add-DispatcherFinding "historical-cleanup" $issue.number $issue.html_url "Within-Epic historical ownership/labels require human reconciliation."
+                    $realClaims = @($comments | Where-Object {
+                        $_.issue_url -eq $issue.url -and $_.body -match '<!--\s*fingvibe-real-claim-v1\s*-->'
+                    })
+                    if ($realClaims.Count -gt 0) {
+                        Add-DispatcherFinding "historical-cleanup" $issue.number $issue.html_url "Structured real-task history requires its owning workflow; manual self-healing cannot release it."
+                        continue
+                    }
+                    $completion = Get-HistoricalCompletion $issue $delivery
+                    if ($completion.notice) {
+                        $skipped.Add([pscustomobject]@{
+                            issue = $issue.number
+                            reason = "Historical completion reconciled by policy, not proof of termination. Recheck current work and notice provenance."
+                            evidence = @($completion.notice) + @($delivery.prs.url)
+                        })
+                    } else {
+                        $kind = if ($completion.eligible) { "historical-self-heal" } else { "historical-grace-period" }
+                        Add-DispatcherFinding $kind $issue.number $issue.html_url (
+                            "Completion must be strictly older than 30 minutes (after $($completion.eligibleAfterUtc)). " +
+                            "Check current work; then post/verify one self-healing notice, not an implementation claim. No historical termination proof required.")
+                        $findings[$findings.Count - 1] | Add-Member -NotePropertyName completion -NotePropertyValue $completion
+                    }
                 } else {
                     $skipped.Add([pscustomobject]@{
                         issue = $issue.number

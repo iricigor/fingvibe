@@ -49,6 +49,20 @@ Verified independent external work may coexist only after required conflict
 confirmation; unknown execution/shared risk blocks affected actions. Never
 reset old counters, clear foreign labels or move issues between Epics.
 
+The bounded exception is historical **manual** completion reconciliation, not
+foreign structured-claim adoption. Follow the
+[30-minute completion procedure](../dispatcher-preflight.md#automatic-historical-completion-reconciliation):
+verify current completed closure and intended merged PRs, wait strictly more
+than 30 minutes after all closure/merge events, inspect current work, and
+post/read back one policy-based self-healing notice. Missing historical
+termination metadata alone does not require a human task when current checks
+find no ongoing work. Preserve uncertainty and original history; do not invent
+claims, stopped-execution proof or events. Reuse matching notices without
+duplicates; revalidate changed delivery/closure. Failed collection, positive
+live-work evidence and unresolved structured handoffs remain blockers.
+Only stale closed-issue active/review labels may be cleared and verified by this
+procedure. Reopening or undoing/reverting merged work is outside the stopped loop.
+
 ## Schemas and transition authority
 
 PowerShell helpers consume JSON objects as hashtables, preserving string dates.

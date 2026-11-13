@@ -67,8 +67,22 @@ report its missing Epic organization separately for human-approved reconciliatio
 This does not waive the repository's native Epic membership requirement for issue
 intake or permit automatic historical migration. API failures, missing fields,
 non-Epic parents and contradictory membership are not verified absence.
-Within-Epic historical cleanup still requires reconciliation, not automatic
-label removal or ownership release.
+Within-Epic historical manual completion uses automatic reconciliation after
+the current completed issue closure and every intended PR closure/merge are
+strictly more than 30 minutes old. Dispatcher checks current claims/open PRs
+and available correlated execution information, then posts and verifies one
+self-healing notice and clears/verifies only stale active/review labels.
+With no positive ongoing-work evidence, unavailable historical termination
+metadata alone is not a human task. Record policy-based reconciliation and
+its uncertainty, not proven termination; never fabricate a missing claim.
+Reuse matching notices on later ticks after current checks, without duplicates.
+Changed closure/delivery invalidates the prior disposition. The grace period
+requires deferral, not human escalation. Failed current-work collection,
+contradictory evidence and genuine unresolved claims/launches still block;
+structured handoffs retain stopped-execution requirements. See the exact
+[completion procedure](dispatcher-preflight.md#automatic-historical-completion-reconciliation).
+Reopening issues and undoing/reverting merged PRs remain outside the stopped
+loop, not automatic Dispatcher work.
 This exception does not weaken the release requirements for genuine claims or
 change the broader scheduled Actions policy.
 
@@ -81,7 +95,7 @@ implementation delivery for dependencies. Epic progress reports and authorizatio
 prose are not task claims. Once every finding is reconciled, Dispatcher records
 the finding/disposition/evidence and may select from the cached native inventory,
 still checking order, prerequisites, authorization and fresh live capacity.
-No collection failure, genuine claim, live work or uncertain execution may be
+No collection failure, genuine claim, live work or uncertain live handoff may be
 overridden; do not delete comments or fabricate claims/closing PRs to silence
 historical findings. See the [preflight review path](dispatcher-preflight.md#reviewing-historical-findings).
 
