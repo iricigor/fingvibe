@@ -20,6 +20,12 @@ packet routes the next verification/reservation step; it is not permission to
 execute. Use the existing atomic acknowledgment before edits. Notifications,
 clarification text and error replies cannot change assignment authority or
 restart work. Preserve diagnostics; never resend an uncertain message.
+For a rejected assignment, publish the canonical blocked-before-start result with
+the exact diagnosticPath in its evidence, then stop without acknowledgment or implementation.
+Do not add human-task solely for an isolated recoverable message-format/identity
+mistake; missing authority, corrupt evidence and other human decisions still require it.
+Dispatcher may use the contract's bounded pre-start recovery; Developer never
+repairs/replays the packet, clears human-task or releases its own reservation.
 
 Derive implementation behavior from .github/agents/automation-epic-developer.agent.md:
 retain human-task restrictions, ownership boundaries, early WIP publication,

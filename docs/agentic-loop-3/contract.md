@@ -36,8 +36,9 @@ occupy a worker. Unknown execution holds its worker, not necessarily the other
 one: continuing requires evidence of independent execution and compatible scope.
 
 Reconcile all retained work first; eligible finalize/repair precedes new work.
-Launch at most one new handoff per tick. Safe independence considers planned
-scope and actual diffs, shared files/models/contracts, dependency delivery,
+Reserve at most two new handoffs in one batch per tick, one per free Developer.
+Safe independence considers planned scope and actual diffs, shared
+files/models/contracts, dependency delivery,
 tests, base changes and integration order, not filenames alone. A later merge
 can stale another PR's validation: refresh base/head evidence before finalizing.
 No conflict repair or base-update commit occurs in finalize; route an authorized
@@ -123,8 +124,9 @@ source before each consequential write; Developer repeats these checks before
 atomic acknowledgment. No acknowledgment is needed merely to inspect approval.
 
 This preflight neither reconciles an existing blocked claim nor authorizes
-replacement work. Preserve existing configuration/history and use the explicit
-human recovery procedure for retained handoffs. Where the owner explicitly
+replacement work. Preserve existing configuration/history and use the applicable
+recovery procedure below for retained handoffs. Existing human-task work remains
+owner-controlled. Where the owner explicitly
 supplies approval during recovery, both roles inspect that retained original
 approval URL as supplemental recovery evidence and compare its permissions to
 the configured authorization; do not overwrite the immutable authorization
@@ -254,9 +256,116 @@ checks. Original events, identities, counters and transitions remain unchanged.
 Only `no-launch` and `pre-start-rejected` initial implementations can additionally
 receive explicit `-RestartImplementation` approval. This permits a fresh initial
 handoff ID, preserving the abandoned history and repair count. A stopped coding
-run is not a pre-start failure. Without explicit restart approval, no replacement
-is allowed. Late unindexed events cannot reopen recovered handoffs, and an
-already ingested event remains an idempotent duplicate.
+run is not a pre-start failure. Without explicit restart approval or the bounded
+message-recovery policy below, no replacement is allowed. Late unindexed events
+cannot reopen recovered handoffs, and an already ingested event remains an
+idempotent duplicate.
+
+### Bounded pre-start message recovery
+
+Only Dispatcher may use `Repair-Agent3RejectedHandoff`. A rejected packet still
+has operation `none`; no error reply, notification, discovery or diagnostic
+authorizes execution. Independently trace the actual rejected assignment and
+inspect the original owner decision, current labels, task context/head and actual
+host identities. An owner kickoff is not transport identity: scheduled Dispatcher
+messages require their actual Automation/run/session, not manual null values.
+
+Automatic reconciliation requires all of:
+
+- The latest handoff has an ingested canonical `blocked-before-start` result,
+  no acknowledgment in state or the canonical event directory, and fresh actual
+  stopped-session evidence. Unknown, missing or merely archived execution does
+  not qualify.
+- Its canonical protocol diagnostic is `invalid-json`, `invalid-message` or
+  `identity-mismatch` and binds the independently observed configured worker,
+  run and session. Verify that this is an isolated formatting/identity mistake,
+  not changed task scope, sender authority, corrupt records or a wrong worker.
+  Authority/correlation mismatch, publication/hash conflicts and unavailable
+  evidence are not automatically recoverable.
+- Original implementation permission and task context/head remain unchanged;
+  the owner decision is freshly verified by both roles before new execution.
+  No human-task label or unresolved material conflict is present.
+
+Do not apply human-task solely for such an isolated recoverable rejection;
+record blocked-before-start and let Dispatcher verify stopping and the recovery
+conditions. Include the exact absolute `diagnosticPath` in the canonical result's
+event or result evidence; an unrelated diagnostic with the same worker identity
+is insufficient. Genuine human decisions and exhausted recovery still require it.
+
+Pass `-Directory`, `-DiagnosticPath`, the unchanged `-Authorization` and
+`-ExpectedHead`, plus nonempty `-Evidence` tracing the fresh host, authority,
+labels, task-context and failure-cause inspections. The helper reads the
+canonical diagnostic/result, verifies its retained event hash and rejects any
+canonical acknowledgment. Evidence shape is not proof of those observations.
+
+At most **two automatic message recoveries cumulatively per claim** are allowed,
+across workers, revisions and repair attempts. The third rejection requires
+human action, retaining occupancy/ownership. The helper reuses the existing
+`recovery` shape with `authorization` exactly
+`policy://agent3/pre-start-message-recovery-v1`; count those immutable records,
+not ticks or retries. This explicit policy uses the existing schema without
+migrating state, changing configured authorization or overwriting human recovery.
+Repeated recovery of the same handoff is a no-op; late events remain rejected.
+
+Reconciliation leaves the task blocked and releases only its proven stopped
+worker reservation. It is not an assignment or task delivery. Fresh blocker
+resolution permits a new handoff with a new ID. An unstarted initial implementation
+gets `restartImplementation: true` under this narrow policy; a rejected repair
+retains its consumed repair attempt and any subsequent repair consumes the next.
+Finalizers still require a new meaningful validation snapshot and cannot repeat
+the same head/evidence. Never replay/rewrite the old packet, decrement repair
+counts, restart uncertain launches or automatically clear existing human-task.
+In particular, this source change does not recover #251's human-labeled claim.
+
+### Compatible queue scanning and batch reservation
+
+Treat ascending issue number as a preference, not a delivery dependency.
+Scan the complete eligible direct-child queue until each free worker has a safe
+assignment or the queue is exhausted. Human-task, undelivered dependencies,
+incompatible scope and unavailable candidate-specific evidence exclude that
+candidate; they do not hide later independently verified work. Explicit human
+execution/delivery order remains a hard gate, including any predecessor it
+requires. Failed repository-wide evidence collection or unknown shared risk
+still blocks affected scheduling; never reinterpret failure as independence.
+
+Use `New-Agent3DispatchBatch` with `-State`, `-Candidates` and `-AssessCandidate`.
+Each candidate is an ephemeral closed object
+`{ issue, action, claimId, feedback[], priorRepairEvidence[] }`; `claimId`
+is null for new implementation and exact for retained repair/finalize or a
+permitted unstarted initial replacement. Existing replacement guards still apply.
+The helper prioritizes finalize, then repair, then implementation, preserving supplied order
+within each action. Supply only actions currently available under the shared
+transition guards; candidate ordering does not grant eligibility.
+
+The callback receives `(candidate, plannedState, workerId)` and must return exactly
+`{ eligible: bool, compatible: bool, reason: string, evidence: string[] }`.
+Verify authority, native membership/dependencies, explicit ordering, labels,
+current scope/head and supported same-task context reuse for that worker.
+Assess actual retained/external diffs and both planned task scopes: `plannedState`
+includes earlier reservations. A positive result needs traceable observations,
+not guessed booleans. Candidate-specific exclusions need reasons/evidence;
+throw on incomplete global evidence or failed assessment. The helper cannot
+discover host capabilities or authenticate these observations.
+
+The helper builds a detached candidate state, preserving its input even if
+planning fails. It returns `state`, `expectedRevision`, `reservations`, `skipped`
+and `idleWorkers`. Up to two handoffs are already `launch-requested`; a nonempty
+batch increments the revision once. Empty batches do not publish a revision.
+Freshly verify the whole plan before `Publish-Agent3State` under the existing
+repository gate, then read back both reservations and post/verify all GitHub
+claims/lifecycle mirrors before either launch. A failed/uncertain publication or
+partial mirror holds every reservation and blocks launch pending reconciliation.
+
+Launch independently, concurrently when supported by the actual host. Sequential
+host APIs may launch them back-to-back without reselecting or rereading local
+capacity between launches: both reservations are already durable. Launch results
+are not an atomic transaction. Record each actual run/session separately, publish
+correlation and prepare/deliver each strict assignment after fresh state,
+authority/label/head checks. A first launch's failure/uncertainty retains its
+reservation; the second may proceed only while its established independence and
+authority remain valid. Never retry an uncertain start or add another batch in
+the same tick. Record assigned/idle reasons per worker and candidate exclusions,
+not unchanged heartbeat comments.
 
 ### Assignment: `fingvibe-real-assignment-v1`
 
@@ -485,8 +594,8 @@ worker/revision/finalizer/tick changes. Attempt 1 is targeted diagnosis; 2-12
 reassess prior outcomes, challenge failed assumptions and choose evidence-backed
 approaches. Prior repair evidence is mandatory after attempt 1. Repeating an
 approach requires new evidence, not arbitrary different edits or blind retries.
-The human-approved replacement of a proven unstarted initial handoff described
-above preserves that history; it is not an additional executed implementation
+The human-approved or bounded-policy replacement of a proven unstarted initial
+handoff described above preserves that history; it is not an additional executed implementation
 or a reset of the repair allowance.
 
 Every repair verifies preceding execution stopped, exact existing task
@@ -506,7 +615,8 @@ Recovery is narrower than repair:
 - Never automatically retry uncertain writes, launches or assignment messages;
   never expire claims/gates, replace unknown workers, reset state or silently
   repeat a task. Definite pre-start failure still needs stopped proof and human
-  reconciliation before a replacement handoff.
+  reconciliation unless every bounded pre-start message-recovery condition above
+  is satisfied.
 - Missing capabilities, corrupt authority, exhausted repairs, material conflicts
   or scope changes stop the affected action. Preserve claims/evidence, explicitly
   identify next human owner/action and isolate safe independent work only when

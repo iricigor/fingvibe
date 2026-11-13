@@ -30,6 +30,13 @@ Collection errors remain explicit blockers. Accepted design/trial scope,
 abandonment and transferred ideas require their own evidence review; this
 completion policy does not invent merged PRs for them.
 
+Do not use the collector's first candidate or retained-work `reconcile` decision
+as a one-task scheduling limit. Complete any still-needed native queue/dependency
+inspection, then follow the contract's
+[compatible queue scanning and batch reservation](contract.md#compatible-queue-scanning-and-batch-reservation).
+Up to two assessed handoffs may be reserved together; an incompatible earlier
+candidate does not automatically block independent later work.
+
 ## Automatic historical completion reconciliation
 
 For historical **manual** work within the selected Epic, 3️⃣ Dispatcher
