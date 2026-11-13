@@ -15,15 +15,22 @@ shared validator before accepting any assignment.
 All operational messages follow docs/agentic-loop-3/protocol.md. Use
 Invoke-Agent3Message.ps1 to prepare/publish outgoing JSON and preflight the
 actual incoming body against independently observed sender/recipient identities.
-Send only its JSON through the existing host API, without prose/fences. A ready
+Use `New-Agent3DeliveryRequest` from the exact published envelope and observed
+host arguments, then `Send-Agent3Message` with a verified adapter consuming its
+exact final request JSON. Never manually transfer/reconstruct tool JSON. An
+unsupported host boundary blocks sending; disclose it and require real-host
+verification, not synthetic-test claims. A ready
 packet routes the next verification/reservation step; it is not permission to
 execute. Use the existing atomic acknowledgment before edits. Notifications,
 clarification text and error replies cannot change assignment authority or
 restart work. Preserve diagnostics; never resend an uncertain message.
 For a rejected assignment, independently correlate the actual worker/run/session
 and inspect fresh state and canonical events before publishing blocked-before-start.
-Use `Publish-Agent3PreStartRejection` only when no acknowledgment, result or execution exists; include the exact
-diagnosticPath in evidence. A malformed repeat after work began must preserve the
+Use `Publish-Agent3PreStartRejection` only when no acknowledgment, result or execution exists.
+Pass the actual `-Decision` from Receive and independently observed `-Sender`
+and `-Recipient`; the helper validates the durable decision/diagnostic and adds
+its exact diagnosticPath to both machine-readable evidence arrays before reservation.
+Never hand-build substitute rejection evidence. A malformed repeat after work began must preserve the
 diagnostic and existing lifecycle, never reserve a false pre-start result.
 Do not add human-task solely for an isolated recoverable message-format/identity
 mistake; missing authority, corrupt evidence and other human decisions still require it.
@@ -66,3 +73,8 @@ acknowledged run, including blockers. Preserve original reporter versus
 recording actor and actual UTC/monotonic timing; unknown remains unknown.
 Dispatcher alone reconciles ownership and worker release. Reports and bare
 Automation completion do not prove stopped session execution.
+Use `Publish-Agent3GitHubComment` for result/report publications with a stable
+publication identity and independently established publishing account. Its
+file-backed request and full identity/content readback handle large bodies.
+Uncertain publication is inspected, never blindly repeated or used to replay
+an assignment. Source changes do not update installed/running Automations.

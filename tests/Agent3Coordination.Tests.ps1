@@ -79,7 +79,7 @@ function Reject-MessageHandoff($State, $Task, $Handoff, [string] $Directory) {
     $event = New-Event $Task $Handoff result blocked-before-start
     $event.result.evidence += $decision.diagnosticPath
     $null = Publish-Agent3PreStartRejection $State $event $Handoff.workerId $Handoff.runId `
-        $Handoff.sessionId (Join-Path $Directory "events")
+        $Handoff.sessionId (Join-Path $Directory "events") -Decision $decision -Sender $actual -Recipient $recipient
     $null = Add-Agent3Event $State $event
     Set-Agent3Disposition $State $Task.claimId blocked -Evidence $evidence
     Set-Agent3Stage $State $Task.claimId $Handoff.id stopped-verified -Evidence @("fixture://actual-session-stopped")
@@ -473,6 +473,7 @@ try {
             $bad = @{} + $parameters; $bad.DiagnosticPath = $unrelatedPath
             Assert-Throws { Repair-Agent3RejectedHandoff @bad } "*actual rejected worker*"
             $unrelated.recipient.sessionId = $handoff.sessionId
+            $unrelated.Remove("raw")
             $unrelated.rawHash = "B" * 64
             $unrelated.id = & $module { param($d) Get-Agent3Hash @{rawHash=$d.rawHash;sender=$d.sender;recipient=$d.recipient} } $unrelated
             $unrelatedPath = Join-Path $directory "diagnostics\$($unrelated.id).json"
@@ -656,11 +657,13 @@ try {
     $ackDirectory = Join-Path $root "already-started"
     $null = Publish-Agent3Event (New-Event $t $h ack) $ackDirectory
     Assert-Throws {
-        Publish-Agent3PreStartRejection $alreadyStarted $event developer-1 $h.runId $h.sessionId $ackDirectory
+        Publish-Agent3PreStartRejection $alreadyStarted $event developer-1 $h.runId $h.sessionId $ackDirectory `
+            -Decision @{} -Sender @{} -Recipient @{}
     } "*Canonical acknowledgment/result exists*"
     $null = Add-Agent3Event $alreadyStarted (New-Event $t $h ack)
     Assert-Throws {
-        Publish-Agent3PreStartRejection $alreadyStarted $event developer-1 $h.runId $h.sessionId $ackDirectory
+        Publish-Agent3PreStartRejection $alreadyStarted $event developer-1 $h.runId $h.sessionId $ackDirectory `
+            -Decision @{} -Sender @{} -Recipient @{}
     } "*actual unacknowledged*"
     if (Test-Path -LiteralPath (Join-Path $ackDirectory "result-$($h.id).json")) {
         throw "False pre-start rejection must not consume the actual result slot."

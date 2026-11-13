@@ -231,6 +231,9 @@ try {
     $prestart = Copy-Record $unreservedAck
     $prestart.kind = "result"; $prestart.eventId = "result-$($handoff.id)"
     $prestart.result = @{ outcome = "blocked-before-start"; head = $null; checkpoint = $null; evidence = $evidence }
+    $rejection = Receive-Agent3Message '{"path":"D:\Igor\unescaped"}' $state $dispatcher $worker $prestartRoot $evidence
+    $null = Publish-Agent3PreStartRejection $state $prestart developer-1 $worker.runId $worker.sessionId `
+        (Join-Path $prestartRoot "events") -Decision $rejection -Sender $dispatcher -Recipient $worker
     $prestartMessage = New-Agent3Message -Type result -Sender $worker -Recipient $dispatcher -Context $context `
         -Payload $prestart -Directory $prestartRoot
     $null = Publish-Agent3Message $prestartMessage $state $worker $dispatcher $prestartRoot

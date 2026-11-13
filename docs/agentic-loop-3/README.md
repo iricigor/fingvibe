@@ -211,6 +211,9 @@ worktrees:
   receipts\
   diagnostics\
   responses\
+  decisions\
+  outgoing\
+  publications\
 ```
 
 One environment per repository/account; no alternate state roots in live use.
@@ -271,7 +274,9 @@ with the previous expected revision. A stale writer or changed identity fails.
 | `New-Agent3DispatchBatch` | Scan assessed compatible candidates and build up to two durable launch intents in one detached state revision |
 | `Get-Agent3Assignment`, `Assert-Agent3Assignment` | Shared assignment shape and exact actual worker/run/session validation |
 | `Publish-Agent3Acknowledgment` | Atomic one-time execution reservation; duplicates must never execute |
-| `Publish-Agent3PreStartRejection` | Guard actual worker correlation and unconsumed state/canonical events before reserving a pre-start result |
+| `Publish-Agent3PreStartRejection` | Consume actual Receive decision/diagnostic and observed endpoints, attach exact evidence, then guard/reserve unconsumed pre-start result |
+| `New-Agent3DeliveryRequest`, `Send-Agent3Message` | Preserve/validate the exact envelope in final host request JSON; reserve once before a verified exact-request adapter |
+| `Publish-Agent3GitHubComment` | File-backed large bodies, stable operation identity, complete readback and explicit pre-request/uncertain dispositions |
 | `Publish-Agent3Event`, `Add-Agent3Event` | Immutable worker publication and idempotent correlated event ingestion |
 | `Set-Agent3Disposition`, `Get-Agent3Capacity` | Independent task lifecycle, worker occupancy and waiting bound |
 | `Sync-Agent3Incidents` | Discover canonical incidents even when unindexed; missing prior evidence fails |
@@ -301,11 +306,13 @@ Run deterministic checks without starting real workers or contacting GitHub:
 ```powershell
 .\tests\Agent3Coordination.Tests.ps1
 .\tests\Agent3Protocol.Tests.ps1
+.\tests\Agent3Publication.Tests.ps1
 .\tests\Agent3DispatcherGate.Tests.ps1
 ```
 
 CI runs the independent Dispatcher gate/preflight suite alongside the unchanged
-older suite. Coordination/protocol coverage remains in its existing checks,
+older gate behavior. Coordination/protocol/publication coverage runs through
+the existing DispatcherGate test entry point,
 without changing validation/protection policy. Cases cover stage mismatch,
 field aliases, duplicate/partial events, unknown timing, missing incident index,
 run/session distinctions, backlog backpressure, twelve repairs across workers
@@ -316,6 +323,13 @@ provides live host/handoff/overlap evidence and measured human-assisted failures
 It is not proof of actual coding/PR/CI/repair/finalize behavior for these new
 profiles. Source delivery is accepted through deterministic checks and trial-ready
 documentation; another live trial is not required to close #331.
+
+#373 adds source-only boundary safeguards after the #251/#347 failures.
+Its subprocess fixtures exercise final host requests through Receive and
+large file-backed API bodies, not installed/running Automations. No real host
+adapter is available here; [deployment verification](protocol.md#boundary-evidence-and-deployment-373)
+remains required before claiming production transport is fixed. Installation
+or live Automation changes require separate authorization.
 
 A later agent-3 trial requires separate human approval of installation,
 target workload and selection/implementation authority. Merge authority and

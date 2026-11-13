@@ -294,8 +294,13 @@ is insufficient. Genuine human decisions and exhausted recovery still require it
 
 Before publishing a pre-start result, independently correlate the current actual
 worker/run/session and verify no acknowledgment, result or execution exists.
-Use `Publish-Agent3PreStartRejection` with fresh state and actual worker identity;
-it rejects consumed stages or canonical acknowledgment/result files. A malformed
+Use `Publish-Agent3PreStartRejection` with fresh state, actual worker identity,
+the actual Receive `-Decision`, and independently observed `-Sender`/`-Recipient`.
+It checks the canonical decision and diagnostic, original raw content/hash and
+endpoint correlation, then includes the exact diagnosticPath in both evidence
+arrays before reservation. Missing/mismatched evidence cannot consume the result
+slot. Generic event/message publication cannot bypass this construction.
+It rejects consumed stages or canonical acknowledgment/result files. A malformed
 repeat after execution began preserves the diagnostic and existing lifecycle
 instead of reserving the real result's immutable slot.
 
@@ -489,6 +494,24 @@ task state, repairCount and current handoff/history. Preserve prior evidence
 and correlate every remote update to local state. Neither GitHub comments nor
 local publication forms a distributed transaction: partial publication holds
 ownership, records exact successful/missing operations and blocks launch.
+
+Use `Publish-Agent3GitHubComment` for large mirrors/results/reports, retaining
+the existing claim/result markers and adding a stable
+`<!-- agent3-publication:<operation-id> -->` marker. A claim revision is a new
+publication operation (claim ID plus revision), not a new claim/comment.
+Update the same claim comment with `-CommentId` and freshly read `-ExpectedBody`;
+the helper verifies target identity and previous content before PATCH.
+Retain all claim history/content. The helper uses the repository's
+file-backed `gh api --input` pattern, never a large `--body`/`-f body=...` argument.
+It lists all comment pages, reserves the operation before POST/PATCH, and verifies
+comment ID, issue, actual publishing account, URL and exact body by readback.
+Matching remote success is verified without repeating the write. Duplicate/conflicting
+markers block. A started process, lost response or failed readback is uncertain:
+absence on a later read is not permission to retry. Only a durably recorded
+failure before gh process start permits a later missing-write attempt after
+fresh readback; no automatic retry occurs. Missing previously verified comments
+require reconciliation, not recreation. This changes neither ownership nor
+assignment replay policy.
 
 Developers post immutable result comments marked
 `<!-- fingvibe-real-result-v1 -->`, containing the full event and report link.

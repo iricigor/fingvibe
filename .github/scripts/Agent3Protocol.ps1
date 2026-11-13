@@ -394,7 +394,9 @@ function Publish-Agent3Message {
         if ($Message.type -ceq "acknowledgment" -and -not [IO.File]::Exists($Message.record.path)) {
             throw "Reserve acknowledgment with Publish-Agent3Acknowledgment before messaging; publication cannot reserve execution."
         }
-        Write-Agent3ProtocolRecord $Message.payload $Message.record.path
+        if ($Message.type -ceq "result") {
+            $null = Publish-Agent3Event $Message.payload (Join-Path $Directory "events")
+        } else { Write-Agent3ProtocolRecord $Message.payload $Message.record.path }
     }
     $path = Get-Agent3ProtocolPath $Directory "messages" $Message.messageId
     Write-Agent3ProtocolRecord $Message $path
@@ -518,13 +520,14 @@ function Receive-Agent3Message {
             $diagnostic = @{
                 schema = "fingvibe-real-diagnostic-v1"; id = $id; rawHash = $rawHash; code = $code
                 explanation = $_.Exception.Message; utc = [DateTime]::UtcNow.ToString("o")
-                sender = $Sender; recipient = $Recipient; evidence = $Evidence
+                sender = $Sender; recipient = $Recipient; evidence = $Evidence; raw = $Json
                 inReplyTo = $(if ($replyAllowed) { $parsed.messageId } else { $null })
             }
             Write-Agent3Atomic $diagnostic $path -Immutable
         }
         $decision = Get-Agent3Decision $message "rejected" "none" $code $path $replyAllowed
         $decision.nextOwner = $Recipient.agentId
+        Write-Agent3ProtocolRecord $decision (Get-Agent3ProtocolPath $Directory "decisions" (Get-Agent3Hash $decision))
         return $decision
     }
 }
@@ -548,8 +551,10 @@ function Confirm-Agent3Message {
 }
 
 function Assert-Agent3Diagnostic($Diagnostic) {
-    Assert-Agent3Fields $Diagnostic @("schema", "id", "rawHash", "code", "explanation",
-        "utc", "sender", "recipient", "evidence", "inReplyTo") -Closed
+    $fields = @("schema", "id", "rawHash", "code", "explanation",
+        "utc", "sender", "recipient", "evidence", "inReplyTo")
+    if ($Diagnostic.Contains("raw")) { $fields += "raw" }
+    Assert-Agent3Fields $Diagnostic $fields -Closed
     if ($Diagnostic.schema -cne "fingvibe-real-diagnostic-v1" -or
         $Diagnostic.id -isnot [string] -or $Diagnostic.id -cnotmatch '^[0-9A-F]{64}$' -or
         $Diagnostic.rawHash -isnot [string] -or $Diagnostic.rawHash -cnotmatch '^[0-9A-F]{64}$' -or
@@ -565,6 +570,12 @@ function Assert-Agent3Diagnostic($Diagnostic) {
     Assert-Agent3Text $Diagnostic.explanation "diagnostic explanation"
     Assert-Agent3Utc $Diagnostic.utc
     Assert-Agent3Evidence $Diagnostic.evidence
+    if ($Diagnostic.Contains("raw")) {
+        if ($Diagnostic.raw -isnot [string] -or $Diagnostic.rawHash -cne
+            [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($Diagnostic.raw)))) {
+            throw "Diagnostic original content differs from its raw hash."
+        }
+    }
     if ($null -ne $Diagnostic.inReplyTo -and
         ($Diagnostic.inReplyTo -isnot [string] -or
             $Diagnostic.inReplyTo -cnotmatch '^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$' -or
