@@ -267,8 +267,11 @@ with the previous expected revision. A stale writer or changed identity fails.
 | `Add-Agent3Claim`, `Add-Agent3Handoff` | Unique task/worker assignment and persisted cumulative repair reservation |
 | `Set-Agent3Stage` | Guarded launch, correlation, delivery, stopped and reconciliation transitions |
 | `Resolve-Agent3Handoff` | Explicit human-authorized no-launch/stopped/pre-start recovery, retaining history and optional initial-replacement approval |
+| `Repair-Agent3RejectedHandoff` | At most two evidence-backed recoveries per claim for canonical stopped/unacknowledged message rejection; never an uncertain restart |
+| `New-Agent3DispatchBatch` | Scan assessed compatible candidates and build up to two durable launch intents in one detached state revision |
 | `Get-Agent3Assignment`, `Assert-Agent3Assignment` | Shared assignment shape and exact actual worker/run/session validation |
 | `Publish-Agent3Acknowledgment` | Atomic one-time execution reservation; duplicates must never execute |
+| `Publish-Agent3PreStartRejection` | Guard actual worker correlation and unconsumed state/canonical events before reserving a pre-start result |
 | `Publish-Agent3Event`, `Add-Agent3Event` | Immutable worker publication and idempotent correlated event ingestion |
 | `Set-Agent3Disposition`, `Get-Agent3Capacity` | Independent task lifecycle, worker occupancy and waiting bound |
 | `Sync-Agent3Incidents` | Discover canonical incidents even when unindexed; missing prior evidence fails |
@@ -343,6 +346,23 @@ Use `Resolve-Agent3Handoff` only after that explicit human decision; its
 unstarted initial implementations. See the contract for recovery modes,
 independent blocked claims, backlog readmission and separately evidenced human
 delivery. These helpers validate record shape, not the truth of host observations.
+
+The [bounded message-recovery policy](contract.md#bounded-pre-start-message-recovery)
+allows at most two automatic reconciliations per claim for proven unacknowledged,
+stopped formatting/identity rejection under unchanged authority/context. Strict
+packet rejection remains. It does not clear human-task, recover #251's existing
+human-labeled reservation or authorize uncertain relaunches; exhaustion and
+authority/corruption/conflict failures remain human actions. Preserve every
+consumed repair attempt and use a new handoff, never replay an old packet.
+
+Dispatcher now [scans compatible work and reserves a batch](contract.md#compatible-queue-scanning-and-batch-reservation)
+of up to two handoffs per tick. Both worker reservations and launch intents are
+published together before any external launch. An overlapping earlier candidate
+does not hide later safe work; dependencies and explicit human order remain
+mandatory. Concurrent launch depends on real host capabilities, not source
+delivery. Partial failure retains the affected reservation while an independently
+safe second assignment may continue. Per-worker reports explain assignments or
+remaining idle capacity.
 
 3️⃣ historical manual completion has a separate bounded
 [automatic reconciliation path](dispatcher-preflight.md#automatic-historical-completion-reconciliation):

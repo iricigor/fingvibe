@@ -86,6 +86,14 @@ match configured workers, and actual task/run/session must match the handoff.
 Do not guess identities for an undiscoverable or future Dispatcher session.
 Use durable reconciliation when an old notification target is gone.
 
+Capture these identities before preparing each message; the presence of an
+owner-authored kickoff does not make a scheduled Automation run manual.
+An identity-mismatched packet remains rejected. Only Dispatcher's
+[bounded pre-start recovery](contract.md#bounded-pre-start-message-recovery),
+after canonical rejection and actual stopped/no-acknowledgment verification,
+can reconcile it and permit a fresh handoff. Never rewrite the immutable packet
+or resend it with corrected endpoint fields.
+
 `repository` is normalized lowercase owner/repo. `epic` and `issue` are positive
 JSON integers; `claimId` and `handoffId` are nonempty lowercase UUIDs. All task
 messages correlate to retained authoritative state. An error may use null context

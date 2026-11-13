@@ -174,6 +174,21 @@ Scripted publication/preflight and fixed-operation packets reuse their existing
 assignment/event guards; valid JSON, processing receipts and notifications
 grant no authority and do not prove execution or stopped-worker release.
 
+**3-agent-only resilient dispatch (#358):** Dispatcher scans the complete eligible
+queue for compatible work and may reserve up to two new handoffs in one state
+publication per tick, one per free Developer, before either external launch.
+Ascending issue number is preference; actual dependencies and explicit human
+ordering remain mandatory. Partial failure holds its reservation without
+automatically vetoing independently safe work. The shared contract permits at
+most two cumulative automatic reconciliations per claim for canonical,
+unacknowledged, freshly verified stopped formatting/identity rejection under
+unchanged authority/context. Strict message rejection, repair counts and all
+history remain; no uncertain replay/relaunch, authority waiver, human-task removal
+or automatic recovery of #251's existing human-labeled claim is granted.
+See [recovery](agentic-loop-3/contract.md#bounded-pre-start-message-recovery) and
+[batch selection](agentic-loop-3/contract.md#compatible-queue-scanning-and-batch-reservation).
+Older agents and their policies are unchanged.
+
 Source delivery neither installs/activates Automations nor grants workload or
 merge authority, and does not require another live trial. Real execution needs
 separate recorded human authorization for the selected Epic and capabilities.

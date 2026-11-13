@@ -547,6 +547,32 @@ function Confirm-Agent3Message {
     Write-Agent3Atomic $receipt (Get-Agent3ProtocolPath $Directory "receipts" "processed-$($Message.messageId)") -Immutable
 }
 
+function Assert-Agent3Diagnostic($Diagnostic) {
+    Assert-Agent3Fields $Diagnostic @("schema", "id", "rawHash", "code", "explanation",
+        "utc", "sender", "recipient", "evidence", "inReplyTo") -Closed
+    if ($Diagnostic.schema -cne "fingvibe-real-diagnostic-v1" -or
+        $Diagnostic.id -isnot [string] -or $Diagnostic.id -cnotmatch '^[0-9A-F]{64}$' -or
+        $Diagnostic.rawHash -isnot [string] -or $Diagnostic.rawHash -cnotmatch '^[0-9A-F]{64}$' -or
+        $Diagnostic.id -cne (Get-Agent3Hash @{
+            rawHash = $Diagnostic.rawHash; sender = $Diagnostic.sender; recipient = $Diagnostic.recipient
+        })) {
+        throw "Invalid canonical diagnostic identity."
+    }
+    Assert-Agent3Endpoint $Diagnostic.sender
+    Assert-Agent3Endpoint $Diagnostic.recipient
+    Assert-Agent3Text $Diagnostic.code "diagnostic code"
+    if ($Diagnostic.code -cnotin $script:ProtocolCodes) { throw "Unknown diagnostic code." }
+    Assert-Agent3Text $Diagnostic.explanation "diagnostic explanation"
+    Assert-Agent3Utc $Diagnostic.utc
+    Assert-Agent3Evidence $Diagnostic.evidence
+    if ($null -ne $Diagnostic.inReplyTo -and
+        ($Diagnostic.inReplyTo -isnot [string] -or
+            $Diagnostic.inReplyTo -cnotmatch '^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$' -or
+            $Diagnostic.inReplyTo -ceq [guid]::Empty.ToString())) {
+        throw "Invalid diagnostic reply identity."
+    }
+}
+
 function Publish-Agent3ProtocolError {
     param([string] $DiagnosticPath, $State, [string] $Directory)
     $diagnostic = Read-Agent3Json $DiagnosticPath
