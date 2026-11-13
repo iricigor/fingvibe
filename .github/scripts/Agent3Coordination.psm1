@@ -38,6 +38,66 @@ function Assert-Agent3Evidence($Evidence) {
     foreach ($reference in $Evidence) { Assert-Agent3Text $reference "evidence reference" }
 }
 
+function Invoke-Agent3AuthorizationRead([string] $Endpoint) {
+    $text = gh api -X GET $Endpoint
+    if ($LASTEXITCODE -ne 0) {
+        throw "Owner approval read failed: $Endpoint (exit $LASTEXITCODE). Do not claim or launch."
+    }
+    $text -join "`n"
+}
+
+function Get-Agent3AuthorizationEvidence {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [ValidatePattern("^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$")]
+        [string] $Repository,
+        [Parameter(Mandatory)]
+        [string] $Reference,
+        [Parameter(Mandatory)]
+        [ValidatePattern("^[A-Za-z0-9][A-Za-z0-9-]*$")]
+        [string] $OwnerLogin,
+        [scriptblock] $ApiReader = ${function:Invoke-Agent3AuthorizationRead}
+    )
+
+    $pattern = '^https://github\.com/(?<repository>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/issues/(?<issue>[1-9][0-9]*)#issuecomment-(?<comment>[1-9][0-9]*)$'
+    if ($Reference -cnotmatch $pattern) {
+        throw "Expected an independently inspectable GitHub issue-comment approval URL, not a session ID or authorization assertion. Do not claim or launch."
+    }
+    $source = @{} + $Matches
+    if ($source.repository -ine $Repository) {
+        throw "Owner approval reference belongs to another repository. Do not claim or launch."
+    }
+    $endpoint = "repos/$Repository/issues/comments/$($source.comment)"
+    $json = & $ApiReader $endpoint
+    if ($json -isnot [string] -or [string]::IsNullOrWhiteSpace($json)) {
+        throw "Owner approval reader must return one nonempty JSON string. Do not claim or launch."
+    }
+    $comment = ConvertFrom-Json -InputObject $json -AsHashtable -DateKind String -Depth 100
+    Assert-Agent3Fields $comment @("id", "html_url", "issue_url", "user", "body", "updated_at")
+    Assert-Agent3Fields $comment.user @("login", "type")
+    if ($comment.id -isnot [long] -and $comment.id -isnot [int]) {
+        throw "Owner approval comment ID must be an integer."
+    }
+    if ($comment.id.ToString() -cne $source.comment -or $comment.html_url -ine $Reference -or
+        $comment.issue_url -ine "https://api.github.com/repos/$Repository/issues/$($source.issue)") {
+        throw "Owner approval response does not match the requested comment/repository. Do not claim or launch."
+    }
+    if ($comment.user.type -cne "User" -or $comment.user.login -ine $OwnerLogin) {
+        throw "Owner approval author does not match the independently established human owner. Do not claim or launch."
+    }
+    Assert-Agent3Text $comment.body "owner approval text"
+    Assert-Agent3Utc $comment.updated_at
+
+    # Account authorship alone cannot distinguish a human from an agent using the same credentials.
+    @{
+        reference = $Reference
+        authorLogin = $comment.user.login
+        body = $comment.body
+        updatedUtc = $comment.updated_at
+    }
+}
+
 function Get-Agent3Hash($Record) {
     # Sort object keys recursively so JSON field order is not event identity.
     function ConvertTo-Canonical($Value) {
@@ -953,4 +1013,4 @@ Export-ModuleMember -Function Assert-Agent3State, New-Agent3State, Get-Agent3Cap
     Sync-Agent3Incidents, Get-Agent3Assignment, Assert-Agent3Assignment, Publish-Agent3Acknowledgment,
     New-Agent3Message, Publish-Agent3Message, Receive-Agent3Message,
     Publish-Agent3ProtocolError, Confirm-Agent3Message,
-    Resolve-Agent3Handoff
+    Resolve-Agent3Handoff, Get-Agent3AuthorizationEvidence

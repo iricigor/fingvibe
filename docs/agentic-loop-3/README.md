@@ -37,6 +37,8 @@ these three profiles. It does not update existing Automations or activate worker
    copy its entire instruction file into the prompt.
 3. Before execution, verify the [prerequisites](#prerequisites-and-capability-verification),
    shared storage, actual Automation identities and isolated task contexts.
+   Complete the [cross-role authorization preflight](contract.md#cross-role-authorization-preflight)
+   before state initialization, task selection/claim or Developer launch.
    Explicitly approve the intended Epic workload; a documentation example or
    selecting an agent grants no permission.
 4. Start with one explicitly authorized manual Dispatcher invocation, not an
@@ -57,6 +59,13 @@ these three profiles. It does not update existing Automations or activate worker
 - Updated isolated worktrees containing all three definitions and the shared
   documents. Selected agents and saved Automation prompts do not
   automatically synchronize with source updates.
+- An original owner decision that Dispatcher and both Developer contexts can
+  independently retrieve with author provenance. Verify the supported read
+  route before claiming or launching, not by starting a worker to test it.
+  If the host exposes only session metadata or an unattributed saved prompt,
+  obtain a direct owner-authored GitHub approval comment upfront and use
+  `Get-Agent3AuthorizationEvidence` in both roles. See the contract for scope,
+  permission and human-versus-agent provenance checks; an API read is not approval.
 - Host tools for exact Automation discovery, independent launch, actual
   run/session correlation, messaging, execution inspection, and same-task
   worktree/branch resumption for repair/finalize. Discover actual schemas; a
@@ -120,10 +129,16 @@ Automation prompt is not an operational agent-to-agent message.
 These are templates, **not an authorization to run this environment**.
 Replace `<Epic URL>` with the chosen Epic's actual URL. Only use the Dispatcher
 permission wording when you intend to authorize that workload. Retain the
-owner-authored prompt/kickoff as the decision reference and verify its author;
-if the host cannot establish that provenance, obtain a separately recorded
-owner approval before execution. No external approval link is required when
-the direct kickoff itself is authoritative and retained.
+owner-authored prompt/kickoff as the decision reference only when **both roles**
+can independently retrieve its original text and owner provenance.
+If the host cannot establish that provenance across roles, obtain a direct
+owner-authored approval comment on a repository issue before any claim/launch.
+Use its exact issue-comment URL as the reference for a new environment; both
+roles independently read it with `Get-Agent3AuthorizationEvidence` and review
+the actual decision. Do not substitute a Dispatcher-authored approval summary.
+No external approval link is required when the original direct kickoff itself
+meets the shared preflight. Existing blocked environments still require explicit
+recovery; do not rewrite their live authorization configuration.
 
 Dispatcher derives and verifies this configuration from that human decision
 and the selected Automations, rather than expecting another description field:
@@ -320,6 +335,9 @@ Never reset claims/history, fabricate termination, restart uncertain execution,
 or infer permission from a cleared label. Pause prevents new ticks, not workers.
 Human recovery records evidence, exact affected claim/handoff, stopped-session
 inspection and next owner/action before any new authorization.
+The authorization preflight prevents a new #251-style provenance rejection;
+it does not recover the existing #251 claim or start a replacement worker.
+Source publication alone does not update installed Automation contexts.
 Use `Resolve-Agent3Handoff` only after that explicit human decision; its
 `-RestartImplementation` switch is separate approval and applies only to proven
 unstarted initial implementations. See the contract for recovery modes,

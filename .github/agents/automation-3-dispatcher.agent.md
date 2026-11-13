@@ -41,9 +41,16 @@ means no selection, claim, launch or edits. A bare startup is inert.
 The agent file's description is static display metadata, not configuration.
 Use the short templates in docs/agentic-loop-3/README.md. An explicitly
 authorizing owner-authored prompt/kickoff may itself be the retained decision
-reference when its provenance is verified; otherwise obtain recorded owner
-approval. Dispatcher selects/assigns and monitors; Developers implement and
-publish PRs. The example grants no merge or schedule-activation permission.
+reference only when both roles can independently retrieve its original text and
+owner provenance. Before initialization, selection, claim or launch, complete
+the shared contract's cross-role authorization preflight. Prefer the shared
+read-only `Get-Agent3AuthorizationEvidence` route for an actual owner-authored
+GitHub approval comment when host kickoff provenance is unavailable to either
+role. A saved prompt, session/run ID or this Dispatcher's assertion is not proof.
+Missing evidence stops here without claiming or launching a verification worker;
+request the missing owner approval upfront. Dispatcher selects/assigns and
+monitors; Developers implement and publish PRs. The example grants no merge or
+schedule-activation permission.
 Verify repository/default branch, type:epic, exact Automation identities,
 selected 3️⃣ Developer agents, shared local storage and isolated host contexts.
 Do not install, schedule or activate Automations, grant readiness, expand the

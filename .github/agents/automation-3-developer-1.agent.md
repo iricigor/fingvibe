@@ -34,7 +34,12 @@ authorization and twelve cumulative repairs. No authority transfers from #191.
 A bare startup is inert. Never select work, launch another worker, acquire
 Dispatcher ownership, mutate shared state or consume a duplicate assignment.
 Validate actual worker/run/session, native parent, authorization and current
-GitHub claim. Re-read shared state and immutable events immediately before
+GitHub claim. Independently complete the shared contract's cross-role
+authorization preflight using the same original approval source as Dispatcher.
+For GitHub comments, use `Get-Agent3AuthorizationEvidence` and review the returned
+text, actual human provenance, Epic and explicit permissions; a successful read,
+matching account author or Dispatcher assertion alone grants no authority.
+Re-read shared state and immutable events immediately before
 acknowledgment/edits. Publish a uniquely reserved immutable acknowledgment
 before execution; existing acknowledgment/result means do not execute again.
 
