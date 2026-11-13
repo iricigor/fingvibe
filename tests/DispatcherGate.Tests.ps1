@@ -83,5 +83,5 @@ try {
 }
 Write-Output "Dispatcher gate tests passed."
 & (Join-Path $PSScriptRoot "DispatcherPreflight.Tests.ps1")
-& (Join-Path $PSScriptRoot "RealTaskCoordination.Tests.ps1")
-& (Join-Path $PSScriptRoot "RealTaskProtocol.Tests.ps1")
+& (Join-Path $PSScriptRoot "Agent3Coordination.Tests.ps1")
+& (Join-Path $PSScriptRoot "Agent3Protocol.Tests.ps1")

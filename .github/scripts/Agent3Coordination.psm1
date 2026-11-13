@@ -7,7 +7,7 @@ $script:Stages = @("prepared", "launch-requested", "correlated", "delivered",
 $script:TaskStates = @("implementing", "validation", "repair-needed", "finalize-ready",
     "human-review", "blocked", "delivered")
 
-function Assert-RealTaskFields($Record, [string[]] $Fields, [switch] $Closed) {
+function Assert-Agent3Fields($Record, [string[]] $Fields, [switch] $Closed) {
     if ($Record -isnot [System.Collections.IDictionary]) { throw "Expected a JSON object." }
     foreach ($field in $Fields) {
         if ($field -cnotin @($Record.Keys)) { throw "Missing field '$field'." }
@@ -19,26 +19,26 @@ function Assert-RealTaskFields($Record, [string[]] $Fields, [switch] $Closed) {
     }
 }
 
-function Assert-RealTaskText($Value, [string] $Name) {
+function Assert-Agent3Text($Value, [string] $Name) {
     if ($Value -isnot [string] -or [string]::IsNullOrWhiteSpace($Value)) {
         throw "Expected nonempty $Name."
     }
 }
 
-function Assert-RealTaskUtc($Value) {
-    Assert-RealTaskText $Value "UTC timestamp"
+function Assert-Agent3Utc($Value) {
+    Assert-Agent3Text $Value "UTC timestamp"
     if ($Value -notmatch '^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?(?:Z|\+00:00)$') {
         throw "Expected explicit UTC timestamp, not local or inferred time."
     }
     $null = [DateTimeOffset]::Parse($Value, [Globalization.CultureInfo]::InvariantCulture)
 }
 
-function Assert-RealTaskEvidence($Evidence) {
+function Assert-Agent3Evidence($Evidence) {
     if ($Evidence -isnot [array] -or $Evidence.Count -eq 0) { throw "Evidence references are required." }
-    foreach ($reference in $Evidence) { Assert-RealTaskText $reference "evidence reference" }
+    foreach ($reference in $Evidence) { Assert-Agent3Text $reference "evidence reference" }
 }
 
-function Get-RealTaskHash($Record) {
+function Get-Agent3Hash($Record) {
     # Sort object keys recursively so JSON field order is not event identity.
     function ConvertTo-Canonical($Value) {
         if ($Value -is [System.Collections.IDictionary]) {
@@ -60,40 +60,40 @@ function Get-RealTaskHash($Record) {
     [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($json)))
 }
 
-function Get-RealTaskEvidenceHash([string[]] $Evidence) {
-    Assert-RealTaskEvidence $Evidence
+function Get-Agent3EvidenceHash([string[]] $Evidence) {
+    Assert-Agent3Evidence $Evidence
     $unique = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     foreach ($reference in $Evidence) { $null = $unique.Add($reference) }
     [string[]] $references = @($unique)
     [Array]::Sort($references, [StringComparer]::Ordinal)
-    Get-RealTaskHash @{ value = $references }
+    Get-Agent3Hash @{ value = $references }
 }
 
-function Find-RealTask($State, [string] $ClaimId) {
+function Find-Agent3($State, [string] $ClaimId) {
     $matches = @($State.tasks | Where-Object claimId -CEQ $ClaimId)
     if ($matches.Count -ne 1) { throw "Expected exactly one task for claim '$ClaimId'." }
     return $matches[0]
 }
 
-function Find-RealTaskHandoff($State, [string] $ClaimId, [string] $HandoffId) {
-    $task = Find-RealTask $State $ClaimId
+function Find-Agent3Handoff($State, [string] $ClaimId, [string] $HandoffId) {
+    $task = Find-Agent3 $State $ClaimId
     $matches = @($task.handoffs | Where-Object id -CEQ $HandoffId)
     if ($matches.Count -ne 1) { throw "Expected exactly one handoff '$HandoffId'." }
     return $matches[0]
 }
 
-function Test-RealTaskReplacement($Handoff) {
+function Test-Agent3Replacement($Handoff) {
     $null -ne $Handoff -and $Handoff.action -ceq "implement" -and
         $Handoff.stage -ceq "reconciled" -and $Handoff.Contains("recovery") -and
         $Handoff.recovery.restartImplementation
 }
 
-function Assert-RealTaskRecovery($Handoff) {
+function Assert-Agent3Recovery($Handoff) {
     $recovery = $Handoff.recovery
-    Assert-RealTaskFields $recovery @("mode", "priorStage", "authorization", "evidence", "utc", "restartImplementation") -Closed
-    Assert-RealTaskText $recovery.authorization "human recovery authorization"
-    Assert-RealTaskEvidence $recovery.evidence
-    Assert-RealTaskUtc $recovery.utc
+    Assert-Agent3Fields $recovery @("mode", "priorStage", "authorization", "evidence", "utc", "restartImplementation") -Closed
+    Assert-Agent3Text $recovery.authorization "human recovery authorization"
+    Assert-Agent3Evidence $recovery.evidence
+    Assert-Agent3Utc $recovery.utc
     if ($Handoff.stage -cne "reconciled" -or $recovery.restartImplementation -isnot [bool]) {
         throw "Recovery requires terminal reconciliation and explicit restart authority."
     }
@@ -110,8 +110,8 @@ function Assert-RealTaskRecovery($Handoff) {
                 $null -ne $Handoff.resultEventId -or $null -ne $Handoff.result) {
                 throw "Stopped recovery requires a session without a result."
             }
-            Assert-RealTaskText $Handoff.runId "actual run ID"
-            Assert-RealTaskText $Handoff.sessionId "actual session ID"
+            Assert-Agent3Text $Handoff.runId "actual run ID"
+            Assert-Agent3Text $Handoff.sessionId "actual session ID"
         }
         "pre-start-rejected" {
             if ($recovery.priorStage -cnotin @("stopped-verified", "reconciled") -or
@@ -128,19 +128,19 @@ function Assert-RealTaskRecovery($Handoff) {
     }
 }
 
-function Assert-RealTaskHumanDelivery($Delivery, [string] $TargetBranch) {
-    Assert-RealTaskFields $Delivery @("head", "targetBranch", "evidence", "cleanupEvidence") -Closed
-    Assert-RealTaskText $Delivery.head "delivered head"
+function Assert-Agent3HumanDelivery($Delivery, [string] $TargetBranch) {
+    Assert-Agent3Fields $Delivery @("head", "targetBranch", "evidence", "cleanupEvidence") -Closed
+    Assert-Agent3Text $Delivery.head "delivered head"
     if ($Delivery.head -cnotmatch '^[0-9a-f]{40}$' -or $Delivery.targetBranch -cne $TargetBranch) {
         throw "Human delivery requires the verified head on the configured target branch."
     }
-    Assert-RealTaskEvidence $Delivery.evidence
-    Assert-RealTaskEvidence $Delivery.cleanupEvidence
+    Assert-Agent3Evidence $Delivery.evidence
+    Assert-Agent3Evidence $Delivery.cleanupEvidence
 }
 
-function Assert-RealTaskState {
+function Assert-Agent3State {
     param([Parameter(Mandatory)] $State)
-    Assert-RealTaskFields $State @("schema", "repository", "epic", "targetBranch", "authorization",
+    Assert-Agent3Fields $State @("schema", "repository", "epic", "targetBranch", "authorization",
         "workers", "revision", "updatedUtc", "tasks", "events", "incidents", "reports")
     if ($State.schema -cne "fingvibe-real-state-v1" -or
         $State.repository -cnotmatch '^[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9_.-]*$') {
@@ -151,20 +151,20 @@ function Assert-RealTaskState {
             throw "Epic and revision must be positive integers."
         }
     }
-    Assert-RealTaskText $State.targetBranch "target branch"
-    Assert-RealTaskFields $State.authorization @("reference", "implementation", "merge")
-    Assert-RealTaskText $State.authorization.reference "human authorization reference"
+    Assert-Agent3Text $State.targetBranch "target branch"
+    Assert-Agent3Fields $State.authorization @("reference", "implementation", "merge")
+    Assert-Agent3Text $State.authorization.reference "human authorization reference"
     if ($State.authorization.implementation -isnot [bool] -or
         $State.authorization.merge -isnot [bool]) { throw "Authorization capabilities must be explicit booleans." }
-    Assert-RealTaskUtc $State.updatedUtc
+    Assert-Agent3Utc $State.updatedUtc
     foreach ($field in @("workers", "tasks", "events", "incidents", "reports")) {
         if ($State[$field] -isnot [array]) { throw "'$field' must be an array." }
     }
     if ($State.workers.Count -ne 2) { throw "Exactly two Developer identities are required." }
     $workers = @{}
     foreach ($worker in $State.workers) {
-        Assert-RealTaskFields $worker @("id", "name", "automationId")
-        foreach ($field in @("id", "name", "automationId")) { Assert-RealTaskText $worker[$field] $field }
+        Assert-Agent3Fields $worker @("id", "name", "automationId")
+        foreach ($field in @("id", "name", "automationId")) { Assert-Agent3Text $worker[$field] $field }
         if ($workers.ContainsKey($worker.id)) { throw "Duplicate worker identity." }
         $workers[$worker.id] = $true
     }
@@ -179,9 +179,9 @@ function Assert-RealTaskState {
     $handoffs = @{}
     $occupied = @{}
     foreach ($task in $State.tasks) {
-        Assert-RealTaskFields $task @("claimId", "issue", "state", "repairCount", "handoffs",
+        Assert-Agent3Fields $task @("claimId", "issue", "state", "repairCount", "handoffs",
             "branch", "worktree", "pr", "head", "checkpoint", "scopeEvidence", "dispositions", "changedUtc")
-        Assert-RealTaskText $task.claimId "claim ID"
+        Assert-Agent3Text $task.claimId "claim ID"
         if ($claims.ContainsKey($task.claimId) -or $issues.ContainsKey([string]$task.issue)) {
             throw "Duplicate task or claim."
         }
@@ -191,33 +191,33 @@ function Assert-RealTaskState {
             $task.state -cnotin $script:TaskStates) { throw "Invalid task issue or state." }
         if (($task.repairCount -isnot [int] -and $task.repairCount -isnot [long]) -or
             $task.repairCount -lt 0 -or $task.repairCount -gt 12) { throw "Repair count must be an integer from 0 to 12." }
-        Assert-RealTaskEvidence $task.scopeEvidence
-        Assert-RealTaskUtc $task.changedUtc
+        Assert-Agent3Evidence $task.scopeEvidence
+        Assert-Agent3Utc $task.changedUtc
         if ($task.handoffs -isnot [array] -or $task.dispositions -isnot [array]) {
             throw "Task history must be arrays."
         }
         foreach ($disposition in $task.dispositions) {
-            Assert-RealTaskFields $disposition @("state", "utc", "evidence")
+            Assert-Agent3Fields $disposition @("state", "utc", "evidence")
             if ($disposition.state -cnotin $script:TaskStates) { throw "Unknown disposition state." }
-            Assert-RealTaskUtc $disposition.utc
-            Assert-RealTaskEvidence $disposition.evidence
+            Assert-Agent3Utc $disposition.utc
+            Assert-Agent3Evidence $disposition.evidence
             if ($disposition.Contains("independentEvidence")) {
                 if ($disposition.state -cne "blocked") { throw "Independence evidence belongs to a blocked disposition." }
-                Assert-RealTaskEvidence $disposition.independentEvidence
+                Assert-Agent3Evidence $disposition.independentEvidence
             }
             if ($disposition.Contains("humanDelivery")) {
                 if ($disposition.state -cne "delivered") { throw "Human delivery belongs to a delivered disposition." }
-                Assert-RealTaskHumanDelivery $disposition.humanDelivery $State.targetBranch
+                Assert-Agent3HumanDelivery $disposition.humanDelivery $State.targetBranch
             }
         }
         $repairs = 0
         $implementations = 0
         $previous = $null
         foreach ($handoff in $task.handoffs) {
-            Assert-RealTaskFields $handoff @("id", "action", "stage", "workerId", "runId", "sessionId",
+            Assert-Agent3Fields $handoff @("id", "action", "stage", "workerId", "runId", "sessionId",
                 "expectedHead", "feedback", "priorRepairEvidence", "repairAttempt", "strategy",
                 "transitions", "ackEventId", "resultEventId", "result")
-            Assert-RealTaskText $handoff.id "handoff ID"
+            Assert-Agent3Text $handoff.id "handoff ID"
             if ($handoffs.ContainsKey($handoff.id)) { throw "Duplicate handoff ID." }
             $handoffs[$handoff.id] = $true
             if (-not $workers.ContainsKey($handoff.workerId) -or
@@ -231,7 +231,7 @@ function Assert-RealTaskState {
             }
             if ($handoff.action -ceq "implement") {
                 $implementations++
-                if ($implementations -gt 1 -and -not (Test-RealTaskReplacement $previous)) {
+                if ($implementations -gt 1 -and -not (Test-Agent3Replacement $previous)) {
                     throw "Replacement implementation requires human-reconciled pre-start failure."
                 }
             } elseif ($implementations -lt 1) { throw "Repair/finalize requires initial implementation history." }
@@ -241,13 +241,13 @@ function Assert-RealTaskState {
                 if ($handoff.repairAttempt -ne $repairs -or $handoff.strategy -cne $strategy) {
                     throw "Repair history/strategy mismatch."
                 }
-                Assert-RealTaskEvidence $handoff.feedback
-                if ($repairs -gt 1) { Assert-RealTaskEvidence $handoff.priorRepairEvidence }
+                Assert-Agent3Evidence $handoff.feedback
+                if ($repairs -gt 1) { Assert-Agent3Evidence $handoff.priorRepairEvidence }
             } elseif ($handoff.repairAttempt -ne 0) { throw "Only repairs consume repair attempts." }
             if ($handoff.action -cne "implement") {
                 if ($handoff.expectedHead -cnotmatch '^[0-9a-f]{40}$') { throw "Expected full PR head SHA." }
                 foreach ($field in @("branch", "worktree", "pr", "checkpoint")) {
-                    Assert-RealTaskText $task[$field] $field
+                    Assert-Agent3Text $task[$field] $field
                 }
                 if (-not [IO.Path]::IsPathFullyQualified($task.worktree)) { throw "Worktree must be absolute." }
             }
@@ -255,13 +255,13 @@ function Assert-RealTaskState {
                 throw "Missing handoff transition history."
             }
             $recovered = $handoff.Contains("recovery")
-            if ($recovered) { Assert-RealTaskRecovery $handoff }
+            if ($recovered) { Assert-Agent3Recovery $handoff }
             $last = $null
             for ($transitionIndex = 0; $transitionIndex -lt $handoff.transitions.Count; $transitionIndex++) {
                 $transition = $handoff.transitions[$transitionIndex]
-                Assert-RealTaskFields $transition @("stage", "utc", "evidence")
-                Assert-RealTaskUtc $transition.utc
-                Assert-RealTaskEvidence $transition.evidence
+                Assert-Agent3Fields $transition @("stage", "utc", "evidence")
+                Assert-Agent3Utc $transition.utc
+                Assert-Agent3Evidence $transition.evidence
                 $allowed = switch ($last) {
                     $null { @("prepared") }
                     "prepared" { @("launch-requested") }
@@ -276,8 +276,8 @@ function Assert-RealTaskState {
                 $recoveryExit = $recovered -and $transitionIndex -eq $handoff.transitions.Count - 1 -and
                     $last -ceq $handoff.recovery.priorStage -and $transition.stage -ceq "reconciled" -and
                     $transition.utc -ceq $handoff.recovery.utc -and
-                    (Get-RealTaskHash @{ value = $transition.evidence }) -ceq
-                        (Get-RealTaskHash @{ value = $handoff.recovery.evidence })
+                    (Get-Agent3Hash @{ value = $transition.evidence }) -ceq
+                        (Get-Agent3Hash @{ value = $handoff.recovery.evidence })
                 if ($recovered -and $transitionIndex -eq $handoff.transitions.Count - 1 -and -not $recoveryExit) {
                     throw "Recovery differs from terminal transition evidence."
                 }
@@ -288,12 +288,12 @@ function Assert-RealTaskState {
             }
             if ($last -cne $handoff.stage) { throw "Stage differs from transition history." }
             if (@($handoff.transitions | Where-Object stage -CEQ "acknowledged").Count -gt 0) {
-                Assert-RealTaskText $handoff.ackEventId "retained acknowledgment event ID"
+                Assert-Agent3Text $handoff.ackEventId "retained acknowledgment event ID"
             }
             if ($handoff.stage -cin @("correlated", "delivered", "acknowledged", "result-recorded", "stopped-verified", "reconciled") -and
                 -not ($recovered -and $handoff.recovery.mode -ceq "no-launch")) {
-                Assert-RealTaskText $handoff.runId "actual run ID"
-                Assert-RealTaskText $handoff.sessionId "actual session ID"
+                Assert-Agent3Text $handoff.runId "actual run ID"
+                Assert-Agent3Text $handoff.sessionId "actual session ID"
             }
             if ($handoff.stage -cin @("acknowledged", "result-recorded", "stopped-verified", "reconciled") -and -not $recovered) {
                 if ($null -eq $handoff.ackEventId -and
@@ -303,9 +303,9 @@ function Assert-RealTaskState {
             }
             if ($handoff.stage -cin @("result-recorded", "stopped-verified", "reconciled") -and
                 (-not $recovered -or $null -ne $handoff.resultEventId)) {
-                Assert-RealTaskText $handoff.resultEventId "result event ID"
-                Assert-RealTaskFields $handoff.result @("outcome", "head", "checkpoint", "evidence")
-                Assert-RealTaskEvidence $handoff.result.evidence
+                Assert-Agent3Text $handoff.resultEventId "result event ID"
+                Assert-Agent3Fields $handoff.result @("outcome", "head", "checkpoint", "evidence")
+                Assert-Agent3Evidence $handoff.result.evidence
             }
             if ($handoff.stage -cne "reconciled") {
                 if ($occupied.ContainsKey($handoff.workerId)) { throw "Worker has overlapping logical assignments." }
@@ -323,10 +323,10 @@ function Assert-RealTaskState {
     }
     $eventIds = @{}
     foreach ($event in $State.events) {
-        Assert-RealTaskFields $event @("id", "hash", "claimId", "handoffId", "kind")
+        Assert-Agent3Fields $event @("id", "hash", "claimId", "handoffId", "kind")
         if ($eventIds.ContainsKey($event.id)) { throw "Duplicate event index entry." }
         $eventIds[$event.id] = $true
-        $handoff = Find-RealTaskHandoff $State $event.claimId $event.handoffId
+        $handoff = Find-Agent3Handoff $State $event.claimId $event.handoffId
         $field = if ($event.kind -ceq "ack") { "ackEventId" } elseif ($event.kind -ceq "result") {
             "resultEventId"
         } else { throw "Unknown event kind." }
@@ -340,14 +340,14 @@ function Assert-RealTaskState {
         }
     }
     foreach ($report in $State.reports) {
-        Assert-RealTaskFields $report @("id", "claimId", "handoffId", "url", "utc", "nextOwner", "nextAction")
-        foreach ($field in @("id", "url", "nextOwner", "nextAction")) { Assert-RealTaskText $report[$field] $field }
-        Assert-RealTaskUtc $report.utc
-        $null = Find-RealTaskHandoff $State $report.claimId $report.handoffId
+        Assert-Agent3Fields $report @("id", "claimId", "handoffId", "url", "utc", "nextOwner", "nextAction")
+        foreach ($field in @("id", "url", "nextOwner", "nextAction")) { Assert-Agent3Text $report[$field] $field }
+        Assert-Agent3Utc $report.utc
+        $null = Find-Agent3Handoff $State $report.claimId $report.handoffId
     }
 }
 
-function New-RealTaskState {
+function New-Agent3State {
     param([string] $Repository, [int] $Epic, [string] $TargetBranch, [hashtable] $Authorization, [array] $Workers)
     $state = @{
         schema = "fingvibe-real-state-v1"; repository = $Repository.ToLowerInvariant()
@@ -355,13 +355,13 @@ function New-RealTaskState {
         revision = 1; updatedUtc = [DateTime]::UtcNow.ToString("o")
         tasks = @(); events = @(); incidents = @(); reports = @()
     }
-    Assert-RealTaskState $state
+    Assert-Agent3State $state
     return $state
 }
 
-function Get-RealTaskCapacity {
+function Get-Agent3Capacity {
     param([Parameter(Mandatory)] $State)
-    Assert-RealTaskState $State
+    Assert-Agent3State $State
     $occupied = @($State.tasks | ForEach-Object { $_.handoffs } | Where-Object stage -CNE "reconciled")
     $occupiedIds = @($occupied | ForEach-Object { $_.workerId })
     $waiting = @($State.tasks | Where-Object state -CIn @("validation", "finalize-ready", "human-review"))
@@ -379,15 +379,15 @@ function Get-RealTaskCapacity {
     }
 }
 
-function Add-RealTaskClaim {
+function Add-Agent3Claim {
     param($State, [int] $Issue, [string[]] $ScopeEvidence)
-    Assert-RealTaskState $State
+    Assert-Agent3State $State
     if (-not $State.authorization.implementation) { throw "Implementation is not authorized." }
-    Assert-RealTaskEvidence $ScopeEvidence
+    Assert-Agent3Evidence $ScopeEvidence
     if ($Issue -le 0 -or @($State.tasks | Where-Object issue -EQ $Issue).Count -ne 0) {
         throw "Invalid or already claimed issue."
     }
-    if (-not (Get-RealTaskCapacity $State).canStartImplementation) { throw "No implementation capacity." }
+    if (-not (Get-Agent3Capacity $State).canStartImplementation) { throw "No implementation capacity." }
     $task = @{
         claimId = [guid]::NewGuid().ToString(); issue = $Issue; state = "implementing"
         repairCount = 0; handoffs = @(); branch = $null; worktree = $null; pr = $null
@@ -398,19 +398,19 @@ function Add-RealTaskClaim {
     return $task
 }
 
-function Add-RealTaskHandoff {
+function Add-Agent3Handoff {
     param($State, [string] $ClaimId, [string] $WorkerId,
         [ValidateSet("implement", "repair", "finalize")] [string] $Action,
         [string[]] $Feedback = @(), [string[]] $PriorRepairEvidence = @())
-    Assert-RealTaskState $State
-    $task = Find-RealTask $State $ClaimId
-    $capacity = Get-RealTaskCapacity $State
+    Assert-Agent3State $State
+    $task = Find-Agent3 $State $ClaimId
+    $capacity = Get-Agent3Capacity $State
     if (-not $State.authorization.implementation -or $WorkerId -cnotin $capacity.freeWorkers -or
         @($task.handoffs | Where-Object stage -CNE "reconciled").Count -ne 0) {
         throw "Worker/task unavailable or unauthorized."
     }
     if ($Action -ceq "implement") {
-        if (($task.handoffs.Count -ne 0 -and -not (Test-RealTaskReplacement $task.handoffs[-1])) -or
+        if (($task.handoffs.Count -ne 0 -and -not (Test-Agent3Replacement $task.handoffs[-1])) -or
             $task.state -cnotin @("implementing", "blocked") -or $capacity.occupiedWorkers.Count -ge 2 -or
             $capacity.validationPending -ge 2 -or
             @($capacity.unassignedClaims | Where-Object { $_ -cne $ClaimId }).Count -gt 0) {
@@ -418,21 +418,21 @@ function Add-RealTaskHandoff {
         }
     } elseif ($Action -ceq "repair") {
         if ($task.state -cne "repair-needed" -or $task.repairCount -ge 12) { throw "Repair unavailable or exhausted." }
-        Assert-RealTaskEvidence $Feedback
-        if ($task.repairCount -gt 0) { Assert-RealTaskEvidence $PriorRepairEvidence }
+        Assert-Agent3Evidence $Feedback
+        if ($task.repairCount -gt 0) { Assert-Agent3Evidence $PriorRepairEvidence }
     } else {
         if ($task.state -cne "finalize-ready") { throw "Task is not finalize-ready." }
-        Assert-RealTaskEvidence $Feedback
+        Assert-Agent3Evidence $Feedback
         foreach ($prior in $task.handoffs) {
             if ($prior.action -ceq "finalize" -and $prior.expectedHead -ceq $task.head -and
-                (Get-RealTaskEvidenceHash $prior.feedback) -ceq (Get-RealTaskEvidenceHash $Feedback)) {
+                (Get-Agent3EvidenceHash $prior.feedback) -ceq (Get-Agent3EvidenceHash $Feedback)) {
                 throw "Duplicate finalize revision/evidence; require a meaningful evidence change."
             }
         }
     }
     if ($Action -cne "implement") {
         if ($task.head -cnotmatch '^[0-9a-f]{40}$') { throw "Expected full PR head SHA." }
-        foreach ($field in @("branch", "worktree", "pr", "checkpoint")) { Assert-RealTaskText $task[$field] $field }
+        foreach ($field in @("branch", "worktree", "pr", "checkpoint")) { Assert-Agent3Text $task[$field] $field }
         if (-not [IO.Path]::IsPathFullyQualified($task.worktree)) { throw "Worktree must be absolute." }
     }
     $attempt = if ($Action -ceq "repair") { $task.repairCount + 1 } else { 0 }
@@ -448,47 +448,47 @@ function Add-RealTaskHandoff {
     if ($Action -ceq "repair") { $task.repairCount = $attempt }
     if ($Action -cne "finalize") { $task.state = "implementing" }
     $task.changedUtc = [DateTime]::UtcNow.ToString("o")
-    Assert-RealTaskState $State
+    Assert-Agent3State $State
     return $handoff
 }
 
-function Set-RealTaskStage {
+function Set-Agent3Stage {
     param($State, [string] $ClaimId, [string] $HandoffId,
         [ValidateSet("launch-requested", "correlated", "delivered", "stopped-verified", "reconciled")] [string] $Stage,
         [string[]] $Evidence, [string] $RunId, [string] $SessionId)
-    Assert-RealTaskState $State
-    Assert-RealTaskEvidence $Evidence
-    $handoff = Find-RealTaskHandoff $State $ClaimId $HandoffId
+    Assert-Agent3State $State
+    Assert-Agent3Evidence $Evidence
+    $handoff = Find-Agent3Handoff $State $ClaimId $HandoffId
     $expected = @{
         "launch-requested" = "prepared"; correlated = "launch-requested"; delivered = "correlated"
         "stopped-verified" = "result-recorded"; reconciled = "stopped-verified"
     }
     if ($handoff.stage -cne $expected[$Stage]) { throw "Invalid stage transition to '$Stage'." }
     if ($Stage -ceq "correlated") {
-        Assert-RealTaskText $RunId "actual run ID"
-        Assert-RealTaskText $SessionId "actual session ID"
+        Assert-Agent3Text $RunId "actual run ID"
+        Assert-Agent3Text $SessionId "actual session ID"
         $handoff.runId = $RunId
         $handoff.sessionId = $SessionId
     }
     if ($Stage -ceq "reconciled") {
-        $task = Find-RealTask $State $ClaimId
+        $task = Find-Agent3 $State $ClaimId
         if ($task.state -ceq "implementing") { throw "Reconcile task disposition before freeing worker." }
     }
     $handoff.stage = $Stage
     $handoff.transitions += @{ stage = $Stage; utc = [DateTime]::UtcNow.ToString("o"); evidence = $Evidence }
-    (Find-RealTask $State $ClaimId).changedUtc = [DateTime]::UtcNow.ToString("o")
-    Assert-RealTaskState $State
+    (Find-Agent3 $State $ClaimId).changedUtc = [DateTime]::UtcNow.ToString("o")
+    Assert-Agent3State $State
 }
 
-function Resolve-RealTaskHandoff {
+function Resolve-Agent3Handoff {
     param($State, [string] $ClaimId, [string] $HandoffId,
         [ValidateSet("no-launch", "stopped", "pre-start-rejected")] [string] $Mode,
         [string] $HumanAuthorization, [string[]] $Evidence, [switch] $RestartImplementation)
-    Assert-RealTaskState $State
-    Assert-RealTaskText $HumanAuthorization "human recovery authorization"
-    Assert-RealTaskEvidence $Evidence
-    $task = Find-RealTask $State $ClaimId
-    $handoff = Find-RealTaskHandoff $State $ClaimId $HandoffId
+    Assert-Agent3State $State
+    Assert-Agent3Text $HumanAuthorization "human recovery authorization"
+    Assert-Agent3Evidence $Evidence
+    $task = Find-Agent3 $State $ClaimId
+    $handoff = Find-Agent3Handoff $State $ClaimId $HandoffId
     if ($handoff.id -cne $task.handoffs[-1].id -or $handoff.Contains("recovery")) {
         throw "Only the latest handoff can be recovered once."
     }
@@ -498,26 +498,26 @@ function Resolve-RealTaskHandoff {
     $candidate = @{} + $handoff
     $candidate.stage = "reconciled"
     $candidate.recovery = $recovery
-    Assert-RealTaskRecovery $candidate
+    Assert-Agent3Recovery $candidate
     $handoff.recovery = $recovery
     $handoff.stage = "reconciled"
     $handoff.transitions += @{ stage = "reconciled"; utc = $utc; evidence = $Evidence }
     $task.state = "blocked"
     $task.changedUtc = $utc
     $task.dispositions += @{ state = "blocked"; utc = $utc; evidence = $Evidence }
-    Assert-RealTaskState $State
+    Assert-Agent3State $State
 }
 
-function Test-RealTaskEvent {
+function Test-Agent3Event {
     param($State, $Event, [switch] $AcknowledgmentVerified)
-    Assert-RealTaskEvent $Event
-    $hash = Get-RealTaskHash $Event
+    Assert-Agent3Event $Event
+    $hash = Get-Agent3Hash $Event
     $seen = @($State.events | Where-Object id -CEQ $Event.eventId)
     if ($seen.Count -gt 0) {
-        if ($seen[0].hash -cne $hash) { Stop-RealTaskProtocol "conflicting-duplicate" "Conflicting duplicate event." }
+        if ($seen[0].hash -cne $hash) { Stop-Agent3Protocol "conflicting-duplicate" "Conflicting duplicate event." }
         return @{ disposition = "duplicate"; hash = $hash; handoff = $null }
     }
-    $handoff = Find-RealTaskHandoff $State $Event.claimId $Event.handoffId
+    $handoff = Find-Agent3Handoff $State $Event.claimId $Event.handoffId
     foreach ($field in @("action", "workerId", "runId", "sessionId")) {
         if ($null -eq $handoff[$field] -or $handoff[$field] -cne $Event[$field]) {
             throw "Event correlation mismatch: $field."
@@ -537,7 +537,7 @@ function Test-RealTaskEvent {
             if ($handoff.action -ceq "finalize" -or $Event.result.head -cnotmatch '^[0-9a-f]{40}$') {
                 throw "Invalid implementation checkpoint."
             }
-            Assert-RealTaskText $Event.result.checkpoint "implementation checkpoint"
+            Assert-Agent3Text $Event.result.checkpoint "implementation checkpoint"
         }
         if ($Event.result.outcome -cin @("pr-ready", "delivered")) {
             if ($handoff.action -cne "finalize" -or $Event.result.head -cne $handoff.expectedHead) {
@@ -551,10 +551,10 @@ function Test-RealTaskEvent {
     return @{ disposition = "ready"; hash = $hash; handoff = $handoff }
 }
 
-function Add-RealTaskEvent {
+function Add-Agent3Event {
     param($State, $Event)
-    Assert-RealTaskState $State
-    $check = Test-RealTaskEvent $State $Event
+    Assert-Agent3State $State
+    $check = Test-Agent3Event $State $Event
     if ($check.disposition -ceq "duplicate") { return "duplicate" }
     $handoff = $check.handoff
     if ($Event.kind -ceq "ack") {
@@ -568,7 +568,7 @@ function Add-RealTaskEvent {
         $stage = "result-recorded"
         $handoff.resultEventId = $Event.eventId
         $handoff.result = $Event.result
-        $task = Find-RealTask $State $Event.claimId
+        $task = Find-Agent3 $State $Event.claimId
         if ($Event.result.outcome -ceq "implementation-ready") {
             $task.head = $Event.result.head
             $task.checkpoint = $Event.result.checkpoint
@@ -578,29 +578,29 @@ function Add-RealTaskEvent {
     $handoff.transitions += @{ stage = $stage; utc = $Event.utc; evidence = $Event.evidence }
     $State.events += @{ id = $Event.eventId; hash = $check.hash; claimId = $Event.claimId
         handoffId = $Event.handoffId; kind = $Event.kind }
-    (Find-RealTask $State $Event.claimId).changedUtc = [DateTime]::UtcNow.ToString("o")
-    Assert-RealTaskState $State
+    (Find-Agent3 $State $Event.claimId).changedUtc = [DateTime]::UtcNow.ToString("o")
+    Assert-Agent3State $State
     return "applied"
 }
 
-function Assert-RealTaskEvent($Event) {
-    Assert-RealTaskFields $Event @("schema", "eventId", "kind", "claimId", "handoffId", "action",
+function Assert-Agent3Event($Event) {
+    Assert-Agent3Fields $Event @("schema", "eventId", "kind", "claimId", "handoffId", "action",
         "workerId", "runId", "sessionId", "utc", "actor", "originalReporter", "trigger",
         "elapsedSeconds", "result", "evidence") -Closed
-    Assert-RealTaskText $Event.schema "event schema"
+    Assert-Agent3Text $Event.schema "event schema"
     if ($Event.schema -cne "fingvibe-real-event-v1" -or $Event.kind -cnotin @("ack", "result")) {
         throw "Unsupported event schema/kind; field aliases are not inferred."
     }
     foreach ($field in @("eventId", "claimId", "handoffId", "action", "workerId", "runId", "sessionId",
-        "actor", "originalReporter", "trigger")) { Assert-RealTaskText $Event[$field] $field }
+        "actor", "originalReporter", "trigger")) { Assert-Agent3Text $Event[$field] $field }
     if ($Event.action -cnotin @("implement", "repair", "finalize") -or
         $Event.workerId -cnotin @("developer-1", "developer-2")) { throw "Invalid event action/worker." }
     if ($Event.eventId -cne "$($Event.kind)-$($Event.handoffId)") {
         throw "Event ID must be reserved by kind and handoff."
     }
     if ($Event.trigger -cnotin @("scheduled", "manual", "worker-message", "unknown")) { throw "Invalid trigger provenance." }
-    Assert-RealTaskUtc $Event.utc
-    Assert-RealTaskEvidence $Event.evidence
+    Assert-Agent3Utc $Event.utc
+    Assert-Agent3Evidence $Event.evidence
     if ($null -ne $Event.elapsedSeconds -and
         ($Event.elapsedSeconds -isnot [ValueType] -or $Event.elapsedSeconds -is [bool] -or
             [double]::IsNaN([double]$Event.elapsedSeconds) -or
@@ -610,13 +610,13 @@ function Assert-RealTaskEvent($Event) {
     if ($Event.kind -ceq "ack") {
         if ($null -ne $Event.result) { throw "Acknowledgment cannot contain a result." }
     } else {
-        Assert-RealTaskFields $Event.result @("outcome", "head", "checkpoint", "evidence") -Closed
-        Assert-RealTaskEvidence $Event.result.evidence
+        Assert-Agent3Fields $Event.result @("outcome", "head", "checkpoint", "evidence") -Closed
+        Assert-Agent3Evidence $Event.result.evidence
         if ($Event.result.outcome -cnotin @("implementation-ready", "blocked", "blocked-before-start", "pr-ready", "delivered")) {
             throw "Unknown result outcome."
         }
         foreach ($field in @("head", "checkpoint")) {
-            if ($null -ne $Event.result[$field]) { Assert-RealTaskText $Event.result[$field] $field }
+            if ($null -ne $Event.result[$field]) { Assert-Agent3Text $Event.result[$field] $field }
         }
         if ($null -ne $Event.result.head -and $Event.result.head -cnotmatch '^[0-9a-f]{40}$') {
             throw "Expected full result head SHA."
@@ -625,7 +625,7 @@ function Assert-RealTaskEvent($Event) {
             if ($Event.action -ceq "finalize" -or $Event.result.head -cnotmatch '^[0-9a-f]{40}$') {
                 throw "Invalid implementation checkpoint."
             }
-            Assert-RealTaskText $Event.result.checkpoint "implementation checkpoint"
+            Assert-Agent3Text $Event.result.checkpoint "implementation checkpoint"
         }
         if ($Event.result.outcome -cin @("pr-ready", "delivered") -and
             ($Event.action -cne "finalize" -or $Event.result.head -cnotmatch '^[0-9a-f]{40}$')) {
@@ -634,15 +634,15 @@ function Assert-RealTaskEvent($Event) {
     }
 }
 
-function Get-RealTaskAssignment {
+function Get-Agent3Assignment {
     param($State, [string] $ClaimId, [string] $HandoffId)
-    Assert-RealTaskState $State
-    Get-RealTaskAssignmentCore $State $ClaimId $HandoffId
+    Assert-Agent3State $State
+    Get-Agent3AssignmentCore $State $ClaimId $HandoffId
 }
 
-function Get-RealTaskAssignmentCore($State, [string] $ClaimId, [string] $HandoffId) {
-    $task = Find-RealTask $State $ClaimId
-    $handoff = Find-RealTaskHandoff $State $ClaimId $HandoffId
+function Get-Agent3AssignmentCore($State, [string] $ClaimId, [string] $HandoffId) {
+    $task = Find-Agent3 $State $ClaimId
+    $handoff = Find-Agent3Handoff $State $ClaimId $HandoffId
     if ($handoff.stage -cnotin @("correlated", "delivered")) { throw "Handoff is not deliverable." }
     @{
         schema = "fingvibe-real-assignment-v1"; repository = $State.repository; epic = $State.epic
@@ -655,30 +655,30 @@ function Get-RealTaskAssignmentCore($State, [string] $ClaimId, [string] $Handoff
     }
 }
 
-function Assert-RealTaskAssignment {
+function Assert-Agent3Assignment {
     param($State, $Assignment, [string] $WorkerId, [string] $RunId, [string] $SessionId)
-    Assert-RealTaskState $State
-    Assert-RealTaskAssignmentCore $State $Assignment $WorkerId $RunId $SessionId
+    Assert-Agent3State $State
+    Assert-Agent3AssignmentCore $State $Assignment $WorkerId $RunId $SessionId
 }
 
-function Assert-RealTaskAssignmentCore($State, $Assignment, [string] $WorkerId, [string] $RunId, [string] $SessionId) {
-    Assert-RealTaskFields $Assignment @("claimId", "handoffId")
-    $expected = Get-RealTaskAssignmentCore $State $Assignment.claimId $Assignment.handoffId
+function Assert-Agent3AssignmentCore($State, $Assignment, [string] $WorkerId, [string] $RunId, [string] $SessionId) {
+    Assert-Agent3Fields $Assignment @("claimId", "handoffId")
+    $expected = Get-Agent3AssignmentCore $State $Assignment.claimId $Assignment.handoffId
     if (-not $State.authorization.implementation -or $expected.workerId -cne $WorkerId -or
         $expected.runId -cne $RunId -or $expected.sessionId -cne $SessionId -or
-        (Get-RealTaskHash $Assignment) -cne (Get-RealTaskHash $expected)) {
+        (Get-Agent3Hash $Assignment) -cne (Get-Agent3Hash $expected)) {
         throw "Invalid/stale assignment or actual worker/run/session mismatch."
     }
-    $handoff = Find-RealTaskHandoff $State $Assignment.claimId $Assignment.handoffId
+    $handoff = Find-Agent3Handoff $State $Assignment.claimId $Assignment.handoffId
     if ($handoff.stage -cnotin @("correlated", "delivered") -or $null -ne $handoff.ackEventId) {
         throw "Assignment is not correlated or was already acknowledged."
     }
 }
 
-function Publish-RealTaskAcknowledgment {
+function Publish-Agent3Acknowledgment {
     param($State, $Assignment, [string] $WorkerId, [string] $RunId, [string] $SessionId,
         [string] $Directory, [string] $Actor, [string] $Trigger = "unknown", [string[]] $Evidence)
-    Assert-RealTaskAssignment $State $Assignment $WorkerId $RunId $SessionId
+    Assert-Agent3Assignment $State $Assignment $WorkerId $RunId $SessionId
     if (-not [IO.Path]::IsPathFullyQualified($Directory)) { throw "Event directory must be absolute." }
     if ($Assignment.handoffId -cnotmatch '^[a-zA-Z0-9-]+$') { throw "Invalid handoff filename identity." }
     $id = "ack-" + $Assignment.handoffId
@@ -693,26 +693,26 @@ function Publish-RealTaskAcknowledgment {
         actor = $Actor; originalReporter = $Actor; trigger = $Trigger; elapsedSeconds = $null
         result = $null; evidence = $Evidence
     }
-    Assert-RealTaskEvent $event
+    Assert-Agent3Event $event
     # Create-new publication arbitrates duplicate starts even before Dispatcher ingestion.
-    Write-RealTaskAtomic $event (Join-Path $Directory "$id.json") -Immutable
+    Write-Agent3Atomic $event (Join-Path $Directory "$id.json") -Immutable
     return $event
 }
 
-function Set-RealTaskDisposition {
+function Set-Agent3Disposition {
     param($State, [string] $ClaimId,
         [ValidateSet("validation", "repair-needed", "finalize-ready", "human-review", "blocked", "delivered")] [string] $Disposition,
         [string[]] $Evidence, [string[]] $IndependentEvidence, $HumanDelivery)
-    Assert-RealTaskState $State
-    Assert-RealTaskEvidence $Evidence
-    $task = Find-RealTask $State $ClaimId
+    Assert-Agent3State $State
+    Assert-Agent3Evidence $Evidence
+    $task = Find-Agent3 $State $ClaimId
     if ($null -ne $IndependentEvidence) {
         if ($Disposition -cne "blocked") { throw "Independence evidence requires a blocked disposition." }
-        Assert-RealTaskEvidence $IndependentEvidence
+        Assert-Agent3Evidence $IndependentEvidence
     }
     if ($null -ne $HumanDelivery) {
         if ($Disposition -cne "delivered") { throw "Human delivery requires a delivered disposition." }
-        Assert-RealTaskHumanDelivery $HumanDelivery $State.targetBranch
+        Assert-Agent3HumanDelivery $HumanDelivery $State.targetBranch
     }
     $handoff = if ($task.handoffs.Count -gt 0) { $task.handoffs[-1] } else { $null }
     if ($null -eq $handoff -and $Disposition -cne "blocked") { throw "Task has no execution evidence." }
@@ -739,7 +739,7 @@ function Set-RealTaskDisposition {
     if (-not $allowed) { throw "Invalid task disposition '$($task.state)' -> '$Disposition'." }
     if ($Disposition -cin @("validation", "finalize-ready", "human-review") -and
         $task.state -cnotin @("validation", "finalize-ready", "human-review")) {
-        $waiting = (Get-RealTaskCapacity $State).validationPending
+        $waiting = (Get-Agent3Capacity $State).validationPending
         $outstanding = @($State.tasks | Where-Object {
             $_.claimId -cne $ClaimId -and $_.state -cnotin @("validation", "finalize-ready", "human-review") -and
                 @($_.handoffs | Where-Object {
@@ -759,18 +759,18 @@ function Set-RealTaskDisposition {
         $task.head = $HumanDelivery.head
     }
     $task.dispositions += $record
-    Assert-RealTaskState $State
+    Assert-Agent3State $State
 }
 
-function Read-RealTaskJson {
+function Read-Agent3Json {
     param([string] $Path)
     if (-not [IO.Path]::IsPathFullyQualified($Path)) { throw "Record path must be absolute." }
     if (-not [IO.File]::Exists($Path)) { throw "Record absent: $Path. Never infer idle capacity." }
     $json = [IO.File]::ReadAllText($Path)
-    ConvertFrom-RealTaskJson $json
+    ConvertFrom-Agent3Json $json
 }
 
-function ConvertFrom-RealTaskJson([string] $Json) {
+function ConvertFrom-Agent3Json([string] $Json) {
     $options = [System.Text.Json.JsonDocumentOptions]::new()
     $options.MaxDepth = 100
     $document = [System.Text.Json.JsonDocument]::Parse($Json, $options)
@@ -794,12 +794,12 @@ function ConvertFrom-RealTaskJson([string] $Json) {
     ConvertFrom-Json -InputObject $Json -AsHashtable -DateKind String -Depth 100 -ErrorAction Stop
 }
 
-function Write-RealTaskAtomic($Record, [string] $Path, [switch] $Immutable) {
+function Write-Agent3Atomic($Record, [string] $Path, [switch] $Immutable) {
     if (-not [IO.Path]::IsPathFullyQualified($Path)) { throw "Record path must be absolute." }
     $json = $Record | ConvertTo-Json -Depth 100
-    $parsed = ConvertFrom-RealTaskJson $json
-    $expectedHash = Get-RealTaskHash $Record
-    if ((Get-RealTaskHash $parsed) -cne $expectedHash) {
+    $parsed = ConvertFrom-Agent3Json $json
+    $expectedHash = Get-Agent3Hash $Record
+    if ((Get-Agent3Hash $parsed) -cne $expectedHash) {
         throw "Serialized publication differs from the original record."
     }
     $directory = [IO.Path]::GetDirectoryName($Path)
@@ -813,7 +813,7 @@ function Write-RealTaskAtomic($Record, [string] $Path, [switch] $Immutable) {
         if ($Immutable) { [IO.File]::Move($temporary, $Path, $false) }
         elseif ([IO.File]::Exists($Path)) { [IO.File]::Replace($temporary, $Path, [System.Management.Automation.Language.NullString]::Value) }
         else { [IO.File]::Move($temporary, $Path, $false) }
-        if ((Get-RealTaskHash (Read-RealTaskJson $Path)) -cne $expectedHash) {
+        if ((Get-Agent3Hash (Read-Agent3Json $Path)) -cne $expectedHash) {
             throw "Atomic publication readback mismatch: $Path."
         }
     } finally {
@@ -821,46 +821,46 @@ function Write-RealTaskAtomic($Record, [string] $Path, [switch] $Immutable) {
     }
 }
 
-function Publish-RealTaskEvent {
+function Publish-Agent3Event {
     param($Event, [string] $Directory)
-    Assert-RealTaskEvent $Event
+    Assert-Agent3Event $Event
     if ($Event.schema -cne "fingvibe-real-event-v1" -or
         $Event.eventId -cnotmatch '^[a-zA-Z0-9-]+$') { throw "Invalid immutable event identity." }
     $path = Join-Path $Directory "$($Event.eventId).json"
     if ([IO.File]::Exists($path)) {
-        if ((Get-RealTaskHash (Read-RealTaskJson $path)) -cne (Get-RealTaskHash $Event)) {
+        if ((Get-Agent3Hash (Read-Agent3Json $path)) -cne (Get-Agent3Hash $Event)) {
             throw "Conflicting immutable event publication."
         }
         return $path
     }
-    Write-RealTaskAtomic $Event $path -Immutable
+    Write-Agent3Atomic $Event $path -Immutable
     return $path
 }
 
-function Publish-RealTaskState {
+function Publish-Agent3State {
     param($State, [string] $Path, [guid] $GateOwner, [int] $ExpectedRevision,
         [string] $GateDirectory = (Join-Path $env:LOCALAPPDATA "FingVibe\AgentCoordination"))
-    Assert-RealTaskState $State
+    Assert-Agent3State $State
     if ($GateOwner -eq [guid]::Empty) { throw "Gate owner must be nonempty." }
     $parts = $State.repository.Split("/")
     $gatePath = Join-Path $GateDirectory "$($parts[0])\$($parts[1]).dispatch.json"
-    $gate = Read-RealTaskJson $gatePath
+    $gate = Read-Agent3Json $gatePath
     if ($gate.schema -cne "fingvibe-dispatch-gate-v1" -or $gate.repository -cne $State.repository -or
         $gate.owner -cne $GateOwner.ToString()) { throw "State publication requires this tick's repository gate." }
     if ([IO.File]::Exists($Path)) {
-        $previous = Read-RealTaskJson $Path
-        Assert-RealTaskState $previous
+        $previous = Read-Agent3Json $Path
+        Assert-Agent3State $previous
         if ($previous.repository -cne $State.repository -or $previous.epic -ne $State.epic -or
             $previous.revision -ne $ExpectedRevision -or $State.revision -ne $ExpectedRevision + 1) {
             throw "Stale revision or changed environment identity."
         }
         foreach ($field in @("targetBranch", "authorization", "workers")) {
-            if ((Get-RealTaskHash @{ value = $previous[$field] }) -cne (Get-RealTaskHash @{ value = $State[$field] })) {
+            if ((Get-Agent3Hash @{ value = $previous[$field] }) -cne (Get-Agent3Hash @{ value = $State[$field] })) {
                 throw "Live environment configuration requires human reconciliation, not an in-flight rewrite."
             }
         }
         foreach ($oldTask in $previous.tasks) {
-            $task = Find-RealTask $State $oldTask.claimId
+            $task = Find-Agent3 $State $oldTask.claimId
             if ($task.issue -ne $oldTask.issue -or $task.repairCount -lt $oldTask.repairCount -or
                 $task.handoffs.Count -lt $oldTask.handoffs.Count) { throw "Task/repair history cannot be removed or reset." }
             foreach ($field in @("branch", "worktree", "pr")) {
@@ -870,7 +870,7 @@ function Publish-RealTaskState {
             }
             if ($task.dispositions.Count -lt $oldTask.dispositions.Count) { throw "Disposition history cannot shrink." }
             for ($i = 0; $i -lt $oldTask.dispositions.Count; $i++) {
-                if ((Get-RealTaskHash $oldTask.dispositions[$i]) -cne (Get-RealTaskHash $task.dispositions[$i])) {
+                if ((Get-Agent3Hash $oldTask.dispositions[$i]) -cne (Get-Agent3Hash $task.dispositions[$i])) {
                     throw "Prior disposition evidence cannot change."
                 }
             }
@@ -879,23 +879,23 @@ function Publish-RealTaskState {
                 $current = $task.handoffs[$i]
                 if ($old.Contains("recovery") -and
                     (-not $current.Contains("recovery") -or
-                        (Get-RealTaskHash $old.recovery) -cne (Get-RealTaskHash $current.recovery))) {
+                        (Get-Agent3Hash $old.recovery) -cne (Get-Agent3Hash $current.recovery))) {
                     throw "Human recovery evidence cannot change or disappear."
                 }
                 foreach ($field in @("id", "action", "workerId", "expectedHead", "repairAttempt", "strategy", "feedback", "priorRepairEvidence")) {
-                    if ((Get-RealTaskHash @{ value = $old[$field] }) -cne (Get-RealTaskHash @{ value = $current[$field] })) {
+                    if ((Get-Agent3Hash @{ value = $old[$field] }) -cne (Get-Agent3Hash @{ value = $current[$field] })) {
                         throw "Existing handoff identity/repair history cannot change."
                     }
                     foreach ($field in @("runId", "sessionId", "ackEventId", "resultEventId", "result")) {
                         if ($null -ne $old[$field] -and
-                            (Get-RealTaskHash @{ value = $old[$field] }) -cne (Get-RealTaskHash @{ value = $current[$field] })) {
+                            (Get-Agent3Hash @{ value = $old[$field] }) -cne (Get-Agent3Hash @{ value = $current[$field] })) {
                             throw "Recorded execution identity/result evidence cannot change."
                         }
                     }
                 }
                 if ($current.transitions.Count -lt $old.transitions.Count) { throw "Transition history cannot shrink." }
                 for ($j = 0; $j -lt $old.transitions.Count; $j++) {
-                    if ((Get-RealTaskHash $old.transitions[$j]) -cne (Get-RealTaskHash $current.transitions[$j])) {
+                    if ((Get-Agent3Hash $old.transitions[$j]) -cne (Get-Agent3Hash $current.transitions[$j])) {
                         throw "Prior transition evidence cannot change."
                     }
                 }
@@ -904,12 +904,12 @@ function Publish-RealTaskState {
         foreach ($field in @("events", "reports")) {
             $counts = @{}
             foreach ($entry in $State[$field]) {
-                $hash = Get-RealTaskHash $entry
+                $hash = Get-Agent3Hash $entry
                 if (-not $counts.ContainsKey($hash)) { $counts[$hash] = 0 }
                 $counts[$hash]++
             }
             foreach ($old in $previous[$field]) {
-                $hash = Get-RealTaskHash $old
+                $hash = Get-Agent3Hash $old
                 if (-not $counts.ContainsKey($hash) -or $counts[$hash] -ne 1) {
                     throw "Prior $field evidence cannot change or disappear."
                 }
@@ -918,26 +918,26 @@ function Publish-RealTaskState {
     } elseif ($ExpectedRevision -ne 0 -or $State.revision -ne 1) {
         throw "Initialization requires authoritative absence and revision one."
     }
-    Write-RealTaskAtomic $State $Path
+    Write-Agent3Atomic $State $Path
 }
 
-function Sync-RealTaskIncidents {
+function Sync-Agent3Incidents {
     param($State, [string] $Directory)
-    Assert-RealTaskState $State
+    Assert-Agent3State $State
     if (-not [IO.Directory]::Exists($Directory)) { throw "Incident directory unavailable; not an empty inventory." }
     $records = @()
     $ids = @{}
     foreach ($file in Get-ChildItem -LiteralPath $Directory -Filter "*.json" -File) {
-        $incident = Read-RealTaskJson $file.FullName
-        Assert-RealTaskFields $incident @("id", "originalReporter", "recordingActor", "changedUtc", "nextOwner", "nextAction", "evidence")
+        $incident = Read-Agent3Json $file.FullName
+        Assert-Agent3Fields $incident @("id", "originalReporter", "recordingActor", "changedUtc", "nextOwner", "nextAction", "evidence")
         foreach ($field in @("id", "originalReporter", "recordingActor", "nextOwner", "nextAction")) {
-            Assert-RealTaskText $incident[$field] $field
+            Assert-Agent3Text $incident[$field] $field
         }
-        Assert-RealTaskUtc $incident.changedUtc
-        Assert-RealTaskEvidence $incident.evidence
+        Assert-Agent3Utc $incident.changedUtc
+        Assert-Agent3Evidence $incident.evidence
         if ($ids.ContainsKey($incident.id)) { throw "Duplicate canonical incident." }
         $ids[$incident.id] = $true
-        $records += @{ id = $incident.id; path = $file.FullName; hash = Get-RealTaskHash $incident }
+        $records += @{ id = $incident.id; path = $file.FullName; hash = Get-Agent3Hash $incident }
     }
     foreach ($old in $State.incidents) {
         if (-not $ids.ContainsKey($old.id)) { throw "Previously indexed incident is missing; retain evidence." }
@@ -945,12 +945,12 @@ function Sync-RealTaskIncidents {
     $State.incidents = $records
 }
 
-. (Join-Path $PSScriptRoot "RealTaskProtocol.ps1")
+. (Join-Path $PSScriptRoot "Agent3Protocol.ps1")
 
-Export-ModuleMember -Function Assert-RealTaskState, New-RealTaskState, Get-RealTaskCapacity,
-    Add-RealTaskClaim, Add-RealTaskHandoff, Set-RealTaskStage, Add-RealTaskEvent,
-    Set-RealTaskDisposition, Read-RealTaskJson, Publish-RealTaskEvent, Publish-RealTaskState,
-    Sync-RealTaskIncidents, Get-RealTaskAssignment, Assert-RealTaskAssignment, Publish-RealTaskAcknowledgment,
-    New-RealTaskMessage, Publish-RealTaskMessage, Receive-RealTaskMessage,
-    Publish-RealTaskProtocolError, Confirm-RealTaskMessage,
-    Resolve-RealTaskHandoff
+Export-ModuleMember -Function Assert-Agent3State, New-Agent3State, Get-Agent3Capacity,
+    Add-Agent3Claim, Add-Agent3Handoff, Set-Agent3Stage, Add-Agent3Event,
+    Set-Agent3Disposition, Read-Agent3Json, Publish-Agent3Event, Publish-Agent3State,
+    Sync-Agent3Incidents, Get-Agent3Assignment, Assert-Agent3Assignment, Publish-Agent3Acknowledgment,
+    New-Agent3Message, Publish-Agent3Message, Receive-Agent3Message,
+    Publish-Agent3ProtocolError, Confirm-Agent3Message,
+    Resolve-Agent3Handoff

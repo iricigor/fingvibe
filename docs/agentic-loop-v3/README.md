@@ -12,9 +12,9 @@ Publishing these instructions does not complete the runtime experiment.
 
 **Completed experiment:** see [results and the complete 21-incident review](experiment-results.md)
 for measured overlap, human-assisted recovery, accepted limitations and the
-separate `3️⃣` real-environment direction. The instructions below preserve the
+separate `3️⃣` agent-3 environment direction. The instructions below preserve the
 trial setup; they are not permission to rerun its five tasks or reset its state.
-The separate real-task successor is [#331](https://github.com/iricigor/fingvibe/issues/331)
+The separate agent-3 successor is [#331](https://github.com/iricigor/fingvibe/issues/331)
 (intake only); extended Architect/Tester directions remain in #224.
 
 ## Local setup
