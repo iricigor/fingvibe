@@ -10,7 +10,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-function Invoke-RealTaskDispatcherGitHubRead {
+function Invoke-Agent3DispatcherGitHubRead {
     param([string] $Endpoint, [bool] $Paginated, [string] $Query)
 
     $text = if ($Query) {
@@ -24,7 +24,7 @@ function Invoke-RealTaskDispatcherGitHubRead {
     $text -join "`n"
 }
 
-function Get-RealTaskDispatcherPreflight {
+function Get-Agent3DispatcherPreflight {
     param(
         [Parameter(Mandatory)]
         [ValidatePattern("^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$")]
@@ -35,7 +35,7 @@ function Get-RealTaskDispatcherPreflight {
         [int[]] $TaskOrder,
         [string] $OrderEvidenceUrl,
         [DateTimeOffset] $Now = [DateTimeOffset]::UtcNow,
-        [scriptblock] $ApiReader = ${function:Invoke-RealTaskDispatcherGitHubRead}
+        [scriptblock] $ApiReader = ${function:Invoke-Agent3DispatcherGitHubRead}
     )
 
     $watch = [Diagnostics.Stopwatch]::StartNew()
@@ -408,7 +408,7 @@ function Get-RealTaskDispatcherPreflight {
                         $_.issue_url -eq $issue.url -and $_.body -match '<!--\s*fingvibe-real-claim-v1\s*-->'
                     })
                     if ($realClaims.Count -gt 0) {
-                        Add-DispatcherFinding "historical-cleanup" $issue.number $issue.html_url "Structured real-task history requires its owning workflow; manual self-healing cannot release it."
+                        Add-DispatcherFinding "historical-cleanup" $issue.number $issue.html_url "Structured agent-3 history requires its owning workflow; manual self-healing cannot release it."
                         continue
                     }
                     $completion = Get-HistoricalCompletion $issue $delivery
@@ -587,7 +587,7 @@ function Get-RealTaskDispatcherPreflight {
     }
 }
 
-function ConvertTo-RealTaskDispatcherPreflightOutput {
+function ConvertTo-Agent3DispatcherPreflightOutput {
     param(
         [Parameter(Mandatory)] $Result,
         [string] $DiagnosticsDirectory = ([IO.Path]::GetTempPath())
@@ -624,7 +624,7 @@ function ConvertTo-RealTaskDispatcherPreflightOutput {
 
 if ($MyInvocation.InvocationName -ne ".") {
     if (-not $Repository -or $Epic -lt 1) { throw "Repository and a positive Epic are required." }
-    $result = Get-RealTaskDispatcherPreflight -Repository $Repository -Epic $Epic -TaskOrder $TaskOrder -OrderEvidenceUrl $OrderEvidenceUrl
-    ConvertTo-RealTaskDispatcherPreflightOutput -Result $result -DiagnosticsDirectory $DiagnosticsDirectory
+    $result = Get-Agent3DispatcherPreflight -Repository $Repository -Epic $Epic -TaskOrder $TaskOrder -OrderEvidenceUrl $OrderEvidenceUrl
+    ConvertTo-Agent3DispatcherPreflightOutput -Result $result -DiagnosticsDirectory $DiagnosticsDirectory
     if ($result.collectionFailure) { exit 1 }
 }

@@ -86,9 +86,9 @@ Changed closure/delivery invalidates the prior disposition. The grace period
 requires deferral, not human escalation. Failed current-work collection,
 contradictory evidence and genuine unresolved claims/launches still block;
 structured handoffs retain stopped-execution requirements. See the exact
-[completion procedure](agentic-loop-real/dispatcher-preflight.md#automatic-historical-completion-reconciliation).
-Only 3️⃣ uses independent `Get-RealTaskDispatcherPreflight.ps1` and
-`Invoke-RealTaskDispatcherGate.ps1`. Older ⏩ and 2️⃣ scripts/agents remain
+[completion procedure](agentic-loop-3/dispatcher-preflight.md#automatic-historical-completion-reconciliation).
+Only 3️⃣ uses independent `Get-Agent3DispatcherPreflight.ps1` and
+`Invoke-Agent3DispatcherGate.ps1`. Older ⏩ and 2️⃣ scripts/agents remain
 unchanged. Both repository gate implementations retain the same physical
 lock path and format for cross-version serialization.
 Reopening issues and undoing/reverting merged PRs remain outside the stopped
@@ -154,13 +154,13 @@ duration and overall task elapsed time are distinct; never fabricate interruptio
 timing. Live launch/context reuse/termination must be trialed in the intended
 desktop host before scheduling; instruction delivery is not runtime verification.
 
-## Separate real-task two-Developer environment
+## Separate agent-3 two-Developer environment
 
 [Task #331](https://github.com/iricigor/fingvibe/issues/331) adds three separate
 `3️⃣` source profiles derived from the production Dispatcher/Epic Developer:
 one Dispatcher and two Developers. The
-[setup guide](agentic-loop-real/README.md) and
-[mandatory operating contract](agentic-loop-real/contract.md) define its
+[setup guide](agentic-loop-3/README.md) and
+[mandatory operating contract](agentic-loop-3/contract.md) define its
 configurable Epic/authority, two-worker occupancy, bounded validation backlog,
 shared state/event schema and twelve cumulative repairs after implementation.
 These explicit overrides apply only to the new environment; existing `⏩` and
@@ -169,7 +169,7 @@ All other implementation, independent validation/review, 240-second affected-UI
 duration and merge/release safeguards remain in force.
 
 [Task #338](https://github.com/iricigor/fingvibe/issues/338) extends only these
-three source profiles with a [strict operational JSON protocol](agentic-loop-real/protocol.md).
+three source profiles with a [strict operational JSON protocol](agentic-loop-3/protocol.md).
 Scripted publication/preflight and fixed-operation packets reuse their existing
 assignment/event guards; valid JSON, processing receipts and notifications
 grant no authority and do not prove execution or stopped-worker release.

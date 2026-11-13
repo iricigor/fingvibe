@@ -114,9 +114,9 @@ jobs:
         shell: pwsh
         run: .\tests\DispatcherGate.Tests.ps1
 
-      - name: Test real-task Dispatcher serialization and preflight
+      - name: Test agent-3 Dispatcher serialization and preflight
         shell: pwsh
-        run: .\tests\RealTaskDispatcherGate.Tests.ps1
+        run: .\tests\Agent3DispatcherGate.Tests.ps1
 
       - name: Test ISP logo build configuration
         shell: pwsh

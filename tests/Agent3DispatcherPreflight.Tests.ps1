@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-. (Join-Path $PSScriptRoot "..\.github\scripts\Get-RealTaskDispatcherPreflight.ps1")
+. (Join-Path $PSScriptRoot "..\.github\scripts\Get-Agent3DispatcherPreflight.ps1")
 $script:preflightNow = [DateTimeOffset] "2026-11-13T08:00:00Z"
 
 function Assert-Preflight([bool] $Condition, [string] $Message) {
@@ -110,7 +110,7 @@ function New-PreflightFixture {
 }
 
 function Invoke-PreflightFixture($Fixture, [int[]] $Order, [string] $Evidence) {
-    Get-RealTaskDispatcherPreflight -Repository "test/repo" -Epic 164 -ApiReader $Fixture.reader -TaskOrder $Order -OrderEvidenceUrl $Evidence -Now $script:preflightNow
+    Get-Agent3DispatcherPreflight -Repository "test/repo" -Epic 164 -ApiReader $Fixture.reader -TaskOrder $Order -OrderEvidenceUrl $Evidence -Now $script:preflightNow
 }
 
 function Add-PreflightClaim($Fixture, [int] $Number, [string] $State = "claimed", [object] $RepairCount = 0) {
@@ -522,7 +522,7 @@ $directory = Join-Path ([IO.Path]::GetTempPath()) ("dispatcher-preflight-test-" 
 [IO.Directory]::CreateDirectory($directory) | Out-Null
 $artifact = $null
 try {
-    $json = ConvertTo-RealTaskDispatcherPreflightOutput $result $directory
+    $json = ConvertTo-Agent3DispatcherPreflightOutput $result $directory
     $summary = $json | ConvertFrom-Json
     Assert-Preflight ([Text.Encoding]::UTF8.GetByteCount($json) -le 8192) "Representative stdout must be at most 8 KiB."
     $artifact = $summary.diagnosticPath
@@ -534,7 +534,7 @@ try {
     Remove-Item -LiteralPath $directory
 }
 
-$scriptPath = Join-Path $PSScriptRoot "..\.github\scripts\Get-RealTaskDispatcherPreflight.ps1"
+$scriptPath = Join-Path $PSScriptRoot "..\.github\scripts\Get-Agent3DispatcherPreflight.ps1"
 $command = "function gh { `$global:LASTEXITCODE = 1; '{}' }; & '" + $scriptPath.Replace("'", "''") + "' -Repository test/repo -Epic 164"
 $previousExitCode = $LASTEXITCODE
 try {
@@ -546,4 +546,4 @@ try {
     $global:LASTEXITCODE = $previousExitCode
 }
 
-Write-Output "Real-task Dispatcher preflight tests passed."
+Write-Output "Agent 3 Dispatcher preflight tests passed."

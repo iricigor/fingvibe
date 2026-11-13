@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-$gate = Join-Path $PSScriptRoot "..\.github\scripts\Invoke-RealTaskDispatcherGate.ps1"
+$gate = Join-Path $PSScriptRoot "..\.github\scripts\Invoke-Agent3DispatcherGate.ps1"
 $legacyGate = Join-Path $PSScriptRoot "..\.github\scripts\Invoke-DispatcherGate.ps1"
 $root = Join-Path ([IO.Path]::GetTempPath()) ("fingvibe-real-dispatch-test-" + [guid]::NewGuid())
 $parameters = @{ Repository = "TestOwner/TestRepo"; StateDirectory = $root }
@@ -88,5 +88,5 @@ try {
     if (Test-Path -LiteralPath $directory) { Remove-Item -LiteralPath $directory }
     if (Test-Path -LiteralPath $root) { Remove-Item -LiteralPath $root }
 }
-Write-Output "Real-task Dispatcher gate and cross-version serialization tests passed."
-& (Join-Path $PSScriptRoot "RealTaskDispatcherPreflight.Tests.ps1")
+Write-Output "Agent 3 Dispatcher gate and cross-version serialization tests passed."
+& (Join-Path $PSScriptRoot "Agent3DispatcherPreflight.Tests.ps1")
