@@ -48,7 +48,7 @@ function Find-Activity([string] $Id, [switch] $ByName, [switch] $Optional) {
                 [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty, "ActivityScroll"))
         }
         $element = if ($scope) { $scope.FindFirst([Windows.Automation.TreeScope]::Descendants, $condition) }
-        if (-not $element -and -not $tabChecked -and $Id -ne 'DeviceDetailsScroll') {
+        if (-not $element -and -not $Optional -and -not $tabChecked -and $Id -ne 'DeviceDetailsScroll') {
             $tabChecked = $true
             if (Show-UiRegressionDeviceTabFor $script:root $Id) { continue }
         }
