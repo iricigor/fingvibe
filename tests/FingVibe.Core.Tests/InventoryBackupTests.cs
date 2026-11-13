@@ -1,0 +1,215 @@
+using System.Diagnostics;
+using System.Net;
+using System.Net.NetworkInformation;
+using FingVibe.Core.Models;
+using FingVibe.Core.Storage;
+using Microsoft.Data.Sqlite;
+using Xunit;
+using Xunit.Abstractions;
+
+namespace FingVibe.Core.Tests;
+
+public sealed class InventoryBackupTests(ITestOutputHelper output) : IDisposable
+{
+    private readonly string _directory = Path.Combine(Path.GetTempPath(), $"fingvibe-backup-{Guid.NewGuid():N}");
+    private string Database => Path.Combine(_directory, "device-inventory.sqlite");
+    private InventoryBackupStore Backups => new(Database);
+
+    [Fact]
+    public async Task MissingSourceNeverCreatesAnEmptyDatabase()
+    {
+        Assert.True((await Backups.CreateAsync()).Missing);
+        Assert.False(File.Exists(Database));
+        Assert.Empty(await Backups.ListAsync());
+    }
+
+    private async Task<DeviceInventoryData> SeedAsync()
+    {
+        var person = new ManagedPerson(Guid.NewGuid(), "Backup person", "B");
+        var room = new ManagedRoom(Guid.NewGuid(), "Backup room", "R");
+        var snapshot = new ScanSnapshot("192.0.2.0/24", DateTimeOffset.UtcNow,
+            [new(IPAddress.Parse("192.0.2.1"), HostStatus.Alive, 1, TimeSpan.Zero,
+                null, PhysicalAddress.Parse("001122334455"), "Test")])
+        { ScanId = Guid.NewGuid(), NetworkId = "backup-network" };
+        var data = DeviceInventoryData.Empty.ObserveCompletedScan("backup-network", snapshot) with
+        {
+            LatestScan = snapshot,
+            Names = new Dictionary<string, string> { ["001122334455"] = "Saved name" },
+            PeopleRooms = new PeopleRoomsData([person], [room]).AssignPerson("001122334455", person.Id)
+                .AssignRoom("001122334455", room.Id),
+            Classifications = new Dictionary<string, DeviceClassificationOverride>
+                { ["001122334455"] = new(Type: DeviceType.Computer) }
+        };
+        return await new DeviceInventoryStore(Database).SaveAsync(data, Guid.Empty);
+    }
+
+    [Fact]
+    public async Task CopyReopensIndependentlyWithCommittedHistoryAssignmentsAndCheckpoint()
+    {
+        var saved = await SeedAsync();
+        var result = await Backups.CreateAsync();
+        var copy = await new DeviceInventoryStore(result.Backup!.Path).LoadAsync();
+        Assert.Equal(saved.Revision, copy!.Revision);
+        Assert.Equal("Saved name", copy.Names["001122334455"]);
+        Assert.Equal(saved.PeopleRooms.Assignments["001122334455"], copy.PeopleRooms.Assignments["001122334455"]);
+        Assert.Equal(DeviceType.Computer, copy.Classifications["001122334455"].Type);
+        Assert.Single(copy.Devices["001122334455"].ScanHistory);
+        Assert.Equal(saved.LatestScan!.ScanId, copy.LatestScan!.ScanId);
+        Assert.Equal(ScanCheckpointState.Complete, copy.LatestScan.State);
+        Assert.Single(await Backups.ListAsync());
+    }
+
+    [Fact]
+    public async Task EighthSuccessfulCopyPrunesOnlyOldestSuccessfulFile()
+    {
+        await SeedAsync();
+        var first = (await Backups.CreateAsync()).Backup!;
+        await File.WriteAllTextAsync(Path.Combine(Backups.DirectoryPath, "unrelated.sqlite"), "preserve");
+        await File.WriteAllTextAsync(Path.Combine(Backups.DirectoryPath, "interrupted.sqlite.partial"), "partial");
+        for (var i = 0; i < 7; i++) await Backups.CreateAsync();
+        var copies = await Backups.ListAsync();
+        Assert.Equal(7, copies.Count);
+        Assert.False(File.Exists(first.Path));
+        Assert.True(File.Exists(Path.Combine(Backups.DirectoryPath, "unrelated.sqlite")));
+        Assert.True(copies.Zip(copies.Skip(1)).All(pair => pair.First.CreatedUtc >= pair.Second.CreatedUtc));
+    }
+
+    [Fact]
+    public async Task FailedAndCancelledCopiesPreserveSevenPriorCopiesAndSource()
+    {
+        await SeedAsync();
+        for (var i = 0; i < 7; i++) await Backups.CreateAsync();
+        var before = (await Backups.ListAsync()).Select(item => item.Path).ToArray();
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => Backups.CreateAsync(cancelled.Token));
+        await File.WriteAllTextAsync(Database, "invalid SQLite");
+        await Assert.ThrowsAsync<SqliteException>(() => Backups.CreateAsync());
+        Assert.Equal(before, (await Backups.ListAsync()).Select(item => item.Path));
+        Assert.Empty(Directory.GetFiles(Backups.DirectoryPath, "*.partial"));
+        Assert.Equal("invalid SQLite", await File.ReadAllTextAsync(Database));
+    }
+
+    [Fact]
+    public async Task CompetingInstanceDefersWithoutCreatingOrPruning()
+    {
+        await SeedAsync();
+        Directory.CreateDirectory(Backups.DirectoryPath);
+        using var held = new FileStream(Path.Combine(Backups.DirectoryPath, "device-inventory.backup.lock"),
+            FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        Assert.True((await new InventoryBackupStore(Database).CreateAsync()).Deferred);
+        Assert.Empty(await Backups.ListAsync());
+    }
+
+    [Fact]
+    public async Task ConcurrentUncommittedWriterCannotLeakIntoBackup()
+    {
+        await SeedAsync();
+        using var writer = new SqliteConnection($"Data Source={Database};Pooling=False");
+        writer.Open();
+        using var transaction = writer.BeginTransaction();
+        using var command = writer.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = """UPDATE names SET data='"Uncommitted name"'""";
+        command.ExecuteNonQuery();
+        var result = await Backups.CreateAsync();
+        var copy = (await new DeviceInventoryStore(result.Backup!.Path).LoadAsync())!;
+        Assert.Equal("Saved name", copy.Names["001122334455"]);
+        transaction.Rollback();
+    }
+
+    [Fact]
+    public async Task CancellationWhileSqliteCopyIsBlockedNeverPublishesInterruptedCopy()
+    {
+        await SeedAsync();
+        using var writer = new SqliteConnection($"Data Source={Database};Pooling=False");
+        writer.Open();
+        using var command = writer.CreateCommand();
+        command.CommandText = "BEGIN EXCLUSIVE";
+        command.ExecuteNonQuery();
+        using var cancellation = new CancellationTokenSource();
+        var task = Backups.CreateAsync(cancellation.Token);
+        try
+        {
+            var clock = Stopwatch.StartNew();
+            while ((!Directory.Exists(Backups.DirectoryPath)
+                || Directory.GetFiles(Backups.DirectoryPath, "*.partial").Length == 0) && !task.IsCompleted)
+            {
+                if (clock.Elapsed > TimeSpan.FromSeconds(3)) throw new TimeoutException("Backup did not enter its isolated copy.");
+                await Task.Delay(10);
+            }
+            Assert.False(task.IsCompleted);
+            cancellation.Cancel();
+        }
+        finally
+        {
+            command.CommandText = "ROLLBACK";
+            command.ExecuteNonQuery();
+        }
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
+        Assert.Empty(await Backups.ListAsync());
+        Assert.Empty(Directory.GetFiles(Backups.DirectoryPath, "*.partial"));
+        Assert.NotNull(await new DeviceInventoryStore(Database).LoadAsync());
+    }
+
+    [Fact]
+    public async Task PruningFailureKeepsNewCopyAndReportsExtraRetention()
+    {
+        await SeedAsync();
+        for (var i = 0; i < 7; i++) await Backups.CreateAsync();
+        var oldest = (await Backups.ListAsync()).Last();
+        using var held = new FileStream(oldest.Path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        var error = await Assert.ThrowsAsync<IOException>(() => Backups.CreateAsync());
+        Assert.Contains("Extra copies remain", error.Message);
+        Assert.Equal(8, (await Backups.ListAsync()).Count);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(100000)]
+    public async Task MeasureBackupAndConcurrentForegroundSaveWithSyntheticHistory(int additionalHistory)
+    {
+        await SeedAsync();
+        if (additionalHistory > 0)
+        {
+            using var connection = new SqliteConnection($"Data Source={Database};Pooling=False");
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = $"""
+                WITH RECURSIVE seq(n) AS (SELECT 2 UNION ALL SELECT n+1 FROM seq WHERE n<{additionalHistory + 1})
+                INSERT INTO scan_history(kind,id,sequence,completed_at,network_id,subnet,present)
+                SELECT 'mac','001122334455',n,'2026-11-01T12:00:00+00:00','backup-network','192.0.2.0/24',1 FROM seq;
+                """;
+            command.ExecuteNonQuery();
+        }
+        var store = new DeviceInventoryStore(Database);
+        var loaded = (await store.LoadMetadataAsync())!;
+        var baseline = Stopwatch.StartNew();
+        loaded = await store.SaveAsync(loaded, loaded.Revision);
+        baseline.Stop();
+        var backupClock = Stopwatch.StartNew();
+        async Task<InventoryBackupResult> MeasureBackupAsync()
+        {
+            var result = await Backups.CreateAsync().ConfigureAwait(false);
+            backupClock.Stop();
+            return result;
+        }
+        var backup = MeasureBackupAsync();
+        var saveClock = Stopwatch.StartNew();
+        loaded = await store.SaveAsync(loaded, loaded.Revision);
+        saveClock.Stop();
+        var result = await backup;
+        var copy = (await new DeviceInventoryStore(result.Backup!.Path).LoadMetadataAsync())!;
+        Assert.NotEqual(Guid.Empty, copy.Revision);
+        Assert.Equal(1 + additionalHistory, copy.Devices["001122334455"].ScanHistory.Count);
+        Assert.Equal(loaded.LatestScan!.ScanId, copy.LatestScan!.ScanId);
+        output.WriteLine($"history={additionalHistory + 1}; source={new FileInfo(Database).Length} bytes; "
+            + $"backup={backupClock.Elapsed.TotalMilliseconds:F2}ms; "
+            + $"foreground-save={saveClock.Elapsed.TotalMilliseconds:F2}ms; isolated-save={baseline.Elapsed.TotalMilliseconds:F2}ms");
+    }
+
+    public void Dispose()
+    {
+        if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);
+    }
+}

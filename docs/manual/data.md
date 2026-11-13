@@ -28,8 +28,33 @@ as a normal way to change app data. Use FingVibe's own editors.
 
 ## Make a backup
 
-There is no automatic backup feature in the version covered by this manual.
-Make a manual copy:
+**Tools > Database backups** keeps the newest seven successful copies of the
+authoritative SQLite inventory in `%LOCALAPPDATA%\FingVibe\Backups`. It includes
+saved devices, corrections, People/Rooms, assignments, history and the latest
+committed scan checkpoint, but not preferences or caches.
+
+Automatic backups start no earlier than 15 seconds after successful startup
+loading/migration or a successfully saved complete scan (manual or scheduled).
+Repeated events reset the pending delay; events during a backup request at most
+one follow-up. **Back up now** bypasses the delay using the same serialized
+mechanism. Leaving the page does not stop work. Closing the app cancels pending
+work and requests cancellation without forcing a final backup.
+
+The page shows pending/running/error states, the last successful copy and
+completed copies newest first, with local creation times and sizes.
+**Open backup folder** opens the local location. With no database yet, the app
+waits for the first successfully saved scan instead of creating an empty one.
+Failures are shown inline and in the app status; retry with **Back up now** or
+the next normal trigger. If pruning fails, the new copy is kept and extra copies
+remain until a later successful backup can prune them.
+
+Copies use SQLite's consistent backup API, validation and safe publication,
+not a live file copy. Backup duration and foreground-save contention depend on
+database size and storage; 15 seconds is a delay, not a completion deadline.
+These are local copies on the same PC, not cloud or drive-loss protection.
+There is no restore, delete, folder-selection or retention-setting UI.
+
+To preserve preferences too, make a manual whole-folder copy:
 
 1. Close **all** FingVibe instances.
 2. Wait until the app has finished closing.

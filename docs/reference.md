@@ -1052,6 +1052,18 @@ synthetic preview, management return/re-analysis, completion, inventory counts,
 and status filtering on an interactive Windows desktop. UI-review mode keeps
 inventory edits in memory and never imports the user's private export.
 
+## Database backups
+
+**Tools > Database backups** creates validated, consistent SQLite copies in
+`%LOCALAPPDATA%\FingVibe\Backups` and retains seven successful copies. Startup
+loading/migration and successful final scan persistence reset one 15-second
+background timer; initial/incomplete/failed checkpoints do not trigger it.
+Manual backup shares the same creation/publication/pruning path without the
+delay. A cross-process file lock serializes the backup set; competing requests
+defer. SQLite locking and disk contention can still affect foreground saves.
+Shutdown cancels pending work and requests supported cancellation, without
+waiting for a final backup. See [saved data and backups](manual/data.md).
+
 ## Read-only SQL editor
 
 **Tools > SQL editor** queries saved SQLite inventory and scan history through
