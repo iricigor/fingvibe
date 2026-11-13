@@ -32,11 +32,17 @@ counters, saved Automations and settings must remain unchanged.
 
 ## Configuration and authority
 
-The human's Automation description or manual kickoff supplies the target Epic
+The human's Automation prompt or manual kickoff supplies the target Epic
 URL, the exact names of both Developer Automations, and a recorded human
 authorization reference with explicit implementation and merge permissions.
 There is no default Epic or transferred authorization. Missing authorization
 means no selection, claim, launch or edits. A bare startup is inert.
+The agent file's description is static display metadata, not configuration.
+Use the short templates in docs/agentic-loop-real/README.md. An explicitly
+authorizing owner-authored prompt/kickoff may itself be the retained decision
+reference when its provenance is verified; otherwise obtain recorded owner
+approval. Dispatcher selects/assigns and monitors; Developers implement and
+publish PRs. The example grants no merge or schedule-activation permission.
 Verify repository/default branch, type:epic, exact Automation identities,
 selected 3️⃣ Developer agents, shared local storage and isolated host contexts.
 Do not install, schedule or activate Automations, grant readiness, expand the
