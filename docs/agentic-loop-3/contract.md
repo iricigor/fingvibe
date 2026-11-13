@@ -487,7 +487,13 @@ rather than comparing every pair.
 
 ### GitHub mirrors and reports
 
-Before launch, Dispatcher posts/verifies one task claim comment marked
+[Discussion reporting](discussions.md) replaces all agent-generated task/Epic
+issue-comment destinations for these three source profiles only. Host messages,
+PR comments and original human authorization sources remain unchanged.
+Dispatcher creates/verifies Discussion mappings and issue-body links under its
+gate before first launch; reuse the task Discussion on repair/finalize/reopening.
+
+Before launch, Dispatcher posts/verifies one task Discussion claim comment marked
 `<!-- fingvibe-real-claim-v1 -->` containing fenced JSON with repository/Epic,
 issue, claimId, authorization, state revision/path, acting account, branch/PR/head,
 task state, repairCount and current handoff/history. Preserve prior evidence
@@ -495,25 +501,28 @@ and correlate every remote update to local state. Neither GitHub comments nor
 local publication forms a distributed transaction: partial publication holds
 ownership, records exact successful/missing operations and blocks launch.
 
-Use `Publish-Agent3GitHubComment` for large mirrors/results/reports, retaining
+Use `Publish-Agent3DiscussionReport` for large mirrors/results/reports, retaining
 the existing claim/result markers and adding a stable
 `<!-- agent3-publication:<operation-id> -->` marker. A claim revision is a new
 publication operation (claim ID plus revision), not a new claim/comment.
 Update the same claim comment with `-CommentId` and freshly read `-ExpectedBody`;
-the helper verifies target identity and previous content before PATCH.
+the helper verifies target identity and previous content before the GraphQL update.
 Retain all claim history/content. The helper uses the repository's
 file-backed `gh api --input` pattern, never a large `--body`/`-f body=...` argument.
-It lists all comment pages, reserves the operation before POST/PATCH, and verifies
-comment ID, issue, actual publishing account, URL and exact body by readback.
+It lists all comment/reply pages, reserves the operation before mutation, and verifies
+comment ID, mapped Discussion, actual publishing account, URL and exact body by readback.
 Matching remote success is verified without repeating the write. Duplicate/conflicting
 markers block. A started process, lost response or failed readback is uncertain:
 absence on a later read is not permission to retry. Only a durably recorded
 failure before gh process start permits a later missing-write attempt after
 fresh readback; no automatic retry occurs. Missing previously verified comments
 require reconciliation, not recreation. This changes neither ownership nor
-assignment replay policy.
+assignment replay policy. The linked agent index includes the first substantive
+line when available. Index failure is explicitly pending and nonblocking after
+canonical verification; reconstruct only the projection, never execution.
+Claim JSON is collapsed under "Claim details" with its exact marker/JSON intact.
 
-Developers post immutable result comments marked
+Developers post immutable result Discussion comments marked
 `<!-- fingvibe-real-result-v1 -->`, containing the full event and report link.
 Verify current GitHub identity/host correlation against actual sender evidence,
 not merely an `actor` string in JSON. Paginate all relevant comments and
@@ -531,7 +540,10 @@ needed, with evidence/exact action; never remove it automatically. Re-read
 human-task before assignment, edits, pushes and merge. Dispatcher reconciles
 verified delivery/issue closure, lifecycle cleanup and native Epic checklist
 before releasing task ownership; only brief linked terminal/blocker Epic
-outcomes, not duplicated detailed logs.
+Discussion outcomes, not duplicated detailed logs. All posts use chronological
+top-level comments and compact one-line metadata. Relevant observations may be
+posted to the three fixed Epic-topic Discussions without per-post approval;
+they are informational and never grant work authority.
 
 ## Evidence collection and integration
 
@@ -577,13 +589,14 @@ outcomes, not duplicated detailed logs.
    relaunch or worker replacement. Dispatcher verifies actual session
    termination and reconciles task/worker release separately.
 
-Use `Get-Agent3DispatcherPreflight.ps1` once under the gate for fully paginated
+Use `Get-Agent3DispatcherPreflight.ps1 -DiscussionDirectory <shared-root>` once under the gate for fully paginated
 repository-wide evidence and compact diagnostics. Read any complete diagnostic
 artifact it points to. Its legacy candidate/reconcile guidance cannot enforce
 two-worker capacity and may stop before dependency inventory when it finds
 occupied work. Never interpret its return as a complete candidate inventory.
 The independent collector retains legacy claim-marker parsing and the three-repair
-schema, not `fingvibe-real-claim-v1`. Inspect the agent-3 mirrors explicitly;
+schema and separately collects Discussion claims and historical notices. Compare
+`discussion-claim` findings with authoritative state/events and actual execution;
 never feed twelve-repair records to the old schema or treat their absence from
 legacy findings as released ownership.
 Independently collect only the still-needed native queue/dependencies and

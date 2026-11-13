@@ -11,7 +11,8 @@ Do not create a separate production lock namespace.
 After acquiring its gate, 3️⃣ Dispatcher runs:
 
 ```powershell
-.\.github\scripts\Get-Agent3DispatcherPreflight.ps1 -Repository iricigor/fingvibe -Epic <number>
+.\.github\scripts\Get-Agent3DispatcherPreflight.ps1 -Repository iricigor/fingvibe `
+    -Epic <number> -DiscussionDirectory <absolute-existing-shared-root>
 ```
 
 The helper is read-only. It collects fully paginated GitHub evidence once,
@@ -24,8 +25,10 @@ The candidate/reconcile guidance is conservative, not the real environment's
 two-worker capacity policy. Follow the [shared contract](contract.md) for
 native membership, ordering, dependencies, foreign work, current host checks,
 authorization and fresh reads before writes. The collector reads legacy
-three-repair claim records; independently inspect agent-3 claims/events
-using the agent-3 helpers. Never treat missing discovery as free capacity.
+three-repair claim records and separately collects Discussion claims/reports.
+Compare `discussion-claim` findings with authoritative state/events and actual
+execution using the agent-3 helpers. Fully paginated legacy/foreign issue
+comments remain part of collection. Never treat missing discovery as free capacity.
 Collection errors remain explicit blockers. Accepted design/trial scope,
 abandonment and transferred ideas require their own evidence review; this
 completion policy does not invent merged PRs for them.
@@ -70,7 +73,7 @@ Do not treat an API failure as an empty result.
 
 Under the existing owned repository gate, freshly recheck issue closure,
 intended PR delivery/timestamps and current work before writing. Post a short
-task comment such as: "Self-healing historical completion bookkeeping after the
+mapped task Discussion comment such as: "Self-healing historical completion bookkeeping after the
 30-minute grace period. Delivery is verified and current checks found no
 correlated ongoing work. Historical termination is not proven. Manual ownership
 is reconciled by policy." Include the following marker and exactly one JSON
@@ -84,7 +87,7 @@ Populate `checkedUtc` with the actual inspection time and fill `evidence` with
 nonempty traceable references/descriptions for delivery and current-work checks,
 including host scope/limitations. Preserve the template's repository, task,
 target branch, issue-closure instant and complete PR timestamp set.
-Publish as a verified repository owner/member/collaborator and read the comment
+Publish with the [Discussion helpers](discussions.md) as a verified repository owner/member/collaborator and read the comment
 back to verify both its body and author. Preserve original claim/progress prose;
 clear and verify only stale `active`/`status:review` labels on the closed issue,
 if present. Do not alter unrelated labels, ownership records or repair counters.
@@ -113,4 +116,5 @@ No automatic restart, replacement, merge or schedule authority is granted.
 This runs independent gate/cross-version contention checks and the dedicated
 preflight suite. Fixtures cover the strict 30-minute threshold, multiple PRs,
 repeated notices, changed delivery, malformed evidence and retained claims.
+Original issue notices and new Discussion notices use the same delivery/provenance checks.
 The older Dispatcher suite remains unchanged and runs separately in CI.

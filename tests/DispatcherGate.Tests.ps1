@@ -86,3 +86,4 @@ Write-Output "Dispatcher gate tests passed."
 & (Join-Path $PSScriptRoot "Agent3Coordination.Tests.ps1")
 & (Join-Path $PSScriptRoot "Agent3Protocol.Tests.ps1")
 & (Join-Path $PSScriptRoot "Agent3Publication.Tests.ps1")
+& (Join-Path $PSScriptRoot "Agent3Discussions.Tests.ps1")

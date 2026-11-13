@@ -5,6 +5,7 @@ param(
     [int] $Epic,
     [int[]] $TaskOrder,
     [string] $OrderEvidenceUrl,
+    [string] $DiscussionDirectory,
     [string] $DiagnosticsDirectory = ([IO.Path]::GetTempPath())
 )
 
@@ -34,6 +35,12 @@ function Get-Agent3DispatcherPreflight {
         [int] $Epic,
         [int[]] $TaskOrder,
         [string] $OrderEvidenceUrl,
+        [string] $DiscussionDirectory,
+        [scriptblock] $DiscussionReader = {
+            param($Repository, $Directory)
+            Import-Module (Join-Path $PSScriptRoot "Agent3Coordination.psm1") -Force
+            Get-Agent3DiscussionEvidence $Repository $Directory
+        },
         [DateTimeOffset] $Now = [DateTimeOffset]::UtcNow,
         [scriptblock] $ApiReader = ${function:Invoke-Agent3DispatcherGitHubRead}
     )
@@ -49,6 +56,8 @@ function Get-Agent3DispatcherPreflight {
     $counts = [ordered]@{}
     $ordering = $null
     $failure = $null
+    $discussionClaims = @()
+    $discussionReports = @()
 
     function Read-DispatcherEvidence([string] $Endpoint, [bool] $Paginated = $false, [string] $Query) {
         $key = "$Endpoint|$Paginated|$Query"
@@ -184,28 +193,34 @@ function Get-Agent3DispatcherPreflight {
             evidence = @()
         }
         $notice = $null
-        foreach ($comment in $comments) {
-            if ($comment.issue_url -ne $Issue.url -or
-                $comment.body -notmatch '<!--\s*fingvibe-historical-completion-v1\s*-->') { continue }
+        $notices = @(
+            foreach ($comment in $comments) {
+                if ($comment.issue_url -eq $Issue.url) {
+                    @{ body = $comment.body; url = $comment.html_url; authorAssociation = $comment.author_association }
+                }
+            }
+        ) + @($discussionReports | Where-Object issue -EQ $Issue.number)
+        foreach ($comment in $notices) {
+            if ($comment.body -notmatch '<!--\s*fingvibe-historical-completion-v1\s*-->') { continue }
             $blocks = [regex]::Matches($comment.body, '(?s)```json\s*(.*?)\s*```')
             if ($blocks.Count -ne 1 -or
                 [regex]::Matches($comment.body, '<!--\s*fingvibe-historical-completion-v1\s*-->').Count -ne 1) {
-                throw "Malformed historical reconciliation notice: $($comment.html_url)."
+                throw "Malformed historical reconciliation notice: $($comment.url)."
             }
             $prior = ConvertFrom-Json -InputObject $blocks[0].Groups[1].Value -Depth 30 -DateKind String
-            if ($comment.author_association -notin @("OWNER", "MEMBER", "COLLABORATOR") -or
+            if ($comment.authorAssociation -notin @("OWNER", "MEMBER", "COLLABORATOR") -or
                 $prior.schema -ne $record.schema -or $prior.repository -cne $Repository -or
                 $prior.task -ne $Issue.number -or $prior.targetBranch -cne $targetBranch -or
                 $prior.pullRequests -isnot [array] -or $prior.pullRequests.Count -eq 0 -or
                 $prior.evidence -isnot [array] -or $prior.evidence.Count -eq 0 -or
                 @($prior.evidence | Where-Object { $_ -isnot [string] -or [string]::IsNullOrWhiteSpace($_) }).Count -gt 0) {
-                throw "Untrusted/incomplete historical reconciliation notice: $($comment.html_url)."
+                throw "Untrusted/incomplete historical reconciliation notice: $($comment.url)."
             }
             $checked = Read-CompletionTimestamp $prior.checkedUtc
             $priorClosed = Read-CompletionTimestamp $prior.issueClosedUtc
             $priorPrs = @(
                 foreach ($pr in ($prior.pullRequests | Sort-Object url)) {
-                    if (-not $pr.url) { throw "Missing PR URL in historical reconciliation: $($comment.html_url)." }
+                    if (-not $pr.url) { throw "Missing PR URL in historical reconciliation: $($comment.url)." }
                     [ordered]@{
                         url = $pr.url
                         closedUtc = (Read-CompletionTimestamp $pr.closedUtc).ToUniversalTime().ToString("o")
@@ -217,7 +232,7 @@ function Get-Agent3DispatcherPreflight {
                 (ConvertTo-Json -InputObject $priorPrs -Depth 10 -Compress) -ceq
                     (ConvertTo-Json -InputObject $prEvidence -Depth 10 -Compress) -and
                 $checked -gt $eligibleAfter) {
-                $notice = $comment.html_url
+                $notice = $comment.url
             }
         }
         [pscustomobject]@{
@@ -267,6 +282,14 @@ function Get-Agent3DispatcherPreflight {
         $repositoryItems = @(Read-DispatcherEvidence "repos/$Repository/issues?state=all&per_page=100" $true)
         $issues = @($repositoryItems | Where-Object { -not $_.pull_request })
         $comments = @(Read-DispatcherEvidence "repos/$Repository/issues/comments?per_page=100" $true)
+        if ($DiscussionDirectory) {
+            if (-not [IO.Path]::IsPathFullyQualified($DiscussionDirectory)) { throw "DiscussionDirectory must be absolute." }
+            $discussionEvidence = & $DiscussionReader $Repository $DiscussionDirectory
+            if ($null -eq $discussionEvidence -or -not $discussionEvidence.Contains("claims") -or
+                -not $discussionEvidence.Contains("reports")) { throw "Incomplete Discussion evidence." }
+            $discussionClaims = @($discussionEvidence.claims)
+            $discussionReports = @($discussionEvidence.reports)
+        }
         $children = @(Read-DispatcherEvidence "repos/$Repository/issues/$Epic/sub_issues?per_page=100" $true)
         $issueByNumber = @{}
         $pullRequestByNumber = @{}
@@ -353,6 +376,11 @@ function Get-Agent3DispatcherPreflight {
             }
             Add-DispatcherFinding "open-pr" $pr.number $pr.html_url "Repository slot occupied; draft=$($pr.draft)."
         }
+        foreach ($record in $discussionClaims) {
+            if (-not $issueByNumber.ContainsKey([int]$record.issue)) { throw "Discussion claim references an unknown task." }
+            Add-DispatcherFinding "discussion-claim" $record.issue $record.url (
+                "Agent-3 Discussion mirror requires comparison with authoritative state, canonical events and actual host execution; not a legacy three-repair claim.")
+        }
         foreach ($issue in $issues) {
             if ($issue.state -eq "open" -and
                 @($issue.labels.name | Where-Object { $_ -in @("active", "status:review") }).Count -gt 0) {
@@ -363,6 +391,7 @@ function Get-Agent3DispatcherPreflight {
             issues = $issues.Count
             comments = $comments.Count
             structuredClaims = $claimsByTask.Count
+            discussionClaims = $discussionClaims.Count
             nativeChildren = $children.Count
         }
 
@@ -584,6 +613,7 @@ function Get-Agent3DispatcherPreflight {
         elapsedSeconds = [math]::Round($watch.Elapsed.TotalSeconds, 3)
         collectionMetrics = @($metrics)
         collectionFailure = $failure
+        discussionClaims = $discussionClaims
     }
 }
 
@@ -624,7 +654,7 @@ function ConvertTo-Agent3DispatcherPreflightOutput {
 
 if ($MyInvocation.InvocationName -ne ".") {
     if (-not $Repository -or $Epic -lt 1) { throw "Repository and a positive Epic are required." }
-    $result = Get-Agent3DispatcherPreflight -Repository $Repository -Epic $Epic -TaskOrder $TaskOrder -OrderEvidenceUrl $OrderEvidenceUrl
+    $result = Get-Agent3DispatcherPreflight -Repository $Repository -Epic $Epic -TaskOrder $TaskOrder -OrderEvidenceUrl $OrderEvidenceUrl -DiscussionDirectory $DiscussionDirectory
     ConvertTo-Agent3DispatcherPreflightOutput -Result $result -DiagnosticsDirectory $DiagnosticsDirectory
     if ($result.collectionFailure) { exit 1 }
 }

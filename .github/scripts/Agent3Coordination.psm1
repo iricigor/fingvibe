@@ -1244,6 +1244,7 @@ function Sync-Agent3Incidents {
 
 . (Join-Path $PSScriptRoot "Agent3Protocol.ps1")
 . (Join-Path $PSScriptRoot "Agent3Publication.ps1")
+. (Join-Path $PSScriptRoot "Agent3Discussions.ps1")
 
 Export-ModuleMember -Function Assert-Agent3State, New-Agent3State, Get-Agent3Capacity,
     Add-Agent3Claim, Add-Agent3Handoff, Set-Agent3Stage, Add-Agent3Event,
@@ -1253,4 +1254,8 @@ Export-ModuleMember -Function Assert-Agent3State, New-Agent3State, Get-Agent3Cap
     Publish-Agent3ProtocolError, Confirm-Agent3Message,
     Resolve-Agent3Handoff, Repair-Agent3RejectedHandoff, New-Agent3DispatchBatch,
     Get-Agent3AuthorizationEvidence, Publish-Agent3PreStartRejection,
-    New-Agent3DeliveryRequest, Send-Agent3Message, Publish-Agent3GitHubComment
+    New-Agent3DeliveryRequest, Send-Agent3Message, Publish-Agent3GitHubComment,
+    Initialize-Agent3Discussion, Get-Agent3MappedDiscussion, Get-Agent3DiscussionComments,
+    Publish-Agent3DiscussionComment, Publish-Agent3DiscussionReport, New-Agent3DiscussionBody,
+    Get-Agent3DiscussionClaims, Get-Agent3DiscussionEvidence,
+    New-Agent3TaskDiscussionLink, Publish-Agent3IssueDiscussionLink, Get-Agent3FirstMessageLine
