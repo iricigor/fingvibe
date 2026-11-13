@@ -40,8 +40,8 @@ switch -CaseSensitive ($Action) {
         foreach ($key in $spec.Keys) { if ($key -cnotin $allowed) { throw "Unknown specification field '$key'." } }
         $message = New-Agent3Message -Type $spec.type -Sender $observation.sender -Recipient $observation.recipient `
             -Context $spec.context -Payload $spec.payload -InReplyTo $spec.inReplyTo -Record $spec.record -Directory $Directory
-        $null = Publish-Agent3Message $message $state $observation.sender $observation.recipient $Directory
-        $message | ConvertTo-Json -Depth 100 -Compress
+        $path = Publish-Agent3Message $message $state $observation.sender $observation.recipient $Directory
+        [IO.File]::ReadAllText($path)
     }
     "Receive" {
         if (-not [IO.Path]::IsPathFullyQualified($InputPath)) { throw "Input path must be absolute." }

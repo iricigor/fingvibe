@@ -1069,12 +1069,16 @@ function Publish-Agent3Event {
         }
         return $path
     }
+    if ($Event.kind -ceq "result" -and $Event.result.outcome -ceq "blocked-before-start") {
+        throw "Use Publish-Agent3PreStartRejection with the actual Receive decision before reserving a rejection."
+    }
     Write-Agent3Atomic $Event $path -Immutable
     return $path
 }
 
 function Publish-Agent3PreStartRejection {
-    param($State, $Event, [string] $WorkerId, [string] $RunId, [string] $SessionId, [string] $Directory)
+    param($State, $Event, [string] $WorkerId, [string] $RunId, [string] $SessionId, [string] $Directory,
+        [Parameter(Mandatory)] $Decision, [Parameter(Mandatory)] $Sender, [Parameter(Mandatory)] $Recipient)
     Assert-Agent3State $State
     Assert-Agent3Event $Event
     $handoff = Find-Agent3Handoff $State $Event.claimId $Event.handoffId
@@ -1090,8 +1094,44 @@ function Publish-Agent3PreStartRejection {
             throw "Canonical acknowledgment/result exists; preserve the existing lifecycle."
         }
     }
+    $protocolDirectory = [IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($Directory))
+    if ($Directory -cne (Join-Path $protocolDirectory "events")) {
+        throw "Pre-start results require the configured canonical events directory."
+    }
+    Assert-Agent3Endpoint $Sender
+    Assert-Agent3Endpoint $Recipient
+    Assert-Agent3Fields $Decision @("schema", "disposition", "operation", "reasonCode", "messageId",
+        "payloadPath", "diagnosticPath", "responseAllowed", "nextOwner", "requiredEvidence") -Closed
+    if ($Decision.schema -cne "fingvibe-real-decision-v1" -or $Decision.disposition -cne "rejected" -or
+        $Decision.operation -cne "none" -or $null -ne $Decision.payloadPath -or
+        $Decision.responseAllowed -isnot [bool] -or $Decision.nextOwner -cne $WorkerId) {
+        throw "Pre-start rejection requires the actual rejected Receive decision."
+    }
+    $diagnostic = Read-Agent3Json $Decision.diagnosticPath
+    Assert-Agent3Diagnostic $diagnostic
+    $expectedPath = Get-Agent3ProtocolPath $protocolDirectory "diagnostics" $diagnostic.id
+    if ($Decision.diagnosticPath -cne $expectedPath -or -not $diagnostic.Contains("raw") -or
+        $Decision.reasonCode -cne $diagnostic.code -or
+        (Get-Agent3Hash $Decision) -cne (Get-Agent3Hash (Read-Agent3Json (
+            Get-Agent3ProtocolPath $protocolDirectory "decisions" (Get-Agent3Hash $Decision)))) -or
+        (Get-Agent3Hash $Sender) -cne (Get-Agent3Hash $diagnostic.sender) -or
+        (Get-Agent3Hash $Recipient) -cne (Get-Agent3Hash $diagnostic.recipient)) {
+        throw "Rejection must retain the exact Receive decision, original content and observed endpoints."
+    }
+    $worker = @($State.workers | Where-Object id -CEQ $WorkerId)[0]
+    if ($Sender.agentId -cne "dispatcher" -or $Recipient.agentId -cne $WorkerId -or
+        $Recipient.automationId -cne $worker.automationId -or $Recipient.runId -cne $RunId -or
+        $Recipient.sessionId -cne $SessionId -or
+        ($diagnostic.code -ceq "invalid-json" -and ($Decision.responseAllowed -or $null -ne $diagnostic.inReplyTo))) {
+        throw "Rejection differs from independently verified host/handoff correlation."
+    }
+    $Event.evidence = @($Event.evidence + $diagnostic.evidence + @($Decision.diagnosticPath) | Select-Object -Unique)
+    $Event.result.evidence = @($Event.result.evidence + @($Decision.diagnosticPath) | Select-Object -Unique)
+    Assert-Agent3Event $Event
     $null = Test-Agent3Event $State $Event
-    Publish-Agent3Event $Event $Directory
+    $path = Join-Path $Directory "$($Event.eventId).json"
+    Write-Agent3Atomic $Event $path -Immutable
+    return $path
 }
 
 function Publish-Agent3State {
@@ -1203,6 +1243,7 @@ function Sync-Agent3Incidents {
 }
 
 . (Join-Path $PSScriptRoot "Agent3Protocol.ps1")
+. (Join-Path $PSScriptRoot "Agent3Publication.ps1")
 
 Export-ModuleMember -Function Assert-Agent3State, New-Agent3State, Get-Agent3Capacity,
     Add-Agent3Claim, Add-Agent3Handoff, Set-Agent3Stage, Add-Agent3Event,
@@ -1211,4 +1252,5 @@ Export-ModuleMember -Function Assert-Agent3State, New-Agent3State, Get-Agent3Cap
     New-Agent3Message, Publish-Agent3Message, Receive-Agent3Message,
     Publish-Agent3ProtocolError, Confirm-Agent3Message,
     Resolve-Agent3Handoff, Repair-Agent3RejectedHandoff, New-Agent3DispatchBatch,
-    Get-Agent3AuthorizationEvidence, Publish-Agent3PreStartRejection
+    Get-Agent3AuthorizationEvidence, Publish-Agent3PreStartRejection,
+    New-Agent3DeliveryRequest, Send-Agent3Message, Publish-Agent3GitHubComment
