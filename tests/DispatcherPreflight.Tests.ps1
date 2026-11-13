@@ -1,6 +1,5 @@
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "..\.github\scripts\Get-DispatcherPreflight.ps1")
-$script:preflightNow = [DateTimeOffset] "2026-11-13T08:00:00Z"
 
 function Assert-Preflight([bool] $Condition, [string] $Message) {
     if (-not $Condition) { throw $Message }
@@ -34,7 +33,6 @@ function New-PreflightFixture {
         malformedEndpoint = $null
         multiPage = $false
     }
-    $now = $script:preflightNow
     $reader = {
         param($Endpoint, $Paginated, $Query)
         $state.calls.Add("$Endpoint|$Query")
@@ -73,9 +71,6 @@ function New-PreflightFixture {
                 $object = @{
                     data = @{ repository = @{ issue = @{
                         number = $number
-                        state = ([string] ($state.issues | Where-Object number -EQ $number).state).ToUpperInvariant()
-                        stateReason = "COMPLETED"
-                        closedAt = $now.AddMinutes(-31).ToString("o")
                         parent = $parent
                         closedByPullRequestsReferences = @{
                             nodes = $nodes
@@ -89,9 +84,6 @@ function New-PreflightFixture {
                     "incomplete-labels" { $parent.labels.pageInfo.hasNextPage = $true }
                     "non-epic" { $parent.labels.nodes = @(@{ name = "type:task" }) }
                     "changed-page" { if ($pageIndex -gt 0) { $object.data.repository.issue.parent = $null } }
-                }
-                foreach ($key in @("state", "stateReason", "closedAt")) {
-                    if ($delivery -and $delivery.ContainsKey($key)) { $object.data.repository.issue[$key] = $delivery[$key] }
                 }
                 break
             }
@@ -109,8 +101,8 @@ function New-PreflightFixture {
     [pscustomobject]@{ state = $state; reader = $reader }
 }
 
-function Invoke-PreflightFixture($Fixture, [int[]] $Order, [string] $Evidence, [switch] $SelfHeal) {
-    Get-DispatcherPreflight -Repository "test/repo" -Epic 164 -ApiReader $Fixture.reader -TaskOrder $Order -OrderEvidenceUrl $Evidence -Now $script:preflightNow -HistoricalCompletionSelfHealing:$SelfHeal
+function Invoke-PreflightFixture($Fixture, [int[]] $Order, [string] $Evidence) {
+    Get-DispatcherPreflight -Repository "test/repo" -Epic 164 -ApiReader $Fixture.reader -TaskOrder $Order -OrderEvidenceUrl $Evidence
 }
 
 function Add-PreflightClaim($Fixture, [int] $Number, [string] $State = "claimed", [object] $RepairCount = 0) {
@@ -133,12 +125,7 @@ function Add-PreflightClaim($Fixture, [int] $Number, [string] $State = "claimed"
 function Add-PreflightDelivery($Fixture, [int] $Number, [Nullable[int]] $Parent = 164, [bool] $Merged = $true) {
     $Fixture.state.deliveries[$Number] = @{
         parent = $Parent
-        prs = @(@{
-            number = 900 + $Number; url = "https://github.com/test/repo/pull/$(900 + $Number)"
-            merged = $Merged; baseRefName = "main"; state = if ($Merged) { "MERGED" } else { "CLOSED" }
-            closedAt = $script:preflightNow.AddMinutes(-31).ToString("o")
-            mergedAt = $script:preflightNow.AddMinutes(-31).ToString("o")
-        })
+        prs = @(@{ number = 900 + $Number; url = "https://github.com/test/repo/pull/$(900 + $Number)"; merged = $Merged; baseRefName = "main"; state = "CLOSED" })
     }
 }
 
@@ -276,7 +263,7 @@ foreach ($parent in @(164, 111, $null)) {
     Add-PreflightDelivery $fixture 190 $parent
     $result = Invoke-PreflightFixture $fixture
     if ($parent -eq 164) {
-        Assert-Preflight ($result.decision -eq "reconcile" -and $result.findings[0].kind -eq "historical-cleanup") "Default legacy behavior must still require within-Epic historical cleanup."
+        Assert-Preflight ($result.decision -eq "reconcile" -and $result.findings[0].kind -eq "historical-cleanup") "Within-Epic historical cleanup must block."
     } else {
         Assert-Preflight ($result.decision -eq "candidate" -and $result.skipped[0].issue -eq 190) "Verified out-of-Epic historical label-only work must not occupy capacity."
         if ($null -eq $parent) {
@@ -317,122 +304,6 @@ $fixture.state.deliveries[190].prs = @()
 Assert-Preflight ((Invoke-PreflightFixture $fixture).findings[0].kind -eq "historical-delivery-unknown") "Parentless closure without merged PRs still requires delivery review."
 Add-PreflightClaim $fixture 190
 Assert-Preflight ((Invoke-PreflightFixture $fixture).findings[0].kind -eq "retained-claim") "Parentless history must never hide an unresolved structured claim."
-
-foreach ($event in @("issue", "pr-closed", "pr-merged")) {
-    foreach ($seconds in @(1799, 1800, 1801)) {
-        $fixture = New-PreflightFixture
-        $fixture.state.issues += New-PreflightIssue 190 "closed" @("type:task", "active")
-        $fixture.state.children += 190
-        Add-PreflightDelivery $fixture 190
-        $time = $script:preflightNow.AddSeconds(-$seconds).ToString("o")
-        switch ($event) {
-            "issue" { $fixture.state.deliveries[190].closedAt = $time }
-            "pr-closed" { $fixture.state.deliveries[190].prs[0].closedAt = $time }
-            "pr-merged" {
-                $fixture.state.deliveries[190].prs[0].closedAt = $time
-                $fixture.state.deliveries[190].prs[0].mergedAt = $time
-            }
-        }
-        $result = Invoke-PreflightFixture $fixture -SelfHeal
-        $expected = if ($seconds -gt 1800) { "historical-self-heal" } else { "historical-grace-period" }
-        Assert-Preflight (-not $result.collectionFailure -and $result.findings[0].kind -eq $expected) "$event age $seconds seconds must respect the strict 30-minute threshold."
-    }
-}
-
-$fixture = New-PreflightFixture
-$fixture.state.issues += New-PreflightIssue 190 "closed" @("type:task", "active")
-$fixture.state.children += 190
-Add-PreflightDelivery $fixture 190
-$legacy = Invoke-PreflightFixture $fixture
-Assert-Preflight ($legacy.findings[0].kind -eq "historical-cleanup" -and
-    -not $legacy.findings[0].completion -and
-    @($fixture.state.calls | Where-Object { $_ -match "mergedAt|stateReason" }).Count -eq 0) "Legacy calls must not opt in or request completion timestamps."
-$result = Invoke-PreflightFixture $fixture -SelfHeal
-$record = $result.findings[0].completion.record
-Assert-Preflight ($record.schema -eq "fingvibe-historical-completion-v1" -and
-    $record.evidence.Count -eq 0 -and -not $record.claimId) "Preflight supplies a completion template, never invented execution evidence or an implementation claim."
-$record.evidence = @("Current host inspection found no correlated active work; historical termination metadata unavailable.")
-$fixture.state.comments += @{
-    id = 19
-    issue_url = "https://api.github.com/repos/test/repo/issues/190"
-    html_url = "https://github.com/test/repo/issues/190#issuecomment-19"
-    author_association = "OWNER"
-    body = "<!-- fingvibe-historical-completion-v1 -->`nSelf-healing historical ownership bookkeeping; not proof of termination.`n" +
-        '```json' + "`n" + (ConvertTo-Json -InputObject $record -Depth 15) + "`n" + '```'
-}
-foreach ($tick in 1..2) {
-    $result = Invoke-PreflightFixture $fixture -SelfHeal
-    Assert-Preflight ($result.candidate.issue -eq 200 -and $result.skipped[0].evidence[0] -eq $fixture.state.comments[0].html_url) "Repeated cycle $tick must reuse the completion disposition without another notice."
-}
-Assert-Preflight ((Invoke-PreflightFixture $fixture).findings[0].kind -eq "historical-cleanup") "A 3-only notice must not change legacy reconciliation behavior."
-$fixture.state.deliveries[190].closedAt = $script:preflightNow.AddMinutes(-30).ToString("o")
-Assert-Preflight ((Invoke-PreflightFixture $fixture -SelfHeal).findings[0].kind -eq "historical-grace-period") "A changed closure invalidates an earlier reconciliation and restarts the grace period."
-$fixture.state.deliveries[190].closedAt = $script:preflightNow.AddMinutes(-31).ToString("o")
-$fixture.state.deliveries[190].prs[0].mergedAt = $script:preflightNow.AddMinutes(-32).ToString("o")
-Assert-Preflight ((Invoke-PreflightFixture $fixture -SelfHeal).findings[0].kind -eq "historical-self-heal") "Changed PR delivery evidence must not reuse a prior disposition."
-$fixture.state.deliveries[190].prs[0].mergedAt = $script:preflightNow.AddMinutes(-31).ToString("o")
-$fixture.state.comments[0].author_association = "NONE"
-Assert-Preflight ([bool] (Invoke-PreflightFixture $fixture -SelfHeal).collectionFailure) "Untrusted reconciliation notices must not free capacity."
-$fixture.state.comments[0].author_association = "OWNER"
-foreach ($mutation in @("empty-evidence", "early-notice", "malformed")) {
-    $originalBody = $fixture.state.comments[0].body
-    switch ($mutation) {
-        "empty-evidence" {
-            $record.evidence = @()
-            $fixture.state.comments[0].body = "<!-- fingvibe-historical-completion-v1 -->`n" +
-                '```json' + "`n" + (ConvertTo-Json -InputObject $record -Depth 15) + "`n" + '```'
-        }
-        "early-notice" {
-            $fixture.state.comments[0].body = $originalBody.Replace(
-                $script:preflightNow.ToUniversalTime().ToString("o"),
-                $script:preflightNow.AddMinutes(-1).ToUniversalTime().ToString("o"))
-        }
-        "malformed" { $fixture.state.comments[0].body = "<!-- fingvibe-historical-completion-v1 --> no JSON" }
-    }
-    $result = Invoke-PreflightFixture $fixture -SelfHeal
-    Assert-Preflight (-not $result.candidate -and
-        ($result.collectionFailure -or $result.findings[0].kind -eq "historical-self-heal")) "$mutation notices cannot certify historical reconciliation."
-    $fixture.state.comments[0].body = $originalBody
-}
-Add-PreflightClaim $fixture 190
-Assert-Preflight ((Invoke-PreflightFixture $fixture -SelfHeal).findings[0].kind -eq "retained-claim") "A historical notice must not override a genuine retained claim."
-
-$fixture = New-PreflightFixture
-$fixture.state.issues += New-PreflightIssue 190 "closed" @("type:task", "active")
-$fixture.state.children += 190
-Add-PreflightDelivery $fixture 190
-$secondPr = $fixture.state.deliveries[190].prs[0].Clone()
-$secondPr.number = 1200
-$secondPr.url = "https://github.com/test/repo/pull/1200"
-$secondPr.closedAt = $script:preflightNow.AddMinutes(-10).ToString("o")
-$secondPr.mergedAt = $secondPr.closedAt
-$fixture.state.deliveries[190].prs += $secondPr
-Assert-Preflight ((Invoke-PreflightFixture $fixture -SelfHeal).findings[0].kind -eq "historical-grace-period") "Every closing PR must clear the grace period, not just the first merged PR."
-
-foreach ($mutation in @("missing", "invalid", "no-zone", "future", "not-planned", "reopened", "real-claim")) {
-    $fixture = New-PreflightFixture
-    $fixture.state.issues += New-PreflightIssue 190 "closed" @("type:task", "active")
-    $fixture.state.children += 190
-    Add-PreflightDelivery $fixture 190
-    switch ($mutation) {
-        "missing" { $fixture.state.deliveries[190].prs[0].Remove("closedAt") }
-        "invalid" { $fixture.state.deliveries[190].prs[0].mergedAt = "yesterday" }
-        "no-zone" { $fixture.state.deliveries[190].closedAt = "2026-11-13T07:00:00" }
-        "future" { $fixture.state.deliveries[190].closedAt = $script:preflightNow.AddSeconds(1).ToString("o") }
-        "not-planned" { $fixture.state.deliveries[190].stateReason = "NOT_PLANNED" }
-        "reopened" { $fixture.state.deliveries[190].state = "OPEN" }
-        "real-claim" {
-            $fixture.state.comments += @{
-                id = 19; issue_url = "https://api.github.com/repos/test/repo/issues/190"
-                html_url = "https://github.com/test/repo/issues/190#issuecomment-19"
-                body = "<!-- fingvibe-real-claim-v1 --> Retained ownership must use its own workflow."
-            }
-        }
-    }
-    $result = Invoke-PreflightFixture $fixture -SelfHeal
-    Assert-Preflight (-not $result.candidate -and
-        ($result.collectionFailure -or $result.findings[0].kind -eq "historical-cleanup")) "$mutation evidence must not permit historical self-healing."
-}
 
 foreach ($state in @("open", "closed")) {
     $fixture = New-PreflightFixture

@@ -52,8 +52,8 @@ reset old counters, clear foreign labels or move issues between Epics.
 
 The 3️⃣-only bounded exception is historical **manual** completion reconciliation, not
 foreign structured-claim adoption. Follow the
-[30-minute completion procedure](../dispatcher-preflight.md#automatic-historical-completion-reconciliation)
-with the explicit `-HistoricalCompletionSelfHealing` preflight switch:
+[30-minute completion procedure](dispatcher-preflight.md#automatic-historical-completion-reconciliation)
+in the independent `Get-RealTaskDispatcherPreflight.ps1`:
 verify current completed closure and intended merged PRs, wait strictly more
 than 30 minutes after all closure/merge events, inspect current work, and
 post/read back one policy-based self-healing notice. Missing historical
@@ -64,7 +64,9 @@ duplicates; revalidate changed delivery/closure. Failed collection, positive
 live-work evidence and unresolved structured handoffs remain blockers.
 Only stale closed-issue active/review labels may be cleared and verified by this
 procedure. Reopening or undoing/reverting merged work is outside the stopped loop.
-The older ⏩ and 2️⃣ agents and shared preflight defaults are unchanged.
+The older ⏩ and 2️⃣ agents and scripts are unchanged. The independent
+`Invoke-RealTaskDispatcherGate.ps1` deliberately preserves the same physical
+repository lock path and format for cross-version serialization.
 
 ## Schemas and transition authority
 
@@ -357,12 +359,12 @@ outcomes, not duplicated detailed logs.
    relaunch or worker replacement. Dispatcher verifies actual session
    termination and reconciles task/worker release separately.
 
-Reuse `Get-DispatcherPreflight.ps1` once under the gate for fully paginated
+Use `Get-RealTaskDispatcherPreflight.ps1` once under the gate for fully paginated
 repository-wide evidence and compact diagnostics. Read any complete diagnostic
 artifact it points to. Its legacy candidate/reconcile guidance cannot enforce
 two-worker capacity and may stop before dependency inventory when it finds
 occupied work. Never interpret its return as a complete candidate inventory.
-The legacy collector parses only its original claim marker and three-repair
+The independent collector retains legacy claim-marker parsing and the three-repair
 schema, not `fingvibe-real-claim-v1`. Inspect the real-task mirrors explicitly;
 never feed twelve-repair records to the old schema or treat their absence from
 legacy findings as released ownership.

@@ -86,9 +86,11 @@ Changed closure/delivery invalidates the prior disposition. The grace period
 requires deferral, not human escalation. Failed current-work collection,
 contradictory evidence and genuine unresolved claims/launches still block;
 structured handoffs retain stopped-execution requirements. See the exact
-[completion procedure](dispatcher-preflight.md#automatic-historical-completion-reconciliation).
-Only 3️⃣ Dispatcher opts in via `-HistoricalCompletionSelfHealing`; the shared
-preflight defaults and the older ⏩ and 2️⃣ agents keep their existing behavior.
+[completion procedure](agentic-loop-real/dispatcher-preflight.md#automatic-historical-completion-reconciliation).
+Only 3️⃣ uses independent `Get-RealTaskDispatcherPreflight.ps1` and
+`Invoke-RealTaskDispatcherGate.ps1`. Older ⏩ and 2️⃣ scripts/agents remain
+unchanged. Both repository gate implementations retain the same physical
+lock path and format for cross-version serialization.
 Reopening issues and undoing/reverting merged PRs remain outside the stopped
 3️⃣ loop, not automatic Dispatcher work.
 

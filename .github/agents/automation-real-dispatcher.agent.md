@@ -52,20 +52,20 @@ queue, or substitute synchronous subagents. No Tester or Architect is installed.
 ## Each bounded tick
 
 1. Capture actual UTC start, monotonic timer, tick UUID and trigger provenance
-   if available. Acquire the existing default Invoke-DispatcherGate.ps1
+   if available. Acquire the default Invoke-RealTaskDispatcherGate.ps1
    repository gate; never use a separate production lock namespace or expire
    a gate. Import RealTaskCoordination.psm1.
 2. Read and validate the configured environment's state. Initialize only after
    authoritative absence, shared-directory verification and human authorization.
    Read immutable events and canonical incidents even if missing from indexes.
    Verify indexed evidence still exists; corruption is not free capacity.
-3. Use the existing read-only preflight once for cached repository-wide evidence.
+3. Use Get-RealTaskDispatcherPreflight.ps1 once for cached repository-wide evidence.
    Its single-claim guidance is conservative, not this environment's capacity
    policy. Follow the shared contract's staged collection and foreign-work rules;
    never suppress collection failures or simply ignore an open PR.
-   Invoke Get-DispatcherPreflight.ps1 with -HistoricalCompletionSelfHealing;
-   this opt-in is exclusive to 3️⃣, not the older ⏩ or 2️⃣ agents. Apply
-   docs/dispatcher-preflight.md's automatic historical manual-completion
+   The independent preflight and gate implementations belong only to 3️⃣;
+   do not invoke the older Dispatcher scripts. Apply
+   docs/agentic-loop-real/dispatcher-preflight.md's automatic historical manual-completion
    reconciliation: completed issue closure and all intended PR closure/merge
    events must be strictly older than 30 minutes. Defer younger history without
    human escalation solely for the grace period. Check current work, post/verify

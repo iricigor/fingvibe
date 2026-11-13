@@ -186,10 +186,10 @@ Dispatcher is the only state writer. Developer events are immutable; canonical
 incident records retain original evidence and append dated recovery/resolution
 notes. Do not commit machine-local records, secrets or raw session dumps.
 
-All Dispatcher ticks use the **existing default repository gate**:
+All 3️⃣ ticks use their **independent gate script with the existing default repository lock**:
 
 ```powershell
-.\.github\scripts\Invoke-DispatcherGate.ps1 -Action Acquire `
+.\.github\scripts\Invoke-RealTaskDispatcherGate.ps1 -Action Acquire `
     -Repository <owner/repo> -Owner <fresh-tick-UUID>
 ```
 
@@ -260,10 +260,11 @@ Run deterministic checks without starting real workers or contacting GitHub:
 ```powershell
 .\tests\RealTaskCoordination.Tests.ps1
 .\tests\RealTaskProtocol.Tests.ps1
-.\tests\DispatcherGate.Tests.ps1
+.\tests\RealTaskDispatcherGate.Tests.ps1
 ```
 
-The existing gate entry point includes the new suite, so existing CI runs it
+CI runs the independent Dispatcher gate/preflight suite alongside the unchanged
+older suite. Coordination/protocol coverage remains in its existing checks,
 without changing validation/protection policy. Cases cover stage mismatch,
 field aliases, duplicate/partial events, unknown timing, missing incident index,
 run/session distinctions, backlog backpressure, twelve repairs across workers
@@ -303,7 +304,7 @@ independent blocked claims, backlog readmission and separately evidenced human
 delivery. These helpers validate record shape, not the truth of host observations.
 
 3️⃣ historical manual completion has a separate bounded
-[automatic reconciliation path](../dispatcher-preflight.md#automatic-historical-completion-reconciliation):
+[automatic reconciliation path](dispatcher-preflight.md#automatic-historical-completion-reconciliation):
 after completed issue closure and all intended PR closure/merge events are
 strictly older than 30 minutes, check current work and publish/verify one
 self-healing completion notice. Reuse matching notices on later ticks.
@@ -311,10 +312,10 @@ Unavailable historical termination metadata alone does not require human
 recovery; preserve that uncertainty instead of inventing claims or termination
 proof. Genuine unresolved structured handoffs retain the recovery rules above.
 This does not authorize reopen/revert operations or restarting the loop.
-Enable it only in 3️⃣ Dispatcher via `-HistoricalCompletionSelfHealing`.
-The shared preflight/gate scripts are also used by ⏩, but their default behavior
-and the older agent instructions remain unchanged. The 2️⃣ synthetic experiment
-uses separate state/locking and does not opt in.
+Only 3️⃣ uses `Get-RealTaskDispatcherPreflight.ps1` and
+`Invoke-RealTaskDispatcherGate.ps1`; neither invokes the older scripts.
+The two gate implementations retain the same physical repository lock and
+format. Older scripts/instructions and the 2️⃣ experiment remain unchanged.
 
 The next choice in [#224](https://github.com/iricigor/fingvibe/issues/224)
 remains **unresolved**: Architect-driven recovery/self-healing versus

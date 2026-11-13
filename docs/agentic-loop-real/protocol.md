@@ -315,7 +315,7 @@ constructs/publishes complete valid envelopes for every type, exercises the CLI,
 all three assignment operations, errors, nested extras, duplicate keys, authority,
 head/identity/correlation mismatch, immutable conflicts, partial records and
 unindexed acknowledgment. It also checks culture/order-safe hashing and a smaller
-decision packet. Run it or the existing combined `DispatcherGate.Tests.ps1`.
+decision packet. Run it alongside `RealTaskDispatcherGate.Tests.ps1`.
 
 ## Optimization and evidence limits
 
