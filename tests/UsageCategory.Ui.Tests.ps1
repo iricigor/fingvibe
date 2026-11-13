@@ -122,10 +122,14 @@ function Find-UsageRow([string] $Name) {
 
 function Find-UsageIndicator($Cell) {
     # The decorative icon is raw-only; FindFirst excludes it from the control view.
-    $condition = [System.Windows.Automation.PropertyCondition]::new(
-        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceUsageCategoryIndicator")
-    $walker = [System.Windows.Automation.TreeWalker]::new($condition)
-    return $walker.GetFirstChild($Cell)
+    $call = Start-UiRegressionCall lookup
+    try {
+        $condition = [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceUsageCategoryIndicator")
+        $walker = [System.Windows.Automation.TreeWalker]::new($condition)
+        return $walker.GetFirstChild($Cell)
+    }
+    finally { Complete-UiRegressionCall $call }
 }
 
 function Assert-UsageCell([string] $Name, [string] $Category, [bool] $Indicator, [switch] $Narrow,
