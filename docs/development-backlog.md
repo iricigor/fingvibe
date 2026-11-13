@@ -132,6 +132,27 @@ duration and overall task elapsed time are distinct; never fabricate interruptio
 timing. Live launch/context reuse/termination must be trialed in the intended
 desktop host before scheduling; instruction delivery is not runtime verification.
 
+## Separate real-task two-Developer environment
+
+[Task #331](https://github.com/iricigor/fingvibe/issues/331) adds three separate
+`3️⃣` source profiles derived from the production Dispatcher/Epic Developer:
+one Dispatcher and two Developers. The
+[setup guide](agentic-loop-real/README.md) and
+[mandatory operating contract](agentic-loop-real/contract.md) define its
+configurable Epic/authority, two-worker occupancy, bounded validation backlog,
+shared state/event schema and twelve cumulative repairs after implementation.
+These explicit overrides apply only to the new environment; existing `⏩` and
+`2️⃣` profiles, saved Automations, claims and counters remain unchanged.
+All other implementation, independent validation/review, 240-second affected-UI
+duration and merge/release safeguards remain in force.
+
+Source delivery neither installs/activates Automations nor grants workload or
+merge authority, and does not require another live trial. Real execution needs
+separate recorded human authorization for the selected Epic and capabilities.
+The new environment uses the same default single-PC repository gate; foreign
+work still requires ownership/conflict assessment, not automatic adoption or
+release. #224's Architect-versus-Tester next choice remains unresolved.
+
 ## Explicitly invoked manual-worker exception
 
 [Task #189](https://github.com/iricigor/fingvibe/issues/189) adds the

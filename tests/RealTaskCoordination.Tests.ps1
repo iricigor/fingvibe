@@ -1,0 +1,579 @@
+$ErrorActionPreference = "Stop"
+Import-Module (Join-Path $PSScriptRoot "..\.github\scripts\RealTaskCoordination.psm1") -Force
+$gateScript = Join-Path $PSScriptRoot "..\.github\scripts\Invoke-DispatcherGate.ps1"
+$root = Join-Path ([IO.Path]::GetTempPath()) ("fingvibe-real-test-" + [guid]::NewGuid())
+$null = [IO.Directory]::CreateDirectory($root)
+$evidence = @("fixture://verified-evidence")
+$head = "a" * 40
+
+function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
+    try { & $Action | Out-Null }
+    catch {
+        if ($_.Exception.Message -notlike $Pattern) { throw }
+        return
+    }
+    throw "Expected failure matching '$Pattern'."
+}
+
+function Copy-Record($Record) { $Record | ConvertTo-Json -Depth 100 | ConvertFrom-Json -AsHashtable -DateKind String -Depth 100 }
+
+function New-Fixture {
+    New-RealTaskState -Repository "TestOwner/TestRepo" -Epic 92 -TargetBranch main `
+        -Authorization @{ reference = "fixture://human-approval"; implementation = $true; merge = $false } `
+        -Workers @(@{ id = "developer-1"; name = "Developer 1"; automationId = "automation-1" },
+            @{ id = "developer-2"; name = "Developer 2"; automationId = "automation-2" })
+}
+
+function Start-Handoff($State, $Task, $Handoff) {
+    Set-RealTaskStage $State $Task.claimId $Handoff.id launch-requested -Evidence $evidence
+    Set-RealTaskStage $State $Task.claimId $Handoff.id correlated -Evidence $evidence `
+        -RunId ("run-" + $Handoff.id) -SessionId ("session-" + $Handoff.id)
+    Set-RealTaskStage $State $Task.claimId $Handoff.id delivered -Evidence $evidence
+}
+
+function New-Event($Task, $Handoff, [string] $Kind, [string] $Outcome = "implementation-ready") {
+    @{
+        schema = "fingvibe-real-event-v1"; eventId = "$Kind-$($Handoff.id)"
+        kind = $Kind; claimId = $Task.claimId; handoffId = $Handoff.id; action = $Handoff.action
+        workerId = $Handoff.workerId; runId = $Handoff.runId; sessionId = $Handoff.sessionId
+        utc = [DateTime]::UtcNow.ToString("o"); actor = $Handoff.workerId
+        originalReporter = $Handoff.workerId; trigger = "unknown"; elapsedSeconds = 1.25
+        evidence = $evidence
+        result = $(if ($Kind -eq "result") {
+            @{ outcome = $Outcome; head = $head; checkpoint = "fixture://checkpoint"; evidence = $evidence }
+        } else { $null })
+    }
+}
+
+function Complete-Implementation($State, $Task, $Handoff) {
+    Start-Handoff $State $Task $Handoff
+    $null = Add-RealTaskEvent $State (New-Event $Task $Handoff ack)
+    $null = Add-RealTaskEvent $State (New-Event $Task $Handoff result)
+    Set-RealTaskStage $State $Task.claimId $Handoff.id stopped-verified -Evidence @("fixture://actual-session-stopped")
+    $Task.branch = "task-branch"; $Task.worktree = Join-Path $root "task-worktree"
+    $Task.pr = "fixture://pr"
+    if ($Task.head -cne $head -or $Task.checkpoint -cne "fixture://checkpoint") {
+        throw "Accepted implementation must promote head/checkpoint without manual bookkeeping."
+    }
+    Set-RealTaskDisposition $State $Task.claimId validation -Evidence $evidence
+    Set-RealTaskStage $State $Task.claimId $Handoff.id reconciled -Evidence $evidence
+}
+
+try {
+    $module = Get-Module RealTaskCoordination
+    $hashRecord = '{"actor":"a","Actor":"b","nested":{"z":1,"a":2}}' | ConvertFrom-Json -AsHashtable
+    $firstHash = & $module { param($r) Get-RealTaskHash $r } $hashRecord
+    $hashRecord["actor"] = "changed"
+    $secondHash = & $module { param($r) Get-RealTaskHash $r } $hashRecord
+    if ($firstHash -ceq $secondHash) { throw "Canonical hashing must preserve case-distinct fields." }
+    $reordered = '{"nested":{"a":2,"z":1},"Actor":"b","actor":"changed"}' | ConvertFrom-Json -AsHashtable
+    if ((& $module { param($r) Get-RealTaskHash $r } $reordered) -cne $secondHash) {
+        throw "Object order must not change canonical hashes."
+    }
+    $culture = [Threading.Thread]::CurrentThread.CurrentCulture
+    try {
+        [Threading.Thread]::CurrentThread.CurrentCulture = [Globalization.CultureInfo]::GetCultureInfo("tr-TR")
+        if ((& $module { param($r) Get-RealTaskHash $r } $hashRecord) -cne $secondHash) {
+            throw "Culture must not change canonical hashes."
+        }
+    } finally { [Threading.Thread]::CurrentThread.CurrentCulture = $culture }
+
+    $orphaned = New-Fixture
+    $orphaned.reports = @(@{ id = "orphan"; claimId = "missing"; handoffId = "missing"
+        url = "fixture://report"; utc = [DateTime]::UtcNow.ToString("o"); nextOwner = "human"; nextAction = "inspect" })
+    Assert-Throws { Assert-RealTaskState $orphaned } "*exactly one task*"
+    Assert-Throws { Get-RealTaskCapacity $orphaned } "*exactly one task*"
+
+    $state = New-Fixture
+    $first = Add-RealTaskClaim $state 100 $evidence
+    $one = Add-RealTaskHandoff $state $first.claimId developer-1 implement
+    Assert-Throws { Add-RealTaskHandoff $state $first.claimId developer-2 implement } "*unavailable*"
+    $second = Add-RealTaskClaim $state 101 $evidence
+    Assert-Throws { Add-RealTaskHandoff $state $second.claimId developer-1 implement } "*unavailable*"
+    $two = Add-RealTaskHandoff $state $second.claimId developer-2 implement
+    if ((Get-RealTaskCapacity $state).occupiedWorkers.Count -ne 2) { throw "Both independent workers must be occupied." }
+    Assert-Throws { Set-RealTaskStage $state $first.claimId $one.id correlated -Evidence $evidence } "*Invalid stage*"
+    Start-Handoff $state $first $one
+    $assignment = Get-RealTaskAssignment $state $first.claimId $one.id
+    Assert-RealTaskAssignment $state $assignment developer-1 $one.runId $one.sessionId
+    $reservation = Publish-RealTaskAcknowledgment $state $assignment developer-1 $one.runId $one.sessionId `
+        (Join-Path $root "reservation") "actual-developer-1" -Evidence $evidence
+    Assert-Throws {
+        Publish-RealTaskAcknowledgment $state $assignment developer-1 $one.runId $one.sessionId `
+            (Join-Path $root "reservation") "actual-developer-1" -Evidence $evidence
+    } "*already acknowledged*"
+    $bad = Copy-Record $assignment; $bad.action = "finalize"
+    Assert-Throws { Assert-RealTaskAssignment $state $bad developer-1 $one.runId $one.sessionId } "*Invalid/stale*"
+    Assert-Throws { Assert-RealTaskAssignment $state $assignment developer-1 $one.runId $one.runId } "*mismatch*"
+    $ack = New-Event $first $one ack
+    $bad = Copy-Record $ack; $bad.Remove("elapsedSeconds"); $bad.elapsed = 1.25
+    Assert-Throws { Add-RealTaskEvent $state $bad } "*Missing field 'elapsedSeconds'*"
+    $bad = Copy-Record $ack; $bad.Remove("elapsedSeconds"); $bad.ElapsedSeconds = 1.25
+    Assert-Throws { Add-RealTaskEvent $state $bad } "*Missing field 'elapsedSeconds'*"
+    $bad = Copy-Record $ack; $bad.utc = "2026-11-11T12:00:00"
+    Assert-Throws { Add-RealTaskEvent $state $bad } "*explicit UTC*"
+    $bad = Copy-Record $ack; $bad.elapsedSeconds = -1
+    Assert-Throws { Add-RealTaskEvent $state $bad } "*nonnegative*"
+    $bad = Copy-Record $ack; $bad.sessionId = "bare-automation-run"
+    Assert-Throws { Add-RealTaskEvent $state $bad } "*correlation mismatch*"
+    if ((Add-RealTaskEvent $state $ack) -ne "applied" -or
+        (Add-RealTaskEvent $state (Copy-Record $ack)) -ne "duplicate") { throw "Event idempotency failed." }
+    $bad = Copy-Record $ack; $bad.actor = "different-recorder"
+    Assert-Throws { Add-RealTaskEvent $state $bad } "*Conflicting duplicate*"
+    Assert-Throws { Assert-RealTaskAssignment $state $assignment developer-1 $one.runId $one.sessionId } "*not deliverable*"
+    $result = New-Event $first $one result
+    $null = Add-RealTaskEvent $state $result
+    Assert-Throws { Set-RealTaskStage $state $first.claimId $one.id reconciled -Evidence $evidence } "*Invalid stage*"
+    if ((Get-RealTaskCapacity $state).occupiedWorkers.Count -ne 2) { throw "A completion event must not release execution." }
+    Set-RealTaskDisposition $state $first.claimId blocked -Evidence $evidence
+    if ((Get-RealTaskCapacity $state).occupiedWorkers.Count -ne 2) { throw "Blocked uncertain execution must occupy its worker." }
+    Set-RealTaskStage $state $first.claimId $one.id stopped-verified -Evidence @("fixture://session-not-run-stopped")
+    Set-RealTaskDisposition $state $first.claimId validation -Evidence $evidence
+    Set-RealTaskStage $state $first.claimId $one.id reconciled -Evidence $evidence
+    $third = Add-RealTaskClaim $state 102 $evidence
+    $three = Add-RealTaskHandoff $state $third.claimId developer-1 implement
+    Complete-Implementation $state $second $two
+    Start-Handoff $state $third $three
+    $null = Add-RealTaskEvent $state (New-Event $third $three ack)
+    $null = Add-RealTaskEvent $state (New-Event $third $three result)
+    Set-RealTaskStage $state $third.claimId $three.id stopped-verified -Evidence $evidence
+    Assert-Throws { Set-RealTaskDisposition $state $third.claimId validation -Evidence $evidence } "*backlog full*"
+    Assert-Throws { Set-RealTaskStage $state $third.claimId $three.id reconciled -Evidence $evidence } "*disposition*"
+    if ((Get-RealTaskCapacity $state).validationPending -ne 2) { throw "Backpressure must retain a result, not exceed the waiting bound." }
+
+    $repairs = New-Fixture
+    $task = Add-RealTaskClaim $repairs 200 $evidence
+    $handoff = Add-RealTaskHandoff $repairs $task.claimId developer-1 implement
+    Complete-Implementation $repairs $task $handoff
+    for ($attempt = 1; $attempt -le 12; $attempt++) {
+        Set-RealTaskDisposition $repairs $task.claimId repair-needed -Evidence $evidence
+        $worker = if ($attempt % 2 -eq 0) { "developer-2" } else { "developer-1" }
+        if ($attempt -gt 1) {
+            Assert-Throws { Add-RealTaskHandoff $repairs $task.claimId $worker repair -Feedback $evidence } "*Evidence*"
+        }
+        $handoff = Add-RealTaskHandoff $repairs $task.claimId $worker repair -Feedback $evidence -PriorRepairEvidence $evidence
+        if ($handoff.repairAttempt -ne $attempt -or $handoff.expectedHead -ne $task.head) {
+            throw "Repair history/head must persist across worker handoffs and revisions."
+        }
+        $head = $attempt.ToString("x").PadLeft(40, "0")
+        Complete-Implementation $repairs $task $handoff
+    }
+    Set-RealTaskDisposition $repairs $task.claimId repair-needed -Evidence $evidence
+    Assert-Throws { Add-RealTaskHandoff $repairs $task.claimId developer-1 repair -Feedback $evidence -PriorRepairEvidence $evidence } "*exhausted*"
+    $bad = Copy-Record $repairs; $bad.tasks[0].repairCount = 0
+    Assert-Throws { Assert-RealTaskState $bad } "*cannot reset*"
+    $bad = Copy-Record $repairs; $bad.tasks[0].handoffs[1].repairAttempt = 1.0
+    Assert-Throws { Assert-RealTaskState $bad } "*Repair attempt must be an integer*"
+
+    $final = New-Fixture
+    $task = Add-RealTaskClaim $final 300 $evidence
+    $handoff = Add-RealTaskHandoff $final $task.claimId developer-1 implement
+    Complete-Implementation $final $task $handoff
+    Set-RealTaskDisposition $final $task.claimId finalize-ready -Evidence $evidence
+    $handoff = Add-RealTaskHandoff $final $task.claimId developer-2 finalize -Feedback $evidence
+    Start-Handoff $final $task $handoff
+    $null = Add-RealTaskEvent $final (New-Event $task $handoff ack)
+    $result = New-Event $task $handoff result delivered
+    Assert-Throws { Add-RealTaskEvent $final $result } "*not authorized*"
+    $result.result.outcome = "pr-ready"; $result.result.head = "f" * 40
+    Assert-Throws { Add-RealTaskEvent $final $result } "*without coding*"
+    $result.result.head = $handoff.expectedHead
+    $null = Add-RealTaskEvent $final $result
+    Set-RealTaskStage $final $task.claimId $handoff.id stopped-verified -Evidence $evidence
+    Set-RealTaskDisposition $final $task.claimId human-review -Evidence $evidence
+    Set-RealTaskStage $final $task.claimId $handoff.id reconciled -Evidence $evidence
+    if ($task.state -ne "human-review") { throw "Publishing without merge authority must retain task ownership." }
+    Set-RealTaskDisposition $final $task.claimId repair-needed -Evidence @("fixture://fresh-review-request")
+    $repair = Add-RealTaskHandoff $final $task.claimId developer-1 repair -Feedback @("fixture://fresh-review-request")
+    if ($repair.repairAttempt -ne 1 -or $task.claimId -cne $final.tasks[0].claimId) {
+        throw "Human review repair must retain the claim and cumulative repair history."
+    }
+
+    $pending = New-Fixture
+    $task = Add-RealTaskClaim $pending 301 $evidence
+    $handoff = Add-RealTaskHandoff $pending $task.claimId developer-1 implement
+    Complete-Implementation $pending $task $handoff
+    Set-RealTaskDisposition $pending $task.claimId finalize-ready -Evidence $evidence
+    $finalizeEvidence = @("fixture://check", "fixture://review")
+    $handoff = Add-RealTaskHandoff $pending $task.claimId developer-2 finalize -Feedback $finalizeEvidence
+    Start-Handoff $pending $task $handoff
+    $null = Add-RealTaskEvent $pending (New-Event $task $handoff ack)
+    $null = Add-RealTaskEvent $pending (New-Event $task $handoff result blocked)
+    Set-RealTaskDisposition $pending $task.claimId blocked -Evidence $evidence
+    Set-RealTaskStage $pending $task.claimId $handoff.id stopped-verified -Evidence $evidence
+    Set-RealTaskStage $pending $task.claimId $handoff.id reconciled -Evidence $evidence
+    foreach ($field in @("head", "checkpoint")) {
+        $bad = Copy-Record $pending
+        $bad.tasks[0][$field] = $(if ($field -ceq "head") { "e" * 40 } else { "fixture://different-checkpoint" })
+        Assert-Throws {
+            Set-RealTaskDisposition $bad $task.claimId validation -Evidence @("fixture://new-validation-observation")
+        } "*Invalid task disposition*"
+    }
+    Set-RealTaskDisposition $pending $task.claimId validation -Evidence @("fixture://new-validation-observation")
+    Set-RealTaskDisposition $pending $task.claimId finalize-ready -Evidence @("fixture://new-validation-observation")
+    Assert-Throws {
+        Add-RealTaskHandoff $pending $task.claimId developer-1 finalize -Feedback $finalizeEvidence
+    } "*Duplicate finalize*"
+    Assert-Throws {
+        Add-RealTaskHandoff $pending $task.claimId developer-1 finalize `
+            -Feedback @("fixture://review", "fixture://check", "fixture://review")
+    } "*Duplicate finalize*"
+    if ($task.handoffs.Count -ne 2) { throw "Equivalent evidence must not reserve another finalizer." }
+    $null = Add-RealTaskHandoff $pending $task.claimId developer-1 finalize -Feedback @("fixture://new-validation-observation")
+
+    $failedRepair = New-Fixture
+    $task = Add-RealTaskClaim $failedRepair 302 $evidence
+    $handoff = Add-RealTaskHandoff $failedRepair $task.claimId developer-1 implement
+    Complete-Implementation $failedRepair $task $handoff
+    Set-RealTaskDisposition $failedRepair $task.claimId repair-needed -Evidence $evidence
+    $handoff = Add-RealTaskHandoff $failedRepair $task.claimId developer-2 repair -Feedback $evidence
+    Start-Handoff $failedRepair $task $handoff
+    $null = Add-RealTaskEvent $failedRepair (New-Event $task $handoff ack)
+    $failedResult = New-Event $task $handoff result blocked
+    $failedResult.result.head = "b" * 40
+    $null = Add-RealTaskEvent $failedRepair $failedResult
+    Set-RealTaskStage $failedRepair $task.claimId $handoff.id stopped-verified -Evidence $evidence
+    Set-RealTaskDisposition $failedRepair $task.claimId blocked -Evidence $evidence
+    Set-RealTaskStage $failedRepair $task.claimId $handoff.id reconciled -Evidence $evidence
+    Assert-Throws { Set-RealTaskDisposition $failedRepair $task.claimId validation -Evidence $evidence } "*Invalid task disposition*"
+    if ($task.state -cne "blocked") { throw "Failed coding repair must not reuse historical implementation evidence." }
+
+    $promoted = New-Fixture
+    $task = Add-RealTaskClaim $promoted 303 $evidence
+    $handoff = Add-RealTaskHandoff $promoted $task.claimId developer-1 implement
+    Start-Handoff $promoted $task $handoff
+    $null = Add-RealTaskEvent $promoted (New-Event $task $handoff ack)
+    $initialResult = New-Event $task $handoff result
+    $null = Publish-RealTaskEvent $initialResult (Join-Path $root "promotion")
+    if ($null -ne $task.head -or $null -ne $task.checkpoint) { throw "Publication must not promote task evidence." }
+    $null = Add-RealTaskEvent $promoted $initialResult
+    if ($task.head -cne $initialResult.result.head -or $task.checkpoint -cne $initialResult.result.checkpoint -or
+        (Get-RealTaskCapacity $promoted).occupiedWorkers.Count -ne 1) {
+        throw "Ingestion must promote evidence without releasing execution."
+    }
+    Set-RealTaskStage $promoted $task.claimId $handoff.id stopped-verified -Evidence $evidence
+    $task.branch = "task-branch"; $task.worktree = Join-Path $root "promotion-worktree"; $task.pr = "fixture://pr"
+    Set-RealTaskDisposition $promoted $task.claimId validation -Evidence $evidence
+    Set-RealTaskStage $promoted $task.claimId $handoff.id reconciled -Evidence $evidence
+    Set-RealTaskDisposition $promoted $task.claimId repair-needed -Evidence $evidence
+    $handoff = Add-RealTaskHandoff $promoted $task.claimId developer-2 repair -Feedback $evidence
+    Start-Handoff $promoted $task $handoff
+    $null = Add-RealTaskEvent $promoted (New-Event $task $handoff ack)
+    $newResult = New-Event $task $handoff result
+    $newResult.result.head = "c" * 40
+    $newResult.result.checkpoint = "fixture://new-checkpoint"
+    $null = Add-RealTaskEvent $promoted $newResult
+    $null = Add-RealTaskEvent $promoted $initialResult
+    if ($task.head -cne $newResult.result.head -or $task.checkpoint -cne $newResult.result.checkpoint) {
+        throw "Historical duplicate must not roll task evidence back."
+    }
+    Set-RealTaskStage $promoted $task.claimId $handoff.id stopped-verified -Evidence $evidence
+    Set-RealTaskDisposition $promoted $task.claimId validation -Evidence $evidence
+    Set-RealTaskStage $promoted $task.claimId $handoff.id reconciled -Evidence $evidence
+    Set-RealTaskDisposition $promoted $task.claimId finalize-ready -Evidence $evidence
+    $handoff = Add-RealTaskHandoff $promoted $task.claimId developer-1 finalize -Feedback $evidence
+    Start-Handoff $promoted $task $handoff
+    $assignment = Get-RealTaskAssignment $promoted $task.claimId $handoff.id
+    if ($assignment.expectedHead -cne $newResult.result.head -or $assignment.checkpoint -cne $newResult.result.checkpoint) {
+        throw "Finalizer must receive the latest ingested checkpoint."
+    }
+
+    $preclaim = New-Fixture
+    $task = Add-RealTaskClaim $preclaim 304 $evidence
+    Set-RealTaskDisposition $preclaim $task.claimId blocked -Evidence @("fixture://pre-handoff-blocker")
+    Assert-Throws { Add-RealTaskClaim $preclaim 305 $evidence } "*No implementation capacity*"
+    Set-RealTaskDisposition $preclaim $task.claimId blocked -Evidence $evidence `
+        -IndependentEvidence @("fixture://verified-independent-scope")
+    $other = Add-RealTaskClaim $preclaim 305 $evidence
+    $null = Add-RealTaskHandoff $preclaim $other.claimId developer-2 implement
+    if ($task.state -cne "blocked" -or $task.handoffs.Count -ne 0 -or $preclaim.tasks.Count -ne 2) {
+        throw "Independent blocked pre-handoff claim must retain ownership without freezing other work."
+    }
+
+    $backlog = New-Fixture
+    $blockedTasks = @()
+    foreach ($issue in @(306, 307)) {
+        $task = Add-RealTaskClaim $backlog $issue $evidence
+        $handoff = Add-RealTaskHandoff $backlog $task.claimId developer-1 implement
+        Complete-Implementation $backlog $task $handoff
+        Set-RealTaskDisposition $backlog $task.claimId blocked -Evidence $evidence
+        $blockedTasks += $task
+    }
+    $runningTasks = @()
+    foreach ($worker in @("developer-1", "developer-2")) {
+        $task = Add-RealTaskClaim $backlog (308 + $runningTasks.Count) $evidence
+        $handoff = Add-RealTaskHandoff $backlog $task.claimId $worker implement
+        $runningTasks += $task
+    }
+    foreach ($task in $blockedTasks) {
+        Assert-Throws { Set-RealTaskDisposition $backlog $task.claimId validation -Evidence $evidence } "*reserved for outstanding*"
+    }
+    foreach ($task in $runningTasks) { Complete-Implementation $backlog $task $task.handoffs[-1] }
+    if ((Get-RealTaskCapacity $backlog).freeWorkers.Count -ne 2 -or
+        (Get-RealTaskCapacity $backlog).validationPending -ne 2) {
+        throw "Four-task recovery must leave workers free to drain the bounded backlog."
+    }
+    $task = $runningTasks[0]
+    Set-RealTaskDisposition $backlog $task.claimId finalize-ready -Evidence $evidence
+    $handoff = Add-RealTaskHandoff $backlog $task.claimId developer-1 finalize -Feedback $evidence
+    Start-Handoff $backlog $task $handoff
+    $null = Add-RealTaskEvent $backlog (New-Event $task $handoff ack)
+    $null = Add-RealTaskEvent $backlog (New-Event $task $handoff result blocked)
+    Set-RealTaskStage $backlog $task.claimId $handoff.id stopped-verified -Evidence $evidence
+    Set-RealTaskDisposition $backlog $task.claimId blocked -Evidence $evidence
+    Set-RealTaskStage $backlog $task.claimId $handoff.id reconciled -Evidence $evidence
+    Set-RealTaskDisposition $backlog $blockedTasks[0].claimId validation -Evidence $evidence
+
+    $stopped = New-Fixture
+    $task = Add-RealTaskClaim $stopped 400 $evidence
+    $handoff = Add-RealTaskHandoff $stopped $task.claimId developer-1 implement
+    Start-Handoff $stopped $task $handoff
+    $null = Add-RealTaskEvent $stopped (New-Event $task $handoff result blocked-before-start)
+    Set-RealTaskDisposition $stopped $task.claimId blocked -Evidence $evidence
+    Set-RealTaskStage $stopped $task.claimId $handoff.id stopped-verified -Evidence $evidence
+    Set-RealTaskStage $stopped $task.claimId $handoff.id reconciled -Evidence $evidence
+    Assert-Throws { Add-RealTaskHandoff $stopped $task.claimId developer-1 implement } "*already assigned*"
+    Resolve-RealTaskHandoff $stopped $task.claimId $handoff.id pre-start-rejected `
+        -HumanAuthorization "fixture://explicit-recovery-and-restart" -Evidence $evidence -RestartImplementation
+    $replacement = Add-RealTaskHandoff $stopped $task.claimId developer-1 implement
+    if ($replacement.id -ceq $handoff.id -or $task.handoffs.Count -ne 2 -or $task.repairCount -ne 0) {
+        throw "Replacement must retain the rejected handoff and reserve a new identity without consuming repairs."
+    }
+    Assert-RealTaskState $stopped
+    $bad = Copy-Record $stopped
+    $bad.tasks[0].handoffs[0].recovery.restartImplementation = $false
+    Assert-Throws { Assert-RealTaskState $bad } "*Replacement implementation requires*"
+    Assert-Throws { Add-RealTaskEvent $stopped (New-Event $task $handoff ack) } "*acknowledgment stage*"
+    Set-RealTaskDisposition $stopped $task.claimId blocked -Evidence $evidence
+    Resolve-RealTaskHandoff $stopped $task.claimId $replacement.id no-launch `
+        -HumanAuthorization "fixture://verified-never-launched" -Evidence $evidence
+    $other = Add-RealTaskClaim $stopped 401 $evidence
+    $null = Add-RealTaskHandoff $stopped $other.claimId developer-2 implement
+    if ($task.state -ne "blocked") { throw "Isolated blocked task must retain its claim." }
+
+    foreach ($stage in @("prepared", "launch-requested", "correlated", "delivered", "acknowledged")) {
+        $recovered = New-Fixture
+        $task = Add-RealTaskClaim $recovered 403 $evidence
+        $handoff = Add-RealTaskHandoff $recovered $task.claimId developer-1 implement
+        if ($stage -cne "prepared") {
+            Set-RealTaskStage $recovered $task.claimId $handoff.id launch-requested -Evidence $evidence
+        }
+        if ($stage -cin @("correlated", "delivered", "acknowledged")) {
+            Set-RealTaskStage $recovered $task.claimId $handoff.id correlated -Evidence $evidence -RunId actual-run -SessionId actual-session
+        }
+        if ($stage -cin @("delivered", "acknowledged")) {
+            Set-RealTaskStage $recovered $task.claimId $handoff.id delivered -Evidence $evidence
+        }
+        if ($stage -ceq "acknowledged") { $null = Add-RealTaskEvent $recovered (New-Event $task $handoff ack) }
+        $mode = if ($stage -cin @("prepared", "launch-requested")) { "no-launch" } else { "stopped" }
+        Assert-Throws {
+            Resolve-RealTaskHandoff $recovered $task.claimId $handoff.id $mode -Evidence $evidence
+        } "*human recovery authorization*"
+        if ($stage -cin @("correlated", "delivered", "acknowledged")) {
+            Assert-Throws {
+                Resolve-RealTaskHandoff $recovered $task.claimId $handoff.id no-launch `
+                    -HumanAuthorization "fixture://approval" -Evidence $evidence
+            } "*No-launch recovery requires*"
+            Assert-Throws {
+                Resolve-RealTaskHandoff $recovered $task.claimId $handoff.id stopped `
+                    -HumanAuthorization "fixture://approval" -Evidence $evidence -RestartImplementation
+            } "*Only a verified unstarted*"
+        }
+        Resolve-RealTaskHandoff $recovered $task.claimId $handoff.id $mode `
+            -HumanAuthorization "fixture://human-reviewed-host-evidence" -Evidence $evidence
+        if ((Get-RealTaskCapacity $recovered).freeWorkers.Count -ne 2 -or $null -ne $handoff.result -or
+            $null -ne $handoff.resultEventId -or $task.state -cne "blocked") {
+            throw "Human recovery must free execution without inventing a worker result or releasing ownership."
+        }
+        Assert-Throws {
+            Resolve-RealTaskHandoff $recovered $task.claimId $handoff.id $mode `
+                -HumanAuthorization "fixture://approval" -Evidence $evidence
+        } "*recovered once*"
+        if ($stage -cin @("correlated", "delivered", "acknowledged")) {
+            Assert-Throws { Add-RealTaskEvent $recovered (New-Event $task $handoff result) } "*requires acknowledgment*"
+        }
+        Assert-Throws { Add-RealTaskHandoff $recovered $task.claimId developer-1 implement } "*already assigned*"
+    }
+
+    foreach ($blockedFinalizer in @($false, $true)) {
+        $human = New-Fixture
+        $task = Add-RealTaskClaim $human 404 $evidence
+        $handoff = Add-RealTaskHandoff $human $task.claimId developer-1 implement
+        Complete-Implementation $human $task $handoff
+        if ($blockedFinalizer) {
+            Set-RealTaskDisposition $human $task.claimId finalize-ready -Evidence $evidence
+            $handoff = Add-RealTaskHandoff $human $task.claimId developer-2 finalize -Feedback $evidence
+            Start-Handoff $human $task $handoff
+            $null = Add-RealTaskEvent $human (New-Event $task $handoff ack)
+            Assert-Throws { Add-RealTaskEvent $human (New-Event $task $handoff result delivered) } "*not authorized*"
+            $null = Add-RealTaskEvent $human (New-Event $task $handoff result blocked)
+            Set-RealTaskDisposition $human $task.claimId blocked -Evidence $evidence
+            Set-RealTaskStage $human $task.claimId $handoff.id stopped-verified -Evidence $evidence
+        }
+        $delivery = @{ head = "d" * 40; targetBranch = "main"
+            evidence = @("fixture://human-merge-verified-on-main"); cleanupEvidence = @("fixture://cleanup-verified") }
+        if ($blockedFinalizer) {
+            Assert-Throws {
+                Set-RealTaskDisposition $human $task.claimId delivered -Evidence $evidence -HumanDelivery $delivery
+            } "*Invalid task disposition*"
+            Set-RealTaskStage $human $task.claimId $handoff.id reconciled -Evidence $evidence
+        }
+        Assert-Throws { Set-RealTaskDisposition $human $task.claimId delivered -Evidence $evidence } "*Invalid task disposition*"
+        $badDelivery = Copy-Record $delivery; $badDelivery.targetBranch = "other"
+        Assert-Throws {
+            Set-RealTaskDisposition $human $task.claimId delivered -Evidence $evidence -HumanDelivery $badDelivery
+        } "*configured target branch*"
+        $badDelivery = Copy-Record $delivery; $badDelivery.cleanupEvidence = @()
+        Assert-Throws {
+            Set-RealTaskDisposition $human $task.claimId delivered -Evidence $evidence -HumanDelivery $badDelivery
+        } "*Evidence references*"
+        Set-RealTaskDisposition $human $task.claimId delivered -Evidence $evidence -HumanDelivery $delivery
+        if ($task.state -cne "delivered" -or $task.head -cne $delivery.head -or $human.authorization.merge) {
+            throw "Human delivery must retain separate evidence without granting worker merge authority."
+        }
+    }
+
+    $early = New-Fixture
+    $task = Add-RealTaskClaim $early 402 $evidence
+    $handoff = Add-RealTaskHandoff $early $task.claimId developer-1 implement
+    Set-RealTaskStage $early $task.claimId $handoff.id launch-requested -Evidence $evidence
+    Set-RealTaskStage $early $task.claimId $handoff.id correlated -Evidence $evidence -RunId actual-run -SessionId actual-session
+    $assignment = Get-RealTaskAssignment $early $task.claimId $handoff.id
+    $earlyAck = Publish-RealTaskAcknowledgment $early $assignment developer-1 actual-run actual-session `
+        (Join-Path $root "early-ack") "actual-developer-1" -Evidence @("fixture://actual-assignment-message")
+    $null = Add-RealTaskEvent $early $earlyAck
+    if ($handoff.stage -ne "acknowledged" -or $handoff.transitions[-2].stage -ne "delivered") {
+        throw "An early acknowledgment must reconcile proven delivery without skipping stages or restarting."
+    }
+
+    $eventDirectory = Join-Path $root "events"
+    $publicationResult = New-Event $first $one result
+    foreach ($mutate in @(
+        { param($e) $e.elapsedSeconds = $null; $e.elapsed = 1.25 },
+        { param($e) $e.elapsedSeconds = $null; $e["ElapsedSeconds"] = 1.25 },
+        { param($e) $e.result.extra = $true },
+        { param($e) $e.result.head = "bad" },
+        { param($e) $e.result.head = $null },
+        { param($e) $e.result.checkpoint = $null },
+        { param($e) $e.result.checkpoint = "" },
+        { param($e) $e.action = "finalize" },
+        { param($e) $e.result.outcome = "pr-ready" },
+        { param($e) $e.action = "unknown" }
+    )) {
+        $bad = Copy-Record $publicationResult
+        & $mutate $bad
+        Assert-Throws { Publish-RealTaskEvent $bad $eventDirectory } "*"
+        if ([IO.File]::Exists((Join-Path $eventDirectory "$($publicationResult.eventId).json"))) {
+            throw "Invalid result must not reserve its immutable event ID."
+        }
+    }
+    $null = Publish-RealTaskEvent $publicationResult $eventDirectory
+    $null = Publish-RealTaskEvent (Copy-Record $publicationResult) $eventDirectory
+    $eventPath = Publish-RealTaskEvent $ack $eventDirectory
+    $null = Publish-RealTaskEvent (Copy-Record $ack) $eventDirectory
+    $bad = Copy-Record $ack; $bad.actor = "another"
+    Assert-Throws { Publish-RealTaskEvent $bad $eventDirectory } "*Conflicting immutable*"
+    Assert-Throws { Publish-RealTaskEvent @{ schema = "fingvibe-real-event-v1"; eventId = "partial" } $eventDirectory } "*Missing field*"
+    [IO.File]::WriteAllText((Join-Path $eventDirectory "partial.json"), '{"schema":')
+    Assert-Throws { Read-RealTaskJson (Join-Path $eventDirectory "partial.json") } "*"
+    Assert-Throws { Read-RealTaskJson (Join-Path $root "missing.json") } "*Never infer idle*"
+
+    $path = Join-Path $root "state.json"
+    $gateRoot = Join-Path $root "gate"
+    $owner = [guid]::NewGuid()
+    $parameters = @{ Repository = "testowner/testrepo"; StateDirectory = $gateRoot; Owner = $owner }
+    $null = & $gateScript -Action Acquire @parameters
+    $published = New-Fixture
+    Publish-RealTaskState $published $path $owner 0 $gateRoot
+    $published.revision = 2
+    Publish-RealTaskState $published $path $owner 1 $gateRoot
+    Assert-Throws { Publish-RealTaskState $published $path $owner 1 $gateRoot } "*Stale revision*"
+    Assert-Throws { Publish-RealTaskState $published $path ([guid]::NewGuid()) 2 $gateRoot } "*repository gate*"
+    $published = Read-RealTaskJson $path
+    $published.revision++
+    $task = Add-RealTaskClaim $published 500 $evidence
+    $handoff = Add-RealTaskHandoff $published $task.claimId developer-1 implement
+    Publish-RealTaskState $published $path $owner 2 $gateRoot
+    $bad = Copy-Record $published; $bad.revision++; $bad.tasks = @()
+    Assert-Throws { Publish-RealTaskState $bad $path $owner 3 $gateRoot } "*exactly one task*"
+    $bad = Copy-Record $published; $bad.revision++; $bad.tasks[0].handoffs[0].transitions[0].evidence = @("rewritten")
+    Assert-Throws { Publish-RealTaskState $bad $path $owner 3 $gateRoot } "*Prior transition*"
+    if ((Read-RealTaskJson $path).revision -ne 3) { throw "Failed publication must leave previous valid state intact." }
+
+    Complete-Implementation $published $task $handoff
+    $published.reports = @(1..40 | ForEach-Object {
+        @{ id = "report-$_"; claimId = $task.claimId; handoffId = $handoff.id; url = "fixture://report/$_"
+            utc = [DateTime]::UtcNow.ToString("o"); nextOwner = "dispatcher"; nextAction = "validate" }
+    })
+    $published.revision++
+    Publish-RealTaskState $published $path $owner 3 $gateRoot
+    $published.revision++
+    & $module {
+        param($s, $p, $o, $g)
+        $original = ${function:Get-RealTaskHash}
+        $script:reportHashCalls = 0
+        try {
+            function script:Get-RealTaskHash($Record) {
+                if ($Record.Contains("url") -and $Record.Contains("handoffId")) { $script:reportHashCalls++ }
+                & $original $Record
+            }
+            Publish-RealTaskState $s $p $o 4 $g
+            if ($script:reportHashCalls -ne 2 * $s.reports.Count) {
+                throw "Retained reports must be hashed once per current/prior entry, not once per pair."
+            }
+        } finally {
+            Set-Item Function:script:Get-RealTaskHash $original
+            Remove-Variable reportHashCalls -Scope Script
+        }
+    } $published $path $owner $gateRoot
+    foreach ($mutate in @(
+        { param($s) $s.reports = @($s.reports | Select-Object -Skip 1) },
+        { param($s) $s.reports[0].url = "fixture://altered" },
+        { param($s) $s.reports += Copy-Record $s.reports[0] },
+        { param($s) $s.events[0].hash = "changed" }
+    )) {
+        $bad = Copy-Record $published
+        $bad.revision++
+        & $mutate $bad
+        Assert-Throws { Publish-RealTaskState $bad $path $owner 5 $gateRoot } "*Prior * evidence cannot change or disappear*"
+    }
+    $bad = Copy-Record $published
+    $bad.revision++
+    $bad.events = @()
+    $bad.tasks[0].handoffs = @()
+    Assert-Throws { Publish-RealTaskState $bad $path $owner 5 $gateRoot } "*exactly one handoff*"
+    if ((Read-RealTaskJson $path).revision -ne 5) { throw "Rejected history edits must preserve the published revision." }
+    $recoveryTask = Add-RealTaskClaim $published 501 $evidence
+    $recoveryHandoff = Add-RealTaskHandoff $published $recoveryTask.claimId developer-2 implement
+    $published.revision++
+    Publish-RealTaskState $published $path $owner 5 $gateRoot
+    Resolve-RealTaskHandoff $published $recoveryTask.claimId $recoveryHandoff.id no-launch `
+        -HumanAuthorization "fixture://explicit-recovery" -Evidence $evidence -RestartImplementation
+    $published.revision++
+    Publish-RealTaskState $published $path $owner 6 $gateRoot
+    $bad = Copy-Record $published; $bad.revision++
+    $bad.tasks[1].handoffs[0].recovery.authorization = "rewritten"
+    Assert-Throws { Publish-RealTaskState $bad $path $owner 7 $gateRoot } "*Human recovery evidence cannot change*"
+    $replacement = Add-RealTaskHandoff $published $recoveryTask.claimId developer-2 implement
+    $published.revision++
+    Publish-RealTaskState $published $path $owner 7 $gateRoot
+    if ((Read-RealTaskJson $path).tasks[1].handoffs.Count -ne 2) {
+        throw "Recovered and replacement handoffs must survive revision publication."
+    }
+    $null = & $gateScript -Action Release @parameters
+
+    $incidents = Join-Path $root "incidents"
+    $null = [IO.Directory]::CreateDirectory($incidents)
+    $incident = @{ id = "human-reported"; originalReporter = "human"; recordingActor = "dispatcher"
+        changedUtc = [DateTime]::UtcNow.ToString("o"); nextOwner = "human"; nextAction = "inspect"; evidence = $evidence }
+    [IO.File]::WriteAllText((Join-Path $incidents "unindexed.json"), ($incident | ConvertTo-Json))
+    Sync-RealTaskIncidents $published $incidents
+    if ($published.incidents.Count -ne 1 -or $published.incidents[0].id -ne "human-reported") {
+        throw "Incident discovery must not depend on index completeness."
+    }
+    [IO.File]::Delete((Join-Path $incidents "unindexed.json"))
+    Assert-Throws { Sync-RealTaskIncidents $published $incidents } "*Previously indexed incident is missing*"
+} finally {
+    Remove-Item -LiteralPath $root -Recurse -Force
+}
+Write-Output "Real-task coordination tests passed."
