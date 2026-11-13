@@ -6,7 +6,8 @@ This is the mandatory operating contract for the three source profiles in
 [Developer](../../.github/agents/automation-epic-developer.agent.md), preserving
 their delivery safeguards. Its explicit overrides apply **only** to `3️⃣`:
 two Developer slots, separate bounded task backlog, the schemas below,
-configurable human authority and twelve cumulative repairs after implementation.
+configurable human authority, twelve cumulative repairs after implementation,
+and the 3️⃣-only historical manual-completion reconciliation below.
 No manual selection by Developers, inherited #191 authorization or global
 single-claim veto applies to verified compatible work within this environment.
 
@@ -49,9 +50,10 @@ Verified independent external work may coexist only after required conflict
 confirmation; unknown execution/shared risk blocks affected actions. Never
 reset old counters, clear foreign labels or move issues between Epics.
 
-The bounded exception is historical **manual** completion reconciliation, not
+The 3️⃣-only bounded exception is historical **manual** completion reconciliation, not
 foreign structured-claim adoption. Follow the
-[30-minute completion procedure](../dispatcher-preflight.md#automatic-historical-completion-reconciliation):
+[30-minute completion procedure](../dispatcher-preflight.md#automatic-historical-completion-reconciliation)
+with the explicit `-HistoricalCompletionSelfHealing` preflight switch:
 verify current completed closure and intended merged PRs, wait strictly more
 than 30 minutes after all closure/merge events, inspect current work, and
 post/read back one policy-based self-healing notice. Missing historical
@@ -62,6 +64,7 @@ duplicates; revalidate changed delivery/closure. Failed collection, positive
 live-work evidence and unresolved structured handoffs remain blockers.
 Only stale closed-issue active/review labels may be cleared and verified by this
 procedure. Reopening or undoing/reverting merged work is outside the stopped loop.
+The older ⏩ and 2️⃣ agents and shared preflight defaults are unchanged.
 
 ## Schemas and transition authority
 

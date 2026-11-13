@@ -109,8 +109,8 @@ function New-PreflightFixture {
     [pscustomobject]@{ state = $state; reader = $reader }
 }
 
-function Invoke-PreflightFixture($Fixture, [int[]] $Order, [string] $Evidence) {
-    Get-DispatcherPreflight -Repository "test/repo" -Epic 164 -ApiReader $Fixture.reader -TaskOrder $Order -OrderEvidenceUrl $Evidence -Now $script:preflightNow
+function Invoke-PreflightFixture($Fixture, [int[]] $Order, [string] $Evidence, [switch] $SelfHeal) {
+    Get-DispatcherPreflight -Repository "test/repo" -Epic 164 -ApiReader $Fixture.reader -TaskOrder $Order -OrderEvidenceUrl $Evidence -Now $script:preflightNow -HistoricalCompletionSelfHealing:$SelfHeal
 }
 
 function Add-PreflightClaim($Fixture, [int] $Number, [string] $State = "claimed", [object] $RepairCount = 0) {
@@ -276,7 +276,7 @@ foreach ($parent in @(164, 111, $null)) {
     Add-PreflightDelivery $fixture 190 $parent
     $result = Invoke-PreflightFixture $fixture
     if ($parent -eq 164) {
-        Assert-Preflight ($result.decision -eq "reconcile" -and $result.findings[0].kind -eq "historical-self-heal") "Eligible within-Epic history must request automatic reconciliation, not human termination proof."
+        Assert-Preflight ($result.decision -eq "reconcile" -and $result.findings[0].kind -eq "historical-cleanup") "Default legacy behavior must still require within-Epic historical cleanup."
     } else {
         Assert-Preflight ($result.decision -eq "candidate" -and $result.skipped[0].issue -eq 190) "Verified out-of-Epic historical label-only work must not occupy capacity."
         if ($null -eq $parent) {
@@ -333,7 +333,7 @@ foreach ($event in @("issue", "pr-closed", "pr-merged")) {
                 $fixture.state.deliveries[190].prs[0].mergedAt = $time
             }
         }
-        $result = Invoke-PreflightFixture $fixture
+        $result = Invoke-PreflightFixture $fixture -SelfHeal
         $expected = if ($seconds -gt 1800) { "historical-self-heal" } else { "historical-grace-period" }
         Assert-Preflight (-not $result.collectionFailure -and $result.findings[0].kind -eq $expected) "$event age $seconds seconds must respect the strict 30-minute threshold."
     }
@@ -343,7 +343,11 @@ $fixture = New-PreflightFixture
 $fixture.state.issues += New-PreflightIssue 190 "closed" @("type:task", "active")
 $fixture.state.children += 190
 Add-PreflightDelivery $fixture 190
-$result = Invoke-PreflightFixture $fixture
+$legacy = Invoke-PreflightFixture $fixture
+Assert-Preflight ($legacy.findings[0].kind -eq "historical-cleanup" -and
+    -not $legacy.findings[0].completion -and
+    @($fixture.state.calls | Where-Object { $_ -match "mergedAt|stateReason" }).Count -eq 0) "Legacy calls must not opt in or request completion timestamps."
+$result = Invoke-PreflightFixture $fixture -SelfHeal
 $record = $result.findings[0].completion.record
 Assert-Preflight ($record.schema -eq "fingvibe-historical-completion-v1" -and
     $record.evidence.Count -eq 0 -and -not $record.claimId) "Preflight supplies a completion template, never invented execution evidence or an implementation claim."
@@ -357,17 +361,18 @@ $fixture.state.comments += @{
         '```json' + "`n" + (ConvertTo-Json -InputObject $record -Depth 15) + "`n" + '```'
 }
 foreach ($tick in 1..2) {
-    $result = Invoke-PreflightFixture $fixture
+    $result = Invoke-PreflightFixture $fixture -SelfHeal
     Assert-Preflight ($result.candidate.issue -eq 200 -and $result.skipped[0].evidence[0] -eq $fixture.state.comments[0].html_url) "Repeated cycle $tick must reuse the completion disposition without another notice."
 }
+Assert-Preflight ((Invoke-PreflightFixture $fixture).findings[0].kind -eq "historical-cleanup") "A 3-only notice must not change legacy reconciliation behavior."
 $fixture.state.deliveries[190].closedAt = $script:preflightNow.AddMinutes(-30).ToString("o")
-Assert-Preflight ((Invoke-PreflightFixture $fixture).findings[0].kind -eq "historical-grace-period") "A changed closure invalidates an earlier reconciliation and restarts the grace period."
+Assert-Preflight ((Invoke-PreflightFixture $fixture -SelfHeal).findings[0].kind -eq "historical-grace-period") "A changed closure invalidates an earlier reconciliation and restarts the grace period."
 $fixture.state.deliveries[190].closedAt = $script:preflightNow.AddMinutes(-31).ToString("o")
 $fixture.state.deliveries[190].prs[0].mergedAt = $script:preflightNow.AddMinutes(-32).ToString("o")
-Assert-Preflight ((Invoke-PreflightFixture $fixture).findings[0].kind -eq "historical-self-heal") "Changed PR delivery evidence must not reuse a prior disposition."
+Assert-Preflight ((Invoke-PreflightFixture $fixture -SelfHeal).findings[0].kind -eq "historical-self-heal") "Changed PR delivery evidence must not reuse a prior disposition."
 $fixture.state.deliveries[190].prs[0].mergedAt = $script:preflightNow.AddMinutes(-31).ToString("o")
 $fixture.state.comments[0].author_association = "NONE"
-Assert-Preflight ([bool] (Invoke-PreflightFixture $fixture).collectionFailure) "Untrusted reconciliation notices must not free capacity."
+Assert-Preflight ([bool] (Invoke-PreflightFixture $fixture -SelfHeal).collectionFailure) "Untrusted reconciliation notices must not free capacity."
 $fixture.state.comments[0].author_association = "OWNER"
 foreach ($mutation in @("empty-evidence", "early-notice", "malformed")) {
     $originalBody = $fixture.state.comments[0].body
@@ -384,13 +389,13 @@ foreach ($mutation in @("empty-evidence", "early-notice", "malformed")) {
         }
         "malformed" { $fixture.state.comments[0].body = "<!-- fingvibe-historical-completion-v1 --> no JSON" }
     }
-    $result = Invoke-PreflightFixture $fixture
+    $result = Invoke-PreflightFixture $fixture -SelfHeal
     Assert-Preflight (-not $result.candidate -and
         ($result.collectionFailure -or $result.findings[0].kind -eq "historical-self-heal")) "$mutation notices cannot certify historical reconciliation."
     $fixture.state.comments[0].body = $originalBody
 }
 Add-PreflightClaim $fixture 190
-Assert-Preflight ((Invoke-PreflightFixture $fixture).findings[0].kind -eq "retained-claim") "A historical notice must not override a genuine retained claim."
+Assert-Preflight ((Invoke-PreflightFixture $fixture -SelfHeal).findings[0].kind -eq "retained-claim") "A historical notice must not override a genuine retained claim."
 
 $fixture = New-PreflightFixture
 $fixture.state.issues += New-PreflightIssue 190 "closed" @("type:task", "active")
@@ -402,7 +407,7 @@ $secondPr.url = "https://github.com/test/repo/pull/1200"
 $secondPr.closedAt = $script:preflightNow.AddMinutes(-10).ToString("o")
 $secondPr.mergedAt = $secondPr.closedAt
 $fixture.state.deliveries[190].prs += $secondPr
-Assert-Preflight ((Invoke-PreflightFixture $fixture).findings[0].kind -eq "historical-grace-period") "Every closing PR must clear the grace period, not just the first merged PR."
+Assert-Preflight ((Invoke-PreflightFixture $fixture -SelfHeal).findings[0].kind -eq "historical-grace-period") "Every closing PR must clear the grace period, not just the first merged PR."
 
 foreach ($mutation in @("missing", "invalid", "no-zone", "future", "not-planned", "reopened", "real-claim")) {
     $fixture = New-PreflightFixture
@@ -424,7 +429,7 @@ foreach ($mutation in @("missing", "invalid", "no-zone", "future", "not-planned"
             }
         }
     }
-    $result = Invoke-PreflightFixture $fixture
+    $result = Invoke-PreflightFixture $fixture -SelfHeal
     Assert-Preflight (-not $result.candidate -and
         ($result.collectionFailure -or $result.findings[0].kind -eq "historical-cleanup")) "$mutation evidence must not permit historical self-healing."
 }

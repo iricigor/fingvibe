@@ -1,7 +1,7 @@
 # Dispatcher preflight
 
 The local Dispatcher uses `.github\scripts\Get-DispatcherPreflight.ps1` after
-acquiring its existing serialization gate. This PowerShell 7.5+ helper replaces
+acquiring its existing serialization gate. This PowerShell 7 helper replaces
 repeated repository-wide discovery with one cached, fully paginated GitHub
 collection and compact JSON guidance. It is not a new dispatcher or an
 authorization/ownership service.
@@ -62,7 +62,8 @@ default branch. Parentless records appear in `skipped` with an explicit separate
 Epic-organization requirement; this does not waive native membership for intake
 or authorize historical migration. API failures, omitted/malformed fields,
 non-Epic parents and contradictions with native children do not qualify.
-Within-Epic history uses the 30-minute completion reconciliation below.
+Within-Epic cleanup still blocks by default. Only 3️⃣ Dispatcher enables the
+30-minute completion reconciliation below with `-HistoricalCompletionSelfHealing`.
 Unresolved structured claims always hold capacity, even on closed issues.
 Prose cues are intentionally conservative and can require Dispatcher judgment;
 the helper does not automatically release ownership or prove a worker stopped.
@@ -94,7 +95,7 @@ Use current task discussions and linked reconciliation reports to verify:
 | Authorization/progress prose mentioning ownership | Not itself a task claim; check for actual task claims and live work. |
 
 Closure, a final worker message or absent session discovery alone proves none
-of these dispositions. Genuine unresolved claims and uncertain live handoffs still block.
+of these dispositions. Unresolved claims and unknown execution still block.
 Human acceptance/abandonment must not silently satisfy an implementation
 prerequisite. Missing or contradictory evidence stops pickup.
 
@@ -109,7 +110,15 @@ overridden. Do not repeatedly recollect unchanged history hoping for `candidate`
 
 ### Automatic historical completion reconciliation
 
-For historical **manual** work within the selected Epic, Dispatcher automatically
+This is an explicit **3️⃣-only** override. The older ⏩ and 2️⃣ agents retain
+their original policies. The shared helper remains read-only and its default
+behavior is unchanged. 3️⃣ Dispatcher uses PowerShell 7.5+ and invokes:
+
+```powershell
+.\.github\scripts\Get-DispatcherPreflight.ps1 -Repository iricigor/fingvibe -Epic <number> -HistoricalCompletionSelfHealing
+```
+
+For historical **manual** work within the selected Epic, 3️⃣ Dispatcher automatically
 repairs missing completion bookkeeping rather than asking a human to prove that
 an old session stopped. This is a policy-based disposition, not termination proof
 or general orphan recovery. Do not invent a missing implementation claim.

@@ -108,24 +108,9 @@ also establishes that the historical task is outside the configured Epic;
 merged delivery and the host check are still required. Report missing Epic
 organization separately for human-approved intake reconciliation, not as occupied
 implementation capacity. Missing fields, API failures, non-Epic parents and
-contradictory membership are not verified absence. For within-Epic historical
-manual work, follow the automatic completion reconciliation in
-docs/dispatcher-preflight.md: current completed issue closure and every intended
-PR closure/merge must be strictly older than 30 minutes. Before that boundary,
-defer without human escalation solely for the grace period.
-
-After the grace period, check current claims/open PRs and available correlated
-execution information. With no positive ongoing-work evidence, automatically
-post/read back one self-healing notice using the preflight completion record,
-record its evidence/uncertainty and reconcile historical manual ownership by
-policy. Do not manufacture an implementation claim or claim verified termination.
-An unavailable historical termination endpoint alone is not a blocker; failed
-current-work collection, contradictory data and genuine unresolved claims or
-launches still are. Clear/verify only stale closed-issue active/review labels,
-preserving history and unrelated labels. Reuse matching verified notices on later
-ticks without duplicate comments; changed closure/delivery invalidates them.
-This exception does not release structured handoffs, restart workers or reset
-counters. Reopen/revert operations are outside the loop while stopped.
+contradictory membership are not verified absence. Within-Epic historical cleanup
+still blocks until reconciled; do not automatically release ownership or remove
+labels.
 
 Preflight historical/prose findings are requests to review evidence, not proof
 of live ownership or permanent vetoes. Read all findings and their current

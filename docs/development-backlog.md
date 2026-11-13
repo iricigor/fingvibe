@@ -67,7 +67,13 @@ report its missing Epic organization separately for human-approved reconciliatio
 This does not waive the repository's native Epic membership requirement for issue
 intake or permit automatic historical migration. API failures, missing fields,
 non-Epic parents and contradictory membership are not verified absence.
-Within-Epic historical manual completion uses automatic reconciliation after
+Within-Epic historical cleanup still requires reconciliation, not automatic
+label removal or ownership release.
+This exception does not weaken the release requirements for genuine claims or
+change the broader scheduled Actions policy.
+
+**3️⃣-only override:** Within-Epic historical manual completion uses automatic
+reconciliation after
 the current completed issue closure and every intended PR closure/merge are
 strictly more than 30 minutes old. Dispatcher checks current claims/open PRs
 and available correlated execution information, then posts and verifies one
@@ -81,10 +87,10 @@ requires deferral, not human escalation. Failed current-work collection,
 contradictory evidence and genuine unresolved claims/launches still block;
 structured handoffs retain stopped-execution requirements. See the exact
 [completion procedure](dispatcher-preflight.md#automatic-historical-completion-reconciliation).
+Only 3️⃣ Dispatcher opts in via `-HistoricalCompletionSelfHealing`; the shared
+preflight defaults and the older ⏩ and 2️⃣ agents keep their existing behavior.
 Reopening issues and undoing/reverting merged PRs remain outside the stopped
-loop, not automatic Dispatcher work.
-This exception does not weaken the release requirements for genuine claims or
-change the broader scheduled Actions policy.
+3️⃣ loop, not automatic Dispatcher work.
 
 Conservative historical/prose preflight findings require evidence review, not
 automatic refusal. Verify existing manual releases with actual stopped-host
@@ -95,7 +101,7 @@ implementation delivery for dependencies. Epic progress reports and authorizatio
 prose are not task claims. Once every finding is reconciled, Dispatcher records
 the finding/disposition/evidence and may select from the cached native inventory,
 still checking order, prerequisites, authorization and fresh live capacity.
-No collection failure, genuine claim, live work or uncertain live handoff may be
+No collection failure, genuine claim, live work or uncertain execution may be
 overridden; do not delete comments or fabricate claims/closing PRs to silence
 historical findings. See the [preflight review path](dispatcher-preflight.md#reviewing-historical-findings).
 

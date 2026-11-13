@@ -5,6 +5,7 @@ param(
     [int] $Epic,
     [int[]] $TaskOrder,
     [string] $OrderEvidenceUrl,
+    [switch] $HistoricalCompletionSelfHealing,
     [string] $DiagnosticsDirectory = ([IO.Path]::GetTempPath())
 )
 
@@ -34,6 +35,7 @@ function Get-DispatcherPreflight {
         [int] $Epic,
         [int[]] $TaskOrder,
         [string] $OrderEvidenceUrl,
+        [switch] $HistoricalCompletionSelfHealing,
         [DateTimeOffset] $Now = [DateTimeOffset]::UtcNow,
         [scriptblock] $ApiReader = ${function:Invoke-DispatcherGitHubRead}
     )
@@ -58,7 +60,8 @@ function Get-DispatcherPreflight {
         if ($json -isnot [string] -or [string]::IsNullOrWhiteSpace($json)) {
             throw "GitHub reader must return one nonempty JSON string: $Endpoint."
         }
-        $parsed = ConvertFrom-Json -InputObject $json -Depth 100 -NoEnumerate -DateKind String
+        $parseOptions = if ($HistoricalCompletionSelfHealing) { @{ DateKind = "String" } } else { @{} }
+        $parsed = ConvertFrom-Json -InputObject $json -Depth 100 -NoEnumerate @parseOptions
         if ($Paginated) {
             if (-not $json.TrimStart().StartsWith("[") -or
                 @($parsed | Where-Object { $_ -isnot [array] }).Count -gt 0) {
@@ -94,11 +97,13 @@ function Get-DispatcherPreflight {
         $closure = $null
         do {
             $after = if ($cursor) { ',after:"' + $cursor + '"' } else { "" }
+            $issueCompletionFields = if ($HistoricalCompletionSelfHealing) { "state stateReason closedAt " } else { "" }
+            $prCompletionFields = if ($HistoricalCompletionSelfHealing) { "mergedAt closedAt " } else { "" }
             $query = 'query { repository(owner:"' + $parts[0] + '",name:"' + $parts[1] +
                 '") { issue(number:' + $Number +
-                ') { number state stateReason closedAt parent { number labels(first:100) { nodes { name } pageInfo { hasNextPage } } }' +
+                ') { number ' + $issueCompletionFields + 'parent { number labels(first:100) { nodes { name } pageInfo { hasNextPage } } }' +
                 ' closedByPullRequestsReferences(first:100' + $after +
-                ') { nodes { number url merged mergedAt closedAt baseRefName state } pageInfo { hasNextPage endCursor } } } } }'
+                ') { nodes { number url merged ' + $prCompletionFields + 'baseRefName state } pageInfo { hasNextPage endCursor } } } } }'
             $response = Read-DispatcherEvidence "graphql" $false $query
             $issue = $response.data.repository.issue
             if ($response.errors -or $null -eq $issue -or $issue.number -ne $Number -or
@@ -118,7 +123,7 @@ function Get-DispatcherPreflight {
                 throw "Inconsistent native membership evidence for #$Number."
             }
             $currentClosure = "$($issue.state)|$($issue.stateReason)|$($issue.closedAt)"
-            if ($membershipRead -and $currentClosure -cne $closure) {
+            if ($HistoricalCompletionSelfHealing -and $membershipRead -and $currentClosure -cne $closure) {
                 throw "Issue closure changed during delivery pagination for #$Number."
             }
             $closure = $currentClosure
@@ -404,6 +409,10 @@ function Get-DispatcherPreflight {
                 } elseif (-not $delivery.delivered) {
                     Add-DispatcherFinding "historical-delivery-unknown" $issue.number $issue.html_url "No complete merged closing-PR evidence; closure is not delivery."
                 } elseif ($delivery.parent.number -eq $Epic) {
+                    if (-not $HistoricalCompletionSelfHealing) {
+                        Add-DispatcherFinding "historical-cleanup" $issue.number $issue.html_url "Within-Epic historical ownership/labels require human reconciliation."
+                        continue
+                    }
                     $realClaims = @($comments | Where-Object {
                         $_.issue_url -eq $issue.url -and $_.body -match '<!--\s*fingvibe-real-claim-v1\s*-->'
                     })
@@ -624,7 +633,7 @@ function ConvertTo-DispatcherPreflightOutput {
 
 if ($MyInvocation.InvocationName -ne ".") {
     if (-not $Repository -or $Epic -lt 1) { throw "Repository and a positive Epic are required." }
-    $result = Get-DispatcherPreflight -Repository $Repository -Epic $Epic -TaskOrder $TaskOrder -OrderEvidenceUrl $OrderEvidenceUrl
+    $result = Get-DispatcherPreflight -Repository $Repository -Epic $Epic -TaskOrder $TaskOrder -OrderEvidenceUrl $OrderEvidenceUrl -HistoricalCompletionSelfHealing:$HistoricalCompletionSelfHealing
     ConvertTo-DispatcherPreflightOutput -Result $result -DiagnosticsDirectory $DiagnosticsDirectory
     if ($result.collectionFailure) { exit 1 }
 }

@@ -26,8 +26,9 @@ its human-task exclusions, native membership/dependency/order verification,
 fresh evidence, history, independent launch/context reuse, duration gates,
 reporting, uncertainty and release safeguards. Do not execute that profile's
 hard-coded #191/#222/#285 authorization, single-claim capacity or three-repair
-policy: only those are replaced by this environment's explicit authorization
-and agreed two-worker/twelve-repair contract. Existing profiles, claims,
+policy: those are replaced by this environment's explicit authorization
+and agreed two-worker/twelve-repair contract. The additional historical manual
+completion override is explicitly scoped to 3️⃣ in step 3 below. Existing profiles, claims,
 counters, saved Automations and settings must remain unchanged.
 
 ## Configuration and authority
@@ -62,7 +63,9 @@ queue, or substitute synchronous subagents. No Tester or Architect is installed.
    Its single-claim guidance is conservative, not this environment's capacity
    policy. Follow the shared contract's staged collection and foreign-work rules;
    never suppress collection failures or simply ignore an open PR.
-   Apply docs/dispatcher-preflight.md's automatic historical manual-completion
+   Invoke Get-DispatcherPreflight.ps1 with -HistoricalCompletionSelfHealing;
+   this opt-in is exclusive to 3️⃣, not the older ⏩ or 2️⃣ agents. Apply
+   docs/dispatcher-preflight.md's automatic historical manual-completion
    reconciliation: completed issue closure and all intended PR closure/merge
    events must be strictly older than 30 minutes. Defer younger history without
    human escalation solely for the grace period. Check current work, post/verify
