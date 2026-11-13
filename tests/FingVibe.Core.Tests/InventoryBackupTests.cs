@@ -119,35 +119,55 @@ public sealed class InventoryBackupTests(ITestOutputHelper output) : IDisposable
     }
 
     [Fact]
-    public async Task CancellationWhileSqliteCopyIsBlockedNeverPublishesInterruptedCopy()
+    public async Task ExclusiveSourceLockReportsBusyWithoutPublishingOrPruning()
     {
         await SeedAsync();
+        var existing = (await Backups.CreateAsync()).Backup!;
         using var writer = new SqliteConnection($"Data Source={Database};Pooling=False");
         writer.Open();
         using var command = writer.CreateCommand();
         command.CommandText = "BEGIN EXCLUSIVE";
         command.ExecuteNonQuery();
-        using var cancellation = new CancellationTokenSource();
-        var task = Backups.CreateAsync(cancellation.Token);
         try
         {
-            var clock = Stopwatch.StartNew();
-            while ((!Directory.Exists(Backups.DirectoryPath)
-                || Directory.GetFiles(Backups.DirectoryPath, "*.partial").Length == 0) && !task.IsCompleted)
-            {
-                if (clock.Elapsed > TimeSpan.FromSeconds(3)) throw new TimeoutException("Backup did not enter its isolated copy.");
-                await Task.Delay(10);
-            }
-            Assert.False(task.IsCompleted);
-            cancellation.Cancel();
+            var error = await Assert.ThrowsAsync<SqliteException>(() => Backups.CreateAsync());
+            Assert.Equal(5, error.SqliteErrorCode);
         }
         finally
         {
             command.CommandText = "ROLLBACK";
             command.ExecuteNonQuery();
         }
+        Assert.Equal(existing.Path, Assert.Single(await Backups.ListAsync()).Path);
+        Assert.Empty(Directory.GetFiles(Backups.DirectoryPath, "*.partial"));
+        Assert.NotNull(await new DeviceInventoryStore(Database).LoadAsync());
+    }
+
+    [Fact]
+    public async Task CancellationAfterSqliteCopyNeverPublishesInterruptedCopy()
+    {
+        await SeedAsync();
+        var existing = (await Backups.CreateAsync()).Backup!;
+        var copied = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var resume = new ManualResetEventSlim();
+        var store = new InventoryBackupStore(Database, () =>
+        {
+            copied.SetResult();
+            if (!resume.Wait(TimeSpan.FromSeconds(5)))
+                throw new TimeoutException("Cancellation test did not release the completed SQLite copy.");
+        });
+        using var cancellation = new CancellationTokenSource();
+        var task = store.CreateAsync(cancellation.Token);
+        try
+        {
+            await copied.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(task.IsCompleted);
+            Assert.Single(Directory.GetFiles(store.DirectoryPath, "*.partial"));
+            cancellation.Cancel();
+        }
+        finally { resume.Set(); }
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => task);
-        Assert.Empty(await Backups.ListAsync());
+        Assert.Equal(existing.Path, Assert.Single(await store.ListAsync()).Path);
         Assert.Empty(Directory.GetFiles(Backups.DirectoryPath, "*.partial"));
         Assert.NotNull(await new DeviceInventoryStore(Database).LoadAsync());
     }

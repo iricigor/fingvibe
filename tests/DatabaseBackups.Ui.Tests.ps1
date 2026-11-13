@@ -94,7 +94,12 @@ try {
     Show-BackupAction OpenBackupFolderButton
     Invoke-BackupControl OpenBackupFolderButton
     $null = Wait-UiRegressionState {
-        (Find-BackupControl BackupError).Current.Name -like '*Backup needs attention*'
+        $errorBar = Find-BackupControl BackupError
+        if (-not (Test-UiRegressionElementVisible $errorBar)) { return $false }
+        $text = @($errorBar.FindAll([System.Windows.Automation.TreeScope]::Subtree,
+            [System.Windows.Automation.Condition]::TrueCondition) | ForEach-Object { $_.Current.Name })
+        $text -contains 'Backup needs attention' -and
+            @($text | Where-Object { $_ -like 'Could not open backup folder:*Create a successful backup first*' }).Count -gt 0
     } 'inline unavailable-folder error'
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory 'backups-empty.png')
     Stop-UiRegressionApp $script:process
@@ -193,6 +198,8 @@ try {
 }
 catch {
     $failure = $_
+    Write-Host $failure
+    Write-Host $failure.ScriptStackTrace
     if ($script:process -and -not $script:process.HasExited) {
         try { Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory 'backups-failure.png') }
         catch { Write-Warning "Could not capture backup failure: $_" }
@@ -200,13 +207,11 @@ catch {
     throw $failure
 }
 finally {
-    $phase = Step-UiRegressionPhase $phase 'Backups/cleanup' -Directory $ScreenshotDirectory -Succeeded (-not $failure)
-    try { Stop-UiRegressionApp $script:process }
-    catch { if ($failure) { Write-Warning $_ } else { throw } }
-    finally {
-        if ($script:process) { $script:process.Dispose() }
-        Restore-UiRegressionEnvironment $environment
-        if (Test-Path -LiteralPath $fixture) { Remove-Item -LiteralPath $fixture -Recurse -Force }
-        $null = Step-UiRegressionPhase $phase -Directory $ScreenshotDirectory
-    }
+    Invoke-UiRegressionCleanup -PrimaryFailed ($null -ne $failure) -Steps @(
+        { if ($phase) { Complete-UiRegressionPhase -Phase $phase -Directory $ScreenshotDirectory -Succeeded ($null -eq $failure) } },
+        { Stop-UiRegressionApp $script:process },
+        { if ($script:process) { $script:process.Dispose() } },
+        { Restore-UiRegressionEnvironment $environment },
+        { if (Test-Path -LiteralPath $fixture) { Remove-Item -LiteralPath $fixture -Recurse -Force } }
+    )
 }

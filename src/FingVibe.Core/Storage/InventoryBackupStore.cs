@@ -10,11 +10,15 @@ public sealed record InventoryBackupResult(InventoryBackup? Backup = null, bool 
 public sealed partial class InventoryBackupStore
 {
     private readonly string _source;
+    private readonly Action? _copyCompleted;
     public string DirectoryPath { get; }
 
-    public InventoryBackupStore(string databasePath)
+    public InventoryBackupStore(string databasePath) : this(databasePath, null) { }
+
+    internal InventoryBackupStore(string databasePath, Action? copyCompleted)
     {
         _source = Path.GetFullPath(databasePath);
+        _copyCompleted = copyCompleted;
         DirectoryPath = Path.Combine(Path.GetDirectoryName(_source)!, "Backups");
     }
 
@@ -55,6 +59,7 @@ public sealed partial class InventoryBackupStore
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     source.BackupDatabase(destination);
+                    _copyCompleted?.Invoke();
                     cancellationToken.ThrowIfCancellationRequested();
                     using var check = destination.CreateCommand();
                     check.CommandText = "PRAGMA integrity_check";
