@@ -254,9 +254,15 @@ selected value temporarily has no matching devices.
 ### Device usage categories
 
 The visible-by-default **Usage category** column shows Permanent, Personal,
-Guest, or muted Unclassified on one line. A small pin identifies a manual
-override; an information indicator identifies limited automatic evidence or
-an unavailable result. The source is not repeated on a second line. Hover,
+Guest, or neutral Unclassified in compact, rounded one-line badges. Permanent
+uses a green tint, Personal blue and Guest muted amber, with quieter fills than
+the Status badges. Unclassified, Loading and Unavailable use a neutral fill.
+An adjacent pin identifies every manual override, including Unclassified;
+an information indicator appears only for provisional automatic Permanent,
+Personal or Guest estimates. Automatic Unclassified, Loading and Unavailable
+have no icon but retain their complete evidence/error explanations. The
+default width is 120 DIPs for fresh settings and Reset columns; saved widths
+and manual resizing are unchanged. The source is not repeated on a second line. Hover,
 accessible help text, or keyboard focus and Enter/Space expose the reason,
 responded/eligible counts, observation period and specific missing evidence.
 It can be hidden, resized, searched and sorted with the existing table controls.

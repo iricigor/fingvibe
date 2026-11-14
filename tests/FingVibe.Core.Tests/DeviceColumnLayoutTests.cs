@@ -5,6 +5,33 @@ namespace FingVibe.Core.Tests;
 
 public sealed class DeviceColumnLayoutTests
 {
+    [Theory]
+    [InlineData(180)]
+    [InlineData(220)]
+    [InlineData(62)]
+    public void UsageCategoryDefaultAndResetDoNotMigrateSavedWidths(double savedWidth)
+    {
+        var fresh = new DeviceColumnLayout();
+        Assert.Equal(120, fresh.UsageCategory.Width);
+        var older = fresh.Capture();
+        older.Columns["UsageCategory"] = new(savedWidth, false);
+        var restored = new DeviceColumnLayout();
+        restored.Restore(older);
+        Assert.Equal(savedWidth, restored.UsageCategory.Width);
+        Assert.False(restored.UsageCategory.IsVisible);
+        restored.UsageCategory.Width = 94;
+        var roundTrip = new DeviceColumnLayout();
+        roundTrip.Restore(restored.Capture());
+        Assert.Equal(94, roundTrip.UsageCategory.Width);
+        roundTrip.Reset();
+        Assert.Equal(120, roundTrip.UsageCategory.Width);
+        Assert.True(roundTrip.UsageCategory.IsVisible);
+        older.Columns.Remove("UsageCategory");
+        var missing = new DeviceColumnLayout();
+        missing.Restore(older);
+        Assert.Equal(120, missing.UsageCategory.Width);
+    }
+
     [Fact]
     public void Density_DefaultsToCompactPersistsIndependentlyAndSurvivesColumnReset()
     {

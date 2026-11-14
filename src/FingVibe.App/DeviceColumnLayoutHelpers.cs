@@ -29,6 +29,8 @@ public static class DeviceColumnLayoutHelpers
         canHide ? header : $"{header} (always shown)";
 
     public static Visibility ToVisibility(bool visible) => visible ? Visibility.Visible : Visibility.Collapsed;
+    public static double UsageCategoryBadgeMaximumWidth(double columnWidth, bool hasIndicator) =>
+        Math.Max(0, columnWidth - 12 - (hasIndicator ? 18 : 0));
     public static Visibility SecondaryTypeVisibility(bool merged, string value) =>
         ToVisibility(merged && !string.IsNullOrWhiteSpace(value) && value is not "Unknown" and not "-");
 

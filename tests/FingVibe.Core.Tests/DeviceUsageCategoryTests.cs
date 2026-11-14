@@ -336,7 +336,7 @@ public sealed class DeviceUsageCategoryTests : IDisposable
         Assert.Equal(240, restored.UsageCategory.Width);
         restored.Reset();
         Assert.True(restored.UsageCategory.IsVisible);
-        Assert.Equal(180, restored.UsageCategory.Width);
+        Assert.Equal(120, restored.UsageCategory.Width);
     }
 
     private static DeviceInventoryData Observed(DeviceInventoryData data, string mac, DateTimeOffset time, string vendor = "Example") =>

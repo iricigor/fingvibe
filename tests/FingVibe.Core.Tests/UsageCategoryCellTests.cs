@@ -30,6 +30,51 @@ public sealed class UsageCategoryCellTests
         Assert.Equal(1, row.UsageCategoryOpacity);
     }
 
+    [Theory]
+    [InlineData(DeviceUsageCategory.Permanent)]
+    [InlineData(DeviceUsageCategory.Personal)]
+    [InlineData(DeviceUsageCategory.Guest)]
+    public void ClassifiedAutomaticIndicatorsDependOnlyOnExistingEvidenceConfidence(DeviceUsageCategory category)
+    {
+        var row = Row();
+        row.SetUsageCategory(null, Inference(category), "");
+        Assert.True(row.HasClassifiedUsageCategory);
+        Assert.True(row.HasUsageCategoryIndicator);
+        Assert.Equal(category == DeviceUsageCategory.Permanent, row.IsPermanentUsageCategory);
+        Assert.Equal(category == DeviceUsageCategory.Personal, row.IsPersonalUsageCategory);
+        Assert.Equal(category == DeviceUsageCategory.Guest, row.IsGuestUsageCategory);
+        row.SetUsageCategory(null, Inference(category, limited: false), "");
+        Assert.True(row.HasClassifiedUsageCategory);
+        Assert.False(row.HasUsageCategoryIndicator);
+        Assert.Contains($"Automatic recommendation: {category}", row.UsageCategoryDescription);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AutomaticUnclassifiedKeepsItsEvidenceExplanationWithoutAnIndicator(bool limited)
+    {
+        var row = Row();
+        row.SetUsageCategory(null, Inference(DeviceUsageCategory.Unclassified, limited) with
+        {
+            Total = new(15, 30), OvernightWeekend = new(8, 15), WeekdayDaytime = new(7, 15),
+            ObservedDates = limited ? 2 : 7
+        }, "");
+        Assert.False(row.HasClassifiedUsageCategory);
+        Assert.False(row.IsPermanentUsageCategory);
+        Assert.False(row.IsPersonalUsageCategory);
+        Assert.False(row.IsGuestUsageCategory);
+        Assert.False(row.HasUsageCategoryIndicator);
+        Assert.Contains("The available evidence does not match a usage-category rule.", row.UsageCategoryDescription);
+        Assert.Contains("15 of 30 eligible scans responded (50%)", row.UsageCategoryDescription);
+        Assert.Equal(limited, row.UsageCategoryDescription.Contains("provisional estimate"));
+        row.SetUsageCategory(DeviceUsageCategory.Unclassified, row.UsageInference, "");
+        Assert.True(row.HasUsageCategoryIndicator);
+        Assert.False(row.HasClassifiedUsageCategory);
+        Assert.Equal("\uE718", row.UsageCategoryIndicatorGlyph);
+        Assert.Contains("Manual override", row.UsageCategoryCellName);
+    }
+
     [Fact]
     public void ManualChoiceIsNotMarkedProvisionalAndReusedRowsRefreshEveryCellProperty()
     {
@@ -47,7 +92,9 @@ public sealed class UsageCategoryCellTests
         foreach (var property in new[]
         {
             nameof(row.UsageCategoryCellText), nameof(row.UsageCategoryCellName), nameof(row.UsageCategoryOpacity),
-            nameof(row.HasUsageCategoryIndicator), nameof(row.UsageCategoryIndicatorGlyph), nameof(row.UsageCategoryDescription)
+            nameof(row.HasClassifiedUsageCategory), nameof(row.IsPermanentUsageCategory),
+            nameof(row.IsPersonalUsageCategory), nameof(row.IsGuestUsageCategory), nameof(row.HasUsageCategoryIndicator),
+            nameof(row.UsageCategoryIndicatorGlyph), nameof(row.UsageCategoryDescription)
         })
             Assert.Contains(property, changes);
     }
@@ -58,18 +105,20 @@ public sealed class UsageCategoryCellTests
         var row = Row();
         row.SetUsageCategory(null, null, "Loading completed usage evidence...", loading: true);
         Assert.Equal("Loading", row.UsageCategoryCellText);
+        Assert.False(row.HasUsageCategoryIndicator);
         Assert.Contains("Loading completed usage evidence", row.UsageCategoryDescription);
         row.SetUsageCategory(null, null, "Usage evidence could not be loaded: unavailable database.");
         Assert.Equal("Unavailable", row.UsageCategoryCellText);
         Assert.Contains("could not be loaded", row.UsageCategoryCellName);
         Assert.DoesNotContain("%", row.UsageCategoryDescription);
-        Assert.True(row.HasUsageCategoryIndicator);
+        Assert.False(row.HasUsageCategoryIndicator);
 
         row.SetUsageCategory(null, Inference(DeviceUsageCategory.Unclassified) with
         {
             Total = new(0, 0), OvernightWeekend = new(0, 0), WeekdayDaytime = new(0, 0), ObservedDates = 0
         }, "");
         Assert.Equal("Unclassified", row.UsageCategoryCellText);
+        Assert.False(row.HasUsageCategoryIndicator);
         Assert.Equal(0.65, row.UsageCategoryOpacity);
         Assert.Contains("No eligible scans", row.UsageCategoryDescription);
         Assert.DoesNotContain("%", row.UsageCategoryDescription);
