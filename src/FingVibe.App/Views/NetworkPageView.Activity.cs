@@ -157,7 +157,7 @@ public sealed partial class NetworkPageView
             });
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+        catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException
             or InvalidOperationException or ArgumentException or TimeZoneNotFoundException or InvalidTimeZoneException)
         {
             _activitySession.Complete(request, AsyncSurfaceState.Error, () =>

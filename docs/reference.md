@@ -522,7 +522,11 @@ owns cancellation, replacement, stale-completion rejection and Retry; see
 
 Activity reads the selected window off the UI thread through the shared SQLite
 evidence query. Imported aggregates, incomplete scans, pre-sighting gaps and
-ambiguous mappings cannot manufacture nonresponse. Core `DeviceActivity` output
+ambiguous mappings cannot manufacture nonresponse. Malformed saved analytics,
+including inconsistent timestamps, use the existing Error/Retry path in Device,
+Network and Person equipment Activity. Loading stops and stale results are
+cleared; Retry reads the current selection again but does not repair saved data.
+Core `DeviceActivity` output
 retains aligned identities, original contributing scan evidence, counts, union
 contributors and exact/partial/unknown coverage for later aggregate consumers;
 it contains no inferred uptime or scalar duration estimates.
