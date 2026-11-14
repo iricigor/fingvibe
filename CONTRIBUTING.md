@@ -66,13 +66,16 @@ entry-script-scoped handles across restarts; Setup resets those handles before
 each group. `SidebarNavigation.Tests.ps1 -Group <name>` selects a group.
 
 Tools uses `Tools.Groups.psd1` and `Tools.Ui.Tests.ps1 -Group <name>`:
-`utilities` runs BuildIdentity, Troubleshooting and FingImport; `device-data`
+`utilities` runs BuildIdentity, Troubleshooting, FingImport and DatabaseBackups; `device-data`
 runs AdditionalServices and SqlEditor. These existing checks already own
 isolated fixtures, launches, readiness and shutdown; the group scenarios invoke
 them unchanged. Both suites default to `All`, continuing independent groups
 after a failure and failing the aggregate. CI and standalone Full validation
 dispatch `sidebar-<group>` and `tools-<group>` once each on separate disposable
 workers using the single published payload, not the full suites alongside them.
+When adding a Tools scenario, register its script stub and expected dispatch in
+`tests/PrValidation.Tests.ps1` so the isolated runner fixture covers it without
+starting the native application.
 
 Use the shared bounded waits, visible/nonempty page-scoped lookup, isolated
 fixture directories, normal shutdown and process-specific cleanup. Reacquire

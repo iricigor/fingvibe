@@ -365,7 +365,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         }
         foreach ($name in @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
             "UsageCategory.Ui", "DeviceActivity.Ui", "NetworkActivity.Ui",
-            "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
+            "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
             @(
                 'param($AppPath, $ScreenshotDirectory, $Version, $BuildKind, $BuildTimestamp, $BuildCommit, $PullRequestNumber, $SummaryOnly, $ObservationsOnly, $Group)',
                 '$name = [IO.Path]::GetFileName($PSCommandPath).Replace(".Tests.ps1", "")',
@@ -398,7 +398,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             "details-identity" = @("DeviceDiscovery.Ui", "UsageCategory.Ui")
             "details-observations" = @("DeviceScanHistory.Ui")
             "details-activity" = @("DeviceActivity.Ui")
-            "tools-utilities" = @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui")
+            "tools-utilities" = @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "DatabaseBackups.Ui")
             "tools-device-data" = @("AdditionalServices.Ui", "SqlEditor.Ui")
         }
         Assert-Equal $matrixSuites @($expectedSuiteChecks.Keys) "CI matrix dispatches every split suite"
@@ -413,7 +413,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         $calls = @(Get-Content $env:UI_REGRESSION_CALLS | ConvertFrom-Json)
         Assert-Equal $calls.Name @("SidebarNavigation", "SidebarNavigation", "SidebarNavigation", "SidebarNavigation", "DevicesList.Ui", "DevicesList.Ui", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
             "UsageCategory.Ui", "DeviceScanHistory.Ui", "DeviceActivity.Ui",
-            "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "Dispatch every preserved suite once"
+            "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "Dispatch every preserved suite once"
         $deviceGroups = @((Import-PowerShellDataFile -LiteralPath (Join-Path $PSScriptRoot "UiRegression\Devices.Groups.psd1")).Groups.Name)
         Assert-Equal @($matrixSuites | Where-Object { $_ -like "devices*" }) @($deviceGroups | ForEach-Object { "devices-$_" }) "CI matrix runs every Devices group once on its own worker"
         Assert-Equal @($calls | Where-Object Name -eq "DevicesList.Ui" | ForEach-Object { $_.Parameters.Group }) $deviceGroups "Devices group jobs dispatch exactly their group"
@@ -430,19 +430,19 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         & powershell.exe -NoProfile -File $runner -Suite sidebar -AppPath $parameters.AppPath `
             -ScreenshotDirectory $parameters.ScreenshotDirectory -CapturePlanPath $planPath
         if ($LASTEXITCODE -ne 0) { throw "Sidebar runner must support multi-scenario plans under Windows PowerShell." }
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 18 "Windows PowerShell dispatches the sidebar without parsing details selection"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 19 "Windows PowerShell dispatches the sidebar without parsing details selection"
         ConvertTo-Json -InputObject @($definitions | Where-Object Scenario -eq Devices) -Depth 5 | Set-Content $planPath
         foreach ($suite in @("details-summary", "details-identity", "details-observations", "details-activity")) {
             & $runner -Suite $suite @parameters
-            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 18 "Unselected $suite must not launch native checks"
+            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 19 "Unselected $suite must not launch native checks"
         }
         ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios Network) -Depth 5 | Set-Content $planPath
         foreach ($suite in @("details-summary", "details-observations", "details-activity")) {
             & $runner -Suite $suite @parameters
-            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 18 "Network-only plan adds no checks to $suite"
+            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 19 "Network-only plan adds no checks to $suite"
         }
         & $runner -Suite details-identity @parameters
-        $networkCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip 18 | ConvertFrom-Json)
+        $networkCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip 19 | ConvertFrom-Json)
         Assert-Equal $networkCalls.Name @("NetworkActivity.Ui") "Network-only plan still runs its activity regression"
         ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios DeviceDetails, Network) -Depth 5 |
             Set-Content $planPath
@@ -477,8 +477,12 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         $env:UI_REGRESSION_FAIL = $null
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
         & $runner -Suite tools @parameters
-        $toolChecks = @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")
+        $toolChecks = @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")
         Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name $toolChecks "Default Tools entry point preserves full sequential coverage"
+        $env:UI_REGRESSION_FAIL = "DatabaseBackups.Ui"
+        $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
+        Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: utilities*Simulated regression failure: DatabaseBackups.Ui*"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name $toolChecks "A backup failure is retained while the independent device-data group still runs"
         $env:UI_REGRESSION_FAIL = "BuildIdentity.Ui"
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
         Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: utilities*Simulated regression failure*"
