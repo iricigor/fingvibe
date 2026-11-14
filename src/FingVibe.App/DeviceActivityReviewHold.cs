@@ -5,7 +5,7 @@ namespace FingVibe.App;
 internal static class DeviceActivityReviewHold
 {
     // Hold the loader, not SQLite: UI automation must not outlive the production busy timeout.
-    internal static async Task WaitAsync(string path, CancellationToken cancellationToken)
+    internal static async Task WaitAsync(string path, CancellationToken cancellationToken, string surface = "Activity")
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (!File.Exists(path)) return;
@@ -18,7 +18,7 @@ internal static class DeviceActivityReviewHold
             while (File.Exists(path))
             {
                 if (clock.Elapsed >= TimeSpan.FromSeconds(30))
-                    throw new InvalidOperationException("The UI-review Activity hold was not released within 30 seconds.");
+                    throw new InvalidOperationException($"The UI-review {surface} hold was not released within 30 seconds.");
                 await Task.Delay(25, cancellationToken);
             }
             cancellationToken.ThrowIfCancellationRequested();

@@ -135,13 +135,16 @@ function Find-HistoryDeviceRow([string] $Name) {
         [System.Windows.Automation.ControlType]::ListItem)
     $nameCondition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceNameText")
-    $rows = (Find-HistoryControl ResultsList).FindAll([System.Windows.Automation.TreeScope]::Children, $rowCondition)
-    if ($rows.Count -ne 1) { throw "Expected one device matching '$Name', got $($rows.Count)." }
-    $nameCell = $rows[0].FindFirst([System.Windows.Automation.TreeScope]::Descendants, $nameCondition)
-    if (-not (Test-UiRegressionElementVisible $rows[0]) -or -not $nameCell -or $nameCell.Current.Name -cne $Name) {
-        throw "The visible history row does not match '$Name'."
+    return Wait-UiRegressionState -Description "exactly one visible history device matching '$Name'" -Condition {
+        $list = Find-HistoryControl ResultsList -Optional
+        if (-not (Test-UiRegressionElementVisible $list)) { return $null }
+        $rows = $list.FindAll([System.Windows.Automation.TreeScope]::Children, $rowCondition)
+        if ($rows.Count -ne 1) { return $null }
+        $nameCell = $rows[0].FindFirst([System.Windows.Automation.TreeScope]::Descendants, $nameCondition)
+        if ((Test-UiRegressionElementVisible $rows[0]) -and $nameCell -and $nameCell.Current.Name -ceq $Name) {
+            return $rows[0]
+        }
     }
-    return $rows[0]
 }
 
 function Get-HistoryLastSeenCell([string] $Name, [switch] $Rendered) {

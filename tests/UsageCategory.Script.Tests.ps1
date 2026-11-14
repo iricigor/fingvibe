@@ -17,6 +17,56 @@ if (-not [System.Windows.Automation.SelectionPattern+SelectionPatternInformation
     throw "Native selection checks must use the supported Current.GetSelection UI Automation API."
 }
 & {
+    $helper = $usage.Find({
+        param($node)
+        $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq "Find-Usage"
+    }, $true)
+    Invoke-Expression $helper.Extent.Text
+    $state = @{ Polls = 0; ReadyAfter = 3; Available = $true }
+    $cell = [pscustomobject]@{ Current = [pscustomobject]@{
+        IsOffscreen = $false; BoundingRectangle = [System.Drawing.RectangleF]::new(0, 0, 108, 24) } }
+    $list = [pscustomobject]@{}
+    $list | Add-Member ScriptMethod FindFirst {
+        param($Scope, $Condition)
+        if ($Condition.Value -notin @("UsageCategoryCell", "DeviceUsageCategoryText")) {
+            throw "Badge lookup escaped its intended cell identities."
+        }
+        $state.Polls++
+        if ($state.Available -and $state.Polls -ge $state.ReadyAfter) { return $cell }
+        return $null
+    }
+    $script:root = [pscustomobject]@{}
+    $script:root | Add-Member ScriptMethod FindFirst {
+        param($Scope, $Condition)
+        if ($Condition.Value -ne "ResultsList") { throw "Badge lookup must be scoped to the current Devices list." }
+        return $list
+    }
+    function Wait-UiRegressionState {
+        param([scriptblock] $Condition, [string] $Description)
+        for ($attempt = 0; $attempt -lt 4; $attempt++) {
+            $result = & $Condition
+            if ($result) { return $result }
+        }
+        throw "Timed out waiting for $Description."
+    }
+    foreach ($id in @("UsageCategoryCell", "DeviceUsageCategoryText")) {
+        $state.Polls = 0
+        if (Find-Usage $id -Optional) { throw "An unrealized badge must remain not-yet-ready during optional polling." }
+        if ($state.Polls -ne 1) { throw "Optional lookup must not wait internally." }
+        if ((Find-Usage $id) -ne $cell -or $state.Polls -ne 3) {
+            throw "Required badge lookup must reacquire the rendered peer after row reconstruction."
+        }
+    }
+    $state.Available = $false
+    $failure = $null
+    try { Find-Usage UsageCategoryCell } catch { $failure = $_.Exception.Message }
+    if ($failure -notlike "*Timed out*UsageCategoryCell*") { throw "A permanently absent badge must fail explicitly." }
+    $state.Available = $true
+    $state.ReadyAfter = 0
+    $cell.Current.IsOffscreen = $true
+    if (Find-Usage UsageCategoryCell -Optional) { throw "An off-screen badge must not establish readiness." }
+}
+& {
     $helper = $devices.Find({
         param($node)
         $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and

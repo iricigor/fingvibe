@@ -25,6 +25,7 @@ public sealed partial class MainWindow : Window
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Scanner.ico"));
         ToolsPage.ActivityCoordinator = _networkActivityCoordinator;
         ToolsPage.ConfigureSqlEditor(IsUiReview && string.IsNullOrEmpty(ReviewInventoryPath) ? null : InventoryPath);
+        InitializeBackups();
         _scanExecution = new ScanExecution(_networkActivityCoordinator, this);
         this.AppWindow.Closing += MainWindow_Closing;
         InitializeAppearance();
@@ -46,6 +47,7 @@ public sealed partial class MainWindow : Window
 
     private async void MainWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
     {
+        _backupScheduler?.Dispose();
         if (_allowWindowClose
             || (!ToolsPage.HasActiveTest && _devicePortScanCancellation is null && !_periodicScanController.IsActive && !_isScanning))
         {
@@ -88,6 +90,7 @@ public sealed partial class MainWindow : Window
         }
 
         await RestoreInventoryAsync();
+        ScheduleStartupBackup();
         await RestoreSavedScanAsync();
         _inventoryReady = true;
         OpenPendingDiscoveryNotification();

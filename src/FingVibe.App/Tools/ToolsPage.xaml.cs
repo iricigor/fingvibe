@@ -1,5 +1,6 @@
 using FingVibe.Core.Models;
 using FingVibe.Core.Import;
+using FingVibe.Core.Storage;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
@@ -29,6 +30,10 @@ public sealed partial class ToolsPage : UserControl
 
     internal void ConfigureSqlEditor(string? databasePath) => SqlEditorView.Configure(databasePath);
 
+    internal void ConfigureBackups(InventoryBackupStore? store, InventoryBackupScheduler? scheduler, Action<string?> report) =>
+        DatabaseBackupsView.Configure(store, scheduler, report);
+    internal void RefreshBackups() => DatabaseBackupsView.Refresh();
+
     internal void ConfigureImport(Func<DeviceInventoryData> getData, Func<bool> canEdit,
         Func<FingImportAnalysis, Task<string>> import, Action<string> showManagement, nint windowHandle)
     {
@@ -56,6 +61,8 @@ public sealed partial class ToolsPage : UserControl
         TroubleshootingView.Visibility = Visibility.Collapsed;
         FingImportView.Visibility = Visibility.Collapsed;
         SqlEditorView.Visibility = Visibility.Collapsed;
+        DatabaseBackupsView.Close();
+        DatabaseBackupsView.Visibility = Visibility.Collapsed;
         ToolsLanding.Visibility = Visibility.Visible;
         await Task.WhenAll(SpeedTestView.StopForNavigationAsync(), TroubleshootingView.StopForNavigationAsync(),
             SqlEditorView.StopAsync());
@@ -70,6 +77,19 @@ public sealed partial class ToolsPage : UserControl
         ToolsLanding.Visibility = Visibility.Collapsed;
         SqlEditorView.Visibility = Visibility.Visible;
         SqlEditorView.Open();
+    }
+
+    private void DatabaseBackupsCard_Click(object sender, RoutedEventArgs e)
+    {
+        ToolsLanding.Visibility = Visibility.Collapsed;
+        DatabaseBackupsView.Visibility = Visibility.Visible;
+        DatabaseBackupsView.Open();
+    }
+
+    private async void DatabaseBackupsView_BackRequested(object? sender, EventArgs e)
+    {
+        await StopForNavigationAsync();
+        DatabaseBackupsCard.Focus(FocusState.Programmatic);
     }
 
     private async void SqlEditorView_BackRequested(object? sender, EventArgs e)

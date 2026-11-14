@@ -48,6 +48,7 @@
     <Compile Include="..\..\src\FingVibe.App\Tools\NetworkActivityCoordinator.cs" Link="NetworkActivityCoordinator.cs" />
     <Compile Include="..\..\src\FingVibe.App\ScanExecution.cs" Link="ScanExecution.cs" />
     <Compile Include="..\..\src\FingVibe.App\PeriodicScanScheduler.cs" Link="PeriodicScanScheduler.cs" />
+    <Compile Include="..\..\src\FingVibe.App\InventoryBackupScheduler.cs" Link="InventoryBackupScheduler.cs" />
     <Compile Include="..\..\src\FingVibe.App\PeriodicScanController.cs" Link="PeriodicScanController.cs" />
     <Compile Include="..\..\src\FingVibe.App\PeriodicScanPresentation.cs" Link="PeriodicScanPresentation.cs" />
     <Compile Include="..\..\src\FingVibe.App\DiscoveryNotificationPresentation.cs" Link="DiscoveryNotificationPresentation.cs" />

@@ -1062,6 +1062,31 @@ synthetic preview, management return/re-analysis, completion, inventory counts,
 and status filtering on an interactive Windows desktop. UI-review mode keeps
 inventory edits in memory and never imports the user's private export.
 
+## Database backups
+
+**Tools > Database backups** creates validated, consistent SQLite copies in
+`%LOCALAPPDATA%\FingVibe\Backups` and retains the seven newest successful copies
+plus the newest copy from each of the seven most recent local backup dates,
+counting overlaps once. Daily representatives survive inactivity until seven
+newer backup dates replace them. Startup
+loading/migration and successful final scan persistence reset one 15-second
+background timer; initial/incomplete/failed checkpoints do not trigger it.
+Manual backup shares the same creation/publication/pruning path without the
+delay. A cross-process file lock serializes the backup set; competing requests
+defer. SQLite locking and disk contention can still affect foreground saves.
+Shutdown cancels pending work and requests supported cancellation, without
+waiting for a final backup. Manual outcomes show a muted green **Backed up** or
+muted red **Backup failed**, disabling the button for one minute after the
+attempt finishes; errors remain inline and automatic triggers are unaffected.
+Pending/running/outcome status belongs to the button, not a separate idle line.
+Inside **Automatic backups**, collapsed **Completed backups** precedes
+collapsed **How backups work**; its heading and summary share a row on wide
+windows and stack on narrow windows.
+This cooldown is application-session
+state, not a saved preference. Completed backups starts collapsed with count
+and refreshed newest/oldest relative ages; expansion shows striped rows with
+local times, sizes and storage-derived daily markers. See [saved data and backups](manual/data.md).
+
 ## Read-only SQL editor
 
 **Tools > SQL editor** queries saved SQLite inventory and scan history through

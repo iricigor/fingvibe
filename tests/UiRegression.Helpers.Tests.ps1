@@ -526,6 +526,100 @@ finally {
     foreach ($fixtureDirectory in $fixtureDirectories) { Remove-Item -LiteralPath $fixtureDirectory -Recurse -Force }
 }
 
+& {
+    foreach ($source in @(
+        @{ File = 'DeviceScanHistory.Ui.Tests.ps1'; Function = 'Find-HistoryDeviceRow' },
+        @{ File = 'DatabaseBackups.Ui.Tests.ps1'; Function = 'Expand-BackupCopies' })) {
+        $errors = $null
+        $ast = [Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $PSScriptRoot $source.File), [ref]$null, [ref]$errors)
+        Assert-Regression (-not $errors) "$($source.File) must parse."
+        $helper = $ast.Find({
+            param($node)
+            $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $source.Function
+        }, $true)
+        Assert-Regression ($null -ne $helper) "$($source.Function) must exist."
+        Invoke-Expression $helper.Extent.Text
+    }
+    function Wait-UiRegressionState([scriptblock] $Condition, [string] $Description) {
+        for ($attempt = 0; $attempt -lt 4; $attempt++) {
+            $result = & $Condition
+            if ($result) { return $result }
+        }
+        throw "Timed out waiting for $Description."
+    }
+    & {
+        $state = @{ Polls = 0; Available = $true }
+        $fakeName = [pscustomobject]@{ Current = [pscustomobject]@{ Name = 'previous filter' } }
+        $fakeRow = [pscustomobject]@{ NameCell = $fakeName; Current = [pscustomobject]@{
+            IsOffscreen = $false; BoundingRectangle = [Windows.Rect]::new(0, 0, 300, 40) } }
+        $fakeRow | Add-Member ScriptMethod FindFirst { param($Scope, $Condition)
+            if ($Condition.Value -ne 'DeviceNameText') { throw 'History lookup escaped its name cell.' }
+            return $this.NameCell
+        }
+        $fakeList = [pscustomobject]@{ Current = $fakeRow.Current; State = $state; Row = $fakeRow }
+        $fakeList | Add-Member ScriptMethod FindAll { param($Scope, $Condition)
+            $this.State.Polls++
+            if ($Scope -ne [System.Windows.Automation.TreeScope]::Children) { throw 'History lookup escaped the list.' }
+            if (-not $this.State.Available -or $this.State.Polls -eq 1) { return @() }
+            if ($this.State.Polls -ge 3) { $this.Row.NameCell.Current.Name = 'History normal' }
+            return @($this.Row)
+        }
+        $pattern = [pscustomobject]@{ Current = [pscustomobject]@{ Value = 'History normal' } }
+        $fakeSearch = [pscustomobject]@{ Pattern = $pattern }
+        $fakeSearch | Add-Member ScriptMethod GetCurrentPattern { param($PatternId) return $this.Pattern }
+        function Select-HistoryDevices {}
+        function Find-HistoryControl([string] $Value, [switch] $ByName, [switch] $Optional) {
+            switch ($Value) {
+                'ResultsList' { return $fakeList }
+                'Search devices' { return $fakeSearch }
+                default { throw "Unexpected history lookup: $Value." }
+            }
+        }
+        Assert-Regression ((Find-HistoryDeviceRow 'History normal') -eq $fakeRow -and $state.Polls -eq 3) `
+            'History lookup must await reconstruction and the exact current filtered name.'
+        $state.Available = $false
+        Assert-RegressionFailure { Find-HistoryDeviceRow 'History normal' } '*Timed out*History normal*'
+    }
+    & {
+        $state = @{ Polls = 0; Available = $true; Positions = 0 }
+        $fakeRows = [pscustomobject]@{ Current = [pscustomobject]@{ BoundingRectangle = [Windows.Rect]::Empty } }
+        $fakeSummary = [pscustomobject]@{ Current = [pscustomobject]@{ BoundingRectangle = [Windows.Rect]::new(0, 0, 300, 50) } }
+        $fakeExpander = [pscustomobject]@{ Current = [pscustomobject]@{ BoundingRectangle = [Windows.Rect]::new(0, 0, 400, 220) } }
+        $pattern = [pscustomobject]@{}
+        $pattern | Add-Member ScriptMethod Expand {}
+        $fakeExpander | Add-Member NoteProperty Pattern $pattern
+        $fakeExpander | Add-Member ScriptMethod GetCurrentPattern { param($PatternId) return $this.Pattern }
+        function Find-BackupControl([string] $Id) {
+            switch ($Id) {
+                'CompletedBackupsExpander' { return $fakeExpander }
+                'BackupCount' { return $fakeSummary }
+                'BackupRows' {
+                    $state.Polls++
+                    $fakeRows.Current.BoundingRectangle = if (-not $state.Available -or $state.Polls -eq 1) { [Windows.Rect]::Empty }
+                        elseif ($state.Polls -eq 2) { [Windows.Rect]::new(0, 20, 300, 100) }
+                        else { [Windows.Rect]::new(0, 80, 300, 100) }
+                    return $fakeRows
+                }
+                default { throw "Unexpected backup lookup: $Id." }
+            }
+        }
+        function Show-BackupAction([string] $Id) {
+            if ($Id -eq 'BackupRows') {
+                if ($state.Polls -lt 4) { throw 'Positioning happened before expanded layout settled.' }
+                $state.Positions++
+            }
+        }
+        Expand-BackupCopies
+        Assert-Regression ($state.Polls -eq 4 -and $state.Positions -eq 1) `
+            'Expansion must await nonempty, unclipped and stable content bounds before positioning.'
+        $state.Available = $false
+        $state.Positions = 0
+        Assert-RegressionFailure { Expand-BackupCopies } '*Timed out*completed backup contents*'
+        Assert-Regression ($state.Positions -eq 0) 'Missing expanded content must fail without positioning.'
+    }
+}
+
 function Get-RegressionSignature([string] $Text) {
     $bytes = [Text.Encoding]::UTF8.GetBytes(($Text -replace "`r", '').Trim())
     $hasher = [Security.Cryptography.SHA256]::Create()
@@ -711,7 +805,7 @@ if (`$failAt -eq '$name') { throw 'Synthetic module failure: $name' }
     try {
         Test-RegressionGroupOrchestration -Suite @{ name = 'Tools' } -Definition $definition -Root $root
         $modules = @($definition.Groups | ForEach-Object { $_.Modules })
-        Assert-Regression (($modules -join ',') -eq 'Identity,Troubleshooting,Import,Services,Sql') 'Tools must retain every original check exactly once and in the original order.'
+        Assert-Regression (($modules -join ',') -eq 'Identity,Troubleshooting,Import,Backups,Services,Sql') 'Tools must retain every original check and the focused backup module exactly once and in the original order.'
     }
     finally { Remove-Item -LiteralPath $root -Recurse -Force }
 }
@@ -758,6 +852,44 @@ if (`$failAt -eq '$name') { throw 'Synthetic module failure: $name' }
     Assert-Regression (($ran -join ',') -eq 'first,second') 'Cleanup must run every step after a failing step.'
     Assert-RegressionFailure { Invoke-UiRegressionCleanup -PrimaryFailed $false -Steps @({ throw 'cleanup broke' }) 3>$null } 'cleanup broke'
 }
+function Test-DatabaseBackupCleanup {
+    param([string] $TestRoot = $PSScriptRoot)
+    $tokens = $null
+    $parseErrors = $null
+    $backupAst = [Management.Automation.Language.Parser]::ParseFile(
+        (Join-Path $TestRoot 'DatabaseBackups.Ui.Tests.ps1'), [ref]$tokens, [ref]$parseErrors)
+    if ($parseErrors) { throw $parseErrors[0] }
+    $backupTry = @($backupAst.EndBlock.Statements | Where-Object { $_ -is [Management.Automation.Language.TryStatementAst] })[-1]
+    $cleanup = [scriptblock]::Create((@($backupTry.Finally.Statements | ForEach-Object { $_.Extent.Text }) -join "`n"))
+    $savedProcess = $script:process
+    foreach ($primaryFailed in @($true, $false)) {
+        $root = New-UiRegressionFixtureDirectory -Suite backup-cleanup
+        $fixture = Join-Path $root 'inventory'
+        $ScreenshotDirectory = Join-Path $root 'captures'
+        $environment = Save-UiRegressionEnvironment @('FINGVIBE_BACKUP_CLEANUP_TEST')
+        try {
+            $null = New-Item -ItemType Directory -Path $fixture, $ScreenshotDirectory
+            $env:FINGVIBE_BACKUP_CLEANUP_TEST = 'changed'
+            $failure = if ($primaryFailed) { [InvalidOperationException]::new('primary backup failure') } else { $null }
+            $phase = Start-UiRegressionPhase 'Backups/synthetic'
+            $script:process = [pscustomobject]@{ Disposed = $false }
+            $script:process | Add-Member ScriptMethod Dispose { $this.Disposed = $true }
+            function Stop-UiRegressionApp { throw 'synthetic backup close failure' }
+            if ($primaryFailed) { & $cleanup 3>$null }
+            else { Assert-RegressionFailure { & $cleanup 3>$null } 'synthetic backup close failure' }
+            Assert-Regression ($script:process.Disposed -and -not (Test-Path -LiteralPath $fixture)) 'Backup cleanup must dispose and remove its fixture even when closing fails.'
+            Assert-Regression ([Environment]::GetEnvironmentVariable('FINGVIBE_BACKUP_CLEANUP_TEST') -eq $environment.FINGVIBE_BACKUP_CLEANUP_TEST) 'Backup cleanup must restore its environment after a close failure.'
+            $record = Get-Content (Join-Path $ScreenshotDirectory 'phases.jsonl') -Raw | ConvertFrom-Json
+            Assert-Regression ($record.succeeded -eq (-not $primaryFailed)) 'Backup phase completion must retain the primary check outcome.'
+        }
+        finally {
+            $script:process = $savedProcess
+            Restore-UiRegressionEnvironment $environment
+            Remove-Item -LiteralPath $root -Recurse -Force
+        }
+    }
+}
+Test-DatabaseBackupCleanup
 & {
     $idle = ConvertFrom-UiRegressionSurfaceStatus 'Idle'
     Assert-Regression ($idle.State -eq 'Idle' -and $idle.Request -eq 0) 'Idle must parse without a request.'

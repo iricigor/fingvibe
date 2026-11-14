@@ -275,24 +275,31 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
         IsOffscreen = $false; BoundingRectangle = [pscustomobject]@{ IsEmpty = $false; Width = 100; Height = 30 }
     } }
     $row | Add-Member ScriptMethod FindFirst { param($Scope, $Condition) return $nameCell }
-    $list = [pscustomobject]@{}
+    $list = [pscustomobject]@{ Current = $row.Current }
     $list | Add-Member ScriptMethod FindAll { param($Scope, $Condition) return @($row) }
     function Select-HistoryDevices {}
     function Start-Sleep { param($Milliseconds) $waits.Add($Milliseconds) }
-    function Find-HistoryControl($Value, [switch] $ByName) {
+    function Find-HistoryControl($Value, [switch] $ByName, [switch] $Optional) {
         if ($Value -eq 'Search devices') { return $searchControl }
         if ($Value -eq 'ResultsList') { return $list }
         throw "Unexpected history lookup '$Value'."
+    }
+    function Wait-UiRegressionState([scriptblock] $Condition, [string] $Description) {
+        for ($attempt = 0; $attempt -lt 4; $attempt++) {
+            $result = & $Condition
+            if ($result) { return $result }
+        }
+        throw "Timed out waiting for $Description."
     }
     $null = Find-HistoryDeviceRow 'History normal'
     $null = Find-HistoryDeviceRow 'History normal'
     Assert-Equal $searchPattern.Changes 1 'Repeated assertions must not reapply the same search'
     Assert-Equal $waits @(300) 'A changed filter retains its original debounce settling; unchanged filters need none'
     $nameCell.Current.Name = 'History virtual'
-    Assert-Throws { Find-HistoryDeviceRow 'History normal' } "*does not match 'History normal'*"
+    Assert-Throws { Find-HistoryDeviceRow 'History normal' } "*Timed out*exactly one visible history device matching 'History normal'*"
     $nameCell.Current.Name = 'History normal'
     $row.Current.IsOffscreen = $true
-    Assert-Throws { Find-HistoryDeviceRow 'History normal' } "*does not match 'History normal'*"
+    Assert-Throws { Find-HistoryDeviceRow 'History normal' } "*Timed out*exactly one visible history device matching 'History normal'*"
 }
 
 & {
@@ -468,7 +475,7 @@ try {
     Test-Change @{ "src\FingVibe.Core\NewModel.cs" = "changed" } @("Devices") "Core dependency baseline"
     Test-Change @{ ".github\scripts\UiReviewNavigation.ps1" = "changed" } @("Devices") "Pipeline baseline"
     Test-Change @{ "src\FingVibe.App\MainWindow.xaml.cs" = "changed" } @("Devices") "Shell code baseline"
-    Test-Change @{ "src\FingVibe.App\Tools\SpeedTestPage.xaml" = "changed" } @("Devices", "Tools", "SpeedTest", "Troubleshooting", "About", "FingImport", "SqlEditor") "Tools views"
+    Test-Change @{ "src\FingVibe.App\Tools\SpeedTestPage.xaml" = "changed" } @("Devices", "Tools", "SpeedTest", "Troubleshooting", "About", "FingImport", "SqlEditor", "DatabaseBackups") "Tools views"
     Test-Change @{ "src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml" = "changed" } @("Devices", "Tools", "Troubleshooting") "Troubleshooting view"
     Test-Change @{ "src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml.cs" = "changed" } @("Devices", "Tools", "Troubleshooting") "Troubleshooting behavior"
     Test-Change @{ "src\FingVibe.App\Tools\AboutPage.xaml" = "changed" } @("Devices", "Tools", "About") "About view"
@@ -476,6 +483,8 @@ try {
     Test-Change @{ "src\FingVibe.App\Tools\FingImportPage.xaml" = "changed" } @("Devices", "Tools", "FingImport") "Fing import view"
     Test-Change @{ "src\FingVibe.App\Tools\FingImportPage.xaml.cs" = "changed" } @("Devices", "Tools", "FingImport") "Fing import behavior"
     Test-Change @{ "src\FingVibe.App\Tools\SqlEditorPage.xaml" = "changed" } @("Devices", "Tools", "SqlEditor") "SQL editor view"
+    Test-Change @{ "src\FingVibe.App\Tools\DatabaseBackupsPage.xaml" = "changed" } @("Devices", "Tools", "DatabaseBackups") "Database backups view"
+    Test-Change @{ "src\FingVibe.Core\Storage\InventoryBackupStore.cs" = "changed" } @("Devices", "Tools", "DatabaseBackups") "Backup storage behavior"
     Test-Change @{ "src\FingVibe.Core\Storage\InventoryQueryService.cs" = "changed" } @("Devices", "Tools", "SqlEditor") "SQL query behavior"
     Test-Change @{ "src\FingVibe.App\MainWindow.Inventory.cs" = "changed" } `
         @("Devices", "Overview", "Network", "DeviceDetails", "People", "PersonDetails", "Rooms", "FingImport", "SqlEditor", "RoomDetails") "Inventory surfaces"
@@ -520,7 +529,7 @@ try {
     $scanSource = Get-Content (Join-Path $appDirectory "MainWindow.Scan.cs") -Raw
     if ($scanSource -notmatch 'await SaveCompletedScanAsync\([^;]+\);\s*_scanMessage = null;' -or
         $scanSource -match 'Complete in ' -or
-        $scanSource -notmatch 'new\[\] \{ _scanMessage, _snapshotError, _inventoryError, _discoveryMessage, _windowsNotificationMessage, targetWarning \}' -or
+        $scanSource -notmatch 'new\[\] \{ _scanMessage, _snapshotError, _inventoryError, _backupError, _discoveryMessage, _windowsNotificationMessage, targetWarning \}' -or
         $scanSource -notmatch 'ScanMessages\.Visibility = _isScanning \|\| !string\.IsNullOrWhiteSpace\(status\)\s*\? Visibility\.Visible : Visibility\.Collapsed;') {
         throw "Scan success must clear only its own message, retain independent errors/warnings, and collapse unused messages."
     }
@@ -574,7 +583,8 @@ try {
         @{ Page = "NetworkTroubleshootingPage"; Title = "Network troubleshooting"; Card = "TroubleshootingCard"; Click = "TroubleshootingCard_Click"; Glyph = 0xE90F },
         @{ Page = "AboutPage"; Title = "About FingVibe"; Card = "AboutCard"; Click = "AboutCard_Click"; Glyph = 0xE946 },
         @{ Page = "FingImportPage"; Title = "Import from Fing"; Card = "FingImportCard"; Click = "FingImportCard_Click"; Glyph = 0xE8B5 },
-        @{ Page = "SqlEditorPage"; Title = "SQL editor"; Card = "SqlEditorCard"; Click = "SqlEditorCard_Click"; Glyph = 0xE943 }
+        @{ Page = "SqlEditorPage"; Title = "SQL editor"; Card = "SqlEditorCard"; Click = "SqlEditorCard_Click"; Glyph = 0xE943 },
+        @{ Page = "DatabaseBackupsPage"; Title = "Database backups"; Card = "DatabaseBackupsCard"; Click = "DatabaseBackupsCard_Click"; Glyph = 0xE74E }
     )
     foreach ($tool in $toolIcons) {
         $pageDocument = [System.Xml.XmlDocument]::new()
@@ -749,7 +759,7 @@ try {
         ".github\scripts\UiReviewNavigation.ps1" = "New navigation"
         "tests\UiReviewScenarios.Tests.ps1" = "New tests"
         "README.md" = "Tools documentation"
-    } @("Devices", "DeviceDetails", "DeviceHistory", "Tools", "SpeedTest", "Troubleshooting", "About", "FingImport", "SqlEditor") "Tools structural changes include all tools and scan discovery"
+    } @("Devices", "DeviceDetails", "DeviceHistory", "Tools", "SpeedTest", "Troubleshooting", "About", "FingImport", "SqlEditor", "DatabaseBackups") "Tools structural changes include all tools and scan discovery"
     $base = $originalBase
 
     $planPath = Join-Path $repository "plan.json"
@@ -854,6 +864,7 @@ try {
         return $scroll
     }
     function Find-WebDriverElement([string] $Using, [string] $Value) {
+        if ($Value -eq "Completed backups, newest first") { throw "The collapsed backups table has no automation peer." }
         if ($Using -eq "xpath") {
             if ($Value -match "^//ListItem\[@Name='(.+)'\]$") { return "menu-$($Matches[1])" }
             if ($Value -eq "//List[@Name='Scan results']/ListItem[.//*[@Name='Online']][1]") { return "online-row" }
@@ -865,6 +876,7 @@ try {
             if ($Value -eq "//Button[@Name='Network troubleshooting']") { return "control-Network troubleshooting" }
             if ($Value -eq "//Button[@Name='Import from Fing']") { return "control-Import from Fing" }
             if ($Value -eq "//Button[@Name='SQL editor']") { return "control-SQL editor" }
+            if ($Value -eq "//Button[@Name='Database backups']") { return "control-Database backups" }
             throw "Unexpected XPath '$Value'."
         }
         return "control-$Value"
@@ -880,6 +892,7 @@ try {
         elseif ($ElementId -eq "control-Network troubleshooting") { $script:currentPage = "Troubleshooting" }
         elseif ($ElementId -eq "control-Import from Fing") { $script:currentPage = "FingImport" }
         elseif ($ElementId -eq "control-SQL editor") { $script:currentPage = "SqlEditor" }
+        elseif ($ElementId -eq "control-Database backups") { $script:currentPage = "DatabaseBackups" }
         elseif ($ElementId -eq "person-row") { $script:currentPage = "PersonDetails" }
         elseif ($ElementId -eq "room-row") { $script:currentPage = "RoomDetails" }
         else { throw "Unexpected click '$ElementId'." }
@@ -921,11 +934,15 @@ try {
                     "control-SQL query" { $script:currentPage -eq "SqlEditor" }
                     "control-Run SQL query" { $script:currentPage -eq "SqlEditor" }
                     "control-Cancel SQL query" { $script:currentPage -eq "SqlEditor" }
+                    "control-Database backups" { $script:currentPage -eq "Tools" }
+                    "control-Back up now" { $script:currentPage -eq "DatabaseBackups" }
+                    "control-Open backup folder" { $script:currentPage -eq "DatabaseBackups" }
+                    "control-Completed backups" { $script:currentPage -eq "DatabaseBackups" }
                     "control-Browse Fing export" { $script:currentPage -eq "FingImport" }
                     "control-Analyze again" { $script:currentPage -eq "FingImport" }
                     "control-Run network troubleshooting" { $script:currentPage -eq "Troubleshooting" }
                     "control-Router WAN IPv4 address" { $script:currentPage -eq "Troubleshooting" }
-                    "control-Back to Tools" { $script:currentPage -in @("About", "Troubleshooting", "FingImport", "SqlEditor") }
+                    "control-Back to Tools" { $script:currentPage -in @("About", "Troubleshooting", "FingImport", "SqlEditor", "DatabaseBackups") }
                     "control-FingVibe LAN Scanner" { $script:currentPage -eq "About" }
                     "control-Search people" { $script:currentPage -eq "People" }
                     "control-Search rooms" { $script:currentPage -eq "Rooms" }
@@ -951,6 +968,9 @@ try {
     }
     Show-UiReviewCaptureScenario "Devices"
     Assert-Equal $script:empty $false "Returning from empty results restores the baseline"
+    $script:hiddenControl = "control-Completed backups"
+    Assert-Throws { Show-UiReviewCaptureScenario "DatabaseBackups" } "*Completed backups*not visible*"
+    $script:hiddenControl = ""
     Test-UiReviewNavigation
     $script:hiddenControl = "control-Scan LAN"
     Assert-Throws { Test-UiReviewNavigation } "*Scan LAN*not visible*"

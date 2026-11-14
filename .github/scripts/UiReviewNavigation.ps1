@@ -129,6 +129,7 @@ function Show-UiReviewCaptureScenario {
         "About" { "Tools" }
         "FingImport" { "Tools" }
         "SqlEditor" { "Tools" }
+        "DatabaseBackups" { "Tools" }
         "PersonDetails" { "People" }
         "RoomDetails" { "Rooms" }
         default { $Scenario }
@@ -203,6 +204,7 @@ function Show-UiReviewCaptureScenario {
         "About" { "About FingVibe" }
         "FingImport" { "Import from Fing" }
         "SqlEditor" { "SQL editor" }
+        "DatabaseBackups" { "Database backups" }
         "People" { "Search people" }
         "Rooms" { "Search rooms" }
         "Settings" { "Window backdrop" }
@@ -251,5 +253,13 @@ function Show-UiReviewCaptureScenario {
         $null = Assert-VisibleUiReviewElement -Value "Run SQL query"
         $null = Assert-VisibleUiReviewElement -Value "Cancel SQL query"
         $null = Find-WebDriverElement -Using name -Value "Schema and examples"
+    }
+    elseif ($Scenario -eq "DatabaseBackups") {
+        $cardId = Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@Name='Database backups']"
+        Invoke-WebDriverElement -ElementId $cardId
+        $null = Assert-VisibleUiReviewElement -Value "Back to Tools"
+        $null = Assert-VisibleUiReviewElement -Value "Back up now"
+        $null = Assert-VisibleUiReviewElement -Value "Open backup folder"
+        $null = Assert-VisibleUiReviewElement -Value "Completed backups"
     }
 }

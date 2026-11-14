@@ -42,6 +42,11 @@ function Find-Usage([string] $Value, [switch] $ByName, [switch] $Optional) {
         else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
     $call = Start-UiRegressionCall lookup
     try {
+        if (-not $ByName -and $Value -in @("UsageCategoryCell", "DeviceUsageCategoryText")) {
+            return Find-UiRegressionElement -Container { Find-Usage ResultsList -Optional } `
+                -Condition ([System.Windows.Automation.PropertyCondition]::new($property, $Value)) `
+                -Description "visible usage-category control '$Value' after row refresh" -Optional:$Optional
+        }
         $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
             [System.Windows.Automation.PropertyCondition]::new($property, $Value))
         if (-not $element -and (Show-UiRegressionDeviceTabFor $script:root $Value)) {
@@ -529,6 +534,8 @@ try {
 }
 catch {
     $failed = $true
+    Write-Host $_
+    Write-Host $_.ScriptStackTrace
     if ($script:process -and -not $script:process.HasExited -and $script:process.MainWindowHandle -ne [IntPtr]::Zero) {
         try {
             Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "usage-failure.png")

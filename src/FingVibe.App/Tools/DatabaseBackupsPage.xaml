@@ -1,0 +1,152 @@
+<UserControl
+    x:Class="FingVibe.App.DatabaseBackupsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style x:Key="BackupOutcomeButtonStyle" TargetType="Button" BasedOn="{StaticResource AccentButtonStyle}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="{TemplateBinding CornerRadius}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter Content="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="BackupSuccessButtonStyle" TargetType="Button" BasedOn="{StaticResource BackupOutcomeButtonStyle}">
+            <Setter Property="Background" Value="{ThemeResource ScannerOnlineBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{ThemeResource ScannerOnlineForegroundBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource ScannerOnlineBackgroundBrush}" />
+        </Style>
+        <Style x:Key="BackupFailureButtonStyle" TargetType="Button" BasedOn="{StaticResource BackupOutcomeButtonStyle}">
+            <Setter Property="Background" Value="{ThemeResource SystemFillColorCriticalBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{ThemeResource SystemFillColorCriticalBrush}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource SystemFillColorCriticalBackgroundBrush}" />
+        </Style>
+    </UserControl.Resources>
+    <ScrollViewer x:Name="BackupsScroll" HorizontalScrollBarVisibility="Disabled">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup>
+                <VisualState x:Name="NarrowCompletedHeader">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="CompletedBackupsHeader.Orientation" Value="Vertical" />
+                        <Setter Target="CompletedBackupsHeader.Spacing" Value="4" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="WideCompletedHeader">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1000" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="CompletedBackupsHeader.Orientation" Value="Horizontal" />
+                        <Setter Target="CompletedBackupsHeader.Spacing" Value="12" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+        <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <FontIcon Glyph="&#xE74E;" FontFamily="Segoe Fluent Icons" FontSize="48" Width="48" Height="48"
+                          Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                          IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                <TextBlock Grid.Column="1" Text="Database backups" Style="{StaticResource ScannerPageTitleStyle}"
+                           Margin="0" VerticalAlignment="Center" TextWrapping="Wrap" />
+                <Button x:Name="BackupsBackButton" Grid.Column="2" Content="&#x2190; Tools" Click="Back_Click"
+                        AutomationProperties.Name="Back to Tools" VerticalAlignment="Center" />
+            </Grid>
+            <TextBlock Text="Local copies of your saved devices, corrections, People/Rooms, assignments and scan history."
+                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Border Padding="20" CornerRadius="8" BorderThickness="1"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Automatic backups" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <Expander x:Name="CompletedBackupsExpander" IsExpanded="False" HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Stretch" AutomationProperties.Name="Completed backups">
+                        <Expander.Header>
+                            <StackPanel x:Name="CompletedBackupsHeader" Spacing="4">
+                                <TextBlock x:Name="CompletedBackupsTitle" Text="Completed backups"
+                                           Style="{ThemeResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
+                                <TextBlock x:Name="BackupCount" Text="No completed backups." TextWrapping="Wrap"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Expander.Header>
+                        <StackPanel Spacing="12">
+                            <Grid ColumnSpacing="12" Margin="12,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="160" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="90" />
+                                    <ColumnDefinition Width="60" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Created (local time)" TextWrapping="Wrap" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="1" Text="Backup file" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="2" Text="Size" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="3" Text="Daily" FontWeight="SemiBold" />
+                            </Grid>
+                            <ItemsControl x:Name="BackupRows" AutomationProperties.Name="Completed backups, newest first">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Padding="12" Margin="0,0,0,4" BorderThickness="0,0,0,1"
+                                                Background="{Binding IsAlternateRow, Converter={StaticResource ResultRowBackgroundConverter}}"
+                                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                                            <Grid ColumnSpacing="12">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="160" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="90" />
+                                                    <ColumnDefinition Width="60" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="{Binding Created}" TextWrapping="Wrap" AutomationProperties.AutomationId="BackupCreatedText" />
+                                                <TextBlock Grid.Column="1" Text="{Binding Name}" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                                                <TextBlock Grid.Column="2" Text="{Binding Size}" TextWrapping="Wrap"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                <TextBlock Grid.Column="3" Text="{Binding Daily}" AutomationProperties.AutomationId="BackupDailyText"
+                                                           ToolTipService.ToolTip="{Binding DailyDescription}"
+                                                           AutomationProperties.HelpText="{Binding DailyDescription}" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Expander>
+                    <Expander x:Name="BackupPolicyExpander" Header="How backups work" IsExpanded="False"
+                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                        <TextBlock Text="Keeps the latest seven backups plus the newest copy from each of the last seven backup days. Daily copies survive days without backups. Backups are scheduled 15 seconds after startup loading or a successfully saved scan. Failed or interrupted copies never replace a good backup."
+                                   TextWrapping="Wrap" />
+                    </Expander>
+                    <ProgressBar x:Name="BackupProgress" IsIndeterminate="True" Visibility="Collapsed"
+                                 AutomationProperties.Name="Creating backup" />
+                    <TextBlock x:Name="BackupLastSuccess" Text="No successful backup yet." TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+            <StackPanel x:Name="BackupActions" Orientation="Horizontal" Spacing="12">
+                <Button x:Name="BackUpNowButton" Content="Back up now" Click="BackUpNow_Click"
+                        Style="{StaticResource AccentButtonStyle}" AutomationProperties.Name="Back up now"
+                        AutomationProperties.LiveSetting="Polite" />
+                <Button x:Name="OpenBackupFolderButton" Content="Open backup folder" Click="OpenFolder_Click"
+                        AutomationProperties.Name="Open backup folder" />
+            </StackPanel>
+            <TextBlock x:Name="BackupFolderText" Text="Backup folder is loading..." TextWrapping="Wrap"
+                       IsTextSelectionEnabled="True" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <InfoBar x:Name="BackupError" IsOpen="False" IsClosable="False" Severity="Error"
+                     Title="Backup needs attention" />
+            <TextBlock Text="These copies are stored on this PC, not in the cloud. They do not protect against loss of the same drive."
+                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
