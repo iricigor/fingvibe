@@ -48,7 +48,7 @@ function Find-Activity([string] $Id, [switch] $ByName, [switch] $Optional) {
                 [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::AutomationIdProperty, "ActivityScroll"))
         }
         $element = if ($scope) { $scope.FindFirst([Windows.Automation.TreeScope]::Descendants, $condition) }
-        if (-not $element -and -not $tabChecked -and $Id -ne 'DeviceDetailsScroll') {
+        if (-not $element -and -not $Optional -and -not $tabChecked -and $Id -ne 'DeviceDetailsScroll') {
             $tabChecked = $true
             if (Show-UiRegressionDeviceTabFor $script:root $Id) { continue }
         }
@@ -423,6 +423,26 @@ try {
         throw "Retry after database contention did not restore the grid."
     }
     Assert-ActivityPeers "Retry"
+    $malformed = Invoke-InventoryMalformedTimestamp -Path $database -Table scan_history -WhileMalformed {
+        $before = (Get-ActivityState).Request
+        Restart-Activity
+        $state = Wait-ActivityState -State Error -After $before
+        if ((Find-Activity ActivityRefresh).Current.Name -ne "Retry" -or
+            (Find-Activity ActivityCell-0-0 -Optional) -or
+            (Find-Activity "Loading completed scan evidence" -ByName -Optional)) {
+            throw "Malformed evidence must stop loading, clear stale cells and offer Retry."
+        }
+        Assert-ActivityPeers "malformed evidence"
+        $null = Show-Activity ActivityError
+        Capture-Activity "activity-malformed-evidence"
+        return $state
+    }
+    (Show-Activity ActivityRefresh).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $retried = Wait-ActivityState "30 days by weekday, 1-hour cells" $malformed.Request
+    if ((Find-Activity ActivityStatus).Current.Name -notlike "*squares have scan results*" -or
+        (Find-Activity ActivityRefresh -Optional)) { throw "Retry after restoring malformed evidence did not recover." }
+    $null = Select-ActivityCell 2 9
+    Assert-ActivityPeers "restored evidence"
     $connection = [Microsoft.Data.Sqlite.SqliteConnection]::new("Data Source=$database;Pooling=False")
     try {
         $connection.Open()

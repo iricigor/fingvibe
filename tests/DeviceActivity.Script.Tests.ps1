@@ -1,11 +1,48 @@
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "DeviceActivity.Fixture.ps1")
+. (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
 foreach ($name in @("DeviceActivity.Ui.Tests.ps1", "DeviceActivity.Fixture.ps1")) {
     $errors = $null
     $null = [Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot $name), [ref]$null, [ref]$errors)
     if ($errors) { throw ($errors.Message -join "; ") }
 }
 $ui = Get-Content -LiteralPath (Join-Path $PSScriptRoot "DeviceActivity.Ui.Tests.ps1") -Raw
+& {
+    Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+    $ast = [Management.Automation.Language.Parser]::ParseInput($ui, [ref]$null, [ref]$null)
+    $lookup = $ast.Find({ param($node)
+        $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Find-Activity'
+    }, $true)
+    . ([scriptblock]::Create($lookup.Extent.Text))
+    $state = @{ TabChanges = 0; Found = $false }
+    $script:root = [pscustomobject]@{}
+    $script:root | Add-Member ScriptMethod FindFirst {
+        param($Scope, $Condition)
+        if ($state.Found) { return 'requested peer' }
+        return $null
+    }
+    function Show-UiRegressionDeviceTabFor {
+        param($Root, $Value)
+        $state.TabChanges++
+        $state.Found = $true
+        return $true
+    }
+    foreach ($case in @(
+        @{ Id = 'Loading completed scan evidence'; ByName = $true },
+        @{ Id = 'ActivityRefresh'; ByName = $false }
+    )) {
+        $state.Found = $false
+        $result = Find-Activity $case.Id -ByName:$case.ByName -Optional
+        if ($null -ne $result -or $state.TabChanges -ne 0) {
+            throw "An optional absent Activity peer must not navigate away from the current tab."
+        }
+    }
+    $state.Found = $false
+    $result = Find-Activity ActivityWindow
+    if ($result -ne 'requested peer' -or $state.TabChanges -ne 1) {
+        throw "A required Activity lookup must retain owning-tab navigation."
+    }
+}
 if ($ui -notmatch '\$env:GITHUB_ACTIONS -ne "true"' -or $ui -match 'Stop-Process -Name') {
     throw "Native checks must remain isolated to the disposable runner and owned processes."
 }
@@ -98,8 +135,18 @@ try {
     } finally { $writer.Dispose() }
     $retried = $store.QueryAnalyticsAsync($request, $token).GetAwaiter().GetResult()
     if ($retried.Scans.Count -ne $evidence.Scans.Count) { throw "Retry after releasing contention changed fixture evidence." }
+    Invoke-InventoryMalformedTimestamp -Path (Join-Path $fixture 'inventory.sqlite') -Table scan_history -WhileMalformed {
+        $malformedError = $null
+        try { $null = $store.QueryAnalyticsAsync($request, $token).GetAwaiter().GetResult() }
+        catch { $malformedError = $_.Exception.GetBaseException() }
+        if ($malformedError -isnot [IO.InvalidDataException] -or $malformedError.Message -notlike "*inconsistent timestamps*") {
+            throw "The malformed Device fixture must exercise InvalidDataException: $malformedError"
+        }
+    }
+    $restored = $store.QueryAnalyticsAsync($request, $token).GetAwaiter().GetResult()
+    if ($restored.Scans.Count -ne $evidence.Scans.Count) { throw "Restoring malformed Device evidence changed the fixture." }
 }
 finally {
     if (Test-Path -LiteralPath $fixture) { Remove-Item -LiteralPath $fixture -Recurse -Force }
 }
-Write-Host "Device Activity lifecycle contracts, exact migrated evidence and SQLite contention/Retry fixture passed without desktop automation."
+Write-Host "Device Activity lifecycle contracts, exact migrated evidence, SQLite contention/Retry and malformed-evidence restoration passed without desktop automation."
