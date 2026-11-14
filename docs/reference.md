@@ -1065,14 +1065,22 @@ inventory edits in memory and never imports the user's private export.
 ## Database backups
 
 **Tools > Database backups** creates validated, consistent SQLite copies in
-`%LOCALAPPDATA%\FingVibe\Backups` and retains seven successful copies. Startup
+`%LOCALAPPDATA%\FingVibe\Backups` and retains the seven newest successful copies
+plus the newest copy from each of the seven most recent local backup dates,
+counting overlaps once. Daily representatives survive inactivity until seven
+newer backup dates replace them. Startup
 loading/migration and successful final scan persistence reset one 15-second
 background timer; initial/incomplete/failed checkpoints do not trigger it.
 Manual backup shares the same creation/publication/pruning path without the
 delay. A cross-process file lock serializes the backup set; competing requests
 defer. SQLite locking and disk contention can still affect foreground saves.
 Shutdown cancels pending work and requests supported cancellation, without
-waiting for a final backup. See [saved data and backups](manual/data.md).
+waiting for a final backup. A successful manual backup shows **Backed up** and
+disables the button for one minute after completion; failures remain retryable
+and automatic triggers are unaffected. This cooldown is application-session
+state, not a saved preference. Completed backups starts collapsed with count
+and refreshed newest/oldest relative ages; expansion shows local times and
+sizes. See [saved data and backups](manual/data.md).
 
 ## Read-only SQL editor
 

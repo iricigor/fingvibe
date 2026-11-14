@@ -88,6 +88,11 @@ try {
     Start-BackupApp
     Open-BackupPage
     $null = Wait-BackupSurface Empty
+    if ((Find-BackupControl CompletedBackupsExpander).GetCurrentPattern(
+        [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -ne
+        [System.Windows.Automation.ExpandCollapseState]::Collapsed) {
+        throw 'Completed backups must initially be collapsed.'
+    }
     if ((Find-BackupControl BackupStatusText).Current.Name -notlike 'No database to back up*' -or (Test-Path $database)) {
         throw 'Missing inventory must be explicit and must not create an empty database.'
     }
@@ -135,9 +140,25 @@ try {
     }
     Remove-Item -LiteralPath $hold
     $null = Wait-BackupSurface Ready
-    if ((Find-BackupControl BackupCount).Current.Name -ne '1 copy - Newest first') {
+    if ((Find-BackupControl BackupCount).Current.Name -notlike '1 backup - newest * ago - oldest * ago') {
         throw 'Completed backup list did not refresh after creation.'
     }
+    $null = Wait-UiRegressionState {
+        (Find-BackupControl BackUpNowButton).Current.Name -eq 'Backed up' -and
+            -not (Find-BackupControl BackUpNowButton).Current.IsEnabled
+    } 'successful manual backup feedback and disabled cooldown'
+    Select-BackupNavigation DevicesNavItem
+    Open-BackupPage
+    $null = Wait-BackupSurface Ready
+    if ((Find-BackupControl BackUpNowButton).Current.Name -ne 'Backed up' -or
+        (Find-BackupControl BackUpNowButton).Current.IsEnabled) {
+        throw 'Navigation must preserve the application-level manual cooldown.'
+    }
+    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory 'backups-completed-collapsed.png')
+    Show-BackupAction CompletedBackupsExpander
+    (Find-BackupControl CompletedBackupsExpander).GetCurrentPattern(
+        [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    $null = Wait-UiRegressionState { Test-UiRegressionElementVisible (Find-BackupControl BackupRows) } 'expanded completed backup list'
     $copies = @(Get-ChildItem (Join-Path $fixture 'Backups') -Filter '*.sqlite')
     if ($copies.Count -ne 1 -or
         (Get-InventorySqliteValue $copies[0].FullName 'PRAGMA integrity_check') -ne 'ok') {
@@ -145,6 +166,13 @@ try {
     }
 
     $phase = Step-UiRegressionPhase $phase 'Backups/error-last-success' -Directory $ScreenshotDirectory
+    # The one-minute boundary is covered with fake time in Core; a new app session can exercise failure/retry without a desktop delay.
+    Stop-UiRegressionApp $script:process
+    $script:process.Dispose()
+    $script:process = $null
+    Start-BackupApp
+    Open-BackupPage
+    $null = Wait-BackupSurface Ready
     $lock = Join-Path $fixture 'Backups\device-inventory.backup.lock'
     Remove-Item -LiteralPath $lock
     $null = New-Item -ItemType Directory -Path $lock
@@ -153,7 +181,9 @@ try {
     Invoke-BackupControl BackUpNowButton
     $null = Wait-BackupSurface Error $before
     if ((Find-BackupControl BackupLastSuccess).Current.Name -like 'No successful*' -or
-        (Find-BackupControl BackupCount).Current.Name -ne '1 copy - Newest first') {
+        (Find-BackupControl BackupCount).Current.Name -notlike '1 backup - newest * ago - oldest * ago' -or
+        -not (Find-BackupControl BackUpNowButton).Current.IsEnabled -or
+        (Find-BackupControl BackUpNowButton).Current.Name -ne 'Back up now') {
         throw 'A later failure must keep the last successful copy visible.'
     }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory 'backups-error.png')
@@ -179,9 +209,9 @@ try {
         Set-UiReviewTheme -Root $script:root -Theme $theme
         Open-BackupPage
         $null = Wait-BackupSurface Ready
-        Show-BackupAction BackUpNowButton
-        (Find-BackupControl BackUpNowButton).SetFocus()
-        $null = Wait-UiRegressionState { (Find-BackupControl BackUpNowButton).Current.HasKeyboardFocus } 'keyboard focus on manual backup'
+        Show-BackupAction OpenBackupFolderButton
+        (Find-BackupControl OpenBackupFolderButton).SetFocus()
+        $null = Wait-UiRegressionState { (Find-BackupControl OpenBackupFolderButton).Current.HasKeyboardFocus } 'keyboard focus during manual backup cooldown'
         Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "backups-$theme.png")
     }
     $null = [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero, 0, 0, 640, 760, 0x0044)

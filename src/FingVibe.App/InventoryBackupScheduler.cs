@@ -4,7 +4,7 @@ using Microsoft.Data.Sqlite;
 namespace FingVibe.App;
 
 internal sealed record InventoryBackupStatus(bool Running = false, bool Pending = false,
-    string? Error = null, bool Missing = false);
+    string? Error = null, bool Missing = false, bool ManualCooldown = false);
 
 internal sealed class InventoryBackupScheduler : IDisposable
 {
@@ -14,7 +14,9 @@ internal sealed class InventoryBackupScheduler : IDisposable
     private readonly TimeProvider _time;
     private readonly CancellationTokenSource _stop = new();
     private readonly ITimer _timer;
+    private readonly ITimer _cooldownTimer;
     private DateTimeOffset _due;
+    private bool _manualPending;
     private bool _closed;
     private InventoryBackupStatus _status = new();
     private Task _execution = Task.CompletedTask;
@@ -24,14 +26,15 @@ internal sealed class InventoryBackupScheduler : IDisposable
         _create = create;
         _time = timeProvider ?? TimeProvider.System;
         _timer = _time.CreateTimer(_ => StartDueWork(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        _cooldownTimer = _time.CreateTimer(_ => EndManualCooldown(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
     public event EventHandler? Changed;
     public InventoryBackupStatus Status { get { lock (_sync) return _status; } }
     internal Task Execution { get { lock (_sync) return _execution; } }
 
-    public void Schedule() => Request(Delay);
-    public void BackUpNow() => Request(TimeSpan.Zero);
+    public void Schedule() => Request(Delay, manual: false);
+    public void BackUpNow() => Request(TimeSpan.Zero, manual: true);
 
     public void SetMissing()
     {
@@ -39,11 +42,12 @@ internal sealed class InventoryBackupScheduler : IDisposable
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
-    private void Request(TimeSpan delay)
+    private void Request(TimeSpan delay, bool manual)
     {
         lock (_sync)
         {
-            if (_closed) return;
+            if (_closed || manual && (_status.Running || _status.ManualCooldown)) return;
+            _manualPending = manual || _manualPending;
             _due = _time.GetUtcNow() + delay;
             _status = _status with { Pending = true, Error = null };
             if (!_status.Running) _timer.Change(delay, Timeout.InfiniteTimeSpan);
@@ -63,21 +67,25 @@ internal sealed class InventoryBackupScheduler : IDisposable
                 return;
             }
             _status = _status with { Running = true, Pending = false, Error = null };
-            _execution = Task.Run(RunAsync);
+            var manual = _manualPending;
+            _manualPending = false;
+            _execution = Task.Run(() => RunAsync(manual));
         }
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
-    private async Task RunAsync()
+    private async Task RunAsync(bool manual)
     {
         string? error = null;
         var deferred = false;
         var missing = false;
+        var succeeded = false;
         try
         {
             var result = await _create(_stop.Token).ConfigureAwait(false);
             deferred = result.Deferred;
             missing = result.Missing;
+            succeeded = result.Backup is not null;
         }
         catch (OperationCanceledException) when (_stop.IsCancellationRequested) { }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
@@ -88,13 +96,29 @@ internal sealed class InventoryBackupScheduler : IDisposable
         lock (_sync)
         {
             _status = _status with { Running = false, Error = error, Missing = missing };
+            if (manual && succeeded && !_closed)
+            {
+                _status = _status with { ManualCooldown = true };
+                _cooldownTimer.Change(TimeSpan.FromMinutes(1), Timeout.InfiniteTimeSpan);
+            }
             if (deferred && !_closed)
             {
                 _status = _status with { Pending = true };
+                _manualPending |= manual;
                 _due = _time.GetUtcNow() + Delay;
             }
             if (!_closed && _status.Pending)
                 _timer.Change(_due <= _time.GetUtcNow() ? TimeSpan.Zero : _due - _time.GetUtcNow(), Timeout.InfiniteTimeSpan);
+        }
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void EndManualCooldown()
+    {
+        lock (_sync)
+        {
+            if (_closed) return;
+            _status = _status with { ManualCooldown = false };
         }
         Changed?.Invoke(this, EventArgs.Empty);
     }
@@ -107,6 +131,7 @@ internal sealed class InventoryBackupScheduler : IDisposable
             _closed = true;
             _status = _status with { Pending = false };
             _timer.Dispose();
+            _cooldownTimer.Dispose();
         }
         // SQLite's synchronous backup cannot be interrupted mid-call; the store checks cancellation before publication.
         _stop.Cancel();

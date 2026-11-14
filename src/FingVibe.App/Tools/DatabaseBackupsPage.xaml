@@ -25,7 +25,7 @@
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                 <StackPanel Spacing="12">
                     <TextBlock Text="Automatic backups" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                    <TextBlock Text="Keeps the latest seven successful copies. Backups are scheduled 15 seconds after startup loading or a successfully saved scan. Failed or interrupted copies never replace a good backup."
+                    <TextBlock Text="Keeps the latest seven backups plus the newest copy from each of the last seven backup days. Daily copies survive days without backups. Backups are scheduled 15 seconds after startup loading or a successfully saved scan. Failed or interrupted copies never replace a good backup."
                                TextWrapping="Wrap" />
                     <TextBlock x:Name="BackupStatusText" Text="Loading backup status..." TextWrapping="Wrap"
                                AutomationProperties.LiveSetting="Polite" />
@@ -44,38 +44,47 @@
                        IsTextSelectionEnabled="True" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             <InfoBar x:Name="BackupError" IsOpen="False" IsClosable="False" Severity="Error"
                      Title="Backup needs attention" />
-            <TextBlock Text="Completed backups" Style="{ThemeResource SubtitleTextBlockStyle}" Margin="0,8,0,0" />
-            <TextBlock x:Name="BackupCount" Text="No completed copies." TextWrapping="Wrap" />
-            <Grid ColumnSpacing="12" Margin="12,0">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="160" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="90" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="Created (local time)" TextWrapping="Wrap" FontWeight="SemiBold" />
-                <TextBlock Grid.Column="1" Text="Backup file" FontWeight="SemiBold" />
-                <TextBlock Grid.Column="2" Text="Size" FontWeight="SemiBold" />
-            </Grid>
-            <ItemsControl x:Name="BackupRows" AutomationProperties.Name="Completed backups, newest first">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Border Padding="12" Margin="0,0,0,4" BorderThickness="0,0,0,1"
-                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
-                            <Grid ColumnSpacing="12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="160" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="90" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="{Binding Created}" TextWrapping="Wrap" />
-                                <TextBlock Grid.Column="1" Text="{Binding Name}" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
-                                <TextBlock Grid.Column="2" Text="{Binding Size}" TextWrapping="Wrap"
-                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
+            <Expander x:Name="CompletedBackupsExpander" IsExpanded="False" HorizontalAlignment="Stretch"
+                      HorizontalContentAlignment="Stretch" AutomationProperties.Name="Completed backups">
+                <Expander.Header>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Completed backups" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <TextBlock x:Name="BackupCount" Text="No completed backups." TextWrapping="Wrap" />
+                    </StackPanel>
+                </Expander.Header>
+                <StackPanel Spacing="12">
+                    <Grid ColumnSpacing="12" Margin="12,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="90" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Created (local time)" TextWrapping="Wrap" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="1" Text="Backup file" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="2" Text="Size" FontWeight="SemiBold" />
+                    </Grid>
+                    <ItemsControl x:Name="BackupRows" AutomationProperties.Name="Completed backups, newest first">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="12" Margin="0,0,0,4" BorderThickness="0,0,0,1"
+                                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                                    <Grid ColumnSpacing="12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="160" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="90" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Created}" TextWrapping="Wrap" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Name}" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                                        <TextBlock Grid.Column="2" Text="{Binding Size}" TextWrapping="Wrap"
+                                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Expander>
             <TextBlock Text="These copies are stored on this PC, not in the cloud. They do not protect against loss of the same drive."
                        TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
         </StackPanel>

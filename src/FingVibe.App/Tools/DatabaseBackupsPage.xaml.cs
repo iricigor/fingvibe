@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using FingVibe.Core.Formatting;
 using FingVibe.Core.Storage;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
@@ -13,12 +14,16 @@ public sealed partial class DatabaseBackupsPage : UserControl
     private InventoryBackupScheduler? _scheduler;
     private Action<string?>? _report;
     private bool _visible;
+    private IReadOnlyList<InventoryBackup> _copies = [];
+    private readonly DispatcherTimer _ageTimer = new() { Interval = TimeSpan.FromMinutes(1) };
     private sealed record BackupRow(string Created, string Name, string Size);
 
     public DatabaseBackupsPage()
     {
         InitializeComponent();
         _surface.StateChanged += (_, _) => AutomationProperties.SetItemStatus(BackupsScroll, _surface.Status);
+        _ageTimer.Tick += (_, _) => UpdateBackupSummary();
+        Unloaded += (_, _) => Close();
         SizeChanged += (_, args) => BackupActions.Orientation = args.NewSize.Width < 540
             ? Orientation.Vertical : Orientation.Horizontal;
     }
@@ -38,13 +43,17 @@ public sealed partial class DatabaseBackupsPage : UserControl
     internal void Open()
     {
         _visible = true;
-        BackUpNowButton.Focus(FocusState.Programmatic);
+        CompletedBackupsExpander.IsExpanded = false;
+        _ageTimer.Start();
+        ShowStatus();
+        (BackUpNowButton.IsEnabled ? BackUpNowButton : OpenBackupFolderButton).Focus(FocusState.Programmatic);
         Refresh();
     }
 
     internal void Close()
     {
         _visible = false;
+        _ageTimer.Stop();
         _surface.Cancel();
     }
 
@@ -64,12 +73,13 @@ public sealed partial class DatabaseBackupsPage : UserControl
             var copies = await _store.ListAsync(request.CancellationToken);
             if (!_surface.IsCurrent(request)) return;
             var status = _scheduler?.Status ?? new InventoryBackupStatus(Error: "Backup scheduling is unavailable.");
+            _copies = copies;
             BackupRows.ItemsSource = copies.Select(item => new BackupRow(
                 item.CreatedUtc.ToLocalTime().ToString("g"), Path.GetFileName(item.Path),
                 $"{item.Size / 1024d:N1} KiB")).ToArray();
-            BackupCount.Text = $"{copies.Count} {(copies.Count == 1 ? "copy" : "copies")} - Newest first";
+            UpdateBackupSummary();
             BackupLastSuccess.Text = copies.FirstOrDefault() is { } last
-                ? $"Last successful backup: {last.CreatedUtc.ToLocalTime():g}" : "No successful backup yet.";
+                ? $"Last successful backup: {last.CreatedUtc.ToLocalTime():G}" : "No successful backup yet.";
             ShowStatus();
             BackupsScroll.UpdateLayout();
             _surface.Complete(request, status.Error is not null ? AsyncSurfaceState.Error
@@ -83,11 +93,23 @@ public sealed partial class DatabaseBackupsPage : UserControl
             {
                 BackupError.Message = $"Could not list backups: {exception.Message}";
                 BackupError.IsOpen = true;
-                BackUpNowButton.IsEnabled = _scheduler is not null && !_scheduler.Status.Running;
+                BackUpNowButton.IsEnabled = _scheduler is not null && !_scheduler.Status.Running
+                    && !_scheduler.Status.ManualCooldown;
                 BackupsScroll.UpdateLayout();
             });
             _report?.Invoke($"Could not list database backups: {exception.Message}");
         }
+    }
+
+    private void UpdateBackupSummary()
+    {
+        var now = DateTimeOffset.UtcNow;
+        BackupCount.Text = _copies.Count == 0 ? "No completed backups."
+            : $"{_copies.Count} {(_copies.Count == 1 ? "backup" : "backups")} - "
+                + $"newest {Age(_copies[0].CreatedUtc)} - oldest {Age(_copies[^1].CreatedUtc)}";
+
+        string Age(DateTimeOffset created) => created > now
+            ? $"at {created.ToLocalTime():G}" : $"{ScanAgeFormatter.FormatAge(now - created)} ago";
     }
 
     private void ShowStatus()
@@ -97,9 +119,14 @@ public sealed partial class DatabaseBackupsPage : UserControl
             : status?.Pending == true ? "Backup pending - waiting for the scheduled time or another app's backup."
             : status?.Missing == true ? "No database to back up. Waiting for the first successful saved scan."
             : status?.Error is not null ? "The latest backup attempt failed. Earlier completed copies are retained."
+            : status?.ManualCooldown == true ? "Backup created. Back up now will be available again one minute after completion."
             : "No backup running.";
         BackupProgress.Visibility = status?.Running == true ? Visibility.Visible : Visibility.Collapsed;
-        BackUpNowButton.IsEnabled = status is { Running: false };
+        BackUpNowButton.IsEnabled = status is { Running: false, ManualCooldown: false };
+        var action = status?.Running == true ? "Creating backup..."
+            : status?.ManualCooldown == true ? "Backed up" : "Back up now";
+        BackUpNowButton.Content = action;
+        AutomationProperties.SetName(BackUpNowButton, action);
         BackupError.Message = status?.Error ?? "";
         BackupError.IsOpen = status?.Error is not null;
     }

@@ -77,7 +77,9 @@ public sealed partial class InventoryBackupStore
                 cancellationToken.ThrowIfCancellationRequested();
                 File.Move(temporary, completed, overwrite: false);
                 // Pruning only starts after a validated copy is published. A failure keeps that copy and reports the extra copies.
-                foreach (var old in List(cancellationToken).Skip(7))
+                var copies = List(cancellationToken);
+                var retained = RetainedPaths(copies, TimeZoneInfo.Local);
+                foreach (var old in copies.Where(copy => !retained.Contains(copy.Path)))
                 {
                     cancellationToken.ThrowIfCancellationRequested();
                     try { File.Delete(old.Path); }
@@ -96,6 +98,12 @@ public sealed partial class InventoryBackupStore
             }
         }
     }
+
+    internal static IReadOnlySet<string> RetainedPaths(IReadOnlyList<InventoryBackup> newestFirst, TimeZoneInfo timeZone) =>
+        newestFirst.Take(7).Concat(newestFirst
+            .GroupBy(copy => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(copy.CreatedUtc, timeZone).DateTime))
+            .Take(7).Select(day => day.First()))
+            .Select(copy => copy.Path).ToHashSet(StringComparer.Ordinal);
 
     private List<InventoryBackup> List(CancellationToken cancellationToken)
     {

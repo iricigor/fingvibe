@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Net.NetworkInformation;
 using FingVibe.Core.Models;
@@ -72,6 +73,55 @@ public sealed class InventoryBackupTests(ITestOutputHelper output) : IDisposable
         Assert.False(File.Exists(first.Path));
         Assert.True(File.Exists(Path.Combine(Backups.DirectoryPath, "unrelated.sqlite")));
         Assert.True(copies.Zip(copies.Skip(1)).All(pair => pair.First.CreatedUtc >= pair.Second.CreatedUtc));
+    }
+
+    [Fact]
+    public async Task DailyCopiesSurviveInactivityAndRotateOnlyAfterSevenNewerBackupDays()
+    {
+        await SeedAsync();
+        var daily = new List<string>();
+        var today = DateTimeOffset.UtcNow.Date;
+        for (var day = 0; day < 7; day++)
+        {
+            var copy = (await Backups.CreateAsync()).Backup!;
+            var created = new DateTimeOffset(today.AddDays(-70 + day * 7), TimeSpan.Zero);
+            var timestamp = created.ToString("yyyyMMdd'T'HHmmssfffffff'Z'", CultureInfo.InvariantCulture);
+            var path = Path.Combine(Backups.DirectoryPath, $"device-inventory-{timestamp}-{Guid.NewGuid():N}.sqlite");
+            File.Move(copy.Path, path);
+            daily.Add(path);
+        }
+        for (var copy = 0; copy < 7; copy++) await Backups.CreateAsync();
+        var retained = await Backups.ListAsync();
+        Assert.Equal(13, retained.Count);
+        Assert.False(File.Exists(daily[0]));
+        Assert.All(daily.Skip(1), path => Assert.True(File.Exists(path)));
+        for (var copy = 0; copy < 7; copy++) await Backups.CreateAsync();
+        Assert.Equal(13, (await Backups.ListAsync()).Count);
+        Assert.All(daily.Skip(1), path => Assert.True(File.Exists(path)));
+        var beforeFailure = (await Backups.ListAsync()).Select(copy => copy.Path).ToArray();
+        await File.WriteAllTextAsync(Database, "invalid SQLite");
+        await Assert.ThrowsAsync<SqliteException>(() => Backups.CreateAsync());
+        Assert.Equal(beforeFailure, (await Backups.ListAsync()).Select(copy => copy.Path));
+    }
+
+    [Fact]
+    public void DailyRepresentativesUseLocalDatesAndOverlappingRecentCopiesAreNotDuplicated()
+    {
+        var zone = TimeZoneInfo.CreateCustomTimeZone("Backup local", TimeSpan.FromHours(2), "Backup local", "Backup local");
+        var latest = new DateTimeOffset(2026, 11, 15, 0, 30, 0, TimeSpan.Zero);
+        var recent = Enumerable.Range(0, 7).Select(index =>
+            new InventoryBackup($"recent-{index}", latest.AddMinutes(-index), 1)).ToArray();
+        var sameLocalDay = new InventoryBackup("same-local-day", latest.AddHours(-2), 1);
+        var days = Enumerable.Range(1, 7).Select(day =>
+            new InventoryBackup($"daily-{day}", latest.AddDays(-day * 10), 1)).ToArray();
+        var copies = recent.Concat([sameLocalDay]).Concat(days).ToArray();
+        var retained = InventoryBackupStore.RetainedPaths(copies, zone);
+        Assert.Equal(13, retained.Count);
+        Assert.All(recent, copy => Assert.Contains(copy.Path, retained));
+        Assert.DoesNotContain(sameLocalDay.Path, retained);
+        Assert.All(days.Take(6), copy => Assert.Contains(copy.Path, retained));
+        Assert.DoesNotContain(days[^1].Path, retained);
+        Assert.Equal(7, InventoryBackupStore.RetainedPaths(recent, zone).Count);
     }
 
     [Fact]

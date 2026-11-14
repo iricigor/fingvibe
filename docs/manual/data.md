@@ -28,8 +28,11 @@ as a normal way to change app data. Use FingVibe's own editors.
 
 ## Make a backup
 
-**Tools > Database backups** keeps the newest seven successful copies of the
-authoritative SQLite inventory in `%LOCALAPPDATA%\FingVibe\Backups`. It includes
+**Tools > Database backups** keeps the newest seven successful copies plus the
+newest copy from each of the seven most recent local dates with backups, in
+`%LOCALAPPDATA%\FingVibe\Backups`. Overlapping copies count once. Daily copies
+survive inactivity; seven newer backup days replace them, not seven calendar
+days. It includes
 saved devices, corrections, People/Rooms, assignments, history and the latest
 committed scan checkpoint, but not preferences or caches.
 
@@ -38,10 +41,15 @@ loading/migration or a successfully saved complete scan (manual or scheduled).
 Repeated events reset the pending delay; events during a backup request at most
 one follow-up. **Back up now** bypasses the delay using the same serialized
 mechanism. Leaving the page does not stop work. Closing the app cancels pending
-work and requests cancellation without forcing a final backup.
+work and requests cancellation without forcing a final backup. After a successful
+manual backup, the button shows **Backed up** and stays disabled for one minute
+from completion. Failed attempts remain retryable. This session-only cooldown
+survives navigation but does not delay automatic backups.
 
 The page shows pending/running/error states, the last successful copy and
-completed copies newest first, with local creation times and sizes.
+an initially collapsed **Completed backups** section with total count and
+the relative ages of its newest/oldest copies, refreshed while visible.
+Expand it to see completed copies newest first, with local creation times and sizes.
 **Open backup folder** opens the local location. With no database yet, the app
 waits for the first successfully saved scan instead of creating an empty one.
 Failures are shown inline and in the app status; retry with **Back up now** or
