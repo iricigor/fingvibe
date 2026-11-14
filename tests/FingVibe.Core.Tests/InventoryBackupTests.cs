@@ -70,6 +70,8 @@ public sealed class InventoryBackupTests(ITestOutputHelper output) : IDisposable
         for (var i = 0; i < 7; i++) await Backups.CreateAsync();
         var copies = await Backups.ListAsync();
         Assert.Equal(7, copies.Count);
+        Assert.True(copies[0].IsDaily);
+        Assert.Single(copies, copy => copy.IsDaily);
         Assert.False(File.Exists(first.Path));
         Assert.True(File.Exists(Path.Combine(Backups.DirectoryPath, "unrelated.sqlite")));
         Assert.True(copies.Zip(copies.Skip(1)).All(pair => pair.First.CreatedUtc >= pair.Second.CreatedUtc));
@@ -93,6 +95,9 @@ public sealed class InventoryBackupTests(ITestOutputHelper output) : IDisposable
         for (var copy = 0; copy < 7; copy++) await Backups.CreateAsync();
         var retained = await Backups.ListAsync();
         Assert.Equal(13, retained.Count);
+        Assert.Equal(7, retained.Count(copy => copy.IsDaily));
+        Assert.All(retained.Where(copy => copy.Path != retained[0].Path && copy.CreatedUtc.Date == retained[0].CreatedUtc.Date),
+            copy => Assert.False(copy.IsDaily));
         Assert.False(File.Exists(daily[0]));
         Assert.All(daily.Skip(1), path => Assert.True(File.Exists(path)));
         for (var copy = 0; copy < 7; copy++) await Backups.CreateAsync();

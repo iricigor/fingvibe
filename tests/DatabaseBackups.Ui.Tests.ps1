@@ -55,6 +55,21 @@ function Show-BackupAction([string] $Id) {
         -GetTargets { Find-BackupControl $Id } -GetWindow { $script:root } -Description $Id
 }
 
+function Assert-BackupButtonColor([string] $Capture, [string] $Outcome) {
+    $window = Get-UiReviewWindowBounds $script:process.MainWindowHandle
+    $button = (Find-BackupControl BackUpNowButton).Current.BoundingRectangle
+    $scale = [UiReviewNativeWindow]::GetDpiForWindow($script:process.MainWindowHandle) / 96.0
+    $image = [System.Drawing.Bitmap]::new($Capture)
+    try {
+        $pixel = $image.GetPixel([int]($button.Left - $window.Left + 6 * $scale),
+            [int]($button.Top - $window.Top + 6 * $scale))
+        $matches = if ($Outcome -eq 'success') { $pixel.G -gt $pixel.R + 5 -and $pixel.G -gt $pixel.B + 5 }
+            else { $pixel.R -gt $pixel.G + 5 -and $pixel.R -gt $pixel.B + 5 }
+        if (-not $matches) { throw "Disabled $Outcome button did not retain its muted outcome color: $pixel." }
+    }
+    finally { $image.Dispose() }
+}
+
 function Start-BackupApp {
     $script:process = Start-Process -FilePath $AppPath -PassThru
     $null = Wait-UiRegressionState {
@@ -93,9 +108,25 @@ try {
         [System.Windows.Automation.ExpandCollapseState]::Collapsed) {
         throw 'Completed backups must initially be collapsed.'
     }
-    if ((Find-BackupControl BackupStatusText).Current.Name -notlike 'No database to back up*' -or (Test-Path $database)) {
+    if ((Find-BackupControl BackUpNowButton).Current.Name -ne 'No database to back up' -or (Test-Path $database)) {
         throw 'Missing inventory must be explicit and must not create an empty database.'
     }
+    if ((Find-BackupControl BackupPolicyExpander).GetCurrentPattern(
+        [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -ne
+        [System.Windows.Automation.ExpandCollapseState]::Collapsed -or (Find-BackupControl BackupStatusText)) {
+        throw 'Policy must start collapsed and the redundant backup-status line must not be rendered.'
+    }
+    (Find-BackupControl BackupPolicyExpander).GetCurrentPattern(
+        [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    $null = Wait-UiRegressionState {
+        $policy = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::NameProperty,
+                'Keeps the latest seven backups plus the newest copy from each of the last seven backup days. Daily copies survive days without backups. Backups are scheduled 15 seconds after startup loading or a successfully saved scan. Failed or interrupted copies never replace a good backup.'))
+        Test-UiRegressionElementVisible $policy
+    } 'disclosed backup policy'
+    (Find-BackupControl BackupPolicyExpander).GetCurrentPattern(
+        [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse()
     Show-BackupAction OpenBackupFolderButton
     Invoke-BackupControl OpenBackupFolderButton
     $null = Wait-UiRegressionState {
@@ -128,14 +159,14 @@ try {
     Show-BackupAction BackUpNowButton
     Invoke-BackupControl BackUpNowButton
     $null = Wait-UiRegressionState {
-        (Find-BackupControl BackupStatusText).Current.Name -eq 'Creating backup...' -and
+        (Find-BackupControl BackUpNowButton).Current.Name -eq 'Creating backup...' -and
             -not (Find-BackupControl BackUpNowButton).Current.IsEnabled
     } 'indeterminate running backup and disabled manual action'
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory 'backups-running.png')
     Select-BackupNavigation DevicesNavItem
     Open-BackupPage
     $null = Wait-BackupSurface Empty
-    if ((Find-BackupControl BackupStatusText).Current.Name -ne 'Creating backup...') {
+    if ((Find-BackupControl BackUpNowButton).Current.Name -ne 'Creating backup...') {
         throw 'Navigation must not cancel application-level backup work.'
     }
     Remove-Item -LiteralPath $hold
@@ -155,6 +186,7 @@ try {
         throw 'Navigation must preserve the application-level manual cooldown.'
     }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory 'backups-completed-collapsed.png')
+    Assert-BackupButtonColor (Join-Path $ScreenshotDirectory 'backups-completed-collapsed.png') success
     Show-BackupAction CompletedBackupsExpander
     (Find-BackupControl CompletedBackupsExpander).GetCurrentPattern(
         [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
@@ -166,7 +198,7 @@ try {
     }
 
     $phase = Step-UiRegressionPhase $phase 'Backups/error-last-success' -Directory $ScreenshotDirectory
-    # The one-minute boundary is covered with fake time in Core; a new app session can exercise failure/retry without a desktop delay.
+    # Fake time covers both one-minute boundaries; new app sessions exercise the outcomes without desktop delays.
     Stop-UiRegressionApp $script:process
     $script:process.Dispose()
     $script:process = $null
@@ -182,15 +214,61 @@ try {
     $null = Wait-BackupSurface Error $before
     if ((Find-BackupControl BackupLastSuccess).Current.Name -like 'No successful*' -or
         (Find-BackupControl BackupCount).Current.Name -notlike '1 backup - newest * ago - oldest * ago' -or
-        -not (Find-BackupControl BackUpNowButton).Current.IsEnabled -or
-        (Find-BackupControl BackUpNowButton).Current.Name -ne 'Back up now') {
+        (Find-BackupControl BackUpNowButton).Current.IsEnabled -or
+        (Find-BackupControl BackUpNowButton).Current.Name -ne 'Backup failed') {
         throw 'A later failure must keep the last successful copy visible.'
     }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory 'backups-error.png')
+    Assert-BackupButtonColor (Join-Path $ScreenshotDirectory 'backups-error.png') failure
+    Select-BackupNavigation DevicesNavItem
+    Open-BackupPage
+    $null = Wait-BackupSurface Error
+    if ((Find-BackupControl BackUpNowButton).Current.Name -ne 'Backup failed' -or
+        (Find-BackupControl BackUpNowButton).Current.IsEnabled) {
+        throw 'Navigation must preserve failed manual outcome and cooldown.'
+    }
     Remove-Item -LiteralPath $lock
+    Stop-UiRegressionApp $script:process
+    $script:process.Dispose()
+    $script:process = $null
+    Start-BackupApp
+    Open-BackupPage
+    $null = Wait-BackupSurface Ready
     $before = (ConvertFrom-UiRegressionSurfaceStatus (Find-BackupControl BackupsScroll).Current.ItemStatus).Request
     Invoke-BackupControl BackUpNowButton
     $null = Wait-BackupSurface Ready $before
+    Show-BackupAction CompletedBackupsExpander
+    (Find-BackupControl CompletedBackupsExpander).GetCurrentPattern(
+        [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    Show-BackupAction BackupRows
+    $daily = @(Wait-UiRegressionState {
+        $markers = @($script:root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'BackupDailyText')))
+        if ($markers.Count -eq 2 -and (Test-UiRegressionElementVisible $markers[0]) -and
+            (Test-UiRegressionElementVisible $markers[1])) { return $markers }
+    } 'two visible completed-backup daily markers')
+    if ($daily.Count -ne 2 -or $daily[0].Current.Name -ne 'Yes' -or $daily[1].Current.Name -ne 'No') {
+        throw 'Only the newest same-day backup must be marked as the daily recovery point.'
+    }
+    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory 'backups-expanded-daily.png')
+    $created = @($script:root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'BackupCreatedText')))
+    $window = Get-UiReviewWindowBounds $script:process.MainWindowHandle
+    $scale = [UiReviewNativeWindow]::GetDpiForWindow($script:process.MainWindowHandle) / 96.0
+    $image = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory 'backups-expanded-daily.png'))
+    try {
+        $colors = @($created | ForEach-Object {
+            $bounds = $_.Current.BoundingRectangle
+            $image.GetPixel([int]($bounds.Left - $window.Left - 6 * $scale),
+                [int](($bounds.Top + $bounds.Bottom) / 2 - $window.Top)).ToArgb()
+        })
+        if ($colors.Count -ne 2 -or $colors[0] -eq $colors[1]) {
+            throw 'Completed backups must show visible alternating row backgrounds.'
+        }
+    }
+    finally { $image.Dispose() }
 
     $phase = Step-UiRegressionPhase $phase 'Backups/themes-keyboard-narrow' -Directory $ScreenshotDirectory
     foreach ($theme in $UiReviewAppearanceThemes) {
@@ -212,6 +290,10 @@ try {
         Show-BackupAction OpenBackupFolderButton
         (Find-BackupControl OpenBackupFolderButton).SetFocus()
         $null = Wait-UiRegressionState { (Find-BackupControl OpenBackupFolderButton).Current.HasKeyboardFocus } 'keyboard focus during manual backup cooldown'
+        Show-BackupAction CompletedBackupsExpander
+        (Find-BackupControl CompletedBackupsExpander).GetCurrentPattern(
+            [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+        Show-BackupAction BackupRows
         Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "backups-$theme.png")
     }
     $null = [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero, 0, 0, 640, 760, 0x0044)
@@ -222,6 +304,15 @@ try {
         }
     }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory 'backups-narrow.png')
+    Show-BackupAction BackupRows
+    foreach ($marker in @($script:root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'BackupDailyText')))) {
+        if (-not (Test-UiRegressionElementWithin $marker (Find-BackupControl BackupsScroll) $script:root)) {
+            throw 'Daily column is clipped in the narrow backup table.'
+        }
+    }
+    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory 'backups-narrow-expanded.png')
     Show-BackupAction BackupsBackButton
     Invoke-BackupControl BackupsBackButton
     $null = Wait-UiRegressionState { (Find-BackupControl DatabaseBackupsCard).Current.HasKeyboardFocus } 'Back to Tools restores card focus'

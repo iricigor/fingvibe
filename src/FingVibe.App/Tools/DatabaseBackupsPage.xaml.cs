@@ -16,11 +16,14 @@ public sealed partial class DatabaseBackupsPage : UserControl
     private bool _visible;
     private IReadOnlyList<InventoryBackup> _copies = [];
     private readonly DispatcherTimer _ageTimer = new() { Interval = TimeSpan.FromMinutes(1) };
-    private sealed record BackupRow(string Created, string Name, string Size);
+    private readonly Style _normalButtonStyle;
+    private sealed record BackupRow(string Created, string Name, string Size, bool IsAlternateRow,
+        string Daily, string DailyDescription);
 
     public DatabaseBackupsPage()
     {
         InitializeComponent();
+        _normalButtonStyle = BackUpNowButton.Style;
         _surface.StateChanged += (_, _) => AutomationProperties.SetItemStatus(BackupsScroll, _surface.Status);
         _ageTimer.Tick += (_, _) => UpdateBackupSummary();
         Unloaded += (_, _) => Close();
@@ -44,6 +47,7 @@ public sealed partial class DatabaseBackupsPage : UserControl
     {
         _visible = true;
         CompletedBackupsExpander.IsExpanded = false;
+        BackupPolicyExpander.IsExpanded = false;
         _ageTimer.Start();
         ShowStatus();
         (BackUpNowButton.IsEnabled ? BackUpNowButton : OpenBackupFolderButton).Focus(FocusState.Programmatic);
@@ -74,9 +78,11 @@ public sealed partial class DatabaseBackupsPage : UserControl
             if (!_surface.IsCurrent(request)) return;
             var status = _scheduler?.Status ?? new InventoryBackupStatus(Error: "Backup scheduling is unavailable.");
             _copies = copies;
-            BackupRows.ItemsSource = copies.Select(item => new BackupRow(
+            BackupRows.ItemsSource = copies.Select((item, index) => new BackupRow(
                 item.CreatedUtc.ToLocalTime().ToString("g"), Path.GetFileName(item.Path),
-                $"{item.Size / 1024d:N1} KiB")).ToArray();
+                $"{item.Size / 1024d:N1} KiB", index % 2 == 1, item.IsDaily ? "Yes" : "No",
+                item.IsDaily ? "Daily recovery point: newest copy for this local backup day."
+                    : "Recent backup only: not a daily recovery point.")).ToArray();
             UpdateBackupSummary();
             BackupLastSuccess.Text = copies.FirstOrDefault() is { } last
                 ? $"Last successful backup: {last.CreatedUtc.ToLocalTime():G}" : "No successful backup yet.";
@@ -115,18 +121,21 @@ public sealed partial class DatabaseBackupsPage : UserControl
     private void ShowStatus()
     {
         var status = _scheduler?.Status;
-        BackupStatusText.Text = status?.Running == true ? "Creating backup..."
-            : status?.Pending == true ? "Backup pending - waiting for the scheduled time or another app's backup."
-            : status?.Missing == true ? "No database to back up. Waiting for the first successful saved scan."
-            : status?.Error is not null ? "The latest backup attempt failed. Earlier completed copies are retained."
-            : status?.ManualCooldown == true ? "Backup created. Back up now will be available again one minute after completion."
-            : "No backup running.";
         BackupProgress.Visibility = status?.Running == true ? Visibility.Visible : Visibility.Collapsed;
         BackUpNowButton.IsEnabled = status is { Running: false, ManualCooldown: false };
         var action = status?.Running == true ? "Creating backup..."
-            : status?.ManualCooldown == true ? "Backed up" : "Back up now";
+            : status?.ManualCooldown == true ? status.ManualFailed ? "Backup failed" : "Backed up"
+            : status?.Pending == true ? "Backup pending"
+            : status?.Missing == true ? "No database to back up" : "Back up now";
+        BackUpNowButton.Style = status is { Running: false, ManualCooldown: true }
+            ? (Style)Resources[status.ManualFailed ? "BackupFailureButtonStyle" : "BackupSuccessButtonStyle"]
+            : _normalButtonStyle;
         BackUpNowButton.Content = action;
         AutomationProperties.SetName(BackUpNowButton, action);
+        AutomationProperties.SetHelpText(BackUpNowButton, status?.ManualCooldown == true
+            ? "Available one minute after this manual attempt finished."
+            : status?.Missing == true ? "Waiting for the first successful saved scan."
+            : "Create a consistent backup now, without the automatic delay.");
         BackupError.Message = status?.Error ?? "";
         BackupError.IsOpen = status?.Error is not null;
     }

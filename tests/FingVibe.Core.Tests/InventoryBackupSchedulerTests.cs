@@ -127,7 +127,7 @@ public sealed class InventoryBackupSchedulerTests
     }
 
     [Fact]
-    public async Task FailedAndMissingManualBackupsRemainRetryableAndDeferredSuccessStartsCooldown()
+    public async Task ManualFailureCoolsDownForOneMinuteButMissingAndDeferredAttemptsDoNot()
     {
         var time = new FakeTimeProvider();
         var count = 0;
@@ -141,7 +141,17 @@ public sealed class InventoryBackupSchedulerTests
         scheduler.BackUpNow();
         time.Advance(TimeSpan.Zero);
         await scheduler.Execution;
+        Assert.True(scheduler.Status.ManualCooldown);
+        Assert.True(scheduler.Status.ManualFailed);
+        Assert.Contains("disk full", scheduler.Status.Error);
+        scheduler.BackUpNow();
+        time.Advance(TimeSpan.Zero);
+        Assert.Equal(1, count);
+        time.Advance(TimeSpan.FromSeconds(59));
+        Assert.True(scheduler.Status.ManualCooldown);
+        time.Advance(TimeSpan.FromSeconds(1));
         Assert.False(scheduler.Status.ManualCooldown);
+        Assert.False(scheduler.Status.ManualFailed);
         Assert.Contains("disk full", scheduler.Status.Error);
         scheduler.BackUpNow();
         time.Advance(TimeSpan.Zero);
@@ -157,6 +167,29 @@ public sealed class InventoryBackupSchedulerTests
         await scheduler.Execution;
         Assert.Equal(4, count);
         Assert.True(scheduler.Status.ManualCooldown);
+        Assert.False(scheduler.Status.ManualFailed);
+    }
+
+    [Fact]
+    public async Task AutomaticSuccessDuringFailedManualCooldownDoesNotChangeTheManualOutcome()
+    {
+        var time = new FakeTimeProvider();
+        var count = 0;
+        using var scheduler = new InventoryBackupScheduler(_ => ++count == 1
+            ? Task.FromException<InventoryBackupResult>(new IOException("disk full"))
+            : Task.FromResult(new InventoryBackupResult(Backup: new("automatic.sqlite", time.GetUtcNow(), 1))), time);
+        scheduler.BackUpNow();
+        time.Advance(TimeSpan.Zero);
+        await scheduler.Execution;
+        scheduler.Schedule();
+        time.Advance(TimeSpan.FromSeconds(15));
+        await scheduler.Execution;
+        Assert.Equal(2, count);
+        Assert.True(scheduler.Status.ManualCooldown);
+        Assert.True(scheduler.Status.ManualFailed);
+        time.Advance(TimeSpan.FromSeconds(45));
+        Assert.False(scheduler.Status.ManualCooldown);
+        Assert.False(scheduler.Status.ManualFailed);
     }
 
     [Fact]

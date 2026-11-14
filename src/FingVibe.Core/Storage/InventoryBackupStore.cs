@@ -4,7 +4,7 @@ using Microsoft.Data.Sqlite;
 
 namespace FingVibe.Core.Storage;
 
-public sealed record InventoryBackup(string Path, DateTimeOffset CreatedUtc, long Size);
+public sealed record InventoryBackup(string Path, DateTimeOffset CreatedUtc, long Size, bool IsDaily = false);
 public sealed record InventoryBackupResult(InventoryBackup? Backup = null, bool Deferred = false, bool Missing = false);
 
 public sealed partial class InventoryBackupStore
@@ -100,10 +100,13 @@ public sealed partial class InventoryBackupStore
     }
 
     internal static IReadOnlySet<string> RetainedPaths(IReadOnlyList<InventoryBackup> newestFirst, TimeZoneInfo timeZone) =>
-        newestFirst.Take(7).Concat(newestFirst
-            .GroupBy(copy => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(copy.CreatedUtc, timeZone).DateTime))
-            .Take(7).Select(day => day.First()))
+        newestFirst.Take(7).Concat(DailyCopies(newestFirst, timeZone))
             .Select(copy => copy.Path).ToHashSet(StringComparer.Ordinal);
+
+    private static IEnumerable<InventoryBackup> DailyCopies(IReadOnlyList<InventoryBackup> newestFirst, TimeZoneInfo timeZone) =>
+        newestFirst
+            .GroupBy(copy => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(copy.CreatedUtc, timeZone).DateTime))
+            .Take(7).Select(day => day.First());
 
     private List<InventoryBackup> List(CancellationToken cancellationToken)
     {
@@ -120,7 +123,12 @@ public sealed partial class InventoryBackupStore
                 DateTimeStyles.AssumeUniversal, out var created))
                 backups.Add(new(file.FullName, created, file.Length));
         }
-        return backups.OrderByDescending(item => item.CreatedUtc).ThenByDescending(item => item.Path, StringComparer.Ordinal).ToList();
+        var sorted = backups.OrderByDescending(item => item.CreatedUtc)
+            .ThenByDescending(item => item.Path, StringComparer.Ordinal).ToList();
+        var daily = DailyCopies(sorted, TimeZoneInfo.Local).Select(copy => copy.Path).ToHashSet(StringComparer.Ordinal);
+        for (var index = 0; index < sorted.Count; index++)
+            sorted[index] = sorted[index] with { IsDaily = daily.Contains(sorted[index].Path) };
+        return sorted;
     }
 
     private static SqliteConnection Open(string path, SqliteOpenMode mode)

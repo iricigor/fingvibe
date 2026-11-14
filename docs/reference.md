@@ -1075,12 +1075,15 @@ Manual backup shares the same creation/publication/pruning path without the
 delay. A cross-process file lock serializes the backup set; competing requests
 defer. SQLite locking and disk contention can still affect foreground saves.
 Shutdown cancels pending work and requests supported cancellation, without
-waiting for a final backup. A successful manual backup shows **Backed up** and
-disables the button for one minute after completion; failures remain retryable
-and automatic triggers are unaffected. This cooldown is application-session
+waiting for a final backup. Manual outcomes show a muted green **Backed up** or
+muted red **Backup failed**, disabling the button for one minute after the
+attempt finishes; errors remain inline and automatic triggers are unaffected.
+Pending/running/outcome status belongs to the button, not a separate idle line.
+The policy starts collapsed under **How backups work**.
+This cooldown is application-session
 state, not a saved preference. Completed backups starts collapsed with count
-and refreshed newest/oldest relative ages; expansion shows local times and
-sizes. See [saved data and backups](manual/data.md).
+and refreshed newest/oldest relative ages; expansion shows striped rows with
+local times, sizes and storage-derived daily markers. See [saved data and backups](manual/data.md).
 
 ## Read-only SQL editor
 

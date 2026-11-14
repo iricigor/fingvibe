@@ -4,7 +4,7 @@ using Microsoft.Data.Sqlite;
 namespace FingVibe.App;
 
 internal sealed record InventoryBackupStatus(bool Running = false, bool Pending = false,
-    string? Error = null, bool Missing = false, bool ManualCooldown = false);
+    string? Error = null, bool Missing = false, bool ManualCooldown = false, bool ManualFailed = false);
 
 internal sealed class InventoryBackupScheduler : IDisposable
 {
@@ -96,9 +96,9 @@ internal sealed class InventoryBackupScheduler : IDisposable
         lock (_sync)
         {
             _status = _status with { Running = false, Error = error, Missing = missing };
-            if (manual && succeeded && !_closed)
+            if (manual && (succeeded || error is not null) && !_closed)
             {
-                _status = _status with { ManualCooldown = true };
+                _status = _status with { ManualCooldown = true, ManualFailed = error is not null };
                 _cooldownTimer.Change(TimeSpan.FromMinutes(1), Timeout.InfiniteTimeSpan);
             }
             if (deferred && !_closed)
@@ -118,7 +118,7 @@ internal sealed class InventoryBackupScheduler : IDisposable
         lock (_sync)
         {
             if (_closed) return;
-            _status = _status with { ManualCooldown = false };
+            _status = _status with { ManualCooldown = false, ManualFailed = false };
         }
         Changed?.Invoke(this, EventArgs.Empty);
     }
