@@ -260,6 +260,6 @@ function Show-UiReviewCaptureScenario {
         $null = Assert-VisibleUiReviewElement -Value "Back to Tools"
         $null = Assert-VisibleUiReviewElement -Value "Back up now"
         $null = Assert-VisibleUiReviewElement -Value "Open backup folder"
-        $null = Find-WebDriverElement -Using name -Value "Completed backups, newest first"
+        $null = Assert-VisibleUiReviewElement -Value "Completed backups"
     }
 }

@@ -857,6 +857,7 @@ try {
         return $scroll
     }
     function Find-WebDriverElement([string] $Using, [string] $Value) {
+        if ($Value -eq "Completed backups, newest first") { throw "The collapsed backups table has no automation peer." }
         if ($Using -eq "xpath") {
             if ($Value -match "^//ListItem\[@Name='(.+)'\]$") { return "menu-$($Matches[1])" }
             if ($Value -eq "//List[@Name='Scan results']/ListItem[.//*[@Name='Online']][1]") { return "online-row" }
@@ -929,6 +930,7 @@ try {
                     "control-Database backups" { $script:currentPage -eq "Tools" }
                     "control-Back up now" { $script:currentPage -eq "DatabaseBackups" }
                     "control-Open backup folder" { $script:currentPage -eq "DatabaseBackups" }
+                    "control-Completed backups" { $script:currentPage -eq "DatabaseBackups" }
                     "control-Browse Fing export" { $script:currentPage -eq "FingImport" }
                     "control-Analyze again" { $script:currentPage -eq "FingImport" }
                     "control-Run network troubleshooting" { $script:currentPage -eq "Troubleshooting" }
@@ -959,6 +961,9 @@ try {
     }
     Show-UiReviewCaptureScenario "Devices"
     Assert-Equal $script:empty $false "Returning from empty results restores the baseline"
+    $script:hiddenControl = "control-Completed backups"
+    Assert-Throws { Show-UiReviewCaptureScenario "DatabaseBackups" } "*Completed backups*not visible*"
+    $script:hiddenControl = ""
     Test-UiReviewNavigation
     $script:hiddenControl = "control-Scan LAN"
     Assert-Throws { Test-UiReviewNavigation } "*Scan LAN*not visible*"
