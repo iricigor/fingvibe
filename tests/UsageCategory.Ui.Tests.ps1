@@ -213,7 +213,10 @@ function Assert-UsageCell([string] $Name, [string] $Category, [bool] $Indicator,
 }
 
 function Test-UsageTextScaling {
-    $settings = [Windows.UI.ViewManagement.UISettings, Windows.UI.ViewManagement, ContentType = WindowsRuntime]::new()
+    $appDirectory = Split-Path -Parent $AppPath
+    Add-Type -Path (Join-Path $appDirectory 'WinRT.Runtime.dll')
+    Add-Type -Path (Join-Path $appDirectory 'Microsoft.Windows.SDK.NET.dll')
+    $settings = [Windows.UI.ViewManagement.UISettings]::new()
     $originalScale = $settings.TextScaleFactor
     $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\Microsoft\Accessibility')
     $originalValue = $key.GetValue('TextScaleFactor', $null)
