@@ -30,29 +30,29 @@
         </Style>
     </UserControl.Resources>
     <ScrollViewer x:Name="BackupsScroll" HorizontalScrollBarVisibility="Disabled">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup>
+                <VisualState x:Name="NarrowCompletedHeader">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="CompletedBackupsHeader.Orientation" Value="Vertical" />
+                        <Setter Target="CompletedBackupsHeader.Spacing" Value="4" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="WideCompletedHeader">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1000" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="CompletedBackupsHeader.Orientation" Value="Horizontal" />
+                        <Setter Target="CompletedBackupsHeader.Spacing" Value="12" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
         <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
-            <VisualStateManager.VisualStateGroups>
-                <VisualStateGroup>
-                    <VisualState x:Name="NarrowCompletedHeader">
-                        <VisualState.StateTriggers>
-                            <AdaptiveTrigger MinWindowWidth="0" />
-                        </VisualState.StateTriggers>
-                        <VisualState.Setters>
-                            <Setter Target="CompletedBackupsHeader.Orientation" Value="Vertical" />
-                            <Setter Target="CompletedBackupsHeader.Spacing" Value="4" />
-                        </VisualState.Setters>
-                    </VisualState>
-                    <VisualState x:Name="WideCompletedHeader">
-                        <VisualState.StateTriggers>
-                            <AdaptiveTrigger MinWindowWidth="1000" />
-                        </VisualState.StateTriggers>
-                        <VisualState.Setters>
-                            <Setter Target="CompletedBackupsHeader.Orientation" Value="Horizontal" />
-                            <Setter Target="CompletedBackupsHeader.Spacing" Value="12" />
-                        </VisualState.Setters>
-                    </VisualState>
-                </VisualStateGroup>
-            </VisualStateManager.VisualStateGroups>
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
