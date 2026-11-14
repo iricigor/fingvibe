@@ -40,6 +40,9 @@ public sealed class UsageCategoryCellTests
         row.SetUsageCategory(null, Inference(category), "");
         Assert.True(row.HasClassifiedUsageCategory);
         Assert.True(row.HasUsageCategoryIndicator);
+        Assert.Equal(category == DeviceUsageCategory.Permanent, row.IsPermanentUsageCategory);
+        Assert.Equal(category == DeviceUsageCategory.Personal, row.IsPersonalUsageCategory);
+        Assert.Equal(category == DeviceUsageCategory.Guest, row.IsGuestUsageCategory);
         row.SetUsageCategory(null, Inference(category, limited: false), "");
         Assert.True(row.HasClassifiedUsageCategory);
         Assert.False(row.HasUsageCategoryIndicator);
@@ -58,6 +61,9 @@ public sealed class UsageCategoryCellTests
             ObservedDates = limited ? 2 : 7
         }, "");
         Assert.False(row.HasClassifiedUsageCategory);
+        Assert.False(row.IsPermanentUsageCategory);
+        Assert.False(row.IsPersonalUsageCategory);
+        Assert.False(row.IsGuestUsageCategory);
         Assert.False(row.HasUsageCategoryIndicator);
         Assert.Contains("The available evidence does not match a usage-category rule.", row.UsageCategoryDescription);
         Assert.Contains("15 of 30 eligible scans responded (50%)", row.UsageCategoryDescription);
@@ -86,7 +92,8 @@ public sealed class UsageCategoryCellTests
         foreach (var property in new[]
         {
             nameof(row.UsageCategoryCellText), nameof(row.UsageCategoryCellName), nameof(row.UsageCategoryOpacity),
-            nameof(row.HasClassifiedUsageCategory), nameof(row.HasUsageCategoryIndicator),
+            nameof(row.HasClassifiedUsageCategory), nameof(row.IsPermanentUsageCategory),
+            nameof(row.IsPersonalUsageCategory), nameof(row.IsGuestUsageCategory), nameof(row.HasUsageCategoryIndicator),
             nameof(row.UsageCategoryIndicatorGlyph), nameof(row.UsageCategoryDescription)
         })
             Assert.Contains(property, changes);

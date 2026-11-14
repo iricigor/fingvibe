@@ -121,7 +121,7 @@ function Find-UsageRow([string] $Name) {
 }
 
 function Find-UsageIndicator($Cell) {
-    # The decorative icon is raw-only; FindFirst excludes it from the control view.
+    # Keep the decorative text peer out of the control view and scope its raw lookup to this cell.
     $call = Start-UiRegressionCall lookup
     try {
         $condition = [System.Windows.Automation.PropertyCondition]::new(
@@ -157,9 +157,9 @@ function Assert-UsageCell([string] $Name, [string] $Category, [bool] $Indicator,
     $label = $text.Current.BoundingRectangle
     $hasIcon = $icon -and -not $icon.Current.IsOffscreen -and $icon.Current.BoundingRectangle.Width -gt 0
     if ($text.Current.Name -ne $Category -or [bool]$hasIcon -ne $Indicator -or
-        [Math]::Abs($area.Width / $scale - 138) -gt 1 -or $area.Height / $scale -gt $maximumHeight -or
+        [Math]::Abs($area.Width / $scale - 108) -gt 1 -or $area.Height / $scale -gt $maximumHeight -or
         -not $area.Contains($label)) {
-        throw "The $Category badge must fit the 150-DIP default with its expected indicator and unchanged one-line height. Text='$($text.Current.Name)'; expectedIndicator=$Indicator; actualIndicator=$([bool]$hasIcon); cell=$area; text=$label; scale=$scale; maximumHeight=$maximumHeight."
+        throw "The $Category badge must fit the 120-DIP default with its expected indicator and unchanged one-line height. Text='$($text.Current.Name)'; expectedIndicator=$Indicator; actualIndicator=$([bool]$hasIcon); cell=$area; text=$label; icon=$($icon.Current.BoundingRectangle); scale=$scale; maximumHeight=$maximumHeight."
     }
     if ($Scaled -and $label.Height / $scale -lt 24) {
         throw "The badge must honor the actual Windows text scale rather than disabling scaling."
@@ -179,8 +179,8 @@ function Assert-UsageCell([string] $Name, [string] $Category, [bool] $Indicator,
     if ($Narrow) {
         $grip = Find-Usage "Resize Usage category column" -ByName
         $grip.SetFocus()
-        [System.Windows.Forms.SendKeys]::SendWait("{LEFT 11}")
-        Wait-Usage { [Math]::Abs((Find-Usage UsageCategoryCell).Current.BoundingRectangle.Width / $scale - 50) -le 1 } "62-DIP manual usage width"
+        [System.Windows.Forms.SendKeys]::SendWait("{LEFT 8}")
+        Wait-Usage { [Math]::Abs((Find-Usage UsageCategoryCell).Current.BoundingRectangle.Width / $scale - 44) -le 1 } "56-DIP minimum manual usage width"
         $cell = Find-Usage UsageCategoryCell
         $text = Find-Usage DeviceUsageCategoryText
         if (-not $cell.Current.BoundingRectangle.Contains($text.Current.BoundingRectangle)) {
@@ -206,8 +206,8 @@ function Assert-UsageCell([string] $Name, [string] $Category, [bool] $Indicator,
     if ($Narrow) {
         $grip = Find-Usage "Resize Usage category column" -ByName
         $grip.SetFocus()
-        [System.Windows.Forms.SendKeys]::SendWait("{RIGHT 11}")
-        Wait-Usage { [Math]::Abs((Find-Usage UsageCategoryCell).Current.BoundingRectangle.Width / $scale - 138) -le 1 } "restored 150-DIP usage width"
+        [System.Windows.Forms.SendKeys]::SendWait("{RIGHT 8}")
+        Wait-Usage { [Math]::Abs((Find-Usage UsageCategoryCell).Current.BoundingRectangle.Width / $scale - 108) -le 1 } "restored 120-DIP usage width"
     }
     Open-UsageDevice $Name
 }
@@ -426,6 +426,11 @@ try {
     $lock = $null
     Invoke-Usage UsageCategorySave
     Assert-Usage Personal "Manual override"
+    Assert-UsageCell "Usage laptop" Personal $true -Capture "usage-personal-badge"
+    Choose-Usage Guest
+    Invoke-Usage UsageCategorySave
+    Assert-Usage Guest "Manual override"
+    Assert-UsageCell "Usage laptop" Guest $true -Capture "usage-guest-badge"
     Choose-Usage Unclassified
     Invoke-Usage UsageCategorySave
     Assert-Usage Unclassified "Manual override"

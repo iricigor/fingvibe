@@ -10,20 +10,26 @@
         <ResourceDictionary.ThemeDictionaries>
             <ResourceDictionary x:Key="Light">
                 <SolidColorBrush x:Key="CellHoverTextBrush" Color="#005A9E" />
-                <SolidColorBrush x:Key="UsageCategoryBadgeBackgroundBrush" Color="#0B000000" />
-                <SolidColorBrush x:Key="UsageCategoryBadgeTintBrush" Color="#1A2563EB" />
+                <SolidColorBrush x:Key="UsageCategoryBadgeBackgroundBrush" Color="#20000000" />
+                <SolidColorBrush x:Key="UsageCategoryPermanentTintBrush" Color="#3022A060" />
+                <SolidColorBrush x:Key="UsageCategoryPersonalTintBrush" Color="#302563EB" />
+                <SolidColorBrush x:Key="UsageCategoryGuestTintBrush" Color="#38C98B18" />
                 <SolidColorBrush x:Key="UsageCategoryBadgeStrokeBrush" Color="Transparent" />
             </ResourceDictionary>
             <ResourceDictionary x:Key="Dark">
                 <SolidColorBrush x:Key="CellHoverTextBrush" Color="#A8DFFF" />
-                <SolidColorBrush x:Key="UsageCategoryBadgeBackgroundBrush" Color="#12FFFFFF" />
-                <SolidColorBrush x:Key="UsageCategoryBadgeTintBrush" Color="#334F83F1" />
+                <SolidColorBrush x:Key="UsageCategoryBadgeBackgroundBrush" Color="#24FFFFFF" />
+                <SolidColorBrush x:Key="UsageCategoryPermanentTintBrush" Color="#4039B873" />
+                <SolidColorBrush x:Key="UsageCategoryPersonalTintBrush" Color="#405992F5" />
+                <SolidColorBrush x:Key="UsageCategoryGuestTintBrush" Color="#40D5A13C" />
                 <SolidColorBrush x:Key="UsageCategoryBadgeStrokeBrush" Color="Transparent" />
             </ResourceDictionary>
             <ResourceDictionary x:Key="HighContrast">
                 <SolidColorBrush x:Key="CellHoverTextBrush" Color="{ThemeResource SystemColorHotlightColor}" />
                 <SolidColorBrush x:Key="UsageCategoryBadgeBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
-                <SolidColorBrush x:Key="UsageCategoryBadgeTintBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                <SolidColorBrush x:Key="UsageCategoryPermanentTintBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                <SolidColorBrush x:Key="UsageCategoryPersonalTintBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                <SolidColorBrush x:Key="UsageCategoryGuestTintBrush" Color="{ThemeResource SystemColorWindowColor}" />
                 <SolidColorBrush x:Key="UsageCategoryBadgeStrokeBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
             </ResourceDictionary>
         </ResourceDictionary.ThemeDictionaries>
@@ -768,26 +774,31 @@
                                                     <ColumnDefinition Width="Auto" />
                                                     <ColumnDefinition Width="Auto" />
                                                 </Grid.ColumnDefinitions>
-                                                <Border CornerRadius="3" BorderThickness="1" VerticalAlignment="Center"
+                                                <Border CornerRadius="6" BorderThickness="1" VerticalAlignment="Center"
                                                         MaxWidth="{x:Bind local:DeviceColumnLayoutHelpers.UsageCategoryBadgeMaximumWidth(Columns.UsageCategory.Width, HasUsageCategoryIndicator), Mode=OneWay}"
                                                         Background="{ThemeResource UsageCategoryBadgeBackgroundBrush}"
                                                         BorderBrush="{ThemeResource UsageCategoryBadgeStrokeBrush}">
                                                     <Grid>
-                                                        <Border CornerRadius="2" Background="{ThemeResource UsageCategoryBadgeTintBrush}"
-                                                                Visibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(HasClassifiedUsageCategory), Mode=OneWay}" />
+                                                        <Border CornerRadius="5" Background="{ThemeResource UsageCategoryPermanentTintBrush}"
+                                                                Visibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(IsPermanentUsageCategory), Mode=OneWay}" />
+                                                        <Border CornerRadius="5" Background="{ThemeResource UsageCategoryPersonalTintBrush}"
+                                                                Visibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(IsPersonalUsageCategory), Mode=OneWay}" />
+                                                        <Border CornerRadius="5" Background="{ThemeResource UsageCategoryGuestTintBrush}"
+                                                                Visibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(IsGuestUsageCategory), Mode=OneWay}" />
                                                         <TextBlock x:Name="DeviceUsageCategoryText" Text="{x:Bind UsageCategoryCellText, Mode=OneWay}"
                                                                    Margin="6,2" FontSize="12" FontWeight="SemiBold"
                                                                    Foreground="{ThemeResource TextFillColorPrimaryBrush}"
                                                                    VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                                     </Grid>
                                                 </Border>
-                                                <FontIcon x:Name="DeviceUsageCategoryIndicator" Grid.Column="1"
-                                                          Glyph="{x:Bind UsageCategoryIndicatorGlyph, Mode=OneWay}"
-                                                          FontFamily="Segoe Fluent Icons" FontSize="12" Width="12" Height="12"
-                                                          Margin="6,0,0,0" VerticalAlignment="Center" IsTextScaleFactorEnabled="False"
-                                                          Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                                          AutomationProperties.AccessibilityView="Raw"
-                                                          Visibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(HasUsageCategoryIndicator), Mode=OneWay}" />
+                                                <TextBlock x:Name="DeviceUsageCategoryIndicator" Grid.Column="1"
+                                                           Text="{x:Bind UsageCategoryIndicatorGlyph, Mode=OneWay}"
+                                                           FontFamily="Segoe Fluent Icons" FontSize="12" Width="12"
+                                                           Margin="6,0,0,0" VerticalAlignment="Center" IsTextScaleFactorEnabled="False"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                           AutomationProperties.AutomationId="DeviceUsageCategoryIndicator"
+                                                           AutomationProperties.AccessibilityView="Raw"
+                                                           Visibility="{x:Bind local:DeviceColumnLayoutHelpers.ToVisibility(HasUsageCategoryIndicator), Mode=OneWay}" />
                                             </Grid>
                                         </Button>
                                         <Grid Grid.Column="10" Visibility="{x:Bind Columns.ShowMergedRoom, Mode=OneWay}">

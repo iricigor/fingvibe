@@ -12,7 +12,7 @@ public sealed class DeviceColumnLayoutTests
     public void UsageCategoryDefaultAndResetDoNotMigrateSavedWidths(double savedWidth)
     {
         var fresh = new DeviceColumnLayout();
-        Assert.Equal(150, fresh.UsageCategory.Width);
+        Assert.Equal(120, fresh.UsageCategory.Width);
         var older = fresh.Capture();
         older.Columns["UsageCategory"] = new(savedWidth, false);
         var restored = new DeviceColumnLayout();
@@ -24,12 +24,12 @@ public sealed class DeviceColumnLayoutTests
         roundTrip.Restore(restored.Capture());
         Assert.Equal(94, roundTrip.UsageCategory.Width);
         roundTrip.Reset();
-        Assert.Equal(150, roundTrip.UsageCategory.Width);
+        Assert.Equal(120, roundTrip.UsageCategory.Width);
         Assert.True(roundTrip.UsageCategory.IsVisible);
         older.Columns.Remove("UsageCategory");
         var missing = new DeviceColumnLayout();
         missing.Restore(older);
-        Assert.Equal(150, missing.UsageCategory.Width);
+        Assert.Equal(120, missing.UsageCategory.Width);
     }
 
     [Fact]

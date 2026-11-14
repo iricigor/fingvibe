@@ -46,6 +46,9 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public string UsageCategoryCellName => $"Usage category: {UsageCategoryCellText}. {UsageCategorySource}";
     public bool HasClassifiedUsageCategory => EffectiveUsageCategory is
         DeviceUsageCategory.Permanent or DeviceUsageCategory.Personal or DeviceUsageCategory.Guest;
+    public bool IsPermanentUsageCategory => EffectiveUsageCategory == DeviceUsageCategory.Permanent;
+    public bool IsPersonalUsageCategory => EffectiveUsageCategory == DeviceUsageCategory.Personal;
+    public bool IsGuestUsageCategory => EffectiveUsageCategory == DeviceUsageCategory.Guest;
     public bool HasUsageCategoryIndicator => UsageCategoryOverride is not null
         || (HasClassifiedUsageCategory && UsageInference?.LimitedEvidence == true);
     public string UsageCategoryIndicatorGlyph => UsageCategoryOverride is not null ? "\uE718" : "\uE946";
@@ -59,7 +62,8 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         foreach (var property in new[] { nameof(UsageCategoryOverride), nameof(UsageInference), nameof(UsageStatus),
                      nameof(EffectiveUsageCategory), nameof(UsageCategoryText), nameof(UsageCategorySource), nameof(UsageCategoryDescription),
                      nameof(UsageLoading), nameof(UsageCategoryCellText), nameof(UsageCategoryOpacity), nameof(UsageCategoryCellName),
-                     nameof(HasClassifiedUsageCategory), nameof(HasUsageCategoryIndicator), nameof(UsageCategoryIndicatorGlyph) })
+                     nameof(HasClassifiedUsageCategory), nameof(IsPermanentUsageCategory), nameof(IsPersonalUsageCategory),
+                     nameof(IsGuestUsageCategory), nameof(HasUsageCategoryIndicator), nameof(UsageCategoryIndicatorGlyph) })
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
     }
     private LanNetwork? _selectedNetwork;
