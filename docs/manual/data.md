@@ -52,8 +52,10 @@ survives navigation but does not delay automatic backups.
 The button shows pending/running/outcome states; there is no separate idle-status
 line. **How backups work** holds the policy text and starts collapsed.
 The page shows the last successful copy and
-an initially collapsed **Completed backups** section with total count and
+an initially collapsed **Completed backups** section inside **Automatic backups**,
+before **How backups work**, with total count and
 the relative ages of its newest/oldest copies, refreshed while visible.
+The summary shares the heading row on wide windows and stacks on narrow windows.
 Expand it to see striped rows newest first, with local creation times, sizes
 and a **Daily** column marking each retained daily representative.
 **Open backup folder** opens the local location. With no database yet, the app

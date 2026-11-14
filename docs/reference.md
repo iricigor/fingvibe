@@ -1079,7 +1079,9 @@ waiting for a final backup. Manual outcomes show a muted green **Backed up** or
 muted red **Backup failed**, disabling the button for one minute after the
 attempt finishes; errors remain inline and automatic triggers are unaffected.
 Pending/running/outcome status belongs to the button, not a separate idle line.
-The policy starts collapsed under **How backups work**.
+Inside **Automatic backups**, collapsed **Completed backups** precedes
+collapsed **How backups work**; its heading and summary share a row on wide
+windows and stack on narrow windows.
 This cooldown is application-session
 state, not a saved preference. Completed backups starts collapsed with count
 and refreshed newest/oldest relative ages; expansion shows striped rows with

@@ -55,6 +55,22 @@ function Show-BackupAction([string] $Id) {
         -GetTargets { Find-BackupControl $Id } -GetWindow { $script:root } -Description $Id
 }
 
+function Expand-BackupCopies {
+    Show-BackupAction CompletedBackupsExpander
+    (Find-BackupControl CompletedBackupsExpander).GetCurrentPattern(
+        [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    $null = Wait-UiRegressionState {
+        $rows = Find-BackupControl BackupRows
+        if (-not $rows) { return $false }
+        $bounds = $rows.Current.BoundingRectangle
+        $section = (Find-BackupControl CompletedBackupsExpander).Current.BoundingRectangle
+        $summary = (Find-BackupControl BackupCount).Current.BoundingRectangle
+        -not $bounds.IsEmpty -and $bounds.Width -gt 0 -and $bounds.Height -gt 0 -and
+            $bounds.Top -ge $summary.Bottom -and $bounds.Bottom -le $section.Bottom
+    } 'fully laid-out completed backup contents'
+    Show-BackupAction BackupRows
+}
+
 function Assert-BackupButtonColor([string] $Capture, [string] $Outcome) {
     $window = Get-UiReviewWindowBounds $script:process.MainWindowHandle
     $button = (Find-BackupControl BackUpNowButton).Current.BoundingRectangle
@@ -187,10 +203,16 @@ try {
     }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory 'backups-completed-collapsed.png')
     Assert-BackupButtonColor (Join-Path $ScreenshotDirectory 'backups-completed-collapsed.png') success
-    Show-BackupAction CompletedBackupsExpander
-    (Find-BackupControl CompletedBackupsExpander).GetCurrentPattern(
-        [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
-    $null = Wait-UiRegressionState { Test-UiRegressionElementVisible (Find-BackupControl BackupRows) } 'expanded completed backup list'
+    $title = (Find-BackupControl CompletedBackupsTitle).Current.BoundingRectangle
+    $summary = (Find-BackupControl BackupCount).Current.BoundingRectangle
+    $policy = (Find-BackupControl BackupPolicyExpander).Current.BoundingRectangle
+    if ([Math]::Abs(($title.Top + $title.Bottom - $summary.Top - $summary.Bottom) / 2) -gt 2 -or
+        $summary.Left -lt $title.Right -or $policy.Top -le $title.Bottom -or
+        (Find-BackupControl BackupLastSuccess).Current.BoundingRectangle.Top -le $policy.Bottom -or
+        -not (Test-UiRegressionElementWithin (Find-BackupControl BackupCount) (Find-BackupControl CompletedBackupsExpander) $script:root)) {
+        throw 'Wide automatic-backup section must show title/summary on one row, then policy and last success.'
+    }
+    Expand-BackupCopies
     $copies = @(Get-ChildItem (Join-Path $fixture 'Backups') -Filter '*.sqlite')
     if ($copies.Count -ne 1 -or
         (Get-InventorySqliteValue $copies[0].FullName 'PRAGMA integrity_check') -ne 'ok') {
@@ -237,10 +259,7 @@ try {
     $before = (ConvertFrom-UiRegressionSurfaceStatus (Find-BackupControl BackupsScroll).Current.ItemStatus).Request
     Invoke-BackupControl BackUpNowButton
     $null = Wait-BackupSurface Ready $before
-    Show-BackupAction CompletedBackupsExpander
-    (Find-BackupControl CompletedBackupsExpander).GetCurrentPattern(
-        [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
-    Show-BackupAction BackupRows
+    Expand-BackupCopies
     $daily = @(Wait-UiRegressionState {
         $markers = @($script:root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
             [System.Windows.Automation.PropertyCondition]::new(
@@ -290,10 +309,7 @@ try {
         Show-BackupAction OpenBackupFolderButton
         (Find-BackupControl OpenBackupFolderButton).SetFocus()
         $null = Wait-UiRegressionState { (Find-BackupControl OpenBackupFolderButton).Current.HasKeyboardFocus } 'keyboard focus during manual backup cooldown'
-        Show-BackupAction CompletedBackupsExpander
-        (Find-BackupControl CompletedBackupsExpander).GetCurrentPattern(
-            [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
-        Show-BackupAction BackupRows
+        Expand-BackupCopies
         Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "backups-$theme.png")
     }
     $null = [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero, 0, 0, 640, 760, 0x0044)
@@ -304,6 +320,12 @@ try {
         }
     }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory 'backups-narrow.png')
+    Show-BackupAction CompletedBackupsExpander
+    $title = (Find-BackupControl CompletedBackupsTitle).Current.BoundingRectangle
+    $summary = (Find-BackupControl BackupCount).Current.BoundingRectangle
+    if ($summary.Top -lt $title.Bottom) {
+        throw 'Narrow completed-backup header must stack its summary below the title.'
+    }
     Show-BackupAction BackupRows
     foreach ($marker in @($script:root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new(
