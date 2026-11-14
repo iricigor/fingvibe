@@ -47,7 +47,7 @@ public sealed partial class MainWindow : IScanExecutionSteps
         ScanFreshnessText.Text = context;
         ScanButton.Visibility = _isScanning ? Visibility.Collapsed : Visibility.Visible;
         ScanButton.IsEnabled = !_isScanning && network is not null;
-        var status = string.Join(" · ", new[] { _scanMessage, _snapshotError, _inventoryError, _discoveryMessage, _windowsNotificationMessage, targetWarning }
+        var status = string.Join(" · ", new[] { _scanMessage, _snapshotError, _inventoryError, _backupError, _discoveryMessage, _windowsNotificationMessage, targetWarning }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
         ScanStatusText.Text = status;
         ScanStatusText.Visibility = string.IsNullOrWhiteSpace(status) ? Visibility.Collapsed : Visibility.Visible;
@@ -262,6 +262,7 @@ public sealed partial class MainWindow : IScanExecutionSteps
 
     void IScanExecutionSteps.EndScan(ScanRequest request, ScanRunOutcome outcome)
     {
+        if (outcome.Status == ScanRunStatus.Completed) _backupScheduler?.Schedule();
         if (_initialResultsPublished && _currentScanSnapshot is { State: ScanCheckpointState.Pending } pending)
         {
             // A failed incomplete-state write still leaves a durable Pending checkpoint, never a running scan.

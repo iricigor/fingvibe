@@ -90,6 +90,25 @@
                         <TextBlock Text="Open network troubleshooting &#x2192;" />
                     </StackPanel>
                 </Button>
+                <Button x:Name="DatabaseBackupsCard" Click="DatabaseBackupsCard_Click"
+                        Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="Database backups">
+                    <StackPanel Spacing="8">
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE74E;" FontFamily="Segoe Fluent Icons" FontSize="48" Width="48" Height="48"
+                                      Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                            <TextBlock Grid.Column="1" Text="Database backups" Style="{ThemeResource SubtitleTextBlockStyle}"
+                                       VerticalAlignment="Center" TextWrapping="Wrap" />
+                        </Grid>
+                        <TextBlock Text="View local backup copies and protect your saved device inventory." TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="Open database backups &#x2192;" />
+                    </StackPanel>
+                </Button>
                 <Button x:Name="AboutCard"
                         Click="AboutCard_Click"
                         Style="{StaticResource ScannerSummaryButtonStyle}"
@@ -125,5 +144,6 @@
                               BackRequested="FingImportView_BackRequested"
                               ManagementRequested="FingImportView_ManagementRequested" />
         <local:SqlEditorPage x:Name="SqlEditorView" Visibility="Collapsed" BackRequested="SqlEditorView_BackRequested" />
+        <local:DatabaseBackupsPage x:Name="DatabaseBackupsView" Visibility="Collapsed" BackRequested="DatabaseBackupsView_BackRequested" />
     </Grid>
 </UserControl>

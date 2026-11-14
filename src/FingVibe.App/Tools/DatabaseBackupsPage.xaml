@@ -1,0 +1,83 @@
+<UserControl
+    x:Class="FingVibe.App.DatabaseBackupsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <ScrollViewer x:Name="BackupsScroll" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <FontIcon Glyph="&#xE74E;" FontFamily="Segoe Fluent Icons" FontSize="48" Width="48" Height="48"
+                          Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                          IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                <TextBlock Grid.Column="1" Text="Database backups" Style="{StaticResource ScannerPageTitleStyle}"
+                           Margin="0" VerticalAlignment="Center" TextWrapping="Wrap" />
+                <Button x:Name="BackupsBackButton" Grid.Column="2" Content="&#x2190; Tools" Click="Back_Click"
+                        AutomationProperties.Name="Back to Tools" VerticalAlignment="Center" />
+            </Grid>
+            <TextBlock Text="Local copies of your saved devices, corrections, People/Rooms, assignments and scan history."
+                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <Border Padding="20" CornerRadius="8" BorderThickness="1"
+                    BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                    Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Automatic backups" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <TextBlock Text="Keeps the latest seven successful copies. Backups are scheduled 15 seconds after startup loading or a successfully saved scan. Failed or interrupted copies never replace a good backup."
+                               TextWrapping="Wrap" />
+                    <TextBlock x:Name="BackupStatusText" Text="Loading backup status..." TextWrapping="Wrap"
+                               AutomationProperties.LiveSetting="Polite" />
+                    <ProgressBar x:Name="BackupProgress" IsIndeterminate="True" Visibility="Collapsed"
+                                 AutomationProperties.Name="Creating backup" />
+                    <TextBlock x:Name="BackupLastSuccess" Text="No successful backup yet." TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+            <StackPanel x:Name="BackupActions" Orientation="Horizontal" Spacing="12">
+                <Button x:Name="BackUpNowButton" Content="Back up now" Click="BackUpNow_Click"
+                        Style="{StaticResource AccentButtonStyle}" AutomationProperties.Name="Back up now" />
+                <Button x:Name="OpenBackupFolderButton" Content="Open backup folder" Click="OpenFolder_Click"
+                        AutomationProperties.Name="Open backup folder" />
+            </StackPanel>
+            <TextBlock x:Name="BackupFolderText" Text="Backup folder is loading..." TextWrapping="Wrap"
+                       IsTextSelectionEnabled="True" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <InfoBar x:Name="BackupError" IsOpen="False" IsClosable="False" Severity="Error"
+                     Title="Backup needs attention" />
+            <TextBlock Text="Completed backups" Style="{ThemeResource SubtitleTextBlockStyle}" Margin="0,8,0,0" />
+            <TextBlock x:Name="BackupCount" Text="No completed copies." TextWrapping="Wrap" />
+            <Grid ColumnSpacing="12" Margin="12,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="160" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Created (local time)" TextWrapping="Wrap" FontWeight="SemiBold" />
+                <TextBlock Grid.Column="1" Text="Backup file" FontWeight="SemiBold" />
+                <TextBlock Grid.Column="2" Text="Size" FontWeight="SemiBold" />
+            </Grid>
+            <ItemsControl x:Name="BackupRows" AutomationProperties.Name="Completed backups, newest first">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Padding="12" Margin="0,0,0,4" BorderThickness="0,0,0,1"
+                                BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}">
+                            <Grid ColumnSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="160" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="90" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Created}" TextWrapping="Wrap" />
+                                <TextBlock Grid.Column="1" Text="{Binding Name}" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                                <TextBlock Grid.Column="2" Text="{Binding Size}" TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <TextBlock Text="These copies are stored on this PC, not in the cloud. They do not protect against loss of the same drive."
+                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
