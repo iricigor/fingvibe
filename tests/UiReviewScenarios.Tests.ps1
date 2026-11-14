@@ -275,24 +275,31 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
         IsOffscreen = $false; BoundingRectangle = [pscustomobject]@{ IsEmpty = $false; Width = 100; Height = 30 }
     } }
     $row | Add-Member ScriptMethod FindFirst { param($Scope, $Condition) return $nameCell }
-    $list = [pscustomobject]@{}
+    $list = [pscustomobject]@{ Current = $row.Current }
     $list | Add-Member ScriptMethod FindAll { param($Scope, $Condition) return @($row) }
     function Select-HistoryDevices {}
     function Start-Sleep { param($Milliseconds) $waits.Add($Milliseconds) }
-    function Find-HistoryControl($Value, [switch] $ByName) {
+    function Find-HistoryControl($Value, [switch] $ByName, [switch] $Optional) {
         if ($Value -eq 'Search devices') { return $searchControl }
         if ($Value -eq 'ResultsList') { return $list }
         throw "Unexpected history lookup '$Value'."
+    }
+    function Wait-UiRegressionState([scriptblock] $Condition, [string] $Description) {
+        for ($attempt = 0; $attempt -lt 4; $attempt++) {
+            $result = & $Condition
+            if ($result) { return $result }
+        }
+        throw "Timed out waiting for $Description."
     }
     $null = Find-HistoryDeviceRow 'History normal'
     $null = Find-HistoryDeviceRow 'History normal'
     Assert-Equal $searchPattern.Changes 1 'Repeated assertions must not reapply the same search'
     Assert-Equal $waits @(300) 'A changed filter retains its original debounce settling; unchanged filters need none'
     $nameCell.Current.Name = 'History virtual'
-    Assert-Throws { Find-HistoryDeviceRow 'History normal' } "*does not match 'History normal'*"
+    Assert-Throws { Find-HistoryDeviceRow 'History normal' } "*Timed out*exactly one visible history device matching 'History normal'*"
     $nameCell.Current.Name = 'History normal'
     $row.Current.IsOffscreen = $true
-    Assert-Throws { Find-HistoryDeviceRow 'History normal' } "*does not match 'History normal'*"
+    Assert-Throws { Find-HistoryDeviceRow 'History normal' } "*Timed out*exactly one visible history device matching 'History normal'*"
 }
 
 & {

@@ -606,13 +606,13 @@ finally {
         }
         function Show-BackupAction([string] $Id) {
             if ($Id -eq 'BackupRows') {
-                if ($state.Polls -lt 3) { throw 'Positioning happened before expanded layout.' }
+                if ($state.Polls -lt 4) { throw 'Positioning happened before expanded layout settled.' }
                 $state.Positions++
             }
         }
         Expand-BackupCopies
-        Assert-Regression ($state.Polls -eq 3 -and $state.Positions -eq 1) `
-            'Expansion must await nonempty, unclipped content bounds before positioning.'
+        Assert-Regression ($state.Polls -eq 4 -and $state.Positions -eq 1) `
+            'Expansion must await nonempty, unclipped and stable content bounds before positioning.'
         $state.Available = $false
         $state.Positions = 0
         Assert-RegressionFailure { Expand-BackupCopies } '*Timed out*completed backup contents*'

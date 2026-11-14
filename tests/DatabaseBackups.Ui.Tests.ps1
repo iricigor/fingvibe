@@ -59,14 +59,22 @@ function Expand-BackupCopies {
     Show-BackupAction CompletedBackupsExpander
     (Find-BackupControl CompletedBackupsExpander).GetCurrentPattern(
         [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    $layout = @{ Geometry = $null }
     $null = Wait-UiRegressionState {
         $rows = Find-BackupControl BackupRows
         if (-not $rows) { return $false }
         $bounds = $rows.Current.BoundingRectangle
         $section = (Find-BackupControl CompletedBackupsExpander).Current.BoundingRectangle
         $summary = (Find-BackupControl BackupCount).Current.BoundingRectangle
-        -not $bounds.IsEmpty -and $bounds.Width -gt 0 -and $bounds.Height -gt 0 -and
-            $bounds.Top -ge $summary.Bottom -and $bounds.Bottom -le $section.Bottom
+        if ($bounds.IsEmpty -or $bounds.Width -le 0 -or $bounds.Height -le 0 -or
+            $bounds.Top -lt $summary.Bottom -or $bounds.Bottom -gt $section.Bottom) {
+            $layout.Geometry = $null
+            return $false
+        }
+        $geometry = "$bounds|$section"
+        $settled = $geometry -eq $layout.Geometry
+        $layout.Geometry = $geometry
+        return $settled
     } 'fully laid-out completed backup contents'
     Show-BackupAction BackupRows
 }
