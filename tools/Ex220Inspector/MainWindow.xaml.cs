@@ -24,6 +24,9 @@ public partial class MainWindow : Window
     private string _loginState = "Other";
     private bool _loginProbeBusy;
     private int _navigationVersion;
+    private ulong _navigationId;
+    private bool _refreshing;
+    private bool _manualLoginPanel;
 
     public MainWindow()
     {
@@ -56,9 +59,11 @@ public partial class MainWindow : Window
                     Status.Text = "Navigation blocked: this inspector only opens 192.168.0.1.";
                     return;
                 }
-                _navigationVersion++;
+                InvalidatePageWork();
+                _navigationId = args.NavigationId;
                 _loginState = "Other";
                 CaptureButton.IsEnabled = false;
+                UpdateLoginControls();
             };
             core.FrameNavigationStarting += (_, args) => args.Cancel = !IsRouter(args.Uri);
             core.NewWindowRequested += (_, args) => args.Handled = true;
@@ -70,10 +75,11 @@ public partial class MainWindow : Window
             core.PermissionRequested += (_, args) => args.State = CoreWebView2PermissionState.Deny;
             core.NavigationCompleted += (_, args) =>
             {
-                CaptureButton.IsEnabled = args.IsSuccess && !_busy;
+                if (args.NavigationId != _navigationId || _closing) return;
+                CaptureButton.IsEnabled = args.IsSuccess && !_busy && !_refreshing;
                 Status.Text = args.IsSuccess
                     ? "Log in, open a client table, choose its source above, and capture. Router configuration controls are live; do not change settings."
-                    : $"Router navigation failed ({args.WebErrorStatus}). Check the router and retry by reopening the inspector.";
+                    : $"Router navigation failed ({args.WebErrorStatus}). Check the router and try Forced refresh.";
             };
             core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
             core.WebResourceRequested += (_, args) =>
@@ -83,6 +89,7 @@ public partial class MainWindow : Window
                 args.Response = _environment.CreateWebResourceResponse(null, 403, "External request blocked", "");
             };
             _loginTimer.Start();
+            RefreshButton.IsEnabled = true;
             core.Navigate("http://192.168.0.1");
         }
         catch (Exception exception) when (exception is WebView2RuntimeNotFoundException
@@ -100,7 +107,7 @@ public partial class MainWindow : Window
 
     private async void Capture_Click(object sender, RoutedEventArgs e)
     {
-        if (_busy || Browser.CoreWebView2 is not { } core) return;
+        if (_busy || _refreshing || Browser.CoreWebView2 is not { } core) return;
         _busy = true;
         CaptureButton.IsEnabled = false;
         var source = (ClientSource)SourcePicker.SelectedIndex;
@@ -110,10 +117,9 @@ public partial class MainWindow : Window
         {
             var script = await ReadScriptAsync("ExtractClients.js");
             var sourceJson = JsonSerializer.Serialize(source.ToString());
-            var json = await core.ExecuteScriptAsync($"(() => {{ {script}\n return extractClients(document, {sourceJson}); }})()");
-            if (_closing) return;
-            if (version != _navigationVersion)
-                throw new InvalidDataException("The router page changed during capture. Wait for the intended table and capture again.");
+            var json = await core.ExecuteScriptAsync($"(() => {{ {script}\n return extractClients(document, {sourceJson}); }})()")
+                .WaitAsync(TimeSpan.FromSeconds(5));
+            if (_closing || version != _navigationVersion) return;
             var result = JsonSerializer.Deserialize<Extraction>(json)
                 ?? throw new InvalidDataException("The router did not return an extraction result.");
             if (result.Tables.Length != 1)
@@ -130,14 +136,18 @@ public partial class MainWindow : Window
                 "Select the next page and capture again if the router paginates. Clear captures before starting a new snapshot.";
         }
         catch (Exception exception) when (exception is JsonException or InvalidDataException
-            or InvalidOperationException or System.Runtime.InteropServices.COMException)
+            or InvalidOperationException or System.Runtime.InteropServices.COMException or TimeoutException)
         {
-            if (!_closing) Status.Text = $"Capture failed: {exception.Message}";
+            if (!_closing && version == _navigationVersion)
+                Status.Text = $"Capture failed: {exception.Message} Try Forced refresh if the router is stuck.";
         }
         finally
         {
-            _busy = false;
-            if (!_closing) CaptureButton.IsEnabled = true;
+            if (version == _navigationVersion)
+            {
+                _busy = false;
+                if (!_closing) CaptureButton.IsEnabled = !_refreshing;
+            }
         }
     }
 
@@ -177,12 +187,13 @@ public partial class MainWindow : Window
 
     private async void LoginTimer_Tick(object? sender, EventArgs e)
     {
-        if (_closing || _loginProbeBusy || _busy || Browser.CoreWebView2 is not { } core) return;
+        if (_closing || _refreshing || _loginProbeBusy || _busy || Browser.CoreWebView2 is not { } core) return;
         _loginProbeBusy = true;
         var version = _navigationVersion;
         try
         {
-            var json = await core.ExecuteScriptAsync($"(() => {{ {_loginScript}\n return inspectRouterLogin(document); }})()");
+            var json = await core.ExecuteScriptAsync($"(() => {{ {_loginScript}\n return inspectRouterLogin(document); }})()")
+                .WaitAsync(TimeSpan.FromSeconds(5));
             if (_closing || version != _navigationVersion) return;
             var probe = JsonSerializer.Deserialize<LoginProbe>(json)
                 ?? throw new InvalidDataException("The router login state could not be read.");
@@ -191,63 +202,68 @@ public partial class MainWindow : Window
             switch (action)
             {
                 case LoginAction.Prompt:
-                    ShowLoginPanel("The router is logged out. Enter its local password.");
+                    if (!_manualLoginPanel)
+                        ShowLoginPanel("The router is logged out. Enter its local password.");
                     break;
                 case LoginAction.AutoLogin:
                     ShowLoginPanel("The session expired. Signing in with the password remembered for this run...");
                     await SubmitLoginAsync(null);
+                    if (_closing || version != _navigationVersion) return;
                     break;
                 case LoginAction.Failed:
                     ShowLoginPanel("Login was rejected or did not complete within 15 seconds. The remembered password was cleared. Check the router message and enter the password again.");
                     Status.Text = "Sign-in did not complete. No automatic retry will be made.";
                     break;
                 case LoginAction.Authenticated:
-                    LoginPanel.Visibility = Visibility.Collapsed;
-                    LoginPassword.Clear();
+                    if (!_manualLoginPanel)
+                    {
+                        LoginPanel.Visibility = Visibility.Collapsed;
+                        LoginPassword.Clear();
+                    }
                     Status.Text = _login.HasPassword
                         ? "Signed in. Password remembered in memory until you forget it or close the inspector."
                         : "Signed in. No password remembered.";
                     break;
             }
-            SignInButton.IsEnabled = !_login.IsPending && _loginState == "Login";
+            UpdateLoginControls();
             if (probe.State == "Locked")
             {
                 LoginMessage.Text = "The router's login controls are locked or busy. Wait for the router before trying again.";
             }
             else if (probe.State == "UsernameRequired")
             {
-                LoginPanel.Visibility = Visibility.Collapsed;
-                Status.Text = "This router requires a username. Use the router's own login form; password-only automatic login is unavailable.";
+                LoginMessage.Text = "This router requires a username. Use the router's own login form; password-only automatic login is unavailable.";
             }
         }
         catch (Exception exception) when (exception is JsonException or InvalidDataException
-            or InvalidOperationException or System.Runtime.InteropServices.COMException)
+            or InvalidOperationException or System.Runtime.InteropServices.COMException or TimeoutException)
         {
             if (!_closing && version == _navigationVersion)
             {
                 _loginTimer.Stop();
-                Status.Text = "Login monitoring failed. Use the router login form; reopen the inspector to restore monitoring.";
+                Status.Text = "Login monitoring failed. Use Forced refresh to restore monitoring, or use the router's own login form.";
             }
         }
-        finally { _loginProbeBusy = false; }
+        finally
+        {
+            if (version == _navigationVersion) _loginProbeBusy = false;
+        }
     }
 
     private void ShowLoginPanel(string message)
     {
         LoginMessage.Text = message;
         LoginPanel.Visibility = Visibility.Visible;
-        SignInButton.IsEnabled = !_login.IsPending && _loginState == "Login";
+        UpdateLoginControls();
         if (IsActive && !_login.IsPending) LoginPassword.Focus();
     }
 
     private void ShowLogin_Click(object sender, RoutedEventArgs e)
     {
-        if (_loginState != "Login")
-        {
-            Status.Text = "The router's local password login form is not currently available.";
-            return;
-        }
-        ShowLoginPanel("Enter the router password. It can be remembered for this run only.");
+        _manualLoginPanel = true;
+        ShowLoginPanel(_loginState == "Login"
+            ? "Enter the router password. It can be remembered for this run only."
+            : "The router's local login form is not ready. Use Forced refresh if it is stuck.");
     }
 
     private async void SignIn_Click(object sender, RoutedEventArgs e) => await SignInAsync();
@@ -261,7 +277,12 @@ public partial class MainWindow : Window
 
     private async Task SignInAsync()
     {
-        if (_login.IsPending || _loginState != "Login") return;
+        if (_closing || _refreshing || _login.IsPending) return;
+        if (_loginState is not ("Login" or "Authenticated"))
+        {
+            LoginMessage.Text = "The local login form is not ready. Try Forced refresh or use the router's own login form.";
+            return;
+        }
         var password = LoginPassword.Password;
         if (password.Length == 0)
         {
@@ -270,14 +291,24 @@ public partial class MainWindow : Window
         }
         _login.Remember(RememberPassword.IsChecked == true ? password : null);
         LoginPassword.Clear();
+        _manualLoginPanel = false;
+        if (_loginState == "Authenticated")
+        {
+            LoginPanel.Visibility = Visibility.Collapsed;
+            Status.Text = _login.HasPassword
+                ? "Password remembered in memory for the next expired session. No login request was sent."
+                : "No password remembered. The current router session is unchanged.";
+            return;
+        }
         await SubmitLoginAsync(password);
     }
 
     private async Task SubmitLoginAsync(string? enteredPassword)
     {
-        if (_closing || _login.IsPending || Browser.CoreWebView2 is not { } core) return;
+        if (_closing || _refreshing || _login.IsPending || Browser.CoreWebView2 is not { } core) return;
         var password = enteredPassword ?? _login.PasswordForLogin;
         if (password is null) return;
+        var version = _navigationVersion;
         _login.Submitted(DateTimeOffset.UtcNow);
         SignInButton.IsEnabled = false;
         LoginMessage.Text = "Signing in...";
@@ -287,14 +318,16 @@ public partial class MainWindow : Window
             if (!IsRouter(core.Source))
                 throw new InvalidOperationException("Router login is not on the allowed origin.");
             var jsonPassword = JsonSerializer.Serialize(password);
-            var json = await core.ExecuteScriptAsync($"(() => {{ {_loginScript}\n return submitRouterLogin(document, {jsonPassword}); }})()");
-            if (_closing) return;
+            var json = await core.ExecuteScriptAsync($"(() => {{ {_loginScript}\n return submitRouterLogin(document, {jsonPassword}); }})()")
+                .WaitAsync(TimeSpan.FromSeconds(5));
+            if (_closing || version != _navigationVersion) return;
             if (!JsonSerializer.Deserialize<bool>(json))
                 throw new InvalidOperationException("The local password form is not available.");
         }
         catch (Exception exception) when (exception is JsonException or InvalidOperationException
-            or System.Runtime.InteropServices.COMException)
+            or System.Runtime.InteropServices.COMException or TimeoutException)
         {
+            if (_closing || version != _navigationVersion) return;
             _login.FailSubmission();
             if (!_closing)
             {
@@ -307,6 +340,7 @@ public partial class MainWindow : Window
     private void DismissLogin_Click(object sender, RoutedEventArgs e)
     {
         _login.DismissPrompt();
+        _manualLoginPanel = false;
         LoginPassword.Clear();
         LoginPanel.Visibility = Visibility.Collapsed;
     }
@@ -318,7 +352,68 @@ public partial class MainWindow : Window
         Status.Text = "Remembered password cleared from this inspector. The current router session remains signed in.";
     }
 
-    private void RememberPassword_Unchecked(object sender, RoutedEventArgs e) => _login.Forget();
+    private void RememberPassword_Changed(object sender, RoutedEventArgs e)
+    {
+        if (RememberPassword?.IsChecked == false) _login.Forget();
+        UpdateLoginControls();
+    }
+
+    private void UpdateLoginControls()
+    {
+        if (SignInButton is null) return;
+        var authenticated = _loginState == "Authenticated";
+        SignInButton.Content = authenticated ? "Remember password" : "Sign in";
+        SignInButton.IsEnabled = !_refreshing && !_login.IsPending &&
+            (_loginState == "Login" || authenticated && RememberPassword.IsChecked == true);
+        if (authenticated && _manualLoginPanel)
+            LoginMessage.Text = "Already signed in. Enter a password to remember for the next expired session; it will not be sent now.";
+    }
+
+    private void InvalidatePageWork()
+    {
+        _navigationVersion++;
+        _busy = false;
+        _loginProbeBusy = false;
+    }
+
+    private async void ForcedRefresh_Click(object sender, RoutedEventArgs e)
+    {
+        if (_closing || _refreshing || Browser.CoreWebView2 is not { } core) return;
+        _refreshing = true;
+        RefreshButton.IsEnabled = false;
+        CaptureButton.IsEnabled = false;
+        _loginTimer.Stop();
+        InvalidatePageWork();
+        _navigationId = 0;
+        _login.ResetForRefresh();
+        _loginState = "Other";
+        _manualLoginPanel = false;
+        LoginPassword.Clear();
+        LoginPanel.Visibility = Visibility.Collapsed;
+        UpdateLoginControls();
+        Status.Text = "Stopping pending work and clearing cached router resources. Captures and remembered password are kept...";
+        try
+        {
+            core.Stop();
+            await core.CallDevToolsProtocolMethodAsync("Network.clearBrowserCache", "{}")
+                .WaitAsync(TimeSpan.FromSeconds(5));
+            if (_closing) return;
+            core.Navigate("http://192.168.0.1");
+            _loginTimer.Start();
+            Status.Text = "Forced refresh requested. Reopening the router start page; return to the desired table after it loads.";
+        }
+        catch (Exception exception) when (exception is InvalidOperationException
+            or System.Runtime.InteropServices.COMException or TimeoutException)
+        {
+            if (!_closing)
+                Status.Text = "Forced refresh failed. The browser did not reset successfully; try again or close and reopen the inspector.";
+        }
+        finally
+        {
+            _refreshing = false;
+            if (!_closing) RefreshButton.IsEnabled = true;
+        }
+    }
 
     private async void Window_Closing(object? sender, CancelEventArgs e)
     {
@@ -330,6 +425,7 @@ public partial class MainWindow : Window
         _login.Forget();
         LoginPassword.Clear();
         CaptureButton.IsEnabled = false;
+        RefreshButton.IsEnabled = false;
         Status.Text = "Closing browser and removing its temporary login profile...";
         await _initialization;
         var exited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

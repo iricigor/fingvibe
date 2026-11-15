@@ -66,4 +66,33 @@ public sealed class Ex220LoginSessionTests
         Assert.False(session.HasPassword);
         Assert.Equal(LoginAction.None, session.Observe("Login", false, Now));
     }
+
+    [Fact]
+    public void ForcedRefreshClearsStuckAttemptButPreservesPasswordAndRestartsDetection()
+    {
+        var session = new RouterLoginSession();
+        session.Remember("test-password");
+        session.Submitted(Now);
+        session.ResetForRefresh();
+        Assert.False(session.IsPending);
+        Assert.True(session.HasPassword);
+        Assert.Equal(LoginAction.None, session.Observe("Other", false, Now.AddSeconds(20)));
+        Assert.Equal(LoginAction.AutoLogin, session.Observe("Login", false, Now.AddSeconds(21)));
+        Assert.Equal(LoginAction.None, session.Observe("Login", false, Now.AddSeconds(22)));
+
+        session.Forget();
+        session.ResetForRefresh();
+        Assert.Equal(LoginAction.Prompt, session.Observe("Login", false, Now.AddSeconds(23)));
+    }
+
+    [Fact]
+    public void PasswordCanBeRememberedDuringAnExistingSessionWithoutSubmittingLogin()
+    {
+        var session = new RouterLoginSession();
+        Assert.Equal(LoginAction.Authenticated, session.Observe("Authenticated", false, Now));
+        session.Remember("test-password");
+        Assert.False(session.IsPending);
+        Assert.Equal(LoginAction.None, session.Observe("Authenticated", false, Now.AddSeconds(1)));
+        Assert.Equal(LoginAction.AutoLogin, session.Observe("Login", false, Now.AddSeconds(2)));
+    }
 }

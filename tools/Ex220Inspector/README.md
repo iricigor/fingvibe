@@ -25,6 +25,20 @@ session. Restarting the inspector always requires a new password. Choosing
 **Use router page** dismisses the prompt; passwords entered directly in the
 router page are not remembered by the inspector.
 
+**Sign in...** always opens the password panel. If the router is already signed
+in, the panel offers **Remember password** for the next expired session without
+sending a login request or logging out. If the login form is unavailable, the
+panel explains that instead of appearing inactive.
+
+**Forced refresh** stops loading, discards pending capture/login work, clears
+cached page resources, reopens the router start page, and restarts login
+detection. It keeps captures, remembered in-process credentials and cookies.
+It does not log out explicitly or change router configuration. Return to the
+desired table afterward. Script/cache operations have five-second waits;
+recovery failures are reported instead of claiming success. If the browser
+itself cannot recover, close and reopen the inspector (which clears password
+memory). Pre-refresh completions cannot overwrite refreshed state.
+
 Only the router's known local password login form is filled and submitted.
 Username-required, cloud-login and password-setup forms are not automated.
 No password is intentionally persisted to disk or uploaded to any external
@@ -33,8 +47,8 @@ a promise of secure erasure or protection against memory inspection).
 
 Open each page in the embedded router UI:
 
-1. Advanced / Network: Client List.
-2. Basic / Network Map: Wired Clients.
+1. Advanced / Network / LAN Settings: Client List.
+2. Basic / Network Map / Wired Clients: click Wired Clients to open its table.
 3. Advanced / Security / IP and MAC Binding: ARP Client List.
 
 Choose the corresponding source above the results and click **Capture visible

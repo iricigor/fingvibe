@@ -17,6 +17,13 @@ public sealed class RouterLoginSession
     public void Remember(string? password) => _password = password;
     public void DismissPrompt() => _prompted = true;
     public void Forget() => _password = null;
+    public void ResetForRefresh()
+    {
+        _submittedAt = null;
+        _prompted = false;
+        _automaticAttempted = false;
+        _authenticated = false;
+    }
     public void FailSubmission()
     {
         _password = null;
