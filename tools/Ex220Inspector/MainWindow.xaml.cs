@@ -115,6 +115,7 @@ public partial class MainWindow : Window
         if (_busy || _refreshing || _automationCancellation is not null || Browser.CoreWebView2 is not { } core) return;
         _busy = true;
         CaptureButton.IsEnabled = false;
+        UpdateAutomationControls();
         var source = (ClientSource)SourcePicker.SelectedIndex;
         var version = _navigationVersion;
         Status.Text = "Reading visible client table...";
@@ -153,7 +154,7 @@ public partial class MainWindow : Window
             if (version == _navigationVersion)
             {
                 _busy = false;
-                if (!_closing) CaptureButton.IsEnabled = !_refreshing;
+                if (!_closing) UpdateAutomationControls();
             }
         }
     }

@@ -58,4 +58,37 @@ public sealed class Ex220ClientCaptureTests
         Assert.Empty(capture.Rows(true));
         Assert.False(capture.Has(ClientSource.Clients));
     }
+
+    [Fact]
+    public void IndividualReplacementRemovesStaleRowsAndPreservesOtherSources()
+    {
+        var capture = new ClientCapture();
+        capture.Add(ClientSource.Clients, [Client()]);
+        capture.Add(ClientSource.Wired, [Client("00:11:22:33:44:55")]);
+        capture.Add(ClientSource.Arp, [Client()]);
+        var completed = new ClientCapture();
+        completed.Add(ClientSource.Wired, [Client()]);
+        capture.ReplaceSource(ClientSource.Wired, completed);
+        completed.Clear();
+
+        var row = Assert.Single(capture.Rows(true));
+        Assert.Equal("Wired", row.Connection);
+        Assert.Equal("Client List, Wired Clients, ARP", row.Sources);
+        Assert.Equal("Same IP", row.ArpComparison);
+    }
+
+    [Fact]
+    public void EmptyCompleteWiredReplacementRemovesOldWiredMembership()
+    {
+        var capture = new ClientCapture();
+        capture.Add(ClientSource.Clients, [Client()]);
+        capture.Add(ClientSource.Wired, [Client()]);
+        var empty = new ClientCapture();
+        empty.Add(ClientSource.Wired, []);
+        capture.ReplaceSource(ClientSource.Wired, empty);
+
+        Assert.True(capture.Has(ClientSource.Wired));
+        Assert.Equal(0, capture.Count(ClientSource.Wired));
+        Assert.Equal("Wireless", Assert.Single(capture.Rows(true)).Connection);
+    }
 }

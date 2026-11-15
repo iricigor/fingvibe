@@ -19,6 +19,44 @@ public sealed class Ex220CaptureRunnerTests
     }
 
     [Theory]
+    [InlineData(ClientSource.Clients, 3)]
+    [InlineData(ClientSource.Wired, 4)]
+    [InlineData(ClientSource.Arp, 2)]
+    public async Task IndividualCaptureNavigatesOnlySelectedSourceAndReadsEveryPage(ClientSource source, int pages)
+    {
+        var browser = new Browser();
+        var capture = await InspectorCaptureRunner.CaptureSourceAsync(browser, source, null, CancellationToken.None);
+        Assert.Equal([source], browser.Sources);
+        Assert.Equal(Enumerable.Range(1, pages), browser.Pages);
+        Assert.Equal(pages, capture.Count(source));
+        Assert.All(Enum.GetValues<ClientSource>().Where(other => other != source),
+            other => Assert.False(capture.Has(other)));
+        Assert.True(browser.SignedIn);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FailedIndividualCaptureKeepsAllPreviousSources(bool cancel)
+    {
+        var previous = new ClientCapture();
+        foreach (var source in Enum.GetValues<ClientSource>())
+            previous.Add(source, [new("Previous", $"00:11:22:33:55:{(int)source:X2}", "192.168.0.99")]);
+        var before = previous.Rows(true);
+        using var cancellation = new CancellationTokenSource();
+        var browser = new Browser { Failure = cancel ? null : "changing-count", Cancel = cancel ? cancellation : null };
+        var error = await Record.ExceptionAsync(async () =>
+        {
+            var completed = await InspectorCaptureRunner.CaptureSourceAsync(browser, ClientSource.Wired, null, cancellation.Token);
+            previous.ReplaceSource(ClientSource.Wired, completed);
+        });
+        if (cancel) Assert.IsAssignableFrom<OperationCanceledException>(error);
+        else Assert.IsType<InvalidDataException>(error);
+        Assert.Equal(before, previous.Rows(true));
+        Assert.Equal([ClientSource.Wired], browser.Sources);
+    }
+
+    [Theory]
     [InlineData("stuck")]
     [InlineData("changing-count")]
     [InlineData("duplicate")]
@@ -45,6 +83,7 @@ public sealed class Ex220CaptureRunnerTests
         public CancellationTokenSource? Cancel { get; init; }
         public bool SignedIn { get; private set; }
         public List<int> Pages { get; } = [];
+        public List<ClientSource> Sources { get; } = [];
         private int _page;
 
         public Task EnsureSignedInAsync(CancellationToken token)
@@ -53,7 +92,11 @@ public sealed class Ex220CaptureRunnerTests
             return Task.CompletedTask;
         }
 
-        public Task NavigateAsync(ClientSource source, CancellationToken token) => Task.CompletedTask;
+        public Task NavigateAsync(ClientSource source, CancellationToken token)
+        {
+            Sources.Add(source);
+            return Task.CompletedTask;
+        }
 
         public Task GoToPageAsync(ClientSource source, int page, CancellationToken token)
         {

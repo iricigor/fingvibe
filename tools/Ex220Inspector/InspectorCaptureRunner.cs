@@ -15,12 +15,21 @@ public interface IInspectorCaptureBrowser
 
 public static class InspectorCaptureRunner
 {
-    public static async Task<ClientCapture> CaptureAsync(IInspectorCaptureBrowser browser,
-        IProgress<InspectorCaptureProgress>? progress, CancellationToken cancellationToken)
+    public static Task<ClientCapture> CaptureAsync(IInspectorCaptureBrowser browser,
+        IProgress<InspectorCaptureProgress>? progress, CancellationToken cancellationToken) =>
+        CaptureSourcesAsync(browser, Enum.GetValues<ClientSource>(), progress, cancellationToken);
+
+    public static Task<ClientCapture> CaptureSourceAsync(IInspectorCaptureBrowser browser, ClientSource source,
+        IProgress<InspectorCaptureProgress>? progress, CancellationToken cancellationToken) =>
+        CaptureSourcesAsync(browser, [source], progress, cancellationToken);
+
+    private static async Task<ClientCapture> CaptureSourcesAsync(IInspectorCaptureBrowser browser,
+        IEnumerable<ClientSource> sources, IProgress<InspectorCaptureProgress>? progress,
+        CancellationToken cancellationToken)
     {
         var capture = new ClientCapture();
         await browser.EnsureSignedInAsync(cancellationToken);
-        foreach (var source in Enum.GetValues<ClientSource>())
+        foreach (var source in sources)
         {
             cancellationToken.ThrowIfCancellationRequested();
             await browser.NavigateAsync(source, cancellationToken);

@@ -49,7 +49,16 @@ No password is intentionally persisted to disk or uploaded to any external
 service. It is held in process memory while remembered (ordinary strings, not
 a promise of secure erasure or protection against memory inspection).
 
-**Capture all** signs in if needed and visits:
+**Capture Client List**, **Capture Wired Clients**, and **Capture ARP List**
+sign in if needed and independently visit the selected list below, reading every
+pagination page. A successful capture replaces only that source, removing stale
+rows while retaining the other sources. Failure or cancellation keeps all prior
+captures. A complete Wired Clients capture automatically verifies wired
+completeness; Client List or ARP capture does not change that flag.
+Independent captures can be from different times, not a simultaneous router
+snapshot. Each success refreshes read-only DB comparison when selected.
+
+**Capture all** remains available and visits all three:
 
 1. Advanced / Network / LAN Settings: Client List.
 2. Basic / Network Map / Wired Clients: click Wired Clients to open its table.

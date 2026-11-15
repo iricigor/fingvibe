@@ -16,7 +16,7 @@
         <StackPanel Margin="0,0,0,12">
             <TextBlock Text="EX220 client inspector" FontSize="24" FontWeight="SemiBold" />
             <TextBlock Margin="0,6,0,0" TextWrapping="Wrap"
-                       Text="Sign in, then Capture all to visit every client table and page. Optional FingVibe comparison opens SQLite read-only; nothing is imported or saved." />
+                       Text="Sign in, then capture individual lists or Capture all. Each automatic capture reads every page. Optional FingVibe comparison opens SQLite read-only; nothing is imported or saved." />
         </StackPanel>
         <Border Grid.Row="1" BorderBrush="#808080" BorderThickness="1">
             <wv:WebView2 x:Name="Browser" />
@@ -50,6 +50,22 @@
         </Border>
         <StackPanel Grid.Row="2" Margin="0,12,0,8">
             <WrapPanel>
+                <Button x:Name="CaptureClientsButton" Content="Capture Client List" Click="CaptureClients_Click"
+                        IsEnabled="False" Padding="12,5" Margin="0,0,8,8"
+                        ToolTip="Open Advanced / Network / LAN Settings and capture every Client List page. Other captures are kept." />
+                <Button x:Name="CaptureWiredButton" Content="Capture Wired Clients" Click="CaptureWired_Click"
+                        IsEnabled="False" Padding="12,5" Margin="0,0,8,8"
+                        ToolTip="Open Basic / Network Map / Wired Clients and capture every page. Other captures are kept." />
+                <Button x:Name="CaptureArpButton" Content="Capture ARP List" Click="CaptureArp_Click"
+                        IsEnabled="False" Padding="12,5" Margin="0,0,8,8"
+                        ToolTip="Open Advanced / Security / IP and MAC Binding and capture every ARP page. Other captures are kept." />
+                <Button x:Name="CaptureAllButton" Content="Capture all" Click="CaptureAll_Click"
+                        IsEnabled="False" Padding="12,5" Margin="0,0,8,8" />
+                <Button x:Name="CancelCaptureButton" Content="Cancel" Click="CancelCapture_Click"
+                        IsEnabled="False" Padding="12,5" Margin="0,0,8,8" />
+                <Button x:Name="ClearButton" Content="Clear captures" Click="Clear_Click" Padding="12,5" Margin="0,0,8,8" />
+            </WrapPanel>
+            <WrapPanel>
                 <ComboBox x:Name="SourcePicker" SelectedIndex="0" Width="440" Margin="0,0,8,8"
                           AutomationProperties.Name="Router table source">
                     <ComboBoxItem Content="Client List (Advanced / Network / LAN Settings)" />
@@ -58,11 +74,6 @@
                 </ComboBox>
                 <Button x:Name="CaptureButton" Content="Capture visible table" Click="Capture_Click"
                         IsEnabled="False" Padding="12,5" Margin="0,0,8,8" />
-                <Button x:Name="CaptureAllButton" Content="Capture all" Click="CaptureAll_Click"
-                        IsEnabled="False" Padding="12,5" Margin="0,0,8,8" />
-                <Button x:Name="CancelCaptureButton" Content="Cancel" Click="CancelCapture_Click"
-                        IsEnabled="False" Padding="12,5" Margin="0,0,8,8" />
-                <Button x:Name="ClearButton" Content="Clear captures" Click="Clear_Click" Padding="12,5" Margin="0,0,8,8" />
                 <Button x:Name="LoginEntryButton" Content="Sign in..." Click="ShowLogin_Click" Padding="12,5" Margin="0,0,8,8" />
                 <Button Content="Password..." Click="PasswordPanel_Click" Padding="12,5" Margin="0,0,8,8" />
                 <Button Content="Forget password" Click="ForgetPassword_Click" Padding="12,5" Margin="0,0,8,8" />
@@ -73,7 +84,7 @@
             <CheckBox x:Name="WiredComplete" Content="I have captured every page of the Wired Clients list"
                       Checked="WiredComplete_Changed" Unchecked="WiredComplete_Changed" />
             <TextBlock Margin="0,6,0,0" TextWrapping="Wrap"
-                       Text="Tables are matched by section title. Captures accumulate by MAC. Wireless requires a complete Wired Clients list; ARP-only entries remain Unknown." />
+                       Text="Automatic captures replace only completed lists; manual captures accumulate by MAC. Wireless requires a complete Wired Clients list; ARP-only entries remain Unknown." />
             <TextBlock x:Name="CaptureSummary" Margin="0,6,0,0" TextWrapping="Wrap"
                        Text="Client List: not captured | Wired Clients: not captured | ARP: not captured" />
             <Expander Header="FingVibe database (read-only)" Margin="0,6,0,0">

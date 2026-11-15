@@ -27,6 +27,13 @@ public sealed class ClientCapture
     public int Count(ClientSource source) => _captures.GetValueOrDefault(source)?.Count ?? 0;
     public void Clear() => _captures.Clear();
 
+    public void ReplaceSource(ClientSource source, ClientCapture completed)
+    {
+        if (!completed._captures.TryGetValue(source, out var table))
+            throw new InvalidOperationException("The replacement source has not been captured.");
+        _captures[source] = new(table, StringComparer.OrdinalIgnoreCase);
+    }
+
     public IReadOnlyList<ClientDisplay> Rows(bool wiredComplete)
     {
         var all = _captures.Values.SelectMany(table => table.Keys)

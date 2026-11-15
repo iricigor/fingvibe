@@ -135,15 +135,25 @@ public partial class MainWindow : IInspectorCaptureBrowser
         }, TimeSpan.FromSeconds(15), token);
     }
 
-    private async void CaptureAll_Click(object sender, RoutedEventArgs e)
+    private async void CaptureAll_Click(object sender, RoutedEventArgs e) => await CaptureAutomaticAsync(null);
+
+    private async void CaptureClients_Click(object sender, RoutedEventArgs e) => await CaptureAutomaticAsync(ClientSource.Clients);
+
+    private async void CaptureWired_Click(object sender, RoutedEventArgs e) => await CaptureAutomaticAsync(ClientSource.Wired);
+
+    private async void CaptureArp_Click(object sender, RoutedEventArgs e) => await CaptureAutomaticAsync(ClientSource.Arp);
+
+    private async Task CaptureAutomaticAsync(ClientSource? source)
     {
-        if (_automationCancellation is not null || _busy || _refreshing) return;
+        if (_automationCancellation is not null || _signInCancellation is not null || _busy || _refreshing) return;
         using var cancellation = new CancellationTokenSource();
         _automationCancellation = cancellation;
         _captureFailure = null;
         var recovery = _recoveryVersion;
         UpdateAutomationControls();
-        Status.Text = "Starting complete capture. The previous snapshot is kept until all sources and pages succeed.";
+        Status.Text = source is { } selected
+            ? $"Starting {SourceName(selected)} capture. Previous captures are kept until every page succeeds."
+            : "Starting complete capture. The previous snapshot is kept until all sources and pages succeed.";
         var progress = new Progress<InspectorCaptureProgress>(item =>
         {
             if (ReferenceEquals(_automationCancellation, cancellation) && !cancellation.IsCancellationRequested)
@@ -151,14 +161,19 @@ public partial class MainWindow : IInspectorCaptureBrowser
         });
         try
         {
-            var capture = await InspectorCaptureRunner.CaptureAsync(this, progress, cancellation.Token);
+            var capture = source is { } single
+                ? await InspectorCaptureRunner.CaptureSourceAsync(this, single, progress, cancellation.Token)
+                : await InspectorCaptureRunner.CaptureAsync(this, progress, cancellation.Token);
             cancellation.Token.ThrowIfCancellationRequested();
             _capturePagesActive = false;
-            _capture = capture;
+            if (source is { } replacement) _capture.ReplaceSource(replacement, capture);
+            else _capture = capture;
             InvalidateComparison();
-            WiredComplete.IsChecked = true;
+            if (source is null or ClientSource.Wired) WiredComplete.IsChecked = true;
             RefreshRows();
-            Status.Text = "All three lists and all pagination pages captured. Wired list completeness verified automatically.";
+            Status.Text = source is { } completed
+                ? $"{SourceName(completed)}: all pages captured. Other source captures were kept."
+                : "All three lists and all pagination pages captured. Wired list completeness verified automatically.";
             await CompareCurrentAsync();
         }
         catch (OperationCanceledException)
@@ -223,7 +238,11 @@ public partial class MainWindow : IInspectorCaptureBrowser
     private void UpdateAutomationControls()
     {
         var running = _automationCancellation is not null || _signInCancellation is not null;
-        CaptureAllButton.IsEnabled = !running && !_refreshing && Browser.CoreWebView2 is not null;
+        var canCapture = !running && !_busy && !_refreshing && Browser.CoreWebView2 is not null;
+        CaptureAllButton.IsEnabled = canCapture;
+        CaptureClientsButton.IsEnabled = canCapture;
+        CaptureWiredButton.IsEnabled = canCapture;
+        CaptureArpButton.IsEnabled = canCapture;
         CaptureButton.IsEnabled = !running && !_refreshing && !_busy && Browser.CoreWebView2 is not null;
         ClearButton.IsEnabled = !running;
         SourcePicker.IsEnabled = !running;
