@@ -8,7 +8,8 @@ public enum ClientSource { Clients, Wired, Arp }
 
 public sealed record RouterClient(string Name, string Mac, string Ip);
 public sealed record ClientDisplay(string Name, string Mac, string Ip, string Connection,
-    string Sources, string ArpComparison);
+    string Sources, string ArpComparison, string DbComparison = "DB not loaded",
+    string DbName = "", string DbIp = "", string DbDetails = "");
 
 public sealed class ClientCapture
 {
@@ -53,9 +54,7 @@ public sealed class ClientCapture
 
     private static RouterClient Normalize(RouterClient client)
     {
-        var mac = client.Mac.Replace(":", "").Replace("-", "").ToUpperInvariant();
-        if (!Regex.IsMatch(mac, "^[0-9A-F]{12}$"))
-            throw new InvalidDataException("A captured row has an invalid MAC address.");
+        var mac = NormalizeMac(client.Mac);
         var ip = client.Ip.Trim();
         if (ip.Length > 0 && (!IPAddress.TryParse(ip, out var address)
             || address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork))
@@ -63,8 +62,16 @@ public sealed class ClientCapture
         return client with
         {
             Name = client.Name.Trim(),
-            Mac = string.Join(":", Enumerable.Range(0, 6).Select(index => mac.Substring(index * 2, 2))),
+            Mac = mac,
             Ip = ip
         };
+    }
+
+    public static string NormalizeMac(string value)
+    {
+        var mac = value.Replace(":", "").Replace("-", "").ToUpperInvariant();
+        if (!Regex.IsMatch(mac, "^[0-9A-F]{12}$"))
+            throw new InvalidDataException("A captured row has an invalid MAC address.");
+        return string.Join(":", Enumerable.Range(0, 6).Select(index => mac.Substring(index * 2, 2)));
     }
 }

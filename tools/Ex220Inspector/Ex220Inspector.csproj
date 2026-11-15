@@ -10,5 +10,7 @@
     <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
     <EmbeddedResource Include="ExtractClients.js" />
     <EmbeddedResource Include="RouterLogin.js" />
+    <EmbeddedResource Include="RouterNavigation.js" />
+    <ProjectReference Include="..\..\src\FingVibe.Core\FingVibe.Core.csproj" />
   </ItemGroup>
 </Project>

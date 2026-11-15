@@ -1,7 +1,8 @@
 # EX220 local inspector
 
 Temporary standalone Windows tool for inspecting the TP-Link EX220 at
-`http://192.168.0.1`. It does not reference FingVibe or open its database.
+`http://192.168.0.1`. It reuses FingVibe Core models but remains separate from
+the application. Optional SQLite comparison is strictly read-only.
 Requires .NET 8 Desktop Runtime and Microsoft Edge WebView2 Runtime.
 
 ```powershell
@@ -11,8 +12,8 @@ dotnet run --project tools\Ex220Inspector\Ex220Inspector.csproj
 Focused checks:
 
 ```powershell
-dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj --filter "FullyQualifiedName~Ex220ClientCaptureTests|FullyQualifiedName~Ex220LoginSessionTests"
-node --test tools\Ex220Inspector\ExtractClients.Tests.cjs tools\Ex220Inspector\RouterLogin.Tests.cjs
+dotnet test tests\FingVibe.Core.Tests\FingVibe.Core.Tests.csproj --filter FullyQualifiedName~Ex220
+node --test tools\Ex220Inspector\ExtractClients.Tests.cjs tools\Ex220Inspector\RouterLogin.Tests.cjs tools\Ex220Inspector\RouterNavigation.Tests.cjs
 ```
 
 Log in **inside the tool**, not in chat. Its in-app login prompt appears when the
@@ -25,14 +26,17 @@ session. Restarting the inspector always requires a new password. Choosing
 **Use router page** dismisses the prompt; passwords entered directly in the
 router page are not remembered by the inspector.
 
-**Sign in...** always opens the password panel. If the router is already signed
-in, the panel offers **Remember password** for the next expired session without
-sending a login request or logging out. If the login form is unavailable, the
-panel explains that instead of appearing inactive.
+**Sign in...** ensures a valid session: it keeps an already-signed-in session,
+otherwise opens the local login entry when needed and fills/submits a remembered
+password. Missing or rejected passwords prompt inside the inspector. The
+operation waits at most two minutes for user login and can be cancelled.
+**Password...** opens the password panel explicitly, including **Remember
+password** while already signed in, without sending a request or logging out.
 
 **Forced refresh** stops loading, discards pending capture/login work, clears
 cached page resources, reopens the router start page, and restarts login
-detection. It keeps captures, remembered in-process credentials and cookies.
+detection. It cancels automatic capture/sign-in and keeps the last completed
+capture, remembered in-process credentials and cookies.
 It does not log out explicitly or change router configuration. Return to the
 desired table afterward. Script/cache operations have five-second waits;
 recovery failures are reported instead of claiming success. If the browser
@@ -45,28 +49,67 @@ No password is intentionally persisted to disk or uploaded to any external
 service. It is held in process memory while remembered (ordinary strings, not
 a promise of secure erasure or protection against memory inspection).
 
-Open each page in the embedded router UI:
+**Capture all** signs in if needed and visits:
 
 1. Advanced / Network / LAN Settings: Client List.
 2. Basic / Network Map / Wired Clients: click Wired Clients to open its table.
 3. Advanced / Security / IP and MAC Binding: ARP Client List.
 
-Choose the corresponding source above the results and click **Capture visible
-table**. Tables are matched to that source by the nearest section title above
+Automatic capture requires uniquely titled tables. It starts each list at page
+1 and follows the TP-Link `table-bottom-pages` widget's selected-page marker and
+next-page button through every page, including page numbers hidden behind
+ellipses. Selected page, stable total page count, title and duplicate MACs are
+checked. Missing/ambiguous controls, changed lists, logout, empty paginated pages
+and timeouts fail explicitly. There is a 1,000-page-per-source safety limit;
+exceeding it fails instead of silently truncating. Page readiness waits are
+bounded to 15 seconds, and individual browser calls to five seconds.
+
+Only after all three sources finish does the new capture replace the old one.
+**Cancel**, errors and **Forced refresh** keep the previous completed snapshot.
+Successful capture verifies Wired Clients completeness automatically. The reads
+are not atomic router snapshots: changes between reads remain possible.
+
+For manual inspection, choose a source and click **Capture visible table**.
+Tables are matched to that source by the nearest section title above
 them (or their caption), so co-visible wireless/binding lists are not mixed in.
 A single unlabelled MAC/IP table is accepted for firmware compatibility;
 unknown or duplicate matching titles fail explicitly. Captures accumulate by normalized MAC, so visit and capture every page
 of a paginated table. After capturing all Wired Clients pages, check the
 complete-list checkbox. Client List entries not in that complete list are then
 marked Wireless. ARP-only entries stay Unknown; ARP evidence does not prove
-current connectivity. ARP comparison is an IP cross-check, **not DB comparison**.
+current connectivity. ARP comparison is an IP cross-check, separate from DB comparison.
 Clear captures before beginning a new snapshot; the three reads are not atomic.
+
+Expand **FingVibe database (read-only)** to choose a SQLite file and its saved
+network/subnet. The default file is
+`%LOCALAPPDATA%\FingVibe\device-inventory.sqlite`. **Load DB** reads saved scopes;
+only a single unambiguous scope is preselected. With multiple scopes, choose
+the router's network explicitly. **Compare** refreshes matches, and completed
+captures compare automatically when a baseline is selected.
+
+Comparison matches normalized MACs and compares both router name and IP with
+the displayed database name (custom name, imported name, discovered hostname,
+or address fallback) and latest saved local IP for the selected network/subnet.
+Active virtual devices use their displayed custom/automatic name and current
+saved connection. Names ignore case and surrounding spaces; IPs compare as
+addresses. Results show **Same in DB**, **Different in DB**, or **Not in DB**,
+plus baseline name/IP and which fields differ. **Cannot compare** explicitly
+marks missing names/IPs or ambiguous/historical virtual associations; another
+network's or historical imported IP is never silently used as a local baseline.
+Database failures remain visible, not **Not in DB**.
+
+The comparer opens an existing file with `SqliteOpenMode.ReadOnly`, enables
+`query_only`, uses bound parameters and a single deferred read transaction, and
+applies cancellation/five-second query guards. It does not call FingVibe's
+migration-capable inventory loader, create missing files, update schema, save
+names, import clients or write inventory data. It reads only required device
+entities in bounded batches; entities over the existing 8 MiB limit fail.
 
 This inspector reads rendered, visible HTML tables with MAC/IP column headings
 rather than decrypting raw API responses. Ambiguous tables and malformed rows
-produce an error rather than a partial success. The user confirmed Client List
-capture on the actual EX220; title-based Wired/ARP capture and re-login still
-require real-router confirmation. The source selection identifies the title to
+produce an error rather than a partial success. The user confirmed all three
+manual captures on the actual EX220. Automatic navigation/pagination and
+remembered re-login still require real-router confirmation. The source selection identifies the title to
 match, not an instruction to accept any MAC/IP table on the page.
 
 Only client name, MAC and IP are extracted into memory. There is no raw page,

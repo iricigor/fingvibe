@@ -16,7 +16,7 @@
         <StackPanel Margin="0,0,0,12">
             <TextBlock Text="EX220 client inspector" FontSize="24" FontWeight="SemiBold" />
             <TextBlock Margin="0,6,0,0" TextWrapping="Wrap"
-                       Text="Log in below. Open each router table, select its source, then capture. Only name, MAC and IP are read; no FingVibe database is opened." />
+                       Text="Sign in, then Capture all to visit every client table and page. Optional FingVibe comparison opens SQLite read-only; nothing is imported or saved." />
         </StackPanel>
         <Border Grid.Row="1" BorderBrush="#808080" BorderThickness="1">
             <wv:WebView2 x:Name="Browser" />
@@ -58,8 +58,13 @@
                 </ComboBox>
                 <Button x:Name="CaptureButton" Content="Capture visible table" Click="Capture_Click"
                         IsEnabled="False" Padding="12,5" Margin="0,0,8,8" />
-                <Button Content="Clear captures" Click="Clear_Click" Padding="12,5" Margin="0,0,8,8" />
-                <Button Content="Sign in..." Click="ShowLogin_Click" Padding="12,5" Margin="0,0,8,8" />
+                <Button x:Name="CaptureAllButton" Content="Capture all" Click="CaptureAll_Click"
+                        IsEnabled="False" Padding="12,5" Margin="0,0,8,8" />
+                <Button x:Name="CancelCaptureButton" Content="Cancel" Click="CancelCapture_Click"
+                        IsEnabled="False" Padding="12,5" Margin="0,0,8,8" />
+                <Button x:Name="ClearButton" Content="Clear captures" Click="Clear_Click" Padding="12,5" Margin="0,0,8,8" />
+                <Button x:Name="LoginEntryButton" Content="Sign in..." Click="ShowLogin_Click" Padding="12,5" Margin="0,0,8,8" />
+                <Button Content="Password..." Click="PasswordPanel_Click" Padding="12,5" Margin="0,0,8,8" />
                 <Button Content="Forget password" Click="ForgetPassword_Click" Padding="12,5" Margin="0,0,8,8" />
                 <Button x:Name="RefreshButton" Content="Forced refresh" Click="ForcedRefresh_Click"
                         Padding="12,5" Margin="0,0,8,8" IsEnabled="False"
@@ -71,17 +76,42 @@
                        Text="Tables are matched by section title. Captures accumulate by MAC. Wireless requires a complete Wired Clients list; ARP-only entries remain Unknown." />
             <TextBlock x:Name="CaptureSummary" Margin="0,6,0,0" TextWrapping="Wrap"
                        Text="Client List: not captured | Wired Clients: not captured | ARP: not captured" />
+            <Expander Header="FingVibe database (read-only)" Margin="0,6,0,0">
+                <StackPanel Margin="0,8,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="DatabasePathInput" AutomationProperties.Name="FingVibe SQLite database"
+                                 TextChanged="DatabasePath_Changed" Padding="6" />
+                        <Button Grid.Column="1" Content="Browse..." Click="BrowseDatabase_Click" Margin="8,0,0,0" Padding="12,5" />
+                        <Button Grid.Column="2" Content="Load DB" Click="LoadDatabase_Click" Margin="8,0,0,0" Padding="12,5" />
+                    </Grid>
+                    <WrapPanel Margin="0,8,0,0">
+                        <ComboBox x:Name="DatabaseNetworkPicker" Width="500" DisplayMemberPath="Label"
+                                  SelectionChanged="DatabaseNetwork_Changed" AutomationProperties.Name="Saved network and subnet" />
+                        <Button Content="Compare" Click="CompareDatabase_Click" Margin="8,0,0,0" Padding="12,5" />
+                    </WrapPanel>
+                </StackPanel>
+            </Expander>
+            <TextBlock x:Name="DatabaseStatus" Text="DB not loaded." Margin="0,6,0,0" TextWrapping="Wrap" />
         </StackPanel>
         <DataGrid x:Name="ClientsGrid" Grid.Row="3" IsReadOnly="True" AutoGenerateColumns="False"
                   CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column"
                   AutomationProperties.Name="Captured router clients">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="2*" />
+                <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="180" />
                 <DataGridTextColumn Header="MAC" Binding="{Binding Mac}" Width="160" />
                 <DataGridTextColumn Header="IP" Binding="{Binding Ip}" Width="130" />
                 <DataGridTextColumn Header="Connection" Binding="{Binding Connection}" Width="110" />
-                <DataGridTextColumn Header="Sources" Binding="{Binding Sources}" Width="2*" />
-                <DataGridTextColumn Header="ARP comparison" Binding="{Binding ArpComparison}" Width="2*" />
+                <DataGridTextColumn Header="DB comparison" Binding="{Binding DbComparison}" Width="150" />
+                <DataGridTextColumn Header="DB name" Binding="{Binding DbName}" Width="180" />
+                <DataGridTextColumn Header="DB IP" Binding="{Binding DbIp}" Width="130" />
+                <DataGridTextColumn Header="DB details" Binding="{Binding DbDetails}" Width="220" />
+                <DataGridTextColumn Header="Sources" Binding="{Binding Sources}" Width="180" />
+                <DataGridTextColumn Header="ARP comparison" Binding="{Binding ArpComparison}" Width="220" />
             </DataGrid.Columns>
         </DataGrid>
         <TextBlock x:Name="Status" Grid.Row="4" Margin="0,10,0,0" TextWrapping="Wrap"

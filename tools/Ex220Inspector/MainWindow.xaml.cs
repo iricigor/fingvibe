@@ -11,7 +11,7 @@ namespace Ex220Inspector;
 
 public partial class MainWindow : Window
 {
-    private readonly ClientCapture _capture = new();
+    private ClientCapture _capture = new();
     private readonly RouterLoginSession _login = new();
     private readonly DispatcherTimer _loginTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly string _profile = Path.Combine(Path.GetTempPath(), "FingVibe-Ex220-" + Guid.NewGuid().ToString("N"));
@@ -27,10 +27,13 @@ public partial class MainWindow : Window
     private ulong _navigationId;
     private bool _refreshing;
     private bool _manualLoginPanel;
+    private int _recoveryVersion;
 
     public MainWindow()
     {
         InitializeComponent();
+        DatabasePathInput.Text = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "FingVibe", "device-inventory.sqlite");
         _loginTimer.Tick += LoginTimer_Tick;
     }
 
@@ -77,6 +80,7 @@ public partial class MainWindow : Window
             {
                 if (args.NavigationId != _navigationId || _closing) return;
                 CaptureButton.IsEnabled = args.IsSuccess && !_busy && !_refreshing;
+                UpdateAutomationControls();
                 Status.Text = args.IsSuccess
                     ? "Log in, open a client table, choose its source above, and capture. Router configuration controls are live; do not change settings."
                     : $"Router navigation failed ({args.WebErrorStatus}). Check the router and try Forced refresh.";
@@ -91,6 +95,7 @@ public partial class MainWindow : Window
             _loginTimer.Start();
             RefreshButton.IsEnabled = true;
             core.Navigate("http://192.168.0.1");
+            await LoadDatabaseAsync();
         }
         catch (Exception exception) when (exception is WebView2RuntimeNotFoundException
             or System.Runtime.InteropServices.COMException or ArgumentException or InvalidOperationException
@@ -107,7 +112,7 @@ public partial class MainWindow : Window
 
     private async void Capture_Click(object sender, RoutedEventArgs e)
     {
-        if (_busy || _refreshing || Browser.CoreWebView2 is not { } core) return;
+        if (_busy || _refreshing || _automationCancellation is not null || Browser.CoreWebView2 is not { } core) return;
         _busy = true;
         CaptureButton.IsEnabled = false;
         var source = (ClientSource)SourcePicker.SelectedIndex;
@@ -130,10 +135,12 @@ public partial class MainWindow : Window
             if (table.InvalidRows > 0)
                 throw new InvalidDataException($"{table.InvalidRows} rows could not be parsed. This capture was not saved.");
             _capture.Add(source, table.Clients);
+            InvalidateComparison();
             if (source == ClientSource.Wired) WiredComplete.IsChecked = false;
             RefreshRows();
             Status.Text = $"Captured {table.Clients.Length} visible rows as {SourceName(source)} at {DateTime.Now:T}. " +
                 "Select the next page and capture again if the router paginates. Clear captures before starting a new snapshot.";
+            await CompareCurrentAsync();
         }
         catch (Exception exception) when (exception is JsonException or InvalidDataException
             or InvalidOperationException or System.Runtime.InteropServices.COMException or TimeoutException)
@@ -153,8 +160,9 @@ public partial class MainWindow : Window
 
     private void Clear_Click(object sender, RoutedEventArgs e)
     {
-        if (_busy) return;
+        if (_busy || _automationCancellation is not null) return;
         _capture.Clear();
+        InvalidateComparison();
         WiredComplete.IsChecked = false;
         RefreshRows();
         Status.Text = "Captures cleared. Start a new snapshot by opening Client List.";
@@ -165,7 +173,10 @@ public partial class MainWindow : Window
     private void RefreshRows()
     {
         if (ClientsGrid is null) return;
-        ClientsGrid.ItemsSource = _capture.Rows(WiredComplete.IsChecked == true);
+        ClientsGrid.ItemsSource = _capture.Rows(WiredComplete.IsChecked == true).Select(row =>
+            _databaseMatches.TryGetValue(row.Mac, out var match)
+                ? row with { DbComparison = match.Status, DbName = match.Name, DbIp = match.Ip, DbDetails = match.Details }
+                : row with { DbComparison = _loadedDatabasePath is null ? "DB not loaded" : "Not compared" }).ToArray();
         CaptureSummary.Text = string.Join(" | ", Enum.GetValues<ClientSource>().Select(source =>
             $"{SourceName(source)}: {(_capture.Has(source) ? $"{_capture.Count(source)} captured" : "not captured")}"));
     }
@@ -198,6 +209,12 @@ public partial class MainWindow : Window
             var probe = JsonSerializer.Deserialize<LoginProbe>(json)
                 ?? throw new InvalidDataException("The router login state could not be read.");
             _loginState = probe.State;
+            if (_capturePagesActive && _automationCancellation is not null && (probe.State is "Login" or "Locked"))
+            {
+                _captureFailure = "The router logged out while reading its client pages. Sign in and retry.";
+                _automationCancellation.Cancel();
+                return;
+            }
             var action = _login.Observe(probe.State, probe.Error, DateTimeOffset.UtcNow);
             switch (action)
             {
@@ -258,7 +275,7 @@ public partial class MainWindow : Window
         if (IsActive && !_login.IsPending) LoginPassword.Focus();
     }
 
-    private void ShowLogin_Click(object sender, RoutedEventArgs e)
+    private void PasswordPanel_Click(object sender, RoutedEventArgs e)
     {
         _manualLoginPanel = true;
         ShowLoginPanel(_loginState == "Login"
@@ -340,6 +357,7 @@ public partial class MainWindow : Window
     private void DismissLogin_Click(object sender, RoutedEventArgs e)
     {
         _login.DismissPrompt();
+        CancelCapture_Click(sender, e);
         _manualLoginPanel = false;
         LoginPassword.Clear();
         LoginPanel.Visibility = Visibility.Collapsed;
@@ -380,6 +398,8 @@ public partial class MainWindow : Window
     {
         if (_closing || _refreshing || Browser.CoreWebView2 is not { } core) return;
         _refreshing = true;
+        _recoveryVersion++;
+        CancelCapture_Click(sender, e);
         RefreshButton.IsEnabled = false;
         CaptureButton.IsEnabled = false;
         _loginTimer.Stop();
@@ -412,6 +432,7 @@ public partial class MainWindow : Window
         {
             _refreshing = false;
             if (!_closing) RefreshButton.IsEnabled = true;
+            if (!_closing) UpdateAutomationControls();
         }
     }
 
@@ -421,6 +442,9 @@ public partial class MainWindow : Window
         e.Cancel = true;
         if (_closing) return;
         _closing = true;
+        _automationCancellation?.Cancel();
+        _signInCancellation?.Cancel();
+        _databaseCancellation?.Cancel();
         _loginTimer.Stop();
         _login.Forget();
         LoginPassword.Clear();
@@ -450,6 +474,6 @@ public partial class MainWindow : Window
     }
 
     private sealed record Extraction(ExtractedTable[] Tables, string[] AvailableTitles);
-    private sealed record ExtractedTable(string Title, RouterClient[] Clients, int InvalidRows);
+    private sealed record ExtractedTable(string Title, RouterClient[] Clients, int InvalidRows, int PageNumber, int PageCount);
     private sealed record LoginProbe(string State, bool Error);
 }

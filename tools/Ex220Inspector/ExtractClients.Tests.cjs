@@ -43,9 +43,26 @@ test("extracts only client fields despite reordered columns and sensitive adjace
     }]));
     assert.deepEqual(result.Tables, [{
         Title: "", Clients: [{ Name: "Desktop", Mac: "aa-bb-cc-dd-ee-ff", Ip: "192.168.0.2" }],
-        InvalidRows: 0
+        InvalidRows: 0, PageNumber: 1, PageCount: 1
     }]);
     assert.ok(!JSON.stringify(result).includes("secret"));
+});
+
+test("TP-Link numeric markers include hidden pages and require a unique selected page", () => {
+    const { readClientPagination } = require("./ExtractClients.js");
+    const spans = Array.from({ length: 12 }, (_, index) => ({ textContent: String(index + 1) }));
+    const pager = {
+        matches: selector => selector === ".table-bottom-pages",
+        querySelectorAll: selector => selector === ".click-page" ? [{ textContent: "3" }] : spans,
+        querySelector: () => ({ textContent: "3" })
+    };
+    assert.deepEqual(readClientPagination({}, { nextElementSibling: pager }), { PageNumber: 3, PageCount: 12 });
+    spans.push({ textContent: "3" });
+    assert.throws(() => readClientPagination({}, { nextElementSibling: pager }), /ambiguous/);
+    spans.pop();
+    pager.querySelectorAll = selector => selector === ".click-page"
+        ? [{ textContent: "2" }, { textContent: "3" }] : spans;
+    assert.throws(() => readClientPagination({}, { nextElementSibling: pager }), /ambiguous/);
 });
 
 test("nearby titles select wired clients without mixing the co-visible wireless table", () => {

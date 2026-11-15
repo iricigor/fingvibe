@@ -52,7 +52,10 @@ function extractClients(doc, source) {
             }
             clients.push({ Name: nameIndex >= 0 ? cells[nameIndex] || "" : "", Mac: mac, Ip: ip });
         }
-        tables.push({ Title: tableTitle(table), Clients: clients, InvalidRows: invalidRows });
+        const pagination = readClientPagination(doc, table);
+        const result = { Title: tableTitle(table), Clients: clients, InvalidRows: invalidRows, ...pagination };
+        Object.defineProperty(result, "element", { value: table });
+        tables.push(result);
     }
     return {
         Tables: source ? selectClientTables(tables, source) : tables,
@@ -75,4 +78,29 @@ function selectClientTables(tables, source) {
     return tables.length === 1 && !tables[0].Title ? tables : [];
 }
 
-if (typeof module !== "undefined") module.exports = { extractClients, selectClientTables };
+function clientPager(table) {
+    for (let sibling = table.nextElementSibling; sibling; sibling = sibling.nextElementSibling) {
+        if (sibling.matches("table,h1,h2,h3,h4,h5,h6")) break;
+        if (sibling.matches(".table-bottom-pages")) return sibling;
+    }
+    return null;
+}
+
+function readClientPagination(doc, table) {
+    const pager = clientPager(table);
+    if (!pager) return { PageNumber: 1, PageCount: 1 };
+    const numbers = Array.from(pager.querySelectorAll("span"))
+        .map(element => (element.textContent || "").trim())
+        .filter(value => /^\d+$/.test(value)).map(Number);
+    const selected = Array.from(pager.querySelectorAll(".click-page"));
+    const current = Number((selected[0]?.textContent || "").trim());
+    const total = Math.max(0, ...numbers);
+    if (selected.length !== 1 || !Number.isSafeInteger(current) || current < 1 || current > total ||
+        numbers.length !== total || new Set(numbers).size !== total)
+        throw new Error("The router pagination markers are incomplete or ambiguous.");
+    return { PageNumber: current, PageCount: total };
+}
+
+if (typeof module !== "undefined") module.exports = {
+    extractClients, selectClientTables, clientPager, readClientPagination
+};
