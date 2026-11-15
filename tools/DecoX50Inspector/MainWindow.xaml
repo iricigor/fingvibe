@@ -1,0 +1,116 @@
+<Window x:Class="DecoX50Inspector.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wv="clr-namespace:Microsoft.Web.WebView2.Wpf;assembly=Microsoft.Web.WebView2.Wpf"
+        Title="Deco X50 local client inspector" Width="1280" Height="900"
+        MinWidth="960" MinHeight="680" FontFamily="Segoe UI" FontSize="14"
+        Loaded="Window_Loaded" Closing="Window_Closing">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="3*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="2*" MinHeight="120" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <StackPanel Margin="0,0,0,12">
+            <TextBlock Text="Deco X50 client inspector" FontSize="24" FontWeight="SemiBold" />
+            <TextBlock Margin="0,6,0,0" TextWrapping="Wrap"
+                       Text="Capture Connected Clients across all Decos. Database comparison is read-only. JSON export saves the entire completed snapshot, even when matching rows are hidden." />
+        </StackPanel>
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Border BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}" BorderThickness="1">
+                <wv:WebView2 x:Name="Browser" />
+            </Border>
+            <Border x:Name="LoginPanel" Grid.Column="1" Width="330" Visibility="Collapsed"
+                    Margin="12,0,0,0" Padding="16" VerticalAlignment="Top"
+                    MaxHeight="{Binding ActualHeight, ElementName=Browser}"
+                    Background="{DynamicResource {x:Static SystemColors.WindowBrushKey}}"
+                    BorderBrush="{DynamicResource {x:Static SystemColors.ActiveBorderBrushKey}}" BorderThickness="1">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <TextBlock Text="Local Deco sign-in" FontSize="18" FontWeight="SemiBold" />
+                        <TextBlock x:Name="LoginMessage" Margin="0,8,0,8" TextWrapping="Wrap"
+                                   Text="Enter the password for the router's local login form, or sign in using the router page." />
+                        <Label Content="_Password" Target="{Binding ElementName=LoginPassword}" Padding="0,0,0,4" />
+                        <PasswordBox x:Name="LoginPassword" Padding="6" KeyDown="LoginPassword_KeyDown"
+                                     AutomationProperties.Name="Deco local password" />
+                        <CheckBox x:Name="RememberPassword" Margin="0,10,0,10" IsChecked="True"
+                                  Unchecked="ForgetPassword_Click" Content="Remember only until this inspector closes" />
+                        <WrapPanel>
+                            <Button x:Name="LoginButton" Content="Sign in" Padding="12,5" Margin="0,0,8,8" Click="Login_Click" />
+                            <Button Content="Use router page" Padding="12,5" Margin="0,0,0,8" Click="DismissLogin_Click" />
+                        </WrapPanel>
+                        <TextBlock Text="Passwords remain in process memory only. Cloud login and password setup are not automated."
+                                   FontSize="12" TextWrapping="Wrap" Margin="0,8,0,0" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
+        <StackPanel Grid.Row="2" Margin="0,12,0,8">
+            <WrapPanel>
+                <Button x:Name="CaptureButton" Content="Capture connected clients" Click="Capture_Click"
+                        IsEnabled="False" Padding="12,5" Margin="0,0,8,8" />
+                <Button x:Name="CancelButton" Content="Cancel" Click="Cancel_Click"
+                        IsEnabled="False" Padding="12,5" Margin="0,0,8,8" />
+                <Button x:Name="RefreshButton" Content="Forced refresh" Click="Refresh_Click"
+                        IsEnabled="False" Padding="12,5" Margin="0,0,8,8" />
+                <Button Content="Password..." Click="Password_Click" Padding="12,5" Margin="0,0,8,8" />
+                <Button Content="Forget password" Click="ForgetPassword_Click" Padding="12,5" Margin="0,0,8,8" />
+                <Button x:Name="ExportButton" Content="Export full snapshot (JSON)..." Click="Export_Click"
+                        IsEnabled="False" Padding="12,5" Margin="0,0,8,8" />
+            </WrapPanel>
+            <WrapPanel>
+                <Label Content="Click delay (ms)" Target="{Binding ElementName=ClickDelayInput}" Padding="0,5,8,0" />
+                <TextBox x:Name="ClickDelayInput" Text="500" Width="80" Padding="6"
+                         AutomationProperties.Name="Minimum gap between router clicks in milliseconds" />
+                <CheckBox x:Name="HideSame" Content="Hide Same in DB" Margin="16,5,0,0"
+                          Checked="Filter_Changed" Unchecked="Filter_Changed" />
+            </WrapPanel>
+            <TextBlock x:Name="CaptureSummary" Margin="0,8,0,0" Text="No completed capture." TextWrapping="Wrap" />
+            <Expander Header="FingVibe database (read-only)" Margin="0,6,0,0">
+                <StackPanel Margin="0,8,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="DatabasePath" Padding="6" TextChanged="DatabasePath_Changed"
+                                 AutomationProperties.Name="FingVibe SQLite database" />
+                        <Button Grid.Column="1" Content="Browse..." Click="BrowseDatabase_Click" Padding="12,5" Margin="8,0,0,0" />
+                        <Button Grid.Column="2" Content="Load DB" Click="LoadDatabase_Click" Padding="12,5" Margin="8,0,0,0" />
+                    </Grid>
+                    <WrapPanel Margin="0,8,0,0">
+                        <ComboBox x:Name="DatabaseNetworkPicker" Width="500" DisplayMemberPath="Label"
+                                  SelectionChanged="DatabaseNetwork_Changed" AutomationProperties.Name="Saved network and subnet" />
+                        <Button Content="Compare" Click="Compare_Click" Padding="12,5" Margin="8,0,0,0" />
+                    </WrapPanel>
+                    <TextBlock x:Name="DatabaseStatus" Margin="0,8,0,0" TextWrapping="Wrap"
+                               Text="Load a database and select the Deco's saved network/subnet." />
+                </StackPanel>
+            </Expander>
+            <TextBlock Text="Router configuration controls remain live: do not click Save, Apply, reboot, or reset. The inspector automates only login and client-page navigation."
+                       Margin="0,8,0,0" TextWrapping="Wrap" FontSize="12" />
+        </StackPanel>
+        <DataGrid x:Name="ClientsGrid" Grid.Row="3" IsReadOnly="True" AutoGenerateColumns="False"
+                  CanUserAddRows="False" EnableRowVirtualization="True" AutomationProperties.Name="Captured Deco clients">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Router name" Binding="{Binding Name}" Width="*" MinWidth="120" />
+                <DataGridTextColumn Header="MAC" Binding="{Binding Mac}" Width="155" />
+                <DataGridTextColumn Header="IP" Binding="{Binding Ip}" Width="115" />
+                <DataGridTextColumn Header="Connection" Binding="{Binding Connection}" Width="145" />
+                <DataGridTextColumn Header="DB comparison" Binding="{Binding DbComparison}" Width="135" />
+                <DataGridTextColumn Header="FingVibe name" Binding="{Binding DbName}" Width="*" MinWidth="120" />
+                <DataGridTextColumn Header="DB IP" Binding="{Binding DbIp}" Width="115" />
+                <DataGridTextColumn Header="Differences" Binding="{Binding DbDetails}" Width="*" MinWidth="120" />
+            </DataGrid.Columns>
+        </DataGrid>
+        <TextBlock x:Name="Status" Grid.Row="4" Margin="0,10,0,0" TextWrapping="Wrap"
+                   Text="Starting the isolated router browser..." AutomationProperties.AutomationId="InspectorStatus" />
+    </Grid>
+</Window>

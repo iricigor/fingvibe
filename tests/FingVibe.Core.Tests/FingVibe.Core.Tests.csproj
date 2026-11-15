@@ -22,6 +22,8 @@
     <ProjectReference Include="..\..\src\FingVibe.Core\FingVibe.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\..\tools\DecoX50Inspector\DecoCapture.cs" Link="DecoCapture.cs" />
+    <Compile Include="..\..\tools\DecoX50Inspector\DecoCertificateStore.cs" Link="DecoCertificateStore.cs" />
     <Compile Include="..\..\tools\Ex220Inspector\ClientCapture.cs" Link="Ex220ClientCapture.cs" />
     <Compile Include="..\..\tools\Ex220Inspector\RouterLoginSession.cs" Link="Ex220LoginSession.cs" />
     <Compile Include="..\..\tools\Ex220Inspector\InspectorCaptureRunner.cs" Link="Ex220CaptureRunner.cs" />

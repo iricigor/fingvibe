@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+    <EmbeddedResource Include="ExtractDecoClients.js" />
+    <EmbeddedResource Include="RouterLogin.js" />
+    <Compile Include="..\Ex220Inspector\ClientCapture.cs" Link="Comparison\ClientCapture.cs" />
+    <Compile Include="..\Ex220Inspector\FingVibeDatabaseComparison.cs" Link="Comparison\FingVibeDatabaseComparison.cs" />
+    <Compile Include="..\Ex220Inspector\RouterLoginSession.cs" Link="RouterLoginSession.cs" />
+    <Compile Include="..\Ex220Inspector\InspectorCaptureRunner.cs" Link="InspectorCaptureRunner.cs" />
+    <ProjectReference Include="..\..\src\FingVibe.Core\FingVibe.Core.csproj" />
+  </ItemGroup>
+</Project>
