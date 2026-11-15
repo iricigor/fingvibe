@@ -1,7 +1,8 @@
 function inspectDecoLogin(doc) {
     const visible = element => decoVisible(doc, element);
     const page = doc.querySelector(".local-login-page");
-    const authenticated = visible(doc.querySelector(".map-item.map-clients"));
+    const authenticated = visible(doc.querySelector(".map-item.map-clients")) ||
+        decoClientPageVisible(doc);
     if (!visible(page)) {
         return {
             State: authenticated ? "Authenticated" :

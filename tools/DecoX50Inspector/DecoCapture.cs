@@ -21,7 +21,8 @@ public sealed record DecoProbe(string State, string Error, int ClientCount, Deco
 public sealed record DecoSnapshot(int SchemaVersion, string Router, string SourceUrl,
     DateTimeOffset CapturedAtUtc, int ClientCount, IReadOnlyList<DecoClient> Clients)
 {
-    public static DecoSnapshot Create(IEnumerable<DecoClient> clients, DateTimeOffset capturedAt)
+    public static DecoSnapshot Create(IEnumerable<DecoClient> clients, DateTimeOffset capturedAt,
+        DecoRouterPolicy? router = null)
     {
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var normalized = clients.Select(client =>
@@ -38,7 +39,7 @@ public sealed record DecoSnapshot(int SchemaVersion, string Router, string Sourc
                 throw new InvalidDataException("A Deco client has an unsupported connection type.");
             return client with { Name = client.Name.Trim(), Mac = mac, Ip = ip };
         }).OrderBy(client => client.Mac, StringComparer.Ordinal).ToArray();
-        return new(1, "TP-Link Deco X50", DecoRouterPolicy.SourceUrl, capturedAt.ToUniversalTime(),
+        return new(1, "TP-Link Deco", (router ?? new()).ClientListUrl, capturedAt.ToUniversalTime(),
             normalized.Length, Array.AsReadOnly(normalized));
     }
 
@@ -66,14 +67,32 @@ public sealed record DecoSnapshot(int SchemaVersion, string Router, string Sourc
     }
 }
 
-public static class DecoRouterPolicy
+public sealed class DecoRouterPolicy
 {
+    public const string DefaultIp = "192.168.0.100";
     public const string SourceUrl = "https://192.168.0.100/webpages/index.html#networkMap";
 
-    public static bool IsRouter(string value) =>
+    public string Ip { get; }
+    public string ClientListUrl => $"https://{Ip}/webpages/index.html#networkMap";
+
+    public DecoRouterPolicy(string ip = DefaultIp)
+    {
+        ip = ip.Trim();
+        var parts = ip.Split('.');
+        if (parts.Length != 4 || parts.Any(part => part.Length is < 1 or > 3 ||
+            part.Any(character => !char.IsAsciiDigit(character)) ||
+            !byte.TryParse(part, out _) || part.Length > 1 && part[0] == '0') ||
+            !IPAddress.TryParse(ip, out var address) || address.GetAddressBytes()[0] is 0 or 127 or >= 224)
+            throw new ArgumentException("Router IP must be a dotted IPv4 unicast address, such as 192.168.0.111.", nameof(ip));
+        Ip = ip;
+    }
+
+    public bool Allows(string value) =>
         Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
-        uri.Scheme == Uri.UriSchemeHttps && uri.Host == "192.168.0.100" &&
+        uri.Scheme == Uri.UriSchemeHttps && uri.Host == Ip &&
         uri.Port == 443 && uri.UserInfo.Length == 0;
+
+    public static bool IsRouter(string value) => new DecoRouterPolicy().Allows(value);
 
     public static string Fingerprint(string pem)
     {
@@ -82,7 +101,10 @@ public static class DecoRouterPolicy
     }
 
     public static bool IsTrusted(string uri, string fingerprint, string? approved) =>
-        IsRouter(uri) && approved is not null &&
+        new DecoRouterPolicy().Trusts(uri, fingerprint, approved);
+
+    public bool Trusts(string uri, string fingerprint, string? approved) =>
+        Allows(uri) && approved is not null &&
         string.Equals(fingerprint, approved, StringComparison.Ordinal);
 }
 
@@ -92,7 +114,7 @@ public static class DecoCaptureRunner
         Func<CancellationToken, Task> prepare,
         Func<CancellationToken, Task<DecoProbe>> read,
         Action<int, string> progress, CancellationToken token,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null, DecoRouterPolicy? router = null)
     {
         var time = timeProvider ?? TimeProvider.System;
         for (var attempt = 1; attempt <= 5; attempt++)
@@ -114,7 +136,7 @@ public static class DecoCaptureRunner
                         throw new InspectorTransientCaptureException("The Deco session expired.");
                     if (probe.State == "Ready")
                     {
-                        var current = DecoSnapshot.Create(probe.Clients, time.GetUtcNow());
+                        var current = DecoSnapshot.Create(probe.Clients, time.GetUtcNow(), router);
                         if (probe.ClientCount != current.ClientCount)
                             throw new InvalidDataException("The Deco count does not match the extracted client list.");
                         if (previous is not null && previous.Clients.SequenceEqual(current.Clients))
@@ -151,8 +173,15 @@ public static class DecoClientNavigation
     {
         var time = timeProvider ?? TimeProvider.System;
         token.ThrowIfCancellationRequested();
-        if (!await click("clients", token))
+        var clicked = await click("clients", token);
+        token.ThrowIfCancellationRequested();
+        if (!clicked)
+        {
+            var ready = await visible(token);
+            token.ThrowIfCancellationRequested();
+            if (ready) return;
             throw new InspectorTransientCaptureException("The Clients map control is not ready.");
+        }
         if (await WaitForGridAsync(TimeSpan.FromSeconds(3))) return;
         if (!await click("internet", token))
             throw new InspectorTransientCaptureException("The Internet fallback control is not ready.");

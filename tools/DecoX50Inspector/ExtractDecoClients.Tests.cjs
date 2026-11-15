@@ -1,6 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { readDecoClients, openDecoClients, clickDecoMap } = require("./ExtractDecoClients.js");
+const { readDecoClients, openDecoClients, clickDecoMap, decoClientPageVisible } = require("./ExtractDecoClients.js");
 const { readFileSync } = require("node:fs");
 const vm = require("node:vm");
 
@@ -21,7 +21,7 @@ function fixture(definitions, options = {}) {
             for (const key of [".name", ".mac", ".ip"]) fields[key].push(node("hidden", true));
         }
         return {
-            ...node(), classList: { contains: name => client.empty && name === "empty" },
+            ...node(client.emptyText ?? ""), classList: { contains: name => client.empty && name === "empty" },
             querySelectorAll: selector => fields[selector] || []
         };
     });
@@ -32,10 +32,10 @@ function fixture(definitions, options = {}) {
     };
     const panel = {
         querySelector: () => null,
-        querySelectorAll: selector => selector === ".combobox-text" ? [choice] : []
+        querySelectorAll: selector => selector === ".combobox-text" && !options.noScope ? [choice] : []
     };
     const grid = {
-        ...node(), closest: () => panel,
+        ...node(), closest: () => options.noPanel ? null : panel,
         querySelectorAll: selector => selector.startsWith("tbody") ? rows :
             options.pagination ? [node()] : []
     };
@@ -43,14 +43,16 @@ function fixture(definitions, options = {}) {
     let clicked = false;
     const control = { ...node(), scrollIntoView: () => { }, click: () => { clicked = true; } };
     const doc = {
+        location: { hash: options.hash ?? "#networkMap" },
         defaultView: {
             getComputedStyle: element => ({ display: element.hidden ? "none" : "block", visibility: "visible" })
         },
         getElementById: () => null,
-        querySelector: selector => selector.endsWith(".map-clients-icon-num") ? count :
-            selector === ".map-item.map-clients" ? control : null,
+        querySelector: selector => selector.endsWith(".map-clients-icon-num") ? options.noCount ? null : count :
+            selector === ".map-item.map-clients" && !options.noMap ? control : null,
         querySelectorAll: selector => selector === ".connected-clients-grid" ? [grid] :
-            selector === ".map-item.map-clients" ? [control] : []
+            selector === ".map-item.map-clients" && !options.noMap ? [control] :
+                selector === ".loading,.grid-loading,.mask" && options.loading ? [node()] : []
     };
     return { doc, clicked: () => clicked };
 }
@@ -76,6 +78,28 @@ test("does not publish partial lists or unverified empty states", () => {
     assert.equal(readDecoClients(fixture([{}], { count: 2 }).doc).State, "Incomplete");
     assert.equal(readDecoClients(fixture([], { count: 0 }).doc).State, "Loading");
     assert.equal(readDecoClients(fixture([{ empty: true }], { count: 0 }).doc).State, "Ready");
+});
+
+test("client-mode empty table is successful without Basic-page controls, scope or count", () => {
+    const options = { noMap: true, noScope: true, noCount: true, noPanel: true };
+    const definitions = [{ empty: true, emptyText: "No Entries in this table." }];
+    const { doc } = fixture(definitions, options);
+    assert.equal(decoClientPageVisible(doc), true);
+    assert.deepEqual(readDecoClients(doc), { State: "Ready", Error: "", ClientCount: 0, Clients: [] });
+    const context = { module: { exports: {} } };
+    vm.createContext(context);
+    vm.runInContext(readFileSync(require.resolve("./ExtractDecoClients.js"), "utf8") +
+        readFileSync(require.resolve("./RouterLogin.js"), "utf8"), context);
+    assert.equal(context.module.exports.inspectDecoLogin(doc).State, "Authenticated");
+    assert.equal(decoClientPageVisible(fixture(definitions, { ...options, loading: true }).doc), false);
+    assert.equal(readDecoClients(fixture(definitions, { ...options, loading: true }).doc).State, "Loading");
+    assert.throws(() => readDecoClients(fixture(definitions, { ...options, hash: "#other" }).doc), /panel/);
+    assert.throws(() => readDecoClients(fixture([{ empty: true }], options).doc), /panel/);
+    assert.throws(() => readDecoClients(fixture([{}], options).doc), /panel/);
+    assert.throws(() => readDecoClients(fixture(definitions, { ...options, pagination: true }).doc), /pagination/);
+    assert.throws(() => readDecoClients(fixture(definitions,
+        { ...options, noPanel: false, noScope: false, selection: "Living room" }).doc), /All Decos/);
+    assert.equal(readDecoClients(fixture(definitions, { ...options, noCount: false, count: 2 }).doc).State, "Incomplete");
 });
 
 test("preserves clients with unavailable IPs and identifies the actual malformed value", () => {

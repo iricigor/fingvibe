@@ -16,7 +16,8 @@ public sealed class DecoInspectorTests
     public async Task ExportWritesFullImmutableSnapshotWithMetadataAndNoDatabaseOrBrowserSecrets()
     {
         var clients = new[] { Client(), new DecoClient("WDMyCloud", "00:90:A9:EE:92:65", "192.168.0.123", "Wired") };
-        var snapshot = DecoSnapshot.Create(clients, DateTimeOffset.Parse("2026-11-15T22:00:00+01:00"));
+        var snapshot = DecoSnapshot.Create(clients, DateTimeOffset.Parse("2026-11-15T22:00:00+01:00"),
+            new("192.168.0.111"));
         clients[0] = Client(ip: "192.168.0.99");
         var path = Path.Combine(Path.GetTempPath(), $"deco-export-{Guid.NewGuid():N}.json");
         try
@@ -30,7 +31,7 @@ public sealed class DecoInspectorTests
             foreach (var client in root.GetProperty("clients").EnumerateArray())
                 Assert.Equal(new[] { "name", "mac", "ip", "connection" },
                     client.EnumerateObject().Select(property => property.Name));
-            Assert.Equal(DecoRouterPolicy.SourceUrl, root.GetProperty("sourceUrl").GetString());
+            Assert.Equal("https://192.168.0.111/webpages/index.html#networkMap", root.GetProperty("sourceUrl").GetString());
             Assert.Equal(TimeSpan.Zero, root.GetProperty("capturedAtUtc").GetDateTimeOffset().Offset);
             Assert.Contains(snapshot.Clients, client => client.Mac == "00:28:F8:9E:88:51" && client.Ip == "192.168.0.110");
             Assert.All(root.EnumerateObject(), property =>
@@ -91,6 +92,86 @@ public sealed class DecoInspectorTests
     {
         Assert.Equal(trusted, DecoRouterPolicy.IsTrusted(uri, fingerprint, "approved"));
         Assert.False(DecoRouterPolicy.IsTrusted(uri, fingerprint, null));
+    }
+
+    [Theory]
+    [InlineData("192.168.0.111", "https://192.168.0.111/webpages/index.html#networkMap", true)]
+    [InlineData("192.168.0.111", "https://192.168.0.100/", false)]
+    [InlineData("192.168.0.111", "http://192.168.0.111/", false)]
+    [InlineData("192.168.0.111", "https://192.168.0.111:8443/", false)]
+    [InlineData("192.168.0.111", "https://user@192.168.0.111/", false)]
+    [InlineData("192.168.0.111", "https://192.168.0.111.example.com/", false)]
+    public void ConfiguredEndpointRestrictsNavigationAndCertificateTrust(string ip, string url, bool allowed)
+    {
+        var router = new DecoRouterPolicy(ip);
+        Assert.Equal(allowed, router.Allows(url));
+        Assert.Equal(allowed, router.Trusts(url, "approved", "approved"));
+        Assert.False(router.Trusts(url, "changed", "approved"));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("192.168.0.999")]
+    [InlineData("192.168.111")]
+    [InlineData("192.168.000.111")]
+    [InlineData("https://192.168.0.111/")]
+    [InlineData("192.168.0.111:443")]
+    [InlineData("127.0.0.1")]
+    [InlineData("0.0.0.0")]
+    [InlineData("224.0.0.1")]
+    public void InvalidConfiguredEndpointsFailExplicitly(string ip) =>
+        Assert.Throws<ArgumentException>(() => new DecoRouterPolicy(ip));
+
+    [Fact]
+    public void ConfiguredCertificateStoresCannotReuseTheOriginalEndpointsApproval()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"deco-endpoints-{Guid.NewGuid():N}");
+        var originalPath = DecoCertificateStore.PathFor(new());
+        Assert.Equal(DecoCertificateStore.DefaultPath, originalPath);
+        var original = new DecoCertificateStore(Path.Combine(directory, Path.GetFileName(originalPath)));
+        var otherPath = Path.Combine(directory, Path.GetFileName(DecoCertificateStore.PathFor(new("192.168.0.111"))));
+        var other = new DecoCertificateStore(otherPath);
+        try
+        {
+            original.Save(new string('A', 64));
+            Assert.Null(other.Load());
+            other.Save(new string('B', 64));
+            Assert.Equal(new string('A', 64), original.Load());
+            Assert.Equal(new string('B', 64), new DecoCertificateStore(otherPath).Load());
+        }
+        finally
+        {
+            foreach (var path in Directory.GetFiles(directory)) File.Delete(path);
+            Directory.Delete(directory);
+        }
+    }
+
+    [Fact]
+    public async Task RepairedPageWithoutMapControlsCanCaptureAStableEmptySnapshotWithSelectedEndpoint()
+    {
+        await DecoClientNavigation.OpenAsync((_, _) => Task.FromResult(false),
+            _ => Task.FromResult(true), CancellationToken.None);
+        await Assert.ThrowsAsync<InspectorTransientCaptureException>(() =>
+            DecoClientNavigation.OpenAsync((_, _) => Task.FromResult(false),
+                _ => Task.FromResult(false), CancellationToken.None));
+        var time = new FakeTimeProvider();
+        var reads = 0;
+        var capture = DecoCaptureRunner.CaptureAsync(_ => Task.CompletedTask,
+            _ => { reads++; return Task.FromResult(new DecoProbe("Ready", "", 0, [])); },
+            (_, _) => { }, CancellationToken.None, time, new("192.168.0.111"));
+        time.Advance(TimeSpan.FromMilliseconds(300));
+        var snapshot = await capture.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(2, reads);
+        Assert.Empty(snapshot.Clients);
+        Assert.Equal("https://192.168.0.111/webpages/index.html#networkMap", snapshot.SourceUrl);
+        Assert.Equal("TP-Link Deco", snapshot.Router);
+        using var cancellation = new CancellationTokenSource();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            DecoClientNavigation.OpenAsync((_, _) => Task.FromResult(false), _ =>
+            {
+                cancellation.Cancel();
+                return Task.FromResult(true);
+            }, cancellation.Token));
     }
 
     [Fact]

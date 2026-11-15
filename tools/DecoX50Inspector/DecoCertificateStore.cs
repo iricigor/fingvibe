@@ -9,6 +9,10 @@ public sealed class DecoCertificateStore(string path)
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "FingVibe-DecoX50Inspector", "approved-certificate.sha256");
 
+    public static string PathFor(DecoRouterPolicy router) => router.Ip == DecoRouterPolicy.DefaultIp
+        ? DefaultPath
+        : Path.Combine(Path.GetDirectoryName(DefaultPath)!, $"approved-certificate-{router.Ip}.sha256");
+
     public string? Load()
     {
         try
