@@ -118,6 +118,12 @@ jobs:
         shell: pwsh
         run: .\tests\Agent3DispatcherGate.Tests.ps1
 
+      - name: Test independent loop4 coordination and evidence collection
+        shell: pwsh
+        run: |
+          .\tests\Agent4Coordination.Tests.ps1
+          .\tests\Agent4DispatcherPacket.Tests.ps1
+
       - name: Test ISP logo build configuration
         shell: pwsh
         run: .\tests\LogoDevConfiguration.Tests.ps1

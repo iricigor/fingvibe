@@ -276,6 +276,14 @@ Run the deterministic gate regression checks without starting real agents:
 .\tests\DispatcherGate.Tests.ps1
 ```
 
+## Independent loop4
+
+The independent [loop4 source setup](docs/agentic-loop-4/README.md) uses separate
+4️⃣ profiles, Developer-side semantic assessment and two total in-flight tasks.
+It reuses the unchanged repository gate, not older execution state or authority.
+Its focused checks are `tests/Agent4Coordination.Tests.ps1` and
+`tests/Agent4DispatcherPacket.Tests.ps1`; no live installation/activation is implied.
+
 ## Architecture discussions with Architect
 
 For issue intake, Epic/task templates, and the label/ownership contract for
