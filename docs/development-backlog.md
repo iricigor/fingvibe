@@ -229,13 +229,28 @@ pending CI. The task remains existing work, not eligible new pickup. Completed
 CI prioritizes its next repair/finalization assessment. No-code work needs no PR.
 
 Dispatcher no longer ingests Progress or manages revisioned claims/delivery-based
-slot release. Original human authority and readable assignment/report correlation
-remain in Discussions and the actual host context. Do not overlap Dispatcher
+slot release. Readable assignment/report correlation remains in Discussions and
+the actual host context. Do not overlap Dispatcher
 cycles or duplicate uncertain offers/starts. Preserve historical state, foreign
 ownership and older-loop behavior; outstanding old work needs reconciliation.
-Human target/merge/repair authority, conflict checks, affected-UI 240-second rule
+Conflict checks, affected-UI 240-second rule
 and CI/protection/release gates remain intact. Source changes authorize no live
 setup, workload, Automation activation or schedule.
+
+[Task #413](https://github.com/iricigor/fingvibe/issues/413) changes 4️⃣ only,
+with explicit human approval:
+
+- A human starting or scheduling the Dispatcher authorizes that run for the
+  Epic in its prompt; no approval link is required. Optional prompt lines set
+  `merge` (default yes) and `repairs` (default 12 cumulative attempts per task).
+- The Developer claims a task on accepting a start: `active` plus FingVibe
+  backlog project Status In Progress.
+- Assignment markers in the task Discussion are the ownership record; the
+  packet script excludes tasks with open assignments.
+- Every cycle the Dispatcher asks both Developers. If the assigned Developer
+  reports it is not executing an open assignment, the Dispatcher releases it
+  and offers the task again. This is a deliberate 4️⃣-only exception to the
+  "no orphan recovery" rule below; a missing reply or age never releases work.
 
 ## Explicitly invoked manual-worker exception
 
