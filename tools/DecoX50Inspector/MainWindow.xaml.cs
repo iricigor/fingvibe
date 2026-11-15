@@ -159,7 +159,7 @@ public partial class MainWindow : Window
     }
 
     private static bool BrowserFailure(Exception exception) =>
-        exception is COMException or InvalidOperationException or JsonException or TimeoutException or ArgumentException;
+        DecoFailurePolicy.IsBrowserError(exception);
 
     private async Task<T> EvaluateAsync<T>(string expression, CancellationToken token)
     {

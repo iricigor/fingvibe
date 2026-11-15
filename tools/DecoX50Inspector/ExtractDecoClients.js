@@ -29,8 +29,9 @@ function readDecoClients(doc) {
     const result = (State, ClientCount = 0, Clients = [], Error = "") =>
         ({ State, Error, ClientCount, Clients });
     const visible = element => decoVisible(doc, element);
-    if (visible(doc.querySelector(".local-login-page")) ||
-        visible(doc.querySelector(".login-view"))) return result("Login");
+    const authenticated = visible(doc.querySelector(".map-item.map-clients"));
+    if (!authenticated && (visible(doc.querySelector(".local-login-page")) ||
+        visible(doc.querySelector(".login-view")))) return result("Login");
     const grids = Array.from(doc.querySelectorAll(".connected-clients-grid")).filter(visible);
     if (grids.length === 0) return result("Loading");
     if (grids.length !== 1) throw new Error("The Deco connected-client grid is ambiguous.");

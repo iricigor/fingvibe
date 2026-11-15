@@ -99,7 +99,7 @@ test("opens only the known map-clients control", () => {
     assert.throws(() => openDecoClients(example.doc), /ambiguous/);
 });
 
-function loginFixture({ locked = false, error = false } = {}) {
+function loginFixture({ locked = false, error = false, incomplete = false, authenticated = false } = {}) {
     const events = [];
     const password = {
         ...node(), value: "", disabled: locked, dispatchEvent: event => events.push(event)
@@ -107,9 +107,10 @@ function loginFixture({ locked = false, error = false } = {}) {
     const button = node();
     const page = {
         ...node(),
-        querySelectorAll: selector => selector === "[id$='local-login-pwd'] input[type='password']" ?
-            [password] : selector.includes("error-tips") && error ? [node("Rejected")] : [],
-        querySelector: selector => selector === "[id$='local-login-button']" ? button : null
+        querySelectorAll: selector => selector === ".login-card .password-container input[type='password']" ?
+            incomplete ? [] : [password] : selector === ".login-card .button-container.full-line" ?
+                incomplete ? [] : [button] : selector.includes("error-tips") && error ? [node("Rejected")] : [],
+        querySelector: () => null
     };
     const doc = {
         defaultView: {
@@ -117,8 +118,10 @@ function loginFixture({ locked = false, error = false } = {}) {
             Event: class { constructor(type, options) { this.type = type; Object.assign(this, options); } },
             KeyboardEvent: class { constructor(type, options) { this.type = type; Object.assign(this, options); } }
         },
-        querySelector: selector => selector === ".local-login-page" ? page : null,
-        querySelectorAll: selector => selector === "[id$='local-login-pwd'] input[type='password']" ? [password] : [],
+        querySelector: selector => selector === ".local-login-page" ? page :
+            selector === ".map-item.map-clients" && authenticated ? node() : null,
+        querySelectorAll: selector =>
+            selector === ".local-login-page .login-card .password-container input[type='password']" ? [password] : [],
         getElementById: () => null
     };
     return { doc, password, events };
@@ -139,4 +142,7 @@ test("uses the verified Deco keyup Enter handler and stops on rejected or locked
         assert.equal(context.module.exports.submitDecoLogin(other.doc, "fixture-password"), false);
         assert.equal(other.events.length, 0);
     }
+    assert.equal(context.module.exports.inspectDecoLogin(loginFixture({ incomplete: true }).doc).State, "Other");
+    assert.equal(context.module.exports.inspectDecoLogin(
+        loginFixture({ incomplete: true, authenticated: true }).doc).State, "Authenticated");
 });

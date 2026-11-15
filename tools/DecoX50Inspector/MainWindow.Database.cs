@@ -125,6 +125,6 @@ public partial class MainWindow
     }
 
     private static bool DatabaseFailure(Exception exception) =>
-        exception is IOException or UnauthorizedAccessException or SqliteException or JsonException
+        exception is InvalidDataException or IOException or UnauthorizedAccessException or SqliteException or JsonException
             or ArgumentException or InvalidOperationException;
 }

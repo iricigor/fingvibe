@@ -1,23 +1,27 @@
 function inspectDecoLogin(doc) {
     const visible = element => decoVisible(doc, element);
     const page = doc.querySelector(".local-login-page");
+    const authenticated = visible(doc.querySelector(".map-item.map-clients"));
     if (!visible(page)) {
         return {
-            State: visible(doc.querySelector(".map-item.map-clients")) ? "Authenticated" :
+            State: authenticated ? "Authenticated" :
                 visible(doc.querySelector(".login-view")) ? "Unsupported" : "Other",
             Error: false
         };
     }
     const inputs = Array.from(page.querySelectorAll(
-        "[id$='local-login-pwd'] input[type='password']"))
+        ".login-card .password-container input[type='password']"))
         .filter(visible);
-    const button = page.querySelector("[id$='local-login-button']");
+    const buttons = Array.from(page.querySelectorAll(".login-card .button-container.full-line"))
+        .filter(visible);
+    if (inputs.length !== 1 || buttons.length !== 1)
+        return { State: authenticated ? "Authenticated" : "Other", Error: false };
+    const button = buttons[0];
     const rejected = Array.from(page.querySelectorAll(
-        ".widget-error-tips,.password-error-tips,[id$='left-attempts-prompt'],[id$='max-attempts-prompt']"))
+        ".widget-error-tips,.password-error-tips,.msg-container"))
         .some(element => visible(element) && decoText(element).length > 0);
     return {
-        State: inputs.length !== 1 || !visible(button) ? "Unsupported" :
-            inputs[0].disabled || button.classList.contains("disabled") ? "Locked" : "Login",
+        State: inputs[0].disabled || button.classList.contains("disabled") ? "Locked" : "Login",
         Error: rejected
     };
 }
@@ -25,7 +29,8 @@ function inspectDecoLogin(doc) {
 function submitDecoLogin(doc, password) {
     const state = inspectDecoLogin(doc);
     if (state.State !== "Login" || state.Error) return false;
-    const input = Array.from(doc.querySelectorAll("[id$='local-login-pwd'] input[type='password']"))
+    const input = Array.from(doc.querySelectorAll(
+        ".local-login-page .login-card .password-container input[type='password']"))
         .filter(element => decoVisible(doc, element))[0];
     input.value = password;
     const view = doc.defaultView;

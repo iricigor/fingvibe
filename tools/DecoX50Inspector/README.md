@@ -35,8 +35,8 @@ activates its Clients control and reads **Connected Clients (All Deco's)**.
 This firmware renders all rows, including those below the viewport, in
 the grid's stable `connected-clients-grid` CSS class; extraction does not depend
 on screenshot scrolling. The framework prefixes widget IDs with view namescopes,
-so navigation/grid selectors use stable classes and local-login selectors use
-known ID suffixes rather than assuming the unrendered template's bare IDs.
+so navigation, grid and the known local-login card use stable classes rather
+than assuming the unrendered template's IDs.
 The All Decos selection, unique grid, rendered client count, MAC/IP fields and
 explicit connection labels are checked. Hidden responsive duplicates are ignored.
 Two complete, consistent observations of names/MACs/IPs/connections are required;

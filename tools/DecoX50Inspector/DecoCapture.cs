@@ -1,11 +1,19 @@
 using System.IO;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using Ex220Inspector;
 
 namespace DecoX50Inspector;
+
+public static class DecoFailurePolicy
+{
+    public static bool IsBrowserError(Exception exception) =>
+        exception is InvalidDataException or COMException or InvalidOperationException
+            or JsonException or TimeoutException or ArgumentException;
+}
 
 public sealed record DecoClient(string Name, string Mac, string Ip, string Connection);
 public sealed record DecoProbe(string State, string Error, int ClientCount, DecoClient[] Clients);

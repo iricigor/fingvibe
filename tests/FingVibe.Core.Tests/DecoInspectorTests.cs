@@ -134,6 +134,21 @@ public sealed class DecoInspectorTests
     }
 
     [Fact]
+    public async Task TerminalLoginAndMalformedCaptureErrorsAreHandledByTheUiFailureFilter()
+    {
+        foreach (var message in new[] { "Unsupported local login", "Malformed MAC" })
+        {
+            var failure = await Record.ExceptionAsync(() => DecoCaptureRunner.CaptureAsync(
+                _ => throw new InvalidDataException(message),
+                _ => throw new InvalidOperationException(), (_, _) => { }, CancellationToken.None));
+            Assert.NotNull(failure);
+            Assert.True(DecoFailurePolicy.IsBrowserError(failure));
+            Assert.Equal(message, failure.Message);
+        }
+        Assert.False(DecoFailurePolicy.IsBrowserError(new NullReferenceException("unexpected defect")));
+    }
+
+    [Fact]
     public async Task CancellationDuringRetryWaitStopsFurtherAttemptsWithoutReturningSnapshot()
     {
         using var cancellation = new CancellationTokenSource();
