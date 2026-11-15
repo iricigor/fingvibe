@@ -205,6 +205,33 @@ unchanged. See the [reporting/cutover contract](agentic-loop-3/discussions.md).
 Existing workers/claims must be stopped/reconciled and saved-profile updates
 explicitly approved before live cutover; source publication is not activation.
 
+## Independent loop4 source environment
+
+[Task #386](https://github.com/iricigor/fingvibe/issues/386) adds separate
+**4️⃣ Dispatcher**, **4️⃣ Developer 1** and **4️⃣ Developer 2** source profiles.
+The [setup](agentic-loop-4/README.md), [protocol](agentic-loop-4/protocol.md)
+and [Developer contract](agentic-loop-4/developer.md) apply only to this setup.
+Older agents, saved Automations, claims, counters and behavior remain unchanged.
+Source publication does not install, activate, migrate or authorize workloads.
+
+The human confirmed two total in-flight tasks, one per Developer, including
+CI/review waits and blocked claims. PowerShell collects repository work state
+and proposes four mechanically eligible candidates; initial offers use queue
+positions 1/3 for Developer 1 and 2/4 for Developer 2. Developers perform semantic
+scope/dependency/compatibility assessment, using labels as signals rather than
+proof. Dispatcher commits confirmations serially against current state revisions
+before coding. Offers and message admission are not execution authorization.
+
+Authoritative state/events remain in separate local storage; original human
+decisions and readable reports remain in Discussions, not a full state backup.
+The unchanged common repository gate and cross-loop conflict/ownership checks
+remain mandatory. Explicit target/permissions and repair limits are configured
+from original independently retrievable human approval; none transfer from older
+loops. Actual host stopping, delivery and cleanup remain required for release.
+No blind relaunch, expiry, replacement worker or automatic old-loop recovery is
+introduced. Existing validation, affected-UI 240-second rule, merge permissions
+and release behavior remain intact.
+
 ## Explicitly invoked manual-worker exception
 
 [Task #189](https://github.com/iricigor/fingvibe/issues/189) adds the
