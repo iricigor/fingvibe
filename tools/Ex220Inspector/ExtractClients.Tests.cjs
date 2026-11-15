@@ -1,11 +1,19 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { extractClients } = require("./ExtractClients.js");
+const { extractClients, selectClientTables } = require("./ExtractClients.js");
 
 function documentWithTables(definitions) {
-    const tables = definitions.map(({ headings, rows, hidden = false, headerInBody = false }) => {
+    const tables = definitions.map(({ headings, rows, hidden = false, headerInBody = false, title = "" }) => {
+        const titleElement = title ? {
+            innerText: title,
+            matches: selector => selector !== "table",
+            querySelector: () => null,
+            querySelectorAll: () => [],
+            getClientRects: () => [{}]
+        } : null;
         const table = {
             hidden,
+            previousElementSibling: titleElement,
             getClientRects: () => hidden ? [] : [{}],
             querySelector: () => table.rows[0],
             querySelectorAll: selector => selector === "tr" ? table.rows : headerInBody ? [] : table.header.cells
@@ -34,10 +42,37 @@ test("extracts only client fields despite reordered columns and sensitive adjace
         rows: [["192.168.0.2", "secret-do-not-return", "aa-bb-cc-dd-ee-ff", "Desktop"]]
     }]));
     assert.deepEqual(result.Tables, [{
-        Clients: [{ Name: "Desktop", Mac: "aa-bb-cc-dd-ee-ff", Ip: "192.168.0.2" }],
+        Title: "", Clients: [{ Name: "Desktop", Mac: "aa-bb-cc-dd-ee-ff", Ip: "192.168.0.2" }],
         InvalidRows: 0
     }]);
     assert.ok(!JSON.stringify(result).includes("secret"));
+});
+
+test("nearby titles select wired clients without mixing the co-visible wireless table", () => {
+    const result = extractClients(documentWithTables([
+        { title: "Wireless Clients", headings: ["Name", "MAC", "IP"],
+            rows: [["Phone", "00:11:22:33:44:55", "192.168.0.3"]] },
+        { title: "Wired Clients (1)", headings: ["Name", "MAC", "IP"],
+            rows: [["Desktop", "aa:bb:cc:dd:ee:ff", "192.168.0.2"]] }
+    ]), "Wired");
+    assert.equal(result.Tables.length, 1);
+    assert.equal(result.Tables[0].Clients[0].Name, "Desktop");
+});
+
+test("ARP section title selects ARP rather than the binding list", () => {
+    const result = extractClients(documentWithTables([
+        { title: "ARP List", headings: ["MAC", "IP"], rows: [["aa:bb:cc:dd:ee:ff", "192.168.0.2"]] },
+        { title: "Binding List", headings: ["MAC", "IP"], rows: [["00:11:22:33:44:55", "192.168.0.3"]] }
+    ]), "Arp");
+    assert.equal(result.Tables.length, 1);
+    assert.equal(result.Tables[0].Title, "ARP List");
+});
+
+test("wrong source is not silently accepted and duplicate matching titles stay ambiguous", () => {
+    assert.deepEqual(selectClientTables([{ Title: "Wireless Clients" }], "Wired"), []);
+    assert.equal(selectClientTables([{ Title: "" }], "Clients").length, 1);
+    assert.equal(selectClientTables([{ Title: "" }, { Title: "" }], "Clients").length, 0);
+    assert.equal(selectClientTables([{ Title: "ARP List" }, { Title: "ARP List" }], "Arp").length, 2);
 });
 
 test("ARP without names and headers in the table body are supported", () => {

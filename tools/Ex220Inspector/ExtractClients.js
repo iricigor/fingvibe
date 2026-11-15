@@ -1,4 +1,4 @@
-function extractClients(doc) {
+function extractClients(doc, source) {
     const visible = element => {
         const style = doc.defaultView.getComputedStyle(element);
         return style.display !== "none" && style.visibility !== "hidden" &&
@@ -7,6 +7,21 @@ function extractClients(doc) {
     const text = element => (element.innerText || "").replace(/\s+/g, " ").trim();
     const macPattern = /\b(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}\b/i;
     const ipPattern = /\b(?:\d{1,3}\.){3}\d{1,3}\b/;
+    const titleSelector = "h1,h2,h3,h4,h5,h6,legend,[role='heading'],.table-title,.section-title,.title";
+    function tableTitle(table) {
+        if (table.caption && visible(table.caption)) return text(table.caption);
+        for (let node = table; node && node !== doc.body; node = node.parentElement) {
+            for (let sibling = node.previousElementSibling; sibling; sibling = sibling.previousElementSibling) {
+                if (sibling.matches("table") || sibling.querySelector("table")) break;
+                const headings = [
+                    ...(sibling.matches(titleSelector) ? [sibling] : []),
+                    ...sibling.querySelectorAll(titleSelector)
+                ].filter(visible);
+                if (headings.length) return text(headings[headings.length - 1]);
+            }
+        }
+        return "";
+    }
     const tables = [];
     for (const table of doc.querySelectorAll("table")) {
         if (!visible(table)) continue;
@@ -37,9 +52,27 @@ function extractClients(doc) {
             }
             clients.push({ Name: nameIndex >= 0 ? cells[nameIndex] || "" : "", Mac: mac, Ip: ip });
         }
-        tables.push({ Clients: clients, InvalidRows: invalidRows });
+        tables.push({ Title: tableTitle(table), Clients: clients, InvalidRows: invalidRows });
     }
-    return { Tables: tables };
+    return {
+        Tables: source ? selectClientTables(tables, source) : tables,
+        AvailableTitles: tables.map(table => table.Title).filter(Boolean)
+    };
 }
 
-if (typeof module !== "undefined") module.exports = { extractClients };
+function selectClientTables(tables, source) {
+    const aliases = {
+        Clients: ["client list", "clients", "dhcp client list"],
+        Wired: ["wired clients", "wired client list", "wired devices", "wired client"],
+        Arp: ["arp list", "arp client list", "arp table", "arp client table"]
+    };
+    const normalize = value => value.toLowerCase().replace(/\s+/g, " ")
+        .replace(/\s*(?:\(\d+\)|:\s*\d*)\s*$/, "").trim();
+    const names = aliases[source];
+    if (!names) throw new Error("Unknown client source.");
+    const matched = tables.filter(table => names.includes(normalize(table.Title)));
+    if (matched.length) return matched;
+    return tables.length === 1 && !tables[0].Title ? tables : [];
+}
+
+if (typeof module !== "undefined") module.exports = { extractClients, selectClientTables };

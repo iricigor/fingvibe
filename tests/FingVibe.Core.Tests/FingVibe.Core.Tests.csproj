@@ -23,6 +23,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\..\tools\Ex220Inspector\ClientCapture.cs" Link="Ex220ClientCapture.cs" />
+    <Compile Include="..\..\tools\Ex220Inspector\RouterLoginSession.cs" Link="Ex220LoginSession.cs" />
     <Compile Include="..\..\src\FingVibe.App\BuildIdentity.cs" Link="BuildIdentity.cs" />
     <Compile Include="..\..\src\FingVibe.App\ScanResultRow.cs" Link="ScanResultRow.cs" />
     <Compile Include="..\..\src\FingVibe.App\UsageCategoryPresentation.cs" Link="UsageCategoryPresentation.cs" />
