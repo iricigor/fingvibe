@@ -36,27 +36,32 @@ function readDecoClients(doc) {
     if (grids.length === 0) return result("Loading");
     if (grids.length !== 1) throw new Error("The Deco connected-client grid is ambiguous.");
     const grid = grids[0];
-    const panel = grid.closest(".networkmap-client-panel");
-    if (!panel) throw new Error("The Deco client panel is missing.");
-    const choices = Array.from(panel.querySelectorAll(".combobox-text")).filter(visible);
-    if (choices.length !== 1) throw new Error("The Deco client-scope selector is missing or ambiguous.");
-    // Auto-width Deco selectors render a span; checkbox copies are updated only in the global popup.
-    const choice = choices[0];
-    const choiceText = (choice.tagName === "INPUT" ? choice.value.trim() : decoText(choice))
-        .replace(/^\((.*)\)$/, "$1");
-    if (!/^all deco'?s?$/i.test(choiceText))
-        throw new Error("Select All Decos before capturing; a per-Deco list is not a complete snapshot.");
     if (Array.from(doc.querySelectorAll(".loading,.grid-loading,.mask")).some(visible))
         return result("Loading");
-    const countText = decoText(doc.querySelector(".map-item.map-clients .map-clients-icon-num"));
-    if (!/^\d+$/.test(countText)) return result("Loading");
-    const count = Number(countText);
-    if (!Number.isSafeInteger(count) || count > 10000)
-        throw new Error("The Deco client count is invalid or exceeds the 10,000-client safety limit.");
     if (Array.from(grid.querySelectorAll(".paging-container,.table-bottom-pages")).some(visible))
         throw new Error("This Deco firmware has unsupported pagination; no partial capture was saved.");
     const rows = Array.from(grid.querySelectorAll("tbody.grid-content-data > tr.grid-content-tr"))
         .filter(visible);
+    const explicitEmpty = rows.length === 1 && rows.every(row => row.classList.contains("empty") &&
+        /^no entries in this table\.?$/i.test(decoText(row)));
+    const clientModeEmpty = !authenticated && doc.location?.hash === "#networkMap" && explicitEmpty;
+    const panel = grid.closest(".networkmap-client-panel");
+    if (!panel && !clientModeEmpty) throw new Error("The Deco client panel is missing.");
+    const choices = Array.from(panel?.querySelectorAll(".combobox-text") || []).filter(visible);
+    if (choices.length !== 1 && !(clientModeEmpty && choices.length === 0))
+        throw new Error("The Deco client-scope selector is missing or ambiguous.");
+    // Auto-width Deco selectors render a span; checkbox copies are updated only in the global popup.
+    const choice = choices[0];
+    const choiceText = (choice?.tagName === "INPUT" ? choice.value.trim() : decoText(choice))
+        .replace(/^\((.*)\)$/, "$1");
+    if (choice && !/^all deco'?s?$/i.test(choiceText))
+        throw new Error("Select All Decos before capturing; a per-Deco list is not a complete snapshot.");
+    const countText = decoText(doc.querySelector(".map-item.map-clients .map-clients-icon-num"));
+    if (clientModeEmpty && countText.length === 0) return result("Ready", 0);
+    if (!/^\d+$/.test(countText)) return result("Loading");
+    const count = Number(countText);
+    if (!Number.isSafeInteger(count) || count > 10000)
+        throw new Error("The Deco client count is invalid or exceeds the 10,000-client safety limit.");
     const clients = [];
     const seen = new Set();
     for (const row of rows) {
@@ -113,7 +118,9 @@ function decoClientPageVisible(doc) {
     const grids = Array.from(doc.querySelectorAll(".connected-clients-grid"))
         .filter(element => decoVisible(doc, element));
     if (grids.length > 1) throw new Error("The Deco connected-client grid is ambiguous.");
-    return grids.length === 1;
+    return grids.length === 1 &&
+        !Array.from(doc.querySelectorAll(".loading,.grid-loading,.mask"))
+            .some(element => decoVisible(doc, element));
 }
 
 if (typeof module !== "undefined") module.exports = {

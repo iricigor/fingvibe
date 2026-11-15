@@ -20,7 +20,8 @@ public partial class MainWindow : Window
     private readonly RouterLoginSession _login = new();
     private readonly InspectorClickPacer _pacer = new();
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
-    private readonly DecoCertificateStore _certificateStore = new(DecoCertificateStore.DefaultPath);
+    private DecoRouterPolicy _router = new();
+    private DecoCertificateStore _certificateStore = new(DecoCertificateStore.DefaultPath);
     private readonly string _profile = Path.Combine(Path.GetTempPath(), "FingVibe-DecoX50-" + Guid.NewGuid().ToString("N"));
     private CoreWebView2Environment? _environment;
     private DecoSnapshot? _snapshot;
@@ -50,14 +51,6 @@ public partial class MainWindow : Window
 
     private async Task InitializeAsync()
     {
-        try { _approvedCertificate = _certificateStore.Load(); }
-        catch (Exception exception) when (exception is InvalidDataException or IOException
-            or UnauthorizedAccessException or ArgumentException)
-        {
-            Status.Text = $"Saved certificate approval could not be loaded: {exception.Message} " +
-                $"Router access remains blocked. Repair or remove {DecoCertificateStore.DefaultPath}, then reopen.";
-            return;
-        }
         try
         {
             foreach (var name in new[] { "ExtractDecoClients.js", "RouterLogin.js" })
@@ -78,10 +71,10 @@ public partial class MainWindow : Window
             core.Settings.AreDefaultContextMenusEnabled = false;
             core.NavigationStarting += (_, args) =>
             {
-                if (!DecoRouterPolicy.IsRouter(args.Uri))
+                if (!_router.Allows(args.Uri))
                 {
                     args.Cancel = true;
-                    Status.Text = "Navigation blocked: only HTTPS on 192.168.0.100:443 is allowed.";
+                    Status.Text = $"Navigation blocked: only HTTPS on {_router.Ip}:443 is allowed.";
                 }
                 else
                 {
@@ -89,7 +82,7 @@ public partial class MainWindow : Window
                     _timer.Stop();
                 }
             };
-            core.FrameNavigationStarting += (_, args) => args.Cancel = !DecoRouterPolicy.IsRouter(args.Uri);
+            core.FrameNavigationStarting += (_, args) => args.Cancel = !_router.Allows(args.Uri);
             core.NewWindowRequested += (_, args) => args.Handled = true;
             core.DownloadStarting += (_, args) =>
             {
@@ -100,7 +93,7 @@ public partial class MainWindow : Window
             core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
             core.WebResourceRequested += (_, args) =>
             {
-                if (DecoRouterPolicy.IsRouter(args.Request.Uri) ||
+                if (_router.Allows(args.Request.Uri) ||
                     args.Request.Uri.StartsWith("data:", StringComparison.OrdinalIgnoreCase)) return;
                 args.Response = _environment.CreateWebResourceResponse(null, 403, "External request blocked", "");
             };
@@ -108,14 +101,14 @@ public partial class MainWindow : Window
             core.NavigationCompleted += (_, args) =>
             {
                 if (_closing) return;
-                if (args.IsSuccess && DecoRouterPolicy.IsRouter(core.Source)) _timer.Start();
+                if (args.IsSuccess && _router.Allows(core.Source)) _timer.Start();
                 if (_operation is null && !_refreshing)
                     Status.Text = args.IsSuccess
                         ? "Sign in locally, then capture connected clients. Router configuration controls remain live."
                         : $"Deco navigation failed ({args.WebErrorStatus}). Check certificate trust and use Forced refresh.";
                 UpdateControls();
             };
-            core.Navigate(DecoRouterPolicy.SourceUrl);
+            Status.Text = "Enter the Deco's router IP and click Connect. No router is contacted until you connect.";
             UpdateControls();
         }
         catch (Exception exception) when (BrowserFailure(exception) || exception is WebView2RuntimeNotFoundException
@@ -128,12 +121,12 @@ public partial class MainWindow : Window
     private void CertificateError(object? sender, CoreWebView2ServerCertificateErrorDetectedEventArgs args)
     {
         args.Action = CoreWebView2ServerCertificateErrorAction.Cancel;
-        if (_closing || !DecoRouterPolicy.IsRouter(args.RequestUri)) return;
+        if (_closing || !_router.Allows(args.RequestUri)) return;
         try
         {
             var pem = args.ServerCertificate.ToPemEncoding();
             var fingerprint = DecoRouterPolicy.Fingerprint(pem);
-            if (DecoRouterPolicy.IsTrusted(args.RequestUri, fingerprint, _approvedCertificate))
+            if (_router.Trusts(args.RequestUri, fingerprint, _approvedCertificate))
             {
                 args.Action = CoreWebView2ServerCertificateErrorAction.AlwaysAllow;
                 return;
@@ -142,7 +135,7 @@ public partial class MainWindow : Window
             using var certificate = X509Certificate2.CreateFromPem(pem);
             var approved = MessageBox.Show(this,
                 $"Windows could not validate the Deco certificate ({args.ErrorStatus}).\n\n" +
-                $"Router: 192.168.0.100:443\nSubject: {certificate.Subject}\nIssuer: {certificate.Issuer}\n" +
+                $"Router: {_router.Ip}:443\nSubject: {certificate.Subject}\nIssuer: {certificate.Issuer}\n" +
                 $"Valid: {certificate.NotBefore:u} to {certificate.NotAfter:u}\n\nSHA-256:\n{fingerprint}\n\n" +
                 "Only continue if you recognize this router and certificate. Trust this exact certificate " +
                 "and remember it across inspector restarts? A changed certificate will still require approval. " +
@@ -156,7 +149,7 @@ public partial class MainWindow : Window
                     or UnauthorizedAccessException or ArgumentException)
                 {
                     var message = $"Certificate approval could not be saved: {exception.Message}\n\n" +
-                        $"The request remains blocked. Check access to {DecoCertificateStore.DefaultPath} and try again.";
+                        $"The request remains blocked. Check access to {DecoCertificateStore.PathFor(_router)} and try again.";
                     Status.Text = message;
                     MessageBox.Show(this, message, "Certificate approval not saved",
                         MessageBoxButton.OK, MessageBoxImage.Error);
@@ -186,7 +179,7 @@ public partial class MainWindow : Window
     {
         token.ThrowIfCancellationRequested();
         var core = Browser.CoreWebView2 ?? throw new InvalidOperationException("The browser is not ready.");
-        if (!DecoRouterPolicy.IsRouter(core.Source)) throw new InvalidOperationException("The router origin is not allowed.");
+        if (!_router.Allows(core.Source)) throw new InvalidOperationException("The router origin is not allowed.");
         var page = _pageVersion;
         var version = _version;
         var json = await core.ExecuteScriptAsync(
@@ -229,7 +222,7 @@ public partial class MainWindow : Window
                 (attempt, message) =>
                 {
                     if (!_closing && version == _version) Status.Text = $"Attempt {attempt}/5: {message}";
-                }, cancellation.Token);
+                }, cancellation.Token, router: _router);
             cancellation.Token.ThrowIfCancellationRequested();
             if (_closing || version != _version) return;
             _snapshot = snapshot;
@@ -245,7 +238,7 @@ public partial class MainWindow : Window
         catch (Exception exception) when (BrowserFailure(exception) || exception is IOException or UnauthorizedAccessException)
         {
             if (!_closing && version == _version)
-                Status.Text = $"Capture failed: {exception.Message} Previous capture kept; use the router page or Forced refresh.";
+                Status.Text = $"Capture failed: {exception.Message} Previous capture kept; use Go to client-list URL after sign-in, or Forced refresh.";
         }
         finally
         {
@@ -390,7 +383,7 @@ public partial class MainWindow : Window
     private async void LoginTimer_Tick(object? sender, EventArgs e)
     {
         if (_closing || _refreshing || _operation is not null || _loginBusy || _probing ||
-            Browser.CoreWebView2 is not { } core || !DecoRouterPolicy.IsRouter(core.Source)) return;
+            Browser.CoreWebView2 is not { } core || !_router.Allows(core.Source)) return;
         _probing = true;
         var version = _version;
         try
@@ -456,6 +449,111 @@ public partial class MainWindow : Window
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => _operation?.Cancel();
 
+    private async void Connect_Click(object sender, RoutedEventArgs e)
+    {
+        if (_closing || _refreshing || _operation is not null || _loginBusy ||
+            _login.IsPending || Browser.CoreWebView2 is not { } core) return;
+        _refreshing = true;
+        UpdateControls();
+        var changed = false;
+        try
+        {
+            var router = new DecoRouterPolicy(RouterIpInput.Text);
+            var store = new DecoCertificateStore(DecoCertificateStore.PathFor(router));
+            var approval = store.Load();
+            _version++;
+            _timer.Stop();
+            core.Stop();
+            if (router.Ip != _router.Ip)
+            {
+                changed = true;
+                _login.Forget();
+                LoginPassword.Clear();
+                LoginPanel.Visibility = Visibility.Collapsed;
+                await core.Profile.ClearBrowsingDataAsync(CoreWebView2BrowsingDataKinds.AllProfile)
+                    .WaitAsync(TimeSpan.FromSeconds(15));
+                if (_closing) return;
+            }
+            _router = router;
+            _certificateStore = store;
+            _approvedCertificate = approval;
+            _rejectedCertificate = null;
+            _login.ResetForRefresh();
+            RouterIpInput.Text = router.Ip;
+            RouterUrl.Text = router.ClientListUrl;
+            core.Navigate(router.ClientListUrl);
+            Status.Text = $"Connecting to {router.Ip}. " +
+                (changed ? "Previous device login data cleared; previous completed snapshot kept." : "Router session kept.");
+        }
+        catch (Exception exception) when (BrowserFailure(exception) || exception is IOException or UnauthorizedAccessException)
+        {
+            Status.Text = $"Connection failed: {exception.Message}. " +
+                (changed ? "No new endpoint was opened. Retry Connect to finish clearing login data." : "Check the IP and saved certificate approval.");
+        }
+        finally
+        {
+            _refreshing = false;
+            if (!_closing) UpdateControls();
+        }
+    }
+
+    private async void Repair_Click(object sender, RoutedEventArgs e)
+    {
+        if (_closing || _refreshing || _operation is not null || _loginBusy ||
+            Browser.CoreWebView2 is not { } core) return;
+        _refreshing = true;
+        _version++;
+        _timer.Stop();
+        _login.ResetForRefresh();
+        UpdateControls();
+        try
+        {
+            Status.Text = "Opening the client-list URL without clearing the router session...";
+            var navigation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            void Completed(object? source, CoreWebView2NavigationCompletedEventArgs args)
+            {
+                if (args.IsSuccess) navigation.TrySetResult();
+                else navigation.TrySetException(new InvalidOperationException($"Deco navigation failed ({args.WebErrorStatus})."));
+            }
+            core.NavigationCompleted += Completed;
+            try
+            {
+                core.Navigate(_router.ClientListUrl);
+                await navigation.Task.WaitAsync(TimeSpan.FromSeconds(15));
+            }
+            finally { core.NavigationCompleted -= Completed; }
+            var start = DateTimeOffset.UtcNow;
+            while (DateTimeOffset.UtcNow - start < TimeSpan.FromSeconds(15))
+            {
+                await Task.Delay(300);
+                if (_closing) return;
+                bool visible;
+                try
+                {
+                    visible = await EvaluateAsync<bool>("decoClientPageVisible(document)", CancellationToken.None);
+                }
+                catch (InspectorTransientCaptureException) { continue; }
+                if (!visible) continue;
+                Status.Text = "Client-list page opened successfully. An empty table is valid; use Capture to verify and save its contents.";
+                return;
+            }
+            throw new TimeoutException("The client-list table did not appear within 15 seconds. Sign in locally and retry the repair.");
+        }
+        catch (Exception exception) when (BrowserFailure(exception))
+        {
+            if (!_closing) Status.Text = $"Client-list URL repair failed: {exception.Message}. Previous capture kept.";
+        }
+        finally
+        {
+            _refreshing = false;
+            if (!_closing)
+            {
+                if (_router.Allows(core.Source)) _timer.Start();
+                UpdateControls();
+            }
+        }
+    }
+
     private async void Refresh_Click(object sender, RoutedEventArgs e)
     {
         if (_refreshing || _closing || Browser.CoreWebView2 is not { } core) return;
@@ -473,7 +571,7 @@ public partial class MainWindow : Window
             await core.CallDevToolsProtocolMethodAsync("Network.clearBrowserCache", "{}")
                 .WaitAsync(TimeSpan.FromSeconds(5));
             if (_closing) return;
-            core.Navigate(DecoRouterPolicy.SourceUrl);
+            core.Navigate(_router.ClientListUrl);
             Status.Text = "Forced refresh requested. Previous snapshot, remembered password and approved certificate kept.";
         }
         catch (Exception exception) when (BrowserFailure(exception))
@@ -493,7 +591,7 @@ public partial class MainWindow : Window
         var dialog = new SaveFileDialog
         {
             Filter = "JSON snapshot (*.json)|*.json", DefaultExt = ".json", AddExtension = true,
-            FileName = $"deco-x50-{snapshot.CapturedAtUtc:yyyyMMdd-HHmmss}.json"
+            FileName = $"deco-{snapshot.CapturedAtUtc:yyyyMMdd-HHmmss}.json"
         };
         if (dialog.ShowDialog(this) != true) return;
         _exporting = true;
@@ -526,7 +624,7 @@ public partial class MainWindow : Window
                 : row with { DbComparison = _database is null ? "DB not loaded" : "Not compared" }).ToArray();
         ClientsGrid.ItemsSource = ClientCapture.FilterRows(rows, HideSame.IsChecked == true);
         CaptureSummary.Text = _snapshot is null ? "No completed capture." :
-            $"{_snapshot.ClientCount} clients captured at {_snapshot.CapturedAtUtc.ToLocalTime():G}. " +
+            $"{_snapshot.ClientCount} clients captured from {_snapshot.SourceUrl} at {_snapshot.CapturedAtUtc.ToLocalTime():G}. " +
             "Capture times can differ from EX220 and the saved database; absence does not prove offline.";
         UpdateControls();
     }
@@ -535,11 +633,16 @@ public partial class MainWindow : Window
     {
         if (CaptureButton is null) return;
         var available = !_closing && !_refreshing && Browser.CoreWebView2 is not null;
-        CaptureButton.IsEnabled = available && _operation is null && !_loginBusy;
+        var connected = available && Browser.CoreWebView2 is { } core && _router.Allows(core.Source);
+        CaptureButton.IsEnabled = connected && _operation is null && !_loginBusy;
         CancelButton.IsEnabled = available && _operation is not null;
-        RefreshButton.IsEnabled = available;
+        RefreshButton.IsEnabled = connected;
+        var idle = available && _operation is null && !_loginBusy && !_login.IsPending;
+        ConnectButton.IsEnabled = idle;
+        RouterIpInput.IsEnabled = idle;
+        RepairButton.IsEnabled = connected && _operation is null && !_loginBusy;
         ClickDelayInput.IsEnabled = available && _operation is null && !_loginBusy;
-        LoginButton.IsEnabled = available && !_loginBusy && !_login.IsPending;
+        LoginButton.IsEnabled = connected && !_loginBusy && !_login.IsPending;
         ExportButton.IsEnabled = !_closing && !_exporting && _snapshot is not null;
     }
 

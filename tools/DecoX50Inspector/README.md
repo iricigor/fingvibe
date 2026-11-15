@@ -1,7 +1,8 @@
-# Deco X50 local inspector
+# Deco local inspector
 
 Standalone Windows WPF/WebView2 inspector for
-`https://192.168.0.100/webpages/index.html#networkMap`. It is not integrated into
+Deco devices with compatible local web firmware (originally tested on X50).
+Its default target is `https://192.168.0.100/webpages/index.html#networkMap`. It is not integrated into
 FingVibe and never imports clients or writes the inventory database.
 Requires .NET 8 Desktop Runtime and Microsoft Edge WebView2 Runtime.
 
@@ -9,24 +10,51 @@ Requires .NET 8 Desktop Runtime and Microsoft Edge WebView2 Runtime.
 dotnet run --project tools\DecoX50Inspector\DecoX50Inspector.csproj
 ```
 
+## Router address and client-mode repair
+
+Enter the device's dotted **Router IP** and click **Connect**, for example
+`192.168.0.111`. Startup retains the original `.100` default in the input but
+does not contact a router until **Connect**, so you can choose another starting
+IP without first approving the default device's certificate. The selected address
+applies to subsequent navigation, Forced refresh, repair and exported source
+metadata. Invalid IPs are rejected visibly. Changing devices clears browser
+profile data and the in-memory password before opening the new endpoint.
+The previous completed snapshot remains available, labeled with its original URL.
+Addresses are not remembered across launches.
+
+Some client-mode Deco devices do not show the usual Basic page after sign-in.
+Use **Go to client-list URL** to navigate directly to
+`https://<selected-IP>/webpages/index.html#networkMap`. This repair keeps the
+current device's authenticated session and does not clear cache. A visible,
+non-loading connected-client grid, including **No Entries in this table.**,
+is successful navigation; a populated Clients tile is not required.
+Use **Capture connected clients** afterward to verify and save the contents.
+An explicit empty row on this known grid/route can produce a verified empty
+capture without Basic-page count/scope controls. Missing, loading, ambiguous or
+unrecognized markup cannot. Populated lists still require the existing All Decos
+scope and count checks; other firmware layouts are not assumed compatible.
+
 ## Sign-in and certificate trust
 
 When Windows cannot validate the router certificate, the inspector displays its
 subject, issuer, validity dates and SHA-256 fingerprint. Confirm only after
 checking that it is your Deco certificate. Approval is restricted to that exact
-certificate on HTTPS `192.168.0.100:443`; other hosts,
+certificate on HTTPS `<selected-IP>:443`; other hosts,
 ports and HTTP downgrade are blocked. A changed certificate requires a new
 decision. The approved SHA-256 fingerprint is saved locally in
 `%LOCALAPPDATA%\FingVibe-DecoX50Inspector\approved-certificate.sha256` and loaded
-before navigation on future launches, so the same certificate needs no popup
+before connection on future launches, so the same certificate needs no popup
 after restarting. Only that fingerprint is persisted, not a raw certificate,
 password or browser session. No Windows certificate store or global validation
 setting is changed. Remove that specific file while the inspector is closed
 to forget the approval.
-Unreadable/corrupt saved approval blocks startup with a visible repair message;
+The original `.100` endpoint keeps that existing file; other IPs use
+`approved-certificate-<IP>.sha256` in the same directory. Approvals are not
+automatically shared across devices, even if they present the same certificate.
+Unreadable/corrupt saved approval blocks connection with a visible repair message;
 a failed save blocks the certificate request and reports the failure rather
 than claiming the approval was remembered.
-A declined certificate stays blocked until **Forced refresh** or restart.
+A declined certificate stays blocked until **Connect**, **Forced refresh** or restart.
 
 Sign in using the embedded router page or the separate local-password panel.
 Never put passwords in chat. The known local form uses the router's own keyup
@@ -43,8 +71,9 @@ The inspector does not persist passwords or upload data.
 page and clicks its **Clients** control to read **Connected Clients (All Deco's)**.
 It does not reopen the supplied URL on each capture. If the grid does not appear
 within three seconds, it clicks **Internet**, then **Clients**, allowing up to
-15 seconds for that fallback to open the grid. Startup and explicit **Forced
-refresh** still open the configured router URL.
+15 seconds for that fallback to open the grid. **Connect** and explicit **Forced
+refresh** open the configured router URL. If Clients is absent but the repaired
+grid is already visible, capture reads that grid directly.
 This firmware renders all rows, including those below the viewport, in
 the grid's stable `connected-clients-grid` CSS class; extraction does not depend
 on screenshot scrolling. The framework prefixes widget IDs with view namescopes,
@@ -118,6 +147,7 @@ Navigation and network requests are limited to this Deco HTTPS endpoint;
 inline `data:` resources are allowed. The embedded configuration controls remain
 live: do not click Save/Apply, reboot, reset, or other configuration commands.
 Inspector automation clicks only the known local login and Clients navigation.
+The explicit repair action also opens the selected device's networkMap URL.
 
 A unique temporary `FingVibe-DecoX50-*` profile holds router session state.
 Normal close shuts down the browser and removes that specific profile; cleanup
@@ -159,3 +189,7 @@ comparison have not been separately demonstrated. Focused fixtures cover
 capture stability/cancellation, terminal errors, read-only comparison, navigation
 fallback, export and exact-certificate trust; they are not substitutes for those
 remaining real-router scenarios.
+Configurable-IP/client-mode handling is covered by focused fixtures and a local
+build, not a new live-device demonstration. The supplied client-mode screenshot
+shows the empty-table message but does not establish its DOM structure; layouts
+outside the recognized connected-client grid will report failure for investigation.
