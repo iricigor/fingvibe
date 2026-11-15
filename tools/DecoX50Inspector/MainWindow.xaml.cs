@@ -74,7 +74,11 @@ public partial class MainWindow : Window
                     args.Cancel = true;
                     Status.Text = "Navigation blocked: only HTTPS on 192.168.0.100:443 is allowed.";
                 }
-                else _pageVersion++;
+                else
+                {
+                    _pageVersion++;
+                    _timer.Stop();
+                }
             };
             core.FrameNavigationStarting += (_, args) => args.Cancel = !DecoRouterPolicy.IsRouter(args.Uri);
             core.NewWindowRequested += (_, args) => args.Handled = true;
@@ -95,6 +99,7 @@ public partial class MainWindow : Window
             core.NavigationCompleted += (_, args) =>
             {
                 if (_closing) return;
+                if (args.IsSuccess && DecoRouterPolicy.IsRouter(core.Source)) _timer.Start();
                 if (_operation is null && !_refreshing)
                     Status.Text = args.IsSuccess
                         ? "Sign in locally, then capture connected clients. Router configuration controls remain live."
@@ -102,7 +107,6 @@ public partial class MainWindow : Window
                 UpdateControls();
             };
             core.Navigate(DecoRouterPolicy.SourceUrl);
-            _timer.Start();
             UpdateControls();
         }
         catch (Exception exception) when (BrowserFailure(exception) || exception is WebView2RuntimeNotFoundException
@@ -381,7 +385,7 @@ public partial class MainWindow : Window
     private async void LoginTimer_Tick(object? sender, EventArgs e)
     {
         if (_closing || _refreshing || _operation is not null || _loginBusy || _probing ||
-            Browser.CoreWebView2 is null) return;
+            Browser.CoreWebView2 is not { } core || !DecoRouterPolicy.IsRouter(core.Source)) return;
         _probing = true;
         var version = _version;
         try
@@ -465,7 +469,6 @@ public partial class MainWindow : Window
                 .WaitAsync(TimeSpan.FromSeconds(5));
             if (_closing) return;
             core.Navigate(DecoRouterPolicy.SourceUrl);
-            _timer.Start();
             Status.Text = "Forced refresh requested. Previous snapshot, remembered password and approved certificate kept.";
         }
         catch (Exception exception) when (BrowserFailure(exception))
