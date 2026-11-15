@@ -7,8 +7,8 @@ sender, recipient, original human approval, repository/Epic and task scope.
 
 ## Offer
 
-Dispatcher sends `offerId`, repository, Epic, recipient identity, evidence path,
-and an ordered list of distinct candidates. Candidate fields include issue/URL,
+Dispatcher sends `offerId`, repository, Epic, recipient identity, the human
+approval link, evidence path, and an ordered list of distinct candidates. Candidate fields include issue/URL,
 category (`success`, `failed`, `new`), dependencies and linked PR/current head.
 Developer 1 initially gets positions 1/3; Developer 2 gets 2/4. No shared candidate.
 
@@ -32,22 +32,29 @@ to another execution or infer availability from GitHub/Automation completion.
 
 Dispatcher sends a unique `assignmentId`, original `offerId`, selected issue,
 action (`implement`, `repair`, `finalize`, or explicitly approved `no-code`),
-authority reference, and the existing PR/worktree/branch/current head for follow-up.
+the human approval link, the task's Discussion URL, and the existing
+PR/worktree/branch/current head for follow-up.
 Repair also names the approved cumulative allowance and evidenced attempt.
 
-Persist a readable assignment with actual recipient IDs in the mapped task
-Discussion and verify readback before sending. This is correlation evidence,
-not a state.json claim, revision transaction or delivery-based slot.
+Each task has its own Discussion in the Task conversations category, identified
+by `<!-- fingvibe:task=<number> -->` in its body; Dispatcher creates it if
+missing. Before sending, Dispatcher comments there "Sending #<number> to
+Developer N" with the assignment ID and actual recipient IDs, and verifies
+readback. This is correlation evidence, not a state.json claim, revision
+transaction or delivery-based slot. No issue-body links or mappings are required.
+The Epic's Discussion (Epic coordination, `<!-- fingvibe:epic=<number> -->`)
+holds only Epic-level summaries and blockers.
 
-Developer validates the fresh task and authority, acknowledges the assignment,
-then starts. Duplicate assignment IDs return acknowledgment/status without
+Developer validates the fresh task and authority, confirms the start in the
+task's Discussion, then starts. Duplicate assignment IDs return acknowledgment/status without
 re-execution. An uncertain send/acknowledgment is not safe to retry or reassign.
 Changed head, scope or missing retained worktree requires reassessment, not editing
 an unexpected revision. Developers never select unoffered/unassigned work.
 
 ## Work finished and next offers
 
-Developer publishes a verified task Discussion report and notifies Dispatcher
+Developer confirms the end of work in the task's Discussion named in its start,
+with a verified report, and notifies Dispatcher
 when its assigned work finishes, then ends that execution. Reports identify
 assignment/worker, actual timing, issue/PR/head if applicable, outcome and limits.
 No-code tasks need no artificial PR, commit or context record.

@@ -3,7 +3,8 @@
 Both profiles follow this contract except their developer-1/developer-2 identity.
 Read CONTRIBUTING.md, docs/development-backlog.md, README.md and protocol.md.
 Verify actual local Dispatcher/recipient identity and original human authority
-independently. No assignment or approval is inherited from older loops.
+independently by reading the approval link forwarded in the offer/start; do not
+search for approval. No assignment or approval is inherited from older loops.
 
 ## Assess an offer
 
@@ -26,8 +27,8 @@ status/acknowledgment only, never another execution.
 
 ## Execute one start assignment
 
-Acknowledge the unique assignment ID and actual task/worker context in the mapped
-Discussion, verifying readback before work. Do not write local worker events or
+Confirm the start in the task's Discussion named in the start assignment, with the
+unique assignment ID and actual task/worker context, verifying readback before work. Do not write local worker events or
 require state.json/claims/handoffs. Human-task appearing later stops safely.
 Material scope, authority or conflict risks require explicit human clarification.
 Missing worktree/context/permissions is a blocker, not permission to replace it.
@@ -65,7 +66,7 @@ PR, head or successful implementation result is required.
 
 ## Report and finish
 
-Publish a short verified task Discussion outcome with collapsed detail: assignment
+Confirm the end of work in that task's Discussion with a short verified outcome and collapsed detail: assignment
 and actual worker identity, UTC/run duration, evidence, issue/PR/head and absolute
 worktree/branch when relevant,
 limitations/blockers and unimplemented suggestions. Preserve original human
