@@ -37,7 +37,13 @@ a specific candidate's data is missing or contradictory. Before offering, it che
 previous assignments/responses only for the candidates about to be offered, using
 its retained context and the artifact's Discussion data. Starts still require
 Developer assessments, a fresh check of the selected task and a verified
-assignment comment in the Epic coordination Discussion.
+"Sending #<number> to Developer N" comment in the task's own Discussion.
+
+Task-specific records (assignment, Developer start and end of work) go to one
+Discussion per task in the Task conversations category, marked
+`<!-- fingvibe:task=<number> -->`. The Epic coordination Discussion, marked
+`<!-- fingvibe:epic=<number> -->`, holds only Epic-level summaries and blockers.
+Dispatcher creates either Discussion when missing; no issue-body links are added.
 
 Developer instructions (select the matching numbered profile):
 
@@ -86,7 +92,7 @@ Closed dependency disposition and foreign work remain evidence for Developer
 assessment, not automatic proof of delivery. Issues, PR diffs/reviews, CI jobs
 and Discussions are completely paginated; collection errors stop explicitly.
 Discussions keep their category (Agent logs, Epic coordination, Task
-conversations); the Epic's Discussion is found there, without issue-body links.
+conversations) and body markers, so Epic and task Discussions are found there.
 
 Optional `-TaskOrder` with `-OrderEvidence` supplies an explicit human ordering
 within priority groups; a blocked predecessor prevents later ordered candidates.

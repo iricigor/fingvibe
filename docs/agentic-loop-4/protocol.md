@@ -32,25 +32,29 @@ to another execution or infer availability from GitHub/Automation completion.
 
 Dispatcher sends a unique `assignmentId`, original `offerId`, selected issue,
 action (`implement`, `repair`, `finalize`, or explicitly approved `no-code`),
-the human approval link, the Epic coordination Discussion URL, and the existing
+the human approval link, the task's Discussion URL, and the existing
 PR/worktree/branch/current head for follow-up.
 Repair also names the approved cumulative allowance and evidenced attempt.
 
-Persist a readable assignment with actual recipient IDs as a comment in the Epic
-coordination Discussion and verify readback before sending. This is correlation
-evidence, not a state.json claim, revision transaction or delivery-based slot.
-No issue-body links or Discussion mappings are required.
+Each task has its own Discussion in the Task conversations category, identified
+by `<!-- fingvibe:task=<number> -->` in its body; Dispatcher creates it if
+missing. Before sending, Dispatcher comments there "Sending #<number> to
+Developer N" with the assignment ID and actual recipient IDs, and verifies
+readback. This is correlation evidence, not a state.json claim, revision
+transaction or delivery-based slot. No issue-body links or mappings are required.
+The Epic's Discussion (Epic coordination, `<!-- fingvibe:epic=<number> -->`)
+holds only Epic-level summaries and blockers.
 
-Developer validates the fresh task and authority, acknowledges the assignment,
-then starts. Duplicate assignment IDs return acknowledgment/status without
+Developer validates the fresh task and authority, confirms the start in the
+task's Discussion, then starts. Duplicate assignment IDs return acknowledgment/status without
 re-execution. An uncertain send/acknowledgment is not safe to retry or reassign.
 Changed head, scope or missing retained worktree requires reassessment, not editing
 an unexpected revision. Developers never select unoffered/unassigned work.
 
 ## Work finished and next offers
 
-Developer publishes a verified task report in the Epic coordination Discussion
-named in its start, and notifies Dispatcher
+Developer confirms the end of work in the task's Discussion named in its start,
+with a verified report, and notifies Dispatcher
 when its assigned work finishes, then ends that execution. Reports identify
 assignment/worker, actual timing, issue/PR/head if applicable, outcome and limits.
 No-code tasks need no artificial PR, commit or context record.

@@ -64,12 +64,15 @@ or inspect the evidence artifact repeatedly before offering.
    Never expand candidate sets or duplicate a task across Developers.
 7. Freshly re-read the selected tasks' issue/PR/head state before sending an
    explicit start assignment with a unique assignment ID, the approval link and
-   the exact action, task and expected PR head when applicable. Record the
-   assignment and actual recipient correlation as a comment in the Epic's
-   Discussion in the Epic coordination category whose title or body names the
-   Epic number (found in the artifact's Discussion data), and verify readback before sending. Include that Discussion
-   URL in the start. If no such Discussion, or more than one, exists, report it
-   and send no start; do not add issue-body links or mappings.
+   the exact action, task and expected PR head when applicable.
+   Task records go to the task's own Discussion in the Task conversations
+   category, identified by the `<!-- fingvibe:task=<number> -->` marker in its
+   body (found in the artifact's Discussion data). If none exists, create it in
+   that category titled `#<number> <issue title>` with that marker in the body,
+   and read it back. If more than one exists, report it and send no start for
+   that task. Comment there "Sending #<number> to Developer N" with the
+   assignment ID and actual recipient correlation, verify readback, then send
+   the start including that Discussion URL. Do not add issue-body links or mappings.
    No machine-state reservation or second confirmation round is required.
    Start admission is not proof of execution; missing acknowledgment remains
    uncertain and must not be reassigned or blindly resent.
@@ -86,8 +89,10 @@ ownership are not free work. If an identifiable offer/start for a candidate has 
 uncertain outcome or missing execution identity, skip it and report it for
 reconciliation instead of reconstructing a safe state from age/labels.
 
-Publish meaningful assignments, rejection/blocker reasons and brief Epic outcomes
-to the Epic coordination Discussion with canonical readback. Routine availability replies need
+Publish task-specific assignments and rejection/blocker reasons to that task's
+Discussion, and brief Epic outcomes or Epic-wide blockers to the Epic's Discussion
+in the Epic coordination category (marker `<!-- fingvibe:epic=<number> -->`;
+create it the same way if missing), with canonical readback. Routine availability replies need
 not be mirrored. Preserve issue-body links, native parentage, original human
 sources and unrelated labels. Permission/collection/reporting failures are
 explicit; no success-shaped empty queue, automatic recovery or weakened merge
