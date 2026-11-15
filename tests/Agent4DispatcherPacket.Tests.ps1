@@ -22,6 +22,11 @@ $children[1].labels += @{ name = "human-task" }
 $fixtureDependencies = @(@{ number = 107; state = "open" })
 $closedDependency = @{ number = 108; state = "closed"; state_reason = "not_planned" }
 $observedReads = [Collections.Generic.List[string]]::new()
+$fixtureTaskDiscussions = @()
+$fixtureTaskComments = @{}
+function New-TaskComment([string] $Id, [string] $At, [string] $Body) {
+    @{ id = $Id; body = $Body; createdAt = $At; author = @{ login = "agent" } }
+}
 $fixtureReader = {
     param($Endpoint, $Paginated, $Query)
     $observedReads.Add("$Endpoint|$Query")
@@ -66,9 +71,17 @@ $fixtureReader = {
                 } } } }
             } elseif ($Query.Contains('discussions(first:')) {
                 @{ data = @{ repository = @{ discussions = @{
-                    nodes = @(@{ id = "D1"; number = 1; body = "Original human steering"; author = @{ login = "TestOwner" } })
+                    nodes = @(@{ id = "D1"; number = 1; body = "Original human steering"; author = @{ login = "TestOwner" } }) +
+                        @($fixtureTaskDiscussions)
                     pageInfo = @{ hasNextPage = $false; endCursor = $null }
                 } } } }
+            } elseif ($Query -match 'node\(id:"(T\d+)"\) \{ \.\.\. on Discussion ') {
+                @{ data = @{ node = @{ comments = @{
+                    nodes = @($fixtureTaskComments[$Matches[1]])
+                    pageInfo = @{ hasNextPage = $false; endCursor = $null }
+                } } } }
+            } elseif ($Query -match 'node\(id:"TC\d+"\)') {
+                @{ data = @{ node = @{ replies = @{ nodes = @(); pageInfo = @{ hasNextPage = $false; endCursor = $null } } } } }
             } elseif ($Query.Contains('comments(first:')) {
                 $second = $Query.Contains('after:"comments-next"')
                 @{ data = @{ node = @{ comments = @{
@@ -165,6 +178,27 @@ try {
     $active = Get-Agent4WorkPacket $configuration (Join-Path $root "active.json") $fixtureReader
     Assert-True (101 -notin $active.candidates.issue) "Active work without PR must not become new work."
     $children[0].labels = @(@{ name = "type:task" })
+    $fixtureTaskDiscussions = @(@{ id = "T1"; number = 50; url = "fixture://discussions/50"
+        body = "<!-- fingvibe:task=101 -->"; category = @{ name = "Task conversations" }; author = @{ login = "agent" } })
+    $send = "Sending #101 to Developer 1 <!-- fingvibe:assignment=A1 developer=developer-1 action=implement -->"
+    $fixtureTaskComments = @{ T1 = @(New-TaskComment "TC1" "2026-11-15T10:00:00Z" $send) }
+    $assigned = Get-Agent4WorkPacket $configuration (Join-Path $root "assigned.json") $fixtureReader
+    Assert-True (101 -notin $assigned.candidates.issue -and ($assigned.blocked | Where-Object issue -EQ 101).reason -like "*A1 (developer-1)*") "Open assignment excludes the task even without the active label."
+    Assert-True ($assigned.openAssignments.Count -eq 1 -and $assigned.openAssignments[0].developer -eq "developer-1" -and
+        $assigned.openAssignments[0].action -eq "implement") "Open assignments are reported for crash detection."
+    $fixtureTaskComments.T1 += New-TaskComment "TC2" "2026-11-15T11:00:00Z" "Done <!-- fingvibe:assignment-end=A1 -->"
+    $ended = Get-Agent4WorkPacket $configuration (Join-Path $root "ended.json") $fixtureReader
+    Assert-True (101 -in $ended.candidates.issue -and $ended.openAssignments.Count -eq 0) "End-of-work closes the assignment."
+    $fixtureTaskComments.T1 = @(New-TaskComment "TC1" "2026-11-15T10:00:00Z" $send
+        New-TaskComment "TC3" "2026-11-15T12:00:00Z" "Released <!-- fingvibe:assignment-release=A1 -->")
+    $released = Get-Agent4WorkPacket $configuration (Join-Path $root "released.json") $fixtureReader
+    $releasedCandidate = $released.candidates | Where-Object issue -EQ 101
+    Assert-True ($releasedCandidate.category -eq "new" -and $releasedCandidate.released.assignmentId -eq "A1") "Released work without a PR is offered again."
+    $fixtureLinks = @{ PR200 = 101 }; $fixtureCiStatus = "in_progress"
+    $resume = Get-Agent4WorkPacket $configuration (Join-Path $root "resume.json") $fixtureReader
+    $resumeCandidate = $resume.candidates | Where-Object issue -EQ 101
+    Assert-True ($resumeCandidate.category -eq "resume" -and $resumeCandidate.pr.number -eq 200) "Released implementation resumes its existing PR regardless of CI."
+    $fixtureLinks = @{}; $fixtureCiStatus = "completed"; $fixtureTaskDiscussions = @(); $fixtureTaskComments = @{}
     $ordered = Get-Agent4WorkPacket $configuration (Join-Path $root "ordered.json") $fixtureReader @(101,102,103,104,105,106) "fixture://human-order"
     Assert-True (($ordered.candidates.issue -join ",") -eq "101") "Explicit blocked predecessor must prevent later offers."
     Assert-Fails {
@@ -184,6 +218,28 @@ try {
     }
     Assert-Fails { Get-Agent4WorkPacket $configuration (Join-Path $root "wrong-parent.json") $wrongParent } "*parent changed*"
     Assert-Fails { Get-Agent4WorkPacket $configuration (Join-Path $root "order.json") $fixtureReader @(101) "fixture://order" } "*cover the open native queue*"
+    . (Join-Path $PSScriptRoot "..\.github\scripts\Set-Agent4TaskClaim.ps1")
+    $ghCalls = [Collections.Generic.List[string]]::new()
+    $fixtureVerifiedStatus = "In Progress"; $fixtureVerifiedLabels = @(@{ name = "active" })
+    function Invoke-Agent4Gh([string[]] $Arguments) {
+        $ghCalls.Add($Arguments -join " ")
+        switch ("$($Arguments[0]) $($Arguments[1])") {
+            "project view" { '{"id":"P5","title":"Backlog"}' }
+            "project item-add" { '{"id":"ITEM"}' }
+            "project field-list" { '{"fields":[{"id":"F","name":"Status","options":[{"id":"o1","name":"Todo"},{"id":"o2","name":"In Progress"}]}]}' }
+            "issue view" { ConvertTo-Json -Depth 5 -Compress @{ labels = $fixtureVerifiedLabels
+                projectItems = @(@{ title = "Backlog"; status = @{ name = $fixtureVerifiedStatus } }) } }
+            default { "" }
+        }
+    }
+    $claim = Set-Agent4TaskClaim 101 claim "TestOwner/TestRepo" "TestOwner" 5
+    Assert-True ($claim.active -and $claim.status -eq "In Progress") "Claim reports verified active label and In Progress."
+    Assert-True (@($ghCalls | Where-Object { $_ -like "issue edit 101*--add-label active" }).Count -eq 1 -and
+        @($ghCalls | Where-Object { $_ -like "project item-edit*--single-select-option-id o2" }).Count -eq 1) "Claim writes label and Status."
+    Assert-Fails { Set-Agent4TaskClaim 101 release "TestOwner/TestRepo" "TestOwner" 5 } "*verification failed*"
+    $fixtureVerifiedStatus = "Todo"; $fixtureVerifiedLabels = @()
+    $release = Set-Agent4TaskClaim 101 release "TestOwner/TestRepo" "TestOwner" 5
+    Assert-True (-not $release.active -and $release.status -eq "Todo") "Release removes active and returns Status to Todo."
     Write-Host "Agent4 paginated evidence and queue checks passed."
 } finally {
     if ([IO.Directory]::Exists($root)) { [IO.Directory]::Delete($root, $true) }

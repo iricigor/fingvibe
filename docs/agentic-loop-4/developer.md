@@ -2,18 +2,21 @@
 
 Both profiles follow this contract except their developer-1/developer-2 identity.
 Read CONTRIBUTING.md, docs/development-backlog.md, README.md and protocol.md.
-Verify actual local Dispatcher/recipient identity and original human authority
-independently by reading the approval link forwarded in the offer/start; do not
-search for approval. No assignment or approval is inherited from older loops.
+Verify the actual local Dispatcher/recipient identity. The run permissions
+(`merge`, `repairs`) forwarded in a verified Dispatcher offer/start are your
+authority; a human starting or scheduling the Dispatcher authorized them. Do not
+search for separate approval. No assignment is inherited from older loops.
 
 ## Assess an offer
 
-Report your own availability, not a state inferred from GitHub. If executing an
-assignment, reply busy with its identity and continue it; do not start overlapping
-work or launch another agent. PR submission/report completion ends implementation
+Answer each offer with your own availability, not a state inferred from GitHub;
+never send availability unprompted. If executing an assignment, reply busy with
+its assignment ID and continue it; do not start overlapping work or launch
+another agent. For each open assignment listed in the offer, state whether you
+are still executing it. PR submission/report completion ends implementation
 work; pending CI/review does not reserve you.
 
-When available, evaluate every offered candidate against authority, human-task
+When available, evaluate every offered candidate against run permissions, human-task
 exclusions, scope, native/body dependencies and delivered prerequisites, foreign
 ownership, current PR/head/reviews and relevant diffs/shared contracts. Return
 eligible tasks in preferred order, and evidence/reasons for every rejection.
@@ -28,15 +31,27 @@ status/acknowledgment only, never another execution.
 ## Execute one start assignment
 
 Confirm the start in the task's Discussion named in the start assignment, with the
-unique assignment ID and actual task/worker context, verifying readback before work. Do not write local worker events or
-require state.json/claims/handoffs. Human-task appearing later stops safely.
+unique assignment ID and actual task/worker context, verifying readback before work.
+Then claim the task and verify the result before edits:
+
+```powershell
+.\.github\scripts\Set-Agent4TaskClaim.ps1 -Issue <number> -Action claim
+```
+
+This adds `active` and sets the FingVibe backlog project Status to In Progress.
+A claim failure is an explicit blocker reported in the Discussion. Do not write
+local worker events or require state.json/claims/handoffs. Human-task appearing later stops safely.
 Material scope, authority or conflict risks require explicit human clarification.
-Missing worktree/context/permissions is a blocker, not permission to replace it.
+Missing worktree/context/permissions is a blocker, not permission to replace it,
+except for `resume` below.
 
 **Implement:** verify isolated branch/worktree and fresh repository-wide ownership
 and conflict evidence. Publish an early WIP draft PR with the closing issue
 reference before edits, using an empty bootstrap commit if needed without
-including unrelated changes. Implement only task scope with focused validation.
+including unrelated changes. For a `resume` (released) assignment, reuse the
+existing PR instead: check out its pushed branch in a fresh isolated worktree,
+review what is already done and continue; unpushed work from the crashed
+execution is lost. Implement only task scope with focused validation.
 Commit/push, verify the submitted draft/head and report actual acceptance evidence
 and remaining CI/review. Mark status:review/remove active after verified submission
 and reporting, preserving other labels. Finish without waiting for CI or merging.
@@ -44,8 +59,8 @@ For 4️⃣ this frees your execution for future offers; it does not relinquish 
 task to unrelated pickup or prove delivery. Do not automate the user's desktop.
 
 **Repair:** use the existing task PR/branch/worktree and exact assigned current
-head. Verify original cumulative repair allowance and past attempts in task
-reports; missing history is not a fresh allowance. Record/read back the next
+head. Verify the run's `repairs` allowance (default 12 per task) against past
+attempts in task reports; missing history is not a fresh allowance. Record/read back the next
 attempt before edits. Never reset counts, weaken gates, blindly rerun, or expand
 scope. Repair within authority, push/report the new head and finish without
 waiting for CI. A different suitable Developer may continue the same PR only
@@ -55,11 +70,11 @@ with verified context and no overlapping execution; do not create a competing PR
 applicable checks/reviews/acceptance and affected-UI duration. Above 240 seconds
 requires remediation only for UI changed by this task; missing evidence blocks.
 Do not edit/rebase/repair during finalize. Mark ready/remove WIP only when ready.
-Merge only with explicit original human approval and current-head binding,
-without bypassing protections; verify delivery, closure, labels and Epic checklist.
-Without merge permission, report the required human decision and finish.
+Merge only when the run's `merge` permission allows it (default yes), bound to the
+verified current head and without bypassing protections; verify delivery, closure, labels and Epic checklist.
+With `merge: no`, report that a human merge is required and finish.
 
-**No-code:** only when original human scope explicitly permits it. Perform its
+**No-code:** only when the task's scope explicitly permits it. Perform its
 specified action (for #393, choose and record a random 3-10 minute delay, wait,
 report actual UTC start/end and close the assigned issue). No artificial commit,
 PR, head or successful implementation result is required.
@@ -69,13 +84,16 @@ PR, head or successful implementation result is required.
 Confirm the end of work in that task's Discussion with a short verified outcome and collapsed detail: assignment
 and actual worker identity, UTC/run duration, evidence, issue/PR/head and absolute
 worktree/branch when relevant,
-limitations/blockers and unimplemented suggestions. Preserve original human
+limitations/blockers and unimplemented suggestions. Include the end marker
+`<!-- fingvibe:assignment-end=<assignment-id> -->` so the packet script sees the
+assignment as finished. Preserve original human
 sources, issue/Discussion links, native parentage and unrelated labels.
 No-code outcomes omit PR context honestly. Failed reporting is an explicit
 blocker; do not claim completed handoff or silently lose correlation.
 
-Notify Dispatcher of finished work and end execution. Subsequent offers ask your
-state again. Do not launch yourself, release a local claim, ingest results, or
+Notify Dispatcher of finished work and end execution. The next offer asks your
+state again; do not report availability on your own. Do not launch yourself, release a claim, ingest results, or
 select new work. Reports and issue closure do not prove that an execution stopped;
 uncertain sends/starts or missing context require reconciliation, not retries,
-age-based recovery, replacement workers or automatic ownership cleanup.
+age-based recovery, replacement workers or automatic ownership cleanup. Only
+Dispatcher releases a crashed assignment, based on your reply to its offer.

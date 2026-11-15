@@ -60,6 +60,41 @@ function Get-Agent4CiStage($Pull, $Cache) {
     "unknown"
 }
 
+function Get-Agent4TaskRecords($Discussions) {
+    # Assignment markers in Task conversations Discussions are the loop4 ownership record.
+    $records = @{}
+    foreach ($discussion in @($Discussions | Where-Object { $_.category.name -eq "Task conversations" })) {
+        if ("$($discussion.body)" -notmatch '<!--\s*fingvibe:task=(\d+)\s*-->') { continue }
+        $task = [int] $Matches[1]
+        if ($records.ContainsKey($task)) { $records[$task].duplicate = $true; continue }
+        $entries = @(foreach ($comment in @($discussion.comments)) {
+            $comment
+            foreach ($reply in @($comment.replies)) { $reply }
+        })
+        $entries = @($entries | Where-Object { $null -ne $_ } | Sort-Object -Stable { "$($_.createdAt)" })
+        $assignments = [ordered]@{}
+        foreach ($entry in $entries) {
+            $body = "$($entry.body)"
+            foreach ($match in [regex]::Matches($body,
+                '<!--\s*fingvibe:assignment=([A-Za-z0-9._:-]+)\s+developer=(developer-[12])\s+action=([a-z-]+)\s*-->')) {
+                $id = $match.Groups[1].Value
+                if (-not $assignments.Contains($id)) {
+                    $assignments[$id] = @{ issue = $task; assignmentId = $id; developer = $match.Groups[2].Value
+                        action = $match.Groups[3].Value; state = "open"; discussionUrl = $discussion.url; sentAt = $entry.createdAt }
+                }
+            }
+            foreach ($match in [regex]::Matches($body, '<!--\s*fingvibe:assignment-(end|release)=([A-Za-z0-9._:-]+)\s*-->')) {
+                $id = $match.Groups[2].Value
+                if ($assignments.Contains($id) -and $assignments[$id].state -eq "open") {
+                    $assignments[$id].state = if ($match.Groups[1].Value -eq "end") { "ended" } else { "released" }
+                }
+            }
+        }
+        $records[$task] = @{ duplicate = $false; assignments = @($assignments.Values) }
+    }
+    $records
+}
+
 function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblock] $Reader,
     [int[]] $Order, [string] $OrderingEvidence) {
     $config = $Configuration
@@ -199,8 +234,17 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
         if (@($open | Where-Object { $_.number -notin $Order }).Count) { throw "Explicit order must cover the open native queue." }
         $open = @($open | Sort-Object { [array]::IndexOf($Order, [int] $_.number) })
     } else { $open = @($open | Sort-Object number) }
-    $candidates = @(); $blocked = @(); $orderingBlocked = $false
+    $taskRecords = Get-Agent4TaskRecords $discussions
+    $candidates = @(); $blocked = @(); $openAssignments = @(); $orderingBlocked = $false
     foreach ($child in $open) {
+        $record = $taskRecords[[int] $child.number]
+        $assigned = @(); $released = $null
+        if ($record) {
+            $assigned = @($record.assignments | Where-Object { $_.state -eq "open" })
+            $latest = @($record.assignments)[-1]
+            if ($latest -and $latest.state -eq "released") { $released = $latest }
+        }
+        $openAssignments += $assigned
         if (-not $byNumber.ContainsKey([int] $child.number)) { throw "Native child inventory mismatch." }
         $parent = Read-Evidence "repos/$repository/issues/$($child.number)/parent"
         if ($parent.number -ne $config.epic -or "type:epic" -notin $parent.labels.name) { throw "Native parent changed." }
@@ -239,17 +283,27 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
         elseif ("status:blocked" -in $child.labels.name) {
             $reason = "Explicit task blocker."
         } elseif ($orderingBlocked) { $reason = "Explicit human predecessor order is blocked." }
+        elseif ($record -and $record.duplicate) { $reason = "Multiple task Discussions; reconcile before offering." }
+        elseif ($assigned.Count) {
+            $reason = "Open assignment " + (($assigned | ForEach-Object { "$($_.assignmentId) ($($_.developer))" }) -join ", ") +
+                "; awaiting end-of-work or release."
+        }
         $linked = @($pulls | Where-Object {
             $child.number -in @($_.linkedIssues | Where-Object { $_.repository.nameWithOwner -ieq $repository }).number
         })
-        $category = "new"; $rank = 2; $pull = $null
+        $category = "new"; $rank = 3; $pull = $null
         if (-not $reason) {
             if ($linked.Count -gt 1) { $reason = "Multiple open linked PRs; Developer/human assessment required." }
             elseif ($linked.Count -eq 1) {
                 $pull = $linked[0]
-                $ci = Get-Agent4CiStage $pull $cache
-                if ($ci -in @("pending", "unknown")) { $reason = "Current-head CI is $ci." }
-                else { $category = $ci; $rank = if ($ci -eq "success") { 0 } else { 1 } }
+                if ($released -and $released.action -eq "implement") {
+                    # Released implementation continues its existing PR; that PR's CI does not prove completion.
+                    $category = "resume"; $rank = 2
+                } else {
+                    $ci = Get-Agent4CiStage $pull $cache
+                    if ($ci -in @("pending", "unknown")) { $reason = "Current-head CI is $ci." }
+                    else { $category = $ci; $rank = if ($ci -eq "success") { 0 } else { 1 } }
+                }
             } elseif (@($child.labels.name | Where-Object { $_ -in @("active", "status:review") }).Count) {
                 $reason = "Existing work without an open linked PR; do not offer as new."
             }
@@ -260,7 +314,7 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
         } else {
             $candidates += @{ issue = $child.number; url = $child.html_url; labels = $child.labels.name
                 dependencies = $dependencies; category = $category; rank = $rank
-                pr = $pull; semanticAssessmentRequired = $true }
+                pr = $pull; released = $released; semanticAssessmentRequired = $true }
         }
     }
     $candidates = @($candidates | Sort-Object -Stable rank)
@@ -273,8 +327,8 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
     @{
         schema = "fingvibe-loop4-packet-v1"; repository = $repository; epic = $config.epic
         targetBranch = $repo.default_branch; evidencePath = $EvidencePath
-        candidates = $candidates; blocked = $blocked
-        assessment = "Developer reports availability. Review authority, dependencies, foreign ownership, diffs and candidate compatibility before recommending work."
+        candidates = $candidates; blocked = $blocked; openAssignments = $openAssignments
+        assessment = "Dispatcher asks both Developers for availability each cycle and compares their replies with openAssignments. Review dependencies, foreign ownership, diffs and candidate compatibility before recommending work."
     }
 }
 
