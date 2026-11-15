@@ -20,6 +20,7 @@ public partial class MainWindow : Window
     private readonly RouterLoginSession _login = new();
     private readonly InspectorClickPacer _pacer = new();
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private readonly DecoCertificateStore _certificateStore = new(DecoCertificateStore.DefaultPath);
     private readonly string _profile = Path.Combine(Path.GetTempPath(), "FingVibe-DecoX50-" + Guid.NewGuid().ToString("N"));
     private CoreWebView2Environment? _environment;
     private DecoSnapshot? _snapshot;
@@ -49,6 +50,14 @@ public partial class MainWindow : Window
 
     private async Task InitializeAsync()
     {
+        try { _approvedCertificate = _certificateStore.Load(); }
+        catch (Exception exception) when (exception is InvalidDataException or IOException
+            or UnauthorizedAccessException or ArgumentException)
+        {
+            Status.Text = $"Saved certificate approval could not be loaded: {exception.Message} " +
+                $"Router access remains blocked. Repair or remove {DecoCertificateStore.DefaultPath}, then reopen.";
+            return;
+        }
         try
         {
             foreach (var name in new[] { "ExtractDecoClients.js", "RouterLogin.js" })
@@ -136,15 +145,27 @@ public partial class MainWindow : Window
                 $"Router: 192.168.0.100:443\nSubject: {certificate.Subject}\nIssuer: {certificate.Issuer}\n" +
                 $"Valid: {certificate.NotBefore:u} to {certificate.NotAfter:u}\n\nSHA-256:\n{fingerprint}\n\n" +
                 "Only continue if you recognize this router and certificate. Trust this exact certificate " +
-                "inside this inspector until it closes? No Windows/global trust settings will change.",
+                "and remember it across inspector restarts? A changed certificate will still require approval. " +
+                "No Windows/global trust settings will change.",
                 "Approve this Deco certificate?", MessageBoxButton.YesNo, MessageBoxImage.Warning,
                 MessageBoxResult.No) == MessageBoxResult.Yes;
             if (approved)
             {
+                try { _certificateStore.Save(fingerprint); }
+                catch (Exception exception) when (exception is InvalidDataException or IOException
+                    or UnauthorizedAccessException or ArgumentException)
+                {
+                    var message = $"Certificate approval could not be saved: {exception.Message}\n\n" +
+                        $"The request remains blocked. Check access to {DecoCertificateStore.DefaultPath} and try again.";
+                    Status.Text = message;
+                    MessageBox.Show(this, message, "Certificate approval not saved",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
                 _approvedCertificate = fingerprint;
                 _rejectedCertificate = null;
                 args.Action = CoreWebView2ServerCertificateErrorAction.AlwaysAllow;
-                Status.Text = "Approved this exact Deco certificate for this inspector session only.";
+                Status.Text = "Approved and saved this exact Deco certificate for future inspector launches.";
             }
             else
             {

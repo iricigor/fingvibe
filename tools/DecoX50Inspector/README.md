@@ -14,9 +14,18 @@ dotnet run --project tools\DecoX50Inspector\DecoX50Inspector.csproj
 When Windows cannot validate the router certificate, the inspector displays its
 subject, issuer, validity dates and SHA-256 fingerprint. Confirm only after
 checking that it is your Deco certificate. Approval is restricted to that exact
-certificate on HTTPS `192.168.0.100:443` in this inspector session; other hosts,
+certificate on HTTPS `192.168.0.100:443`; other hosts,
 ports and HTTP downgrade are blocked. A changed certificate requires a new
-decision. No Windows certificate store or global validation setting is changed.
+decision. The approved SHA-256 fingerprint is saved locally in
+`%LOCALAPPDATA%\FingVibe-DecoX50Inspector\approved-certificate.sha256` and loaded
+before navigation on future launches, so the same certificate needs no popup
+after restarting. Only that fingerprint is persisted, not a raw certificate,
+password or browser session. No Windows certificate store or global validation
+setting is changed. Remove that specific file while the inspector is closed
+to forget the approval.
+Unreadable/corrupt saved approval blocks startup with a visible repair message;
+a failed save blocks the certificate request and reports the failure rather
+than claiming the approval was remembered.
 A declined certificate stays blocked until **Forced refresh** or restart.
 
 Sign in using the embedded router page or the separate local-password panel.
@@ -114,7 +123,8 @@ A unique temporary `FingVibe-DecoX50-*` profile holds router session state.
 Normal close shuts down the browser and removes that specific profile; cleanup
 failures show its path. A crash/forced termination can leave cookies there.
 Remove only that specific folder after its browser processes exit.
-Per-certificate decisions are not shared with other browser profiles.
+The inspector's saved exact-certificate pin is independent of these temporary
+profiles. It is not shared with other applications or normal browser profiles.
 
 ## Focused checks and evidence
 
@@ -136,6 +146,13 @@ sign-in, capture and JSON export on the actual Deco. The supplied export contain
 20 unique normalized MAC identities, four wired and 16 wireless clients, a UTC
 capture time and one correctly retained unavailable IP. The earlier 19-client
 view was a different observation, not a fixed expected count.
+
+The previously approved certificate fingerprint was persisted using the
+inspector's store. A fresh native launch then reached the actual router's local
+sign-in page without a certificate popup, and the saved approval remained after
+graceful close and temporary-browser-profile cleanup. Focused checks also cover
+recreated stores, different certificates/origins, malformed/unreadable approval,
+failed replacement preserving the previous pin and temporary-file cleanup.
 
 Forced session-expiry/retry recovery, future firmware variants and live database
 comparison have not been separately demonstrated. Focused fixtures cover

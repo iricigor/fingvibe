@@ -94,6 +94,89 @@ public sealed class DecoInspectorTests
     }
 
     [Fact]
+    public void CertificateApprovalSurvivesStoreRecreationButOnlyTrustsTheExactRouterAndCertificate()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"deco-pin-{Guid.NewGuid():N}");
+        var path = Path.Combine(directory, "approved.sha256");
+        var fingerprint = new string('a', 64);
+        try
+        {
+            Assert.Null(new DecoCertificateStore(path).Load());
+            Assert.False(Directory.Exists(directory));
+            new DecoCertificateStore(path).Save(fingerprint);
+            var loaded = new DecoCertificateStore(path).Load();
+            Assert.Equal(fingerprint.ToUpperInvariant(), loaded);
+            Assert.Equal(fingerprint.ToUpperInvariant() + "\n", File.ReadAllText(path));
+            Assert.Single(Directory.GetFiles(directory));
+            Assert.True(DecoRouterPolicy.IsTrusted(DecoRouterPolicy.SourceUrl, fingerprint.ToUpperInvariant(), loaded));
+            Assert.False(DecoRouterPolicy.IsTrusted(DecoRouterPolicy.SourceUrl, new string('B', 64), loaded));
+            Assert.False(DecoRouterPolicy.IsTrusted("https://192.168.0.1/", fingerprint.ToUpperInvariant(), loaded));
+            if (OperatingSystem.IsWindows())
+            {
+                File.SetAttributes(path, FileAttributes.ReadOnly);
+                Assert.True(Record.Exception(() => new DecoCertificateStore(path).Save(new string('B', 64)))
+                    is IOException or UnauthorizedAccessException);
+                Assert.Equal(loaded, new DecoCertificateStore(path).Load());
+                Assert.Single(Directory.GetFiles(directory));
+            }
+        }
+        finally
+        {
+            if (File.Exists(path))
+            {
+                File.SetAttributes(path, FileAttributes.Normal);
+                File.Delete(path);
+            }
+            if (Directory.Exists(directory)) Directory.Delete(directory);
+        }
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("invalid")]
+    [InlineData("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAG")]
+    public void InvalidStoredCertificateApprovalFailsExplicitlyWithoutWeakeningOrOverwritingTrust(string invalid)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"deco-pin-{Guid.NewGuid():N}.sha256");
+        try
+        {
+            File.WriteAllText(path, invalid);
+            Assert.Throws<InvalidDataException>(() => new DecoCertificateStore(path).Load());
+            new DecoCertificateStore(path).Save(new string('A', 64));
+            Assert.Throws<InvalidDataException>(() => new DecoCertificateStore(path).Save(invalid));
+            Assert.Equal(new string('A', 64), new DecoCertificateStore(path).Load());
+        }
+        finally { if (File.Exists(path)) File.Delete(path); }
+    }
+
+    [Fact]
+    public void OversizedApprovalAndFailedReplacementRemainErrorsAndCleanTheirTemporaryFile()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), $"deco-pin-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "approved.sha256");
+        try
+        {
+            File.WriteAllText(path, new string('A', 257));
+            Assert.Throws<InvalidDataException>(() => new DecoCertificateStore(path).Load());
+            File.Delete(path);
+            Directory.CreateDirectory(path);
+            Assert.True(Record.Exception(() => new DecoCertificateStore(path).Load())
+                is IOException or UnauthorizedAccessException);
+            Assert.True(Record.Exception(() => new DecoCertificateStore(path).Save(new string('A', 64)))
+                is IOException or UnauthorizedAccessException);
+            Assert.Empty(Directory.GetFiles(directory));
+            Assert.True(Directory.Exists(path));
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+            if (Directory.Exists(path)) Directory.Delete(path);
+            Directory.Delete(directory);
+        }
+    }
+
+    [Fact]
     public async Task StableCaptureIgnoresRowOrderingButRequiresTwoCompleteObservations()
     {
         var time = new FakeTimeProvider();
