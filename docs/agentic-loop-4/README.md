@@ -29,8 +29,9 @@ approval: <link to the original human approval comment>
 Follow the loop4 contract. Wait for Developer assessments, not implementation or CI.
 ```
 
-A cycle is **run the script → read the approval link → send offers**. Dispatcher
-uses the packet's `candidates` and `blocked` output directly. It does not read the
+A cycle is **run the script → read the approval link → send offers**. At startup,
+Dispatcher reads only this README and the protocol, not CONTRIBUTING.md or the
+development backlog. It uses the packet's `candidates` and `blocked` output directly. It does not read the
 full evidence artifact or repeat GitHub/GraphQL requests for collected data unless
 a specific candidate's data is missing or contradictory. Before offering, it checks
 previous assignments/responses only for the candidates about to be offered, using

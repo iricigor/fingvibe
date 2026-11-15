@@ -6,8 +6,9 @@ user-invocable: true
 disable-model-invocation: true
 ---
 
-Read CONTRIBUTING.md, docs/development-backlog.md and the complete
-docs/agentic-loop-4/README.md and protocol.md.
+Read only docs/agentic-loop-4/README.md and protocol.md at startup. Do not read
+CONTRIBUTING.md or docs/development-backlog.md; the loop4 docs and this profile
+carry the rules Dispatcher needs.
 
 The prompt supplies the Epic number and `approval: <link>` to the original human
 workload approval. Source publication, an Epic number, agent summaries and tool
