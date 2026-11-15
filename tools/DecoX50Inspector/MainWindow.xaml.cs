@@ -236,27 +236,11 @@ public partial class MainWindow : Window
     private async Task PrepareAsync(CancellationToken token)
     {
         await EnsureSignedInAsync(token);
-        var core = Browser.CoreWebView2 ?? throw new InvalidOperationException("The browser is not ready.");
-        await _pacer.WaitAsync(token);
-        var loaded = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        void Completed(object? sender, CoreWebView2NavigationCompletedEventArgs args) =>
-            loaded.TrySetResult(args.IsSuccess);
-        core.NavigationCompleted += Completed;
-        try
+        await DecoClientNavigation.OpenAsync(async (target, cancellation) =>
         {
-            core.Navigate(DecoRouterPolicy.SourceUrl);
-            if (!await loaded.Task.WaitAsync(TimeSpan.FromSeconds(15), token))
-                throw new IOException("The Deco page could not load. Check certificate trust and the router connection.");
-        }
-        finally { core.NavigationCompleted -= Completed; }
-        var start = DateTimeOffset.UtcNow;
-        while (DateTimeOffset.UtcNow - start < TimeSpan.FromSeconds(15))
-        {
-            await _pacer.WaitAsync(token);
-            if (await EvaluateAsync<bool>("openDecoClients(document)", token)) return;
-            await Task.Delay(300, token);
-        }
-        throw new TimeoutException("The Deco client-page control did not become ready.");
+            await _pacer.WaitAsync(cancellation);
+            return await EvaluateAsync<bool>($"clickDecoMap(document, {JsonSerializer.Serialize(target)})", cancellation);
+        }, cancellation => EvaluateAsync<bool>("decoClientPageVisible(document)", cancellation), token);
     }
 
     private async Task EnsureSignedInAsync(CancellationToken token)

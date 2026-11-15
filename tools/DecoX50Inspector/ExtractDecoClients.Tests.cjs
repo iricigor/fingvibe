@@ -1,6 +1,6 @@
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
-const { readDecoClients, openDecoClients } = require("./ExtractDecoClients.js");
+const { readDecoClients, openDecoClients, clickDecoMap } = require("./ExtractDecoClients.js");
 const { readFileSync } = require("node:fs");
 const vm = require("node:vm");
 
@@ -36,7 +36,7 @@ function fixture(definitions, options = {}) {
     };
     const count = node(String(options.count ?? definitions.length));
     let clicked = false;
-    const control = { ...node(), click: () => { clicked = true; } };
+    const control = { ...node(), scrollIntoView: () => { }, click: () => { clicked = true; } };
     const doc = {
         defaultView: {
             getComputedStyle: element => ({ display: element.hidden ? "none" : "block", visibility: "visible" })
@@ -97,6 +97,17 @@ test("opens only the known map-clients control", () => {
     assert.equal(example.clicked(), true);
     example.doc.querySelectorAll = () => [node(), node()];
     assert.throws(() => openDecoClients(example.doc), /ambiguous/);
+});
+
+test("clicks Clients even if already active and permits only the Internet fallback", () => {
+    const example = fixture([]);
+    const control = example.doc.querySelectorAll(".map-item.map-clients")[0];
+    control.classList.contains = () => true;
+    assert.equal(openDecoClients(example.doc), true);
+    assert.equal(example.clicked(), true);
+    example.doc.querySelectorAll = selector => selector === ".map-item.map-internet" ? [control] : [];
+    assert.equal(clickDecoMap(example.doc, "internet"), true);
+    assert.throws(() => clickDecoMap(example.doc, "reboot"), /Only Clients and Internet/);
 });
 
 function loginFixture({ locked = false, error = false, incomplete = false, authenticated = false } = {}) {

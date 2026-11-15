@@ -133,10 +133,47 @@ public static class DecoCaptureRunner
                 if (attempt == 5)
                     throw new InspectorTransientCaptureException(
                         $"Deco capture failed after five attempts: {exception.Message}", exception);
-                progress(attempt, $"{exception.Message} Retrying from the client page in two seconds...");
+                progress(attempt, $"{exception.Message} Retrying Clients navigation in two seconds...");
                 await Task.Delay(TimeSpan.FromSeconds(2), time, token);
             }
+
         }
         throw new InvalidOperationException("The capture finished without a snapshot.");
+    }
+}
+
+public static class DecoClientNavigation
+{
+    public static async Task OpenAsync(
+        Func<string, CancellationToken, Task<bool>> click,
+        Func<CancellationToken, Task<bool>> visible,
+        CancellationToken token, TimeProvider? timeProvider = null)
+    {
+        var time = timeProvider ?? TimeProvider.System;
+        token.ThrowIfCancellationRequested();
+        if (!await click("clients", token))
+            throw new InspectorTransientCaptureException("The Clients map control is not ready.");
+        if (await WaitForGridAsync(TimeSpan.FromSeconds(3))) return;
+        if (!await click("internet", token))
+            throw new InspectorTransientCaptureException("The Internet fallback control is not ready.");
+        token.ThrowIfCancellationRequested();
+        if (!await click("clients", token))
+            throw new InspectorTransientCaptureException("Internet -> Clients navigation controls are not ready.");
+        if (!await WaitForGridAsync(TimeSpan.FromSeconds(15)))
+            throw new TimeoutException("Clients did not open after direct and Internet -> Clients navigation.");
+
+        async Task<bool> WaitForGridAsync(TimeSpan timeout)
+        {
+            var start = time.GetTimestamp();
+            while (time.GetElapsedTime(start) < timeout)
+            {
+                token.ThrowIfCancellationRequested();
+                var ready = await visible(token);
+                token.ThrowIfCancellationRequested();
+                if (ready) return true;
+                await Task.Delay(TimeSpan.FromMilliseconds(300), time, token);
+            }
+            return false;
+        }
     }
 }

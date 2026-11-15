@@ -190,4 +190,46 @@ public sealed class DecoInspectorTests
         time.Advance(TimeSpan.FromMilliseconds(300));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelled.WaitAsync(TimeSpan.FromSeconds(5)));
     }
+
+    [Fact]
+    public async Task NavigationUsesClientsDirectlyAndInternetThenClientsOnlyIfTheGridDoesNotOpen()
+    {
+        var clicks = new List<string>();
+        await DecoClientNavigation.OpenAsync((target, _) =>
+        {
+            clicks.Add(target);
+            return Task.FromResult(true);
+        }, _ => Task.FromResult(true), CancellationToken.None);
+        Assert.Equal(new[] { "clients" }, clicks);
+
+        clicks.Clear();
+        var time = new FakeTimeProvider();
+        var fallback = DecoClientNavigation.OpenAsync((target, _) =>
+        {
+            clicks.Add(target);
+            return Task.FromResult(true);
+        }, _ => Task.FromResult(clicks.Count == 3), CancellationToken.None, time);
+        for (var step = 0; !fallback.IsCompleted && step < 100; step++)
+        {
+            time.Advance(TimeSpan.FromMilliseconds(300));
+            await Task.Delay(1);
+        }
+        await fallback.WaitAsync(TimeSpan.FromSeconds(5));
+        Assert.Equal(new[] { "clients", "internet", "clients" }, clicks);
+    }
+
+    [Fact]
+    public async Task CancelledDirectNavigationNeverClicksTheFallback()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var clicks = new List<string>();
+        var navigation = DecoClientNavigation.OpenAsync((target, _) =>
+        {
+            clicks.Add(target);
+            return Task.FromResult(true);
+        }, _ => Task.FromResult(false), cancellation.Token);
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => navigation);
+        Assert.Equal(new[] { "clients" }, clicks);
+    }
 }

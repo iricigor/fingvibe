@@ -30,8 +30,12 @@ The inspector does not persist passwords or upload data.
 
 ## Capture and compare
 
-**Capture connected clients** signs in if necessary, reloads Network Map,
-activates its Clients control and reads **Connected Clients (All Deco's)**.
+**Capture connected clients** signs in if necessary, keeps the authenticated
+page and clicks its **Clients** control to read **Connected Clients (All Deco's)**.
+It does not reopen the supplied URL on each capture. If the grid does not appear
+within three seconds, it clicks **Internet**, then **Clients**, allowing up to
+15 seconds for that fallback to open the grid. Startup and explicit **Forced
+refresh** still open the configured router URL.
 This firmware renders all rows, including those below the viewport, in
 the grid's stable `connected-clients-grid` CSS class; extraction does not depend
 on screenshot scrolling. The framework prefixes widget IDs with view namescopes,
@@ -50,7 +54,7 @@ separate identities, and absence from this client view does not prove offline.
 The capture time is an observation time, not an atomic router snapshot.
 
 Each capture gets five attempts total, with two-second backoff for transient
-timeouts/session expiry. Each retry reloads the client page, reauthenticating
+timeouts/session expiry. Each retry repeats Clients navigation, reauthenticating
 with an in-process remembered password when available. Sign-in waits at most
 two minutes for user interaction; a submitted login has a 15-second limit.
 Content/navigation waits are limited to 15 seconds and script/cache calls to

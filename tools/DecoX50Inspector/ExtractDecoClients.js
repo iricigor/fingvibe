@@ -89,16 +89,30 @@ function readDecoClients(doc) {
 }
 
 function openDecoClients(doc) {
+    return clickDecoMap(doc, "clients");
+}
+
+function clickDecoMap(doc, target) {
+    if (!["clients", "internet"].includes(target))
+        throw new Error("Only Clients and Internet map navigation are allowed.");
     // Deco's widget framework prefixes element IDs with the view's namescope.
-    const controls = Array.from(doc.querySelectorAll(".map-item.map-clients"))
+    const controls = Array.from(doc.querySelectorAll(`.map-item.map-${target}`))
         .filter(element => decoVisible(doc, element));
     if (controls.length === 0) return false;
-    if (controls.length !== 1) throw new Error("The Deco Clients navigation control is ambiguous.");
+    if (controls.length !== 1) throw new Error(`The Deco ${target} navigation control is ambiguous.`);
     const control = controls[0];
-    if (!control.classList.contains("active")) control.click();
+    control.scrollIntoView({ block: "nearest", inline: "nearest" });
+    control.click();
     return true;
 }
 
+function decoClientPageVisible(doc) {
+    const grids = Array.from(doc.querySelectorAll(".connected-clients-grid"))
+        .filter(element => decoVisible(doc, element));
+    if (grids.length > 1) throw new Error("The Deco connected-client grid is ambiguous.");
+    return grids.length === 1;
+}
+
 if (typeof module !== "undefined") module.exports = {
-    readDecoClients, normalizeDecoConnection, openDecoClients
+    readDecoClients, normalizeDecoConnection, openDecoClients, clickDecoMap, decoClientPageVisible
 };
