@@ -41,9 +41,11 @@ function fixture(definitions, options = {}) {
         defaultView: {
             getComputedStyle: element => ({ display: element.hidden ? "none" : "block", visibility: "visible" })
         },
-        getElementById: () => control,
-        querySelector: selector => selector.startsWith("#map-clients") ? count : null,
-        querySelectorAll: selector => selector === "#connected-clients-grid" ? [grid] : []
+        getElementById: () => null,
+        querySelector: selector => selector.endsWith(".map-clients-icon-num") ? count :
+            selector === ".map-item.map-clients" ? control : null,
+        querySelectorAll: selector => selector === ".connected-clients-grid" ? [grid] :
+            selector === ".map-item.map-clients" ? [control] : []
     };
     return { doc, clicked: () => clicked };
 }
@@ -71,6 +73,13 @@ test("does not publish partial lists or unverified empty states", () => {
     assert.equal(readDecoClients(fixture([{ empty: true }], { count: 0 }).doc).State, "Ready");
 });
 
+test("accepts the actual parenthesized All Decos label with namescoped widget IDs", () => {
+    const { doc } = fixture([{}], { selection: "(All Deco's)" });
+    assert.equal(doc.getElementById("map-clients"), null);
+    assert.equal(readDecoClients(doc).State, "Ready");
+    assert.equal(openDecoClients(doc), true);
+});
+
 test("rejects duplicates, malformed identities, unsupported labels, per-Deco filtering and pagination", () => {
     for (const [definitions, options, message] of [
         [[{}, {}], {}, /duplicate MAC/],
@@ -86,6 +95,8 @@ test("opens only the known map-clients control", () => {
     const example = fixture([]);
     assert.equal(openDecoClients(example.doc), true);
     assert.equal(example.clicked(), true);
+    example.doc.querySelectorAll = () => [node(), node()];
+    assert.throws(() => openDecoClients(example.doc), /ambiguous/);
 });
 
 function loginFixture({ locked = false, error = false } = {}) {
@@ -96,8 +107,9 @@ function loginFixture({ locked = false, error = false } = {}) {
     const button = node();
     const page = {
         ...node(),
-        querySelectorAll: selector => selector.includes("input") ? [password] : error ? [node("Rejected")] : [],
-        querySelector: () => button
+        querySelectorAll: selector => selector === "[id$='local-login-pwd'] input[type='password']" ?
+            [password] : selector.includes("error-tips") && error ? [node("Rejected")] : [],
+        querySelector: selector => selector === "[id$='local-login-button']" ? button : null
     };
     const doc = {
         defaultView: {
@@ -106,7 +118,7 @@ function loginFixture({ locked = false, error = false } = {}) {
             KeyboardEvent: class { constructor(type, options) { this.type = type; Object.assign(this, options); } }
         },
         querySelector: selector => selector === ".local-login-page" ? page : null,
-        querySelectorAll: () => [password],
+        querySelectorAll: selector => selector === "[id$='local-login-pwd'] input[type='password']" ? [password] : [],
         getElementById: () => null
     };
     return { doc, password, events };

@@ -111,6 +111,6 @@
             </DataGrid.Columns>
         </DataGrid>
         <TextBlock x:Name="Status" Grid.Row="4" Margin="0,10,0,0" TextWrapping="Wrap"
-                   Text="Starting the isolated router browser..." AutomationProperties.Name="Inspector status" />
+                   Text="Starting the isolated router browser..." AutomationProperties.AutomationId="InspectorStatus" />
     </Grid>
 </Window>

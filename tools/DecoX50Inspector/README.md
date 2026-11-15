@@ -33,7 +33,10 @@ The inspector does not persist passwords or upload data.
 **Capture connected clients** signs in if necessary, reloads Network Map,
 activates its Clients control and reads **Connected Clients (All Deco's)**.
 This firmware renders all rows, including those below the viewport, in
-`connected-clients-grid`; extraction does not depend on screenshot scrolling.
+the grid's stable `connected-clients-grid` CSS class; extraction does not depend
+on screenshot scrolling. The framework prefixes widget IDs with view namescopes,
+so navigation/grid selectors use stable classes and local-login selectors use
+known ID suffixes rather than assuming the unrendered template's bare IDs.
 The All Decos selection, unique grid, rendered client count, MAC/IP fields and
 explicit connection labels are checked. Hidden responsive duplicates are ignored.
 Two complete, consistent observations of names/MACs/IPs/connections are required;
@@ -114,9 +117,12 @@ node --test tools\DecoX50Inspector\ExtractDecoClients.Tests.cjs
 ```
 
 The router's unauthenticated, locally served module markup/controller was
-inspected to establish the grid ID, responsive name/MAC/IP classes, connection
+inspected to establish the grid class, responsive name/MAC/IP classes, connection
 column, All Decos default, Clients control and local-login keyup handler.
 No raw API decryption or authenticated request replay is used.
-Fixture checks do not establish successful authentication or completeness on
-the live router. User-assisted real-device sign-in, capture/count agreement,
-certificate decision and export verification remain required.
+Live accessibility inspection successfully activated the Clients tile and
+exposed 19 distinct MAC identities across the rendered page. This uncovered the
+framework's namescoped widget IDs and parenthesized `(All Deco's)` selection
+label, now covered by regression checks. It is not proof of a successful
+inspector capture/export: user-assisted capture/count agreement and export
+verification remain required.

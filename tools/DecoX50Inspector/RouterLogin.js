@@ -3,16 +3,17 @@ function inspectDecoLogin(doc) {
     const page = doc.querySelector(".local-login-page");
     if (!visible(page)) {
         return {
-            State: visible(doc.getElementById("map-clients")) ? "Authenticated" :
+            State: visible(doc.querySelector(".map-item.map-clients")) ? "Authenticated" :
                 visible(doc.querySelector(".login-view")) ? "Unsupported" : "Other",
             Error: false
         };
     }
-    const inputs = Array.from(page.querySelectorAll("#local-login-pwd input[type='password']"))
+    const inputs = Array.from(page.querySelectorAll(
+        "[id$='local-login-pwd'] input[type='password']"))
         .filter(visible);
-    const button = page.querySelector("#local-login-button");
+    const button = page.querySelector("[id$='local-login-button']");
     const rejected = Array.from(page.querySelectorAll(
-        ".widget-error-tips,.password-error-tips,#left-attempts-prompt,#max-attempts-prompt"))
+        ".widget-error-tips,.password-error-tips,[id$='left-attempts-prompt'],[id$='max-attempts-prompt']"))
         .some(element => visible(element) && decoText(element).length > 0);
     return {
         State: inputs.length !== 1 || !visible(button) ? "Unsupported" :
@@ -24,7 +25,7 @@ function inspectDecoLogin(doc) {
 function submitDecoLogin(doc, password) {
     const state = inspectDecoLogin(doc);
     if (state.State !== "Login" || state.Error) return false;
-    const input = Array.from(doc.querySelectorAll("#local-login-pwd input[type='password']"))
+    const input = Array.from(doc.querySelectorAll("[id$='local-login-pwd'] input[type='password']"))
         .filter(element => decoVisible(doc, element))[0];
     input.value = password;
     const view = doc.defaultView;

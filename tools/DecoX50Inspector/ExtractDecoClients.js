@@ -31,7 +31,7 @@ function readDecoClients(doc) {
     const visible = element => decoVisible(doc, element);
     if (visible(doc.querySelector(".local-login-page")) ||
         visible(doc.querySelector(".login-view"))) return result("Login");
-    const grids = Array.from(doc.querySelectorAll("#connected-clients-grid")).filter(visible);
+    const grids = Array.from(doc.querySelectorAll(".connected-clients-grid")).filter(visible);
     if (grids.length === 0) return result("Loading");
     if (grids.length !== 1) throw new Error("The Deco connected-client grid is ambiguous.");
     const grid = grids[0];
@@ -39,12 +39,13 @@ function readDecoClients(doc) {
     if (!panel) throw new Error("The Deco client panel is missing.");
     const choice = panel.querySelector("input.combobox-text");
     const selected = panel.querySelectorAll("input.combobox-checkbox:checked");
-    if (!choice || !/^all deco'?s?$/i.test(choice.value.trim()) || selected.length !== 1 ||
+    const choiceText = choice?.value.trim().replace(/^\((.*)\)$/, "$1") || "";
+    if (!/^all deco'?s?$/i.test(choiceText) || selected.length !== 1 ||
         selected[0].getAttribute("data-index") !== "0")
         throw new Error("Select All Decos before capturing; a per-Deco list is not a complete snapshot.");
     if (Array.from(doc.querySelectorAll(".loading,.grid-loading,.mask")).some(visible))
         return result("Loading");
-    const countText = decoText(doc.querySelector("#map-clients .map-clients-icon-num"));
+    const countText = decoText(doc.querySelector(".map-item.map-clients .map-clients-icon-num"));
     if (!/^\d+$/.test(countText)) return result("Loading");
     const count = Number(countText);
     if (!Number.isSafeInteger(count) || count > 10000)
@@ -87,8 +88,12 @@ function readDecoClients(doc) {
 }
 
 function openDecoClients(doc) {
-    const control = doc.getElementById("map-clients");
-    if (!decoVisible(doc, control)) return false;
+    // Deco's widget framework prefixes element IDs with the view's namescope.
+    const controls = Array.from(doc.querySelectorAll(".map-item.map-clients"))
+        .filter(element => decoVisible(doc, element));
+    if (controls.length === 0) return false;
+    if (controls.length !== 1) throw new Error("The Deco Clients navigation control is ambiguous.");
+    const control = controls[0];
     if (!control.classList.contains("active")) control.click();
     return true;
 }
