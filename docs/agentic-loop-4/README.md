@@ -18,6 +18,42 @@ for allocation; Developers assess scope, authority, dependency delivery,
 parallel compatibility and review/CI feedback. Labels help estimate overlap
 but do not replace code/diff/shared-contract inspection.
 
+## Desktop Automation prompts
+
+In the desktop app's Automation creation form, select the corresponding **4️⃣**
+agent and paste the short text below into **Instructions for each run**. These
+prompts supplement the selected profile; do not paste the profile's YAML header
+or the configuration JSON into that field. Keep **Run in the cloud** off.
+Creating/saving an Automation does not authorize workload execution or scheduling.
+
+### 4️⃣ Dispatcher
+
+Replace every placeholder with the actual approved configuration. The shared
+directory and repair limit must match the persisted configuration; both roles
+must be able to retrieve the original approval.
+
+```text
+Run one bounded loop4 Dispatcher tick for Epic <Epic URL>, using Developers
+"4️⃣ Developer 1" and "4️⃣ Developer 2".
+
+Original human authorization: <approval URL>.
+Shared directory: <absolute loop4 directory>.
+Cumulative repair limit: <approved count>.
+
+Follow the loop4 contract. Do not wait for Developers or CI.
+```
+
+### 4️⃣ Developer 1 and 4️⃣ Developer 2
+
+Use the same prompt for both Automations, selecting the matching Developer
+profile in each. Their distinct identities come from the selected profiles.
+
+```text
+Handle verified loop4 Dispatcher messages according to your Developer contract.
+Without an offer or confirmed assignment, finish inert. If already busy, report
+your current assignment and continue it. Never start coding from an offer alone.
+```
+
 ## Setup boundaries
 
 Create separate disabled Automations only after explicit setup approval. Use the
