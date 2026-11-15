@@ -25,9 +25,14 @@ function fixture(definitions, options = {}) {
             querySelectorAll: selector => fields[selector] || []
         };
     });
+    const choice = {
+        ...node(options.selection ?? "All Deco's"),
+        tagName: options.inputSelector ? "INPUT" : "SPAN",
+        value: options.selection ?? "All Deco's"
+    };
     const panel = {
-        querySelector: () => ({ value: options.selection ?? "All Deco's" }),
-        querySelectorAll: () => [{ getAttribute: () => options.index ?? "0" }]
+        querySelector: () => null,
+        querySelectorAll: selector => selector === ".combobox-text" ? [choice] : []
     };
     const grid = {
         ...node(), closest: () => panel,
@@ -78,6 +83,7 @@ test("accepts the actual parenthesized All Decos label with namescoped widget ID
     assert.equal(doc.getElementById("map-clients"), null);
     assert.equal(readDecoClients(doc).State, "Ready");
     assert.equal(openDecoClients(doc), true);
+    assert.equal(readDecoClients(fixture([{}], { selection: "(All Deco's)", inputSelector: true }).doc).State, "Ready");
 });
 
 test("rejects duplicates, malformed identities, unsupported labels, per-Deco filtering and pagination", () => {

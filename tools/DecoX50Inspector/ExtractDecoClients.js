@@ -38,11 +38,13 @@ function readDecoClients(doc) {
     const grid = grids[0];
     const panel = grid.closest(".networkmap-client-panel");
     if (!panel) throw new Error("The Deco client panel is missing.");
-    const choice = panel.querySelector("input.combobox-text");
-    const selected = panel.querySelectorAll("input.combobox-checkbox:checked");
-    const choiceText = choice?.value.trim().replace(/^\((.*)\)$/, "$1") || "";
-    if (!/^all deco'?s?$/i.test(choiceText) || selected.length !== 1 ||
-        selected[0].getAttribute("data-index") !== "0")
+    const choices = Array.from(panel.querySelectorAll(".combobox-text")).filter(visible);
+    if (choices.length !== 1) throw new Error("The Deco client-scope selector is missing or ambiguous.");
+    // Auto-width Deco selectors render a span; checkbox copies are updated only in the global popup.
+    const choice = choices[0];
+    const choiceText = (choice.tagName === "INPUT" ? choice.value.trim() : decoText(choice))
+        .replace(/^\((.*)\)$/, "$1");
+    if (!/^all deco'?s?$/i.test(choiceText))
         throw new Error("Select All Decos before capturing; a per-Deco list is not a complete snapshot.");
     if (Array.from(doc.querySelectorAll(".loading,.grid-loading,.mask")).some(visible))
         return result("Loading");

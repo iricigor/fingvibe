@@ -43,6 +43,8 @@ so navigation, grid and the known local-login card use stable classes rather
 than assuming the unrendered template's IDs.
 The All Decos selection, unique grid, rendered client count, MAC/IP fields and
 explicit connection labels are checked. Hidden responsive duplicates are ignored.
+The scope label is read from Deco's auto-width combobox span (or an input on
+other layouts), not the stale checkbox copies used to populate its global popup.
 Two complete, consistent observations of names/MACs/IPs/connections are required;
 changing live transfer rates are neither read nor used for stability.
 
