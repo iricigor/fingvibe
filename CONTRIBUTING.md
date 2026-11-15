@@ -284,7 +284,8 @@ Run the deterministic gate regression checks without starting real agents:
 
 The independent [loop4 source setup](docs/agentic-loop-4/README.md) uses separate
 4️⃣ profiles, disjoint candidate offers and Developer-reported availability.
-Dispatcher collects successful CI, failed CI, then new work, waits for assessments
+Dispatcher runs the collector, reads only the approval link supplied in its prompt,
+then offers successful CI, failed CI and new work, waits for assessments
 and sends explicit starts. No state initialization, gate or delivery-based capacity
 protocol is required; PR submission ends implementation execution while CI runs.
 Do not overlap Dispatcher cycles or duplicate uncertain messages/assignments.

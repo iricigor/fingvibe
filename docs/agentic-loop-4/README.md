@@ -12,20 +12,31 @@ Use **4️⃣ Dispatcher**, **4️⃣ Developer 1**, and **4️⃣ Developer 2**
 independent local host tools, not synchronous subagents or a scripted launcher.
 The [protocol](protocol.md) and [Developer contract](developer.md) are mandatory.
 
-No machine-local state.json setup is required. Supply the requested Epic and
-independently retrievable original human workload approval. Both roles verify
-author/provenance, scope, implementation/no-code authority, merge permission and
-cumulative repair allowance. Missing permission is not approval. Agent-authored
-summaries do not replace the original decision. Source delivery authorizes no
-workload, trial, Automation installation/activation or scheduling.
+No machine-local state.json setup is required. Supply the requested Epic and a
+link to the original human workload approval in the Dispatcher prompt. Dispatcher
+reads only that link, without searching for approval, and stops if it is missing.
+Both roles verify its human author, scope, implementation/no-code authority, merge
+permission and cumulative repair allowance; Dispatcher forwards the link in offers
+and starts. Missing permission is not approval. Agent-authored summaries do not
+replace the original decision. Source delivery authorizes no workload, trial,
+Automation installation/activation or scheduling.
 
 Example Dispatcher instructions for an already authorized local Automation:
 
 ```text
 Run one loop4 offer/start cycle for Epic #<number>.
-Retrieve its original human workload approval and follow the loop4 contract.
-Wait for Developer assessments, not implementation or CI.
+approval: <link to the original human approval comment>
+Follow the loop4 contract. Wait for Developer assessments, not implementation or CI.
 ```
+
+A cycle is **run the script → read the approval link → send offers**. Dispatcher
+uses the packet's `candidates` and `blocked` output directly. It does not read the
+full evidence artifact or repeat GitHub/GraphQL requests for collected data unless
+a specific candidate's data is missing or contradictory. Before offering, it checks
+previous assignments/responses only for the candidates about to be offered, using
+its retained context and the artifact's Discussion data. Starts still require
+Developer assessments, a fresh check of the selected task and a verified
+assignment comment in the Epic coordination Discussion.
 
 Developer instructions (select the matching numbered profile):
 
@@ -73,6 +84,8 @@ work. Human tasks, explicit blockers and open native dependencies are excluded.
 Closed dependency disposition and foreign work remain evidence for Developer
 assessment, not automatic proof of delivery. Issues, PR diffs/reviews, CI jobs
 and Discussions are completely paginated; collection errors stop explicitly.
+Discussions keep their category (Agent logs, Epic coordination, Task
+conversations); the Epic's Discussion is found there, without issue-body links.
 
 Optional `-TaskOrder` with `-OrderEvidence` supplies an explicit human ordering
 within priority groups; a blocked predecessor prevents later ordered candidates.
