@@ -50,7 +50,9 @@ changing live transfer rates are neither read nor used for stability.
 
 Captured connection values include Wired and Wireless (2.4G/5G); recognized
 6G/MLO, Zigbee and Bluetooth labels are preserved if supplied by firmware.
-A router `-` IP or connection is shown as unavailable/Unknown, not guessed.
+A router blank or `-` IP is retained as unavailable, not guessed. A `-`
+connection is Unknown. Other malformed IP values fail with the client MAC
+and offending field text so an unsupported format can be investigated precisely.
 Names remain separate from FingVibe names. Different MACs sharing an IP remain
 separate identities, and absence from this client view does not prove offline.
 The capture time is an observation time, not an atomic router snapshot.

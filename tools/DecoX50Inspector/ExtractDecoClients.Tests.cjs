@@ -78,6 +78,17 @@ test("does not publish partial lists or unverified empty states", () => {
     assert.equal(readDecoClients(fixture([{ empty: true }], { count: 0 }).doc).State, "Ready");
 });
 
+test("preserves clients with unavailable IPs and identifies the actual malformed value", () => {
+    for (const ip of ["", "-"]) {
+        const result = readDecoClients(fixture([{ ip }]).doc);
+        assert.equal(result.State, "Ready");
+        assert.equal(result.Clients[0].Ip, "");
+        assert.equal(result.Clients[0].Mac, "00:28:F8:9E:88:51");
+    }
+    assert.throws(() => readDecoClients(fixture([{ ip: "192.168.0.999" }]).doc),
+        /Client 00:28:F8:9E:88:51 has a malformed IPv4 address: "192\.168\.0\.999"/);
+});
+
 test("accepts the actual parenthesized All Decos label with namescoped widget IDs", () => {
     const { doc } = fixture([{}], { selection: "(All Deco's)" });
     assert.equal(doc.getElementById("map-clients"), null);

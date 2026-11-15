@@ -74,9 +74,10 @@ function readDecoClients(doc) {
         seen.add(normalized);
         let ip = single(".ip");
         if (ip === "-") ip = "";
-        else if (!/^\d{1,3}(?:\.\d{1,3}){3}$/.test(ip) ||
-            ip.split(".").some(part => Number(part) > 255) || ip === "0.0.0.0")
-            throw new Error("A Deco client has a malformed IPv4 address.");
+        else if (ip.length > 0 && (!/^\d{1,3}(?:\.\d{1,3}){3}$/.test(ip) ||
+            ip.split(".").some(part => Number(part) > 255) || ip === "0.0.0.0"))
+            throw new Error(`Client ${normalized} has a malformed IPv4 address: ` +
+                JSON.stringify(ip.length > 80 ? ip.slice(0, 80) + " [truncated]" : ip));
         const cells = Array.from(row.querySelectorAll("td")).filter(visible);
         if (!cells.length) throw new Error("A Deco client has no connection cell.");
         clients.push({
