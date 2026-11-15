@@ -256,7 +256,8 @@ successful live trial and separate activation approval. Verify independent launc
 message correlation, worker termination, and exact task worktree/branch reuse for
 repair/finalize. Never substitute a synchronous subagent.
 
-Compliant Dispatchers on the same PC share the helper's default persistent gate.
+These older Dispatchers on the same PC share the helper's default persistent gate;
+the independent loop4 flow below does not use delivery-based claims or this gate.
 Unknown workers, partial launches, stale gates, or missing host capabilities stop
 pickup and retain claims for human reconciliation; there is no age-based recovery.
 Open PRs, open active/review work, known running workers, and explicit unresolved
@@ -282,10 +283,13 @@ Run the deterministic gate regression checks without starting real agents:
 ## Independent loop4
 
 The independent [loop4 source setup](docs/agentic-loop-4/README.md) uses separate
-4️⃣ profiles, Developer-side semantic assessment and two total in-flight tasks.
-It reuses the unchanged repository gate, not older execution state or authority.
-Its focused checks are `tests/Agent4Coordination.Tests.ps1` and
-`tests/Agent4DispatcherPacket.Tests.ps1`; no live installation/activation is implied.
+4️⃣ profiles, disjoint candidate offers and Developer-reported availability.
+Dispatcher collects successful CI, failed CI, then new work, waits for assessments
+and sends explicit starts. No state initialization, gate or delivery-based capacity
+protocol is required; PR submission ends implementation execution while CI runs.
+Do not overlap Dispatcher cycles or duplicate uncertain messages/assignments.
+Focused checks are `tests/Agent4DispatcherPacket.Tests.ps1` and the preserved
+historical `tests/Agent4Coordination.Tests.ps1`; no live activation is implied.
 
 ## Architecture discussions with Architect
 

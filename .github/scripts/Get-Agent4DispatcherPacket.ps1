@@ -20,11 +20,53 @@ function Invoke-Agent4GitHubRead([string] $Endpoint, [bool] $Paginated, [string]
     $text -join "`n"
 }
 
-function Get-Agent4WorkPacket($State, [string] $EvidencePath, [scriptblock] $Reader,
+function Get-Agent4CiStage($Pull, $Cache) {
+    $head = $Pull.head.sha
+    $checks = @($Cache["commits/$head/check-runs"] | ForEach-Object { $_.check_runs } |
+        Where-Object head_sha -EQ $head | Group-Object { "$($_.app.id):$($_.name)" } |
+        ForEach-Object { $_.Group | Sort-Object id -Descending | Select-Object -First 1 })
+    $runs = @($Cache["actions/runs?head_sha=$head"] | ForEach-Object { $_.workflow_runs } |
+        Where-Object head_sha -EQ $head | Group-Object workflow_id |
+        ForEach-Object { $_.Group | Sort-Object id -Descending | Select-Object -First 1 })
+    $statuses = @($Cache["statuses/$head"] |
+        Group-Object context | ForEach-Object { $_.Group | Sort-Object id -Descending | Select-Object -First 1 })
+    if (-not ($checks.Count + $runs.Count + $statuses.Count)) { return "unknown" }
+    $pending = $false; $failed = $false; $unknown = $false; $successful = $false
+    if (@($runs | Where-Object { -not $_.workflow_id }).Count) { $unknown = $true }
+    foreach ($item in @($checks) + @($runs)) {
+        if (-not $item.name -or ($item.ContainsKey("workflow_id") -and -not $item.workflow_id)) { $unknown = $true }
+        if ($item.status -in @("queued", "in_progress", "waiting", "requested", "pending")) { $pending = $true; continue }
+        if ($item.status -ne "completed") { $unknown = $true; continue }
+        switch ($item.conclusion) {
+            success { $successful = $true }
+            { $_ -in @("neutral", "skipped") } {}
+            { $_ -in @("failure", "timed_out", "cancelled", "action_required", "startup_failure", "stale") } { $failed = $true }
+            default { $unknown = $true }
+        }
+    }
+    foreach ($item in $statuses) {
+        if (-not $item.context -or ($item.sha -and $item.sha -cne $head)) { $unknown = $true }
+        switch ($item.state) {
+            success { $successful = $true }
+            pending { $pending = $true }
+            { $_ -in @("failure", "error") } { $failed = $true }
+            default { $unknown = $true }
+        }
+    }
+    if ($unknown) { return "unknown" }
+    if ($pending) { return "pending" }
+    if ($failed) { return "failed" }
+    if ($successful) { return "success" }
+    "unknown"
+}
+
+function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblock] $Reader,
     [int[]] $Order, [string] $OrderingEvidence) {
-    Assert-Agent4State $State
-    $config = $State.configuration
+    $config = $Configuration
     $repository = $config.repository
+    if ($repository -notmatch '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$' -or $config.epic -le 0) {
+        throw "Repository and positive Epic number required."
+    }
     $cache = @{}
     function Read-Evidence([string] $Endpoint, [bool] $Paginated = $false, [string] $Query) {
         $key = "$Endpoint|$Paginated|$Query"
@@ -48,8 +90,10 @@ function Get-Agent4WorkPacket($State, [string] $EvidencePath, [scriptblock] $Rea
         $all = @(); $cursor = $null; $seen = @{}
         do {
             $after = if ($cursor) { ',after:"' + $cursor + '"' } else { "" }
-            $selection = 'id body url author { login } createdAt updatedAt'
-            $type = if ($Field -eq "comments") { "Discussion" } else { "DiscussionComment" }
+            $selection = if ($Field -eq "closingIssuesReferences") { 'number repository { nameWithOwner }' } else {
+                'id body url author { login } createdAt updatedAt'
+            }
+            $type = switch ($Field) { comments { "Discussion" }; replies { "DiscussionComment" }; closingIssuesReferences { "PullRequest" } }
             $query = 'query { node(id:"' + $NodeId + '") { ... on ' + $type + ' { ' +
                 $Field + '(first:100' + $after + ') { nodes { ' + $selection +
                 ' } pageInfo { hasNextPage endCursor } } } } }'
@@ -68,8 +112,8 @@ function Get-Agent4WorkPacket($State, [string] $EvidencePath, [scriptblock] $Rea
     }
 
     $repo = Read-Evidence "repos/$repository"
-    if ($repo.full_name -ine $repository -or $repo.default_branch -cne $config.targetBranch) {
-        throw "Repository identity/default branch changed."
+    if ($repo.full_name -ine $repository -or -not $repo.default_branch) {
+        throw "Repository identity/default branch unavailable."
     }
     $epic = Read-Evidence "repos/$repository/issues/$($config.epic)"
     if ($epic.number -ne $config.epic -or "type:epic" -notin $epic.labels.name -or $epic.state -ne "open") {
@@ -80,10 +124,11 @@ function Get-Agent4WorkPacket($State, [string] $EvidencePath, [scriptblock] $Rea
     $children = Read-Evidence "repos/$repository/issues/$($config.epic)/sub_issues?per_page=100" $true
     $pulls = Read-Evidence "repos/$repository/pulls?state=open&per_page=100" $true
     foreach ($pr in $pulls) {
-        if (-not $pr.number -or -not $pr.head.sha) { throw "Incomplete open PR." }
+        if (-not $pr.number -or -not $pr.head.sha -or -not $pr.node_id) { throw "Incomplete open PR." }
+        $pr.linkedIssues = Read-Connection $pr.node_id closingIssuesReferences
         $null = Read-Evidence "repos/$repository/pulls/$($pr.number)/files?per_page=100" $true
         $null = Read-Evidence "repos/$repository/pulls/$($pr.number)/reviews?per_page=100" $true
-        $null = Read-Evidence "repos/$repository/commits/$($pr.head.sha)/statuses?per_page=100" $true
+        $cache["statuses/$($pr.head.sha)"] = Read-Evidence "repos/$repository/commits/$($pr.head.sha)/statuses?per_page=100" $true
         # Check-runs and Actions are objects with nested arrays; paginate them explicitly.
         foreach ($route in @("commits/$($pr.head.sha)/check-runs", "actions/runs?head_sha=$($pr.head.sha)")) {
             $separator = if ($route.Contains("?")) { "&" } else { "?" }
@@ -190,43 +235,52 @@ function Get-Agent4WorkPacket($State, [string] $EvidencePath, [scriptblock] $Rea
         if ($child.pull_request -or "type:task" -notin $child.labels.name -or "type:epic" -in $child.labels.name) {
             $reason = "Not a native task child."
         } elseif ("human-task" -in $child.labels.name) { $reason = "Human intervention required." }
-        elseif ($child.number -in @($State.claims | Where-Object stage -NE released).issue) { $reason = "Retained loop4 claim." }
-        elseif ($child.number -in @($State.offers | Where-Object status -IN @("offered", "correlated") |
-            ForEach-Object { $_.candidates.issue })) { $reason = "Pending offer/assessment; do not duplicate uncertain delivery." }
         elseif (@($dependencies | Where-Object state -NE closed).Count) { $reason = "Open native dependency." }
-        elseif (@($child.labels.name | Where-Object { $_ -in @("active", "status:review", "status:blocked") }).Count) {
-            $reason = "Retained lifecycle/blocked ownership requires reconciliation."
+        elseif ("status:blocked" -in $child.labels.name) {
+            $reason = "Explicit task blocker."
         } elseif ($orderingBlocked) { $reason = "Explicit human predecessor order is blocked." }
+        $linked = @($pulls | Where-Object {
+            $child.number -in @($_.linkedIssues | Where-Object { $_.repository.nameWithOwner -ieq $repository }).number
+        })
+        $category = "new"; $rank = 2; $pull = $null
+        if (-not $reason) {
+            if ($linked.Count -gt 1) { $reason = "Multiple open linked PRs; Developer/human assessment required." }
+            elseif ($linked.Count -eq 1) {
+                $pull = $linked[0]
+                $ci = Get-Agent4CiStage $pull $cache
+                if ($ci -in @("pending", "unknown")) { $reason = "Current-head CI is $ci." }
+                else { $category = $ci; $rank = if ($ci -eq "success") { 0 } else { 1 } }
+            } elseif (@($child.labels.name | Where-Object { $_ -in @("active", "status:review") }).Count) {
+                $reason = "Existing work without an open linked PR; do not offer as new."
+            }
+        }
         if ($reason) {
             $blocked += @{ issue = $child.number; reason = $reason; url = $child.html_url }
             if ($Order) { $orderingBlocked = $true }
         } else {
             $candidates += @{ issue = $child.number; url = $child.html_url; labels = $child.labels.name
-                dependencies = $dependencies; semanticAssessmentRequired = $true }
+                dependencies = $dependencies; category = $category; rank = $rank
+                pr = $pull; semanticAssessmentRequired = $true }
         }
     }
+    $candidates = @($candidates | Sort-Object -Stable rank)
     Write-Agent4Json $EvidencePath @{
         schema = "fingvibe-loop4-evidence-v1"; utc = [DateTimeOffset]::UtcNow.ToString("o")
-        repository = $repository; epic = $config.epic; revision = $State.revision
+        repository = $repository; epic = $config.epic
         reads = $cache; discussions = $discussions; issues = $issues; comments = $comments; pulls = $pulls
         order = $Order; orderEvidence = $OrderingEvidence
     }
     @{
         schema = "fingvibe-loop4-packet-v1"; repository = $repository; epic = $config.epic
-        targetBranch = $config.targetBranch; revision = $State.revision; evidencePath = $EvidencePath
-        candidates = @($candidates | Select-Object -First 4); blocked = $blocked
-        retainedClaims = @($State.claims | Where-Object stage -NE released)
-        pendingOffers = @($State.offers | Where-Object status -IN @("offered", "correlated"))
-        assessment = "Review full evidence, original authority, native/body dependency delivery, foreign claims, diffs and all proposals before accepting."
+        targetBranch = $repo.default_branch; evidencePath = $EvidencePath
+        candidates = $candidates; blocked = $blocked
+        assessment = "Developer reports availability. Review authority, dependencies, foreign ownership, diffs and candidate compatibility before recommending work."
     }
 }
 
 if ($MyInvocation.InvocationName -ne ".") {
-    $environment = Get-Agent4Environment $Repository $Epic $Directory
-    $state = $environment.state
-    $Directory = $environment.directory
+    if (-not $Directory) { $Directory = Join-Path ([IO.Path]::GetTempPath()) "FingVibe-loop4-evidence" }
     $path = Join-Path $Directory ("evidence\" + [guid]::NewGuid() + ".json")
-    $packet = Get-Agent4WorkPacket $state $path ${function:Invoke-Agent4GitHubRead} $TaskOrder $OrderEvidence
-    $packet.directory = $Directory
+    $packet = Get-Agent4WorkPacket @{ repository = $Repository; epic = $Epic } $path ${function:Invoke-Agent4GitHubRead} $TaskOrder $OrderEvidence
     $packet | ConvertTo-Json -Depth 100
 }
