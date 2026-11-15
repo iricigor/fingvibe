@@ -170,14 +170,16 @@ public partial class MainWindow : Window
     }
 
     private void WiredComplete_Changed(object sender, RoutedEventArgs e) => RefreshRows();
+    private void HideSameInDb_Changed(object sender, RoutedEventArgs e) => RefreshRows();
 
     private void RefreshRows()
     {
         if (ClientsGrid is null) return;
-        ClientsGrid.ItemsSource = _capture.Rows(WiredComplete.IsChecked == true).Select(row =>
+        var rows = _capture.Rows(WiredComplete.IsChecked == true).Select(row =>
             _databaseMatches.TryGetValue(row.Mac, out var match)
                 ? row with { DbComparison = match.Status, DbName = match.Name, DbIp = match.Ip, DbDetails = match.Details }
                 : row with { DbComparison = _loadedDatabasePath is null ? "DB not loaded" : "Not compared" }).ToArray();
+        ClientsGrid.ItemsSource = ClientCapture.FilterRows(rows, HideSameInDb.IsChecked == true);
         CaptureSummary.Text = string.Join(" | ", Enum.GetValues<ClientSource>().Select(source =>
             $"{SourceName(source)}: {(_capture.Has(source) ? $"{_capture.Count(source)} captured" : "not captured")}"));
     }
@@ -199,7 +201,9 @@ public partial class MainWindow : Window
 
     private async void LoginTimer_Tick(object? sender, EventArgs e)
     {
-        if (_closing || _refreshing || _loginProbeBusy || _busy || Browser.CoreWebView2 is not { } core) return;
+        if (_closing || _refreshing || _loginProbeBusy || _busy ||
+            _automationCancellation is not null || _signInCancellation is not null ||
+            Browser.CoreWebView2 is not { } core) return;
         _loginProbeBusy = true;
         var version = _navigationVersion;
         try
@@ -207,15 +211,10 @@ public partial class MainWindow : Window
             var json = await core.ExecuteScriptAsync($"(() => {{ {_loginScript}\n return inspectRouterLogin(document); }})()")
                 .WaitAsync(TimeSpan.FromSeconds(5));
             if (_closing || version != _navigationVersion) return;
+            if (_automationCancellation is not null || _signInCancellation is not null) return;
             var probe = JsonSerializer.Deserialize<LoginProbe>(json)
                 ?? throw new InvalidDataException("The router login state could not be read.");
             _loginState = probe.State;
-            if (_capturePagesActive && _automationCancellation is not null && (probe.State is "Login" or "Locked"))
-            {
-                _captureFailure = "The router logged out while reading its client pages. Sign in and retry.";
-                _automationCancellation.Cancel();
-                return;
-            }
             var action = _login.Observe(probe.State, probe.Error, DateTimeOffset.UtcNow);
             switch (action)
             {
@@ -244,6 +243,7 @@ public partial class MainWindow : Window
                     break;
             }
             UpdateLoginControls();
+            UpdateAutomationControls();
             if (probe.State == "Locked")
             {
                 LoginMessage.Text = "The router's login controls are locked or busy. Wait for the router before trying again.";
@@ -301,6 +301,7 @@ public partial class MainWindow : Window
             LoginMessage.Text = "The local login form is not ready. Try Forced refresh or use the router's own login form.";
             return;
         }
+        if (_loginState == "Login" && _automationCancellation is null && _signInCancellation is null && !ApplyClickDelay()) return;
         var password = LoginPassword.Password;
         if (password.Length == 0)
         {
@@ -318,39 +319,71 @@ public partial class MainWindow : Window
                 : "No password remembered. The current router session is unchanged.";
             return;
         }
-        await SubmitLoginAsync(password);
+        var token = _automationCancellation?.Token ?? _signInCancellation?.Token ?? CancellationToken.None;
+        var recovery = _recoveryVersion;
+        try { await SubmitLoginAsync(password, token); }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            if (!_closing && recovery == _recoveryVersion) Status.Text = "Sign-in cancelled.";
+        }
     }
 
-    private async Task SubmitLoginAsync(string? enteredPassword)
+    private async Task SubmitLoginAsync(string? enteredPassword, CancellationToken token = default)
     {
         if (_closing || _refreshing || _login.IsPending || Browser.CoreWebView2 is not { } core) return;
         var password = enteredPassword ?? _login.PasswordForLogin;
         if (password is null) return;
         var version = _navigationVersion;
         _login.Submitted(DateTimeOffset.UtcNow);
+        _loginSubmissionFailure = null;
         SignInButton.IsEnabled = false;
         LoginMessage.Text = "Signing in...";
-        Status.Text = "Submitting one local sign-in attempt...";
+        Status.Text = $"{AttemptPrefix}submitting one local sign-in attempt...";
+        UpdateAutomationControls();
         try
         {
+            await _clickPacer.WaitAsync(token);
+            if (_closing || version != _navigationVersion) return;
+            token.ThrowIfCancellationRequested();
+            _login.Submitted(DateTimeOffset.UtcNow);
             if (!IsRouter(core.Source))
                 throw new InvalidOperationException("Router login is not on the allowed origin.");
             var jsonPassword = JsonSerializer.Serialize(password);
             var json = await core.ExecuteScriptAsync($"(() => {{ {_loginScript}\n return submitRouterLogin(document, {jsonPassword}); }})()")
-                .WaitAsync(TimeSpan.FromSeconds(5));
+                .WaitAsync(TimeSpan.FromSeconds(5), token);
             if (_closing || version != _navigationVersion) return;
             if (!JsonSerializer.Deserialize<bool>(json))
                 throw new InvalidOperationException("The local password form is not available.");
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            if (!_closing && version == _navigationVersion) _login.FailSubmission(retainPassword: true);
+            throw;
         }
         catch (Exception exception) when (exception is JsonException or InvalidOperationException
             or System.Runtime.InteropServices.COMException or TimeoutException)
         {
             if (_closing || version != _navigationVersion) return;
-            _login.FailSubmission();
+            _loginSubmissionFailure = exception;
+            var retaining = exception is TimeoutException &&
+                (_automationCancellation is not null || _signInCancellation is not null);
+            _login.FailSubmission(retainPassword: retaining);
             if (!_closing)
             {
-                ShowLoginPanel("Sign-in could not be submitted. The remembered password was cleared. Use the router page or try again when its local login form is ready.");
-                Status.Text = "Local sign-in submission failed. No automatic retry will be made.";
+                ShowLoginPanel(retaining
+                    ? "Sign-in submission timed out. The capture can retry with this run's remembered password."
+                    : "Sign-in could not be submitted. The remembered password was cleared. Use the router page or try again when its local login form is ready.");
+                Status.Text = retaining
+                    ? "Local sign-in submission timed out. The bounded capture retry policy applies."
+                    : "Local sign-in submission failed. No automatic retry will be made.";
+            }
+        }
+        finally
+        {
+            if (!_closing)
+            {
+                UpdateLoginControls();
+                UpdateAutomationControls();
             }
         }
     }

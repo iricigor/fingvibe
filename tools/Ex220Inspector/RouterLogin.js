@@ -13,9 +13,11 @@ function routerLoginControls(doc) {
             password.type !== "password") continue;
         const user = doc.getElementById(`${prefix}-login-user-div`);
         const error = doc.getElementById("errorContent");
+        const buttonError = button.parentElement?.querySelector(".button-error-tips,.widget-error-tips");
         return {
             State: visible(user) ? "UsernameRequired" : password.disabled || button.disabled ? "Locked" : "Login",
             Error: visible(error) && (error.innerText || "").trim().length > 0 ||
+                visible(buttonError) && (buttonError.innerText || "").trim().length > 0 ||
                 password.parentElement?.classList.contains("err") === true,
             password, button
         };

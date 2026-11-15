@@ -109,4 +109,16 @@ public sealed class Ex220ClientCaptureTests
         capture.ReplaceSource(ClientSource.Arp, replacement);
         Assert.Equal("Same IP", Assert.Single(capture.Rows(false)).ArpComparison);
     }
+
+    [Fact]
+    public void DifferencesFilterHidesOnlyConfirmedMatchesAndPreservesOtherEvidence()
+    {
+        var statuses = new[] { "Same in DB", "Different in DB", "Not in DB", "Cannot compare", "DB not loaded", "Not compared" };
+        var rows = statuses.Select(status => new ClientDisplay("Desktop", "AA:BB:CC:DD:EE:FF",
+            "192.168.0.2", "Wired", "Client List", "Same IP", status, "Saved name", "192.168.0.2")).ToArray();
+        var filtered = ClientCapture.FilterRows(rows, true);
+        Assert.Equal(statuses.Skip(1), filtered.Select(row => row.DbComparison));
+        Assert.All(filtered, row => Assert.Equal("Saved name", row.DbName));
+        Assert.Equal(rows, ClientCapture.FilterRows(rows, false));
+    }
 }

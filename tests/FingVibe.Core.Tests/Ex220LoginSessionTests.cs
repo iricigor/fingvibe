@@ -95,4 +95,19 @@ public sealed class Ex220LoginSessionTests
         Assert.Equal(LoginAction.None, session.Observe("Authenticated", false, Now.AddSeconds(1)));
         Assert.Equal(LoginAction.AutoLogin, session.Observe("Login", false, Now.AddSeconds(2)));
     }
+
+    [Fact]
+    public void CaptureTimeoutCanRetainPasswordButRejectionAlwaysClearsIt()
+    {
+        var session = new RouterLoginSession();
+        session.Remember("test-password");
+        session.Submitted(Now);
+        Assert.Equal(LoginAction.Failed, session.Observe("Other", false, Now.AddSeconds(15), retainPasswordOnTimeout: true));
+        Assert.True(session.HasPassword);
+        Assert.Equal(LoginAction.None, session.Observe("Login", false, Now.AddSeconds(16), retainPasswordOnTimeout: true));
+        session.ResetForRefresh();
+        session.Submitted(Now.AddSeconds(17));
+        Assert.Equal(LoginAction.Failed, session.Observe("Login", true, Now.AddSeconds(19), retainPasswordOnTimeout: true));
+        Assert.False(session.HasPassword);
+    }
 }

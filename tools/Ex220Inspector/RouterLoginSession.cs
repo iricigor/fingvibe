@@ -24,9 +24,9 @@ public sealed class RouterLoginSession
         _automaticAttempted = false;
         _authenticated = false;
     }
-    public void FailSubmission()
+    public void FailSubmission(bool retainPassword = false)
     {
-        _password = null;
+        if (!retainPassword) _password = null;
         _submittedAt = null;
         _automaticAttempted = true;
         _prompted = true;
@@ -39,7 +39,7 @@ public sealed class RouterLoginSession
         _prompted = true;
     }
 
-    public LoginAction Observe(string state, bool error, DateTimeOffset now)
+    public LoginAction Observe(string state, bool error, DateTimeOffset now, bool retainPasswordOnTimeout = false)
     {
         if (state == "Authenticated")
         {
@@ -54,7 +54,7 @@ public sealed class RouterLoginSession
             || state == "Login" && error && now - submitted >= TimeSpan.FromSeconds(1)))
         {
             _submittedAt = null;
-            _password = null;
+            if (!retainPasswordOnTimeout || error) _password = null;
             return LoginAction.Failed;
         }
         if (state != "Login" || IsPending) return LoginAction.None;

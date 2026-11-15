@@ -87,6 +87,13 @@
                         Padding="12,5" Margin="0,0,8,8" IsEnabled="False"
                         ToolTip="Stop pending work and reopen the router start page without cached resources. Captures and remembered password are kept." />
             </WrapPanel>
+            <WrapPanel Margin="0,0,0,8">
+                <Label Content="Click delay (ms)" Target="{Binding ElementName=ClickDelayInput}" Padding="0,5,8,0" />
+                <TextBox x:Name="ClickDelayInput" Text="500" Width="80" Padding="6"
+                         AutomationProperties.Name="Delay between router clicks in milliseconds"
+                         ToolTip="0 to 10000 ms. Readiness checks still apply; changes take effect on the next operation." />
+                <TextBlock Margin="12,5,0,0" Text="Up to 5 attempts per list; transient retries wait 2 seconds." />
+            </WrapPanel>
             <CheckBox x:Name="WiredComplete" Content="I have captured every page of the Wired Clients list"
                       Checked="WiredComplete_Changed" Unchecked="WiredComplete_Changed" />
             <TextBlock Margin="0,6,0,0" TextWrapping="Wrap"
@@ -114,6 +121,9 @@
                 </StackPanel>
             </Expander>
             <TextBlock x:Name="DatabaseStatus" Text="DB not loaded." Margin="0,6,0,0" TextWrapping="Wrap" />
+            <CheckBox x:Name="HideSameInDb" Content="Hide Same in DB"
+                      Margin="0,6,0,0" Checked="HideSameInDb_Changed" Unchecked="HideSameInDb_Changed"
+                      ToolTip="Hide confirmed matching names and IPs only. Differences, missing devices and unavailable comparisons remain visible." />
         </StackPanel>
         <DataGrid x:Name="ClientsGrid" Grid.Row="3" IsReadOnly="True" AutoGenerateColumns="False"
                   CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column"

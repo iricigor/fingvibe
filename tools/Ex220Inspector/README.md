@@ -19,10 +19,12 @@ node --test tools\Ex220Inspector\ExtractClients.Tests.cjs tools\Ex220Inspector\R
 Log in **inside the tool**, not in chat. Its in-app login prompt appears when the
 router's local password login form is detected. It occupies a separate panel
 beside the browser, not an overlay that native WebView2 can cover. Enter the password in that
-prompt and leave **Remember only until this inspector closes** checked to allow
-one automatic re-login when a signed-in session expires. A rejected attempt or
-15-second timeout clears the password and prompts again; there is no automatic
-retry loop. **Forget password** clears it without logging out the current router
+prompt and leave **Remember only until this inspector closes** checked. Outside
+captures, one automatic re-login is allowed when a signed-in session expires;
+a rejected attempt or idle 15-second timeout clears the password. During a
+managed capture, transient login timeouts retain only an already-remembered
+password for the bounded retry policy below. Rejection/lockout stops retries
+and clears password memory. **Forget password** clears it without logging out the current router
 session. Restarting the inspector always requires a new password. Choosing
 **Use router page** dismisses the prompt; passwords entered directly in the
 router page are not remembered by the inspector.
@@ -69,6 +71,23 @@ snapshot. Each success refreshes read-only DB comparison when selected.
 1. Advanced / Network / LAN Settings: Client List.
 2. Basic / Network Map / Wired Clients: click Wired Clients to open its table.
 3. Advanced / Security / IP and MAC Binding: ARP Client List.
+
+**Click delay (ms)** controls the minimum gap between automated menu, pagination
+and local-login submissions. Default: 500 ms; accepted range: 0-10000 ms.
+It is snapshotted for each operation and cannot be edited while that operation
+or a login submission is running. Already-settled pages need no extra full
+delay; readiness/content checks are never replaced by a sleep.
+
+Each source has **five attempts total** (initial plus four retries). Timeout,
+session expiry and transient page/content changes wait two seconds and restart
+that source from page 1, re-authenticating with the remembered in-process password
+when needed. Failed-attempt rows are discarded, and completed sources are not
+recaptured. Missing credentials prompt locally. Wrong passwords, locked controls,
+unsupported forms, ambiguous selectors, malformed rows and unsupported page
+counts stop immediately instead of repeatedly submitting credentials.
+Status feedback shows source, attempt, page and retry reason. **Cancel** and
+**Forced refresh** cancel pending click/backoff/login waits and prevent further
+attempts; an already-dispatched browser request cannot be undone.
 
 Automatic capture requires uniquely titled tables. It starts each list at page
 1 and follows the TP-Link `table-bottom-pages` widget's selected-page marker and
@@ -120,6 +139,12 @@ marks missing names/IPs or ambiguous/historical virtual associations; another
 network's or historical imported IP is never silently used as a local baseline.
 Database failures remain visible, not **Not in DB**.
 
+**Hide Same in DB** filters the results table to focus on differences and
+possible inventory additions. It hides only confirmed matching name/IP rows;
+Different in DB, Not in DB, Cannot compare and unavailable comparisons stay
+visible. It is off by default and affects presentation only: full captures
+and DB baselines are retained, and no names/IPs are saved or imported.
+
 The comparer opens an existing file with `SqliteOpenMode.ReadOnly`, enables
 `query_only`, uses bound parameters and a single deferred read transaction, and
 applies cancellation/five-second query guards. It does not call FingVibe's
@@ -132,7 +157,8 @@ rather than decrypting raw API responses. Ambiguous tables and malformed rows
 produce an error rather than a partial success. The user confirmed all three
 manual captures on the actual EX220, and subsequently confirmed login plus
 automatic Client List and ARP capture. The revised automatic Wired Clients
-PC-link selection and session-expiry re-login still require confirmation.
+PC-link selection was also confirmed. The new pacing, bounded retry recovery
+and differences filter still need user confirmation on the real router.
 The source selection identifies the title to
 match, not an instruction to accept any MAC/IP table on the page.
 

@@ -73,3 +73,12 @@ test("authenticated content and router errors are identified without exporting m
     });
     assert.deepEqual(inspectRouterLogin(failed), { State: "Login", Error: true });
 });
+
+test("local button error tips signal rejection without exposing their message", () => {
+    const doc = loginDocument();
+    doc.elements["pc-login-btn"].parentElement = {
+        querySelector: () => ({ innerText: "Rejected local password", getClientRects: () => [{}] })
+    };
+    assert.deepEqual(inspectRouterLogin(doc), { State: "Login", Error: true });
+    assert.ok(!JSON.stringify(inspectRouterLogin(doc)).includes("Rejected"));
+});

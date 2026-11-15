@@ -28,6 +28,9 @@ public sealed class ClientCapture
     public int Count(ClientSource source) => _captures.GetValueOrDefault(source)?.Count ?? 0;
     public void Clear() => _captures.Clear();
 
+    public static IReadOnlyList<ClientDisplay> FilterRows(IEnumerable<ClientDisplay> rows, bool hideMatches) =>
+        rows.Where(row => !hideMatches || row.DbComparison != "Same in DB").ToArray();
+
     public void ReplaceSource(ClientSource source, ClientCapture completed)
     {
         if (!completed._captures.TryGetValue(source, out var table))

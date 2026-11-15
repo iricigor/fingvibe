@@ -9,8 +9,25 @@ public partial class MainWindow : IInspectorCaptureBrowser
     private CancellationTokenSource? _automationCancellation;
     private CancellationTokenSource? _signInCancellation;
     private string _captureScripts = "";
-    private bool _capturePagesActive;
-    private string? _captureFailure;
+    private readonly InspectorClickPacer _clickPacer = new();
+    private static readonly InspectorCaptureRetryPolicy RetryPolicy = new(5, TimeSpan.FromSeconds(2));
+    private Exception? _loginSubmissionFailure;
+    private InspectorCaptureProgress? _captureProgress;
+
+    private string AttemptPrefix => _captureProgress is { } item
+        ? $"{SourceName(item.Source)} attempt {item.Attempt}/{item.MaximumAttempts}: " : "";
+
+    private bool ApplyClickDelay()
+    {
+        if (!int.TryParse(ClickDelayInput.Text, out var milliseconds) || milliseconds is < 0 or > 10_000)
+        {
+            Status.Text = "Enter a click delay from 0 to 10000 milliseconds.";
+            ClickDelayInput.Focus();
+            return false;
+        }
+        _clickPacer.Delay = TimeSpan.FromMilliseconds(milliseconds);
+        return true;
+    }
 
     private async Task<T> BrowserValueAsync<T>(string expression, CancellationToken token)
     {
@@ -46,10 +63,13 @@ public partial class MainWindow : IInspectorCaptureBrowser
 
     public async Task EnsureSignedInAsync(CancellationToken token)
     {
+        _loginSubmissionFailure = null;
         var probe = await BrowserValueAsync<LoginProbe>("inspectRouterLogin(document)", token);
         if (probe.State == "Authenticated")
         {
             _loginState = probe.State;
+            _login.Observe(probe.State, probe.Error, DateTimeOffset.UtcNow);
+            UpdateLoginControls();
             return;
         }
         if (probe.State == "Other")
@@ -61,28 +81,87 @@ public partial class MainWindow : IInspectorCaptureBrowser
                 return probe.State != "Other";
             }, TimeSpan.FromSeconds(15), token);
         }
-        if (probe.State == "Authenticated") return;
-        if (probe.State == "UsernameRequired")
-            throw new InvalidOperationException("Use the router's own username/password form before automatic capture.");
+        if (probe.State == "Authenticated")
+        {
+            _loginState = probe.State;
+            _login.Observe(probe.State, probe.Error, DateTimeOffset.UtcNow);
+            UpdateLoginControls();
+            return;
+        }
+        CheckLoginBlocked(probe);
         _loginState = probe.State;
         _login.ResetForRefresh();
         _loginTimer.Start();
         if (_login.HasPassword && probe.State == "Login")
-            await SubmitLoginAsync(null);
+            await SubmitLoginAsync(null, token);
         else
             ShowLoginPanel("Sign in to continue. Enter the local password; Cancel or Forced refresh stops the pending operation.");
         await WaitForAsync(async () =>
         {
             probe = await BrowserValueAsync<LoginProbe>("inspectRouterLogin(document)", token);
+            _loginState = probe.State;
+            if (_loginSubmissionFailure is { } failure)
+            {
+                if (failure is TimeoutException) throw new TimeoutException("Local login submission timed out.", failure);
+                throw new InvalidOperationException("The local login could not be submitted; automatic retries stopped.", failure);
+            }
+            CheckLoginBlocked(probe);
+            var action = _login.Observe(probe.State, probe.Error, DateTimeOffset.UtcNow, retainPasswordOnTimeout: true);
+            if (action == LoginAction.Failed)
+            {
+                UpdateLoginControls();
+                if (probe.Error || probe.State == "Locked")
+                {
+                    _login.Forget();
+                    ShowLoginPanel("Login was rejected or locked. Automatic retries stopped; check the router before entering a password again.");
+                    throw new InvalidOperationException("Login was rejected or locked; automatic retries stopped.");
+                }
+                ShowLoginPanel("Login timed out. A capture retry can reuse the password remembered for this run.");
+                throw new TimeoutException("Local login did not complete within 15 seconds.");
+            }
+            UpdateLoginControls();
             return probe.State == "Authenticated";
         }, TimeSpan.FromMinutes(2), token);
         _loginState = "Authenticated";
         LoginPanel.Visibility = Visibility.Collapsed;
+        LoginPassword.Clear();
+        _manualLoginPanel = false;
+    }
+
+    private void CheckLoginBlocked(LoginProbe probe)
+    {
+        if (probe.State == "UsernameRequired")
+            throw new InvalidOperationException("Use the router's own username/password form; automatic retries stopped.");
+        if (!_login.IsPending && (probe.State == "Locked" || probe.State == "Login" && probe.Error))
+        {
+            _login.FailSubmission();
+            ShowLoginPanel("The router rejected login or locked its controls. Automatic retries stopped.");
+            throw new InvalidOperationException("The router rejected login or locked its controls; automatic retries stopped.");
+        }
+    }
+
+    private async Task CheckCaptureSessionAsync(CancellationToken token)
+    {
+        var probe = await BrowserValueAsync<LoginProbe>("inspectRouterLogin(document)", token);
+        _loginState = probe.State;
+        CheckLoginBlocked(probe);
+        if (probe.State == "Login")
+            throw new InspectorTransientCaptureException("The router session expired; sign-in and this list will be restarted.");
+    }
+
+    private async Task<T> CaptureValueAsync<T>(string expression, CancellationToken token)
+    {
+        await CheckCaptureSessionAsync(token);
+        try { return await BrowserValueAsync<T>(expression, token); }
+        catch (InvalidDataException)
+        {
+            await CheckCaptureSessionAsync(token);
+            throw;
+        }
     }
 
     public async Task NavigateAsync(ClientSource source, CancellationToken token)
     {
-        _capturePagesActive = true;
         var path = source switch
         {
             ClientSource.Clients => new[] { "Advanced", "Network", "LAN Settings" },
@@ -90,20 +169,18 @@ public partial class MainWindow : IInspectorCaptureBrowser
             _ => new[] { "Advanced", "Security", "IP and MAC Binding" }
         };
         var sourceJson = JsonSerializer.Serialize(source.ToString());
-        var state = await BrowserValueAsync<RouterCaptureState>($"routerCaptureState(document,{sourceJson},null)", token);
+        var state = await CaptureValueAsync<RouterCaptureState>($"routerCaptureState(document,{sourceJson},null)", token);
         if (state.Ready) return;
         for (var index = 0; index < path.Length; index++)
         {
             var label = JsonSerializer.Serialize(path[index]);
             var next = index + 1 < path.Length ? JsonSerializer.Serialize(path[index + 1]) : "null";
-            Status.Text = $"Opening {SourceName(source)}: {string.Join(" / ", path.Take(index + 1))}...";
-            _ = await BrowserValueAsync<bool>($"clickRouterMenu(document,{label},{next})", token);
+            Status.Text = $"{AttemptPrefix}opening {string.Join(" / ", path.Take(index + 1))}...";
+            await _clickPacer.WaitAsync(token);
+            _ = await CaptureValueAsync<bool>($"clickRouterMenu(document,{label},{next})", token);
             await WaitForAsync(async () =>
             {
-                var login = await BrowserValueAsync<LoginProbe>("inspectRouterLogin(document)", token);
-                if (login.State is "Login" or "Locked")
-                    throw new InvalidOperationException("The router logged out during capture. Sign in and retry; the previous capture was kept.");
-                state = await BrowserValueAsync<RouterCaptureState>($"routerCaptureState(document,{sourceJson},{next})", token);
+                state = await CaptureValueAsync<RouterCaptureState>($"routerCaptureState(document,{sourceJson},{next})", token);
                 return state.Ready || state.NextLabelVisible;
             }, TimeSpan.FromSeconds(15), token);
             if (state.Ready) return;
@@ -118,7 +195,7 @@ public partial class MainWindow : IInspectorCaptureBrowser
         string? previous = null;
         await WaitForAsync(async () =>
         {
-            state = await BrowserValueAsync<RouterCaptureState>($"routerCaptureState(document,{sourceJson},null)", token);
+            state = await CaptureValueAsync<RouterCaptureState>($"routerCaptureState(document,{sourceJson},null)", token);
             if (!state.Ready || state.Table is null)
             {
                 previous = null;
@@ -136,12 +213,13 @@ public partial class MainWindow : IInspectorCaptureBrowser
     public async Task GoToPageAsync(ClientSource source, int page, CancellationToken token)
     {
         var sourceJson = JsonSerializer.Serialize(source.ToString());
-        var before = await BrowserValueAsync<RouterCaptureState>($"routerCaptureState(document,{sourceJson},null)", token);
+        var before = await CaptureValueAsync<RouterCaptureState>($"routerCaptureState(document,{sourceJson},null)", token);
         var priorRows = JsonSerializer.Serialize(before.Table?.Clients);
-        _ = await BrowserValueAsync<bool>($"clickClientPage(document,{sourceJson},{page})", token);
+        if (before.Table?.PageNumber != page) await _clickPacer.WaitAsync(token);
+        _ = await CaptureValueAsync<bool>($"clickClientPage(document,{sourceJson},{page})", token);
         await WaitForAsync(async () =>
         {
-            var state = await BrowserValueAsync<RouterCaptureState>($"routerCaptureState(document,{sourceJson},null)", token);
+            var state = await CaptureValueAsync<RouterCaptureState>($"routerCaptureState(document,{sourceJson},null)", token);
             var table = state.Table;
             return state.Ready && table is not null && table.PageNumber == page &&
                 (before.Table?.PageNumber == page || JsonSerializer.Serialize(table.Clients) != priorRows);
@@ -158,10 +236,11 @@ public partial class MainWindow : IInspectorCaptureBrowser
 
     private async Task CaptureAutomaticAsync(ClientSource? source)
     {
-        if (_automationCancellation is not null || _signInCancellation is not null || _busy || _refreshing) return;
+        if (_automationCancellation is not null || _signInCancellation is not null || _login.IsPending || _busy || _refreshing) return;
+        if (!ApplyClickDelay()) return;
         using var cancellation = new CancellationTokenSource();
         _automationCancellation = cancellation;
-        _captureFailure = null;
+        _captureProgress = null;
         var recovery = _recoveryVersion;
         UpdateAutomationControls();
         Status.Text = source is { } selected
@@ -170,15 +249,20 @@ public partial class MainWindow : IInspectorCaptureBrowser
         var progress = new Progress<InspectorCaptureProgress>(item =>
         {
             if (ReferenceEquals(_automationCancellation, cancellation) && !cancellation.IsCancellationRequested)
-                Status.Text = $"{SourceName(item.Source)}: captured page {item.Page}/{item.Pages}.";
+            {
+                _captureProgress = item;
+                Status.Text = item.Failure is { } failure
+                    ? $"{AttemptPrefix}failed: {failure} Retrying in 2 seconds; Cancel stops retries."
+                    : item.Page == 0 ? $"{AttemptPrefix}sign-in and navigation..."
+                    : $"{AttemptPrefix}captured page {item.Page}/{item.Pages}.";
+            }
         });
         try
         {
             var capture = source is { } single
-                ? await InspectorCaptureRunner.CaptureSourceAsync(this, single, progress, cancellation.Token)
-                : await InspectorCaptureRunner.CaptureAsync(this, progress, cancellation.Token);
+                ? await InspectorCaptureRunner.CaptureSourceAsync(this, single, progress, cancellation.Token, RetryPolicy)
+                : await InspectorCaptureRunner.CaptureAsync(this, progress, cancellation.Token, RetryPolicy);
             cancellation.Token.ThrowIfCancellationRequested();
-            _capturePagesActive = false;
             if (source is { } replacement) _capture.ReplaceSource(replacement, capture);
             else _capture = capture;
             InvalidateComparison();
@@ -192,21 +276,19 @@ public partial class MainWindow : IInspectorCaptureBrowser
         catch (OperationCanceledException)
         {
             if (!_closing && ReferenceEquals(_automationCancellation, cancellation) && recovery == _recoveryVersion)
-                Status.Text = _captureFailure is null
-                    ? "Automatic capture cancelled. The previous snapshot was kept."
-                    : $"Automatic capture stopped: {_captureFailure} The previous snapshot was kept.";
+                Status.Text = "Automatic capture cancelled. The previous snapshot was kept.";
         }
         catch (Exception exception) when (exception is InvalidDataException or InvalidOperationException
-            or JsonException or TimeoutException or System.Runtime.InteropServices.COMException)
+            or InspectorTransientCaptureException or JsonException or TimeoutException or System.Runtime.InteropServices.COMException)
         {
             if (!_closing && ReferenceEquals(_automationCancellation, cancellation))
-                Status.Text = $"Automatic capture failed: {exception.Message} The previous snapshot was kept. Use Forced refresh if needed.";
+                Status.Text = $"{AttemptPrefix}automatic capture failed: {exception.Message} The previous snapshot was kept. Use Forced refresh if needed.";
         }
         finally
         {
             if (ReferenceEquals(_automationCancellation, cancellation))
             {
-                _capturePagesActive = false;
+                _captureProgress = null;
                 _automationCancellation = null;
                 if (!_closing) UpdateAutomationControls();
             }
@@ -215,7 +297,8 @@ public partial class MainWindow : IInspectorCaptureBrowser
 
     private async void ShowLogin_Click(object sender, RoutedEventArgs e)
     {
-        if (_signInCancellation is not null || _automationCancellation is not null || _refreshing) return;
+        if (_signInCancellation is not null || _automationCancellation is not null || _login.IsPending || _refreshing) return;
+        if (!ApplyClickDelay()) return;
         using var cancellation = new CancellationTokenSource();
         _signInCancellation = cancellation;
         var recovery = _recoveryVersion;
@@ -251,17 +334,18 @@ public partial class MainWindow : IInspectorCaptureBrowser
     private void UpdateAutomationControls()
     {
         var running = _automationCancellation is not null || _signInCancellation is not null;
-        var canCapture = !running && !_busy && !_refreshing && Browser.CoreWebView2 is not null;
+        var canCapture = !running && !_login.IsPending && !_busy && !_refreshing && Browser.CoreWebView2 is not null;
         CaptureAllButton.IsEnabled = canCapture;
         CaptureClientsButton.IsEnabled = canCapture;
         CaptureWiredButton.IsEnabled = canCapture;
         CaptureArpButton.IsEnabled = canCapture;
-        CaptureButton.IsEnabled = !running && !_refreshing && !_busy && Browser.CoreWebView2 is not null;
+        CaptureButton.IsEnabled = canCapture;
         ClearButton.IsEnabled = !running;
         SourcePicker.IsEnabled = !running;
         WiredComplete.IsEnabled = !running;
-        LoginEntryButton.IsEnabled = !running && !_refreshing;
+        LoginEntryButton.IsEnabled = !running && !_login.IsPending && !_refreshing;
         CancelCaptureButton.IsEnabled = running;
+        ClickDelayInput.IsEnabled = !running && !_login.IsPending && !_busy && !_refreshing;
     }
 
     private sealed record RouterCaptureState(bool Ready, ExtractedTable? Table, bool NextLabelVisible);
