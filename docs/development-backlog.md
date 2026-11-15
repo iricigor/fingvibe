@@ -107,7 +107,7 @@ No collection failure, genuine claim, live work or uncertain execution may be
 overridden; do not delete comments or fabricate claims/closing PRs to silence
 historical findings. See the [preflight review path](dispatcher-preflight.md#reviewing-historical-findings).
 
-All compliant local ticks use the persistent, atomic-create repository gate in
+Older-loop local ticks use the persistent, atomic-create repository gate in
 .github/scripts/Invoke-DispatcherGate.ps1, with the same default local state root.
 After acquisition, the [read-only preflight](dispatcher-preflight.md) collects
 cached GitHub evidence and compact mechanical guidance. It does not replace
@@ -214,23 +214,28 @@ and [Developer contract](agentic-loop-4/developer.md) apply only to this setup.
 Older agents, saved Automations, claims, counters and behavior remain unchanged.
 Source publication does not install, activate, migrate or authorize workloads.
 
-The human confirmed two total in-flight tasks, one per Developer, including
-CI/review waits and blocked claims. PowerShell collects repository work state
-and proposes four mechanically eligible candidates; initial offers use queue
-positions 1/3 for Developer 1 and 2/4 for Developer 2. Developers perform semantic
-scope/dependency/compatibility assessment, using labels as signals rather than
-proof. Dispatcher commits confirmations serially against current state revisions
-before coding. Offers and message admission are not execution authorization.
+[Task #403](https://github.com/iricigor/fingvibe/issues/403) supersedes the
+delivery-based capacity protocol for 4️⃣ only. PowerShell collects candidates
+without state.json or a repository gate: successful completed current-head CI,
+failed completed CI, then eligible new work. Initial disjoint offers use queue
+positions 1/3 and 2/4. Developers report availability and assess candidates;
+Dispatcher waits for responses, consolidates compatibility and sends explicit
+start assignments. An offer alone never starts work.
 
-Authoritative state/events remain in separate local storage; original human
-decisions and readable reports remain in Discussions, not a full state backup.
-The unchanged common repository gate and cross-loop conflict/ownership checks
-remain mandatory. Explicit target/permissions and repair limits are configured
-from original independently retrievable human approval; none transfer from older
-loops. Actual host stopping, delivery and cleanup remain required for release.
-No blind relaunch, expiry, replacement worker or automatic old-loop recovery is
-introduced. Existing validation, affected-UI 240-second rule, merge permissions
-and release behavior remain intact.
+There is one executing assignment per Developer, not one retained task through
+CI/review. Verified PR submission/reporting moves 4️⃣ implementation to
+status:review/removes active and ends the execution, even with a WIP draft and
+pending CI. The task remains existing work, not eligible new pickup. Completed
+CI prioritizes its next repair/finalization assessment. No-code work needs no PR.
+
+Dispatcher no longer ingests Progress or manages revisioned claims/delivery-based
+slot release. Original human authority and readable assignment/report correlation
+remain in Discussions and the actual host context. Do not overlap Dispatcher
+cycles or duplicate uncertain offers/starts. Preserve historical state, foreign
+ownership and older-loop behavior; outstanding old work needs reconciliation.
+Human target/merge/repair authority, conflict checks, affected-UI 240-second rule
+and CI/protection/release gates remain intact. Source changes authorize no live
+setup, workload, Automation activation or schedule.
 
 ## Explicitly invoked manual-worker exception
 
