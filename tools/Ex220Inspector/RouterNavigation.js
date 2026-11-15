@@ -15,13 +15,29 @@ function routerLabelTargets(doc, label) {
         if (!visible(element) || normalizedRouterLabel(element.innerText || "") !== expected ||
             Array.from(element.children).some(child =>
                 normalizedRouterLabel(child.innerText || "") === expected)) continue;
-        let target = element.closest("a,button,[role='tab'],[role='button'],[onclick]") || element;
-        if (expected === "wired clients" && target === element && element.parentElement) {
-            const icons = Array.from(element.parentElement.querySelectorAll("[class*='icon']"))
-                .filter(visible);
-            const outerIcons = icons.filter(icon => !icons.some(other => other !== icon && other.contains(icon)));
-            if (outerIcons.length > 1) throw new Error("The Wired Clients tile has ambiguous icon controls.");
-            target = outerIcons[0] || element.parentElement;
+        const clickable = "a,button,[role='tab'],[role='button'],[onclick]";
+        let target = element.closest(clickable) || element;
+        if (expected === "wired clients") {
+            let foundControl = false;
+            for (let tile = element.parentElement; tile && tile !== doc.body; tile = tile.parentElement) {
+                const countLinks = Array.from(tile.querySelectorAll(clickable)).filter(control =>
+                    visible(control) && /^(?:pc\s*)?\d+$/i.test((control.innerText || "").trim()));
+                const outerLinks = countLinks.filter(link => !countLinks.some(other => other !== link && other.contains(link)));
+                if (outerLinks.length > 1) throw new Error("The Wired Clients tile has ambiguous PC/count links.");
+                if (outerLinks.length === 1) {
+                    target = outerLinks[0];
+                    foundControl = true;
+                    break;
+                }
+                const icons = Array.from(tile.querySelectorAll("[class*='icon']")).filter(visible);
+                const outerIcons = icons.filter(icon => !icons.some(other => other !== icon && other.contains(icon)));
+                if (!outerIcons.length) continue;
+                if (outerIcons.length > 1) throw new Error("The Wired Clients tile has ambiguous icon controls.");
+                target = outerIcons[0].closest(clickable) || outerIcons[0];
+                foundControl = true;
+                break;
+            }
+            if (!foundControl) continue;
         }
         if (target.disabled || target.getAttribute("aria-disabled") === "true") continue;
         const score = (target.matches("a,button") ? 100 : 0) +

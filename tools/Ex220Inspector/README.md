@@ -47,7 +47,9 @@ memory). Pre-refresh completions cannot overwrite refreshed state.
 Only the router's known local password login form is filled and submitted.
 Submission sends the Enter key to that input, using the router's existing
 Enter handler rather than its unreliable button-click path. Wired Clients
-navigation scrolls its labeled tile into view and clicks the tile icon.
+navigation uses its stable label to locate the PC icon's clickable link,
+scrolls that link into view, and clicks it rather than a separate text label.
+The changing client count is not used to identify the link.
 Username-required, cloud-login and password-setup forms are not automated.
 No password is intentionally persisted to disk or uploaded to any external
 service. It is held in process memory while remembered (ordinary strings, not
@@ -128,8 +130,10 @@ entities in bounded batches; entities over the existing 8 MiB limit fail.
 This inspector reads rendered, visible HTML tables with MAC/IP column headings
 rather than decrypting raw API responses. Ambiguous tables and malformed rows
 produce an error rather than a partial success. The user confirmed all three
-manual captures on the actual EX220. Automatic navigation/pagination and
-remembered re-login still require real-router confirmation. The source selection identifies the title to
+manual captures on the actual EX220, and subsequently confirmed login plus
+automatic Client List and ARP capture. The revised automatic Wired Clients
+PC-link selection and session-expiry re-login still require confirmation.
+The source selection identifies the title to
 match, not an instruction to accept any MAC/IP table on the page.
 
 Only client name, MAC and IP are extracted into memory. There is no raw page,

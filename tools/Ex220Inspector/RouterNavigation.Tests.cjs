@@ -55,6 +55,63 @@ test("Wired Clients paragraph targets and scrolls its tile icon, not just its la
     assert.equal(clicks, 1);
 });
 
+test("wired PC/count link is selected independently of the separate text link and changing count", () => {
+    for (const count of [0, 12, 37]) {
+        let scrolled = false;
+        let clicks = 0;
+        const pcLink = {
+            innerText: String(count), disabled: false,
+            getAttribute: () => null, closest: () => null, matches: () => true,
+            scrollIntoView() { scrolled = true; },
+            click() { assert.equal(scrolled, true); clicks++; }
+        };
+        const icon = {
+            getClientRects: () => [{}], contains: () => false,
+            closest: () => pcLink,
+            click() { assert.fail("Click the PC link, not its decorative icon."); }
+        };
+        const tile = { querySelectorAll: () => [icon], parentElement: null };
+        const textLink = {
+            parentElement: tile, querySelectorAll: () => [],
+            click() { assert.fail("The text-only Wired Clients link is not the PC link."); }
+        };
+        const label = {
+            innerText: "Wired Clients", children: [], parentElement: textLink,
+            getClientRects: () => [{}], closest: () => textLink
+        };
+        const doc = {
+            querySelectorAll: () => [label],
+            defaultView: { getComputedStyle: () => ({ display: "block", visibility: "visible", cursor: "pointer" }) }
+        };
+        clickRouterMenu(doc, "Wired Clients", null);
+        assert.equal(clicks, 1);
+    }
+});
+
+test("a wired text label without a resolvable PC icon is not clicked as a fallback", () => {
+    const doc = menuDocument(["Wired Clients"]);
+    assert.throws(() => clickRouterMenu(doc, "Wired Clients", null), /not visible/);
+    assert.equal(doc.elements[0].clicks, 0);
+});
+
+test("wired count link works without relying on an icon CSS class", () => {
+    for (const count of [0, 12, 37]) {
+        const doc = menuDocument([String(count)]);
+        const pcLink = doc.elements[0];
+        pcLink.contains = () => false;
+        const tile = {
+            querySelectorAll: selector => selector === "[class*='icon']" ? [] : [pcLink]
+        };
+        const label = {
+            innerText: "Wired Clients", children: [], parentElement: tile,
+            getClientRects: () => [{}], closest: () => null
+        };
+        doc.querySelectorAll = () => [label];
+        clickRouterMenu(doc, "Wired Clients", null);
+        assert.equal(pcLink.clicks, 1);
+    }
+});
+
 test("page 1 and sequential next controls are targeted, never arbitrary hidden pages", () => {
     let firstClicks = 0;
     let nextClicks = 0;
