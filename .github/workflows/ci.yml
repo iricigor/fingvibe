@@ -136,6 +136,10 @@ jobs:
         shell: pwsh
         run: .\tests\Installer.Script.Tests.ps1
 
+      - name: Test release download skill without downloads or launches
+        shell: pwsh
+        run: .\tests\DownloadRelease.Tests.ps1
+
   build:
     needs: changes
     if: needs.changes.outputs.build == 'true'
