@@ -160,6 +160,12 @@ An offer or preferred-task response grants no permission to code. Confirmed
 assignment plus immutable acknowledgment is required. Unchanged pending offers
 remain pending; new ticks are not new launches. Rejected candidates can reappear
 on later passes; fixed pairs are not permanent restrictions.
+After the initial pass, if only one worker is free, Offer gives it the first two
+remaining candidates. Pending offers exclude their candidates, so uncertain
+delivery is not reassigned. Task-wide rejection/clarification evidence is reported
+and marked status:blocked by Dispatcher; human-task is added only when human
+intervention is genuinely needed, never removed automatically. This prevents
+reoffering unchanged global blockers while preserving ordinary conflict reassessment.
 
 Followup is for the **same retained context**, after verified prior stop and
 actionable current-head evidence. Persist the new handoff before messaging or

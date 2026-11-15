@@ -189,6 +189,7 @@ function New-Agent4Offers($State, $Packet, $HostObservations) {
         throw "Invalid four-candidate queue."
     }
     $next = Copy-Agent4Record $State
+    $free = @()
     foreach ($worker in $next.configuration.workers) {
         $observed = @($HostObservations | Where-Object workerId -CEQ $worker.id)
         if ($observed.Count -ne 1 -or $observed[0].automationId -cne $worker.automationId -or
@@ -201,7 +202,12 @@ function New-Agent4Offers($State, $Packet, $HostObservations) {
             @($next.offers | Where-Object { $_.workerId -ceq $worker.id -and $_.status -in @("offered", "correlated") }).Count) {
             continue
         }
-        $indices = if ($worker.id -ceq "developer-1") { @(0, 2) } else { @(1, 3) }
+        $free += $worker
+    }
+    foreach ($worker in $free) {
+        $observed = @($HostObservations | Where-Object workerId -CEQ $worker.id)
+        $indices = if ($free.Count -eq 1 -and $State.revision -gt 0) { @(0, 1) }
+            elseif ($worker.id -ceq "developer-1") { @(0, 2) } else { @(1, 3) }
         $candidates = @($indices | Where-Object { $_ -lt $Packet.candidates.Count } | ForEach-Object { $Packet.candidates[$_] })
         if ($candidates.Count) {
             $next.offers += @{

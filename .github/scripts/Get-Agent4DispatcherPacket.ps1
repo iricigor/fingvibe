@@ -189,6 +189,8 @@ function Get-Agent4WorkPacket($State, [string] $EvidencePath, [scriptblock] $Rea
             $reason = "Not a native task child."
         } elseif ("human-task" -in $child.labels.name) { $reason = "Human intervention required." }
         elseif ($child.number -in @($State.claims | Where-Object stage -NE released).issue) { $reason = "Retained loop4 claim." }
+        elseif ($child.number -in @($State.offers | Where-Object status -IN @("offered", "correlated") |
+            ForEach-Object { $_.candidates.issue })) { $reason = "Pending offer/assessment; do not duplicate uncertain delivery." }
         elseif (@($dependencies | Where-Object state -NE closed).Count) { $reason = "Open native dependency." }
         elseif (@($child.labels.name | Where-Object { $_ -in @("active", "status:review", "status:blocked") }).Count) {
             $reason = "Retained lifecycle/blocked ownership requires reconciliation."

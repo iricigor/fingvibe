@@ -79,9 +79,16 @@ on the same Windows PC/account and outside worktrees.
    not new human authority. Send its exact claim/handoff pointer through 2️⃣.
 7. If a Developer is busy or rejects work, record its reason. Contradictory busy
    evidence holds the offer for human reconciliation; do not infer termination.
+   For evidenced task-wide blockers/clarification, publish the Discussion reason,
+   set/verify status:blocked, and add/verify human-task only when proceeding
+   actually requires human intervention. Preserve unrelated labels and never
+   automatically remove human-task or treat label removal as authority.
    Rejecting all candidates leaves them eligible for later offers unless their
    actual blockers exclude them. On a later pass, use the remaining sorted queue
-   positions for available workers; fixed pairs are not permanent ownership.
+   positions for available workers; with only one free worker the helper offers
+   the first two remaining candidates after the initial pass. Fixed pairs are
+   not permanent ownership. Pending offers exclude their candidates until
+   reconciled; do not give uncertain work to another worker.
    Do not wait for replies, coding or CI and do not poll continuously.
 8. Retained follow-ups precede new work. Developers supply semantic classification
    of current-head review/CI feedback: wait, in-scope repair, finalize or blocker.

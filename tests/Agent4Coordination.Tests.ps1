@@ -68,6 +68,12 @@ try {
     Assert-Fails { New-Agent4Offers $state (New-Packet (New-Fixture)) $hosts } "*Stale*"
     $short = New-Agent4Offers (New-Fixture) (New-Packet (New-Fixture) @(101)) $hosts
     Assert-True ($short.offers.Count -eq 1) "Fewer than four tasks must not fabricate candidates."
+    $oneAvailable = Copy-Agent4Record @{ hosts = $hosts }
+    $oneAvailable.hosts[0].status = "running"
+    $firstPass = New-Agent4Offers (New-Fixture) (New-Packet (New-Fixture) @(101)) $oneAvailable.hosts
+    Assert-True ($firstPass.offers.Count -eq 0) "Initial distribution must remain alternating."
+    $laterPass = New-Agent4Offers $firstPass (New-Packet $firstPass @(101)) $oneAvailable.hosts
+    Assert-True ($laterPass.offers.Count -eq 1 -and $laterPass.offers[0].workerId -eq "developer-2") "A sole idle worker must receive stranded candidates on a later pass."
     Assert-Fails { New-Agent4Offers (New-Fixture) (New-Packet (New-Fixture)) @() } "*host availability*"
     $state = Set-Agent4OfferHost $state $state.offers[0].id run-1 session-1 @("fixture://launch")
     $state = Set-Agent4OfferHost $state $state.offers[1].id run-2 session-2 @("fixture://launch")
