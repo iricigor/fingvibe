@@ -11,11 +11,18 @@ function routerLabelTargets(doc, label) {
         return style.display !== "none" && style.visibility !== "hidden" &&
             element.getClientRects().length > 0;
     };
-    for (const element of doc.querySelectorAll("a,button,[role='tab'],[role='button'],span,div")) {
+    for (const element of doc.querySelectorAll("a,button,[role='tab'],[role='button'],span,div,p,label")) {
         if (!visible(element) || normalizedRouterLabel(element.innerText || "") !== expected ||
             Array.from(element.children).some(child =>
                 normalizedRouterLabel(child.innerText || "") === expected)) continue;
-        const target = element.closest("a,button,[role='tab'],[role='button'],[onclick]") || element;
+        let target = element.closest("a,button,[role='tab'],[role='button'],[onclick]") || element;
+        if (expected === "wired clients" && target === element && element.parentElement) {
+            const icons = Array.from(element.parentElement.querySelectorAll("[class*='icon']"))
+                .filter(visible);
+            const outerIcons = icons.filter(icon => !icons.some(other => other !== icon && other.contains(icon)));
+            if (outerIcons.length > 1) throw new Error("The Wired Clients tile has ambiguous icon controls.");
+            target = outerIcons[0] || element.parentElement;
+        }
         if (target.disabled || target.getAttribute("aria-disabled") === "true") continue;
         const score = (target.matches("a,button") ? 100 : 0) +
             (target.closest("#menu,nav,[role='navigation'],.menu") ? 20 : 0) +
@@ -36,6 +43,7 @@ function clickRouterMenu(doc, label, nextLabel) {
     const targets = routerLabelTargets(doc, label);
     if (targets.length !== 1)
         throw new Error(`Router menu '${label}' is ${targets.length ? "ambiguous" : "not visible"}.`);
+    targets[0].scrollIntoView({ block: "center", inline: "nearest" });
     targets[0].click();
     return true;
 }

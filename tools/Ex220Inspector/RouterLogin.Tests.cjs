@@ -9,7 +9,10 @@ function loginDocument(extra = {}) {
     });
     const elements = {
         "pc-login": element({}),
-        "pc-login-password": element({ type: "password", value: "", disabled: false }),
+        "pc-login-password": element({
+            type: "password", value: "", disabled: false, events: [],
+            dispatchEvent(event) { this.events.push(event); }
+        }),
         "pc-login-btn": element({ disabled: false, click: () => clicks++ }),
         ...extra
     };
@@ -18,18 +21,25 @@ function loginDocument(extra = {}) {
         clicks: () => clicks,
         defaultView: {
             getComputedStyle: () => ({ display: "block", visibility: "visible" }),
-            Event: class { constructor(type) { this.type = type; } }
+            Event: class { constructor(type) { this.type = type; } },
+            KeyboardEvent: class { constructor(type, options) { this.type = type; Object.assign(this, options); } }
         },
         getElementById: id => elements[id] || null
     };
 }
 
-test("local login detection returns no password and submits only the local login button", () => {
+test("local login detection returns no password and submits Enter on the known local password input", () => {
     const doc = loginDocument();
     assert.deepEqual(inspectRouterLogin(doc), { State: "Login", Error: false });
     assert.equal(submitRouterLogin(doc, "test-password"), true);
     assert.equal(doc.elements["pc-login-password"].value, "test-password");
-    assert.equal(doc.clicks(), 1);
+    assert.equal(doc.clicks(), 0);
+    const enter = doc.elements["pc-login-password"].events.at(-1);
+    assert.equal(enter.type, "keydown");
+    assert.equal(enter.key, "Enter");
+    assert.equal(enter.keyCode, 13);
+    assert.equal(enter.which, 13);
+    assert.equal(enter.bubbles, true);
     assert.ok(!JSON.stringify(inspectRouterLogin(doc)).includes("test-password"));
 });
 

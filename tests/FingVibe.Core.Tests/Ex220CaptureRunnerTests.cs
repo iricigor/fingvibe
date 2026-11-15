@@ -56,6 +56,26 @@ public sealed class Ex220CaptureRunnerTests
         Assert.Equal([ClientSource.Wired], browser.Sources);
     }
 
+    [Fact]
+    public async Task ArpCanContainDifferentAddressesForTheSameMacAcrossPages()
+    {
+        var browser = new Browser { ArpAliases = true };
+        var capture = await InspectorCaptureRunner.CaptureSourceAsync(browser, ClientSource.Arp, null, CancellationToken.None);
+        Assert.Equal(new[] { 1, 2 }, browser.Pages);
+        Assert.Equal(2, capture.Count(ClientSource.Arp));
+        var row = Assert.Single(capture.Rows(true));
+        Assert.Equal("", row.Ip);
+        Assert.Equal("Multiple ARP IPs: 192.168.0.22, 192.168.0.23", row.ArpComparison);
+    }
+
+    [Fact]
+    public async Task RepeatedWholeArpPageStillFailsInsteadOfPretendingPaginationSucceeded()
+    {
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            InspectorCaptureRunner.CaptureSourceAsync(new Browser { Failure = "duplicate" },
+                ClientSource.Arp, null, CancellationToken.None));
+    }
+
     [Theory]
     [InlineData("stuck")]
     [InlineData("changing-count")]
@@ -80,6 +100,7 @@ public sealed class Ex220CaptureRunnerTests
     private sealed class Browser : IInspectorCaptureBrowser
     {
         public string? Failure { get; init; }
+        public bool ArpAliases { get; init; }
         public CancellationTokenSource? Cancel { get; init; }
         public bool SignedIn { get; private set; }
         public List<int> Pages { get; } = [];
@@ -112,8 +133,9 @@ public sealed class Ex220CaptureRunnerTests
             var count = source switch { ClientSource.Clients => 3, ClientSource.Wired => 4, _ => 2 };
             if (Failure == "changing-count" && _page > 1) count++;
             var address = (int)source * 10 + (Failure == "duplicate" ? 1 : _page);
+            var mac = source == ClientSource.Arp && ArpAliases ? 250 : address;
             return Task.FromResult(new RouterTablePage(
-                [new("Device", $"00:11:22:33:44:{address:X2}", $"192.168.0.{address + 1}")],
+                [new("Device", $"00:11:22:33:44:{mac:X2}", $"192.168.0.{address + 1}")],
                 _page, count, source.ToString()));
         }
     }

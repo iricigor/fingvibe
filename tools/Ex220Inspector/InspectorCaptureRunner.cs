@@ -38,6 +38,7 @@ public static class InspectorCaptureRunner
             if (first.PageCount is < 1 or > 1_000)
                 throw new InvalidDataException("The router page count is missing or exceeds the 1,000-page safety limit.");
             var seen = new Dictionary<string, RouterClient>(StringComparer.OrdinalIgnoreCase);
+            var pages = new HashSet<string>(StringComparer.Ordinal);
             for (var page = 1; page <= first.PageCount; page++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -48,12 +49,17 @@ public static class InspectorCaptureRunner
                     throw new InvalidDataException("The selected router page, title or page count changed during capture.");
                 if (current.PageCount > 1 && current.Clients.Length == 0)
                     throw new InvalidDataException("A paginated table unexpectedly returned an empty page.");
+                var signature = System.Text.Json.JsonSerializer.Serialize(current.Clients
+                    .Select(client => client with { Mac = ClientCapture.NormalizeMac(client.Mac) })
+                    .OrderBy(client => client.Mac).ThenBy(client => client.Ip).ThenBy(client => client.Name));
+                if (!pages.Add(signature))
+                    throw new InvalidDataException("A router page repeated the same client contents. Pagination did not produce a distinct page; retry.");
                 foreach (var client in current.Clients)
                 {
                     var mac = ClientCapture.NormalizeMac(client.Mac);
-                    if (seen.ContainsKey(mac))
+                    if (source != ClientSource.Arp && seen.ContainsKey(mac))
                         throw new InvalidDataException("A MAC appeared on multiple pages. The table may have changed during capture; retry.");
-                    seen.Add(mac, client);
+                    seen[mac] = client;
                 }
                 capture.Add(source, current.Clients);
                 progress?.Report(new(source, page, first.PageCount));

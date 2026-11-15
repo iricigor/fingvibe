@@ -7,6 +7,7 @@ function menuDocument(labels) {
         innerText: label, children: [], disabled: false,
         getClientRects: () => [{}], getAttribute: () => null,
         closest: () => null, matches: () => true, clicks: 0,
+        scrollIntoView() {},
         click() { this.clicks++; }
     }));
     return {
@@ -30,6 +31,28 @@ test("binding label aliases work but unknown or ambiguous controls never click",
     assert.equal(doc.elements[0].clicks, 1);
     assert.throws(() => clickRouterMenu(doc, "Save", null), /approved/);
     assert.throws(() => clickRouterMenu(menuDocument(["Network", "Network"]), "Network", null), /ambiguous/);
+});
+
+test("Wired Clients paragraph targets and scrolls its tile icon, not just its label", () => {
+    let scrolled = false;
+    let clicks = 0;
+    const icon = {
+        getClientRects: () => [{}], getAttribute: () => null,
+        matches: () => false, closest: () => null, contains: () => false,
+        scrollIntoView(options) { assert.equal(options.block, "center"); scrolled = true; },
+        click() { assert.equal(scrolled, true); clicks++; }
+    };
+    const tile = { querySelectorAll: () => [icon] };
+    const label = {
+        innerText: "Wired Clients", children: [], parentElement: tile,
+        getClientRects: () => [{}], closest: () => null
+    };
+    const doc = {
+        querySelectorAll: selector => selector.split(",").includes("p") ? [label] : [],
+        defaultView: { getComputedStyle: () => ({ display: "block", visibility: "visible", cursor: "pointer" }) }
+    };
+    clickRouterMenu(doc, "Wired Clients", null);
+    assert.equal(clicks, 1);
 });
 
 test("page 1 and sequential next controls are targeted, never arbitrary hidden pages", () => {

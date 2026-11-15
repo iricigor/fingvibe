@@ -39,7 +39,10 @@ function submitRouterLogin(doc, password) {
     controls.password.dispatchEvent(new view.Event("input", { bubbles: true }));
     controls.password.dispatchEvent(new view.Event("change", { bubbles: true }));
     controls.password.dispatchEvent(new view.Event("focus", { bubbles: false }));
-    controls.button.click();
+    controls.password.dispatchEvent(new view.KeyboardEvent("keydown", {
+        key: "Enter", code: "Enter", keyCode: 13, which: 13,
+        bubbles: true, cancelable: true
+    }));
     return true;
 }
 

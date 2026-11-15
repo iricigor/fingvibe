@@ -91,4 +91,22 @@ public sealed class Ex220ClientCaptureTests
         Assert.Equal(0, capture.Count(ClientSource.Wired));
         Assert.Equal("Wireless", Assert.Single(capture.Rows(true)).Connection);
     }
+
+    [Fact]
+    public void MultipleArpAddressesPreserveEvidenceWithoutOverwritingClientIp()
+    {
+        var capture = new ClientCapture();
+        capture.Add(ClientSource.Clients, [Client()]);
+        capture.Add(ClientSource.Arp, [Client(), Client(ip: "192.168.0.3")]);
+        capture.Add(ClientSource.Arp, [Client()]);
+
+        var row = Assert.Single(capture.Rows(false));
+        Assert.Equal("192.168.0.2", row.Ip);
+        Assert.Equal("Multiple ARP IPs: 192.168.0.2, 192.168.0.3", row.ArpComparison);
+        Assert.Equal(2, capture.Count(ClientSource.Arp));
+        var replacement = new ClientCapture();
+        replacement.Add(ClientSource.Arp, [Client()]);
+        capture.ReplaceSource(ClientSource.Arp, replacement);
+        Assert.Equal("Same IP", Assert.Single(capture.Rows(false)).ArpComparison);
+    }
 }

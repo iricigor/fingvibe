@@ -17,7 +17,8 @@ node --test tools\Ex220Inspector\ExtractClients.Tests.cjs tools\Ex220Inspector\R
 ```
 
 Log in **inside the tool**, not in chat. Its in-app login prompt appears when the
-router's local password login form is detected. Enter the password in that
+router's local password login form is detected. It occupies a separate panel
+beside the browser, not an overlay that native WebView2 can cover. Enter the password in that
 prompt and leave **Remember only until this inspector closes** checked to allow
 one automatic re-login when a signed-in session expires. A rejected attempt or
 15-second timeout clears the password and prompts again; there is no automatic
@@ -44,6 +45,9 @@ itself cannot recover, close and reopen the inspector (which clears password
 memory). Pre-refresh completions cannot overwrite refreshed state.
 
 Only the router's known local password login form is filled and submitted.
+Submission sends the Enter key to that input, using the router's existing
+Enter handler rather than its unreliable button-click path. Wired Clients
+navigation scrolls its labeled tile into view and clicks the tile icon.
 Username-required, cloud-login and password-setup forms are not automated.
 No password is intentionally persisted to disk or uploaded to any external
 service. It is held in process memory while remembered (ordinary strings, not
@@ -67,8 +71,9 @@ snapshot. Each success refreshes read-only DB comparison when selected.
 Automatic capture requires uniquely titled tables. It starts each list at page
 1 and follows the TP-Link `table-bottom-pages` widget's selected-page marker and
 next-page button through every page, including page numbers hidden behind
-ellipses. Selected page, stable total page count, title and duplicate MACs are
-checked. Missing/ambiguous controls, changed lists, logout, empty paginated pages
+ellipses. Selected page, stable total page count, title and distinct page contents
+are checked. A page transition must change the rendered client contents, and
+reads require consecutive consistent observations. Missing/ambiguous controls, changed lists, logout, empty paginated pages
 and timeouts fail explicitly. There is a 1,000-page-per-source safety limit;
 exceeding it fails instead of silently truncating. Page readiness waits are
 bounded to 15 seconds, and individual browser calls to five seconds.
@@ -87,6 +92,12 @@ of a paginated table. After capturing all Wired Clients pages, check the
 complete-list checkbox. Client List entries not in that complete list are then
 marked Wireless. ARP-only entries stay Unknown; ARP evidence does not prove
 current connectivity. ARP comparison is an IP cross-check, separate from DB comparison.
+ARP can legitimately have multiple IPs for one MAC; these are retained and
+shown as **Multiple ARP IPs**, not silently overwritten or rejected as paging
+duplicates. ARP-only identities with multiple IPs have no single comparison IP.
+Repeated whole pages still fail, and duplicate MACs in Client/Wired lists
+remain an explicit error. ARP List is matched separately from Binding List;
+Inspector automation never clicks Bind/Modify controls.
 Clear captures before beginning a new snapshot; the three reads are not atomic.
 
 Expand **FingVibe database (read-only)** to choose a SQLite file and its saved

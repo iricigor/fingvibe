@@ -115,10 +115,19 @@ public partial class MainWindow : IInspectorCaptureBrowser
     {
         var sourceJson = JsonSerializer.Serialize(source.ToString());
         RouterCaptureState? state = null;
+        string? previous = null;
         await WaitForAsync(async () =>
         {
             state = await BrowserValueAsync<RouterCaptureState>($"routerCaptureState(document,{sourceJson},null)", token);
-            return state.Ready;
+            if (!state.Ready || state.Table is null)
+            {
+                previous = null;
+                return false;
+            }
+            var current = JsonSerializer.Serialize(state.Table);
+            var stable = current == previous;
+            previous = current;
+            return stable;
         }, TimeSpan.FromSeconds(15), token);
         var table = state?.Table ?? throw new InvalidDataException("The client table is missing.");
         return new(table.Clients, table.PageNumber, table.PageCount, table.Title);
@@ -127,11 +136,15 @@ public partial class MainWindow : IInspectorCaptureBrowser
     public async Task GoToPageAsync(ClientSource source, int page, CancellationToken token)
     {
         var sourceJson = JsonSerializer.Serialize(source.ToString());
+        var before = await BrowserValueAsync<RouterCaptureState>($"routerCaptureState(document,{sourceJson},null)", token);
+        var priorRows = JsonSerializer.Serialize(before.Table?.Clients);
         _ = await BrowserValueAsync<bool>($"clickClientPage(document,{sourceJson},{page})", token);
         await WaitForAsync(async () =>
         {
             var state = await BrowserValueAsync<RouterCaptureState>($"routerCaptureState(document,{sourceJson},null)", token);
-            return state.Ready && state.Table?.PageNumber == page;
+            var table = state.Table;
+            return state.Ready && table is not null && table.PageNumber == page &&
+                (before.Table?.PageNumber == page || JsonSerializer.Serialize(table.Clients) != priorRows);
         }, TimeSpan.FromSeconds(15), token);
     }
 
