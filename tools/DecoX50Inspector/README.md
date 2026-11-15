@@ -131,6 +131,14 @@ No raw API decryption or authenticated request replay is used.
 Live accessibility inspection successfully activated the Clients tile and
 exposed 19 distinct MAC identities across the rendered page. This uncovered the
 framework's namescoped widget IDs and parenthesized `(All Deco's)` selection
-label, now covered by regression checks. It is not proof of a successful
-inspector capture/export: user-assisted capture/count agreement and export
-verification remain required.
+label, now covered by regression checks. The user subsequently confirmed normal
+sign-in, capture and JSON export on the actual Deco. The supplied export contains
+20 unique normalized MAC identities, four wired and 16 wireless clients, a UTC
+capture time and one correctly retained unavailable IP. The earlier 19-client
+view was a different observation, not a fixed expected count.
+
+Forced session-expiry/retry recovery, future firmware variants and live database
+comparison have not been separately demonstrated. Focused fixtures cover
+capture stability/cancellation, terminal errors, read-only comparison, navigation
+fallback, export and exact-certificate trust; they are not substitutes for those
+remaining real-router scenarios.
