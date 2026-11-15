@@ -17,6 +17,15 @@ Never modify older loops, saved Automations, schedules or foreign claims.
 
 ## Before a tick
 
+The short Automation prompt supplies the requested Epic as `#<number>`.
+Use Get-Agent4Environment from Agent4Coordination.psm1 with the actual repository
+and requested number to resolve the standard shared directory and read existing
+state. Original authorization, exact worker configuration and cumulative repair
+limit come from that saved setup, not repeated per-run prompt fields. Verify the
+requested Epic matches configuration before claiming, collecting or launching.
+Missing state or a mismatch blocks and requests explicit setup/reconciliation;
+never initialize, switch targets or infer approval from the Epic number alone.
+
 Verify the configured repository/default branch, open type:epic and both exact
 local Automation identities with selected 4️⃣ Developer profiles. Both roles
 must independently retrieve the original human approval, author provenance,
@@ -48,7 +57,7 @@ on the same Windows PC/account and outside worktrees.
    Pending CI/reviews and blocked claims retain their Developer slot. There
    are at most two total in-flight tasks, one per Developer; no extra backlog.
    Uncertain launches/messages/termination retain occupancy without retry.
-3. Run Get-Agent4DispatcherPacket.ps1 once to collect repository issues, native
+3. Run Get-Agent4DispatcherPacket.ps1 -Epic <requested-number> once to collect repository issues, native
    queue/dependencies, all open PRs/diffs/reviews/current-head CI and Discussions.
    Read its complete local evidence artifact. Pass explicit human task order
    and its original evidence when applicable; prose ordering must not silently

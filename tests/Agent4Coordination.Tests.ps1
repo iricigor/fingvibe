@@ -59,6 +59,18 @@ try {
     $null = & $gateScript Acquire TestOwner/TestRepo $owner $gateDirectory
     $state = New-Fixture
     Save-Agent4State $state $directory -1 $owner $gateDirectory
+    $standard = Join-Path $root "FingVibe\AgentCoordination\loop4\testowner\testrepo"
+    Write-Agent4Json (Join-Path $standard "state.json") $state
+    $environment = Get-Agent4Environment "TestOwner/TestRepo" 92 -LocalApplicationData $root
+    Assert-True ($environment.directory -ceq $standard -and
+        $environment.state.configuration.authorization.reference -ceq "fixture://original-owner-approval" -and
+        $environment.state.configuration.maxRepairAttempts -eq 1) "Standard resolution must load saved authority and repair policy."
+    Assert-Fails { Get-Agent4Environment "TestOwner/TestRepo" 191 -LocalApplicationData $root } "*does not match saved*"
+    Assert-Fails { Get-Agent4Environment "TestOwner/OtherRepo" 92 $standard } "*does not match saved*"
+    Assert-Fails { Get-Agent4Environment "TestOwner/TestRepo" 92 (Join-Path $root "absent") } "*Could not find*"
+    Assert-Fails { Get-Agent4Environment "TestOwner/TestRepo" 0 $standard } "*positive requested Epic*"
+    $custom = Get-Agent4Environment "TestOwner/TestRepo" 92 $directory
+    Assert-True ($custom.directory -ceq $directory) "Explicit existing directory must remain supported."
     Assert-Fails { Save-Agent4State $state $directory -1 $owner $gateDirectory } "*not authoritatively absent*"
     Assert-Fails { Save-Agent4State $state $directory 0 ([guid]::NewGuid()) $gateDirectory } "*gate mismatch*"
     $state = New-Agent4Offers $state (New-Packet $state) $hosts

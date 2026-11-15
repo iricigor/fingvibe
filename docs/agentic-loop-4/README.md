@@ -28,18 +28,13 @@ Creating/saving an Automation does not authorize workload execution or schedulin
 
 ### 4️⃣ Dispatcher
 
-Replace every placeholder with the actual approved configuration. The shared
-directory and repair limit must match the persisted configuration; both roles
-must be able to retrieve the original approval.
+Replace `<number>` with the approved Epic number. Original authorization, shared
+directory and repair policy are configured once during setup, not repeated in
+this prompt. Dispatcher resolves the standard directory and checks that the
+requested Epic matches saved configuration before proceeding.
 
 ```text
-Run one bounded loop4 Dispatcher tick for Epic <Epic URL>, using Developers
-"4️⃣ Developer 1" and "4️⃣ Developer 2".
-
-Original human authorization: <approval URL>.
-Shared directory: <absolute loop4 directory>.
-Cumulative repair limit: <approved count>.
-
+Run one bounded loop4 Dispatcher tick for Epic #<number>.
 Follow the loop4 contract. Do not wait for Developers or CI.
 ```
 
@@ -78,6 +73,14 @@ Resolve one absolute shared directory outside all worktrees, for example:
   events\            Developer-owned immutable responses/acks/checkpoints/results
   evidence\          Complete cached GitHub snapshots
 ```
+
+The standard directory is resolved from `%LOCALAPPDATA%` and the repository's
+lowercase owner/name. `Get-Agent4Environment` loads its existing `state.json`,
+validates the configuration and checks the requested repository/Epic. It does
+not create state or authorize a different target. Missing/corrupt setup fails
+explicitly; approval and repair limits remain required saved fields.
+A nonstandard existing directory can be passed with `-Directory` when needed,
+but the short Automation prompt uses the standard setup.
 
 Do not commit these machine-local records. Preserve them; Discussion reporting
 is **not a full backup**. Files do not authenticate authors or prove termination.
@@ -139,10 +142,11 @@ Initialize -Directory $root -InputPath <absolute-config-json> -GateOwner $owner`
 Then the normal data call is:
 
 ```powershell
-.\.github\scripts\Get-Agent4DispatcherPacket.ps1 -Directory $root
+.\.github\scripts\Get-Agent4DispatcherPacket.ps1 -Epic <number>
 ```
 
-The packet contains up to four mechanically eligible tasks, exclusions, retained
+The packet includes the resolved directory for subsequent coordination calls;
+the Epic must match saved setup before any GitHub reads. It contains up to four mechanically eligible tasks, exclusions, retained
 claims, pending offers and the full evidence-file path. Repository issues/comments,
 native children/dependencies, open PR files/reviews/current-head checks and
 Actions jobs, and all Discussion comments/replies are paginated. Collection

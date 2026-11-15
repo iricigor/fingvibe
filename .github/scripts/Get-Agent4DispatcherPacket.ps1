@@ -1,6 +1,8 @@
 [CmdletBinding()]
 param(
-    [Parameter(Mandatory)][string] $Directory,
+    [string] $Repository = "iricigor/fingvibe",
+    [int] $Epic,
+    [string] $Directory,
     [int[]] $TaskOrder,
     [string] $OrderEvidence
 )
@@ -220,8 +222,11 @@ function Get-Agent4WorkPacket($State, [string] $EvidencePath, [scriptblock] $Rea
 }
 
 if ($MyInvocation.InvocationName -ne ".") {
-    $state = Read-Agent4Json (Join-Path $Directory "state.json")
+    $environment = Get-Agent4Environment $Repository $Epic $Directory
+    $state = $environment.state
+    $Directory = $environment.directory
     $path = Join-Path $Directory ("evidence\" + [guid]::NewGuid() + ".json")
-    Get-Agent4WorkPacket $state $path ${function:Invoke-Agent4GitHubRead} $TaskOrder $OrderEvidence |
-        ConvertTo-Json -Depth 100
+    $packet = Get-Agent4WorkPacket $state $path ${function:Invoke-Agent4GitHubRead} $TaskOrder $OrderEvidence
+    $packet.directory = $Directory
+    $packet | ConvertTo-Json -Depth 100
 }

@@ -51,6 +51,31 @@ function New-Agent4State($Configuration) {
     $state
 }
 
+function Get-Agent4Environment(
+    [string] $Repository,
+    [int] $Epic,
+    [string] $Directory,
+    [string] $LocalApplicationData = $env:LOCALAPPDATA
+) {
+    if ($Repository -notmatch '^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9][A-Za-z0-9_.-]*$' -or $Epic -le 0) {
+        throw "A valid repository and positive requested Epic number are required."
+    }
+    if (-not $Directory) {
+        if (-not $LocalApplicationData -or -not [IO.Path]::IsPathFullyQualified($LocalApplicationData)) {
+            throw "The standard local application data directory is unavailable."
+        }
+        $parts = $Repository.ToLowerInvariant().Split("/")
+        $Directory = Join-Path $LocalApplicationData "FingVibe\AgentCoordination\loop4\$($parts[0])\$($parts[1])"
+    }
+    if (-not [IO.Path]::IsPathFullyQualified($Directory)) { throw "Use an absolute loop4 directory." }
+    $state = Read-Agent4Json (Join-Path $Directory "state.json")
+    Assert-Agent4State $state
+    if ($state.configuration.repository -ine $Repository -or $state.configuration.epic -ne $Epic) {
+        throw "Requested repository/Epic does not match saved loop4 configuration; explicit setup/reconciliation is required."
+    }
+    @{ directory = $Directory; state = $state }
+}
+
 function Assert-Agent4State($State) {
     $config = $State.configuration
     if ($State.schema -cne "fingvibe-loop4-state-v1" -or $State.revision -isnot [long] -and
