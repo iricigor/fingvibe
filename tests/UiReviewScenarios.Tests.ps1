@@ -267,6 +267,69 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
         }
         finally { Remove-Item -LiteralPath $measurementDirectory -Recurse -Force }
     }
+    & {
+        $headerStatements = @(((Get-Command Test-PageBackHeaders).ScriptBlock.Ast.Body.EndBlock.Statements |
+            Where-Object { $_ -is [Management.Automation.Language.TryStatementAst] }).Body.Statements)
+        $toolsLoop = @($headerStatements | Where-Object {
+            $_ -is [Management.Automation.Language.ForEachStatementAst] -and $_.Extent.Text.Contains('DatabaseBackupsCard')
+        })
+        $aboutCapture = @($headerStatements | Where-Object { $_.Extent.Text.StartsWith('Save-PageBackHeader ') })
+        if ($toolsLoop.Count -ne 1 -or $aboutCapture.Count -ne 1) { throw 'Expected one Tools-to-About entry boundary.' }
+        $entryStart = [array]::IndexOf($headerStatements, $toolsLoop[0]) + 1
+        $entryEnd = [array]::IndexOf($headerStatements, $aboutCapture[0]) - 1
+        if ($entryStart -gt $entryEnd) { throw 'About must be opened before its header capture.' }
+        $aboutEntry = [scriptblock]::Create(($headerStatements[$entryStart..$entryEnd].Extent.Text -join "`n"))
+        $entryState = @{ Page = 'ToolsLanding'; Events = [Collections.Generic.List[string]]::new() }
+        $overviewAction = [pscustomobject]@{}
+        $overviewAction | Add-Member ScriptMethod Select {
+            $entryState.Events.Add('select:Overview')
+            $entryState.Page = 'Overview'
+        }
+        $aboutAction = [pscustomobject]@{}
+        $aboutAction | Add-Member ScriptMethod Invoke {
+            $entryState.Events.Add('invoke:About')
+            $entryState.Page = 'About'
+        }
+        $overviewPeer = [pscustomobject]@{ Current = [pscustomobject]@{
+            IsOffscreen = $false; BoundingRectangle = $reference
+        } }
+        $overviewPeer | Add-Member ScriptMethod GetCurrentPattern {
+            param($PatternId)
+            Assert-Equal $PatternId ([Windows.Automation.SelectionItemPattern]::Pattern) 'Overview entry uses existing selection pattern'
+            return $overviewAction
+        }
+        $aboutPeer = [pscustomobject]@{ Current = [pscustomobject]@{
+            IsOffscreen = $false; BoundingRectangle = $back
+        } }
+        $aboutPeer | Add-Member ScriptMethod GetCurrentPattern {
+            param($PatternId)
+            Assert-Equal $PatternId ([Windows.Automation.InvokePattern]::Pattern) 'About entry uses existing invocation pattern'
+            return $aboutAction
+        }
+        $Root = [pscustomobject]@{}
+        $Root | Add-Member ScriptMethod FindAll {
+            param([Windows.Automation.TreeScope] $Scope, [Windows.Automation.Condition] $HeaderQuery)
+            Assert-Equal $Scope ([Windows.Automation.TreeScope]::Descendants) 'About entry lookup scope'
+            if ($HeaderQuery -is [Windows.Automation.PropertyCondition]) {
+                Assert-Equal $HeaderQuery.Property ([Windows.Automation.AutomationElement]::AutomationIdProperty) 'Overview navigation identity property'
+                Assert-Equal $HeaderQuery.Value OverviewNavItem 'Overview navigation identity'
+                return $overviewPeer
+            }
+            $conditions = $HeaderQuery.GetConditions()
+            Assert-Equal $conditions.Count 2 'About entry retains exact Name and Button selectors'
+            Assert-Equal $conditions[0].Property ([Windows.Automation.AutomationElement]::NameProperty) 'About entry name property'
+            Assert-Equal $conditions[0].Value 'About FingVibe' 'About entry name'
+            Assert-Equal $conditions[1].Property ([Windows.Automation.AutomationElement]::ControlTypeProperty) 'About entry control type property'
+            Assert-Equal $conditions[1].Value ([Windows.Automation.ControlType]::Button.Id) 'About entry control type'
+            if ($entryState.Page -ne 'Overview') { throw "About entry requires Overview, not $($entryState.Page)." }
+            $entryState.Events.Add('lookup:About')
+            return $aboutPeer
+        }
+        & $aboutEntry
+        Assert-Equal $entryState.Events @('select:Overview', 'lookup:About', 'invoke:About') 'Real About entry must navigate from Tools before looking up its Button'
+        Assert-Equal $entryState.Page About 'About is opened before header measurement'
+        Assert-Equal $script:UiRegressionCallStack.Count 0 'About entry completes real lookup/wait accounting'
+    }
     Assert-PageBackGeometry $back $reference $reference $text $window 1 10
     Assert-PageBackGeometry $back $reference (& $rect 10 70 100 44) $text $window 1 10
     Assert-PageBackGeometry (& $rect 10 10 150 66) $reference (& $rect 180 10 100 44) $text $window 1 10 -Scaled

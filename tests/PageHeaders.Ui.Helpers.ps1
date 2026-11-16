@@ -109,6 +109,8 @@ function Test-PageBackHeaders {
             [System.Windows.Forms.SendKeys]::SendWait(' ')
             $null = Find-PageHeaderElement $Root ToolsLanding
         }
+        (Find-PageHeaderElement $Root OverviewNavItem).GetCurrentPattern(
+            [Windows.Automation.SelectionItemPattern]::Pattern).Select()
         (Find-PageHeaderElement $Root 'About FingVibe' -ByName -Type ([Windows.Automation.ControlType]::Button)).
             GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
         Save-PageBackHeader $Root $WindowHandle $Directory "$Variant-About" `
