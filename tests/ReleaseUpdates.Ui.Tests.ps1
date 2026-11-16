@@ -113,6 +113,22 @@ function Assert-UpdateIndicators([bool] $Available, [string] $Capture) {
     finally { $bitmap.Dispose() }
 }
 
+function Wait-UpdateDialog([string] $Id, [string] $DismissButton, [string] $Description) {
+    # Dialogs gain their automation ID before ShowAsync realizes content; wait for the opened, rendered dialog.
+    Wait-UiRegressionState {
+        $dialog = Find-UpdateControl $Id
+        if (-not (Test-UiRegressionElementVisible $dialog)) { return $null }
+        $dismiss = $dialog.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.AndCondition]::new(
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::NameProperty, $DismissButton),
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                    [System.Windows.Automation.ControlType]::Button)))
+        if (Test-UiRegressionElementVisible $dismiss) { return $dialog }
+    } $Description
+}
+
 function Invoke-UpdateDialogButton([string] $Name) {
     $button = Wait-UiRegressionState {
         foreach ($id in @('UpdateDownloadFailureDialog', 'UpdateInstallConfirmationDialog', 'UpdateLaunchFailureDialog')) {
@@ -187,7 +203,7 @@ try {
     Invoke-UpdateControl CheckUpdatesButton
     Wait-UpdateText UpdateStatus 'A newer version is available'
     Invoke-UpdateControl DownloadUpdateButton
-    $dialog = Wait-UiRegressionState { Find-UpdateControl UpdateDownloadFailureDialog } 'download failure popup'
+    $dialog = Wait-UpdateDialog UpdateDownloadFailureDialog Close 'download failure popup'
     $links = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,
             [System.Windows.Automation.ControlType]::Hyperlink))
@@ -207,7 +223,7 @@ try {
     if ($script:process.HasExited) { throw 'Cancelling confirmation must keep FingVibe running.' }
     Invoke-UpdateControl InstallUpdateButton
     Invoke-UpdateDialogButton 'Install and close'
-    $dialog = Wait-UiRegressionState { Find-UpdateControl UpdateLaunchFailureDialog } 'installer rejection popup'
+    $dialog = Wait-UpdateDialog UpdateLaunchFailureDialog OK 'installer rejection popup'
     $links = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,
             [System.Windows.Automation.ControlType]::Hyperlink))
