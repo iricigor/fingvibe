@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+<title id="title">FingVibe - Connected home application icon</title><desc id="desc">A home-shaped local network connects a person and their devices. Full-detail master for 64 and 256 pixel frames.</desc>
+<defs><linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="6" y1="6" x2="250" y2="250"><stop stop-color="#173967"/><stop offset="1" stop-color="#101B34"/></linearGradient></defs>
+<rect x="6" y="6" width="244" height="244" rx="56" fill="url(#tile)" stroke="#3A6390" stroke-width="4"/>
+<polyline points="38.5,104 128,35.5 217.5,104" fill="none" stroke="#4DF0D3" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="51.5,106 51.5,194.5 89,194.5" fill="none" stroke="#5A86B0" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="204.5,106 204.5,194.5 167,194.5" fill="none" stroke="#5A86B0" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="128,115 78,141 78,177" fill="none" stroke="#5A86B0" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="128,115 181.5,143.5 181.5,178" fill="none" stroke="#5A86B0" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="128,115 128,189" fill="none" stroke="#5A86B0" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="128" cy="115" r="27" fill="#164C59" stroke="#4DF0D3" stroke-width="5"/>
+<circle cx="128" cy="108.5" r="7.5" fill="#4DF0D3"/>
+<path d="M 117.5 124.5 A 11 11 0 0 1 138.5 124.5" fill="none" stroke="#4DF0D3" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="40" y="159.5" width="64.5" height="41.5" rx="7" fill="#1B304D" stroke="#80D5FF" stroke-width="5"/>
+<rect x="48" y="167.5" width="48.5" height="25.5" rx="3" fill="#224D6C"/>
+<polyline points="56,211 88.5,211" fill="none" stroke="#80D5FF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="165" y="155" width="33" height="57" rx="8" fill="#1B304D" stroke="#FF5C5C" stroke-width="5"/>
+<polyline points="176,203 187,203" fill="none" stroke="#FF5C5C" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="107.5" y="184.5" width="41" height="32" rx="7" fill="#1B304D" stroke="#FFEB9A" stroke-width="5"/>
+<circle cx="119.5" cy="200.5" r="4" fill="#FFEB9A"/>
+<polyline points="129.5,200.5 139,200.5" fill="none" stroke="#FFEB9A" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="128" cy="62.5" r="5.5" fill="#4DF0D3"/>
+<circle cx="51.5" cy="109.5" r="5.5" fill="#4DF0D3"/>
+<circle cx="204.5" cy="109.5" r="5.5" fill="#4DF0D3"/>
+</svg>

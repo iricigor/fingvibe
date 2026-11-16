@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" role="img" aria-labelledby="title desc">
+<title id="title">FingVibe - Connected home, 16 px master</title><desc id="desc">Pixel-tuned Connected home geometry for the 16 pixel frame: roof, person and two solid device accents.</desc>
+<defs><linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="0.5" y1="0.5" x2="15.5" y2="15.5"><stop stop-color="#173967"/><stop offset="1" stop-color="#101B34"/></linearGradient></defs>
+<rect x="0.5" y="0.5" width="15" height="15" rx="3.5" fill="url(#tile)" stroke="#3A6390" stroke-width="1"/>
+<polyline points="2.75,7 8,2.75 13.25,7" fill="none" stroke="#4DF0D3" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="8" cy="7.5" r="1.5" fill="#4DF0D3"/>
+<path d="M 6 11.5 A 2 2 0 0 1 10 11.5" fill="none" stroke="#4DF0D3" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="2" y="10" width="3" height="2.5" rx="0.5" fill="#80D5FF"/>
+<rect x="11.5" y="9.5" width="2.5" height="3.5" rx="0.5" fill="#FF5C5C"/>
+</svg>

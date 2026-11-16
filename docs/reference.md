@@ -1534,13 +1534,14 @@ changed by the application or by local build/test commands.
 
 Local and pull request build/publish outputs retain only English (`en`) managed satellite resources through the application's `SatelliteResourceLanguages` setting. Neutral resources, including dependencies' default English strings, remain included. Official releases retain all available languages: the release workflow overrides the setting with an empty global MSBuild property (`/property:SatelliteResourceLanguages=`), disabling this filter. Both workflows use the Release configuration, so the configuration name alone does not determine language filtering. This does not force the runtime UI culture to English or filter Windows App SDK native/PRI resources in the self-contained deployment. When checking the result locally, start with clean build and publish output directories: previously copied language folders are not removed by changing this setting.
 
-Pull requests affecting application code or validation infrastructure upload a `fingvibe-win-x64-pr-*` artifact from the **🔨 Pull request build** Actions run, plus a `fingvibe-setup-win-x64-pr-*` installer artifact. Each successful same-repository build posts a new runnable-app artifact-link comment, preserving earlier comments and links (artifacts expire after 14 days). Artifact names include the run attempt, so reruns do not replace earlier downloads. Documentation-only and ordinary test-only changes do not publish an app. Every push to `main` publishes a GitHub Release tagged `v1.2.<run number>` (version `1.2.<run number>`) with a self-contained Windows x64 ZIP and `FingVibe-<version>-win-x64-Setup.exe`, both from the same published binaries. Earlier releases used `1.0.<run number>` and `1.1.<run number>`; the minor feature version orders above any earlier minor version's run number, so existing installations update normally.
+Pull requests affecting application code or validation infrastructure upload a `fingvibe-win-x64-pr-*` artifact from the **🔨 Pull request build** Actions run, plus a `fingvibe-setup-win-x64-pr-*` installer artifact. Each successful same-repository build posts a new runnable-app artifact-link comment, preserving earlier comments and links (artifacts expire after 14 days). Artifact names include the run attempt, so reruns do not replace earlier downloads. Documentation-only and ordinary test-only changes do not publish an app. Every push to `main` publishes a GitHub Release tagged `v1.3.<run number>` (version `1.3.<run number>`) with a self-contained Windows x64 ZIP and `FingVibe-<version>-win-x64-Setup.exe`, both from the same published binaries. Earlier releases used `1.0.<run number>`, `1.1.<run number>` and `1.2.<run number>`; the minor feature version orders above any earlier minor version's run number, so existing installations update normally.
 
-Release bodies begin with the [PR-linked 1.2 feature summary](release-notes-1.2.md),
+Release bodies begin with the [PR-linked 1.3 feature summary](release-notes-1.3.md),
 followed by GitHub's automatically generated notes for the individual release.
-The summary covers changes since the 1.1 bump, including nested deliveries and
-explicitly distinguished superseded provenance; it does not advertise abandoned
-work as a delivered feature.
+The summary covers application changes since the 1.2 bump, including nested
+deliveries and explicitly distinguished superseded provenance; it does not
+advertise abandoned work as a delivered feature. The earlier
+[1.2 summary](release-notes-1.2.md) is retained.
 
 The unsigned Inno Setup installer supports Windows 11 x64 and installs only for
 the current user at `%LOCALAPPDATA%\Programs\FingVibe`, without requesting
@@ -1568,7 +1569,7 @@ GitHub runners). After publishing the app, run:
 
 ```powershell
 .\tools\New-Installer.ps1 -AppDirectory artifacts\fingvibe-win-x64 `
-    -Version 1.2.123 -OutputDirectory artifacts\installer
+    -Version 1.3.123 -OutputDirectory artifacts\installer
 ```
 
 `tests\Installer.Script.Tests.ps1` checks packaging helpers without installing or
@@ -1577,16 +1578,16 @@ disposable GitHub-hosted runner. PR and release builds compile the actual
 installer and verify payload hashes, fresh installation, window launch,
 running-app blocking, ZIP/script adoption, upgrade cleanup, downgrade rejection,
 shortcuts, uninstall, and saved-data/unknown-file preservation. They also upgrade
-both 1.0 and 1.1 installations whose run numbers are higher to the 1.2 feature
-version (the actual release installer on `main`) and verify that synthetic saved
-inventory, history, and settings files are unchanged through upgrade, rejected
-downgrade, and uninstall.
+a 1.2 installation whose run number is higher to the 1.3 feature version (the
+actual release installer on `main`) and verify that synthetic saved inventory,
+history, and settings files are unchanged through upgrade, rejected downgrade,
+and uninstall.
 Test-only past and future version installers reuse the payload to exercise
 upgrades; they are not published. Installer logs are retained as Actions
 artifacts, including on failure.
 Any installer failure blocks release publication.
 
-Keep the extracted app files together: `Assets\Scanner.ico` supplies the running window's title-bar and taskbar icon. The executable also embeds the same icon for File Explorer.
+Keep the extracted app files together: `Assets\Scanner.ico` supplies the running window's title-bar and taskbar icon and the discovery notification image. The executable embeds the same frames for File Explorer, Start menu and installed shortcuts, and the installer uses it as its setup icon. The icon is the Connected home design, generated with distinct 16, 20, 24, 32, 40, 48, 64 and 256 px 32-bit alpha frames from the vector masters in [`docs/branding/app-icon`](branding/app-icon/README.md); small frames use simplified, pixel-tuned geometry rather than downsampled artwork. If Windows still shows the old icon after updating, its icon cache may be stale; the shipped asset is unaffected and FingVibe does not clear the cache.
 
 ## Pull request review gates
 
