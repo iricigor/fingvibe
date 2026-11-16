@@ -112,8 +112,9 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
         throw "Repository and positive Epic number required."
     }
     $cache = @{}
-    function Read-Evidence([string] $Endpoint, [bool] $Paginated = $false, [string] $Query) {
-        $key = "$Endpoint|$Paginated|$Query"
+    $rereadSeconds = if ($config.ContainsKey("mergeabilityRereadSeconds")) { $config.mergeabilityRereadSeconds } else { 3 }
+    function Read-Evidence([string] $Endpoint, [bool] $Paginated = $false, [string] $Query, [string] $CacheKey) {
+        $key = if ($CacheKey) { $CacheKey } else { "$Endpoint|$Paginated|$Query" }
         if ($cache.ContainsKey($key)) { return ,$cache[$key] }
         $json = & $Reader $Endpoint $Paginated $Query
         if ($json -isnot [string] -or [string]::IsNullOrWhiteSpace($json)) { throw "Missing evidence: $Endpoint." }
@@ -169,13 +170,22 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
     $pulls = Read-Evidence "repos/$repository/pulls?state=open&per_page=100" $true
     foreach ($pr in $pulls) {
         if (-not $pr.number -or -not $pr.head.sha -or -not $pr.node_id) { throw "Incomplete open PR." }
-        $detail = Read-Evidence "repos/$repository/pulls/$($pr.number)"
-        if ($detail.number -ne $pr.number -or $detail.head.sha -cne $pr.head.sha) {
-            throw "PR identity/head changed during evidence collection: #$($pr.number)."
-        }
-        if (-not $detail.ContainsKey("mergeable") -or
-            ($null -ne $detail.mergeable -and $detail.mergeable -isnot [bool])) {
-            throw "Incomplete PR mergeability evidence: #$($pr.number)."
+        $detailEndpoint = "repos/$repository/pulls/$($pr.number)"
+        $detail = Read-Evidence $detailEndpoint
+        $attempt = 1
+        while ($true) {
+            if ($detail.number -ne $pr.number -or $detail.head.sha -cne $pr.head.sha) {
+                throw "PR identity/head changed during evidence collection: #$($pr.number)."
+            }
+            if (-not $detail.ContainsKey("mergeable") -or
+                ($null -ne $detail.mergeable -and $detail.mergeable -isnot [bool])) {
+                throw "Incomplete PR mergeability evidence: #$($pr.number)."
+            }
+            if ($null -ne $detail.mergeable -or $attempt -ge 2) { break }
+            # GitHub computes mergeability asynchronously; the first read often only starts it.
+            Start-Sleep -Seconds $rereadSeconds
+            $detail = Read-Evidence $detailEndpoint $false $null "$detailEndpoint|reread"
+            $attempt++
         }
         $pr.mergeable = $detail.mergeable
         $pr.mergeable_state = $detail.mergeable_state
@@ -325,9 +335,9 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
                 } elseif ($pull.mergeable -ceq $false) {
                     # Conflicts prevent pull_request workflows from starting, leaving CI unknown.
                     $category = "failed"; $rank = 1
-                } elseif ($null -eq $pull.mergeable) {
-                    $reason = "Current PR mergeability is unknown."
                 } else {
+                    # Mergeability still unknown after one re-read is presumed conflict-free:
+                    # finalize re-verifies base freshness and GitHub refuses conflicting merges.
                     $ci = Get-Agent4CiStage $pull $cache
                     if ($ci -in @("pending", "unknown")) { $reason = "Current-head CI is $ci." }
                     else { $category = $ci; $rank = if ($ci -eq "success") { 0 } else { 1 } }
