@@ -29,13 +29,26 @@ The totals describe the whole inventory, even when filters hide some rows.
 1. Enter a name, address, vendor, or other displayed information in **Search devices**.
 2. Open **Status** to choose one or more statuses.
 3. Choose the funnel icon to show more filters.
-4. Select values in **Device type**, **Operating system**, **Vendor**, **Person**,
-   **Room**, **Ports**, or **Usage category**.
+4. Select values in **Type**, **OS**, **Vendor**, **Person**,
+   **Room**, **Ports**, or **Usage**.
 5. Choose **Clear filters** beside the funnel to remove all restrictions.
 
 Selecting several values within one category means "any of these."
 Different categories combine: a device must match each selected category and
 the search text. An empty selection means no restriction.
+
+Unrestricted filter labels are quieter; a restricted filter uses normal-contrast
+text and shows its selected values. The background and border stay the same,
+and quieter filters remain interactive. Type, OS and Usage are short button
+titles only: accessible names, full-value tooltips and table headings retain the
+full category names.
+
+Status dropdown choices supplement their labels and checkboxes with colored
+dots: green Online, red Offline, gray Unknown and blue Fing Only. Its **Any**
+choice has a four-segment circle using those same colors; the circle does not
+represent an arbitrary multi-selection. High contrast uses system colors while
+retaining labels and checkbox selection cues. These indicators do not change
+the colors of inventory totals or device-row badges.
 
 For example, select **Online**, a room, and **With open ports** to see responding
 devices in that room with observed services. **Unassigned** finds devices with

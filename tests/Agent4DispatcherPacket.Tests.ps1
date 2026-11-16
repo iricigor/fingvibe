@@ -256,6 +256,24 @@ try {
         ($successAndResume.developerOffers[1].candidates.issue -join ",") -eq "103,101" -and
         $successAndResume.developerOffers[1].candidates[1].released.assignmentId -eq "A1") "Sharing success preserves resumed work and its release evidence as Developer 2's fallback."
     $fixtureSecondConclusion = "failure"
+    $finalizeSend = "Sending #101 to Developer 2 <!-- fingvibe:assignment=F1 developer=developer-2 action=finalize -->"
+    $finalizeEnd = "Rejected <!-- fingvibe:assignment-end=F1 -->"
+    $fixtureTaskComments.T1 = @(New-TaskComment "TC1" "2026-11-15T10:00:00Z" $send
+        New-TaskComment "TC2" "2026-11-15T11:00:00Z" "Done <!-- fingvibe:assignment-end=A1 -->"
+        New-TaskComment "TC4" "2026-11-15T12:00:00Z" $finalizeSend
+        New-TaskComment "TC5" "2026-11-15T13:00:00Z" "$finalizeEnd <!-- fingvibe:finalize-rejected=F1 head=$("A"*40) -->")
+    $rejected = Get-Agent4WorkPacket $configuration (Join-Path $root "rejected.json") $fixtureReader
+    $rejectedCandidate = $rejected.candidates | Where-Object issue -EQ 101
+    Assert-True ($rejectedCandidate.category -eq "failed" -and $rejectedCandidate.finalizeRejection.assignmentId -eq "F1" -and
+        $rejectedCandidate.finalizeRejection.head -eq ("a"*40) -and $rejectedCandidate.pr.number -eq 200 -and
+        -not $rejectedCandidate.released) "A rejected finalize on the current green head is offered for repair, not finalize again."
+    $fixtureTaskComments.T1[3] = New-TaskComment "TC5" "2026-11-15T13:00:00Z" "$finalizeEnd <!-- fingvibe:finalize-rejected=F1 head=$("c"*40) -->"
+    $newHead = Get-Agent4WorkPacket $configuration (Join-Path $root "rejected-new-head.json") $fixtureReader
+    $newHeadCandidate = $newHead.candidates | Where-Object issue -EQ 101
+    Assert-True ($newHeadCandidate.category -eq "success" -and -not $newHeadCandidate.finalizeRejection) "A new PR head returns to normal CI classification."
+    $fixtureTaskComments.T1[3] = New-TaskComment "TC5" "2026-11-15T13:00:00Z" "$finalizeEnd <!-- fingvibe:finalize-rejected=A1 head=$("a"*40) -->"
+    $notFinalize = Get-Agent4WorkPacket $configuration (Join-Path $root "rejected-not-finalize.json") $fixtureReader
+    Assert-True (($notFinalize.candidates | Where-Object issue -EQ 101).category -eq "success") "Rejection markers must reference a finalize assignment in the task Discussion."
     $fixtureLinks = @{}; $fixtureCiStatus = "completed"; $fixtureTaskDiscussions = @(); $fixtureTaskComments = @{}
     foreach ($child in $children) { $child.labels = @(@{ name = "active" }) }
     $noOfferWork = Get-Agent4WorkPacket $configuration (Join-Path $root "no-offer-work.json") $fixtureReader

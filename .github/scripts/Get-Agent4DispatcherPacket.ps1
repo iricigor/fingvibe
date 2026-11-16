@@ -72,7 +72,7 @@ function Get-Agent4TaskRecords($Discussions) {
             foreach ($reply in @($comment.replies)) { $reply }
         })
         $entries = @($entries | Where-Object { $null -ne $_ } | Sort-Object -Stable { "$($_.createdAt)" })
-        $assignments = [ordered]@{}
+        $assignments = [ordered]@{}; $rejection = $null
         foreach ($entry in $entries) {
             $body = "$($entry.body)"
             foreach ($match in [regex]::Matches($body,
@@ -89,8 +89,17 @@ function Get-Agent4TaskRecords($Discussions) {
                     $assignments[$id].state = if ($match.Groups[1].Value -eq "end") { "ended" } else { "released" }
                 }
             }
+            # A rejected finalize pins its PR head to repair until a new head is pushed.
+            foreach ($match in [regex]::Matches($body,
+                '<!--\s*fingvibe:finalize-rejected=([A-Za-z0-9._:-]+)\s+head=([0-9a-fA-F]{40})\s*-->')) {
+                $id = $match.Groups[1].Value
+                if ($assignments.Contains($id) -and $assignments[$id].action -eq "finalize") {
+                    $rejection = @{ assignmentId = $id; developer = $assignments[$id].developer
+                        head = $match.Groups[2].Value.ToLowerInvariant(); discussionUrl = $discussion.url; rejectedAt = $entry.createdAt }
+                }
+            }
         }
-        $records[$task] = @{ duplicate = $false; assignments = @($assignments.Values) }
+        $records[$task] = @{ duplicate = $false; assignments = @($assignments.Values); finalizeRejection = $rejection }
     }
     $records
 }
@@ -238,7 +247,7 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
     $candidates = @(); $blocked = @(); $openAssignments = @(); $orderingBlocked = $false
     foreach ($child in $open) {
         $record = $taskRecords[[int] $child.number]
-        $assigned = @(); $released = $null
+        $assigned = @(); $released = $null; $rejection = $null
         if ($record) {
             $assigned = @($record.assignments | Where-Object { $_.state -eq "open" })
             $latest = @($record.assignments)[-1]
@@ -299,6 +308,9 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
                 if ($released -and $released.action -eq "implement") {
                     # Released implementation continues its existing PR; that PR's CI does not prove completion.
                     $category = "resume"; $rank = 2
+                } elseif ($record -and $record.finalizeRejection -and $record.finalizeRejection.head -ieq $pull.head.sha) {
+                    # Green CI on a rejected head would re-offer finalize forever; repair it instead.
+                    $category = "failed"; $rank = 1; $rejection = $record.finalizeRejection
                 } else {
                     $ci = Get-Agent4CiStage $pull $cache
                     if ($ci -in @("pending", "unknown")) { $reason = "Current-head CI is $ci." }
@@ -314,7 +326,7 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
         } else {
             $candidates += @{ issue = $child.number; url = $child.html_url; labels = $child.labels.name
                 dependencies = $dependencies; category = $category; rank = $rank
-                pr = $pull; released = $released; semanticAssessmentRequired = $true }
+                pr = $pull; released = $released; finalizeRejection = $rejection; semanticAssessmentRequired = $true }
         }
     }
     $candidates = @($candidates | Sort-Object -Stable rank)
