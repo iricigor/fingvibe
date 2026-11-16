@@ -1248,13 +1248,24 @@ The totals describe the whole inventory, even when filters hide some rows.</p>
 <li>Enter a name, address, vendor, or other displayed information in <strong>Search devices</strong>.</li>
 <li>Open <strong>Status</strong> to choose one or more statuses.</li>
 <li>Choose the funnel icon to show more filters.</li>
-<li>Select values in <strong>Device type</strong>, <strong>Operating system</strong>, <strong>Vendor</strong>, <strong>Person</strong>,
-   <strong>Room</strong>, <strong>Ports</strong>, or <strong>Usage category</strong>.</li>
+<li>Select values in <strong>Type</strong>, <strong>OS</strong>, <strong>Vendor</strong>, <strong>Person</strong>,
+   <strong>Room</strong>, <strong>Ports</strong>, or <strong>Usage</strong>.</li>
 <li>Choose <strong>Clear filters</strong> beside the funnel to remove all restrictions.</li>
 </ol>
 <p>Selecting several values within one category means "any of these."
 Different categories combine: a device must match each selected category and
 the search text. An empty selection means no restriction.</p>
+<p>Unrestricted filter labels are quieter; a restricted filter uses normal-contrast
+text and shows its selected values. The background and border stay the same,
+and quieter filters remain interactive. Type, OS and Usage are short button
+titles only: accessible names, full-value tooltips and table headings retain the
+full category names.</p>
+<p>Status dropdown choices supplement their labels and checkboxes with colored
+dots: green Online, red Offline, gray Unknown and blue Fing Only. Its <strong>Any</strong>
+choice has a four-segment circle using those same colors; the circle does not
+represent an arbitrary multi-selection. High contrast uses system colors while
+retaining labels and checkbox selection cues. These indicators do not change
+the colors of inventory totals or device-row badges.</p>
 <p>For example, select <strong>Online</strong>, a room, and <strong>With open ports</strong> to see responding
 devices in that room with observed services. <strong>Unassigned</strong> finds devices with
 no person or room. <strong>Unknown</strong> type or OS finds devices without that classification.</p>
