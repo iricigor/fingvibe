@@ -101,6 +101,39 @@ function Get-FilterLabelColor([string] $Id) {
     return $color
 }
 
+function Get-FilterLabelEmphasis([string] $Id) {
+    $state = (Find-DeviceElement $Id).Current.Name -replace '[^\w-]', '-'
+    $capture = Save-DeviceCapture "devices-filter-emphasis-$Id-$state"
+    $window = Get-UiReviewWindowBounds $windowHandle
+    $bounds = (Find-DeviceElement "${Id}Label").Current.BoundingRectangle
+    $foreground = Get-FilterLabelColor $Id
+    $bitmap = [System.Drawing.Bitmap]::new($capture)
+    try {
+        $left = [int][Math]::Ceiling($bounds.Left - $window.Left)
+        $top = [int][Math]::Ceiling($bounds.Top - $window.Top)
+        $right = [int][Math]::Floor([Math]::Min($bounds.Right - $window.Left, $left + 20 * $scale))
+        $bottom = [int][Math]::Floor($bounds.Bottom - $window.Top)
+        if ($left -lt 0 -or $top -lt 0 -or $right -gt $bitmap.Width -or $bottom -gt $bitmap.Height -or
+            $right -le $left -or $bottom -le $top) { throw "'$Id' label must be visible inside its capture." }
+        $background = $bitmap.GetPixel($left, $top)
+        $backgroundSum = [int]$background.R + $background.G + $background.B
+        $foregroundSum = ($foreground -band 255) + (($foreground -shr 8) -band 255) + (($foreground -shr 16) -band 255)
+        $fullContrast = [Math]::Abs($backgroundSum - $foregroundSum)
+        if ($fullContrast -eq 0) { throw "'$Id' foreground must contrast with its background." }
+        # UIA omits brush alpha. Measure composited ink in the unchanged category prefix.
+        $contrast = 0
+        for ($y = $top; $y -lt $bottom; $y++) {
+            for ($x = $left; $x -lt $right; $x++) {
+                $pixel = $bitmap.GetPixel($x, $y)
+                $contrast = [Math]::Max($contrast, [Math]::Abs($backgroundSum - ($pixel.R + $pixel.G + $pixel.B)))
+            }
+        }
+        if ($contrast -eq 0) { throw "'$Id' label must have visible rendered ink." }
+        return $contrast / $fullContrast
+    }
+    finally { $bitmap.Dispose() }
+}
+
 function Assert-StatusChoiceIndicators([string] $Theme, [switch] $HighContrast) {
     $picker = Find-DeviceElement InventoryStatusFilter
     $picker.SetFocus()
@@ -167,25 +200,25 @@ function Test-DeviceFilterVisualStates {
             Assert-FilterPresentation $entry[0] $entry[1]
         }
         Assert-StatusChoiceIndicators $theme
-        $inactive = Get-FilterLabelColor InventoryStatusFilter
+        $inactive = Get-FilterLabelEmphasis InventoryStatusFilter
         Set-DeviceFilterChoice InventoryStatusFilter Online
-        $active = Get-FilterLabelColor InventoryStatusFilter
-        if ($active -eq $inactive) { throw "Active and inactive filter text must differ in $theme." }
+        $active = Get-FilterLabelEmphasis InventoryStatusFilter
+        if ($active - $inactive -lt 0.1) { throw "Active filter text must be visibly stronger than inactive text in $theme." }
         Assert-FilterPresentation InventoryStatusFilter Status Online
         Set-DeviceFilterChoice InventoryStatusFilter Any
-        if ((Get-FilterLabelColor InventoryStatusFilter) -ne $active) {
+        if ([Math]::Abs((Get-FilterLabelEmphasis InventoryStatusFilter) - $active) -gt 0.05) {
             throw "Restrictive Status Any must use active text, even when it matches the whole fixture."
         }
         Assert-FilterPresentation InventoryStatusFilter Status Any
         Clear-DeviceFilters
-        if ((Get-FilterLabelColor InventoryStatusFilter) -ne $inactive) {
+        if ([Math]::Abs((Get-FilterLabelEmphasis InventoryStatusFilter) - $inactive) -gt 0.05) {
             throw "Clear filters must restore quiet Status text in $theme."
         }
-        $portsInactive = Get-FilterLabelColor PortsFilter
+        $portsInactive = Get-FilterLabelEmphasis PortsFilter
         Set-DeviceFilterChoice PortsFilter "With open ports"
-        if ((Get-FilterLabelColor PortsFilter) -eq $portsInactive) { throw "Ports must also emphasize active text." }
+        if ((Get-FilterLabelEmphasis PortsFilter) - $portsInactive -lt 0.1) { throw "Ports must also emphasize active text." }
         Clear-DeviceFilters
-        if ((Get-FilterLabelColor PortsFilter) -ne $portsInactive) { throw "Clearing Ports must restore inactive text." }
+        if ([Math]::Abs((Get-FilterLabelEmphasis PortsFilter) - $portsInactive) -gt 0.05) { throw "Clearing Ports must restore inactive text." }
         $picker = Find-DeviceElement InventoryStatusFilter
         $picker.SetFocus()
         if (-not $picker.Current.HasKeyboardFocus) { throw "Inactive Status must retain keyboard focus in $theme." }

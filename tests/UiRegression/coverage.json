@@ -224,7 +224,7 @@
           ],
           "baselineSha256": "3add6c5e7d3d623f16da520a7ee297cc1271993656bcd824a7180519a2eb50f0",
           "refactored": true,
-          "introducedBy": "#362: Rendered filter label emphasis, short titles, Status indicator colors and focus/hover/high-contrast evidence; baseline assertions and captures retained.",
+          "introducedBy": "#362: Rendered filter label emphasis, short titles, Status indicator colors and focus/hover/high-contrast evidence; repair 1 measures composited ink because UIA RGB omits brush alpha. Baseline assertions and captures retained.",
           "functions": [
             {
               "assertions": [
@@ -268,6 +268,11 @@
             },
             {
               "name": "Get-FilterLabelColor",
+              "refactored": true,
+              "assertions": []
+            },
+            {
+              "name": "Get-FilterLabelEmphasis",
               "refactored": true,
               "assertions": []
             },
@@ -331,6 +336,7 @@
           ],
           "captures": [
             "7de78940b83eaf5cf4cf9c5bd2359d6cf7d28f73d847189c227014e3f191e5c2",
+            "b39ed372251633aee04b5b5c9266b61079369213de2626a9a4dc910f15467594",
             "1821b863aad2c2ae56b4ac3bb6b5fa13ded0af0af0bf7086c053718b3c48cc77",
             "80a0c59b64ccadd922626e36b05ce66baeb6eddb5ab9773a15b64c766c7d025f",
             "3ed3c367d9b614b90729f76d98c89c0e4352ea5dfb68459be8c8f266b8ac16a2",

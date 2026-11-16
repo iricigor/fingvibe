@@ -920,4 +920,52 @@ Test-DatabaseBackupCleanup
     $appearing = { $script:surfacePolls++; if ($script:surfacePolls -gt 2) { [pscustomobject]@{ Current = [pscustomobject]@{ ItemStatus = 'Ready (request 9): later' } } } }
     Assert-Regression ((Wait-UiRegressionSurfaceState -GetElement $appearing -Description 'surface' -After 8 -PollMilliseconds 1).Request -eq 9) 'A surface hidden during navigation is awaited, not failed'
 }
+& {
+    . (Join-Path $PSScriptRoot 'UiRegression\Devices.Filters.Helpers.ps1')
+    $directory = New-UiRegressionFixtureDirectory -Suite filter-emphasis
+    $capture = Join-Path $directory 'label.png'
+    $scale = 1
+    $windowHandle = [IntPtr]::Zero
+    $renderState = @{ Background = 254; Foreground = 0; Opacity = 0.6; Left = 0 }
+    function Find-DeviceElement([string] $Id) {
+        [pscustomobject]@{ Current = [pscustomobject]@{
+            Name = 'Status: All'
+            BoundingRectangle = [Windows.Rect]::new($renderState.Left, 0, 20, 20)
+        } }
+    }
+    function Get-FilterLabelColor { return $renderState.Foreground * 0x010101 }
+    function Get-UiReviewWindowBounds { [pscustomobject]@{ Left = 0; Top = 0 } }
+    function Save-DeviceCapture {
+        param($Name)
+        $bitmap = [Drawing.Bitmap]::new(24, 24)
+        $graphics = [Drawing.Graphics]::FromImage($bitmap)
+        $brush = [Drawing.SolidBrush]::new([Drawing.Color]::FromArgb([int](255 * $renderState.Opacity),
+            $renderState.Foreground, $renderState.Foreground, $renderState.Foreground))
+        try {
+            $graphics.Clear([Drawing.Color]::FromArgb($renderState.Background, $renderState.Background, $renderState.Background))
+            $graphics.FillRectangle($brush, 4, 4, 4, 12)
+            $bitmap.Save($capture, [Drawing.Imaging.ImageFormat]::Png)
+        }
+        finally { $brush.Dispose(); $graphics.Dispose(); $bitmap.Dispose() }
+        return $capture
+    }
+    try {
+        foreach ($theme in @(@(254, 0), @(40, 255))) {
+            $renderState.Background, $renderState.Foreground = $theme
+            $renderState.Opacity = 0.6
+            $quiet = Get-FilterLabelEmphasis InventoryStatusFilter
+            $renderState.Opacity = 0.9
+            $active = Get-FilterLabelEmphasis InventoryStatusFilter
+            Assert-Regression ([Math]::Abs($quiet - 0.6) -lt 0.01 -and [Math]::Abs($active - 0.9) -lt 0.01) 'Rendered emphasis must retain brush alpha when UIA foreground RGB is identical.'
+            Assert-Regression ($active - $quiet -ge 0.1) 'Active ink must be stronger in both Light and Dark.'
+            $renderState.Background = 100
+            Assert-Regression ([Math]::Abs((Get-FilterLabelEmphasis InventoryStatusFilter) - $active) -lt 0.01) 'Emphasis must normalize the button background instead of treating its color as label emphasis.'
+            $renderState.Opacity = 0
+            Assert-RegressionFailure { Get-FilterLabelEmphasis InventoryStatusFilter } '*visible rendered ink*'
+        }
+        $renderState.Left = -1
+        Assert-RegressionFailure { Get-FilterLabelEmphasis InventoryStatusFilter } '*visible inside its capture*'
+    }
+    finally { Remove-Item -LiteralPath $directory -Recurse -Force }
+}
 Write-Host 'UI regression helper, cleanup, timing, async state, and orchestration checks passed.'

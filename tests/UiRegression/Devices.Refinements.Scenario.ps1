@@ -5,7 +5,7 @@ foreach ($case in @(
     @{ Id = 'VendorFilter'; Category = 'Vendor'; Missing = 'Unknown'; KnownCount = 77; MissingCount = 3 },
     @{ Id = 'UsageCategoryFilter'; Category = 'Usage category'; Missing = 'Unclassified'; KnownCount = 0; MissingCount = 80 }
 )) {
-    $inactiveColor = Get-FilterLabelColor $case.Id
+    $inactiveEmphasis = Get-FilterLabelEmphasis $case.Id
     $panel = Open-DeviceFilter $case.Id
     $checks = @($panel.FindAll([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new(
@@ -30,7 +30,7 @@ foreach ($case in @(
         $missingToggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off) {
         throw "$($case.Id) Any must replace individual and missing-value selections."
     }
-    if ((Get-FilterLabelColor $case.Id) -eq $inactiveColor) {
+    if ((Get-FilterLabelEmphasis $case.Id) - $inactiveEmphasis -lt 0.1) {
         throw "$($case.Id) restrictive Any must emphasize its label."
     }
     Assert-FilterPresentation $case.Id $case.Category Any
@@ -55,7 +55,7 @@ foreach ($case in @(
     $null = Wait-UiRegressionState -Description "$($case.Id) unrestricted membership" -Condition {
         (Find-DeviceElement ResultCountText).Current.Name -eq 'Showing 80 devices'
     }
-    if ((Get-FilterLabelColor $case.Id) -ne $inactiveColor) {
+    if ([Math]::Abs((Get-FilterLabelEmphasis $case.Id) - $inactiveEmphasis) -gt 0.05) {
         throw "$($case.Id) must restore quiet label styling after clearing."
     }
     [DevicesReviewInput]::Tap(0x1B)
