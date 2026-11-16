@@ -406,7 +406,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             Copy-Item (Join-Path $PSScriptRoot "..\.github\scripts\$name") $scripts
         }
         foreach ($name in @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
-            "UsageCategory.Ui", "DeviceActivity.Ui", "NetworkActivity.Ui",
+            "UsageCategory.Ui", "DeviceActivity.Ui", "NetworkActivity.Ui", "EquipmentActivity.Ui",
             "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
             @(
                 'param($AppPath, $ScreenshotDirectory, $Version, $BuildKind, $BuildTimestamp, $BuildCommit, $PullRequestNumber, $SummaryOnly, $ObservationsOnly, $Group)',
@@ -512,6 +512,52 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             $suiteCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json)
             $expected = if ($suite -eq "details-identity") { @($expectedSuiteChecks[$suite]) + "NetworkActivity.Ui" } else { $expectedSuiteChecks[$suite] }
             Assert-Equal $suiteCalls.Name $expected "History-tab plan preserves split suites and Network Activity coverage"
+        }
+        # Shared contracts must select plans that run their consumers' native checks, not Devices-only no-op details jobs.
+        $selectionRepository = Join-Path $runnerFixture "shared-contract-selection"
+        $null = New-Item -ItemType Directory -Path $selectionRepository -Force
+        $sharedPaths = @("src/FingVibe.App/AsyncSurfaceSession.cs", "src/FingVibe.App/ScanResultRow.cs",
+            "src/FingVibe.Core/Storage/DeviceInventoryStore.Analytics.cs")
+        foreach ($sharedPath in $sharedPaths) {
+            $null = New-Item -ItemType Directory -Path (Split-Path (Join-Path $selectionRepository $sharedPath)) -Force
+            Set-Content -LiteralPath (Join-Path $selectionRepository $sharedPath) -Value "baseline"
+        }
+        $null = Invoke-UiReviewGit $selectionRepository @("init", "--quiet")
+        $null = Invoke-UiReviewGit $selectionRepository @("-c", "user.name=test", "-c", "user.email=test@example.invalid", "add", ".")
+        $null = Invoke-UiReviewGit $selectionRepository @("-c", "user.name=test", "-c", "user.email=test@example.invalid", "commit", "--quiet", "-m", "Baseline")
+        $selectionBase = Invoke-UiReviewGit $selectionRepository @("rev-parse", "HEAD")
+        $sharedPlanPath = Join-Path $runnerFixture "shared-contract-plan.json"
+        $sharedDetailChecks = [ordered]@{
+            "details-summary" = @("DeviceScanHistory.Ui", "EquipmentActivity.Ui")
+            "details-identity" = @("DeviceDiscovery.Ui", "UsageCategory.Ui", "NetworkActivity.Ui")
+            "details-observations" = @("DeviceScanHistory.Ui")
+            "details-activity" = @("DeviceActivity.Ui")
+        }
+        foreach ($sharedCase in @(@($sharedPaths[0]), @($sharedPaths[1]), @($sharedPaths[2]), $sharedPaths)) {
+            $null = Invoke-UiReviewGit $selectionRepository @("checkout", "--quiet", "--detach", $selectionBase)
+            foreach ($sharedPath in $sharedCase) { Set-Content -LiteralPath (Join-Path $selectionRepository $sharedPath) -Value "changed" }
+            $null = Invoke-UiReviewGit $selectionRepository @("-c", "user.name=test", "-c", "user.email=test@example.invalid", "commit", "--quiet", "-am", "Change")
+            $sharedPlan = @(Get-UiReviewCapturePlan -RepositoryPath $selectionRepository -BaseRevision $selectionBase)
+            ConvertTo-Json -InputObject $sharedPlan -Depth 5 | Set-Content $sharedPlanPath
+            $sharedParameters = $parameters.Clone()
+            $sharedParameters.CapturePlanPath = $sharedPlanPath
+            foreach ($suite in $sharedDetailChecks.Keys) {
+                $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
+                & $runner -Suite $suite @sharedParameters
+                $suiteCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json)
+                Assert-Equal $suiteCalls.Name $sharedDetailChecks[$suite] "$($sharedCase -join ' + ') dispatches affected checks in $suite"
+            }
+            if ($sharedCase -contains "src/FingVibe.App/AsyncSurfaceSession.cs") {
+                if (@($sharedPlan.Scenario | Where-Object { $_ -in @("Troubleshooting", "DatabaseBackups") }).Count -ne 2) {
+                    throw "Asynchronous surface changes must select troubleshooting and backup captures."
+                }
+                $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
+                & $runner -Suite tools-utilities @sharedParameters
+                $toolCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name
+                foreach ($check in @("NetworkTroubleshooting.Ui", "DatabaseBackups.Ui")) {
+                    if ($check -notin $toolCalls) { throw "Asynchronous surface plan must dispatch $check." }
+                }
+            }
         }
         Assert-Throws { & $runner -Suite history @parameters } "*history*"
         $env:UI_REGRESSION_FAIL = "DevicesList.Ui"

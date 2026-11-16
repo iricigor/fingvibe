@@ -144,6 +144,10 @@ Network is selected.
 Person details' `EquipmentActivity.Ui` uses `details-summary` when PersonDetails
 is selected, retaining its existing Device summary checks. Shared count/grid
 changes select Network and PersonDetails as well as affected Device Activity.
+The shared contracts `AsyncSurfaceSession`, `ScanResultRow` and
+`DeviceInventoryStore.Analytics` explicitly select every current consumer's
+scenarios rather than the Devices-only fallback; update their rules in
+`.github/scripts/UiReviewScenarios.ps1` when consumers change.
 Collapsed tabs expose no UI Automation peers; use the tab helpers in
 `tests/UiRegression/Helpers.ps1` and reacquire controls after switching. Keep every job within the 240-second budget using its `call-costs.json` and
 `phases.jsonl` evidence. Mark each logical segment with a phase, keep the

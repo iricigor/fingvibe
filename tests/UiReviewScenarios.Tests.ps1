@@ -870,6 +870,21 @@ try {
         "tests\EquipmentActivity.Ui.Tests.ps1")) {
         Test-Change @{ $path = "changed" } @("Devices", "PersonDetails") "Equipment activity"
     }
+    $asyncSurfaceScenarios = @("Devices", "Network", "DeviceDetails", "DeviceHistory", "PersonDetails", "Tools", "Troubleshooting", "DatabaseBackups")
+    $rowScenarios = @("Devices", "Overview", "Network", "DeviceDetails", "DeviceHistory", "People", "PersonDetails", "Rooms", "RoomDetails", "Settings", "DevicesEmpty")
+    $analyticsScenarios = @("Devices", "Network", "DeviceDetails", "DeviceHistory", "PersonDetails", "Settings")
+    Test-Change @{ "src\FingVibe.App\AsyncSurfaceSession.cs" = "changed" } $asyncSurfaceScenarios "Shared asynchronous surface consumers"
+    Test-Change @{ "src\FingVibe.App\ScanResultRow.cs" = "changed" } $rowScenarios "Shared device row consumers"
+    Test-Change @{ "src\FingVibe.Core\Storage\DeviceInventoryStore.Analytics.cs" = "changed" } $analyticsScenarios "Shared analytics evidence consumers"
+    Test-Change @{ "src\FingVibe.App\AsyncSurfaceSession.cs" = "changed"; "src\FingVibe.Core\Storage\DeviceInventoryStore.Analytics.cs" = "changed"
+        "src\FingVibe.App\Tools\SqlEditorPage.xaml" = "changed" } `
+        @("Devices", "Network", "DeviceDetails", "DeviceHistory", "PersonDetails", "Tools", "Troubleshooting", "SqlEditor", "DatabaseBackups", "Settings") `
+        "Shared contracts union with each other and with page-specific coverage"
+    Test-Change @{ "src\FingVibe.App\AsyncSurfaceSession.cs" = "changed"; "src\FingVibe.App\ScanResultRow.cs" = "changed"
+        "src\FingVibe.Core\Storage\DeviceInventoryStore.Analytics.cs" = "changed"; "src\FingVibe.App\Tools\AboutPage.xaml" = "changed" } `
+        @("Devices", "Overview", "Network", "DeviceDetails", "DeviceHistory", "People", "PersonDetails", "Rooms", "Tools",
+            "Troubleshooting", "About", "DatabaseBackups", "RoomDetails", "Settings", "DevicesEmpty") `
+        "All shared contracts keep catalog order and unrelated explicit page coverage"
     foreach ($path in @("src\FingVibe.Core\Models\DeviceInventory.cs", "src\FingVibe.Core\Models\PrivateVirtualDevice.cs",
         "src\FingVibe.Core\Models\DeviceHistorySummary.cs",
         "src\FingVibe.Core\Models\DeviceDiscovery.cs", "src\FingVibe.App\MainWindow.DiscoveryNotifications.cs",
