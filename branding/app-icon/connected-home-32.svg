@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" role="img" aria-labelledby="title desc">
+<title id="title">FingVibe - Connected home, 32 px master</title><desc id="desc">Pixel-tuned Connected home geometry for the 32 pixel frame: home, person and three devices without connection lines.</desc>
+<defs><linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="0.5" y1="0.5" x2="31.5" y2="31.5"><stop stop-color="#173967"/><stop offset="1" stop-color="#101B34"/></linearGradient></defs>
+<rect x="0.5" y="0.5" width="31" height="31" rx="7" fill="url(#tile)" stroke="#3A6390" stroke-width="1"/>
+<polyline points="5,13.5 16,5 27,13.5" fill="none" stroke="#4DF0D3" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="16" cy="14" r="2.25" fill="#4DF0D3"/>
+<path d="M 12.5 21 A 3.5 3.5 0 0 1 19.5 21" fill="none" stroke="#4DF0D3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="4" y="19.5" width="7.5" height="5" rx="1" fill="#1B304D" stroke="#80D5FF" stroke-width="1.5"/>
+<polyline points="4.5,27.5 11,27.5" fill="none" stroke="#80D5FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="23" y="18.5" width="5" height="8.5" rx="1" fill="#1B304D" stroke="#FF5C5C" stroke-width="1.5"/>
+<rect x="13" y="23.5" width="6" height="4.5" rx="1" fill="#1B304D" stroke="#FFEB9A" stroke-width="1.5"/>
+</svg>

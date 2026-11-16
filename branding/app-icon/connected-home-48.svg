@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" role="img" aria-labelledby="title desc">
+<title id="title">FingVibe - Connected home, 40-48 px master</title><desc id="desc">Simplified Connected home geometry with thicker strokes for 40 and 48 pixel frames.</desc>
+<defs><linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="1" y1="1" x2="47" y2="47"><stop stop-color="#173967"/><stop offset="1" stop-color="#101B34"/></linearGradient></defs>
+<rect x="1" y="1" width="46" height="46" rx="10.5" fill="url(#tile)" stroke="#3A6390" stroke-width="1"/>
+<polyline points="8,19.5 24,7.5 40,19.5" fill="none" stroke="#4DF0D3" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="24,26.5 12,31" fill="none" stroke="#5A86B0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="24,26.5 33.5,30" fill="none" stroke="#5A86B0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="24,26.5 24,34.5" fill="none" stroke="#5A86B0" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="24" cy="21.5" r="5.5" fill="#164C59" stroke="#4DF0D3" stroke-width="1.5"/>
+<circle cx="24" cy="20" r="1.75" fill="#4DF0D3"/>
+<path d="M 21.5 24.5 A 2.5 2.5 0 0 1 26.5 24.5" fill="none" stroke="#4DF0D3" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="6" y="31" width="12" height="8" rx="1.5" fill="#1B304D" stroke="#80D5FF" stroke-width="1.5"/>
+<polyline points="7.5,41.5 16.5,41.5" fill="none" stroke="#80D5FF" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="30.5" y="30" width="7" height="11.5" rx="1.5" fill="#1B304D" stroke="#FF5C5C" stroke-width="1.5"/>
+<rect x="20" y="35" width="8" height="6.5" rx="1.5" fill="#1B304D" stroke="#FFEB9A" stroke-width="1.5"/>
+</svg>
