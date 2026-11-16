@@ -113,6 +113,11 @@ the current selection's completed state, not just control existence or a changed
 scroll percentage. Preserve intentional hover/dwell, debounce, animation and
 appearance-settling checks. Failures must remain failures with partial
 diagnostics, not retries-to-green or longer timeouts hiding the cause.
+The PR pipeline has one explicit exception: each failed `ui-regression`
+matrix suite receives one fresh-process retry, without rerunning successful
+suites or individual assertions. Retry-passes are reported as flaky; two
+failures remain blocking. Both attempts retain separate diagnostics. This
+does not change standalone/local test behavior or loop4 repair accounting.
 
 For data-heavy features, agree measurable budgets before implementation and
 reuse existing performance requirements. Test data correctness, query cost,

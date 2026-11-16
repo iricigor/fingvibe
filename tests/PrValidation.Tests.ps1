@@ -312,18 +312,40 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
     foreach ($pattern in @(
         'needs: \[changes, build\]',
         'runs-on: windows-2025',
-        'timeout-minutes: 20',
+        'timeout-minutes: 35',
         'fail-fast: false',
         'suite: \[sidebar-presentation, sidebar-scan-flows, sidebar-scan-presentation, sidebar-preferences-scheduling, devices-presentation, devices-filters-previews, devices-columns-sorting, details-summary, details-identity, details-observations, details-activity, tools-utilities, tools-device-data\]',
         '(?s)name: Run native regression suite\s+timeout-minutes: 15',
-        "(?s)name: Run native regression suite\s+timeout-minutes: 15\s+if: \$\{\{ !startsWith\(matrix.suite, 'sidebar-'\) \}\}\s+shell: pwsh",
-        "(?s)name: Run sidebar regression in Windows PowerShell\s+timeout-minutes: 15\s+if: startsWith\(matrix.suite, 'sidebar-'\)\s+shell: powershell",
+        "(?s)name: Run native regression suite\s+timeout-minutes: 15\s+id: native\s+continue-on-error: true\s+if: \$\{\{ !startsWith\(matrix.suite, 'sidebar-'\) \}\}\s+shell: pwsh",
+        "(?s)name: Run sidebar regression in Windows PowerShell\s+timeout-minutes: 15\s+id: sidebar\s+continue-on-error: true\s+if: startsWith\(matrix.suite, 'sidebar-'\)\s+shell: powershell",
         '(?s)name: Upload native regression diagnostics\s+if: always\(\)',
         'name: fingvibe-ui-regression-\$\{\{ matrix.suite \}\}-pr-',
         'REGRESSION_RESULT: \$\{\{ needs.ui-regression.result \}\}'
     )) {
         $target = if ($pattern.StartsWith('REGRESSION_RESULT')) { $publishJob } else { $regressionJob }
         if ($target -notmatch $pattern) { throw "Missing parallel regression invariant: $pattern" }
+    }
+    foreach ($hostId in @("native", "sidebar")) {
+        $shell = if ($hostId -eq "sidebar") { "powershell" } else { "pwsh" }
+        $retryPattern = '(?s)id: ' + $hostId + '-retry\s+timeout-minutes: 15\s+if: ' +
+            [regex]::Escape('${{ !cancelled() && steps.' + $hostId + '.outcome == ''failure'' }}') +
+            '\s+shell: ' + $shell
+        if ($regressionJob -notmatch $retryPattern) { throw "Only a failed $hostId attempt may retry, using its original host." }
+    }
+    Assert-Equal ([regex]::Matches($regressionJob, 'continue-on-error: true').Count) 2 "Only first attempts may tolerate failure"
+    Assert-Equal ([regex]::Matches($regressionJob, 'Invoke-UiRegression.ps1').Count) 4 "At most one retry per host"
+    foreach ($condition in @(
+        '${{ !cancelled() && (steps.native.outcome == ''failure'' || steps.sidebar.outcome == ''failure'') }}',
+        '${{ steps.native-retry.outcome == ''success'' || steps.sidebar-retry.outcome == ''success'' }}'
+    )) {
+        if (-not $regressionJob.Contains($condition)) { throw "Retry reporting must fail closed and run after retry failure: $condition" }
+    }
+    $readRegressionStep = {
+        param([string] $Name)
+        $step = [regex]::Match($regressionJob, ('(?ms)^      - name: ' + [regex]::Escape($Name) + '\r?\n.*?(?=^      - name:|\z)')).Value
+        $script = [regex]::Match($step, '(?ms)^        run: \|\r?\n(?<script>.*)\z').Groups["script"].Value
+        if (-not $script) { throw "Missing executable regression step: $Name" }
+        $script
     }
     foreach ($job in @($smokeJob, $assignmentsJob, $captureJob, $regressionJob)) {
         foreach ($restriction in @(
@@ -369,7 +391,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
     $runnerFixture = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-regression-runner-$([Guid]::NewGuid())"
     $runnerSaved = @{}
     try {
-        foreach ($name in @("UI_REGRESSION_CALLS", "UI_REGRESSION_FAIL", "GITHUB_STEP_SUMMARY")) {
+        foreach ($name in @("UI_REGRESSION_CALLS", "UI_REGRESSION_FAIL", "GITHUB_STEP_SUMMARY", "REGRESSION_SUITE", "RETRY_PASSED")) {
             $runnerSaved[$name] = [Environment]::GetEnvironmentVariable($name)
         }
         $scripts = Join-Path $runnerFixture ".github\scripts"
@@ -394,7 +416,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
                 '    if ($settings.TextScaleFactor -le 0) { throw "Expected a readable effective Windows text scale." }',
                 '    if ($env:UI_REGRESSION_FAIL -eq $name) { Write-Output "Troubleshooting child stdout before failure." }',
                 '}',
-                '@{ Name = $name; Parameters = $PSBoundParameters; HostEdition = $PSVersionTable.PSEdition; Apartment = [Threading.Thread]::CurrentThread.ApartmentState.ToString() } | ConvertTo-Json -Compress | Add-Content $env:UI_REGRESSION_CALLS',
+                '@{ Name = $name; Parameters = $PSBoundParameters; ProcessId = $PID; HostEdition = $PSVersionTable.PSEdition; Apartment = [Threading.Thread]::CurrentThread.ApartmentState.ToString() } | ConvertTo-Json -Compress | Add-Content $env:UI_REGRESSION_CALLS',
                 'if ($env:UI_REGRESSION_FAIL -eq $name) { throw "Simulated regression failure: $name" }'
             ) | Set-Content (Join-Path $runnerFixture "tests\$name.Tests.ps1")
         }
@@ -545,6 +567,75 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
         Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: utilities*Simulated regression failure*"
         Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name @("BuildIdentity.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "An independent Tools group must still run after another group fails"
+        $reportScript = & $readRegressionStep "Report regression retry outcome"
+        $reportPath = Join-Path $runnerFixture "report.ps1"
+        Set-Content -LiteralPath $reportPath -Value ('$ErrorActionPreference = "Stop"' + "`n" + $reportScript)
+        foreach ($hostCase in @(
+            @{ Suite = "devices-filters-previews"; HostExe = "pwsh.exe"; Edition = "Core"; Check = "DevicesList.Ui"
+                First = "Run native regression suite"; Retry = "Retry failed native regression suite once" },
+            @{ Suite = "sidebar-presentation"; HostExe = "powershell.exe"; Edition = "Desktop"; Check = "SidebarNavigation"
+                First = "Run sidebar regression in Windows PowerShell"; Retry = "Retry failed sidebar regression once in Windows PowerShell" }
+        )) {
+            foreach ($outcome in @("pass", "flaky", "fail")) {
+                $caseRoot = Join-Path $runnerFixture "$($hostCase.Suite)-$outcome"
+                $null = New-Item -ItemType Directory -Path $caseRoot -Force
+                $env:UI_REGRESSION_CALLS = Join-Path $caseRoot "calls.jsonl"
+                $env:GITHUB_STEP_SUMMARY = Join-Path $caseRoot "summary.txt"
+                Copy-Item $planPath (Join-Path $caseRoot "capture-plan.json")
+                $env:REGRESSION_SUITE = $hostCase.Suite
+                $exitCodes = @()
+                Push-Location $runnerFixture
+                try {
+                    foreach ($attempt in @(1, 2)) {
+                        if ($attempt -eq 2 -and $exitCodes[0] -eq 0) { break }
+                        $env:UI_REGRESSION_FAIL = if ($outcome -eq "fail" -or ($outcome -eq "flaky" -and $attempt -eq 1)) { $hostCase.Check } else { $null }
+                        $stepName = if ($attempt -eq 1) { $hostCase.First } else { $hostCase.Retry }
+                        $script = (& $readRegressionStep $stepName).
+                            Replace('${{ matrix.suite }}', $hostCase.Suite).
+                            Replace('${{ github.workspace }}\artifacts\ui-regression', $caseRoot).
+                            Replace('${{ github.workspace }}', $runnerFixture).
+                            Replace('${{ github.run_number }}', "123").
+                            Replace('${{ github.event_name == ''pull_request'' && ''PullRequest'' || ''Test'' }}', "PullRequest").
+                            Replace('${{ needs.build.outputs.build-timestamp }}', $parameters.BuildTimestamp).
+                            Replace('${{ github.sha }}', "test-commit").
+                            Replace('${{ github.event.pull_request.number || 0 }}', "198")
+                        $stepPath = Join-Path $caseRoot "step-$attempt.ps1"
+                        Set-Content -LiteralPath $stepPath -Value ('$ErrorActionPreference = "Stop"' + "`n" + $script)
+                        & $hostCase.HostExe -NoProfile -File $stepPath *> (Join-Path $caseRoot "step-$attempt.log")
+                        $exitCodes += $LASTEXITCODE
+                    }
+                } finally { Pop-Location }
+                $expectedCodes = switch ($outcome) { "pass" { @(0) }; "flaky" { @(1, 0) }; "fail" { @(1, 1) } }
+                Assert-Equal $exitCodes $expectedCodes "Pipeline $($hostCase.Suite) $outcome outcomes"
+                $attemptCalls = @(Get-Content $env:UI_REGRESSION_CALLS | ConvertFrom-Json)
+                Assert-Equal $attemptCalls.Count $expectedCodes.Count "Only failed suites rerun once"
+                Assert-Equal @($attemptCalls.ProcessId | Select-Object -Unique).Count $expectedCodes.Count "Each attempt uses a fresh process"
+                Assert-Equal @($attemptCalls.HostEdition | Select-Object -Unique) $hostCase.Edition "Retry preserves the required PowerShell host"
+                $group = $hostCase.Suite.Substring($hostCase.Suite.IndexOf("-") + 1)
+                Assert-Equal @($attemptCalls.Parameters.Group | Select-Object -Unique) $group "Only the selected matrix group runs"
+                foreach ($attempt in 1..$expectedCodes.Count) {
+                    $directory = Join-Path $caseRoot "attempt-$attempt"
+                    $transcript = Get-Content (Join-Path $directory "regression.log") -Raw
+                    Assert-Equal $attemptCalls[$attempt - 1].Parameters.ScreenshotDirectory (Join-Path $directory $(if ($hostCase.Edition -eq "Desktop") { "sidebar" } else { "devices" })) "Separate diagnostics per attempt"
+                    if ($expectedCodes[$attempt - 1] -ne 0 -and $transcript -notmatch 'Simulated regression failure') {
+                        throw "Failed attempt diagnostics must survive the retry."
+                    }
+                }
+                if ($outcome -eq "pass") {
+                    if (Test-Path (Join-Path $caseRoot "attempt-2")) { throw "Successful suites must not retry." }
+                    continue
+                }
+                $env:RETRY_PASSED = ($outcome -eq "flaky").ToString().ToLowerInvariant()
+                $reportLog = Join-Path $caseRoot "report.log"
+                & pwsh.exe -NoProfile -File $reportPath *> $reportLog
+                Assert-Equal $LASTEXITCODE $(if ($outcome -eq "flaky") { 0 } else { 1 }) "Reporting cannot turn a second failure green"
+                if ($outcome -eq "flaky" -and
+                    ((Get-Content $reportLog -Raw) -notmatch '::warning::Flaky UI regression' -or
+                    (Get-Content $env:GITHUB_STEP_SUMMARY -Raw) -notmatch 'passed only on retry')) {
+                    throw "Retry-passes must visibly report flakiness."
+                }
+            }
+        }
     } finally {
         foreach ($name in $runnerSaved.Keys) { [Environment]::SetEnvironmentVariable($name, $runnerSaved[$name]) }
         Remove-Item -LiteralPath $runnerFixture -Recurse -Force
