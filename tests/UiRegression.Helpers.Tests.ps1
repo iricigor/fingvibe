@@ -566,12 +566,13 @@ public static class ToolsLandingTestWindow
         return @($descriptionPeer, $actionPeer, $unnamed)
     }
     $lookups = [Collections.Generic.List[string]]::new()
-    $lookupState = @{ Missing = $false; Error = $false }
+    $lookupState = @{ Id = 'DatabaseBackupsCard'; Missing = $false; Error = $false }
     $window | Add-Member ScriptMethod FindFirst {
         param($Scope, $Match)
         $lookups.Add($Match.Value)
-        Assert-Regression ($Scope -eq [System.Windows.Automation.TreeScope]::Descendants -and
-            $Match.Value -eq 'DatabaseBackupsCard') 'Position the requested real Tools peer.'
+        Assert-Regression ($Scope -eq [System.Windows.Automation.TreeScope]::Descendants) 'Search the actual Tools descendants.'
+        if ($Match.Value -eq 'ToolsLanding') { return $viewport }
+        Assert-Regression ($Match.Value -eq $lookupState.Id) 'Position the requested real Tools peer.'
         if ($lookupState.Error) { throw 'Tools lookup failed' }
         if ($lookupState.Missing) { return $null }
         return $card
@@ -645,6 +646,59 @@ public static class ToolsLandingTestWindow
         $lookupState.Missing = $false
         $lookupState.Error = $true
         Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*Tools lookup failed*'
+        $lookupState.Error = $false
+        & {
+            $source = Get-Content (Join-Path $PSScriptRoot 'UiRegression\Tools.Landing.Helpers.ps1') -Raw
+            $layoutAst = [Management.Automation.Language.Parser]::ParseInput($source, [ref]$null, [ref]$null)
+            $layout = $layoutAst.Find({
+                param($node)
+                $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
+                    $node.Name -eq 'Assert-ToolsLandingLayout'
+            }, $true)
+            $loops = @($layout.Body.EndBlock.Statements | Where-Object {
+                $_ -is [Management.Automation.Language.ForStatementAst]
+            })
+            $keyboardEntry = [scriptblock]::Create($source.Substring(
+                $loops[0].Extent.EndOffset, $loops[1].Extent.StartOffset - $loops[0].Extent.EndOffset))
+            $waitImplementation = ${function:Wait-UiRegressionState}
+            function Wait-UiRegressionState {
+                param([scriptblock] $Condition, [string] $Description)
+                & $waitImplementation -Condition $Condition -Description $Description -TimeoutMilliseconds 200 -PollMilliseconds 1
+            }
+            $focusState = @{ Calls = 0 }
+            $card | Add-Member ScriptMethod SetFocus {
+                foreach ($target in @($this, $descriptionPeer, $actionPeer)) {
+                    Assert-Regression (Test-UiRegressionElementWithin $target $viewport $window) 'Keyboard entry requires the first card and its named text inside the actual viewport.'
+                }
+                $focusState.Calls++
+            }
+            $ids = @('SqlEditorCard', 'FingImportCard', 'SpeedTestCard', 'TroubleshootingCard', 'DatabaseBackupsCard')
+            $Variant = 'high-contrast'
+            $lookupState.Id = $ids[0]
+            $rowGeometry.Top = 10
+            $rowGeometry.EmptyBounds = $false
+            $scroll.SetScrollPercent(-1, 40)
+            $positions.Clear()
+            Assert-Regression (-not (Test-UiRegressionElementVisible $card)) 'The preceding bottom capture must leave the first card genuinely offscreen.'
+            & $keyboardEntry
+            Assert-Regression ($focusState.Calls -eq 1 -and $positions.Count -eq 1) 'Restore the first card with measured positioning before the strict focus lookup.'
+
+            $scroll.SetScrollPercent(-1, 0)
+            $positions.Clear()
+            $focusState.Calls = 0
+            & $keyboardEntry
+            Assert-Regression ($focusState.Calls -eq 1 -and $positions.Count -eq 0) 'Already-visible keyboard entry must not scroll again.'
+
+            $focusState.Calls = 0
+            $lookupState.Missing = $true
+            Assert-RegressionFailure { & $keyboardEntry } '*200 ms*SqlEditorCard*'
+            Assert-Regression ($focusState.Calls -eq 0) 'A genuinely missing first card must not skip the focus precondition.'
+            $lookupState.Missing = $false
+            $scroll.SetScrollPercent(-1, 40)
+            $scroll.Current.VerticallyScrollable = $false
+            Assert-RegressionFailure { & $keyboardEntry } '*clipped in a non-scrollable viewport*'
+            Assert-Regression ($focusState.Calls -eq 0) 'Unreachable keyboard entry must remain a failure.'
+        }
     }
     finally { $script:root = $previousRoot }
 }

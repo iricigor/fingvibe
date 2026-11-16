@@ -95,6 +95,8 @@ Keep ordinary lookup and post-position visibility/containment assertions strict.
 Select Tools before resizing only when its viewport is not already visible;
 responsive sidebar peers are not a prerequisite for an active landing. Await both
 window dimensions and the actual viewport's containment before checking card layout.
+Restore the first card and its named text inside the viewport before keyboard
+traversal; the preceding bottom-row capture can leave that card offscreen.
 
 Use the shared bounded waits, visible/nonempty page-scoped lookup, isolated
 fixture directories, normal shutdown and process-specific cleanup. Reacquire

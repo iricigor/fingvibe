@@ -99,6 +99,9 @@ function Assert-ToolsLandingLayout {
                 -Path (Join-Path $ScreenshotDirectory "tools-$Variant-$Width-$edge.png")
         }
     }
+    $null = Show-UiRegressionScrollTargets -Description "$Variant Tools keyboard entry [$($ids[0])]" `
+        -GetViewport { Get-ToolsLandingElement "ToolsLanding" } -GetWindow { $script:root } `
+        -GetTargets { Get-ToolsLandingRowTargets @($ids[0]) }
     (Get-ToolsLandingElement $ids[0]).SetFocus()
     for ($index = 0; $index -lt $ids.Count; $index++) {
         $expectedId = $ids[$index]
