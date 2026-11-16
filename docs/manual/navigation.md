@@ -16,6 +16,14 @@ across pages. Changing pages does not automatically start another scan.
 These manual icons are visual hints, not exact copies of every Windows glyph.
 The text labels remain the instructions.
 
+## Tools
+
+Tool cards fill two equal-width columns, read left to right:
+**SQL editor** and **Import from Fing**, then **Speed test** and
+**Network troubleshooting**. **Database backups** starts the next row on the
+left, at the same width. Scroll down in a small window to reach later cards.
+Keyboard focus follows that same order.
+
 ## Overview
 
 Overview describes the **displayed scan**, not a live network monitor.

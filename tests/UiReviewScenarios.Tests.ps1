@@ -584,6 +584,23 @@ try {
     }
     $toolsDocument = [System.Xml.XmlDocument]::new()
     $toolsDocument.Load((Join-Path $appDirectory "Tools\ToolsPage.xaml"))
+    $landing = $toolsDocument.SelectSingleNode("//*[@*[local-name()='Name']='ToolsLandingGrid']")
+    $landingColumns = $landing.SelectNodes("./*[local-name()='Grid.ColumnDefinitions']/*")
+    $cards = @($landing.SelectNodes("./*[local-name()='Button']"))
+    if ($landing.LocalName -cne "Grid" -or $landingColumns.Count -ne 2 -or
+        @($landingColumns | Where-Object { $_.GetAttribute("Width") -cne "*" }).Count -ne 0) {
+        throw "Tools cards must share two equal-width grid columns."
+    }
+    Assert-Equal @($cards | ForEach-Object { $_.GetAttribute("x:Name") }) `
+        @("SqlEditorCard", "FingImportCard", "SpeedTestCard", "TroubleshootingCard", "DatabaseBackupsCard") `
+        "Tools visual and keyboard row order"
+    foreach ($card in $cards) {
+        if ($card.GetAttribute("Grid.ColumnSpan") -notin @("", "1") -or
+            @($card.SelectNodes(".//*[local-name()='TextBlock']") |
+                Where-Object { $_.GetAttribute("TextWrapping") -cne "Wrap" }).Count -ne 0) {
+            throw "Tools cards must keep one column each and wrap all labels, including open actions."
+        }
+    }
     $toolIcons = @(
         @{ Page = "SpeedTestPage"; Title = "Speed test"; Card = "SpeedTestCard"; Click = "SpeedTestCard_Click"; Glyph = 0xEC4A },
         @{ Page = "NetworkTroubleshootingPage"; Title = "Network troubleshooting"; Card = "TroubleshootingCard"; Click = "TroubleshootingCard_Click"; Glyph = 0xE90F },

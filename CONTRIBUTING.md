@@ -91,6 +91,20 @@ When adding a Tools scenario, register its script stub and expected dispatch in
 `tests/PrValidation.Tests.ps1` so the isolated runner fixture covers it without
 starting the native application.
 
+Tools landing row positioning includes each card's named descendant text peers.
+A card's UI Automation bounds may be clipped to the viewport while its description
+or action is still offscreen. Reveal those real text targets with the existing
+measured-scroll helper before checking strict card-relative text containment;
+do not treat a partially visible parent as proof of readable content.
+Positioning discovery must admit real offscreen or empty-bounds card peers so
+that bounded scrolling can reveal them, rather than awaiting visibility first.
+Keep ordinary lookup and post-position visibility/containment assertions strict.
+Select Tools before resizing only when its viewport is not already visible;
+responsive sidebar peers are not a prerequisite for an active landing. Await both
+window dimensions and the actual viewport's containment before checking card layout.
+Restore the first card and its named text inside the viewport before keyboard
+traversal; the preceding bottom-row capture can leave that card offscreen.
+
 Use the shared bounded waits, visible/nonempty page-scoped lookup, isolated
 fixture directories, normal shutdown and process-specific cleanup. Reacquire
 controls after navigation, filtering, reconstruction or virtualization;

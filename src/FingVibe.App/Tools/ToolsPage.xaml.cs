@@ -15,6 +15,18 @@ public sealed partial class ToolsPage : UserControl
     public ToolsPage()
     {
         InitializeComponent();
+        var index = 0;
+        var columns = ToolsLandingGrid.ColumnDefinitions.Count;
+        foreach (var child in ToolsLandingGrid.Children)
+        {
+            if (child is not Button card) continue;
+            var row = index / columns + 1;
+            if (row >= ToolsLandingGrid.RowDefinitions.Count)
+                ToolsLandingGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+            Grid.SetRow(card, row);
+            Grid.SetColumn(card, index % columns);
+            index++;
+        }
     }
 
     internal NetworkActivityCoordinator? ActivityCoordinator
