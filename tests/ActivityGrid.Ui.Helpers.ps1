@@ -64,7 +64,9 @@ function Invoke-ActivityGridHighContrast([scriptblock] $Check) {
     }
 }
 
-function Invoke-ActivityGridLargeText([string] $AppPath, [scriptblock] $Check) {
+# The app reads the Windows text scale at startup, so call this with the app closed; it starts the
+# app at 200 percent text and closes it again before restoring the setting.
+function Invoke-ActivityGridLargeText([string] $AppPath, [scriptblock] $Start, [scriptblock] $Stop, [scriptblock] $Check) {
     Initialize-ActivityGridAppearance
     Add-Type -Path (Join-Path (Split-Path $AppPath) "WinRT.Runtime.dll")
     Add-Type -Path (Join-Path (Split-Path $AppPath) "Microsoft.Windows.SDK.NET.dll")
@@ -80,11 +82,12 @@ function Invoke-ActivityGridLargeText([string] $AppPath, [scriptblock] $Check) {
         $null = Wait-UiRegressionState -Description "Activity effective 200 percent text scale" -Condition {
             [Math]::Abs($settings.TextScaleFactor - 2) -lt .01
         }
+        $null = & $Start
         $null = & $Check
         $failed = $false
     }
     finally {
-        Invoke-UiRegressionCleanup -PrimaryFailed $failed -Steps @({
+        Invoke-UiRegressionCleanup -PrimaryFailed $failed -Steps @({ & $Stop }, {
             if ($null -eq $originalValue) { $key.DeleteValue("TextScaleFactor", $false) }
             else { $key.SetValue("TextScaleFactor", $originalValue, $originalKind) }
             [ActivityGridReviewAppearance]::NotifyTextScale()

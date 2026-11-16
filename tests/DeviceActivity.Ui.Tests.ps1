@@ -507,15 +507,6 @@ try {
         Start-Sleep -Milliseconds 500
     }
     $normalGlyphHeight = (Assert-ActivityGridGlyph (Select-ActivityCell 5 13) "?").Current.BoundingRectangle.Height
-    Invoke-ActivityGridLargeText -AppPath $AppPath -Check {
-        Choose-ActivityPeriod "30 days by weekday" 6
-        $largeGlyph = Assert-ActivityGridGlyph (Select-ActivityCell 2 9) "3?"
-        if ($largeGlyph.Current.BoundingRectangle.Height -le $normalGlyphHeight * 1.5) {
-            throw "Activity text did not actually enlarge with Windows text scale."
-        }
-        Capture-Activity "activity-large-text-weekdays"
-        Choose-ActivityPeriod "Last 7 days" 6
-    }
     $contrast = [ActivityReviewContrast]::Get()
     [ActivityReviewContrast]::Set($contrast -bor 1)
     Start-Sleep -Seconds 2
@@ -540,6 +531,19 @@ try {
     $closeRequest = Start-HeldActivityRefresh
     Stop-ActivityApp
     if (-not (Test-Path -LiteralPath "$($closeRequest.Path).cancelled")) { throw "Closing did not cancel the pending Activity loader." }
+    Remove-Item -LiteralPath $holdPath
+    Invoke-ActivityGridLargeText -AppPath $AppPath -Start {
+        Start-ActivityApp
+        Open-ActivityDevice
+        $null = Wait-ActivityState "Last 7 days, 1-hour cells" 0
+    } -Stop { Stop-ActivityApp } -Check {
+        Choose-ActivityPeriod "30 days by weekday" 6
+        $largeGlyph = Assert-ActivityGridGlyph (Select-ActivityCell 2 9) "3?"
+        if ($largeGlyph.Current.BoundingRectangle.Height -le $normalGlyphHeight * 1.5) {
+            throw "Activity text did not actually enlarge with Windows text scale."
+        }
+        Capture-Activity "activity-large-text-weekdays"
+    }
     $succeeded = $true
     Write-Host "Device Activity exact evidence, automatic tab-entry reload, keyboard reachability, held-query cancellation, error/Retry, themes and narrow layouts passed; observations are immediately available."
 }

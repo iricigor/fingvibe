@@ -260,15 +260,6 @@ try {
     $null = Show-Equipment DeletePersonDetailButton
     Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "equipment-narrow.png")
     $normalGlyphHeight = (Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-5-12) "2").Current.BoundingRectangle.Height
-    Invoke-ActivityGridLargeText -AppPath $AppPath -Check {
-        Choose-EquipmentPeriod "30 days by weekday"
-        $largeGlyph = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-2-10) "1.5?"
-        if ($largeGlyph.Current.BoundingRectangle.Height -le $normalGlyphHeight * 1.5) {
-            throw "Equipment activity text did not actually enlarge with Windows text scale."
-        }
-        Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "equipment-large-text-weekdays.png")
-        Choose-EquipmentPeriod "Last 7 days"
-    }
     Invoke-ActivityGridHighContrast -Check {
         $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-5-12) "2"
         $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-5-13) "0"
@@ -282,12 +273,23 @@ try {
     $request = Hold-Equipment
     Stop-UiRegressionApp -Process $script:process
     if (-not (Test-Path -LiteralPath "$($request.Path).cancelled")) { throw "Closing failed to cancel equipment activity." }
+    Remove-Item -LiteralPath $hold
+    Invoke-ActivityGridLargeText -AppPath $AppPath -Start {
+        Start-EquipmentApp
+        $null = Wait-Equipment
+    } -Stop { Stop-UiRegressionApp -Process $script:process } -Check {
+        Choose-EquipmentPeriod "30 days by weekday"
+        $largeGlyph = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-2-10) "1.5?"
+        if ($largeGlyph.Current.BoundingRectangle.Height -le $normalGlyphHeight * 1.5) {
+            throw "Equipment activity text did not actually enlarge with Windows text scale."
+        }
+        Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "equipment-large-text-weekdays.png")
+    }
     $empty = Join-Path $fixture "empty"
     $null = New-Item -ItemType Directory -Path $empty
     New-NetworkActivityFixture $empty -Equipment -Empty
     $env:FINGVIBE_UI_REVIEW_INVENTORY = Join-Path $empty "inventory.json"
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = Join-Path $empty "snapshot.json"
-    Remove-Item -LiteralPath $hold
     Start-EquipmentApp
     $null = Wait-Equipment -State Empty
     Assert-EquipmentPeers

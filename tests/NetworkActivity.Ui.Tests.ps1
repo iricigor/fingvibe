@@ -236,15 +236,6 @@ try {
     }
     Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-narrow.png")
     $normalGlyphHeight = (Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-5-12) "2").Current.BoundingRectangle.Height
-    Invoke-ActivityGridLargeText -AppPath $AppPath -Check {
-        Choose-NetworkActivity NetworkActivityPeriod "30 days by weekday"
-        $largeGlyph = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-2-9) "2?"
-        if ($largeGlyph.Current.BoundingRectangle.Height -le $normalGlyphHeight * 1.5) {
-            throw "Network activity text did not actually enlarge with Windows text scale."
-        }
-        Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-large-text-weekdays.png")
-        Choose-NetworkActivity NetworkActivityPeriod "Last 7 days"
-    }
     Invoke-ActivityGridHighContrast -Check {
         $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-5-12) "2"
         $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-5-13) "0"
@@ -258,12 +249,23 @@ try {
     $request = Hold-NetworkActivity
     Stop-UiRegressionApp -Process $script:process
     if (-not (Test-Path -LiteralPath "$($request.Path).cancelled")) { throw "Closing failed to cancel Network activity." }
+    Remove-Item -LiteralPath $hold
+    Invoke-ActivityGridLargeText -AppPath $AppPath -Start {
+        Start-NetworkApp
+        $null = Wait-NetworkActivity
+    } -Stop { Stop-UiRegressionApp -Process $script:process } -Check {
+        Choose-NetworkActivity NetworkActivityPeriod "30 days by weekday"
+        $largeGlyph = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-2-9) "12?"
+        if ($largeGlyph.Current.BoundingRectangle.Height -le $normalGlyphHeight * 1.5) {
+            throw "Network activity text did not actually enlarge with Windows text scale."
+        }
+        Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-large-text-weekdays.png")
+    }
     $empty = Join-Path $fixture "empty"
     $null = New-Item -ItemType Directory -Path $empty
     New-NetworkActivityFixture $empty -Empty
     $env:FINGVIBE_UI_REVIEW_INVENTORY = Join-Path $empty "inventory.json"
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = Join-Path $empty "snapshot.json"
-    Remove-Item -LiteralPath $hold
     Start-NetworkApp
     $null = Wait-NetworkActivity -State Empty
     Assert-NetworkPeers
