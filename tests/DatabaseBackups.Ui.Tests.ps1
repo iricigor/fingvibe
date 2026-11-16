@@ -310,6 +310,7 @@ try {
                     [System.Windows.Automation.AutomationElement]::NameProperty, 'Settings'))
         }
         $settings.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+        Expand-UiReviewSettingsSection -Root $script:root -Section AppearanceSection
         $null = Wait-UiRegressionState { Find-BackupControl ModePicker } 'appearance settings'
         Set-UiReviewTheme -Root $script:root -Theme $theme
         Open-BackupPage

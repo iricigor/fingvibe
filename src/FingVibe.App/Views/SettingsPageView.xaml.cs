@@ -1,5 +1,6 @@
 using FingVibe.Core.Models;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
@@ -26,6 +27,10 @@ public sealed partial class SettingsPageView : UserControl
         }
         ScheduledScanEvidenceNote.Text = PeriodicScanPresentation.EvidenceNote;
         SetPeriodicScan(PeriodicScanSettings.Default);
+        AboutSummary.Text = $"{BuildIdentity.Current.Version} \u00b7 Build information and links";
+        AutomationProperties.SetHelpText(AboutSettingsButton, AboutSummary.Text);
+        Columns.SettingsChanged += (_, _) => UpdateDevicesSummary();
+        UpdateDevicesSummary();
     }
 
     public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
@@ -42,12 +47,64 @@ public sealed partial class SettingsPageView : UserControl
             : new AppearanceSettings((WindowBackdrop)BackdropPicker.SelectedIndex, ModeThemes[ThemePicker.SelectedIndex]);
     internal string? SaveError { set { _appearanceSaveError = value; UpdateAppearanceStatus(); } }
     internal string? MaterialStatus { set { _materialStatus = value; UpdateAppearanceStatus(); } }
-    internal string ColumnSaveStatus { set => TableSaveStatus.Text = value; }
+    internal string ColumnSaveStatus
+    {
+        set
+        {
+            TableSaveStatus.Text = value;
+            UpdateDevicesSummary();
+        }
+    }
     internal PeriodicScanSettings? SelectedPeriodicScan =>
         ScanIntervalPicker.SelectedIndex < 0
             ? null
             : new PeriodicScanSettings(ScheduledScansSwitch.IsOn, PeriodicScanSettings.IntervalChoices[ScanIntervalPicker.SelectedIndex]);
-    internal string PeriodicScanStatus { set => ScheduledScanStatus.Text = value; }
+    internal string PeriodicScanStatus
+    {
+        set
+        {
+            ScheduledScanStatus.Text = value;
+            UpdateScheduledScansSummary();
+        }
+    }
+
+    public void ShowAbout()
+    {
+        SettingsPage.Visibility = Visibility.Collapsed;
+        AboutView.Visibility = Visibility.Visible;
+        AboutView.FocusHeading();
+    }
+
+    internal void ShowPreferences()
+    {
+        AboutView.Visibility = Visibility.Collapsed;
+        SettingsPage.Visibility = Visibility.Visible;
+    }
+
+    private void AboutSettingsButton_Click(object sender, RoutedEventArgs e) => ShowAbout();
+
+    private void AboutView_BackRequested(object? sender, EventArgs e)
+    {
+        ShowPreferences();
+        SettingsPage.UpdateLayout();
+        AboutSettingsButton.Focus(FocusState.Programmatic);
+    }
+
+    private void UpdateDevicesSummary()
+    {
+        DevicesSummary.Text = SettingsPresentation.DevicesSummary(
+            Columns.CompactRows, Columns.EnlargedCellPreviews, VisibilityChoices.Count(column => column.IsVisible));
+        AutomationProperties.SetHelpText(DevicesSection, $"{DevicesSummary.Text}. {TableSaveStatus.Text}");
+    }
+
+    private void UpdateScheduledScansSummary()
+    {
+        if (SelectedPeriodicScan is { } settings)
+        {
+            ScheduledScansSummary.Text = SettingsPresentation.ScheduledSummary(settings, ScheduledScanStatus.Text);
+            AutomationProperties.SetHelpText(ScheduledScansSection, ScheduledScansSummary.Text);
+        }
+    }
 
     internal void SetPeriodicScan(PeriodicScanSettings settings)
     {
@@ -62,6 +119,7 @@ public sealed partial class SettingsPageView : UserControl
         {
             _updatingPeriodicScan = false;
         }
+        UpdateScheduledScansSummary();
     }
 
     private void ScheduledScansSwitch_Toggled(object sender, RoutedEventArgs e) => RaisePeriodicScanChanged();
@@ -70,6 +128,7 @@ public sealed partial class SettingsPageView : UserControl
 
     private void RaisePeriodicScanChanged()
     {
+        UpdateScheduledScansSummary();
         if (!_updatingPeriodicScan && SelectedPeriodicScan is not null)
         {
             PeriodicScanChanged?.Invoke(this, EventArgs.Empty);
@@ -88,6 +147,10 @@ public sealed partial class SettingsPageView : UserControl
     private void UpdateAppearanceStatus()
     {
         AppearanceSaveStatus.Text = SettingsPresentation.AppearanceStatus(_appearanceSaveError, _materialStatus);
+        if (SelectedAppearance is { } appearance)
+            AppearanceSummary.Text = SettingsPresentation.AppearanceSummary(appearance, _materialStatus);
+        AutomationProperties.SetHelpText(AppearanceSection,
+            _appearanceSaveError is null ? AppearanceSummary.Text : $"{AppearanceSummary.Text}. {_appearanceSaveError}");
     }
 
     internal void SetAppearance(AppearanceSettings appearance)
@@ -103,6 +166,7 @@ public sealed partial class SettingsPageView : UserControl
         {
             _updatingAppearance = false;
         }
+        UpdateAppearanceStatus();
     }
 
     private void ModePicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -128,6 +192,8 @@ public sealed partial class SettingsPageView : UserControl
 
     private void AppearancePicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        if (!_updatingAppearance)
+            UpdateAppearanceStatus();
         if (!_updatingAppearance && SelectedAppearance is not null)
         {
             AppearanceChanged?.Invoke(this, e);

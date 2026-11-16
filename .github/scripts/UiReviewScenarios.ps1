@@ -10,7 +10,7 @@ $UiReviewScenarios = [ordered]@{
     Tools = @{ Label = "Tools"; FileName = "fingvibe-tools.png"; Page = "ToolsPage" }
     SpeedTest = @{ Label = "Speed test"; FileName = "fingvibe-speed-test.png"; Page = "ToolsPage" }
     Troubleshooting = @{ Label = "Network troubleshooting"; FileName = "fingvibe-troubleshooting.png"; Page = "ToolsPage" }
-    About = @{ Label = "About FingVibe"; FileName = "fingvibe-about.png"; Page = "ToolsPage" }
+    About = @{ Label = "About FingVibe"; FileName = "fingvibe-about.png"; Page = "SettingsPage" }
     FingImport = @{ Label = "Import from Fing - synthetic analysis"; FileName = "fingvibe-fing-import.png"; Page = "ToolsPage" }
     SqlEditor = @{ Label = "SQL editor - read-only query and schema"; FileName = "fingvibe-sql-editor.png"; Page = "ToolsPage" }
     DatabaseBackups = @{ Label = "Database backups - local protection"; FileName = "fingvibe-database-backups.png"; Page = "ToolsPage" }
@@ -159,7 +159,7 @@ function Get-UiReviewCapturePlan {
                 throw "View '$path' has no selection rule. Extend the scenario catalog, selection, navigation, and tests."
             }
             elseif ($path -match '^src/FingVibe.App/Tools/AboutPage\.xaml(\.cs)?$') {
-                Add-Scenarios @("Tools", "About") "$path changed About FingVibe."
+                Add-Scenarios @("Settings", "About") "$path changed About FingVibe."
             }
             elseif ($path -match '^src/FingVibe.App/Tools/FingImportPage\.xaml(\.cs)?$') {
                 Add-Scenarios @("Tools", "FingImport") "$path changed Fing import."

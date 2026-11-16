@@ -548,11 +548,15 @@ function Invoke-UiRegressionGroups {
 }
 
 function Save-UiRegressionScreenshot {
-    param([Parameter(Mandatory)][IntPtr] $WindowHandle, [Parameter(Mandatory)][string] $Path)
+    param(
+        [Parameter(Mandatory)][IntPtr] $WindowHandle,
+        [Parameter(Mandatory)][string] $Path,
+        [ValidateSet(480, 640)][int] $MinimumWidth = 640
+    )
     $phase = Start-UiRegressionPhase -Name "capture/$([IO.Path]::GetFileName($Path))"
     $succeeded = $false
     try {
-        Save-UiReviewWindowScreenshot $WindowHandle $Path
+        Save-UiReviewWindowScreenshot $WindowHandle $Path -MinimumWidth $MinimumWidth
         $succeeded = $true
     }
     finally {

@@ -1,12 +1,18 @@
 # Appearance and table settings
 
-Open **Settings**. Appearance changes apply immediately and are saved for your
+Open **Settings**, then expand a preference section. Appearance changes apply immediately and are saved for your
 next launch. Read any save warning before assuming a choice was stored.
+
+Appearance, Devices page, and Scheduled scans start collapsed with current
+preference summaries. Expand or collapse each header with the pointer or keyboard.
+Expansion lasts for the current app session, including visits to About, and
+resets on restart without changing saved preferences. The separate
+**About FingVibe & updates** row opens build information and existing links.
 
 [![Settings with Mode, Theme, Window backdrop, and Devices page controls](../screenshots/manual/settings.png)](../screenshots/manual/settings.png)
 
-*Native test-build screenshot. Combined-column and schedule settings continue
-below the visible area. [Screenshot sources](screenshots.md).*
+*Historical native test-build screenshot from before collapsible sections.
+The controls remain available inside their sections. [Screenshot sources](screenshots.md).*
 
 ## Choose appearance
 
@@ -33,7 +39,7 @@ The app also respects Windows animation preferences for supported effects.
 
 ## Choose device columns
 
-Find **Devices page** in Settings.
+Expand **Devices page** in Settings.
 
 **Visible columns** controls which optional columns appear.
 Name and IP address are always shown.

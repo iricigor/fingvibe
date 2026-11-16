@@ -269,9 +269,10 @@ function Select-UsageSettings {
     if (-not $item) { throw "The Settings navigation item disappeared before it could be selected." }
     $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
     Wait-Usage {
-        $picker = Find-Usage ModePicker -Optional
+        $picker = Find-Usage AppearanceSection -Optional
         $picker -and -not $picker.Current.IsOffscreen
     } "Settings"
+    Expand-UiReviewSettingsSection -Root $script:root -Section AppearanceSection
 }
 
 function Open-UsageDevice([string] $Name = "Usage laptop") {

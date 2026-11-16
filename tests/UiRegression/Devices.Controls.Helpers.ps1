@@ -68,6 +68,7 @@ function Select-DevicePage([string] $Id) {
     }
     if ($pageId) { $null = Find-DeviceElement $pageId }
     if ($Id -eq "Settings") {
+        Expand-UiReviewSettingsSection -Root $root -Section DevicesSection
         $reset = [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "ResetColumnsButton")
         $null = Show-UiRegressionScrollTargets -Description "Settings column footer" -AlignBottom -BottomMargin 8 `

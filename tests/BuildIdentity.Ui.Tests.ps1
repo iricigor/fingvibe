@@ -14,6 +14,8 @@ if ($BuildKind -eq "PullRequest" -and $PullRequestNumber -le 0) {
     throw "PullRequest builds require a positive PullRequestNumber."
 }
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
+. (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
+. (Join-Path $PSScriptRoot "UiRegression\Helpers.ps1")
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
@@ -260,10 +262,14 @@ try {
                 $null = [UiReviewNativeWindow]::SetWindowPos(
                     $process.MainWindowHandle, [IntPtr]::Zero, $bounds.X, $bounds.Y, 1280, 720, 0x0044)
                 Select-Page "Settings"
+                Expand-UiReviewSettingsSection -Root $root -Section DevicesSection
                 foreach ($id in @("CompactRowsSwitch", "EnlargedCellPreviews")) {
-                    $condition = [System.Windows.Automation.PropertyCondition]::new(
+                    $preferenceCondition = [System.Windows.Automation.PropertyCondition]::new(
                         [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
-                    $preference = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+                    $preference = Wait-UiRegressionState -Description "$id visible in high contrast" -TimeoutMilliseconds 5000 -Condition {
+                        Find-UiRegressionElement -Container { $script:root } -Condition $preferenceCondition `
+                            -Description "high-contrast preference '$id'" -Optional
+                    }
                     if (-not $preference -or $preference.Current.IsOffscreen) {
                         throw "$id must remain visible in high contrast."
                     }
@@ -326,14 +332,14 @@ try {
         }
 
         Invoke-Button "About FingVibe"
-        $back = Find-Element "Back to Tools" ([System.Windows.Automation.ControlType]::Button)
+        $back = Find-Element "Back to Settings" ([System.Windows.Automation.ControlType]::Button)
         $heading = Find-Element "About FingVibe" ([System.Windows.Automation.ControlType]::Text)
         $backBounds = $back.Current.BoundingRectangle
         $headingBounds = $heading.Current.BoundingRectangle
         if ($backBounds.Left -lt $headingBounds.Right -or
             [Math]::Abs(($backBounds.Top + $backBounds.Height / 2) -
                 ($headingBounds.Top + $headingBounds.Height / 2)) -gt 3) {
-            throw "Back to Tools must be right of and vertically centered with the tool heading."
+            throw "Back to Settings must be right of and vertically centered with the About heading."
         }
         $null = Find-Element "v$Version" ([System.Windows.Automation.ControlType]::Text)
         $null = Find-Element $label ([System.Windows.Automation.ControlType]::Text)
@@ -344,12 +350,19 @@ try {
             Save-UiReviewWindowScreenshot -WindowHandle $process.MainWindowHandle `
                 -Path (Join-Path $ScreenshotDirectory "$BuildKind-about.png")
         }
-        Invoke-Button "Back to Tools"
-        Invoke-Button "About FingVibe"
-        $null = Find-Element "Back to Tools" ([System.Windows.Automation.ControlType]::Button)
+        Invoke-Button "Back to Settings"
+        $deadline = [DateTime]::UtcNow.AddSeconds(5)
+        do {
+            $row = Find-Element "About FingVibe & updates" ([System.Windows.Automation.ControlType]::Button)
+            if ($row.Current.HasKeyboardFocus) { break }
+            Start-Sleep -Milliseconds 50
+        } while ([DateTime]::UtcNow -lt $deadline)
+        if (-not $row.Current.HasKeyboardFocus) { throw "Back to Settings must restore focus to the About row." }
+        Invoke-Button "About FingVibe & updates"
+        $null = Find-Element "Back to Settings" ([System.Windows.Automation.ControlType]::Button)
         Select-Page "Overview"
         Invoke-Button "About FingVibe"
-        $null = Find-Element "Back to Tools" ([System.Windows.Automation.ControlType]::Button)
+        $null = Find-Element "Back to Settings" ([System.Windows.Automation.ControlType]::Button)
         Stop-Process -Id $process.Id
         $process.WaitForExit()
         $process = $null

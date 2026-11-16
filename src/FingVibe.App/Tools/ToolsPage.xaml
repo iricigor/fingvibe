@@ -109,35 +109,11 @@
                         <TextBlock Text="Open database backups &#x2192;" />
                     </StackPanel>
                 </Button>
-                <Button x:Name="AboutCard"
-                        Click="AboutCard_Click"
-                        Style="{StaticResource ScannerSummaryButtonStyle}"
-                        AutomationProperties.Name="About FingVibe">
-                    <StackPanel Spacing="8">
-                        <Grid ColumnSpacing="12">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <FontIcon Glyph="&#xE946;" FontFamily="Segoe Fluent Icons"
-                                      FontSize="48" Width="48" Height="48"
-                                      Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
-                            <TextBlock Grid.Column="1" Text="About FingVibe" Style="{ThemeResource SubtitleTextBlockStyle}"
-                                       VerticalAlignment="Center" TextWrapping="Wrap" />
-                        </Grid>
-                        <TextBlock Text="App version, build details, and creator information."
-                                   TextWrapping="Wrap"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Text="Open About FingVibe &#x2192;" />
-                    </StackPanel>
-                </Button>
             </StackPanel>
         </ScrollViewer>
         <local:SpeedTestPage x:Name="SpeedTestView"
                              Visibility="Collapsed"
                              BackRequested="SpeedTestView_BackRequested" />
-        <local:AboutPage x:Name="AboutView" Visibility="Collapsed" BackRequested="AboutView_BackRequested" />
         <local:NetworkTroubleshootingPage x:Name="TroubleshootingView" Visibility="Collapsed"
                                           BackRequested="TroubleshootingView_BackRequested" />
         <local:FingImportPage x:Name="FingImportView" Visibility="Collapsed"

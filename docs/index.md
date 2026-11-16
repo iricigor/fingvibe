@@ -27,7 +27,7 @@ real home network. [Screenshot sources](manual/screenshots.md).*
 
 This initial manual was checked against release **v1.1.107** on **2026-11-09**.
 It describes available behavior, not planned features.
-Your version is shown in **Tools > About FingVibe**.
+Your version is shown in **Settings > About FingVibe & updates**.
 
 **Activity grids and the Completed Scan Observations table are temporarily
 unavailable in this version.** First/last-seen summaries, saved scan evidence,

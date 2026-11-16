@@ -106,6 +106,7 @@ public sealed partial class MainWindow : Window
     {
         if (args.IsSettingsSelected)
         {
+            SettingsPage.ShowPreferences();
             ShowPage(SettingsPage);
         }
         else if (args.SelectedItem is NavigationViewItem { Tag: string tag })
@@ -116,6 +117,10 @@ public sealed partial class MainWindow : Window
 
     private void MainNavigation_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
     {
+        if (args.IsSettingsInvoked)
+        {
+            SettingsPage.ShowPreferences();
+        }
         // Re-invoking the selected Devices item returns from a device page without a selection change.
         if (args.InvokedItemContainer == DevicesNavItem && DevicePage.Visibility == Visibility.Visible)
         {

@@ -17,8 +17,8 @@
                 <TextBlock x:Name="PageHeading" Grid.Column="1" Text="About FingVibe"
                            Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
                            VerticalAlignment="Center" TextWrapping="Wrap" IsTabStop="True" />
-                <Button Grid.Column="2" Content="&#x2190; Tools" Click="Back_Click"
-                        AutomationProperties.Name="Back to Tools" VerticalAlignment="Center" />
+                <Button Grid.Column="2" Content="&#x2190; Settings" Click="Back_Click"
+                        AutomationProperties.Name="Back to Settings" VerticalAlignment="Center" />
             </Grid>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="8">

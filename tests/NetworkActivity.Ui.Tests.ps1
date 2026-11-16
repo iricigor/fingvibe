@@ -200,6 +200,7 @@ try {
                 [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,
                     [Windows.Automation.ControlType]::ListItem)))
         $settings.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+        Expand-UiReviewSettingsSection -Root $script:root -Section AppearanceSection
         $null = Wait-UiRegressionState -Description "Settings appearance" -Condition {
             $picker = Find-NetworkActivity ModePicker
             $picker -and -not $picker.Current.IsOffscreen

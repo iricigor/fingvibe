@@ -30,6 +30,7 @@ function Assert-ScheduledScanSettings([bool] $IsEnabled, [int] $IntervalMinutes)
 }
 
 function Show-ScheduledScansCard {
+    Expand-UiReviewSettingsSection -Root $root -Section ScheduledScansSection
     $page = Find-SidebarElement AutomationId SettingsPage
     $scroll = $page.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     $deadline = [DateTime]::UtcNow.AddSeconds(5)
@@ -85,6 +86,10 @@ function Assert-ScheduledScansSelection([string] $State, [string] $Interval) {
         [System.Windows.Automation.SelectionPattern]::Pattern)
     if ($toggle.Current.ToggleState -ne $State -or $picker.Current.GetSelection()[0].Current.Name -ne $Interval) {
         throw "Expected scheduled scans $State every $Interval."
+    }
+    $enabledText = if ($State -eq "On") { "Enabled" } else { "Disabled" }
+    if ((Find-SidebarElement AutomationId ScheduledScansSummary).Current.Name -notlike "$enabledText*Every $Interval*While FingVibe is open*") {
+        throw "Scheduled scan summary must reflect the actual configured state and interval."
     }
 }
 

@@ -478,8 +478,8 @@ try {
     Test-Change @{ "src\FingVibe.App\Tools\SpeedTestPage.xaml" = "changed" } @("Devices", "Tools", "SpeedTest", "Troubleshooting", "About", "FingImport", "SqlEditor", "DatabaseBackups") "Tools views"
     Test-Change @{ "src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml" = "changed" } @("Devices", "Tools", "Troubleshooting") "Troubleshooting view"
     Test-Change @{ "src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml.cs" = "changed" } @("Devices", "Tools", "Troubleshooting") "Troubleshooting behavior"
-    Test-Change @{ "src\FingVibe.App\Tools\AboutPage.xaml" = "changed" } @("Devices", "Tools", "About") "About view"
-    Test-Change @{ "src\FingVibe.App\Tools\AboutPage.xaml.cs" = "changed" } @("Devices", "Tools", "About") "About behavior"
+    Test-Change @{ "src\FingVibe.App\Tools\AboutPage.xaml" = "changed" } @("Devices", "About", "Settings") "About view"
+    Test-Change @{ "src\FingVibe.App\Tools\AboutPage.xaml.cs" = "changed" } @("Devices", "About", "Settings") "About behavior"
     Test-Change @{ "src\FingVibe.App\Tools\FingImportPage.xaml" = "changed" } @("Devices", "Tools", "FingImport") "Fing import view"
     Test-Change @{ "src\FingVibe.App\Tools\FingImportPage.xaml.cs" = "changed" } @("Devices", "Tools", "FingImport") "Fing import behavior"
     Test-Change @{ "src\FingVibe.App\Tools\SqlEditorPage.xaml" = "changed" } @("Devices", "Tools", "SqlEditor") "SQL editor view"
@@ -596,14 +596,17 @@ try {
             }
         }
         $card = $toolsDocument.SelectSingleNode("//*[@*[local-name()='Name']='$($tool.Card)']")
-        if ($card.LocalName -cne "Button" -or $card.GetAttribute("Click") -cne $tool.Click -or
+        if ($tool.Page -ne "AboutPage" -and ($card.LocalName -cne "Button" -or $card.GetAttribute("Click") -cne $tool.Click -or
             $card.GetAttribute("AutomationProperties.Name") -cne $tool.Title -or
-            $card.SelectNodes(".//*[local-name()='Button' or local-name()='HyperlinkButton']").Count -ne 0) {
+            $card.SelectNodes(".//*[local-name()='Button' or local-name()='HyperlinkButton']").Count -ne 0)) {
             throw "$($tool.Title) must remain one landing button with its existing handler and accessible name."
         }
         $pageTitle = $pageDocument.SelectSingleNode("//*[local-name()='TextBlock' and @Text='$($tool.Title)' and @Style='{StaticResource ScannerPageTitleStyle}']")
-        $cardTitle = $card.SelectSingleNode(".//*[local-name()='TextBlock' and @Text='$($tool.Title)']")
-        foreach ($title in @($pageTitle, $cardTitle)) {
+        $titles = @($pageTitle)
+        if ($tool.Page -ne "AboutPage") {
+            $titles += $card.SelectSingleNode(".//*[local-name()='TextBlock' and @Text='$($tool.Title)']")
+        } elseif ($card) { throw "About must no longer appear in Tools." }
+        foreach ($title in $titles) {
             if (-not $title -or $title.GetAttribute("TextWrapping") -cne "Wrap" -or
                 $title.GetAttribute("Grid.Column") -cne "1" -or $title.GetAttribute("VerticalAlignment") -cne "Center") {
                 throw "$($tool.Title) must wrap and center beside its icon."
@@ -618,12 +621,13 @@ try {
                 throw "$($tool.Title) must reserve icon space and constrain the title for wrapping."
             }
             if ($isPageTitle) {
-                $back = $header.SelectSingleNode("./*[local-name()='Button' and @AutomationProperties.Name='Back to Tools']")
+                $destination = if ($tool.Page -eq "AboutPage") { "Settings" } else { "Tools" }
+                $back = $header.SelectSingleNode("./*[local-name()='Button' and @AutomationProperties.Name='Back to $destination']")
                 if (-not $back -or $columns[2].GetAttribute("Width") -cne "Auto" -or
                     $back.GetAttribute("Grid.Column") -cne "2" -or
                     $back.GetAttribute("VerticalAlignment") -cne "Center" -or
-                    $back.GetAttribute("Content") -cne "$([char]0x2190) Tools" -or
-                    $pageDocument.SelectNodes("//*[local-name()='Button' and @AutomationProperties.Name='Back to Tools']").Count -ne 1 -or
+                    $back.GetAttribute("Content") -cne "$([char]0x2190) $destination" -or
+                    $pageDocument.SelectNodes("//*[local-name()='Button' and @AutomationProperties.Name='Back to $destination']").Count -ne 1 -or
                     $back.HasAttribute("Style")) {
                     throw "$($tool.Title) must have one neutral back action at the right of its title row."
                 }
@@ -871,7 +875,7 @@ try {
             if ($Value -eq "//*[@AutomationId='DeviceHistoryTab']") { return "control-DeviceHistoryTab" }
             if ($Value -eq "//List[@Name='People']/ListItem[.//*[@Name='UI review person']]") { return "person-row" }
             if ($Value -eq "//List[@Name='Rooms']/ListItem[.//*[@Name='UI review room']]") { return "room-row" }
-            if ($Value -eq "//Button[@Name='About FingVibe']") { return "control-About FingVibe" }
+            if ($Value -eq "//Button[@Name='About FingVibe & updates']") { return "control-About FingVibe & updates" }
             if ($Value -eq "//Button[@Name='Speed test']") { return "control-Speed test" }
             if ($Value -eq "//Button[@Name='Network troubleshooting']") { return "control-Network troubleshooting" }
             if ($Value -eq "//Button[@Name='Import from Fing']") { return "control-Import from Fing" }
@@ -888,7 +892,7 @@ try {
         elseif ($ElementId -eq "online-row") { $script:currentPage = "DeviceDetails" }
         elseif ($ElementId -eq "control-DeviceHistoryTab") { $script:currentPage = "DeviceHistory" }
         elseif ($ElementId -eq "control-Speed test") { $script:currentPage = "SpeedTest" }
-        elseif ($ElementId -eq "control-About FingVibe") { $script:currentPage = "About" }
+        elseif ($ElementId -eq "control-About FingVibe & updates") { $script:currentPage = "About" }
         elseif ($ElementId -eq "control-Network troubleshooting") { $script:currentPage = "Troubleshooting" }
         elseif ($ElementId -eq "control-Import from Fing") { $script:currentPage = "FingImport" }
         elseif ($ElementId -eq "control-SQL editor") { $script:currentPage = "SqlEditor" }
@@ -927,7 +931,7 @@ try {
                     "control-Public IP address" { $script:currentPage -eq "Network" }
                     "control-Speed test" { $script:currentPage -eq "Tools" }
                     "control-Start Cloudflare speed test" { $script:currentPage -eq "SpeedTest" }
-                    "control-About FingVibe" { $script:currentPage -eq "Tools" }
+                    "control-About FingVibe & updates" { $script:currentPage -eq "Settings" }
                     "control-Network troubleshooting" { $script:currentPage -eq "Tools" }
                     "control-Import from Fing" { $script:currentPage -eq "Tools" }
                     "control-SQL editor" { $script:currentPage -eq "Tools" }
@@ -942,7 +946,8 @@ try {
                     "control-Analyze again" { $script:currentPage -eq "FingImport" }
                     "control-Run network troubleshooting" { $script:currentPage -eq "Troubleshooting" }
                     "control-Router WAN IPv4 address" { $script:currentPage -eq "Troubleshooting" }
-                    "control-Back to Tools" { $script:currentPage -in @("About", "Troubleshooting", "FingImport", "SqlEditor", "DatabaseBackups") }
+                    "control-Back to Tools" { $script:currentPage -in @("Troubleshooting", "FingImport", "SqlEditor", "DatabaseBackups") }
+                    "control-Back to Settings" { $script:currentPage -eq "About" }
                     "control-FingVibe LAN Scanner" { $script:currentPage -eq "About" }
                     "control-Search people" { $script:currentPage -eq "People" }
                     "control-Search rooms" { $script:currentPage -eq "Rooms" }
@@ -952,7 +957,7 @@ try {
                         ($script:currentPage -eq "PersonDetails" -and $script:personAssignmentsFocused) }
                     "control-Assign devices" { $script:currentPage -eq "RoomDetails" -or
                         ($script:currentPage -eq "PersonDetails" -and $script:personAssignmentsFocused) }
-                    "control-Window backdrop" { $script:currentPage -eq "Settings" }
+                    "control-Appearance preferences" { $script:currentPage -eq "Settings" }
                     default { throw "Unexpected control '$id'." }
                 }
                 $offscreen = ($id -eq $script:offscreenToolsCard -and $script:toolsScrollPercent -lt 70) -or
@@ -976,13 +981,13 @@ try {
     Assert-Throws { Test-UiReviewNavigation } "*Scan LAN*not visible*"
     $script:hiddenControl = ""
     Assert-Equal $script:toolsScrollCalls 0 "Visible Tools cards must not scroll"
-    $script:offscreenToolsCard = "control-About FingVibe"
+    $script:offscreenToolsCard = "control-About FingVibe & updates"
     Show-UiReviewCaptureScenario "About"
     Assert-Equal $script:currentPage "About" "Offscreen About card navigation"
     Assert-Equal $script:toolsScrollPercent 70 "Scroll until the Tools card is visible"
     Assert-Equal $script:toolsScrollCalls 8 "Stop scrolling immediately after visibility"
     $script:offscreenToolsCard = ""
-    $script:hiddenControl = "control-About FingVibe"
+    $script:hiddenControl = "control-About FingVibe & updates"
     $callsBeforeFailure = $script:toolsScrollCalls
     Assert-Throws { Show-UiReviewCaptureScenario "About" } "*not visible*"
     Assert-Equal ($script:toolsScrollCalls - $callsBeforeFailure) 11 "Invisible Tools cards retain a bounded failure"

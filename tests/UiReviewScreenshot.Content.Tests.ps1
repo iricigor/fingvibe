@@ -12,7 +12,32 @@ function Assert-BlankCaptureRejected([System.Drawing.Bitmap] $Bitmap) {
     throw "A blank or insufficiently detailed capture was accepted."
 }
 
-foreach ($size in @([System.Drawing.Size]::new(640, 480), [System.Drawing.Size]::new(1024, 720))) {
+$area = [System.Drawing.Rectangle]::new(0, 0, 1920, 1080)
+$narrow = [System.Drawing.Rectangle]::new(0, 0, 480, 720)
+try {
+    Assert-UiReviewWindowBounds -Bounds $narrow -WorkingArea $area
+    throw "Default capture bounds must still reject a 480-pixel window."
+}
+catch {
+    if ($_.Exception.Message -notlike "*too small*") { throw }
+}
+Assert-UiReviewWindowBounds -Bounds $narrow -WorkingArea $area -MinimumWidth 480
+foreach ($bounds in @(
+    [System.Drawing.Rectangle]::new(0, 0, 479, 720),
+    [System.Drawing.Rectangle]::new(0, 0, 480, 479),
+    [System.Drawing.Rectangle]::new(1800, 0, 480, 720)
+)) {
+    $rejected = $false
+    try { Assert-UiReviewWindowBounds -Bounds $bounds -WorkingArea $area -MinimumWidth 480 }
+    catch {
+        if ($_.Exception.Message -notlike "*too small*" -and
+            $_.Exception.Message -notlike "*not inside the monitor working area*") { throw }
+        $rejected = $true
+    }
+    if (-not $rejected) { throw "Narrow capture must preserve minimum dimensions and complete-window containment." }
+}
+
+foreach ($size in @([System.Drawing.Size]::new(480, 720), [System.Drawing.Size]::new(640, 480), [System.Drawing.Size]::new(1024, 720))) {
     $bitmap = [System.Drawing.Bitmap]::new($size.Width, $size.Height)
     $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
     $font = [System.Drawing.Font]::new("Segoe UI", 16)

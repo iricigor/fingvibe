@@ -55,7 +55,7 @@ FingVibe does not automatically install a new release.
 4. For an installed copy, run the newer installer.
 5. For a portable copy, extract the new ZIP into a fresh folder.
 6. Start the updated app.
-7. Check **Tools > About FingVibe** for the expected version.
+7. Check **Settings > About FingVibe & updates** for the expected version.
 
 The app upgrades supported saved data when needed. The installer rejects
 downgrades. Older app builds may not understand the current database; do not

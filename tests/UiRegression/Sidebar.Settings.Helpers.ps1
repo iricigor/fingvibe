@@ -1,4 +1,145 @@
-﻿function Test-SettingsLayout {
+﻿function Test-SettingsDisclosure {
+    Select-SidebarPage Settings "Appearance preferences"
+    foreach ($id in @("AppearanceSection", "DevicesSection", "ScheduledScansSection")) {
+        $element = Find-SidebarElement AutomationId $id
+        $pattern = $element.GetCurrentPattern(
+            [System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+        if ($pattern.Current.ExpandCollapseState -ne "Collapsed") { throw "$id must start collapsed." }
+        $summaryId = $id.Replace("Section", "Summary")
+        if (-not $element.Current.HelpText.Contains((Find-SidebarElement AutomationId $summaryId).Current.Name)) {
+            throw "$id must expose its current summary to assistive technology while collapsed."
+        }
+    }
+    Save-SidebarAppearance "settings-collapsed"
+    Focus-SidebarWindow
+    $section = Find-SidebarElement AutomationId DevicesSection
+    $section.SetFocus()
+    [SidebarReviewKeyboard]::Tap(0x20)
+    $null = Find-SidebarElement AutomationId CompactRowsSwitch
+    $summaryBefore = (Find-SidebarElement AutomationId DevicesSummary).Current.Name
+    $toggle = (Find-SidebarElement AutomationId CompactRowsSwitch).GetCurrentPattern(
+        [System.Windows.Automation.TogglePattern]::Pattern)
+    $toggle.Toggle()
+    $null = Wait-UiRegressionState {
+        (Find-SidebarElement AutomationId DevicesSummary).Current.Name -ne $summaryBefore
+    } "live Devices preference summary"
+    $summaryChanged = (Find-SidebarElement AutomationId DevicesSummary).Current.Name
+    $aboutCondition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "AboutSettingsButton")
+    $null = Show-UiRegressionScrollTargets -Description "Settings About row" -AlignBottom `
+        -GetViewport { Find-SidebarElement AutomationId SettingsPage } -GetWindow { $root } -GetTargets {
+            $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $aboutCondition)
+        }
+    $row = Find-SidebarElement AutomationId AboutSettingsButton
+    $row.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $null = Find-SidebarElement Name "Back to Settings"
+    $settingsItem = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.AndCondition]::new(
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::NameProperty, "Settings"),
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::ListItem)))
+    if (-not $settingsItem.GetCurrentPattern(
+        [System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected) {
+        throw "About must keep Settings selected."
+    }
+    (Find-SidebarElement Name "Back to Settings").GetCurrentPattern(
+        [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $null = Wait-UiRegressionState {
+        (Find-SidebarElement AutomationId AboutSettingsButton).Current.HasKeyboardFocus
+    } "About row focus after Back"
+    Select-SidebarPage People "Search people"
+    Select-SidebarPage Settings "Appearance preferences"
+    if ((Find-SidebarElement AutomationId DevicesSection).GetCurrentPattern(
+        [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -ne "Expanded" -or
+        (Find-SidebarElement AutomationId DevicesSummary).Current.Name -ne $summaryChanged) {
+        throw "Navigation must retain expansion state and the actual preference summary."
+    }
+    $pattern = (Find-SidebarElement AutomationId DevicesSection).GetCurrentPattern(
+        [System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+    $pattern.Collapse()
+    if ((Find-SidebarElement AutomationId DevicesSummary).Current.Name -ne $summaryChanged) {
+        throw "Collapsing must preserve the edited preference."
+    }
+    $pattern.Expand()
+    (Find-SidebarElement AutomationId CompactRowsSwitch).GetCurrentPattern(
+        [System.Windows.Automation.TogglePattern]::Pattern).Toggle()
+    $pattern.Collapse()
+    $null = Wait-UiRegressionState {
+        (Find-SidebarElement AutomationId DevicesSummary).Current.Name -eq $summaryBefore
+    } "collapsing retains restored preferences"
+    $header = (Find-SidebarElement AutomationId AppearanceSection).Current.BoundingRectangle
+    [SidebarReviewKeyboard]::PressAt([int]($header.Left + 40 * $scale), [int]($header.Top + $header.Height / 2))
+    [SidebarReviewKeyboard]::Release()
+    $null = Find-SidebarElement AutomationId ModePicker
+    Stop-SidebarApp
+    Start-SidebarApp
+    Set-SidebarWindowWidth $expandedWidth
+    Select-SidebarPage Settings "Appearance preferences"
+    foreach ($id in @("AppearanceSection", "DevicesSection", "ScheduledScansSection")) {
+        if ((Find-SidebarElement AutomationId $id).GetCurrentPattern(
+            [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -ne "Collapsed") {
+            throw "$id expansion must reset after restart."
+        }
+    }
+    if ($env:CI -eq "true") {
+        $settings = [Windows.UI.ViewManagement.UISettings, Windows.UI.ViewManagement, ContentType = WindowsRuntime]::new()
+        $originalScale = $settings.TextScaleFactor
+        $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\Microsoft\Accessibility')
+        $originalValue = $key.GetValue('TextScaleFactor', $null)
+        $originalKind = if ($null -ne $originalValue) { $key.GetValueKind('TextScaleFactor') } else { $null }
+        $highContrast = [SidebarReviewKeyboard]::GetHighContrastFlags()
+        $failed = $true
+        try {
+            Stop-SidebarApp
+            $key.SetValue('TextScaleFactor', 200, [Microsoft.Win32.RegistryValueKind]::DWord)
+            [SidebarReviewKeyboard]::NotifyTextScaleChanged()
+            $null = Wait-UiRegressionState {
+                [Math]::Abs($settings.TextScaleFactor - 2) -lt 0.01
+            } "Settings effective Windows text scale of 200 percent"
+            [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast -bor 1)
+            if (([SidebarReviewKeyboard]::GetHighContrastFlags() -band 1) -eq 0) { throw "High contrast did not activate." }
+            Start-SidebarApp
+            Set-SidebarWindowWidth $expandedWidth
+            Select-SidebarPage Settings "Appearance preferences"
+            foreach ($width in @(640, 480)) {
+                Set-SidebarWindowWidth $width
+                foreach ($id in @("AppearanceSummary", "DevicesSummary", "ScheduledScansSummary", "AboutSettingsButton")) {
+                    $summaryCondition = [System.Windows.Automation.PropertyCondition]::new(
+                        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
+                    $null = Show-UiRegressionScrollTargets -Description "scaled Settings $id" `
+                        -GetViewport { Find-SidebarElement AutomationId SettingsPage } -GetWindow { $root } -GetTargets {
+                            $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $summaryCondition)
+                        }
+                    $element = Find-SidebarElement AutomationId $id
+                    if ([string]::IsNullOrWhiteSpace($element.Current.Name) -or
+                        -not (Test-UiRegressionElementWithin $element (Find-SidebarElement AutomationId SettingsPage) $root)) {
+                        throw "Settings summary '$id' is empty or clipped at $width with enlarged text."
+                    }
+                }
+                Save-SidebarAppearance "settings-collapsed-text-200-high-contrast-$width" -MinimumWidth $width
+            }
+            $failed = $false
+        }
+        finally {
+            Invoke-UiRegressionCleanup -PrimaryFailed $failed -Steps @(
+                { Stop-SidebarApp },
+                {
+                    [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast)
+                    if ($null -eq $originalValue) { $key.DeleteValue('TextScaleFactor', $false) }
+                    else { $key.SetValue('TextScaleFactor', $originalValue, $originalKind) }
+                    [SidebarReviewKeyboard]::NotifyTextScaleChanged()
+                    $null = Wait-UiRegressionState { [Math]::Abs($settings.TextScaleFactor - $originalScale) -lt 0.01 } "restored Settings text scale"
+                },
+                { $key.Dispose() },
+                { Start-SidebarApp; Set-SidebarWindowWidth $expandedWidth })
+        }
+    }
+    Write-Host "Settings collapsed defaults, keyboard/pointer disclosure, live summary, retained navigation and restart reset passed."
+}
+
+function Test-SettingsLayout {
     Set-SidebarWindowWidth $expandedWidth
     Select-SidebarPage Settings "Window backdrop"
     $ribbon = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
@@ -28,6 +169,10 @@
     }
     foreach ($theme in $UiReviewAppearanceThemes) {
         Set-UiReviewTheme -Root $root -Theme $theme
+        $mode = if ($theme -match 'Dark|OLED') { "Dark" } else { "Light" }
+        if ((Find-SidebarElement AutomationId AppearanceSummary).Current.Name -notlike "$mode mode*Solid backdrop*") {
+            throw "Appearance summary must reflect the selected mode and backdrop."
+        }
         Show-SettingsSection DevicesSettingsHeading
         $footer = Find-SidebarElement AutomationId AppearanceSaveStatus
         if ($footer.Current.Name -ne "Appearance changes apply immediately and save automatically, with material effects depending on Windows transparency settings.") {

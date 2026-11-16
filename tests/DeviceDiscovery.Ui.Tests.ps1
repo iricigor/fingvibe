@@ -475,6 +475,7 @@ try {
                 [System.Windows.Automation.AutomationElement]::NameProperty, "Settings")
             $settings = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $settingsCondition)
             $settings.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+            Expand-UiReviewSettingsSection -Root $script:root -Section AppearanceSection
             Wait-DiscoveryState {
                 $picker = Find-DiscoveryControl ModePicker -Optional
                 $picker -and -not $picker.Current.IsOffscreen

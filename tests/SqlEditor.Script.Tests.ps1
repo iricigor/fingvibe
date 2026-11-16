@@ -200,7 +200,7 @@ Assert-Throws { Wait-SqlControl SqlText -Visible -Enabled } "*Synthetic automati
         if ($Id -eq "SchemaExpander") { $element = $ui.Expander }
         elseif ($Id -eq "SqlPageScroll") { $element = $ui.Scroll }
         elseif ($Id -eq "TogglePaneButton") { $element = $ui.Toggle }
-        elseif ($Id -eq "ModePicker") { $element = $ui.ModePage }
+        elseif ($Id -eq "AppearanceSection") { $element = $ui.ModePage }
         elseif ($ui.Pickers.ContainsKey($Id)) {
             if ($ui.Expanded) {
                 $ui.LookupsAfterExpand++
@@ -304,15 +304,21 @@ Assert-Throws { Wait-SqlControl SqlText -Visible -Enabled } "*Synthetic automati
         if ($ui.SettingsPolls -lt $ui.ReadyAfter -or $ui.SettingsPolls -gt $ui.GoneAfter) { return $null }
         return $ui.SettingsItem
     }
+    function Expand-UiReviewSettingsSection($Root, [string] $Section) {
+        if ($Root -ne $script:root -or $Section -ne "AppearanceSection" -or -not $ui.ModePage) {
+            throw "Settings appearance may only expand after its header is ready."
+        }
+        $ui.Events.Add("expand-settings")
+    }
     $ui.SettingsItem = New-SettingsDouble
     Reset-SettingsState
     Select-SqlSettings
-    Assert-Equal ($ui.Events -join "|") "select-settings" "A visible Settings item must be selected without toggling the pane"
+    Assert-Equal ($ui.Events -join "|") "select-settings|expand-settings" "Select Settings before expanding its appearance section"
     Assert-Equal $ui.Selected 1 "Settings must be selected once"
 
     Reset-SettingsState -ReadyAfter 3
     Select-SqlSettings
-    Assert-Equal ($ui.Events -join "|") "invoke:TogglePaneButton|select-settings" "A collapsed pane must be opened before Settings is selected"
+    Assert-Equal ($ui.Events -join "|") "invoke:TogglePaneButton|select-settings|expand-settings" "Open the pane and select Settings before expanding appearance"
     Assert-Equal ($ui.Selected -eq 1 -and $ui.SelectedAtPoll -ge 3) $true "Settings must be selected only after the pane exposes it"
 
     Reset-SettingsState -ReadyAfter 99
@@ -324,7 +330,7 @@ Assert-Throws { Wait-SqlControl SqlText -Visible -Enabled } "*Synthetic automati
     Assert-Equal $ui.Selected 0 "An item that vanishes after the wait must be reported, not dereferenced"
 
     Reset-SettingsState -ShowsAfterSelect $false
-    Assert-Throws { Select-SqlSettings } "Timed out waiting for SQL control 'ModePicker' readiness."
+    Assert-Throws { Select-SqlSettings } "Timed out waiting for SQL control 'AppearanceSection' readiness."
     Assert-Equal $ui.Selected 1 "A Settings page that never appears must be reported after the item was selected"
 
     $script:root = $null

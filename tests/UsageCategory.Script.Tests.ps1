@@ -307,13 +307,19 @@ if (-not [System.Windows.Automation.SelectionPattern+SelectionPatternInformation
         return $state.Item
     }
     function Find-Usage([string] $Id, [switch] $ByName, [switch] $Optional) {
-        if ($Id -ne "ModePicker" -or $ByName -or -not $Optional) { throw "The Settings page must be polled through its optional appearance picker." }
+        if ($Id -ne "AppearanceSection" -or $ByName -or -not $Optional) { throw "The Settings page must be polled through its optional appearance header." }
         return $state.Picker
+    }
+    function Expand-UiReviewSettingsSection($Root, [string] $Section) {
+        if ($Root -ne $script:root -or $Section -ne "AppearanceSection" -or -not $state.Picker) {
+            throw "Settings appearance may only expand after its header is ready."
+        }
+        $state.Expanded = $true
     }
     $state.Item = New-UsageSettingsDouble
     $state.ReadyAfter = 3
     Select-UsageSettings
-    if ($state.Selected -ne 1 -or $state.SelectedAtPoll -lt 3) {
+    if ($state.Selected -ne 1 -or $state.SelectedAtPoll -lt 3 -or -not $state.Expanded) {
         throw "Settings must be selected once, only after the collapsed navigation pane exposes it."
     }
 

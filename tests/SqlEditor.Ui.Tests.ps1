@@ -83,7 +83,8 @@ function Select-SqlSettings {
     $item = Find-SqlSettingsItem
     if (-not $item) { throw "The Settings navigation item disappeared before it could be selected." }
     $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-    Wait-SqlControl ModePicker -Visible -Enabled
+    Wait-SqlControl AppearanceSection -Visible -Enabled
+    Expand-UiReviewSettingsSection -Root $script:root -Section AppearanceSection
 }
 
 function Start-SqlQuery([string] $Sql) {

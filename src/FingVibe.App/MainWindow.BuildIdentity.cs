@@ -30,8 +30,8 @@ public sealed partial class MainWindow
 
     private void AboutFingVibe_Click(object sender, RoutedEventArgs e)
     {
-        MainNavigation.SelectedItem = ToolsNavItem;
-        ToolsPage.ShowAbout();
+        MainNavigation.SelectedItem = MainNavigation.SettingsItem;
+        SettingsPage.ShowAbout();
     }
 
     private void BuildRibbon_FocusChanged(object sender, RoutedEventArgs e) => UpdateBuildRibbonFocusVisual();
