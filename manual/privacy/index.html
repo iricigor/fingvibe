@@ -1194,6 +1194,11 @@ Some features contact external services as explained below.</p>
 <td>Ping/traceroute traffic and DNS queries for <code>example.com</code>.</td>
 </tr>
 <tr>
+<td>Stable-release update checks and user-requested downloads</td>
+<td><code>api.github.com</code>, GitHub Releases and its asset CDN</td>
+<td>Public source IP and ordinary HTTP headers; no LAN inventory or saved scans are sent.</td>
+</tr>
+<tr>
 <td>Links opened from the app</td>
 <td>Your external browser</td>
 <td>Normal requests to the selected website.</td>
@@ -1203,7 +1208,10 @@ Some features contact external services as explained below.</p>
 <p>Public lookup and provider logos are optional displays. Missing configuration
 or service failure does not prevent local scanning.
 The speed test is manual and asks for confirmation before each run.
-Troubleshooting probes start only when you choose <strong>Run checks</strong>.</p>
+Troubleshooting probes start only when you choose <strong>Run checks</strong>.
+Official stable builds check for updates automatically while open; downloads and
+installation require your action. Development, PR and Test builds do not check
+automatically. See <a href="../navigation/#check-for-updates">Check for updates</a>.</p>
 <h2 id="understand-public-addresses">Understand public addresses<a class="headerlink" href="#understand-public-addresses" title="Permanent link">&para;</a></h2>
 <p>An internet service normally sees your connection's public source IP.
 That may belong to a VPN or provider gateway rather than this PC's LAN address.
