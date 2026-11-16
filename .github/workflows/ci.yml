@@ -124,6 +124,7 @@ jobs:
           .\tests\Agent4Coordination.Tests.ps1
           .\tests\Agent4DispatcherPacket.Tests.ps1
           .\tests\Agent4AssignmentPlan.Tests.ps1
+          .\tests\Agent4RepairAction.Tests.ps1
           .\tests\Agent4TaskWorktree.Tests.ps1
           .\tests\EpicChart.Tests.ps1
 

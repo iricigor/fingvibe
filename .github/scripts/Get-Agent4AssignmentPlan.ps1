@@ -135,7 +135,7 @@ function Get-Agent4AssignmentPlan([System.Collections.IDictionary] $Request) {
         Require ($work.issue -eq $retained.issue -and $work.developer -ceq $retained.developer) "Packet assignment identity mismatch."
     }
 
-    $responses = @{}; $accepted = @{}
+    $responses = @{}; $accepted = @{}; $reruns = @{}
     foreach ($response in $Request.responses) {
         Require-Object $response "response"
         $developer = $response.developer
@@ -164,6 +164,33 @@ function Get-Agent4AssignmentPlan([System.Collections.IDictionary] $Request) {
                 Require ($evaluation.issue -in $offer.candidates -and -not $evaluated.ContainsKey($key)) "Evaluation must name each offered candidate exactly once."
                 Require ($evaluation.eligible -is [bool]) "eligible must be Boolean."
                 Require-Text $evaluation.reason "evaluation reason/evidence"
+                if ($evaluation.Contains("recommendedAction")) {
+                    Require-Text $evaluation.recommendedAction "recommendedAction"
+                    Require ($evaluation.recommendedAction -ceq "rerun-failed-checks" -and -not $evaluation.eligible) "A rerun recommendation requires a rejected candidate."
+                    $candidate = $candidates[$key]
+                    Require-Object $candidate.pr "rerun candidate PR"
+                    Require-Issue $candidate.pr.number
+                    Require ($candidate.category -ceq "failed" -and $candidate.pr.number -gt 0 -and
+                        $candidate.pr.mergeable -cne $false -and -not $candidate.finalizeRejection) "Reruns require a failed CI candidate without a conflict or finalize rejection."
+                    Require-Object $evaluation.rerun "rerun"
+                    $rerun = $evaluation.rerun
+                    Require-Text $rerun.head "rerun head"
+                    Require ($rerun.head -cmatch '^[0-9a-f]{40}$' -and $rerun.head -ceq $candidate.pr.head.sha) "Rerun head must match the offered PR."
+                    Require-Issue $rerun.runId
+                    Require-Issue $rerun.runAttempt
+                    if ($reruns.ContainsKey($key)) {
+                        $prior = $reruns[$key]
+                        Require ($prior.head -ceq $rerun.head -and $prior.runId -eq $rerun.runId -and
+                            $prior.runAttempt -eq $rerun.runAttempt) "Contradictory rerun recommendations."
+                    } else {
+                        $reruns[$key] = @{ issue = $evaluation.issue; pr = $candidate.pr.number; head = $rerun.head
+                            runId = $rerun.runId; runAttempt = $rerun.runAttempt; recommendations = @() }
+                    }
+                    $reruns[$key].recommendations += @{ developer = $developer; offerId = $response.offerId
+                        recipientId = $response.recipientId; reason = $evaluation.reason }
+                } elseif ($evaluation.Contains("rerun")) {
+                    Require $false "Rerun evidence requires recommendedAction."
+                }
                 $evaluated[$key] = $true
                 if ($evaluation.eligible) { $eligible += $evaluation.issue }
             }
@@ -282,9 +309,33 @@ function Get-Agent4AssignmentPlan([System.Collections.IDictionary] $Request) {
         $decisions[$developer].status = "proposed"
         $decisions[$developer].reason = "Selected by assignment count, packet priority, summed preference rank, then Developer 1 precedence."
     }
+    $proposedReruns = @(); $deferredReruns = @()
+    foreach ($candidate in $packet.candidates) {
+        $key = "$($candidate.issue)"
+        if (-not $reruns.ContainsKey($key)) { continue }
+        $rerun = $reruns[$key]
+        $reasons = @(
+            foreach ($developer in $developers) {
+                if ($rerun.issue -in $accepted[$developer]) { "A Developer accepted code repair for this task." }
+                if (-not $responses.ContainsKey($developer) -and $rerun.issue -in $offers[$developer].candidates) {
+                    "Awaiting the other assessment of this task."
+                }
+                if (-not $responses.ContainsKey($developer) -and -not $starts.ContainsKey($developer)) {
+                    foreach ($unresolved in $offers[$developer].candidates) {
+                        if ($unresolved -ne $rerun.issue) { Get-Conflict $rerun.issue $unresolved }
+                    }
+                }
+            }
+            foreach ($work in @($held) + @($proposed) + @($proposedReruns)) { Get-Conflict $rerun.issue $work.issue }
+        )
+        if ($reasons.Count) {
+            $deferredReruns += @{ issue = $rerun.issue; reasons = @($reasons | Select-Object -Unique) }
+        } else { $proposedReruns += $rerun }
+    }
     @{
         schema = "fingvibe-loop4-allocation-plan-v1"; repository = $packet.repository; epic = $packet.epic
         proposedStarts = $proposed; retainedStarts = @($Request.sentStarts)
+        proposedReruns = $proposedReruns; deferredReruns = $deferredReruns
         decisions = @($developers | ForEach-Object { $decisions[$_] })
     }
 }

@@ -267,6 +267,17 @@ finalize offers: a finalize rejection recorded against the exact PR head routes
 the task to repair under the existing `repairs` allowance; non-repairable
 rejections become `status:blocked`. Merge gates are unchanged.
 
+[Task #491](https://github.com/iricigor/fingvibe/issues/491) lets 4️⃣ Developers
+reject code repair while structurally recommending a Dispatcher failed-job rerun.
+The deterministic planner keeps these operational proposals separate from
+Developer starts. Dispatcher reserves a shared repair attempt, requests failed
+jobs and returns without waiting/polling; the next run checks fresh CI. Reruns
+and code repairs consume the same cumulative allowance (default 12), with durable
+Discussion accounting and no new pool or head-based reset. Legacy histories and
+uncertain requests require explicit reconciliation. See the [loop4 repair
+contract](agentic-loop-4/protocol.md#dispatcher-failed-job-reruns-and-shared-repair-budget);
+older loops, installed profiles, schedules and merge gates remain unchanged.
+
 ## Explicitly invoked manual-worker exception
 
 [Task #189](https://github.com/iricigor/fingvibe/issues/189) adds the

@@ -129,8 +129,29 @@ or inspect the evidence artifact repeatedly before offering.
    uncertain and must not be reassigned or blindly resent.
    Retain each assignment in `sentStarts` before attempting its send. Only send
    `proposedStarts` from the planner, after these fresh checks; a plan is not a
-   claim or delivery receipt. Changed scope/head invalidates its assessment:
+   claim or delivery receipt. Before a future `repair` Sending record/start,
+   reserve/readback its shared budget attempt with `Invoke-Agent4RepairAction.ps1`
+   (`action: "code"`) as defined in protocol.md. Include the returned ordinal and
+   marker in the start; Developer verifies it without counting twice.
+   Changed scope/head invalidates its assessment:
    reassess and rerun instead of substituting a task manually.
+9. Handle only planner `proposedReruns` from structured Developer rejections, not
+   free-text suggestions. After fresh semantic authority/dependency/ownership
+   checks, use `Invoke-Agent4RepairAction.ps1` with `action: "rerun"` and the same
+   allocation input, task Discussion, verified run allowance and prior repair
+   count. The helper validates fresh PR/run/history, reserves the next shared
+   attempt, requests failed jobs only and records/readbacks the request.
+   Each CI request and code repair consumes one of the same cumulative attempts
+   (default 12); no additional pool, reset or per-head one-rerun cap.
+   Reconcile legacy history as specified in protocol.md before the first new
+   reservation. Duplicate recommendations/continued cycles never repeat a
+   recorded request. `already-recorded` or uncertain outcomes require evidence
+   reconciliation, not another trigger; helper errors have no manual fallback.
+   Report exhausted allowance/recovery and add `status:blocked`; disclose other
+   access/history/evidence blockers explicitly. Preserve claims/other labels.
+   Do not assign/claim a Developer, create a worktree or edit code for this action.
+   Do not wait or poll for CI. Finish the normal cycle; the next Dispatcher run
+   collects fresh CI and decides what happened through the ordinary packet.
 
 When candidates or open assignments exist, the next cycle asks both Developers
 again. With no offerable work or open assignments, it skips calls only if there

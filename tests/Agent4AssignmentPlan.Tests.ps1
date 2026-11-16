@@ -124,7 +124,8 @@ foreach ($response in $request.responses) {
     foreach ($evaluation in $response.evaluations) { $evaluation.eligible = $false }
     $response.preferred = @()
 }
-Assert-True ((Get-Agent4AssignmentPlan $request).proposedStarts.Count -eq 0) "No accepted candidates means no starts."
+$plan = Get-Agent4AssignmentPlan $request
+Assert-True ($plan.proposedStarts.Count -eq 0 -and $plan.proposedReruns.Count -eq 0) "Ordinary rejection means no starts or reruns."
 $request = New-Request
 $request.responses = @()
 Assert-True ((Get-Agent4AssignmentPlan $request).decisions.status -join "," -eq "pending,pending") "No responses leaves both pending."
@@ -155,6 +156,51 @@ foreach ($case in @(
     @{ change = { $args[0].sentStarts = @(@{ assignmentId = "x"; developer = "developer-1"; issue = 103; offerId = "offer-1" }) }; pattern = "*Sent start does not match*" }
 )) {
     $request = New-Request
+    & $case.change $request
+    Assert-Fails { Get-Agent4AssignmentPlan $request } $case.pattern
+}
+
+function Add-RerunRecommendation($Request, [int] $Developer = 0) {
+    $Request.packet.candidates[0].category = "failed"
+    $Request.packet.candidates[0].pr = @{ number = 201; head = @{ sha = "a" * 40 }; mergeable = $true }
+    $evaluation = $Request.responses[$Developer].evaluations[0]
+    $evaluation.eligible = $false
+    $evaluation.recommendedAction = "rerun-failed-checks"
+    $evaluation.rerun = @{ head = "a" * 40; runId = 301; runAttempt = 1 }
+    $Request.responses[$Developer].preferred = @($Request.responses[$Developer].preferred | Where-Object { $_ -ne 101 })
+}
+$request = New-Request
+Add-RerunRecommendation $request
+Add-RerunRecommendation $request 1
+$plan = Get-Agent4AssignmentPlan $request
+Assert-True ((Get-Mapping $plan) -eq "developer-1:102:implement" -and $plan.proposedReruns.Count -eq 1) "Rejected rerun candidates stay out of Developer starts; compatible other work still starts."
+Assert-True ($plan.proposedReruns[0].recommendations.Count -eq 2) "Both Developer recommendations become one rerun proposal."
+$request.responses = @($request.responses[0])
+$plan = Get-Agent4AssignmentPlan $request
+Assert-True ($plan.proposedReruns.Count -eq 0 -and $plan.deferredReruns.Count -eq 1) "A missing shared assessment cannot race a rerun against code repair."
+$request = New-Request
+Add-RerunRecommendation $request
+Assert-True ((Get-Agent4AssignmentPlan $request).proposedReruns.Count -eq 0) "Another Developer accepting repair prevents a rerun."
+$request = New-Request
+Add-RerunRecommendation $request
+Add-RerunRecommendation $request 1
+$request.compatibility[0].compatible = $false
+Assert-True ((Get-Agent4AssignmentPlan $request).proposedReruns.Count -eq 0) "Reruns need compatibility with selected code work."
+$request.existingWork = @(@{ issue = 101; developer = "foreign"; assignmentId = "held" })
+Assert-True ((Get-Agent4AssignmentPlan $request).proposedReruns.Count -eq 0) "Held work blocks a same-task rerun."
+foreach ($case in @(
+    @{ change = { $args[0].responses[0].evaluations[0].eligible = $true }; pattern = "*requires a rejected candidate*" }
+    @{ change = { $args[0].responses[0].evaluations[0].recommendedAction = "retry" }; pattern = "*requires a rejected candidate*" }
+    @{ change = { $args[0].responses[0].evaluations[0].rerun.head = "b" * 40 }; pattern = "*head must match*" }
+    @{ change = { $args[0].responses[0].evaluations[0].rerun.runAttempt = 0 }; pattern = "*positive integers*" }
+    @{ change = { $args[0].responses[0].evaluations[0].Remove("recommendedAction") }; pattern = "*requires recommendedAction*" }
+    @{ change = { $args[0].packet.candidates[0].pr.mergeable = $false }; pattern = "*without a conflict*" }
+    @{ change = { $args[0].packet.candidates[0].finalizeRejection = @{ head = "a" * 40 } }; pattern = "*without a conflict*" }
+    @{ change = { $args[0].responses[1].evaluations[0].rerun.runId = 302 }; pattern = "*Contradictory rerun*" }
+)) {
+    $request = New-Request
+    Add-RerunRecommendation $request
+    Add-RerunRecommendation $request 1
     & $case.change $request
     Assert-Fails { Get-Agent4AssignmentPlan $request } $case.pattern
 }
