@@ -89,6 +89,24 @@ $fixtureReader = {
                         @($fixtureTaskDiscussions)
                     pageInfo = @{ hasNextPage = $false; endCursor = $null }
                 } } } }
+            } elseif ($Query.Contains('nodes(ids:[')) {
+                $none = @{ nodes = @(); pageInfo = @{ hasNextPage = $false; endCursor = $null } }
+                @{ data = @{ nodes = @([regex]::Matches($Query.Split(']')[0], '"([^"]+)"') | ForEach-Object {
+                    $id = $_.Groups[1].Value
+                    $comments = switch ($id) {
+                        # First pages only; the remaining pages come from the per-node fallback branches below.
+                        TP { @{ nodes = @(@{ id = "C1"; body = "Original comment"; replies = @{ nodes = @(@{ id = "R1"; body = "Reply" })
+                            pageInfo = @{ hasNextPage = $true; endCursor = "replies-next" } } })
+                            pageInfo = @{ hasNextPage = $true; endCursor = "comments-next" } } }
+                        TR { @{ nodes = @(@{ id = "C1"; body = "Original comment"; replies = @{ nodes = @(@{ id = "R1"; body = "Reply" })
+                            pageInfo = @{ hasNextPage = $true; endCursor = "replies-next" } } })
+                            pageInfo = @{ hasNextPage = $false; endCursor = $null } } }
+                        default { @{ nodes = @($fixtureTaskComments[$id] | Where-Object { $null -ne $_ } | ForEach-Object {
+                            $copy = $_.Clone(); $copy.replies = $none; $copy })
+                            pageInfo = @{ hasNextPage = $false; endCursor = $null } } }
+                    }
+                    @{ id = $id; comments = $comments }
+                }) } }
             } elseif ($Query -match 'node\(id:"(T\d+)"\) \{ \.\.\. on Discussion ') {
                 @{ data = @{ node = @{ comments = @{
                     nodes = @($fixtureTaskComments[$Matches[1]])
@@ -136,9 +154,32 @@ try {
     $evidence = Read-Agent4Json $path
     Assert-True ($evidence.issues.Count -eq 8) "Issue pagination must preserve both pages."
     Assert-True (@($observedReads | Where-Object { $_ -like "*closedByPullRequestsReferences*" }).Count -eq 1) "Closed dependency disposition must remain available for semantic delivery assessment."
-    Assert-True ($evidence.discussions[0].comments.Count -eq 2) "All Discussion comment pages required."
-    Assert-True ($evidence.discussions[0].comments[0].replies.Count -eq 2) "All reply pages required."
+    Assert-True (-not $evidence.discussions[0].ContainsKey("comments") -and
+        @($observedReads | Where-Object { $_ -like "*comments(first:*" }).Count -eq 0) "Discussions without open-child task markers are not expanded."
     Assert-True (@($observedReads | Where-Object { $_ -like "*pulls/200/files*" }).Count -eq 1) "PR diffs required."
+    $task = "🛠️ Task conversations"
+    $fixtureTaskDiscussions = @(
+        @{ id = "TP"; number = 60; body = "<!-- fingvibe:task=104 -->"; category = @{ name = $task } }
+        @{ id = "TR"; number = 61; body = "<!-- fingvibe:task=103 -->"; category = @{ name = $task } }
+        @{ id = "TX"; number = 62; body = "<!-- fingvibe:task=999 -->"; category = @{ name = $task } }
+        @{ id = "T7"; number = 63; body = "<!-- fingvibe:task=106 -->"; category = @{ name = "General" } })
+    $observedReads.Clear()
+    $batched = Get-Agent4WorkPacket $configuration (Join-Path $root "batched.json") $fixtureReader
+    $batchedEvidence = Read-Agent4Json (Join-Path $root "batched.json")
+    $byId = @{}; foreach ($discussion in $batchedEvidence.discussions) { $byId[$discussion.id] = $discussion }
+    Assert-True (($batched.candidates.issue -join ",") -eq "101,103,104,106") "Batched Discussion reads keep candidate selection."
+    Assert-True (@($observedReads | Where-Object { $_ -like "*nodes(ids:*" }).Count -eq 1 -and
+        @($observedReads | Where-Object { $_.Contains('nodes(ids:["TP","TR"])') }).Count -eq 1) "Relevant task conversations are fetched in one batch."
+    Assert-True ($byId.TP.comments.Count -eq 2 -and $byId.TP.comments[0].replies.Count -eq 2) "All comment and reply pages are required after a truncated batch."
+    Assert-True ($byId.TR.comments.Count -eq 1 -and $byId.TR.comments[0].replies.Count -eq 2) "Truncated replies are completed individually."
+    Assert-True (-not $byId.TX.ContainsKey("comments") -and -not $byId.T7.ContainsKey("comments") -and
+        @($observedReads | Where-Object { $_ -like '*"TX"*' -or $_ -like '*"T7"*' }).Count -eq 0) "Non-child and non-task Discussions keep metadata only."
+    $fixtureTaskDiscussions = @(
+        @{ id = "T8"; number = 64; body = "<!-- fingvibe:task=106 -->"; category = @{ name = $task } }
+        @{ id = "T9"; number = 65; body = "<!-- fingvibe:task=106 -->"; category = @{ name = $task } })
+    $duplicate = Get-Agent4WorkPacket $configuration (Join-Path $root "duplicate.json") $fixtureReader
+    Assert-True (($duplicate.blocked | Where-Object issue -EQ 106).reason -like "Multiple task Discussions*") "Duplicate task Discussions still block the task."
+    $fixtureTaskDiscussions = @()
     Assert-True ($evidence.reads.'jobs/300'[0].jobs[0].completed_at -eq "2026-11-15T10:04:01Z") "Retain complete job timing."
     Assert-True (-not $packet.ContainsKey("retainedClaims") -and -not $packet.ContainsKey("revision")) "No coordination state required."
     Assert-True (($packet.developerOffers.developer -join ",") -eq "developer-1,developer-2") "Offer packages identify both recipients."

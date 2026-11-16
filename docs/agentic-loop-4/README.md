@@ -249,9 +249,12 @@ work. A task with an open assignment, or more than one task Discussion, is exclu
 Human tasks, explicit blockers and open native dependencies are excluded.
 Closed dependency disposition and foreign work remain evidence for Developer
 assessment, not automatic proof of delivery. Issues, PR diffs/reviews, CI jobs
-and Discussions are completely paginated; collection errors stop explicitly.
+and Discussion metadata are completely paginated; collection errors stop explicitly.
 Discussions keep their category (Agent logs, Epic coordination, Task
 conversations) and body markers, so Epic and task Discussions are found there.
+Comments and replies are collected, completely paginated and in batches, only
+for task Discussions of the Epic's open native children; other Discussions keep
+metadata only.
 
 Optional `-TaskOrder` with `-OrderEvidence` supplies an explicit human ordering
 within priority groups; a blocked predecessor prevents later ordered candidates.

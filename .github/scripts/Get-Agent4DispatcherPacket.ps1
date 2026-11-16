@@ -237,17 +237,52 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
         $connection = $result.data.repository.discussions
         if (-not $connection -or $null -eq $connection.pageInfo.hasNextPage -or
             $connection.nodes -isnot [array]) { throw "Discussion collection is unavailable." }
-        foreach ($discussion in $connection.nodes) {
-            $discussion.comments = Read-Connection $discussion.id comments
-            foreach ($comment in $discussion.comments) { $comment.replies = Read-Connection $comment.id replies }
-            $discussions += $discussion
-        }
+        $discussions += $connection.nodes
         $cursor = $connection.pageInfo.endCursor
         if ($connection.pageInfo.hasNextPage) {
             if (-not $cursor -or $seen.ContainsKey($cursor)) { throw "Invalid Discussion inventory pagination." }
             $seen[$cursor] = $true
         }
     } while ($connection.pageInfo.hasNextPage)
+    # Only open children's task records affect offers; expand just those conversations, in batches.
+    $openNumbers = @($children | Where-Object state -EQ open | ForEach-Object { [int] $_.number })
+    $relevant = @($discussions | Where-Object {
+        $_.category.name -cin @("Task conversations", "🛠️ Task conversations") -and
+        "$($_.body)" -match '<!--\s*fingvibe:task=(\d+)\s*-->' -and [int] $Matches[1] -in $openNumbers
+    })
+    $entryFields = 'id body url author { login } createdAt updatedAt'
+    for ($offset = 0; $offset -lt $relevant.Count; $offset += 20) {
+        $batch = @($relevant[$offset..([Math]::Min($offset + 20, $relevant.Count) - 1)])
+        $ids = ($batch | ForEach-Object { '"' + $_.id + '"' }) -join ","
+        $query = 'query { nodes(ids:[' + $ids + ']) { ... on Discussion { id comments(first:100) { nodes { ' + $entryFields +
+            ' replies(first:50) { nodes { ' + $entryFields + ' } pageInfo { hasNextPage endCursor } } }' +
+            ' pageInfo { hasNextPage endCursor } } } } }'
+        $result = Read-Evidence graphql $false $query
+        if ($result.data.nodes -isnot [array] -or $result.data.nodes.Count -ne $batch.Count) {
+            throw "Incomplete Discussion conversation batch."
+        }
+        for ($index = 0; $index -lt $batch.Count; $index++) {
+            $discussion = $batch[$index]; $node = $result.data.nodes[$index]
+            $comments = if ($node) { $node.comments }
+            if (-not $node -or $node.id -cne $discussion.id -or -not $comments -or
+                $null -eq $comments.pageInfo.hasNextPage -or $comments.nodes -isnot [array]) {
+                throw "Incomplete Discussion comments."
+            }
+            if ($comments.pageInfo.hasNextPage) {
+                $discussion.comments = Read-Connection $discussion.id comments
+                foreach ($comment in $discussion.comments) { $comment.replies = Read-Connection $comment.id replies }
+                continue
+            }
+            foreach ($comment in $comments.nodes) {
+                $replies = $comment.replies
+                if (-not $replies -or $null -eq $replies.pageInfo.hasNextPage -or $replies.nodes -isnot [array]) {
+                    throw "Incomplete Discussion replies."
+                }
+                $comment.replies = if ($replies.pageInfo.hasNextPage) { Read-Connection $comment.id replies } else { $replies.nodes }
+            }
+            $discussion.comments = $comments.nodes
+        }
+    }
 
     $byNumber = @{}
     foreach ($issue in $issues) {
