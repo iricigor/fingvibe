@@ -1191,6 +1191,10 @@ before another network measurement can start.</p>
 <td>The configured router/local gateway answered, if available.</td>
 </tr>
 <tr>
+<td>Selected LAN peer</td>
+<td>One randomly selected online device on this LAN answered; its IPv4 address and ping latency are shown, never its name.</td>
+</tr>
+<tr>
 <td>Optional router WAN</td>
 <td>The supplied address answered; it may not answer ping.</td>
 </tr>
@@ -1213,7 +1217,15 @@ before another network measurement can start.</p>
 Some routers do not answer these probes, even when they forward normal traffic.
 An unanswered hop does not by itself locate a connection fault.</p>
 <p>The checks use short timeouts. Traceroute stops after at most sixteen hops.
-A completely unanswered run takes about 38 seconds plus Windows scheduling time.</p>
+A completely unanswered run with a selected peer takes about 39 seconds plus Windows scheduling time.</p>
+<p>Each run selects one eligible peer from existing online scan evidence for the
+selected Windows network profile and subnet, excluding this PC and the gateway.
+No extra discovery scan is started. The target stays fixed during that run;
+running again selects afresh and can choose the same address.
+If no eligible peer is available, scan the selected LAN first. Other diagnostics
+still run. An unanswered peer is inconclusive: it may be asleep, filter ICMP, or
+use client isolation. One peer never represents every LAN device and cannot
+alone make the overall network unhealthy.</p>
 <p>Windows selects the actual routing and DNS context.
 Choosing an adapter here does <strong>not</strong> bind all public checks to that adapter.
 VPNs and multiple adapters can change the route.</p>
@@ -1234,7 +1246,9 @@ The address may change later.</p>
 <h2 id="read-the-diagram">Read the diagram<a class="headerlink" href="#read-the-diagram" title="Permanent link">&para;</a></h2>
 <p>The diagram organizes logical checks. It is not a discovered physical network
 map and does not prove that devices are directly connected to one another.
-Read each label and status rather than interpreting colored lines alone.</p>
+Read each label and status rather than interpreting colored lines alone.
+The selected peer sits above the router with its checkpoint below the icon.
+Muted icons on the separate left branch are decorative, not additional probes.</p>
 <p><a href="../../screenshots/network-troubleshooting.png"><img alt="Complete troubleshooting diagram with private network-specific addresses redacted" src="../../screenshots/network-troubleshooting.png" /></a></p>
 <p><em>Earlier user-supplied ready-state screenshot, with approved address redactions.
 No checks had run. Its exact application revision is unknown.
