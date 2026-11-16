@@ -175,6 +175,98 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     $reference = & $rect 126 10 100 44
     $text = & $rect 20 22 75 20
     $window = & $rect 0 0 500 500
+    & {
+        $caption = "$([char]0x2190) Devices"
+        $captionPeer = [pscustomobject]@{ Current = [pscustomobject]@{
+            IsOffscreen = $false; BoundingRectangle = $text
+        } }
+        $hiddenCaption = [pscustomobject]@{ Current = [pscustomobject]@{
+            IsOffscreen = $true; BoundingRectangle = $text
+        } }
+        $emptyCaption = [pscustomobject]@{ Current = [pscustomobject]@{
+            IsOffscreen = $false
+            BoundingRectangle = [pscustomobject]@{ IsEmpty = $true; Width = 0; Height = 0 }
+        } }
+        $captionButton = [pscustomobject]@{ Current = [pscustomobject]@{
+            IsOffscreen = $false; HasKeyboardFocus = $false; BoundingRectangle = $back
+        } }
+        $captionButton | Add-Member ScriptMethod SetFocus { $this.Current.HasKeyboardFocus = $true }
+        $captionButton | Add-Member ScriptMethod FindAll { throw 'Caption is raw-only; control-view FindAll cannot measure it.' }
+        $captionState = @{ Root = $captionButton; Nodes = @($hiddenCaption, $emptyCaption, $captionPeer)
+            Index = 0; Calls = 0; MissingOnce = $true; Failure = $false }
+        function New-PageHeaderWalkerDouble([Windows.Automation.Condition] $HeaderQuery) {
+            $conditions = $HeaderQuery.GetConditions()
+            Assert-Equal $conditions.Count 2 'Raw caption must retain both Name and Text type conditions'
+            Assert-Equal $conditions[0].Property ([Windows.Automation.AutomationElement]::NameProperty) 'Raw caption selector property'
+            Assert-Equal $conditions[0].Value $caption 'Raw caption selector value'
+            Assert-Equal $conditions[1].Property ([Windows.Automation.AutomationElement]::ControlTypeProperty) 'Raw caption type property'
+            Assert-Equal $conditions[1].Value ([Windows.Automation.ControlType]::Text.Id) 'Raw caption type value'
+            $walker = [pscustomobject]@{ State = $captionState }
+            $walker | Add-Member ScriptMethod GetFirstChild {
+                param($Owner)
+                if (-not [object]::ReferenceEquals($Owner, $this.State.Root)) { throw 'Raw caption search escaped its Back button.' }
+                $this.State.Calls++
+                if ($this.State.Failure) { throw 'Raw caption provider failed.' }
+                if ($this.State.MissingOnce) { $this.State.MissingOnce = $false; return }
+                $this.State.Index = 0
+                $this.State.Nodes[0]
+            }
+            $walker | Add-Member ScriptMethod GetNextSibling {
+                param($Peer)
+                if (-not [object]::ReferenceEquals($Peer, $this.State.Nodes[$this.State.Index])) {
+                    throw 'Raw caption walker must advance from the actual matching peer.'
+                }
+                $this.State.Index++
+                if ($this.State.Index -lt $this.State.Nodes.Count) { $this.State.Nodes[$this.State.Index] }
+            }
+            return $walker
+        }
+        # Substitute only the native walker constructor; execute the real lookup and waiter.
+        $lookupBody = (Get-Command Find-PageHeaderElement).Definition.Replace(
+            '[Windows.Automation.TreeWalker]::new($headerCondition)', 'New-PageHeaderWalkerDouble $headerCondition')
+        . ([scriptblock]::Create("function Find-PageHeaderElement {`n$lookupBody`n}"))
+        $found = Find-PageHeaderElement $captionButton $caption -ByName -Type ([Windows.Automation.ControlType]::Text) -Raw
+        if (-not [object]::ReferenceEquals($found, $captionPeer) -or
+            -not [object]::ReferenceEquals($found.Current.BoundingRectangle, $text)) {
+            throw 'Measure the actual rendered caption peer, never its Button or estimated bounds.'
+        }
+        Assert-Equal $captionState.Calls 2 'Raw caption discovery retries missing peers through the actual waiter'
+        Assert-PageBackGeometry $back $reference $reference $found.Current.BoundingRectangle $window 1 10
+        $found = Find-PageHeaderElement $captionButton $caption -ByName -Type ([Windows.Automation.ControlType]::Text) -Raw -AllowOffscreen
+        if (-not [object]::ReferenceEquals($found, $hiddenCaption)) { throw 'Explicit raw offscreen lookup lost the actual peer.' }
+        $captionState.Failure = $true
+        Assert-Throws {
+            Find-PageHeaderElement $captionButton $caption -ByName -Type ([Windows.Automation.ControlType]::Text) -Raw
+        } '*Raw caption provider failed*'
+        Assert-Equal $script:UiRegressionCallStack.Count 0 'Failed raw-caption lookup completes call accounting'
+        $captionState.Failure = $false
+        $measurementRoot = [pscustomobject]@{ Current = [pscustomobject]@{ BoundingRectangle = $window } }
+        $measurementRoot | Add-Member ScriptMethod FindAll {
+            param([Windows.Automation.TreeScope] $Scope, [Windows.Automation.Condition] $HeaderQuery)
+            if ($Scope -ne [Windows.Automation.TreeScope]::Descendants) { throw 'Wrong measurement lookup scope.' }
+            if ($HeaderQuery -is [Windows.Automation.AndCondition] -and
+                $HeaderQuery.GetConditions()[0].Value -eq 'Back to devices') { return $captionButton }
+            if ($HeaderQuery.Value -eq 'DeviceOverviewTab') {
+                return [pscustomobject]@{ Current = [pscustomobject]@{
+                    IsOffscreen = $false; BoundingRectangle = $reference
+                } }
+            }
+            throw 'Unexpected measurement lookup.'
+        }
+        $captures = [Collections.Generic.List[string]]::new()
+        function Save-UiReviewWindowScreenshot($Handle, $Path) { $captures.Add($Path) }
+        $measurementDirectory = Join-Path ([IO.Path]::GetTempPath()) "FingVibe-PageHeader-$([Guid]::NewGuid().ToString('N'))"
+        $null = New-Item -ItemType Directory -Path $measurementDirectory
+        try {
+            Save-PageBackHeader $measurementRoot ([IntPtr]::Zero) $measurementDirectory 'raw-caption' `
+                'Back to devices' $caption $reference 1 10 -NextId DeviceOverviewTab
+            Assert-Equal $captures.Count 1 'Real header measurement reaches its existing capture boundary'
+            Assert-Equal $captures[0] (Join-Path $measurementDirectory 'back-raw-caption.png') 'Header capture identity'
+            $measurement = Get-Content (Join-Path $measurementDirectory 'back-header-measurements.jsonl') -Raw | ConvertFrom-Json
+            Assert-Equal $measurement.backWidthDip 100 'Measurement retains actual Back bounds independently of caption bounds'
+        }
+        finally { Remove-Item -LiteralPath $measurementDirectory -Recurse -Force }
+    }
     Assert-PageBackGeometry $back $reference $reference $text $window 1 10
     Assert-PageBackGeometry $back $reference (& $rect 10 70 100 44) $text $window 1 10
     Assert-PageBackGeometry (& $rect 10 10 150 66) $reference (& $rect 180 10 100 44) $text $window 1 10 -Scaled

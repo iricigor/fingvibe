@@ -33,7 +33,7 @@ function Assert-PageBackGeometry {
 }
 
 function Find-PageHeaderElement {
-    param($Root, [string] $Value, [switch] $ByName, $Type, [switch] $AllowOffscreen)
+    param($Root, [string] $Value, [switch] $ByName, $Type, [switch] $AllowOffscreen, [switch] $Raw)
     $property = if ($ByName) { [Windows.Automation.AutomationElement]::NameProperty }
         else { [Windows.Automation.AutomationElement]::AutomationIdProperty }
     $headerCondition = [Windows.Automation.PropertyCondition]::new($property, $Value)
@@ -42,11 +42,21 @@ function Find-PageHeaderElement {
             [Windows.Automation.PropertyCondition]::new(
                 [Windows.Automation.AutomationElement]::ControlTypeProperty, $Type))
     }
+    $headerWalker = if ($Raw) { [Windows.Automation.TreeWalker]::new($headerCondition) }
     Wait-UiRegressionState -Description "page-header element '$Value'" -Condition {
         $call = Start-UiRegressionCall lookup
         try {
-            foreach ($element in $Root.FindAll([Windows.Automation.TreeScope]::Descendants, $headerCondition)) {
-                if ($AllowOffscreen -or (Test-UiRegressionElementVisible $element)) { return $element }
+            if ($Raw) {
+                $element = $headerWalker.GetFirstChild($Root)
+                while ($element) {
+                    if ($AllowOffscreen -or (Test-UiRegressionElementVisible $element)) { return $element }
+                    $element = $headerWalker.GetNextSibling($element)
+                }
+            }
+            else {
+                foreach ($element in $Root.FindAll([Windows.Automation.TreeScope]::Descendants, $headerCondition)) {
+                    if ($AllowOffscreen -or (Test-UiRegressionElementVisible $element)) { return $element }
+                }
             }
         }
         finally { Complete-UiRegressionCall $call }
@@ -124,7 +134,8 @@ function Save-PageBackHeader {
     $back.SetFocus()
     $back = Find-PageHeaderElement $Root $BackName -ByName -Type ([Windows.Automation.ControlType]::Button)
     if (-not $back.Current.HasKeyboardFocus) { throw "$BackName must accept keyboard focus." }
-    $text = Find-PageHeaderElement $back $Caption -ByName -Type ([Windows.Automation.ControlType]::Text)
+    # WinUI's generated Button caption is raw-only; keep its actual text bounds, not the Button's.
+    $text = Find-PageHeaderElement $back $Caption -ByName -Type ([Windows.Automation.ControlType]::Text) -Raw
     $next = if ($NextId) { Find-PageHeaderElement $Root $NextId }
         else { Find-PageHeaderElement $Root $NextName -ByName -Type ([Windows.Automation.ControlType]::Text) }
     $bounds = $back.Current.BoundingRectangle
