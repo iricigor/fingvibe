@@ -63,7 +63,7 @@ function Get-Agent4CiStage($Pull, $Cache) {
 function Get-Agent4TaskRecords($Discussions) {
     # Assignment markers in Task conversations Discussions are the loop4 ownership record.
     $records = @{}
-    foreach ($discussion in @($Discussions | Where-Object { $_.category.name -eq "Task conversations" })) {
+    foreach ($discussion in @($Discussions | Where-Object { $_.category.name -cin @("Task conversations", "🛠️ Task conversations") })) {
         if ("$($discussion.body)" -notmatch '<!--\s*fingvibe:task=(\d+)\s*-->') { continue }
         $task = [int] $Matches[1]
         if ($records.ContainsKey($task)) { $records[$task].duplicate = $true; continue }
@@ -328,7 +328,8 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
         schema = "fingvibe-loop4-packet-v1"; repository = $repository; epic = $config.epic
         targetBranch = $repo.default_branch; evidencePath = $EvidencePath
         candidates = $candidates; blocked = $blocked; openAssignments = $openAssignments
-        assessment = "Dispatcher asks both Developers for availability each cycle and compares their replies with openAssignments. Review dependencies, foreign ownership, diffs and candidate compatibility before recommending work."
+        hasDeveloperOfferWork = ($candidates.Count -gt 0 -or $openAssignments.Count -gt 0)
+        assessment = "When hasDeveloperOfferWork is false, make no new Developer calls unless retained context has unresolved offers or starts to continue. Review dependencies, foreign ownership, diffs and candidate compatibility before recommending work."
     }
 }
 

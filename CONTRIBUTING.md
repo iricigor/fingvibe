@@ -283,14 +283,23 @@ Run the deterministic gate regression checks without starting real agents:
 ## Independent loop4
 
 The independent [loop4 source setup](docs/agentic-loop-4/README.md) uses separate
-4️⃣ profiles and disjoint candidate offers; every cycle the Dispatcher asks both
-Developers for availability. A human starting or scheduling the Dispatcher
+4️⃣ profiles and disjoint candidate offers; the Dispatcher asks both Developers
+when candidates or open assignments exist, and skips calls only when no unresolved
+offer/start remains either. A human starting or scheduling the Dispatcher
 authorizes the run (optional `merge`/`repairs` prompt lines; no approval link).
 Dispatcher runs the collector, offers successful CI, failed CI, resumed and new
-work, waits for assessments, releases assignments whose Developer reports it is
-not executing them, and sends explicit starts. Developers claim their task with
+work, processes correlated assessments independently, releases assignments whose
+Developer reports it is not executing them, and sends explicit starts. A start
+need not wait for both replies when compatibility with existing work, unresolved
+offers and earlier starts is verified; otherwise it is deferred and unknown
+Developers remain held. Developers add/verify their own `4️⃣dev1`/`4️⃣dev2`
+task Discussion participation label with
+`.github/scripts/Set-Agent4DiscussionParticipant.ps1`, then claim their task with
 `.github/scripts/Set-Agent4TaskClaim.ps1`. No state initialization, gate or delivery-based capacity
 protocol is required; PR submission ends implementation execution while CI runs.
+Verified Discussion reports/end markers replace finished-work messages to the
+previous Dispatcher session. These changes apply only to future assignments
+after loading the updated contract; accepted assignments keep their instructions.
 Do not overlap Dispatcher cycles or duplicate uncertain messages/assignments.
 Focused checks are `tests/Agent4DispatcherPacket.Tests.ps1` and the preserved
 historical `tests/Agent4Coordination.Tests.ps1`; no live activation is implied.
