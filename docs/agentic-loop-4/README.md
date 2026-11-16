@@ -3,8 +3,12 @@
 [Task #403](https://github.com/iricigor/fingvibe/issues/403) simplifies the
 source environment introduced by #386. The Dispatcher collects task evidence,
 sends disjoint offers, waits for Developer assessments and sends explicit starts.
-Every cycle, the Dispatcher asks both Developers for their availability; they
-answer only when asked and never need to report availability on their own.
+When offerable work or open assignments exist, the Dispatcher asks both Developers
+for their availability/state; they answer only when asked and never report
+availability on their own. If the packet has no candidates or open assignments
+and the retained cycle has no unresolved offer/start, the Dispatcher ends without
+calling either Developer. An unresolved offer/start is continued, not discarded
+or resent.
 PR submission frees a Developer for later work; pending CI does not retain a
 Developer slot. [Task #413](https://github.com/iricigor/fingvibe/issues/413)
 adds Developer claims, crash detection and prompt-based authority.
@@ -64,6 +68,9 @@ read these durable records and ask fresh availability; failed reporting is a blo
 With two candidates, Developer 1 receives the first and Developer 2 the second.
 With one candidate, Developer 2 receives an empty offer, still checking availability
 and its open assignments. An empty offer never authorizes a start or task transfer.
+When there are no candidates or open assignments, and no unresolved offers or
+starts in retained context, no Developer calls are needed. Open assignments alone
+still require offers even when no candidates are eligible.
 
 Process correlated assessments independently. One Developer can start its
 accepted offered task before the other replies only when compatibility is verified

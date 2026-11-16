@@ -283,8 +283,9 @@ Run the deterministic gate regression checks without starting real agents:
 ## Independent loop4
 
 The independent [loop4 source setup](docs/agentic-loop-4/README.md) uses separate
-4️⃣ profiles and disjoint candidate offers; every cycle the Dispatcher asks both
-Developers for availability. A human starting or scheduling the Dispatcher
+4️⃣ profiles and disjoint candidate offers; the Dispatcher asks both Developers
+when candidates or open assignments exist, and skips calls only when no unresolved
+offer/start remains either. A human starting or scheduling the Dispatcher
 authorizes the run (optional `merge`/`repairs` prompt lines; no approval link).
 Dispatcher runs the collector, offers successful CI, failed CI, resumed and new
 work, processes correlated assessments independently, releases assignments whose

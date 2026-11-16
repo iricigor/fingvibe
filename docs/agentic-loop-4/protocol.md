@@ -9,9 +9,12 @@ approval link.
 
 ## Offer
 
-Every cycle, Dispatcher sends an offer to both Developers, even when one has no
-candidates, so availability and open assignments are always checked. Developers
-never volunteer availability; they answer offers. Dispatcher sends `offerId`,
+When candidates or open assignments exist, Dispatcher sends an offer to both
+Developers, even when one has no candidates, so availability and open assignments
+are checked. If both are absent and retained context has no unresolved offers or
+starts, end the cycle without calling either Developer. Existing unresolved
+correlation is continued, not discarded or resent. Developers never volunteer
+availability; they answer offers. Dispatcher sends `offerId`,
 repository, Epic, recipient identity, run permissions (`merge`, `repairs`),
 evidence path, the recipient's open assignments from the packet, and an ordered
 list of distinct candidates. Candidate fields include issue/URL,
@@ -120,8 +123,10 @@ assignment/worker, actual timing, issue/PR/head if applicable, outcome and limit
 No-code tasks need no artificial PR, commit or context record.
 
 PR submission ends implementation work; pending CI does not keep the Developer
-reserved. The next cycle's offer asks both Developers again; Dispatcher outcome
-messages say so rather than asking Developers to report availability.
+reserved. The next work-bearing cycle asks both Developers again; an empty cycle
+with no open assignments or unresolved coordination makes no calls. Dispatcher
+outcome messages say a future work-bearing cycle will ask them rather than asking
+Developers to report availability.
 Failed/successful current-head CI produces a future candidate, not an automatic
 repair/merge.
 

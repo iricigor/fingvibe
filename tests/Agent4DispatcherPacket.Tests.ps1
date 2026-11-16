@@ -186,9 +186,11 @@ try {
     Assert-True (101 -notin $assigned.candidates.issue -and ($assigned.blocked | Where-Object issue -EQ 101).reason -like "*A1 (developer-1)*") "Open assignment excludes the task even without the active label."
     Assert-True ($assigned.openAssignments.Count -eq 1 -and $assigned.openAssignments[0].developer -eq "developer-1" -and
         $assigned.openAssignments[0].action -eq "implement") "Open assignments are reported for crash detection."
+    Assert-True $assigned.hasDeveloperOfferWork "An open assignment requires Developer contact even without an eligible candidate."
     $fixtureTaskComments.T1 += New-TaskComment "TC2" "2026-11-15T11:00:00Z" "Done <!-- fingvibe:assignment-end=A1 -->"
     $ended = Get-Agent4WorkPacket $configuration (Join-Path $root "ended.json") $fixtureReader
     Assert-True (101 -in $ended.candidates.issue -and $ended.openAssignments.Count -eq 0) "End-of-work closes the assignment."
+    Assert-True $ended.hasDeveloperOfferWork "Eligible candidates require Developer offers."
     $fixtureTaskComments.T1 = @(New-TaskComment "TC1" "2026-11-15T10:00:00Z" $send
         New-TaskComment "TC3" "2026-11-15T12:00:00Z" "Released <!-- fingvibe:assignment-release=A1 -->")
     $released = Get-Agent4WorkPacket $configuration (Join-Path $root "released.json") $fixtureReader
@@ -199,6 +201,12 @@ try {
     $resumeCandidate = $resume.candidates | Where-Object issue -EQ 101
     Assert-True ($resumeCandidate.category -eq "resume" -and $resumeCandidate.pr.number -eq 200) "Released implementation resumes its existing PR regardless of CI."
     $fixtureLinks = @{}; $fixtureCiStatus = "completed"; $fixtureTaskDiscussions = @(); $fixtureTaskComments = @{}
+    foreach ($child in $children) { $child.labels = @(@{ name = "active" }) }
+    $noOfferWork = Get-Agent4WorkPacket $configuration (Join-Path $root "no-offer-work.json") $fixtureReader
+    Assert-True (-not $noOfferWork.hasDeveloperOfferWork -and $noOfferWork.candidates.Count -eq 0 -and
+        $noOfferWork.openAssignments.Count -eq 0) "No candidates and no open assignments skip new Developer calls."
+    foreach ($child in $children) { $child.labels = @(@{ name = "type:task" }) }
+    $children[1].labels += @{ name = "human-task" }
     $ordered = Get-Agent4WorkPacket $configuration (Join-Path $root "ordered.json") $fixtureReader @(101,102,103,104,105,106) "fixture://human-order"
     Assert-True (($ordered.candidates.issue -join ",") -eq "101") "Explicit blocked predecessor must prevent later offers."
     Assert-Fails {

@@ -328,7 +328,8 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
         schema = "fingvibe-loop4-packet-v1"; repository = $repository; epic = $config.epic
         targetBranch = $repo.default_branch; evidencePath = $EvidencePath
         candidates = $candidates; blocked = $blocked; openAssignments = $openAssignments
-        assessment = "Dispatcher asks both Developers for availability each cycle and compares their replies with openAssignments. Review dependencies, foreign ownership, diffs and candidate compatibility before recommending work."
+        hasDeveloperOfferWork = ($candidates.Count -gt 0 -or $openAssignments.Count -gt 0)
+        assessment = "When hasDeveloperOfferWork is false, make no new Developer calls unless retained context has unresolved offers or starts to continue. Review dependencies, foreign ownership, diffs and candidate compatibility before recommending work."
     }
 }
 

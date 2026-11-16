@@ -35,13 +35,21 @@ or inspect the evidence artifact repeatedly before offering.
    No state.json initialization, repository gate, Progress/Confirm/Release call
    or delivery-based capacity check is part of this flow. GitHub determines task
    facts, not Developer availability.
+   If `hasDeveloperOfferWork` is false and this retained context has no unresolved
+   offers or starts, report that there are no offerable tasks or assignments and
+   end the cycle without discovering or calling Developers. If an open assignment
+   exists, the packet flag is true even when there are no candidates, and both
+   Developers still receive their respective assignment-state checks. If offers
+   or starts are unresolved, continue their existing correlation/continuation;
+   never discard or duplicate them just because the packet is otherwise empty.
 2. Take the run permissions from the prompt, applying the defaults above. A
    missing line is not a blocker.
 3. Skip a candidate only if this context holds an unresolved offer/start for it
    that the packet does not yet show. Runs that stopped before sending anything
    leave nothing to reconcile. Do not audit other tasks.
 4. Discover the actual 4️⃣ Developer Automations and host identities, then send
-   an offer to both Developers every cycle, even if one gets no candidates:
+   an offer to both Developers when the packet has Developer offer work, even if
+   one gets no candidates:
    positions 1/3 to Developer 1, 2/4 to Developer 2, up to two candidates each,
    plus the recipient's entries from `openAssignments`. Include the run
    permissions. Use actual independent
@@ -100,8 +108,11 @@ or inspect the evidence artifact repeatedly before offering.
    Start admission is not proof of execution; missing acknowledgment remains
    uncertain and must not be reassigned or blindly resent.
 
-Every cycle asks both Developers again. Never tell Developers to report
-availability on their own; outcome messages say the next cycle will ask them.
+When candidates or open assignments exist, the next cycle asks both Developers
+again. With no offerable work or open assignments, it skips calls only if there
+are no unresolved offers or starts to continue. Never tell Developers to report
+availability on their own; outcome messages say a future work-bearing cycle will
+ask them again.
 A Developer is available after submitting its PR/report and finishing that work;
 CI/review waits do not reserve it. Dispatcher does not ingest completion results
 or verify default-branch delivery to release slots.
