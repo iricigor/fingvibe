@@ -72,7 +72,7 @@ function Get-Agent4TaskRecords($Discussions) {
             foreach ($reply in @($comment.replies)) { $reply }
         })
         $entries = @($entries | Where-Object { $null -ne $_ } | Sort-Object -Stable { "$($_.createdAt)" })
-        $assignments = [ordered]@{}
+        $assignments = [ordered]@{}; $rejection = $null
         foreach ($entry in $entries) {
             $body = "$($entry.body)"
             foreach ($match in [regex]::Matches($body,
@@ -89,8 +89,17 @@ function Get-Agent4TaskRecords($Discussions) {
                     $assignments[$id].state = if ($match.Groups[1].Value -eq "end") { "ended" } else { "released" }
                 }
             }
+            # A rejected finalize pins its PR head to repair until a new head is pushed.
+            foreach ($match in [regex]::Matches($body,
+                '<!--\s*fingvibe:finalize-rejected=([A-Za-z0-9._:-]+)\s+head=([0-9a-fA-F]{40})\s*-->')) {
+                $id = $match.Groups[1].Value
+                if ($assignments.Contains($id) -and $assignments[$id].action -eq "finalize") {
+                    $rejection = @{ assignmentId = $id; developer = $assignments[$id].developer
+                        head = $match.Groups[2].Value.ToLowerInvariant(); discussionUrl = $discussion.url; rejectedAt = $entry.createdAt }
+                }
+            }
         }
-        $records[$task] = @{ duplicate = $false; assignments = @($assignments.Values) }
+        $records[$task] = @{ duplicate = $false; assignments = @($assignments.Values); finalizeRejection = $rejection }
     }
     $records
 }
@@ -103,8 +112,9 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
         throw "Repository and positive Epic number required."
     }
     $cache = @{}
-    function Read-Evidence([string] $Endpoint, [bool] $Paginated = $false, [string] $Query) {
-        $key = "$Endpoint|$Paginated|$Query"
+    $rereadSeconds = if ($config.ContainsKey("mergeabilityRereadSeconds")) { $config.mergeabilityRereadSeconds } else { 3 }
+    function Read-Evidence([string] $Endpoint, [bool] $Paginated = $false, [string] $Query, [string] $CacheKey) {
+        $key = if ($CacheKey) { $CacheKey } else { "$Endpoint|$Paginated|$Query" }
         if ($cache.ContainsKey($key)) { return ,$cache[$key] }
         $json = & $Reader $Endpoint $Paginated $Query
         if ($json -isnot [string] -or [string]::IsNullOrWhiteSpace($json)) { throw "Missing evidence: $Endpoint." }
@@ -160,6 +170,26 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
     $pulls = Read-Evidence "repos/$repository/pulls?state=open&per_page=100" $true
     foreach ($pr in $pulls) {
         if (-not $pr.number -or -not $pr.head.sha -or -not $pr.node_id) { throw "Incomplete open PR." }
+        $detailEndpoint = "repos/$repository/pulls/$($pr.number)"
+        $detail = Read-Evidence $detailEndpoint
+        $attempt = 1
+        while ($true) {
+            if ($detail.number -ne $pr.number -or $detail.head.sha -cne $pr.head.sha) {
+                throw "PR identity/head changed during evidence collection: #$($pr.number)."
+            }
+            if (-not $detail.ContainsKey("mergeable") -or
+                ($null -ne $detail.mergeable -and $detail.mergeable -isnot [bool])) {
+                throw "Incomplete PR mergeability evidence: #$($pr.number)."
+            }
+            if ($null -ne $detail.mergeable -or $attempt -ge 2) { break }
+            # GitHub computes mergeability asynchronously; the first read often only starts it.
+            Start-Sleep -Seconds $rereadSeconds
+            $detail = Read-Evidence $detailEndpoint $false $null "$detailEndpoint|reread"
+            $attempt++
+        }
+        $pr.mergeable = $detail.mergeable
+        $pr.mergeable_state = $detail.mergeable_state
+        $pr.base = $detail.base
         $pr.linkedIssues = Read-Connection $pr.node_id closingIssuesReferences
         $null = Read-Evidence "repos/$repository/pulls/$($pr.number)/files?per_page=100" $true
         $null = Read-Evidence "repos/$repository/pulls/$($pr.number)/reviews?per_page=100" $true
@@ -238,7 +268,7 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
     $candidates = @(); $blocked = @(); $openAssignments = @(); $orderingBlocked = $false
     foreach ($child in $open) {
         $record = $taskRecords[[int] $child.number]
-        $assigned = @(); $released = $null
+        $assigned = @(); $released = $null; $rejection = $null
         if ($record) {
             $assigned = @($record.assignments | Where-Object { $_.state -eq "open" })
             $latest = @($record.assignments)[-1]
@@ -299,7 +329,15 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
                 if ($released -and $released.action -eq "implement") {
                     # Released implementation continues its existing PR; that PR's CI does not prove completion.
                     $category = "resume"; $rank = 2
+                } elseif ($record -and $record.finalizeRejection -and $record.finalizeRejection.head -ieq $pull.head.sha) {
+                    # Green CI on a rejected head would re-offer finalize forever; repair it instead.
+                    $category = "failed"; $rank = 1; $rejection = $record.finalizeRejection
+                } elseif ($pull.mergeable -ceq $false) {
+                    # Conflicts prevent pull_request workflows from starting, leaving CI unknown.
+                    $category = "failed"; $rank = 1
                 } else {
+                    # Mergeability still unknown after one re-read is presumed conflict-free:
+                    # finalize re-verifies base freshness and GitHub refuses conflicting merges.
                     $ci = Get-Agent4CiStage $pull $cache
                     if ($ci -in @("pending", "unknown")) { $reason = "Current-head CI is $ci." }
                     else { $category = $ci; $rank = if ($ci -eq "success") { 0 } else { 1 } }
@@ -314,7 +352,7 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
         } else {
             $candidates += @{ issue = $child.number; url = $child.html_url; labels = $child.labels.name
                 dependencies = $dependencies; category = $category; rank = $rank
-                pr = $pull; released = $released; semanticAssessmentRequired = $true }
+                pr = $pull; released = $released; finalizeRejection = $rejection; semanticAssessmentRequired = $true }
         }
     }
     $candidates = @($candidates | Sort-Object -Stable rank)

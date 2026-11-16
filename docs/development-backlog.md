@@ -262,6 +262,11 @@ retained Developer context can take new work without touching a previous task's
 worktree. Finalize removes clean, merged task worktrees; anything else is left
 for a human. See the [Developer contract](agentic-loop-4/developer.md#task-worktrees).
 
+[Task #475](https://github.com/iricigor/fingvibe/issues/475) stops repeated
+finalize offers: a finalize rejection recorded against the exact PR head routes
+the task to repair under the existing `repairs` allowance; non-repairable
+rejections become `status:blocked`. Merge gates are unchanged.
+
 ## Explicitly invoked manual-worker exception
 
 [Task #189](https://github.com/iricigor/fingvibe/issues/189) adds the

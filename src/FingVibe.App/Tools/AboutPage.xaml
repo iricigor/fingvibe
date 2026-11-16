@@ -2,7 +2,7 @@
     x:Class="FingVibe.App.AboutPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+    <ScrollViewer x:Name="UpdatesScroll" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
@@ -42,6 +42,32 @@
                     <HyperlinkButton Content="Creator's website &#x2197;" Padding="0,4"
                                      NavigateUri="https://igor.iric.online"
                                      AutomationProperties.Name="Creator's website (opens in browser)" />
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Updates" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <TextBlock x:Name="UpdateInstalledVersion" TextWrapping="Wrap" />
+                    <TextBlock x:Name="UpdateStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                    <TextBlock x:Name="UpdateDetails" TextWrapping="Wrap" IsTextSelectionEnabled="True"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock x:Name="UpdateDeploymentText" TextWrapping="Wrap" />
+                    <Button x:Name="CheckUpdatesButton" Content="Check for updates" Click="CheckUpdates_Click"
+                            HorizontalAlignment="Left" />
+                    <HyperlinkButton x:Name="UpdateReleaseLink" Content="Stable releases (opens in browser)"
+                                     NavigateUri="https://github.com/iricigor/fingvibe/releases/latest"
+                                     HorizontalAlignment="Left" Padding="0,4" />
+                    <Button x:Name="DownloadUpdateButton" Click="DownloadUpdate_Click" Visibility="Collapsed"
+                            HorizontalAlignment="Left">
+                        <TextBlock Text="Download update" TextWrapping="Wrap" />
+                    </Button>
+                    <ProgressBar x:Name="UpdateDownloadProgress" Minimum="0" Maximum="100"
+                                 Visibility="Collapsed" AutomationProperties.Name="Update download progress" />
+                    <TextBlock x:Name="UpdateDownloadStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                    <Button x:Name="CancelUpdateDownloadButton" Content="Cancel download" Click="CancelDownload_Click"
+                            Visibility="Collapsed" HorizontalAlignment="Left" />
+                    <Button x:Name="InstallUpdateButton" Content="Install update" Click="InstallUpdate_Click"
+                            Visibility="Collapsed" HorizontalAlignment="Left" />
                 </StackPanel>
             </Border>
         </StackPanel>

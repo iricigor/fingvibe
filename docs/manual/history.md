@@ -29,9 +29,11 @@ The [Devices Last seen column](devices.md#last-seen) uses the same scope.
 Select **History** to load Activity automatically. Choose a period and 1-4
 **Hours per square**. Scans on N of 7/30 days counts dates with eligible evidence;
 gaps stay unknown even when less than a full window is available.
-Green/R indicates a response, amber/minus a scan with no response, hatching no
+Green/R indicates a response, amber/minus a scan with no response, a muted `?` no
 scan data, and dim dots later today. Select a square for details, or navigate
 with arrow keys. Narrow grids scroll horizontally without dropping hours.
+Weekday counts keep their applicable-date denominator; a small trailing `?`
+marks unknown dates. Skipped DST hours show `N/A`.
 There is no normal Refresh button; failed loads offer **Retry**.
 
 The newest-first **Scan observations** list below retains paging. Each row's

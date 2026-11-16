@@ -13,6 +13,19 @@ PR submission frees a Developer for later work; pending CI does not retain a
 Developer slot. [Task #413](https://github.com/iricigor/fingvibe/issues/413)
 adds Developer claims, crash detection and prompt-based authority.
 
+The packet reads individual PR mergeability evidence. Confirmed merge conflicts
+use the existing `failed` category for repair assessment, even with missing,
+pending or successful head checks: conflicts prevent `pull_request` workflows
+from starting. GitHub computes mergeability asynchronously, so an unknown
+(`null`) value is re-read once after about 3 seconds. If it is still unknown,
+the PR is presumed conflict-free and classified by its current-head CI, keeping
+`mergeable: null` in the candidate's PR evidence. Finalize still independently
+verifies base freshness and records a finalize rejection for repair, and GitHub
+refuses to merge conflicting PRs. Existing ownership exclusions, released
+implementation resumes and current-head finalization rejections retain their
+precedence. Repair assessment does not authorize automatic conflict resolution,
+expanded task scope or bypassing validation.
+
 ## Task worktrees
 
 [Task #441](https://github.com/iricigor/fingvibe/issues/441) separates a
@@ -44,6 +57,32 @@ lines adjust the run's permissions, with these defaults:
 | `merge: yes` / `merge: no` | `yes` | Developers may merge finalized PRs |
 | `repairs: <N>` | `12` | Cumulative repair attempts allowed per task |
 
+### Hourly Epic chart
+
+As its final step, after coordination and the normal cycle outcome, each
+existing Dispatcher cycle invokes the repository
+[`loop4-epic-chart` skill](../../.github/skills/loop4-epic-chart/SKILL.md) with
+its packet evidence, including idle cycles. Reporting is not interleaved with
+offers, responses, releases or starts. The helper posts at most once per rolling 60
+minutes to the marked Epic coordination Discussion, using server-timestamped
+durable comments rather than context memory or an additional schedule.
+
+The PNG has genuinely stacked completed (green), in-progress including CI/review
+(orange), and not-started (red) categories. Trend lines follow cumulative stack
+tops; a gray reference denotes the total. It reconstructs the current native
+child cohort's history, shows at most 24 hourly boundaries plus the current
+partial hour, and labels timezone/date/offset explicitly. Historical membership
+is not inferred. Missing lifecycle evidence or non-completed closures stop the
+chart with an explicit error, not invented totals.
+
+The reporting-only exception to duplicate-query restrictions permits timeline
+reads and fresh Discussion publication/throttle verification. Images are hosted
+as authenticated GitHub user attachments, never local links. A pending
+publication marker blocks retries regardless of age until human reconciliation;
+published markers throttle across restarts. Windows and a supported GitHub.com
+upload credential are required. Reporting errors remain explicit and do not
+alter assignment/merge decisions. See the skill for invocation and recovery.
+
 Dispatcher forwards the Epic and these permissions in every offer and start.
 Developers trust them from a verified Dispatcher message; they do not search for
 other approval. Agent-authored summaries, source publication and tool availability
@@ -65,6 +104,13 @@ full evidence artifact or repeat GitHub/GraphQL requests for collected data unle
 a specific candidate's data is missing or contradictory. Starts still require
 Developer assessments, a fresh check of the selected task and a verified
 "Sending #<number> to Developer N" comment in the task's own Discussion.
+
+Immediately after attempting offers, before waiting for assessments or processing
+starts, Dispatcher reports each Developer's exact sent issue list in chat, in
+offer order (including shared candidates), or `none` for an empty sent list.
+Failed or uncertain delivery is reported explicitly with the attempted list,
+never as sent. The summary distinguishes offers from starts; send admission is
+not proof of assessment or execution. See the [offer protocol](protocol.md#offer).
 
 Task-specific records (assignment, Developer start and end of work) go to one
 Discussion per task in the Task conversations category, marked
@@ -176,12 +222,19 @@ including empty candidate arrays, built from the existing sorted candidate list.
 Default order, with ascending issue number within each group:
 
 1. Linked open PR with successful completed current-head CI.
-2. Linked open PR with failed completed current-head CI.
+2. Linked open PR with failed completed current-head CI, or whose current head
+   has a recorded finalize rejection (whatever its CI).
 3. `resume`: released implementation with its existing linked PR, whatever its CI.
 4. Eligible new native task (including released work that has no PR yet).
 
 Released candidates carry the `released` assignment. Dispatcher repeats its
 action (continuing an existing PR/branch, never a competing PR).
+[Task #475](https://github.com/iricigor/fingvibe/issues/475): a Developer that
+rejects a started finalize records a `finalize-rejected` marker for the exact
+head (see the [protocol](protocol.md#assignment-records)). The task is then a
+`failed` candidate carrying `finalizeRejection`, so Dispatcher starts `repair`
+instead of offering the same finalize indefinitely. A new head returns it to
+normal classification; non-repairable rejections use `status:blocked`.
 
 Cancelled/timed-out/action-required CI is failed attention work, not permission
 to retry. Neutral/skipped checks are non-failing, but alone do not prove success.

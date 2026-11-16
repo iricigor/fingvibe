@@ -128,8 +128,9 @@ a normal Refresh button. Failures offer **Retry**. Period and **Hours per square
 retain the requested window even with sparse history. Coverage counts dates with
 eligible evidence; populated-square counts are not scan counts or continuous uptime.
 Green/R means responded; amber/minus means scanned with no response, not absence.
-Hatching marks no scan data; dim dots mark later today. Skipped DST hours remain
-not applicable. Scroll horizontally when needed to reach all hours.
+A muted `?` marks no scan data; dim dots mark later today. A small trailing `?`
+beside a weekday count marks unknown dates without changing its denominator.
+Skipped DST hours show `N/A`. Scroll horizontally when needed to reach all hours.
 The newest-first **Scan observations** list retains paging and exact timestamps
 in accessible row descriptions and tooltips.
 See [History and usage categories](history.md).

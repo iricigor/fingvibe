@@ -25,6 +25,10 @@ foreach ($name in @("PcRouterConnector", "RouterHopConnector", "HopInternetConne
     }
 }
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
+. (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
+if (-not (Get-Command Wait-UiRegressionState -ErrorAction SilentlyContinue)) {
+    . (Join-Path $PSScriptRoot "UiRegression\Helpers.ps1")
+}
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
@@ -40,8 +44,16 @@ public static class TroubleshootingReviewKeyboard
 }
 "@
 $previousReview = $env:FINGVIBE_UI_REVIEW
+$previousPeer = $env:FINGVIBE_UI_REVIEW_PEER
+$peerDirectory = Join-Path ([System.IO.Path]::GetTempPath()) "FingVibe-peer-review-$([Guid]::NewGuid().ToString('N'))"
+$null = New-Item -ItemType Directory -Path $peerDirectory
+$peerPath = Join-Path $peerDirectory "peer.json"
+@{ Address = $null; State = 4; Latency = $null } | ConvertTo-Json | Set-Content -LiteralPath $peerPath
+$env:FINGVIBE_UI_REVIEW_PEER = $peerPath
 $env:FINGVIBE_UI_REVIEW = "1"
 $process = $null
+$peerPhase = $null
+$peerPhasePassed = $false
 
 function Find-Control([string] $Name, [System.Windows.Automation.ControlType] $Type) {
     $condition = [System.Windows.Automation.AndCondition]::new(
@@ -101,8 +113,8 @@ function Find-Address([string] $Checkpoint) {
     return $element
 }
 
-try {
-    $process = Start-Process -FilePath $AppPath -PassThru
+function Start-ReviewProcess {
+    $script:process = Start-Process -FilePath $AppPath -PassThru
     $deadline = [DateTime]::UtcNow.AddSeconds(15)
     do {
         Start-Sleep -Milliseconds 200
@@ -123,6 +135,18 @@ try {
         [Math]::Min($WindowWidth, $area.Width), [Math]::Min(720, $area.Height), 0x0044)
     Start-Sleep -Milliseconds 400
     $script:root = [System.Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
+}
+
+function Stop-ReviewProcess {
+    if ($null -ne $process -and -not $process.HasExited) {
+        $null = $process.CloseMainWindow()
+        if (-not $process.WaitForExit(5000)) { Stop-Process -Id $process.Id }
+    }
+    $script:process = $null
+}
+
+try {
+    Start-ReviewProcess
     Select-Page Tools
     Invoke-Control "Network troubleshooting"
     foreach ($heading in @("Connection and checks", "Network path and status", "Detailed checkpoint diagnostics", "Traceroute")) {
@@ -139,6 +163,11 @@ try {
     Show-Controls @("Run network troubleshooting")
     Invoke-Control "Run network troubleshooting"
     $null = Find-Control "UI-review mode does not send diagnostic probes." ([System.Windows.Automation.ControlType]::Text)
+    if ($script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "TroubleshootingScroll")).Current.ItemStatus -ne "Idle") {
+        throw "The inactive diagnostic surface must publish an observable Idle state."
+    }
     if ((Find-Control "Cancel network troubleshooting" ([System.Windows.Automation.ControlType]::Button)).Current.IsEnabled) {
         throw "UI review incorrectly started diagnostic network activity."
     }
@@ -152,6 +181,15 @@ try {
     $pathHeading = Find-Control "Network path and status" ([System.Windows.Automation.ControlType]::Text)
     $illustration = Find-Control "Logical checks$([char]0x2014)not a physical network map." ([System.Windows.Automation.ControlType]::Text)
     $null = Find-Control "LAN peers" ([System.Windows.Automation.ControlType]::Text)
+    $peerHeading = Find-Control "Selected peer" ([System.Windows.Automation.ControlType]::Text)
+    $peerBounds = (Find-Address LanPeer).Current.BoundingRectangle
+    $gatewayBounds = (Find-Address Gateway).Current.BoundingRectangle
+    $wanBounds = (Find-Address RouterWan).Current.BoundingRectangle
+    if ($peerHeading.Current.BoundingRectangle.Bottom -ge $peerBounds.Top -or
+        $peerBounds.Bottom -ge $gatewayBounds.Top -or
+        [Math]::Abs(($peerBounds.Left - 15) - ($gatewayBounds.Right + $wanBounds.Left) / 2) -gt 2) {
+        throw "The selected peer checkpoint must be below its icon/title and directly above the router, not on the decorative branch."
+    }
     if ($run.Current.IsOffscreen -or $run.Current.BoundingRectangle.Top -le $pathHeading.Current.BoundingRectangle.Bottom -or
         $run.Current.BoundingRectangle.Bottom -ge $illustration.Current.BoundingRectangle.Top) {
         throw "Run checks must be visible near the top of the diagram card, below its heading and above the illustration."
@@ -204,6 +242,7 @@ try {
     $expectedAddresses = @{
         Loopback = "127.0.0.1"; LocalAddress = "127.0.0.1"; Gateway = "Not supplied"; RouterWan = "Not supplied"
         Hop2 = "Not observed"; CloudflarePing = "1.1.1.1"; CloudflareDns = "1.1.1.1"; GooglePing = "8.8.8.8"; GoogleDns = "8.8.8.8"
+        LanPeer = "Not supplied"
     }
     foreach ($checkpoint in $expectedAddresses.Keys) {
         if ((Find-Address $checkpoint).Current.Name -ne $expectedAddresses[$checkpoint]) {
@@ -242,6 +281,37 @@ try {
     }
     $null = [UiReviewNativeWindow]::SetWindowPos(
         $process.MainWindowHandle, [IntPtr]::Zero, $bounds.X, $bounds.Y, $bounds.Width, $bounds.Height, 0x0044)
+    Show-Controls @("Run network troubleshooting", "Selected peer")
+    $peerPhase = Start-UiRegressionPhase -Name "Troubleshooting selected-peer states and accessibility"
+    foreach ($state in @(2, 3, 4)) {
+        $address = if ($state -eq 4) { $null } else { "192.0.2.42" }
+        $latency = if ($state -eq 2) { 3 } else { $null }
+        @{ Address = $address; State = $state; Latency = $latency } |
+            ConvertTo-Json | Set-Content -LiteralPath $peerPath
+        Invoke-Control "Run network troubleshooting"
+        $expected = switch ($state) {
+            2 { "Selected LAN peer: 192.0.2.42; Responded - 3 ms" }
+            3 { "Selected LAN peer: 192.0.2.42; Unanswered" }
+            4 { "Selected LAN peer: Not supplied; Unavailable" }
+        }
+        $null = Find-Control $expected ([System.Windows.Automation.ControlType]::Text)
+        if ((Find-Address LanPeer).Current.Name -ne $(if ($address) { $address } else { "Not supplied" })) {
+            throw "The peer must show only its selected IPv4 address or explicit unavailability."
+        }
+        $peerDetail = @($script:root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::Text)) |
+            Where-Object { $_.Current.Name.StartsWith("Selected LAN peer - ") })
+        if ($peerDetail.Count -ne 1 -or
+            ($state -eq 4 -and $peerDetail[0].Current.Name -notlike "*Scan the selected LAN first*") -or
+            ($address -and $peerDetail[0].Current.Name -notlike "*$address*")) {
+            throw "Detailed diagnostics must include the same peer or unavailable scan-first guidance."
+        }
+        if ($ScreenshotDirectory -and $state -ne 4) {
+            Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "troubleshooting-peer-$state.png")
+        }
+    }
     $scroll.SetScrollPercent(-1, 0)
     Start-Sleep -Milliseconds 400
     Invoke-Control "Back to Tools"
@@ -255,7 +325,96 @@ try {
     $null = Find-Control "Network troubleshooting" ([System.Windows.Automation.ControlType]::Button)
     Invoke-Control "Speed test"
     $null = Find-Control "Start Cloudflare speed test" ([System.Windows.Automation.ControlType]::Button)
-    Write-Host "Troubleshooting section containers, port addresses/provider alignment, WAN validation, privacy, scrolling, navigation, and speed-test entry passed."
+    @{ Address = "192.0.2.42"; State = 2; Latency = 3 } |
+        ConvertTo-Json | Set-Content -LiteralPath $peerPath
+    foreach ($mode in @("Light", "Dark")) {
+        Select-Page Settings
+        Set-UiReviewAppearanceChoice -Root $script:root -Picker ModePicker -Choice $mode
+        Select-Page Tools
+        Invoke-Control "Network troubleshooting"
+        Show-Controls @("Run network troubleshooting", "Selected peer")
+        Invoke-Control "Run network troubleshooting"
+        $null = Find-Control "Selected LAN peer: 192.0.2.42; Responded - 3 ms" ([System.Windows.Automation.ControlType]::Text)
+        if ($ScreenshotDirectory) {
+            Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "troubleshooting-peer-$mode.png")
+        }
+    }
+    if ($env:GITHUB_ACTIONS -eq "true") {
+        if (-not ("SidebarReviewKeyboard" -as [type])) {
+            . (Join-Path $PSScriptRoot "UiRegression\Sidebar.Controls.Helpers.ps1")
+        }
+        $settings = [Windows.UI.ViewManagement.UISettings, Windows.UI.ViewManagement, ContentType = WindowsRuntime]::new()
+        $normalPeerHeight = (Find-Address LanPeer).Current.BoundingRectangle.Height
+        $originalScale = $settings.TextScaleFactor
+        $contrast = [SidebarReviewKeyboard]::GetHighContrastFlags()
+        $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\Microsoft\Accessibility')
+        $originalValue = $key.GetValue('TextScaleFactor', $null)
+        $originalKind = if ($null -ne $originalValue) { $key.GetValueKind('TextScaleFactor') } else { $null }
+        $failed = $true
+        try {
+            Stop-ReviewProcess
+            [SidebarReviewKeyboard]::SetHighContrastFlags($contrast -bor 1)
+            $key.SetValue('TextScaleFactor', 200, [Microsoft.Win32.RegistryValueKind]::DWord)
+            [SidebarReviewKeyboard]::NotifyTextScaleChanged()
+            $null = Wait-UiRegressionState -Description "200 percent troubleshooting text" -Condition {
+                [Math]::Abs($settings.TextScaleFactor - 2) -lt 0.01
+            }
+            Start-ReviewProcess
+            Select-Page Tools
+            Invoke-Control "Network troubleshooting"
+            Show-Controls @("Run network troubleshooting", "Selected peer")
+            Invoke-Control "Run network troubleshooting"
+            $null = Find-Control "Selected LAN peer: 192.0.2.42; Responded - 3 ms" ([System.Windows.Automation.ControlType]::Text)
+            $scaled = (Find-Address LanPeer).Current.BoundingRectangle
+            $gateway = (Find-Address Gateway).Current.BoundingRectangle
+            if ($scaled.Height -lt $normalPeerHeight * 1.6 -or $scaled.Bottom -ge $gateway.Top) {
+                throw "The selected peer must honor enlarged text without overlapping the router."
+            }
+            $window = Get-UiReviewWindowBounds $process.MainWindowHandle
+            $null = [UiReviewNativeWindow]::SetWindowPos(
+                $process.MainWindowHandle, [IntPtr]::Zero, $window.X, $window.Y, 640, 720, 0x0044)
+            Start-Sleep -Milliseconds 400
+            $diagramScroll = Scroll-Control "DiagramScroll"
+            $diagramScroll.SetScrollPercent(35, -1)
+            Show-Controls @("Selected peer", "Selected LAN peer: 192.0.2.42; Responded - 3 ms")
+            $viewport = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DiagramScroll"))
+            if (-not (Test-UiRegressionElementWithin -Element (Find-Address LanPeer) -Viewport $viewport -Window $script:root)) {
+                throw "The enlarged peer address must be fully reachable in the narrow diagram viewport."
+            }
+            if ($ScreenshotDirectory) {
+                Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "troubleshooting-peer-text-200-high-contrast.png")
+            }
+            $failed = $false
+        }
+        catch {
+            $primary = $_
+            if ($ScreenshotDirectory -and $process -and -not $process.HasExited) {
+                try {
+                    Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "troubleshooting-peer-accessibility-failure.png")
+                }
+                catch { Write-Warning "Peer accessibility failure screenshot also failed: $_" }
+            }
+            throw $primary
+        }
+        finally {
+            Invoke-UiRegressionCleanup -PrimaryFailed $failed -Steps @(
+                { Stop-ReviewProcess },
+                {
+                    if ($null -eq $originalValue) { $key.DeleteValue('TextScaleFactor', $false) }
+                    else { $key.SetValue('TextScaleFactor', $originalValue, $originalKind) }
+                    [SidebarReviewKeyboard]::NotifyTextScaleChanged()
+                    [SidebarReviewKeyboard]::SetHighContrastFlags($contrast)
+                    $null = Wait-UiRegressionState -Description "restored troubleshooting text scale" -Condition {
+                        [Math]::Abs($settings.TextScaleFactor - $originalScale) -lt 0.01
+                    }
+                },
+                { $key.Dispose() })
+        }
+    }
+    $peerPhasePassed = $true
+    Write-Host "Troubleshooting checkpoints, peer outcomes/themes/accessibility, WAN validation, privacy, scrolling, navigation, and speed-test entry passed."
 }
 catch {
     if ($ScreenshotDirectory -and $process -and -not $process.HasExited -and
@@ -266,9 +425,12 @@ catch {
     throw
 }
 finally {
-    if ($null -ne $process -and -not $process.HasExited) {
-        $null = $process.CloseMainWindow()
-        if (-not $process.WaitForExit(5000)) { Stop-Process -Id $process.Id }
+    Stop-ReviewProcess
+    if ($peerPhase -and $ScreenshotDirectory) {
+        Complete-UiRegressionPhase -Phase $peerPhase -Directory $ScreenshotDirectory -Succeeded $peerPhasePassed
     }
     $env:FINGVIBE_UI_REVIEW = $previousReview
+    $env:FINGVIBE_UI_REVIEW_PEER = $previousPeer
+    Remove-Item -LiteralPath $peerPath
+    Remove-Item -LiteralPath $peerDirectory
 }

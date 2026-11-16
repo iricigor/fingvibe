@@ -64,6 +64,8 @@ public sealed class DeviceActivityTests
         Assert.Equal(future, cell.IsFuture);
         Assert.Equal(AnalyticsResponse.Unknown, cell.Response);
         Assert.Equal(!future, cell.Hatched);
+        Assert.Equal(future ? "\u00B7" : "?", cell.Glyph(deviceStyle: true));
+        Assert.False(cell.NeedsEvidenceMarker);
         Assert.Contains(future ? "Later today" : "Unknown - no eligible scans", cell.Details);
         Assert.DoesNotContain(cells.Take(cells.Count - 24 / hours), item => item.IsFuture);
     }
@@ -115,10 +117,12 @@ public sealed class DeviceActivityTests
         var positive = cells.Single(cell => cell.RowLabel.StartsWith("Mon") && cell.StartHour == 9);
         Assert.Equal(1m, positive.Fraction);
         Assert.Equal("", positive.Value);
+        Assert.Equal("R", positive.Glyph(deviceStyle: true));
         Assert.Contains("1 responses, 2 nonresponses", positive.Details);
         var negative = cells.Single(cell => cell.RowLabel.StartsWith("Mon") && cell.StartHour == 10);
         Assert.Equal(AnalyticsResponse.DidNotRespond, negative.Response);
         Assert.False(negative.Hatched);
+        Assert.Equal("\u2212", negative.Glyph(deviceStyle: true));
         Assert.True(cells.Single(cell => cell.RowLabel.StartsWith("Mon") && cell.StartHour == 11).Hatched);
     }
 
@@ -138,6 +142,8 @@ public sealed class DeviceActivityTests
         Assert.Equal("3", cell.Value);
         Assert.Equal("4 days", cell.RowTotal);
         Assert.True(cell.Hatched);
+        Assert.Equal("3", cell.Glyph(deviceStyle: true));
+        Assert.True(cell.NeedsEvidenceMarker);
         Assert.Equal(.75m, cell.Fraction);
         Assert.Contains("3 responding days / 4 applicable dates", cell.Details);
     }
@@ -154,14 +160,20 @@ public sealed class DeviceActivityTests
         Assert.Equal("5", full.Value);
         Assert.Equal(1m, full.Fraction);
         Assert.False(full.Hatched);
+        Assert.Equal("5", full.Glyph(deviceStyle: true));
+        Assert.False(full.NeedsEvidenceMarker);
         var negative = cells.Single(cell => cell.RowLabel == "Fri" && cell.StartHour == 10);
         Assert.Equal("0", negative.Value);
         Assert.Equal(0m, negative.Fraction);
         Assert.True(negative.Hatched);
+        Assert.Equal("0\u2212", negative.Glyph(deviceStyle: true));
+        Assert.True(negative.NeedsEvidenceMarker);
         var unknown = cells.Single(cell => cell.RowLabel == "Fri" && cell.StartHour == 11);
         Assert.Equal("", unknown.Value);
         Assert.Null(unknown.Fraction);
         Assert.True(unknown.Hatched);
+        Assert.Equal("?", unknown.Glyph(deviceStyle: true));
+        Assert.False(unknown.NeedsEvidenceMarker);
     }
 
     [Fact]
@@ -232,6 +244,9 @@ public sealed class DeviceActivityTests
         var daily = DeviceActivityPresentation.Cells(hourly, false).Single(cell => cell.RowLabel == "Sun 29 Mar" && cell.StartHour == 2);
         Assert.Equal("-", daily.Value);
         Assert.False(daily.Hatched);
+        Assert.Equal("N/A", daily.Glyph(deviceStyle: true));
+        Assert.Equal("-", daily.Glyph(deviceStyle: false));
+        Assert.False(daily.NeedsEvidenceMarker);
         var mixed = DeviceActivity.Group(evidence, 3).Days.Single(bucket => bucket.Date.Day == 29 && bucket.StartHour == 0);
         Assert.True(mixed.IsApplicable);
     }

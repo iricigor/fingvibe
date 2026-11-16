@@ -1,4 +1,5 @@
 using FingVibe.Core.Models;
+using FingVibe.Core.Updates;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
@@ -73,6 +74,23 @@ public sealed partial class SettingsPageView : UserControl
         SettingsPage.Visibility = Visibility.Collapsed;
         AboutView.Visibility = Visibility.Visible;
         AboutView.FocusHeading();
+    }
+
+    internal void ConfigureUpdates(ReleaseUpdateSession session, ReleaseUpdateActions actions, bool isFixture, Action close)
+    {
+        AboutView.ConfigureUpdates(session, actions, isFixture, close);
+        void Apply(UpdateState state)
+        {
+            var available = state.ConfirmedUpdate is not null;
+            AboutUpdateIndicator.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+            AboutSummary.Text = available
+                ? $"Update available: {state.ConfirmedUpdate!.VersionText} \u00b7 Last confirmed {state.ConfirmedAt:u}"
+                : $"{BuildIdentity.Current.Version} \u00b7 Build information and updates";
+            AutomationProperties.SetItemStatus(AboutSettingsButton, available ? "Update available" : "");
+            AutomationProperties.SetHelpText(AboutSettingsButton, AboutSummary.Text);
+        }
+        session.Changed += (_, state) => DispatcherQueue.TryEnqueue(() => Apply(state));
+        Apply(session.State);
     }
 
     internal void ShowPreferences()

@@ -150,14 +150,29 @@ public sealed class NetworkActivityTests
         var unknown = NetworkActivityPresentation.Create(empty, data, 1, true, new());
         Assert.Contains("unavailable", unknown.Legend);
         Assert.All(unknown.Cells, cell => Assert.True(cell.Hatched));
+        Assert.All(unknown.Cells, cell =>
+        {
+            Assert.Equal("?", cell.Glyph(deviceStyle: false));
+            Assert.False(cell.NeedsEvidenceMarker);
+        });
         var zero = NetworkActivityPresentation.Create(empty with { Scans = [Scan("2026-11-06T12:00:00Z")] }, data, 1, false, new());
         Assert.Contains("0 only", zero.Legend);
         Assert.Contains(zero.Cells, cell => cell.Value == "0" && !cell.Hatched);
+        Assert.All(zero.Cells.Where(cell => cell.Value == "0"), cell =>
+        {
+            Assert.Equal("0", cell.Glyph(deviceStyle: false));
+            Assert.False(cell.NeedsEvidenceMarker);
+        });
         var partial = NetworkActivityPresentation.Create(empty with
         {
             Scans = [Scan("2026-11-06T12:00:00Z") with { UnidentifiedResponses = 1 }]
         }, data, 1, false, new());
         Assert.Contains(partial.Cells, cell => cell.Value == "0+" && cell.Hatched && cell.Details.Contains("At least 0"));
+        Assert.All(partial.Cells.Where(cell => cell.Value == "0+"), cell =>
+        {
+            Assert.Equal("0+", cell.Glyph(deviceStyle: false));
+            Assert.False(cell.NeedsEvidenceMarker);
+        });
         Assert.Contains("lower bound 0+ only", partial.Legend);
         Assert.DoesNotContain("0 only", partial.Legend);
     }
@@ -183,6 +198,8 @@ public sealed class NetworkActivityTests
         Assert.Contains("Exact daily counts: 1, 2", wednesday.Details);
         Assert.Contains("2 / 4 applicable dates observed", wednesday.Details);
         Assert.True(wednesday.Hatched);
+        Assert.Equal("1.5", wednesday.Glyph(deviceStyle: false));
+        Assert.True(wednesday.NeedsEvidenceMarker);
         var contributors = NetworkActivityPresentation.Contributors(data, evidence);
         Assert.Equal(DeviceUsageCategory.Guest, contributors[0].Category);
         Assert.Equal(DeviceUsageCategory.Permanent, contributors[1].Category);

@@ -100,7 +100,11 @@ task to unrelated pickup or prove delivery. Do not automate the user's desktop.
 **Repair:** use the existing task PR/branch and exact assigned current head in a
 fresh `repair` task worktree. Verify the run's `repairs` allowance (default 12 per task) against past
 attempts in task reports; missing history is not a fresh allowance. Record/read back the next
-attempt before edits. Never reset counts, weaken gates, blindly rerun, or expand
+attempt before edits. When the candidate carries `finalizeRejection`, read that
+assignment's Discussion report and treat its reason as the failure evidence to
+repair. If the allowance is exhausted or the failure is outside repair authority,
+record the reason and recovery action and add `status:blocked` instead of editing.
+Never reset counts, weaken gates, blindly rerun, or expand
 scope. Repair within authority, push/report the new head and finish without
 waiting for CI. A different suitable Developer may continue the same PR only
 with verified context and no overlapping execution; do not create a competing PR.
@@ -109,6 +113,22 @@ with verified context and no overlapping execution; do not create a competing PR
 applicable checks/reviews/acceptance and affected-UI duration. Above 240 seconds
 requires remediation only for UI changed by this task; missing evidence blocks.
 Do not edit/rebase/repair during finalize. Mark ready/remove WIP only when ready.
+If finalization cannot proceed on the verified current head, choose exactly one
+outcome so the next cycle does not offer the same finalize again:
+
+- **Repairable within task scope** (for example a stale base, failing review or
+  acceptance gap, or affected-UI duration above 240 seconds): add
+  `<!-- fingvibe:finalize-rejected=<assignment-id> head=<current-head-sha> -->`
+  with the reason and evidence to your end-of-work comment. While that head is
+  unchanged, the packet offers the task as `failed`, which Dispatcher starts as
+  `repair`, even with green CI.
+- **Not repairable by a Developer** (for example missing permissions, a required
+  human decision, or an exhausted `repairs` allowance): record the reason and
+  recovery action, then add `status:blocked`. Preserve all other labels. Do not
+  add the rejection marker.
+
+If the PR head differs from the assigned expected head, report the mismatch
+without either outcome; the next cycle reassesses the new head.
 Merge only when the run's `merge` permission allows it (default yes), bound to the
 verified current head and without bypassing protections; verify delivery, closure, labels and Epic checklist.
 After verified merge and closure, confirm the task Discussion shows no open

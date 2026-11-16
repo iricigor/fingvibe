@@ -7,12 +7,15 @@ function Assert-Fails([scriptblock] $Action, [string] $Pattern) {
     catch { if ($_.Exception.Message -notlike $Pattern) { throw }; return }
     throw "Expected failure matching $Pattern."
 }
-$configuration = @{ repository = "TestOwner/TestRepo"; epic = 92 }
+$configuration = @{ repository = "TestOwner/TestRepo"; epic = 92; mergeabilityRereadSeconds = 0 }
+$fixtureMergeableReads = @{}
 $fixtureLinks = @{}
 $fixtureCiStatus = "completed"
 $fixtureConclusion = "success"
 $fixtureSecondConclusion = "failure"
 $fixtureStatuses = @()
+$fixtureMergeable = $true
+$fixtureNoCi = $false
 $fixturePulls = @(@{ number = 200; node_id = "PR200"; head = @{ sha = "a"*40 } },
     @{ number = 201; node_id = "PR201"; head = @{ sha = "b"*40 } })
 $children = @(101..106 | ForEach-Object { @{
@@ -38,6 +41,14 @@ $fixtureReader = {
         '/issues/comments' { @(); break }
         '/sub_issues' { $children; break }
         '/pulls\?' { $fixturePulls; break }
+        '/pulls/(\d+)$' {
+            $pull = $fixturePulls | Where-Object number -EQ ([int] $Matches[1])
+            $queued = $fixtureMergeableReads[[int] $pull.number]
+            $mergeable = if ($queued -and $queued.Count) { $queued.Dequeue() } else { $fixtureMergeable }
+            @{ number = $pull.number; head = $pull.head; mergeable = $mergeable
+                mergeable_state = $(if ($null -eq $mergeable) { "unknown" } elseif ($mergeable -eq $false) { "dirty" } else { "clean" })
+                base = @{ sha = "d"*40; ref = "main" } }; break
+        }
         '/pulls/\d+/files' { @(@{ filename = "shared.cs"; patch = "fixture diff" }); break }
         '/pulls/\d+/reviews' { @(@{ id = 201; state = "CHANGES_REQUESTED" }); break }
         '/statuses\?' { $fixtureStatuses; break }
@@ -46,11 +57,13 @@ $fixtureReader = {
         '/issues/106/dependencies/' { @($closedDependency); break }
         '/dependencies/' { @(); break }
         '/check-runs' {
+            if ($fixtureNoCi) { @{ total_count = 0; check_runs = @() }; break }
             $head = if ($Endpoint.Contains("a"*40)) { "a"*40 } else { "b"*40 }
             @{ total_count = 1; check_runs = @(@{ id = 1; name = "CI"; head_sha = $head
                 status = $fixtureCiStatus; conclusion = $(if ($head.StartsWith("a")) { $fixtureConclusion } else { $fixtureSecondConclusion }) }) }; break
         }
         '/actions/runs\?' {
+            if ($fixtureNoCi) { @{ total_count = 0; workflow_runs = @() }; break }
             if ($Endpoint.Contains("a"*40)) {
                 @{ total_count = 1; workflow_runs = @(@{ id = 300; workflow_id = 8; name = "Validation"
                     head_sha = "a"*40; status = $fixtureCiStatus; conclusion = $fixtureConclusion }) }
@@ -189,6 +202,63 @@ try {
     $external = Get-Agent4WorkPacket $configuration (Join-Path $root "external.json") $fixtureReader
     Assert-True (104 -notin $external.candidates.issue -and 103 -notin $external.candidates.issue) "Collector must include external pending statuses even without response sha."
     $fixtureStatuses = @()
+    $fixtureNoCi = $true
+    $noChecks = Get-Agent4WorkPacket $configuration (Join-Path $root "no-checks.json") $fixtureReader
+    Assert-True (104 -notin $noChecks.candidates.issue) "Absent checks alone must not authorize repair."
+    $fixtureMergeable = $false
+    $conflicts = Get-Agent4WorkPacket $configuration (Join-Path $root "conflicts.json") $fixtureReader
+    $conflicting = $conflicts.candidates | Where-Object issue -EQ 104
+    Assert-True ($conflicting.category -eq "failed" -and $conflicting.rank -eq 1 -and
+        $conflicting.pr.mergeable -ceq $false -and $conflicting.pr.mergeable_state -eq "dirty" -and
+        $conflicting.pr.head.sha -eq ("a"*40) -and $conflicting.pr.base.sha -eq ("d"*40)) "Confirmed conflicts without CI must carry current PR/head/base evidence into repair offers."
+    $conflictEvidence = Read-Agent4Json (Join-Path $root "conflicts.json")
+    Assert-True ($conflictEvidence.reads.'repos/TestOwner/TestRepo/pulls/200|False|'.mergeable -ceq $false) "Retain the individual PR response as conflict evidence."
+    $fixtureNoCi = $false
+    $fixtureCiStatus = "in_progress"
+    $conflictPending = Get-Agent4WorkPacket $configuration (Join-Path $root "conflict-pending.json") $fixtureReader
+    Assert-True (($conflictPending.candidates | Where-Object issue -EQ 104).category -eq "failed") "Confirmed conflicts take priority over pending CI."
+    $fixtureCiStatus = "completed"
+    $conflictGreen = Get-Agent4WorkPacket $configuration (Join-Path $root "conflict-green.json") $fixtureReader
+    Assert-True (($conflictGreen.candidates | Where-Object issue -EQ 104).category -eq "failed") "Green head checks cannot finalize a conflicting PR."
+    $children[3].labels += @{ name = "status:blocked" }
+    $conflictBlocked = Get-Agent4WorkPacket $configuration (Join-Path $root "conflict-blocked.json") $fixtureReader
+    Assert-True (104 -notin $conflictBlocked.candidates.issue -and
+        ($conflictBlocked.blocked | Where-Object issue -EQ 104).reason -eq "Explicit task blocker.") "Conflicts do not override existing task exclusions."
+    $children[3].labels = @(@{ name = "type:task" })
+    $fixtureMergeableReads[200] = [Collections.Generic.Queue[object]]::new([object[]] @($null, $true))
+    $observedReads.Clear()
+    $rereadResolved = Get-Agent4WorkPacket $configuration (Join-Path $root "mergeability-reread.json") $fixtureReader
+    $resolved = $rereadResolved.candidates | Where-Object issue -EQ 104
+    Assert-True ($resolved.category -eq "success" -and $resolved.pr.mergeable -ceq $true) "A resolved re-read replaces transient unknown mergeability."
+    Assert-True (@($observedReads | Where-Object { $_ -like "*/pulls/200|" }).Count -eq 2 -and
+        @($observedReads | Where-Object { $_ -like "*/pulls/201|" }).Count -eq 1) "Re-read only unknown mergeability, exactly once."
+    $rereadEvidence = Read-Agent4Json (Join-Path $root "mergeability-reread.json")
+    Assert-True ($null -eq $rereadEvidence.reads.'repos/TestOwner/TestRepo/pulls/200|False|'.mergeable -and
+        $rereadEvidence.reads.'repos/TestOwner/TestRepo/pulls/200|reread'.mergeable -ceq $true) "Retain both mergeability reads as evidence."
+    $fixtureMergeable = $null
+    $observedReads.Clear()
+    $mergeabilityUnknown = Get-Agent4WorkPacket $configuration (Join-Path $root "mergeability-unknown.json") $fixtureReader
+    $presumed = $mergeabilityUnknown.candidates | Where-Object issue -EQ 104
+    Assert-True ($presumed.category -eq "success" -and $null -eq $presumed.pr.mergeable -and
+        $presumed.pr.mergeable_state -eq "unknown" -and 104 -notin $mergeabilityUnknown.blocked.issue) "Unknown after one re-read is presumed conflict-free and evaluated by CI, keeping unknown evidence."
+    Assert-True (@($observedReads | Where-Object { $_ -like "*/pulls/200|" }).Count -eq 2) "Persistent unknown mergeability is re-read only once."
+    $fixtureCiStatus = "in_progress"
+    $unknownPending = Get-Agent4WorkPacket $configuration (Join-Path $root "mergeability-unknown-pending.json") $fixtureReader
+    Assert-True (($unknownPending.blocked | Where-Object issue -EQ 104).reason -eq "Current-head CI is pending.") "Presumed conflict-free PRs keep CI blocking rules."
+    $fixtureCiStatus = "completed"
+    $fixtureMergeableReads[200] = [Collections.Generic.Queue[object]]::new([object[]] @($null))
+    $driftOnReread = {
+        param($Endpoint, $Paginated, $Query)
+        if ($Endpoint -match '/pulls/200$' -and $fixtureMergeableReads[200].Count -eq 0) {
+            return '{"number":200,"head":{"sha":"changed"},"mergeable":true}'
+        }
+        & $fixtureReader $Endpoint $Paginated $Query
+    }
+    Assert-Fails { Get-Agent4WorkPacket $configuration (Join-Path $root "reread-drift.json") $driftOnReread } "*PR identity/head changed*"
+    $fixtureMergeable = $true
+    $conflictFree = Get-Agent4WorkPacket $configuration (Join-Path $root "conflict-free.json") $fixtureReader
+    Assert-True (($conflictFree.candidates.issue -join ",") -eq ($sorted.candidates.issue -join ",") -and
+        ($conflictFree.candidates.category -join ",") -eq ($sorted.candidates.category -join ",")) "Conflict-free PRs retain normal CI ordering and categories."
     $fixtureLinks = @{}; $fixtureConclusion = "success"
     $head = "a"*40
     $ciCache = @{
@@ -256,6 +326,24 @@ try {
         ($successAndResume.developerOffers[1].candidates.issue -join ",") -eq "103,101" -and
         $successAndResume.developerOffers[1].candidates[1].released.assignmentId -eq "A1") "Sharing success preserves resumed work and its release evidence as Developer 2's fallback."
     $fixtureSecondConclusion = "failure"
+    $finalizeSend = "Sending #101 to Developer 2 <!-- fingvibe:assignment=F1 developer=developer-2 action=finalize -->"
+    $finalizeEnd = "Rejected <!-- fingvibe:assignment-end=F1 -->"
+    $fixtureTaskComments.T1 = @(New-TaskComment "TC1" "2026-11-15T10:00:00Z" $send
+        New-TaskComment "TC2" "2026-11-15T11:00:00Z" "Done <!-- fingvibe:assignment-end=A1 -->"
+        New-TaskComment "TC4" "2026-11-15T12:00:00Z" $finalizeSend
+        New-TaskComment "TC5" "2026-11-15T13:00:00Z" "$finalizeEnd <!-- fingvibe:finalize-rejected=F1 head=$("A"*40) -->")
+    $rejected = Get-Agent4WorkPacket $configuration (Join-Path $root "rejected.json") $fixtureReader
+    $rejectedCandidate = $rejected.candidates | Where-Object issue -EQ 101
+    Assert-True ($rejectedCandidate.category -eq "failed" -and $rejectedCandidate.finalizeRejection.assignmentId -eq "F1" -and
+        $rejectedCandidate.finalizeRejection.head -eq ("a"*40) -and $rejectedCandidate.pr.number -eq 200 -and
+        -not $rejectedCandidate.released) "A rejected finalize on the current green head is offered for repair, not finalize again."
+    $fixtureTaskComments.T1[3] = New-TaskComment "TC5" "2026-11-15T13:00:00Z" "$finalizeEnd <!-- fingvibe:finalize-rejected=F1 head=$("c"*40) -->"
+    $newHead = Get-Agent4WorkPacket $configuration (Join-Path $root "rejected-new-head.json") $fixtureReader
+    $newHeadCandidate = $newHead.candidates | Where-Object issue -EQ 101
+    Assert-True ($newHeadCandidate.category -eq "success" -and -not $newHeadCandidate.finalizeRejection) "A new PR head returns to normal CI classification."
+    $fixtureTaskComments.T1[3] = New-TaskComment "TC5" "2026-11-15T13:00:00Z" "$finalizeEnd <!-- fingvibe:finalize-rejected=A1 head=$("a"*40) -->"
+    $notFinalize = Get-Agent4WorkPacket $configuration (Join-Path $root "rejected-not-finalize.json") $fixtureReader
+    Assert-True (($notFinalize.candidates | Where-Object issue -EQ 101).category -eq "success") "Rejection markers must reference a finalize assignment in the task Discussion."
     $fixtureLinks = @{}; $fixtureCiStatus = "completed"; $fixtureTaskDiscussions = @(); $fixtureTaskComments = @{}
     foreach ($child in $children) { $child.labels = @(@{ name = "active" }) }
     $noOfferWork = Get-Agent4WorkPacket $configuration (Join-Path $root "no-offer-work.json") $fixtureReader
@@ -277,6 +365,19 @@ try {
         Get-Agent4WorkPacket $configuration (Join-Path $root "failed.json") { throw "GitHub collection failed" }
     } "*collection failed*"
     Assert-True (-not [IO.File]::Exists((Join-Path $root "failed.json"))) "Collection failure must not publish success evidence."
+    $stalePull = {
+        param($Endpoint, $Paginated, $Query)
+        if ($Endpoint -match '/pulls/200$') { return '{"number":200,"head":{"sha":"changed"},"mergeable":false}' }
+        & $fixtureReader $Endpoint $Paginated $Query
+    }
+    Assert-Fails { Get-Agent4WorkPacket $configuration (Join-Path $root "stale-pr.json") $stalePull } "*PR identity/head changed*"
+    Assert-True (-not [IO.File]::Exists((Join-Path $root "stale-pr.json"))) "PR head drift must not publish actionable evidence."
+    $missingMergeability = {
+        param($Endpoint, $Paginated, $Query)
+        if ($Endpoint -match '/pulls/200$') { return '{"number":200,"head":{"sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}' }
+        & $fixtureReader $Endpoint $Paginated $Query
+    }
+    Assert-Fails { Get-Agent4WorkPacket $configuration (Join-Path $root "missing-mergeability.json") $missingMergeability } "*Incomplete PR mergeability*"
     $malformed = {
         param($Endpoint, $Paginated, $Query)
         if ($Endpoint -match '/check-runs') { return '[{}]' }

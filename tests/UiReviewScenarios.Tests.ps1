@@ -847,7 +847,8 @@ try {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceHistory") "Device activity"
     }
     foreach ($path in @("src\FingVibe.App\DeviceActivityPresentation.cs", "src\FingVibe.App\DeviceActivityReviewHold.cs",
-        "src\FingVibe.App\Views\ActivityGridRenderer.cs", "src\FingVibe.Core\Models\DeviceActivity.cs")) {
+        "src\FingVibe.App\Views\ActivityGridRenderer.cs", "src\FingVibe.Core\Models\DeviceActivity.cs",
+        "tests\ActivityGrid.Ui.Helpers.ps1")) {
         Test-Change @{ $path = "changed" } @("Devices", "Network", "DeviceHistory", "PersonDetails") "Shared activity grid"
     }
     foreach ($path in @("src\FingVibe.App\MainWindow.NetworkActivity.cs",
@@ -909,6 +910,11 @@ try {
     Test-Change @{ "src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml.cs" = "changed" } @("Devices", "Tools", "Troubleshooting") "Troubleshooting behavior"
     Test-Change @{ "src\FingVibe.App\Tools\AboutPage.xaml" = "changed" } @("Devices", "About", "Settings") "About view"
     Test-Change @{ "src\FingVibe.App\Tools\AboutPage.xaml.cs" = "changed" } @("Devices", "About", "Settings") "About behavior"
+    foreach ($updateOwner in @("src\FingVibe.App\Tools\AboutPage.Updates.cs", "src\FingVibe.App\MainWindow.Updates.cs",
+        "src\FingVibe.App\Updates\ReleaseUpdateActions.cs", "src\FingVibe.Core\Updates\ReleaseUpdateSession.cs",
+        "tests\ReleaseUpdates.Ui.Tests.ps1")) {
+        Test-Change @{ $updateOwner = "changed" } @("Devices", "About", "Settings") "Update owner selects Settings and About: $updateOwner"
+    }
     Test-Change @{ "src\FingVibe.App\Tools\FingImportPage.xaml" = "changed" } @("Devices", "Tools", "FingImport") "Fing import view"
     Test-Change @{ "src\FingVibe.App\Tools\FingImportPage.xaml.cs" = "changed" } @("Devices", "Tools", "FingImport") "Fing import behavior"
     Test-Change @{ "src\FingVibe.App\Tools\SqlEditorPage.xaml" = "changed" } @("Devices", "Tools", "SqlEditor") "SQL editor view"

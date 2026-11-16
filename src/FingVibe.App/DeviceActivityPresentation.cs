@@ -8,6 +8,23 @@ public sealed record DeviceActivityCell(
     AnalyticsResponse Response, decimal? Fraction, bool Hatched, string Value, string Details)
 {
     public bool IsFuture { get; init; }
+
+    public bool NeedsEvidenceMarker => IsApplicable && !IsFuture && Hatched
+        && Response != AnalyticsResponse.Unknown && !Value.EndsWith('+');
+
+    public string Glyph(bool deviceStyle)
+    {
+        if (!IsApplicable) return deviceStyle ? "N/A" : Value;
+        if (IsFuture) return "\u00B7";
+        if (!string.IsNullOrEmpty(Value))
+            return Value + (deviceStyle && Response == AnalyticsResponse.DidNotRespond ? "\u2212" : "");
+        return Response switch
+        {
+            AnalyticsResponse.Responded => "R",
+            AnalyticsResponse.DidNotRespond => deviceStyle ? "\u2212" : "N",
+            _ => "?"
+        };
+    }
 }
 
 public static class DeviceActivityPresentation

@@ -21,6 +21,7 @@ public sealed partial class MainWindow : Window
         InitializeComponent();
         InitializeNavigationPane();
         InitializeBuildIdentity();
+        InitializeUpdates();
         InitializeIspLogo();
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "Scanner.ico"));
         ToolsPage.ActivityCoordinator = _networkActivityCoordinator;
@@ -47,6 +48,7 @@ public sealed partial class MainWindow : Window
 
     private async void MainWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
     {
+        StopUpdates();
         _backupScheduler?.Dispose();
         if (_allowWindowClose
             || (!ToolsPage.HasActiveTest && _devicePortScanCancellation is null && !_periodicScanController.IsActive && !_isScanning))
@@ -88,6 +90,7 @@ public sealed partial class MainWindow : Window
             settingsItem.Content = "Settings";
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(settingsItem, "Settings");
         }
+        if (_updates is not null) ApplyUpdateIndicator(_updates.State);
 
         await RestoreInventoryAsync();
         ScheduleStartupBackup();
