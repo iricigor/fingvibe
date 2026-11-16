@@ -169,6 +169,17 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
     $pulls = Read-Evidence "repos/$repository/pulls?state=open&per_page=100" $true
     foreach ($pr in $pulls) {
         if (-not $pr.number -or -not $pr.head.sha -or -not $pr.node_id) { throw "Incomplete open PR." }
+        $detail = Read-Evidence "repos/$repository/pulls/$($pr.number)"
+        if ($detail.number -ne $pr.number -or $detail.head.sha -cne $pr.head.sha) {
+            throw "PR identity/head changed during evidence collection: #$($pr.number)."
+        }
+        if (-not $detail.ContainsKey("mergeable") -or
+            ($null -ne $detail.mergeable -and $detail.mergeable -isnot [bool])) {
+            throw "Incomplete PR mergeability evidence: #$($pr.number)."
+        }
+        $pr.mergeable = $detail.mergeable
+        $pr.mergeable_state = $detail.mergeable_state
+        $pr.base = $detail.base
         $pr.linkedIssues = Read-Connection $pr.node_id closingIssuesReferences
         $null = Read-Evidence "repos/$repository/pulls/$($pr.number)/files?per_page=100" $true
         $null = Read-Evidence "repos/$repository/pulls/$($pr.number)/reviews?per_page=100" $true
@@ -311,6 +322,11 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
                 } elseif ($record -and $record.finalizeRejection -and $record.finalizeRejection.head -ieq $pull.head.sha) {
                     # Green CI on a rejected head would re-offer finalize forever; repair it instead.
                     $category = "failed"; $rank = 1; $rejection = $record.finalizeRejection
+                } elseif ($pull.mergeable -ceq $false) {
+                    # Conflicts prevent pull_request workflows from starting, leaving CI unknown.
+                    $category = "failed"; $rank = 1
+                } elseif ($null -eq $pull.mergeable) {
+                    $reason = "Current PR mergeability is unknown."
                 } else {
                     $ci = Get-Agent4CiStage $pull $cache
                     if ($ci -in @("pending", "unknown")) { $reason = "Current-head CI is $ci." }
