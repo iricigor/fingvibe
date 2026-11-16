@@ -8,6 +8,7 @@ if ($env:GITHUB_ACTIONS -ne "true") { throw "Usage-category UI checks require a 
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
 . (Join-Path $PSScriptRoot "UiRegression\Helpers.ps1")
+. (Join-Path $PSScriptRoot "PageHeaders.Ui.Helpers.ps1")
 . (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
 Initialize-InventorySqlite $AppPath
 
@@ -234,6 +235,8 @@ function Test-UsageTextScaling {
         Wait-Usage { [Math]::Abs($settings.TextScaleFactor - 2) -lt 0.01 } "effective Windows text scale of 200 percent"
         Start-UsageApp
         Assert-UsageCell "Concurrent name" Permanent $true -Narrow -Scaled -Capture "usage-badge-text-scale-200"
+        Test-PageBackHeaders $script:root $script:process.MainWindowHandle $ScreenshotDirectory 'text-scale-200' `
+            -OpenDetails { Open-UsageDevice 'Concurrent name' } -Scaled
         $failed = $false
     }
     finally {
@@ -504,6 +507,11 @@ try {
             }
             Save-UsageCapture "usage-$($theme.Replace(' ', '-'))-$width" UsageCategorySave
             Invoke-Usage UsageCategoryCancel
+            if (($theme -eq 'Standard Light' -and $width -eq $bounds.Width) -or
+                ($theme -eq 'Standard Dark' -and $width -eq 640)) {
+                Test-PageBackHeaders $script:root $script:process.MainWindowHandle $ScreenshotDirectory `
+                    "$($theme.Replace(' ', '-'))-$width" -OpenDetails { Open-UsageDevice 'Concurrent name' }
+            }
         }
         $null = [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
             $bounds.Left, $bounds.Top, $bounds.Width, $bounds.Height, 0x0044)
@@ -526,6 +534,8 @@ try {
     Invoke-Usage UsageCategoryCancel
     Assert-Usage Permanent "Auto"
     Assert-UsageCell "Concurrent name" Permanent $true -Capture "usage-badge-high-contrast"
+    Test-PageBackHeaders $script:root $script:process.MainWindowHandle $ScreenshotDirectory 'high-contrast' `
+        -OpenDetails { Open-UsageDevice 'Concurrent name' }
     [UsageReviewContrast]::Set($contrast)
     $contrast = $null
     $phase = Step-UiRegressionPhase $phase "usage/text-scaling" $ScreenshotDirectory

@@ -97,6 +97,10 @@ function Get-UiReviewCapturePlan {
                     Add-Scenarios @($UiReviewScenarios.Keys) "$path changed shared window layout."
                 }
             }
+            elseif ($path -in @('src/FingVibe.App/PageHeaderSizing.cs', 'tests/PageHeaders.Ui.Helpers.ps1')) {
+                Add-Scenarios @("DeviceDetails", "DeviceHistory", "SpeedTest", "Troubleshooting",
+                    "About", "FingImport", "SqlEditor", "DatabaseBackups", "Settings") "$path changed Back headers."
+            }
             elseif ($path -match '^src/FingVibe.App/Views/([^/]+)\.xaml(\.cs)?$') {
                 $viewScenarios = @{
                     OverviewPageView = @("Overview")

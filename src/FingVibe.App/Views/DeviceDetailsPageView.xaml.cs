@@ -33,6 +33,14 @@ public sealed partial class DeviceDetailsPageView : UserControl
     public DeviceDetailsPageView()
     {
         InitializeComponent();
+        var headerSizing = (PageHeaderSizing)Application.Current.Resources["PageHeaderSizing"];
+        OverviewTab.ApplyTemplate();
+        headerSizing.MeasureReference(OverviewTab);
+        OverviewTab.SizeChanged += (_, args) =>
+        {
+            if (args.NewSize.Width > 0 && args.NewSize.Height > 0)
+                headerSizing.SetReferenceSize(args.NewSize);
+        };
         InitializeClassificationPickers();
         InitializeUsageCategory();
         DeviceScanHistoryExpander.Visibility =

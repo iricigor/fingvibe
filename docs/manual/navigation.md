@@ -60,6 +60,10 @@ Device details has a **Devices** return action. Individual Tools pages have a
 unfinished draft unless the page explicitly says so.
 
 About has a **Settings** return action that restores focus to its Settings row.
+These single-line arrow-and-destination buttons stay at the left of the page
+header, before the tabs or tool icon and title. Their normal minimum size matches
+the individual **Overview** tab in Device details, not the padded tab group.
+Longer destinations and enlarged Windows text can grow the buttons.
 
 Use **Tab** to move through controls, and **Enter** or **Space** to activate the
 focused control. Checkboxes expose their selected state. Tooltips and accessible

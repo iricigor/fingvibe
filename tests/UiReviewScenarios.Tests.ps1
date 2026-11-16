@@ -114,6 +114,43 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
 }
 
 & {
+    . (Join-Path $PSScriptRoot 'PageHeaders.Ui.Helpers.ps1')
+    $rect = {
+        param($Left, $Top, $Width, $Height)
+        [pscustomobject]@{ Left = $Left; Top = $Top; Width = $Width; Height = $Height
+            Right = $Left + $Width; Bottom = $Top + $Height }
+    }
+    $back = & $rect 10 10 100 44
+    $reference = & $rect 126 10 100 44
+    $text = & $rect 20 22 75 20
+    $window = & $rect 0 0 500 500
+    Assert-PageBackGeometry $back $reference $reference $text $window 1 10
+    Assert-PageBackGeometry $back $reference (& $rect 10 70 100 44) $text $window 1 10
+    Assert-PageBackGeometry (& $rect 10 10 150 66) $reference (& $rect 180 10 100 44) $text $window 1 10 -Scaled
+    Assert-PageBackGeometry (& $rect 10 10 150 66) (& $rect 180 10 150 66) `
+        (& $rect 180 10 150 66) $text $window 1.5 10
+    Assert-Throws {
+        Assert-PageBackGeometry (& $rect 10 10 102 44) $reference $reference $text $window 1 10
+    } '*within 1 DIP*'
+    Assert-Throws {
+        Assert-PageBackGeometry $back (& $rect 122 6 108 52) $reference $text $window 1 10
+    } '*within 1 DIP*'
+    Assert-Throws {
+        Assert-PageBackGeometry $back $reference (& $rect 0 10 100 44) $text $window 1 10
+    } '*precede*'
+    Assert-Throws {
+        Assert-PageBackGeometry $back $reference $reference (& $rect 20 22 100 20) $window 1 10
+    } '*clipped by Back*'
+    Assert-Throws {
+        Assert-PageBackGeometry $back $reference $reference $text $window 1 0
+    } '*content left edge*'
+    $errors = $null
+    $null = [Management.Automation.Language.Parser]::ParseFile(
+        (Join-Path $PSScriptRoot 'PageHeaders.Ui.Helpers.ps1'), [ref]$null, [ref]$errors)
+    if ($errors) { throw ($errors.Message -join '; ') }
+}
+
+& {
     . (Join-Path $PSScriptRoot 'UiRegression\Helpers.ps1')
     Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
     $historyUi = Get-Content (Join-Path $PSScriptRoot "DeviceScanHistory.Ui.Tests.ps1") -Raw
@@ -403,6 +440,11 @@ try {
     $base = $originalBase
     Test-Change @{ "src\FingVibe.App\MainWindow.DeviceDetails.cs" = "changed" } `
         @("Devices", "DeviceDetails", "DeviceHistory") "Device details code"
+    foreach ($path in @("src\FingVibe.App\PageHeaderSizing.cs", "tests\PageHeaders.Ui.Helpers.ps1")) {
+        Test-Change @{ $path = "changed" } `
+            @("Devices", "DeviceDetails", "DeviceHistory", "SpeedTest", "Troubleshooting", "About",
+                "FingImport", "SqlEditor", "DatabaseBackups", "Settings") "Back header owners"
+    }
     foreach ($path in @("src\FingVibe.App\DeviceDetailsPresentation.cs", "src\FingVibe.App\Views\DeviceDetailValue.cs",
         "src\FingVibe.App\Views\DeviceScanHistoryItem.cs")) {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails", "DeviceHistory") "Device details presentation"
@@ -607,34 +649,39 @@ try {
             $titles += $card.SelectSingleNode(".//*[local-name()='TextBlock' and @Text='$($tool.Title)']")
         } elseif ($card) { throw "About must no longer appear in Tools." }
         foreach ($title in $titles) {
+            $isPageTitle = $title -eq $pageTitle
+            $titleColumn = if ($isPageTitle) { "2" } else { "1" }
             if (-not $title -or $title.GetAttribute("TextWrapping") -cne "Wrap" -or
-                $title.GetAttribute("Grid.Column") -cne "1" -or $title.GetAttribute("VerticalAlignment") -cne "Center") {
+                $title.GetAttribute("Grid.Column") -cne $titleColumn -or $title.GetAttribute("VerticalAlignment") -cne "Center") {
                 throw "$($tool.Title) must wrap and center beside its icon."
             }
             $header = $title.ParentNode
             $columns = $header.SelectNodes("./*[local-name()='Grid.ColumnDefinitions']/*[local-name()='ColumnDefinition']")
-            $isPageTitle = $title -eq $pageTitle
             $expectedColumns = if ($isPageTitle) { 3 } else { 2 }
             if ($header.LocalName -cne "Grid" -or $header.GetAttribute("ColumnSpacing") -cne "12" -or
                 $columns.Count -ne $expectedColumns -or $columns[0].GetAttribute("Width") -cne "Auto" -or
-                $columns[1].GetAttribute("Width") -cne "*") {
+                $columns[$expectedColumns - 1].GetAttribute("Width") -cne "*") {
                 throw "$($tool.Title) must reserve icon space and constrain the title for wrapping."
             }
             if ($isPageTitle) {
                 $destination = if ($tool.Page -eq "AboutPage") { "Settings" } else { "Tools" }
                 $back = $header.SelectSingleNode("./*[local-name()='Button' and @AutomationProperties.Name='Back to $destination']")
-                if (-not $back -or $columns[2].GetAttribute("Width") -cne "Auto" -or
-                    $back.GetAttribute("Grid.Column") -cne "2" -or
-                    $back.GetAttribute("VerticalAlignment") -cne "Center" -or
+                if (-not $back -or $columns[1].GetAttribute("Width") -cne "Auto" -or
+                    $back.GetAttribute("Grid.Column") -notin @("", "0") -or
+                    $header.SelectSingleNode("./*[local-name()='Button' or local-name()='FontIcon' or local-name()='TextBlock']") -ne $back -or
                     $back.GetAttribute("Content") -cne "$([char]0x2190) $destination" -or
                     $pageDocument.SelectNodes("//*[local-name()='Button' and @AutomationProperties.Name='Back to $destination']").Count -ne 1 -or
-                    $back.HasAttribute("Style")) {
-                    throw "$($tool.Title) must have one neutral back action at the right of its title row."
+                    $back.GetAttribute("Style") -cne "{StaticResource PageBackButtonStyle}" -or
+                    $back.HasAttribute("Width") -or $back.HasAttribute("Height")) {
+                    throw "$($tool.Title) must have one content-safe neutral Back action first in its title row."
                 }
             }
             $icons = $header.SelectNodes("./*[local-name()='FontIcon']")
             if ($icons.Count -ne 1) { throw "$($tool.Title) must have exactly one decorative header icon." }
             $icon = $icons[0]
+            if ($isPageTitle -and $icon.GetAttribute("Grid.Column") -cne "1") {
+                throw "$($tool.Title) must keep its decorative icon with the heading after Back."
+            }
             foreach ($attribute in @{
                 Glyph = [string][char]$tool.Glyph
                 FontFamily = "Segoe Fluent Icons"

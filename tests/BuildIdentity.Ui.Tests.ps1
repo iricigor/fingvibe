@@ -336,10 +336,10 @@ try {
         $heading = Find-Element "About FingVibe" ([System.Windows.Automation.ControlType]::Text)
         $backBounds = $back.Current.BoundingRectangle
         $headingBounds = $heading.Current.BoundingRectangle
-        if ($backBounds.Left -lt $headingBounds.Right -or
+        if ($backBounds.Right -gt $headingBounds.Left -or
             [Math]::Abs(($backBounds.Top + $backBounds.Height / 2) -
                 ($headingBounds.Top + $headingBounds.Height / 2)) -gt 3) {
-            throw "Back to Settings must be right of and vertically centered with the About heading."
+            throw "Back to Settings must be left of and vertically centered with the About heading."
         }
         $null = Find-Element "v$Version" ([System.Windows.Automation.ControlType]::Text)
         $null = Find-Element $label ([System.Windows.Automation.ControlType]::Text)
