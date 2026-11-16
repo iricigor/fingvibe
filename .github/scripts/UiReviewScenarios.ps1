@@ -158,7 +158,8 @@ function Get-UiReviewCapturePlan {
                 [System.IO.Path]::GetFileName($path) -notin @("ToolsPage.xaml", "SpeedTestPage.xaml", "AboutPage.xaml", "NetworkTroubleshootingPage.xaml", "FingImportPage.xaml", "SqlEditorPage.xaml", "DatabaseBackupsPage.xaml")) {
                 throw "View '$path' has no selection rule. Extend the scenario catalog, selection, navigation, and tests."
             }
-            elseif ($path -match '^src/FingVibe.App/Tools/AboutPage\.xaml(\.cs)?$') {
+            elseif ($path -match '^src/FingVibe.App/(Tools/AboutPage(\.Updates\.cs|\.xaml(\.cs)?)|MainWindow\.Updates\.cs|Updates/.+\.cs)$' -or
+                $path -match '^src/FingVibe.Core/Updates/' -or $path -eq 'tests/ReleaseUpdates.Ui.Tests.ps1') {
                 Add-Scenarios @("Settings", "About") "$path changed About FingVibe."
             }
             elseif ($path -match '^src/FingVibe.App/Tools/FingImportPage\.xaml(\.cs)?$') {
