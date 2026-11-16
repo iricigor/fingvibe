@@ -64,6 +64,10 @@ from its own Setup/Ready, without relying on a completed inventory scan;
 isolated `Setup`/`Ready` preconditions. Sidebar lifecycle helpers retain their
 entry-script-scoped handles across restarts; Setup resets those handles before
 each group. `SidebarNavigation.Tests.ps1 -Group <name>` selects a group.
+Settings consumers must expand the owning section before waiting for its child
+controls, then wait for rendered visibility after native expansion.
+`Set-UiReviewAppearanceChoice` expands only actual Settings pickers; other
+pickers retain their own page context.
 
 Tools uses `Tools.Groups.psd1` and `Tools.Ui.Tests.ps1 -Group <name>`:
 `utilities` runs BuildIdentity, Troubleshooting, FingImport and DatabaseBackups; `device-data`

@@ -71,10 +71,14 @@ Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
         param($Scope, $Condition)
         if ($Condition -is [System.Windows.Automation.AndCondition]) { return $item }
         if ($Condition.Value -in @("AppearanceSection", "ScheduledScansSection")) {
+            if ($pickerUnderTest -eq "ActivityPeriod") {
+                throw "A non-Settings picker must not query or expand Settings."
+            }
             $lookedUpSections.Add($Condition.Value)
             return $sectionPeer
         }
-        if ($sectionState.ExpandCollapseState -ne [System.Windows.Automation.ExpandCollapseState]::Expanded) {
+        if ($Condition.Value -ne "ActivityPeriod" -and
+            $sectionState.ExpandCollapseState -ne [System.Windows.Automation.ExpandCollapseState]::Expanded) {
             throw "A collapsed Settings section must expand before its picker is queried."
         }
         return $combo
@@ -86,6 +90,10 @@ Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
     if (($lookedUpSections -join ",") -ne "AppearanceSection,ScheduledScansSection") {
         throw "Each picker must expand its owning Settings section."
     }
+    $pickerUnderTest = "ActivityPeriod"
+    $sectionState.ExpandCollapseState = [System.Windows.Automation.ExpandCollapseState]::Collapsed
+    $item.Current.Name = "Last 7 days"
+    Set-UiReviewAppearanceChoice -Root $appearanceRoot -Picker ActivityPeriod -Choice "Last 7 days"
 }
 Add-Type -TypeDefinition @"
 using System;

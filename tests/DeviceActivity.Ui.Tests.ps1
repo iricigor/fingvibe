@@ -474,6 +474,7 @@ try {
         } "Settings navigation after resizing"
         $settings = $script:activitySettings
         $settings.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+        Expand-UiReviewSettingsSection -Root $script:root -Section AppearanceSection
         Wait-Activity { -not (Find-Activity ModePicker).Current.IsOffscreen } "Settings"
         Set-UiReviewTheme -Root $script:root -Theme $theme
         Open-ActivityDevice

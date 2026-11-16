@@ -29,6 +29,64 @@ foreach ($condition in @({ $false }, { $null }, {})) {
 Assert-RegressionFailure { Wait-UiRegressionState -Description 'unexpected error' -Condition { throw 'unexpected condition error' } } 'unexpected condition error'
 
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, WindowsBase
+& {
+    $settingsAst = [Management.Automation.Language.Parser]::ParseFile(
+        (Join-Path $PSScriptRoot 'UiRegression\Sidebar.Settings.Helpers.ps1'), [ref]$null, [ref]$null)
+    $position = $settingsAst.Find({
+        param($node)
+        $node -is [Management.Automation.Language.CommandAst] -and
+            $node.GetCommandName() -eq 'Show-UiRegressionScrollTargets' -and
+            $node.Extent.Text.Contains('"scaled Settings $id"')
+    }, $true)
+    $targetParameter = $position.CommandElements | Where-Object {
+        $_ -is [Management.Automation.Language.CommandParameterAst] -and $_.ParameterName -eq 'GetTargets'
+    }
+    $targetIndex = $position.CommandElements.IndexOf($targetParameter)
+    $getTargets = $position.CommandElements[$targetIndex + 1].ScriptBlock.GetScriptBlock()
+    $summaryCondition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'AppearanceSummary')
+    $condition = $summaryCondition
+    $target = [pscustomobject]@{}
+    $root = [pscustomobject]@{}
+    $root | Add-Member ScriptMethod FindFirst {
+        param($Scope, [System.Windows.Automation.Condition] $Match)
+        Assert-Regression ($Match.Value -eq 'AppearanceSummary') 'Scaled Settings lookup must retain its UIA condition inside nested waits.'
+        return $target
+    }
+    $found = Wait-UiRegressionState -Description 'scaled Settings target callback' -Condition { & $getTargets }
+    Assert-Regression ($found -eq $target) 'The actual scaled Settings callback must survive the shared wait scope.'
+}
+& {
+    $identityAst = [Management.Automation.Language.Parser]::ParseFile(
+        (Join-Path $PSScriptRoot 'BuildIdentity.Ui.Tests.ps1'), [ref]$null, [ref]$null)
+    $readiness = $identityAst.Find({
+        param($node)
+        $node -is [Management.Automation.Language.CommandAst] -and
+            $node.GetCommandName() -eq 'Wait-UiRegressionState' -and
+            $node.Extent.Text.Contains('"$id visible in high contrast"')
+    }, $true)
+    Assert-Regression ($null -ne $readiness) 'High-contrast preferences must wait for actual rendered visibility after expanding.'
+    $preferenceCondition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'CompactRowsSwitch')
+    $preferencePeer = [pscustomobject]@{ Current = [pscustomobject]@{
+        IsOffscreen = $true; BoundingRectangle = [System.Windows.Rect]::new(0, 0, 100, 30)
+    } }
+    $state = @{ Lookups = 0 }
+    $previousRoot = $script:root
+    try {
+        $script:root = [pscustomobject]@{}
+        $script:root | Add-Member ScriptMethod FindFirst {
+            param($Scope, [System.Windows.Automation.Condition] $Match)
+            Assert-Regression ($Match.Value -eq 'CompactRowsSwitch') 'High-contrast readiness must retain the preference identity inside the wait.'
+            $state.Lookups++
+            $preferencePeer.Current.IsOffscreen = $state.Lookups -lt 3
+            return $preferencePeer
+        }
+        $found = Invoke-Expression $readiness.Extent.Text
+        Assert-Regression ($found -eq $preferencePeer -and $state.Lookups -eq 3) 'Preference readiness must await the expanded content layout, not merely its peer.'
+    }
+    finally { $script:root = $previousRoot }
+}
 Add-Type -TypeDefinition @'
 public static class SidebarReviewKeyboard
 {

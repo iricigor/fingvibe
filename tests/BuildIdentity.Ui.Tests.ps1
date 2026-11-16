@@ -15,6 +15,7 @@ if ($BuildKind -eq "PullRequest" -and $PullRequestNumber -le 0) {
 }
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
+. (Join-Path $PSScriptRoot "UiRegression\Helpers.ps1")
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
@@ -263,9 +264,12 @@ try {
                 Select-Page "Settings"
                 Expand-UiReviewSettingsSection -Root $root -Section DevicesSection
                 foreach ($id in @("CompactRowsSwitch", "EnlargedCellPreviews")) {
-                    $condition = [System.Windows.Automation.PropertyCondition]::new(
+                    $preferenceCondition = [System.Windows.Automation.PropertyCondition]::new(
                         [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
-                    $preference = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+                    $preference = Wait-UiRegressionState -Description "$id visible in high contrast" -TimeoutMilliseconds 5000 -Condition {
+                        Find-UiRegressionElement -Container { $script:root } -Condition $preferenceCondition `
+                            -Description "high-contrast preference '$id'" -Optional
+                    }
                     if (-not $preference -or $preference.Current.IsOffscreen) {
                         throw "$id must remain visible in high contrast."
                     }

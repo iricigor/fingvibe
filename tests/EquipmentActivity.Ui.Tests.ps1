@@ -222,6 +222,7 @@ try {
                 [Windows.Automation.PropertyCondition]::new([Windows.Automation.AutomationElement]::ControlTypeProperty,
                     [Windows.Automation.ControlType]::ListItem)))
         $settings.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+        Expand-UiReviewSettingsSection -Root $script:root -Section AppearanceSection
         $null = Wait-UiRegressionState -Description "Equipment appearance settings" -Condition {
             $picker = Find-Equipment ModePicker
             $picker -and -not $picker.Current.IsOffscreen

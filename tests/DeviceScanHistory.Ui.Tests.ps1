@@ -728,6 +728,7 @@ try {
         $settings = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
         if (-not $settings) { throw "Settings navigation was not found." }
         $settings.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+        Expand-UiReviewSettingsSection -Root $script:root -Section AppearanceSection
         Wait-HistoryState {
             $picker = Find-HistoryControl ModePicker -Optional
             $picker -and -not $picker.Current.IsOffscreen

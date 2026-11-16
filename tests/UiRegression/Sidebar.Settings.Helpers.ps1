@@ -106,11 +106,11 @@
             foreach ($width in @(640, 480)) {
                 Set-SidebarWindowWidth $width
                 foreach ($id in @("AppearanceSummary", "DevicesSummary", "ScheduledScansSummary", "AboutSettingsButton")) {
-                    $condition = [System.Windows.Automation.PropertyCondition]::new(
+                    $summaryCondition = [System.Windows.Automation.PropertyCondition]::new(
                         [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
                     $null = Show-UiRegressionScrollTargets -Description "scaled Settings $id" `
                         -GetViewport { Find-SidebarElement AutomationId SettingsPage } -GetWindow { $root } -GetTargets {
-                            $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+                            $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $summaryCondition)
                         }
                     $element = Find-SidebarElement AutomationId $id
                     if ([string]::IsNullOrWhiteSpace($element.Current.Name) -or

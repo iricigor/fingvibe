@@ -27,8 +27,10 @@ function Set-UiReviewAppearanceChoice {
         [Parameter(Mandatory)][string] $Picker,
         [Parameter(Mandatory)][string] $Choice
     )
-    $section = if ($Picker -eq "ScanIntervalPicker") { "ScheduledScansSection" } else { "AppearanceSection" }
-    Expand-UiReviewSettingsSection -Root $Root -Section $section
+    if ($Picker -in @("ModePicker", "ThemePicker", "BackdropPicker", "ScanIntervalPicker")) {
+        $section = if ($Picker -eq "ScanIntervalPicker") { "ScheduledScansSection" } else { "AppearanceSection" }
+        Expand-UiReviewSettingsSection -Root $Root -Section $section
+    }
     $condition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Picker)
     $deadline = [DateTime]::UtcNow.AddSeconds(5)
