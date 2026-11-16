@@ -1,6 +1,6 @@
 ---
 name: "4️⃣ Dispatcher"
-description: Sends script-built offers to two Developers and assigns work after their responses, preferring Developer 1 for a shared candidate.
+description: Sends script-built offers to two Developers and uses a deterministic planner to maximize compatible assignments.
 target: github-copilot
 user-invocable: true
 disable-model-invocation: true
@@ -72,7 +72,7 @@ or inspect the evidence artifact repeatedly before offering.
    for that Developer with the attempted issue list; never describe it as sent.
    Send admission is not a Developer assessment or proof of execution. This
    summary does not require waiting for replies or change response/start rules.
-5. Process correlated responses as they arrive using supported host delivery/continuation,
+5. Process correlated JSON responses as they arrive using supported host delivery/continuation,
    without continuous polling or waiting for coding/CI. Each Developer reports
    busy with its assignment ID, or evaluates every candidate with eligibility,
    preferred order and reasons, and states for each listed open assignment
@@ -88,29 +88,23 @@ or inspect the evidence artifact repeatedly before offering.
    `Set-Agent4TaskClaim.ps1 -Issue <number> -Action release`. The task is
    offered again next cycle. A missing or uncertain reply keeps it held; never
    release by age.
-7. For each correlated available response, choose at most one eligible task from
-   that Developer's accepted offered list, respecting preferences. For the shared
-   candidate (whole-queue singleton or sole `success` in a mixed queue),
-   Developer 1 has precedence: if both accept, send it only
-   to Developer 1. Developer 1 may start without waiting for Developer 2; Developer 2
-   may start only after Developer 1 definitively replies busy or rejects the candidate.
-   A missing, uncertain or invalid Developer 1 response keeps Developer 2 pending.
-   Record the arbitration in retained context and suppress the other Developer's
-   start for that candidate, including on late responses or continuation.
-   Do not treat the losing shared offer alone as a compatibility conflict after
-   arbitration; all other existing-work and compatibility checks still apply.
-   For disjoint offers, do not wait
-   for the other response when compatibility is verified against both Developers'
-   existing work, all unresolved offered candidates and starts already sent.
-   A nonresponding Developer remains unknown: retain its assignments and offers,
-   and treat its candidates as potentially starting later. Overlap in files,
-   shared contracts, dependencies or behavior, or insufficient evidence, requires
-   deferral with a specific reason; distinct issue numbers alone are insufficient.
-   Consider other accepted candidates when preferred work conflicts.
-   An empty offer permits no start and no transfer of the other Developer's task.
-   Reassess late responses against already-started work. Send at most one start
-   per Developer per cycle, retaining sent-start state across continuation.
-   Never expand candidate sets, resend starts or start a task on both Developers.
+7. Build the allocation JSON defined in protocol.md#deterministic-allocation and run
+   `Get-Agent4AssignmentPlan.ps1 -InputPath <absolute-json-path>`. Supply the original
+   packet, exact correlated offers/responses, all held existing work, every start
+   already sent (including uncertain delivery), and evidenced pairwise compatibility.
+   The planner maximizes compatible assignment count, then packet task priority,
+   then summed Developer preference rank, using Developer 1 precedence only as a
+   final tie-breaker. Do not select or override allocations yourself.
+   Use all replies already received without mandatorily waiting for both. Rerun on
+   late responses with retained sent starts, never reshuffling or resending them.
+   AI still assesses overlapping files, contracts, dependencies and behavior:
+   missing evidence means unknown, not compatible. A missing response leaves its
+   distinct offered candidates potentially concurrent; the same shared task is
+   exclusive, not itself a compatibility conflict.
+   Keep packet open assignments held unless this cycle's verified crash release
+   is explicitly included in `releasedAssignments`. Planner errors block starts;
+   publish the error, never fall back to manual selection. An unavailable or malformed response stays
+   unresolved until corrected, never synthesized as a rejection or acceptance.
 8. Freshly re-read the selected tasks' issue/PR/head state before sending an
    explicit start assignment with a unique assignment ID, the run permissions and
    the exact action, task and expected PR head when applicable
@@ -133,6 +127,10 @@ or inspect the evidence artifact repeatedly before offering.
    itself. Participation labels are history, not assignment or availability.
    Start admission is not proof of execution; missing acknowledgment remains
    uncertain and must not be reassigned or blindly resent.
+   Retain each assignment in `sentStarts` before attempting its send. Only send
+   `proposedStarts` from the planner, after these fresh checks; a plan is not a
+   claim or delivery receipt. Changed scope/head invalidates its assessment:
+   reassess and rerun instead of substituting a task manually.
 
 When candidates or open assignments exist, the next cycle asks both Developers
 again. With no offerable work or open assignments, it skips calls only if there
