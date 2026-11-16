@@ -1,6 +1,6 @@
 # Version and support
 
-Open **Tools > About FingVibe** to identify the running application.
+Open **Settings > About FingVibe & updates** to identify the running application.
 The page shows version, build kind, build time, and commit when available.
 Source, build, and creator links open in your browser.
 

@@ -56,13 +56,36 @@ Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
         if ($Pattern -eq [System.Windows.Automation.SelectionPattern]::Pattern) { return $selection }
         return $expand
     }
+    $sectionState = [pscustomobject]@{
+        ExpandCollapseState = [System.Windows.Automation.ExpandCollapseState]::Collapsed
+    }
+    $sectionExpand = [pscustomobject]@{ Current = $sectionState }
+    $sectionExpand | Add-Member ScriptMethod Expand {
+        $sectionState.ExpandCollapseState = [System.Windows.Automation.ExpandCollapseState]::Expanded
+    }
+    $sectionPeer = [pscustomobject]@{}
+    $sectionPeer | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $sectionExpand }
+    $lookedUpSections = [Collections.Generic.List[string]]::new()
     $appearanceRoot = [pscustomobject]@{}
     $appearanceRoot | Add-Member ScriptMethod FindFirst {
         param($Scope, $Condition)
         if ($Condition -is [System.Windows.Automation.AndCondition]) { return $item }
+        if ($Condition.Value -in @("AppearanceSection", "ScheduledScansSection")) {
+            $lookedUpSections.Add($Condition.Value)
+            return $sectionPeer
+        }
+        if ($sectionState.ExpandCollapseState -ne [System.Windows.Automation.ExpandCollapseState]::Expanded) {
+            throw "A collapsed Settings section must expand before its picker is queried."
+        }
         return $combo
     }
     Set-UiReviewAppearanceChoice -Root $appearanceRoot -Picker ThemePicker -Choice Colorful
+    $sectionState.ExpandCollapseState = [System.Windows.Automation.ExpandCollapseState]::Collapsed
+    $item.Current.Name = "1 hour"
+    Set-UiReviewAppearanceChoice -Root $appearanceRoot -Picker ScanIntervalPicker -Choice "1 hour"
+    if (($lookedUpSections -join ",") -ne "AppearanceSection,ScheduledScansSection") {
+        throw "Each picker must expand its owning Settings section."
+    }
 }
 Add-Type -TypeDefinition @"
 using System;

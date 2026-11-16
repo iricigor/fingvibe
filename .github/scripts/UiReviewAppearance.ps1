@@ -3,15 +3,41 @@ $UiReviewAppearanceThemes = @(
     "Standard Dark", "True Black (OLED)", "Colorful Dark"
 )
 
+function Expand-UiReviewSettingsSection {
+    param([Parameter(Mandatory)] $Root,
+        [Parameter(Mandatory)][ValidateSet("AppearanceSection", "DevicesSection", "ScheduledScansSection")][string] $Section)
+    $condition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Section)
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+        $element = $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        if ($element) { break }
+        Start-Sleep -Milliseconds 50
+    } while ([DateTime]::UtcNow -lt $deadline)
+    if (-not $element) { throw "Settings section '$Section' is unavailable." }
+    $pattern = $element.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+    if ($pattern.Current.ExpandCollapseState -ne [System.Windows.Automation.ExpandCollapseState]::Expanded) {
+        $pattern.Expand()
+    }
+}
+
 function Set-UiReviewAppearanceChoice {
     param(
         [Parameter(Mandatory)] $Root,
         [Parameter(Mandatory)][string] $Picker,
         [Parameter(Mandatory)][string] $Choice
     )
-    $combo = $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
-        [System.Windows.Automation.PropertyCondition]::new(
-            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Picker))
+    $section = if ($Picker -eq "ScanIntervalPicker") { "ScheduledScansSection" } else { "AppearanceSection" }
+    Expand-UiReviewSettingsSection -Root $Root -Section $section
+    $condition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Picker)
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+        $combo = $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        if ($combo -and -not $combo.Current.IsOffscreen) { break }
+        if ($combo -and $combo.Current.IsKeyboardFocusable) { $combo.SetFocus() }
+        Start-Sleep -Milliseconds 50
+    } while ([DateTime]::UtcNow -lt $deadline)
     if (-not $combo -or $combo.Current.IsOffscreen) { throw "Appearance picker '$Picker' is not visible." }
     $expand = $combo.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
     $expand.Expand()

@@ -3,12 +3,20 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:FingVibe.App">
-    <ScrollViewer x:Name="SettingsPage">
+    <Grid>
+    <ScrollViewer x:Name="SettingsPage" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
             <TextBlock Text="Settings" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
-            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+            <Expander x:Name="AppearanceSection" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                      AutomationProperties.Name="Appearance preferences">
+                <Expander.Header>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Appearance" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                        <TextBlock x:Name="AppearanceSummary" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Expander.Header>
                 <StackPanel Spacing="12">
-                    <TextBlock Text="Appearance" Style="{ThemeResource SubtitleTextBlockStyle}" />
                     <Grid x:Name="AppearanceOptions" ColumnSpacing="16" RowSpacing="12"
                           SizeChanged="AppearanceOptions_SizeChanged">
                         <Grid.ColumnDefinitions>
@@ -54,10 +62,17 @@
                                AutomationProperties.LiveSetting="Polite"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
-            </Border>
-            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+            </Expander>
+            <Expander x:Name="DevicesSection" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                      AutomationProperties.Name="Devices page preferences">
+                <Expander.Header>
+                    <StackPanel Spacing="4">
+                        <TextBlock x:Name="DevicesSettingsHeading" Text="Devices page" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                        <TextBlock x:Name="DevicesSummary" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Expander.Header>
                 <StackPanel Spacing="8">
-                    <TextBlock x:Name="DevicesSettingsHeading" Text="Devices page" Style="{ThemeResource SubtitleTextBlockStyle}" />
                     <Grid x:Name="DevicePreferences" ColumnSpacing="16" RowSpacing="8"
                           SizeChanged="DevicePreferences_SizeChanged">
                         <Grid.ColumnDefinitions>
@@ -162,10 +177,17 @@
                                 Content="Reset columns" Click="ResetColumnsButton_Click" />
                     </Grid>
                 </StackPanel>
-            </Border>
-            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+            </Expander>
+            <Expander x:Name="ScheduledScansSection" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                      AutomationProperties.Name="Scheduled scan preferences">
+                <Expander.Header>
+                    <StackPanel Spacing="4">
+                        <TextBlock x:Name="ScheduledScansHeading" Text="Scheduled scans" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                        <TextBlock x:Name="ScheduledScansSummary" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Expander.Header>
                 <StackPanel Spacing="8">
-                    <TextBlock x:Name="ScheduledScansHeading" Text="Scheduled scans" Style="{ThemeResource SubtitleTextBlockStyle}" />
                     <TextBlock x:Name="ScheduledScansDescription"
                                Text="Scan the selected LAN automatically while FingVibe is open, including when it is minimized. Scheduled scans pause while Windows sleeps and stop when FingVibe closes."
                                TextWrapping="Wrap"
@@ -196,7 +218,26 @@
                                TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
-            </Border>
+            </Expander>
+            <Button x:Name="AboutSettingsButton" Click="AboutSettingsButton_Click"
+                    Style="{StaticResource ScannerSummaryButtonStyle}"
+                    AutomationProperties.Name="About FingVibe &amp; updates">
+                <Grid ColumnSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="About FingVibe &amp; updates" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                        <TextBlock x:Name="AboutSummary" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                    <FontIcon Grid.Column="1" Glyph="&#xE76C;" FontSize="12" VerticalAlignment="Center"
+                              IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                </Grid>
+            </Button>
         </StackPanel>
     </ScrollViewer>
+    <local:AboutPage x:Name="AboutView" Visibility="Collapsed" BackRequested="AboutView_BackRequested" />
+    </Grid>
 </UserControl>

@@ -126,7 +126,7 @@ function Show-UiReviewCaptureScenario {
         "DevicesEmpty" { "Devices" }
         "SpeedTest" { "Tools" }
         "Troubleshooting" { "Tools" }
-        "About" { "Tools" }
+        "About" { "Settings" }
         "FingImport" { "Tools" }
         "SqlEditor" { "Tools" }
         "DatabaseBackups" { "Tools" }
@@ -134,7 +134,7 @@ function Show-UiReviewCaptureScenario {
         "RoomDetails" { "Rooms" }
         default { $Scenario }
     }
-    if ($menu -eq "Tools") {
+    if ($menu -in @("Tools", "Settings")) {
         Show-UiReviewCaptureScenario -Scenario "Overview"
     }
     $menuId = Assert-VisibleUiReviewElement -Using xpath -Value "//ListItem[@Name='$menu']"
@@ -201,16 +201,16 @@ function Show-UiReviewCaptureScenario {
         "Tools" { "Speed test" }
         "SpeedTest" { "Speed test" }
         "Troubleshooting" { "Network troubleshooting" }
-        "About" { "About FingVibe" }
+        "About" { "About FingVibe & updates" }
         "FingImport" { "Import from Fing" }
         "SqlEditor" { "SQL editor" }
         "DatabaseBackups" { "Database backups" }
         "People" { "Search people" }
         "Rooms" { "Search rooms" }
-        "Settings" { "Window backdrop" }
+        "Settings" { "Appearance preferences" }
         default { throw "No navigation is implemented for capture scenario '$Scenario'." }
     }
-    if ($menu -eq "Tools") {
+    if ($menu -eq "Tools" -or $Scenario -eq "About") {
         $null = Show-UiReviewToolsCard -Name $sentinel
     }
     else {
@@ -231,9 +231,9 @@ function Show-UiReviewCaptureScenario {
         $null = Find-WebDriverElement -Using name -Value "Run network troubleshooting"
     }
     elseif ($Scenario -eq "About") {
-        $cardId = Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@Name='About FingVibe']"
+        $cardId = Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@Name='About FingVibe & updates']"
         Invoke-WebDriverElement -ElementId $cardId
-        $null = Assert-VisibleUiReviewElement -Value "Back to Tools"
+        $null = Assert-VisibleUiReviewElement -Value "Back to Settings"
         $null = Assert-VisibleUiReviewElement -Value "FingVibe LAN Scanner"
     }
     elseif ($Scenario -eq "FingImport") {

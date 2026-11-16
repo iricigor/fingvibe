@@ -146,6 +146,10 @@ function Find-SidebarElement([string] $Property, [string] $Value, [switch] $Opti
 }
 
 function Show-SettingsSection([string] $Id) {
+    $section = if ($Id -match '^(Scheduled|ScanInterval)') { "ScheduledScansSection" }
+        elseif ($Id -match '^(Appearance|ModePicker|ThemePicker|BackdropPicker)') { "AppearanceSection" }
+        else { "DevicesSection" }
+    Expand-UiReviewSettingsSection -Root $root -Section $section
     $page = Find-SidebarElement AutomationId SettingsPage
     $scroll = $page.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     if (-not $scroll.Current.VerticallyScrollable) { return }
@@ -187,6 +191,14 @@ function Select-SidebarPage([string] $Name, [string] $Sentinel) {
     $selection = $element.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
     $selection.Select()
     $null = Wait-UiRegressionState -Description "selected navigation '$Name'" -Condition { $selection.Current.IsSelected }
+    if ($Name -eq "Settings") {
+        $scroll = (Find-SidebarElement AutomationId SettingsPage).GetCurrentPattern(
+            [System.Windows.Automation.ScrollPattern]::Pattern)
+        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
+    }
+    if ($Name -eq "Settings" -and $Sentinel -eq "Window backdrop") {
+        Expand-UiReviewSettingsSection -Root $root -Section AppearanceSection
+    }
     $null = Find-SidebarElement Name $Sentinel
 }
 

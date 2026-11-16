@@ -7,7 +7,7 @@ They use the network selected in the shared **Network:** picker.
 
 1. Select the intended network.
 2. Open **Settings**.
-3. Find **Scheduled scans**.
+3. Expand **Scheduled scans**.
 4. Turn scheduling on.
 5. Choose **15 minutes**, **30 minutes**, **1 hour**, **2 hours**, or **4 hours**.
 6. Read the status sentence for the next approximate scan time.

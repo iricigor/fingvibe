@@ -670,7 +670,8 @@
                 "edaf34cc94976830453b0794bf88396715a1396e32afeb7004e961ae92f236f6"
               ],
               "name": "Show-SettingsSection",
-              "refactored": false,
+              "refactored": true,
+              "changedBy": "#345: expand the owning Settings section before positioning its retained controls.",
               "baselineSha256": "10badd92a5f6fe082acddf5954f22f093f97bdb0b807b8ef460f968222f93d6d"
             },
             {
@@ -862,8 +863,14 @@
             ]
           ],
           "baselineSha256": "841d6c1ee5453d375a30aa406d6d37de120ab4a76975fbe4f7306758b8c0a628",
-          "refactored": false,
+          "refactored": true,
+          "changedBy": "#345: add isolated disclosure coverage while retaining the existing layout matrix and captures.",
           "functions": [
+            {
+              "name": "Test-SettingsDisclosure",
+              "refactored": true,
+              "introducedBy": "#345: collapsed defaults, keyboard/pointer expansion, live summary, About focus, navigation retention, restart reset and narrow enlarged-text/high-contrast containment."
+            },
             {
               "assertions": [
                 "43639ad11809136158f6fceaac3b53751fb5f6b2b5a07ec9e9097e7fa99495dd",
@@ -890,11 +897,14 @@
                 "01d35309ba4a06af22ac4bf5c74f26a9fd5b021dbe537f2a1651e1a35a2836f6"
               ],
               "name": "Test-SettingsLayout",
-              "refactored": false,
+              "refactored": true,
+              "changedBy": "#345: retain all layout assertions and captures; also verify the live appearance summary in the existing theme loop.",
               "baselineSha256": "841d6c1ee5453d375a30aa406d6d37de120ab4a76975fbe4f7306758b8c0a628"
             }
           ],
           "captures": [
+            "1d3ad6f6d580ab65b6f17959447c6d0e6e6e8dde58dcbd6d6dfa782045b8c9ef",
+            "56a7b14b66f8caba9efd70a8d4a58e487114098918db87f5518336347b30ffa4",
             "3ea5b73b71db3b35410b4191d5f981fdb4388b53e282c1d42276359b13a33fcc",
             "f7174015732a8079bbee97941c6aa96d33f81984d3283809dd9a1cf7164cd158",
             "d9dd08f2f104ab28a27f7b794b630307d1fc9a4f39948762cf1e7d03f76b27d7",
@@ -1034,7 +1044,8 @@
                 "57657d98a549845dc9b954ee52daca2dad4273527e20dcfa77d14f22440b90ed"
               ],
               "name": "Show-ScheduledScansCard",
-              "refactored": false,
+              "refactored": true,
+              "changedBy": "#345: expand the schedule before the unchanged layout checks.",
               "baselineSha256": "4dd5e495ed6dee996d2e0c20e98ab6dc7b6e6fae056a77c13e05bfbdf691d2c6"
             },
             {
@@ -1056,7 +1067,8 @@
                 "d6a1bb8f4a781e3a1a8b69d3175b8e71b78860d5401b4637474a357f012ade80"
               ],
               "name": "Assert-ScheduledScansSelection",
-              "refactored": false,
+              "refactored": true,
+              "changedBy": "#345: retain control-state assertions and also check the live configured schedule summary.",
               "baselineSha256": "cbcfda9e2a93e5ba9b63bdbd11c662fa2188c2a59d4b6b4469f36807d72803d2"
             },
             {
@@ -1232,6 +1244,16 @@
           "fixtureAssignments": []
         },
         {
+          "file": "Sidebar.SettingsDisclosure.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [],
+          "refactored": true,
+          "introducedBy": "#345: focused disclosure flow runs once in preferences-scheduling before unchanged persistence and scheduling scenarios.",
+          "functions": [],
+          "captures": [],
+          "fixtureAssignments": []
+        },
+        {
           "file": "Sidebar.Persistence.Scenario.ps1",
           "kind": "scenario",
           "originalRanges": [
@@ -1267,6 +1289,7 @@
         "Refresh",
         "Progress",
         "PeopleRooms",
+        "SettingsDisclosure",
         "Persistence",
         "Scheduled"
       ]

@@ -10,8 +10,8 @@ across pages. Changing pages does not automatically start another scan.
 | <span aria-hidden="true">:material-devices:</span> Devices | Browse the persistent device inventory and start a LAN scan. |
 | <span aria-hidden="true">:material-account-group:</span> People | Create people and manage equipment assignments. |
 | <span aria-hidden="true">:material-home-outline:</span> Rooms | Create rooms and organize equipment by location. |
-| <span aria-hidden="true">:material-tools:</span> Tools | Open import, SQL reports, diagnostics, speed test, and About. |
-| <span aria-hidden="true">:material-cog-outline:</span> Settings | Change appearance, device-table options, and scheduled scans. |
+| <span aria-hidden="true">:material-tools:</span> Tools | Open import, SQL reports, diagnostics, and speed test. |
+| <span aria-hidden="true">:material-cog-outline:</span> Settings | Change appearance, device-table options, and scheduled scans; open About. |
 
 These manual icons are visual hints, not exact copies of every Windows glyph.
 The text labels remain the instructions.
@@ -58,6 +58,8 @@ Hold **Shift** for larger steps. Small windows may show an overlay menu.
 Device details has a **Devices** return action. Individual Tools pages have a
 **Tools** return action. These return to the relevant page; they do not save an
 unfinished draft unless the page explicitly says so.
+
+About has a **Settings** return action that restores focus to its Settings row.
 
 Use **Tab** to move through controls, and **Enter** or **Space** to activate the
 focused control. Checkboxes expose their selected state. Tooltips and accessible
