@@ -20,6 +20,8 @@ evidence path, the recipient's open assignments from the packet, and an ordered
 list of distinct candidates. Candidate fields include issue/URL,
 category (`success`, `failed`, `resume`, `new`), dependencies, linked PR/current
 head and any `released` assignment.
+Use JSON offers with explicit `developer` and `recipientId` fields; the Developer
+echoes both in its response. Retain the actual host identity behind `recipientId`.
 The packet's `developerOffers` contains each Developer identity and its exact
 candidate list; Dispatcher forwards these lists without allocating candidates.
 For multiple candidates, the script assigns positions 1/3 to Developer 1 and 2/4
@@ -50,37 +52,26 @@ no replies and changes no allocation, response-processing or start rules.
 
 ## Response
 
-Developer replies with the matching `offerId` and its actual identity:
+Developer replies with JSON containing the matching `offerId`, its `developer`
+(`developer-1`/`developer-2`) and exact `recipientId` from the offer. Dispatcher
+binds `recipientId` to the actual verified host recipient identity; it is not an
+AI-invented alias or independent proof of sender identity.
 
-- `busy`: the assignment ID it is currently executing and the reason; do not
+- `status: "busy"`: the `assignmentId` it is currently executing and the reason; do not
   accept another execution.
-- `available`: an evaluation for every candidate (eligible, reason/evidence),
-  and a preferred ordered list containing only eligible offered issue numbers.
+- `status: "available"`: `evaluations`, one object for every candidate with
+  `issue`, Boolean `eligible` and nonempty `reason`/evidence, and `preferred`,
+  an ordered array containing every eligible offered issue number exactly once.
   An empty list means none are suitable, not failure or permission to force work.
 
 Either way, the reply states for each listed open assignment whether this
 Developer is still executing it.
 
-Dispatcher processes each correlated response independently, subject to shared
-candidate arbitration below; disjoint offers need not wait for both responses
-before starting verified compatible work. For an available Developer, choose
-at most one eligible task from its accepted offered list. An empty list cannot
-produce a start or authorize transferring the other Developer's offered task.
-
-**Shared-candidate arbitration (Dispatcher only):** This applies to a whole-queue
-singleton and to a sole `success` candidate shared in a mixed queue.
-Developer 1 has precedence.
-If both accept the shared candidate, send the start only to Developer 1.
-Developer 1 may start after accepting without waiting for Developer 2.
-Developer 2 may start only after a correlated, definitive Developer 1 response
-is busy or rejects that candidate; missing, uncertain or invalid replies keep
-Developer 2 pending, regardless of response order. Retain the arbitration and
-suppress the other Developer's start for that task through late responses and
-continuation. After arbitration, the losing shared offer alone is not a
-compatibility conflict; all other checks below still apply. This requires no
-change to Developer offer assessment or start handling.
-The pending shared start does not by itself hold compatible nonshared work;
-existing compatibility checks still apply to every start.
+Dispatcher supplies all correlated responses already received to the allocation
+script below. A missing response is omitted, never invented as busy/available.
+An invalid response requires correction and remains unresolved; never start from
+it or silently treat it as rejection. Both replies are not a mandatory barrier.
+An empty accepted list cannot produce a start or transfer another Developer's task.
 
 Before each start, check compatibility against both Developers' existing work,
 all unresolved offered candidates and any starts already sent in this cycle.
@@ -96,6 +87,130 @@ and sent-start state in the retained context; continuation never resends a start
 Do not reoffer uncertain work to another execution or infer availability from
 GitHub/Automation completion. If waiting cannot continue, report only the
 unresolved portion as pending; do not undo a verified independent start.
+
+## Deterministic allocation
+
+Run the side-effect-free planner, which reads one JSON file and writes only JSON
+to stdout (invalid input throws and exits unsuccessfully):
+
+```powershell
+.\.github\scripts\Get-Agent4AssignmentPlan.ps1 -InputPath <absolute-json-path>
+```
+
+The request schema is `fingvibe-loop4-allocation-input-v1`, with these required
+fields. Arrays must be JSON arrays, including empty arrays.
+
+| Field | Contents |
+| --- | --- |
+| `packet` | Original `fingvibe-loop4-packet-v1` packet, including ordered `candidates`, exact `developerOffers`, `openAssignments`, repository and Epic. Candidate array order is authoritative priority. |
+| `offers` | Exactly two records: `developer`, unique `offerId`, actual distinct `recipientId`, and `candidates` as issue numbers in the exact packet offer order. Record attempted/uncertain offers too, but only verified correlated replies permit starts. |
+| `responses` | Zero to two JSON responses as above, at most one per Developer. Keep the latest corrected reply for each offer, not both invalid and valid versions. |
+| `existingWork` | All held work: `assignmentId`, `developer`, `issue`. Include packet open assignments, retained/foreign assignments and any other known concurrent work; external owners may have other nonempty Developer identities. Missing execution identity blocks coordination rather than inventing one. |
+| `sentStarts` | Every start already committed in this cycle: `assignmentId`, `developer`, `issue`, `offerId`, including uncertain sends or a durable Sending record whose send is pending. Never remove these on continuation. |
+| `releasedAssignments` | Packet open assignments released by the existing crash-release procedure this cycle: `assignmentId`, nonempty `reason` with verified reply, release-marker and claim-release evidence. These must not also appear in held/sent work. Empty otherwise; this field never authorizes or performs a release. |
+| `compatibility` | Evidenced symmetric pairs: `issues: [N, M]`, Boolean `compatible`, nonempty `reason`. Include safe and unsafe pairs; omitted pairs are unknown. Duplicate/reversed pairs are invalid, not last-write-wins. |
+
+Dispatcher still verifies sender/recipient/authority, scope, head freshness and
+semantic safety (files, shared contracts, dependencies, behavior). Supply real
+evidence in reasons; issue-number separation is not compatibility. The planner
+does not query GitHub, release assignments, create claims or send messages.
+It validates correlation and shapes, not truth of AI assessments or host identity.
+Existing assignment-state answers and crash-release reporting remain required
+outside allocation. Packet open assignments must be included in retained work
+unless explicitly listed in `releasedAssignments` after verified release.
+That Developer can take other offered work; the released task itself is not
+reoffered until the next cycle, as before. A current-cycle sent start cannot be
+released or reshuffled through this field.
+
+The planner enumerates at most nine candidate combinations, selecting at most one
+eligible offered task per available Developer, never the same task twice.
+Allocations are ranked lexicographically:
+
+1. Maximum number of new compatible assignments.
+2. Best selected task set: sort its packet indices and compare earliest first.
+3. Lowest sum of zero-based Developer preference indices.
+4. Developer 1 receives the earlier packet task (or the only task) if still tied.
+
+With offers A/B and A/C, acceptances A/B and A, and verified compatibility,
+the result is Developer 1 -> B, Developer 2 -> A. Task priority does not justify
+leaving a fillable compatible slot idle. This replaces strict Developer 1
+shared-candidate precedence, not offer construction.
+
+All retained work blocks duplicate task starts; its owner cannot receive a new
+start until reconciliation is reflected in the input. Sent starts always stay
+fixed for this cycle, even if a different mapping would now fill more slots.
+Before an independent start, compatibility must also hold against the missing
+Developer's distinct offered candidates. The same shared task is exclusive,
+not itself concurrent work; either responding Developer may get it first.
+Once a start is committed, that Developer's other offers are no longer unresolved
+possibilities for this cycle. Future responses cannot duplicate its task.
+
+Example request (packet shown with only fields needed by the planner; in use,
+pass the original complete packet):
+
+```json
+{
+  "schema": "fingvibe-loop4-allocation-input-v1",
+  "packet": {
+    "schema": "fingvibe-loop4-packet-v1",
+    "repository": "iricigor/fingvibe",
+    "epic": 92,
+    "candidates": [
+      { "issue": 101, "category": "success" },
+      { "issue": 102, "category": "new" },
+      { "issue": 103, "category": "new" }
+    ],
+    "developerOffers": [
+      { "developer": "developer-1", "candidates": [{ "issue": 101 }, { "issue": 102 }] },
+      { "developer": "developer-2", "candidates": [{ "issue": 101 }, { "issue": 103 }] }
+    ],
+    "openAssignments": []
+  },
+  "offers": [
+    { "developer": "developer-1", "offerId": "o1", "recipientId": "actual-session-1", "candidates": [101, 102] },
+    { "developer": "developer-2", "offerId": "o2", "recipientId": "actual-session-2", "candidates": [101, 103] }
+  ],
+  "responses": [
+    {
+      "developer": "developer-1", "offerId": "o1", "recipientId": "actual-session-1", "status": "available",
+      "evaluations": [
+        { "issue": 101, "eligible": true, "reason": "Verified current head and finalize scope." },
+        { "issue": 102, "eligible": true, "reason": "Verified implementation scope and dependencies." }
+      ],
+      "preferred": [101, 102]
+    },
+    {
+      "developer": "developer-2", "offerId": "o2", "recipientId": "actual-session-2", "status": "available",
+      "evaluations": [
+        { "issue": 101, "eligible": true, "reason": "Verified current head and finalize scope." },
+        { "issue": 103, "eligible": false, "reason": "Prerequisite is not delivered." }
+      ],
+      "preferred": [101]
+    }
+  ],
+  "existingWork": [],
+  "sentStarts": [],
+  "releasedAssignments": [],
+  "compatibility": [
+    { "issues": [101, 102], "compatible": true, "reason": "Reviewed both scopes, diffs and contracts; independent." }
+  ]
+}
+```
+
+Output schema `fingvibe-loop4-allocation-plan-v1` contains `repository`, `epic`,
+`proposedStarts` (`developer`, `offerId`, `recipientId`, `issue`, `action`),
+unchanged `retainedStarts`, and a `decisions` array for both Developers.
+Decisions distinguish `proposed`, `pending`, `held`, `retained` and `idle`, with
+`reason` and `deferred` candidate/reason records for unsafe alternatives.
+The output is a proposal, not execution authority or a delivery receipt.
+
+Use only `proposedStarts`, subject to fresh checks below; do not override the
+planner or substitute another candidate. Record each committed Sending/start in
+retained context and `sentStarts` before attempting delivery. Rerun after new
+responses, changed evidence or a partial send using the same offers and original
+packet, all sent starts and current assessments. If scope/head changed, reassess
+before replanning. Planner/input errors block starts with an explicit report,
+never a manual AI-allocation fallback. Do not retry uncertain sends.
 
 ## Crash detection and release
 

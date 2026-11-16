@@ -22,6 +22,13 @@ ownership, current PR/head/reviews and relevant diffs/shared contracts. Return
 eligible tasks in preferred order, and evidence/reasons for every rejection.
 Closed/abandoned dependencies are not automatically delivered. Failed CI is
 attention evidence, not authorization to fix unrelated failures or rerun to green.
+Return the correlated JSON response defined in [the protocol](protocol.md#response):
+`developer`, `offerId`, exact `recipientId`, `status`, and, when available,
+`evaluations` for every candidate with Boolean `eligible` and `reason`,
+plus `preferred` ordering every eligible issue exactly once. Busy responses name
+their `assignmentId`. Include the existing per-assignment execution-state answers.
+Dispatcher's PowerShell planner chooses the allocation; do not allocate work to
+either Developer or assume Developer 1 always receives a shared task.
 
 Do not start work from this assessment. Wait for the explicit correlated start
 assignment naming one of your eligible offered tasks. Recheck changed evidence.
