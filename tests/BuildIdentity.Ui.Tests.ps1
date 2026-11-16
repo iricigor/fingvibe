@@ -16,6 +16,7 @@ if ($BuildKind -eq "PullRequest" -and $PullRequestNumber -le 0) {
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
 . (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
 . (Join-Path $PSScriptRoot "UiRegression\Helpers.ps1")
+. (Join-Path $PSScriptRoot "UiRegression\Tools.Landing.Helpers.ps1")
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
@@ -200,6 +201,8 @@ try {
         if ($root.Current.Name -ne $title) { throw "Incorrect title: $($root.Current.Name)" }
         $null = Find-Element "v$Version - $label" ([System.Windows.Automation.ControlType]::Text)
 
+        if ($activation -eq "invoke") { Test-ToolsLanding }
+
         if ($BuildKind -ne "Release") {
             $ribbon = Find-Element $ribbonName ([System.Windows.Automation.ControlType]::Button)
             if ($ribbon.Current.IsOffscreen) { throw "Ribbon is not visible on launch." }
@@ -259,6 +262,8 @@ try {
                     Save-UiReviewWindowScreenshot -WindowHandle $process.MainWindowHandle `
                         -Path (Join-Path $ScreenshotDirectory "$BuildKind-narrow-high-contrast.png")
                 }
+                Assert-ToolsLandingLayout -Width 640 -Height 480 -Variant "high-contrast"
+                Select-Page "Overview"
                 $null = [UiReviewNativeWindow]::SetWindowPos(
                     $process.MainWindowHandle, [IntPtr]::Zero, $bounds.X, $bounds.Y, 1280, 720, 0x0044)
                 Select-Page "Settings"

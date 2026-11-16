@@ -5,8 +5,16 @@
     xmlns:local="using:FingVibe.App">
     <Grid>
         <ScrollViewer x:Name="ToolsLanding" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
-                <TextBlock Text="Tools" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+            <Grid x:Name="ToolsLandingGrid" Margin="{StaticResource ScannerPageContentMargin}"
+                  RowSpacing="16" ColumnSpacing="16">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.ColumnSpan="2" Text="Tools" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
                 <Button x:Name="SqlEditorCard" Click="SqlEditorCard_Click"
                         Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="SQL editor">
                     <StackPanel Spacing="8">
@@ -24,7 +32,7 @@
                         </Grid>
                         <TextBlock Text="Explore saved inventory and scan history with read-only SQL."
                                    TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Text="Open SQL editor &#x2192;" />
+                        <TextBlock Text="Open SQL editor &#x2192;" TextWrapping="Wrap" />
                     </StackPanel>
                 </Button>
                 <Button x:Name="FingImportCard" Click="FingImportCard_Click"
@@ -44,7 +52,7 @@
                         </Grid>
                         <TextBlock Text="Review and import device names, details, and assignments from a Fing Excel export."
                                    TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Text="Open Import from Fing &#x2192;" />
+                        <TextBlock Text="Open Import from Fing &#x2192;" TextWrapping="Wrap" />
                     </StackPanel>
                 </Button>
                 <Button x:Name="SpeedTestCard"
@@ -67,7 +75,7 @@
                         <TextBlock Text="Measure this PC's internet connection with Cloudflare."
                                    TextWrapping="Wrap"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Text="Open speed test &#x2192;" />
+                        <TextBlock Text="Open speed test &#x2192;" TextWrapping="Wrap" />
                     </StackPanel>
                 </Button>
                 <Button x:Name="TroubleshootingCard" Click="TroubleshootingCard_Click"
@@ -87,7 +95,7 @@
                         </Grid>
                         <TextBlock Text="Check local addresses, internet IPs, traceroute, and DNS on request."
                                    TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Text="Open network troubleshooting &#x2192;" />
+                        <TextBlock Text="Open network troubleshooting &#x2192;" TextWrapping="Wrap" />
                     </StackPanel>
                 </Button>
                 <Button x:Name="DatabaseBackupsCard" Click="DatabaseBackupsCard_Click"
@@ -106,10 +114,10 @@
                         </Grid>
                         <TextBlock Text="View local backup copies and protect your saved device inventory." TextWrapping="Wrap"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Text="Open database backups &#x2192;" />
+                        <TextBlock Text="Open database backups &#x2192;" TextWrapping="Wrap" />
                     </StackPanel>
                 </Button>
-            </StackPanel>
+            </Grid>
         </ScrollViewer>
         <local:SpeedTestPage x:Name="SpeedTestView"
                              Visibility="Collapsed"
