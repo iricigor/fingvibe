@@ -30,7 +30,8 @@ checks have run, and the diagram is illustrative, not discovered topology.
 ## Checks and network requests
 
 The independent checkpoints are loopback (`127.0.0.1`), this PC's selected LAN
-IPv4, the configured gateway when available, an optional router WAN IPv4,
+IPv4, the configured gateway when available, one random online LAN peer,
+an optional router WAN IPv4,
 both `1.1.1.1` and `8.8.8.8`, and DNS. Each public provider has separate
 IP-ping and DNS-query results. DNS tests resolve **example.com**, a stable
 reserved example domain, using Windows' configured resolver and direct UDP
@@ -41,10 +42,21 @@ Truncated UDP replies are reported explicitly; TCP DNS fallback is not tested.
 ICMP probes have a **1.5-second timeout** and a 32-byte payload. Traceroute sends
 one probe per hop toward `1.1.1.1`, up to **16 hops**, stopping when the destination
 responds. DNS operations also have a 1.5-second deadline. A fully unanswered run
-takes approximately 38 seconds plus Windows scheduling overhead. Hops show
+takes approximately 39 seconds with a peer, plus Windows scheduling overhead. Hops show
 responding IPs and available timings; TTL-expired response timings are elapsed
 probe time, while successful echoes use Windows' ICMP round-trip timing.
 Unanswered hops and an incomplete trace are explicit.
+
+Each run takes one fresh random selection from existing online inventory
+evidence scoped to the selected Windows network-profile identity and subnet.
+This PC, the gateway, offline devices, unscoped evidence and other networks are
+excluded. Devices filters do not affect the candidate pool; no extra discovery
+scan runs. The selected IPv4 stays fixed for that run and may be chosen again
+next time. Only its IP, ping state and successful latency are displayed, never
+its name. No eligible peer is explicitly unavailable with scan-first guidance;
+other checkpoints still run. No response is inconclusive (sleep, ICMP filtering
+or client isolation), and one peer alone does not make the overall summary
+unhealthy.
 
 Public providers receive your public source address and DNS query. Windows
 chooses the routing and configured DNS context; selecting a LAN adapter does
@@ -90,8 +102,10 @@ successful diagnostic run or a real network map.
 
 ### Interpreting the illustration and status
 
-The smaller, muted **LAN peers** group sits directly above the router,
-schematically connected to it with curved-corner elbow connector lines.
+The **Selected peer** sits directly above the router, with its checkpoint below
+its icon. The smaller, muted **LAN peers** icons sit to its left on a separate
+branch with a rounded outer corner; these are decorative, not extra probes.
+The earlier screenshot predates this selected-peer checkpoint.
 The disclaimer reads **Logical checks—not a physical network map.** The PC-to-router,
 router-to-hop-2, hop-2-to-globe, and globe-to-Google links are straight and
 horizontal; the Cloudflare branch also retains curved elbows.
@@ -139,7 +153,8 @@ Random destinations replace the former ordered, bounded sequence. Actual probe
 execution is unchanged: traceroute still runs after IP/DNS tests. A dot reaching
 a pending checkpoint waits there neutrally until its result arrives; other dots
 remain independent. Unavailable/cancelled checkpoints are skipped without
-inventing a response. LAN peers remain static.
+inventing a response. Decorative LAN peers remain static; only the selected peer
+participates in the recorded-checkpoint illustration.
 Animation does not delay network probes or the **Checks complete** status.
 After checks finish it continues **until stopped**, replaying recorded outcomes
 without sending traffic or retaining the network-activity lease. A separate
@@ -187,8 +202,13 @@ section headings, checkpoint IP labels, provider alignment, straight main-path
 and curved branch geometry, review-mode privacy, navigation reset, and the
 existing speed-test entry on an interactive Windows desktop.
 It launches its own app in UI-review mode, which
-does not load/save WAN preferences or send diagnostic probes. Verify live
-Windows high contrast separately using system accessibility settings.
+does not load/save WAN preferences or send diagnostic probes. Synthetic peer
+fixtures cover responded/latency, unanswered and unavailable presentation in
+Light and Dark modes. On disposable GitHub Actions runners, the same test also
+checks the selected peer at 200% Windows text scale with high contrast and a
+640-pixel window, restoring the original accessibility settings afterward.
+Changed-head native results and the affected-UI duration gate must still pass
+before delivery; synthetic captures are not real network observations.
 With `-ScreenshotDirectory`, it also checks the rendered untested-circle
 outline and empty center next to the IP label, and the straight PC-to-router
 line above the IP text.

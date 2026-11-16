@@ -186,6 +186,8 @@ internal sealed class DiagnosticDiagramMotion
     private static Span[] CreateRoute(DiagnosticCheckpoint checkpoint)
     {
         var spans = new List<(double X1, double Y1, double X2, double Y2)> { (165, 198, 355, 198) };
+        if (checkpoint == DiagnosticCheckpoint.LanPeer)
+            spans.Add((395, 178, 395, 80));
         if (checkpoint is DiagnosticCheckpoint.Hop2 or DiagnosticCheckpoint.CloudflarePing or DiagnosticCheckpoint.CloudflareDns
             or DiagnosticCheckpoint.GooglePing or DiagnosticCheckpoint.GoogleDns)
             spans.Add((435, 198, 625, 198));
