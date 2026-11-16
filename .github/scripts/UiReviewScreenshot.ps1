@@ -46,11 +46,12 @@ function Get-UiReviewWindowBounds {
 function Assert-UiReviewWindowBounds {
     param(
         [Parameter(Mandatory)][System.Drawing.Rectangle] $Bounds,
-        [Parameter(Mandatory)][System.Drawing.Rectangle] $WorkingArea
+        [Parameter(Mandatory)][System.Drawing.Rectangle] $WorkingArea,
+        [ValidateSet(480, 640)][int] $MinimumWidth = 640
     )
 
-    if ($Bounds.Width -lt 640 -or $Bounds.Height -lt 480) {
-        throw "The review window is too small: $Bounds (minimum 640x480)."
+    if ($Bounds.Width -lt $MinimumWidth -or $Bounds.Height -lt 480) {
+        throw "The review window is too small: $Bounds (minimum ${MinimumWidth}x480)."
     }
     if (-not $WorkingArea.Contains($Bounds)) {
         throw "The complete review window $Bounds is not inside the monitor working area $WorkingArea."
@@ -129,7 +130,8 @@ function Assert-UiReviewBitmapContent {
 function Save-UiReviewWindowScreenshot {
     param(
         [Parameter(Mandatory)][IntPtr] $WindowHandle,
-        [Parameter(Mandatory)][string] $Path
+        [Parameter(Mandatory)][string] $Path,
+        [ValidateSet(480, 640)][int] $MinimumWidth = 640
     )
 
     $previousContext = [UiReviewNativeWindow]::SetThreadDpiAwarenessContext([IntPtr]::new(-4))
@@ -141,7 +143,7 @@ function Save-UiReviewWindowScreenshot {
     try {
         $bounds = Get-UiReviewWindowBounds -WindowHandle $WindowHandle
         $area = [System.Windows.Forms.Screen]::FromHandle($WindowHandle).WorkingArea
-        Assert-UiReviewWindowBounds -Bounds $bounds -WorkingArea $area
+        Assert-UiReviewWindowBounds -Bounds $bounds -WorkingArea $area -MinimumWidth $MinimumWidth
 
         if (-not [UiReviewNativeWindow]::IsWindowVisible($WindowHandle) -or
             [UiReviewNativeWindow]::IsIconic($WindowHandle) -or

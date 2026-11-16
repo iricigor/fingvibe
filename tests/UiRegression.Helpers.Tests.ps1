@@ -564,10 +564,11 @@ try {
     } 'scenario failure'
     Assert-Regression ($env:FINGVIBE_FOUNDATION_TEST_PRESENT -eq 'before' -and $null -eq $env:FINGVIBE_FOUNDATION_TEST_ABSENT) 'Environment must restore values and absence on failure.'
     & {
-        $state = @{ Fail = $false; Captures = 0 }
+        $state = @{ Fail = $false; Captures = 0; MinimumWidths = @() }
         function Save-UiReviewWindowScreenshot {
-            param($WindowHandle, $Path)
+            param($WindowHandle, $Path, $MinimumWidth = 640)
             $state.Captures++
+            $state.MinimumWidths += $MinimumWidth
             if ($state.Fail) { throw 'capture failure' }
         }
         Save-UiRegressionScreenshot -WindowHandle ([IntPtr]::new(1)) -Path (Join-Path $directory 'success.png')
@@ -576,6 +577,28 @@ try {
         $records = @(Get-Content -LiteralPath (Join-Path $directory 'phases.jsonl') | ConvertFrom-Json)
         Assert-Regression ($state.Captures -eq 2 -and $records.Count -eq 2 -and $records[0].succeeded -and -not $records[1].succeeded) 'Capture timing must preserve failures, not report success.'
         Assert-Regression ($records[0].elapsedMilliseconds -ge 0 -and $records[0].phase -eq 'capture/success.png') 'Capture phase must include measured timing and name.'
+        $state.Fail = $false
+        $controlsAst = [Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $PSScriptRoot 'UiRegression\Sidebar.Controls.Helpers.ps1'), [ref]$null, [ref]$null)
+        $saveAppearance = $controlsAst.Find({
+            param($node)
+            $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Save-SidebarAppearance'
+        }, $true)
+        . ([scriptblock]::Create($saveAppearance.Extent.Text))
+        function Focus-SidebarWindow {}
+        function Start-Sleep {}
+        $ScreenshotDirectory = $directory
+        $windowHandle = [IntPtr]::new(1)
+        $settingsAst = [Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $PSScriptRoot 'UiRegression\Sidebar.Settings.Helpers.ps1'), [ref]$null, [ref]$null)
+        $scaledCapture = $settingsAst.Find({
+            param($node)
+            $node -is [Management.Automation.Language.CommandAst] -and
+                $node.GetCommandName() -eq 'Save-SidebarAppearance' -and
+                $node.Extent.Text.Contains('settings-collapsed-text-200-high-contrast-$width')
+        }, $true)
+        foreach ($width in @(480, 640)) { Invoke-Expression $scaledCapture.Extent.Text }
+        Assert-Regression (($state.MinimumWidths -join ',') -eq '640,640,480,640') 'The actual scaled Settings captures must forward their intentional width without changing ordinary capture defaults.'
     }
 }
 finally {

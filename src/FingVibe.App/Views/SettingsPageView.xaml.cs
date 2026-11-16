@@ -86,6 +86,7 @@ public sealed partial class SettingsPageView : UserControl
     private void AboutView_BackRequested(object? sender, EventArgs e)
     {
         ShowPreferences();
+        SettingsPage.UpdateLayout();
         AboutSettingsButton.Focus(FocusState.Programmatic);
     }
 

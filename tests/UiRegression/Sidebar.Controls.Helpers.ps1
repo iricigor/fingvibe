@@ -259,11 +259,16 @@ function Focus-SidebarWindow {
     throw "Review app could not be brought to the foreground."
 }
 
-function Save-SidebarAppearance([string] $Name, [switch] $AssertMatchingSolid) {
+function Save-SidebarAppearance {
+    param(
+        [string] $Name,
+        [switch] $AssertMatchingSolid,
+        [ValidateSet(480, 640)][int] $MinimumWidth = 640
+    )
     $path = Join-Path $ScreenshotDirectory "$Name.png"
     Focus-SidebarWindow
     Start-Sleep -Milliseconds 250
-    Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path $path
+    Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path $path -MinimumWidth $MinimumWidth
     if (-not $AssertMatchingSolid) { return }
     $menuBounds = (Find-SidebarElement AutomationId NetworkNavItem).Current.BoundingRectangle
     $windowBounds = Get-UiReviewWindowBounds $windowHandle

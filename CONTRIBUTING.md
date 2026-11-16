@@ -68,6 +68,9 @@ Settings consumers must expand the owning section before waiting for its child
 controls, then wait for rendered visibility after native expansion.
 `Set-UiReviewAppearanceChoice` expands only actual Settings pickers; other
 pickers retain their own page context.
+Capture helpers retain a 640x480 minimum by default. Intentional 480-pixel
+responsive scenarios explicitly pass `-MinimumWidth 480`; full-window containment,
+foreground, height and bitmap-content guards still apply.
 
 Tools uses `Tools.Groups.psd1` and `Tools.Ui.Tests.ps1 -Group <name>`:
 `utilities` runs BuildIdentity, Troubleshooting, FingImport and DatabaseBackups; `device-data`

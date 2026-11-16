@@ -118,7 +118,7 @@
                         throw "Settings summary '$id' is empty or clipped at $width with enlarged text."
                     }
                 }
-                Save-SidebarAppearance "settings-collapsed-text-200-high-contrast-$width"
+                Save-SidebarAppearance "settings-collapsed-text-200-high-contrast-$width" -MinimumWidth $width
             }
             $failed = $false
         }
