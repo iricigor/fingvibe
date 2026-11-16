@@ -3,7 +3,7 @@ using System.Net;
 namespace FingVibe.Core.Models;
 
 public enum DiagnosticState { Untested, Running, Responded, Unanswered, Unavailable, Error, Cancelled }
-public enum DiagnosticCheckpoint { Loopback, LocalAddress, Gateway, RouterWan, Hop2, CloudflarePing, GooglePing, ConfiguredDns, CloudflareDns, GoogleDns }
+public enum DiagnosticCheckpoint { Loopback, LocalAddress, Gateway, RouterWan, Hop2, CloudflarePing, GooglePing, ConfiguredDns, CloudflareDns, GoogleDns, LanPeer }
 public enum DiagnosticSummaryKind { Neutral, Good, Warning, Problem }
 
 public sealed record DiagnosticObservation(

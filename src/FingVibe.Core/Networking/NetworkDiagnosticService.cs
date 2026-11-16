@@ -9,7 +9,7 @@ public interface INetworkDiagnosticProbes
     Task<DiagnosticObservation> ResolveAsync(DiagnosticCheckpoint checkpoint, IPAddress? resolver, CancellationToken cancellationToken);
 }
 
-public sealed class NetworkDiagnosticService(INetworkDiagnosticProbes probes)
+public sealed class NetworkDiagnosticService(INetworkDiagnosticProbes probes, Random? random = null)
 {
     public const string DnsHostname = "example.com";
     public const int TimeoutMilliseconds = 1500;
@@ -17,11 +17,42 @@ public sealed class NetworkDiagnosticService(INetworkDiagnosticProbes probes)
     public static readonly IPAddress Cloudflare = IPAddress.Parse("1.1.1.1");
     public static readonly IPAddress Google = IPAddress.Parse("8.8.8.8");
 
-    public static IReadOnlyList<DiagnosticObservation> CreateCheckpoints(LanNetwork? network, IPAddress? wan) =>
+    public static IReadOnlyList<IPAddress> GetOnlinePeers(
+        DeviceInventoryData inventory, LanNetwork network, string? networkId)
+    {
+        if (string.IsNullOrWhiteSpace(networkId)) return [];
+        return inventory.Devices.Values
+            .Select(device => (device with
+            {
+                Observations = device.Observations.Where(item =>
+                    item.NetworkId == networkId && item.Subnet == network.Cidr).ToArray()
+            }).LatestObservation)
+            .OfType<DeviceObservation>().Where(item => item.Present)
+            .Select(item => IPAddress.Parse(item.Address))
+            .Where(address => IsPeerAddress(network, address))
+            .Distinct().ToArray();
+    }
+
+    private static bool IsPeerAddress(LanNetwork? network, IPAddress address) =>
+        network is not null && address.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork
+        && !IPAddress.IsLoopback(address) && !address.Equals(network.LocalAddress)
+        && !address.Equals(network.GatewayAddress)
+        && SubnetCalculator.GetNetworkAddress(address, network.PrefixLength).Equals(network.NetworkAddress)
+        && (network.PrefixLength >= 31 || !address.Equals(network.NetworkAddress)
+            && !address.Equals(SubnetCalculator.GetBroadcastAddress(network.NetworkAddress, network.PrefixLength)));
+
+    public static IReadOnlyList<DiagnosticObservation> CreateCheckpoints(
+        LanNetwork? network, IPAddress? wan, IPAddress? peer = null) =>
     [
         Pending(DiagnosticCheckpoint.Loopback, "127.0.0.1"),
         Pending(DiagnosticCheckpoint.LocalAddress, network?.LocalAddress.ToString()),
         Pending(DiagnosticCheckpoint.Gateway, network?.GatewayAddress?.ToString()),
+        Pending(DiagnosticCheckpoint.LanPeer, peer?.ToString()) with
+        {
+            Detail = peer is null
+                ? "No eligible online LAN peer. Scan the selected LAN first; a verified network identity is required. Other checks still run."
+                : "Not tested. One peer does not represent every LAN device."
+        },
         Pending(DiagnosticCheckpoint.RouterWan, wan?.ToString()),
         Pending(DiagnosticCheckpoint.Hop2, Cloudflare.ToString()),
         Pending(DiagnosticCheckpoint.CloudflarePing, Cloudflare.ToString()),
@@ -37,9 +68,11 @@ public sealed class NetworkDiagnosticService(INetworkDiagnosticProbes probes)
 
     public async Task<NetworkDiagnosticReport> RunAsync(
         LanNetwork? network, IPAddress? wan, IProgress<DiagnosticObservation>? progress, CancellationToken cancellationToken,
-        IProgress<TraceHop>? traceProgress = null)
+        IProgress<TraceHop>? traceProgress = null, IReadOnlyList<IPAddress>? peerCandidates = null)
     {
-        var observations = CreateCheckpoints(network, wan).ToDictionary(item => item.Checkpoint);
+        var candidates = peerCandidates?.Where(address => IsPeerAddress(network, address)).Distinct().ToArray() ?? [];
+        var peer = candidates.Length == 0 ? null : candidates[(random ?? Random.Shared).Next(candidates.Length)];
+        var observations = CreateCheckpoints(network, wan, peer).ToDictionary(item => item.Checkpoint);
         var hops = new List<TraceHop>();
         var complete = false;
         void Publish(DiagnosticObservation observation)
@@ -63,11 +96,13 @@ public sealed class NetworkDiagnosticService(INetworkDiagnosticProbes probes)
 
         try
         {
+            Publish(observations[DiagnosticCheckpoint.LanPeer]);
             foreach (var (checkpoint, target) in new (DiagnosticCheckpoint, IPAddress?)[]
             {
                 (DiagnosticCheckpoint.Loopback, IPAddress.Loopback),
                 (DiagnosticCheckpoint.LocalAddress, network?.LocalAddress),
                 (DiagnosticCheckpoint.Gateway, network?.GatewayAddress),
+                (DiagnosticCheckpoint.LanPeer, peer),
                 (DiagnosticCheckpoint.RouterWan, wan),
                 (DiagnosticCheckpoint.CloudflarePing, Cloudflare),
                 (DiagnosticCheckpoint.GooglePing, Google)
@@ -78,7 +113,15 @@ public sealed class NetworkDiagnosticService(INetworkDiagnosticProbes probes)
                     progress?.Report(observations[checkpoint]);
                     continue;
                 }
-                await Check(checkpoint, () => probes.PingAsync(checkpoint, target, 128, cancellationToken)).ConfigureAwait(false);
+                await Check(checkpoint, async () =>
+                {
+                    var result = await probes.PingAsync(checkpoint, target, 128, cancellationToken).ConfigureAwait(false);
+                    return checkpoint == DiagnosticCheckpoint.LanPeer
+                        ? result with { Detail = result.Detail + (result.State == DiagnosticState.Responded
+                            ? " One peer does not represent every LAN device."
+                            : " Inconclusive: the peer may be asleep, filter ICMP, or use client isolation. One peer does not represent every LAN device.") }
+                        : result;
+                }).ConfigureAwait(false);
             }
 
             foreach (var (checkpoint, resolver) in new (DiagnosticCheckpoint, IPAddress?)[]
@@ -164,7 +207,8 @@ public static class NetworkDiagnosticInterpreter
                     ? "An internet IP responded, but Windows configured-DNS resolution failed. Check DNS settings, VPN/firewall rules, and report the failed checks and time."
                     : "An internet IP responded, but a direct public-resolver DNS query failed. Windows DNS may still work; check resolver filtering and report the failed checks and time.");
         }
-        if (report.Observations.Any(item => item.Checkpoint != DiagnosticCheckpoint.RouterWan && item.State == DiagnosticState.Error))
+        if (report.Observations.Any(item => item.Checkpoint is not (DiagnosticCheckpoint.RouterWan or DiagnosticCheckpoint.LanPeer)
+            && item.State == DiagnosticState.Error))
             return new(DiagnosticSummaryKind.Neutral, "Incomplete diagnostics", "Evidence is incomplete or a probe reported an error. Review its details and rerun; report persistent errors with their time.");
         if (!external)
             return new(DiagnosticSummaryKind.Warning, dnsResponded ? "IP reachability uncertain" : "Connectivity uncertain",

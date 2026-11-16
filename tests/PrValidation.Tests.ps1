@@ -369,7 +369,12 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             @(
                 'param($AppPath, $ScreenshotDirectory, $Version, $BuildKind, $BuildTimestamp, $BuildCommit, $PullRequestNumber, $SummaryOnly, $ObservationsOnly, $Group)',
                 '$name = [IO.Path]::GetFileName($PSCommandPath).Replace(".Tests.ps1", "")',
-                '@{ Name = $name; Parameters = $PSBoundParameters } | ConvertTo-Json -Compress | Add-Content $env:UI_REGRESSION_CALLS',
+                'if ($name -eq "NetworkTroubleshooting.Ui") {',
+                '    $settings = [Windows.UI.ViewManagement.UISettings, Windows.UI.ViewManagement, ContentType = WindowsRuntime]::new()',
+                '    if ($settings.TextScaleFactor -le 0) { throw "Expected a readable effective Windows text scale." }',
+                '    if ($env:UI_REGRESSION_FAIL -eq $name) { Write-Output "Troubleshooting child stdout before failure." }',
+                '}',
+                '@{ Name = $name; Parameters = $PSBoundParameters; HostEdition = $PSVersionTable.PSEdition; Apartment = [Threading.Thread]::CurrentThread.ApartmentState.ToString() } | ConvertTo-Json -Compress | Add-Content $env:UI_REGRESSION_CALLS',
                 'if ($env:UI_REGRESSION_FAIL -eq $name) { throw "Simulated regression failure: $name" }'
             ) | Set-Content (Join-Path $runnerFixture "tests\$name.Tests.ps1")
         }
@@ -381,7 +386,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         ConvertTo-Json -InputObject $definitions -Depth 5 | Set-Content $planPath
         $runner = Join-Path $scripts "Invoke-UiRegression.ps1"
         $parameters = @{
-            AppPath = "synthetic.exe"; ScreenshotDirectory = (Join-Path $runnerFixture "diagnostics")
+            AppPath = "synthetic app.exe"; ScreenshotDirectory = (Join-Path $runnerFixture "diagnostics with spaces")
             CapturePlanPath = $planPath; Version = "0.0.123"; BuildKind = "PullRequest"
             BuildTimestamp = "2026-11-06T09:00:00Z"; BuildCommit = "test-commit"; PullRequestNumber = 198
         }
@@ -426,7 +431,11 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         Assert-Equal $calls[10].Parameters.ObservationsOnly $true "Details history dispatch includes full observation rendering and paging"
         Assert-Equal ([DateTimeOffset]$calls[12].Parameters.BuildTimestamp).UtcDateTime ([DateTimeOffset]$parameters.BuildTimestamp).UtcDateTime "Forward stamped identity"
         Assert-Equal $calls[12].Parameters.PullRequestNumber 198 "Forward PR identity"
-        Assert-Equal ($calls.Parameters.AppPath | Select-Object -Unique) "synthetic.exe" "Reuse supplied app"
+        Assert-Equal ($calls.Parameters.AppPath | Select-Object -Unique) $parameters.AppPath "Reuse supplied app, including spaces"
+        $troubleshootingCall = @($calls | Where-Object Name -eq "NetworkTroubleshooting.Ui")[0]
+        Assert-Equal $troubleshootingCall.HostEdition "Desktop" "Troubleshooting resolves WinRT in Windows PowerShell"
+        Assert-Equal $troubleshootingCall.Apartment "STA" "Troubleshooting retains the desktop automation apartment"
+        Assert-Equal $troubleshootingCall.Parameters.ScreenshotDirectory (Join-Path $parameters.ScreenshotDirectory "troubleshooting") "Forward the troubleshooting capture path, including spaces"
         & powershell.exe -NoProfile -File $runner -Suite sidebar -AppPath $parameters.AppPath `
             -ScreenshotDirectory $parameters.ScreenshotDirectory -CapturePlanPath $planPath
         if ($LASTEXITCODE -ne 0) { throw "Sidebar runner must support multi-scenario plans under Windows PowerShell." }
@@ -479,6 +488,29 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         & $runner -Suite tools @parameters
         $toolChecks = @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")
         Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name $toolChecks "Default Tools entry point preserves full sequential coverage"
+        $env:UI_REGRESSION_FAIL = "NetworkTroubleshooting.Ui"
+        $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
+        Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: utilities*troubleshooting*exit code 1*"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "A troubleshooting child failure fails its group without suppressing the independent group"
+        $troubleshootingLog = Get-Content (Join-Path $parameters.ScreenshotDirectory "regression.log") -Raw
+        if ($troubleshootingLog -notmatch 'Simulated regression failure' -or $troubleshootingLog -notmatch 'NetworkTroubleshooting.Ui') {
+            throw "The parent transcript must retain the troubleshooting child failure diagnostics."
+        }
+        if ($troubleshootingLog -notmatch 'Troubleshooting child stdout before failure\.') {
+            throw "The parent transcript must also retain troubleshooting child standard output before failure."
+        }
+        $troubleshootingFailureNames = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name
+        $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
+        & powershell.exe -NoProfile -File $runner -Suite tools -AppPath $parameters.AppPath `
+            -ScreenshotDirectory $parameters.ScreenshotDirectory -CapturePlanPath $planPath
+        if ($LASTEXITCODE -ne 1) { throw "A Windows PowerShell parent must propagate the troubleshooting child failure." }
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name $troubleshootingFailureNames "Windows PowerShell preserves troubleshooting failure and independent group dispatch"
+        $troubleshootingLog = Get-Content (Join-Path $parameters.ScreenshotDirectory "regression.log") -Raw
+        if ($troubleshootingLog -notmatch 'Simulated regression failure' -or
+            $troubleshootingLog -notmatch 'Troubleshooting child stdout before failure\.' -or
+            $troubleshootingLog -notmatch 'Windows PowerShell \(exit code 1\)') {
+            throw "A Windows PowerShell parent must drain both child streams before enforcing the exit code."
+        }
         $env:UI_REGRESSION_FAIL = "DatabaseBackups.Ui"
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
         Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: utilities*Simulated regression failure: DatabaseBackups.Ui*"

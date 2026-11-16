@@ -30,6 +30,7 @@ before another network measurement can start.
 | Loopback `127.0.0.1` | This PC's local network stack answered. |
 | This PC's LAN IPv4 | The selected local address answered. |
 | Gateway | The configured router/local gateway answered, if available. |
+| Selected LAN peer | One randomly selected online device on this LAN answered; its IPv4 address and ping latency are shown, never its name. |
 | Optional router WAN | The supplied address answered; it may not answer ping. |
 | `1.1.1.1` and `8.8.8.8` | The public targets answered the requested IP check. |
 | DNS | Name resolution for `example.com` succeeded through the tested resolver. |
@@ -41,7 +42,16 @@ Some routers do not answer these probes, even when they forward normal traffic.
 An unanswered hop does not by itself locate a connection fault.
 
 The checks use short timeouts. Traceroute stops after at most sixteen hops.
-A completely unanswered run takes about 38 seconds plus Windows scheduling time.
+A completely unanswered run with a selected peer takes about 39 seconds plus Windows scheduling time.
+
+Each run selects one eligible peer from existing online scan evidence for the
+selected Windows network profile and subnet, excluding this PC and the gateway.
+No extra discovery scan is started. The target stays fixed during that run;
+running again selects afresh and can choose the same address.
+If no eligible peer is available, scan the selected LAN first. Other diagnostics
+still run. An unanswered peer is inconclusive: it may be asleep, filter ICMP, or
+use client isolation. One peer never represents every LAN device and cannot
+alone make the overall network unhealthy.
 
 Windows selects the actual routing and DNS context.
 Choosing an adapter here does **not** bind all public checks to that adapter.
@@ -68,6 +78,8 @@ The address may change later.
 The diagram organizes logical checks. It is not a discovered physical network
 map and does not prove that devices are directly connected to one another.
 Read each label and status rather than interpreting colored lines alone.
+The selected peer sits above the router with its checkpoint below the icon.
+Muted icons on the separate left branch are decorative, not additional probes.
 
 [![Complete troubleshooting diagram with private network-specific addresses redacted](../screenshots/network-troubleshooting.png)](../screenshots/network-troubleshooting.png)
 
