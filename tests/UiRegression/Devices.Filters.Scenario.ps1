@@ -20,3 +20,12 @@ Assert-FilterPresentation RoomFilter Room Unassigned
 Set-DeviceFilterChoice RoomFilter "All rooms"
 if ((Find-DeviceElement ResultCountText).Current.Name -ne "Showing 80 devices") { throw "All options must reset filters." }
 Test-FilterChips
+$filterVisualPhase = Start-UiRegressionPhase "Devices/filters-previews/FilterVisualStates"
+$filterVisualSucceeded = $false
+try {
+    Test-DeviceFilterVisualStates
+    $filterVisualSucceeded = $true
+}
+finally {
+    Complete-UiRegressionPhase -Phase $filterVisualPhase -Directory $ScreenshotDirectory -Succeeded $filterVisualSucceeded
+}

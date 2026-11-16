@@ -55,6 +55,13 @@ whose state it needs, or add a group if it is independent. Do not rely on state
 from another group. `DevicesList.Ui.Tests.ps1 -Group <name>` runs one group;
 the default `All` runs every group in sequence.
 
+Devices filter high-contrast checks compare captured label ink with the live
+Windows `COLOR_WINDOWTEXT` color, not raw UI Automation brush metadata. Keep
+foreground-restored captures for both unrestricted and active labels, reject
+blank or incorrectly colored text, and retain bounded waits and settings cleanup.
+Synthetic bitmap checks run without changing desktop settings; actual
+high-contrast transitions remain exclusive to disposable Windows CI runners.
+
 Sidebar uses `Sidebar.Groups.psd1`: `presentation` keeps Navigation, Settings,
 Appearance and Responsive together; `scan-flows` keeps Refresh and PeopleRooms
 together because the flows use the scanned inventory; `scan-presentation` runs

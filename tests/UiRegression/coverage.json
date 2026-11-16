@@ -223,7 +223,8 @@
             ]
           ],
           "baselineSha256": "3add6c5e7d3d623f16da520a7ee297cc1271993656bcd824a7180519a2eb50f0",
-          "refactored": false,
+          "refactored": true,
+          "introducedBy": "#362: Rendered filter label emphasis, short titles, Status indicator colors and focus/hover/high-contrast evidence; repair 1 measures composited ink because UIA RGB omits brush alpha; repair 3 waits for stable foreground/window/label geometry after HC changes before guarded captures. Baseline assertions and captures retained.",
           "functions": [
             {
               "assertions": [
@@ -262,8 +263,38 @@
                 "6b0203c02e300a1346133912a1b89e06869ae9bacc8f1c0b394c1de8d00a8ec9"
               ],
               "name": "Assert-FilterPresentation",
-              "refactored": false,
+              "refactored": true,
               "baselineSha256": "73ef651f01d563c3e01cb4e8c28baaed091268524e2dd10d4d6739ae3aaca1e6"
+            },
+            {
+              "name": "Get-FilterLabelColor",
+              "refactored": true,
+              "assertions": []
+            },
+            {
+              "name": "Get-FilterLabelEmphasis",
+              "refactored": true,
+              "assertions": []
+            },
+            {
+              "name": "Test-FilterRenderedForeground",
+              "refactored": true,
+              "assertions": []
+            },
+            {
+              "name": "Assert-StatusChoiceIndicators",
+              "refactored": true,
+              "assertions": []
+            },
+            {
+              "name": "Wait-DeviceFilterContrastReady",
+              "refactored": true,
+              "assertions": []
+            },
+            {
+              "name": "Test-DeviceFilterVisualStates",
+              "refactored": true,
+              "assertions": []
             },
             {
               "assertions": [
@@ -315,6 +346,11 @@
           ],
           "captures": [
             "7de78940b83eaf5cf4cf9c5bd2359d6cf7d28f73d847189c227014e3f191e5c2",
+            "b39ed372251633aee04b5b5c9266b61079369213de2626a9a4dc910f15467594",
+            "65f260947a58f82fbe43cfd9e74b8b66c8c69441bf57dd0e9de0ef41243516da",
+            "1821b863aad2c2ae56b4ac3bb6b5fa13ded0af0af0bf7086c053718b3c48cc77",
+            "80a0c59b64ccadd922626e36b05ce66baeb6eddb5ab9773a15b64c766c7d025f",
+            "3ed3c367d9b614b90729f76d98c89c0e4352ea5dfb68459be8c8f266b8ac16a2",
             "dadd958378dedb1f06dfc7fc13e20c8287db7a7af4bd2081f96271142acba9f4",
             "20e5da63808803b3bc4654da3875409af9e0723ce55c72bdbd498e8f5379a0b0"
           ],
@@ -512,7 +548,8 @@
             1290
           ],
           "baselineSha256": "220e86fa068b76363e67027a723b8eedcc4affd713a41ea782e898d519a9ee6c",
-          "refactored": false,
+          "refactored": true,
+          "introducedBy": "#362: Adds a timed filter-visual-state check after the unchanged filter and chip scenarios, using the same fixture.",
           "functions": [],
           "captures": [
             "d3695b294af677a86ec8dd5710c9a962bee4c05791972af0b0f8d30e65c1f786"
