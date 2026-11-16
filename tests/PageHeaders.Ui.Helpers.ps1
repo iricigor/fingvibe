@@ -130,7 +130,7 @@ function Test-PageBackHeaders {
         }
         (Show-PageHeaderNavigationItem $Root OverviewNavItem).GetCurrentPattern(
             [Windows.Automation.SelectionItemPattern]::Pattern).Select()
-        (Find-PageHeaderElement $Root 'About FingVibe' -ByName -Type ([Windows.Automation.ControlType]::Button)).
+        (Find-PageHeaderElement $Root 'About FingVibe' -ByName -Type ([Windows.Automation.ControlType]::Button) -AllowOffscreen).
             GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
         Save-PageBackHeader $Root $WindowHandle $Directory "$Variant-About" `
             'Back to Settings' "$([char]0x2190) Settings" $reference $scale $contentLeft -NextId PageHeading -Scaled:$Scaled

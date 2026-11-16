@@ -506,10 +506,16 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
             param([Windows.Automation.TreeScope] $Scope, [Windows.Automation.Condition] $Query)
             $this.FindAll($Scope, $Query) | Select-Object -First 1
         }
-        & $aboutEntry
-        Assert-Equal $entryState.Events @('select:Overview', 'lookup:About', 'invoke:About') 'Real About entry must navigate from Tools before looking up its Button'
-        Assert-Equal $entryState.Page About 'About is opened before header measurement'
-        Assert-Equal $script:UiRegressionCallStack.Count 0 'About entry completes real lookup/wait accounting'
+        # Narrow or enlarged-text Overview keeps the About card below the fold.
+        foreach ($aboutOffscreen in @($false, $true)) {
+            $entryState.Page = 'ToolsLanding'
+            $entryState.Events.Clear()
+            $aboutPeer.Current.IsOffscreen = $aboutOffscreen
+            & $aboutEntry
+            Assert-Equal $entryState.Events @('select:Overview', 'lookup:About', 'invoke:About') 'Real About entry must navigate from Tools before looking up its Button'
+            Assert-Equal $entryState.Page About 'About is opened before header measurement'
+            Assert-Equal $script:UiRegressionCallStack.Count 0 'About entry completes real lookup/wait accounting'
+        }
     }
     Assert-PageBackGeometry $back $reference $reference $text $window 1 10
     Assert-PageBackGeometry $back $reference (& $rect 10 70 100 44) $text $window 1 10
