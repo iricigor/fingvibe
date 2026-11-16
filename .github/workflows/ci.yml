@@ -462,6 +462,73 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  ui-assignments:
+    needs: [changes, build]
+    if: >
+      needs.changes.outputs.ui == 'true'
+      && (
+        github.event_name == 'workflow_dispatch'
+        || (
+          github.event.pull_request.head.repo.full_name == github.repository
+          && (
+            contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
+            || github.event.pull_request.user.login == 'Copilot'
+          )
+        )
+      )
+    runs-on: windows-2025
+    timeout-minutes: 10
+    env:
+      FINGVIBE_UI_REVIEW: "1"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download the published payload
+        uses: actions/download-artifact@v8.0.2
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          merge-multiple: true
+          path: artifacts\ui-review-app
+
+      - name: Prepare disposable desktop for wide Devices checks
+        shell: powershell
+        run: Set-DisplayResolution -Width 1920 -Height 1080 -Force
+
+      - name: Exercise People and Rooms names and assignments
+        id: assignments
+        timeout-minutes: 7
+        shell: pwsh
+        run: |
+          $clock = [Diagnostics.Stopwatch]::StartNew()
+          $null = New-Item -ItemType Directory -Path "artifacts\ui-assignments" -Force
+          Start-Transcript -Path "artifacts\ui-assignments\assignments.log"
+          try {
+            .\.github\scripts\Invoke-UiReview.ps1 -Part Assignments `
+              -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
+              -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-assignments"
+          } catch {
+            Write-Host $_
+            throw
+          } finally {
+            $clock.Stop()
+            $timing = "Assignments elapsed: $($clock.Elapsed.TotalSeconds.ToString('F1', [Globalization.CultureInfo]::InvariantCulture)) seconds"
+            Write-Host $timing
+            if ($env:GITHUB_STEP_SUMMARY) { $timing >> $env:GITHUB_STEP_SUMMARY }
+            Stop-Transcript
+          }
+
+      - name: Upload UI assignment diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: fingvibe-ui-assignments-pr-${{ github.event.pull_request.number || github.run_number }}-attempt-${{ github.run_attempt }}
+          path: artifacts\ui-assignments\
+          if-no-files-found: warn
+          retention-days: 14
+
   ui-capture:
     needs: [changes, build]
     outputs:
@@ -552,7 +619,7 @@ jobs:
           retention-days: 14
 
   ui-publish:
-    needs: [changes, tests, build, installer, ui-smoke, ui-capture, ui-regression]
+    needs: [changes, tests, build, installer, ui-smoke, ui-assignments, ui-capture, ui-regression]
     if: >
       !cancelled()
       && needs.changes.outputs.ui == 'true'
@@ -574,7 +641,7 @@ jobs:
           persist-credentials: false
 
       - name: Download completed captures
-        if: needs.ui-smoke.result == 'success' && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
+        if: needs.ui-smoke.result == 'success' && needs.ui-assignments.result == 'success' && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
         uses: actions/download-artifact@v8.0.2
         with:
           artifact-ids: ${{ needs.ui-capture.outputs.artifact-id }}
@@ -583,7 +650,7 @@ jobs:
 
       - name: Publish screenshots for inline review
         id: pages
-        if: needs.ui-smoke.result == 'success' && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
+        if: needs.ui-smoke.result == 'success' && needs.ui-assignments.result == 'success' && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -595,7 +662,7 @@ jobs:
 
       - name: Add screenshots to pull request
         id: pr-comment
-        if: needs.ui-smoke.result == 'success' && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
+        if: needs.ui-smoke.result == 'success' && needs.ui-assignments.result == 'success' && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           COMMENT_BODY_PATH: ${{ steps.pages.outputs.body-path }}
@@ -608,12 +675,13 @@ jobs:
           $body >> $env:GITHUB_STEP_SUMMARY
 
       - name: Explain UI/UX review failure
-        if: failure() || needs.tests.result == 'failure' || needs.build.result == 'failure' || needs.installer.result == 'failure' || needs.ui-smoke.result == 'failure' || needs.ui-capture.result == 'failure' || needs.ui-regression.result == 'failure'
+        if: failure() || needs.tests.result == 'failure' || needs.build.result == 'failure' || needs.installer.result == 'failure' || needs.ui-smoke.result == 'failure' || needs.ui-assignments.result == 'failure' || needs.ui-capture.result == 'failure' || needs.ui-regression.result == 'failure'
         env:
           TEST_RESULT: ${{ needs.tests.result }}
           BUILD_RESULT: ${{ needs.build.result }}
           INSTALLER_RESULT: ${{ needs.installer.result }}
           SMOKE_RESULT: ${{ needs.ui-smoke.result }}
+          ASSIGNMENTS_RESULT: ${{ needs.ui-assignments.result }}
           CAPTURE_RESULT: ${{ needs.ui-capture.result }}
           REGRESSION_RESULT: ${{ needs.ui-regression.result }}
           PAGES_OUTCOME: ${{ steps.pages.outcome }}
@@ -628,6 +696,7 @@ jobs:
           if ($env:BUILD_RESULT -eq "failure") { $reasons.Add("- The Windows app could not be published or its validation payload could not be uploaded.") }
           if ($env:INSTALLER_RESULT -eq "failure") { $reasons.Add("- Installer packaging, lifecycle validation, or tested download publication failed. Inspect the installer job and its diagnostic logs.") }
           if ($env:SMOKE_RESULT -eq "failure") { $reasons.Add("- Native UI smoke/interaction checks failed. Inspect the ui-smoke job and its diagnostic artifact.") }
+          if ($env:ASSIGNMENTS_RESULT -eq "failure") { $reasons.Add("- Native People/Rooms name and assignment checks failed. Inspect the ui-assignments job and its diagnostic artifact.") }
           if ($env:CAPTURE_RESULT -eq "failure") { $reasons.Add("- Native UI capture failed. Inspect the failed step and download available capture plans, screenshots, and diagnostic logs from this run.") }
           if ($env:REGRESSION_RESULT -eq "failure") { $reasons.Add("- Native UI regression failed. Inspect the parallel suite jobs and their separate diagnostic artifacts.") }
           if ($env:PAGES_OUTCOME -eq "failure") { $reasons.Add("- Screenshot download/publication failed; see the run's diagnostic artifacts.") }
@@ -639,7 +708,7 @@ jobs:
             -Repository $env:GITHUB_REPOSITORY -Marker $marker -Body $body
 
       - name: Clear resolved UI/UX failure comment
-        if: success() && needs.ui-smoke.result == 'success' && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
+        if: success() && needs.ui-smoke.result == 'success' && needs.ui-assignments.result == 'success' && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -650,7 +719,7 @@ jobs:
 
   ui-ux-review:
     name: ui-ux-review
-    needs: [changes, tests, build, installer, ui-smoke, ui-capture, ui-regression, ui-publish]
+    needs: [changes, tests, build, installer, ui-smoke, ui-assignments, ui-capture, ui-regression, ui-publish]
     if: always()
     runs-on: windows-latest
     steps:
@@ -664,6 +733,7 @@ jobs:
           BUILD_REQUIRED: ${{ needs.changes.outputs.build }}
           UI_REQUIRED: ${{ needs.changes.outputs.ui }}
           SMOKE_RESULT: ${{ needs.ui-smoke.result }}
+          ASSIGNMENTS_RESULT: ${{ needs.ui-assignments.result }}
           CAPTURE_RESULT: ${{ needs.ui-capture.result }}
           REGRESSION_RESULT: ${{ needs.ui-regression.result }}
           PUBLISH_RESULT: ${{ needs.ui-publish.result }}
@@ -688,7 +758,7 @@ jobs:
           } elseif ($env:TRUSTED -ne "true") {
             "Native UI review was not run: fork/untrusted PR restrictions are preserved." >> $env:GITHUB_STEP_SUMMARY
           } else {
-            if ($env:TEST_RESULT -ne "success" -or $env:BUILD_RESULT -ne "success" -or $env:SMOKE_RESULT -ne "success" -or $env:CAPTURE_RESULT -ne "success") {
+            if ($env:TEST_RESULT -ne "success" -or $env:BUILD_RESULT -ne "success" -or $env:SMOKE_RESULT -ne "success" -or $env:ASSIGNMENTS_RESULT -ne "success" -or $env:CAPTURE_RESULT -ne "success") {
               throw "Required build, tests, or native UI validation did not complete successfully."
             }
             if ($env:REGRESSION_RESULT -ne "success") {

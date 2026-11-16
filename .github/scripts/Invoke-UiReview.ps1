@@ -13,8 +13,8 @@ param(
     [ValidateSet("Current", "Baseline", "Focused", "Full")]
     [string] $Mode = "Current",
 
-    # PR CI runs Smoke and Capture on separate runners; independent validation keeps All.
-    [ValidateSet("All", "Smoke", "Capture")]
+    # PR CI runs Smoke, Assignments and Capture on separate runners; independent validation keeps All.
+    [ValidateSet("All", "Smoke", "Assignments", "Capture")]
     [string] $Part = "All",
 
     [string] $WinAppDriverPath =
@@ -28,8 +28,9 @@ if (-not $SourceDirectory) { $SourceDirectory = Join-Path $PSScriptRoot "..\.." 
 . (Join-Path $SourceDirectory ".github\scripts\UiReviewScenarios.ps1")
 . (Join-Path $SourceDirectory ".github\scripts\UiReviewNavigation.ps1")
 . (Join-Path $PSScriptRoot "..\..\tests\UiRegression\Helpers.ps1")
-$runSmoke = $Part -ne "Capture"
-$runCapture = $Part -ne "Smoke"
+$runSmoke = $Part -in @("All", "Smoke")
+$runAssignments = $Part -in @("All", "Assignments")
+$runCapture = $Part -in @("All", "Capture")
 $capturePlan = if (-not $runCapture) {
     @()
 }
@@ -478,6 +479,8 @@ try {
     if ($runSmoke -and $Mode -in @("Current", "Full")) {
         Test-UiReviewNavigation
         Write-UiReviewPhase "navigation tour"
+    }
+    if ($runAssignments -and $Mode -in @("Current", "Full")) {
         Test-UiReviewNameSuggestion "Person" "Igor" "Iric" "II"
         Test-UiReviewNameSuggestion "Room" "Living" "Room" "LR"
         Write-Host "People and Rooms native short-name suggestion regression tests passed."
