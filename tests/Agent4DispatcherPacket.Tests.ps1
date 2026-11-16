@@ -127,13 +127,32 @@ try {
     Assert-True (@($observedReads | Where-Object { $_ -like "*pulls/200/files*" }).Count -eq 1) "PR diffs required."
     Assert-True ($evidence.reads.'jobs/300'[0].jobs[0].completed_at -eq "2026-11-15T10:04:01Z") "Retain complete job timing."
     Assert-True (-not $packet.ContainsKey("retainedClaims") -and -not $packet.ContainsKey("revision")) "No coordination state required."
+    Assert-True (($packet.developerOffers.developer -join ",") -eq "developer-1,developer-2") "Offer packages identify both recipients."
+    Assert-True (($packet.developerOffers[0].candidates.issue -join ",") -eq "101,104" -and
+        ($packet.developerOffers[1].candidates.issue -join ",") -eq "103,106") "Four candidates are split at positions 1/3 and 2/4."
+    $children[5].labels += @{ name = "active" }
+    $three = Get-Agent4WorkPacket $configuration (Join-Path $root "three.json") $fixtureReader
+    Assert-True (($three.developerOffers[0].candidates.issue -join ",") -eq "101,104" -and
+        ($three.developerOffers[1].candidates.issue -join ",") -eq "103") "Three candidates keep the odd candidate with Developer 1."
+    $children[5].labels = @(@{ name = "type:task" })
+    $children[1].labels = @(@{ name = "type:task" })
+    $five = Get-Agent4WorkPacket $configuration (Join-Path $root "five.json") $fixtureReader
+    Assert-True (($five.candidates.issue -join ",") -eq "101,102,103,104,106" -and
+        ($five.developerOffers[0].candidates.issue -join ",") -eq "101,103" -and
+        ($five.developerOffers[1].candidates.issue -join ",") -eq "102,104") "Offer packages cap at the first four without dropping later packet candidates."
+    $children[1].labels += @{ name = "human-task" }
     $fixtureLinks = @{ PR200 = 104; PR201 = 103 }
     $sorted = Get-Agent4WorkPacket $configuration (Join-Path $root "sorted.json") $fixtureReader
     Assert-True (($sorted.candidates.issue -join ",") -eq "104,103,101,106") "Successful CI precedes failed CI, then new work."
     Assert-True (($sorted.candidates.category -join ",") -eq "success,failed,new,new") "Return actionable categories."
+    Assert-True (($sorted.developerOffers[0].candidates.issue -join ",") -eq "104,101" -and
+        ($sorted.developerOffers[1].candidates.issue -join ",") -eq "103,106" -and
+        $sorted.developerOffers[0].candidates[0].pr.number -eq 200) "Offers preserve CI priority and complete candidate evidence."
     $fixtureCiStatus = "in_progress"
     $pending = Get-Agent4WorkPacket $configuration (Join-Path $root "pending.json") $fixtureReader
     Assert-True (($pending.candidates.issue -join ",") -eq "101,106") "Running CI is not actionable."
+    Assert-True (($pending.developerOffers[0].candidates.issue -join ",") -eq "101" -and
+        ($pending.developerOffers[1].candidates.issue -join ",") -eq "106") "Two candidates are offered separately, not shared."
     $fixtureCiStatus = "completed"; $fixtureConclusion = $null
     $missing = Get-Agent4WorkPacket $configuration (Join-Path $root "unknown.json") $fixtureReader
     Assert-True (104 -notin $missing.candidates.issue -and $missing.blocked.reason -contains "Current-head CI is unknown.") "Missing conclusions must be explicit."
@@ -205,10 +224,18 @@ try {
     $noOfferWork = Get-Agent4WorkPacket $configuration (Join-Path $root "no-offer-work.json") $fixtureReader
     Assert-True (-not $noOfferWork.hasDeveloperOfferWork -and $noOfferWork.candidates.Count -eq 0 -and
         $noOfferWork.openAssignments.Count -eq 0) "No candidates and no open assignments skip new Developer calls."
+    $emptyOffers = ($noOfferWork | ConvertTo-Json -Depth 100 | ConvertFrom-Json).developerOffers
+    Assert-True ($emptyOffers.Count -eq 2 -and $emptyOffers[0].candidates -is [array] -and
+        $emptyOffers[1].candidates -is [array] -and $emptyOffers[0].candidates.Count -eq 0 -and
+        $emptyOffers[1].candidates.Count -eq 0) "Empty offers serialize as two explicit empty candidate arrays."
     foreach ($child in $children) { $child.labels = @(@{ name = "type:task" }) }
     $children[1].labels += @{ name = "human-task" }
     $ordered = Get-Agent4WorkPacket $configuration (Join-Path $root "ordered.json") $fixtureReader @(101,102,103,104,105,106) "fixture://human-order"
     Assert-True (($ordered.candidates.issue -join ",") -eq "101") "Explicit blocked predecessor must prevent later offers."
+    $sharedOffers = ($ordered | ConvertTo-Json -Depth 100 | ConvertFrom-Json).developerOffers
+    Assert-True ($sharedOffers[0].candidates -is [array] -and $sharedOffers[1].candidates -is [array] -and
+        $sharedOffers[0].candidates.Count -eq 1 -and $sharedOffers[1].candidates.Count -eq 1 -and
+        $sharedOffers[0].candidates[0].issue -eq 101 -and $sharedOffers[1].candidates[0].issue -eq 101) "A singleton is offered to both Developers as candidate arrays."
     Assert-Fails {
         Get-Agent4WorkPacket $configuration (Join-Path $root "failed.json") { throw "GitHub collection failed" }
     } "*collection failed*"

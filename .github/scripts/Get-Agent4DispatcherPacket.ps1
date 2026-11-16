@@ -318,6 +318,14 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
         }
     }
     $candidates = @($candidates | Sort-Object -Stable rank)
+    $developerOffers = @(
+        @{ developer = "developer-1"; candidates = @() }
+        @{ developer = "developer-2"; candidates = @() }
+    )
+    for ($index = 0; $index -lt [Math]::Min(4, $candidates.Count); $index++) {
+        $developerOffers[$index % 2].candidates += $candidates[$index]
+    }
+    if ($candidates.Count -eq 1) { $developerOffers[1].candidates = @($candidates[0]) }
     Write-Agent4Json $EvidencePath @{
         schema = "fingvibe-loop4-evidence-v1"; utc = [DateTimeOffset]::UtcNow.ToString("o")
         repository = $repository; epic = $config.epic
@@ -328,6 +336,7 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
         schema = "fingvibe-loop4-packet-v1"; repository = $repository; epic = $config.epic
         targetBranch = $repo.default_branch; evidencePath = $EvidencePath
         candidates = $candidates; blocked = $blocked; openAssignments = $openAssignments
+        developerOffers = $developerOffers
         hasDeveloperOfferWork = ($candidates.Count -gt 0 -or $openAssignments.Count -gt 0)
         assessment = "When hasDeveloperOfferWork is false, make no new Developer calls unless retained context has unresolved offers or starts to continue. Review dependencies, foreign ownership, diffs and candidate compatibility before recommending work."
     }

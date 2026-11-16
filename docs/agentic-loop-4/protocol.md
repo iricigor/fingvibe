@@ -20,7 +20,11 @@ evidence path, the recipient's open assignments from the packet, and an ordered
 list of distinct candidates. Candidate fields include issue/URL,
 category (`success`, `failed`, `resume`, `new`), dependencies, linked PR/current
 head and any `released` assignment.
-Developer 1 initially gets positions 1/3; Developer 2 gets 2/4. No shared candidate.
+The packet's `developerOffers` contains each Developer identity and its exact
+candidate list; Dispatcher forwards these lists without allocating candidates.
+For multiple candidates, the script assigns positions 1/3 to Developer 1 and 2/4
+to Developer 2, ignoring later positions for this cycle. Exactly one candidate
+is included in both offers. With none, both lists are empty.
 
 An offer asks for availability and assessment. It never authorizes execution.
 Dispatcher keeps the exact offer and actual recipient correlation in its context.
@@ -38,10 +42,22 @@ Developer replies with the matching `offerId` and its actual identity:
 Either way, the reply states for each listed open assignment whether this
 Developer is still executing it.
 
-Dispatcher processes each correlated response independently; it need not wait for
-both before starting verified compatible work. For an available Developer, choose
+Dispatcher processes each correlated response independently, subject to shared
+singleton arbitration below; disjoint offers need not wait for both responses
+before starting verified compatible work. For an available Developer, choose
 at most one eligible task from its accepted offered list. An empty list cannot
 produce a start or authorize transferring the other Developer's offered task.
+
+**Shared singleton arbitration (Dispatcher only):** Developer 1 has precedence.
+If both accept the shared candidate, send the start only to Developer 1.
+Developer 1 may start after accepting without waiting for Developer 2.
+Developer 2 may start only after a correlated, definitive Developer 1 response
+is busy or rejects that candidate; missing, uncertain or invalid replies keep
+Developer 2 pending, regardless of response order. Retain the arbitration and
+suppress the other Developer's start for that task through late responses and
+continuation. After arbitration, the losing shared offer alone is not a
+compatibility conflict; all other checks below still apply. This requires no
+change to Developer offer assessment or start handling.
 
 Before each start, check compatibility against both Developers' existing work,
 all unresolved offered candidates and any starts already sent in this cycle.
@@ -52,7 +68,7 @@ reason. Shared files/contracts, dependencies and incompatible behavior matter,
 not just distinct issue numbers. A late response requires fresh checks against
 work already started; conflicting late candidates remain deferred.
 
-Send at most one start per Developer in the cycle. Keep offer/start correlation
+Send at most one start per Developer and per task in the cycle. Keep offer/start correlation
 and sent-start state in the retained context; continuation never resends a start.
 Do not reoffer uncertain work to another execution or infer availability from
 GitHub/Automation completion. If waiting cannot continue, report only the

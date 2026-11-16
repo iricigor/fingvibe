@@ -2,7 +2,7 @@
 
 [Task #403](https://github.com/iricigor/fingvibe/issues/403) simplifies the
 source environment introduced by #386. The Dispatcher collects task evidence,
-sends disjoint offers, waits for Developer assessments and sends explicit starts.
+sends script-built offers, waits for Developer assessments and sends explicit starts.
 When offerable work or open assignments exist, the Dispatcher asks both Developers
 for their availability/state; they answer only when asked and never report
 availability on their own. If the packet has no candidates or open assignments
@@ -80,14 +80,23 @@ read these durable records and ask fresh availability; failed reporting is a blo
 
 ## Independent starts and participation
 
-With two candidates, Developer 1 receives the first and Developer 2 the second.
-With one candidate, Developer 2 receives an empty offer, still checking availability
-and its open assignments. An empty offer never authorizes a start or task transfer.
+Dispatcher forwards the packet's `developerOffers` lists without allocating
+candidates itself. With multiple candidates, the script assigns positions 1/3
+to Developer 1 and 2/4 to Developer 2, up to two each.
+With exactly one candidate, both Developers receive it. If both accept,
+Dispatcher starts only Developer 1. Developer 1 may start without waiting for
+Developer 2; Developer 2 may start only after Developer 1 definitively replies
+busy or rejects the candidate. A missing/uncertain reply keeps Developer 2 pending.
+Retain this arbitration across late responses and continuation to prevent
+duplicate starts; the losing shared offer alone does not block compatibility.
+Developer assessment and start handling remain unchanged.
+An empty offer never authorizes a start or task transfer.
 When there are no candidates or open assignments, and no unresolved offers or
 starts in retained context, no Developer calls are needed. Open assignments alone
 still require offers even when no candidates are eligible.
 
-Process correlated assessments independently. One Developer can start its
+Process correlated assessments independently, subject to singleton arbitration
+above. For disjoint offers, one Developer can start its
 accepted offered task before the other replies only when compatibility is verified
 against both Developers' existing work, unresolved offered candidates and starts
 already sent. A nonresponding Developer stays unknown with its work/offers held;
@@ -156,7 +165,9 @@ coordination state and acquires no repository gate. JSON contains the evidence
 path, all ordered candidates, explicit exclusions and every open assignment
 (`openAssignments`: issue, assignment ID, Developer, action, Discussion URL) for
 crash detection. It does not grant execution
-permission, infer Developer availability or allocate/reserve tasks.
+permission, infer Developer availability or reserve/assign execution.
+Its `developerOffers` array contains two entries (`developer`, `candidates`),
+including empty candidate arrays, built from the existing sorted candidate list.
 
 Default order, with ascending issue number within each group:
 
@@ -187,9 +198,10 @@ conversations) and body markers, so Epic and task Discussions are found there.
 
 Optional `-TaskOrder` with `-OrderEvidence` supplies an explicit human ordering
 within priority groups; a blocked predecessor prevents later ordered candidates.
-It must cover the open native queue. Dispatcher offers only the first four at
-positions 1/3 and 2/4, then processes responses independently with compatibility
-checks before each start.
+It must cover the open native queue. The script builds offers from only the
+first four at positions 1/3 and 2/4, sharing the candidate only when exactly one
+exists. Dispatcher processes responses independently except for the shared
+candidate's Developer 1 precedence, with compatibility checks before each start.
 
 ## Boundaries
 

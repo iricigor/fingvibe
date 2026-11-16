@@ -1,6 +1,6 @@
 ---
 name: "4️⃣ Dispatcher"
-description: Collects sorted GitHub candidates, sends disjoint offers to two Developers, and assigns work after their responses.
+description: Sends script-built offers to two Developers and assigns work after their responses, preferring Developer 1 for a shared candidate.
 target: github-copilot
 user-invocable: true
 disable-model-invocation: true
@@ -25,7 +25,7 @@ the repository, rerun GitHub/GraphQL queries for data the script already collect
 or inspect the evidence artifact repeatedly before offering.
 
 1. Run Get-Agent4DispatcherPacket.ps1 -Epic <number> once and use the packet's
-   `candidates`, `blocked` and `openAssignments` output directly. The script already verified the
+   `developerOffers`, `candidates`, `blocked` and `openAssignments` output directly. The script already verified the
    open type:epic, native children, ordering, dependencies and exclusions,
    including tasks with an open assignment in their Discussion.
    Successful completed current-head CI comes first, failed completed CI next,
@@ -50,8 +50,10 @@ or inspect the evidence artifact repeatedly before offering.
 4. Discover the actual 4️⃣ Developer Automations and host identities, then send
    an offer to both Developers when the packet has Developer offer work, even if
    one gets no candidates:
-   positions 1/3 to Developer 1, 2/4 to Developer 2, up to two candidates each,
-   plus the recipient's entries from `openAssignments`. Include the run
+   use each recipient's exact `developerOffers` candidate list, without allocating
+   or redistributing candidates yourself, plus its entries from `openAssignments`.
+   The script splits multiple candidates at positions 1/3 and 2/4; exactly one
+   candidate is offered to both Developers. Include the run
    permissions. Use actual independent
    launch or verified existing-context messaging; never a synchronous subagent,
    scripted launcher or cloud substitute. Associate a unique offer ID with the
@@ -75,7 +77,16 @@ or inspect the evidence artifact repeatedly before offering.
    offered again next cycle. A missing or uncertain reply keeps it held; never
    release by age.
 7. For each correlated available response, choose at most one eligible task from
-   that Developer's accepted offered list, respecting preferences. Do not wait
+   that Developer's accepted offered list, respecting preferences. For the shared
+   singleton candidate, Developer 1 has precedence: if both accept, send it only
+   to Developer 1. Developer 1 may start without waiting for Developer 2; Developer 2
+   may start only after Developer 1 definitively replies busy or rejects the candidate.
+   A missing, uncertain or invalid Developer 1 response keeps Developer 2 pending.
+   Record the arbitration in retained context and suppress the other Developer's
+   start for that candidate, including on late responses or continuation.
+   Do not treat the losing shared offer alone as a compatibility conflict after
+   arbitration; all other existing-work and compatibility checks still apply.
+   For disjoint offers, do not wait
    for the other response when compatibility is verified against both Developers'
    existing work, all unresolved offered candidates and starts already sent.
    A nonresponding Developer remains unknown: retain its assignments and offers,
@@ -86,7 +97,7 @@ or inspect the evidence artifact repeatedly before offering.
    An empty offer permits no start and no transfer of the other Developer's task.
    Reassess late responses against already-started work. Send at most one start
    per Developer per cycle, retaining sent-start state across continuation.
-   Never expand candidate sets, resend starts or duplicate a task across Developers.
+   Never expand candidate sets, resend starts or start a task on both Developers.
 8. Freshly re-read the selected tasks' issue/PR/head state before sending an
    explicit start assignment with a unique assignment ID, the run permissions and
    the exact action, task and expected PR head when applicable
