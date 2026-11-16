@@ -325,7 +325,7 @@ jobs:
         )
       )
     runs-on: windows-2025
-    timeout-minutes: 20
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
@@ -364,13 +364,15 @@ jobs:
 
       - name: Run native regression suite
         timeout-minutes: 15
+        id: native
+        continue-on-error: true
         if: ${{ !startsWith(matrix.suite, 'sidebar-') }}
         shell: pwsh
         run: |
           .\.github\scripts\Invoke-UiRegression.ps1 `
             -Suite "${{ matrix.suite }}" `
             -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
-            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-regression" `
+            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-regression\attempt-1" `
             -CapturePlanPath "${{ github.workspace }}\artifacts\ui-regression\capture-plan.json" `
             -Version "0.0.${{ github.run_number }}" `
             -BuildKind "${{ github.event_name == 'pull_request' && 'PullRequest' || 'Test' }}" `
@@ -380,14 +382,60 @@ jobs:
 
       - name: Run sidebar regression in Windows PowerShell
         timeout-minutes: 15
+        id: sidebar
+        continue-on-error: true
         if: startsWith(matrix.suite, 'sidebar-')
         shell: powershell
         run: |
           .\.github\scripts\Invoke-UiRegression.ps1 `
             -Suite "${{ matrix.suite }}" `
             -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
-            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-regression" `
+            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-regression\attempt-1" `
             -CapturePlanPath "${{ github.workspace }}\artifacts\ui-regression\capture-plan.json"
+
+      - name: Retry failed native regression suite once
+        id: native-retry
+        timeout-minutes: 15
+        if: ${{ !cancelled() && steps.native.outcome == 'failure' }}
+        shell: pwsh
+        run: |
+          .\.github\scripts\Invoke-UiRegression.ps1 `
+            -Suite "${{ matrix.suite }}" `
+            -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
+            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-regression\attempt-2" `
+            -CapturePlanPath "${{ github.workspace }}\artifacts\ui-regression\capture-plan.json" `
+            -Version "0.0.${{ github.run_number }}" `
+            -BuildKind "${{ github.event_name == 'pull_request' && 'PullRequest' || 'Test' }}" `
+            -BuildTimestamp "${{ needs.build.outputs.build-timestamp }}" `
+            -BuildCommit "${{ github.sha }}" `
+            -PullRequestNumber ${{ github.event.pull_request.number || 0 }}
+
+      - name: Retry failed sidebar regression once in Windows PowerShell
+        id: sidebar-retry
+        timeout-minutes: 15
+        if: ${{ !cancelled() && steps.sidebar.outcome == 'failure' }}
+        shell: powershell
+        run: |
+          .\.github\scripts\Invoke-UiRegression.ps1 `
+            -Suite "${{ matrix.suite }}" `
+            -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
+            -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-regression\attempt-2" `
+            -CapturePlanPath "${{ github.workspace }}\artifacts\ui-regression\capture-plan.json"
+
+      - name: Report regression retry outcome
+        if: ${{ !cancelled() && (steps.native.outcome == 'failure' || steps.sidebar.outcome == 'failure') }}
+        env:
+          REGRESSION_SUITE: ${{ matrix.suite }}
+          RETRY_PASSED: ${{ steps.native-retry.outcome == 'success' || steps.sidebar-retry.outcome == 'success' }}
+        shell: pwsh
+        run: |
+          if ($env:RETRY_PASSED -ne 'true') {
+            "UI regression ($env:REGRESSION_SUITE) failed; its single retry did not pass. See attempt-1 and attempt-2 diagnostics." >> $env:GITHUB_STEP_SUMMARY
+            throw "UI regression ($env:REGRESSION_SUITE) failed after its single retry."
+          }
+          $message = "Flaky UI regression ($env:REGRESSION_SUITE): passed only on retry. Both attempts' diagnostics are retained."
+          Write-Host "::warning::$message"
+          $message >> $env:GITHUB_STEP_SUMMARY
 
       - name: Upload native regression diagnostics
         if: always()

@@ -31,7 +31,7 @@ function Invoke-RegressionCheck([string] $Name, [hashtable] $Parameters = @{}) {
         $clock.Stop()
         $timing = "$Suite / $Name elapsed: $($clock.Elapsed.TotalSeconds.ToString('F1', [Globalization.CultureInfo]::InvariantCulture)) seconds"
         Write-Host $timing
-        if ($env:GITHUB_STEP_SUMMARY) { $timing >> $env:GITHUB_STEP_SUMMARY }
+        if ($env:GITHUB_STEP_SUMMARY) { $timing | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append }
     }
 }
 
