@@ -44,6 +44,32 @@ lines adjust the run's permissions, with these defaults:
 | `merge: yes` / `merge: no` | `yes` | Developers may merge finalized PRs |
 | `repairs: <N>` | `12` | Cumulative repair attempts allowed per task |
 
+### Hourly Epic chart
+
+As its final step, after coordination and the normal cycle outcome, each
+existing Dispatcher cycle invokes the repository
+[`loop4-epic-chart` skill](../../.github/skills/loop4-epic-chart/SKILL.md) with
+its packet evidence, including idle cycles. Reporting is not interleaved with
+offers, responses, releases or starts. The helper posts at most once per rolling 60
+minutes to the marked Epic coordination Discussion, using server-timestamped
+durable comments rather than context memory or an additional schedule.
+
+The PNG has genuinely stacked completed (green), in-progress including CI/review
+(orange), and not-started (red) categories. Trend lines follow cumulative stack
+tops; a gray reference denotes the total. It reconstructs the current native
+child cohort's history, shows at most 24 hourly boundaries plus the current
+partial hour, and labels timezone/date/offset explicitly. Historical membership
+is not inferred. Missing lifecycle evidence or non-completed closures stop the
+chart with an explicit error, not invented totals.
+
+The reporting-only exception to duplicate-query restrictions permits timeline
+reads and fresh Discussion publication/throttle verification. Images are hosted
+as authenticated GitHub user attachments, never local links. A pending
+publication marker blocks retries regardless of age until human reconciliation;
+published markers throttle across restarts. Windows and a supported GitHub.com
+upload credential are required. Reporting errors remain explicit and do not
+alter assignment/merge decisions. See the skill for invocation and recovery.
+
 Dispatcher forwards the Epic and these permissions in every offer and start.
 Developers trust them from a verified Dispatcher message; they do not search for
 other approval. Agent-authored summaries, source publication and tool availability
