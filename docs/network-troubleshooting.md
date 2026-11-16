@@ -209,8 +209,10 @@ checks the selected peer at 200% Windows text scale with high contrast and a
 640-pixel window, restoring the original accessibility settings afterward.
 The owning Tools utilities scenario explicitly uses Windows PowerShell for the
 .NET Framework WinRT projection used to observe effective Windows text scale;
-PowerShell 7 does not provide that projection. The parent retains child failures,
-diagnostics and elapsed time within the unchanged 240-second native gate.
+PowerShell 7 does not provide that projection. Both child output streams are
+forwarded through the parent host so its transcript captures standard output and
+error diagnostics, followed by explicit nonzero-exit propagation. Child failures,
+diagnostics and elapsed time remain within the unchanged 240-second native gate.
 Changed-head native results and the affected-UI duration gate must still pass
 before delivery; synthetic captures are not real network observations.
 With `-ScreenshotDirectory`, it also checks the rendered untested-circle

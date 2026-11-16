@@ -372,6 +372,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
                 'if ($name -eq "NetworkTroubleshooting.Ui") {',
                 '    $settings = [Windows.UI.ViewManagement.UISettings, Windows.UI.ViewManagement, ContentType = WindowsRuntime]::new()',
                 '    if ($settings.TextScaleFactor -le 0) { throw "Expected a readable effective Windows text scale." }',
+                '    if ($env:UI_REGRESSION_FAIL -eq $name) { Write-Output "Troubleshooting child stdout before failure." }',
                 '}',
                 '@{ Name = $name; Parameters = $PSBoundParameters; HostEdition = $PSVersionTable.PSEdition; Apartment = [Threading.Thread]::CurrentThread.ApartmentState.ToString() } | ConvertTo-Json -Compress | Add-Content $env:UI_REGRESSION_CALLS',
                 'if ($env:UI_REGRESSION_FAIL -eq $name) { throw "Simulated regression failure: $name" }'
@@ -494,6 +495,21 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         $troubleshootingLog = Get-Content (Join-Path $parameters.ScreenshotDirectory "regression.log") -Raw
         if ($troubleshootingLog -notmatch 'Simulated regression failure' -or $troubleshootingLog -notmatch 'NetworkTroubleshooting.Ui') {
             throw "The parent transcript must retain the troubleshooting child failure diagnostics."
+        }
+        if ($troubleshootingLog -notmatch 'Troubleshooting child stdout before failure\.') {
+            throw "The parent transcript must also retain troubleshooting child standard output before failure."
+        }
+        $troubleshootingFailureNames = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name
+        $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
+        & powershell.exe -NoProfile -File $runner -Suite tools -AppPath $parameters.AppPath `
+            -ScreenshotDirectory $parameters.ScreenshotDirectory -CapturePlanPath $planPath
+        if ($LASTEXITCODE -ne 1) { throw "A Windows PowerShell parent must propagate the troubleshooting child failure." }
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name $troubleshootingFailureNames "Windows PowerShell preserves troubleshooting failure and independent group dispatch"
+        $troubleshootingLog = Get-Content (Join-Path $parameters.ScreenshotDirectory "regression.log") -Raw
+        if ($troubleshootingLog -notmatch 'Simulated regression failure' -or
+            $troubleshootingLog -notmatch 'Troubleshooting child stdout before failure\.' -or
+            $troubleshootingLog -notmatch 'Windows PowerShell \(exit code 1\)') {
+            throw "A Windows PowerShell parent must drain both child streams before enforcing the exit code."
         }
         $env:UI_REGRESSION_FAIL = "DatabaseBackups.Ui"
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
