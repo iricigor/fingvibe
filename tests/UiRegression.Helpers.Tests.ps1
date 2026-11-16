@@ -922,6 +922,45 @@ Test-DatabaseBackupCleanup
 }
 & {
     . (Join-Path $PSScriptRoot 'UiRegression\Devices.Filters.Helpers.ps1')
+    $transition = @{ Reads = 0; Focused = 0; ChangedAt = $null }
+    function Focus-DeviceWindow { $transition.Focused++ }
+    $observe = {
+        $transition.Reads++
+        if ($transition.Reads -le 6) { $transition.ChangedAt = [Diagnostics.Stopwatch]::StartNew() }
+        [pscustomobject]@{
+            Enabled = $transition.Reads -ge 2
+            Foreground = $transition.Reads -ne 3
+            Visible = $transition.Reads -ne 4
+            Window = [Windows.Rect]::new($(if ($transition.Reads -lt 5) { 0 } else { 1 }), 0, 100, 100)
+            Label = [Windows.Rect]::new($(if ($transition.Reads -lt 6) { 5 } else { 6 }), 5, 20, 20)
+        }
+    }
+    Wait-DeviceFilterContrastReady -Enabled $true -Observe $observe
+    Assert-Regression ($transition.Focused -eq 1 -and $transition.Reads -gt 6 -and
+        $transition.ChangedAt.ElapsedMilliseconds -ge 500) 'HC capture must wait through flag, foreground, visibility, window and label transitions before stable observation.'
+    $stable = & $observe
+    foreach ($property in @('Enabled', 'Foreground', 'Visible')) {
+        $unready = $stable.PSObject.Copy()
+        $unready.$property = $false
+        Assert-RegressionFailure {
+            Wait-DeviceFilterContrastReady -Enabled $true -TimeoutMilliseconds 20 -Observe { $unready }
+        } '*Timed out*stable foreground and geometry*'
+    }
+    foreach ($property in @('Window', 'Label')) {
+        $unready = $stable.PSObject.Copy()
+        $unready.$property = [Windows.Rect]::new(0, 0, 0, 0)
+        Assert-RegressionFailure {
+            Wait-DeviceFilterContrastReady -Enabled $true -TimeoutMilliseconds 20 -Observe { $unready }
+        } '*Timed out*stable foreground and geometry*'
+    }
+    $stable.Enabled = $false
+    Wait-DeviceFilterContrastReady -Enabled $false -Observe { $stable }
+    Assert-RegressionFailure {
+        Wait-DeviceFilterContrastReady -Enabled $true -Observe { throw 'contrast observation failed' }
+    } 'contrast observation failed'
+}
+& {
+    . (Join-Path $PSScriptRoot 'UiRegression\Devices.Filters.Helpers.ps1')
     $directory = New-UiRegressionFixtureDirectory -Suite filter-emphasis
     $capture = Join-Path $directory 'label.png'
     $scale = 1

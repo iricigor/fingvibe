@@ -222,6 +222,39 @@ function Assert-StatusChoiceIndicators([string] $Theme, [switch] $HighContrast) 
     }
 }
 
+function Wait-DeviceFilterContrastReady {
+    param(
+        [Parameter(Mandatory)][bool] $Enabled,
+        [ValidateRange(1, 10000)][int] $TimeoutMilliseconds = 10000,
+        [scriptblock] $Observe = {
+            $label = Find-DeviceElement InventoryStatusFilterLabel
+            [pscustomobject]@{
+                Enabled = ([DeviceFilterReviewContrast]::Get() -band 1) -ne 0
+                Foreground = [UiReviewNativeWindow]::GetForegroundWindow() -eq $windowHandle
+                Visible = Test-UiRegressionElementVisible $label
+                Window = Get-UiReviewWindowBounds $windowHandle
+                Label = $label.Current.BoundingRectangle
+            }
+        }
+    )
+    Focus-DeviceWindow
+    $settling = @{ Window = $null; Label = $null; Clock = [Diagnostics.Stopwatch]::StartNew() }
+    $null = Wait-UiRegressionState -Description "filter contrast=$Enabled with stable foreground and geometry" `
+        -TimeoutMilliseconds $TimeoutMilliseconds -Condition {
+            $sample = & $Observe
+            $ready = $sample.Enabled -eq $Enabled -and $sample.Foreground -and $sample.Visible -and
+                $sample.Window.Width -gt 0 -and $sample.Window.Height -gt 0 -and
+                $sample.Label.Width -gt 0 -and $sample.Label.Height -gt 0
+            if (-not $ready -or $sample.Window -ne $settling.Window -or $sample.Label -ne $settling.Label) {
+                $settling.Clock.Restart()
+            }
+            $settling.Window = $sample.Window
+            $settling.Label = $sample.Label
+            # The system flag precedes asynchronous theme/layout work. Do not capture that transition.
+            return $ready -and $settling.Clock.ElapsedMilliseconds -ge 500
+        }
+}
+
 function Test-DeviceFilterVisualStates {
     foreach ($theme in @("Standard Light", "Standard Dark")) {
         Select-DevicePage Settings
@@ -288,9 +321,7 @@ public static class DeviceFilterReviewContrast {
         $contrastFailed = $true
         try {
             [DeviceFilterReviewContrast]::Set($flags -bor 1)
-            $null = Wait-UiRegressionState -Description "filter high contrast enabled" -Condition {
-                ([DeviceFilterReviewContrast]::Get() -band 1) -ne 0
-            }
+            Wait-DeviceFilterContrastReady -Enabled $true
             $null = Wait-UiRegressionState -Description "filter high-contrast foreground rendered" -Condition {
                 ([DeviceFilterReviewContrast]::Get() -band 1) -ne 0 -and
                     (Test-FilterRenderedForeground InventoryStatusFilter ([DeviceFilterReviewContrast]::GetSysColor(8)))
@@ -309,7 +340,7 @@ public static class DeviceFilterReviewContrast {
             Invoke-UiRegressionCleanup -PrimaryFailed $contrastFailed -Steps @(
                 { [DeviceFilterReviewContrast]::Set($flags) },
                 {
-                    Focus-DeviceWindow
+                    Wait-DeviceFilterContrastReady -Enabled (($flags -band 1) -ne 0)
                     $null = Wait-UiRegressionState -Description "filter foreground restored after high contrast" -Condition {
                         (Get-FilterLabelColor InventoryStatusFilter) -eq $originalColor
                     }

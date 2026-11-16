@@ -224,7 +224,7 @@
           ],
           "baselineSha256": "3add6c5e7d3d623f16da520a7ee297cc1271993656bcd824a7180519a2eb50f0",
           "refactored": true,
-          "introducedBy": "#362: Rendered filter label emphasis, short titles, Status indicator colors and focus/hover/high-contrast evidence; repair 1 measures composited ink because UIA RGB omits brush alpha. Baseline assertions and captures retained.",
+          "introducedBy": "#362: Rendered filter label emphasis, short titles, Status indicator colors and focus/hover/high-contrast evidence; repair 1 measures composited ink because UIA RGB omits brush alpha; repair 3 waits for stable foreground/window/label geometry after HC changes before guarded captures. Baseline assertions and captures retained.",
           "functions": [
             {
               "assertions": [
@@ -283,6 +283,11 @@
             },
             {
               "name": "Assert-StatusChoiceIndicators",
+              "refactored": true,
+              "assertions": []
+            },
+            {
+              "name": "Wait-DeviceFilterContrastReady",
               "refactored": true,
               "assertions": []
             },
