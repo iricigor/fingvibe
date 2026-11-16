@@ -6,11 +6,16 @@ function Get-ToolsLandingElement {
 }
 
 function Get-ToolsLandingRowTargets([string[]] $Ids) {
+    if (-not $script:root) { return $null }
     $textCondition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
         [System.Windows.Automation.ControlType]::Text)
     foreach ($id in $Ids) {
-        $card = Get-ToolsLandingElement $id
+        # Positioning must discover real offscreen peers before it can reveal them.
+        $cardCondition = [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
+        $card = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $cardCondition)
+        if (-not $card) { return $null }
         $card
         foreach ($text in $card.FindAll([System.Windows.Automation.TreeScope]::Descendants, $textCondition)) {
             if ($text.Current.Name) { $text }
@@ -42,7 +47,7 @@ function Assert-ToolsLandingLayout {
     for ($index = 0; $index -lt $ids.Count; $index += 2) {
         $rowIds = @($ids[$index])
         if ($index + 1 -lt $ids.Count) { $rowIds += $ids[$index + 1] }
-        $null = Show-UiRegressionScrollTargets -Description "$Variant Tools row $($index / 2)" `
+        $null = Show-UiRegressionScrollTargets -Description "$Variant Tools row $($index / 2) [$($rowIds -join ', ')]" `
             -GetViewport { Get-ToolsLandingElement "ToolsLanding" } -GetWindow { $script:root } `
             -GetTargets { Get-ToolsLandingRowTargets $rowIds }
         $rectangles = @($rowIds | ForEach-Object { (Get-ToolsLandingElement $_).Current.BoundingRectangle })

@@ -89,6 +89,9 @@ A card's UI Automation bounds may be clipped to the viewport while its descripti
 or action is still offscreen. Reveal those real text targets with the existing
 measured-scroll helper before checking strict card-relative text containment;
 do not treat a partially visible parent as proof of readable content.
+Positioning discovery must admit real offscreen or empty-bounds card peers so
+that bounded scrolling can reveal them, rather than awaiting visibility first.
+Keep ordinary lookup and post-position visibility/containment assertions strict.
 
 Use the shared bounded waits, visible/nonempty page-scoped lookup, isolated
 fixture directories, normal shutdown and process-specific cleanup. Reacquire
