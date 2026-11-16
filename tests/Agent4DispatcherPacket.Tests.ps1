@@ -13,6 +13,8 @@ $fixtureCiStatus = "completed"
 $fixtureConclusion = "success"
 $fixtureSecondConclusion = "failure"
 $fixtureStatuses = @()
+$fixtureMergeable = $true
+$fixtureNoCi = $false
 $fixturePulls = @(@{ number = 200; node_id = "PR200"; head = @{ sha = "a"*40 } },
     @{ number = 201; node_id = "PR201"; head = @{ sha = "b"*40 } })
 $children = @(101..106 | ForEach-Object { @{
@@ -38,6 +40,12 @@ $fixtureReader = {
         '/issues/comments' { @(); break }
         '/sub_issues' { $children; break }
         '/pulls\?' { $fixturePulls; break }
+        '/pulls/(\d+)$' {
+            $pull = $fixturePulls | Where-Object number -EQ ([int] $Matches[1])
+            @{ number = $pull.number; head = $pull.head; mergeable = $fixtureMergeable
+                mergeable_state = $(if ($fixtureMergeable -eq $false) { "dirty" } else { "clean" })
+                base = @{ sha = "d"*40; ref = "main" } }; break
+        }
         '/pulls/\d+/files' { @(@{ filename = "shared.cs"; patch = "fixture diff" }); break }
         '/pulls/\d+/reviews' { @(@{ id = 201; state = "CHANGES_REQUESTED" }); break }
         '/statuses\?' { $fixtureStatuses; break }
@@ -46,11 +54,13 @@ $fixtureReader = {
         '/issues/106/dependencies/' { @($closedDependency); break }
         '/dependencies/' { @(); break }
         '/check-runs' {
+            if ($fixtureNoCi) { @{ total_count = 0; check_runs = @() }; break }
             $head = if ($Endpoint.Contains("a"*40)) { "a"*40 } else { "b"*40 }
             @{ total_count = 1; check_runs = @(@{ id = 1; name = "CI"; head_sha = $head
                 status = $fixtureCiStatus; conclusion = $(if ($head.StartsWith("a")) { $fixtureConclusion } else { $fixtureSecondConclusion }) }) }; break
         }
         '/actions/runs\?' {
+            if ($fixtureNoCi) { @{ total_count = 0; workflow_runs = @() }; break }
             if ($Endpoint.Contains("a"*40)) {
                 @{ total_count = 1; workflow_runs = @(@{ id = 300; workflow_id = 8; name = "Validation"
                     head_sha = "a"*40; status = $fixtureCiStatus; conclusion = $fixtureConclusion }) }
@@ -189,6 +199,37 @@ try {
     $external = Get-Agent4WorkPacket $configuration (Join-Path $root "external.json") $fixtureReader
     Assert-True (104 -notin $external.candidates.issue -and 103 -notin $external.candidates.issue) "Collector must include external pending statuses even without response sha."
     $fixtureStatuses = @()
+    $fixtureNoCi = $true
+    $noChecks = Get-Agent4WorkPacket $configuration (Join-Path $root "no-checks.json") $fixtureReader
+    Assert-True (104 -notin $noChecks.candidates.issue) "Absent checks alone must not authorize repair."
+    $fixtureMergeable = $false
+    $conflicts = Get-Agent4WorkPacket $configuration (Join-Path $root "conflicts.json") $fixtureReader
+    $conflicting = $conflicts.candidates | Where-Object issue -EQ 104
+    Assert-True ($conflicting.category -eq "failed" -and $conflicting.rank -eq 1 -and
+        $conflicting.pr.mergeable -ceq $false -and $conflicting.pr.mergeable_state -eq "dirty" -and
+        $conflicting.pr.head.sha -eq ("a"*40) -and $conflicting.pr.base.sha -eq ("d"*40)) "Confirmed conflicts without CI must carry current PR/head/base evidence into repair offers."
+    $conflictEvidence = Read-Agent4Json (Join-Path $root "conflicts.json")
+    Assert-True ($conflictEvidence.reads.'repos/TestOwner/TestRepo/pulls/200|False|'.mergeable -ceq $false) "Retain the individual PR response as conflict evidence."
+    $fixtureNoCi = $false
+    $fixtureCiStatus = "in_progress"
+    $conflictPending = Get-Agent4WorkPacket $configuration (Join-Path $root "conflict-pending.json") $fixtureReader
+    Assert-True (($conflictPending.candidates | Where-Object issue -EQ 104).category -eq "failed") "Confirmed conflicts take priority over pending CI."
+    $fixtureCiStatus = "completed"
+    $conflictGreen = Get-Agent4WorkPacket $configuration (Join-Path $root "conflict-green.json") $fixtureReader
+    Assert-True (($conflictGreen.candidates | Where-Object issue -EQ 104).category -eq "failed") "Green head checks cannot finalize a conflicting PR."
+    $children[3].labels += @{ name = "status:blocked" }
+    $conflictBlocked = Get-Agent4WorkPacket $configuration (Join-Path $root "conflict-blocked.json") $fixtureReader
+    Assert-True (104 -notin $conflictBlocked.candidates.issue -and
+        ($conflictBlocked.blocked | Where-Object issue -EQ 104).reason -eq "Explicit task blocker.") "Conflicts do not override existing task exclusions."
+    $children[3].labels = @(@{ name = "type:task" })
+    $fixtureMergeable = $null
+    $mergeabilityUnknown = Get-Agent4WorkPacket $configuration (Join-Path $root "mergeability-unknown.json") $fixtureReader
+    Assert-True (104 -notin $mergeabilityUnknown.candidates.issue -and
+        ($mergeabilityUnknown.blocked | Where-Object issue -EQ 104).reason -eq "Current PR mergeability is unknown.") "Unknown mergeability is explicitly blocked, not inferred as a conflict or safe finalization."
+    $fixtureMergeable = $true
+    $conflictFree = Get-Agent4WorkPacket $configuration (Join-Path $root "conflict-free.json") $fixtureReader
+    Assert-True (($conflictFree.candidates.issue -join ",") -eq ($sorted.candidates.issue -join ",") -and
+        ($conflictFree.candidates.category -join ",") -eq ($sorted.candidates.category -join ",")) "Conflict-free PRs retain normal CI ordering and categories."
     $fixtureLinks = @{}; $fixtureConclusion = "success"
     $head = "a"*40
     $ciCache = @{
@@ -295,6 +336,19 @@ try {
         Get-Agent4WorkPacket $configuration (Join-Path $root "failed.json") { throw "GitHub collection failed" }
     } "*collection failed*"
     Assert-True (-not [IO.File]::Exists((Join-Path $root "failed.json"))) "Collection failure must not publish success evidence."
+    $stalePull = {
+        param($Endpoint, $Paginated, $Query)
+        if ($Endpoint -match '/pulls/200$') { return '{"number":200,"head":{"sha":"changed"},"mergeable":false}' }
+        & $fixtureReader $Endpoint $Paginated $Query
+    }
+    Assert-Fails { Get-Agent4WorkPacket $configuration (Join-Path $root "stale-pr.json") $stalePull } "*PR identity/head changed*"
+    Assert-True (-not [IO.File]::Exists((Join-Path $root "stale-pr.json"))) "PR head drift must not publish actionable evidence."
+    $missingMergeability = {
+        param($Endpoint, $Paginated, $Query)
+        if ($Endpoint -match '/pulls/200$') { return '{"number":200,"head":{"sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}' }
+        & $fixtureReader $Endpoint $Paginated $Query
+    }
+    Assert-Fails { Get-Agent4WorkPacket $configuration (Join-Path $root "missing-mergeability.json") $missingMergeability } "*Incomplete PR mergeability*"
     $malformed = {
         param($Endpoint, $Paginated, $Query)
         if ($Endpoint -match '/check-runs') { return '[{}]' }

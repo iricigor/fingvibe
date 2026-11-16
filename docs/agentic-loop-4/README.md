@@ -13,6 +13,15 @@ PR submission frees a Developer for later work; pending CI does not retain a
 Developer slot. [Task #413](https://github.com/iricigor/fingvibe/issues/413)
 adds Developer claims, crash detection and prompt-based authority.
 
+The packet reads individual PR mergeability evidence. Confirmed merge conflicts
+use the existing `failed` category for repair assessment, even with missing,
+pending or successful head checks: conflicts prevent `pull_request` workflows
+from starting. Unknown mergeability is explicitly blocked, not inferred as a
+conflict or safe finalization. Existing ownership exclusions, released
+implementation resumes and current-head finalization rejections retain their
+precedence. Repair assessment does not authorize automatic conflict resolution,
+expanded task scope or bypassing validation.
+
 ## Task worktrees
 
 [Task #441](https://github.com/iricigor/fingvibe/issues/441) separates a
