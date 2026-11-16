@@ -926,7 +926,7 @@ Test-DatabaseBackupCleanup
     $capture = Join-Path $directory 'label.png'
     $scale = 1
     $windowHandle = [IntPtr]::Zero
-    $renderState = @{ Background = 254; Foreground = 0; Opacity = 0.6; Left = 0 }
+    $renderState = @{ Background = 254; Foreground = 0; Opacity = 0.6; Left = 0; Ink = $null }
     function Find-DeviceElement([string] $Id) {
         [pscustomobject]@{ Current = [pscustomobject]@{
             Name = 'Status: All'
@@ -939,8 +939,9 @@ Test-DatabaseBackupCleanup
         param($Name)
         $bitmap = [Drawing.Bitmap]::new(24, 24)
         $graphics = [Drawing.Graphics]::FromImage($bitmap)
-        $brush = [Drawing.SolidBrush]::new([Drawing.Color]::FromArgb([int](255 * $renderState.Opacity),
-            $renderState.Foreground, $renderState.Foreground, $renderState.Foreground))
+        $ink = if ($null -ne $renderState.Ink) { $renderState.Ink }
+            else { [Drawing.Color]::FromArgb($renderState.Foreground, $renderState.Foreground, $renderState.Foreground) }
+        $brush = [Drawing.SolidBrush]::new([Drawing.Color]::FromArgb([int](255 * $renderState.Opacity), $ink))
         try {
             $graphics.Clear([Drawing.Color]::FromArgb($renderState.Background, $renderState.Background, $renderState.Background))
             $graphics.FillRectangle($brush, 4, 4, 4, 12)
@@ -965,6 +966,27 @@ Test-DatabaseBackupCleanup
         }
         $renderState.Left = -1
         Assert-RegressionFailure { Get-FilterLabelEmphasis InventoryStatusFilter } '*visible inside its capture*'
+        Assert-RegressionFailure { Test-FilterRenderedForeground InventoryStatusFilter 0 } '*visible inside its capture*'
+        $renderState.Left = 0
+        $renderState.Opacity = 1
+        function Get-FilterLabelColor { return 0xFFFFFF }
+        foreach ($theme in @(@(255, 0), @(0, 255))) {
+            $renderState.Background, $renderState.Foreground = $theme
+            Assert-Regression (Test-FilterRenderedForeground InventoryStatusFilter ($renderState.Foreground * 0x010101)) 'HC must verify actual system-colored ink, not stale UIA foreground metadata.'
+        }
+        $renderState.Foreground = 100
+        Assert-Regression (-not (Test-FilterRenderedForeground InventoryStatusFilter 0xFFFFFF)) 'A visibly wrong HC foreground must fail.'
+        $renderState.Background = 255
+        $renderState.Opacity = 0
+        Assert-Regression (-not (Test-FilterRenderedForeground InventoryStatusFilter 0)) 'A blank label must not count as HC foreground.'
+        Assert-Regression (-not (Test-FilterRenderedForeground InventoryStatusFilter 0xFFFFFF)) 'The expected color in the background is not glyph evidence.'
+        $renderState.Opacity = 1
+        $renderState.Ink = [Drawing.Color]::Blue
+        Assert-Regression (-not (Test-FilterRenderedForeground InventoryStatusFilter 0x0000FF)) 'Different HC hues must fail even when their channel sums match.'
+        Assert-Regression (Test-FilterRenderedForeground InventoryStatusFilter 0xFF0000) 'COLORREF blue must be compared in the correct RGB channel order.'
+        $renderState.Background = 0
+        $renderState.Ink = [Drawing.Color]::FromArgb(245, 245, 245)
+        Assert-Regression (Test-FilterRenderedForeground InventoryStatusFilter 0xFFFFFF) 'Small glyph rasterization differences must not mask correct HC ink.'
     }
     finally { Remove-Item -LiteralPath $directory -Recurse -Force }
 }

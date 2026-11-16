@@ -134,6 +134,39 @@ function Get-FilterLabelEmphasis([string] $Id) {
     finally { $bitmap.Dispose() }
 }
 
+function Test-FilterRenderedForeground([string] $Id, [int] $ExpectedColor) {
+    $state = (Find-DeviceElement $Id).Current.Name -replace '[^\w-]', '-'
+    $capture = Save-DeviceCapture "devices-filter-high-contrast-$state"
+    $window = Get-UiReviewWindowBounds $windowHandle
+    $bounds = (Find-DeviceElement "${Id}Label").Current.BoundingRectangle
+    $expected = [Drawing.Color]::FromArgb($ExpectedColor -band 255,
+        ($ExpectedColor -shr 8) -band 255, ($ExpectedColor -shr 16) -band 255)
+    $bitmap = [Drawing.Bitmap]::new($capture)
+    try {
+        $left = [int][Math]::Ceiling($bounds.Left - $window.Left)
+        $top = [int][Math]::Ceiling($bounds.Top - $window.Top)
+        $right = [int][Math]::Floor([Math]::Min($bounds.Right - $window.Left, $left + 20 * $scale))
+        $bottom = [int][Math]::Floor($bounds.Bottom - $window.Top)
+        if ($left -lt 0 -or $top -lt 0 -or $right -gt $bitmap.Width -or $bottom -gt $bitmap.Height -or
+            $right -le $left -or $bottom -le $top) { throw "'$Id' label must be visible inside its capture." }
+        $background = $bitmap.GetPixel($left, $top)
+        $backgroundDistance = [Math]::Max([Math]::Abs([int]$background.R - $expected.R),
+            [Math]::Max([Math]::Abs([int]$background.G - $expected.G), [Math]::Abs([int]$background.B - $expected.B)))
+        $distance = 255
+        for ($y = $top; $y -lt $bottom; $y++) {
+            for ($x = $left; $x -lt $right; $x++) {
+                $pixel = $bitmap.GetPixel($x, $y)
+                $distance = [Math]::Min($distance, [Math]::Max([Math]::Abs([int]$pixel.R - $expected.R),
+                    [Math]::Max([Math]::Abs([int]$pixel.G - $expected.G), [Math]::Abs([int]$pixel.B - $expected.B))))
+            }
+        }
+        Write-Host "Filter HC foreground ${Id}: expected $expected; nearest channel distance $distance; background distance $backgroundDistance."
+        # Inspect actual ink, allowing rasterization without accepting the background as text.
+        return $backgroundDistance -gt 32 -and $distance -le 16
+    }
+    finally { $bitmap.Dispose() }
+}
+
 function Assert-StatusChoiceIndicators([string] $Theme, [switch] $HighContrast) {
     $picker = Find-DeviceElement InventoryStatusFilter
     $picker.SetFocus()
@@ -246,6 +279,8 @@ public static class DeviceFilterReviewContrast {
         if (!SystemParametersInfo(0x0043, value.Size, ref value, 2))
             throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
     }
+    [DllImport("user32.dll")]
+    public static extern int GetSysColor(int index);
 }
 '@
         $originalColor = Get-FilterLabelColor InventoryStatusFilter
@@ -256,14 +291,17 @@ public static class DeviceFilterReviewContrast {
             $null = Wait-UiRegressionState -Description "filter high contrast enabled" -Condition {
                 ([DeviceFilterReviewContrast]::Get() -band 1) -ne 0
             }
-            $systemText = [System.Drawing.SystemColors]::WindowText
-            $expectedColor = [int]$systemText.R -bor ([int]$systemText.G -shl 8) -bor ([int]$systemText.B -shl 16)
             $null = Wait-UiRegressionState -Description "filter high-contrast foreground rendered" -Condition {
-                (Get-FilterLabelColor InventoryStatusFilter) -eq $expectedColor
+                ([DeviceFilterReviewContrast]::Get() -band 1) -ne 0 -and
+                    (Test-FilterRenderedForeground InventoryStatusFilter ([DeviceFilterReviewContrast]::GetSysColor(8)))
             }
             Assert-StatusChoiceIndicators HighContrast -HighContrast
             Set-DeviceFilterChoice InventoryStatusFilter Any
             Assert-FilterPresentation InventoryStatusFilter Status Any
+            $null = Wait-UiRegressionState -Description "active filter high-contrast foreground rendered" -Condition {
+                ([DeviceFilterReviewContrast]::Get() -band 1) -ne 0 -and
+                    (Test-FilterRenderedForeground InventoryStatusFilter ([DeviceFilterReviewContrast]::GetSysColor(8)))
+            }
             Clear-DeviceFilters
             $contrastFailed = $false
         }
@@ -271,6 +309,7 @@ public static class DeviceFilterReviewContrast {
             Invoke-UiRegressionCleanup -PrimaryFailed $contrastFailed -Steps @(
                 { [DeviceFilterReviewContrast]::Set($flags) },
                 {
+                    Focus-DeviceWindow
                     $null = Wait-UiRegressionState -Description "filter foreground restored after high contrast" -Condition {
                         (Get-FilterLabelColor InventoryStatusFilter) -eq $originalColor
                     }
