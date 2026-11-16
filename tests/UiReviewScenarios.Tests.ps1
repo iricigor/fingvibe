@@ -270,6 +270,81 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
     & {
         $headerStatements = @(((Get-Command Test-PageBackHeaders).ScriptBlock.Ast.Body.EndBlock.Statements |
             Where-Object { $_ -is [Management.Automation.Language.TryStatementAst] }).Body.Statements)
+        $callback = @($headerStatements | Where-Object { $_.Extent.Text -eq '& $OpenDetails' })[0]
+        $entryEnd = [array]::IndexOf($headerStatements, $callback)
+        if ($entryEnd -lt 0) { throw 'Expected the existing Details-entry callback.' }
+        $detailsEntry = [scriptblock]::Create(($headerStatements[0..$entryEnd].Extent.Text -join "`n"))
+        $usageAst = [Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $PSScriptRoot 'UsageCategory.Ui.Tests.ps1'), [ref]$null, [ref]$null)
+        $findUsage = $usageAst.Find({
+            param($node)
+            $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Find-Usage'
+        }, $true)
+        . ([scriptblock]::Create($findUsage.Extent.Text))
+        $openUsage = $usageAst.Find({
+            param($node)
+            $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Open-UsageDevice'
+        }, $true)
+        # Execute the caller's real navigation branch, before row search and desktop keyboard input.
+        $OpenDetails = [scriptblock]::Create(($openUsage.Body.EndBlock.Statements[0..1].Extent.Text -join "`n"))
+        $originalRoot = $script:root
+        try {
+            foreach ($offscreen in @($true, $false)) {
+                $entryState = @{ Events = [Collections.Generic.List[string]]::new()
+                    FocusRequested = $false; Settling = $false; FocusFailure = $false }
+                $backAction = [pscustomobject]@{}
+                $backAction | Add-Member ScriptMethod Invoke { $entryState.Events.Add('invoke:Back') }
+                $backPeer = [pscustomobject]@{ Current = [pscustomobject]@{
+                    IsOffscreen = $offscreen; BoundingRectangle = $back
+                } }
+                $backPeer | Add-Member ScriptMethod SetFocus {
+                    $entryState.Events.Add('focus:Back')
+                    if ($entryState.FocusFailure) { throw 'Header entry focus failed.' }
+                    $entryState.FocusRequested = $true
+                    $entryState.Settling = $true
+                }
+                $backPeer | Add-Member ScriptMethod GetCurrentPattern {
+                    param($PatternId)
+                    Assert-Equal $PatternId ([Windows.Automation.InvokePattern]::Pattern) 'Details entry retains Back invocation'
+                    return $backAction
+                }
+                $Root = [pscustomobject]@{}
+                $Root | Add-Member ScriptMethod FindFirst {
+                    param([Windows.Automation.TreeScope] $Scope, [Windows.Automation.Condition] $Query)
+                    Assert-Equal $Scope ([Windows.Automation.TreeScope]::Descendants) 'Caller navigation lookup scope'
+                    if ($Query.Property -eq [Windows.Automation.AutomationElement]::NameProperty -and
+                        $Query.Value -eq 'Back to devices') { return $backPeer }
+                    if ($Query.Value -in @('DevicesNavItem', 'DeviceOverviewTab')) { return }
+                    throw "Unexpected caller navigation lookup '$($Query.Value)'."
+                }
+                $Root | Add-Member ScriptMethod FindAll {
+                    param([Windows.Automation.TreeScope] $Scope, [Windows.Automation.Condition] $Query)
+                    Assert-Equal $Scope ([Windows.Automation.TreeScope]::Descendants) 'Header entry lookup scope'
+                    $conditions = $Query.GetConditions()
+                    Assert-Equal $conditions[0].Property ([Windows.Automation.AutomationElement]::NameProperty) 'Details entry Back name selector'
+                    Assert-Equal $conditions[0].Value 'Back to devices' 'Details entry Back identity'
+                    Assert-Equal $conditions[1].Value ([Windows.Automation.ControlType]::Button.Id) 'Details entry Back type'
+                    if ($entryState.FocusRequested) {
+                        if ($entryState.Settling) { $entryState.Settling = $false }
+                        else { $backPeer.Current.IsOffscreen = $false }
+                    }
+                    return $backPeer
+                }
+                $script:root = $Root
+                & $detailsEntry
+                Assert-Equal $entryState.Events @('focus:Back', 'invoke:Back') 'Entry must position and await Back before the actual caller chooses navigation'
+                Assert-Equal $script:UiRegressionCallStack.Count 0 'Details entry completes real lookup/wait accounting'
+                $entryState.Events.Clear()
+                $entryState.FocusFailure = $true
+                Assert-Throws { & $detailsEntry } '*Header entry focus failed*'
+                Assert-Equal $entryState.Events @('focus:Back') 'Failed positioning must not invoke the caller'
+            }
+        }
+        finally { $script:root = $originalRoot }
+    }
+    & {
+        $headerStatements = @(((Get-Command Test-PageBackHeaders).ScriptBlock.Ast.Body.EndBlock.Statements |
+            Where-Object { $_ -is [Management.Automation.Language.TryStatementAst] }).Body.Statements)
         $toolsLoop = @($headerStatements | Where-Object {
             $_ -is [Management.Automation.Language.ForEachStatementAst] -and $_.Extent.Text.Contains('DatabaseBackupsCard')
         })

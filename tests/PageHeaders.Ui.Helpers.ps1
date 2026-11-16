@@ -69,6 +69,11 @@ function Test-PageBackHeaders {
     $phase = Start-UiRegressionPhase -Name "headers/$Variant"
     $succeeded = $false
     try {
+        # An offscreen Back makes the caller fall back to the unavailable narrow sidebar.
+        $back = Find-PageHeaderElement $Root 'Back to devices' -ByName `
+            -Type ([Windows.Automation.ControlType]::Button) -AllowOffscreen
+        $back.SetFocus()
+        $null = Find-PageHeaderElement $Root 'Back to devices' -ByName -Type ([Windows.Automation.ControlType]::Button)
         & $OpenDetails
         $back = Find-PageHeaderElement $Root 'Back to devices' -ByName `
             -Type ([Windows.Automation.ControlType]::Button) -AllowOffscreen
