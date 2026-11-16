@@ -23,26 +23,35 @@
                            VerticalAlignment="Center" TextWrapping="Wrap" IsTabStop="True" />
             </Grid>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
-                <StackPanel Spacing="8">
-                    <TextBlock Text="FingVibe LAN Scanner" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                    <TextBlock x:Name="VersionText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
-                    <TextBlock x:Name="BuildKindText" TextWrapping="Wrap" />
-                    <TextBlock x:Name="BuildTimestampText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
-                    <TextBlock Text="Open-source network discovery, by Igor." TextWrapping="Wrap" />
-                    <TextBlock x:Name="CommitText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
-                    <HyperlinkButton x:Name="PullRequestLink" Content="Pull request &#x2197;"
-                                     HorizontalAlignment="Left" Padding="0,4"
-                                     AutomationProperties.Name="Pull request (opens in browser)" />
-                    <HyperlinkButton x:Name="BuildLink" Content="Build run &#x2197;"
-                                     HorizontalAlignment="Left" Padding="0,4"
-                                     AutomationProperties.Name="Build run (opens in browser)" />
-                    <HyperlinkButton Content="GitHub repository &#x2197;" Padding="0,4"
-                                     NavigateUri="https://github.com/iricigor/fingvibe"
-                                     AutomationProperties.Name="GitHub repository (opens in browser)" />
-                    <HyperlinkButton Content="Creator's website &#x2197;" Padding="0,4"
-                                     NavigateUri="https://igor.iric.online"
-                                     AutomationProperties.Name="Creator's website (opens in browser)" />
-                </StackPanel>
+                <Grid ColumnSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Image x:Name="AboutAppIcon" Grid.Column="1" Width="128" Height="128" VerticalAlignment="Top"
+                           Source="ms-appx:///Assets/ConnectedHome.png" Stretch="Uniform"
+                           IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="FingVibe LAN Scanner" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                        <TextBlock x:Name="VersionText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                        <TextBlock x:Name="BuildKindText" TextWrapping="Wrap" />
+                        <TextBlock x:Name="BuildTimestampText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                        <TextBlock Text="Open-source network discovery, by Igor." TextWrapping="Wrap" />
+                        <TextBlock x:Name="CommitText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                        <HyperlinkButton x:Name="PullRequestLink" Content="Pull request &#x2197;"
+                                         HorizontalAlignment="Left" Padding="0,4"
+                                         AutomationProperties.Name="Pull request (opens in browser)" />
+                        <HyperlinkButton x:Name="BuildLink" Content="Build run &#x2197;"
+                                         HorizontalAlignment="Left" Padding="0,4"
+                                         AutomationProperties.Name="Build run (opens in browser)" />
+                        <HyperlinkButton Content="GitHub repository &#x2197;" Padding="0,4"
+                                         NavigateUri="https://github.com/iricigor/fingvibe"
+                                         AutomationProperties.Name="GitHub repository (opens in browser)" />
+                        <HyperlinkButton Content="Creator's website &#x2197;" Padding="0,4"
+                                         NavigateUri="https://igor.iric.online"
+                                         AutomationProperties.Name="Creator's website (opens in browser)" />
+                    </StackPanel>
+                </Grid>
             </Border>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="8">

@@ -8,8 +8,14 @@ through [task #182](https://github.com/iricigor/fingvibe/issues/182) under
 undecided: documentation, README, inside the application, some combination, or
 another surface. [Task #183](https://github.com/iricigor/fingvibe/issues/183)
 holds that discussion for later; no placement, rollout, or implementation is
-approved by this record. The current README logo, application icon, navigation,
-and runtime assets remain unchanged. No project rename was selected.
+approved by this record. The current README logo, navigation, and runtime page
+assets remain unchanged. No project rename was selected.
+
+Later, [task #348](https://github.com/iricigor/fingvibe/issues/348) adopted the
+Rooms **Connected home** concept as the application icon, README logo,
+navigation pane brand tile and About page icon, with simplified small-size
+masters in [`../app-icon`](../app-icon/README.md). That adoption does not place
+any other concept on an application surface.
 
 ## Selected family
 

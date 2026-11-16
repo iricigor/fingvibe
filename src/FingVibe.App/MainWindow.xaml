@@ -91,12 +91,8 @@
                         <ColumnDefinition Width="48" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Border Width="48"
-                            Height="48"
-                            Background="{ThemeResource AccentFillColorDefaultBrush}"
-                            CornerRadius="12">
-                        <FontIcon Glyph="&#xE8FE;" FontSize="24" Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" />
-                    </Border>
+                    <Image Width="48" Height="48" Source="ms-appx:///Assets/ConnectedHome-48.png" Stretch="Uniform"
+                           IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                         <TextBlock x:Name="NavigationBrandName" Text="FingVibe" TextWrapping="NoWrap"
                                    TextTrimming="CharacterEllipsis" Style="{ThemeResource SubtitleTextBlockStyle}" />
