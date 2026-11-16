@@ -63,6 +63,20 @@ function Find-PageHeaderElement {
     }
 }
 
+function Show-PageHeaderNavigationItem {
+    param($Root, [string] $Id)
+    $condition = [Windows.Automation.PropertyCondition]::new(
+        [Windows.Automation.AutomationElement]::AutomationIdProperty, $Id)
+    $call = Start-UiRegressionCall lookup
+    try { $item = $Root.FindFirst([Windows.Automation.TreeScope]::Descendants, $condition) }
+    finally { Complete-UiRegressionCall $call }
+    if (-not (Test-UiRegressionElementVisible $item)) {
+        (Find-PageHeaderElement $Root TogglePaneButton -Type ([Windows.Automation.ControlType]::Button)).
+            GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+    }
+    return Find-PageHeaderElement $Root $Id
+}
+
 function Test-PageBackHeaders {
     param($Root, [IntPtr] $WindowHandle, [string] $Directory, [string] $Variant,
         [scriptblock] $OpenDetails, [switch] $Scaled)
@@ -93,7 +107,7 @@ function Test-PageBackHeaders {
         $back.SetFocus()
         [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
         $null = Find-PageHeaderElement $Root ResultsList
-        (Find-PageHeaderElement $Root ToolsNavItem).GetCurrentPattern(
+        (Show-PageHeaderNavigationItem $Root ToolsNavItem).GetCurrentPattern(
             [Windows.Automation.SelectionItemPattern]::Pattern).Select()
         foreach ($page in @(
             @{ Card = 'SqlEditorCard'; Title = 'SQL editor' },
@@ -114,7 +128,7 @@ function Test-PageBackHeaders {
             [System.Windows.Forms.SendKeys]::SendWait(' ')
             $null = Find-PageHeaderElement $Root ToolsLanding
         }
-        (Find-PageHeaderElement $Root OverviewNavItem).GetCurrentPattern(
+        (Show-PageHeaderNavigationItem $Root OverviewNavItem).GetCurrentPattern(
             [Windows.Automation.SelectionItemPattern]::Pattern).Select()
         (Find-PageHeaderElement $Root 'About FingVibe' -ByName -Type ([Windows.Automation.ControlType]::Button)).
             GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
@@ -127,6 +141,7 @@ function Test-PageBackHeaders {
             $focused = [Windows.Automation.AutomationElement]::FocusedElement
             $focused.Current.Name -eq 'About FingVibe & updates' -and $focused.Current.HasKeyboardFocus
         }
+        $null = Show-PageHeaderNavigationItem $Root DevicesNavItem
         & $OpenDetails
         $succeeded = $true
     }

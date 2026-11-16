@@ -347,6 +347,108 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
             Where-Object { $_ -is [Management.Automation.Language.TryStatementAst] }).Body.Statements)
         $toolsLoop = @($headerStatements | Where-Object {
             $_ -is [Management.Automation.Language.ForEachStatementAst] -and $_.Extent.Text.Contains('DatabaseBackupsCard')
+        })[0]
+        $toolsIndex = [array]::IndexOf($headerStatements, $toolsLoop)
+        $returnWait = @($headerStatements | Where-Object {
+            $_.Extent.Text.Contains("Description 'About return restores Settings row focus'")
+        })[0]
+        $returnIndex = [array]::IndexOf($headerStatements, $returnWait) + 1
+        $navigationSteps = @(
+            [scriptblock]::Create($headerStatements[$toolsIndex - 1].Extent.Text)
+            [scriptblock]::Create($headerStatements[$toolsIndex + 1].Extent.Text)
+            [scriptblock]::Create(($headerStatements[$returnIndex..($headerStatements.Count - 2)].Extent.Text -join "`n"))
+        )
+        $usageAst = [Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $PSScriptRoot 'UsageCategory.Ui.Tests.ps1'), [ref]$null, [ref]$null)
+        $findUsage = $usageAst.Find({
+            param($node)
+            $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Find-Usage'
+        }, $true)
+        . ([scriptblock]::Create($findUsage.Extent.Text))
+        $openUsage = $usageAst.Find({
+            param($node)
+            $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Open-UsageDevice'
+        }, $true)
+        $OpenDetails = [scriptblock]::Create(($openUsage.Body.EndBlock.Statements[0..1].Extent.Text -join "`n"))
+        $originalRoot = $script:root
+        try {
+            foreach ($mode in @('absent', 'offscreen', 'visible')) {
+                $navigationState = @{ Mode = $mode; Expanded = $mode -eq 'visible'; Opening = $false
+                    Settling = $false; Failure = $false; Events = [Collections.Generic.List[string]]::new() }
+                $toggleAction = [pscustomobject]@{}
+                $toggleAction | Add-Member ScriptMethod Invoke {
+                    $navigationState.Events.Add('open-pane')
+                    if ($navigationState.Failure) { throw 'Header navigation toggle failed.' }
+                    $navigationState.Opening = $true
+                    $navigationState.Settling = $true
+                }
+                $togglePeer = [pscustomobject]@{ Current = [pscustomobject]@{
+                    IsOffscreen = $false; BoundingRectangle = $reference
+                } }
+                $togglePeer | Add-Member ScriptMethod GetCurrentPattern {
+                    param($PatternId)
+                    Assert-Equal $PatternId ([Windows.Automation.InvokePattern]::Pattern) 'Header navigation opens the real pane toggle'
+                    return $toggleAction
+                }
+                $Root = [pscustomobject]@{}
+                $Root | Add-Member ScriptMethod FindAll {
+                    param([Windows.Automation.TreeScope] $Scope, [Windows.Automation.Condition] $Query)
+                    Assert-Equal $Scope ([Windows.Automation.TreeScope]::Descendants) 'Header navigation lookup scope'
+                    $id = if ($Query -is [Windows.Automation.AndCondition]) { $Query.GetConditions()[0].Value } else { $Query.Value }
+                    if ($id -in @('Back to devices', 'DeviceOverviewTab')) { return }
+                    if ($id -eq 'TogglePaneButton') { return $togglePeer }
+                    if ($id -notin @('ToolsNavItem', 'OverviewNavItem', 'DevicesNavItem')) {
+                        throw "Unexpected header navigation lookup '$id'."
+                    }
+                    if ($navigationState.Opening) {
+                        if ($navigationState.Settling) { $navigationState.Settling = $false; return }
+                        $navigationState.Opening = $false
+                        $navigationState.Expanded = $true
+                    }
+                    if (-not $navigationState.Expanded -and $navigationState.Mode -eq 'absent') { return }
+                    $selection = [pscustomobject]@{ Id = $id; Visible = $navigationState.Expanded }
+                    $selection | Add-Member ScriptMethod Select {
+                        if (-not $this.Visible -or -not $navigationState.Expanded) { throw 'Cannot select hidden navigation.' }
+                        $navigationState.Events.Add("select:$($this.Id)")
+                        if ($navigationState.Mode -ne 'visible') { $navigationState.Expanded = $false }
+                    }
+                    $peer = [pscustomobject]@{ Selection = $selection; Current = [pscustomobject]@{
+                        IsOffscreen = -not $navigationState.Expanded; BoundingRectangle = $reference
+                    } }
+                    $peer | Add-Member ScriptMethod GetCurrentPattern {
+                        param($PatternId)
+                        Assert-Equal $PatternId ([Windows.Automation.SelectionItemPattern]::Pattern) 'Header navigation preserves page selection'
+                        return $this.Selection
+                    }
+                    return $peer
+                }
+                $Root | Add-Member ScriptMethod FindFirst {
+                    param([Windows.Automation.TreeScope] $Scope, [Windows.Automation.Condition] $Query)
+                    $this.FindAll($Scope, $Query) | Select-Object -First 1
+                }
+                $script:root = $Root
+                foreach ($step in $navigationSteps) { & $step }
+                $expected = foreach ($id in @('ToolsNavItem', 'OverviewNavItem', 'DevicesNavItem')) {
+                    if ($mode -ne 'visible') { 'open-pane' }
+                    "select:$id"
+                }
+                Assert-Equal $navigationState.Events $expected 'Every header page boundary reveals hidden navigation without closing an expanded pane'
+                Assert-Equal $script:UiRegressionCallStack.Count 0 'Header navigation completes lookup accounting'
+                if ($mode -ne 'visible') {
+                    $navigationState.Events.Clear()
+                    $navigationState.Failure = $true
+                    Assert-Throws { & $navigationSteps[0] } '*Header navigation toggle failed*'
+                    Assert-Equal $navigationState.Events @('open-pane') 'Failed pane opening must not select a page'
+                }
+            }
+        }
+        finally { $script:root = $originalRoot }
+    }
+    & {
+        $headerStatements = @(((Get-Command Test-PageBackHeaders).ScriptBlock.Ast.Body.EndBlock.Statements |
+            Where-Object { $_ -is [Management.Automation.Language.TryStatementAst] }).Body.Statements)
+        $toolsLoop = @($headerStatements | Where-Object {
+            $_ -is [Management.Automation.Language.ForEachStatementAst] -and $_.Extent.Text.Contains('DatabaseBackupsCard')
         })
         $aboutCapture = @($headerStatements | Where-Object { $_.Extent.Text.StartsWith('Save-PageBackHeader ') })
         if ($toolsLoop.Count -ne 1 -or $aboutCapture.Count -ne 1) { throw 'Expected one Tools-to-About entry boundary.' }
@@ -399,6 +501,10 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
             if ($entryState.Page -ne 'Overview') { throw "About entry requires Overview, not $($entryState.Page)." }
             $entryState.Events.Add('lookup:About')
             return $aboutPeer
+        }
+        $Root | Add-Member ScriptMethod FindFirst {
+            param([Windows.Automation.TreeScope] $Scope, [Windows.Automation.Condition] $Query)
+            $this.FindAll($Scope, $Query) | Select-Object -First 1
         }
         & $aboutEntry
         Assert-Equal $entryState.Events @('select:Overview', 'lookup:About', 'invoke:About') 'Real About entry must navigate from Tools before looking up its Button'
