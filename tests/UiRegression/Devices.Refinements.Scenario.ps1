@@ -5,6 +5,7 @@ foreach ($case in @(
     @{ Id = 'VendorFilter'; Category = 'Vendor'; Missing = 'Unknown'; KnownCount = 77; MissingCount = 3 },
     @{ Id = 'UsageCategoryFilter'; Category = 'Usage category'; Missing = 'Unclassified'; KnownCount = 0; MissingCount = 80 }
 )) {
+    $inactiveColor = Get-FilterLabelColor $case.Id
     $panel = Open-DeviceFilter $case.Id
     $checks = @($panel.FindAll([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new(
@@ -29,6 +30,10 @@ foreach ($case in @(
         $missingToggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off) {
         throw "$($case.Id) Any must replace individual and missing-value selections."
     }
+    if ((Get-FilterLabelColor $case.Id) -eq $inactiveColor) {
+        throw "$($case.Id) restrictive Any must emphasize its label."
+    }
+    Assert-FilterPresentation $case.Id $case.Category Any
     if ($case.Id -eq 'VendorFilter') { $null = Save-DeviceCapture 'devices-any-known-vendor' }
     $missingToggle.Toggle()
     $expectedCount = if ($case.MissingCount -eq 80) { 'Showing 80 devices' } else { "Showing $($case.MissingCount) of 80 devices" }
@@ -49,6 +54,9 @@ foreach ($case in @(
     $missingToggle.Toggle()
     $null = Wait-UiRegressionState -Description "$($case.Id) unrestricted membership" -Condition {
         (Find-DeviceElement ResultCountText).Current.Name -eq 'Showing 80 devices'
+    }
+    if ((Get-FilterLabelColor $case.Id) -ne $inactiveColor) {
+        throw "$($case.Id) must restore quiet label styling after clearing."
     }
     [DevicesReviewInput]::Tap(0x1B)
 }

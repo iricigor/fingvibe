@@ -78,7 +78,173 @@ function Assert-FilterPresentation([string] $Id, [string] $Category, [string] $V
     if ($picker.Current.Name -ne "${Category}: $expected") {
         throw "Native '$Id' must announce its category and selections; expected '${Category}: $expected'."
     }
+    $displayCategory = switch ($Category) {
+        "Device type" { "Type" }
+        "Operating system" { "OS" }
+        "Usage category" { "Usage" }
+        default { $Category }
+    }
+    $text = (Find-DeviceElement "${Id}Label").GetCurrentPattern(
+        [System.Windows.Automation.TextPattern]::Pattern).DocumentRange.GetText(-1).Trim()
+    $expectedText = if ($Value) { "$displayCategory | $Value" } else { $displayCategory }
+    if ($text -ne $expectedText -or -not $picker.Current.IsEnabled) {
+        throw "'$Id' must render '$expectedText' without disabling the filter."
+    }
     $null = Save-DeviceCapture "devices-filter-$Category-$expected"
+}
+
+function Get-FilterLabelColor([string] $Id) {
+    $range = (Find-DeviceElement "${Id}Label").GetCurrentPattern(
+        [System.Windows.Automation.TextPattern]::Pattern).DocumentRange
+    $color = $range.GetAttributeValue([System.Windows.Automation.TextPattern]::ForegroundColorAttribute)
+    if ($color -isnot [int]) { throw "'$Id' must expose its rendered label foreground." }
+    return $color
+}
+
+function Assert-StatusChoiceIndicators([string] $Theme, [switch] $HighContrast) {
+    $picker = Find-DeviceElement InventoryStatusFilter
+    $picker.SetFocus()
+    [DevicesReviewInput]::Tap(0x20)
+    $panel = Find-DeviceElement InventoryStatusFilterChoices
+    $capture = Save-DeviceCapture "devices-status-choices-$Theme"
+    $window = Get-UiReviewWindowBounds $windowHandle
+    $bitmap = [System.Drawing.Bitmap]::new($capture)
+    try {
+        $colors = if ($Theme -eq "Standard Light") {
+            @("#16803D", "#C42B1C", "#6B7280", "#2563EB")
+        } else { @("#4ADE80", "#FF8080", "#A6ABB3", "#70ADFF") }
+        $names = @("Online", "Offline", "Unknown", "Fing Only")
+        foreach ($name in @($names + "Any")) {
+            $check = $panel.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.AndCondition]::new(
+                    [System.Windows.Automation.PropertyCondition]::new(
+                        [System.Windows.Automation.AutomationElement]::NameProperty, $name),
+                    [System.Windows.Automation.PropertyCondition]::new(
+                        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                        [System.Windows.Automation.ControlType]::CheckBox)))
+            if (-not $check -or $check.Current.IsOffscreen -or -not $check.Current.IsEnabled) {
+                throw "Status choice '$name' must remain a visible, enabled checkbox in $Theme."
+            }
+            $null = $check.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+            $text = $check.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                    [System.Windows.Automation.ControlType]::Text))
+            if (-not $text) { throw "Status choice '$name' lost its readable label in $Theme." }
+            $bounds = $text.Current.BoundingRectangle
+            if (-not $check.Current.BoundingRectangle.Contains($bounds)) {
+                throw "Status choice '$name' clips its label in $Theme."
+            }
+            if ($HighContrast) { continue }
+            $centerX = $bounds.Left - $window.Left - 14 * $scale
+            $centerY = $bounds.Top - $window.Top + $bounds.Height / 2
+            $samples = @(@(2, -2, 0), @(2, 2, 1), @(-2, 2, 2), @(-2, -2, 3))
+            if ($name -ne "Any") { $samples = ,@(0, 0, [Array]::IndexOf($names, $name)) }
+            foreach ($sample in $samples) {
+                $actual = $bitmap.GetPixel([int]($centerX + $sample[0] * $scale),
+                    [int]($centerY + $sample[1] * $scale))
+                $expected = [System.Drawing.ColorTranslator]::FromHtml($colors[$sample[2]])
+                if ($actual.ToArgb() -ne $expected.ToArgb()) {
+                    throw "Status '$name' indicator has incorrect rendered color in $Theme; expected $expected, got $actual."
+                }
+            }
+        }
+    }
+    finally {
+        $bitmap.Dispose()
+        [DevicesReviewInput]::Tap(0x1B)
+    }
+}
+
+function Test-DeviceFilterVisualStates {
+    foreach ($theme in @("Standard Light", "Standard Dark")) {
+        Select-DevicePage Settings
+        Set-UiReviewTheme -Root $root -Theme $theme
+        Select-DevicePage DevicesNavItem
+        Set-SecondaryFiltersExpanded $true
+        foreach ($entry in @(@("TypeFilter", "Device type"), @("OperatingSystemFilter", "Operating system"),
+            @("UsageCategoryFilter", "Usage category"), @("PortsFilter", "Ports"))) {
+            Assert-FilterPresentation $entry[0] $entry[1]
+        }
+        Assert-StatusChoiceIndicators $theme
+        $inactive = Get-FilterLabelColor InventoryStatusFilter
+        Set-DeviceFilterChoice InventoryStatusFilter Online
+        $active = Get-FilterLabelColor InventoryStatusFilter
+        if ($active -eq $inactive) { throw "Active and inactive filter text must differ in $theme." }
+        Assert-FilterPresentation InventoryStatusFilter Status Online
+        Set-DeviceFilterChoice InventoryStatusFilter Any
+        if ((Get-FilterLabelColor InventoryStatusFilter) -ne $active) {
+            throw "Restrictive Status Any must use active text, even when it matches the whole fixture."
+        }
+        Assert-FilterPresentation InventoryStatusFilter Status Any
+        Clear-DeviceFilters
+        if ((Get-FilterLabelColor InventoryStatusFilter) -ne $inactive) {
+            throw "Clear filters must restore quiet Status text in $theme."
+        }
+        $portsInactive = Get-FilterLabelColor PortsFilter
+        Set-DeviceFilterChoice PortsFilter "With open ports"
+        if ((Get-FilterLabelColor PortsFilter) -eq $portsInactive) { throw "Ports must also emphasize active text." }
+        Clear-DeviceFilters
+        if ((Get-FilterLabelColor PortsFilter) -ne $portsInactive) { throw "Clearing Ports must restore inactive text." }
+        $picker = Find-DeviceElement InventoryStatusFilter
+        $picker.SetFocus()
+        if (-not $picker.Current.HasKeyboardFocus) { throw "Inactive Status must retain keyboard focus in $theme." }
+        $null = Save-DeviceCapture "devices-filter-focus-$theme"
+        Move-ToDeviceElement $picker
+        $null = Save-DeviceCapture "devices-filter-hover-$theme" -KeepPointer
+    }
+    if ($env:GITHUB_ACTIONS -eq "true" -and $env:RUNNER_OS -eq "Windows") {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class DeviceFilterReviewContrast {
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct HIGHCONTRAST { public uint Size; public uint Flags; public IntPtr Scheme; }
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool SystemParametersInfo(uint action, uint size, ref HIGHCONTRAST value, uint flags);
+    public static uint Get() {
+        var value = new HIGHCONTRAST { Size = (uint)Marshal.SizeOf<HIGHCONTRAST>() };
+        if (!SystemParametersInfo(0x0042, value.Size, ref value, 0))
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+        return value.Flags;
+    }
+    public static void Set(uint flags) {
+        var value = new HIGHCONTRAST { Size = (uint)Marshal.SizeOf<HIGHCONTRAST>(), Flags = flags };
+        if (!SystemParametersInfo(0x0043, value.Size, ref value, 2))
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+    }
+}
+'@
+        $originalColor = Get-FilterLabelColor InventoryStatusFilter
+        $flags = [DeviceFilterReviewContrast]::Get()
+        $contrastFailed = $true
+        try {
+            [DeviceFilterReviewContrast]::Set($flags -bor 1)
+            $null = Wait-UiRegressionState -Description "filter high contrast enabled" -Condition {
+                ([DeviceFilterReviewContrast]::Get() -band 1) -ne 0
+            }
+            $systemText = [System.Drawing.SystemColors]::WindowText
+            $expectedColor = [int]$systemText.R -bor ([int]$systemText.G -shl 8) -bor ([int]$systemText.B -shl 16)
+            $null = Wait-UiRegressionState -Description "filter high-contrast foreground rendered" -Condition {
+                (Get-FilterLabelColor InventoryStatusFilter) -eq $expectedColor
+            }
+            Assert-StatusChoiceIndicators HighContrast -HighContrast
+            Set-DeviceFilterChoice InventoryStatusFilter Any
+            Assert-FilterPresentation InventoryStatusFilter Status Any
+            Clear-DeviceFilters
+            $contrastFailed = $false
+        }
+        finally {
+            Invoke-UiRegressionCleanup -PrimaryFailed $contrastFailed -Steps @(
+                { [DeviceFilterReviewContrast]::Set($flags) },
+                {
+                    $null = Wait-UiRegressionState -Description "filter foreground restored after high contrast" -Condition {
+                        (Get-FilterLabelColor InventoryStatusFilter) -eq $originalColor
+                    }
+                })
+        }
+    }
+    else { Write-Host "High-contrast filter evidence requires a disposable GitHub Windows runner; not exercised." }
 }
 
 function Assert-ClearFiltersVisible([bool] $Expected) {

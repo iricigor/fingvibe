@@ -33,23 +33,25 @@ public sealed partial class DevicesPageView : UserControl
         Loaded += (_, _) => UpdateLastSeenAgeRefresh();
         Unloaded += (_, _) => _lastSeenAges.SetActive(false);
         RegisterPropertyChangedCallback(VisibilityProperty, (_, _) => UpdateLastSeenAgeRefresh());
-        _statuses = new(InventoryStatusFilter, "Status", OnFiltersChanged,
+        _statuses = new(this, InventoryStatusFilter, "Status", OnFiltersChanged,
             InventoryDeviceStatus.Unknown, "Any status except Unknown.");
-        _types = new(TypeFilter, "Device type", OnFiltersChanged,
-            DeviceType.Unknown, "Any known device type, excluding Unknown.");
-        _operatingSystems = new(OperatingSystemFilter, "Operating system", OnFiltersChanged,
-            DeviceOperatingSystem.Unknown, "Any known operating system, excluding Unknown.");
-        _vendors = new(VendorFilter, "Vendor", OnFiltersChanged,
+        _types = new(this, TypeFilter, "Device type", OnFiltersChanged,
+            DeviceType.Unknown, "Any known device type, excluding Unknown.", displayCategory: "Type");
+        _operatingSystems = new(this, OperatingSystemFilter, "Operating system", OnFiltersChanged,
+            DeviceOperatingSystem.Unknown, "Any known operating system, excluding Unknown.", displayCategory: "OS");
+        _vendors = new(this, VendorFilter, "Vendor", OnFiltersChanged,
             DeviceVendorPresentation.Unknown, "Any identified vendor, excluding Unknown and Randomized MAC.",
             StringComparer.OrdinalIgnoreCase, DeviceVendorPresentation.IsKnown);
-        _people = new(PersonFilter, "Person", OnFiltersChanged, null, "Any assigned person, excluding Unassigned.");
-        _rooms = new(RoomFilter, "Room", OnFiltersChanged, null, "Any assigned room, excluding Unassigned.");
-        _usageCategories = new(UsageCategoryFilter, "Usage category", OnFiltersChanged,
-            DeviceUsageCategory.Unclassified, "Any classified usage category, excluding Unclassified.");
+        _people = new(this, PersonFilter, "Person", OnFiltersChanged, null, "Any assigned person, excluding Unassigned.");
+        _rooms = new(this, RoomFilter, "Room", OnFiltersChanged, null, "Any assigned room, excluding Unassigned.");
+        _usageCategories = new(this, UsageCategoryFilter, "Usage category", OnFiltersChanged,
+            DeviceUsageCategory.Unclassified, "Any classified usage category, excluding Unclassified.", displayCategory: "Usage");
         _usageCategories.SetChoices(Enum.GetValues<DeviceUsageCategory>().Select(value => (value, value.ToString())));
         _statuses.SetChoices([
             (InventoryDeviceStatus.Online, "Online"), (InventoryDeviceStatus.Offline, "Offline"),
-            (InventoryDeviceStatus.Unknown, "Unknown"), (InventoryDeviceStatus.FingOnly, "Fing Only")]);
+            (InventoryDeviceStatus.Unknown, "Unknown"), (InventoryDeviceStatus.FingOnly, "Fing Only")],
+            value => (DataTemplate)Resources[$"Status{value}FilterIndicator"],
+            (DataTemplate)Resources["StatusAnyFilterIndicator"]);
         _types.SetChoices(Enum.GetValues<DeviceType>().Select(value => (value, value.Label())));
         _operatingSystems.SetChoices(Enum.GetValues<DeviceOperatingSystem>().Select(value => (value, value.Label())));
         SetVendorFilters([]);
@@ -349,11 +351,7 @@ public sealed partial class DevicesPageView : UserControl
         AutomationProperties.SetName(FilterExpander,
             $"{(expanded ? "Hide" : "Show")} additional device filters; {count} active categories");
         AutomationProperties.SetHelpText(FilterExpander, expanded ? "Expanded" : "Collapsed");
-        PortsFilter.Content = new TextBlock
-        {
-            Text = OpenPortsOnly ? "Ports | With open ports" : "Ports",
-            TextTrimming = TextTrimming.CharacterEllipsis
-        };
+        PortsFilter.Content = CreateFilterLabel(PortsFilter, OpenPortsOnly ? "Ports | With open ports" : "Ports", OpenPortsOnly);
         AutomationProperties.SetName(PortsFilter, OpenPortsOnly ? "Ports: With open ports" : "Ports: All");
         ToolTipService.SetToolTip(PortsFilter, OpenPortsOnly ? "Ports: With open ports" : "Ports: All");
         ClearFiltersLink.Visibility = filter.HasRestrictions ? Visibility.Visible : Visibility.Collapsed;
@@ -405,10 +403,23 @@ public sealed partial class DevicesPageView : UserControl
         ResultSearchBox.Focus(FocusState.Programmatic);
     }
 
+    private TextBlock CreateFilterLabel(DropDownButton button, string text, bool active)
+    {
+        var label = new TextBlock
+        {
+            Text = text,
+            Style = (Style)Resources[active ? "ActiveFilterLabelStyle" : "InactiveFilterLabelStyle"]
+        };
+        AutomationProperties.SetAutomationId(label, button.Name + "Label");
+        return label;
+    }
+
     private sealed class MultiSelectFilter<T>
     {
+        private readonly DevicesPageView _view;
         private readonly DropDownButton _button;
         private readonly string _category;
+        private readonly string _displayCategory;
         private readonly Action _changed;
         private readonly DeviceFilterSelection<T> _selection;
         private readonly string _anyDescription;
@@ -416,12 +427,14 @@ public sealed partial class DevicesPageView : UserControl
         private CheckBox? _anyCheck;
         private bool _syncing;
 
-        internal MultiSelectFilter(DropDownButton button, string category, Action changed,
+        internal MultiSelectFilter(DevicesPageView view, DropDownButton button, string category, Action changed,
             T missingValue, string anyDescription, IEqualityComparer<T>? comparer = null,
-            Func<T, bool>? isKnown = null)
+            Func<T, bool>? isKnown = null, string? displayCategory = null)
         {
+            _view = view;
             _button = button;
             _category = category;
+            _displayCategory = displayCategory ?? category;
             _changed = changed;
             _selection = new(missingValue, comparer, isKnown);
             _anyDescription = anyDescription;
@@ -431,7 +444,8 @@ public sealed partial class DevicesPageView : UserControl
         internal IReadOnlySet<T> Selected => _selection.Selected;
         internal bool AnyKnown => _selection.AnyKnown;
 
-        internal void SetChoices(IEnumerable<(T Value, string Label)> values)
+        internal void SetChoices(IEnumerable<(T Value, string Label)> values,
+            Func<T, DataTemplate>? indicatorTemplate = null, DataTemplate? anyIndicatorTemplate = null)
         {
             if (!_selection.SetChoices(values)) return;
             _checks.Clear();
@@ -444,7 +458,7 @@ public sealed partial class DevicesPageView : UserControl
             {
                 var check = new CheckBox
                 {
-                    Content = new TextBlock { Text = label, TextWrapping = TextWrapping.Wrap },
+                    Content = CreateChoiceContent(label, indicatorTemplate?.Invoke(value)),
                     IsChecked = Selected.Contains(value),
                     HorizontalAlignment = HorizontalAlignment.Stretch
                 };
@@ -457,7 +471,7 @@ public sealed partial class DevicesPageView : UserControl
                 {
                     var any = new CheckBox
                     {
-                        Content = "Any",
+                        Content = anyIndicatorTemplate is null ? "Any" : CreateChoiceContent("Any", anyIndicatorTemplate),
                         IsChecked = AnyKnown,
                         HorizontalAlignment = HorizontalAlignment.Stretch
                     };
@@ -482,6 +496,19 @@ public sealed partial class DevicesPageView : UserControl
                 }
             };
             UpdateLabel();
+        }
+
+        private static FrameworkElement CreateChoiceContent(string label, DataTemplate? indicatorTemplate)
+        {
+            var text = new TextBlock { Text = label, TextWrapping = TextWrapping.Wrap };
+            if (indicatorTemplate is null) return text;
+            var content = new Grid { ColumnSpacing = 8 };
+            content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            content.Children.Add((FrameworkElement)indicatorTemplate.LoadContent());
+            Grid.SetColumn(text, 1);
+            content.Children.Add(text);
+            return content;
         }
 
         private void SetSelected(T value, bool selected)
@@ -538,8 +565,8 @@ public sealed partial class DevicesPageView : UserControl
         {
             var labels = _selection.Choices.Where(choice => Selected.Contains(choice.Value)).Select(choice => choice.Label);
             var summary = AnyKnown ? "Any" : Selected.Count == 0 ? "All" : string.Join(", ", labels);
-            var text = _selection.HasRestriction ? $"{_category} | {summary}" : _category;
-            _button.Content = new TextBlock { Text = text, TextTrimming = TextTrimming.CharacterEllipsis };
+            var text = _selection.HasRestriction ? $"{_displayCategory} | {summary}" : _displayCategory;
+            _button.Content = _view.CreateFilterLabel(_button, text, _selection.HasRestriction);
             AutomationProperties.SetName(_button, $"{_category}: {summary}");
             AutomationProperties.SetHelpText(_button, AnyKnown ? _anyDescription : string.Empty);
             ToolTipService.SetToolTip(_button, AnyKnown ? $"{_category}: {_anyDescription}" : $"{_category}: {summary}");
