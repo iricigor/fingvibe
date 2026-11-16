@@ -13,6 +13,21 @@ PR submission frees a Developer for later work; pending CI does not retain a
 Developer slot. [Task #413](https://github.com/iricigor/fingvibe/issues/413)
 adds Developer claims, crash detection and prompt-based authority.
 
+## Task worktrees
+
+[Task #441](https://github.com/iricigor/fingvibe/issues/441) separates a
+Developer's retained context from task execution. A Developer stays available in
+its session after submitting a PR; the next start assignment that edits files
+(`implement`, `resume`, `repair`) gets a fresh git worktree created by the
+Developer with `New-Agent4TaskWorktree.ps1`, named `task-<issue>-<assignmentId>`
+under `<checkout>-agent4-worktrees` next to the main checkout. Worktrees are never
+reused. `resume`/`repair` worktrees are detached at the verified pushed head and
+push with `HEAD:<branch>`. After a verified merge, the finalize assignment runs
+`Remove-Agent4TaskWorktrees.ps1`, which removes only clean worktrees contained in
+the merged PR head, without `--force`, and reports skipped ones. Tasks closed
+without merge leave worktrees for a human. See the
+[Developer contract](developer.md#task-worktrees).
+
 ## Local profiles and authority
 
 Use **4️⃣ Dispatcher**, **4️⃣ Developer 1**, and **4️⃣ Developer 2** with actual
@@ -195,6 +210,7 @@ Creating #393 did not authorize its live execution or configure Automations.
 ```powershell
 .\tests\Agent4DispatcherPacket.Tests.ps1
 .\tests\Agent4Coordination.Tests.ps1
+.\tests\Agent4TaskWorktree.Tests.ps1
 ```
 
 Synthetic checks do not prove live host messaging, continuation, Developer

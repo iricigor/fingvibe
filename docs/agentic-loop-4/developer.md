@@ -55,24 +55,50 @@ This adds `active` and sets the FingVibe backlog project Status to In Progress.
 A claim failure is an explicit blocker reported in the Discussion. Do not write
 local worker events or require state.json/claims/handoffs. Human-task appearing later stops safely.
 Material scope, authority or conflict risks require explicit human clarification.
-Missing worktree/context/permissions is a blocker, not permission to replace it,
-except for `resume` below.
+Missing context/permissions is a blocker, not permission to replace it.
 
-**Implement:** verify isolated branch/worktree and fresh repository-wide ownership
-and conflict evidence. Publish an early WIP draft PR with the closing issue
-reference before edits, using an empty bootstrap commit if needed without
+## Task worktrees
+
+Each start assignment that edits files gets its own fresh worktree, created
+after the claim and before any edit. Offers and assessments never create one.
+Never reuse a worktree from an earlier assignment, including your own: it may be
+dirty, crashed or belong to the other Developer. Do not edit your session's own
+worktree for task work; it only hosts your retained context. Work in the task
+worktree using absolute paths or `git -C <path>`.
+
+```powershell
+.\.github\scripts\New-Agent4TaskWorktree.ps1 -Issue <number> -AssignmentId <id> -Action <implement|resume|repair> [-Branch <pr-branch>] [-ExpectedHead <sha>]
+```
+
+| Start action | Worktree created from |
+| --- | --- |
+| `implement` (new) | `origin/main`, on new branch `agent4/task-<issue>-<id>` unless `-Branch` is given |
+| `implement` (`resume`) | Detached at the PR's pushed head (`-Action resume`) |
+| `repair` | Detached at the assigned expected PR head |
+| `finalize`, `no-code` | None; no edits |
+
+The helper names the worktree `task-<issue>-<assignmentId>` (`:` becomes `_`)
+under one root next to the main checkout (`<checkout>-agent4-worktrees`), shared
+by all worktrees of the repository. It refuses an existing path and, for detached
+starts, a pushed head that differs from the expected one. Git does not allow
+one branch in two worktrees, so detached worktrees push with
+`git push origin HEAD:<branch>`; it succeeds only as a fast-forward, exposing
+an unexpected head change. Report the worktree path in the task Discussion.
+
+**Implement:** create the task worktree above and verify fresh repository-wide
+ownership and conflict evidence. Publish an early WIP draft PR with the closing
+issue reference before edits, using an empty bootstrap commit if needed without
 including unrelated changes. For a `resume` (released) assignment, reuse the
-existing PR instead: check out its pushed branch in a fresh isolated worktree,
-review what is already done and continue; unpushed work from the crashed
-execution is lost. Implement only task scope with focused validation.
+existing PR instead: create a `resume` worktree at its pushed head, review what is
+already done and continue; unpushed work from the crashed execution is lost. Implement only task scope with focused validation.
 Commit/push, verify the submitted draft/head and report actual acceptance evidence
 and remaining CI/review. Mark status:review/remove active after verified submission
 and reporting, preserving other labels. Finish without waiting for CI or merging.
 For 4️⃣ this frees your execution for future offers; it does not relinquish the
 task to unrelated pickup or prove delivery. Do not automate the user's desktop.
 
-**Repair:** use the existing task PR/branch/worktree and exact assigned current
-head. Verify the run's `repairs` allowance (default 12 per task) against past
+**Repair:** use the existing task PR/branch and exact assigned current head in a
+fresh `repair` task worktree. Verify the run's `repairs` allowance (default 12 per task) against past
 attempts in task reports; missing history is not a fresh allowance. Record/read back the next
 attempt before edits. Never reset counts, weaken gates, blindly rerun, or expand
 scope. Repair within authority, push/report the new head and finish without
@@ -85,6 +111,19 @@ requires remediation only for UI changed by this task; missing evidence blocks.
 Do not edit/rebase/repair during finalize. Mark ready/remove WIP only when ready.
 Merge only when the run's `merge` permission allows it (default yes), bound to the
 verified current head and without bypassing protections; verify delivery, closure, labels and Epic checklist.
+After verified merge and closure, confirm the task Discussion shows no open
+assignment other than yours, then remove the task's worktrees:
+
+```powershell
+.\.github\scripts\Remove-Agent4TaskWorktrees.ps1 -Issue <number> -MergedHead <merged-pr-head-sha>
+```
+
+It removes only `task-<issue>-*` worktrees under the shared root that are clean
+and whose HEAD is contained in the merged PR head (squash merges keep task
+commits out of `main`), using `git worktree remove` without `--force`, then
+prunes and deletes their local task branches. It never touches your session
+worktree. List every skipped worktree and its reason in your report for a human.
+Tasks closed without a merge get no finalize; their worktrees are left for a human.
 With `merge: no`, report that a human merge is required and finish.
 
 **No-code:** only when the task's scope explicitly permits it. Perform its

@@ -89,7 +89,7 @@ comments without them are not assignments.
 Dispatcher sends a unique `assignmentId`, original `offerId`, selected issue,
 action (`implement`, `repair`, `finalize`, or explicitly scoped `no-code`),
 the run permissions, the task's Discussion URL, and the existing
-PR/worktree/branch/current head for follow-up. Category sets the action:
+PR/branch/current head for follow-up. Category sets the action:
 `success` → `finalize`, `failed` → `repair`, `new` → `implement`, and `resume`
 → `implement` continuing the existing PR/branch from its pushed head.
 Repair also names the run's `repairs` allowance and the evidenced attempt.
@@ -106,10 +106,13 @@ holds only Epic-level summaries and blockers.
 Developer validates the fresh task and run permissions, confirms the start in the
 task's Discussion, adds/verifies its own `4️⃣dev1`/`4️⃣dev2` participation label
 using `Set-Agent4DiscussionParticipant.ps1`, claims the task
-(`Set-Agent4TaskClaim.ps1 -Action claim`), then starts. Participation labels stay
+(`Set-Agent4TaskClaim.ps1 -Action claim`), then starts. For `implement` and
+`repair`, the Developer creates a fresh task worktree for this assignment before
+any edit ([Developer contract](developer.md#task-worktrees)); its retained
+session worktree is never used for task edits. Participation labels stay
 as history, never ownership or availability. Duplicate assignment IDs return acknowledgment/status without
 re-execution. An uncertain send/acknowledgment is not safe to retry or reassign.
-Changed head, scope or missing retained worktree requires reassessment, not editing
+Changed head or scope requires reassessment, not editing
 an unexpected revision. Developers never select unoffered/unassigned work.
 
 ## Work finished and next offers

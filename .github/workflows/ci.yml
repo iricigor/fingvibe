@@ -123,6 +123,7 @@ jobs:
         run: |
           .\tests\Agent4Coordination.Tests.ps1
           .\tests\Agent4DispatcherPacket.Tests.ps1
+          .\tests\Agent4TaskWorktree.Tests.ps1
 
       - name: Test ISP logo build configuration
         shell: pwsh
