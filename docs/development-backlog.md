@@ -218,7 +218,11 @@ Source publication does not install, activate, migrate or authorize workloads.
 delivery-based capacity protocol for 4️⃣ only. PowerShell collects candidates
 without state.json or a repository gate: successful completed current-head CI,
 failed completed CI, then eligible new work. Initial disjoint offers use queue
-positions 1/3 and 2/4. Developers report availability and assess candidates;
+positions 1/3 and 2/4. A whole-queue singleton is shared; #460 also shares a sole
+successful-CI candidate in mixed queues, retaining Developer 1 precedence and
+the two-candidate limit. Developer 2 gets the shared candidate followed by its
+highest-ranked base candidate; displaced work stays queued.
+Developers report availability and assess candidates;
 Dispatcher waits for responses, consolidates compatibility and sends explicit
 start assignments. An offer alone never starts work.
 

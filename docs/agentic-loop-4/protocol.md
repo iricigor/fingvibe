@@ -24,7 +24,12 @@ The packet's `developerOffers` contains each Developer identity and its exact
 candidate list; Dispatcher forwards these lists without allocating candidates.
 For multiple candidates, the script assigns positions 1/3 to Developer 1 and 2/4
 to Developer 2, ignoring later positions for this cycle. Exactly one candidate
-is included in both offers. With none, both lists are empty.
+overall is included in both offers. With none, both lists are empty.
+If exactly one eligible candidate has category `success`, share it even in a
+mixed queue: prepend it to Developer 2's base offer and retain only that offer's
+highest-ranked existing candidate after it. Developer 1's offer is unchanged.
+Each offer stays capped at two candidates; displaced work remains in the full
+queue. Zero or multiple successful candidates retain the base allocation.
 
 An offer asks for availability and assessment. It never authorizes execution.
 Dispatcher keeps the exact offer and actual recipient correlation in its context.
@@ -43,12 +48,14 @@ Either way, the reply states for each listed open assignment whether this
 Developer is still executing it.
 
 Dispatcher processes each correlated response independently, subject to shared
-singleton arbitration below; disjoint offers need not wait for both responses
+candidate arbitration below; disjoint offers need not wait for both responses
 before starting verified compatible work. For an available Developer, choose
 at most one eligible task from its accepted offered list. An empty list cannot
 produce a start or authorize transferring the other Developer's offered task.
 
-**Shared singleton arbitration (Dispatcher only):** Developer 1 has precedence.
+**Shared-candidate arbitration (Dispatcher only):** This applies to a whole-queue
+singleton and to a sole `success` candidate shared in a mixed queue.
+Developer 1 has precedence.
 If both accept the shared candidate, send the start only to Developer 1.
 Developer 1 may start after accepting without waiting for Developer 2.
 Developer 2 may start only after a correlated, definitive Developer 1 response
@@ -58,6 +65,8 @@ suppress the other Developer's start for that task through late responses and
 continuation. After arbitration, the losing shared offer alone is not a
 compatibility conflict; all other checks below still apply. This requires no
 change to Developer offer assessment or start handling.
+The pending shared start does not by itself hold compatible nonshared work;
+existing compatibility checks still apply to every start.
 
 Before each start, check compatibility against both Developers' existing work,
 all unresolved offered candidates and any starts already sent in this cycle.

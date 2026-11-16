@@ -83,9 +83,13 @@ read these durable records and ask fresh availability; failed reporting is a blo
 Dispatcher forwards the packet's `developerOffers` lists without allocating
 candidates itself. With multiple candidates, the script assigns positions 1/3
 to Developer 1 and 2/4 to Developer 2, up to two each.
-With exactly one candidate, both Developers receive it. If both accept,
-Dispatcher starts only Developer 1. Developer 1 may start without waiting for
-Developer 2; Developer 2 may start only after Developer 1 definitively replies
+With exactly one candidate, both Developers receive it. A sole `success` candidate
+is also shared when lower-priority work exists: Developer 2 receives it first, followed by its
+highest-ranked base candidate. Each offer remains capped at two entries;
+displaced candidates stay in the full queue. Zero or multiple successful
+candidates otherwise retain the alternating allocation. For either shared case,
+if both accept, Dispatcher starts only Developer 1. Developer 1 may start without
+waiting for Developer 2; Developer 2 may start only after Developer 1 definitively replies
 busy or rejects the candidate. A missing/uncertain reply keeps Developer 2 pending.
 Retain this arbitration across late responses and continuation to prevent
 duplicate starts; the losing shared offer alone does not block compatibility.
@@ -95,7 +99,7 @@ When there are no candidates or open assignments, and no unresolved offers or
 starts in retained context, no Developer calls are needed. Open assignments alone
 still require offers even when no candidates are eligible.
 
-Process correlated assessments independently, subject to singleton arbitration
+Process correlated assessments independently, subject to shared-candidate arbitration
 above. For disjoint offers, one Developer can start its
 accepted offered task before the other replies only when compatibility is verified
 against both Developers' existing work, unresolved offered candidates and starts
@@ -199,8 +203,9 @@ conversations) and body markers, so Epic and task Discussions are found there.
 Optional `-TaskOrder` with `-OrderEvidence` supplies an explicit human ordering
 within priority groups; a blocked predecessor prevents later ordered candidates.
 It must cover the open native queue. The script builds offers from only the
-first four at positions 1/3 and 2/4, sharing the candidate only when exactly one
-exists. Dispatcher processes responses independently except for the shared
+first four at positions 1/3 and 2/4, sharing a whole-queue singleton or a sole
+`success` candidate in a mixed queue as described above.
+Dispatcher processes responses independently except for the shared
 candidate's Developer 1 precedence, with compatibility checks before each start.
 
 ## Boundaries
