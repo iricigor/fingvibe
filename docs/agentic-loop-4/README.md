@@ -183,12 +183,19 @@ including empty candidate arrays, built from the existing sorted candidate list.
 Default order, with ascending issue number within each group:
 
 1. Linked open PR with successful completed current-head CI.
-2. Linked open PR with failed completed current-head CI.
+2. Linked open PR with failed completed current-head CI, or whose current head
+   has a recorded finalize rejection (whatever its CI).
 3. `resume`: released implementation with its existing linked PR, whatever its CI.
 4. Eligible new native task (including released work that has no PR yet).
 
 Released candidates carry the `released` assignment. Dispatcher repeats its
 action (continuing an existing PR/branch, never a competing PR).
+[Task #475](https://github.com/iricigor/fingvibe/issues/475): a Developer that
+rejects a started finalize records a `finalize-rejected` marker for the exact
+head (see the [protocol](protocol.md#assignment-records)). The task is then a
+`failed` candidate carrying `finalizeRejection`, so Dispatcher starts `repair`
+instead of offering the same finalize indefinitely. A new head returns it to
+normal classification; non-repairable rejections use `status:blocked`.
 
 Cancelled/timed-out/action-required CI is failed attention work, not permission
 to retry. Neutral/skipped checks are non-failing, but alone do not prove success.

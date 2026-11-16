@@ -28,7 +28,8 @@ or inspect the evidence artifact repeatedly before offering.
    `developerOffers`, `candidates`, `blocked` and `openAssignments` output directly. The script already verified the
    open type:epic, native children, ordering, dependencies and exclusions,
    including tasks with an open assignment in their Discussion.
-   Successful completed current-head CI comes first, failed completed CI next,
+   Successful completed current-head CI comes first, failed completed CI or a
+   recorded finalize rejection on the current head next,
    then released implementations to resume, then new tasks; blocked entries carry their reasons. Do not read the full
    evidence artifact or make new GitHub requests, unless a specific candidate's
    data is missing or contradictory; then read only what that candidate needs.
@@ -114,7 +115,9 @@ or inspect the evidence artifact repeatedly before offering.
    explicit start assignment with a unique assignment ID, the run permissions and
    the exact action, task and expected PR head when applicable
    (`success` → finalize, `failed` → repair, `resume` → implement on the
-   existing PR, `new` → implement).
+   existing PR, `new` → implement). A `failed` candidate carrying
+   `finalizeRejection` is repaired even with green CI; forward that evidence in
+   the start and never start finalize again for the rejected head.
    Task records go to the task's own Discussion in the Task conversations
    category, identified by the `<!-- fingvibe:task=<number> -->` marker in its
    body (found in the artifact's Discussion data). If none exists, create it in

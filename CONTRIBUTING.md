@@ -314,7 +314,9 @@ task Discussion participation label with
 `.github/scripts/Set-Agent4TaskClaim.ps1`. No state initialization, gate or delivery-based capacity
 protocol is required; PR submission ends implementation execution while CI runs.
 Verified Discussion reports/end markers replace finished-work messages to the
-previous Dispatcher session. These changes apply only to future assignments
+previous Dispatcher session. A Developer that rejects a started finalize records
+a head-bound `finalize-rejected` marker, so later cycles offer `repair` instead of
+the same finalize; non-repairable rejections use `status:blocked`. These changes apply only to future assignments
 after loading the updated contract; accepted assignments keep their instructions.
 Do not overlap Dispatcher cycles or duplicate uncertain messages/assignments.
 Focused checks are `tests/Agent4DispatcherPacket.Tests.ps1` and the preserved
