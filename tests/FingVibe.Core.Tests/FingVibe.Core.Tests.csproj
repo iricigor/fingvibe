@@ -29,6 +29,8 @@
     <Compile Include="..\..\tools\Ex220Inspector\InspectorCaptureRunner.cs" Link="Ex220CaptureRunner.cs" />
     <Compile Include="..\..\tools\Ex220Inspector\FingVibeDatabaseComparison.cs" Link="Ex220DatabaseComparison.cs" />
     <Compile Include="..\..\src\FingVibe.App\BuildIdentity.cs" Link="BuildIdentity.cs" />
+    <Compile Include="..\..\src\FingVibe.App\Updates\UpdateReviewFixture.cs" Link="UpdateReviewFixture.cs" />
+    <Compile Include="..\..\src\FingVibe.App\Updates\ReleaseUpdateActions.cs" Link="ReleaseUpdateActions.cs" />
     <Compile Include="..\..\src\FingVibe.App\ScanResultRow.cs" Link="ScanResultRow.cs" />
     <Compile Include="..\..\src\FingVibe.App\UsageCategoryPresentation.cs" Link="UsageCategoryPresentation.cs" />
     <Compile Include="..\..\src\FingVibe.App\DeviceDetailsPresentation.cs" Link="DeviceDetailsPresentation.cs" />
