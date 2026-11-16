@@ -117,7 +117,8 @@ A Developer is available after submitting its PR/report and finishing that work;
 CI/review waits do not reserve it. Dispatcher does not ingest completion results
 or verify default-branch delivery to release slots.
 Successful-CI and failed-CI candidates can go to either suitable Developer;
-continuing a PR uses its existing branch/worktree, never a competing PR.
+continuing a PR uses its existing branch in the Developer's fresh task worktree,
+never a competing PR.
 Developers end after verified Discussion reporting/end-marker readback; no
 finished-work message to a previous Dispatcher session is required. Later cycles
 read durable records and ask fresh availability. Failed reporting remains a blocker.

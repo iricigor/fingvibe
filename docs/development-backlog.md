@@ -252,6 +252,12 @@ with explicit human approval:
   and offers the task again. This is a deliberate 4️⃣-only exception to the
   "no orphan recovery" rule below; a missing reply or age never releases work.
 
+[Task #441](https://github.com/iricigor/fingvibe/issues/441) gives every 4️⃣
+editing start assignment its own fresh worktree, created by the Developer, so a
+retained Developer context can take new work without touching a previous task's
+worktree. Finalize removes clean, merged task worktrees; anything else is left
+for a human. See the [Developer contract](agentic-loop-4/developer.md#task-worktrees).
+
 ## Explicitly invoked manual-worker exception
 
 [Task #189](https://github.com/iricigor/fingvibe/issues/189) adds the
