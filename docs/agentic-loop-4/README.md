@@ -55,7 +55,30 @@ lines adjust the run's permissions, with these defaults:
 | Prompt line | Default | Meaning |
 | --- | --- | --- |
 | `merge: yes` / `merge: no` | `yes` | Developers may merge finalized PRs |
-| `repairs: <N>` | `12` | Cumulative repair attempts allowed per task |
+| `repairs: <N>` | `12` | Shared cumulative code-repair and CI-rerun attempts per task |
+
+### Developer-recommended failed-job reruns
+
+A Developer can reject code repair (`eligible: false`) and recommend
+`rerun-failed-checks` with evidence and the exact PR head/workflow run/attempt.
+The deterministic planner emits a separate `proposedReruns` action, deduplicating
+both Developers and deferring unsafe or conflicting work. Ordinary rejection or
+prose does not request CI.
+
+Dispatcher uses `Invoke-Agent4RepairAction.ps1` to verify fresh evidence,
+reserve/readback a shared repair attempt in the task Discussion, and request
+**failed jobs only**. It reports the request and **does not wait or poll**;
+the next Dispatcher run checks fresh CI through the normal packet/planner.
+No Developer slot, worktree, commit or claim is needed for a rerun.
+
+Reruns and code repairs use one cumulative allowance (default 12), with no
+separate cap, pool or reset on a new head. Future code starts use the same helper
+to reserve their attempt before Sending; Developer verifies rather than counts
+again. Existing repair histories require a verified one-time baseline, not an
+assumption of zero. Uncertain requests retain their consumed attempt and require
+reconciliation, never duplicate triggers. See the [request, ledger and recovery
+contract](protocol.md#dispatcher-failed-job-reruns-and-shared-repair-budget).
+Source delivery does not update installed profiles or activate Automations.
 
 ### Hourly Epic chart
 
@@ -287,6 +310,7 @@ Creating #393 did not authorize its live execution or configure Automations.
 ```powershell
 .\tests\Agent4DispatcherPacket.Tests.ps1
 .\tests\Agent4AssignmentPlan.Tests.ps1
+.\tests\Agent4RepairAction.Tests.ps1
 .\tests\Agent4Coordination.Tests.ps1
 .\tests\Agent4TaskWorktree.Tests.ps1
 ```

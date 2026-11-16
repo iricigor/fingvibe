@@ -22,6 +22,12 @@ ownership, current PR/head/reviews and relevant diffs/shared contracts. Return
 eligible tasks in preferred order, and evidence/reasons for every rejection.
 Closed/abandoned dependencies are not automatically delivered. Failed CI is
 attention evidence, not authorization to fix unrelated failures or rerun to green.
+If evidence suggests a failed test/environment rather than an in-scope code
+defect, return `eligible: false` with the structured `recommendedAction:
+"rerun-failed-checks"` and exact `rerun` head/run ID/attempt defined in
+protocol.md. Do not include that task in `preferred`, trigger CI yourself, or
+start work. Dispatcher may request failed-job reruns against the same cumulative
+repair allowance; an ordinary rejection or prose suggestion does not trigger CI.
 Return the correlated JSON response defined in [the protocol](protocol.md#response):
 `developer`, `offerId`, exact `recipientId`, `status`, and, when available,
 `evaluations` for every candidate with Boolean `eligible` and `reason`,
@@ -106,8 +112,13 @@ task to unrelated pickup or prove delivery. Do not automate the user's desktop.
 
 **Repair:** use the existing task PR/branch and exact assigned current head in a
 fresh `repair` task worktree. Verify the run's `repairs` allowance (default 12 per task) against past
-attempts in task reports; missing history is not a fresh allowance. Record/read back the next
-attempt before edits. When the candidate carries `finalizeRejection`, read that
+attempts in task reports, including Dispatcher CI reruns; missing history is not
+a fresh allowance. For future starts, Dispatcher reserves/readbacks the next
+shared `repair-attempt` before sending. Verify its ordinal, `kind=code` and
+`key=<your-assignment-id>` against the start and history before edits; do not
+increment it again. A missing/mismatched reservation blocks work. Already accepted
+assignments keep their original accounting until their reports are reconciled.
+When the candidate carries `finalizeRejection`, read that
 assignment's Discussion report and treat its reason as the failure evidence to
 repair. If the allowance is exhausted or the failure is outside repair authority,
 record the reason and recovery action and add `status:blocked` instead of editing.

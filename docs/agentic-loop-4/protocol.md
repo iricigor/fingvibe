@@ -64,6 +64,26 @@ AI-invented alias or independent proof of sender identity.
   an ordered array containing every eligible offered issue number exactly once.
   An empty list means none are suitable, not failure or permission to force work.
 
+For a failed CI candidate whose failure appears to be test/environment
+unreliability rather than an authorized code repair, a Developer may reject code
+work and recommend a Dispatcher rerun:
+
+```json
+{
+  "issue": 101,
+  "eligible": false,
+  "reason": "Same assertion on unrelated tooling PRs; evidence: <job URLs>.",
+  "recommendedAction": "rerun-failed-checks",
+  "rerun": { "head": "<exact 40-character lowercase PR SHA>", "runId": 301, "runAttempt": 1 }
+}
+```
+
+This is an evaluation inside the normal correlated `available` response, not a
+new response status or a Developer assignment. Leave the issue out of `preferred`.
+No recommendation means no rerun; prose alone never triggers one. Do not recommend
+reruns for merge conflicts, finalize rejections, missing evidence or a failure
+requiring code changes. A rerun does not establish that a test is reliable.
+
 Either way, the reply states for each listed open assignment whether this
 Developer is still executing it.
 
@@ -200,6 +220,13 @@ pass the original complete packet):
 Output schema `fingvibe-loop4-allocation-plan-v1` contains `repository`, `epic`,
 `proposedStarts` (`developer`, `offerId`, `recipientId`, `issue`, `action`),
 unchanged `retainedStarts`, and a `decisions` array for both Developers.
+It also contains `proposedReruns` (issue, PR number, head, run ID/attempt and
+correlated recommendation evidence) and `deferredReruns` (issue/reasons).
+Identical recommendations from both Developers become one rerun. Contradictory
+targets are invalid. An accepted code repair, missing shared-task assessment,
+held/sent task assignment, or unsafe/unknown compatibility with other proposed,
+held or unresolved work prevents a rerun proposal. Reruns consume no Developer
+slot; compatible Developer starts retain their existing allocation.
 Decisions distinguish `proposed`, `pending`, `held`, `retained` and `idle`, with
 `reason` and `deferred` candidate/reason records for unsafe alternatives.
 The output is a proposal, not execution authority or a delivery receipt.
@@ -211,6 +238,85 @@ responses, changed evidence or a partial send using the same offers and original
 packet, all sent starts and current assessments. If scope/head changed, reassess
 before replanning. Planner/input errors block starts with an explicit report,
 never a manual AI-allocation fallback. Do not retry uncertain sends.
+
+## Dispatcher failed-job reruns and shared repair budget
+
+Dispatcher may execute only `proposedReruns`, after checking actual sender,
+run authority, scope, dependencies and fresh repository-wide ownership/conflicts.
+This is a narrow operational action, not permission to repair unrelated code.
+Do not create a Developer assignment, worktree, commit or claim for a rerun;
+preserve existing task lifecycle labels. All applicable finalization checks remain.
+
+Use the helper for each proposed rerun and **also before every future code repair
+Sending record/start**:
+
+```powershell
+.\.github\scripts\Invoke-Agent4RepairAction.ps1 -InputPath <absolute-json-path>
+```
+
+The JSON request has `allocation` (the complete current allocation input, not a
+hand-authored output plan), `action` (`rerun` or `code`), `issue`, `discussion`
+(task Discussion number), `repairs` (the verified run allowance; default 12),
+and `expectedRepairCount` (the verified cumulative consumed count).
+For `code`, also supply the unique intended `assignmentId`. The helper reruns
+the planner and requires the corresponding proposed rerun or repair start.
+Use its reserved attempt number in the code start; Developer verifies it instead
+of incrementing again. Do not use this helper for implement/resume/finalize.
+
+The helper rechecks open task/native Epic/PR identity, exclusions, PR head/base
+and complete paginated task Discussion history. Reruns additionally require the
+exact latest completed failed/timed-out Actions run and current run attempt,
+bound to that PR/head in the same repository. It requests
+`POST /repos/{repository}/actions/runs/{runId}/rerun-failed-jobs`, not a whole
+workflow rerun. Relevant fresh checks and durable reporting are exceptions to
+the no-duplicate-query rule; they are not CI-completion polling.
+
+Every code repair reservation and every workflow failed-job rerun request
+consumes **one** attempt from the same cumulative per-task `repairs` allowance.
+There is no extra retry pool, per-head reset, or separate one-rerun cap. One
+failed-jobs request may rerun multiple failed jobs; it is one consumed attempt.
+Records live in the task Discussion:
+
+```text
+<!-- fingvibe:repair-attempt=7 kind=code key=<assignment-id> -->
+<!-- fingvibe:repair-attempt=8 kind=rerun key=rerun:<issue>:<head>:<run-id>:<run-attempt> -->
+<!-- fingvibe:repair-result=rerun:<issue>:<head>:<run-id>:<run-attempt> state=requested -->
+```
+
+The helper publishes/readbacks the next sequential reservation **before** any CI
+request or code-start send. Rerun keys deduplicate both Developers and later cycles.
+`requested` records request admission only, not test success. Dispatcher **does
+not wait or poll**: report the request and finish the normal cycle (including
+compatible starts and the final chart); recheck fresh CI on the next Dispatcher
+run through the ordinary packet/planner path.
+
+`already-recorded` means do not trigger/send again. A failed/uncertain write,
+trigger, or readback retains any reservation and blocks automatic repetition;
+check actual GitHub evidence to reconcile it. A rerun reservation without a
+result blocks further repairs, including a different head/run. After verified
+manual reconciliation, record exactly one matching result with `state=failed`
+or `state=reconciled` if no result exists; never refund/delete reservations or
+retry an uncertain trigger. Malformed, duplicate, nonsequential or stale history
+blocks explicitly. Serialized Dispatcher cycles remain required.
+
+**Existing task history:** Never infer an unused allowance from missing machine
+records. Before adopting this accounting for a task with older repair starts,
+verify all prior task reports and ended/released assignments, then Dispatcher
+posts/readbacks one checkpoint, with evidence links and the actual total:
+
+```text
+<!-- fingvibe:repair-baseline=6 assignments=<legacy-repair-id-1>,<legacy-repair-id-2> -->
+```
+
+List every prior repair assignment ID (use `assignments=none` only when there
+were none). A baseline is allowed only before the first new reservation, never
+as a reset; unknown or contradictory consumption requires human reconciliation.
+The helper rejects older repair starts not covered by a baseline or code
+reservation. Already executing assignments keep their accepted contract: wait
+for their end/release and reconcile the reports before starting this ledger.
+On exhausted allowance, record recovery and add `status:blocked`; on missing
+access/history/evidence, report the specific blocker instead of assuming zero.
+No helper error permits manual selection or an unaccounted CI request.
 
 ## Crash detection and release
 
@@ -252,6 +358,8 @@ PR/branch/current head for follow-up. Category sets the action:
 `success` → `finalize`, `failed` → `repair`, `new` → `implement`, and `resume`
 → `implement` continuing the existing PR/branch from its pushed head.
 Repair also names the run's `repairs` allowance and the evidenced attempt.
+For future repairs, include the Dispatcher-reserved shared-budget marker and
+attempt from the helper above; this reservation already consumes the attempt.
 For a rejected finalize, the repair start also forwards the candidate's
 `finalizeRejection` (assignment ID, rejected head and Discussion URL).
 
