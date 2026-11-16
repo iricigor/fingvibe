@@ -1,8 +1,8 @@
 function Get-ToolsLandingElement {
-    param([Parameter(Mandatory)][string] $Id)
+    param([Parameter(Mandatory)][string] $Id, [switch] $Optional)
     $condition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Id)
-    Find-UiRegressionElement -Container { $script:root } -Condition $condition -Description "Tools '$Id'"
+    Find-UiRegressionElement -Container { $script:root } -Condition $condition -Description "Tools '$Id'" -Optional:$Optional
 }
 
 function Get-ToolsLandingRowTargets([string[]] $Ids) {
@@ -30,16 +30,22 @@ function Assert-ToolsLandingLayout {
         [Parameter(Mandatory)][string] $Variant
     )
     $ids = @("SqlEditorCard", "FingImportCard", "SpeedTestCard", "TroubleshootingCard", "DatabaseBackupsCard")
+    # An active landing must not depend on sidebar peers being realized during resize.
+    if (-not (Get-ToolsLandingElement "ToolsLanding" -Optional)) { Select-Page "Tools" }
     $bounds = Get-UiReviewWindowBounds -WindowHandle $process.MainWindowHandle
     if (-not [UiReviewNativeWindow]::SetWindowPos(
         $process.MainWindowHandle, [IntPtr]::Zero, $bounds.X, $bounds.Y, $Width, $Height, 0x0044)) {
         throw "Could not resize the Tools window to ${Width}x$Height."
     }
-    Select-Page "Tools"
-    $null = Wait-UiRegressionState -Description "Tools window width $Width" -Condition {
-        [Math]::Abs((Get-UiReviewWindowBounds -WindowHandle $process.MainWindowHandle).Width - $Width) -le 2
+    $landing = Wait-UiRegressionState -Description "$Variant Tools ${Width}x$Height layout" -Condition {
+        $current = Get-UiReviewWindowBounds -WindowHandle $process.MainWindowHandle
+        if ([Math]::Abs($current.Width - $Width) -gt 2 -or [Math]::Abs($current.Height - $Height) -gt 2) {
+            return $null
+        }
+        $viewport = Get-ToolsLandingElement "ToolsLanding" -Optional
+        if (Test-UiRegressionElementWithin $viewport $script:root $script:root) { return $viewport }
     }
-    $scroll = (Get-ToolsLandingElement "ToolsLanding").GetCurrentPattern(
+    $scroll = $landing.GetCurrentPattern(
         [System.Windows.Automation.ScrollPattern]::Pattern)
     if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
     $firstRow = $null

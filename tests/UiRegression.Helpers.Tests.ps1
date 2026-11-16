@@ -454,6 +454,103 @@ foreach ($focusable in @($true, $false)) {
 }
 & {
     . (Join-Path $PSScriptRoot 'UiRegression\Tools.Landing.Helpers.ps1')
+    & {
+        Add-Type -TypeDefinition @'
+public static class ToolsLandingTestWindow
+{
+    public static int Width, Height, Resizes;
+    public static bool FailResize;
+    public static bool SetWindowPos(System.IntPtr window, System.IntPtr after,
+        int x, int y, int width, int height, uint flags)
+    {
+        Resizes++;
+        if (FailResize) return false;
+        Width = width; Height = height;
+        return true;
+    }
+}
+'@
+        $layoutAst = [Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $PSScriptRoot 'UiRegression\Tools.Landing.Helpers.ps1'), [ref]$null, [ref]$null)
+        $layout = $layoutAst.Find({
+            param($node)
+            $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
+                $node.Name -eq 'Assert-ToolsLandingLayout'
+        }, $true)
+        Invoke-Expression ($layout.Extent.Text.Replace('[UiReviewNativeWindow]', '[ToolsLandingTestWindow]'))
+        $waitImplementation = ${function:Wait-UiRegressionState}
+        function Wait-UiRegressionState {
+            param([scriptblock] $Condition, [string] $Description)
+            & $waitImplementation -Condition $Condition -Description $Description -TimeoutMilliseconds 200 -PollMilliseconds 1
+        }
+        $state = @{ OnTools = $true; Selections = 0; Reads = 0; HoldLayout = $false; FailNavigation = $false }
+        $landing = [pscustomobject]@{ Current = @{
+            IsOffscreen = $false; BoundingRectangle = [Windows.Rect]::new(0, 0, 640, 720)
+        } }
+        $landing | Add-Member ScriptMethod GetCurrentPattern {
+            param($Pattern)
+            throw 'Tools landing geometry reached'
+        }
+        $window = [pscustomobject]@{ Current = @{
+            IsOffscreen = $false; BoundingRectangle = [Windows.Rect]::new(0, 0, 640, 720)
+        } }
+        $window | Add-Member ScriptMethod FindFirst {
+            param($Scope, $Match)
+            Assert-Regression ($Match.Value -eq 'ToolsLanding') 'Readiness must identify the actual Tools-owned viewport.'
+            if ($state.OnTools) { return $landing }
+            return $null
+        }
+        function Get-UiReviewWindowBounds {
+            param($WindowHandle)
+            $width = [ToolsLandingTestWindow]::Width
+            $height = [ToolsLandingTestWindow]::Height
+            if ([ToolsLandingTestWindow]::Resizes -gt 0) {
+                $state.Reads++
+                if ($state.Reads -eq 1) { $height = 720 }
+                $window.Current.BoundingRectangle = [Windows.Rect]::new(0, 0, $width, $height)
+                if ($state.Reads -ge 3 -and -not $state.HoldLayout) {
+                    $landing.Current.BoundingRectangle = [Windows.Rect]::new(0, 0, $width, $height)
+                }
+            }
+            return @{ X = 0; Y = 0; Width = $width; Height = $height }
+        }
+        function Select-Page {
+            param($Name)
+            $state.Selections++
+            if ([ToolsLandingTestWindow]::Width -eq 480 -or $state.FailNavigation) {
+                throw "Missing selectable page: $Name"
+            }
+            Assert-Regression ($Name -eq 'Tools') 'Landing readiness must preserve the real Tools route.'
+            $state.OnTools = $true
+        }
+        $process = [pscustomobject]@{ MainWindowHandle = [IntPtr]::new(319) }
+        $previousRoot = $script:root
+        try {
+            $script:root = $window
+            foreach ($alreadyOnTools in @($true, $false)) {
+                [ToolsLandingTestWindow]::Width = 640
+                [ToolsLandingTestWindow]::Height = 720
+                [ToolsLandingTestWindow]::Resizes = 0
+                $state.OnTools = $alreadyOnTools; $state.Selections = 0; $state.Reads = 0
+                $landing.Current.BoundingRectangle = [Windows.Rect]::new(0, 0, 640, 720)
+                Assert-RegressionFailure { Assert-ToolsLandingLayout -Width 480 -Height 480 -Variant 'narrow' } '*Tools landing geometry reached*'
+                Assert-Regression ($state.Selections -eq [int](-not $alreadyOnTools)) 'An active landing must not depend on narrow navigation peers; other pages must still navigate before resizing.'
+                Assert-Regression ($state.Reads -ge 3) 'Wait for target height and the actual resized viewport before checking cards.'
+            }
+            $state.HoldLayout = $true
+            $landing.Current.BoundingRectangle = [Windows.Rect]::new(0, 0, 640, 720)
+            Assert-RegressionFailure { Assert-ToolsLandingLayout -Width 480 -Height 480 -Variant 'missing-layout' } '*200 ms*Tools*480*'
+            $state.HoldLayout = $false
+            $state.OnTools = $false; $state.FailNavigation = $true
+            [ToolsLandingTestWindow]::Resizes = 0
+            Assert-RegressionFailure { Assert-ToolsLandingLayout -Width 480 -Variant 'missing-route' } 'Missing selectable page: Tools'
+            Assert-Regression ([ToolsLandingTestWindow]::Resizes -eq 0) 'A genuine route failure must propagate before resizing.'
+            $state.OnTools = $true
+            [ToolsLandingTestWindow]::FailResize = $true
+            Assert-RegressionFailure { Assert-ToolsLandingLayout -Width 480 -Variant 'resize-failure' } 'Could not resize the Tools window*'
+        }
+        finally { $script:root = $previousRoot }
+    }
     $window = [pscustomobject]@{ Current = @{
         IsOffscreen = $false; BoundingRectangle = [Windows.Rect]::new(0, 0, 500, 300)
     } }
