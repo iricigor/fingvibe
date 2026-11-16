@@ -24,6 +24,8 @@ foreach ($case in @(
     @{ Paths = @("tests/NetworkTroubleshooting.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/FingImport.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/SqlEditor.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
+    @{ Paths = @("tests/ReleaseUpdates.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
+    @{ Paths = @("tests/UiRegression/Tools.Updates.Scenario.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/DeviceScanHistory.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/DeviceActivity.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/DeviceActivity.Fixture.ps1"); Expected = @($true, $true, $true) },
@@ -201,11 +203,15 @@ foreach ($pattern in @(
     '(?s)  tests:\s+name: core-tests\s+needs: changes',
     '(?s)  build:\s+needs: changes',
     '(?s)  installer:\s+needs: \[changes, tests, build\]',
+    '(?s)  ui-smoke:\s+needs: \[changes, build\]',
+    '(?s)  ui-assignments:\s+needs: \[changes, build\]',
     '(?s)  ui-capture:\s+needs: \[changes, build\]',
     '(?s)  build-comment:\s+needs: installer',
-    '(?s)  ui-publish:\s+needs: \[changes, tests, build, installer, ui-capture, ui-regression\]',
-    '(?s)  ui-ux-review:\s+name: ui-ux-review\s+needs: \[changes, tests, build, installer, ui-capture, ui-regression, ui-publish\]',
+    '(?s)  ui-publish:\s+needs: \[changes, tests, build, installer, ui-smoke, ui-assignments, ui-capture, ui-regression\]',
+    '(?s)  ui-ux-review:\s+name: ui-ux-review\s+needs: \[changes, tests, build, installer, ui-smoke, ui-assignments, ui-capture, ui-regression, ui-publish\]',
     '(?s)name: Upload UI review captures and diagnostics\s+id: screenshot\s+if: always\(\)',
+    '(?s)name: Upload UI smoke diagnostics\s+if: always\(\)',
+    '(?s)name: Upload UI assignment diagnostics\s+if: always\(\)',
     'cancel-in-progress: true',
     'group: pr-validation-\$\{\{ github.event.pull_request.number \|\| github.ref \}\}',
     'FINGVIBE_UI_REVIEW: "1"',
@@ -234,6 +240,8 @@ function Get-WorkflowJob([string] $Name) {
 $testJob = Get-WorkflowJob tests
 $buildJob = Get-WorkflowJob build
 $installerJob = Get-WorkflowJob installer
+$smokeJob = Get-WorkflowJob ui-smoke
+$assignmentsJob = Get-WorkflowJob ui-assignments
 $captureJob = Get-WorkflowJob ui-capture
 $regressionJob = Get-WorkflowJob ui-regression
 $publishJob = Get-WorkflowJob ui-publish
@@ -262,17 +270,17 @@ foreach ($job in @($testJob, $buildJob)) {
 }
 Assert-Equal $caches[0] $caches[1] "Build and core tests share the same NuGet cache key/policy"
 if ($buildJob -notmatch '/restore') { throw "MSBuild publishing must still restore dependencies." }
-foreach ($job in @($captureJob, $regressionJob)) {
+foreach ($job in @($smokeJob, $assignmentsJob, $captureJob, $regressionJob)) {
     if ($job -notmatch 'needs: \[changes, build\]' -or $job -match 'needs.tests') {
         throw "Native UI validation must overlap core tests after the single published build."
     }
 }
 if ($installerJob -notmatch 'needs: \[changes, tests, build\]' -or
-    $publishJob -notmatch 'needs: \[changes, tests, build, installer, ui-capture, ui-regression\]') {
+    $publishJob -notmatch 'needs: \[changes, tests, build, installer, ui-smoke, ui-assignments, ui-capture, ui-regression\]') {
     throw "Tested downloads and screenshot publication must still wait for passing core tests."
 }
 Assert-Equal ([regex]::Matches($captureJob, '(?m)^    outputs:').Count) 1 "Capture exposes one outputs mapping after branch integration"
-Assert-Equal ([regex]::Matches($workflow, 'artifact-ids: \$\{\{ needs.build.outputs.artifact-id \}\}').Count) 3 "Installer, capture and regression matrix consume the same payload ID"
+Assert-Equal ([regex]::Matches($workflow, 'artifact-ids: \$\{\{ needs.build.outputs.artifact-id \}\}').Count) 5 "Installer, smoke, assignments, capture and regression matrix consume the same payload ID"
 if ($captureJob -notmatch 'artifact-id: \$\{\{ steps.screenshot.outputs.artifact-id \}\}') {
     throw "Capture must expose the exact successful upload ID for downstream failed-only reruns."
 }
@@ -287,7 +295,7 @@ if ($buildJob -notmatch '(?s)name: Upload unvalidated payload.*?id: upload.*?nam
     $buildJob -match 'New-Installer|Installer.Lifecycle|name: Upload runnable app|name: Upload tested installer') {
     throw "Publishing must not advertise tested downloads or wait for installer validation."
 }
-foreach ($job in @($installerJob, $captureJob, $regressionJob)) {
+foreach ($job in @($installerJob, $smokeJob, $assignmentsJob, $captureJob, $regressionJob)) {
     if ($job -notmatch 'uses: actions/download-artifact@v8\.0\.2' -or $job -match 'msbuild|/target:Publish') {
         throw "Downstream validation must download the single published payload, not rebuild."
     }
@@ -297,7 +305,7 @@ if ($installerJob -notmatch '(?s)Download the published payload.*?path: artifact
     throw "Tested downloads must follow installer validation, retaining failure diagnostics."
 }
 foreach ($step in @("Download completed captures", "Publish screenshots for inline review", "Add screenshots to pull request")) {
-    if ($publishJob -notmatch ("(?s)name: " + [regex]::Escape($step) + "\s+(?:id: [^\r\n]+\s+)?if: needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'")) {
+    if ($publishJob -notmatch ("(?s)name: " + [regex]::Escape($step) + "\s+(?:id: [^\r\n]+\s+)?if: needs.ui-smoke.result == 'success' && needs.ui-assignments.result == 'success' && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'")) {
         throw "Screenshot publication must wait for successful UI and installer checks: $step"
     }
 }
@@ -317,7 +325,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         $target = if ($pattern.StartsWith('REGRESSION_RESULT')) { $publishJob } else { $regressionJob }
         if ($target -notmatch $pattern) { throw "Missing parallel regression invariant: $pattern" }
     }
-    foreach ($job in @($captureJob, $regressionJob)) {
+    foreach ($job in @($smokeJob, $assignmentsJob, $captureJob, $regressionJob)) {
         foreach ($restriction in @(
             "needs.changes.outputs.ui == 'true'",
             "github.event_name == 'workflow_dispatch'",
@@ -333,7 +341,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
     foreach ($suite in @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
         "UsageCategory.Ui", "DeviceActivity.Ui", "NetworkActivity.Ui",
         "Tools.Ui")) {
-        if ($captureJob.Contains($suite) -or $smokeScript.Contains($suite)) { throw "Capture still runs extracted suite: $suite" }
+        if ($captureJob.Contains($suite) -or $smokeJob.Contains($suite) -or $assignmentsJob.Contains($suite) -or $smokeScript.Contains($suite)) { throw "Capture still runs extracted suite: $suite" }
         $expectedCount = if ($suite -eq "DeviceScanHistory.Ui") { 2 } else { 1 }
         Assert-Equal ([regex]::Matches($regressionScript, ('Invoke-RegressionCheck "' + [regex]::Escape($suite) + '"')).Count) $expectedCount "Preserve suite dispatch: $suite"
     }
@@ -343,8 +351,19 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
     if ($regressionScript -notmatch [regex]::Escape('$_ -in @("DeviceDetails", "DeviceHistory")') -or
         $regressionScript -notmatch 'Stop-Transcript' -or
         $captureJob -notmatch 'timeout-minutes: 10' -or
-        $captureJob -notmatch '(?s)id: smoke\s+timeout-minutes: 7') {
+        $captureJob -notmatch '(?s)id: capture\s+timeout-minutes: 7' -or
+        $smokeJob -notmatch 'timeout-minutes: 10' -or
+        $smokeJob -notmatch '(?s)id: smoke\s+timeout-minutes: 7' -or
+        $assignmentsJob -notmatch 'timeout-minutes: 10' -or
+        $assignmentsJob -notmatch '(?s)id: assignments\s+timeout-minutes: 7') {
         throw "Preserve history selection, transcripts and bounded native execution."
+    }
+    # Each runner owns one half of the former combined review; neither may drop or duplicate the other.
+    if ($smokeJob -notmatch 'Invoke-UiReview\.ps1 -Part Smoke' -or $smokeJob -match 'CapturePlanPath|-Part (Capture|Assignments)|UiReviewScreenshot' -or
+        $assignmentsJob -notmatch 'Invoke-UiReview\.ps1 -Part Assignments' -or $assignmentsJob -match 'CapturePlanPath|-Part (Capture|Smoke)|UiReviewScreenshot' -or
+        $captureJob -notmatch 'Invoke-UiReview\.ps1 -Part Capture' -or $captureJob -match '-Part (Smoke|Assignments)' -or
+        $captureJob -notmatch 'UiReviewScreenshot\.Tests\.ps1') {
+        throw "Smoke, assignment and capture jobs must each run exactly their own review part."
     }
 
     $runnerFixture = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-regression-runner-$([Guid]::NewGuid())"
@@ -366,7 +385,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         }
         foreach ($name in @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
             "UsageCategory.Ui", "DeviceActivity.Ui", "NetworkActivity.Ui",
-            "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
+            "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
             @(
                 'param($AppPath, $ScreenshotDirectory, $Version, $BuildKind, $BuildTimestamp, $BuildCommit, $PullRequestNumber, $SummaryOnly, $ObservationsOnly, $Group)',
                 '$name = [IO.Path]::GetFileName($PSCommandPath).Replace(".Tests.ps1", "")',
@@ -404,7 +423,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
             "details-identity" = @("DeviceDiscovery.Ui", "UsageCategory.Ui")
             "details-observations" = @("DeviceScanHistory.Ui")
             "details-activity" = @("DeviceActivity.Ui")
-            "tools-utilities" = @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "DatabaseBackups.Ui")
+            "tools-utilities" = @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui")
             "tools-device-data" = @("AdditionalServices.Ui", "SqlEditor.Ui")
         }
         Assert-Equal $matrixSuites @($expectedSuiteChecks.Keys) "CI matrix dispatches every split suite"
@@ -419,7 +438,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         $calls = @(Get-Content $env:UI_REGRESSION_CALLS | ConvertFrom-Json)
         Assert-Equal $calls.Name @("SidebarNavigation", "SidebarNavigation", "SidebarNavigation", "SidebarNavigation", "DevicesList.Ui", "DevicesList.Ui", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
             "UsageCategory.Ui", "DeviceScanHistory.Ui", "DeviceActivity.Ui",
-            "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "Dispatch every preserved suite once"
+            "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "Dispatch every preserved suite and focused updates once"
         $deviceGroups = @((Import-PowerShellDataFile -LiteralPath (Join-Path $PSScriptRoot "UiRegression\Devices.Groups.psd1")).Groups.Name)
         Assert-Equal @($matrixSuites | Where-Object { $_ -like "devices*" }) @($deviceGroups | ForEach-Object { "devices-$_" }) "CI matrix runs every Devices group once on its own worker"
         Assert-Equal @($calls | Where-Object Name -eq "DevicesList.Ui" | ForEach-Object { $_.Parameters.Group }) $deviceGroups "Devices group jobs dispatch exactly their group"
@@ -440,19 +459,19 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         & powershell.exe -NoProfile -File $runner -Suite sidebar -AppPath $parameters.AppPath `
             -ScreenshotDirectory $parameters.ScreenshotDirectory -CapturePlanPath $planPath
         if ($LASTEXITCODE -ne 0) { throw "Sidebar runner must support multi-scenario plans under Windows PowerShell." }
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 19 "Windows PowerShell dispatches the sidebar without parsing details selection"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 20 "Windows PowerShell dispatches the sidebar without parsing details selection"
         ConvertTo-Json -InputObject @($definitions | Where-Object Scenario -eq Devices) -Depth 5 | Set-Content $planPath
         foreach ($suite in @("details-summary", "details-identity", "details-observations", "details-activity")) {
             & $runner -Suite $suite @parameters
-            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 19 "Unselected $suite must not launch native checks"
+            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 20 "Unselected $suite must not launch native checks"
         }
         ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios Network) -Depth 5 | Set-Content $planPath
         foreach ($suite in @("details-summary", "details-observations", "details-activity")) {
             & $runner -Suite $suite @parameters
-            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 19 "Network-only plan adds no checks to $suite"
+            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 20 "Network-only plan adds no checks to $suite"
         }
         & $runner -Suite details-identity @parameters
-        $networkCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip 19 | ConvertFrom-Json)
+        $networkCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip 20 | ConvertFrom-Json)
         Assert-Equal $networkCalls.Name @("NetworkActivity.Ui") "Network-only plan still runs its activity regression"
         ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios DeviceDetails, Network) -Depth 5 |
             Set-Content $planPath
@@ -487,7 +506,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         $env:UI_REGRESSION_FAIL = $null
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
         & $runner -Suite tools @parameters
-        $toolChecks = @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")
+        $toolChecks = @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")
         Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name $toolChecks "Default Tools entry point preserves full sequential coverage"
         $env:UI_REGRESSION_FAIL = "NetworkTroubleshooting.Ui"
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
@@ -516,6 +535,12 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
         Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: utilities*Simulated regression failure: DatabaseBackups.Ui*"
         Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name $toolChecks "A backup failure is retained while the independent device-data group still runs"
+        $env:UI_REGRESSION_FAIL = "ReleaseUpdates.Ui"
+        $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
+        Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: utilities*Simulated regression failure: ReleaseUpdates.Ui*"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name `
+            @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") `
+            "Update failure is retained, stops later utility checks and still runs independent device data"
         $env:UI_REGRESSION_FAIL = "BuildIdentity.Ui"
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
         Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: utilities*Simulated regression failure*"
@@ -530,43 +555,53 @@ if ($publishJob -notmatch 'INSTALLER_RESULT: \$\{\{ needs.installer.result \}\}'
     throw "Installer failures must be explained by the existing failure publisher."
 }
 
-$smokeMatch = [regex]::Match($workflow, '(?s)- name: Exercise primary UI and capture required views.*?run: \|\r?\n(.*?)\r?\n      - name: Upload UI review')
-if (-not $smokeMatch.Success) { throw "UI smoke-test wrapper was not found." }
-$smoke = [scriptblock]::Create(($smokeMatch.Groups[1].Value -replace '(?m)^          ', '' -replace '\$\{\{ github.workspace \}\}', '$env:GITHUB_WORKSPACE'))
-$fixture = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-smoke-failure-$([Guid]::NewGuid())"
-$savedWorkspace = $env:GITHUB_WORKSPACE
-try {
-    $null = New-Item -ItemType Directory -Path (Join-Path $fixture ".github\scripts") -Force
-    $null = New-Item -ItemType Directory -Path (Join-Path $fixture "artifacts\ui-review") -Force
-    @'
-param($AppPath, $ScreenshotDirectory, $CapturePlanPath)
+foreach ($wrapper in @(
+    @{ Step = "Exercise primary UI interactions"; Upload = "Upload UI smoke diagnostics"; Part = "Smoke"
+        Directory = "artifacts\ui-smoke"; Log = "smoke-test.log"; Precreated = $false }
+    @{ Step = "Exercise People and Rooms names and assignments"; Upload = "Upload UI assignment diagnostics"; Part = "Assignments"
+        Directory = "artifacts\ui-assignments"; Log = "assignments.log"; Precreated = $false }
+    @{ Step = "Capture required views"; Upload = "Upload UI review captures"; Part = "Capture"
+        Directory = "artifacts\ui-review"; Log = "capture.log"; Precreated = $true }
+)) {
+    $smokeMatch = [regex]::Match($workflow, '(?s)- name: ' + [regex]::Escape($wrapper.Step) + '.*?run: \|\r?\n(.*?)\r?\n      - name: ' + [regex]::Escape($wrapper.Upload))
+    if (-not $smokeMatch.Success) { throw "UI $($wrapper.Part) wrapper was not found." }
+    $smoke = [scriptblock]::Create(($smokeMatch.Groups[1].Value -replace '(?m)^          ', '' -replace '\$\{\{ github.workspace \}\}', '$env:GITHUB_WORKSPACE'))
+    $fixture = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-smoke-failure-$([Guid]::NewGuid())"
+    $savedWorkspace = $env:GITHUB_WORKSPACE
+    try {
+        $null = New-Item -ItemType Directory -Path (Join-Path $fixture ".github\scripts") -Force
+        # Capture's plan step creates its directory first; smoke must create its own.
+        if ($wrapper.Precreated) { $null = New-Item -ItemType Directory -Path (Join-Path $fixture $wrapper.Directory) -Force }
+        @'
+param($Part, $AppPath, $ScreenshotDirectory, $CapturePlanPath)
 "partial screenshot" | Set-Content (Join-Path $ScreenshotDirectory "partial.png")
 "driver failure details" | Set-Content (Join-Path $ScreenshotDirectory "driver.log")
-throw "Simulated native smoke failure"
+throw "Simulated native $Part failure"
 '@ | Set-Content (Join-Path $fixture ".github\scripts\Invoke-UiReview.ps1")
-    $env:GITHUB_WORKSPACE = $fixture
-    Push-Location $fixture
-    try {
-        Assert-Throws { & $smoke } "*Simulated native smoke failure*"
-        foreach ($file in @("partial.png", "driver.log", "smoke-test.log")) {
-            if (-not (Test-Path -LiteralPath (Join-Path $fixture "artifacts\ui-review\$file"))) {
-                throw "Failure diagnostics must retain $file."
+        $env:GITHUB_WORKSPACE = $fixture
+        Push-Location $fixture
+        try {
+            Assert-Throws { & $smoke } "*Simulated native $($wrapper.Part) failure*"
+            foreach ($file in @("partial.png", "driver.log", $wrapper.Log)) {
+                if (-not (Test-Path -LiteralPath (Join-Path $fixture "$($wrapper.Directory)\$file"))) {
+                    throw "$($wrapper.Part) failure diagnostics must retain $file."
+                }
             }
+            $transcript = Get-Content (Join-Path $fixture "$($wrapper.Directory)\$($wrapper.Log)") -Raw
+            if (-not $transcript.Contains("Simulated native $($wrapper.Part) failure")) { throw "The $($wrapper.Part) failure transcript must retain the original error." }
+        } finally {
+            Pop-Location
         }
-        $transcript = Get-Content (Join-Path $fixture "artifacts\ui-review\smoke-test.log") -Raw
-        if (-not $transcript.Contains("Simulated native smoke failure")) { throw "The failure transcript must retain the original error." }
     } finally {
-        Pop-Location
+        $env:GITHUB_WORKSPACE = $savedWorkspace
+        Remove-Item -LiteralPath $fixture -Recurse -Force
     }
-} finally {
-    $env:GITHUB_WORKSPACE = $savedWorkspace
-    Remove-Item -LiteralPath $fixture -Recurse -Force
 }
 
 $gateMatch = [regex]::Match($workflow, '(?s)- name: Report validation result.*?run: \|\r?\n(.*)$')
 if (-not $gateMatch.Success) { throw "Required UI gate script was not found." }
 $gate = [scriptblock]::Create(($gateMatch.Groups[1].Value -replace '(?m)^          ', ''))
-$names = @("CHANGES_RESULT", "TEST_RESULT", "BUILD_RESULT", "INSTALLER_RESULT", "TEST_REQUIRED", "BUILD_REQUIRED", "UI_REQUIRED", "CAPTURE_RESULT", "REGRESSION_RESULT", "PUBLISH_RESULT", "TRUSTED", "EVENT_NAME", "GITHUB_STEP_SUMMARY")
+$names = @("CHANGES_RESULT", "TEST_RESULT", "BUILD_RESULT", "INSTALLER_RESULT", "TEST_REQUIRED", "BUILD_REQUIRED", "UI_REQUIRED", "SMOKE_RESULT", "ASSIGNMENTS_RESULT", "CAPTURE_RESULT", "REGRESSION_RESULT", "PUBLISH_RESULT", "TRUSTED", "EVENT_NAME", "GITHUB_STEP_SUMMARY")
 $saved = @{}
 $summary = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-gate-$([Guid]::NewGuid()).txt"
 try {
@@ -579,13 +614,15 @@ try {
     $env:TEST_REQUIRED = "true"
     $env:BUILD_REQUIRED = "true"
     $env:UI_REQUIRED = "true"
+    $env:SMOKE_RESULT = "success"
+    $env:ASSIGNMENTS_RESULT = "success"
     $env:CAPTURE_RESULT = "success"
     $env:REGRESSION_RESULT = "success"
     $env:PUBLISH_RESULT = "success"
     $env:TRUSTED = "true"
     $env:EVENT_NAME = "pull_request"
     & $gate
-    foreach ($name in @("TEST_RESULT", "BUILD_RESULT", "INSTALLER_RESULT", "CAPTURE_RESULT", "REGRESSION_RESULT", "PUBLISH_RESULT")) {
+    foreach ($name in @("TEST_RESULT", "BUILD_RESULT", "INSTALLER_RESULT", "SMOKE_RESULT", "ASSIGNMENTS_RESULT", "CAPTURE_RESULT", "REGRESSION_RESULT", "PUBLISH_RESULT")) {
         foreach ($result in @("failure", "cancelled", "skipped", "")) {
             [Environment]::SetEnvironmentVariable($name, $result)
             Assert-Throws { & $gate } "*did not*"
@@ -607,6 +644,8 @@ try {
     & $gate
     $env:EVENT_NAME = "pull_request"
     $env:TRUSTED = "false"
+    $env:SMOKE_RESULT = "skipped"
+    $env:ASSIGNMENTS_RESULT = "skipped"
     $env:CAPTURE_RESULT = "skipped"
     $env:REGRESSION_RESULT = "skipped"
     & $gate

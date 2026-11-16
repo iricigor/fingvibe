@@ -267,9 +267,20 @@ foreach ($path in @("FingVibe.Core.Tests.csproj", "SpeedTestHost.Tests.cjs", "Do
 }
 $smoke = Get-Content (Join-Path $PSScriptRoot "..\.github\scripts\Invoke-UiReview.ps1") -Raw
 if ($smoke -notmatch '\$Mode = "Current"' -or
-    [regex]::Matches($smoke, 'if \(\$Mode -in @\("Current", "Full"\)\)').Count -ne 3 -or
+    [regex]::Matches($smoke, 'if \(\$runSmoke -and \$Mode -in @\("Current", "Full"\)\)').Count -ne 3 -or
+    [regex]::Matches($smoke, 'if \(\$runAssignments -and \$Mode -in @\("Current", "Full"\)\)').Count -ne 1 -or
     $smoke -notmatch 'Get-NativeValidationPlan -Mode \$Mode -Suite capture' -or
     $smoke -notmatch "smoke-failure.png") {
     throw "Baseline must exclude exhaustive behavior groups while preserving default/full smoke assertions and failure captures."
+}
+# PR CI splits the review into Smoke/Assignments/Capture runners; independent modes must still run every part.
+if ($smoke -notmatch '\[string\] \$Part = "All"' -or
+    $smoke -notmatch '\$runSmoke = \$Part -in @\("All", "Smoke"\)' -or
+    $smoke -notmatch '\$runAssignments = \$Part -in @\("All", "Assignments"\)' -or
+    $smoke -notmatch '\$runCapture = \$Part -in @\("All", "Capture"\)' -or
+    $smoke -notmatch '(?s)if \(-not \$runCapture\) \{\s+@\(\)' -or
+    $smoke -notmatch '(?s)if \(\$runCapture\) \{\s+ConvertTo-Json -InputObject @\(\$capturePlan\)' -or
+    (Get-Content (Join-Path $PSScriptRoot "..\.github\scripts\Invoke-NativeValidation.ps1") -Raw) -match '-Part ') {
+    throw "Independent validation must run the combined review; smoke-only runs must not publish a capture manifest."
 }
 Write-Host "Native validation modes, independent workflows, provenance and failure-contract tests passed."

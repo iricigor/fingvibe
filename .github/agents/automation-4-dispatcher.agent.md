@@ -28,7 +28,8 @@ or inspect the evidence artifact repeatedly before offering.
    `developerOffers`, `candidates`, `blocked` and `openAssignments` output directly. The script already verified the
    open type:epic, native children, ordering, dependencies and exclusions,
    including tasks with an open assignment in their Discussion.
-   Successful completed current-head CI comes first, failed completed CI next,
+   Successful completed current-head CI comes first, failed completed CI or a
+   recorded finalize rejection on the current head next,
    then released implementations to resume, then new tasks; blocked entries carry their reasons. Do not read the full
    evidence artifact or make new GitHub requests, unless a specific candidate's
    data is missing or contradictory; then read only what that candidate needs.
@@ -114,7 +115,9 @@ or inspect the evidence artifact repeatedly before offering.
    explicit start assignment with a unique assignment ID, the run permissions and
    the exact action, task and expected PR head when applicable
    (`success` → finalize, `failed` → repair, `resume` → implement on the
-   existing PR, `new` → implement).
+   existing PR, `new` → implement). A `failed` candidate carrying
+   `finalizeRejection` is repaired even with green CI; forward that evidence in
+   the start and never start finalize again for the rejected head.
    Task records go to the task's own Discussion in the Task conversations
    category, identified by the `<!-- fingvibe:task=<number> -->` marker in its
    body (found in the artifact's Discussion data). If none exists, create it in
@@ -164,3 +167,21 @@ not be mirrored. Preserve issue-body links, native parentage, original human
 sources and unrelated labels. Permission/collection/reporting failures are
 explicit; no success-shaped empty queue, other automatic recovery or weakened merge
 gates. Tasks requiring human action remain excluded.
+
+## Final step: hourly Epic chart (loop4 only)
+
+As the final step of every cycle, after coordination and the normal cycle
+outcome, use the `loop4-epic-chart` repository skill. This also applies before
+returning from an idle cycle with no offerable work. Do not interleave reporting
+with offers, responses, releases or starts. Follow
+`.github/skills/loop4-epic-chart/SKILL.md` and invoke its
+`scripts/Publish-EpicChart.ps1 -EvidencePath <packet.evidencePath>`.
+This is the narrow exception to the no-extra-queries rule: chart history, fresh
+Discussion throttle checks, reporting inventory refresh after a long cycle,
+image upload and canonical readback only. Do not use chart data for allocation
+or wait for the next hour. Existing Dispatcher cycles remain serialized; no new
+Automation/schedule is authorized. The helper enforces a rolling 60-minute
+per-Epic limit with durable Discussion markers. Report any failure or uncertain
+reservation explicitly; never blindly retry a write, erase a reservation or
+silently substitute a local image link. Reporting does not change task
+eligibility, ownership, starts or merge gates.

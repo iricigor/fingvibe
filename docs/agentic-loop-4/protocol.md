@@ -117,11 +117,16 @@ Assignment comments in the task's Discussion carry these markers:
 | --- | --- | --- |
 | Sending #N to Developer N | Dispatcher | `<!-- fingvibe:assignment=<id> developer=developer-<1\|2> action=<action> -->` |
 | End of work | Developer | `<!-- fingvibe:assignment-end=<id> -->` |
+| Finalize rejected for repair | Developer | `<!-- fingvibe:finalize-rejected=<id> head=<sha> -->` |
 | Release after crash | Dispatcher | `<!-- fingvibe:assignment-release=<id> -->` |
 
 An assignment is open from its Sending marker until a matching end or release
 marker. IDs use letters, digits and `._:-`. The packet script reads these markers;
-comments without them are not assignments.
+comments without them are not assignments. A finalize-rejected marker counts only
+when its ID is a `finalize` assignment in the same task Discussion; while the
+linked PR's current head equals the marker's head, the task is a `failed`
+(repair) candidate carrying `finalizeRejection`, whatever its CI. A new head
+returns it to normal CI classification.
 
 ## Start
 
@@ -132,6 +137,8 @@ PR/branch/current head for follow-up. Category sets the action:
 `success` → `finalize`, `failed` → `repair`, `new` → `implement`, and `resume`
 → `implement` continuing the existing PR/branch from its pushed head.
 Repair also names the run's `repairs` allowance and the evidenced attempt.
+For a rejected finalize, the repair start also forwards the candidate's
+`finalizeRejection` (assignment ID, rejected head and Discussion URL).
 
 Each task has its own Discussion in the Task conversations category, identified
 by `<!-- fingvibe:task=<number> -->` in its body; Dispatcher creates it if
@@ -141,6 +148,19 @@ marker, and verifies readback. This is the assignment record, not a state.json
 claim, revision transaction or delivery-based slot. No issue-body links or mappings are required.
 The Epic's Discussion (Epic coordination, `<!-- fingvibe:epic=<number> -->`)
 holds only Epic-level summaries and blockers.
+
+Hourly progress charts are also Epic-level summaries. Dispatcher invokes
+`.github/skills/loop4-epic-chart/SKILL.md` once per existing cycle with the normal
+packet artifact as the final step, after coordination and the normal cycle
+outcome, including idle cycles. Do not interleave reporting with offers,
+responses, releases or starts. The helper
+uses additional reads only for chart history, fresh throttle checks and verified
+publication. It reserves one marked comment, uploads a persistent GitHub PNG,
+then updates/readbacks that same comment. A published marker's server timestamp
+enforces a rolling 60-minute minimum; any pending marker requires human
+reconciliation before another attempt. Serialized cycles remain required.
+Reporting never creates a schedule, changes ownership/eligibility or bypasses a
+gate. Report failures explicitly rather than retrying uncertain publication.
 
 Developer validates the fresh task and run permissions, confirms the start in the
 task's Discussion, adds/verifies its own `4️⃣dev1`/`4️⃣dev2` participation label
