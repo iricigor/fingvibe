@@ -452,6 +452,71 @@ foreach ($focusable in @($true, $false)) {
     Assert-Regression ($result -eq $target -and $positions.Count -eq 1) 'A clipped UIA bottom edge must not cause repeated tiny scroll corrections.'
     Assert-Regression ($target.Current.BoundingRectangle.Top -eq 35 -and $target.Current.BoundingRectangle.Height -eq 180) 'Positioning must reveal the full target, not accept its clipped rectangle as its true height.'
 }
+& {
+    . (Join-Path $PSScriptRoot 'UiRegression\Tools.Landing.Helpers.ps1')
+    $window = [pscustomobject]@{ Current = @{
+        IsOffscreen = $false; BoundingRectangle = [Windows.Rect]::new(0, 0, 500, 300)
+    } }
+    $viewport = [pscustomobject]@{ Current = $window.Current }
+    $card = [pscustomobject]@{ Current = @{ IsOffscreen = $false } }
+    $descriptionPeer = [pscustomobject]@{ Current = @{ Name = 'View local backup copies and protect your saved device inventory.' } }
+    $actionPeer = [pscustomobject]@{ Current = @{ Name = 'Open database backups' } }
+    $unnamed = [pscustomobject]@{ Current = @{ Name = '' } }
+    $card | Add-Member ScriptMethod FindAll {
+        param($Scope, $Condition)
+        Assert-Regression ($Scope -eq [System.Windows.Automation.TreeScope]::Descendants -and
+            $Condition.Value -eq [System.Windows.Automation.ControlType]::Text.Id) 'Tools positioning must locate real descendant text peers.'
+        return @($descriptionPeer, $actionPeer, $unnamed)
+    }
+    $lookups = [Collections.Generic.List[string]]::new()
+    function Get-ToolsLandingElement([string] $Id) {
+        $lookups.Add($Id)
+        Assert-Regression ($Id -eq 'DatabaseBackupsCard') 'Position the requested Tools row.'
+        return $card
+    }
+    $positions = [Collections.Generic.List[double]]::new()
+    $scroll = [pscustomobject]@{ Current = @{
+        VerticallyScrollable = $true; VerticalScrollPercent = 0.0; VerticalViewSize = 20.0
+    } }
+    $scroll | Add-Member ScriptMethod SetScrollPercent {
+        param($Horizontal, $Percent)
+        $positions.Add($Percent)
+        $this.Current.VerticalScrollPercent = $Percent
+        $top = 285 - $Percent * 12
+        $visibleTop = [Math]::Max(0, $top)
+        $visibleBottom = [Math]::Min(300, $top + 180)
+        $card.Current.BoundingRectangle = [Windows.Rect]::new(10, $visibleTop, 200, $visibleBottom - $visibleTop)
+        foreach ($entry in @(@($descriptionPeer, 50, 40), @($actionPeer, 140, 20))) {
+            $entry[0].Current.BoundingRectangle = [Windows.Rect]::new(25, $top + $entry[1], 170, $entry[2])
+            $entry[0].Current.IsOffscreen = $top + $entry[1] -ge 300 -or $top + $entry[1] + $entry[2] -le 0
+        }
+    }
+    $viewport | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $scroll }
+    $scroll.SetScrollPercent(-1, 0)
+    $positions.Clear()
+    Assert-Regression (Test-UiRegressionElementWithin $card $viewport $window) 'The regression fixture must reproduce a clipped parent that incorrectly appears contained.'
+    $null = Show-UiRegressionScrollTargets -Description 'Tools clipped-parent baseline' `
+        -GetViewport { $viewport } -GetWindow { $window } -GetTargets { $card }
+    Assert-Regression ($positions.Count -eq 0 -and $descriptionPeer.Current.IsOffscreen -and
+        $actionPeer.Current.IsOffscreen) 'Parent-only positioning reproduces the original offscreen text failure.'
+    $targets = @(Get-ToolsLandingRowTargets @('DatabaseBackupsCard'))
+    Assert-Regression ($targets.Count -eq 3 -and $descriptionPeer -in $targets -and $actionPeer -in $targets) 'Include offscreen named descriptions/actions, but not unnamed decoration.'
+    $arguments = @{
+        GetViewport = { $viewport }; GetWindow = { $window }
+        GetTargets = { Get-ToolsLandingRowTargets @('DatabaseBackupsCard') }
+        Description = 'Tools final card and text'
+    }
+    $null = Show-UiRegressionScrollTargets @arguments
+    Assert-Regression ($positions.Count -eq 1 -and $lookups.Count -ge 3) 'Reacquire the row and perform measured scrolling despite its clipped parent bounds.'
+    foreach ($text in @($descriptionPeer, $actionPeer)) {
+        Assert-Regression (Test-UiRegressionElementWithin $text $viewport $window) 'Every named Tools label must actually be visible after positioning.'
+    }
+    $null = Show-UiRegressionScrollTargets @arguments
+    Assert-Regression ($positions.Count -eq 1) 'Already-visible Tools rows must not scroll again.'
+    $scroll.SetScrollPercent(-1, 0)
+    $scroll.Current.VerticallyScrollable = $false
+    Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*clipped in a non-scrollable viewport*'
+}
 
 $rectangle = [pscustomobject]@{ IsEmpty = $false; Width = 100; Height = 30 }
 $element = [pscustomobject]@{ Current = [pscustomobject]@{ IsOffscreen = $false; BoundingRectangle = $rectangle } }

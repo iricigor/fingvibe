@@ -5,6 +5,19 @@ function Get-ToolsLandingElement {
     Find-UiRegressionElement -Container { $script:root } -Condition $condition -Description "Tools '$Id'"
 }
 
+function Get-ToolsLandingRowTargets([string[]] $Ids) {
+    $textCondition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+        [System.Windows.Automation.ControlType]::Text)
+    foreach ($id in $Ids) {
+        $card = Get-ToolsLandingElement $id
+        $card
+        foreach ($text in $card.FindAll([System.Windows.Automation.TreeScope]::Descendants, $textCondition)) {
+            if ($text.Current.Name) { $text }
+        }
+    }
+}
+
 function Assert-ToolsLandingLayout {
     param(
         [Parameter(Mandatory)][int] $Width,
@@ -31,7 +44,7 @@ function Assert-ToolsLandingLayout {
         if ($index + 1 -lt $ids.Count) { $rowIds += $ids[$index + 1] }
         $null = Show-UiRegressionScrollTargets -Description "$Variant Tools row $($index / 2)" `
             -GetViewport { Get-ToolsLandingElement "ToolsLanding" } -GetWindow { $script:root } `
-            -GetTargets { foreach ($id in $rowIds) { Get-ToolsLandingElement $id } }
+            -GetTargets { Get-ToolsLandingRowTargets $rowIds }
         $rectangles = @($rowIds | ForEach-Object { (Get-ToolsLandingElement $_).Current.BoundingRectangle })
         $scrollPercent = $scroll.Current.VerticalScrollPercent
         if ($previousRowPlacement -and (
