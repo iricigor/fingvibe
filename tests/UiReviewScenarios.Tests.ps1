@@ -418,7 +418,8 @@ try {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceHistory") "Device activity"
     }
     foreach ($path in @("src\FingVibe.App\DeviceActivityPresentation.cs", "src\FingVibe.App\DeviceActivityReviewHold.cs",
-        "src\FingVibe.App\Views\ActivityGridRenderer.cs", "src\FingVibe.Core\Models\DeviceActivity.cs")) {
+        "src\FingVibe.App\Views\ActivityGridRenderer.cs", "src\FingVibe.Core\Models\DeviceActivity.cs",
+        "tests\ActivityGrid.Ui.Helpers.ps1")) {
         Test-Change @{ $path = "changed" } @("Devices", "Network", "DeviceHistory", "PersonDetails") "Shared activity grid"
     }
     foreach ($path in @("src\FingVibe.App\MainWindow.NetworkActivity.cs",

@@ -208,8 +208,8 @@ public sealed partial class DeviceDetailsPageView
                 : fraction == 1 ? "R: Responded  " : "-: Scanned, no response  " });
         }
         ActivityLegend.Inlines.Add(new Run { Text = weekdays
-            ? "of applicable dates responded. Hatching: some dates unknown. -: not applicable."
-            : "Hatching / ?: No scan data. Dots: Later today. N/A: skipped DST hour." });
+            ? "of applicable dates responded. ?: no scan data. Small trailing ?: some dates unknown. N/A: not applicable."
+            : "?: No scan data. Dots: Later today. N/A: skipped DST hour." });
         if (contrast) ActivityLegend.Inlines.Add(new Run { Text = " R: response; -: nonresponse; ?: unknown." });
     }
 

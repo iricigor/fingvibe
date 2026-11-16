@@ -494,12 +494,12 @@ define the window; today includes only evidence collected so far.
 
 Green means at least one reliable response, even if other scans in the cell
 had no response. Amber/minus means eligible observations with no response;
-sparse hatching means unknown evidence, not offline. Dim dots distinguish
+a muted `?` means unknown evidence, not offline. Dim dots distinguish
 later-today intervals from missing past evidence. No state is interpolated between scans.
 Weekday numbers count responding dates; green strength divides by **all
 applicable dates**, including unknown ones. Three responding Wednesdays and one
-unknown therefore show 3, 75% green and hatching, not 100%. Entirely unknown
-cells show no zero or percentage. Skipped DST hours are not applicable and are
+unknown therefore show 3 with a small trailing `?` and 75% green, not 100%. Entirely unknown
+cells show `?`, never zero or a percentage. Skipped DST hours show `N/A` and are
 excluded from that cell's denominator; repeated hours combine both instants.
 
 Select or focus a cell for exact response, nonresponse, unknown and date counts.
@@ -554,7 +554,8 @@ scans, network/period/filter changes, returning to the page and local date/timez
 rollover refresh the evidence. No historical assignment reconstruction is used.
 
 Green intensity and its numeric legend rescale to the current filtered grid.
-Slate is known zero; hatching is unavailable or incomplete evidence. `N+` means
+Slate with `0` is known zero; a muted `?` means the count is unavailable. A small
+trailing `?` beside a weekday average marks excluded unknown or partial dates. `N+` means
 **at least N**, including `0+`, and incomplete daily counts never enter an exact
 weekday mean. Imported-only or ambiguous contributors are disclosed rather than
 treated as offline. A zero-only grid has no invented positive range; an entirely

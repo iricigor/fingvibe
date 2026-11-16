@@ -9,6 +9,7 @@ if ($env:GITHUB_ACTIONS -ne "true") { throw "Equipment activity checks require a
 Initialize-InventorySqlite $AppPath
 $null = [Reflection.Assembly]::LoadFrom((Join-Path (Split-Path $AppPath) "FingVibe.Core.dll"))
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms
+. (Join-Path $PSScriptRoot "ActivityGrid.Ui.Helpers.ps1")
 
 function Find-Equipment([string] $Id, [switch] $ByName) {
     if (-not $script:root) { return $null }
@@ -134,10 +135,15 @@ try {
     Assert-EquipmentCell EquipmentActivityCell-5-13 "*0 distinct devices*"
     Assert-EquipmentCell EquipmentActivityCell-5-14 "*At least 2 devices*Unknown/ineligible: network-999*"
     Assert-EquipmentCell EquipmentActivityCell-5-15 "*Unknown - no eligible scan evidence*"
+    foreach ($state in @(@(12, "2"), @(13, "0"), @(14, "2+"), @(15, "?"))) {
+        $null = Assert-ActivityGridGlyph (Show-Equipment "EquipmentActivityCell-5-$($state[0])") $state[1]
+    }
+    Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "equipment-daily-evidence.png")
     Choose-EquipmentPeriod "Last 30 days"
     Assert-EquipmentCell EquipmentActivityCell-29-23 "*-24:00*"
     Choose-EquipmentPeriod "30 days by weekday"
     Assert-EquipmentCell EquipmentActivityCell-2-10 "*Average 1.5 devices; exact sum 3 / 2 exact dates*"
+    $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-2-10) "1.5?"
     [Windows.Forms.SendKeys]::SendWait("{RIGHT}{LEFT}{ENTER}")
     Assert-EquipmentCell EquipmentActivityCell-2-10 "*2 / * applicable dates observed*"
     Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "equipment-weekdays.png")
@@ -214,6 +220,10 @@ try {
         (Show-Equipment EquipmentActivityHours).GetCurrentPattern([Windows.Automation.RangeValuePattern]::Pattern).SetValue($hours)
         $null = Wait-Equipment $before
         Assert-EquipmentCell "EquipmentActivityCell-5-$((24 / $hours) - 1)" "*-24:00*"
+        $null = Assert-ActivityGridGlyph (Show-Equipment "EquipmentActivityCell-5-$((24 / $hours) - 1)") "?"
+        if ($hours -eq 4) {
+            Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "equipment-four-hours.png")
+        }
     }
     foreach ($theme in @("Standard Light", "Standard Dark")) {
         $settings = $script:root.FindFirst([Windows.Automation.TreeScope]::Descendants,
@@ -231,6 +241,8 @@ try {
         Open-EquipmentPerson
         $null = Wait-Equipment
         Assert-EquipmentCell EquipmentActivityCell-5-12 "*2 distinct devices*"
+        $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-5-12) "2"
+        $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-5-15) "?"
         Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "equipment-$($theme.Replace(' ', '-')).png")
     }
     $bounds = Get-UiReviewWindowBounds $script:process.MainWindowHandle
@@ -247,15 +259,37 @@ try {
     $null = Show-Equipment EditPersonDetailButton
     $null = Show-Equipment DeletePersonDetailButton
     Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "equipment-narrow.png")
+    $normalGlyphHeight = (Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-5-12) "2").Current.BoundingRectangle.Height
+    Invoke-ActivityGridHighContrast -Check {
+        $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-5-12) "2"
+        $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-5-13) "0"
+        $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-5-15) "?"
+        Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "equipment-high-contrast.png")
+        Choose-EquipmentPeriod "30 days by weekday"
+        $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-2-10) "1.5?"
+        Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "equipment-high-contrast-weekdays.png")
+        Choose-EquipmentPeriod "Last 7 days"
+    }
     $request = Hold-Equipment
     Stop-UiRegressionApp -Process $script:process
     if (-not (Test-Path -LiteralPath "$($request.Path).cancelled")) { throw "Closing failed to cancel equipment activity." }
+    Remove-Item -LiteralPath $hold
+    Invoke-ActivityGridLargeText -AppPath $AppPath -Start {
+        Start-EquipmentApp
+        $null = Wait-Equipment
+    } -Stop { Stop-UiRegressionApp -Process $script:process } -Check {
+        Choose-EquipmentPeriod "30 days by weekday"
+        $largeGlyph = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-2-10) "1.5?"
+        if ($largeGlyph.Current.BoundingRectangle.Height -le $normalGlyphHeight * 1.5) {
+            throw "Equipment activity text did not actually enlarge with Windows text scale."
+        }
+        Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "equipment-large-text-weekdays.png")
+    }
     $empty = Join-Path $fixture "empty"
     $null = New-Item -ItemType Directory -Path $empty
     New-NetworkActivityFixture $empty -Equipment -Empty
     $env:FINGVIBE_UI_REVIEW_INVENTORY = Join-Path $empty "inventory.json"
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = Join-Path $empty "snapshot.json"
-    Remove-Item -LiteralPath $hold
     Start-EquipmentApp
     $null = Wait-Equipment -State Empty
     Assert-EquipmentPeers

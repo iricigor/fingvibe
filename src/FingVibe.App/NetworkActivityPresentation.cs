@@ -91,7 +91,7 @@ public static class NetworkActivityPresentation
                 ? $"{unit}: lower bound 0+ only; exact counts unavailable." : maximum == 0
             ? $"{unit}: 0 only; no positive range."
             : $"{unit}: 0 (slate) to {Format(maximum.Value)} (strongest green).";
-        return new(buckets, cells, legend + " Hatching: missing/partial evidence. N+: at least N, not an exact count. -: not applicable.",
+        return new(buckets, cells, legend + " ?: count unavailable. Small trailing ?: unknown/partial dates excluded. N+: at least N, not an exact count. -: not applicable.",
             selected.Length, unavailable, days.Count(day => day.Coverage != AnalyticsCoverage.Unknown), maximum);
     }
 

@@ -430,7 +430,7 @@
                     <Expander Header="How to read this grid" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                         <StackPanel Spacing="8">
                             <TextBlock x:Name="ActivityScope" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
-                            <TextBlock TextWrapping="Wrap" Text="Green with R means at least one response, not online for the whole interval. Amber with a minus means eligible scans with no response, not proof of absence. Sparse hatching means no eligible scan data; dim dotted squares are later today. Weekday numbers count responding dates; green strength uses all applicable dates, including unknown dates. A skipped DST hour is not applicable (-); repeated clock hours share a square and retain both scan instants. Use arrow keys within the grid; Enter or focus exposes counts. Scroll horizontally to see every hour at narrow widths." />
+                            <TextBlock TextWrapping="Wrap" Text="Green with R means at least one response, not online for the whole interval. Amber with a minus means eligible scans with no response, not proof of absence. A muted ? means no eligible scan data; dim dots are later today. Weekday numbers count responding dates; a small trailing ? beside a number marks unknown dates. Green strength still uses all applicable dates, including unknown dates. A skipped DST hour is not applicable (N/A); repeated clock hours share a square and retain both scan instants. Use arrow keys within the grid; Enter or focus exposes counts. Scroll horizontally to see every hour at narrow widths." />
                         </StackPanel>
                     </Expander>
                 </StackPanel>
