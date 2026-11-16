@@ -57,13 +57,10 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-            <Button x:Name="DeviceBackButton" Click="BackToDevicesButton_Click" AutomationProperties.Name="Back to devices"
-                    Padding="10,8" VerticalAlignment="Center">
-                <StackPanel Spacing="4" HorizontalAlignment="Center">
-                    <FontIcon Glyph="&#xE72B;" FontSize="14" />
-                    <TextBlock Text="Devices" FontSize="12" />
-                </StackPanel>
-            </Button>
+            <Button x:Name="DeviceBackButton" Content="&#x2190; Devices" Click="BackToDevicesButton_Click"
+                    MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
+                    MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
+                    AutomationProperties.Name="Back to devices" Style="{StaticResource PageBackButtonStyle}" />
             <Border x:Name="DetailsTabsHost" Grid.Column="1" Padding="4" CornerRadius="8"
                     VerticalAlignment="Center" HorizontalAlignment="Left"
                     Background="{ThemeResource ControlFillColorSecondaryBrush}">
