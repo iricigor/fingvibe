@@ -320,6 +320,15 @@ Do not overlap Dispatcher cycles or duplicate uncertain messages/assignments.
 Focused checks are `tests/Agent4DispatcherPacket.Tests.ps1` and the preserved
 historical `tests/Agent4Coordination.Tests.ps1`; no live activation is implied.
 
+The loop4-only `loop4-epic-chart` skill adds hourly stacked-status PNG summaries
+to the configured Epic Discussion during existing cycles, with cumulative trend
+lines and a durable rolling-60-minute publication guard. Its history/publication
+reads are reporting-only, not a second candidate collection or a schedule.
+`tests/EpicChart.Tests.ps1` checks lifecycle counts, throttle/restart behavior,
+uncertain writes and actual rendered stack colors without native UI automation.
+See the [skill contract](.github/skills/loop4-epic-chart/SKILL.md) for missing
+evidence, GitHub image credentials and pending-publication recovery.
+
 ## Architecture discussions with Architect
 
 For issue intake, Epic/task templates, and the label/ownership contract for

@@ -164,3 +164,21 @@ not be mirrored. Preserve issue-body links, native parentage, original human
 sources and unrelated labels. Permission/collection/reporting failures are
 explicit; no success-shaped empty queue, other automatic recovery or weakened merge
 gates. Tasks requiring human action remain excluded.
+
+## Final step: hourly Epic chart (loop4 only)
+
+As the final step of every cycle, after coordination and the normal cycle
+outcome, use the `loop4-epic-chart` repository skill. This also applies before
+returning from an idle cycle with no offerable work. Do not interleave reporting
+with offers, responses, releases or starts. Follow
+`.github/skills/loop4-epic-chart/SKILL.md` and invoke its
+`scripts/Publish-EpicChart.ps1 -EvidencePath <packet.evidencePath>`.
+This is the narrow exception to the no-extra-queries rule: chart history, fresh
+Discussion throttle checks, reporting inventory refresh after a long cycle,
+image upload and canonical readback only. Do not use chart data for allocation
+or wait for the next hour. Existing Dispatcher cycles remain serialized; no new
+Automation/schedule is authorized. The helper enforces a rolling 60-minute
+per-Epic limit with durable Discussion markers. Report any failure or uncertain
+reservation explicitly; never blindly retry a write, erase a reservation or
+silently substitute a local image link. Reporting does not change task
+eligibility, ownership, starts or merge gates.

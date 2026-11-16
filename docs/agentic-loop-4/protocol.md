@@ -142,6 +142,19 @@ claim, revision transaction or delivery-based slot. No issue-body links or mappi
 The Epic's Discussion (Epic coordination, `<!-- fingvibe:epic=<number> -->`)
 holds only Epic-level summaries and blockers.
 
+Hourly progress charts are also Epic-level summaries. Dispatcher invokes
+`.github/skills/loop4-epic-chart/SKILL.md` once per existing cycle with the normal
+packet artifact as the final step, after coordination and the normal cycle
+outcome, including idle cycles. Do not interleave reporting with offers,
+responses, releases or starts. The helper
+uses additional reads only for chart history, fresh throttle checks and verified
+publication. It reserves one marked comment, uploads a persistent GitHub PNG,
+then updates/readbacks that same comment. A published marker's server timestamp
+enforces a rolling 60-minute minimum; any pending marker requires human
+reconciliation before another attempt. Serialized cycles remain required.
+Reporting never creates a schedule, changes ownership/eligibility or bypasses a
+gate. Report failures explicitly rather than retrying uncertain publication.
+
 Developer validates the fresh task and run permissions, confirms the start in the
 task's Discussion, adds/verifies its own `4️⃣dev1`/`4️⃣dev2` participation label
 using `Set-Agent4DiscussionParticipant.ps1`, claims the task
