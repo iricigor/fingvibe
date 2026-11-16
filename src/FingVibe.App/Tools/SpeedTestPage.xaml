@@ -13,6 +13,8 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Button Content="&#x2190; Tools" Click="BackButton_Click"
+                            MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
+                            MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
                             AutomationProperties.Name="Back to Tools" Style="{StaticResource PageBackButtonStyle}" />
                     <FontIcon Grid.Column="1" Glyph="&#xEC4A;" FontFamily="Segoe Fluent Icons"
                               FontSize="48" Width="48" Height="48"
