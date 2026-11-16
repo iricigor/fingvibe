@@ -34,6 +34,20 @@ queue. Zero or multiple successful candidates retain the base allocation.
 An offer asks for availability and assessment. It never authorizes execution.
 Dispatcher keeps the exact offer and actual recipient correlation in its context.
 
+Immediately after attempting the offers, before waiting for assessments or
+processing starts, Dispatcher posts a brief user-visible chat summary. Name each
+Developer and list its exact sent issue numbers in offer order, including any
+shared candidate; use `none` for an empty sent list. For example:
+
+```text
+Offers sent - Developer 1: #451, #453; Developer 2: #452, #454. Waiting for assessments; no starts issued.
+```
+
+For failed or uncertain delivery, identify that status and the attempted issue
+list for the affected Developer instead of claiming the offer was sent.
+Send admission proves neither assessment nor execution. The summary requires
+no replies and changes no allocation, response-processing or start rules.
+
 ## Response
 
 Developer replies with the matching `offerId` and its actual identity:

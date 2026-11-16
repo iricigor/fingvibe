@@ -66,6 +66,13 @@ a specific candidate's data is missing or contradictory. Starts still require
 Developer assessments, a fresh check of the selected task and a verified
 "Sending #<number> to Developer N" comment in the task's own Discussion.
 
+Immediately after attempting offers, before waiting for assessments or processing
+starts, Dispatcher reports each Developer's exact sent issue list in chat, in
+offer order (including shared candidates), or `none` for an empty sent list.
+Failed or uncertain delivery is reported explicitly with the attempted list,
+never as sent. The summary distinguishes offers from starts; send admission is
+not proof of assessment or execution. See the [offer protocol](protocol.md#offer).
+
 Task-specific records (assignment, Developer start and end of work) go to one
 Discussion per task in the Task conversations category, marked
 `<!-- fingvibe:task=<number> -->`. The Epic coordination Discussion, marked
