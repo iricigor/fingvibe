@@ -11,6 +11,7 @@ $configuration = @{ repository = "TestOwner/TestRepo"; epic = 92 }
 $fixtureLinks = @{}
 $fixtureCiStatus = "completed"
 $fixtureConclusion = "success"
+$fixtureSecondConclusion = "failure"
 $fixtureStatuses = @()
 $fixturePulls = @(@{ number = 200; node_id = "PR200"; head = @{ sha = "a"*40 } },
     @{ number = 201; node_id = "PR201"; head = @{ sha = "b"*40 } })
@@ -47,7 +48,7 @@ $fixtureReader = {
         '/check-runs' {
             $head = if ($Endpoint.Contains("a"*40)) { "a"*40 } else { "b"*40 }
             @{ total_count = 1; check_runs = @(@{ id = 1; name = "CI"; head_sha = $head
-                status = $fixtureCiStatus; conclusion = $(if ($head.StartsWith("a")) { $fixtureConclusion } else { "failure" }) }) }; break
+                status = $fixtureCiStatus; conclusion = $(if ($head.StartsWith("a")) { $fixtureConclusion } else { $fixtureSecondConclusion }) }) }; break
         }
         '/actions/runs\?' {
             if ($Endpoint.Contains("a"*40)) {
@@ -146,8 +147,36 @@ try {
     Assert-True (($sorted.candidates.issue -join ",") -eq "104,103,101,106") "Successful CI precedes failed CI, then new work."
     Assert-True (($sorted.candidates.category -join ",") -eq "success,failed,new,new") "Return actionable categories."
     Assert-True (($sorted.developerOffers[0].candidates.issue -join ",") -eq "104,101" -and
-        ($sorted.developerOffers[1].candidates.issue -join ",") -eq "103,106" -and
-        $sorted.developerOffers[0].candidates[0].pr.number -eq 200) "Offers preserve CI priority and complete candidate evidence."
+        ($sorted.developerOffers[1].candidates.issue -join ",") -eq "104,103" -and
+        $sorted.developerOffers[1].candidates[0].pr.number -eq 200 -and
+        $sorted.developerOffers[1].candidates[0].pr.head.sha -eq ("a"*40)) "Share the sole finalization first, retain PR/head evidence and cap each offer at two."
+    Assert-True (106 -in $sorted.candidates.issue -and 106 -notin $sorted.developerOffers.candidates.issue) "Displaced work remains in the full queue."
+    $children[1].labels = @(@{ name = "type:task" })
+    $mixedFive = Get-Agent4WorkPacket $configuration (Join-Path $root "mixed-five.json") $fixtureReader
+    Assert-True (($mixedFive.candidates.issue -join ",") -eq "104,103,101,102,106" -and
+        ($mixedFive.developerOffers[0].candidates.issue -join ",") -eq "104,101" -and
+        ($mixedFive.developerOffers[1].candidates.issue -join ",") -eq "104,103") "Sharing preserves the full sorted queue and does not pull later candidates into offers."
+    $children[1].labels += @{ name = "human-task" }
+    $fixtureSecondConclusion = "success"
+    $twoSuccesses = Get-Agent4WorkPacket $configuration (Join-Path $root "two-successes.json") $fixtureReader
+    Assert-True (($twoSuccesses.developerOffers[0].candidates.issue -join ",") -eq "103,101" -and
+        ($twoSuccesses.developerOffers[1].candidates.issue -join ",") -eq "104,106") "Multiple successful candidates retain disjoint alternating offers."
+    $fixtureSecondConclusion = "failure"
+    $fixtureLinks = @{ PR200 = 104 }
+    $successAndNew = Get-Agent4WorkPacket $configuration (Join-Path $root "success-new.json") $fixtureReader
+    Assert-True (($successAndNew.developerOffers[0].candidates.issue -join ",") -eq "104,103" -and
+        ($successAndNew.developerOffers[1].candidates.issue -join ",") -eq "104,101") "A sole success is shared even when all other candidates are new."
+    foreach ($index in 0,5) { $children[$index].labels += @{ name = "active" } }
+    $successAndOne = Get-Agent4WorkPacket $configuration (Join-Path $root "success-one.json") $fixtureReader
+    Assert-True (($successAndOne.developerOffers[0].candidates.issue -join ",") -eq "104" -and
+        ($successAndOne.developerOffers[1].candidates.issue -join ",") -eq "104,103") "Two-candidate queues share success without duplicating it within either offer."
+    $children[2].labels += @{ name = "active" }
+    $successOnly = Get-Agent4WorkPacket $configuration (Join-Path $root "success-only.json") $fixtureReader
+    $serializedSuccess = ($successOnly | ConvertTo-Json -Depth 100 | ConvertFrom-Json).developerOffers
+    Assert-True ($serializedSuccess[0].candidates.Count -eq 1 -and $serializedSuccess[1].candidates.Count -eq 1 -and
+        $serializedSuccess[0].candidates[0].issue -eq 104 -and $serializedSuccess[1].candidates[0].issue -eq 104) "A whole-queue success singleton remains shared as candidate arrays."
+    foreach ($index in 0,2,5) { $children[$index].labels = @(@{ name = "type:task" }) }
+    $fixtureLinks = @{ PR200 = 104; PR201 = 103 }
     $fixtureCiStatus = "in_progress"
     $pending = Get-Agent4WorkPacket $configuration (Join-Path $root "pending.json") $fixtureReader
     Assert-True (($pending.candidates.issue -join ",") -eq "101,106") "Running CI is not actionable."
@@ -219,6 +248,14 @@ try {
     $resume = Get-Agent4WorkPacket $configuration (Join-Path $root "resume.json") $fixtureReader
     $resumeCandidate = $resume.candidates | Where-Object issue -EQ 101
     Assert-True ($resumeCandidate.category -eq "resume" -and $resumeCandidate.pr.number -eq 200) "Released implementation resumes its existing PR regardless of CI."
+    $fixtureCiStatus = "completed"; $fixtureSecondConclusion = "success"
+    $fixtureLinks = @{ PR200 = 101; PR201 = 103 }
+    $successAndResume = Get-Agent4WorkPacket $configuration (Join-Path $root "success-resume.json") $fixtureReader
+    Assert-True (($successAndResume.candidates.category -join ",") -eq "success,resume,new,new" -and
+        ($successAndResume.developerOffers[0].candidates.issue -join ",") -eq "103,104" -and
+        ($successAndResume.developerOffers[1].candidates.issue -join ",") -eq "103,101" -and
+        $successAndResume.developerOffers[1].candidates[1].released.assignmentId -eq "A1") "Sharing success preserves resumed work and its release evidence as Developer 2's fallback."
+    $fixtureSecondConclusion = "failure"
     $fixtureLinks = @{}; $fixtureCiStatus = "completed"; $fixtureTaskDiscussions = @(); $fixtureTaskComments = @{}
     foreach ($child in $children) { $child.labels = @(@{ name = "active" }) }
     $noOfferWork = Get-Agent4WorkPacket $configuration (Join-Path $root "no-offer-work.json") $fixtureReader

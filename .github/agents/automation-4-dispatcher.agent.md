@@ -52,8 +52,10 @@ or inspect the evidence artifact repeatedly before offering.
    one gets no candidates:
    use each recipient's exact `developerOffers` candidate list, without allocating
    or redistributing candidates yourself, plus its entries from `openAssignments`.
-   The script splits multiple candidates at positions 1/3 and 2/4; exactly one
-   candidate is offered to both Developers. Include the run
+   The script starts with positions 1/3 and 2/4. Exactly one candidate overall is
+   offered to both Developers. A sole `success` candidate is also shared in mixed
+   queues: Developer 2 gets it first, then its highest-ranked base candidate,
+   retaining at most two entries. Displaced work stays queued. Include the run
    permissions. Use actual independent
    launch or verified existing-context messaging; never a synchronous subagent,
    scripted launcher or cloud substitute. Associate a unique offer ID with the
@@ -78,7 +80,8 @@ or inspect the evidence artifact repeatedly before offering.
    release by age.
 7. For each correlated available response, choose at most one eligible task from
    that Developer's accepted offered list, respecting preferences. For the shared
-   singleton candidate, Developer 1 has precedence: if both accept, send it only
+   candidate (whole-queue singleton or sole `success` in a mixed queue),
+   Developer 1 has precedence: if both accept, send it only
    to Developer 1. Developer 1 may start without waiting for Developer 2; Developer 2
    may start only after Developer 1 definitively replies busy or rejects the candidate.
    A missing, uncertain or invalid Developer 1 response keeps Developer 2 pending.

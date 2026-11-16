@@ -326,6 +326,10 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
         $developerOffers[$index % 2].candidates += $candidates[$index]
     }
     if ($candidates.Count -eq 1) { $developerOffers[1].candidates = @($candidates[0]) }
+    elseif (@($candidates | Where-Object category -EQ success).Count -eq 1) {
+        $developerOffers[1].candidates = @($candidates[0]) +
+            @($developerOffers[1].candidates | Select-Object -First 1)
+    }
     Write-Agent4Json $EvidencePath @{
         schema = "fingvibe-loop4-evidence-v1"; utc = [DateTimeOffset]::UtcNow.ToString("o")
         repository = $repository; epic = $config.epic
