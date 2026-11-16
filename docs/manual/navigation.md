@@ -72,3 +72,39 @@ About has a **Settings** return action that restores focus to its Settings row.
 Use **Tab** to move through controls, and **Enter** or **Space** to activate the
 focused control. Checkboxes expose their selected state. Tooltips and accessible
 names provide full values when table text is shortened.
+
+## Check for updates
+
+Open **Settings > About FingVibe & updates**. Official stable builds check the
+latest published stable GitHub release one minute after startup, then five minutes
+after each completed check while FingVibe remains open. **Check for updates** uses
+the same check and resets the next deadline to five minutes after completion,
+including on failure. GitHub rate-limit delays take precedence. Checking never
+downloads, installs, closes FingVibe, or interrupts scanning with a popup.
+
+About distinguishes not checked, checking, current, newer version and failed
+detection. A confirmed newer version shows small orange circles on **Settings**
+and its **About** row, together with accessible and visible update text. Visiting
+About does not clear them. A failed later check keeps the **Last confirmed**
+version/time alongside the latest failure; only a successful no-newer result clears
+the indicators. Development, PR and Test builds do not check or install updates:
+their manual stable-release link warns that their versions are not comparable.
+
+**Download Setup** is offered only for a verified per-user installation whose
+registration, current directory, installed version and installer ownership match.
+Otherwise **Download portable ZIP** uses the manual replacement path; an uncertain
+or portable copy is never silently converted into an installation. Missing assets
+lead to the release page instead. Downloads show progress, support cancellation
+and reject incomplete/changed files. Completed files are saved under
+`%LOCALAPPDATA%\FingVibe\Updates\<unique directory>`; downloaded executables retain
+Internet security markings. A download failure popup links to GitHub Releases.
+
+For a verified installation, **Install update** asks before launching Setup and
+closing FingVibe normally. The existing unsigned, per-user installer refuses to
+update while FingVibe is running: wait for FingVibe to close before continuing its
+wizard. Existing user data is preserved by the installer. SmartScreen, Defender,
+UAC, organization policy or cancellation may prevent execution; no protection is
+bypassed. Launching Setup does not prove installation completed. A launch-failure
+popup asks you to install the downloaded file manually and has only **OK**.
+For ZIP updates, close FingVibe and replace your portable application files
+manually, keeping your saved data; FingVibe does not unpack or overwrite them.

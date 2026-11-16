@@ -1,3 +1,4 @@
+using System.Net;
 using FingVibe.Core.Models;
 using FingVibe.Core.Import;
 using FingVibe.Core.Storage;
@@ -65,6 +66,9 @@ public sealed partial class ToolsPage : UserControl
     }
 
     public void SetNetworkContext(LanNetwork? network) => TroubleshootingView.SetNetworkContext(network);
+
+    internal void ConfigureTroubleshooting(Func<LanNetwork, Guid?, IReadOnlyList<IPAddress>> peers) =>
+        TroubleshootingView.ConfigurePeerCandidates(peers);
 
     public async Task StopForNavigationAsync()
     {

@@ -25,6 +25,8 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
     private readonly UISettings _uiSettings = new();
     private readonly Dictionary<DiagnosticCheckpoint, DiagnosticObservation> _observations = [];
     private readonly DiagnosticContextState _contextState = new();
+    private readonly AsyncSurfaceSession _runSurface = new();
+    private Func<LanNetwork, Guid?, IReadOnlyList<IPAddress>>? _peerCandidates;
     private CancellationTokenSource? _cancellation;
     private Task? _runTask;
     private LanNetwork? _network;
@@ -42,6 +44,8 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
     public NetworkTroubleshootingPage()
     {
         InitializeComponent();
+        _runSurface.StateChanged += (_, _) => AutomationProperties.SetItemStatus(TroubleshootingScroll, _runSurface.Status);
+        AutomationProperties.SetItemStatus(TroubleshootingScroll, _runSurface.Status);
         _diagramTimer.Tick += DiagramTimer_Tick;
         Loaded += (_, _) =>
         {
@@ -57,6 +61,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
                 _uiSettings.AnimationsEnabledChanged -= AnimationSettingsChanged;
             NetworkInformation.NetworkStatusChanged -= NetworkChanged;
             _contextState.Invalidate();
+            _runSurface.Cancel();
             StopDiagramAnimation();
             _cancellation?.Cancel();
         };
@@ -68,6 +73,9 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
     public bool HasActiveTest => _runTask is { IsCompleted: false };
 
     public void SetNetworkContext(LanNetwork? network) => _shellNetwork = network;
+
+    internal void ConfigurePeerCandidates(Func<LanNetwork, Guid?, IReadOnlyList<IPAddress>> peers) =>
+        _peerCandidates = peers;
 
     public async Task OpenAsync()
     {
@@ -82,6 +90,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
     {
         _open = false;
         _contextState.Invalidate();
+        _runSurface.Cancel();
         StopDiagramAnimation();
         _cancellation?.Cancel();
         if (_runTask is { } run) await run;
@@ -116,6 +125,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
             var current = ReadCurrentNetworkContext();
             if (DiagnosticContextState.Matches(_network, _networkId, current.Network, current.Profile)) return;
             StopDiagramAnimation();
+            _runSurface.Cancel();
             _cancellation?.Cancel();
             if (_runTask is { IsCompleted: false } run)
             {
@@ -133,6 +143,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
         {
             if (!_open || !IsLoaded || revision != _contextState.Revision) return;
             StopDiagramAnimation();
+            _runSurface.Cancel();
             _cancellation?.Cancel();
             _settingsLoaded = false;
             SettingsStatus.Text = $"Network change verification failed: {exception.Message} Existing results are retained but may be stale; refresh adapters before running again. WAN persistence is disabled until refreshed.";
@@ -237,6 +248,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
     private void ResetResults()
     {
         _contextState.Invalidate();
+        _runSurface.Cancel();
         StopDiagramAnimation();
         _report = null;
         _observations.Clear();
@@ -245,6 +257,10 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
         catch (ArgumentException) { /* The visible input error is set by the edit/run handler. */ }
         foreach (var observation in NetworkDiagnosticService.CreateCheckpoints(_network, wan))
             _observations.Add(observation.Checkpoint, observation);
+        _observations[DiagnosticCheckpoint.LanPeer] = _observations[DiagnosticCheckpoint.LanPeer] with
+        {
+            Detail = "Run checks to select one online peer. Scan the selected LAN first if needed."
+        };
         TracePanel.Children.Clear();
         TraceStatus.Text = "Not run. Up to 16 hops, one ICMP probe per hop, 1.5-second timeout.";
         ProgressText.Text = "Ready. No checks have run.";
@@ -256,6 +272,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
         if (HasActiveTest) return;
         if (IsUiReview)
         {
+            LoadReviewPeer();
             ProgressText.Text = "UI-review mode does not send diagnostic probes.";
             return;
         }
@@ -297,24 +314,31 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
             return;
         }
         ResetResults();
-        _cancellation = new CancellationTokenSource();
+        var request = _runSurface.Start(_network?.DisplayLabel ?? "No active LAN")
+            ?? throw new InvalidOperationException("The diagnostic session is closed.");
+        _cancellation = CancellationTokenSource.CreateLinkedTokenSource(request.CancellationToken);
         BeginDiagramAnimation();
         SetRunning(true);
-        _runTask = RunAsync(wan, lease, _cancellation);
+        _runTask = RunAsync(wan, lease, _cancellation, request);
     }
 
-    private async Task RunAsync(IPAddress? wan, IDisposable? lease, CancellationTokenSource cancellation)
+    private async Task RunAsync(IPAddress? wan, IDisposable? lease, CancellationTokenSource cancellation,
+        AsyncSurfaceSession.Request request)
     {
         using (lease)
         {
             var started = DateTimeOffset.Now;
             var completed = false;
+            var failed = false;
             try
             {
+                var peers = _network is null || _networkId is null ? []
+                    : (_peerCandidates ?? throw new InvalidOperationException("Online peer inventory is unavailable. Reopen the tool and try again."))
+                        (_network, _networkId);
                 ProgressText.Text = $"Checking - started {started:g}.";
                 var progress = new Progress<DiagnosticObservation>(observation =>
                 {
-                    if (_cancellation != cancellation || cancellation.IsCancellationRequested) return;
+                    if (!_runSurface.IsCurrent(request) || cancellation.IsCancellationRequested) return;
                     _observations[observation.Checkpoint] = observation;
                     ObserveDiagram(observation);
                     ProgressText.Text = $"{Label(observation.Checkpoint)}: {observation.Detail}";
@@ -322,12 +346,14 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
                 });
                 var traceProgress = new Progress<TraceHop>(hop =>
                 {
-                    if (_cancellation != cancellation || cancellation.IsCancellationRequested) return;
+                    if (!_runSurface.IsCurrent(request) || cancellation.IsCancellationRequested) return;
                     TracePanel.Children.Add(HopText(hop));
                     TraceStatus.Text = $"Observed hop {hop.Number} of at most 16: {hop.Observation.State}.";
                     ProgressText.Text = $"Traceroute hop {hop.Number}: {hop.Observation.Detail}";
                 });
-                _report = await _service.RunAsync(_network, wan, progress, cancellation.Token, traceProgress);
+                var report = await _service.RunAsync(_network, wan, progress, cancellation.Token, traceProgress, peers);
+                if (!_runSurface.IsCurrent(request)) return;
+                _report = report;
                 foreach (var observation in _report.Observations)
                 {
                     _observations[observation.Checkpoint] = observation;
@@ -351,6 +377,8 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
             }
             catch (Exception exception) when (exception is InvalidOperationException or System.Net.NetworkInformation.NetworkInformationException)
             {
+                if (!_runSurface.IsCurrent(request)) return;
+                failed = true;
                 ProgressText.Text = $"Diagnostics failed: {exception.Message}";
                 foreach (var observation in _observations.Values.ToArray())
                     if (observation.State is DiagnosticState.Untested or DiagnosticState.Running)
@@ -363,7 +391,11 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
                 _cancellation = null;
                 cancellation.Dispose();
                 SetRunning(false);
-                Render();
+                _runSurface.Complete(request, failed ? AsyncSurfaceState.Error : AsyncSurfaceState.Ready, () =>
+                {
+                    Render();
+                    TroubleshootingScroll.UpdateLayout();
+                });
             }
         }
     }
@@ -408,6 +440,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
         }
         Node(PcNode, "This PC", "\uE7F4", DiagnosticCheckpoint.Loopback, DiagnosticCheckpoint.LocalAddress);
         Node(RouterNode, "Home router", "\uE968", DiagnosticCheckpoint.Gateway, DiagnosticCheckpoint.RouterWan);
+        PeerNode();
         Node(HopNode, "Upstream hop 2", "\uE968", DiagnosticCheckpoint.Hop2);
         Node(CloudflareNode, "Cloudflare", "\uEC06", DiagnosticCheckpoint.CloudflarePing, DiagnosticCheckpoint.CloudflareDns);
         Node(GoogleNode, "Google", "\uEC06", DiagnosticCheckpoint.GooglePing, DiagnosticCheckpoint.GoogleDns);
@@ -420,6 +453,86 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
         SummaryTitle.Foreground = _accessibility.HighContrast || summary.Kind == DiagnosticSummaryKind.Neutral
             ? (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"] : new SolidColorBrush(Microsoft.UI.Colors.White);
     }
+
+    private void PeerNode()
+    {
+        PeerCheckpoint.Children.Clear();
+        if (!_observations.TryGetValue(DiagnosticCheckpoint.LanPeer, out var observation)) return;
+        var foreground = PortForeground();
+        var marker = new Microsoft.UI.Xaml.Shapes.Ellipse
+        {
+            Width = 14, Height = 14, StrokeThickness = 2, Stroke = foreground,
+            Fill = observation.State == DiagnosticState.Responded
+                ? _accessibility.HighContrast ? foreground : StatusBrush(DiagnosticSummaryKind.Good) : null,
+            VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 3, 0, 0)
+        };
+        AutomationProperties.SetAutomationId(marker, "DiagramPortLanPeer");
+        AutomationProperties.SetName(marker, $"Selected LAN peer port: {observation.State}");
+        _diagramPorts[DiagnosticCheckpoint.LanPeer] = marker;
+        PeerCheckpoint.Children.Add(marker);
+        var text = new StackPanel { Spacing = 2, Margin = new Thickness(8, 0, 0, 0), MaxWidth = 220 };
+        var address = new TextBlock
+        {
+            Text = NetworkDiagnosticFormatter.CheckpointAddress(observation), FontSize = 11, TextWrapping = TextWrapping.Wrap
+        };
+        AutomationProperties.SetAutomationId(address, "DiagramAddressLanPeer");
+        var state = new TextBlock
+        {
+            Text = $"{observation.State}" + (observation.State == DiagnosticState.Responded
+                && observation.RoundtripMilliseconds is { } time ? $" - {time} ms" : string.Empty),
+            FontSize = 11, TextWrapping = TextWrapping.Wrap
+        };
+        AutomationProperties.SetAutomationId(state, "DiagramCheckpointLanPeer");
+        AutomationProperties.SetName(state, $"Selected LAN peer: {address.Text}; {state.Text}");
+        text.Children.Add(address);
+        text.Children.Add(state);
+        PeerCheckpoint.Children.Add(text);
+        ToolTipService.SetToolTip(PeerCheckpoint, NetworkDiagnosticFormatter.Describe(observation));
+    }
+
+    private void SelectedPeerNode_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (PeerCheckpoint is null) return;
+        var bottom = Canvas.GetTop(SelectedPeerNode) + e.NewSize.Height;
+        Canvas.SetTop(PeerCheckpoint, bottom + 2);
+        var geometry = new PathGeometry();
+        foreach (var (start, end) in new[]
+        {
+            (new Windows.Foundation.Point(395, 178), new Windows.Foundation.Point(395, bottom + 19)),
+            (new Windows.Foundation.Point(395, bottom + 5), new Windows.Foundation.Point(395, bottom))
+        })
+        {
+            var figure = new PathFigure { StartPoint = start };
+            figure.Segments.Add(new LineSegment { Point = end });
+            geometry.Figures.Add(figure);
+        }
+        RouterPeerConnector.Data = geometry;
+    }
+
+    private sealed record ReviewPeer(string? Address, DiagnosticState State, long? Latency);
+
+    private void LoadReviewPeer()
+    {
+        if (Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_PEER") is not { Length: > 0 } path) return;
+        var fixture = JsonSerializer.Deserialize<ReviewPeer>(File.ReadAllText(path))
+            ?? throw new InvalidDataException("A peer review fixture is required.");
+        if (fixture.State is not (DiagnosticState.Responded or DiagnosticState.Unanswered or DiagnosticState.Unavailable))
+            throw new InvalidDataException("Unsupported peer review state.");
+        var address = fixture.Address is null ? null : IPAddress.Parse(fixture.Address);
+        var peer = NetworkDiagnosticService.CreateCheckpoints(_network, null, address)
+            .Single(item => item.Checkpoint == DiagnosticCheckpoint.LanPeer);
+        _observations[DiagnosticCheckpoint.LanPeer] = peer with
+        {
+            State = fixture.State, RoundtripMilliseconds = fixture.Latency,
+            Detail = address is null ? peer.Detail : "Synthetic UI-review peer evidence; no diagnostic probes sent."
+        };
+        Render();
+        TroubleshootingScroll.UpdateLayout();
+    }
+
+    private Brush PortForeground() => new SolidColorBrush(_accessibility.HighContrast
+        ? _uiSettings.GetColorValue(UIColorType.Foreground)
+        : ActualTheme == ElementTheme.Dark ? Microsoft.UI.Colors.White : Microsoft.UI.Colors.Black);
 
     private void Node(StackPanel panel, string title, string glyph, params DiagnosticCheckpoint[] checkpoints)
     {
@@ -436,9 +549,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
         var icon = new FontIcon { Glyph = glyph, FontSize = 36 };
         Grid.SetColumn(icon, 2);
         device.Children.Add(icon);
-        var portForeground = new SolidColorBrush(_accessibility.HighContrast
-            ? _uiSettings.GetColorValue(UIColorType.Foreground)
-            : ActualTheme == ElementTheme.Dark ? Microsoft.UI.Colors.White : Microsoft.UI.Colors.Black);
+        var portForeground = PortForeground();
         for (var index = 0; index < checkpoints.Length; index++)
         {
             var checkpoint = checkpoints[index];
@@ -514,6 +625,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
         DiagnosticCheckpoint.Loopback => "Loopback",
         DiagnosticCheckpoint.LocalAddress => "This PC LAN IPv4",
         DiagnosticCheckpoint.Gateway => "Default gateway LAN IPv4",
+        DiagnosticCheckpoint.LanPeer => "Selected LAN peer",
         DiagnosticCheckpoint.RouterWan => "Optional router WAN IPv4",
         DiagnosticCheckpoint.Hop2 => "Observed hop 2",
         DiagnosticCheckpoint.CloudflarePing => "Cloudflare IP ping",

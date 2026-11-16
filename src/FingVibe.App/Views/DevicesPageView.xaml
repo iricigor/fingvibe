@@ -9,6 +9,10 @@
         <ResourceDictionary>
         <ResourceDictionary.ThemeDictionaries>
             <ResourceDictionary x:Key="Light">
+                <SolidColorBrush x:Key="StatusChoiceOnlineBrush" Color="#16803D" />
+                <SolidColorBrush x:Key="StatusChoiceOfflineBrush" Color="#C42B1C" />
+                <SolidColorBrush x:Key="StatusChoiceUnknownBrush" Color="#6B7280" />
+                <SolidColorBrush x:Key="StatusChoiceFingOnlyBrush" Color="#2563EB" />
                 <SolidColorBrush x:Key="CellHoverTextBrush" Color="#005A9E" />
                 <SolidColorBrush x:Key="UsageCategoryBadgeBackgroundBrush" Color="#20000000" />
                 <SolidColorBrush x:Key="UsageCategoryPermanentTintBrush" Color="#3022A060" />
@@ -17,6 +21,10 @@
                 <SolidColorBrush x:Key="UsageCategoryBadgeStrokeBrush" Color="Transparent" />
             </ResourceDictionary>
             <ResourceDictionary x:Key="Dark">
+                <SolidColorBrush x:Key="StatusChoiceOnlineBrush" Color="#4ADE80" />
+                <SolidColorBrush x:Key="StatusChoiceOfflineBrush" Color="#FF8080" />
+                <SolidColorBrush x:Key="StatusChoiceUnknownBrush" Color="#A6ABB3" />
+                <SolidColorBrush x:Key="StatusChoiceFingOnlyBrush" Color="#70ADFF" />
                 <SolidColorBrush x:Key="CellHoverTextBrush" Color="#A8DFFF" />
                 <SolidColorBrush x:Key="UsageCategoryBadgeBackgroundBrush" Color="#24FFFFFF" />
                 <SolidColorBrush x:Key="UsageCategoryPermanentTintBrush" Color="#4039B873" />
@@ -25,6 +33,10 @@
                 <SolidColorBrush x:Key="UsageCategoryBadgeStrokeBrush" Color="Transparent" />
             </ResourceDictionary>
             <ResourceDictionary x:Key="HighContrast">
+                <SolidColorBrush x:Key="StatusChoiceOnlineBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                <SolidColorBrush x:Key="StatusChoiceOfflineBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                <SolidColorBrush x:Key="StatusChoiceUnknownBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                <SolidColorBrush x:Key="StatusChoiceFingOnlyBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                 <SolidColorBrush x:Key="CellHoverTextBrush" Color="{ThemeResource SystemColorHotlightColor}" />
                 <SolidColorBrush x:Key="UsageCategoryBadgeBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
                 <SolidColorBrush x:Key="UsageCategoryPermanentTintBrush" Color="{ThemeResource SystemColorWindowColor}" />
@@ -33,6 +45,42 @@
                 <SolidColorBrush x:Key="UsageCategoryBadgeStrokeBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
             </ResourceDictionary>
         </ResourceDictionary.ThemeDictionaries>
+        <Style x:Key="InactiveFilterLabelStyle" TargetType="TextBlock">
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style x:Key="ActiveFilterLabelStyle" TargetType="TextBlock" BasedOn="{StaticResource InactiveFilterLabelStyle}">
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+        </Style>
+        <DataTemplate x:Key="StatusOnlineFilterIndicator">
+            <Ellipse Width="12" Height="12" VerticalAlignment="Center"
+                     Fill="{ThemeResource StatusChoiceOnlineBrush}" IsHitTestVisible="False"
+                     AutomationProperties.AccessibilityView="Raw" />
+        </DataTemplate>
+        <DataTemplate x:Key="StatusOfflineFilterIndicator">
+            <Ellipse Width="12" Height="12" VerticalAlignment="Center"
+                     Fill="{ThemeResource StatusChoiceOfflineBrush}" IsHitTestVisible="False"
+                     AutomationProperties.AccessibilityView="Raw" />
+        </DataTemplate>
+        <DataTemplate x:Key="StatusUnknownFilterIndicator">
+            <Ellipse Width="12" Height="12" VerticalAlignment="Center"
+                     Fill="{ThemeResource StatusChoiceUnknownBrush}" IsHitTestVisible="False"
+                     AutomationProperties.AccessibilityView="Raw" />
+        </DataTemplate>
+        <DataTemplate x:Key="StatusFingOnlyFilterIndicator">
+            <Ellipse Width="12" Height="12" VerticalAlignment="Center"
+                     Fill="{ThemeResource StatusChoiceFingOnlyBrush}" IsHitTestVisible="False"
+                     AutomationProperties.AccessibilityView="Raw" />
+        </DataTemplate>
+        <DataTemplate x:Key="StatusAnyFilterIndicator">
+            <Grid Width="12" Height="12" VerticalAlignment="Center" IsHitTestVisible="False"
+                  AutomationProperties.AccessibilityView="Raw">
+                <Path Data="M6,6 L6,0 A6,6 0 0 1 12,6 Z" Fill="{ThemeResource StatusChoiceOnlineBrush}" />
+                <Path Data="M6,6 L12,6 A6,6 0 0 1 6,12 Z" Fill="{ThemeResource StatusChoiceOfflineBrush}" />
+                <Path Data="M6,6 L6,12 A6,6 0 0 1 0,6 Z" Fill="{ThemeResource StatusChoiceUnknownBrush}" />
+                <Path Data="M6,6 L0,6 A6,6 0 0 1 6,0 Z" Fill="{ThemeResource StatusChoiceFingOnlyBrush}" />
+            </Grid>
+        </DataTemplate>
         <DataTemplate x:Key="MacTemplate" x:DataType="local:ScanResultRow">
             <TextBlock FontFamily="Consolas" FontSize="11" TextTrimming="CharacterEllipsis"
                        views:DevicesPageView.PreviewText="{x:Bind MacAddressText}" AutomationProperties.Name="{x:Bind MacAddressText}">

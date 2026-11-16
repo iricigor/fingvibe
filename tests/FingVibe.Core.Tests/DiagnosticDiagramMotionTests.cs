@@ -39,11 +39,31 @@ public sealed class DiagnosticDiagramMotionTests
         var peers = canvas.Elements().Single(element => (string?)element.Attribute(xaml + "Name") == "LanPeers");
         Assert.Equal("120", (string?)peers.Attribute("Width"));
         Assert.Equal("0.5", (string?)peers.Attribute("Opacity"));
-        Assert.Equal(395, (double)peers.Attribute("Canvas.Left")! + (double)peers.Attribute("Width")! / 2);
+        var selectedPeer = canvas.Elements().Single(element => (string?)element.Attribute(xaml + "Name") == "SelectedPeerNode");
+        Assert.Equal(395, (double)selectedPeer.Attribute("Canvas.Left")! + (double)selectedPeer.Attribute("Width")! / 2);
+        Assert.True((double)peers.Attribute("Canvas.Left")! + (double)peers.Attribute("Width")!
+            < (double)selectedPeer.Attribute("Canvas.Left")!);
+        Assert.Contains(canvas.Elements(), element => (string?)element.Attribute(xaml + "Name") == "RouterPeerConnector");
+        Assert.Contains(canvas.Elements(), element =>
+            (string?)element.Attribute(xaml + "Name") == "DecorativePeerConnector"
+            && ((string?)element.Attribute("Data"))?.Contains("Q") == true);
         Assert.All(peers.Descendants().Where(element => element.Name.LocalName == "FontIcon"),
             icon => Assert.Equal("16", (string?)icon.Attribute("FontSize")));
         Assert.Contains(document.Descendants(), element =>
             (string?)element.Attribute("Text") == "Logical checks\u2014not a physical network map.");
+    }
+
+    [Fact]
+    public void PeerRouteGoesUpTheRouterBranchNotToDecorativePeers()
+    {
+        var end = DiagnosticDiagramMotion.Position(DiagnosticCheckpoint.LanPeer, 1);
+        Assert.Equal(395, end.X, 6);
+        Assert.Equal(80, end.Y, 6);
+        var points = Enumerable.Range(0, 1001)
+            .Select(index => DiagnosticDiagramMotion.Position(DiagnosticCheckpoint.LanPeer, index / 1000d)).ToArray();
+        Assert.All(points.Where(point => point.Visible && point.Y < 178),
+            point => Assert.Equal(395, point.X, 6));
+        Assert.All(points, point => Assert.InRange(point.X, 165, 395));
     }
 
     [Fact]
