@@ -37,8 +37,8 @@ Run one loop4 offer/start cycle for Epic #<number>.
 Follow the loop4 contract. Wait for Developer assessments, not implementation or CI.
 ```
 
-A cycle is **run the script → send offers → wait for responses → release crashed
-assignments → send starts**. At startup,
+A cycle is **run the script → send offers → process each response → release
+confirmed crashed assignments → send compatible starts**. At startup,
 Dispatcher reads only this README and the protocol, not CONTRIBUTING.md or the
 development backlog. It uses the packet's `candidates`, `blocked` and
 `openAssignments` output directly. It does not read the
@@ -55,6 +55,34 @@ Dispatcher creates either Discussion when missing; no issue-body links are added
 Assignment comments carry machine-readable markers (see the
 [protocol](protocol.md#assignment-records)); an assignment is open until a
 matching end-of-work or release marker follows it.
+Developers finish after verified Discussion reporting/end-marker readback, without
+a separate completion message to the previous Dispatcher session. Later cycles
+read these durable records and ask fresh availability; failed reporting is a blocker.
+
+## Independent starts and participation
+
+With two candidates, Developer 1 receives the first and Developer 2 the second.
+With one candidate, Developer 2 receives an empty offer, still checking availability
+and its open assignments. An empty offer never authorizes a start or task transfer.
+
+Process correlated assessments independently. One Developer can start its
+accepted offered task before the other replies only when compatibility is verified
+against both Developers' existing work, unresolved offered candidates and starts
+already sent. A nonresponding Developer stays unknown with its work/offers held;
+overlap or insufficient evidence defers the start. Check late responses against
+newly started work, retaining at most one start per Developer per cycle and all
+offer/start correlation. Report the unresolved portion as pending, not the entire
+cycle blocked when compatible work has already started.
+
+On confirming a start, each Developer adds/verifies only its own task Discussion
+label (`4️⃣dev1` or `4️⃣dev2`) with `Set-Agent4DiscussionParticipant.ps1`.
+The labels remain as participation history across follow-ups and release; they
+do not represent availability, ownership or authority. Missing labels/permissions
+or failed readback block work. No developer labels are added to issues or PRs.
+
+These changes apply only to future assignments after loading the updated contract.
+Already accepted assignments, including #400, retain their original instructions
+and existing Discussion labels; no live Automation settings or schedules change.
 
 ## Claims and crash recovery
 
@@ -138,7 +166,8 @@ conversations) and body markers, so Epic and task Discussions are found there.
 Optional `-TaskOrder` with `-OrderEvidence` supplies an explicit human ordering
 within priority groups; a blocked predecessor prevents later ordered candidates.
 It must cover the open native queue. Dispatcher offers only the first four at
-positions 1/3 and 2/4, then consolidates responses.
+positions 1/3 and 2/4, then processes responses independently with compatibility
+checks before each start.
 
 ## Boundaries
 

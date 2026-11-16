@@ -35,9 +35,25 @@ Developer replies with the matching `offerId` and its actual identity:
 Either way, the reply states for each listed open assignment whether this
 Developer is still executing it.
 
-Dispatcher waits for both responses, checks correlation and consolidates parallel
-compatibility. Missing responses remain unknown. Do not reoffer uncertain work
-to another execution or infer availability from GitHub/Automation completion.
+Dispatcher processes each correlated response independently; it need not wait for
+both before starting verified compatible work. For an available Developer, choose
+at most one eligible task from its accepted offered list. An empty list cannot
+produce a start or authorize transferring the other Developer's offered task.
+
+Before each start, check compatibility against both Developers' existing work,
+all unresolved offered candidates and any starts already sent in this cycle.
+Treat a missing response as unknown, not idle: retain its assignments and offers,
+and assess its offered candidates as potentially starting later. If overlap or
+insufficient evidence prevents establishing compatibility, defer with the specific
+reason. Shared files/contracts, dependencies and incompatible behavior matter,
+not just distinct issue numbers. A late response requires fresh checks against
+work already started; conflicting late candidates remain deferred.
+
+Send at most one start per Developer in the cycle. Keep offer/start correlation
+and sent-start state in the retained context; continuation never resends a start.
+Do not reoffer uncertain work to another execution or infer availability from
+GitHub/Automation completion. If waiting cannot continue, report only the
+unresolved portion as pending; do not undo a verified independent start.
 
 ## Crash detection and release
 
@@ -85,7 +101,10 @@ The Epic's Discussion (Epic coordination, `<!-- fingvibe:epic=<number> -->`)
 holds only Epic-level summaries and blockers.
 
 Developer validates the fresh task and run permissions, confirms the start in the
-task's Discussion, claims the task (`Set-Agent4TaskClaim.ps1 -Action claim`), then starts. Duplicate assignment IDs return acknowledgment/status without
+task's Discussion, adds/verifies its own `4️⃣dev1`/`4️⃣dev2` participation label
+using `Set-Agent4DiscussionParticipant.ps1`, claims the task
+(`Set-Agent4TaskClaim.ps1 -Action claim`), then starts. Participation labels stay
+as history, never ownership or availability. Duplicate assignment IDs return acknowledgment/status without
 re-execution. An uncertain send/acknowledgment is not safe to retry or reassign.
 Changed head, scope or missing retained worktree requires reassessment, not editing
 an unexpected revision. Developers never select unoffered/unassigned work.
@@ -93,8 +112,10 @@ an unexpected revision. Developers never select unoffered/unassigned work.
 ## Work finished and next offers
 
 Developer confirms the end of work in the task's Discussion named in its start,
-with a verified report and the end marker, and notifies Dispatcher
-when its assigned work finishes, then ends that execution. Reports identify
+with a verified report and the end marker, then ends that execution. No separate
+finished-work message to the previous Dispatcher session is required. Later
+cycles read the durable end marker, current GitHub evidence and fresh availability
+replies; a failed report/readback remains a blocker, not completion. Reports identify
 assignment/worker, actual timing, issue/PR/head if applicable, outcome and limits.
 No-code tasks need no artificial PR, commit or context record.
 
@@ -108,3 +129,7 @@ Dispatcher does not ingest local result events or call the historical
 `Agent4Coordination` Progress, Confirm, Followup or Release helpers. Historical loop4 files are preserved but not consumed by
 this protocol. Outstanding pre-redesign work requires human reconciliation;
 do not erase its ownership or silently treat it as free.
+
+The updated participation, independent-start and completion-message rules apply
+to future assignments after loading this contract. Already accepted assignments
+(including #400) keep their accepted instructions and existing Discussion labels.

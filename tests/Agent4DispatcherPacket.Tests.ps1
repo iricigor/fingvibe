@@ -179,7 +179,7 @@ try {
     Assert-True (101 -notin $active.candidates.issue) "Active work without PR must not become new work."
     $children[0].labels = @(@{ name = "type:task" })
     $fixtureTaskDiscussions = @(@{ id = "T1"; number = 50; url = "fixture://discussions/50"
-        body = "<!-- fingvibe:task=101 -->"; category = @{ name = "Task conversations" }; author = @{ login = "agent" } })
+        body = "<!-- fingvibe:task=101 -->"; category = @{ name = "🛠️ Task conversations" }; author = @{ login = "agent" } })
     $send = "Sending #101 to Developer 1 <!-- fingvibe:assignment=A1 developer=developer-1 action=implement -->"
     $fixtureTaskComments = @{ T1 = @(New-TaskComment "TC1" "2026-11-15T10:00:00Z" $send) }
     $assigned = Get-Agent4WorkPacket $configuration (Join-Path $root "assigned.json") $fixtureReader
@@ -240,6 +240,64 @@ try {
     $fixtureVerifiedStatus = "Todo"; $fixtureVerifiedLabels = @()
     $release = Set-Agent4TaskClaim 101 release "TestOwner/TestRepo" "TestOwner" 5
     Assert-True (-not $release.active -and $release.status -eq "Todo") "Release removes active and returns Status to Todo."
+    . (Join-Path $PSScriptRoot "..\.github\scripts\Set-Agent4DiscussionParticipant.ps1")
+    $discussionLabels = @("documentation", "4️⃣dev2")
+    $discussionMutations = [Collections.Generic.List[string]]::new()
+    $discussionBody = "<!-- fingvibe:task=101 -->"
+    $discussionCategory = "🛠️ Task conversations"
+    $discussionRepository = "TestOwner/TestRepo"
+    $discussionHasNextPage = $false
+    $discussionLabelMissing = $false
+    $discussionWriteIgnored = $false
+    $discussionDropExisting = $false
+    $discussionReadFailed = $false
+    function Invoke-Agent4DiscussionGraphQl([string] $Query, [hashtable] $Variables) {
+        if ($Query.StartsWith("mutation")) {
+            $discussionMutations.Add($Variables.label)
+            if (-not $discussionWriteIgnored) { $script:discussionLabels += $Variables.label }
+            if ($discussionDropExisting) { $script:discussionLabels = @($Variables.label) }
+            return @{ addLabelsToLabelable = @{ clientMutationId = $null } }
+        }
+        if ($discussionReadFailed) { throw "Fixture Discussion API failed." }
+        @{ repository = @{
+            nameWithOwner = $discussionRepository
+            label = $(if (-not $discussionLabelMissing) { @{ id = $Variables.label; name = $Variables.label } })
+            discussion = @{ id = "DISC101"; url = "fixture://discussions/201"
+                body = $discussionBody; category = @{ name = $discussionCategory }
+                labels = @{ nodes = @($discussionLabels | ForEach-Object { @{ id = $_; name = $_ } })
+                    pageInfo = @{ hasNextPage = $discussionHasNextPage } } }
+        } }
+    }
+    $participant = Set-Agent4DiscussionParticipant "TestOwner/TestRepo" 201 101 developer-1
+    Assert-True ($participant.label -ceq "4️⃣dev1" -and $discussionMutations.Count -eq 1 -and
+        $discussionMutations[0] -ceq "4️⃣dev1" -and "documentation" -cin $discussionLabels -and
+        "4️⃣dev2" -cin $discussionLabels) "Participation adds only the actual worker label and preserves existing history."
+    $null = Set-Agent4DiscussionParticipant "TestOwner/TestRepo" 201 101 developer-1
+    Assert-True ($discussionMutations.Count -eq 1) "Repeated participation does not mutate labels again."
+    $discussionLabels = @("documentation", "4️⃣dev1")
+    $null = Set-Agent4DiscussionParticipant "TestOwner/TestRepo" 201 101 developer-2
+    Assert-True ($discussionMutations[1] -ceq "4️⃣dev2" -and "4️⃣dev1" -cin $discussionLabels) "Developer 2 uses its own label."
+    $writesBeforeFailure = $discussionMutations.Count
+    Assert-Fails { Set-Agent4DiscussionParticipant "TestOwner/TestRepo" 201 102 developer-1 } "*assigned repository*"
+    $discussionBody += "`n<!-- fingvibe:task=102 -->"
+    Assert-Fails { Set-Agent4DiscussionParticipant "TestOwner/TestRepo" 201 101 developer-1 } "*assigned repository*"
+    $discussionBody = "<!-- fingvibe:task=101 -->"; $discussionCategory = "Agent logs"
+    Assert-Fails { Set-Agent4DiscussionParticipant "TestOwner/TestRepo" 201 101 developer-1 } "*assigned repository*"
+    $discussionCategory = "Task conversations"; $discussionRepository = "Foreign/Repo"
+    Assert-Fails { Set-Agent4DiscussionParticipant "TestOwner/TestRepo" 201 101 developer-1 } "*assigned repository*"
+    $discussionRepository = "TestOwner/TestRepo"; $discussionLabelMissing = $true
+    Assert-Fails { Set-Agent4DiscussionParticipant "TestOwner/TestRepo" 201 101 developer-1 } "*label*unavailable*"
+    $discussionLabelMissing = $false; $discussionHasNextPage = $true
+    Assert-Fails { Set-Agent4DiscussionParticipant "TestOwner/TestRepo" 201 101 developer-1 } "*Incomplete Discussion labels*"
+    $discussionHasNextPage = $false; $discussionReadFailed = $true
+    Assert-Fails { Set-Agent4DiscussionParticipant "TestOwner/TestRepo" 201 101 developer-1 } "*API failed*"
+    $discussionReadFailed = $false
+    Assert-Fails { Set-Agent4DiscussionParticipant "TestOwner/TestRepo" 201 101 dispatcher } "*identity required*"
+    Assert-True ($discussionMutations.Count -eq $writesBeforeFailure) "Invalid context and unavailable evidence never mutate labels."
+    $discussionLabels = @("documentation"); $discussionWriteIgnored = $true
+    Assert-Fails { Set-Agent4DiscussionParticipant "TestOwner/TestRepo" 201 101 developer-1 } "*participation verification failed*"
+    $discussionWriteIgnored = $false; $discussionDropExisting = $true
+    Assert-Fails { Set-Agent4DiscussionParticipant "TestOwner/TestRepo" 201 101 developer-1 } "*participation verification failed*"
     Write-Host "Agent4 paginated evidence and queue checks passed."
 } finally {
     if ([IO.Directory]::Exists($root)) { [IO.Directory]::Delete($root, $true) }

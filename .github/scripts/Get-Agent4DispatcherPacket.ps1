@@ -63,7 +63,7 @@ function Get-Agent4CiStage($Pull, $Cache) {
 function Get-Agent4TaskRecords($Discussions) {
     # Assignment markers in Task conversations Discussions are the loop4 ownership record.
     $records = @{}
-    foreach ($discussion in @($Discussions | Where-Object { $_.category.name -eq "Task conversations" })) {
+    foreach ($discussion in @($Discussions | Where-Object { $_.category.name -cin @("Task conversations", "🛠️ Task conversations") })) {
         if ("$($discussion.body)" -notmatch '<!--\s*fingvibe:task=(\d+)\s*-->') { continue }
         $task = [int] $Matches[1]
         if ($records.ContainsKey($task)) { $records[$task].duplicate = $true; continue }

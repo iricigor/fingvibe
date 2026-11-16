@@ -32,7 +32,20 @@ status/acknowledgment only, never another execution.
 
 Confirm the start in the task's Discussion named in the start assignment, with the
 unique assignment ID and actual task/worker context, verifying readback before work.
-Then claim the task and verify the result before edits:
+Add and verify your own participation label on that exact Discussion, using its
+number from the assigned URL and your profile's developer-1/developer-2 identity:
+
+```powershell
+.\.github\scripts\Set-Agent4DiscussionParticipant.ps1 -Discussion <number> -Issue <task-number> -Developer <developer-1|developer-2>
+```
+
+The helper adds only `4️⃣dev1` or `4️⃣dev2`, verifies the repository, Task
+conversations category and task marker, and reads back the labels. Preserve all
+other labels, including the other Developer's participation. Keep these labels
+after work ends or an assignment is released: they are history, not availability,
+ownership or authority. Missing labels/permissions or failed verification block
+work and must be reported in the Discussion. Then claim the task and verify the
+result before edits:
 
 ```powershell
 .\.github\scripts\Set-Agent4TaskClaim.ps1 -Issue <number> -Action claim
@@ -91,9 +104,15 @@ sources, issue/Discussion links, native parentage and unrelated labels.
 No-code outcomes omit PR context honestly. Failed reporting is an explicit
 blocker; do not claim completed handoff or silently lose correlation.
 
-Notify Dispatcher of finished work and end execution. The next offer asks your
-state again; do not report availability on your own. Do not launch yourself, release a claim, ingest results, or
+After verified reporting/end-marker readback, end execution without a separate
+finished-work message to the previous Dispatcher session. Later cycles read the
+Discussion records and ask your current state again; do not report availability
+on your own. Do not launch yourself, release a claim, ingest results, or
 select new work. Reports and issue closure do not prove that an execution stopped;
 uncertain sends/starts or missing context require reconciliation, not retries,
 age-based recovery, replacement workers or automatic ownership cleanup. Only
 Dispatcher releases a crashed assignment, based on your reply to its offer.
+
+These changes apply to future assignments after the updated contract is loaded.
+Already accepted assignments (including #400) retain their accepted instructions;
+do not relabel their Discussions or change their completion obligations mid-run.
