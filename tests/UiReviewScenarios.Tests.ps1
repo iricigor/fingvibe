@@ -115,6 +115,57 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
 
 & {
     . (Join-Path $PSScriptRoot 'PageHeaders.Ui.Helpers.ps1')
+    . (Join-Path $PSScriptRoot 'UiRegression\Helpers.ps1')
+    Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
+    & {
+        $hidden = [pscustomobject]@{ Current = [pscustomobject]@{
+            IsOffscreen = $true
+            BoundingRectangle = [pscustomobject]@{ IsEmpty = $false; Width = 100; Height = 44 }
+        } }
+        $empty = [pscustomobject]@{ Current = [pscustomobject]@{
+            IsOffscreen = $false
+            BoundingRectangle = [pscustomobject]@{ IsEmpty = $true; Width = 0; Height = 0 }
+        } }
+        $visible = [pscustomobject]@{ Current = [pscustomobject]@{
+            IsOffscreen = $false
+            BoundingRectangle = [pscustomobject]@{ IsEmpty = $false; Width = 100; Height = 44 }
+        } }
+        $lookupRoot = [pscustomobject]@{
+            Elements = @($hidden, $empty, $visible)
+            Queries = [Collections.Generic.List[object]]::new()
+            MissingOnce = $true
+            Failure = $false
+        }
+        $lookupRoot | Add-Member ScriptMethod FindAll {
+            param([Windows.Automation.TreeScope] $Scope, [Windows.Automation.Condition] $Query)
+            if ($Scope -ne [Windows.Automation.TreeScope]::Descendants) { throw 'Wrong header lookup scope.' }
+            $this.Queries.Add($Query)
+            if ($this.Failure) { throw 'Header provider failed.' }
+            if ($this.MissingOnce) { $this.MissingOnce = $false; return }
+            $this.Elements
+        }
+        $found = Find-PageHeaderElement $lookupRoot DeviceOverviewTab
+        if (-not [object]::ReferenceEquals($found, $visible)) {
+            throw 'Header lookup must wait for a peer and skip offscreen/empty bounds.'
+        }
+        Assert-Equal $lookupRoot.Queries.Count 2 'Header lookup retries a missing peer through the real waiter'
+        $query = $lookupRoot.Queries[0]
+        Assert-Equal $query.Property ([Windows.Automation.AutomationElement]::AutomationIdProperty) 'Header ID lookup property'
+        Assert-Equal $query.Value DeviceOverviewTab 'Header ID lookup value'
+        $found = Find-PageHeaderElement $lookupRoot 'Back to devices' -ByName `
+            -Type ([Windows.Automation.ControlType]::Button) -AllowOffscreen
+        if (-not [object]::ReferenceEquals($found, $hidden)) {
+            throw 'Explicit offscreen lookup must retain the actual peer for positioning.'
+        }
+        $conditions = $lookupRoot.Queries[2].GetConditions()
+        Assert-Equal $conditions[0].Property ([Windows.Automation.AutomationElement]::NameProperty) 'Header name lookup property'
+        Assert-Equal $conditions[0].Value 'Back to devices' 'Header name lookup value'
+        Assert-Equal $conditions[1].Property ([Windows.Automation.AutomationElement]::ControlTypeProperty) 'Header control type property'
+        Assert-Equal $conditions[1].Value ([Windows.Automation.ControlType]::Button.Id) 'Header control type value'
+        $lookupRoot.Failure = $true
+        Assert-Throws { Find-PageHeaderElement $lookupRoot BrokenHeader } '*Header provider failed*'
+        Assert-Equal $script:UiRegressionCallStack.Count 0 'Failed header lookups complete call accounting'
+    }
     $rect = {
         param($Left, $Top, $Width, $Height)
         [pscustomobject]@{ Left = $Left; Top = $Top; Width = $Width; Height = $Height

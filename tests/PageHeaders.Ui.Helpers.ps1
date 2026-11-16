@@ -36,16 +36,16 @@ function Find-PageHeaderElement {
     param($Root, [string] $Value, [switch] $ByName, $Type, [switch] $AllowOffscreen)
     $property = if ($ByName) { [Windows.Automation.AutomationElement]::NameProperty }
         else { [Windows.Automation.AutomationElement]::AutomationIdProperty }
-    $condition = [Windows.Automation.PropertyCondition]::new($property, $Value)
+    $headerCondition = [Windows.Automation.PropertyCondition]::new($property, $Value)
     if ($Type) {
-        $condition = [Windows.Automation.AndCondition]::new($condition,
+        $headerCondition = [Windows.Automation.AndCondition]::new($headerCondition,
             [Windows.Automation.PropertyCondition]::new(
                 [Windows.Automation.AutomationElement]::ControlTypeProperty, $Type))
     }
     Wait-UiRegressionState -Description "page-header element '$Value'" -Condition {
         $call = Start-UiRegressionCall lookup
         try {
-            foreach ($element in $Root.FindAll([Windows.Automation.TreeScope]::Descendants, $condition)) {
+            foreach ($element in $Root.FindAll([Windows.Automation.TreeScope]::Descendants, $headerCondition)) {
                 if ($AllowOffscreen -or (Test-UiRegressionElementVisible $element)) { return $element }
             }
         }
