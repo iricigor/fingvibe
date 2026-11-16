@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Security;
 using FingVibe.Core.Updates;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 
 namespace FingVibe.App;
@@ -100,11 +101,13 @@ public sealed partial class AboutPage
                 Content = "Download manually from GitHub Releases",
                 NavigateUri = new Uri("https://github.com/iricigor/fingvibe/releases")
             });
-            await new ContentDialog
+            var dialog = new ContentDialog
             {
                 Name = "UpdateDownloadFailureDialog", XamlRoot = XamlRoot,
                 Title = "Update download failed", Content = content, CloseButtonText = "Close"
-            }.ShowAsync();
+            };
+            AutomationProperties.SetAutomationId(dialog, "UpdateDownloadFailureDialog");
+            await dialog.ShowAsync();
         }
         finally
         {
@@ -118,12 +121,14 @@ public sealed partial class AboutPage
     private async void InstallUpdate_Click(object sender, RoutedEventArgs e)
     {
         if (_actions is null) return;
-        var confirmation = await new ContentDialog
+        var confirmationDialog = new ContentDialog
         {
             Name = "UpdateInstallConfirmationDialog", XamlRoot = XamlRoot, Title = "Install update and close FingVibe?",
             Content = $"Launch {_actions.DownloadedPath} using Windows, then close FingVibe normally. The unsigned installer may trigger SmartScreen, Defender, UAC or organization policy. Continue only after FingVibe closes: the installer refuses to update a running copy. Saved data is preserved. Launching does not mean installation completed.",
             PrimaryButtonText = "Install and close", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close
-        }.ShowAsync();
+        };
+        AutomationProperties.SetAutomationId(confirmationDialog, "UpdateInstallConfirmationDialog");
+        var confirmation = await confirmationDialog.ShowAsync();
         if (confirmation != ContentDialogResult.Primary) return;
         InstallUpdateButton.IsEnabled = false;
         try
@@ -139,12 +144,14 @@ public sealed partial class AboutPage
             var recovery = exception is InvalidDataException
                 ? "Do not run the downloaded file. Obtain a fresh update manually from the official GitHub Releases before installation."
                 : $"Install the downloaded update manually from {_actions.DownloadedPath}. Close FingVibe before continuing. Windows security protections still apply; installation has not completed.";
-            await new ContentDialog
+            var failureDialog = new ContentDialog
             {
                 Name = "UpdateLaunchFailureDialog", XamlRoot = XamlRoot, Title = "Installer could not be started",
                 Content = $"Windows did not start the installer. {exception.Message}\n\n{recovery}",
                 CloseButtonText = "OK"
-            }.ShowAsync();
+            };
+            AutomationProperties.SetAutomationId(failureDialog, "UpdateLaunchFailureDialog");
+            await failureDialog.ShowAsync();
         }
         finally
         {
