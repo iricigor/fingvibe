@@ -477,9 +477,11 @@ try {
     if ($runCapture) { Write-UiReviewPhase "captures" }
     if ($runSmoke -and $Mode -in @("Current", "Full")) {
         Test-UiReviewNavigation
+        Write-UiReviewPhase "navigation tour"
         Test-UiReviewNameSuggestion "Person" "Igor" "Iric" "II"
         Test-UiReviewNameSuggestion "Room" "Living" "Room" "LR"
         Write-Host "People and Rooms native short-name suggestion regression tests passed."
+        Write-UiReviewPhase "name suggestions"
         Show-UiReviewCaptureScenario -Scenario "DeviceDetails"
         Set-UiReviewAssignment "Room" "UI · UI review room" "Room assignment saved."
         Set-UiReviewAssignment "Person" "UI · UI review person" "Person assignment saved."
@@ -490,10 +492,11 @@ try {
         Show-UiReviewCaptureScenario -Scenario "DeviceDetails"
         Assert-UiReviewAssignment "Room" "Unassigned"
         Assert-UiReviewAssignment "Person" "Unassigned"
+        Write-UiReviewPhase "existing assignments"
         Test-UiReviewAddAssignment "Person" "Entry person" "EP"
         Test-UiReviewAddAssignment "Room" "Entry room" "ER"
         Write-Host "People and Rooms native assignment regression tests passed."
-        Write-UiReviewPhase "navigation and assignment interactions"
+        Write-UiReviewPhase "added assignments"
     }
 
     # Publish a manifest only after every required view/state was verified and captured.
