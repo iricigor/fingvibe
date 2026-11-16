@@ -196,7 +196,7 @@ sequence pass counts, simultaneous opposite-direction travel, first-pass/replay
 logical ordering and hop-2 waits, cancellation/reset, unchanged/changed context comparison,
 deferred WAN edits, stale asynchronous refresh guards, and connector geometry
 without network access or desktop automation.
-`tests\NetworkTroubleshooting.Ui.Tests.ps1
+`powershell.exe -NoProfile -STA -File tests\NetworkTroubleshooting.Ui.Tests.ps1
 -AppPath <built-exe>` checks the native Tools entry, visible WAN validation,
 section headings, checkpoint IP labels, provider alignment, straight main-path
 and curved branch geometry, review-mode privacy, navigation reset, and the
@@ -207,6 +207,10 @@ fixtures cover responded/latency, unanswered and unavailable presentation in
 Light and Dark modes. On disposable GitHub Actions runners, the same test also
 checks the selected peer at 200% Windows text scale with high contrast and a
 640-pixel window, restoring the original accessibility settings afterward.
+The owning Tools utilities scenario explicitly uses Windows PowerShell for the
+.NET Framework WinRT projection used to observe effective Windows text scale;
+PowerShell 7 does not provide that projection. The parent retains child failures,
+diagnostics and elapsed time within the unchanged 240-second native gate.
 Changed-head native results and the affected-UI duration gate must still pass
 before delivery; synthetic captures are not real network observations.
 With `-ScreenshotDirectory`, it also checks the rendered untested-circle
