@@ -62,6 +62,15 @@ or inspect the evidence artifact repeatedly before offering.
    actual recipient Automation/run/session and exact candidate list. Reuse a
    working context for an availability reply, not a second execution.
    Developers decide whether they are busy; they never report unprompted.
+   Immediately after the send attempts, before waiting for assessments or
+   processing starts, publish a brief chat summary naming each Developer and
+   its exact sent issue numbers in offer order, including shared candidates.
+   Show an empty sent list as `none`. For example:
+   `Offers sent - Developer 1: #451, #453; Developer 2: #452, #454. Waiting for assessments; no starts issued.`
+   If a send failed or its delivery is uncertain, report that status explicitly
+   for that Developer with the attempted issue list; never describe it as sent.
+   Send admission is not a Developer assessment or proof of execution. This
+   summary does not require waiting for replies or change response/start rules.
 5. Process correlated responses as they arrive using supported host delivery/continuation,
    without continuous polling or waiting for coding/CI. Each Developer reports
    busy with its assignment ID, or evaluates every candidate with eligibility,
