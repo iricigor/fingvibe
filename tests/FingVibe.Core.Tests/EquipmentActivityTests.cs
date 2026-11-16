@@ -135,6 +135,11 @@ public sealed class EquipmentActivityTests
         Assert.Equal(EquipmentScanState.Unknown, display.Latest.State);
         Assert.Equal(3, display.Latest.Total);
         Assert.Contains(display.Grid.Cells, cell => cell.Value == "2+" && cell.Hatched);
+        Assert.All(display.Grid.Cells.Where(cell => cell.Value == "2+"), cell =>
+        {
+            Assert.Equal("2+", cell.Glyph(deviceStyle: false));
+            Assert.False(cell.NeedsEvidenceMarker);
+        });
         Assert.Equal(EquipmentScanState.Unknown, EquipmentActivity.Latest(evidence with
         {
             Devices = evidence.Devices.Select(device => device with { FirstReliableSighting = Now }).ToArray()

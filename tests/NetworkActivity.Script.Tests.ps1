@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "NetworkActivity.Fixture.ps1")
 . (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
-foreach ($name in @("NetworkActivity.Fixture.ps1", "NetworkActivity.Ui.Tests.ps1")) {
+foreach ($name in @("NetworkActivity.Fixture.ps1", "NetworkActivity.Ui.Tests.ps1", "ActivityGrid.Ui.Helpers.ps1")) {
     $errors = $null
     $null = [Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot $name), [ref]$null, [ref]$errors)
     if ($errors) { throw ($errors.Message -join "; ") }

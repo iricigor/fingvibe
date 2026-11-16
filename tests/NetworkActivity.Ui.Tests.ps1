@@ -9,6 +9,7 @@ if ($env:GITHUB_ACTIONS -ne "true") { throw "Network activity checks require a d
 Initialize-InventorySqlite $AppPath
 $null = [Reflection.Assembly]::LoadFrom((Join-Path (Split-Path $AppPath) "FingVibe.Core.dll"))
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms
+. (Join-Path $PSScriptRoot "ActivityGrid.Ui.Helpers.ps1")
 
 function Find-NetworkActivity([string] $Id) {
     if (-not $script:root) { return $null }
@@ -117,6 +118,10 @@ try {
     Assert-NetworkCell NetworkActivityCell-5-13 "*0 distinct devices; exact daily count*"
     Assert-NetworkCell NetworkActivityCell-5-14 "*At least 2 devices*"
     Assert-NetworkCell NetworkActivityCell-5-15 "*Unknown - no eligible scan evidence*"
+    foreach ($state in @(@(12, "3"), @(13, "0"), @(14, "2+"), @(15, "?"))) {
+        $null = Assert-ActivityGridGlyph (Show-NetworkActivity "NetworkActivityCell-5-$($state[0])") $state[1]
+    }
+    Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-daily-evidence.png")
     Choose-NetworkActivity NetworkActivityRoom Office
     Choose-NetworkActivity NetworkActivityType Computer
     Choose-NetworkActivity NetworkActivityCategory Permanent
@@ -132,6 +137,7 @@ try {
     Assert-NetworkCell NetworkActivityCell-29-23 "*-24:00*"
     Choose-NetworkActivity NetworkActivityPeriod "30 days by weekday"
     Assert-NetworkCell NetworkActivityCell-2-9 "*Average 12 devices; exact sum 36 / 3 exact dates*"
+    $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-2-9) "12?"
     [Windows.Forms.SendKeys]::SendWait("{RIGHT}{LEFT}{ENTER}")
     Assert-NetworkCell NetworkActivityCell-2-9 "*3 / * applicable dates observed*"
     Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-weekdays.png")
@@ -191,6 +197,10 @@ try {
         (Show-NetworkActivity NetworkActivityHours).GetCurrentPattern([Windows.Automation.RangeValuePattern]::Pattern).SetValue($hours)
         $null = Wait-NetworkActivity $before
         Assert-NetworkCell "NetworkActivityCell-5-$((24 / $hours) - 1)" "*-24:00*"
+        $null = Assert-ActivityGridGlyph (Show-NetworkActivity "NetworkActivityCell-5-$((24 / $hours) - 1)") "?"
+        if ($hours -eq 4) {
+            Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-four-hours.png")
+        }
     }
     foreach ($theme in @("Standard Light", "Standard Dark")) {
         $before = (Get-UiRegressionSurfaceState -GetElement { Find-NetworkActivity NetworkActivityScroll } -Description Network).Request
@@ -209,6 +219,8 @@ try {
         (Find-NetworkActivity NetworkNavItem).GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
         $null = Wait-NetworkActivity $before
         Assert-NetworkCell NetworkActivityCell-5-12 "*2 distinct devices*"
+        $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-5-12) "2"
+        $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-5-15) "?"
         Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-$($theme.Replace(' ', '-')).png")
     }
     $bounds = Get-UiReviewWindowBounds $script:process.MainWindowHandle
@@ -223,6 +235,26 @@ try {
         throw "Narrow Network activity must retain horizontally reachable cells."
     }
     Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-narrow.png")
+    $normalGlyphHeight = (Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-5-12) "2").Current.BoundingRectangle.Height
+    Invoke-ActivityGridLargeText -AppPath $AppPath -Check {
+        Choose-NetworkActivity NetworkActivityPeriod "30 days by weekday"
+        $largeGlyph = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-2-9) "2?"
+        if ($largeGlyph.Current.BoundingRectangle.Height -le $normalGlyphHeight * 1.5) {
+            throw "Network activity text did not actually enlarge with Windows text scale."
+        }
+        Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-large-text-weekdays.png")
+        Choose-NetworkActivity NetworkActivityPeriod "Last 7 days"
+    }
+    Invoke-ActivityGridHighContrast -Check {
+        $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-5-12) "2"
+        $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-5-13) "0"
+        $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-5-15) "?"
+        Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-high-contrast.png")
+        Choose-NetworkActivity NetworkActivityPeriod "30 days by weekday"
+        $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-2-9) "2?"
+        Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-high-contrast-weekdays.png")
+        Choose-NetworkActivity NetworkActivityPeriod "Last 7 days"
+    }
     $request = Hold-NetworkActivity
     Stop-UiRegressionApp -Process $script:process
     if (-not (Test-Path -LiteralPath "$($request.Path).cancelled")) { throw "Closing failed to cancel Network activity." }

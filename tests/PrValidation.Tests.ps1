@@ -27,6 +27,7 @@ foreach ($case in @(
     @{ Paths = @("tests/DeviceScanHistory.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/DeviceActivity.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/DeviceActivity.Fixture.ps1"); Expected = @($true, $true, $true) },
+    @{ Paths = @("tests/ActivityGrid.Ui.Helpers.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/NetworkActivity.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/NetworkActivity.Fixture.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/Installer.Lifecycle.Tests.ps1"); Expected = @($true, $true, $true) },

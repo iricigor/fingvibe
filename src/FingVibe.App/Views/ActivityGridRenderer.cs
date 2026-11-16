@@ -5,11 +5,9 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Documents;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using Windows.Foundation;
 using Windows.System;
 using Windows.UI;
 using Windows.UI.ViewManagement;
-using Path = Microsoft.UI.Xaml.Shapes.Path;
 using Colors = Microsoft.UI.Colors;
 
 namespace FingVibe.App.Views;
@@ -109,24 +107,16 @@ internal static class ActivityGridRenderer
                 var foreground = contrast ? colors.GetColorValue(UIColorType.Foreground) : TextColor(background);
                 var content = new Grid { MinWidth = 28, MinHeight = rows > 7 ? 22 : 32,
                     Background = new SolidColorBrush(background) };
-                if (cell.Hatched)
-                    content.Children.Add(new Path
-                    {
-                        Stretch = Stretch.Fill, Opacity = contrast ? 1 : .45,
-                        Stroke = new SolidColorBrush(foreground), StrokeThickness = .7, Data = HatchGeometry(deviceStyle ? 12 : 6)
-                    });
                 var glyph = new TextBlock
                 {
-                    Text = deviceStyle
-                        ? !cell.IsApplicable ? "N/A" : cell.IsFuture ? "\u00B7" : !string.IsNullOrEmpty(cell.Value)
-                            ? cell.Value + (cell.Response == AnalyticsResponse.DidNotRespond ? "\u2212" : "")
-                            : cell.Response == AnalyticsResponse.Responded ? "R" : cell.Response == AnalyticsResponse.DidNotRespond ? "\u2212" : "?"
-                        : contrast && cell.IsApplicable && string.IsNullOrEmpty(cell.Value)
-                        ? cell.Response == AnalyticsResponse.Responded ? "R" : cell.Response == AnalyticsResponse.DidNotRespond ? "N" : "?"
-                        : cell.Value,
                     FontSize = 11, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center,
-                    Foreground = new SolidColorBrush(foreground)
+                    Foreground = new SolidColorBrush(foreground),
+                    Opacity = !contrast && cell.IsApplicable && !cell.IsFuture && cell.Response == AnalyticsResponse.Unknown ? .65 : 1
                 };
+                glyph.Inlines.Add(new Run { Text = cell.Glyph(deviceStyle) });
+                if (cell.NeedsEvidenceMarker)
+                    glyph.Inlines.Add(new Run { Text = "?", FontSize = 9 });
+                AutomationProperties.SetAutomationId(glyph, $"{idPrefix}-{row}-{column}-Glyph");
                 AutomationProperties.SetAccessibilityView(glyph, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
                 content.Children.Add(glyph);
                 var button = new Button
@@ -177,18 +167,6 @@ internal static class ActivityGridRenderer
         static double Linear(byte value) => value / 255d <= .04045 ? value / 255d / 12.92 : Math.Pow((value / 255d + .055) / 1.055, 2.4);
         var luminance = .2126 * Linear(background.R) + .7152 * Linear(background.G) + .0722 * Linear(background.B);
         return luminance > .179 ? Colors.Black : Colors.White;
-    }
-
-    private static PathGeometry HatchGeometry(int step)
-    {
-        var geometry = new PathGeometry();
-        for (var offset = -24; offset <= 24; offset += step)
-        {
-            var figure = new PathFigure { StartPoint = new Point(Math.Max(0, offset), Math.Max(0, -offset)), IsClosed = false };
-            figure.Segments.Add(new LineSegment { Point = new Point(Math.Min(24, offset + 24), Math.Min(24, 24 - offset)) });
-            geometry.Figures.Add(figure);
-        }
-        return geometry;
     }
 
     private static void MoveFocus(int index, int columns, List<Button> buttons, KeyRoutedEventArgs e)

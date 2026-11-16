@@ -123,7 +123,7 @@ function Get-UiReviewCapturePlan {
                 Add-Scenarios @("DeviceDetails", "DeviceHistory") "$path changed device details behavior."
             }
             elseif ($path -match '^src/FingVibe.App/(Views/ActivityGridRenderer.cs|DeviceActivityPresentation.cs|DeviceActivityReviewHold.cs)$' -or
-                $path -eq 'src/FingVibe.Core/Models/DeviceActivity.cs') {
+                $path -eq 'src/FingVibe.Core/Models/DeviceActivity.cs' -or $path -eq 'tests/ActivityGrid.Ui.Helpers.ps1') {
                 Add-Scenarios @("Network", "DeviceHistory", "PersonDetails") "$path changed shared activity grid behavior."
             }
             elseif ($path -match '^src/FingVibe.App/(MainWindow.EquipmentActivity.cs|EquipmentActivityPresentation.cs|Views/PersonDetailsPageView.Activity.cs)$' -or

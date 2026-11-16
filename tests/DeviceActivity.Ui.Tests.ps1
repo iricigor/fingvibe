@@ -12,6 +12,7 @@ if ($env:GITHUB_ACTIONS -ne "true") { throw "Device activity UI checks require a
 . (Join-Path $PSScriptRoot "DeviceActivity.Fixture.ps1")
 Initialize-InventorySqlite $AppPath
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms
+. (Join-Path $PSScriptRoot "ActivityGrid.Ui.Helpers.ps1")
 
 Add-Type @'
 using System;
@@ -307,6 +308,9 @@ try {
     if ($negative.Current.Name -notlike "*Scanned, no response*") { throw "Known nonresponse was not preserved." }
     $unknown = Select-ActivityCell 5 13
     if ($unknown.Current.Name -notlike "*Unknown - no eligible scans*") { throw "Unknown evidence was interpolated." }
+    $null = Assert-ActivityGridGlyph $positive "R"
+    $null = Assert-ActivityGridGlyph $negative ([string][char]0x2212)
+    $null = Assert-ActivityGridGlyph $unknown "?"
     Capture-Activity "activity-seven-days"
     foreach ($hours in 1..4) {
         $before = (Get-ActivityState).Request
@@ -320,6 +324,8 @@ try {
         if ($last.Current.Name -notlike "*-24:00*" -or (Find-Activity "ActivityCell-6-$columns" -Optional)) {
             throw "$hours-hour keyboard group rendered the wrong columns."
         }
+        $null = Assert-ActivityGridGlyph (Select-ActivityCell 0 0) "?"
+        if ($hours -eq 4) { Capture-Activity "activity-four-hours" }
     }
     $before = (Get-ActivityState).Request
     $slider = Show-Activity ActivityHours
@@ -334,6 +340,7 @@ try {
     if ($wednesday.Current.Name -notmatch '3 responding days / [45] applicable dates') {
         throw "Weekday denominator/count is incorrect: $($wednesday.Current.Name)"
     }
+    $null = Assert-ActivityGridGlyph $wednesday "3?"
     Capture-Activity "activity-weekdays"
     [Windows.Forms.SendKeys]::SendWait("{RIGHT}{LEFT}{ENTER}")
     Wait-Activity { (Find-Activity ActivityDetail).Current.Name -eq $wednesday.Current.Name } "arrow and Enter cell navigation"
@@ -488,7 +495,8 @@ try {
                 $control = Show-Activity $id
                 if (-not $script:root.Current.BoundingRectangle.Contains($control.Current.BoundingRectangle)) { throw "$id is clipped." }
             }
-            $null = Select-ActivityCell 5 11
+            $null = Assert-ActivityGridGlyph (Select-ActivityCell 5 11) "R"
+            $null = Assert-ActivityGridGlyph (Select-ActivityCell 5 13) "?"
             if ($width -eq 640 -and -not (Find-Activity ActivityScroll).GetCurrentPattern([Windows.Automation.ScrollPattern]::Pattern).Current.HorizontallyScrollable) {
                 throw "Narrow grid must scroll instead of squeezing cells."
             }
@@ -498,12 +506,28 @@ try {
             $bounds.Left, $bounds.Top, $bounds.Width, $bounds.Height, 0x0044)
         Start-Sleep -Milliseconds 500
     }
+    $normalGlyphHeight = (Assert-ActivityGridGlyph (Select-ActivityCell 5 13) "?").Current.BoundingRectangle.Height
+    Invoke-ActivityGridLargeText -AppPath $AppPath -Check {
+        Choose-ActivityPeriod "30 days by weekday" 6
+        $largeGlyph = Assert-ActivityGridGlyph (Select-ActivityCell 2 9) "3?"
+        if ($largeGlyph.Current.BoundingRectangle.Height -le $normalGlyphHeight * 1.5) {
+            throw "Activity text did not actually enlarge with Windows text scale."
+        }
+        Capture-Activity "activity-large-text-weekdays"
+        Choose-ActivityPeriod "Last 7 days" 6
+    }
     $contrast = [ActivityReviewContrast]::Get()
     [ActivityReviewContrast]::Set($contrast -bor 1)
     Start-Sleep -Seconds 2
     if (([ActivityReviewContrast]::Get() -band 1) -eq 0) { throw "High contrast did not activate." }
-    $null = Select-ActivityCell 5 11
+    $null = Assert-ActivityGridGlyph (Select-ActivityCell 5 11) "R"
+    $null = Assert-ActivityGridGlyph (Select-ActivityCell 5 12) ([string][char]0x2212)
+    $null = Assert-ActivityGridGlyph (Select-ActivityCell 5 13) "?"
     Capture-Activity "activity-high-contrast"
+    Choose-ActivityPeriod "30 days by weekday" 6
+    $null = Assert-ActivityGridGlyph (Select-ActivityCell 2 9) "3?"
+    Capture-Activity "activity-high-contrast-weekdays"
+    Choose-ActivityPeriod "Last 7 days" 6
     [ActivityReviewContrast]::Set($contrast)
     $contrast = $null
     $summary = Show-Activity DeviceHistoryFirstSeen
