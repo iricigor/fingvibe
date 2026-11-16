@@ -2,7 +2,8 @@
 param(
     [string] $MasterDirectory = (Join-Path $PSScriptRoot "..\docs\branding\app-icon"),
     [string] $IconPath = (Join-Path $PSScriptRoot "..\src\FingVibe.App\Assets\Scanner.ico"),
-    [string] $PreviewPath = (Join-Path $PSScriptRoot "..\docs\branding\app-icon\connected-home-preview.png")
+    [string] $PreviewPath = (Join-Path $PSScriptRoot "..\docs\branding\app-icon\connected-home-preview.png"),
+    [string] $RepositoryRoot = (Join-Path $PSScriptRoot "..")
 )
 
 # Renders the Connected home SVG masters into the multi-resolution application icon.
@@ -20,6 +21,13 @@ $script:IconFrames = @{
     64 = "connected-home.svg"
     256 = "connected-home.svg"
 }
+
+# Standalone PNG exports: in-app brand images and the README logo, relative to the repository root.
+$script:PngExports = @(
+    @{ Path = "src\FingVibe.App\Assets\ConnectedHome-48.png"; Master = "connected-home-48.svg"; Size = 96 }
+    @{ Path = "src\FingVibe.App\Assets\ConnectedHome.png"; Master = "connected-home.svg"; Size = 256 }
+    @{ Path = "docs\branding\app-icon\connected-home.png"; Master = "connected-home.svg"; Size = 256 }
+)
 
 function ConvertTo-IconColor([string] $Value) {
     if ($Value -notmatch '^#([0-9A-Fa-f]{6})$') { throw "Unsupported icon color '$Value'." }
@@ -267,6 +275,12 @@ try {
     }
     Write-ApplicationIcon $frames $IconPath
     if ($PreviewPath) { Save-IconPreview $bitmaps $PreviewPath }
+    foreach ($export in $script:PngExports) {
+        if (-not $masters.ContainsKey($export.Master)) { $masters[$export.Master] = Read-IconMaster (Join-Path $MasterDirectory $export.Master) }
+        $png = New-IconFrame $masters[$export.Master] $export.Size
+        try { $png.Save([IO.Path]::GetFullPath((Join-Path $RepositoryRoot $export.Path)), [System.Drawing.Imaging.ImageFormat]::Png) }
+        finally { $png.Dispose() }
+    }
 }
 finally { foreach ($bitmap in $bitmaps.Values) { $bitmap.Dispose() } }
-Write-Host "Wrote $($frames.Count) icon frames to $([IO.Path]::GetFullPath($IconPath))."
+Write-Host "Wrote $($frames.Count) icon frames to $([IO.Path]::GetFullPath($IconPath)) and $($script:PngExports.Count) PNG exports."

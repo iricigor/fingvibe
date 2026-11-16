@@ -151,6 +151,22 @@ if (-not (Test-Path -LiteralPath $deployedIcon -PathType Leaf)) {
 if ((Get-FileHash -LiteralPath $sourceIcon).Hash -ne (Get-FileHash -LiteralPath $deployedIcon).Hash) {
     throw "The deployed window icon differs from the source icon."
 }
+foreach ($brand in @(@{ Name = "ConnectedHome-48.png"; Size = 96 }, @{ Name = "ConnectedHome.png"; Size = 256 })) {
+    $source = Join-Path $PSScriptRoot "..\src\FingVibe.App\Assets\$($brand.Name)"
+    $deployed = Join-Path $AppDirectory "Assets\$($brand.Name)"
+    if (-not (Test-Path -LiteralPath $deployed -PathType Leaf) -or
+        (Get-FileHash -LiteralPath $source).Hash -ne (Get-FileHash -LiteralPath $deployed).Hash) {
+        throw "In-app brand image $($brand.Name) is missing or differs from the source."
+    }
+    $image = [System.Drawing.Image]::FromFile((Resolve-Path -LiteralPath $deployed).Path)
+    try {
+        if ($image.Width -ne $brand.Size -or $image.Height -ne $brand.Size -or
+            -not [System.Drawing.Image]::IsAlphaPixelFormat($image.PixelFormat)) {
+            throw "In-app brand image $($brand.Name) must be a $($brand.Size) px image with alpha."
+        }
+    }
+    finally { $image.Dispose() }
+}
 
 $embedded = [ApplicationIconResources]::ReadFirstIconGroup((Resolve-Path -LiteralPath $executable).Path)
 if ($embedded.Count -eq 0) { throw "The executable has no embedded icon." }
@@ -164,4 +180,4 @@ foreach ($size in $requiredSizes) {
     }
 }
 
-Write-Host "Icon frames ($($requiredSizes -join ', ') px), transparency, deployment and embedded executable icon checks passed."
+Write-Host "Icon frames ($($requiredSizes -join ', ') px), transparency, deployment, in-app brand images and embedded executable icon checks passed."

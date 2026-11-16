@@ -4,9 +4,11 @@ FingVibe's application icon is the **Connected home** design: a home-shaped
 local network that connects a person and their devices. @iricigor selected it
 from the [page and tool icon concepts](../icon-concepts/README.md) (Rooms,
 `rooms-color.svg`) on 2026-11-13 for
-[task #348](https://github.com/iricigor/fingvibe/issues/348). Only the
-application icon adopts it; the README logo, navigation, page icons and other
-concept icons are unchanged.
+[task #348](https://github.com/iricigor/fingvibe/issues/348). On 2026-11-16 the
+user also asked to use it as the README logo, the navigation pane's brand tile
+(top left of the app) and a large icon at the top right of the About page. The
+documentation site logo, navigation and page icons and the other concept icons
+are unchanged.
 
 ![Every icon frame at actual size and magnified 4x, on light and dark backgrounds](connected-home-preview.png)
 
@@ -39,7 +41,16 @@ Edit the SVG masters, then run:
 The script renders each master with Windows System.Drawing and writes
 `src\FingVibe.App\Assets\Scanner.ico` with distinct 32-bit alpha frames at 16,
 20, 24, 32, 40, 48, 64 and 256 px (PNG-compressed at 256 px, uncompressed
-bitmaps below). It also refreshes `connected-home-preview.png`. The masters use
+bitmaps below). It also refreshes `connected-home-preview.png` and these PNG
+exports:
+
+| Export | Master and size | Used by |
+| --- | --- | --- |
+| `src\FingVibe.App\Assets\ConnectedHome-48.png` | 48 px master at 96 px | Navigation pane brand tile (48 DIP, sharp at 100% and 200% scaling) |
+| `src\FingVibe.App\Assets\ConnectedHome.png` | Full master at 256 px | About page icon (128 DIP) |
+| `connected-home.png` | Full master at 256 px | README logo (shown at 128 px) |
+
+The masters use
 a deliberately small SVG subset: rectangles, circles, polylines, single
 circular arc paths and one linear gradient, without transforms or groups. The
 script rejects anything else.

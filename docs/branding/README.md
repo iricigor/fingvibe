@@ -1,14 +1,18 @@
 # README branding
 
+**Current README mark:** since 2026-11-16 the README shows the
+[Connected home application icon](app-icon/README.md), at @iricigor's request in
+[task #348](https://github.com/iricigor/fingvibe/issues/348). The Network radar
+record below is kept as history; Network radar remains the documentation site's
+logo and favicon (`mkdocs.yml`).
+
 For the separately selected page and tool icon family, see the
 [icon concept design record](icon-concepts/README.md). Those concepts do not
 replace this README mark or adopt icons on any application surface.
 
 The user selected **Network radar** from three original FingVibe brand-mark
 proposals in [PR #112](https://github.com/iricigor/fingvibe/pull/112).
-These README assets do not replace the
-application's `Scanner.ico` or set a browser favicon. The application icon is
-the separate [Connected home design](app-icon/README.md).
+These assets did not replace the application's `Scanner.ico`.
 
 | 1. Network radar (selected) | 2. Connected devices | 3. Signal pulse |
 | --- | --- | --- |
