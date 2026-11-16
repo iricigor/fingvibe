@@ -13,6 +13,10 @@ param(
     [ValidateSet("Current", "Baseline", "Focused", "Full")]
     [string] $Mode = "Current",
 
+    # PR CI runs Smoke and Capture on separate runners; independent validation keeps All.
+    [ValidateSet("All", "Smoke", "Capture")]
+    [string] $Part = "All",
+
     [string] $WinAppDriverPath =
         "${env:ProgramFiles(x86)}\Windows Application Driver\WinAppDriver.exe"
 )
@@ -24,7 +28,12 @@ if (-not $SourceDirectory) { $SourceDirectory = Join-Path $PSScriptRoot "..\.." 
 . (Join-Path $SourceDirectory ".github\scripts\UiReviewScenarios.ps1")
 . (Join-Path $SourceDirectory ".github\scripts\UiReviewNavigation.ps1")
 . (Join-Path $PSScriptRoot "..\..\tests\UiRegression\Helpers.ps1")
-$capturePlan = if ($Mode -in @("Baseline", "Full")) {
+$runSmoke = $Part -ne "Capture"
+$runCapture = $Part -ne "Smoke"
+$capturePlan = if (-not $runCapture) {
+    @()
+}
+elseif ($Mode -in @("Baseline", "Full")) {
     @(Get-NativeValidationPlan -Mode $Mode -Suite capture)
 }
 elseif ($CapturePlanPath) {
@@ -43,6 +52,13 @@ $driverProcess = $null
 $appProcess = $null
 $succeeded = $false
 $reviewStartedAt = Get-Date
+$phaseClock = [Diagnostics.Stopwatch]::StartNew()
+
+function Write-UiReviewPhase {
+    param([Parameter(Mandatory)][string] $Name)
+    $seconds = $phaseClock.Elapsed.TotalSeconds.ToString("F1", [Globalization.CultureInfo]::InvariantCulture)
+    Write-Host "UI review phase '$Name' completed after $seconds seconds."
+}
 $logDirectory = [System.IO.Path]::GetFullPath($ScreenshotDirectory)
 $null = New-Item -ItemType Directory -Path $logDirectory -Force
 $standardOutputPath = Join-Path $logDirectory "fingvibe-winappdriver.stdout.log"
@@ -379,8 +395,9 @@ try {
     $null = Assert-VisibleUiReviewElement -Value "Online"
     $offline = Find-WebDriverElement -Using name -Value "Offline" -TimeoutSeconds 1 -Optional
     if ($offline) { throw "Nonresponding addresses must not appear in Devices." }
+    Write-UiReviewPhase "launch and scan"
 
-    if ($Mode -in @("Current", "Full")) {
+    if ($runSmoke -and $Mode -in @("Current", "Full")) {
         $retainedRow = Assert-VisibleUiReviewElement -Using xpath `
             -Value "//List[@Name='Scan results']/ListItem[.//*[@Name='Online']][1]"
         [IO.File]::WriteAllText($scanHoldPath, "Hold the refresh until retained-list interaction has been verified.")
@@ -402,18 +419,20 @@ try {
         $null = Assert-VisibleUiReviewElement -Value "Online"
 
     }
-    $null = Invoke-WebDriverRequest -Method Post `
-        -Endpoint "/session/$sessionId/element/$search/value" `
-        -Body @{ value = @("fingvibe-no-matching-host") }
-    $null = Find-WebDriverElement -Using name -Value "No devices match the current filter."
-    $null = Invoke-WebDriverRequest -Method Post `
-        -Endpoint "/session/$sessionId/element/$search/clear" `
-        -Body @{ }
-    $null = Find-WebDriverElement -Using xpath -Value "//*[@Name='Online']"
+    if ($runSmoke) {
+        $null = Invoke-WebDriverRequest -Method Post `
+            -Endpoint "/session/$sessionId/element/$search/value" `
+            -Body @{ value = @("fingvibe-no-matching-host") }
+        $null = Find-WebDriverElement -Using name -Value "No devices match the current filter."
+        $null = Invoke-WebDriverRequest -Method Post `
+            -Endpoint "/session/$sessionId/element/$search/clear" `
+            -Body @{ }
+        $null = Find-WebDriverElement -Using xpath -Value "//*[@Name='Online']"
+    }
 
     $elements["Scan LAN"] = Wait-UiReviewScan
 
-    if ($Mode -in @("Current", "Full")) {
+    if ($runSmoke -and $Mode -in @("Current", "Full")) {
         # Summary navigation must replace stale filters and expose hidden restrictions through the funnel.
         $null = Invoke-WebDriverRequest -Method Post `
             -Endpoint "/session/$sessionId/element/$search/value" `
@@ -441,6 +460,7 @@ try {
         $null = Assert-VisibleUiReviewElement -Value "Online"
 
     }
+    if ($runSmoke) { Write-UiReviewPhase "smoke interactions" }
     $captureDirectory = [System.IO.Path]::GetFullPath($ScreenshotDirectory)
     $null = New-Item -ItemType Directory -Path $captureDirectory -Force
     foreach ($capture in $capturePlan) {
@@ -454,7 +474,8 @@ try {
             throw "Required capture '$($capture.Label)' failed: $($_.Exception.Message)"
         }
     }
-    if ($Mode -in @("Current", "Full")) {
+    if ($runCapture) { Write-UiReviewPhase "captures" }
+    if ($runSmoke -and $Mode -in @("Current", "Full")) {
         Test-UiReviewNavigation
         Test-UiReviewNameSuggestion "Person" "Igor" "Iric" "II"
         Test-UiReviewNameSuggestion "Room" "Living" "Room" "LR"
@@ -472,11 +493,14 @@ try {
         Test-UiReviewAddAssignment "Person" "Entry person" "EP"
         Test-UiReviewAddAssignment "Room" "Entry room" "ER"
         Write-Host "People and Rooms native assignment regression tests passed."
+        Write-UiReviewPhase "navigation and assignment interactions"
     }
 
     # Publish a manifest only after every required view/state was verified and captured.
-    ConvertTo-Json -InputObject @($capturePlan) -Depth 5 |
-        Set-Content -LiteralPath (Join-Path $captureDirectory "capture-manifest.json") -Encoding utf8
+    if ($runCapture) {
+        ConvertTo-Json -InputObject @($capturePlan) -Depth 5 |
+            Set-Content -LiteralPath (Join-Path $captureDirectory "capture-manifest.json") -Encoding utf8
+    }
 
     $succeeded = $true
 }
@@ -542,4 +566,4 @@ finally {
     if ($cleanupFailure) { throw $cleanupFailure }
 }
 
-Write-Host "$Mode UI smoke test passed and $($capturePlan.Count) required screenshot(s) captured."
+Write-Host "$Mode UI review ($Part) passed and $($capturePlan.Count) required screenshot(s) captured."
