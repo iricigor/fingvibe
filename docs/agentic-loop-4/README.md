@@ -16,8 +16,12 @@ adds Developer claims, crash detection and prompt-based authority.
 The packet reads individual PR mergeability evidence. Confirmed merge conflicts
 use the existing `failed` category for repair assessment, even with missing,
 pending or successful head checks: conflicts prevent `pull_request` workflows
-from starting. Unknown mergeability is explicitly blocked, not inferred as a
-conflict or safe finalization. Existing ownership exclusions, released
+from starting. GitHub computes mergeability asynchronously, so an unknown
+(`null`) value is re-read once after about 3 seconds. If it is still unknown,
+the PR is presumed conflict-free and classified by its current-head CI, keeping
+`mergeable: null` in the candidate's PR evidence. Finalize still independently
+verifies base freshness and records a finalize rejection for repair, and GitHub
+refuses to merge conflicting PRs. Existing ownership exclusions, released
 implementation resumes and current-head finalization rejections retain their
 precedence. Repair assessment does not authorize automatic conflict resolution,
 expanded task scope or bypassing validation.

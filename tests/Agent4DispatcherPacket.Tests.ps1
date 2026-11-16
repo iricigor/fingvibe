@@ -7,7 +7,8 @@ function Assert-Fails([scriptblock] $Action, [string] $Pattern) {
     catch { if ($_.Exception.Message -notlike $Pattern) { throw }; return }
     throw "Expected failure matching $Pattern."
 }
-$configuration = @{ repository = "TestOwner/TestRepo"; epic = 92 }
+$configuration = @{ repository = "TestOwner/TestRepo"; epic = 92; mergeabilityRereadSeconds = 0 }
+$fixtureMergeableReads = @{}
 $fixtureLinks = @{}
 $fixtureCiStatus = "completed"
 $fixtureConclusion = "success"
@@ -42,8 +43,10 @@ $fixtureReader = {
         '/pulls\?' { $fixturePulls; break }
         '/pulls/(\d+)$' {
             $pull = $fixturePulls | Where-Object number -EQ ([int] $Matches[1])
-            @{ number = $pull.number; head = $pull.head; mergeable = $fixtureMergeable
-                mergeable_state = $(if ($fixtureMergeable -eq $false) { "dirty" } else { "clean" })
+            $queued = $fixtureMergeableReads[[int] $pull.number]
+            $mergeable = if ($queued -and $queued.Count) { $queued.Dequeue() } else { $fixtureMergeable }
+            @{ number = $pull.number; head = $pull.head; mergeable = $mergeable
+                mergeable_state = $(if ($null -eq $mergeable) { "unknown" } elseif ($mergeable -eq $false) { "dirty" } else { "clean" })
                 base = @{ sha = "d"*40; ref = "main" } }; break
         }
         '/pulls/\d+/files' { @(@{ filename = "shared.cs"; patch = "fixture diff" }); break }
@@ -222,10 +225,36 @@ try {
     Assert-True (104 -notin $conflictBlocked.candidates.issue -and
         ($conflictBlocked.blocked | Where-Object issue -EQ 104).reason -eq "Explicit task blocker.") "Conflicts do not override existing task exclusions."
     $children[3].labels = @(@{ name = "type:task" })
+    $fixtureMergeableReads[200] = [Collections.Generic.Queue[object]]::new([object[]] @($null, $true))
+    $observedReads.Clear()
+    $rereadResolved = Get-Agent4WorkPacket $configuration (Join-Path $root "mergeability-reread.json") $fixtureReader
+    $resolved = $rereadResolved.candidates | Where-Object issue -EQ 104
+    Assert-True ($resolved.category -eq "success" -and $resolved.pr.mergeable -ceq $true) "A resolved re-read replaces transient unknown mergeability."
+    Assert-True (@($observedReads | Where-Object { $_ -like "*/pulls/200|" }).Count -eq 2 -and
+        @($observedReads | Where-Object { $_ -like "*/pulls/201|" }).Count -eq 1) "Re-read only unknown mergeability, exactly once."
+    $rereadEvidence = Read-Agent4Json (Join-Path $root "mergeability-reread.json")
+    Assert-True ($null -eq $rereadEvidence.reads.'repos/TestOwner/TestRepo/pulls/200|False|'.mergeable -and
+        $rereadEvidence.reads.'repos/TestOwner/TestRepo/pulls/200|reread'.mergeable -ceq $true) "Retain both mergeability reads as evidence."
     $fixtureMergeable = $null
+    $observedReads.Clear()
     $mergeabilityUnknown = Get-Agent4WorkPacket $configuration (Join-Path $root "mergeability-unknown.json") $fixtureReader
-    Assert-True (104 -notin $mergeabilityUnknown.candidates.issue -and
-        ($mergeabilityUnknown.blocked | Where-Object issue -EQ 104).reason -eq "Current PR mergeability is unknown.") "Unknown mergeability is explicitly blocked, not inferred as a conflict or safe finalization."
+    $presumed = $mergeabilityUnknown.candidates | Where-Object issue -EQ 104
+    Assert-True ($presumed.category -eq "success" -and $null -eq $presumed.pr.mergeable -and
+        $presumed.pr.mergeable_state -eq "unknown" -and 104 -notin $mergeabilityUnknown.blocked.issue) "Unknown after one re-read is presumed conflict-free and evaluated by CI, keeping unknown evidence."
+    Assert-True (@($observedReads | Where-Object { $_ -like "*/pulls/200|" }).Count -eq 2) "Persistent unknown mergeability is re-read only once."
+    $fixtureCiStatus = "in_progress"
+    $unknownPending = Get-Agent4WorkPacket $configuration (Join-Path $root "mergeability-unknown-pending.json") $fixtureReader
+    Assert-True (($unknownPending.blocked | Where-Object issue -EQ 104).reason -eq "Current-head CI is pending.") "Presumed conflict-free PRs keep CI blocking rules."
+    $fixtureCiStatus = "completed"
+    $fixtureMergeableReads[200] = [Collections.Generic.Queue[object]]::new([object[]] @($null))
+    $driftOnReread = {
+        param($Endpoint, $Paginated, $Query)
+        if ($Endpoint -match '/pulls/200$' -and $fixtureMergeableReads[200].Count -eq 0) {
+            return '{"number":200,"head":{"sha":"changed"},"mergeable":true}'
+        }
+        & $fixtureReader $Endpoint $Paginated $Query
+    }
+    Assert-Fails { Get-Agent4WorkPacket $configuration (Join-Path $root "reread-drift.json") $driftOnReread } "*PR identity/head changed*"
     $fixtureMergeable = $true
     $conflictFree = Get-Agent4WorkPacket $configuration (Join-Path $root "conflict-free.json") $fixtureReader
     Assert-True (($conflictFree.candidates.issue -join ",") -eq ($sorted.candidates.issue -join ",") -and
