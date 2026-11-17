@@ -146,6 +146,20 @@ function Get-UiReviewCapturePlan {
                 $path -match '^tests/DeviceActivity\.(Ui.Tests|Fixture)\.ps1$') {
                 Add-Scenarios @("DeviceHistory") "$path changed device activity evidence or its grid."
             }
+            # Shared contracts select every current consumer surface so details-* jobs dispatch their native checks.
+            elseif ($path -eq 'src/FingVibe.App/AsyncSurfaceSession.cs') {
+                Add-Scenarios @("DeviceDetails", "DeviceHistory", "Network", "PersonDetails", "Tools", "Troubleshooting", "DatabaseBackups") `
+                    "$path changed the shared asynchronous surface lifecycle (device history/activity, discovery activation, network and equipment activity, troubleshooting, backups)."
+            }
+            elseif ($path -eq 'src/FingVibe.App/ScanResultRow.cs') {
+                Add-Scenarios @("Devices", "DevicesEmpty", "Settings", "Overview", "Network", "DeviceDetails", "DeviceHistory",
+                    "People", "PersonDetails", "Rooms", "RoomDetails") `
+                    "$path changed the shared device row (results, overview, details, discovery, people/rooms, equipment and network activity)."
+            }
+            elseif ($path -eq 'src/FingVibe.Core/Storage/DeviceInventoryStore.Analytics.cs') {
+                Add-Scenarios @("DeviceDetails", "DeviceHistory", "Network", "PersonDetails", "Settings") `
+                    "$path changed shared analytics evidence (device, network and equipment activity, usage classification)."
+            }
             elseif ($path -match '^src/FingVibe.Core/(Models/(DeviceInventory|PrivateVirtualDevice|DeviceHistorySummary|DeviceHistoryQuery|DeviceDiscovery|AppendedScanHistory).cs|Storage/(DeviceInventoryStore(\.(Json|History))?|SqliteScanHistory).cs)$' -or
                 $path -match '^src/FingVibe.App/MainWindow.(Snapshots|DiscoveryNotifications|Scan).cs$' -or
                 $path -match '^src/FingVibe.App/(DiscoveryPopup.xaml(\.cs)?|DiscoveryNotification(Presentation|Store).cs|WindowsDiscoveryNotifications.cs|Assets/DiscoveryCaution.png)$' -or
