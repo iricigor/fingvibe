@@ -61,8 +61,7 @@ public static class InstallerNativeControls
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll", SetLastError = true)]
-    private static extern IntPtr SendMessageTimeout(IntPtr window, uint message, IntPtr wParam,
-        IntPtr lParam, uint flags, uint timeout, out UIntPtr result);
+    private static extern bool PostMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll", EntryPoint = "SendMessageTimeoutW", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern IntPtr SendTextMessageTimeout(IntPtr window, uint message, IntPtr wParam,
         StringBuilder text, uint flags, uint timeout, out UIntPtr result);
@@ -108,9 +107,24 @@ public static class InstallerNativeControls
         SetForegroundWindow(wizard);
         if (GetForegroundWindow() != wizard)
             throw new InvalidOperationException("The installer wizard could not acquire the foreground.");
-        UIntPtr result;
-        if (SendMessageTimeout(button, 0x00F5, IntPtr.Zero, IntPtr.Zero, 2, 120000, out result) == IntPtr.Zero)
+        // Post like real input: a sent BM_CLICK runs the handler inside an input-synchronous call, where
+        // the installer's WMI running-app check (PrepareToInstall) is refused and blocks on a runtime error.
+        if (!PostMessage(button, 0x00F5, IntPtr.Zero, IntPtr.Zero))
             throw new InvalidOperationException("Installer button invocation failed (Win32 " + Marshal.GetLastWin32Error() + ").");
+    }
+
+    // Identifies the visible wizard page without messaging the installer thread, which may be busy installing.
+    public static string GetPageSignature(IntPtr wizard)
+    {
+        var pages = new List<string>();
+        EnumChildWindows(wizard, (window, parameter) =>
+        {
+            var className = new StringBuilder(256);
+            GetClassName(window, className, className.Capacity);
+            if (className.ToString() == "TNewNotebookPage" && IsWindowVisible(window)) pages.Add(window.ToInt64().ToString());
+            return true;
+        }, IntPtr.Zero);
+        return string.Join(",", pages);
     }
 
     private static IAccessible Open(IntPtr window)
@@ -239,12 +253,23 @@ function Invoke-InteractiveSetup([string] $Path, [string] $Name, [bool] $Launch)
             for ($step = 0; $step -lt 6; $step++) {
                 $button = Wait-UiRegressionState -Description "$Name next wizard action" -TimeoutMilliseconds 120000 -Condition {
                     if ($wizardProcess.HasExited) { throw "$Name wizard exited unexpectedly." }
-                    Get-InstallerButton ([InstallerNativeControls]::GetChildren($wizardWindow)) @('Next', 'Install', 'Finish')
+                    try { $controls = [InstallerNativeControls]::GetChildren($wizardWindow) }
+                    catch {
+                        # A busy installer thread cannot answer the bounded text query yet; poll again.
+                        if ($_.Exception.Message -notlike '*(Win32 1460)*') { throw }
+                        return
+                    }
+                    Get-InstallerButton $controls @('Next', 'Install', 'Finish')
                 }
                 Write-Host "Installer $Name step ${step}: $($button.ClassName) '$($button.Text)'."
                 if ((Get-InstallerCaption $button.Text) -eq 'Finish') { $finish = $button; break }
+                $page = [InstallerNativeControls]::GetPageSignature($wizardWindow)
                 [InstallerNativeControls]::Click($wizardWindow, $button.Handle)
-                Start-Sleep -Milliseconds 200
+                # The posted click is asynchronous; never look for the next action on the page just left.
+                $null = Wait-UiRegressionState -Description "$Name page after '$($button.Text)'" -TimeoutMilliseconds 60000 -Condition {
+                    if ($wizardProcess.HasExited) { throw "$Name wizard exited unexpectedly." }
+                    [InstallerNativeControls]::GetPageSignature($wizardWindow) -ne $page
+                }
             }
             Assert-True ($null -ne $finish) "$Name did not reach Finish within the expected wizard pages."
             Assert-True (@(Get-InstalledAppProcess).Count -eq 0) "$Name launched before Finish."
