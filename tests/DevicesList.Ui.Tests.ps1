@@ -27,7 +27,7 @@ try {
         -ModuleDirectory (Join-Path $PSScriptRoot 'UiRegression') -Directory $ScreenshotDirectory `
         -EnvironmentNames @('FINGVIBE_UI_REVIEW', 'FINGVIBE_UI_REVIEW_SNAPSHOT', 'FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT',
             'FINGVIBE_UI_REVIEW_INVENTORY') `
-        -StateVariables @('process', 'windowHandle', 'root', 'scale', 'fixture', 'fixtureDirectory') `
+        -StateVariables @('process', 'windowHandle', 'root', 'scale', 'fixture', 'fixtureDirectory', 'deviceContrastFlags') `
         -OnFailure {
             param([string] $FailedGroup)
             if ($windowHandle -and $process -and -not $process.HasExited) {
@@ -44,6 +44,7 @@ try {
         } `
         -Cleanup @(
             { Stop-UiRegressionApp -Process $process },
+            { if ($null -ne $deviceContrastFlags) { Set-DeviceFilterContrastFlags -Flags $deviceContrastFlags } },
             {
                 if ($fixtureDirectory -and (Test-Path -LiteralPath $fixtureDirectory)) {
                     Remove-Item -LiteralPath $fixtureDirectory -Recurse -Force

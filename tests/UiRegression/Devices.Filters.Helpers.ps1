@@ -222,12 +222,28 @@ function Assert-StatusChoiceIndicators([string] $Theme, [switch] $HighContrast) 
     }
 }
 
+function Set-DeviceFilterContrastFlags {
+    param(
+        [Parameter(Mandatory)][uint32] $Flags,
+        [ValidateRange(1, 10000)][int] $TimeoutMilliseconds = 10000,
+        [scriptblock] $Apply = { param($Value) [DeviceFilterReviewContrast]::Set($Value) },
+        [scriptblock] $Read = { [DeviceFilterReviewContrast]::Get() }
+    )
+    & $Apply $Flags
+    $null = Wait-UiRegressionState -Description "requested filter contrast system state" `
+        -TimeoutMilliseconds $TimeoutMilliseconds -Condition {
+            ((& $Read) -band 1) -eq ($Flags -band 1)
+        }
+}
+
 function Wait-DeviceFilterContrastReady {
     param(
         [Parameter(Mandatory)][bool] $Enabled,
         [ValidateRange(1, 10000)][int] $TimeoutMilliseconds = 10000,
         [scriptblock] $Observe = {
-            $label = Find-DeviceElement InventoryStatusFilterLabel
+            $label = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'InventoryStatusFilterLabel'))
             [pscustomobject]@{
                 Enabled = ([DeviceFilterReviewContrast]::Get() -band 1) -ne 0
                 Foreground = [UiReviewNativeWindow]::GetForegroundWindow() -eq $windowHandle
@@ -235,6 +251,9 @@ function Wait-DeviceFilterContrastReady {
                 Window = Get-UiReviewWindowBounds $windowHandle
                 Label = $label.Current.BoundingRectangle
             }
+        },
+        [scriptblock] $RestoreForeground = {
+            $null = [UiReviewNativeWindow]::SetForegroundWindow($windowHandle)
         }
     )
     Focus-DeviceWindow
@@ -242,6 +261,7 @@ function Wait-DeviceFilterContrastReady {
     $null = Wait-UiRegressionState -Description "filter contrast=$Enabled with stable foreground and geometry" `
         -TimeoutMilliseconds $TimeoutMilliseconds -Condition {
             $sample = & $Observe
+            if (-not $sample.Foreground) { & $RestoreForeground }
             $ready = $sample.Enabled -eq $Enabled -and $sample.Foreground -and $sample.Visible -and
                 $sample.Window.Width -gt 0 -and $sample.Window.Height -gt 0 -and
                 $sample.Label.Width -gt 0 -and $sample.Label.Height -gt 0
@@ -293,34 +313,11 @@ function Test-DeviceFilterVisualStates {
         $null = Save-DeviceCapture "devices-filter-hover-$theme" -KeepPointer
     }
     if ($env:GITHUB_ACTIONS -eq "true" -and $env:RUNNER_OS -eq "Windows") {
-        Add-Type -TypeDefinition @'
-using System;
-using System.Runtime.InteropServices;
-public static class DeviceFilterReviewContrast {
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    private struct HIGHCONTRAST { public uint Size; public uint Flags; public IntPtr Scheme; }
-    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern bool SystemParametersInfo(uint action, uint size, ref HIGHCONTRAST value, uint flags);
-    public static uint Get() {
-        var value = new HIGHCONTRAST { Size = (uint)Marshal.SizeOf<HIGHCONTRAST>() };
-        if (!SystemParametersInfo(0x0042, value.Size, ref value, 0))
-            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
-        return value.Flags;
-    }
-    public static void Set(uint flags) {
-        var value = new HIGHCONTRAST { Size = (uint)Marshal.SizeOf<HIGHCONTRAST>(), Flags = flags };
-        if (!SystemParametersInfo(0x0043, value.Size, ref value, 2))
-            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
-    }
-    [DllImport("user32.dll")]
-    public static extern int GetSysColor(int index);
-}
-'@
         $originalColor = Get-FilterLabelColor InventoryStatusFilter
         $flags = [DeviceFilterReviewContrast]::Get()
         $contrastFailed = $true
         try {
-            [DeviceFilterReviewContrast]::Set($flags -bor 1)
+            Set-DeviceFilterContrastFlags -Flags ($flags -bor 1)
             Wait-DeviceFilterContrastReady -Enabled $true
             $null = Wait-UiRegressionState -Description "filter high-contrast foreground rendered" -Condition {
                 ([DeviceFilterReviewContrast]::Get() -band 1) -ne 0 -and
@@ -338,7 +335,7 @@ public static class DeviceFilterReviewContrast {
         }
         finally {
             Invoke-UiRegressionCleanup -PrimaryFailed $contrastFailed -Steps @(
-                { [DeviceFilterReviewContrast]::Set($flags) },
+                { Set-DeviceFilterContrastFlags -Flags $flags },
                 {
                     Wait-DeviceFilterContrastReady -Enabled (($flags -band 1) -ne 0)
                     $null = Wait-UiRegressionState -Description "filter foreground restored after high contrast" -Condition {

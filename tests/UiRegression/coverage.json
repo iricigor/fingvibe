@@ -287,6 +287,11 @@
               "assertions": []
             },
             {
+              "name": "Set-DeviceFilterContrastFlags",
+              "refactored": true,
+              "assertions": []
+            },
+            {
               "name": "Wait-DeviceFilterContrastReady",
               "refactored": true,
               "assertions": []
