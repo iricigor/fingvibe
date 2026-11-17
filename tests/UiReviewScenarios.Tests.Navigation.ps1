@@ -39,7 +39,12 @@
     function Find-WebDriverElement([string] $Using, [string] $Value) {
         if ($Value -eq "Completed backups, newest first") { throw "The collapsed backups table has no automation peer." }
         if ($Using -eq "xpath") {
-            if ($Value -match "^//ListItem\[@Name='(.+)'\]$") { return "menu-$($Matches[1])" }
+            if ($Value -match "^//ListItem\[@Name='(.+)'\]$") {
+                if ($Matches[1] -notin @("Overview", "Network", "Devices", "People & rooms", "Tools", "Settings")) {
+                    throw "Unexpected navigation item '$($Matches[1])'."
+                }
+                return "menu-$($Matches[1])"
+            }
             if ($Value -eq "//List[@Name='Scan results']/ListItem[.//*[@Name='Online']][1]") { return "online-row" }
             if ($Value -eq "//*[@AutomationId='DeviceHistoryTab']") { return "control-DeviceHistoryTab" }
             if ($Value -eq "//List[@Name='People']/ListItem[.//*[@Name='UI review person']]") { return "person-row" }
@@ -86,8 +91,8 @@
                     "control-Search devices" { $script:currentPage -eq "Devices" }
                     "control-Online" { $script:currentPage -eq "Devices" -and -not $script:empty }
                     "online-row" { $script:currentPage -eq "Devices" -and -not $script:empty }
-                    "person-row" { $script:currentPage -eq "People" }
-                    "room-row" { $script:currentPage -eq "Rooms" }
+                    "person-row" { $script:currentPage -eq "People & rooms" }
+                    "room-row" { $script:currentPage -eq "People & rooms" }
                     "control-No devices match the current filter." { $script:currentPage -eq "Devices" -and $script:empty }
                     "control-Back to devices" { $script:currentPage -eq "DeviceDetails" }
                     "control-DeviceHistoryTab" { $script:currentPage -eq "DeviceDetails" }
@@ -118,12 +123,8 @@
                     "control-Back to Tools" { $script:currentPage -in @("Troubleshooting", "FingImport", "SqlEditor", "DatabaseBackups") }
                     "control-Back to Settings" { $script:currentPage -eq "About" }
                     "control-FingVibe LAN Scanner" { $script:currentPage -eq "About" }
-                    "control-Search people and rooms" { $script:currentPage -in @("People", "Rooms") }
-                    "control-Search people" { $script:currentPage -in @("People", "Rooms") }
-                    "control-Search rooms" { $script:currentPage -in @("People", "Rooms") }
+                    "control-Search people and rooms" { $script:currentPage -eq "People & rooms" }
                     "control-Back to people and rooms" { $script:currentPage -in @("PersonDetails", "RoomDetails") }
-                    "control-Back to people" { $script:currentPage -eq "PersonDetails" }
-                    "control-Back to rooms" { $script:currentPage -eq "RoomDetails" }
                     "control-Assigned devices" { $script:currentPage -eq "RoomDetails" -or
                         ($script:currentPage -eq "PersonDetails" -and $script:personAssignmentsFocused) }
                     "control-Assign devices" { $script:currentPage -eq "RoomDetails" -or
@@ -139,7 +140,11 @@
     }
     foreach ($scenario in $UiReviewScenarios.Keys) {
         Show-UiReviewCaptureScenario $scenario
-        $expectedPage = if ($scenario -eq "DevicesEmpty") { "Devices" } else { $scenario }
+        $expectedPage = switch ($scenario) {
+            "DevicesEmpty" { "Devices" }
+            { $_ -in @("People", "Rooms") } { "People & rooms" }
+            default { $scenario }
+        }
         Assert-Equal $script:currentPage $expectedPage "Navigation: $scenario"
     }
     Show-UiReviewCaptureScenario "Devices"

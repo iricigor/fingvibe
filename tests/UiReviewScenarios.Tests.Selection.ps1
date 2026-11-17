@@ -57,6 +57,14 @@
     } "*NewPage*has no capture scenario*"
     Test-Change @{ "src\FingVibe.App\MainWindow.xaml" = $xaml.Replace('<Window ', '<Window Title="Shared" ') } `
         @($UiReviewScenarios.Keys) "Shared layout"
+    $null = Invoke-UiReviewGit $repository @("checkout", "--quiet", "--detach", $base)
+    Set-Content -LiteralPath $xamlPath -Value $xaml.Replace('</Grid></Window>', '<Grid x:Name="RetiredPage" /></Grid></Window>')
+    $null = Invoke-UiReviewGit $repository @("add", ".")
+    $null = Invoke-UiReviewGit $repository @("commit", "--quiet", "-m", "Retired page")
+    $originalBase = $base
+    $base = Invoke-UiReviewGit $repository @("rev-parse", "HEAD")
+    Test-Change @{ "src\FingVibe.App\MainWindow.xaml" = $xaml } @($UiReviewScenarios.Keys) "Removed page"
+    $base = $originalBase
     $navigation = '<NavigationView><NavigationView.MenuItems><NavigationViewItem Content="Tools" /></NavigationView.MenuItems></NavigationView>'
     $navigationXaml = $xaml.Replace('<Grid x:Name="RootGrid">', "<Grid x:Name=`"RootGrid`">$navigation")
     # The existing navigation container is part of the shell; only its menu entries are excluded.

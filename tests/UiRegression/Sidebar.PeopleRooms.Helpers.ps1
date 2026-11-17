@@ -82,14 +82,16 @@ function Test-PeopleRoomsFlows {
     foreach ($category in @('Person', 'Room')) {
         $page = if ($category -eq 'Person') { 'People' } else { 'Rooms' }
         $singular = $category.ToLowerInvariant()
-        $pageId = "${page}Page"
+        $plural = $page.ToLowerInvariant()
+        $search = 'Search people and rooms'
+        $pageId = 'PeopleRoomsPage'
         $detailId = "${category}DetailPage"
         $name = "Refactor $singular"
         $short = if ($category -eq 'Person') { 'RP' } else { 'RR' }
-        Select-SidebarPage $page "Search $($page.ToLowerInvariant())"
-        Set-PeopleRoomsText "Search $($page.ToLowerInvariant())" 'missing-refactor'
-        $null = Find-PeopleRoomsElement Name "No $($page.ToLowerInvariant()) match your search." $pageId
-        Set-PeopleRoomsText "Search $($page.ToLowerInvariant())" ''
+        Select-SidebarPage 'People & rooms' $search
+        Set-PeopleRoomsText $search 'missing-refactor'
+        $null = Find-PeopleRoomsElement Name "No $plural match your search." $pageId
+        Set-PeopleRoomsText $search ''
 
         Invoke-PeopleRoomsElement AutomationId "Add${category}Button" $pageId
         Set-PeopleRoomsText 'Full name' $name
@@ -100,9 +102,9 @@ function Test-PeopleRoomsFlows {
         $null = Find-PeopleRoomsElement Name 'Short names must contain 1 to 3 characters.'
         Set-PeopleRoomsText 'Short name' $short
         Invoke-PeopleRoomsElement Name Cancel
-        Set-PeopleRoomsText "Search $($page.ToLowerInvariant())" $name
-        $null = Find-PeopleRoomsElement Name "No $($page.ToLowerInvariant()) match your search." $pageId
-        Set-PeopleRoomsText "Search $($page.ToLowerInvariant())" ''
+        Set-PeopleRoomsText $search $name
+        $null = Find-PeopleRoomsElement Name "No $plural match your search." $pageId
+        Set-PeopleRoomsText $search ''
 
         Invoke-PeopleRoomsElement AutomationId "Add${category}Button" $pageId
         Set-PeopleRoomsText 'Full name' $name
@@ -146,9 +148,9 @@ function Test-PeopleRoomsFlows {
         $null = Find-PeopleRoomsElement Name '1 device assigned' $detailId
         Invoke-PeopleRoomsElement AutomationId "Delete${category}DetailButton" $detailId
         Invoke-PeopleRoomsElement Name Delete
-        Set-PeopleRoomsText "Search $($page.ToLowerInvariant())" "$name edited"
-        $null = Find-PeopleRoomsElement Name "No $($page.ToLowerInvariant()) match your search." $pageId
-        Set-PeopleRoomsText "Search $($page.ToLowerInvariant())" ''
+        Set-PeopleRoomsText $search "$name edited"
+        $null = Find-PeopleRoomsElement Name "No $plural match your search." $pageId
+        Set-PeopleRoomsText $search ''
     }
     Write-Host 'People/Rooms search, list/detail editors, validation, cancellation, selection refresh, assignments and deletion passed.'
 }
@@ -162,13 +164,13 @@ function Test-PeopleRoomsPersistenceErrors {
     try {
         $env:FINGVIBE_UI_REVIEW_INVENTORY = $inventory
         Start-SidebarApp
-        Select-SidebarPage People 'Search people'
+        Select-SidebarPage 'People & rooms' 'Search people and rooms'
         $null = Wait-UiRegressionState -Description 'People editor ready' -Condition {
-            (Find-PeopleRoomsElement AutomationId AddPersonButton PeoplePage).Current.IsEnabled
+            (Find-PeopleRoomsElement AutomationId AddPersonButton PeopleRoomsPage).Current.IsEnabled
         }
         # A file at the missing fixture directory deterministically rejects the write without a database lock.
         Set-Content -LiteralPath $storeDirectory -Value 'blocked fixture directory' -Encoding ASCII
-        Invoke-PeopleRoomsElement AutomationId AddPersonButton PeoplePage
+        Invoke-PeopleRoomsElement AutomationId AddPersonButton PeopleRoomsPage
         Set-PeopleRoomsText 'Full name' 'Retained draft'
         Set-PeopleRoomsText 'Short name' 'RD'
         Invoke-PeopleRoomsElement Name Save
@@ -179,23 +181,23 @@ function Test-PeopleRoomsPersistenceErrors {
         Remove-Item -LiteralPath $storeDirectory
         $null = New-Item -ItemType Directory -Path $storeDirectory
         Invoke-PeopleRoomsElement Name Save
-        $null = Find-PeopleRoomsElement Name 'Retained draft' PeoplePage
+        $null = Find-PeopleRoomsElement Name 'Retained draft' PeopleRoomsPage
         Stop-SidebarApp
         Start-SidebarApp
-        Select-SidebarPage People 'Search people'
-        $null = Find-PeopleRoomsElement Name 'Retained draft' PeoplePage
+        Select-SidebarPage 'People & rooms' 'Search people and rooms'
+        $null = Find-PeopleRoomsElement Name 'Retained draft' PeopleRoomsPage
         Stop-SidebarApp
         Set-Content -LiteralPath $database -Value 'not a SQLite database' -Encoding ASCII
         Start-SidebarApp
-        Select-SidebarPage People 'Search people'
+        Select-SidebarPage 'People & rooms' 'Search people and rooms'
         $null = Wait-UiRegressionState -Description 'unavailable People status' -Condition {
-            (Find-PeopleRoomsElement AutomationId PeopleStatusText PeoplePage).Current.Name -like 'Saved inventory could not be loaded.*'
+            (Find-PeopleRoomsElement AutomationId PeopleStatusText PeopleRoomsPage).Current.Name -like 'Saved inventory could not be loaded.*'
         }
-        if ((Find-PeopleRoomsElement AutomationId AddPersonButton PeoplePage).Current.IsEnabled) {
+        if ((Find-PeopleRoomsElement AutomationId AddPersonButton PeopleRoomsPage).Current.IsEnabled) {
             throw 'Unavailable inventory enabled People changes.'
         }
-        Select-SidebarPage Rooms 'Search rooms'
-        if ((Find-PeopleRoomsElement AutomationId AddRoomButton RoomsPage).Current.IsEnabled) {
+        Select-SidebarPage 'People & rooms' 'Search people and rooms'
+        if ((Find-PeopleRoomsElement AutomationId AddRoomButton PeopleRoomsPage).Current.IsEnabled) {
             throw 'Unavailable inventory enabled Room changes.'
         }
         Write-Host 'People/Rooms failed-save draft, retry, persisted restart and unavailable inventory restrictions passed.'

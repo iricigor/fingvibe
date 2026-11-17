@@ -41,8 +41,8 @@ function Show-Equipment([string] $Id, [switch] $ByName) {
 }
 function Open-EquipmentPerson([string] $Name = "Equipment person") {
     (Find-Equipment PeopleRoomsNavItem).GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
-    if (Find-Equipment "Back to people" -ByName) {
-        (Show-Equipment "Back to people" -ByName).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
+    if (Find-Equipment "Back to people and rooms" -ByName) {
+        (Show-Equipment "Back to people and rooms" -ByName).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
     }
     $row = Wait-UiRegressionState -Description "Equipment person list row" -Condition { Find-Equipment $Name -ByName }
     $walker = [Windows.Automation.TreeWalker]::ControlViewWalker

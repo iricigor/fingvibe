@@ -59,6 +59,7 @@ function Get-UiReviewCapturePlan {
             if ($path -eq "src/FingVibe.App/MainWindow.xaml") {
                 $documents = @()
                 foreach ($revision in @($mergeBase, $HeadRevision)) {
+                    $isHead = $documents.Count -eq 1
                     $document = [System.Xml.XmlDocument]::new()
                     $document.LoadXml((Invoke-UiReviewGit $RepositoryPath @("show", "${revision}:$path")) -join "`n")
                     foreach ($comment in @($document.SelectNodes("//comment()"))) {
@@ -66,7 +67,8 @@ function Get-UiReviewCapturePlan {
                     }
                     foreach ($node in $document.SelectNodes("//*[@*[local-name()='Name']]")) {
                         $name = $node.GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml")
-                        if ($name -like "*Page" -and $name -notin $UiReviewScenarios.Values.Page) {
+                        # Pages removed by the change need no capture; the remaining base node selects the shared layout.
+                        if ($isHead -and $name -like "*Page" -and $name -notin $UiReviewScenarios.Values.Page) {
                             throw "Page '$name' has no capture scenario. Extend the scenario catalog, selection, navigation, and tests."
                         }
                     }
