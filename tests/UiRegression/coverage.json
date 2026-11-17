@@ -854,6 +854,11 @@
               "baselineSha256": "c5642974231412edb77c17bc690bf32092efa922d5c57d9b3a2403914f89851c"
             },
             {
+              "name": "Assert-SidebarFamilyIcons",
+              "refactored": true,
+              "introducedBy": "#550: require recognizable rendered Overview, Network, Devices and Tools family icons in the expanded and icon-only sidebar."
+            },
+            {
               "assertions": [
                 "937025d79cf44d2cb418dc311a01d19035cae6c70338f4103fe80aa953c80777"
               ],
