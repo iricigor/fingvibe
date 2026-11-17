@@ -24,53 +24,77 @@
                 <ResourceDictionary>
                     <ResourceDictionary.ThemeDictionaries>
                         <ResourceDictionary x:Key="Light">
-                            <Style x:Key="SidebarOverviewIconStyle" TargetType="FontIcon">
+                            <Style x:Key="SidebarOverviewIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#C45D16" />
                             </Style>
-                            <Style x:Key="SidebarNetworkIconStyle" TargetType="FontIcon">
+                            <Style x:Key="SidebarNetworkIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#0078B8" />
                             </Style>
-                            <Style x:Key="SidebarDevicesIconStyle" TargetType="FontIcon">
+                            <Style x:Key="SidebarDevicesIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#6253C4" />
                             </Style>
-                            <Style x:Key="SidebarPeopleIconStyle" TargetType="FontIcon">
+                            <Style x:Key="SidebarPeopleIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#008575" />
                             </Style>
-                            <Style x:Key="SidebarRoomsIconStyle" TargetType="FontIcon">
+                            <Style x:Key="SidebarRoomsIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#B34177" />
                             </Style>
-                            <Style x:Key="SidebarToolsIconStyle" TargetType="FontIcon">
+                            <Style x:Key="SidebarToolsIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#9A6700" />
                             </Style>
                         </ResourceDictionary>
                         <ResourceDictionary x:Key="Dark">
-                            <Style x:Key="SidebarOverviewIconStyle" TargetType="FontIcon">
+                            <Style x:Key="SidebarOverviewIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#FFAB66" />
                             </Style>
-                            <Style x:Key="SidebarNetworkIconStyle" TargetType="FontIcon">
+                            <Style x:Key="SidebarNetworkIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#60CDFF" />
                             </Style>
-                            <Style x:Key="SidebarDevicesIconStyle" TargetType="FontIcon">
+                            <Style x:Key="SidebarDevicesIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#B4A0FF" />
                             </Style>
-                            <Style x:Key="SidebarPeopleIconStyle" TargetType="FontIcon">
+                            <Style x:Key="SidebarPeopleIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#5BD6C3" />
                             </Style>
-                            <Style x:Key="SidebarRoomsIconStyle" TargetType="FontIcon">
+                            <Style x:Key="SidebarRoomsIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#F093BE" />
                             </Style>
-                            <Style x:Key="SidebarToolsIconStyle" TargetType="FontIcon">
+                            <Style x:Key="SidebarToolsIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
                                 <Setter Property="Foreground" Value="#F9CF58" />
                             </Style>
                         </ResourceDictionary>
                         <ResourceDictionary x:Key="HighContrast">
                             <!-- Inherit native selected/hover foregrounds instead of fixing a decorative color. -->
-                            <Style x:Key="SidebarOverviewIconStyle" TargetType="FontIcon" />
-                            <Style x:Key="SidebarNetworkIconStyle" TargetType="FontIcon" />
-                            <Style x:Key="SidebarDevicesIconStyle" TargetType="FontIcon" />
-                            <Style x:Key="SidebarPeopleIconStyle" TargetType="FontIcon" />
-                            <Style x:Key="SidebarRoomsIconStyle" TargetType="FontIcon" />
-                            <Style x:Key="SidebarToolsIconStyle" TargetType="FontIcon" />
+                            <Style x:Key="SidebarOverviewIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
+                            </Style>
+                            <Style x:Key="SidebarNetworkIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
+                            </Style>
+                            <Style x:Key="SidebarDevicesIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
+                            </Style>
+                            <Style x:Key="SidebarPeopleIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
+                            </Style>
+                            <Style x:Key="SidebarRoomsIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
+                            </Style>
+                            <Style x:Key="SidebarToolsIconStyle" TargetType="BitmapIcon">
+                                <Setter Property="ShowAsMonochrome" Value="True" />
+                            </Style>
                         </ResourceDictionary>
                     </ResourceDictionary.ThemeDictionaries>
                     <SolidColorBrush x:Key="NavigationViewDefaultPaneBackground" Color="Transparent" />
@@ -104,34 +128,40 @@
             <NavigationView.MenuItems>
                 <NavigationViewItem x:Name="OverviewNavItem" Content="Overview" Tag="Overview">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE9D2;" Style="{ThemeResource SidebarOverviewIconStyle}" />
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/overview-mono.png"
+                                    Style="{ThemeResource SidebarOverviewIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="NetworkNavItem" Content="Network" Tag="Network">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE968;" Style="{ThemeResource SidebarNetworkIconStyle}" />
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/network-mono.png"
+                                    Style="{ThemeResource SidebarNetworkIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="DevicesNavItem" Content="Devices" Tag="Devices">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE772;" Style="{ThemeResource SidebarDevicesIconStyle}" />
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/devices-mono.png"
+                                    Style="{ThemeResource SidebarDevicesIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="PeopleNavItem" Content="People" Tag="People">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE716;" Style="{ThemeResource SidebarPeopleIconStyle}" />
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/people-mono.png"
+                                    Style="{ThemeResource SidebarPeopleIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="RoomsNavItem" Content="Rooms" Tag="Rooms">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE707;" Style="{ThemeResource SidebarRoomsIconStyle}" />
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/rooms-mono.png"
+                                    Style="{ThemeResource SidebarRoomsIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
             <NavigationView.FooterMenuItems>
                 <NavigationViewItem x:Name="ToolsNavItem" Content="Tools" Tag="Tools">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE90F;" Style="{ThemeResource SidebarToolsIconStyle}" />
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/tools-mono.png"
+                                    Style="{ThemeResource SidebarToolsIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.FooterMenuItems>

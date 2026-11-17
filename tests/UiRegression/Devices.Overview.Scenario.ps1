@@ -26,9 +26,10 @@ foreach ($id in @("OnlineChip", "OfflineChip", "UnknownChip", "FingOnlyChip")) {
         throw "Wide status totals must be compact, content-sized toggles in one horizontal row."
     }
 }
+$headingRowLeft = $heading.Left - (48 + 12) * $scale
 if ($heading.Bottom -ge $inventory.Top -or
-    [Math]::Abs($inventory.Left - $heading.Left - 16 * $scale) -gt 2 * $scale) {
-    throw "Devices title must sit above the card contents, outside their 16-DIP inset."
+    [Math]::Abs($inventory.Left - $headingRowLeft - 16 * $scale) -gt 2 * $scale) {
+    throw "Devices title row must sit above the card contents, outside their 16-DIP inset."
 }
 if ($heading.Bottom -ge $deviceCount.Top -or $heading.Bottom -ge $scanSummary.Top -or
     [Math]::Abs(($inventory.Top + $inventory.Bottom - $deviceCount.Top - $deviceCount.Bottom) / 2) -gt 2 * $scale -or

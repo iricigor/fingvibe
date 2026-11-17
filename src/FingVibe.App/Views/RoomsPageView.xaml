@@ -12,7 +12,15 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Spacing="4">
-                    <TextBlock Text="Rooms" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <local:PageHeaderIcon Icon="rooms" />
+                        <TextBlock Grid.Column="1" Text="Rooms" Style="{StaticResource ScannerPageTitleStyle}"
+                                   Margin="0" VerticalAlignment="Center" />
+                    </Grid>
                     <TextBlock Text="Manage manually assigned device locations; response counts describe the last scan, not detected presence."
                                TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
