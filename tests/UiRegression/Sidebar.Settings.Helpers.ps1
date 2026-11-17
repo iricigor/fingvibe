@@ -1,4 +1,40 @@
-﻿function Test-SettingsDisclosure {
+﻿function Test-SettingsCardHeaders {
+    $previous = $null
+    $textLeft = $null
+    foreach ($card in @(
+        @{ Id = 'AppearanceSection'; Title = 'AppearanceSettingsHeading'; Summary = 'AppearanceSummary' },
+        @{ Id = 'DevicesSection'; Title = 'DevicesSettingsHeading'; Summary = 'DevicesSummary' },
+        @{ Id = 'ScheduledScansSection'; Title = 'ScheduledScansHeading'; Summary = 'ScheduledScansSummary' },
+        @{ Id = 'AboutSettingsButton'; Title = 'AboutSettingsHeading'; Summary = 'AboutSummary' }
+    )) {
+        $element = Find-SidebarElement AutomationId $card.Id
+        $title = Find-SidebarElement AutomationId $card.Title
+        $summary = Find-SidebarElement AutomationId $card.Summary
+        $bounds = $element.Current.BoundingRectangle
+        if ($bounds.Height / $scale -lt 66 -or
+            -not (Test-UiRegressionElementWithin $title $element $root) -or
+            -not (Test-UiRegressionElementWithin $summary $element $root)) {
+            throw "$($card.Id) must have a 68-DIP minimum header with contained title and summary."
+        }
+        if ($null -eq $textLeft) { $textLeft = $title.Current.BoundingRectangle.Left }
+        if ([Math]::Abs($title.Current.BoundingRectangle.Left - $textLeft) -gt 2 * $scale -or
+            [Math]::Abs($summary.Current.BoundingRectangle.Left - $textLeft) -gt 2 * $scale -or
+            $title.Current.BoundingRectangle.Bottom -gt $summary.Current.BoundingRectangle.Top) {
+            throw "All Settings cards must align their title/summary columns without overlapping text."
+        }
+        if ($previous) {
+            $gap = ($bounds.Top - $previous.Bottom) / $scale
+            if ($gap -lt 4 -or $gap -gt 6 -or
+                [Math]::Abs($bounds.Left - $previous.Left) -gt 2 * $scale -or
+                [Math]::Abs($bounds.Right - $previous.Right) -gt 2 * $scale) {
+                throw "Settings cards must share their edges with 4-6 DIP gaps; got $gap."
+            }
+        }
+        $previous = $bounds
+    }
+}
+
+function Test-SettingsDisclosure {
     Select-SidebarPage Settings "Appearance preferences"
     foreach ($id in @("AppearanceSection", "DevicesSection", "ScheduledScansSection")) {
         $element = Find-SidebarElement AutomationId $id
@@ -10,6 +46,7 @@
             throw "$id must expose its current summary to assistive technology while collapsed."
         }
     }
+    Test-SettingsCardHeaders
     Save-SidebarAppearance "settings-collapsed"
     Focus-SidebarWindow
     $section = Find-SidebarElement AutomationId DevicesSection
@@ -105,7 +142,8 @@
             Select-SidebarPage Settings "Appearance preferences"
             foreach ($width in @(640, 480)) {
                 Set-SidebarWindowWidth $width
-                foreach ($id in @("AppearanceSummary", "DevicesSummary", "ScheduledScansSummary", "AboutSettingsButton")) {
+                foreach ($id in @("AppearanceSettingsHeading", "AppearanceSummary", "DevicesSettingsHeading", "DevicesSummary",
+                    "ScheduledScansHeading", "ScheduledScansSummary", "AboutSettingsHeading", "AboutSummary")) {
                     $summaryCondition = [System.Windows.Automation.PropertyCondition]::new(
                         [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
                     $null = Show-UiRegressionScrollTargets -Description "scaled Settings $id" `
@@ -120,6 +158,20 @@
                 }
                 Save-SidebarAppearance "settings-collapsed-text-200-high-contrast-$width" -MinimumWidth $width
             }
+            Expand-UiReviewSettingsSection -Root $root -Section AppearanceSection
+            foreach ($id in @("ModePicker", "ThemePicker", "BackdropPicker", "AppearanceSaveStatus")) {
+                $controlCondition = [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id)
+                $null = Show-UiRegressionScrollTargets -Description "expanded scaled Settings $id" `
+                    -GetViewport { Find-SidebarElement AutomationId SettingsPage } -GetWindow { $root } -GetTargets {
+                        $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $controlCondition)
+                    }
+                $element = Find-SidebarElement AutomationId $id
+                if (-not (Test-UiRegressionElementWithin $element (Find-SidebarElement AutomationId SettingsPage) $root)) {
+                    throw "Expanded Settings '$id' is clipped at 480 DIPs with enlarged text."
+                }
+            }
+            Save-SidebarAppearance "settings-expanded-text-200-high-contrast-480" -MinimumWidth 480
             $failed = $false
         }
         finally {

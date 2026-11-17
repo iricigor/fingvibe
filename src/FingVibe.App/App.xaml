@@ -31,6 +31,12 @@
                     <SolidColorBrush x:Key="PeopleRoomsBadgeForegroundBrush" Color="#1D4ED8" />
                     <SolidColorBrush x:Key="PeopleRoomsHeaderHouseBrush" Color="#2563EB" />
                     <SolidColorBrush x:Key="PeopleRoomsHeaderPersonBrush" Color="#A855F7" />
+                    <Style x:Key="PageHeaderColorIconStyle" TargetType="Image">
+                        <Setter Property="Visibility" Value="Visible" />
+                    </Style>
+                    <Style x:Key="PageHeaderMonochromeIconStyle" TargetType="BitmapIcon">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                    </Style>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="ScannerNavigationDividerBrush" Color="#0EFFFFFF" />
@@ -54,6 +60,12 @@
                     <SolidColorBrush x:Key="PeopleRoomsBadgeForegroundBrush" Color="#BFDBFE" />
                     <SolidColorBrush x:Key="PeopleRoomsHeaderHouseBrush" Color="#60A5FA" />
                     <SolidColorBrush x:Key="PeopleRoomsHeaderPersonBrush" Color="#C084FC" />
+                    <Style x:Key="PageHeaderColorIconStyle" TargetType="Image">
+                        <Setter Property="Visibility" Value="Visible" />
+                    </Style>
+                    <Style x:Key="PageHeaderMonochromeIconStyle" TargetType="BitmapIcon">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                    </Style>
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
                     <SolidColorBrush x:Key="ScannerNavigationDividerBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
@@ -73,6 +85,12 @@
                     <SolidColorBrush x:Key="PeopleRoomsBadgeForegroundBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                     <SolidColorBrush x:Key="PeopleRoomsHeaderHouseBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                     <SolidColorBrush x:Key="PeopleRoomsHeaderPersonBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <Style x:Key="PageHeaderColorIconStyle" TargetType="Image">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                    </Style>
+                    <Style x:Key="PageHeaderMonochromeIconStyle" TargetType="BitmapIcon">
+                        <Setter Property="Visibility" Value="Visible" />
+                    </Style>
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
             <Thickness x:Key="ScannerPageContentMargin">12,0,24,24</Thickness>
