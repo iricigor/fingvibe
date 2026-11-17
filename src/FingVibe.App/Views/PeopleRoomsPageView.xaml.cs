@@ -59,8 +59,8 @@ public sealed partial class PeopleRoomsPageView : UserControl
         var hasPeopleData = _peopleRows.Count > 0;
         var hasRoomData = _roomRows.Count > 0;
 
-        PeopleTableBorder.Visibility = hasPeopleRows ? Visibility.Visible : Visibility.Collapsed;
-        RoomsTableBorder.Visibility = hasRoomRows ? Visibility.Visible : Visibility.Collapsed;
+        PeopleColumnHeaders.Visibility = PeopleList.Visibility = hasPeopleRows ? Visibility.Visible : Visibility.Collapsed;
+        RoomsColumnHeaders.Visibility = RoomsList.Visibility = hasRoomRows ? Visibility.Visible : Visibility.Collapsed;
 
         PeopleEmptyState.Visibility = hasPeopleRows ? Visibility.Collapsed : Visibility.Visible;
         RoomsEmptyState.Visibility = hasRoomRows ? Visibility.Collapsed : Visibility.Visible;

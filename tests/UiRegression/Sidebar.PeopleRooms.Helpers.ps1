@@ -4,17 +4,17 @@ function Find-PeopleRoomsElement([string] $Property, [string] $Value, [string] $
     } else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
     # Wait-UiRegressionState's $Condition parameter shadows caller variables in callbacks.
     $peopleRoomsCondition = [System.Windows.Automation.PropertyCondition]::new($propertyId, $Value)
-    if ($OwnerId -eq 'PersonDetailPage') {
+    if ($OwnerId -in @('PersonDetailPage', 'PeopleRoomsPage')) {
         $getPage = {
             $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
                 [System.Windows.Automation.PropertyCondition]::new(
-                    [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'PersonDetailPage'))
+                    [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $OwnerId))
         }
         $getTarget = {
             $page = & $getPage
             if ($page) { $page.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $peopleRoomsCondition) }
         }
-        $target = Wait-UiRegressionState -Description "Person detail '$Value' peer" -Condition $getTarget
+        $target = Wait-UiRegressionState -Description "$OwnerId '$Value' peer" -Condition $getTarget
         if ($target.Current.IsKeyboardFocusable) {
             $target.SetFocus()
             $scrollItem = $null
@@ -23,7 +23,7 @@ function Find-PeopleRoomsElement([string] $Property, [string] $Value, [string] $
             }
         }
         else {
-            $null = Show-UiRegressionScrollTargets -Description "Person detail '$Value'" `
+            $null = Show-UiRegressionScrollTargets -Description "$OwnerId '$Value'" `
                 -GetViewport $getPage -GetTargets $getTarget -GetWindow { $root }
         }
     }
@@ -168,6 +168,12 @@ function Test-PeopleRoomsPersistenceErrors {
         $null = Wait-UiRegressionState -Description 'People editor ready' -Condition {
             (Find-PeopleRoomsElement AutomationId AddPersonButton PeopleRoomsPage).Current.IsEnabled
         }
+        foreach ($section in @('People', 'Rooms')) {
+            if ((Find-PeopleRoomsElement AutomationId "${section}CountText" PeopleRoomsPage).Current.Name -ne '0 shown') {
+                throw "Empty $section must retain its visible zero count."
+            }
+            $null = Find-PeopleRoomsElement AutomationId "${section}EmptyText" PeopleRoomsPage
+        }
         # A file at the missing fixture directory deterministically rejects the write without a database lock.
         Set-Content -LiteralPath $storeDirectory -Value 'blocked fixture directory' -Encoding ASCII
         Invoke-PeopleRoomsElement AutomationId AddPersonButton PeopleRoomsPage
@@ -192,6 +198,9 @@ function Test-PeopleRoomsPersistenceErrors {
         Select-SidebarPage 'People & rooms' 'Search people and rooms'
         $null = Wait-UiRegressionState -Description 'unavailable People status' -Condition {
             (Find-PeopleRoomsElement AutomationId PeopleStatusText PeopleRoomsPage).Current.Name -like 'Saved inventory could not be loaded.*'
+        }
+        if ((Find-PeopleRoomsElement AutomationId RoomsStatusText PeopleRoomsPage).Current.Name -notlike 'Saved inventory could not be loaded.*') {
+            throw 'Unavailable inventory must retain the Rooms error status even without rows.'
         }
         if ((Find-PeopleRoomsElement AutomationId AddPersonButton PeopleRoomsPage).Current.IsEnabled) {
             throw 'Unavailable inventory enabled People changes.'

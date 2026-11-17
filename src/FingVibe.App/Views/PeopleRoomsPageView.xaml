@@ -5,37 +5,35 @@
     xmlns:local="using:FingVibe.App">
     <ScrollViewer x:Name="PeopleRoomsPage" AutomationProperties.AutomationId="PeopleRoomsPage">
         <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="12">
-            <Grid ColumnSpacing="16">
+            <Grid x:Name="PeopleRoomsHeadingRow" ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Grid Width="64" Height="64" VerticalAlignment="Top" AutomationProperties.AccessibilityView="Raw">
-                    <FontIcon Glyph="&#xE80F;" FontFamily="Segoe Fluent Icons" FontSize="44"
-                              Foreground="{ThemeResource PeopleRoomsHeaderHouseBrush}" />
-                    <FontIcon Glyph="&#xE77B;" FontFamily="Segoe Fluent Icons" FontSize="28"
-                              Foreground="{ThemeResource PeopleRoomsHeaderPersonBrush}"
-                              HorizontalAlignment="Right" VerticalAlignment="Bottom" />
-                </Grid>
-                <StackPanel Grid.Column="1" Spacing="4">
-                    <TextBlock Text="People &amp; rooms" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
-                    <TextBlock Text="Manage people and manually assigned device locations; response counts describe the last scan, not presence."
-                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                </StackPanel>
+                <Viewbox Width="48" Height="48" IsHitTestVisible="False"
+                         AutomationProperties.AccessibilityView="Raw">
+                    <Grid Width="64" Height="64">
+                        <FontIcon Glyph="&#xE80F;" FontFamily="Segoe Fluent Icons" FontSize="44"
+                                  Foreground="{ThemeResource PeopleRoomsHeaderHouseBrush}" />
+                        <FontIcon Glyph="&#xE77B;" FontFamily="Segoe Fluent Icons" FontSize="28"
+                                  Foreground="{ThemeResource PeopleRoomsHeaderPersonBrush}"
+                                  HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+                    </Grid>
+                </Viewbox>
+                <TextBlock Grid.Column="1" Text="People &amp; rooms" Style="{StaticResource ScannerPageTitleStyle}"
+                           Margin="0" VerticalAlignment="Center" TextWrapping="Wrap" />
             </Grid>
+            <TextBlock Text="Manage people and manually assigned device locations; response counts describe the last scan, not presence."
+                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
 
-            <Grid ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBox x:Name="PeopleRoomsSearchBox" Width="300" HorizontalAlignment="Left"
+            <StackPanel Spacing="8">
+                <TextBox x:Name="PeopleRoomsSearchBox" MaxWidth="300" HorizontalAlignment="Left"
                          PlaceholderText="Search people and rooms" AutomationProperties.Name="Search people and rooms"
                          TextChanged="PeopleRoomsSearchBox_TextChanged" />
-                <TextBlock x:Name="PeopleRoomsStatusText" Grid.Column="1" VerticalAlignment="Center"
+                <TextBlock x:Name="PeopleRoomsStatusText"
                            TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            </Grid>
+            </StackPanel>
 
             <Border x:Name="PeopleTableBorder" Style="{StaticResource ScannerSummaryCardStyle}" Padding="0">
                 <StackPanel>
@@ -51,9 +49,9 @@
                         <Button x:Name="AddPersonButton" Grid.Column="2" Content="Add person"
                                 VerticalAlignment="Center" Click="AddPersonButton_Click" />
                     </Grid>
-                    <TextBlock x:Name="PeopleStatusText" Margin="12,0,12,8"
+                    <TextBlock x:Name="PeopleStatusText" Margin="12,0,12,8" TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <Grid Padding="12,8" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
+                    <Grid x:Name="PeopleColumnHeaders" Padding="12,8" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="96" />
                             <ColumnDefinition Width="*" />
@@ -103,18 +101,16 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
+                    <StackPanel x:Name="PeopleEmptyState" Spacing="8" HorizontalAlignment="Center"
+                                Margin="12,12,12,24" Visibility="Collapsed">
+                        <TextBlock x:Name="PeopleEmptyText" Text="No people yet" FontSize="20"
+                                   FontWeight="SemiBold" HorizontalAlignment="Center" TextWrapping="Wrap" />
+                        <TextBlock Text="Add people to assign devices to the people who use them."
+                                   TextWrapping="Wrap" TextAlignment="Center"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
-
-            <StackPanel x:Name="PeopleEmptyState" Spacing="8" HorizontalAlignment="Center"
-                        Margin="0,12,0,24" Visibility="Collapsed">
-                <TextBlock x:Name="PeopleEmptyText" Text="No people yet" FontSize="20"
-                           FontWeight="SemiBold" HorizontalAlignment="Center" />
-                <TextBlock Text="Add people to assign devices to the people who use them."
-                           TextWrapping="Wrap" TextAlignment="Center"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <Button Content="Add person" Click="AddPersonButton_Click" HorizontalAlignment="Center" />
-            </StackPanel>
 
             <Border x:Name="RoomsTableBorder" Style="{StaticResource ScannerSummaryCardStyle}" Padding="0">
                 <StackPanel>
@@ -130,9 +126,9 @@
                         <Button x:Name="AddRoomButton" Grid.Column="2" Content="Add room"
                                 VerticalAlignment="Center" Click="AddRoomButton_Click" />
                     </Grid>
-                    <TextBlock x:Name="RoomsStatusText" Margin="12,0,12,8"
+                    <TextBlock x:Name="RoomsStatusText" Margin="12,0,12,8" TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <Grid Padding="12,8" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
+                    <Grid x:Name="RoomsColumnHeaders" Padding="12,8" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="96" />
                             <ColumnDefinition Width="*" />
@@ -182,18 +178,16 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
+                    <StackPanel x:Name="RoomsEmptyState" Spacing="8" HorizontalAlignment="Center"
+                                Margin="12,12,12,24" Visibility="Collapsed">
+                        <TextBlock x:Name="RoomsEmptyText" Text="No rooms yet" FontSize="20"
+                                   FontWeight="SemiBold" HorizontalAlignment="Center" TextWrapping="Wrap" />
+                        <TextBlock Text="Add rooms to record manually assigned device locations."
+                                   TextWrapping="Wrap" TextAlignment="Center"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
-
-            <StackPanel x:Name="RoomsEmptyState" Spacing="8" HorizontalAlignment="Center"
-                        Margin="0,12,0,24" Visibility="Collapsed">
-                <TextBlock x:Name="RoomsEmptyText" Text="No rooms yet" FontSize="20"
-                           FontWeight="SemiBold" HorizontalAlignment="Center" />
-                <TextBlock Text="Add rooms to record manually assigned device locations."
-                           TextWrapping="Wrap" TextAlignment="Center"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                <Button Content="Add room" Click="AddRoomButton_Click" HorizontalAlignment="Center" />
-            </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

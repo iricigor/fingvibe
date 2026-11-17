@@ -48,6 +48,10 @@ the link; supported inferred virtual identities keep their own assignments.
 Use **Search people and rooms** to filter both sections at once. Open an entry to review its assigned
 equipment. Use its edit action to change the name, icon, or notes.
 
+Each section keeps its count and Add action visible when empty or when nothing
+matches the search. If saved inventory cannot be loaded, the error remains
+visible and both Add actions are disabled until the data is available.
+
 Deleting a person clears that person's device assignments.
 Deleting a room clears only that room's assignments.
 Neither action deletes devices or scan history.

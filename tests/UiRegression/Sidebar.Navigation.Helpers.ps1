@@ -11,10 +11,12 @@
     $heading = @($root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition) |
         Where-Object { -not $_.Current.IsOffscreen -and $_.Current.BoundingRectangle.Left -gt $edge })
     if ($heading.Count -ne 1) { throw "Expected one visible content heading for '$Page'; got $($heading.Count)." }
-    foreach ($bounds in @($header, $heading[0].Current.BoundingRectangle)) {
+    $headingInset = if ($Page -eq "People & rooms") { 12 + 48 + 12 } else { 12 }
+    foreach ($check in @(@{ Bounds = $header; Inset = 12 }, @{ Bounds = $heading[0].Current.BoundingRectangle; Inset = $headingInset })) {
+        $bounds = $check.Bounds
         $inset = ($bounds.Left - $edge) / $scale
-        if ([Math]::Abs($inset - 12) -gt 2) {
-            throw "'$Page' heading and shared header must align 12 DIPs from navigation; got $inset."
+        if ([Math]::Abs($inset - $check.Inset) -gt 2) {
+            throw "'$Page' content must align $($check.Inset) DIPs from navigation; got $inset."
         }
         if (-not $root.Current.BoundingRectangle.Contains($bounds)) {
             throw "'$Page' heading or shared header is clipped."
