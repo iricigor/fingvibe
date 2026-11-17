@@ -25,7 +25,7 @@ public sealed partial class MainWindow
                     [new ManagedPerson(Guid.Parse("db958652-55aa-409f-afca-d60c68081574"), "UI review person", "UI", IconId: "person-filled")],
                     [new ManagedRoom(Guid.Parse("db958652-55aa-409f-afca-d60c68081575"), "UI review room", "UI", IconId: "garden")])
                 : await _peopleRoomsStore.LoadAsync();
-            SetPeopleRoomsStatus("People and rooms are saved locally.");
+            SetPeopleRoomsStorageNotice("People and rooms are saved locally.");
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
         {
@@ -268,6 +268,16 @@ public sealed partial class MainWindow
         finally
         {
             _deviceDataSaveLock.Release();
+        }
+    }
+
+    // The storage notice explains the details-page footnotes; the People & rooms tables omit it.
+    private void SetPeopleRoomsStorageNotice(string message)
+    {
+        SetPeopleRoomsStatus(message);
+        if (PeopleRoomsPage is not null)
+        {
+            PeopleRoomsPage.Status = string.Empty;
         }
     }
 

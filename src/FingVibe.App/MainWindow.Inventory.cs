@@ -53,7 +53,7 @@ public sealed partial class MainWindow
             {
                 ApplyInventoryData(saved);
                 _peopleRoomsReady = true;
-                SetPeopleRoomsStatus("People and rooms are saved with the local device inventory.");
+                SetPeopleRoomsStorageNotice("People and rooms are saved with the local device inventory.");
             }
             else
             {

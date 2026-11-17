@@ -3,6 +3,15 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:FingVibe.App">
+    <UserControl.Resources>
+        <!-- Rows stretch with no container inset so their columns line up with the header grid. -->
+        <Style x:Key="PeopleRoomsListItemStyle" TargetType="ListViewItem">
+            <Setter Property="MinHeight" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+    </UserControl.Resources>
     <ScrollViewer x:Name="PeopleRoomsPage" AutomationProperties.AutomationId="PeopleRoomsPage">
         <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="12">
             <Grid x:Name="PeopleRoomsHeadingRow" ColumnSpacing="12">
@@ -30,7 +39,7 @@
                 <TextBox x:Name="PeopleRoomsSearchBox" MaxWidth="300" HorizontalAlignment="Left"
                          PlaceholderText="Search people and rooms" AutomationProperties.Name="Search people and rooms"
                          TextChanged="PeopleRoomsSearchBox_TextChanged" />
-                <TextBlock x:Name="PeopleRoomsStatusText"
+                <TextBlock x:Name="PeopleRoomsStatusText" Visibility="Collapsed"
                            TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             </StackPanel>
@@ -49,7 +58,7 @@
                         <Button x:Name="AddPersonButton" Grid.Column="2" Content="Add person"
                                 VerticalAlignment="Center" Click="AddPersonButton_Click" />
                     </Grid>
-                    <TextBlock x:Name="PeopleStatusText" Margin="12,0,12,8" TextWrapping="Wrap"
+                    <TextBlock x:Name="PeopleStatusText" Visibility="Collapsed" Margin="12,0,12,8" TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <Grid x:Name="PeopleColumnHeaders" Padding="12,8" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
                         <Grid.ColumnDefinitions>
@@ -63,8 +72,11 @@
                         <TextBlock Grid.Column="1" Text="Name" FontWeight="SemiBold" />
                         <TextBlock Grid.Column="2" Text="Devices" FontWeight="SemiBold" />
                         <TextBlock Grid.Column="3" Text="Last scan" FontWeight="SemiBold" />
+                        <!-- Reserves the row More button width, including text scaling, so the headers share row columns. -->
+                        <Button Grid.Column="4" Content="More" Opacity="0" IsHitTestVisible="False" IsTabStop="False"
+                                AutomationProperties.AccessibilityView="Raw" />
                     </Grid>
-                    <ListView x:Name="PeopleList" IsItemClickEnabled="True"
+                    <ListView x:Name="PeopleList" ItemContainerStyle="{StaticResource PeopleRoomsListItemStyle}" IsItemClickEnabled="True"
                               ItemClick="PeopleList_ItemClick" AutomationProperties.Name="People">
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="local:ManagedPersonListRow">
@@ -126,7 +138,7 @@
                         <Button x:Name="AddRoomButton" Grid.Column="2" Content="Add room"
                                 VerticalAlignment="Center" Click="AddRoomButton_Click" />
                     </Grid>
-                    <TextBlock x:Name="RoomsStatusText" Margin="12,0,12,8" TextWrapping="Wrap"
+                    <TextBlock x:Name="RoomsStatusText" Visibility="Collapsed" Margin="12,0,12,8" TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <Grid x:Name="RoomsColumnHeaders" Padding="12,8" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
                         <Grid.ColumnDefinitions>
@@ -140,8 +152,11 @@
                         <TextBlock Grid.Column="1" Text="Name" FontWeight="SemiBold" />
                         <TextBlock Grid.Column="2" Text="Devices" FontWeight="SemiBold" />
                         <TextBlock Grid.Column="3" Text="Last scan" FontWeight="SemiBold" />
+                        <!-- Reserves the row More button width, including text scaling, so the headers share row columns. -->
+                        <Button Grid.Column="4" Content="More" Opacity="0" IsHitTestVisible="False" IsTabStop="False"
+                                AutomationProperties.AccessibilityView="Raw" />
                     </Grid>
-                    <ListView x:Name="RoomsList" IsItemClickEnabled="True"
+                    <ListView x:Name="RoomsList" ItemContainerStyle="{StaticResource PeopleRoomsListItemStyle}" IsItemClickEnabled="True"
                               ItemClick="RoomsList_ItemClick" AutomationProperties.Name="Rooms">
                         <ListView.ItemTemplate>
                             <DataTemplate x:DataType="local:ManagedRoomListRow">
