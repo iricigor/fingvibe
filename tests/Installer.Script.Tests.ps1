@@ -54,6 +54,19 @@ $global:LASTEXITCODE = 0
         '(?m)^Compression=\{#Compression\}\s*$', '(?m)^SolidCompression=\{#SolidCompression\}\s*$')) {
         if ($script -notmatch $pattern) { throw "Installer script must default to LZMA2/solid compression: $pattern" }
     }
+    $runSection = [regex]::Match($script, '(?ms)^\[Run\]\s*\r?\n(.*?)(?=^\[|\z)')
+    $runEntries = @($runSection.Groups[1].Value -split '\r?\n' | Where-Object { $_.Trim() -and -not $_.TrimStart().StartsWith(';') })
+    if (-not $runSection.Success -or $runEntries.Count -ne 1) {
+        throw "Installer must have exactly one optional post-install launch entry."
+    }
+    $run = $runEntries[0]
+    foreach ($parameter in @('Filename: "{app}\FingVibe.App.exe"', 'WorkingDir: "{app}"', 'Description: "Start FingVibe"')) {
+        if (-not $run.Contains($parameter)) { throw "Installer launch is missing $parameter." }
+    }
+    $flags = [regex]::Match($run, '(?:^|;)\s*Flags:\s*([^;]+)').Groups[1].Value.Trim() -split '\s+'
+    if (@($flags | Sort-Object) -join ' ' -cne 'nowait postinstall skipifsilent') {
+        throw "Launch must be checked by default, wait for Finish, never wait for app exit, and skip both silent modes."
+    }
     # Published installers never use fixture compression; fixtures are built only into the lifecycle's temporary directory.
     foreach ($workflow in @("ci.yml", "release.yml", "native-validation.yml")) {
         $text = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\.github\workflows\$workflow") -Raw

@@ -15,6 +15,60 @@ $ErrorActionPreference = "Stop"
 if ($env:GITHUB_ACTIONS -ne "true" -or $env:RUNNER_ENVIRONMENT -ne "github-hosted") {
     throw "Installer lifecycle tests may run only on disposable GitHub-hosted Windows runners."
 }
+. (Join-Path $PSScriptRoot "UiRegression\Helpers.ps1")
+Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, Accessibility
+# Inno's owner-drawn checklist exposes checked state through MSAA, but no default action.
+# Accessibility is a framework interop assembly; unify only its older System.Runtime reference.
+Add-Type -ReferencedAssemblies Accessibility -CompilerOptions '/nowarn:1701' -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+using Accessibility;
+
+public static class InstallerLaunchChoice
+{
+    [DllImport("oleacc.dll")]
+    private static extern int AccessibleObjectFromWindow(IntPtr window, uint objectId,
+        ref Guid interfaceId, [MarshalAs(UnmanagedType.Interface)] out IAccessible accessible);
+    [DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+
+    private static IAccessible Open(IntPtr window)
+    {
+        var id = typeof(IAccessible).GUID;
+        IAccessible accessible;
+        Marshal.ThrowExceptionForHR(AccessibleObjectFromWindow(window, 0xFFFFFFFC, ref id, out accessible));
+        return accessible;
+    }
+
+    private static int Find(IAccessible accessible)
+    {
+        for (var child = 1; child <= accessible.accChildCount; child++)
+            if (accessible.get_accName(child) == "Start FingVibe") return child;
+        throw new InvalidOperationException("The finish page has no Start FingVibe choice.");
+    }
+
+    public static bool IsChecked(IntPtr window)
+    {
+        var accessible = Open(window);
+        try { return (Convert.ToInt32(accessible.get_accState(Find(accessible))) & 0x10) != 0; }
+        finally { Marshal.ReleaseComObject(accessible); }
+    }
+
+    public static void Toggle(IntPtr window)
+    {
+        var accessible = Open(window);
+        try
+        {
+            var index = Find(accessible) - 1;
+            if (SendMessage(window, 0x0186, new IntPtr(index), IntPtr.Zero).ToInt64() != index)
+                throw new InvalidOperationException("Could not select the Start FingVibe choice.");
+            SendMessage(window, 0x0100, new IntPtr(0x20), IntPtr.Zero);
+            SendMessage(window, 0x0101, new IntPtr(0x20), IntPtr.Zero);
+        }
+        finally { Marshal.ReleaseComObject(accessible); }
+    }
+}
+'@
 $app = Join-Path $env:LOCALAPPDATA "Programs\FingVibe"
 $data = Join-Path $env:LOCALAPPDATA "FingVibe"
 $registration = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{BA17F8F1-EF47-4D63-9D8F-E46B23F79225}_is1"
@@ -46,10 +100,11 @@ function Measure-Phase([string] $Kind, [string] $Name, [scriptblock] $Action) {
         Write-Host "Installer $Kind $Name $outcome in $seconds s."
     }
 }
-function Invoke-Setup([string] $Path, [string] $Name, [switch] $ExpectFailure, [string[]] $Extra = @()) {
+function Invoke-Setup([string] $Path, [string] $Name, [switch] $ExpectFailure, [string[]] $Extra = @(),
+    [ValidateSet("SILENT", "VERYSILENT")][string] $Mode = "VERYSILENT") {
     $kind = if ($Path -like "*unins000.exe") { "uninstall" } else { "setup" }
     Measure-Phase $kind $Name {
-        $arguments = @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/LOG=`"$(Join-Path $logs "$Name.log")`"") + $Extra
+        $arguments = @("/$Mode", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/LOG=`"$(Join-Path $logs "$Name.log")`"") + $Extra
         $setup = Start-Process -FilePath $Path -ArgumentList $arguments -PassThru
         if (-not $setup.WaitForExit(180000)) {
             Stop-Process -Id $setup.Id -Force
@@ -59,6 +114,93 @@ function Invoke-Setup([string] $Path, [string] $Name, [switch] $ExpectFailure, [
             Assert-True ($setup.ExitCode -ne 0) "$Name unexpectedly succeeded."
         } else {
             Assert-True ($setup.ExitCode -eq 0) "$Name failed with exit code $($setup.ExitCode). See $logs."
+            Assert-True (@(Get-InstalledAppProcess).Count -eq 0) "$Mode setup must not launch FingVibe."
+            Assert-True ((Get-Content (Join-Path $logs "$Name.log") -Raw) -notmatch '-- Run entry --') "$Mode setup processed a Run entry."
+        }
+    }
+}
+function Get-InstalledAppProcess {
+    Get-Process -Name FingVibe.App -ErrorAction SilentlyContinue |
+        Where-Object { $_.Path -eq (Join-Path $app "FingVibe.App.exe") }
+}
+function Get-InstallerButton($Window, [string[]] $Names) {
+    $Window.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::Button)) |
+        Where-Object { (Test-UiRegressionElementVisible $_) -and $_.Current.IsEnabled -and
+            $_.Current.Name.Replace('&', '') -in $Names } | Select-Object -First 1
+}
+function Invoke-InteractiveSetup([string] $Path, [string] $Name, [bool] $Launch) {
+    Measure-Phase "interactive-setup" $Name {
+        Assert-True (@(Get-InstalledAppProcess).Count -eq 0) "FingVibe must be stopped before $Name."
+        $setup = Start-Process -FilePath $Path -ArgumentList @("/SP-", "/NORESTART",
+            "/LOG=`"$(Join-Path $logs "$Name.log")`"") -PassThru
+        $wizardProcess = $null
+        try {
+            $wizard = Wait-UiRegressionState -Description "$Name wizard" -TimeoutMilliseconds 30000 -Condition {
+                if ($setup.HasExited) { throw "$Name exited before showing its wizard: $($setup.ExitCode)" }
+                $windows = @([System.Windows.Automation.AutomationElement]::RootElement.FindAll(
+                    [System.Windows.Automation.TreeScope]::Children,
+                    [System.Windows.Automation.PropertyCondition]::new(
+                        [System.Windows.Automation.AutomationElement]::ClassNameProperty, "TWizardForm")) |
+                    Where-Object { (Test-UiRegressionElementVisible $_) -and $_.Current.Name -like '*FingVibe*' })
+                if ($windows.Count -gt 1) { throw "More than one FingVibe installer wizard is visible." }
+                if ($windows.Count -eq 1) { $windows[0] }
+            }
+            $wizardProcess = Get-Process -Id $wizard.Current.ProcessId
+            $finish = $null
+            for ($step = 0; $step -lt 6; $step++) {
+                $button = Wait-UiRegressionState -Description "$Name next wizard action" -TimeoutMilliseconds 120000 -Condition {
+                    if ($wizardProcess.HasExited) { throw "$Name wizard exited unexpectedly." }
+                    Get-InstallerButton $wizard @('Next >', 'Install', 'Finish')
+                }
+                if ($button.Current.Name.Replace('&', '') -eq 'Finish') { $finish = $button; break }
+                $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+                Start-Sleep -Milliseconds 200
+            }
+            Assert-True ($null -ne $finish) "$Name did not reach Finish within the expected wizard pages."
+            Assert-True (@(Get-InstalledAppProcess).Count -eq 0) "$Name launched before Finish."
+            $choices = @($wizard.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::ClassNameProperty, "TNewCheckListBox")) |
+                Where-Object { Test-UiRegressionElementVisible $_ })
+            Assert-True ($choices.Count -eq 1) "$Name must expose one finish-screen launch checklist."
+            $choiceWindow = [IntPtr] $choices[0].Current.NativeWindowHandle
+            Assert-True ([InstallerLaunchChoice]::IsChecked($choiceWindow)) "$Name must default Start FingVibe to checked."
+            if (-not $Launch) {
+                [InstallerLaunchChoice]::Toggle($choiceWindow)
+                $null = Wait-UiRegressionState -Description "$Name unchecked launch choice" -Condition {
+                    -not [InstallerLaunchChoice]::IsChecked($choiceWindow)
+                }
+            }
+            $finish.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+            Assert-True ($setup.WaitForExit(30000)) "$Name did not finish without waiting for the app."
+            Assert-True ($setup.ExitCode -eq 0) "$Name failed: $($setup.ExitCode)."
+            $log = Get-Content (Join-Path $logs "$Name.log") -Raw
+            if ($Launch) {
+                $script:process = Wait-UiRegressionState -Description "$Name installed app launch" -TimeoutMilliseconds 45000 -Condition {
+                    $running = @(Get-InstalledAppProcess)
+                    if ($running.Count -gt 1) { throw "$Name launched more than one app process." }
+                    if ($running.Count -eq 1) { $running[0] }
+                }
+                $null = Wait-UiRegressionState -Description "$Name app window" -TimeoutMilliseconds 45000 -Condition {
+                    $script:process.Refresh()
+                    if ($script:process.HasExited) { throw "$Name app exited before showing a window." }
+                    $script:process.MainWindowHandle -ne 0
+                }
+                Assert-True ($log -match ('Working directory:\s*' + [regex]::Escape($app))) "$Name did not use the installation working directory."
+                Assert-True ($script:process.CloseMainWindow()) "$Name app could not close normally."
+                Assert-True ($script:process.WaitForExit(15000)) "$Name app did not close."
+                $script:process = $null
+            } else {
+                Assert-True (@(Get-InstalledAppProcess).Count -eq 0) "$Name launched despite being unchecked."
+                Assert-True ($log -notmatch '-- Run entry --') "$Name processed the unchecked Run entry."
+            }
+        } finally {
+            if ($wizardProcess -and -not $wizardProcess.HasExited) { Stop-Process -Id $wizardProcess.Id -Force }
+            if (-not $setup.HasExited) { Stop-Process -Id $setup.Id -Force }
+            foreach ($launched in @(Get-InstalledAppProcess)) { Stop-Process -Id $launched.Id -Force }
         }
     }
 }
@@ -109,7 +251,7 @@ try {
     Get-ChildItem -LiteralPath $source -Recurse -File | ForEach-Object {
         $sourceHashes[[IO.Path]::GetRelativePath($source, $_.FullName)] = (Get-FileHash -LiteralPath $_.FullName).Hash
     }
-    Invoke-Setup $installer "fresh-install"
+    Invoke-Setup $installer "fresh-install" -Mode SILENT
     Assert-True ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $Version) "Installed version differs from release version."
     Assert-True ((Get-ItemProperty -LiteralPath $registration).InstallLocation.TrimEnd('\') -eq $app) "Installation must be per-user."
     $startShortcut = Join-Path ([Environment]::GetFolderPath("Programs")) "FingVibe.lnk"
@@ -207,8 +349,14 @@ try {
     Assert-True ((Get-Content -LiteralPath $unknown) -eq "keep unknown file") "Uninstall after adoption removed an unknown file."
     Assert-SavedDataUnchanged $upgradeData "Uninstall after adoption removed saved data."
     Assert-True (-not (Test-Path -LiteralPath $desktopShortcut)) "Desktop shortcut survived uninstall."
+    foreach ($launch in @($true, $false)) {
+        $choice = if ($launch) { 'checked' } else { 'unchecked' }
+        Invoke-InteractiveSetup $lowerInstaller "fresh-finish-$choice" $launch
+        Invoke-InteractiveSetup $installer "upgrade-finish-$choice" $launch
+        Uninstall-App "finish-$choice-uninstall"
+    }
     $lifecycleOutcome = "succeeded"
-    Write-Host "Installer fresh install, launch, $previousFamily to $FeatureFamily feature-version upgrade, adoption, real-installer upgrade, downgrade, and uninstall checks passed."
+    Write-Host "Installer lifecycle, silent suppression, and checked/unchecked fresh/upgrade Finish launch checks passed."
 } finally {
     $env:FINGVIBE_UI_REVIEW = $savedReview
     if ($process -and -not $process.HasExited) { Stop-Process -Id $process.Id -Force }
