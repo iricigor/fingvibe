@@ -19,18 +19,99 @@ if ($env:GITHUB_ACTIONS -ne "true" -or $env:RUNNER_ENVIRONMENT -ne "github-hoste
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, Accessibility
 # Inno's owner-drawn checklist exposes checked state through MSAA, but no default action.
 # Accessibility is a framework interop assembly; unify only its older System.Runtime reference.
-Add-Type -ReferencedAssemblies Accessibility -CompilerOptions '/nowarn:1701' -TypeDefinition @'
+Add-Type -ReferencedAssemblies Accessibility, System.Collections `
+    -CompilerOptions '/nowarn:1701' -TypeDefinition @'
 using System;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Text;
 using Accessibility;
 
-public static class InstallerLaunchChoice
+public sealed class InstallerControl
+{
+    public IntPtr Handle { get; set; }
+    public string Text { get; set; }
+    public string ClassName { get; set; }
+    public bool Visible { get; set; }
+    public bool Enabled { get; set; }
+}
+
+public static class InstallerNativeControls
 {
     [DllImport("oleacc.dll")]
     private static extern int AccessibleObjectFromWindow(IntPtr window, uint objectId,
         ref Guid interfaceId, [MarshalAs(UnmanagedType.Interface)] out IAccessible accessible);
     [DllImport("user32.dll")]
     private static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+    private delegate bool EnumChildProc(IntPtr window, IntPtr parameter);
+    [DllImport("user32.dll")]
+    private static extern bool EnumChildWindows(IntPtr parent, EnumChildProc callback, IntPtr parameter);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr window, StringBuilder text, int length);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetClassName(IntPtr window, StringBuilder text, int length);
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowVisible(IntPtr window);
+    [DllImport("user32.dll")]
+    private static extern bool IsWindowEnabled(IntPtr window);
+    [DllImport("user32.dll")]
+    private static extern bool IsChild(IntPtr parent, IntPtr child);
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr window);
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern IntPtr SendMessageTimeout(IntPtr window, uint message, IntPtr wParam,
+        IntPtr lParam, uint flags, uint timeout, out UIntPtr result);
+    [DllImport("user32.dll", EntryPoint = "SendMessageTimeoutW", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr SendTextMessageTimeout(IntPtr window, uint message, IntPtr wParam,
+        StringBuilder text, uint flags, uint timeout, out UIntPtr result);
+
+    public static InstallerControl[] GetChildren(IntPtr wizard)
+    {
+        if (wizard == IntPtr.Zero) throw new ArgumentException("A verified wizard window is required.", "wizard");
+        var windows = new List<IntPtr>();
+        EnumChildWindows(wizard, (window, parameter) =>
+        {
+            windows.Add(window);
+            return true;
+        }, IntPtr.Zero);
+        var controls = new List<InstallerControl>();
+        foreach (var window in windows)
+        {
+            var text = new StringBuilder(512);
+            var className = new StringBuilder(256);
+            GetClassName(window, className, className.Capacity);
+            var name = className.ToString();
+            if (IsWindowVisible(window) && (name == "TNewButton" || name == "TButton" || name == "Button"))
+            {
+                // Query control text in the installer process, not just its window caption cache.
+                UIntPtr copied;
+                if (SendTextMessageTimeout(window, 0x000D, new IntPtr(text.Capacity), text, 2, 1000, out copied) == IntPtr.Zero)
+                    throw new InvalidOperationException("Could not read the installer button text (Win32 " + Marshal.GetLastWin32Error() + ").");
+            }
+            else GetWindowText(window, text, text.Capacity);
+            controls.Add(new InstallerControl {
+                Handle = window, Text = text.ToString(), ClassName = name,
+                Visible = IsWindowVisible(window),
+                Enabled = IsWindowEnabled(wizard) && IsWindowEnabled(window)
+            });
+        }
+        return controls.ToArray();
+    }
+
+    public static void Click(IntPtr wizard, IntPtr button)
+    {
+        if (!IsChild(wizard, button) || !IsWindowVisible(button) ||
+            !IsWindowEnabled(wizard) || !IsWindowEnabled(button))
+            throw new InvalidOperationException("The selected installer button is not a ready child of this wizard.");
+        SetForegroundWindow(wizard);
+        if (GetForegroundWindow() != wizard)
+            throw new InvalidOperationException("The installer wizard could not acquire the foreground.");
+        UIntPtr result;
+        if (SendMessageTimeout(button, 0x00F5, IntPtr.Zero, IntPtr.Zero, 2, 120000, out result) == IntPtr.Zero)
+            throw new InvalidOperationException("Installer button invocation failed (Win32 " + Marshal.GetLastWin32Error() + ").");
+    }
 
     private static IAccessible Open(IntPtr window)
     {
@@ -123,13 +204,12 @@ function Get-InstalledAppProcess {
     Get-Process -Name FingVibe.App -ErrorAction SilentlyContinue |
         Where-Object { $_.Path -eq (Join-Path $app "FingVibe.App.exe") }
 }
-function Get-InstallerButton($Window, [string[]] $Names) {
-    $Window.FindAll([System.Windows.Automation.TreeScope]::Descendants,
-        [System.Windows.Automation.PropertyCondition]::new(
-            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-            [System.Windows.Automation.ControlType]::Button)) |
-        Where-Object { (Test-UiRegressionElementVisible $_) -and $_.Current.IsEnabled -and
-            $_.Current.Name.Replace('&', '') -in $Names } | Select-Object -First 1
+function Get-InstallerButton([object[]] $Controls, [string[]] $Names) {
+    $matches = @($Controls | Where-Object { $_.Visible -and $_.Enabled -and
+        $_.ClassName -in @('TNewButton', 'TButton', 'Button') -and
+        $_.Text.Replace('&', '').Trim() -in $Names })
+    if ($matches.Count -gt 1) { throw "More than one installer navigation button is ready." }
+    if ($matches.Count -eq 1) { $matches[0] }
 }
 function Invoke-InteractiveSetup([string] $Path, [string] $Name, [bool] $Launch) {
     Measure-Phase "interactive-setup" $Name {
@@ -137,6 +217,7 @@ function Invoke-InteractiveSetup([string] $Path, [string] $Name, [bool] $Launch)
         $setup = Start-Process -FilePath $Path -ArgumentList @("/SP-", "/NORESTART",
             "/LOG=`"$(Join-Path $logs "$Name.log")`"") -PassThru
         $wizardProcess = $null
+        $wizardWindow = [IntPtr]::Zero
         try {
             $wizard = Wait-UiRegressionState -Description "$Name wizard" -TimeoutMilliseconds 30000 -Condition {
                 if ($setup.HasExited) { throw "$Name exited before showing its wizard: $($setup.ExitCode)" }
@@ -149,32 +230,32 @@ function Invoke-InteractiveSetup([string] $Path, [string] $Name, [bool] $Launch)
                 if ($windows.Count -eq 1) { $windows[0] }
             }
             $wizardProcess = Get-Process -Id $wizard.Current.ProcessId
+            $wizardWindow = [IntPtr] $wizard.Current.NativeWindowHandle
             $finish = $null
             for ($step = 0; $step -lt 6; $step++) {
                 $button = Wait-UiRegressionState -Description "$Name next wizard action" -TimeoutMilliseconds 120000 -Condition {
                     if ($wizardProcess.HasExited) { throw "$Name wizard exited unexpectedly." }
-                    Get-InstallerButton $wizard @('Next >', 'Install', 'Finish')
+                    Get-InstallerButton ([InstallerNativeControls]::GetChildren($wizardWindow)) @('Next >', 'Install', 'Finish')
                 }
-                if ($button.Current.Name.Replace('&', '') -eq 'Finish') { $finish = $button; break }
-                $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+                Write-Host "Installer $Name step ${step}: $($button.ClassName) '$($button.Text)'."
+                if ($button.Text.Replace('&', '').Trim() -eq 'Finish') { $finish = $button; break }
+                [InstallerNativeControls]::Click($wizardWindow, $button.Handle)
                 Start-Sleep -Milliseconds 200
             }
             Assert-True ($null -ne $finish) "$Name did not reach Finish within the expected wizard pages."
             Assert-True (@(Get-InstalledAppProcess).Count -eq 0) "$Name launched before Finish."
-            $choices = @($wizard.FindAll([System.Windows.Automation.TreeScope]::Descendants,
-                [System.Windows.Automation.PropertyCondition]::new(
-                    [System.Windows.Automation.AutomationElement]::ClassNameProperty, "TNewCheckListBox")) |
-                Where-Object { Test-UiRegressionElementVisible $_ })
+            $choices = @([InstallerNativeControls]::GetChildren($wizardWindow) |
+                Where-Object { $_.Visible -and $_.Enabled -and $_.ClassName -eq 'TNewCheckListBox' })
             Assert-True ($choices.Count -eq 1) "$Name must expose one finish-screen launch checklist."
-            $choiceWindow = [IntPtr] $choices[0].Current.NativeWindowHandle
-            Assert-True ([InstallerLaunchChoice]::IsChecked($choiceWindow)) "$Name must default Start FingVibe to checked."
+            $choiceWindow = $choices[0].Handle
+            Assert-True ([InstallerNativeControls]::IsChecked($choiceWindow)) "$Name must default Start FingVibe to checked."
             if (-not $Launch) {
-                [InstallerLaunchChoice]::Toggle($choiceWindow)
+                [InstallerNativeControls]::Toggle($choiceWindow)
                 $null = Wait-UiRegressionState -Description "$Name unchecked launch choice" -Condition {
-                    -not [InstallerLaunchChoice]::IsChecked($choiceWindow)
+                    -not [InstallerNativeControls]::IsChecked($choiceWindow)
                 }
             }
-            $finish.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+            [InstallerNativeControls]::Click($wizardWindow, $finish.Handle)
             Assert-True ($setup.WaitForExit(30000)) "$Name did not finish without waiting for the app."
             Assert-True ($setup.ExitCode -eq 0) "$Name failed: $($setup.ExitCode)."
             $log = Get-Content (Join-Path $logs "$Name.log") -Raw
@@ -197,6 +278,18 @@ function Invoke-InteractiveSetup([string] $Path, [string] $Name, [bool] $Launch)
                 Assert-True (@(Get-InstalledAppProcess).Count -eq 0) "$Name launched despite being unchecked."
                 Assert-True ($log -notmatch '-- Run entry --') "$Name processed the unchecked Run entry."
             }
+        } catch {
+            $failure = $_
+            if ($wizardWindow -ne [IntPtr]::Zero) {
+                try {
+                    [InstallerNativeControls]::GetChildren($wizardWindow) |
+                        Select-Object Text, ClassName, Visible, Enabled, @{Name='Handle';Expression={$_.Handle.ToInt64()}} |
+                        ConvertTo-Json -Depth 3 | Set-Content -LiteralPath (Join-Path $logs "$Name-controls.json")
+                } catch {
+                    Write-Warning "Could not capture installer controls: $($_.Exception.Message)"
+                }
+            }
+            throw $failure
         } finally {
             if ($wizardProcess -and -not $wizardProcess.HasExited) { Stop-Process -Id $wizardProcess.Id -Force }
             if (-not $setup.HasExited) { Stop-Process -Id $setup.Id -Force }

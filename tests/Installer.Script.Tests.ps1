@@ -76,6 +76,31 @@ $global:LASTEXITCODE = 0
         }
     }
     $lifecycle = Get-Content -LiteralPath (Join-Path $PSScriptRoot "Installer.Lifecycle.Tests.ps1") -Raw
+    $parseErrors = $null
+    $lifecycleAst = [Management.Automation.Language.Parser]::ParseInput($lifecycle, [ref]$null, [ref]$parseErrors)
+    if ($parseErrors) { throw "Installer lifecycle must parse: $parseErrors" }
+    $lookup = $lifecycleAst.Find({
+        param($node)
+        $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-InstallerButton'
+    }, $true)
+    Invoke-Expression $lookup.Extent.Text
+    foreach ($caption in @('&Next >', '&Install', '&Finish')) {
+        $button = [pscustomobject]@{ Handle = 1; Text = $caption; ClassName = 'TNewButton'; Visible = $true; Enabled = $true }
+        $hidden = [pscustomobject]@{ Handle = 2; Text = $caption; ClassName = 'TNewButton'; Visible = $false; Enabled = $true }
+        $disabled = [pscustomobject]@{ Handle = 3; Text = $caption; ClassName = 'TNewButton'; Visible = $true; Enabled = $false }
+        $label = [pscustomobject]@{ Handle = 4; Text = $caption; ClassName = 'TNewStaticText'; Visible = $true; Enabled = $true }
+        $names = @('Next >', 'Install', 'Finish')
+        $actual = Get-InstallerButton @($hidden, $disabled, $label, $button) $names
+        if ($actual.Handle -ne 1) { throw "Native wizard lookup must select the visible, enabled action by caption and class." }
+        if ($null -ne (Get-InstallerButton @($hidden, $disabled, $label) $names)) {
+            throw "Hidden, disabled or non-button controls cannot advance the installer."
+        }
+        Assert-Throws { Get-InstallerButton @($button, $button) $names } '*More than one installer navigation button*'
+    }
+    $cancel = [pscustomobject]@{ Text = 'Cancel'; ClassName = 'TNewButton'; Visible = $true; Enabled = $true }
+    if ($null -ne (Get-InstallerButton @($cancel) @('Next >', 'Install', 'Finish'))) {
+        throw "The lifecycle must not activate unrelated installer actions."
+    }
     $fixtureCalls = [regex]::Matches($lifecycle, '(?m)^.*& \$builder .*$')
     if ($fixtureCalls.Count -ne 1 -or $fixtureCalls[0].Value -notmatch '-OutputDirectory \$fixture -FixtureCompression') {
         throw "Lifecycle fixtures must use fixture compression and the disposable fixture directory only."
