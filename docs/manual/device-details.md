@@ -37,6 +37,18 @@ to find the registered vendor. This does not reliably identify every device.
 Open **How this device was identified** to see why a value was selected.
 Running a web server or file-sharing service alone does not identify the OS.
 
+The same expander lists names reported by SSDP, mDNS, NetBIOS and reverse DNS,
+plus supported UPnP, Google Cast, HomeKit, AirPlay and printer identifiers for
+the address currently shown. Each saved value includes its source and the
+completed scan time when it was last received. A missed reply keeps that value
+and timestamp; new values of the same kind replace the saved set.
+
+These are passively retained from replies the scanner already receives, with
+no additional requests. Up to four distinct values per kind (128 characters
+each) are stored locally, including virtual-device connection observations.
+Earlier scans have no retroactive evidence. A shared name or ID does not prove
+that two records represent the same device, and does not automatically link them.
+
 ## Rename
 
 1. Choose the **Rename device** pencil beside the device name.

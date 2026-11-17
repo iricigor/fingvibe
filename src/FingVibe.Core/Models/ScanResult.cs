@@ -22,6 +22,7 @@ public sealed record ScanResult(
     DeviceClassification? Classification = null,
     IReadOnlyList<UdpServiceObservation>? UdpObservations = null)
 {
+    public IReadOnlyList<ReportedDeviceValue> ReportedValues { get; init; } = [];
     public DeviceClassification DetectedClassification => Classification ?? DeviceClassification.Unknown;
     public string AddressText => Address.ToString();
 

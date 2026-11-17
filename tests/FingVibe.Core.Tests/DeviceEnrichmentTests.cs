@@ -63,6 +63,27 @@ public sealed class DeviceEnrichmentTests
     }
 
     [Fact]
+    public void ReportedNamesKeepAllProtocolsAndAdvertisementsWithoutChangingSelection()
+    {
+        DeviceNameCandidate[] names =
+        [
+            new("display name", DeviceNameSource.Ssdp),
+            new("synthetic.local.", DeviceNameSource.Mdns),
+            new("SYNTHETIC-PC", DeviceNameSource.NetBios),
+            new("synthetic.example", DeviceNameSource.ReverseDns)
+        ];
+        var values = ScanResultEnricher.CollectReportedValues(
+            [new("display name", null, null, null, null) { DeviceUuid = "synthetic-one" },
+             new("Other SSDP name", null, null, null, null) { DeviceUuid = "synthetic-two" }], null, names);
+        Assert.Equal("display name", DeviceNameResolver.SelectDisplayName(names));
+        Assert.Equal(2, values.Count(item => item.Kind == ReportedDeviceValueKind.SsdpName));
+        Assert.Equal(2, values.Count(item => item.Kind == ReportedDeviceValueKind.UpnpUuid));
+        Assert.Contains(new(ReportedDeviceValueKind.MdnsName, "synthetic.local."), values);
+        Assert.Contains(new(ReportedDeviceValueKind.NetBiosName, "SYNTHETIC-PC"), values);
+        Assert.Contains(new(ReportedDeviceValueKind.ReverseDnsName, "synthetic.example"), values);
+    }
+
+    [Fact]
     public void MdnsQuery_RequestsUnicastPtrResponse()
     {
         var query = DeviceNameResolver.CreateDnsQuery("1.0.168.192.in-addr.arpa", 12);

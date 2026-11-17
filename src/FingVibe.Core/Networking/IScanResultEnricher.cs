@@ -27,4 +27,7 @@ public sealed record ScanEnrichment(
     PhysicalAddress? MacAddress,
     string VendorName,
     IReadOnlyList<OpenPort> OpenPorts,
-    DeviceClassification? Classification = null);
+    DeviceClassification? Classification = null)
+{
+    public IReadOnlyList<ReportedDeviceValue> ReportedValues { get; init; } = [];
+}

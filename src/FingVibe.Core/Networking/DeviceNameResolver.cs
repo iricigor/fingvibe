@@ -13,6 +13,7 @@ public enum DeviceNameSource
 }
 
 public sealed record DeviceNameCandidate(string Name, DeviceNameSource Source);
+public sealed record DeviceNameResolution(string? DisplayName, IReadOnlyList<DeviceNameCandidate> Candidates);
 
 public sealed class DeviceNameResolver
 {
@@ -24,6 +25,15 @@ public sealed class DeviceNameResolver
     }
 
     public async Task<string?> ResolveAsync(
+        IPAddress address,
+        IReadOnlyDictionary<IPAddress, string> ssdpNames,
+        CancellationToken cancellationToken,
+        string? advertisedMdnsName = null,
+        bool queryMdns = true) =>
+        (await ResolveWithEvidenceAsync(address, ssdpNames, cancellationToken, advertisedMdnsName, queryMdns)
+            .ConfigureAwait(false)).DisplayName;
+
+    public async Task<DeviceNameResolution> ResolveWithEvidenceAsync(
         IPAddress address,
         IReadOnlyDictionary<IPAddress, string> ssdpNames,
         CancellationToken cancellationToken,
@@ -58,7 +68,7 @@ public sealed class DeviceNameResolver
             candidates.Add(new DeviceNameCandidate(netBiosName, DeviceNameSource.NetBios));
         }
 
-        return SelectDisplayName(candidates);
+        return new(SelectDisplayName(candidates), candidates);
     }
 
     public static string? SelectDisplayName(IEnumerable<DeviceNameCandidate> candidates)

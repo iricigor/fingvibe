@@ -259,7 +259,10 @@ public sealed class LanScannerService
             cancellationToken.ThrowIfCancellationRequested();
             return new ScanResult(address, HostStatus.Alive, latency, duration, enrichment.DeviceName,
                 confirmedMac ?? enrichment.MacAddress, enrichment.VendorName, enrichment.OpenPorts,
-                DeviceClassifier.ApplyNetworkContext(enrichment.Classification ?? DeviceClassification.Unknown, address, network));
+                DeviceClassifier.ApplyNetworkContext(enrichment.Classification ?? DeviceClassification.Unknown, address, network))
+            {
+                ReportedValues = enrichment.ReportedValues
+            };
         }
         finally { enrichmentSlots.Release(); }
     }
