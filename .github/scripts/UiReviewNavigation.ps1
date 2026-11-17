@@ -130,8 +130,10 @@ function Show-UiReviewCaptureScenario {
         "FingImport" { "Tools" }
         "SqlEditor" { "Tools" }
         "DatabaseBackups" { "Tools" }
-        "PersonDetails" { "People" }
-        "RoomDetails" { "Rooms" }
+        "PersonDetails" { "People & rooms" }
+        "RoomDetails" { "People & rooms" }
+        "People" { "People & rooms" }
+        "Rooms" { "People & rooms" }
         default { $Scenario }
     }
     if ($menu -in @("Tools", "Settings")) {
@@ -178,12 +180,12 @@ function Show-UiReviewCaptureScenario {
     }
 
     if ($Scenario -in @("PersonDetails", "RoomDetails")) {
-        $listName = $menu
+        $listName = if ($Scenario -eq "PersonDetails") { "People" } else { "Rooms" }
         $fixtureName = if ($Scenario -eq "PersonDetails") { "UI review person" } else { "UI review room" }
         $rowId = Assert-VisibleUiReviewElement -Using xpath `
             -Value "//List[@Name='$listName']/ListItem[.//*[@Name='$fixtureName']]"
         Invoke-WebDriverElement -ElementId $rowId
-        $backName = if ($Scenario -eq "PersonDetails") { "Back to people" } else { "Back to rooms" }
+        $backName = "Back to people and rooms"
         $null = Assert-VisibleUiReviewElement -Value $backName
         if ($Scenario -eq "PersonDetails") { Show-UiReviewPersonAssignments }
         $null = Assert-VisibleUiReviewElement -Value "Assigned devices"
@@ -205,8 +207,8 @@ function Show-UiReviewCaptureScenario {
         "FingImport" { "Import from Fing" }
         "SqlEditor" { "SQL editor" }
         "DatabaseBackups" { "Database backups" }
-        "People" { "Search people" }
-        "Rooms" { "Search rooms" }
+        "People" { "Search people and rooms" }
+        "Rooms" { "Search people and rooms" }
         "Settings" { "Appearance preferences" }
         default { throw "No navigation is implemented for capture scenario '$Scenario'." }
     }

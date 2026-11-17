@@ -129,13 +129,10 @@ public sealed partial class MainWindow : Window
         {
             ShowPage(DevicesPage);
         }
-        else if (args.InvokedItemContainer == PeopleNavItem && PersonDetailPage.Visibility == Visibility.Visible)
+        else if (args.InvokedItemContainer == PeopleRoomsNavItem
+                 && (PersonDetailPage.Visibility == Visibility.Visible || RoomDetailPage.Visibility == Visibility.Visible))
         {
-            ShowPage(PeoplePage);
-        }
-        else if (args.InvokedItemContainer == RoomsNavItem && RoomDetailPage.Visibility == Visibility.Visible)
-        {
-            ShowPage(RoomsPage);
+            ShowPage(PeopleRoomsPage);
         }
     }
 
@@ -143,8 +140,7 @@ public sealed partial class MainWindow : Window
     {
         "Network" => NetworkPage,
         "Devices" => DevicesPage,
-        "People" => PeoplePage,
-        "Rooms" => RoomsPage,
+        "PeopleRooms" => PeopleRoomsPage,
         "Tools" => ToolsPage,
         _ => OverviewPage
     };
@@ -160,7 +156,7 @@ public sealed partial class MainWindow : Window
 
         foreach (var candidate in new UIElement[]
                  {
-                     OverviewPage, NetworkPage, DevicesPage, DevicePage, PeoplePage, RoomsPage,
+                     OverviewPage, NetworkPage, DevicesPage, DevicePage, PeopleRoomsPage,
                      PersonDetailPage, RoomDetailPage, ToolsPage, SettingsPage
                  })
         {

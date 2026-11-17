@@ -350,6 +350,12 @@ Records live in the task Discussion:
 
 The helper publishes/readbacks the next sequential reservation **before** any CI
 request or code-start send. Rerun keys deduplicate both Developers and later cycles.
+Only that canonical reservation record should contain its raw `repair-attempt`
+HTML marker. Sending records, start messages, diagnostics and reports reference
+the reservation URL/ID, key and attempt number instead of copying the marker.
+For existing histories, exact copies of the same key, attempt number and kind
+count once, including copies in later comments or replies after newer attempts.
+They neither consume another attempt nor authorize repeating an action.
 `requested` records request admission only, not test success. Dispatcher **does
 not wait or poll**: report the request and finish the normal cycle (including
 compatible starts and the final chart); recheck fresh CI on the next Dispatcher
@@ -361,8 +367,10 @@ check actual GitHub evidence to reconcile it. A rerun reservation without a
 result blocks further repairs, including a different head/run. After verified
 manual reconciliation, record exactly one matching result with `state=failed`
 or `state=reconciled` if no result exists; never refund/delete reservations or
-retry an uncertain trigger. Malformed, duplicate, nonsequential or stale history
-blocks explicitly. Serialized Dispatcher cycles remain required.
+retry an uncertain trigger. Malformed, conflicting, nonsequential or stale history
+blocks explicitly, including the same key with a different attempt/kind or
+different keys sharing an attempt number. Duplicate baselines/results remain
+errors. Serialized Dispatcher cycles remain required.
 
 **Existing task history:** Never infer an unused allowance from missing machine
 records. Before adopting this accounting for a task with older repair starts,
@@ -431,8 +439,9 @@ are permitted. Diagnosis reports observed facts, remaining unknowns, evidence an
 the next concrete action, then records/readbacks its end marker without polling.
 Unknown evidence is never itself justification for `status:blocked`.
 Repair also names the run's `repairs` allowance and the evidenced attempt.
-For future repairs, include the Dispatcher-reserved shared-budget marker and
-attempt from the helper above; this reservation already consumes the attempt.
+For future repairs, include a URL/ID reference to the Dispatcher-reserved
+shared-budget record, its key and attempt from the helper above, not a copy of
+its raw HTML marker; this reservation already consumes the attempt.
 For a rejected finalize, the repair start also forwards the candidate's
 `finalizeRejection` (assignment ID, rejected head and Discussion URL).
 

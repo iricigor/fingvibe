@@ -11,10 +11,13 @@
     $heading = @($root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition) |
         Where-Object { -not $_.Current.IsOffscreen -and $_.Current.BoundingRectangle.Left -gt $edge })
     if ($heading.Count -ne 1) { throw "Expected one visible content heading for '$Page'; got $($heading.Count)." }
-    foreach ($bounds in @($header, $heading[0].Current.BoundingRectangle)) {
+    # Family-icon pages place a 48-DIP icon and 12-DIP gap before the title; the title row still starts at 12.
+    $headingInset = if ($Page -eq "Overview") { 12 } else { 12 + 48 + 12 }
+    foreach ($check in @(@{ Bounds = $header; Inset = 12 }, @{ Bounds = $heading[0].Current.BoundingRectangle; Inset = $headingInset })) {
+        $bounds = $check.Bounds
         $inset = ($bounds.Left - $edge) / $scale
-        if ([Math]::Abs($inset - 12) -gt 2) {
-            throw "'$Page' heading and shared header must align 12 DIPs from navigation; got $inset."
+        if ([Math]::Abs($inset - $check.Inset) -gt 2) {
+            throw "'$Page' heading and shared header must align 12 DIPs from navigation (heading after its icon at $($check.Inset)); got $inset."
         }
         if (-not $root.Current.BoundingRectangle.Contains($bounds)) {
             throw "'$Page' heading or shared header is clipped."
@@ -109,8 +112,8 @@ function Test-SidebarResizing {
     Test-SidebarIconDragGuide
     foreach ($page in @(
         @("Overview", "Online devices"), @("Network", "Public IP address"),
-        @("Devices", "Search devices"), @("People", "Search people"),
-        @("Rooms", "Search rooms"), @("Tools", "Speed test"), @("Settings", "Window backdrop")
+        @("Devices", "Search devices"), @("People & rooms", "Search people and rooms"),
+        @("Tools", "Speed test"), @("Settings", "Window backdrop")
     )) {
         Select-SidebarPage $page[0] $page[1]
         Assert-SidebarPaneWidth 48

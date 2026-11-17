@@ -83,8 +83,11 @@ No Developer slot, worktree, commit or claim is needed for a rerun.
 Reruns and code repairs use one cumulative allowance (default 12), with no
 separate cap, pool or reset on a new head. Future code starts use the same helper
 to reserve their attempt before Sending; Developer verifies rather than counts
-again. Existing repair histories require a verified one-time baseline, not an
-assumption of zero. Uncertain requests retain their consumed attempt and require
+again. Identical reservation references count once; conflicting accounting still
+blocks. Sending records, starts and reports link to the reservation or name its
+ID rather than copying the raw ledger marker. Existing repair histories require
+a verified one-time baseline, not an assumption of zero. Uncertain requests
+retain their consumed attempt and require
 reconciliation, never duplicate triggers. See the [request, ledger and recovery
 contract](protocol.md#dispatcher-failed-job-reruns-and-shared-repair-budget).
 Source delivery does not update installed profiles or activate Automations.

@@ -19,7 +19,7 @@ foreach ($width in @(800, 640)) {
     Assert-SidebarPaneWidth 280
     Resize-SidebarPane @(216)
     Save-SidebarAppearance "sidebar-overlay-$width" -AssertMatchingSolid
-    Select-SidebarPage People "Search people"
+    Select-SidebarPage "People & rooms" "Search people and rooms"
     if ($width -eq 640 -and (Find-SidebarElement AutomationId NavigationResizeGrip -Optional)) {
         throw "A closed minimal-mode pane must not leave a resize divider over page content."
     }
