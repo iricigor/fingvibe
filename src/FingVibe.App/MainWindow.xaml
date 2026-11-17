@@ -33,12 +33,7 @@
                             <Style x:Key="SidebarDevicesIconStyle" TargetType="FontIcon">
                                 <Setter Property="Foreground" Value="#6253C4" />
                             </Style>
-                            <Style x:Key="SidebarPeopleIconStyle" TargetType="FontIcon">
-                                <Setter Property="Foreground" Value="#008575" />
-                            </Style>
-                            <Style x:Key="SidebarRoomsIconStyle" TargetType="FontIcon">
-                                <Setter Property="Foreground" Value="#B34177" />
-                            </Style>
+                            <SolidColorBrush x:Key="SidebarPeopleRoomsIconBrush" Color="#008575" />
                             <Style x:Key="SidebarToolsIconStyle" TargetType="FontIcon">
                                 <Setter Property="Foreground" Value="#9A6700" />
                             </Style>
@@ -53,12 +48,7 @@
                             <Style x:Key="SidebarDevicesIconStyle" TargetType="FontIcon">
                                 <Setter Property="Foreground" Value="#B4A0FF" />
                             </Style>
-                            <Style x:Key="SidebarPeopleIconStyle" TargetType="FontIcon">
-                                <Setter Property="Foreground" Value="#5BD6C3" />
-                            </Style>
-                            <Style x:Key="SidebarRoomsIconStyle" TargetType="FontIcon">
-                                <Setter Property="Foreground" Value="#F093BE" />
-                            </Style>
+                            <SolidColorBrush x:Key="SidebarPeopleRoomsIconBrush" Color="#5BD6C3" />
                             <Style x:Key="SidebarToolsIconStyle" TargetType="FontIcon">
                                 <Setter Property="Foreground" Value="#F9CF58" />
                             </Style>
@@ -68,8 +58,7 @@
                             <Style x:Key="SidebarOverviewIconStyle" TargetType="FontIcon" />
                             <Style x:Key="SidebarNetworkIconStyle" TargetType="FontIcon" />
                             <Style x:Key="SidebarDevicesIconStyle" TargetType="FontIcon" />
-                            <Style x:Key="SidebarPeopleIconStyle" TargetType="FontIcon" />
-                            <Style x:Key="SidebarRoomsIconStyle" TargetType="FontIcon" />
+                            <SolidColorBrush x:Key="SidebarPeopleRoomsIconBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                             <Style x:Key="SidebarToolsIconStyle" TargetType="FontIcon" />
                         </ResourceDictionary>
                     </ResourceDictionary.ThemeDictionaries>
@@ -117,14 +106,10 @@
                         <FontIcon Glyph="&#xE772;" Style="{ThemeResource SidebarDevicesIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
-                <NavigationViewItem x:Name="PeopleNavItem" Content="People" Tag="People">
+                <NavigationViewItem x:Name="PeopleRoomsNavItem" Content="People &amp; rooms" Tag="PeopleRooms">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE716;" Style="{ThemeResource SidebarPeopleIconStyle}" />
-                    </NavigationViewItem.Icon>
-                </NavigationViewItem>
-                <NavigationViewItem x:Name="RoomsNavItem" Content="Rooms" Tag="Rooms">
-                    <NavigationViewItem.Icon>
-                        <FontIcon Glyph="&#xE707;" Style="{ThemeResource SidebarRoomsIconStyle}" />
+                        <PathIcon Foreground="{ThemeResource SidebarPeopleRoomsIconBrush}"
+                                  Data="M1,7 L8,1 L15,7 L15,15 L1,15 Z M9,9 L11,9 L11,11 L9,11 Z M8.5,11.5 L11.5,11.5 L11.5,14 L8.5,14 Z" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
@@ -258,19 +243,16 @@
                         RoomAssignmentRequested="DeviceRoomAssignmentRequested"
                         AddressRequested="DeviceAddressRequested" />
 
-                <!-- People -->
-                <views:PeoplePageView x:Name="PeoplePage" Grid.Row="1" Visibility="Collapsed"
+                <!-- People and rooms -->
+                <views:PeopleRoomsPageView x:Name="PeopleRoomsPage" Grid.Row="1" Visibility="Collapsed"
                         AddRequested="AddPersonButton_Click"
                         PersonRequested="PersonRequested"
                         EditRequested="PersonEditRequested"
-                        DeleteRequested="PersonDeleteRequested" />
-
-                <!-- Rooms -->
-                <views:RoomsPageView x:Name="RoomsPage" Grid.Row="1" Visibility="Collapsed"
-                        AddRequested="AddRoomButton_Click"
+                        DeleteRequested="PersonDeleteRequested"
+                        AddRoomRequested="AddRoomButton_Click"
                         RoomRequested="RoomRequested"
-                        EditRequested="RoomEditRequested"
-                        DeleteRequested="RoomDeleteRequested" />
+                        EditRoomRequested="RoomEditRequested"
+                        DeleteRoomRequested="RoomDeleteRequested" />
 
                 <views:PersonDetailsPageView x:Name="PersonDetailPage" Grid.Row="1" Visibility="Collapsed"
                         BackRequested="BackToPeopleButton_Click"

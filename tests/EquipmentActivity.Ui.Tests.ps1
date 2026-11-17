@@ -40,7 +40,7 @@ function Show-Equipment([string] $Id, [switch] $ByName) {
         -GetWindow { $script:root } -GetTargets { Find-Equipment $Id -ByName:$ByName }
 }
 function Open-EquipmentPerson([string] $Name = "Equipment person") {
-    (Find-Equipment PeopleNavItem).GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    (Find-Equipment PeopleRoomsNavItem).GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
     if (Find-Equipment "Back to people" -ByName) {
         (Show-Equipment "Back to people" -ByName).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
     }
@@ -60,7 +60,7 @@ function Start-EquipmentApp {
     }
     Initialize-UiReviewWindow $script:process.MainWindowHandle
     $script:root = [Windows.Automation.AutomationElement]::FromHandle($script:process.MainWindowHandle)
-    $null = Wait-UiRegressionState -Description "Equipment navigation" -Condition { Find-Equipment PeopleNavItem }
+    $null = Wait-UiRegressionState -Description "Equipment navigation" -Condition { Find-Equipment PeopleRoomsNavItem }
     Open-EquipmentPerson
 }
 function Assert-EquipmentPeers {

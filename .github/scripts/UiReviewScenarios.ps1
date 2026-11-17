@@ -4,9 +4,9 @@ $UiReviewScenarios = [ordered]@{
     Network = @{ Label = "Network - network details"; FileName = "fingvibe-network.png"; Page = "NetworkPage" }
     DeviceDetails = @{ Label = "Device details - selected online device"; FileName = "fingvibe-device-details.png"; Page = "DevicePage" }
     DeviceHistory = @{ Label = "Device details - History tab"; FileName = "fingvibe-device-history.png"; Page = "DevicePage" }
-    People = @{ Label = "People"; FileName = "fingvibe-people.png"; Page = "PeoplePage" }
+    People = @{ Label = "People"; FileName = "fingvibe-people.png"; Page = "PeopleRoomsPage" }
     PersonDetails = @{ Label = "Person details"; FileName = "fingvibe-person-details.png"; Page = "PersonDetailPage" }
-    Rooms = @{ Label = "Rooms"; FileName = "fingvibe-rooms.png"; Page = "RoomsPage" }
+    Rooms = @{ Label = "Rooms"; FileName = "fingvibe-rooms.png"; Page = "PeopleRoomsPage" }
     Tools = @{ Label = "Tools"; FileName = "fingvibe-tools.png"; Page = "ToolsPage" }
     SpeedTest = @{ Label = "Speed test"; FileName = "fingvibe-speed-test.png"; Page = "ToolsPage" }
     Troubleshooting = @{ Label = "Network troubleshooting"; FileName = "fingvibe-troubleshooting.png"; Page = "ToolsPage" }
@@ -107,8 +107,7 @@ function Get-UiReviewCapturePlan {
                     NetworkPageView = @("Network")
                     DevicesPageView = @("Devices", "DevicesEmpty", "Settings")
                     DeviceDetailsPageView = @("DeviceDetails", "DeviceHistory")
-                    PeoplePageView = @("People", "PersonDetails", "DeviceDetails")
-                    RoomsPageView = @("Rooms", "RoomDetails", "DeviceDetails")
+                    PeopleRoomsPageView = @("People", "Rooms", "PersonDetails", "RoomDetails", "DeviceDetails")
                     PersonDetailsPageView = @("PersonDetails", "People", "DeviceDetails")
                     RoomDetailsPageView = @("RoomDetails", "Rooms", "DeviceDetails")
                     SettingsPageView = @($UiReviewScenarios.Keys)

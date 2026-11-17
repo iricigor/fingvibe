@@ -180,17 +180,19 @@ function Show-SettingsSection([string] $Id) {
 }
 
 function Select-SidebarPage([string] $Name, [string] $Sentinel) {
+    $navigationName = if ($Name -in @("People", "Rooms")) { "People & rooms" } else { $Name }
+    $resolvedSentinel = if ($Sentinel -in @("Search people", "Search rooms")) { "Search people and rooms" } else { $Sentinel }
     $condition = [System.Windows.Automation.AndCondition]::new(
         [System.Windows.Automation.PropertyCondition]::new(
-            [System.Windows.Automation.AutomationElement]::NameProperty, $Name),
+            [System.Windows.Automation.AutomationElement]::NameProperty, $navigationName),
         [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
             [System.Windows.Automation.ControlType]::ListItem))
-    $element = Find-UiRegressionElement -Container { $root } -Condition $condition -Description "navigation '$Name'"
-    if (-not $element -or $element.Current.IsOffscreen) { throw "Navigation '$Name' is not visible." }
+    $element = Find-UiRegressionElement -Container { $root } -Condition $condition -Description "navigation '$navigationName'"
+    if (-not $element -or $element.Current.IsOffscreen) { throw "Navigation '$navigationName' is not visible." }
     $selection = $element.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern)
     $selection.Select()
-    $null = Wait-UiRegressionState -Description "selected navigation '$Name'" -Condition { $selection.Current.IsSelected }
+    $null = Wait-UiRegressionState -Description "selected navigation '$navigationName'" -Condition { $selection.Current.IsSelected }
     if ($Name -eq "Settings") {
         $scroll = (Find-SidebarElement AutomationId SettingsPage).GetCurrentPattern(
             [System.Windows.Automation.ScrollPattern]::Pattern)
@@ -199,7 +201,7 @@ function Select-SidebarPage([string] $Name, [string] $Sentinel) {
     if ($Name -eq "Settings" -and $Sentinel -eq "Window backdrop") {
         Expand-UiReviewSettingsSection -Root $root -Section AppearanceSection
     }
-    $null = Find-SidebarElement Name $Sentinel
+    $null = Find-SidebarElement Name $resolvedSentinel
 }
 
 function Assert-SharedNetworkHeader {

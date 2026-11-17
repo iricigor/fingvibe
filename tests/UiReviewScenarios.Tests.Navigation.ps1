@@ -118,8 +118,10 @@
                     "control-Back to Tools" { $script:currentPage -in @("Troubleshooting", "FingImport", "SqlEditor", "DatabaseBackups") }
                     "control-Back to Settings" { $script:currentPage -eq "About" }
                     "control-FingVibe LAN Scanner" { $script:currentPage -eq "About" }
-                    "control-Search people" { $script:currentPage -eq "People" }
-                    "control-Search rooms" { $script:currentPage -eq "Rooms" }
+                    "control-Search people and rooms" { $script:currentPage -in @("People", "Rooms") }
+                    "control-Search people" { $script:currentPage -in @("People", "Rooms") }
+                    "control-Search rooms" { $script:currentPage -in @("People", "Rooms") }
+                    "control-Back to people and rooms" { $script:currentPage -in @("PersonDetails", "RoomDetails") }
                     "control-Back to people" { $script:currentPage -eq "PersonDetails" }
                     "control-Back to rooms" { $script:currentPage -eq "RoomDetails" }
                     "control-Assigned devices" { $script:currentPage -eq "RoomDetails" -or

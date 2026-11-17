@@ -27,6 +27,10 @@
                     <SolidColorBrush x:Key="ScannerOfflineForegroundBrush" Color="#475569" />
                     <SolidColorBrush x:Key="ScannerImportedBackgroundBrush" Color="#22D49A28" />
                     <SolidColorBrush x:Key="ScannerImportedForegroundBrush" Color="#785214" />
+                    <SolidColorBrush x:Key="PeopleRoomsBadgeBackgroundBrush" Color="#DEEAFE" />
+                    <SolidColorBrush x:Key="PeopleRoomsBadgeForegroundBrush" Color="#1D4ED8" />
+                    <SolidColorBrush x:Key="PeopleRoomsHeaderHouseBrush" Color="#2563EB" />
+                    <SolidColorBrush x:Key="PeopleRoomsHeaderPersonBrush" Color="#A855F7" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Dark">
                     <SolidColorBrush x:Key="ScannerNavigationDividerBrush" Color="#0EFFFFFF" />
@@ -46,6 +50,10 @@
                     <SolidColorBrush x:Key="ScannerOfflineForegroundBrush" Color="#CBD5E1" />
                     <SolidColorBrush x:Key="ScannerImportedBackgroundBrush" Color="#26E7B65A" />
                     <SolidColorBrush x:Key="ScannerImportedForegroundBrush" Color="#F3D28B" />
+                    <SolidColorBrush x:Key="PeopleRoomsBadgeBackgroundBrush" Color="#1E3A8A" />
+                    <SolidColorBrush x:Key="PeopleRoomsBadgeForegroundBrush" Color="#BFDBFE" />
+                    <SolidColorBrush x:Key="PeopleRoomsHeaderHouseBrush" Color="#60A5FA" />
+                    <SolidColorBrush x:Key="PeopleRoomsHeaderPersonBrush" Color="#C084FC" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="HighContrast">
                     <SolidColorBrush x:Key="ScannerNavigationDividerBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
@@ -61,6 +69,10 @@
                     <SolidColorBrush x:Key="ScannerOfflineForegroundBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                     <SolidColorBrush x:Key="ScannerImportedBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
                     <SolidColorBrush x:Key="ScannerImportedForegroundBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="PeopleRoomsBadgeBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
+                    <SolidColorBrush x:Key="PeopleRoomsBadgeForegroundBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="PeopleRoomsHeaderHouseBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="PeopleRoomsHeaderPersonBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
             <Thickness x:Key="ScannerPageContentMargin">12,0,24,24</Thickness>

@@ -1,12 +1,12 @@
 # People and rooms
 
-Use **People** and **Rooms** to label who uses equipment and where it belongs.
+Use **People & rooms** to label who uses equipment and where it belongs.
 FingVibe does not automatically discover a device's owner or room.
 
 ## Create a person or room
 
-1. Open **People** or **Rooms**.
-2. Choose **Add person** or **Add room**.
+1. Open **People & rooms**.
+2. In the **People** or **Rooms** section, choose **Add person** or **Add room**.
 3. Enter the full name.
 4. Review the suggested short name.
 5. Optionally choose an icon and enter notes.
@@ -16,7 +16,7 @@ Short names contain one to three visible characters and must be unique within
 People or within Rooms. For example, **Living Room** can use **LR**.
 Editing a suggested short name stops its automatic updates.
 
-[![People page with a saved sample person, short name, and response count](../screenshots/manual/people.png)](../screenshots/manual/people.png)
+[![People & rooms page with shared search and short-name badges](../screenshots/manual/people.png)](../screenshots/manual/people.png)
 
 *The person is a synthetic test entry, not a real user.
 [Screenshot sources](screenshots.md).*
@@ -45,7 +45,7 @@ the link; supported inferred virtual identities keep their own assignments.
 
 ## Find, edit, or delete
 
-Search the People or Rooms page by name. Open an entry to review its assigned
+Use **Search people and rooms** to filter both sections at once. Open an entry to review its assigned
 equipment. Use its edit action to change the name, icon, or notes.
 
 Deleting a person clears that person's device assignments.
