@@ -96,13 +96,50 @@
         }
     }
     $toolIcons = @(
-        @{ Page = "SpeedTestPage"; Title = "Speed test"; Card = "SpeedTestCard"; Click = "SpeedTestCard_Click"; Glyph = 0xEC4A },
-        @{ Page = "NetworkTroubleshootingPage"; Title = "Network troubleshooting"; Card = "TroubleshootingCard"; Click = "TroubleshootingCard_Click"; Glyph = 0xE90F },
-        @{ Page = "AboutPage"; Title = "About FingVibe"; Card = "AboutCard"; Click = "AboutCard_Click"; Glyph = 0xE946 },
-        @{ Page = "FingImportPage"; Title = "Import from Fing"; Card = "FingImportCard"; Click = "FingImportCard_Click"; Glyph = 0xE8B5 },
-        @{ Page = "SqlEditorPage"; Title = "SQL editor"; Card = "SqlEditorCard"; Click = "SqlEditorCard_Click"; Glyph = 0xE943 },
-        @{ Page = "DatabaseBackupsPage"; Title = "Database backups"; Card = "DatabaseBackupsCard"; Click = "DatabaseBackupsCard_Click"; Glyph = 0xE74E }
+        @{ Page = "SpeedTestPage"; Title = "Speed test"; Card = "SpeedTestCard"; Click = "SpeedTestCard_Click"; Icon = "speed-test" },
+        @{ Page = "NetworkTroubleshootingPage"; Title = "Network troubleshooting"; Card = "TroubleshootingCard"; Click = "TroubleshootingCard_Click"; Icon = "troubleshooting" },
+        @{ Page = "AboutPage"; Title = "About FingVibe"; Card = "AboutCard"; Click = "AboutCard_Click"; Icon = "about" },
+        @{ Page = "FingImportPage"; Title = "Import from Fing"; Card = "FingImportCard"; Click = "FingImportCard_Click"; Icon = "import" },
+        @{ Page = "SqlEditorPage"; Title = "SQL editor"; Card = "SqlEditorCard"; Click = "SqlEditorCard_Click"; Icon = "tools" },
+        @{ Page = "DatabaseBackupsPage"; Title = "Database backups"; Card = "DatabaseBackupsCard"; Click = "DatabaseBackupsCard_Click"; Icon = "tools" }
     )
+    $headerIcon = [System.Xml.XmlDocument]::new()
+    $headerIcon.Load((Join-Path $appDirectory "PageHeaderIcon.xaml"))
+    $headerIconRoot = $headerIcon.DocumentElement
+    $colorIcon = $headerIconRoot.SelectSingleNode(".//*[local-name()='Image']")
+    $monochromeIcon = $headerIconRoot.SelectSingleNode(".//*[local-name()='BitmapIcon']")
+    if ($headerIconRoot.LocalName -cne "UserControl" -or $headerIconRoot.GetAttribute("Width") -cne "48" -or
+        $headerIconRoot.GetAttribute("Height") -cne "48" -or $headerIconRoot.GetAttribute("IsHitTestVisible") -cne "False" -or
+        $headerIconRoot.GetAttribute("IsTabStop") -cne "False" -or
+        $headerIconRoot.GetAttribute("AutomationProperties.AccessibilityView") -cne "Raw" -or
+        -not $colorIcon -or $colorIcon.GetAttribute("Stretch") -cne "Uniform" -or
+        $colorIcon.GetAttribute("Style") -cne "{ThemeResource PageHeaderColorIconStyle}" -or
+        $colorIcon.GetAttribute("AutomationProperties.AccessibilityView") -cne "Raw" -or
+        -not $monochromeIcon -or $monochromeIcon.GetAttribute("ShowAsMonochrome") -cne "True" -or
+        $monochromeIcon.GetAttribute("Foreground") -cne "{ThemeResource TextFillColorPrimaryBrush}" -or
+        $monochromeIcon.GetAttribute("Style") -cne "{ThemeResource PageHeaderMonochromeIconStyle}" -or
+        $monochromeIcon.GetAttribute("AutomationProperties.AccessibilityView") -cne "Raw") {
+        throw "Page header icons must be decorative 48-DIP full-color art with a theme-colored single-color equivalent."
+    }
+    $appResources = [System.Xml.XmlDocument]::new()
+    $appResources.Load((Join-Path $appDirectory "App.xaml"))
+    foreach ($theme in @(
+        @{ Key = "Light"; Color = "Visible"; Monochrome = "Collapsed" },
+        @{ Key = "Dark"; Color = "Visible"; Monochrome = "Collapsed" },
+        @{ Key = "HighContrast"; Color = "Collapsed"; Monochrome = "Visible" }
+    )) {
+        $dictionary = $appResources.SelectSingleNode("//*[local-name()='ResourceDictionary.ThemeDictionaries']/*[@*[local-name()='Key']='$($theme.Key)']")
+        foreach ($style in @(
+            @{ Key = "PageHeaderColorIconStyle"; Target = "Image"; Visibility = $theme.Color },
+            @{ Key = "PageHeaderMonochromeIconStyle"; Target = "BitmapIcon"; Visibility = $theme.Monochrome }
+        )) {
+            $node = $dictionary.SelectSingleNode("./*[local-name()='Style' and @*[local-name()='Key']='$($style.Key)']")
+            if (-not $node -or $node.GetAttribute("TargetType") -cne $style.Target -or
+                $node.SelectSingleNode("./*[local-name()='Setter' and @Property='Visibility']").GetAttribute("Value") -cne $style.Visibility) {
+                throw "$($theme.Key) page headers must show $($style.Target) as $($style.Visibility)."
+            }
+        }
+    }
     foreach ($tool in $toolIcons) {
         $pageDocument = [System.Xml.XmlDocument]::new()
         $pageDocument.Load((Join-Path $appDirectory "Tools\$($tool.Page).xaml"))
@@ -143,7 +180,7 @@
                 $back = $header.SelectSingleNode("./*[local-name()='Button' and @AutomationProperties.Name='Back to $destination']")
                 if (-not $back -or $columns[1].GetAttribute("Width") -cne "Auto" -or
                     $back.GetAttribute("Grid.Column") -notin @("", "0") -or
-                    $header.SelectSingleNode("./*[local-name()='Button' or local-name()='FontIcon' or local-name()='TextBlock']") -ne $back -or
+                    $header.SelectSingleNode("./*[local-name()='Button' or local-name()='PageHeaderIcon' or local-name()='TextBlock']") -ne $back -or
                     $back.GetAttribute("Content") -cne "$([char]0x2190) $destination" -or
                     $pageDocument.SelectNodes("//*[local-name()='Button' and @AutomationProperties.Name='Back to $destination']").Count -ne 1 -or
                     $back.GetAttribute("Style") -cne "{StaticResource PageBackButtonStyle}" -or
@@ -151,24 +188,18 @@
                     throw "$($tool.Title) must have one content-safe neutral Back action first in its title row."
                 }
             }
-            $icons = $header.SelectNodes("./*[local-name()='FontIcon']")
+            $icons = $header.SelectNodes("./*[local-name()='PageHeaderIcon']")
             if ($icons.Count -ne 1) { throw "$($tool.Title) must have exactly one decorative header icon." }
             $icon = $icons[0]
             if ($isPageTitle -and $icon.GetAttribute("Grid.Column") -cne "1") {
                 throw "$($tool.Title) must keep its decorative icon with the heading after Back."
             }
-            foreach ($attribute in @{
-                Glyph = [string][char]$tool.Glyph
-                FontFamily = "Segoe Fluent Icons"
-                FontSize = "48"
-                Width = "48"
-                Height = "48"
-                Foreground = "{ThemeResource TextFillColorPrimaryBrush}"
-                IsHitTestVisible = "False"
-                "AutomationProperties.AccessibilityView" = "Raw"
-            }.GetEnumerator()) {
-                if ($icon.GetAttribute($attribute.Key) -cne $attribute.Value) {
-                    throw "$($tool.Title) icon must use $($attribute.Key)=$($attribute.Value) on both surfaces."
+            if ($icon.GetAttribute("Icon") -cne $tool.Icon -or $icon.HasAttribute("Width") -or $icon.HasAttribute("Height")) {
+                throw "$($tool.Title) icon must use the shared 48-DIP '$($tool.Icon)' family icon on both surfaces."
+            }
+            foreach ($variant in @("color", "mono")) {
+                if (-not (Test-Path -LiteralPath (Join-Path $appDirectory "Assets\PageIcons\$($tool.Icon)-$variant.png"))) {
+                    throw "$($tool.Title) icon is missing its $variant family asset."
                 }
             }
         }

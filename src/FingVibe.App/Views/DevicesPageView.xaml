@@ -200,9 +200,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <Image Width="48" Height="48" Source="ms-appx:///Assets/PageIcons/devices-color.png"
-                   Stretch="Uniform" IsHitTestVisible="False"
-                   AutomationProperties.AccessibilityView="Raw" />
+            <local:PageHeaderIcon Icon="devices" />
             <TextBlock x:Name="DevicesHeading" Grid.Column="1" Text="Devices"
                        Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
                        VerticalAlignment="Center" />

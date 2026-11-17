@@ -10,9 +10,7 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Image Width="48" Height="48" Source="ms-appx:///Assets/PageIcons/network-color.png"
-                       Stretch="Uniform" IsHitTestVisible="False"
-                       AutomationProperties.AccessibilityView="Raw" />
+                <local:PageHeaderIcon Icon="network" />
                 <TextBlock Grid.Column="1" Text="Network" Style="{StaticResource ScannerPageTitleStyle}"
                            Margin="0" VerticalAlignment="Center" />
             </Grid>

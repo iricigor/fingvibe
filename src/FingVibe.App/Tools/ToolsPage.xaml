@@ -19,9 +19,7 @@
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
-                    <Image Width="48" Height="48" Source="ms-appx:///Assets/PageIcons/tools-color.png"
-                           Stretch="Uniform" IsHitTestVisible="False"
-                           AutomationProperties.AccessibilityView="Raw" />
+                    <local:PageHeaderIcon Icon="tools" />
                     <TextBlock Grid.Column="1" Text="Tools" Style="{StaticResource ScannerPageTitleStyle}"
                                Margin="0" VerticalAlignment="Center" />
                 </Grid>
@@ -33,9 +31,7 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Image Width="48" Height="48" Source="ms-appx:///Assets/PageIcons/tools-color.png"
-                                   Stretch="Uniform" IsHitTestVisible="False"
-                                   AutomationProperties.AccessibilityView="Raw" />
+                            <local:PageHeaderIcon Icon="tools" />
                             <TextBlock Grid.Column="1" Text="SQL editor" Style="{ThemeResource SubtitleTextBlockStyle}"
                                        VerticalAlignment="Center" TextWrapping="Wrap" />
                         </Grid>
@@ -52,9 +48,7 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Image Width="48" Height="48" Source="ms-appx:///Assets/PageIcons/import-color.png"
-                                   Stretch="Uniform" IsHitTestVisible="False"
-                                   AutomationProperties.AccessibilityView="Raw" />
+                            <local:PageHeaderIcon Icon="import" />
                             <TextBlock Grid.Column="1" Text="Import from Fing" Style="{ThemeResource SubtitleTextBlockStyle}"
                                        VerticalAlignment="Center" TextWrapping="Wrap" />
                         </Grid>
@@ -73,9 +67,7 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Image Width="48" Height="48" Source="ms-appx:///Assets/PageIcons/speed-test-color.png"
-                                   Stretch="Uniform" IsHitTestVisible="False"
-                                   AutomationProperties.AccessibilityView="Raw" />
+                            <local:PageHeaderIcon Icon="speed-test" />
                             <TextBlock Grid.Column="1" Text="Speed test" Style="{ThemeResource SubtitleTextBlockStyle}"
                                        VerticalAlignment="Center" TextWrapping="Wrap" />
                         </Grid>
@@ -93,9 +85,7 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Image Width="48" Height="48" Source="ms-appx:///Assets/PageIcons/troubleshooting-color.png"
-                                   Stretch="Uniform" IsHitTestVisible="False"
-                                   AutomationProperties.AccessibilityView="Raw" />
+                            <local:PageHeaderIcon Icon="troubleshooting" />
                             <TextBlock Grid.Column="1" Text="Network troubleshooting" Style="{ThemeResource SubtitleTextBlockStyle}"
                                        VerticalAlignment="Center" TextWrapping="Wrap" />
                         </Grid>
@@ -112,9 +102,7 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Image Width="48" Height="48" Source="ms-appx:///Assets/PageIcons/tools-color.png"
-                                   Stretch="Uniform" IsHitTestVisible="False"
-                                   AutomationProperties.AccessibilityView="Raw" />
+                            <local:PageHeaderIcon Icon="tools" />
                             <TextBlock Grid.Column="1" Text="Database backups" Style="{ThemeResource SubtitleTextBlockStyle}"
                                        VerticalAlignment="Center" TextWrapping="Wrap" />
                         </Grid>
