@@ -282,11 +282,11 @@ Assert-Equal ([regex]::Matches($workflow, 'msbuild src\\FingVibe.App\\FingVibe.A
 foreach ($pattern in @(
     '(?s)  tests:\s+name: core-tests\s+needs: changes',
     '(?s)  build:\s+needs: changes',
-    '(?s)  installer:\s+needs: \[changes, tests, build\]',
+    '(?s)  installer:\s+needs: \[changes, build\]',
     '(?s)  ui-smoke:\s+needs: \[changes, build\]',
     '(?s)  ui-assignments:\s+needs: \[changes, build\]',
     '(?s)  ui-capture:\s+needs: \[changes, build\]',
-    '(?s)  build-comment:\s+needs: installer',
+    '(?s)  build-comment:\s+needs: \[tests, installer\]',
     '(?s)  ui-publish:\s+needs: \[changes, tests, build, installer, ui-smoke, ui-assignments, ui-capture, ui-regression\]',
     '(?s)  ui-ux-review:\s+name: ui-ux-review\s+needs: \[changes, tests, build, installer, ui-smoke, ui-assignments, ui-capture, ui-regression, ui-publish\]',
     '(?s)name: Upload UI review captures and diagnostics\s+id: screenshot\s+if: always\(\)',
@@ -355,9 +355,18 @@ foreach ($job in @($smokeJob, $assignmentsJob, $captureJob, $regressionJob)) {
         throw "Native UI validation must overlap core tests after the single published build."
     }
 }
-if ($installerJob -notmatch 'needs: \[changes, tests, build\]' -or
+# Option A: installer validation overlaps core tests, but nothing it produces is linked or published without them.
+$commentJob = Get-WorkflowJob build-comment
+if ($installerJob -notmatch 'needs: \[changes, build\]' -or $installerJob -match 'needs\.tests|needs: \[[^\]]*\btests\b' -or
+    $commentJob -notmatch 'needs: \[tests, installer\]' -or $commentJob -match '(?m)^\s+if:.*(always|failure|cancelled)\(' -or
     $publishJob -notmatch 'needs: \[changes, tests, build, installer, ui-smoke, ui-assignments, ui-capture, ui-regression\]') {
-    throw "Tested downloads and screenshot publication must still wait for passing core tests."
+    throw "Installer validation must not wait for core tests; the download link and screenshots must still require them."
+}
+if ($installerJob -notmatch '(?s)name: Record prerequisite wait.*?PAYLOAD_READY_AT: \$\{\{ needs.build.outputs.payload-ready-at \}\}.*?GITHUB_STEP_SUMMARY' -or
+    $installerJob -notmatch '(?s)name: Summarize installer job duration\s+if: always\(\)' -or
+    $buildJob -notmatch '(?s)name: Upload unvalidated payload.*?name: Record payload readiness\s+id: ready' -or
+    $buildJob -notmatch 'payload-ready-at: \$\{\{ steps.ready.outputs.at \}\}') {
+    throw "Installer prerequisite wait and job duration must be reported separately, including on failure."
 }
 Assert-Equal ([regex]::Matches($captureJob, '(?m)^    outputs:').Count) 1 "Capture exposes one outputs mapping after branch integration"
 Assert-Equal ([regex]::Matches($workflow, 'artifact-ids: \$\{\{ needs.build.outputs.artifact-id \}\}').Count) 5 "Installer, smoke, assignments, capture and regression matrix consume the same payload ID"
@@ -385,8 +394,8 @@ if ($installerJob -notmatch '(?s)Download the published payload.*?path: artifact
     throw "Tested downloads must follow installer validation, retaining failure diagnostics."
 }
 foreach ($step in @("Download completed captures", "Publish screenshots for inline review", "Add screenshots to pull request")) {
-    if ($publishJob -notmatch ("(?s)name: " + [regex]::Escape($step) + "\s+(?:id: [^\r\n]+\s+)?if: needs.ui-smoke.result == 'success' && needs.ui-assignments.result == 'success' && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'")) {
-        throw "Screenshot publication must wait for successful UI and installer checks: $step"
+    if ($publishJob -notmatch ("(?s)name: " + [regex]::Escape($step) + "\s+(?:id: [^\r\n]+\s+)?if: needs.tests.result == 'success' && needs.ui-smoke.result == 'success' && needs.ui-assignments.result == 'success' && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'")) {
+        throw "Screenshot publication must wait for successful core tests, UI and installer checks: $step"
     }
 }
     foreach ($pattern in @(

@@ -1,6 +1,13 @@
 #ifndef AppVersion
   #error AppVersion must be supplied by New-Installer.ps1
 #endif
+; Published installers keep these defaults; only New-Installer.ps1 -FixtureCompression overrides them.
+#ifndef Compression
+  #define Compression "lzma2"
+#endif
+#ifndef SolidCompression
+  #define SolidCompression "yes"
+#endif
 
 [Setup]
 AppId={{BA17F8F1-EF47-4D63-9D8F-E46B23F79225}
@@ -21,8 +28,8 @@ OutputDir={#OutputDirectory}
 OutputBaseFilename=FingVibe-{#AppVersion}-win-x64-Setup
 SetupIconFile={#SourceDirectory}\Assets\Scanner.ico
 UninstallDisplayIcon={app}\FingVibe.App.exe
-Compression=lzma2
-SolidCompression=yes
+Compression={#Compression}
+SolidCompression={#SolidCompression}
 WizardStyle=modern
 CloseApplications=no
 RestartApplications=no

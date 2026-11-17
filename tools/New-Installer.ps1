@@ -6,7 +6,9 @@ param(
     [string] $Version,
     [Parameter(Mandatory)]
     [string] $OutputDirectory,
-    [string] $CompilerPath = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+    [string] $CompilerPath = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+    # Test-only: disposable lifecycle fixtures skip compression. Published installers never use this.
+    [switch] $FixtureCompression
 )
 
 $ErrorActionPreference = "Stop"
@@ -48,20 +50,31 @@ $null = New-Item -ItemType Directory -Path $output -Force
 $installer = Join-Path $output "FingVibe-$Version-win-x64-Setup.exe"
 if (Test-Path -LiteralPath $installer) { Remove-Item -LiteralPath $installer }
 $manifestDirectory = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-manifest-$([guid]::NewGuid())"
+$compression = if ($FixtureCompression) { @("/DCompression=none", "/DSolidCompression=no") } else { @() }
+$mode = if ($FixtureCompression) { "test fixture, uncompressed" } else { "production LZMA2/solid" }
+$timer = $null
+$outcome = "failed"
 try {
     $null = New-Item -ItemType Directory -Path $manifestDirectory
     $manifest = Join-Path $manifestDirectory "_fingvibe-files.txt"
     [IO.File]::WriteAllLines($manifest, [string[]] $relativePaths, [Text.UTF8Encoding]::new($true))
+    $timer = [Diagnostics.Stopwatch]::StartNew()
     & $CompilerPath /Qp "/DAppVersion=$Version" "/DVersionMS=$(([long] $components[0] -shl 16) + $components[1])" `
         "/DVersionLS=$(([long] $components[2] -shl 16) + $components[3])" `
-        "/DSourceDirectory=$source" "/DOutputDirectory=$output" "/DOwnershipManifest=$manifest" `
+        "/DSourceDirectory=$source" "/DOutputDirectory=$output" "/DOwnershipManifest=$manifest" @compression `
         (Join-Path $PSScriptRoot "installer\FingVibe.iss")
     if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed with exit code $LASTEXITCODE." }
     if (-not (Test-Path -LiteralPath $installer -PathType Leaf)) {
         throw "Inno Setup did not produce $installer."
     }
+    $outcome = "succeeded"
     Write-Output $installer
 } finally {
+    if ($timer) {
+        $line = "Installer compile $Version ($mode) $outcome in $([Math]::Round($timer.Elapsed.TotalSeconds, 1)) s."
+        Write-Host $line
+        if ($env:GITHUB_STEP_SUMMARY) { "- $line" >> $env:GITHUB_STEP_SUMMARY }
+    }
     if (Test-Path -LiteralPath $manifestDirectory) {
         Remove-Item -LiteralPath $manifestDirectory -Recurse -Force
     }
