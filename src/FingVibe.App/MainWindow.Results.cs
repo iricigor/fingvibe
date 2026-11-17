@@ -13,6 +13,7 @@ public sealed partial class MainWindow
     private long _maximumLatency;
     private ResultSortColumn _sortColumn = ResultSortColumn.Address;
     private bool _sortAscending = true;
+    private bool _sortIgnoresNameEmoji;
 
     private void DeviceFiltersChanged(object? sender, EventArgs e)
     {
@@ -28,7 +29,18 @@ public sealed partial class MainWindow
             return;
         }
 
-        if (_sortColumn == column)
+        if (_sortColumn == column && column == ResultSortColumn.Name)
+        {
+            // Name cycles: ascending/descending ignoring emojis, then ascending/descending by full name.
+            (_sortAscending, _sortIgnoresNameEmoji) = (_sortAscending, _sortIgnoresNameEmoji) switch
+            {
+                (true, true) => (false, true),
+                (false, true) => (true, false),
+                (true, false) => (false, false),
+                _ => (true, true)
+            };
+        }
+        else if (_sortColumn == column)
         {
             _sortAscending = !_sortAscending;
         }
@@ -36,6 +48,7 @@ public sealed partial class MainWindow
         {
             _sortColumn = column;
             _sortAscending = true;
+            _sortIgnoresNameEmoji = column == ResultSortColumn.Name;
         }
 
         UpdateSortGlyphs();
@@ -102,7 +115,7 @@ public sealed partial class MainWindow
     }
 
     private int CompareResults(ScanResultRow leftRow, ScanResultRow rightRow) =>
-        DeviceResultSort.Compare(leftRow, rightRow, _sortColumn, _sortAscending);
+        DeviceResultSort.Compare(leftRow, rightRow, _sortColumn, _sortAscending, _sortIgnoresNameEmoji);
 
     private void UpdateSortGlyphs()
     {
@@ -111,7 +124,7 @@ public sealed partial class MainWindow
             return;
         }
 
-        DevicesPage.ShowSort(_sortColumn, _sortAscending);
+        DevicesPage.ShowSort(_sortColumn, _sortAscending, _sortIgnoresNameEmoji);
     }
 
     private void UpdateEmptyState()

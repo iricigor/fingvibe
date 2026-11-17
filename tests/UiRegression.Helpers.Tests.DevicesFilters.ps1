@@ -1,8 +1,9 @@
 # Devices filter feature helpers: transitions and label emphasis.
 & {
     . (Join-Path $PSScriptRoot 'UiRegression\Devices.Filters.Helpers.ps1')
-    $transition = @{ Reads = 0; Focused = 0; ChangedAt = $null }
+    $transition = @{ Reads = 0; Focused = 0; Restored = 0; ChangedAt = $null }
     function Focus-DeviceWindow { $transition.Focused++ }
+    $restore = { $transition.Restored++ }
     $observe = {
         $transition.Reads++
         if ($transition.Reads -le 6) { $transition.ChangedAt = [Diagnostics.Stopwatch]::StartNew() }
@@ -14,22 +15,22 @@
             Label = [Windows.Rect]::new($(if ($transition.Reads -lt 6) { 5 } else { 6 }), 5, 20, 20)
         }
     }
-    Wait-DeviceFilterContrastReady -Enabled $true -Observe $observe
-    Assert-Regression ($transition.Focused -eq 1 -and $transition.Reads -gt 6 -and
+    Wait-DeviceFilterContrastReady -Enabled $true -Observe $observe -RestoreForeground $restore
+    Assert-Regression ($transition.Focused -eq 1 -and $transition.Restored -eq 1 -and $transition.Reads -gt 6 -and
         $transition.ChangedAt.ElapsedMilliseconds -ge 500) 'HC capture must wait through flag, foreground, visibility, window and label transitions before stable observation.'
     $stable = & $observe
     foreach ($property in @('Enabled', 'Foreground', 'Visible')) {
         $unready = $stable.PSObject.Copy()
         $unready.$property = $false
         Assert-RegressionFailure {
-            Wait-DeviceFilterContrastReady -Enabled $true -TimeoutMilliseconds 20 -Observe { $unready }
+            Wait-DeviceFilterContrastReady -Enabled $true -TimeoutMilliseconds 20 -Observe { $unready } -RestoreForeground $restore
         } '*Timed out*stable foreground and geometry*'
     }
     foreach ($property in @('Window', 'Label')) {
         $unready = $stable.PSObject.Copy()
         $unready.$property = [Windows.Rect]::new(0, 0, 0, 0)
         Assert-RegressionFailure {
-            Wait-DeviceFilterContrastReady -Enabled $true -TimeoutMilliseconds 20 -Observe { $unready }
+            Wait-DeviceFilterContrastReady -Enabled $true -TimeoutMilliseconds 20 -Observe { $unready } -RestoreForeground $restore
         } '*Timed out*stable foreground and geometry*'
     }
     $stable.Enabled = $false
@@ -37,6 +38,69 @@
     Assert-RegressionFailure {
         Wait-DeviceFilterContrastReady -Enabled $true -Observe { throw 'contrast observation failed' }
     } 'contrast observation failed'
+    $transition.Restored = 0
+    $lost = $stable.PSObject.Copy()
+    $lost.Enabled = $true
+    $lost.Foreground = $false
+    $clock = [Diagnostics.Stopwatch]::StartNew()
+    Wait-DeviceFilterContrastReady -Enabled $true -Observe { $lost } -RestoreForeground {
+        $transition.Restored++
+        $lost.Foreground = $true
+    }
+    Assert-Regression ($transition.Restored -eq 1 -and $clock.ElapsedMilliseconds -ge 500) 'A foreground loss must be actively recovered and still satisfy stable capture readiness.'
+    $lost.Foreground = $false
+    Assert-RegressionFailure {
+        Wait-DeviceFilterContrastReady -Enabled $true -Observe { $lost } -RestoreForeground { throw 'focus denied' }
+    } 'focus denied'
+}
+& {
+    . (Join-Path $PSScriptRoot 'UiRegression\Devices.Filters.Helpers.ps1')
+    $state = @{ Applied = @(); Reads = 0; Flags = 17 }
+    $apply = { param($Value) $state.Applied += $Value; $state.Flags = $Value }
+    $read = { $state.Reads++; if ($state.Reads -eq 1) { 17 } else { $state.Flags } }
+    Set-DeviceFilterContrastFlags -Flags 16 -Apply $apply -Read $read
+    Assert-Regression ($state.Reads -ge 2 -and ($state.Applied -join ',') -eq '16') 'The normal baseline must wait for the requested state without repeatedly toggling Windows settings.'
+    $state.Applied = @()
+    Assert-RegressionFailure {
+        try { throw 'scenario failed' }
+        finally {
+            Invoke-UiRegressionCleanup -PrimaryFailed $true -Steps @(
+                { throw 'app close failed' },
+                { Set-DeviceFilterContrastFlags -Flags 17 -Apply $apply -Read { $state.Flags } })
+        }
+    } 'scenario failed'
+    Assert-Regression ($state.Flags -eq 17 -and ($state.Applied -join ',') -eq '17') 'Cleanup must restore original contrast flags even if the scenario and app close fail.'
+    Assert-RegressionFailure {
+        Set-DeviceFilterContrastFlags -Flags 16 -TimeoutMilliseconds 20 -Apply {} -Read { 17 }
+    } '*Timed out*requested filter contrast system state*'
+    Assert-RegressionFailure {
+        Set-DeviceFilterContrastFlags -Flags 16 -Apply { throw 'contrast change denied' } -Read { 16 }
+    } 'contrast change denied'
+}
+& {
+    $controls = [Management.Automation.Language.Parser]::ParseFile(
+        (Join-Path $PSScriptRoot 'UiRegression\Devices.Controls.Helpers.ps1'), [ref]$null, [ref]$null)
+    $captureFunction = $controls.Find({
+        param($node)
+        $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Save-DeviceCapture'
+    }, $true)
+    . ([scriptblock]::Create($captureFunction.Extent.Text))
+    $state = @{ Foreground = $false; Focuses = 0; Captures = 0; Fail = $false }
+    $ScreenshotDirectory = [IO.Path]::GetTempPath()
+    $windowHandle = [IntPtr]::new(1)
+    function Get-UiReviewWindowBounds {}
+    function Focus-DeviceWindow { $state.Foreground = $true; $state.Focuses++ }
+    function Start-Sleep { $state.Foreground = $false }
+    function Save-UiRegressionScreenshot {
+        $state.Captures++
+        if (-not $state.Foreground) { throw 'foreground lost during settling' }
+        if ($state.Fail) { throw 'strict screenshot failure' }
+    }
+    $null = Save-DeviceCapture 'synthetic-focus-transition' -KeepPointer
+    Assert-Regression ($state.Focuses -eq 2 -and $state.Captures -eq 1) 'Capture must reacquire focus after settling, not rely on the pre-delay check.'
+    $state.Fail = $true
+    Assert-RegressionFailure { Save-DeviceCapture 'synthetic-failure' -KeepPointer } 'strict screenshot failure'
+    Assert-Regression ($state.Captures -eq 2) 'Actual capture failures must propagate without recapture retries.'
 }
 & {
     . (Join-Path $PSScriptRoot 'UiRegression\Devices.Filters.Helpers.ps1')

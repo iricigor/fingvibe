@@ -109,19 +109,19 @@
             <NavigationView.MenuItems>
                 <NavigationViewItem x:Name="OverviewNavItem" Content="Overview" Tag="Overview">
                     <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/overview-mono.png"
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/overview-mono-32.png"
                                     Style="{ThemeResource SidebarOverviewIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="NetworkNavItem" Content="Network" Tag="Network">
                     <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/network-mono.png"
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/network-mono-32.png"
                                     Style="{ThemeResource SidebarNetworkIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="DevicesNavItem" Content="Devices" Tag="Devices">
                     <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/devices-mono.png"
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/devices-mono-32.png"
                                     Style="{ThemeResource SidebarDevicesIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
@@ -135,7 +135,7 @@
             <NavigationView.FooterMenuItems>
                 <NavigationViewItem x:Name="ToolsNavItem" Content="Tools" Tag="Tools">
                     <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/tools-mono.png"
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/tools-mono-32.png"
                                     Style="{ThemeResource SidebarToolsIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>

@@ -357,7 +357,17 @@ clear stale restrictions before showing Online devices or Online devices with
 open ports.
 
 Every Devices data-column header is sortable: click to select ascending order,
-then click again to reverse it. Name (including saved custom names), Vendor,
+then click again to reverse it. **Name** has four states instead of two:
+repeated clicks (or Enter/Space on the focused header) cycle through ascending
+ignoring emojis (**Name Aa ↑**), descending ignoring emojis (**Name Aa ↓**),
+ascending (**Name ↑**), and descending (**Name ↓**), then repeat. The small
+`Aa` marker appears only while emojis are ignored; the header tooltip and
+accessible help text name the active mode, for example "Name ascending,
+ignoring emojis". Ignoring emojis removes complete emoji sequences anywhere in
+the name (including variation selectors, joined sequences, skin tones, flags,
+and keycaps) and collapses the spaces they leave, only for comparison; displayed
+and saved names keep their emojis, and ordinary digits, punctuation, and
+non-emoji symbols still count. Name (including saved custom names), Vendor,
 OS, and Device type use case-insensitive displayed text; unknown/missing text
 retains ordinary lexical ordering. IP addresses sort numerically, Status by
 inventory status, Response by latency (missing first ascending), and Open ports
