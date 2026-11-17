@@ -1560,6 +1560,12 @@ apps** entry; a desktop shortcut is optional. Windows may show an unknown
 publisher or SmartScreen warning. No code signing or automatic updater is
 included; download only builds you trust.
 
+After a successful interactive installation or upgrade, **Start FingVibe** is
+checked by default on the final screen. **Finish** launches the installed app
+with its installation folder as the working directory only if that choice stays
+checked. Setup does not wait for the app to exit. `/SILENT` and `/VERYSILENT`
+installations never launch it automatically.
+
 For manual updates, close FingVibe and run the newer installer. Setup refuses to
 install or uninstall while FingVibe is running and rejects downgrades. Existing
 files from the ZIP convenience script can be adopted in the same location.
@@ -1588,6 +1594,11 @@ disposable GitHub-hosted runner. PR, independent Full and release validation run
 the same fixed lifecycle: they compile the actual installer and verify payload
 hashes, fresh installation, window launch, running-app blocking, ZIP/script
 adoption, shortcuts, uninstall, and saved-data/unknown-file preservation.
+They also verify silent/very silent launch suppression and the checked-by-default
+Finish choice for both fresh installs and upgrades, exercising checked and
+unchecked outcomes through the native wizard. Launch checks verify the installed
+process/window and Setup's logged working directory; existing timing logs include
+the additional interactive cases.
 The real installer also upgrades a lower same-family installation, removing an
 obsolete file from the previous ownership manifest while keeping unknown files
 and saved data, and the lower version is then rejected as a downgrade.

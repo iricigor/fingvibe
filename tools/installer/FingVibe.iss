@@ -47,6 +47,9 @@ Source: "{#OwnershipManifest}"; DestDir: "{app}"; DestName: "_fingvibe-files.txt
 Name: "{autoprograms}\FingVibe"; Filename: "{app}\FingVibe.App.exe"; WorkingDir: "{app}"
 Name: "{autodesktop}\FingVibe"; Filename: "{app}\FingVibe.App.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
+[Run]
+Filename: "{app}\FingVibe.App.exe"; WorkingDir: "{app}"; Description: "Start FingVibe"; Flags: postinstall nowait skipifsilent
+
 [Registry]
 Root: HKCU; Subkey: "Software\FingVibe\Installer"; ValueType: dword; ValueName: "VersionMS"; ValueData: "{#VersionMS}"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\FingVibe\Installer"; ValueType: dword; ValueName: "VersionLS"; ValueData: "{#VersionLS}"; Flags: uninsdeletekey
