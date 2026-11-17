@@ -180,12 +180,20 @@ public sealed partial class DevicesPageView : UserControl
         LastScanText.Text = "Scan duration " + (snapshot?.Duration is { } duration
             ? $"{duration.TotalSeconds:N1}s" : snapshot is null ? "—" : "not recorded");
 
-    internal void ShowSort(ResultSortColumn column, bool ascending)
+    internal void ShowSort(ResultSortColumn column, bool ascending, bool ignoreNameEmoji = false)
     {
         string Glyph(ResultSortColumn candidate) =>
             column == candidate ? (ascending ? "\u2191" : "\u2193") : string.Empty;
 
+        var nameActive = column == ResultSortColumn.Name;
         NameSortGlyph.Text = Glyph(ResultSortColumn.Name);
+        NameEmojiMarker.Visibility = nameActive && ignoreNameEmoji ? Visibility.Visible : Visibility.Collapsed;
+        // The Aa marker is not self-explanatory, so the tooltip and accessible state spell out the active mode.
+        var nameState = nameActive
+            ? $"Name {(ascending ? "ascending" : "descending")}{(ignoreNameEmoji ? ", ignoring emojis" : string.Empty)}"
+            : "Sort by name";
+        ToolTipService.SetToolTip(NameSortButton, nameState);
+        AutomationProperties.SetHelpText(NameSortButton, nameActive ? nameState : string.Empty);
         VendorSortGlyph.Text = Glyph(ResultSortColumn.Vendor);
         OpenPortsSortGlyph.Text = Glyph(ResultSortColumn.OpenPorts);
         PersonSortGlyph.Text = MergedPersonSortGlyph.Text = Glyph(ResultSortColumn.Person);

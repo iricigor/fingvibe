@@ -7,7 +7,32 @@
     }
 }
 
-function Assert-SortedFixture([string] $Column, [bool] $Ascending, [object[]] $ExpectedRows) {
+function Get-DeviceNameSortKey([string] $Name) {
+    # Fixture names use simple emoji; DeviceResultSortTests owns the full emoji-sequence matrix.
+    (($Name -replace '[\uD800-\uDBFF][\uDC00-\uDFFF]|\uFE0F|\u200D', '') -replace '\s+', ' ').Trim()
+}
+
+function Assert-DeviceNameSortState([bool] $Ascending, [bool] $IgnoreEmoji) {
+    $button = Find-DeviceElement NameSortButton
+    $glyph = if ($Ascending) { [string][char]0x2191 } else { [string][char]0x2193 }
+    $marker = $button.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "NameEmojiMarker"))
+    $state = "Name $(if ($Ascending) { 'ascending' } else { 'descending' })$(if ($IgnoreEmoji) { ', ignoring emojis' })"
+    if ((Find-DeviceElement NameSortGlyph).Current.Name -ne $glyph -or
+        [bool]($marker -and -not $marker.Current.IsOffscreen) -ne $IgnoreEmoji -or
+        ($IgnoreEmoji -and $marker.Current.Name -cne "Aa") -or $button.Current.HelpText -cne $state) {
+        throw "Name header must show '$state' through its arrow, Aa marker and accessible state."
+    }
+}
+
+function Invoke-DeviceNameSortKey {
+    (Find-DeviceElement NameSortButton).SetFocus()
+    [DevicesReviewInput]::Tap(0x20)
+    Start-Sleep -Milliseconds 350
+}
+
+function Assert-SortedFixture([string] $Column, [bool] $Ascending, [object[]] $ExpectedRows, [switch] $IgnoreEmoji) {
     $ordered = [System.Collections.Generic.List[object]]::new()
     foreach ($item in $ExpectedRows) { $ordered.Add($item) }
     $ordered.Sort([System.Comparison[object]] {
@@ -18,6 +43,9 @@ function Assert-SortedFixture([string] $Column, [bool] $Ascending, [object[]] $E
         }
         $comparison = if ($Column -eq "OpenPorts") {
             $left.OpenPorts.CompareTo($right.OpenPorts)
+        } elseif ($IgnoreEmoji) {
+            [string]::Compare((Get-DeviceNameSortKey $left[$Column]), (Get-DeviceNameSortKey $right[$Column]),
+                [StringComparison]::OrdinalIgnoreCase)
         } else {
             [string]::Compare($left[$Column], $right[$Column], [StringComparison]::OrdinalIgnoreCase)
         }
@@ -128,7 +156,9 @@ function Test-DeviceColumnSorting {
     }
 
     Invoke-DeviceSort NameSortButton NameSortGlyph $true
+    Assert-DeviceNameSortState $true $true
     Invoke-DeviceSort NameSortButton NameSortGlyph $false
+    Assert-DeviceNameSortState $false $true
     $search.SetValue("Fixture device 01")
     Start-Sleep -Milliseconds 350
     $row = @(Get-DeviceRows)[0]
@@ -137,7 +167,8 @@ function Test-DeviceColumnSorting {
     [DevicesReviewInput]::Tap(0x0D)
     Start-Sleep -Milliseconds 350
     (Find-DeviceElement DeviceRenameButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-    (Find-DeviceElement DeviceNameInput).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("ZZ sorting update")
+    (Find-DeviceElement DeviceNameInput).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue(
+        "$([char]::ConvertFromUtf32(0x1F3AE)) Aardvark sorting update")
     # The Save action is enabled by the asynchronous text-changed handler.
     $deadline = [DateTime]::UtcNow.AddSeconds(10)
     while (-not (Find-DeviceElement DeviceNameSaveButton).Current.IsEnabled -and [DateTime]::UtcNow -lt $deadline) {
@@ -151,12 +182,21 @@ function Test-DeviceColumnSorting {
     } while (-not $saved -and [DateTime]::UtcNow -lt $deadline)
     if (-not $saved) { throw "Sorting fixture name update was not saved." }
     Select-DevicePage DevicesNavItem
-    $first.Name = "ZZ sorting update"
+    # The emoji-decorated name sorts first ignoring emojis, but after plain names by full text.
+    $first.Name = "$([char]::ConvertFromUtf32(0x1F3AE)) Aardvark sorting update"
     $search.SetValue("127.0.0.1")
-    Assert-SortedFixture Name $false $expected
+    Assert-SortedFixture Name $false $expected -IgnoreEmoji
     Clear-DeviceFilters
     if ((Find-DeviceElement NameSortGlyph).Current.Name -ne [string][char]0x2193) {
         throw "Clearing filters lost the selected sort direction."
+    }
+    Assert-DeviceNameSortState $false $true
+    # Keyboard activation continues the same four-state Name cycle and wraps around.
+    $search.SetValue("127.0.0.1")
+    foreach ($state in @(@($true, $false), @($false, $false), @($true, $true))) {
+        Invoke-DeviceNameSortKey
+        Assert-DeviceNameSortState $state[0] $state[1]
+        Assert-SortedFixture Name $state[0] $expected -IgnoreEmoji:$state[1]
     }
     $null = Save-DeviceCapture "devices-column-sorting"
 }
