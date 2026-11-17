@@ -20,6 +20,13 @@ When available, evaluate every offered candidate against run permissions, human-
 exclusions, scope, native/body dependencies and delivered prerequisites, foreign
 ownership, current PR/head/reviews and relevant diffs/shared contracts. Return
 eligible tasks in preferred order, and evidence/reasons for every rejection.
+Unknown evidence is not failure or conflict. Accept a `diagnose` offer when a
+bounded read-only investigation can resolve missing/stale CI/details or identify
+the authoritative PR among several. Accepting diagnosis does not accept repair
+or finalization. A known unsuperseded failure can be assessed for in-scope repair
+while other checks remain pending/unknown; neither result proves readiness.
+Do not reject distinct tasks just because exhaustive compatibility proof is
+absent. Report concrete conflicts with evidence; do not allocate another worker.
 Closed/abandoned dependencies are not automatically delivered. Failed CI is
 attention evidence, not authorization to fix unrelated failures or rerun to green.
 If evidence suggests a failed test/environment rather than an in-scope code
@@ -40,6 +47,9 @@ Do not start work from this assessment. Wait for the explicit correlated start
 assignment naming one of your eligible offered tasks. Recheck changed evidence.
 Reject stale/foreign/unoffered starts explicitly. A duplicate assignment receives
 status/acknowledgment only, never another execution.
+A cycle may contain one fresh follow-up offer after resolved initial offers or
+verified crash release; assess it using its new offer ID. It is not a resent
+start, inherited acceptance or permission to run overlapping work.
 
 ## Execute one start assignment
 
@@ -57,7 +67,9 @@ conversations category and task marker, and reads back the labels. Preserve all
 other labels, including the other Developer's participation. Keep these labels
 after work ends or an assignment is released: they are history, not availability,
 ownership or authority. Missing labels/permissions or failed verification block
-work and must be reported in the Discussion. Then claim the task and verify the
+work and must be reported in the Discussion. For `diagnose`, use the read-only
+procedure below without claiming the task or changing its lifecycle labels.
+For other actions, claim the task and verify the
 result before edits:
 
 ```powershell
@@ -88,7 +100,7 @@ worktree using absolute paths or `git -C <path>`.
 | `implement` (new) | `origin/main`, on new branch `agent4/task-<issue>-<id>` unless `-Branch` is given |
 | `implement` (`resume`) | Detached at the PR's pushed head (`-Action resume`) |
 | `repair` | Detached at the assigned expected PR head |
-| `finalize`, `no-code` | None; no edits |
+| `diagnose`, `finalize`, `no-code` | None; no edits |
 
 The helper names the worktree `task-<issue>-<assignmentId>` (`:` becomes `_`)
 under one root next to the main checkout (`<checkout>-agent4-worktrees`), shared
@@ -168,6 +180,19 @@ With `merge: no`, report that a human merge is required and finish.
 specified action (for #393, choose and record a random 3-10 minute delay, wait,
 report actual UTC start/end and close the assigned issue). No artificial commit,
 PR, head or successful implementation result is required.
+
+**Diagnose:** make one bounded read-only evidence pass for the assigned
+uncertainty. Refresh stale PR/head/CI details or examine all linked PRs to
+identify the authoritative continuation; never pick an arbitrary PR. Report
+observed facts, remaining unknowns, evidence links and the specific next action
+in the task Discussion, then read back the report/end marker and finish. Do not
+edit files, create a worktree/PR, claim/release lifecycle state, request CI, merge
+or close the issue. Participation-label and assignment/report Discussion writes
+remain required. Do not add `status:blocked` merely because a fact is unknown.
+If human authority is actually needed, name the precise decision/access blocker.
+Resolved evidence is not a repair/finalize start: future execution needs fresh
+packet assessment and an explicit assignment. Do not poll CI or repeat an
+unchanged diagnosis indefinitely; explain what observation/action can resolve it.
 
 ## Report and finish
 

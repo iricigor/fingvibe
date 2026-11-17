@@ -13,6 +13,15 @@ PR submission frees a Developer for later work; pending CI does not retain a
 Developer slot. [Task #413](https://github.com/iricigor/fingvibe/issues/413)
 adds Developer claims, crash detection and prompt-based authority.
 
+[Task #523](https://github.com/iricigor/fingvibe/issues/523) makes dispatch
+progress-first: unknown is not failed, rejected, idle or an evidenced conflict.
+Missing compatibility evidence does not veto distinct accepted work. Unknown CI
+or ambiguous PRs can reach bounded read-only `diagnose` assignments without
+inventing failure or merge readiness. PR-local collection errors and malformed
+individual replies remain explicit without aborting independent work. One
+deterministic follow-up offer round can refill an idle slot or reoffer a verified
+crash release in the same cycle; ownership and uncertain delivery remain held.
+
 The packet reads individual PR mergeability evidence. Confirmed merge conflicts
 use the existing `failed` category for repair assessment, even with missing,
 pending or successful head checks: conflicts prevent `pull_request` workflows
@@ -119,7 +128,7 @@ Follow the loop4 contract. Wait for Developer assessments, not implementation or
 ```
 
 A cycle is **run the script → send offers → process each response → release
-confirmed crashed assignments → send compatible starts**. At startup,
+confirmed crashed assignments → send starts → at most one follow-up offer round**. At startup,
 Dispatcher reads only this README and the protocol, not CONTRIBUTING.md or the
 development backlog. It uses the packet's `candidates`, `blocked` and
 `openAssignments` output directly. It does not read the
@@ -163,19 +172,23 @@ compatible assignment count, then packet priority, then summed preference rank;
 Developer 1 precedence is only the final tie-breaker. For offers A/B and A/C,
 acceptances A/B and A produce Developer 1 -> B and Developer 2 -> A when compatible.
 AI assesses semantic safety but must not override the calculated allocation.
-An empty offer never authorizes a start or task transfer.
+An empty offer never authorizes a start or task transfer. After initial
+proposals are handled, one scripted follow-up round may offer untried candidates
+to available Developers with fresh correlation. No third round, uncertain offer
+redistribution or repeated rejected Developer/task pair is permitted. See
+[same-cycle follow-up](protocol.md#same-cycle-follow-up).
 When there are no candidates or open assignments, and no unresolved offers or
 starts in retained context, no Developer calls are needed. Open assignments alone
 still require offers even when no candidates are eligible.
 
-Use all assessments already received, without requiring both replies. One Developer
-can start its accepted offered task before the other replies only when compatibility is verified
-against both Developers' existing work, unresolved offered candidates and starts
-already sent. The same shared task is exclusive, not concurrently executed;
-other unresolved candidates still need compatibility evidence. Either Developer
-can receive the shared start first when safe. A nonresponding Developer stays
-unknown with its work/offers held;
-overlap or insufficient evidence defers the start. Check late responses against
+Use all valid assessments already received, without requiring both replies.
+Publish individual `responseErrors` and request correction while preserving
+unresolved work; a malformed reply does not veto valid independent responses.
+Check concrete evidenced incompatibilities against existing work, unresolved
+offered candidates and starts already sent. Omitted compatibility evidence is
+non-blocking, not proof of independence. The same shared task remains exclusive.
+Either Developer can receive the shared start first. A nonresponding Developer
+stays unknown with its own work/offers held, not assumed idle. Check late responses against
 newly started work by rerunning the planner, retaining at most one start per
 Developer per cycle and all offer/start correlation. Report the unresolved portion as pending, not the entire
 cycle blocked when compatible work has already started.
@@ -210,7 +223,8 @@ is not running it (for example `available`, or busy with a different assignment)
 the execution ended without a report. Dispatcher then posts a verified release
 marker in the task Discussion and runs
 `Set-Agent4TaskClaim.ps1 -Issue <number> -Action release` (removes `active`,
-Status **Todo**). The next cycle offers the task again. A missing or uncertain
+Status **Todo**). A fresh packet and correlated assessment can reoffer the task
+in the single same-cycle follow-up round, or next cycle. A missing or uncertain
 reply keeps the assignment held; age alone never releases it. Release relies on
 the Developer's own report, so a hung execution that its Developer cannot see
 could overlap with the new assignment.
@@ -252,7 +266,9 @@ Default order, with ascending issue number within each group:
 2. Linked open PR with failed completed current-head CI, or whose current head
    has a recorded finalize rejection (whatever its CI).
 3. `resume`: released implementation with its existing linked PR, whatever its CI.
-4. Eligible new native task (including released work that has no PR yet).
+4. `diagnose`: missing/unrecognized CI, incomplete/stale PR detail or multiple
+   linked PRs; read-only investigation, never implicit repair/finalize authority.
+5. Eligible new native task (including released work that has no PR yet).
 
 Released candidates carry the `released` assignment. Dispatcher repeats its
 action (continuing an existing PR/branch, never a competing PR).
@@ -266,17 +282,26 @@ normal classification; non-repairable rejections use `status:blocked`.
 Cancelled/timed-out/action-required CI is failed attention work, not permission
 to retry. Neutral/skipped checks are non-failing, but alone do not prove success.
 Latest observed checks/statuses/workflow runs for the head determine the category.
-Any pending CI waits; missing/unrecognized evidence is explicitly unknown.
+Pending-only CI waits; missing/unrecognized evidence remains explicitly unknown
+and can be offered for diagnosis. A known unsuperseded failure remains actionable
+alongside other pending/unknown results. PR `ci.stage` preserves actionable
+failure and `ci.readiness` separately retains incomplete overall readiness.
 This classification is an offer priority, not proof that every required check,
 review, acceptance condition or affected-UI duration requirement is satisfied.
 
-Native PR closing references associate tasks; an ambiguous multi-PR task is
-excluded with a reason. Active/review work without a linked open PR is not new
+Native PR closing references associate tasks; an ambiguous multi-PR task carries
+all `linkedPrs` and diagnostic scope, without choosing an arbitrary PR.
+Active/review work without a linked open PR is not new
 work. A task with an open assignment, or more than one task Discussion, is excluded.
 Human tasks, explicit blockers and open native dependencies are excluded.
 Closed dependency disposition and foreign work remain evidence for Developer
 assessment, not automatic proof of delivery. Issues, PR diffs/reviews, CI jobs
-and Discussion metadata are completely paginated; collection errors stop explicitly.
+and Discussion metadata are completely paginated. PR-local detail/CI/job errors
+are recorded in packet/evidence `collectionErrors`, and the affected task
+requires refresh/diagnosis (or assessment of an already observed failure).
+They do not abort unrelated offers or fabricate successful/empty evidence.
+Repository-wide identity, task association and ownership collection errors still
+stop coordination when independence cannot be established.
 Discussions keep their category (Agent logs, Epic coordination, Task
 conversations) and body markers, so Epic and task Discussions are found there.
 Comments and replies are collected, completely paginated and in batches, only
@@ -289,7 +314,11 @@ It must cover the open native queue. The script builds offers from only the
 first four at positions 1/3 and 2/4, sharing a whole-queue singleton or a sole
 `success` candidate in a mixed queue as described above.
 Dispatcher processes responses with the deterministic allocation planner and
-compatibility checks before each start; offer construction is unchanged.
+evidenced-incompatibility checks before each start; initial offer construction is
+unchanged. A bounded follow-up uses the refreshed queue, preserving all held
+work and committed starts. Task-local preparation/helper failures are reported
+without cancelling independent actions. Only failures before any Sending record
+or send attempt permit refill; uncertain delivery always stays held.
 
 ## Boundaries
 
