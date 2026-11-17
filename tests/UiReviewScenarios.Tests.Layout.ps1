@@ -7,6 +7,7 @@
         PeopleRoomsPage = "PeopleRoomsPageView"
         PersonDetailPage = "PersonDetailsPageView"
         RoomDetailPage = "RoomDetailsPageView"
+        RoomMapPage = "RoomMapPageView"
         SettingsPage = "SettingsPageView"
     }
     $appDirectory = Join-Path $PSScriptRoot "..\src\FingVibe.App"
@@ -111,6 +112,9 @@
     $rootGrid = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='RootGrid']")
     $ribbonArea = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='BuildRibbonArea']")
     $navigation = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='MainNavigation']")
+    if ($navigation.SelectSingleNode(".//*[local-name()='NavigationViewItem' and @Tag='RoomMap']")) {
+        throw "Room map must be reachable from its three entry points, never from a sidebar item."
+    }
     if ($ribbonArea.ParentNode -ne $rootGrid -or $navigation.ParentNode -ne $rootGrid -or
         $rootGrid.LastChild -ne $ribbonArea) {
         throw "The build ribbon must overlay navigation as a root sibling, outside the shared header layout."
@@ -182,7 +186,7 @@
         throw "Tools cards must share two equal-width grid columns."
     }
     Assert-Equal @($cards | ForEach-Object { $_.GetAttribute("x:Name") }) `
-        @("SqlEditorCard", "FingImportCard", "SpeedTestCard", "TroubleshootingCard", "DatabaseBackupsCard") `
+        @("SqlEditorCard", "FingImportCard", "SpeedTestCard", "RoomMapCard", "TroubleshootingCard", "DatabaseBackupsCard") `
         "Tools visual and keyboard row order"
     foreach ($card in $cards) {
         if ($card.GetAttribute("Grid.ColumnSpan") -notin @("", "1") -or

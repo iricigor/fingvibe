@@ -97,6 +97,7 @@ public sealed partial class MainWindow
             : Color.FromArgb(255, (byte)(palette.AlternateRow >> 16),
                 (byte)(palette.AlternateRow >> 8), (byte)palette.AlternateRow);
         UpdateBuildRibbonColors();
+        RoomMapPage.RefreshAppearance();
 
         var hasBackdrop = ApplyWindowBackdrop();
         UpdateNavigationPaneBackground(MainNavigation.IsPaneOpen);

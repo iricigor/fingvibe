@@ -4,7 +4,7 @@ function Find-PeopleRoomsElement([string] $Property, [string] $Value, [string] $
     } else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
     # Wait-UiRegressionState's $Condition parameter shadows caller variables in callbacks.
     $peopleRoomsCondition = [System.Windows.Automation.PropertyCondition]::new($propertyId, $Value)
-    if ($OwnerId -in @('PersonDetailPage', 'PeopleRoomsPage')) {
+    if ($OwnerId -in @('PersonDetailPage', 'PeopleRoomsPage', 'RoomMapPage')) {
         $getPage = {
             $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
                 [System.Windows.Automation.PropertyCondition]::new(
@@ -75,6 +75,122 @@ function Open-PeopleRoomsDetails([string] $Name, [string] $PageId) {
     if (-not $element) { throw "No list item owns '$Name'." }
     $element.SetFocus()
     [SidebarReviewKeyboard]::Tap(0x0D)
+}
+
+function Test-RoomMapEntries {
+    Select-SidebarPage 'People & rooms' 'Search people and rooms'
+    Invoke-PeopleRoomsElement AutomationId ViewRoomMapButton PeopleRoomsPage
+    $root = Find-PeopleRoomsElement AutomationId RoomMapRootPlaceholder RoomMapPage
+    Assert-Equal $root.Current.IsKeyboardFocusable $true 'Gateway fallback remains keyboard reachable'
+    $unassigned = Find-PeopleRoomsElement AutomationId RoomMapUnassigned RoomMapPage
+    Assert-Equal $unassigned.Current.IsKeyboardFocusable $true 'Unassigned strip remains keyboard reachable'
+    $null = Find-PeopleRoomsElement AutomationId ManageRoomsButton RoomMapPage
+    Invoke-PeopleRoomsElement AutomationId ManageRoomsButton RoomMapPage
+    $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
+
+    Select-SidebarPage 'Tools' 'View room map'
+    Invoke-PeopleRoomsElement Name 'View room map'
+    Invoke-PeopleRoomsElement AutomationId ManageRoomsButton RoomMapPage
+    $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
+
+    Select-SidebarPage 'Tools' 'Network troubleshooting'
+    Invoke-PeopleRoomsElement Name 'Network troubleshooting'
+    $null = Find-PeopleRoomsElement Name 'Run checks'
+    Invoke-PeopleRoomsElement AutomationId TroubleshootingViewRoomMapButton
+    Invoke-PeopleRoomsElement AutomationId ManageRoomsButton RoomMapPage
+    $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
+    Write-Host 'Room map entry points, conceptual gateway fallback, focus reachability and return to management passed.'
+}
+
+function Test-RoomMapAppearance([string] $Name) {
+    Select-SidebarPage 'Tools' 'View room map'
+    Invoke-PeopleRoomsElement Name 'View room map'
+    $null = Find-PeopleRoomsElement AutomationId RoomMapRootPlaceholder RoomMapPage
+    Save-SidebarAppearance "room-map-$Name" -AssertMatchingSolid
+    Invoke-PeopleRoomsElement AutomationId ManageRoomsButton RoomMapPage
+    $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
+}
+
+function Test-RoomMapScale {
+    $savedInventory = $env:FINGVIBE_UI_REVIEW_INVENTORY
+    $scaleDirectory = Join-Path $fixtureDirectory 'room-map-scale'
+    $inventory = Join-Path $scaleDirectory 'inventory.json'
+    $rooms = @()
+    $assignments = @{}
+    $devices = @{}
+    $names = @{}
+    for ($roomIndex = 0; $roomIndex -lt 10; $roomIndex++) {
+        $id = "00000000-0000-0000-0000-{0:D12}" -f ($roomIndex + 1)
+        $rooms += @{ id = $id; name = "Scale room $roomIndex"; shortName = "R$($roomIndex.ToString('D2'))" }
+    }
+    for ($deviceIndex = 0; $deviceIndex -lt 100; $deviceIndex++) {
+        $mac = "001122{0:X6}" -f $deviceIndex
+        $room = $rooms[$deviceIndex % 10].id
+        $timestamp = [DateTimeOffset]::new(2026, 11, 17, 12, 0, 0, [TimeSpan]::Zero).ToString('o')
+        $devices[$mac] = @{
+            mac = $mac; imported = @{}
+            observations = @(@{
+                networkId = 'ui-review-network'; subnet = '127.0.0.1/32'; address = '127.0.0.1'
+                hostname = "scale-$deviceIndex"; vendor = 'Synthetic'; ports = @(); latency = 1
+                probeDuration = '00:00:00.001'
+                classification = @{ type = $(if ($deviceIndex % 8 -eq 0) { 3 } else { 1 });
+                    operatingSystem = 0; typeEvidence = 'Fixture'; operatingSystemEvidence = 'Fixture' }
+                firstSeen = $timestamp; lastSeen = $timestamp; lastChecked = $timestamp
+                present = $deviceIndex % 5 -ne 0
+            })
+            scanHistory = @()
+        }
+        $names[$mac] = "Scale device $($deviceIndex.ToString('D2'))"
+        $assignments[$mac] = @{ roomId = $room }
+    }
+    $data = @{
+        revision = [Guid]::NewGuid().ToString(); devices = $devices; names = $names; classifications = @{}
+        peopleRooms = @{ people = @(); rooms = $rooms; assignments = $assignments }
+        virtualDevices = @(); discoveryBaselines = @()
+    }
+    Stop-SidebarApp
+    try {
+        $null = New-Item -ItemType Directory -Path $scaleDirectory -Force
+        @{ version = 4; data = $data } | ConvertTo-Json -Depth 15 |
+            Set-Content -LiteralPath $inventory -Encoding UTF8
+        $env:FINGVIBE_UI_REVIEW_INVENTORY = $inventory
+        Start-SidebarApp
+        Set-SidebarWindowWidth $expandedWidth
+        Select-SidebarPage 'Tools' 'View room map'
+        $layoutClock = [Diagnostics.Stopwatch]::StartNew()
+        Invoke-PeopleRoomsElement Name 'View room map'
+        $page = Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapPage')) `
+            -Description 'Room map scale page' -Container { $root }
+        $elements = $page.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.Condition]::TrueCondition)
+        $deviceElements = @($elements | Where-Object {
+            $_.Current.AutomationId -like 'RoomMapDevice-*'
+        })
+        $roomElements = @($elements | Where-Object {
+            $_.Current.AutomationId -like 'RoomMapRoom-*'
+        })
+        Assert-Equal $deviceElements.Count 100 'Room map retains every one of 100 relevant devices'
+        Assert-Equal $roomElements.Count 10 'Room map retains all ten saved rooms'
+        $layoutClock.Stop()
+        $last = Find-PeopleRoomsElement AutomationId 'RoomMapDevice-001122000063' RoomMapPage
+        Assert-Equal $last.Current.IsKeyboardFocusable $true 'Last map device remains keyboard reachable'
+        Assert-Equal $last.Current.IsOffscreen $false 'Focused last map device is brought into view'
+        @{
+            rooms = $roomElements.Count
+            devices = $deviceElements.Count
+            layoutAndRenderSeconds = $layoutClock.Elapsed.TotalSeconds
+            focusedFinalDevice = $last.Current.AutomationId
+        } | ConvertTo-Json -Depth 4 |
+            Set-Content -LiteralPath (Join-Path $ScreenshotDirectory 'room-map-scale.json') -Encoding UTF8
+        Write-Host "Room map rendered 10 rooms and 100 devices in $($layoutClock.Elapsed.TotalSeconds.ToString('F2')) seconds and reached the final keyboard target."
+    }
+    finally {
+        Stop-SidebarApp
+        $env:FINGVIBE_UI_REVIEW_INVENTORY = $savedInventory
+        Start-SidebarApp
+        Set-SidebarWindowWidth $expandedWidth
+    }
 }
 
 function Test-PeopleRoomsFlows {

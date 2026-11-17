@@ -1,2 +1,4 @@
+Test-RoomMapEntries
+Test-RoomMapScale
 Test-PeopleRoomsFlows
 Test-PeopleRoomsPersistenceErrors

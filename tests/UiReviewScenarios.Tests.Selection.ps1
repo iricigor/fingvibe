@@ -38,7 +38,7 @@
     Assert-Throws { Get-UiReviewCapturePlan $repository -BaseRevision "missing-ref" } "*failed with exit code*"
 
     Test-Change @{ "README.md" = "Documentation" } @("Devices") "Documentation-only"
-    foreach ($scenario in @("Overview", "Network", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails", "Tools", "SpeedTest", "Settings", "Devices")) {
+    foreach ($scenario in @("Overview", "Network", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails", "RoomMap", "Tools", "SpeedTest", "Settings", "Devices")) {
         $page = $UiReviewScenarios[$scenario].Page
         $changed = $xaml.Replace("Text=`"$page`"", "Text=`"Changed $page`"")
         $expected = @("Devices")
@@ -119,7 +119,7 @@
         Test-Change @{ $path = "changed" } @("Devices", "PersonDetails") "Equipment activity"
     }
     $asyncSurfaceScenarios = @("Devices", "Network", "DeviceDetails", "DeviceHistory", "PersonDetails", "Tools", "Troubleshooting", "DatabaseBackups")
-    $rowScenarios = @("Devices", "Overview", "Network", "DeviceDetails", "DeviceHistory", "People", "PersonDetails", "Rooms", "RoomDetails", "Settings", "DevicesEmpty")
+    $rowScenarios = @("Devices", "Overview", "Network", "DeviceDetails", "DeviceHistory", "People", "PersonDetails", "Rooms", "RoomMap", "RoomDetails", "Settings", "DevicesEmpty")
     $analyticsScenarios = @("Devices", "Network", "DeviceDetails", "DeviceHistory", "PersonDetails", "Settings")
     Test-Change @{ "src\FingVibe.App\AsyncSurfaceSession.cs" = "changed" } $asyncSurfaceScenarios "Shared asynchronous surface consumers"
     Test-Change @{ "src\FingVibe.App\ScanResultRow.cs" = "changed" } $rowScenarios "Shared device row consumers"
@@ -130,7 +130,7 @@
         "Shared contracts union with each other and with page-specific coverage"
     Test-Change @{ "src\FingVibe.App\AsyncSurfaceSession.cs" = "changed"; "src\FingVibe.App\ScanResultRow.cs" = "changed"
         "src\FingVibe.Core\Storage\DeviceInventoryStore.Analytics.cs" = "changed"; "src\FingVibe.App\Tools\AboutPage.xaml" = "changed" } `
-        @("Devices", "Overview", "Network", "DeviceDetails", "DeviceHistory", "People", "PersonDetails", "Rooms", "Tools",
+        @("Devices", "Overview", "Network", "DeviceDetails", "DeviceHistory", "People", "PersonDetails", "Rooms", "RoomMap", "Tools",
             "Troubleshooting", "About", "DatabaseBackups", "RoomDetails", "Settings", "DevicesEmpty") `
         "All shared contracts keep catalog order and unrelated explicit page coverage"
     foreach ($path in @("src\FingVibe.Core\Models\DeviceInventory.cs", "src\FingVibe.Core\Models\PrivateVirtualDevice.cs",
@@ -153,10 +153,14 @@
     foreach ($iconPath in @("src\FingVibe.App\PeopleRoomsIcons.cs", "src\FingVibe.App\Views\PeopleRoomsIconPicker.cs",
         "src\FingVibe.App\PeopleRoomsPresentation.cs", "src\FingVibe.App\Views\PeopleRoomsDialogs.cs")) {
         Test-Change @{ $iconPath = "changed" } `
-            @("Devices", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails") "People/Rooms icon surfaces"
+            @("Devices", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomMap", "RoomDetails") "People/Rooms icon surfaces"
     }
     Test-Change @{ "src\FingVibe.App\MainWindow.NetworkIdentity.cs" = "changed" } `
-        @("Devices", "Overview", "Network", "DeviceDetails", "PersonDetails", "Troubleshooting") "Network identity code"
+        @("Devices", "Overview", "Network", "DeviceDetails", "PersonDetails", "RoomMap", "Troubleshooting") "Network identity code"
+    Test-Change @{ "src\FingVibe.App\MainWindow.RoomMap.cs" = "changed" } `
+        @("Devices", "RoomMap") "Room map shell owner"
+    Test-Change @{ "src\FingVibe.Core\Models\RoomMapLayout.cs" = "changed" } `
+        @("Devices", "RoomMap") "Room map projection/layout"
     Test-Change @{ "src\FingVibe.App\MainWindow.Results.cs" = "changed" } `
         @("Devices", "Settings", "DevicesEmpty") "Results and empty state"
     Test-Change @{ "src\FingVibe.App\DeviceResultFilter.cs" = "changed" } `
@@ -178,8 +182,8 @@
     Test-Change @{ ".github\scripts\UiReviewNavigation.ps1" = "changed" } @("Devices") "Pipeline baseline"
     Test-Change @{ "src\FingVibe.App\MainWindow.xaml.cs" = "changed" } @("Devices") "Shell code baseline"
     Test-Change @{ "src\FingVibe.App\Tools\SpeedTestPage.xaml" = "changed" } @("Devices", "Tools", "SpeedTest", "Troubleshooting", "About", "FingImport", "SqlEditor", "DatabaseBackups") "Tools views"
-    Test-Change @{ "src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml" = "changed" } @("Devices", "Tools", "Troubleshooting") "Troubleshooting view"
-    Test-Change @{ "src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml.cs" = "changed" } @("Devices", "Tools", "Troubleshooting") "Troubleshooting behavior"
+    Test-Change @{ "src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml" = "changed" } @("Devices", "RoomMap", "Tools", "Troubleshooting") "Troubleshooting view"
+    Test-Change @{ "src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml.cs" = "changed" } @("Devices", "RoomMap", "Tools", "Troubleshooting") "Troubleshooting behavior"
     Test-Change @{ "src\FingVibe.App\Tools\AboutPage.xaml" = "changed" } @("Devices", "About", "Settings") "About view"
     Test-Change @{ "src\FingVibe.App\Tools\AboutPage.xaml.cs" = "changed" } @("Devices", "About", "Settings") "About behavior"
     foreach ($updateOwner in @("src\FingVibe.App\Tools\AboutPage.Updates.cs", "src\FingVibe.App\MainWindow.Updates.cs",
@@ -194,14 +198,15 @@
     Test-Change @{ "src\FingVibe.Core\Storage\InventoryBackupStore.cs" = "changed" } @("Devices", "Tools", "DatabaseBackups") "Backup storage behavior"
     Test-Change @{ "src\FingVibe.Core\Storage\InventoryQueryService.cs" = "changed" } @("Devices", "Tools", "SqlEditor") "SQL query behavior"
     Test-Change @{ "src\FingVibe.App\MainWindow.Inventory.cs" = "changed" } `
-        @("Devices", "Overview", "Network", "DeviceDetails", "People", "PersonDetails", "Rooms", "FingImport", "SqlEditor", "RoomDetails") "Inventory surfaces"
+        @("Devices", "Overview", "Network", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomMap", "FingImport", "SqlEditor", "RoomDetails") "Inventory surfaces"
     $viewScenarios = @{
         OverviewPageView = @("Devices", "Overview")
         NetworkPageView = @("Devices", "Network")
         DevicesPageView = @("Devices", "Settings", "DevicesEmpty")
         DeviceDetailsPageView = @("Devices", "DeviceDetails", "DeviceHistory")
-        PeopleRoomsPageView = @("Devices", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails")
+        PeopleRoomsPageView = @("Devices", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomMap", "RoomDetails")
         PersonDetailsPageView = @("Devices", "DeviceDetails", "People", "PersonDetails")
         RoomDetailsPageView = @("Devices", "DeviceDetails", "Rooms", "RoomDetails")
+        RoomMapPageView = @("Devices", "RoomMap")
         SettingsPageView = @($UiReviewScenarios.Keys)
     }

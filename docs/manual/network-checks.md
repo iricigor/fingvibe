@@ -80,6 +80,9 @@ map and does not prove that devices are directly connected to one another.
 Read each label and status rather than interpreting colored lines alone.
 The selected peer sits above the router with its checkpoint below the icon.
 Muted icons on the separate left branch are decorative, not additional probes.
+Use **View room map** above the diagram to compare saved room assignments with
+the selected network's latest evidence. That page is organizational and does
+not replace these diagnostics or prove physical network topology.
 
 [![Complete troubleshooting diagram with private network-specific addresses redacted](../screenshots/network-troubleshooting.png)](../screenshots/network-troubleshooting.png)
 

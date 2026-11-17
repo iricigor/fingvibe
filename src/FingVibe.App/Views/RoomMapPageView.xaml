@@ -1,0 +1,111 @@
+<UserControl
+    x:Class="FingVibe.App.Views.RoomMapPageView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:FingVibe.App">
+    <Grid x:Name="RoomMapPage"
+          Margin="{StaticResource ScannerPageContentMargin}"
+          RowSpacing="14"
+          AutomationProperties.AutomationId="RoomMapPage"
+          SizeChanged="RoomMapPage_SizeChanged">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+            <Grid x:Name="RoomMapHeadingRow" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <local:PageHeaderIcon Icon="rooms" />
+                <TextBlock Grid.Column="1" Text="Room map"
+                           Style="{StaticResource ScannerPageTitleStyle}"
+                           Margin="0" VerticalAlignment="Center" TextWrapping="Wrap" />
+                <Button x:Name="ManageRoomsButton"
+                        Grid.Column="2"
+                        Content="Manage rooms"
+                        AutomationProperties.AutomationId="ManageRoomsButton"
+                        AutomationProperties.Name="Manage rooms"
+                        Click="ManageRoomsButton_Click" />
+            </Grid>
+
+            <Grid Grid.Row="1" ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Spacing="2">
+                    <TextBlock x:Name="RoomMapNetworkText"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="RoomMapNetworkText" />
+                    <TextBlock x:Name="RoomMapSummaryText"
+                               TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               AutomationProperties.AutomationId="RoomMapSummaryText" />
+                </StackPanel>
+            </Grid>
+
+            <Border Grid.Row="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{ThemeResource ScannerCardBorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="12">
+                <Grid ColumnSpacing="10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <FontIcon Glyph="&#xE946;" FontSize="18"
+                              Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                              AutomationProperties.AccessibilityView="Raw" />
+                    <TextBlock x:Name="RoomMapDisclaimer" Grid.Column="1"
+                               Text="A Room map organizes saved assignments and latest scan evidence. Connections are conceptual, not discovered topology, verified Internet access, or physical-room detection."
+                               TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="RoomMapDisclaimer" />
+                </Grid>
+            </Border>
+
+            <TextBlock x:Name="RoomMapErrorText" Grid.Row="3"
+                       TextWrapping="Wrap"
+                       Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                       AutomationProperties.LiveSetting="Polite"
+                       Visibility="Collapsed"
+                       AutomationProperties.AutomationId="RoomMapErrorText" />
+
+            <ScrollViewer x:Name="RoomMapScroll"
+                          Grid.Row="4"
+                          HorizontalScrollBarVisibility="Auto"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollMode="Enabled"
+                          VerticalScrollMode="Enabled">
+                <Canvas x:Name="RoomMapCanvas"
+                        MinHeight="160"
+                        HorizontalAlignment="Left"
+                        AutomationProperties.AutomationId="RoomMapCanvas" />
+            </ScrollViewer>
+
+            <StackPanel x:Name="RoomMapEmptyState" Grid.Row="4"
+                        Spacing="8"
+                        HorizontalAlignment="Center"
+                        Margin="0,40"
+                        Visibility="Collapsed"
+                        AutomationProperties.AutomationId="RoomMapEmptyState">
+                <FontIcon Glyph="&#xE80F;" FontSize="36"
+                          Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                          AutomationProperties.AccessibilityView="Raw" />
+                <TextBlock x:Name="RoomMapEmptyText"
+                           FontSize="20"
+                           FontWeight="SemiBold"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="Choose a network or add saved rooms and device observations, then return to this map."
+                           MaxWidth="520"
+                           TextAlignment="Center"
+                           TextWrapping="Wrap"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+    </Grid>
+</UserControl>

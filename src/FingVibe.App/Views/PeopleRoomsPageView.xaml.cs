@@ -20,6 +20,7 @@ public sealed partial class PeopleRoomsPageView : UserControl
     public event EventHandler<ManagedRoom>? RoomRequested;
     public event EventHandler<Guid>? EditRoomRequested;
     public event EventHandler<Guid>? DeleteRoomRequested;
+    public event RoutedEventHandler? RoomMapRequested;
 
     internal string Status
     {
@@ -80,6 +81,9 @@ public sealed partial class PeopleRoomsPageView : UserControl
     private void AddPersonButton_Click(object sender, RoutedEventArgs e) => AddRequested?.Invoke(this, e);
 
     private void AddRoomButton_Click(object sender, RoutedEventArgs e) => AddRoomRequested?.Invoke(this, e);
+
+    private void RoomMapButton_Click(object sender, RoutedEventArgs e) =>
+        RoomMapRequested?.Invoke(this, e);
 
     private void PeopleList_ItemClick(object sender, ItemClickEventArgs e)
     {

@@ -7,6 +7,7 @@ $UiReviewScenarios = [ordered]@{
     People = @{ Label = "People"; FileName = "fingvibe-people.png"; Page = "PeopleRoomsPage" }
     PersonDetails = @{ Label = "Person details"; FileName = "fingvibe-person-details.png"; Page = "PersonDetailPage" }
     Rooms = @{ Label = "Rooms"; FileName = "fingvibe-rooms.png"; Page = "PeopleRoomsPage" }
+    RoomMap = @{ Label = "Room map - saved rooms and devices"; FileName = "fingvibe-room-map.png"; Page = "RoomMapPage" }
     Tools = @{ Label = "Tools"; FileName = "fingvibe-tools.png"; Page = "ToolsPage" }
     SpeedTest = @{ Label = "Speed test"; FileName = "fingvibe-speed-test.png"; Page = "ToolsPage" }
     Troubleshooting = @{ Label = "Network troubleshooting"; FileName = "fingvibe-troubleshooting.png"; Page = "ToolsPage" }
@@ -109,9 +110,10 @@ function Get-UiReviewCapturePlan {
                     NetworkPageView = @("Network")
                     DevicesPageView = @("Devices", "DevicesEmpty", "Settings")
                     DeviceDetailsPageView = @("DeviceDetails", "DeviceHistory")
-                    PeopleRoomsPageView = @("People", "Rooms", "PersonDetails", "RoomDetails", "DeviceDetails")
+                    PeopleRoomsPageView = @("People", "Rooms", "PersonDetails", "RoomDetails", "DeviceDetails", "RoomMap")
                     PersonDetailsPageView = @("PersonDetails", "People", "DeviceDetails")
                     RoomDetailsPageView = @("RoomDetails", "Rooms", "DeviceDetails")
+                    RoomMapPageView = @("RoomMap")
                     SettingsPageView = @($UiReviewScenarios.Keys)
                 }
                 $view = $Matches[1]
@@ -154,8 +156,12 @@ function Get-UiReviewCapturePlan {
             }
             elseif ($path -eq 'src/FingVibe.App/ScanResultRow.cs') {
                 Add-Scenarios @("Devices", "DevicesEmpty", "Settings", "Overview", "Network", "DeviceDetails", "DeviceHistory",
-                    "People", "PersonDetails", "Rooms", "RoomDetails") `
+                    "People", "PersonDetails", "Rooms", "RoomDetails", "RoomMap") `
                     "$path changed the shared device row (results, overview, details, discovery, people/rooms, equipment and network activity)."
+            }
+            elseif ($path -eq 'src/FingVibe.Core/Models/RoomMapLayout.cs' -or
+                $path -match '^src/FingVibe.App/(MainWindow.RoomMap|Views/RoomMapPageView)\.cs$') {
+                Add-Scenarios @("RoomMap") "$path changed Room map projection, layout, routing or rendering."
             }
             elseif ($path -eq 'src/FingVibe.Core/Storage/DeviceInventoryStore.Analytics.cs') {
                 Add-Scenarios @("DeviceDetails", "DeviceHistory", "Network", "PersonDetails", "Settings") `
@@ -168,7 +174,7 @@ function Get-UiReviewCapturePlan {
                 Add-Scenarios @("DeviceDetails", "DeviceHistory") "$path changed persisted device scan history."
             }
             elseif ($path -eq "src/FingVibe.App/MainWindow.NetworkIdentity.cs") {
-                Add-Scenarios @("Overview", "Network", "Troubleshooting", "DeviceDetails", "PersonDetails") "$path changed network identity."
+                Add-Scenarios @("Overview", "Network", "Troubleshooting", "DeviceDetails", "PersonDetails", "RoomMap") "$path changed network identity."
             }
             elseif ($path -match '^src/FingVibe.App/(MainWindow.Results.cs|DeviceResult(Filter|Sort).cs|StatusFilter.*|DeviceColumn.*|ColumnResizeGrip.cs)$') {
                 Add-Scenarios @("Devices", "DevicesEmpty", "Settings") "$path changed results, filtering, or table controls."
@@ -195,16 +201,19 @@ function Get-UiReviewCapturePlan {
                 Add-Scenarios @("Tools", "DatabaseBackups") "$path changed database backup behavior."
             }
             elseif ($path -eq "src/FingVibe.App/MainWindow.Inventory.cs") {
-                Add-Scenarios @("Devices", "Overview", "Network", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails", "FingImport", "SqlEditor") "$path changed inventory orchestration."
+                Add-Scenarios @("Devices", "Overview", "Network", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails", "FingImport", "SqlEditor", "RoomMap") "$path changed inventory orchestration."
             }
             elseif ($path -match '^src/FingVibe.App/Tools/NetworkTroubleshootingPage\.xaml(\.cs)?$') {
-                Add-Scenarios @("Tools", "Troubleshooting") "$path changed network troubleshooting."
+                Add-Scenarios @("Tools", "Troubleshooting", "RoomMap") "$path changed network troubleshooting."
+            }
+            elseif ($path -match '^src/FingVibe.App/Tools/ToolsPage\.xaml(\.cs)?$') {
+                Add-Scenarios @("Tools", "SpeedTest", "Troubleshooting", "About", "FingImport", "SqlEditor", "DatabaseBackups", "RoomMap") "$path changed the Tools landing page."
             }
             elseif ($path -match '^src/FingVibe.App/(Tools/|Assets/SpeedTest/)') {
                 Add-Scenarios @("Tools", "SpeedTest", "Troubleshooting", "About", "FingImport", "SqlEditor", "DatabaseBackups") "$path changed Tools or the speed test."
             }
             elseif ($path -match '^src/FingVibe.App/(MainWindow.PeopleRooms.cs|ManagedPeopleRoomsRows.cs|PeopleRooms(Presentation|Icons).cs|Views/PeopleRooms(Dialogs|IconPicker).cs)$') {
-                Add-Scenarios @("People", "PersonDetails", "Rooms", "RoomDetails", "DeviceDetails") "$path changed people, rooms, or assignments."
+                Add-Scenarios @("People", "PersonDetails", "Rooms", "RoomDetails", "DeviceDetails", "RoomMap") "$path changed people, rooms, or assignments."
             }
             elseif ($path -match '^src/FingVibe.App/(MainWindow.Overview.cs|OverviewScanContext.cs)$') {
                 Add-Scenarios @("Overview") "$path changed the scan summary."
