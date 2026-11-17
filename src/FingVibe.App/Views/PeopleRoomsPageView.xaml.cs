@@ -25,9 +25,12 @@ public sealed partial class PeopleRoomsPageView : UserControl
     {
         set
         {
-            PeopleRoomsStatusText.Text = value;
-            PeopleStatusText.Text = value;
-            RoomsStatusText.Text = value;
+            var visibility = string.IsNullOrEmpty(value) ? Visibility.Collapsed : Visibility.Visible;
+            foreach (var text in new[] { PeopleRoomsStatusText, PeopleStatusText, RoomsStatusText })
+            {
+                text.Text = value;
+                text.Visibility = visibility;
+            }
         }
     }
 

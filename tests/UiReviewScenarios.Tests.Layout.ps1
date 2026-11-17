@@ -42,6 +42,31 @@
             $peopleRoomsCode -notmatch "${name}ColumnHeaders\.Visibility\s*=\s*${name}List\.Visibility\s*=") {
             throw "$name must retain its status, count and single guarded Add action when its rows are empty or unavailable."
         }
+        # #551: header and row grids are measured separately, so they must share columns and container insets.
+        $list = $card.SelectSingleNode(".//*[local-name()='ListView' and @*[local-name()='Name']='${name}List']")
+        $row = $list.SelectSingleNode(".//*[local-name()='DataTemplate']/*[local-name()='Grid']")
+        $headerColumns = @($headers.SelectNodes("./*[local-name()='Grid.ColumnDefinitions']/*") | ForEach-Object { $_.GetAttribute("Width") }) -join ","
+        $rowColumns = @($row.SelectNodes("./*[local-name()='Grid.ColumnDefinitions']/*") | ForEach-Object { $_.GetAttribute("Width") }) -join ","
+        $rowAction = $row.SelectSingleNode("./*[local-name()='Button' and @*[local-name()='Grid.Column']='4']")
+        $headerAction = $headers.SelectSingleNode("./*[local-name()='Button' and @*[local-name()='Grid.Column']='4']")
+        $styleKey = [regex]::Match($list.GetAttribute("ItemContainerStyle"), '^\{StaticResource (\S+)\}$').Groups[1].Value
+        $itemStyle = $peopleRoomsDocument.SelectSingleNode("//*[local-name()='Style' and @*[local-name()='Key']='$styleKey']")
+        $setter = { param($property) $itemStyle.SelectSingleNode("./*[local-name()='Setter' and @Property='$property']").GetAttribute("Value") }
+        if ($headerColumns -cne $rowColumns -or $headers.GetAttribute("Padding").Split(",")[0] -cne $row.GetAttribute("Padding").Split(",")[0] -or
+            -not $rowAction -or -not $headerAction -or $headerAction.GetAttribute("Content") -cne $rowAction.GetAttribute("Content") -or
+            $headerAction.GetAttribute("Opacity") -cne "0" -or $headerAction.GetAttribute("IsTabStop") -cne "False" -or
+            $headerAction.GetAttribute("AutomationProperties.AccessibilityView") -cne "Raw" -or
+            -not $itemStyle -or (& $setter HorizontalContentAlignment) -cne "Stretch" -or
+            (& $setter Padding) -cne "0" -or (& $setter Margin) -cne "0") {
+            throw "$name headers must share the row columns, a hidden More-width action column and an uninset stretched row container."
+        }
+    }
+    $peopleRoomsStatusSetter = [regex]::Match($peopleRoomsCode, 'internal string Status\s*\{[\s\S]*?\n    \}').Value
+    $mainWindowCode = (Get-ChildItem -LiteralPath $appDirectory -Filter "MainWindow*.cs" | ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
+    if ($peopleRoomsStatusSetter -notmatch 'Visibility\.Collapsed' -or
+        $mainWindowCode -match 'SetPeopleRoomsStatus\("People and rooms are saved (locally|with the local device inventory)\.' -or
+        $mainWindowCode -notmatch 'PeopleRoomsPage\.Status = string\.Empty;') {
+        throw "People & rooms must omit the storage notice and collapse empty status lines while keeping save and error feedback."
     }
     $settings = [xml](Get-Content (Join-Path $appDirectory "Views\SettingsPageView.xaml") -Raw)
     $cards = $settings.SelectSingleNode("//*[@*[local-name()='Name']='SettingsCards']")
