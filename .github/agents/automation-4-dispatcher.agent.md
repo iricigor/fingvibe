@@ -20,7 +20,10 @@ schedule Automations, retarget older loops or adopt foreign work.
 ## Offer and start cycle
 
 A cycle is: run the script → send offers → process each response → release
-confirmed crashed assignments → send compatible starts. Do not search
+confirmed crashed assignments → send starts → at most one bounded follow-up round.
+Prioritize progress: unknown is not failed, rejected, idle or an evidenced conflict.
+Missing compatibility evidence never vetoes otherwise accepted distinct tasks.
+Do not search
 the repository, rerun GitHub/GraphQL queries for data the script already collected,
 or inspect the evidence artifact repeatedly before offering.
 
@@ -30,7 +33,14 @@ or inspect the evidence artifact repeatedly before offering.
    including tasks with an open assignment in their Discussion.
    Successful completed current-head CI comes first, failed completed CI or a
    recorded finalize rejection on the current head next,
-   then released implementations to resume, then new tasks; blocked entries carry their reasons. Do not read the full
+   then released implementations to resume, diagnostic work, then new tasks.
+   `diagnose` candidates carry missing/stale CI/detail or ambiguous linked PRs,
+   not an inferred failure. `collectionErrors` explicitly names PR-local errors;
+   report them without suppressing unaffected offers. Repository-wide identity,
+   association and ownership collection failures still require reconciliation.
+   Block only the affected action; unknown readiness prevents finalize, not
+   assessment. Known failures remain repair-assessable alongside unknown/pending
+   checks, with incomplete overall readiness retained. Do not read the full
    evidence artifact or make new GitHub requests, unless a specific candidate's
    data is missing or contradictory; then read only what that candidate needs.
    No state.json initialization, repository gate, Progress/Confirm/Release call
@@ -86,30 +96,37 @@ or inspect the evidence artifact repeatedly before offering.
    Discussion with `<!-- fingvibe:assignment-release=<id> -->`, the Developer and
    its reply as evidence, verify readback, then run
    `Set-Agent4TaskClaim.ps1 -Issue <number> -Action release`. The task is
-   offered again next cycle. A missing or uncertain reply keeps it held; never
-   release by age.
+   eligible for the bounded same-cycle fresh offer below after release-marker
+   and claim-release verification. A missing or uncertain reply keeps it held;
+   never release by age.
 7. Build the allocation JSON defined in protocol.md#deterministic-allocation and run
    `Get-Agent4AssignmentPlan.ps1 -InputPath <absolute-json-path>`. Supply the original
    packet, exact correlated offers/responses, all held existing work, every start
-   already sent (including uncertain delivery), and evidenced pairwise compatibility.
+   already sent (including uncertain delivery), and any evidenced pairwise incompatibility.
    The planner maximizes compatible assignment count, then packet task priority,
    then summed Developer preference rank, using Developer 1 precedence only as a
    final tie-breaker. Do not select or override allocations yourself.
    Use all replies already received without mandatorily waiting for both. Rerun on
    late responses with retained sent starts, never reshuffling or resending them.
-   AI still assesses overlapping files, contracts, dependencies and behavior:
-   missing evidence means unknown, not compatible. A missing response leaves its
-   distinct offered candidates potentially concurrent; the same shared task is
-   exclusive, not itself a compatibility conflict.
+   Trust Developer technical eligibility. Only a concrete evidenced incompatibility
+   excludes a distinct-task pairing; hypothetical shared files or absent affirmative
+   proof do not. Missing responses grant no authority for that Developer, but do
+   not veto independent accepted work. The same shared task remains exclusive.
    Keep packet open assignments held unless this cycle's verified crash release
    is explicitly included in `releasedAssignments`. Planner errors block starts;
-   publish the error, never fall back to manual selection. An unavailable or malformed response stays
-   unresolved until corrected, never synthesized as a rejection or acceptance.
+   publish the error, never fall back to manual selection. Publish planner
+   `responseErrors`, request corrected replies and retain the invalid portion as
+   unresolved. Use valid independent responses; never synthesize rejection or
+   acceptance. If a reply reveals previously unknown executing work, retain that
+   work before planning; missing ownership evidence is not discarded as bad JSON.
 8. Freshly re-read the selected tasks' issue/PR/head state before sending an
    explicit start assignment with a unique assignment ID, the run permissions and
    the exact action, task and expected PR head when applicable
    (`success` → finalize, `failed` → repair, `resume` → implement on the
-   existing PR, `new` → implement). A `failed` candidate carrying
+   existing PR,    `new` → implement, `diagnose` → diagnose). Forward diagnostic scope, all
+   linked PRs/heads and collection errors; do not choose an arbitrary PR.
+   Diagnosis is one read-only evidence pass plus Discussion reporting, not
+   permission to edit, claim, rerun CI, close or merge. A `failed` candidate carrying
    `finalizeRejection` is repaired even with green CI; forward that evidence in
    the start and never start finalize again for the rejected head.
    Task records go to the task's own Discussion in the Task conversations
@@ -135,6 +152,11 @@ or inspect the evidence artifact repeatedly before offering.
    marker in the start; Developer verifies it without counting twice.
    Changed scope/head invalidates its assessment:
    reassess and rerun instead of substituting a task manually.
+   Isolate task-local preparation/action errors and continue independent proposed
+   starts. If failure occurs strictly before any Sending record or send attempt,
+   record `startFailures` (Developer, issue, reason/evidence) for follow-up.
+   After a Sending record or uncertain send, retain it in `sentStarts` instead;
+   it is never a pre-send failure or refillable slot.
 9. Handle only planner `proposedReruns` from structured Developer rejections, not
    free-text suggestions. After fresh semantic authority/dependency/ownership
    checks, use `Invoke-Agent4RepairAction.ps1` with `action: "rerun"` and the same
@@ -152,6 +174,25 @@ or inspect the evidence artifact repeatedly before offering.
    Do not assign/claim a Developer, create a worktree or edit code for this action.
    Do not wait or poll for CI. Finish the normal cycle; the next Dispatcher run
    collects fresh CI and decides what happened through the ordinary packet.
+10. After initial proposed starts/actions are handled, allow exactly one
+    same-cycle follow-up offer round when rejections, busy state, a confirmed
+    release or pre-send preparation errors left an available slot and queued
+    alternatives. Correct malformed replies within their original correlation
+    first; never discard an unresolved offer to refill it.
+    Refresh the packet once (also after verified releases); use the planner CLI
+    with `-InputPath <latest-initial-allocation> -FollowUpPacketPath <fresh-packet>`
+    to build the follow-up packet. Its `followUpOf` retains the initial input.
+    The helper deterministically selects at most two candidates per available
+    Developer, excluding held work, unresolved offers and that Developer's
+    already offered tasks. Send only nonempty follow-up lists, with fresh offer
+    IDs and the same recipient identities. Empty lists require no new call or
+    fabricated response. Keep both offer records in allocation for correlation.
+    Use the follow-up packet as the planner input, retaining initial sent starts,
+    held work and current fresh assignments. Fresh responses authorize only
+    their exact new offers. Repeat steps 5, 7-9 for these offers, never a third
+    round or a new execution for an unanswered offer. One start per Developer
+    and task across the whole cycle remains mandatory. If no bounded alternative
+    exists, report that concrete outcome, not a fictional empty queue.
 
 When candidates or open assignments exist, the next cycle asks both Developers
 again. With no offerable work or open assignments, it skips calls only if there
