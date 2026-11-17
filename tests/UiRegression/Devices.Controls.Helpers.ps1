@@ -26,6 +26,26 @@ public static class DevicesReviewInput
         mouse_event(0xC001, absoluteX, absoluteY, 0, UIntPtr.Zero);
     }
 }
+public static class DeviceFilterReviewContrast
+{
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct HIGHCONTRAST { public uint Size; public uint Flags; public IntPtr Scheme; }
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern bool SystemParametersInfo(uint action, uint size, ref HIGHCONTRAST value, uint flags);
+    public static uint Get() {
+        var value = new HIGHCONTRAST { Size = (uint)Marshal.SizeOf<HIGHCONTRAST>() };
+        if (!SystemParametersInfo(0x0042, value.Size, ref value, 0))
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+        return value.Flags;
+    }
+    public static void Set(uint flags) {
+        var value = new HIGHCONTRAST { Size = (uint)Marshal.SizeOf<HIGHCONTRAST>(), Flags = flags };
+        if (!SystemParametersInfo(0x0043, value.Size, ref value, 2))
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+    }
+    [DllImport("user32.dll")]
+    public static extern int GetSysColor(int index);
+}
 "@
 
 function Find-DeviceElement([string] $Id) {
@@ -126,6 +146,8 @@ function Save-DeviceCapture([string] $Name, [switch] $KeepPointer) {
     }
     Focus-DeviceWindow
     Start-Sleep -Milliseconds 200
+    # Theme transitions can steal focus during pointer settling; reacquire before the strict capture guard.
+    Focus-DeviceWindow
     $path = Join-Path $ScreenshotDirectory "$Name.png"
     Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path $path
     return $path

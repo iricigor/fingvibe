@@ -194,6 +194,56 @@ public sealed class DeviceResultSortTests
         AssertOrder(first, second, ResultSortColumn.Room, true);
     }
 
+    [Theory]
+    [InlineData("🏠 Living room", "Living room")]
+    [InlineData("TV 📺 Kitchen", "TV Kitchen")]
+    [InlineData("👨‍👩‍👧 Family tablet", "Family tablet")]
+    [InlineData("👍🏽 Thumbs", "Thumbs")]
+    [InlineData("🇩🇪 Berlin", "Berlin")]
+    [InlineData("🏳️‍🌈 Pride", "Pride")]
+    [InlineData("🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland", "Scotland")]
+    [InlineData("1️⃣ First #️⃣", "First")]
+    [InlineData("❤️ Heart ☕", "Heart")]
+    [InlineData("Room 101 (v2.0) - A/B", "Room 101 (v2.0) - A/B")]
+    [InlineData("© Sony ✓ ±5", "© Sony ✓ ±5")]
+    [InlineData("🎮📺", "")]
+    [InlineData("", "")]
+    public void WithoutEmoji_RemovesCompleteSequencesAndKeepsOrdinaryText(string name, string expected)
+    {
+        var key = DeviceResultSort.WithoutEmoji(name);
+        Assert.Equal(expected, key);
+        Assert.DoesNotContain(key, char.IsSurrogate);
+        Assert.DoesNotContain('\uFE0F', key);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void IgnoringNameEmoji_SortsEmojiFreeKeysWithoutChangingNames(bool ascending)
+    {
+        var decorated = Row("10.0.0.20", "001122334402", "🏠 Alpha");
+        var plain = Row("10.0.0.2", "001122334401", "Bravo");
+        AssertOrder(decorated, plain, ResultSortColumn.Name, ascending, ignoreNameEmoji: true);
+        // Ordinary modes keep the existing full-name comparison, where the emoji sorts after letters.
+        AssertOrder(plain, decorated, ResultSortColumn.Name, ascending);
+        Assert.Equal("🏠 Alpha", decorated.NameText);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void IgnoringNameEmoji_EqualAndEmptyKeysUseExistingTieBreakers(bool ascending)
+    {
+        AssertOrder(Row("10.0.0.20", "001122334401", "🏠 Same"), Row("10.0.0.2", "001122334402", "Same 📺"),
+            ResultSortColumn.Name, ascending, ignoreNameEmoji: true);
+        AssertOrder(Row("10.0.0.20", "001122334401", "🎮"), Row("10.0.0.2", "001122334402", "📺"),
+            ResultSortColumn.Name, ascending, ignoreNameEmoji: true);
+        AssertOrder(Row("10.0.0.2", "001122334402", "🎮"), Row("10.0.0.20", "001122334401", "Alpha"),
+            ResultSortColumn.Name, ascending, ignoreNameEmoji: true);
+        var emojiOnly = Row("10.0.0.2", "001122334402", "🎮");
+        Assert.Equal(0, DeviceResultSort.Compare(emojiOnly, emojiOnly, ResultSortColumn.Name, ascending, true));
+    }
+
     private static ScanResultRow Row(string address = "10.0.0.1", string? mac = "001122334401",
         string name = "Same", string vendor = "Same", int ports = 0) =>
         new(new ScanResult(IPAddress.Parse(address), HostStatus.Alive, 10, TimeSpan.Zero,
@@ -203,9 +253,10 @@ public sealed class DeviceResultSortTests
     private static void Assign(ScanResultRow row, string fullName, string shortName) =>
         row.SetPeopleRoomAssignments(Guid.NewGuid(), shortName, fullName, Guid.NewGuid(), shortName, fullName);
 
-    private static void AssertOrder(ScanResultRow first, ScanResultRow second, ResultSortColumn column, bool ascending)
+    private static void AssertOrder(ScanResultRow first, ScanResultRow second, ResultSortColumn column, bool ascending,
+        bool ignoreNameEmoji = false)
     {
-        Assert.Equal(ascending ? -1 : 1, DeviceResultSort.Compare(first, second, column, ascending));
-        Assert.Equal(ascending ? 1 : -1, DeviceResultSort.Compare(second, first, column, ascending));
+        Assert.Equal(ascending ? -1 : 1, DeviceResultSort.Compare(first, second, column, ascending, ignoreNameEmoji));
+        Assert.Equal(ascending ? 1 : -1, DeviceResultSort.Compare(second, first, column, ascending, ignoreNameEmoji));
     }
 }

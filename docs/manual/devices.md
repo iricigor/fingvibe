@@ -90,6 +90,11 @@ for the rules and manual overrides.
 ## Sort and resize
 
 Choose a column heading to sort ascending. Choose it again to reverse the order.
+The **Name** heading has four states. Choose it repeatedly to cycle through
+ascending and descending order ignoring emojis, then ascending and descending
+order by the full name, and then start again. A small **Aa** beside the arrow
+means emojis are ignored for sorting; the heading tooltip describes the current
+order. Device names always keep their emojis on screen.
 Combined columns keep separate heading actions for their fields.
 Person and Room sort by full name, not by the short label.
 

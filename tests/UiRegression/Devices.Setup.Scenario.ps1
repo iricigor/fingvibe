@@ -1,4 +1,11 @@
-﻿$null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
+﻿$deviceContrastFlags = $null
+if ($env:GITHUB_ACTIONS -eq "true" -and $env:RUNNER_OS -eq "Windows") {
+    $deviceContrastFlags = [DeviceFilterReviewContrast]::Get()
+    if (($deviceContrastFlags -band 1) -ne 0) {
+        Set-DeviceFilterContrastFlags -Flags ($deviceContrastFlags -band (-bnot 1))
+    }
+}
+$null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
 $fixtureDirectory = New-UiRegressionFixtureDirectory -Suite devices
 $fixture = Join-Path $fixtureDirectory 'latest-scan.json'
 $results = @(
