@@ -820,3 +820,43 @@ jobs:
             }
             "Native UI review passed using the tested build artifact." >> $env:GITHUB_STEP_SUMMARY
           }
+
+  ready-for-review:
+    needs: ui-ux-review
+    # Explicit result check: implicit success() would also skip when planned upstream jobs were skipped.
+    if: >
+      !cancelled()
+      && needs.ui-ux-review.result == 'success'
+      && github.event_name == 'pull_request'
+      && (github.event.action == 'opened' || github.event.action == 'synchronize')
+      && github.run_attempt == '1'
+      && github.event.pull_request.draft
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]'
+      && (
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
+        || github.event.pull_request.user.login == 'Copilot'
+      )
+    runs-on: windows-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Check out readiness script
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Mark validated draft ready for review
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_ACTION: ${{ github.event.action }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        shell: pwsh
+        run: |
+          .\.github\scripts\Set-PrReadyForReview.ps1 -Repository $env:GITHUB_REPOSITORY `
+            -PullRequestNumber $env:PR_NUMBER -ExpectedHead $env:EXPECTED_HEAD `
+            -EventName $env:EVENT_NAME -EventAction $env:EVENT_ACTION -RunAttempt $env:RUN_ATTEMPT
