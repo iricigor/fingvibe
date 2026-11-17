@@ -17,6 +17,13 @@ navigation pane brand tile and About page icon, with simplified small-size
 masters in [`../app-icon`](../app-icon/README.md). That adoption does not place
 any other concept on an application surface.
 
+The current [task #183](https://github.com/iricigor/fingvibe/issues/183)
+implementation work copies this selected family into
+`src/FingVibe.App/Assets/PageIcons/` for runtime page-header and navigation
+usage where concepts already exist. Dedicated concepts for Settings, SQL editor,
+Database backups, and the combined People & rooms destination are still pending
+separate design additions to this record.
+
 ## Selected family
 
 ![Eleven selected concepts, each in simplified single-color and detailed full-color versions](comparison.png)

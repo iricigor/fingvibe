@@ -200,7 +200,12 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <TextBlock x:Name="DevicesHeading" Text="Devices" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+            <Image Width="48" Height="48" Source="ms-appx:///Assets/PageIcons/devices-color.png"
+                   Stretch="Uniform" IsHitTestVisible="False"
+                   AutomationProperties.AccessibilityView="Raw" />
+            <TextBlock x:Name="DevicesHeading" Grid.Column="1" Text="Devices"
+                       Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
+                       VerticalAlignment="Center" />
         </Grid>
         <Border Grid.Row="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource ScannerCardBorderBrush}"

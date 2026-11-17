@@ -12,7 +12,17 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Spacing="4">
-                    <TextBlock Text="People" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Image Width="48" Height="48" Source="ms-appx:///Assets/PageIcons/people-color.png"
+                               Stretch="Uniform" IsHitTestVisible="False"
+                               AutomationProperties.AccessibilityView="Raw" />
+                        <TextBlock Grid.Column="1" Text="People" Style="{StaticResource ScannerPageTitleStyle}"
+                                   Margin="0" VerticalAlignment="Center" />
+                    </Grid>
                     <TextBlock Text="Manage people and manually assign devices; response counts describe the last scan, not human presence."
                                TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>

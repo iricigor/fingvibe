@@ -62,10 +62,10 @@
                         MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
                         MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
                         AutomationProperties.Name="Back to Tools" Style="{StaticResource PageBackButtonStyle}" />
-                <FontIcon Grid.Column="1" Glyph="&#xE8B5;" FontFamily="Segoe Fluent Icons"
-                          FontSize="48" Width="48" Height="48"
-                          Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                          IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                <Image Grid.Column="1" Width="48" Height="48"
+                       Source="ms-appx:///Assets/PageIcons/import-color.png"
+                       Stretch="Uniform" IsHitTestVisible="False"
+                       AutomationProperties.AccessibilityView="Raw" />
                 <TextBlock Grid.Column="2" Text="Import from Fing" Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
                            VerticalAlignment="Center" TextWrapping="Wrap" />
             </Grid>

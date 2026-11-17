@@ -6,7 +6,17 @@
     <Grid>
     <ScrollViewer x:Name="SettingsPage" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
-            <TextBlock Text="Settings" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Image Width="48" Height="48" Source="ms-appx:///Assets/PageIcons/tools-color.png"
+                       Stretch="Uniform" IsHitTestVisible="False"
+                       AutomationProperties.AccessibilityView="Raw" />
+                <TextBlock Grid.Column="1" Text="Settings" Style="{StaticResource ScannerPageTitleStyle}"
+                           Margin="0" VerticalAlignment="Center" />
+            </Grid>
             <Expander x:Name="AppearanceSection" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                       AutomationProperties.Name="Appearance preferences">
                 <Expander.Header>

@@ -14,7 +14,17 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.ColumnSpan="2" Text="Tools" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+                <Grid Grid.ColumnSpan="2" ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Image Width="48" Height="48" Source="ms-appx:///Assets/PageIcons/tools-color.png"
+                           Stretch="Uniform" IsHitTestVisible="False"
+                           AutomationProperties.AccessibilityView="Raw" />
+                    <TextBlock Grid.Column="1" Text="Tools" Style="{StaticResource ScannerPageTitleStyle}"
+                               Margin="0" VerticalAlignment="Center" />
+                </Grid>
                 <Button x:Name="SqlEditorCard" Click="SqlEditorCard_Click"
                         Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="SQL editor">
                     <StackPanel Spacing="8">
@@ -23,10 +33,9 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <FontIcon Glyph="&#xE943;" FontFamily="Segoe Fluent Icons"
-                                      FontSize="48" Width="48" Height="48"
-                                      Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                            <Image Width="48" Height="48" Source="ms-appx:///Assets/PageIcons/tools-color.png"
+                                   Stretch="Uniform" IsHitTestVisible="False"
+                                   AutomationProperties.AccessibilityView="Raw" />
                             <TextBlock Grid.Column="1" Text="SQL editor" Style="{ThemeResource SubtitleTextBlockStyle}"
                                        VerticalAlignment="Center" TextWrapping="Wrap" />
                         </Grid>
@@ -43,10 +52,9 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <FontIcon Glyph="&#xE8B5;" FontFamily="Segoe Fluent Icons"
-                                      FontSize="48" Width="48" Height="48"
-                                      Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                            <Image Width="48" Height="48" Source="ms-appx:///Assets/PageIcons/import-color.png"
+                                   Stretch="Uniform" IsHitTestVisible="False"
+                                   AutomationProperties.AccessibilityView="Raw" />
                             <TextBlock Grid.Column="1" Text="Import from Fing" Style="{ThemeResource SubtitleTextBlockStyle}"
                                        VerticalAlignment="Center" TextWrapping="Wrap" />
                         </Grid>
@@ -65,10 +73,9 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <FontIcon Glyph="&#xEC4A;" FontFamily="Segoe Fluent Icons"
-                                      FontSize="48" Width="48" Height="48"
-                                      Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                            <Image Width="48" Height="48" Source="ms-appx:///Assets/PageIcons/speed-test-color.png"
+                                   Stretch="Uniform" IsHitTestVisible="False"
+                                   AutomationProperties.AccessibilityView="Raw" />
                             <TextBlock Grid.Column="1" Text="Speed test" Style="{ThemeResource SubtitleTextBlockStyle}"
                                        VerticalAlignment="Center" TextWrapping="Wrap" />
                         </Grid>
@@ -86,10 +93,9 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <FontIcon Glyph="&#xE90F;" FontFamily="Segoe Fluent Icons"
-                                      FontSize="48" Width="48" Height="48"
-                                      Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                            <Image Width="48" Height="48" Source="ms-appx:///Assets/PageIcons/troubleshooting-color.png"
+                                   Stretch="Uniform" IsHitTestVisible="False"
+                                   AutomationProperties.AccessibilityView="Raw" />
                             <TextBlock Grid.Column="1" Text="Network troubleshooting" Style="{ThemeResource SubtitleTextBlockStyle}"
                                        VerticalAlignment="Center" TextWrapping="Wrap" />
                         </Grid>
@@ -106,9 +112,9 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <FontIcon Glyph="&#xE74E;" FontFamily="Segoe Fluent Icons" FontSize="48" Width="48" Height="48"
-                                      Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                            <Image Width="48" Height="48" Source="ms-appx:///Assets/PageIcons/tools-color.png"
+                                   Stretch="Uniform" IsHitTestVisible="False"
+                                   AutomationProperties.AccessibilityView="Raw" />
                             <TextBlock Grid.Column="1" Text="Database backups" Style="{ThemeResource SubtitleTextBlockStyle}"
                                        VerticalAlignment="Center" TextWrapping="Wrap" />
                         </Grid>
