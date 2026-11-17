@@ -168,12 +168,16 @@ function Test-PeopleRoomsPersistenceErrors {
         $null = Wait-UiRegressionState -Description 'People editor ready' -Condition {
             (Find-PeopleRoomsElement AutomationId AddPersonButton PeopleRoomsPage).Current.IsEnabled
         }
+        # UI review always seeds one person and one room; a no-match search empties both sections.
+        Set-PeopleRoomsText 'Search people and rooms' 'missing-empty-sections'
         foreach ($section in @('People', 'Rooms')) {
-            if ((Find-PeopleRoomsElement AutomationId "${section}CountText" PeopleRoomsPage).Current.Name -ne '0 shown') {
-                throw "Empty $section must retain its visible zero count."
+            $count = (Find-PeopleRoomsElement AutomationId "${section}CountText" PeopleRoomsPage).Current.Name
+            if ($count -ne '0 shown') {
+                throw "Empty $section must retain its visible zero count; got '$count'."
             }
             $null = Find-PeopleRoomsElement AutomationId "${section}EmptyText" PeopleRoomsPage
         }
+        Set-PeopleRoomsText 'Search people and rooms' ''
         # A file at the missing fixture directory deterministically rejects the write without a database lock.
         Set-Content -LiteralPath $storeDirectory -Value 'blocked fixture directory' -Encoding ASCII
         Invoke-PeopleRoomsElement AutomationId AddPersonButton PeopleRoomsPage
