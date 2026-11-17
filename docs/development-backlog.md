@@ -278,6 +278,16 @@ uncertain requests require explicit reconciliation. See the [loop4 repair
 contract](agentic-loop-4/protocol.md#dispatcher-failed-job-reruns-and-shared-repair-budget);
 older loops, installed profiles, schedules and merge gates remain unchanged.
 
+[Task #523](https://github.com/iricigor/fingvibe/issues/523) makes loop4
+progress-first. Unknown evidence is not failure/conflict; omitted compatibility
+proof does not veto distinct Developer-accepted work. Missing CI/ambiguous PRs
+receive bounded read-only diagnosis, not automatic repair/finalize authority.
+PR-local collection and individual response errors are explicit and isolated
+from independent work. One deterministic same-cycle follow-up offer round may
+refill idle slots or reoffer verified crash releases after fresh assessment.
+Uncertain execution/ownership remains held; source publication changes no live
+Automation, workload, schedule, older-loop policy or merge gate.
+
 ## Explicitly invoked manual-worker exception
 
 [Task #189](https://github.com/iricigor/fingvibe/issues/189) adds the

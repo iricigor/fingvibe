@@ -117,6 +117,11 @@ $result = Invoke-Agent4RepairAction $request $api
 Assert-True ($result.status -eq "already-recorded" -and $script:fixture.reruns -eq 1) "Repeated cycle/duplicate recommendation cannot rerun the same attempt."
 
 $request = New-Fixture
+$request.allocation.existingWork = @(@{ issue = 102; developer = "foreign"; assignmentId = "independent" })
+$result = Invoke-Agent4RepairAction $request $api
+Assert-True ($result.status -eq "requested" -and $result.attempt -eq 1 -and $script:fixture.reruns -eq 1) "Unknown compatibility with distinct held work does not veto an authorized rerun or bypass its budget."
+
+$request = New-Fixture
 $script:fixture.failTrigger = $true
 Assert-Fails { Invoke-Agent4RepairAction $request $api } "*outcome uncertain*"
 Assert-True ((Get-Agent4RepairBudget $script:fixture.comments).consumed -eq 1) "An uncertain request is not refunded."

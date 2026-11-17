@@ -348,15 +348,21 @@ two candidates per offer. The Dispatcher asks both Developers
 when candidates or open assignments exist, and skips calls only when no unresolved
 offer/start remains either. A human starting or scheduling the Dispatcher
 authorizes the run (optional `merge`/`repairs` prompt lines; no approval link).
-Dispatcher runs the collector, offers successful CI, failed CI, resumed and new
+Dispatcher runs the collector, offers successful CI, failed CI, resumed, diagnostic and new
 work, processes correlated assessments independently, releases assignments whose
 Developer reports it is not executing them, and sends explicit starts. A start
-need not wait for both replies when compatibility with existing work, unresolved
-offers and earlier starts is verified; otherwise it is deferred and unknown
-Developers remain held. Developers add/verify their own `4️⃣dev1`/`4️⃣dev2`
+need not wait for both replies: only concrete evidenced incompatibilities block
+distinct accepted work, not missing compatibility proof. Unknown is not failure
+or conflict. Individual malformed replies and PR-local collection errors remain
+explicit without cancelling independent progress. One scripted follow-up offer
+round may refill idle slots or reoffer verified crash releases in the same cycle;
+unknown Developers and uncertain starts remain held.
+Developers add/verify their own `4️⃣dev1`/`4️⃣dev2`
 task Discussion participation label with
 `.github/scripts/Set-Agent4DiscussionParticipant.ps1`, then claim their task with
-`.github/scripts/Set-Agent4TaskClaim.ps1`. No state initialization, gate or delivery-based capacity
+`.github/scripts/Set-Agent4TaskClaim.ps1`, except read-only `diagnose` assignments
+preserve lifecycle state and authorize no edits, CI request or merge.
+No state initialization, gate or delivery-based capacity
 protocol is required; PR submission ends implementation execution while CI runs.
 Verified Discussion reports/end markers replace finished-work messages to the
 previous Dispatcher session. A Developer that rejects a started finalize records

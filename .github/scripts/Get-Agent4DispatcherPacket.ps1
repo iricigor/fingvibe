@@ -16,18 +16,23 @@ function Invoke-Agent4GitHubRead([string] $Endpoint, [bool] $Paginated, [string]
     } elseif ($Paginated) {
         gh api --paginate --slurp $Endpoint
     } else { gh api $Endpoint }
-    if ($LASTEXITCODE -ne 0) { throw "GitHub evidence collection failed: $Endpoint." }
+    if ($LASTEXITCODE -ne 0) { throw [IO.IOException]::new("GitHub evidence collection failed: $Endpoint.") }
     $text -join "`n"
 }
 
-function Get-Agent4CiStage($Pull, $Cache) {
+function Get-Agent4CiStage($Pull, $Cache, [bool] $ReadinessOnly = $false) {
     $head = $Pull.head.sha
     $checks = @($Cache["commits/$head/check-runs"] | ForEach-Object { $_.check_runs } |
         Where-Object head_sha -EQ $head | Group-Object { "$($_.app.id):$($_.name)" } |
         ForEach-Object { $_.Group | Sort-Object id -Descending | Select-Object -First 1 })
-    $runs = @($Cache["actions/runs?head_sha=$head"] | ForEach-Object { $_.workflow_runs } |
-        Where-Object head_sha -EQ $head | Group-Object workflow_id |
+    $allRuns = @($Cache["actions/runs?head_sha=$head"] | ForEach-Object { $_.workflow_runs } |
+        Where-Object head_sha -EQ $head)
+    $runs = @($allRuns | Group-Object workflow_id |
         ForEach-Object { $_.Group | Sort-Object id -Descending | Select-Object -First 1 })
+    $supersededSuites = @($allRuns | Where-Object {
+        $_.id -notin $runs.id -and $_.check_suite_id -and $_.check_suite_id -notin $runs.check_suite_id
+    } | ForEach-Object check_suite_id)
+    $checks = @($checks | Where-Object { $_.check_suite.id -notin $supersededSuites })
     $statuses = @($Cache["statuses/$head"] |
         Group-Object context | ForEach-Object { $_.Group | Sort-Object id -Descending | Select-Object -First 1 })
     if (-not ($checks.Count + $runs.Count + $statuses.Count)) { return "unknown" }
@@ -53,6 +58,7 @@ function Get-Agent4CiStage($Pull, $Cache) {
             default { $unknown = $true }
         }
     }
+    if ($failed -and -not $ReadinessOnly) { return "failed" }
     if ($unknown) { return "unknown" }
     if ($pending) { return "pending" }
     if ($failed) { return "failed" }
@@ -117,15 +123,15 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
         $key = if ($CacheKey) { $CacheKey } else { "$Endpoint|$Paginated|$Query" }
         if ($cache.ContainsKey($key)) { return ,$cache[$key] }
         $json = & $Reader $Endpoint $Paginated $Query
-        if ($json -isnot [string] -or [string]::IsNullOrWhiteSpace($json)) { throw "Missing evidence: $Endpoint." }
+        if ($json -isnot [string] -or [string]::IsNullOrWhiteSpace($json)) { throw [IO.InvalidDataException]::new("Missing evidence: $Endpoint.") }
         $parsed = $json | ConvertFrom-Json -AsHashtable -Depth 100 -DateKind String -NoEnumerate
         if ($Paginated) {
             if ($parsed -isnot [array] -or @($parsed | Where-Object { $_ -isnot [array] }).Count) {
-                throw "Expected complete paginated pages: $Endpoint."
+                throw [IO.InvalidDataException]::new("Expected complete paginated pages: $Endpoint.")
             }
             $value = @($parsed | ForEach-Object { foreach ($item in $_) { $item } })
         } else {
-            if ($parsed -isnot [hashtable] -or $parsed.errors) { throw "Invalid GitHub evidence: $Endpoint." }
+            if ($parsed -isnot [hashtable] -or $parsed.errors) { throw [IO.InvalidDataException]::new("Invalid GitHub evidence: $Endpoint.") }
             $value = $parsed
         }
         $cache[$key] = $value
@@ -168,62 +174,76 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
     $comments = Read-Evidence "repos/$repository/issues/comments?per_page=100" $true
     $children = Read-Evidence "repos/$repository/issues/$($config.epic)/sub_issues?per_page=100" $true
     $pulls = Read-Evidence "repos/$repository/pulls?state=open&per_page=100" $true
+    $collectionErrors = @()
     foreach ($pr in $pulls) {
         if (-not $pr.number -or -not $pr.head.sha -or -not $pr.node_id) { throw "Incomplete open PR." }
-        $detailEndpoint = "repos/$repository/pulls/$($pr.number)"
-        $detail = Read-Evidence $detailEndpoint
-        $attempt = 1
-        while ($true) {
-            if ($detail.number -ne $pr.number -or $detail.head.sha -cne $pr.head.sha) {
-                throw "PR identity/head changed during evidence collection: #$($pr.number)."
-            }
-            if (-not $detail.ContainsKey("mergeable") -or
-                ($null -ne $detail.mergeable -and $detail.mergeable -isnot [bool])) {
-                throw "Incomplete PR mergeability evidence: #$($pr.number)."
-            }
-            if ($null -ne $detail.mergeable -or $attempt -ge 2) { break }
-            # GitHub computes mergeability asynchronously; the first read often only starts it.
-            Start-Sleep -Seconds $rereadSeconds
-            $detail = Read-Evidence $detailEndpoint $false $null "$detailEndpoint|reread"
-            $attempt++
-        }
-        $pr.mergeable = $detail.mergeable
-        $pr.mergeable_state = $detail.mergeable_state
-        $pr.base = $detail.base
+        # Association is required to isolate later PR-local errors without hiding ownership.
         $pr.linkedIssues = Read-Connection $pr.node_id closingIssuesReferences
-        $null = Read-Evidence "repos/$repository/pulls/$($pr.number)/files?per_page=100" $true
-        $null = Read-Evidence "repos/$repository/pulls/$($pr.number)/reviews?per_page=100" $true
-        $cache["statuses/$($pr.head.sha)"] = Read-Evidence "repos/$repository/commits/$($pr.head.sha)/statuses?per_page=100" $true
-        # Check-runs and Actions are objects with nested arrays; paginate them explicitly.
-        foreach ($route in @("commits/$($pr.head.sha)/check-runs", "actions/runs?head_sha=$($pr.head.sha)")) {
-            $separator = if ($route.Contains("?")) { "&" } else { "?" }
-            $pages = & $Reader "repos/$repository/$route${separator}per_page=100" $true $null
-            $parsed = $pages | ConvertFrom-Json -AsHashtable -Depth 100 -DateKind String -NoEnumerate
-            if ($parsed -isnot [array] -or @($parsed | Where-Object { $_ -isnot [hashtable] }).Count) {
-                throw "Incomplete paginated CI evidence."
+        $pr.collectionErrors = @()
+        try {
+            $detailEndpoint = "repos/$repository/pulls/$($pr.number)"
+            $detail = Read-Evidence $detailEndpoint
+            $attempt = 1
+            while ($true) {
+                if ($detail.number -ne $pr.number -or $detail.head.sha -cne $pr.head.sha) {
+                    throw [IO.InvalidDataException]::new("PR identity/head changed during evidence collection: #$($pr.number).")
+                }
+                if (-not $detail.ContainsKey("mergeable") -or
+                    ($null -ne $detail.mergeable -and $detail.mergeable -isnot [bool])) {
+                    throw [IO.InvalidDataException]::new("Incomplete PR mergeability evidence: #$($pr.number).")
+                }
+                if ($null -ne $detail.mergeable -or $attempt -ge 2) { break }
+                # GitHub computes mergeability asynchronously; the first read often only starts it.
+                Start-Sleep -Seconds $rereadSeconds
+                $detail = Read-Evidence $detailEndpoint $false $null "$detailEndpoint|reread"
+                $attempt++
             }
-            $field = if ($route.StartsWith("actions/")) { "workflow_runs" } else { "check_runs" }
-            if (@($parsed).Count -eq 0 -or @($parsed | Where-Object {
-                $_[$field] -isnot [array] -or $null -eq $_.total_count
-            }).Count -or @($parsed | ForEach-Object { foreach ($item in $_[$field]) { $item } }).Count -ne $parsed[0].total_count) {
-                throw "Missing/truncated CI inventory."
-            }
-            $cache[$route] = $parsed
-            if ($route.StartsWith("actions/")) {
-                foreach ($run in @($parsed | ForEach-Object { $_.workflow_runs })) {
-                    $jobs = & $Reader "repos/$repository/actions/runs/$($run.id)/jobs?per_page=100" $true $null
-                    $jobPages = $jobs | ConvertFrom-Json -AsHashtable -Depth 100 -DateKind String -NoEnumerate
-                    if ($jobPages -isnot [array] -or @($jobPages | Where-Object { $_ -isnot [hashtable] }).Count) {
-                        throw "Incomplete regression job evidence."
+            $pr.mergeable = $detail.mergeable
+            $pr.mergeable_state = $detail.mergeable_state
+            $pr.base = $detail.base
+            $null = Read-Evidence "repos/$repository/pulls/$($pr.number)/files?per_page=100" $true
+            $null = Read-Evidence "repos/$repository/pulls/$($pr.number)/reviews?per_page=100" $true
+            $cache["statuses/$($pr.head.sha)"] = Read-Evidence "repos/$repository/commits/$($pr.head.sha)/statuses?per_page=100" $true
+            # Check-runs and Actions are objects with nested arrays; paginate them explicitly.
+            foreach ($route in @("commits/$($pr.head.sha)/check-runs", "actions/runs?head_sha=$($pr.head.sha)")) {
+                $separator = if ($route.Contains("?")) { "&" } else { "?" }
+                $pages = & $Reader "repos/$repository/$route${separator}per_page=100" $true $null
+                $parsed = $pages | ConvertFrom-Json -AsHashtable -Depth 100 -DateKind String -NoEnumerate
+                if ($parsed -isnot [array] -or @($parsed | Where-Object { $_ -isnot [hashtable] }).Count) {
+                    throw [IO.InvalidDataException]::new("Incomplete paginated CI evidence.")
+                }
+                $field = if ($route.StartsWith("actions/")) { "workflow_runs" } else { "check_runs" }
+                if (@($parsed).Count -eq 0 -or @($parsed | Where-Object {
+                    $_[$field] -isnot [array] -or $null -eq $_.total_count
+                }).Count -or @($parsed | ForEach-Object { foreach ($item in $_[$field]) { $item } }).Count -ne $parsed[0].total_count) {
+                    throw [IO.InvalidDataException]::new("Missing/truncated CI inventory.")
+                }
+                $cache[$route] = $parsed
+                if ($route.StartsWith("actions/")) {
+                    foreach ($run in @($parsed | ForEach-Object { $_.workflow_runs })) {
+                        $jobs = & $Reader "repos/$repository/actions/runs/$($run.id)/jobs?per_page=100" $true $null
+                        $jobPages = $jobs | ConvertFrom-Json -AsHashtable -Depth 100 -DateKind String -NoEnumerate
+                        if ($jobPages -isnot [array] -or @($jobPages | Where-Object { $_ -isnot [hashtable] }).Count) {
+                            throw [IO.InvalidDataException]::new("Incomplete regression job evidence.")
+                        }
+                        if (@($jobPages).Count -eq 0 -or @($jobPages | Where-Object {
+                            $_.jobs -isnot [array] -or $null -eq $_.total_count
+                        }).Count -or @($jobPages | ForEach-Object { foreach ($job in $_.jobs) { $job } }).Count -ne $jobPages[0].total_count) {
+                            throw [IO.InvalidDataException]::new("Missing/truncated regression job inventory.")
+                        }
+                        $cache["jobs/$($run.id)"] = $jobPages
                     }
-                    if (@($jobPages).Count -eq 0 -or @($jobPages | Where-Object {
-                        $_.jobs -isnot [array] -or $null -eq $_.total_count
-                    }).Count -or @($jobPages | ForEach-Object { foreach ($job in $_.jobs) { $job } }).Count -ne $jobPages[0].total_count) {
-                        throw "Missing/truncated regression job inventory."
-                    }
-                    $cache["jobs/$($run.id)"] = $jobPages
                 }
             }
+        } catch [IO.IOException], [IO.InvalidDataException], [ArgumentException] {
+            $diagnostic = @{ pr = $pr.number; head = $pr.head.sha; reason = $_.Exception.Message
+                issues = @($pr.linkedIssues | Where-Object { $_.repository.nameWithOwner -ieq $repository }).number }
+            $pr.collectionErrors += $diagnostic
+            $collectionErrors += $diagnostic
+        }
+        $pr.ci = @{
+            stage = Get-Agent4CiStage $pr $cache
+            readiness = $(if ($pr.collectionErrors.Count) { "unknown" } else { Get-Agent4CiStage $pr $cache $true })
         }
     }
     $parts = $repository.Split("/")
@@ -356,12 +376,19 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
         $linked = @($pulls | Where-Object {
             $child.number -in @($_.linkedIssues | Where-Object { $_.repository.nameWithOwner -ieq $repository }).number
         })
-        $category = "new"; $rank = 3; $pull = $null
+        $category = "new"; $rank = 4; $pull = $null; $diagnosis = $null
         if (-not $reason) {
-            if ($linked.Count -gt 1) { $reason = "Multiple open linked PRs; Developer/human assessment required." }
+            if ($linked.Count -gt 1) {
+                $category = "diagnose"; $rank = 3
+                $diagnosis = "Establish the authoritative continuation PR; do not edit, rerun CI or finalize an arbitrary PR."
+            }
             elseif ($linked.Count -eq 1) {
                 $pull = $linked[0]
-                if ($released -and $released.action -eq "implement") {
+                if ($pull.collectionErrors.Count) {
+                    $category = if ($pull.ci.stage -eq "failed") { "failed" } else { "diagnose" }
+                    $rank = if ($category -eq "failed") { 1 } else { 3 }
+                    $diagnosis = "Refresh incomplete/stale PR evidence before deciding an authorized action."
+                } elseif ($released -and $released.action -eq "implement") {
                     # Released implementation continues its existing PR; that PR's CI does not prove completion.
                     $category = "resume"; $rank = 2
                 } elseif ($record -and $record.finalizeRejection -and $record.finalizeRejection.head -ieq $pull.head.sha) {
@@ -374,7 +401,11 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
                     # Mergeability still unknown after one re-read is presumed conflict-free:
                     # finalize re-verifies base freshness and GitHub refuses conflicting merges.
                     $ci = Get-Agent4CiStage $pull $cache
-                    if ($ci -in @("pending", "unknown")) { $reason = "Current-head CI is $ci." }
+                    if ($ci -eq "pending") { $reason = "Current-head CI is pending." }
+                    elseif ($ci -eq "unknown") {
+                        $category = "diagnose"; $rank = 3
+                        $diagnosis = "Investigate missing/unrecognized CI evidence; unknown is neither failure nor finalization readiness."
+                    }
                     else { $category = $ci; $rank = if ($ci -eq "success") { 0 } else { 1 } }
                 }
             } elseif (@($child.labels.name | Where-Object { $_ -in @("active", "status:review") }).Count) {
@@ -387,7 +418,8 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
         } else {
             $candidates += @{ issue = $child.number; url = $child.html_url; labels = $child.labels.name
                 dependencies = $dependencies; category = $category; rank = $rank
-                pr = $pull; released = $released; finalizeRejection = $rejection; semanticAssessmentRequired = $true }
+                pr = $pull; linkedPrs = $linked; diagnosis = $diagnosis
+                released = $released; finalizeRejection = $rejection; semanticAssessmentRequired = $true }
         }
     }
     $candidates = @($candidates | Sort-Object -Stable rank)
@@ -407,12 +439,14 @@ function Get-Agent4WorkPacket($Configuration, [string] $EvidencePath, [scriptblo
         schema = "fingvibe-loop4-evidence-v1"; utc = [DateTimeOffset]::UtcNow.ToString("o")
         repository = $repository; epic = $config.epic
         reads = $cache; discussions = $discussions; issues = $issues; comments = $comments; pulls = $pulls
+        collectionErrors = $collectionErrors
         order = $Order; orderEvidence = $OrderingEvidence
     }
     @{
         schema = "fingvibe-loop4-packet-v1"; repository = $repository; epic = $config.epic
         targetBranch = $repo.default_branch; evidencePath = $EvidencePath
         candidates = $candidates; blocked = $blocked; openAssignments = $openAssignments
+        collectionErrors = $collectionErrors
         developerOffers = $developerOffers
         hasDeveloperOfferWork = ($candidates.Count -gt 0 -or $openAssignments.Count -gt 0)
         assessment = "When hasDeveloperOfferWork is false, make no new Developer calls unless retained context has unresolved offers or starts to continue. Review dependencies, foreign ownership, diffs and candidate compatibility before recommending work."

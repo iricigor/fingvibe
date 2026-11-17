@@ -18,8 +18,10 @@ availability; they answer offers. Dispatcher sends `offerId`,
 repository, Epic, recipient identity, run permissions (`merge`, `repairs`),
 evidence path, the recipient's open assignments from the packet, and an ordered
 list of distinct candidates. Candidate fields include issue/URL,
-category (`success`, `failed`, `resume`, `new`), dependencies, linked PR/current
-head and any `released` assignment.
+category (`success`, `failed`, `resume`, `diagnose`, `new`), dependencies, linked PR/current
+head and any `released` assignment. `diagnose` is a distinct category/action:
+it carries diagnostic scope, all `linkedPrs` and any PR `collectionErrors`;
+unknown CI/PR identity is never relabeled failed or ready to finalize.
 Use JSON offers with explicit `developer` and `recipientId` fields; the Developer
 echoes both in its response. Retain the actual host identity behind `recipientId`.
 The packet's `developerOffers` contains each Developer identity and its exact
@@ -35,6 +37,8 @@ queue. Zero or multiple successful candidates retain the base allocation.
 
 An offer asks for availability and assessment. It never authorizes execution.
 Dispatcher keeps the exact offer and actual recipient correlation in its context.
+The initial offer construction above is unchanged; one bounded follow-up round
+is permitted under [same-cycle follow-up](#same-cycle-follow-up).
 
 Immediately after attempting the offers, before waiting for assessments or
 processing starts, Dispatcher posts a brief user-visible chat summary. Name each
@@ -93,14 +97,15 @@ An invalid response requires correction and remains unresolved; never start from
 it or silently treat it as rejection. Both replies are not a mandatory barrier.
 An empty accepted list cannot produce a start or transfer another Developer's task.
 
-Before each start, check compatibility against both Developers' existing work,
+Before each start, check evidenced incompatibility against both Developers' existing work,
 all unresolved offered candidates and any starts already sent in this cycle.
 Treat a missing response as unknown, not idle: retain its assignments and offers,
-and assess its offered candidates as potentially starting later. If overlap or
-insufficient evidence prevents establishing compatibility, defer with the specific
-reason. Shared files/contracts, dependencies and incompatible behavior matter,
-not just distinct issue numbers. A late response requires fresh checks against
-work already started; conflicting late candidates remain deferred.
+and assess its offered candidates as potentially starting later. Unknown is not
+failed, rejected or a conflict: omitted pairwise evidence does not block distinct
+accepted work. Only a concrete evidenced incompatibility blocks a pairing; shared
+filenames alone are not proof. Trust Developer eligibility rather than requiring
+another technical approval. A late response is checked against fixed starts;
+concretely conflicting candidates remain deferred, with the specific evidence.
 
 Send at most one start per Developer and per task in the cycle. Keep offer/start correlation
 and sent-start state in the retained context; continuation never resends a start.
@@ -129,18 +134,21 @@ fields. Arrays must be JSON arrays, including empty arrays.
 | `sentStarts` | Every start already committed in this cycle: `assignmentId`, `developer`, `issue`, `offerId`, including uncertain sends or a durable Sending record whose send is pending. Never remove these on continuation. |
 | `releasedAssignments` | Packet open assignments released by the existing crash-release procedure this cycle: `assignmentId`, nonempty `reason` with verified reply, release-marker and claim-release evidence. These must not also appear in held/sent work. Empty otherwise; this field never authorizes or performs a release. |
 | `compatibility` | Evidenced symmetric pairs: `issues: [N, M]`, Boolean `compatible`, nonempty `reason`. Include safe and unsafe pairs; omitted pairs are unknown. Duplicate/reversed pairs are invalid, not last-write-wins. |
+| `startFailures` (optional) | Proposed starts that failed strictly before any Sending record or send attempt: `developer`, `issue`, nonempty `reason` with evidence. Used only to permit bounded follow-up after task-local preparation errors; never an uncertain send or release. |
 
 Dispatcher still verifies sender/recipient/authority, scope, head freshness and
 semantic safety (files, shared contracts, dependencies, behavior). Supply real
-evidence in reasons; issue-number separation is not compatibility. The planner
+evidence for concrete conflicts in reasons. Unknown compatibility is non-blocking,
+not an assertion that the tasks have been proved independent. The planner
 does not query GitHub, release assignments, create claims or send messages.
 It validates correlation and shapes, not truth of AI assessments or host identity.
 Existing assignment-state answers and crash-release reporting remain required
 outside allocation. Packet open assignments must be included in retained work
 unless explicitly listed in `releasedAssignments` after verified release.
-That Developer can take other offered work; the released task itself is not
-reoffered until the next cycle, as before. A current-cycle sent start cannot be
-released or reshuffled through this field.
+That Developer can take other offered work; the released task can also receive
+a fresh offer through the single follow-up round after verified release and
+packet refresh. A current-cycle sent start cannot be released or reshuffled
+through this field.
 
 The planner enumerates at most nine candidate combinations, selecting at most one
 eligible offered task per available Developer, never the same task twice.
@@ -159,8 +167,9 @@ shared-candidate precedence, not offer construction.
 All retained work blocks duplicate task starts; its owner cannot receive a new
 start until reconciliation is reflected in the input. Sent starts always stay
 fixed for this cycle, even if a different mapping would now fill more slots.
-Before an independent start, compatibility must also hold against the missing
-Developer's distinct offered candidates. The same shared task is exclusive,
+Before an independent start, concrete incompatibility is checked against the missing
+Developer's distinct offered candidates, without treating omitted evidence as
+conflict. The same shared task is exclusive,
 not itself concurrent work; either responding Developer may get it first.
 Once a start is committed, that Developer's other offers are no longer unresolved
 possibilities for this cycle. Future responses cannot duplicate its task.
@@ -224,11 +233,21 @@ It also contains `proposedReruns` (issue, PR number, head, run ID/attempt and
 correlated recommendation evidence) and `deferredReruns` (issue/reasons).
 Identical recommendations from both Developers become one rerun. Contradictory
 targets are invalid. An accepted code repair, missing shared-task assessment,
-held/sent task assignment, or unsafe/unknown compatibility with other proposed,
+held/sent task assignment, or evidenced incompatibility with other proposed,
 held or unresolved work prevents a rerun proposal. Reruns consume no Developer
-slot; compatible Developer starts retain their existing allocation.
+slot; independent Developer starts retain their existing allocation. Unknown
+cross-task compatibility alone never blocks a rerun.
 Decisions distinguish `proposed`, `pending`, `held`, `retained` and `idle`, with
 `reason` and `deferred` candidate/reason records for unsafe alternatives.
+`responseErrors` contains `developer`, `reason`, `action` for individually
+malformed responses. Publish these errors and request correction; that Developer
+remains pending, not rejected/idle. Valid independent responses still produce
+starts. A response is validated transactionally: partially parsed eligibility or
+rerun recommendations confer no authority. Unknown/duplicate Developer identities,
+contradictory rerun targets and invalid shared packet/ownership inputs still
+throw: the planner cannot safely attribute or reconcile those globally.
+If a malformed reply exposes additional executing work, retain that work and
+its ownership before allocation rather than discarding it as a formatting error.
 The output is a proposal, not execution authority or a delivery receipt.
 
 Use only `proposedStarts`, subject to fresh checks below; do not override the
@@ -237,7 +256,53 @@ retained context and `sentStarts` before attempting delivery. Rerun after new
 responses, changed evidence or a partial send using the same offers and original
 packet, all sent starts and current assessments. If scope/head changed, reassess
 before replanning. Planner/input errors block starts with an explicit report,
-never a manual AI-allocation fallback. Do not retry uncertain sends.
+never a manual AI-allocation fallback; individual `responseErrors` do not abort
+other valid responses. Do not retry uncertain sends. Preparation/helper errors
+are task-local: report the concrete error, continue independent proposed actions
+and record a `startFailures` entry only if no Sending record/send was attempted.
+
+## Same-cycle follow-up
+
+After handling initial proposed starts and reruns, at most **one** follow-up offer
+round may refill available slots after rejection, busy state, a confirmed crash
+release or evidenced pre-send preparation failure. This does not create another
+Automation, execution or schedule, and does not permit continuous queue polling.
+
+Retain the latest initial allocation, including every initial Sending/start
+(even uncertain delivery), held assignment and verified release. Resolve malformed
+replies in their original correlation; pending offers cannot be discarded to refill.
+Refresh the collector packet once, then build the next packet deterministically:
+
+```powershell
+.\.github\scripts\Get-Agent4AssignmentPlan.ps1 -InputPath <initial-allocation-json> -FollowUpPacketPath <fresh-packet-json>
+```
+
+The helper requires the same repository/Epic. Every prior proposed start must
+now be in retained `sentStarts` or have an evidenced `startFailures` entry. It
+reserves one candidate per available Developer before filling second offer
+positions, maximizing recipient coverage then packet task priority with Developer
+1 as final tie-breaker. It selects at most two candidates per Developer, excluding held/sent tasks, unresolved offered candidates,
+already selected follow-up candidates and tasks already offered to that recipient.
+Tasks already proposed for CI rerun are excluded from that round's offers.
+Thus rejections are not retried against unchanged evidence; queued alternatives,
+including resolved offers from the other Developer and newly released tasks, can
+progress. Busy/unknown Developers get empty lists, not invented availability.
+
+The returned packet carries `followUpOf` with the initial allocation and new
+`developerOffers`. Send only nonempty lists, using unique new offer IDs and the
+same actual recipients. Keep both correlated offer records in the next allocation;
+empty lists need no new send or synthetic response. Supply the returned packet,
+fresh correlated replies, all initial/current sent starts and held work, and fresh
+packet assignments. The planner verifies deterministic offer lists, fresh IDs,
+recipient continuity and retention of initial held work/sent starts. A nested
+follow-up is rejected: never a third round.
+
+Use the ordinary fresh-state, Sending/readback, budget and start procedures.
+One start per Developer/task applies across both rounds. A Sending record or
+uncertain start is committed work, never `startFailures` or a refillable slot.
+Unresolved outcomes remain explicitly pending; lack of a safe bounded alternative
+is not an empty queue. Diagnose outcomes need fresh assessment before any later
+repair/finalize action; they never silently upgrade their own start authority.
 
 ## Dispatcher failed-job reruns and shared repair budget
 
@@ -327,7 +392,8 @@ For each open assignment, compare the assigned Developer's reply:
   ended without a report. Post a release comment with the release marker, the
   Developer and the reply as evidence, verify readback, then run
   `.github/scripts/Set-Agent4TaskClaim.ps1 -Issue <number> -Action release`.
-  The task is offered again in the next cycle.
+  The task may receive a fresh offer in the bounded same-cycle follow-up round,
+  after refreshing its task/PR/head evidence; otherwise it is offered next cycle.
 - Missing or uncertain reply: keep the assignment held. Age never releases it.
 
 ## Assignment records
@@ -352,11 +418,18 @@ returns it to normal CI classification.
 ## Start
 
 Dispatcher sends a unique `assignmentId`, original `offerId`, selected issue,
-action (`implement`, `repair`, `finalize`, or explicitly scoped `no-code`),
+action (`implement`, `repair`, `finalize`, `diagnose`, or explicitly scoped `no-code`),
 the run permissions, the task's Discussion URL, and the existing
 PR/branch/current head for follow-up. Category sets the action:
 `success` → `finalize`, `failed` → `repair`, `new` → `implement`, and `resume`
-→ `implement` continuing the existing PR/branch from its pushed head.
+→ `implement` continuing the existing PR/branch from its pushed head, and
+`diagnose` → one bounded read-only investigation of the supplied diagnostic scope.
+For diagnosis, forward all linked PRs/heads and collection errors, with no arbitrary
+single PR selection when ambiguous. Do not authorize edits, CI requests, claims,
+issue closure or merging; only participation/assignment/report Discussion writes
+are permitted. Diagnosis reports observed facts, remaining unknowns, evidence and
+the next concrete action, then records/readbacks its end marker without polling.
+Unknown evidence is never itself justification for `status:blocked`.
 Repair also names the run's `repairs` allowance and the evidenced attempt.
 For future repairs, include the Dispatcher-reserved shared-budget marker and
 attempt from the helper above; this reservation already consumes the attempt.
@@ -388,7 +461,8 @@ gate. Report failures explicitly rather than retrying uncertain publication.
 Developer validates the fresh task and run permissions, confirms the start in the
 task's Discussion, adds/verifies its own `4️⃣dev1`/`4️⃣dev2` participation label
 using `Set-Agent4DiscussionParticipant.ps1`, claims the task
-(`Set-Agent4TaskClaim.ps1 -Action claim`), then starts. For `implement` and
+(`Set-Agent4TaskClaim.ps1 -Action claim`), then starts, except `diagnose` preserves
+issue/project lifecycle state and creates no claim. For `implement` and
 `repair`, the Developer creates a fresh task worktree for this assignment before
 any edit ([Developer contract](developer.md#task-worktrees)); its retained
 session worktree is never used for task edits. Participation labels stay
