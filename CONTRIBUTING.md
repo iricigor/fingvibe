@@ -173,6 +173,28 @@ pushes to `main` (including merges) and remains manually dispatchable, without
 changing PR or release gates. See [execution modes and evidence](docs/reference.md#independent-native-validation).
 Enforced specifications and any gate cutover remain #256, not this comparison.
 
+### Split test entry modules
+
+Four large test entry scripts are thin orchestrators that dot-source
+responsibility-owned modules from `tests/`, explicitly and in a fixed order,
+without discovery. Run and dispatch them exactly as before (`core-tests`,
+`details-summary`, `details-observations`, standalone and Full); each module
+runs in its entry's scope at its original position and is not standalone.
+Modules are named `<entry>.Tests.<Part>.ps1` (`DeviceScanHistory.Ui.Tests.<Part>.ps1`
+for the native history suite, which therefore stays on the native PR path).
+Add new checks to the module that owns the responsibility, or add a module at
+the matching position; do not grow the entry script or a shared catch-all.
+
+| Entry | Modules, in load order |
+| --- | --- |
+| `PrValidation.Tests.ps1` | `Planning` (path classification, allow-list, native closure); `CommentPublication`; `WorkflowContracts` (release identity, action versions, job graph); `NativeDispatch` (suite selection, retries, runner fixtures); `FinalGate` (failure diagnostics, required gate, draft readiness) |
+| `UiReviewScenarios.Tests.ps1` | Page contracts: `DetailsContracts`, `HeaderContracts`, `HistoryContracts`, `AppearanceContracts`; then, inside the fixture repository, `Selection`, `Layout` (shell, Tools and page-view layout), `ViewSelection`, `Publishing` (manifest and screenshots), `Navigation` |
+| `UiRegression.Helpers.Tests.ps1` | Shared foundation: `Waits`, `Visibility`, `Lifecycle`, `Groups` (group runner, call costs, cleanup), `SurfaceStatus`. Feature helpers: `Sidebar`, `Tools`, `SourceContracts` (history and backup source checks), `Backups`, `DevicesFilters`. They load interleaved, preserving the original order |
+| `DeviceScanHistory.Ui.Tests.ps1` | Helpers: `Shared` (fixture/lifecycle), `Summary`, `Observations` (paging and rows). Phases inside the entry's `try`: `FixturePhase`, `StatePhases`, then `PagingPhase`. The entry keeps parameters, environment and fixture ownership, the summary-only early return, failure capture and cleanup |
+
+Tests that read another test's source (for example a history function) read
+the module that owns it.
+
 ### Asynchronous surfaces
 
 New or changed UI surfaces that load asynchronously expose one observable state

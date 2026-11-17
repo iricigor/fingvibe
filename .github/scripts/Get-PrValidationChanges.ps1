@@ -21,7 +21,7 @@ $PrValidationNonNativeScripts = @(
 # Standalone inspectors outside FingVibe.sln, the app build and the installer; core tests still compile some sources.
 $PrValidationNonNativeTools = '^tools/(DecoX50Inspector|Ex220Inspector)/'
 # Native UI test code: regression modules, UI entry scripts and the helpers/fixtures they load.
-$PrValidationNativeTests = '^tests/(UiRegression/|[^/]+\.Ui\.(Tests|Helpers)\.ps1$|[^/]+\.Fixture\.ps1$|(SidebarNavigation|UiReviewScreenshot(\.Content)?|Installer\.Lifecycle)\.Tests\.ps1$|Inventory\.Sqlite\.Helpers\.ps1$)'
+$PrValidationNativeTests = '^tests/(UiRegression/|[^/]+\.Ui\.(Tests|Helpers)(\.[A-Za-z]+)?\.ps1$|[^/]+\.Fixture\.ps1$|(SidebarNavigation|UiReviewScreenshot(\.Content)?|Installer\.Lifecycle)\.Tests\.ps1$|Inventory\.Sqlite\.Helpers\.ps1$)'
 
 function Test-PrValidationNonNativePath([string] $Path) {
     $Path -cmatch $PrValidationNonNativeTools -or
