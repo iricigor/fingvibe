@@ -3,11 +3,10 @@ $null = Find-SidebarElement Name "LAN scanner"
 foreach ($page in @(
     @("Network", "Public IP address"),
     @("Devices", "Search devices"),
-    @("Rooms", "Search rooms"),
+    @("People & rooms", "Search people and rooms"),
     @("Tools", "Speed test"),
     @("Settings", "Window backdrop"),
-    @("Overview", "Online devices"),
-    @("People", "Search people")
+    @("Overview", "Online devices")
 )) {
     Select-SidebarPage $page[0] $page[1]
     Assert-SharedNetworkHeader

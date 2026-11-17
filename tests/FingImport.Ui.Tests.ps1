@@ -302,7 +302,7 @@ try {
     (Find-ImportControl "Manage rooms" ([System.Windows.Automation.ControlType]::Button)).
         GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Start-Sleep -Milliseconds 400
-    $null = Find-ImportControl "Search rooms" ([System.Windows.Automation.ControlType]::Edit)
+    $null = Find-ImportControl "Search people and rooms" ([System.Windows.Automation.ControlType]::Edit)
     Invoke-ImportControl "Add room"
     (Find-ImportControl "Full name" ([System.Windows.Automation.ControlType]::Edit)).
         GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("Missing review room")

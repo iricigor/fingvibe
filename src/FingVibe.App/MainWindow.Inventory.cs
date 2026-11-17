@@ -243,7 +243,7 @@ public sealed partial class MainWindow
             () => CurrentDeviceData,
             () => _inventoryReady && !_inventoryUnavailable && !_isScanning,
             ImportAnalyzedDataAsync,
-            category => MainNavigation.SelectedItem = category == "People" ? PeopleNavItem : RoomsNavItem,
+            _ => MainNavigation.SelectedItem = PeopleRoomsNavItem,
             WinRT.Interop.WindowNative.GetWindowHandle(this));
     }
 

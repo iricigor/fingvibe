@@ -112,8 +112,8 @@ function Test-SidebarResizing {
     Test-SidebarIconDragGuide
     foreach ($page in @(
         @("Overview", "Online devices"), @("Network", "Public IP address"),
-        @("Devices", "Search devices"), @("People", "Search people"),
-        @("Rooms", "Search rooms"), @("Tools", "Speed test"), @("Settings", "Window backdrop")
+        @("Devices", "Search devices"), @("People & rooms", "Search people and rooms"),
+        @("Tools", "Speed test"), @("Settings", "Window backdrop")
     )) {
         Select-SidebarPage $page[0] $page[1]
         Assert-SidebarPaneWidth 48

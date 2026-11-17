@@ -66,8 +66,7 @@ function Test-DeviceRefresh {
             @("Devices", "Search devices"),
             @("Overview", "Online devices"),
             @("Network", "Public IP address"),
-            @("People", "Search people"),
-            @("Rooms", "Search rooms"),
+            @("People & rooms", "Search people and rooms"),
             @("Tools", "Speed test"),
             @("Settings", "Window backdrop")
         )) {
@@ -221,8 +220,8 @@ function Test-UnavailableScanTarget {
         Select-SidebarPage Network "No active IPv4 network"
         foreach ($page in @(
             @("Devices", "Search devices"), @("Overview", "Online devices"),
-            @("Network", "No active IPv4 network"), @("People", "Search people"),
-            @("Rooms", "Search rooms"), @("Tools", "Speed test"), @("Settings", "Window backdrop")
+            @("Network", "No active IPv4 network"), @("People & rooms", "Search people and rooms"),
+            @("Tools", "Speed test"), @("Settings", "Window backdrop")
         )) {
             Select-SidebarPage $page[0] $page[1]
             $scan = Find-SidebarElement AutomationId ScanButton

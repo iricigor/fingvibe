@@ -245,7 +245,7 @@ function Set-SidebarAppearance([string] $Picker, [string] $Choice) {
         Set-UiReviewAppearanceChoice -Root $root -Picker $Picker -Choice $Choice
     }
     Start-Sleep -Milliseconds 500
-    Select-SidebarPage People "Search people"
+    Select-SidebarPage "People & rooms" "Search people and rooms"
 }
 
 function Focus-SidebarWindow {
