@@ -139,8 +139,8 @@ Device Details checks run in four independent CI jobs that follow the
 Overview/History tab boundary: `details-summary`, `details-identity`,
 `details-observations` and `details-activity`. Add observation-table checks to
 `details-observations` and Activity checks to `details-activity`.
-The Network page's `NetworkActivity.Ui` uses `details-identity` headroom when
-Network is selected.
+The Network page's `NetworkActivity.Ui` runs independently in `network-activity`
+when Network is selected; do not also dispatch it from `details-identity`.
 Person details' `EquipmentActivity.Ui` uses `details-summary` when PersonDetails
 is selected, retaining its existing Device summary checks. Shared count/grid
 changes select Network and PersonDetails as well as affected Device Activity.

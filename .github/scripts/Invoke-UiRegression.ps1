@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory)]
     [ValidateSet("sidebar", "sidebar-presentation", "sidebar-scan-flows", "sidebar-scan-presentation", "sidebar-preferences-scheduling",
         "devices", "devices-presentation", "devices-filters-previews", "devices-columns-sorting",
-        "details-summary", "details-identity", "details-observations", "details-activity",
+        "details-summary", "details-identity", "details-observations", "details-activity", "network-activity",
         "tools", "tools-utilities", "tools-device-data")]
     [string] $Suite,
     [Parameter(Mandatory)][string] $AppPath,
@@ -18,7 +18,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "UiReviewScenarios.ps1")
-$plan = if ($Suite -like "details-*") { @(Read-UiReviewCapturePlan -Path $CapturePlanPath) } else { @() }
+$plan = if ($Suite -like "details-*" -or $Suite -eq "network-activity") { @(Read-UiReviewCapturePlan -Path $CapturePlanPath) } else { @() }
 $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
 
 function Invoke-RegressionCheck([string] $Name, [hashtable] $Parameters = @{}) {
@@ -68,9 +68,6 @@ try {
                 Invoke-RegressionCheck "DeviceDiscovery.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "discovery") }
                 Invoke-RegressionCheck "UsageCategory.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "usage-category") }
             }
-            if ($Suite -eq "details-identity" -and $plan.Scenario -contains "Network") {
-                Invoke-RegressionCheck "NetworkActivity.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "network-activity") }
-            }
             if ($Suite -eq "details-observations" -and
                 ($plan.Scenario | Where-Object { $_ -in @("DeviceDetails", "DeviceHistory") })) {
                 Invoke-RegressionCheck "DeviceScanHistory.Ui" @{
@@ -80,6 +77,14 @@ try {
             elseif ($Suite -eq "details-activity" -and
                 ($plan.Scenario | Where-Object { $_ -in @("DeviceDetails", "DeviceHistory") })) {
                 Invoke-RegressionCheck "DeviceActivity.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "activity") }
+            }
+        }
+        "network-activity" {
+            if ($plan.Scenario -contains "Network") {
+                Invoke-RegressionCheck "NetworkActivity.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "network-activity") }
+            }
+            else {
+                Write-Host "Network Activity checks are not required by this capture plan, preserving existing selection."
             }
         }
         { $_ -eq "tools" -or $_ -like "tools-*" } {
