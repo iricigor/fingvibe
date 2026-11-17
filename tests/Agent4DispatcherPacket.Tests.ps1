@@ -238,14 +238,17 @@ try {
         ($pending.developerOffers[1].candidates.issue -join ",") -eq "106") "Two candidates are offered separately, not shared."
     $fixtureCiStatus = "completed"; $fixtureConclusion = $null
     $missing = Get-Agent4WorkPacket $configuration (Join-Path $root "unknown.json") $fixtureReader
-    Assert-True (104 -notin $missing.candidates.issue -and $missing.blocked.reason -contains "Current-head CI is unknown.") "Missing conclusions must be explicit."
+    $diagnostic = $missing.candidates | Where-Object issue -EQ 104
+    Assert-True ($diagnostic.category -eq "diagnose" -and $diagnostic.pr.ci.stage -eq "unknown" -and
+        $diagnostic.pr.ci.readiness -eq "unknown" -and $diagnostic.diagnosis) "Missing conclusions remain unknown and offer diagnosis, not repair/finalize."
     $fixtureConclusion = "success"; $fixtureStatuses = @(@{ id = 9; context = "External"; state = "pending" })
     $external = Get-Agent4WorkPacket $configuration (Join-Path $root "external.json") $fixtureReader
-    Assert-True (104 -notin $external.candidates.issue -and 103 -notin $external.candidates.issue) "Collector must include external pending statuses even without response sha."
+    Assert-True (104 -notin $external.candidates.issue -and
+        ($external.candidates | Where-Object issue -EQ 103).category -eq "failed") "Pending statuses prevent finalize without hiding another observed failure."
     $fixtureStatuses = @()
     $fixtureNoCi = $true
     $noChecks = Get-Agent4WorkPacket $configuration (Join-Path $root "no-checks.json") $fixtureReader
-    Assert-True (104 -notin $noChecks.candidates.issue) "Absent checks alone must not authorize repair."
+    Assert-True (($noChecks.candidates | Where-Object issue -EQ 104).category -eq "diagnose") "Absent checks authorize diagnosis only, never automatic repair."
     $fixtureMergeable = $false
     $conflicts = Get-Agent4WorkPacket $configuration (Join-Path $root "conflicts.json") $fixtureReader
     $conflicting = $conflicts.candidates | Where-Object issue -EQ 104
@@ -295,7 +298,9 @@ try {
         }
         & $fixtureReader $Endpoint $Paginated $Query
     }
-    Assert-Fails { Get-Agent4WorkPacket $configuration (Join-Path $root "reread-drift.json") $driftOnReread } "*PR identity/head changed*"
+    $drift = Get-Agent4WorkPacket $configuration (Join-Path $root "reread-drift.json") $driftOnReread
+    Assert-True (($drift.candidates | Where-Object issue -EQ 104).category -eq "diagnose" -and
+        $drift.collectionErrors[0].reason -like "*PR identity/head changed*") "Head drift is explicit and requires refresh/diagnosis, without aborting unrelated offers."
     $fixtureMergeable = $true
     $conflictFree = Get-Agent4WorkPacket $configuration (Join-Path $root "conflict-free.json") $fixtureReader
     Assert-True (($conflictFree.candidates.issue -join ",") -eq ($sorted.candidates.issue -join ",") -and
@@ -333,6 +338,21 @@ try {
     }
     Assert-True ((Get-Agent4CiStage $fixturePulls[0] $ciCache) -eq "unknown") "Skipped-only checks are not successful CI."
     Assert-True ((Get-Agent4CiStage $fixturePulls[0] @{}) -eq "unknown") "Absent CI is not successful CI."
+    $ciCache["commits/$head/check-runs"][0].check_runs += @(
+        @{ id = 2; name = "Known failure"; head_sha = $head; status = "completed"; conclusion = "failure" }
+        @{ id = 3; name = "Unknown result"; head_sha = $head; status = "completed"; conclusion = "unrecognized" }
+    )
+    Assert-True ((Get-Agent4CiStage $fixturePulls[0] $ciCache) -eq "failed" -and
+        (Get-Agent4CiStage $fixturePulls[0] $ciCache $true) -eq "unknown") "Known failure remains actionable while independent unknown evidence keeps readiness unknown."
+    $ciCache["commits/$head/check-runs"][0].check_runs[2].status = "in_progress"
+    Assert-True ((Get-Agent4CiStage $fixturePulls[0] $ciCache) -eq "failed" -and
+        (Get-Agent4CiStage $fixturePulls[0] $ciCache $true) -eq "pending") "Known failure plus pending CI remains repair-assessable, not finalizable."
+    $ciCache["commits/$head/check-runs"][0].check_runs[1].check_suite = @{ id = 80 }
+    $ciCache["actions/runs?head_sha=$head"] = @(@{ workflow_runs = @(
+        @{ id = 8; workflow_id = 7; check_suite_id = 80; name = "Validation"; head_sha = $head; status = "completed"; conclusion = "failure" }
+        @{ id = 9; workflow_id = 7; check_suite_id = 90; name = "Validation"; head_sha = $head; status = "in_progress" }
+    ) })
+    Assert-True ((Get-Agent4CiStage $fixturePulls[0] $ciCache) -eq "pending") "A failed check from an explicitly superseded workflow suite is not revived as current repair evidence."
     $children[0].labels += @{ name = "active" }
     $active = Get-Agent4WorkPacket $configuration (Join-Path $root "active.json") $fixtureReader
     Assert-True (101 -notin $active.candidates.issue) "Active work without PR must not become new work."
@@ -411,20 +431,48 @@ try {
         if ($Endpoint -match '/pulls/200$') { return '{"number":200,"head":{"sha":"changed"},"mergeable":false}' }
         & $fixtureReader $Endpoint $Paginated $Query
     }
-    Assert-Fails { Get-Agent4WorkPacket $configuration (Join-Path $root "stale-pr.json") $stalePull } "*PR identity/head changed*"
-    Assert-True (-not [IO.File]::Exists((Join-Path $root "stale-pr.json"))) "PR head drift must not publish actionable evidence."
+    $stale = Get-Agent4WorkPacket $configuration (Join-Path $root "stale-pr.json") $stalePull
+    Assert-True ($stale.collectionErrors.Count -eq 1 -and $stale.collectionErrors[0].reason -like "*PR identity/head changed*" -and
+        $stale.candidates.Count -gt 0) "Unrelated PR drift publishes scoped errors and preserves unaffected candidates."
     $missingMergeability = {
         param($Endpoint, $Paginated, $Query)
         if ($Endpoint -match '/pulls/200$') { return '{"number":200,"head":{"sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}' }
         & $fixtureReader $Endpoint $Paginated $Query
     }
-    Assert-Fails { Get-Agent4WorkPacket $configuration (Join-Path $root "missing-mergeability.json") $missingMergeability } "*Incomplete PR mergeability*"
+    $incomplete = Get-Agent4WorkPacket $configuration (Join-Path $root "missing-mergeability.json") $missingMergeability
+    Assert-True ($incomplete.collectionErrors[0].reason -like "*Incomplete PR mergeability*") "Incomplete PR detail is explicit, not a fabricated success or global abort."
     $malformed = {
         param($Endpoint, $Paginated, $Query)
         if ($Endpoint -match '/check-runs') { return '[{}]' }
         & $fixtureReader $Endpoint $Paginated $Query
     }
-    Assert-Fails { Get-Agent4WorkPacket $configuration (Join-Path $root "missing-ci.json") $malformed } "*truncated CI*"
+    $incomplete = Get-Agent4WorkPacket $configuration (Join-Path $root "missing-ci.json") $malformed
+    Assert-True ($incomplete.collectionErrors.Count -eq 2 -and
+        $incomplete.collectionErrors[0].reason -like "*truncated CI*") "Incomplete CI evidence is scoped to its PR and never silently replaced with success."
+    $unavailable = {
+        param($Endpoint, $Paginated, $Query)
+        if ($Endpoint -match '/pulls/200$') { throw [IO.IOException]::new("PR detail temporarily unavailable.") }
+        & $fixtureReader $Endpoint $Paginated $Query
+    }
+    $fixtureLinks = @{ PR200 = 104; PR201 = 103 }
+    $incomplete = Get-Agent4WorkPacket $configuration (Join-Path $root "unavailable-pr.json") $unavailable
+    Assert-True (($incomplete.candidates | Where-Object issue -EQ 104).category -eq "diagnose" -and
+        ($incomplete.candidates | Where-Object issue -EQ 103).category -eq "failed" -and
+        $incomplete.collectionErrors[0].reason -like "*temporarily unavailable*") "Unreadable PR offers bounded diagnosis while independent failed work progresses."
+    $badJobs = {
+        param($Endpoint, $Paginated, $Query)
+        if ($Endpoint -match '/actions/runs/300/jobs') { return '[{}]' }
+        & $fixtureReader $Endpoint $Paginated $Query
+    }
+    $incomplete = Get-Agent4WorkPacket $configuration (Join-Path $root "missing-jobs.json") $badJobs
+    Assert-True (($incomplete.candidates | Where-Object issue -EQ 104).category -eq "diagnose" -and
+        $incomplete.collectionErrors[0].reason -like "*truncated regression job*") "Missing job detail prevents assumed readiness, not unrelated work or task diagnosis."
+    $fixtureLinks = @{ PR200 = 104; PR201 = 104 }
+    $ambiguous = Get-Agent4WorkPacket $configuration (Join-Path $root "ambiguous-prs.json") $fixtureReader
+    $diagnostic = $ambiguous.candidates | Where-Object issue -EQ 104
+    Assert-True ($diagnostic.category -eq "diagnose" -and $null -eq $diagnostic.pr -and
+        $diagnostic.linkedPrs.Count -eq 2 -and $diagnostic.diagnosis -like "*authoritative*") "Multiple PRs reach diagnosis without choosing an arbitrary implementation target."
+    $fixtureLinks = @{}
     $wrongParent = {
         param($Endpoint, $Paginated, $Query)
         if ($Endpoint -match '/parent$') { return '{"number":191,"labels":[{"name":"type:epic"}]}' }
