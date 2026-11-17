@@ -29,6 +29,7 @@ if (($manifest -join '|') -ne 'Assets\Scanner.ico|FingVibe.App.dll|FingVibe.App.
 if ($options.VersionMS -ne 65538 -or $options.VersionLS -ne 196612) {
     throw "Incorrect packed version components."
 }
+$options | ConvertTo-Json | Set-Content (Join-Path $options.OutputDirectory "compiler-options.json")
 "fixture" | Set-Content (Join-Path $options.OutputDirectory "FingVibe-$($options.AppVersion)-win-x64-Setup.exe")
 $global:LASTEXITCODE = 0
 '@ | Set-Content -LiteralPath $compiler
@@ -37,6 +38,42 @@ $global:LASTEXITCODE = 0
     if (-not (Test-Path -LiteralPath $installer)) { throw "Installer output was not returned." }
     if (Test-Path -LiteralPath (Join-Path $app "_fingvibe-files.txt")) {
         throw "Packaging must not modify the ZIP's publish output."
+    }
+    $defaults = Get-Content -LiteralPath (Join-Path $output "compiler-options.json") -Raw | ConvertFrom-Json
+    if ($defaults.PSObject.Properties.Name -contains "Compression" -or $defaults.PSObject.Properties.Name -contains "SolidCompression") {
+        throw "Release/PR packaging must keep the script's production compression defaults."
+    }
+    $null = & $builder @parameters -FixtureCompression
+    $fast = Get-Content -LiteralPath (Join-Path $output "compiler-options.json") -Raw | ConvertFrom-Json
+    if ($fast.Compression -ne "none" -or $fast.SolidCompression -ne "no") {
+        throw "Test fixtures must request uncompressed, non-solid packaging explicitly."
+    }
+    Remove-Item -LiteralPath (Join-Path $output "compiler-options.json")
+    $script = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\tools\installer\FingVibe.iss") -Raw
+    foreach ($pattern in @('(?m)^\s*#define Compression "lzma2"\s*$', '(?m)^\s*#define SolidCompression "yes"\s*$',
+        '(?m)^Compression=\{#Compression\}\s*$', '(?m)^SolidCompression=\{#SolidCompression\}\s*$')) {
+        if ($script -notmatch $pattern) { throw "Installer script must default to LZMA2/solid compression: $pattern" }
+    }
+    # Published installers never use fixture compression; fixtures are built only into the lifecycle's temporary directory.
+    foreach ($workflow in @("ci.yml", "release.yml", "native-validation.yml")) {
+        $text = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\.github\workflows\$workflow") -Raw
+        $calls = [regex]::Matches($text, '(?m)^.*New-Installer\.ps1.*$')
+        if ($calls.Count -ne 1 -or $calls[0].Value -match 'FixtureCompression' -or $calls[0].Value -notmatch '-OutputDirectory artifacts\\installer') {
+            throw "$workflow must build exactly one production-compressed installer into artifacts\installer."
+        }
+    }
+    $lifecycle = Get-Content -LiteralPath (Join-Path $PSScriptRoot "Installer.Lifecycle.Tests.ps1") -Raw
+    $fixtureCalls = [regex]::Matches($lifecycle, '(?m)^.*& \$builder .*$')
+    if ($fixtureCalls.Count -ne 1 -or $fixtureCalls[0].Value -notmatch '-OutputDirectory \$fixture -FixtureCompression') {
+        throw "Lifecycle fixtures must use fixture compression and the disposable fixture directory only."
+    }
+    $family = [regex]::Match($lifecycle, '(?m)^\$FeatureFamily = "(\d+\.\d+)"\s*$')
+    $release = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\.github\workflows\release.yml") -Raw
+    if (-not $family.Success -or $release -notmatch ('"number=' + [regex]::Escape($family.Groups[1].Value) + '\.\$\{\{ github\.run_number \}\}"')) {
+        throw "The lifecycle feature family must match the release version family."
+    }
+    if ([regex]::Matches($lifecycle, '"\d+\.\d+"').Count -ne 1) {
+        throw "Fixture versions must derive from the single feature-family definition."
     }
     Assert-Throws { & $builder @parameters -Version "1.2" } "*three or four*"
     Assert-Throws { & $builder @parameters -Version "1.2.65536" } "*must not exceed*"

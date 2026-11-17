@@ -1574,18 +1574,35 @@ GitHub runners). After publishing the app, run:
 
 `tests\Installer.Script.Tests.ps1` checks packaging helpers without installing or
 launching anything. `tests\Installer.Lifecycle.Tests.ps1` refuses to run outside a
-disposable GitHub-hosted runner. PR and release builds compile the actual
-installer and verify payload hashes, fresh installation, window launch,
-running-app blocking, ZIP/script adoption, upgrade cleanup, downgrade rejection,
-shortcuts, uninstall, and saved-data/unknown-file preservation. They also upgrade
-a 1.2 installation whose run number is higher to the 1.3 feature version (the
-actual release installer on `main`) and verify that synthetic saved inventory,
-history, and settings files are unchanged through upgrade, rejected downgrade,
-and uninstall.
-Test-only past and future version installers reuse the payload to exercise
-upgrades; they are not published. Installer logs are retained as Actions
-artifacts, including on failure.
+disposable GitHub-hosted runner. PR, independent Full and release validation run
+the same fixed lifecycle: they compile the actual installer and verify payload
+hashes, fresh installation, window launch, running-app blocking, ZIP/script
+adoption, shortcuts, uninstall, and saved-data/unknown-file preservation.
+The real installer also upgrades a lower same-family installation, removing an
+obsolete file from the previous ownership manifest while keeping unknown files
+and saved data, and the lower version is then rejected as a downgrade.
+One representative previous-feature check upgrades a 1.2 installation whose
+build number is higher to the 1.3 feature version (the actual release installer
+on `main`, otherwise a test-only 1.3 fixture), then rejects the 1.2 downgrade.
+Synthetic saved inventory, history and settings files must stay unchanged
+through upgrade, rejected downgrade and uninstall. Fixtures reuse the current
+payload and installer script, so older families would exercise identical logic;
+adding a feature version adds no lifecycle case.
+
+Test-only fixture installers are built with `New-Installer.ps1 -FixtureCompression`
+(no compression, non-solid) into a temporary directory that is deleted afterwards;
+they are never uploaded. Published PR, Full and release installers keep the
+default LZMA2/solid compression. Each compile reports its elapsed time, and the
+lifecycle records every compile, setup, upgrade, uninstall and launch phase plus
+its total in `lifecycle-timings.csv` and the job summary, including on failure.
+Installer logs are retained as Actions artifacts, including on failure.
 Any installer failure blocks release publication.
+
+To bump the feature version (for example, to 1.4), change the release version in
+`.github/workflows/release.yml` and the single `$FeatureFamily` value at the top of
+`tests\Installer.Lifecycle.Tests.ps1`, and add the release-notes file. The previous
+family and every fixture version are derived from that value, and
+`tests\Installer.Script.Tests.ps1` fails if the two versions differ.
 
 Keep the extracted app files together: `Assets\Scanner.ico` supplies the running window's title-bar and taskbar icon and the discovery notification image. The executable embeds the same frames for File Explorer, Start menu and installed shortcuts, and the installer uses it as its setup icon. The icon is the Connected home design, generated with distinct 16, 20, 24, 32, 40, 48, 64 and 256 px 32-bit alpha frames from the vector masters in [`docs/branding/app-icon`](branding/app-icon/README.md); small frames use simplified, pixel-tuned geometry rather than downsampled artwork. `Assets\ConnectedHome-48.png` and `Assets\ConnectedHome.png`, generated from the same masters, show the mark in the navigation pane's brand tile and on the About page. If Windows still shows the old icon after updating, its icon cache may be stale; the shipped asset is unaffected and FingVibe does not clear the cache.
 
@@ -1596,7 +1613,7 @@ Pull requests expose two review checks:
 - `security-review` scans the repository for exposed secrets and fails on critical dependency vulnerabilities.
 - `ui-ux-review` launches the tested WinUI app, exercises the primary **Scan LAN** action, verifies critical accessible controls, and embeds fresh screenshots of Devices and the affected views/states on the pull request.
 
-The **🔨 Pull request build** workflow runs core/script tests and one Windows publish concurrently after change planning. Build and core tests cache NuGet packages with a shared Windows/dependency-configuration key and Windows-scoped fallback; normal restore still verifies/resolves required packages on hits and misses. Native `ui-smoke`, `ui-assignments`, `ui-capture` and the thirteen `ui-regression` matrix suites start once the build passes, without waiting for core tests. Installer validation still waits for both tests and build. These checks run on separate Windows runners in parallel. Every job downloads the same published payload; none rebuilds the app. The matrix separates four Sidebar groups (including independent scan flows and scan presentation), three Devices groups, four Device Details groups, and two Tools groups. Suites remain sequential within each runner to avoid competing for focus and input. The sidebar retains Windows PowerShell; other suites retain PowerShell Core. UI-review mode is enabled only at runtime, so the downloaded app remains the normal executable.
+The **🔨 Pull request build** workflow runs core/script tests and one Windows publish concurrently after change planning. Build and core tests cache NuGet packages with a shared Windows/dependency-configuration key and Windows-scoped fallback; normal restore still verifies/resolves required packages on hits and misses. Native `ui-smoke`, `ui-assignments`, `ui-capture` and the thirteen `ui-regression` matrix suites start once the build passes, without waiting for core tests. Installer validation also starts once the build passes, overlapping core tests; its job summary reports the wait after the payload upload separately from the job duration. These checks run on separate Windows runners in parallel. Every job downloads the same published payload; none rebuilds the app. The matrix separates four Sidebar groups (including independent scan flows and scan presentation), three Devices groups, four Device Details groups, and two Tools groups. Suites remain sequential within each runner to avoid competing for focus and input. The sidebar retains Windows PowerShell; other suites retain PowerShell Core. UI-review mode is enabled only at runtime, so the downloaded app remains the normal executable.
 
 Each failed `ui-regression` matrix suite automatically retries once in a new
 test process on the same runner. Successful suites and setup steps do not
@@ -1612,7 +1629,7 @@ The former combined smoke/capture job is split across three independent runners 
 
 Each matrix suite uploads its own `fingvibe-ui-regression-<suite>-pr-*-attempt-*` artifact, including the capture plan, transcript, and available screenshots/diagnostics, even on failure. These replace the suite subdirectories previously bundled into the capture artifact. The existing `fingvibe-ui-review-pr-*` artifact contains the capture evidence and `fingvibe-ui-smoke-pr-*` and `fingvibe-ui-assignments-pr-*` contain their transcripts and diagnostics. Matrix fail-fast is disabled so one failed suite does not cancel the others' diagnostics. Screenshot publication and the existing required `ui-ux-review` aggregate gate require successful smoke, assignments, capture, all regression matrix jobs, and existing installer/tests/build checks. Missing, failed, cancelled, or unexpectedly skipped required matrix results cannot pass. Separate runners shorten the sequential critical path but add startup/transfer overhead and may increase billed minutes; actual durations depend on runner availability.
 
-Publishing uploads a short-lived `fingvibe-validation-payload-pr-*` transfer artifact (one-day retention), explicitly not a tested download. Publishing and native UI work may finish even if concurrent tests fail; their completion does not make the build a tested download or pass the final gate. UI overlap can consume runner time on a revision whose core tests fail. The installer job publishes the existing runnable-app and tested-installer downloads only after core tests and installer lifecycle checks pass; the build-link comment follows that job. Screenshot publication also waits for installer and UI validation to succeed. The required `ui-ux-review` gate aggregates tests, publishing, installer/download validation, native UI checks, and screenshot publication; failed, cancelled, or unexpectedly skipped required stages cannot pass. Separate jobs add runner startup and artifact-transfer overhead, so time savings depend on the run.
+Publishing uploads a short-lived `fingvibe-validation-payload-pr-*` transfer artifact (one-day retention), explicitly not a tested download. Publishing and native UI work may finish even if concurrent tests fail; their completion does not make the build a tested download or pass the final gate. UI and installer overlap can consume runner time on a revision whose core tests fail. The installer job uploads the runnable-app and tested-installer downloads itself after its lifecycle checks pass, without waiting for core tests (Option A, approved 2026-11-16). The build-link comment requires both successful core tests and installer validation, so if core tests fail the downloads may exist on the failed run but are never linked from the PR. Screenshot publication likewise requires successful core tests, installer and UI validation. The required `ui-ux-review` gate aggregates tests, publishing, installer/download validation, native UI checks, and screenshot publication; failed, cancelled, or unexpectedly skipped required stages cannot pass. Separate jobs add runner startup and artifact-transfer overhead, so time savings depend on the run.
 
 Superseded runs on the same PR are cancelled. Documentation-only changes skip tests/build/installer/capture. `.github/scripts/Get-PrValidationChanges.ps1` runs only core/script tests, without publishing or launching the app, for non-native test changes and for an explicit allow-list of reviewed non-native paths: the agent-loop/Dispatcher automation scripts in `.github/scripts` and the standalone `tools/DecoX50Inspector` and `tools/Ex220Inspector` projects. Every allow-listed script is verified unused by build, installer, native UI, publication, Full-validation and release jobs; new scripts are not allow-listed until reviewed. Application, installer, other `tools/`, build-configuration, workflow, other pipeline-script and unclassified changes keep the full native path, alone or mixed with allow-listed paths. Native UI test code (`tests/UiRegression/**`, UI entry scripts and the helpers/fixtures they load) also runs the native path; a regression check derives the dispatched native entry scripts and their loaded test files and fails if any would not select it. Manual dispatch still forces everything. Workflows still start for every PR, and the `ui-ux-review` gate reports intentional skips or prerequisite failures rather than leaving a required check pending. Security scanning remains independent and runs on every PR.
 
