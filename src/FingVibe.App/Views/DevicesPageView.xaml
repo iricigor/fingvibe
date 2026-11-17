@@ -200,7 +200,10 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <TextBlock x:Name="DevicesHeading" Text="Devices" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+            <local:PageHeaderIcon Icon="devices" />
+            <TextBlock x:Name="DevicesHeading" Grid.Column="1" Text="Devices"
+                       Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
+                       VerticalAlignment="Center" />
         </Grid>
         <Border Grid.Row="1" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
                 BorderBrush="{ThemeResource ScannerCardBorderBrush}"

@@ -1,0 +1,17 @@
+<UserControl
+    x:Class="FingVibe.App.PageHeaderIcon"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Width="48" Height="48" IsTabStop="False" IsHitTestVisible="False"
+    AutomationProperties.AccessibilityView="Raw">
+    <!-- Full-color family art in light/dark; a theme-colored single-color equivalent in high contrast. -->
+    <Grid>
+        <Image x:Name="ColorIcon" Stretch="Uniform"
+               Style="{ThemeResource PageHeaderColorIconStyle}"
+               AutomationProperties.AccessibilityView="Raw" />
+        <BitmapIcon x:Name="MonochromeIcon" ShowAsMonochrome="True"
+                    Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                    Style="{ThemeResource PageHeaderMonochromeIconStyle}"
+                    AutomationProperties.AccessibilityView="Raw" />
+    </Grid>
+</UserControl>

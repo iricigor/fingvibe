@@ -16,10 +16,7 @@
                             MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
                             MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
                             AutomationProperties.Name="Back to Tools" Style="{StaticResource PageBackButtonStyle}" />
-                    <FontIcon Grid.Column="1" Glyph="&#xEC4A;" FontFamily="Segoe Fluent Icons"
-                              FontSize="48" Width="48" Height="48"
-                              Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                              IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                    <local:PageHeaderIcon Grid.Column="1" Icon="speed-test" />
                     <TextBlock Grid.Column="2" Text="Speed test" Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
                                VerticalAlignment="Center" TextWrapping="Wrap" />
                 </Grid>

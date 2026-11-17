@@ -907,6 +907,11 @@
           "changedBy": "#345: add isolated disclosure coverage while retaining the existing layout matrix and captures.",
           "functions": [
             {
+              "name": "Test-SettingsCardHeaders",
+              "refactored": true,
+              "introducedBy": "#497: retain native card minimum height, aligned wrapping text and compact gaps in the existing disclosure fixture."
+            },
+            {
               "name": "Test-SettingsDisclosure",
               "refactored": true,
               "introducedBy": "#345: collapsed defaults, keyboard/pointer expansion, live summary, About focus, navigation retention, restart reset and narrow enlarged-text/high-contrast containment."
@@ -945,6 +950,7 @@
           "captures": [
             "1d3ad6f6d580ab65b6f17959447c6d0e6e6e8dde58dcbd6d6dfa782045b8c9ef",
             "2fb70205f5b445a29f164d937b3c59e625768680313aa8355b18667c0225bb66",
+            "f9b198452e0b8e618f1d826643733cc8d442d1b13d8396a1b13cf191268dcdab",
             "3ea5b73b71db3b35410b4191d5f981fdb4388b53e282c1d42276359b13a33fcc",
             "f7174015732a8079bbee97941c6aa96d33f81984d3283809dd9a1cf7164cd158",
             "d9dd08f2f104ab28a27f7b794b630307d1fc9a4f39948762cf1e7d03f76b27d7",

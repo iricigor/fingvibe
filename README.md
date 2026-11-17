@@ -4,7 +4,7 @@
 
 **Discover your LAN. Get to know your devices.**
 
-[![Windows 11](https://img.shields.io/badge/Windows_11-x64-0078D4?logo=windows11&logoColor=white)](https://github.com/iricigor/fingvibe/releases/latest) [![Latest release](https://img.shields.io/github/v/release/iricigor/fingvibe?label=release&color=22A06B)](https://github.com/iricigor/fingvibe/releases/latest) [![Build](https://github.com/iricigor/fingvibe/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/iricigor/fingvibe/actions/workflows/release.yml) [![C# / WinUI 3](https://img.shields.io/badge/C%23-WinUI_3-8661C5)](src/FingVibe.App/FingVibe.App.csproj)
+[![Windows 11](https://img.shields.io/badge/Windows_11-x64-0078D4?logo=windows11&logoColor=white)](https://github.com/iricigor/fingvibe/releases/latest) [![Latest release](https://img.shields.io/github/v/release/iricigor/fingvibe?label=release&color=22A06B)](https://github.com/iricigor/fingvibe/releases/latest) [![Downloads](https://img.shields.io/github/downloads/iricigor/fingvibe/total?label=downloads)](https://github.com/iricigor/fingvibe/releases) [![Build](https://github.com/iricigor/fingvibe/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/iricigor/fingvibe/actions/workflows/release.yml) [![C# / WinUI 3](https://img.shields.io/badge/C%23-WinUI_3-8661C5)](src/FingVibe.App/FingVibe.App.csproj)
 
 FingVibe is a native Windows 11 LAN scanner built with C# and WinUI 3.
 Discover responding IPv4 devices, explore their services, and organize them
