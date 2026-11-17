@@ -908,15 +908,15 @@ foreach ($pattern in @(
     'github\.event\.pull_request\.head\.repo\.full_name == github\.repository',
     "github\.actor != 'dependabot\[bot\]'",
     "contains\(fromJSON\('\[`"OWNER`",`"MEMBER`",`"COLLABORATOR`"\]'\), github\.event\.pull_request\.author_association\)",
-    '(?s)permissions:\s+contents: read\s+pull-requests: write\s+steps:',
+    '(?s)permissions:\s+contents: write\s+pull-requests: write\s+steps:',
     'persist-credentials: false',
     'EXPECTED_HEAD: \$\{\{ github\.event\.pull_request\.head\.sha \}\}',
     'Set-PrReadyForReview\.ps1'
 )) {
     if ($readyJob -notmatch $pattern) { throw "Missing draft-readiness invariant: $pattern" }
 }
-if ($readyJob -match '(?i)gh pr (merge|edit)|mergePullRequest|enablePullRequestAutoMerge|--title|contents: write|issues: write') {
-    throw "Draft readiness must not merge, edit titles/metadata or request extra write permissions."
+if ($readyJob -match '(?i)gh pr (merge|edit)|mergePullRequest|enablePullRequestAutoMerge|--title|issues: write|actions: write|git push') {
+    throw "Draft readiness must not merge, push, edit titles/metadata or request extra write permissions."
 }
 if ($workflow -match '(?ms)^  pull_request:\s*\r?\n\s+types:' -or $workflow -match '(?m)^\s*pull_request_target:') {
     throw "Promotion must keep the default pull_request triggers; no title-edit or ready_for_review trigger."

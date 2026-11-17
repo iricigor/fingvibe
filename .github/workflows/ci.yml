@@ -838,8 +838,9 @@ jobs:
         || github.event.pull_request.user.login == 'Copilot'
       )
     runs-on: windows-latest
+    # markPullRequestReadyForReview rejects GITHUB_TOKEN without contents: write; credentials are not persisted.
     permissions:
-      contents: read
+      contents: write
       pull-requests: write
     steps:
       - name: Check out readiness script
