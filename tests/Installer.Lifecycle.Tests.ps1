@@ -204,10 +204,14 @@ function Get-InstalledAppProcess {
     Get-Process -Name FingVibe.App -ErrorAction SilentlyContinue |
         Where-Object { $_.Path -eq (Join-Path $app "FingVibe.App.exe") }
 }
+function Get-InstallerCaption([string] $Text) {
+    # Inno Setup 6.7 labels its navigation "&Next"; older versions used "&Next >".
+    ($Text.Replace('&', '') -replace '\s*>$', '').Trim()
+}
 function Get-InstallerButton([object[]] $Controls, [string[]] $Names) {
     $matches = @($Controls | Where-Object { $_.Visible -and $_.Enabled -and
         $_.ClassName -in @('TNewButton', 'TButton', 'Button') -and
-        $_.Text.Replace('&', '').Trim() -in $Names })
+        (Get-InstallerCaption $_.Text) -in $Names })
     if ($matches.Count -gt 1) { throw "More than one installer navigation button is ready." }
     if ($matches.Count -eq 1) { $matches[0] }
 }
@@ -235,10 +239,10 @@ function Invoke-InteractiveSetup([string] $Path, [string] $Name, [bool] $Launch)
             for ($step = 0; $step -lt 6; $step++) {
                 $button = Wait-UiRegressionState -Description "$Name next wizard action" -TimeoutMilliseconds 120000 -Condition {
                     if ($wizardProcess.HasExited) { throw "$Name wizard exited unexpectedly." }
-                    Get-InstallerButton ([InstallerNativeControls]::GetChildren($wizardWindow)) @('Next >', 'Install', 'Finish')
+                    Get-InstallerButton ([InstallerNativeControls]::GetChildren($wizardWindow)) @('Next', 'Install', 'Finish')
                 }
                 Write-Host "Installer $Name step ${step}: $($button.ClassName) '$($button.Text)'."
-                if ($button.Text.Replace('&', '').Trim() -eq 'Finish') { $finish = $button; break }
+                if ((Get-InstallerCaption $button.Text) -eq 'Finish') { $finish = $button; break }
                 [InstallerNativeControls]::Click($wizardWindow, $button.Handle)
                 Start-Sleep -Milliseconds 200
             }

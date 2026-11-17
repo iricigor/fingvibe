@@ -79,17 +79,19 @@ $global:LASTEXITCODE = 0
     $parseErrors = $null
     $lifecycleAst = [Management.Automation.Language.Parser]::ParseInput($lifecycle, [ref]$null, [ref]$parseErrors)
     if ($parseErrors) { throw "Installer lifecycle must parse: $parseErrors" }
-    $lookup = $lifecycleAst.Find({
+    $lookup = $lifecycleAst.FindAll({
         param($node)
-        $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-InstallerButton'
+        $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
+            $node.Name -in @('Get-InstallerCaption', 'Get-InstallerButton')
     }, $true)
-    Invoke-Expression $lookup.Extent.Text
-    foreach ($caption in @('&Next >', '&Install', '&Finish')) {
+    foreach ($definition in $lookup) { Invoke-Expression $definition.Extent.Text }
+    # Inno Setup 6.7 renders "&Next"; keep older "&Next >" captions working.
+    foreach ($caption in @('&Next', '&Next >', '&Install', '&Finish')) {
         $button = [pscustomobject]@{ Handle = 1; Text = $caption; ClassName = 'TNewButton'; Visible = $true; Enabled = $true }
         $hidden = [pscustomobject]@{ Handle = 2; Text = $caption; ClassName = 'TNewButton'; Visible = $false; Enabled = $true }
         $disabled = [pscustomobject]@{ Handle = 3; Text = $caption; ClassName = 'TNewButton'; Visible = $true; Enabled = $false }
         $label = [pscustomobject]@{ Handle = 4; Text = $caption; ClassName = 'TNewStaticText'; Visible = $true; Enabled = $true }
-        $names = @('Next >', 'Install', 'Finish')
+        $names = @('Next', 'Install', 'Finish')
         $actual = Get-InstallerButton @($hidden, $disabled, $label, $button) $names
         if ($actual.Handle -ne 1) { throw "Native wizard lookup must select the visible, enabled action by caption and class." }
         if ($null -ne (Get-InstallerButton @($hidden, $disabled, $label) $names)) {
@@ -98,7 +100,7 @@ $global:LASTEXITCODE = 0
         Assert-Throws { Get-InstallerButton @($button, $button) $names } '*More than one installer navigation button*'
     }
     $cancel = [pscustomobject]@{ Text = 'Cancel'; ClassName = 'TNewButton'; Visible = $true; Enabled = $true }
-    if ($null -ne (Get-InstallerButton @($cancel) @('Next >', 'Install', 'Finish'))) {
+    if ($null -ne (Get-InstallerButton @($cancel) @('Next', 'Install', 'Finish'))) {
         throw "The lifecycle must not activate unrelated installer actions."
     }
     $fixtureCalls = [regex]::Matches($lifecycle, '(?m)^.*& \$builder .*$')
