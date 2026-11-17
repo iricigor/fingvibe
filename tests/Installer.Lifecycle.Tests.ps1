@@ -162,6 +162,47 @@ public static class InstallerNativeControls
         }
         finally { Marshal.ReleaseComObject(accessible); }
     }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct ProcessBasicInformation
+    {
+        public IntPtr ExitStatus;
+        public IntPtr PebBaseAddress;
+        public IntPtr AffinityMask;
+        public IntPtr BasePriority;
+        public IntPtr UniqueProcessId;
+        public IntPtr InheritedFromUniqueProcessId;
+    }
+    [DllImport("ntdll.dll")]
+    private static extern int NtQueryInformationProcess(IntPtr process, int informationClass,
+        ref ProcessBasicInformation information, int length, out int returnLength);
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool ReadProcessMemory(IntPtr process, IntPtr address, byte[] buffer, IntPtr size, out IntPtr read);
+
+    private static byte[] Read(IntPtr process, IntPtr address, int size)
+    {
+        var buffer = new byte[size];
+        IntPtr read;
+        if (!ReadProcessMemory(process, address, buffer, new IntPtr(size), out read) || read.ToInt64() != size)
+            throw new InvalidOperationException("Could not read the launched process parameters (Win32 " + Marshal.GetLastWin32Error() + ").");
+        return buffer;
+    }
+
+    // Inno 6.7 does not log a Run entry's working directory, so read the launched process's own
+    // RTL_USER_PROCESS_PARAMETERS.CurrentDirectory (x64: PEB+0x20, parameters+0x38).
+    public static string GetCurrentDirectory(IntPtr process)
+    {
+        if (!Environment.Is64BitProcess) throw new PlatformNotSupportedException("The working-directory check requires a 64-bit test host.");
+        var information = new ProcessBasicInformation();
+        int returned;
+        var status = NtQueryInformationProcess(process, 0, ref information, Marshal.SizeOf(information), out returned);
+        if (status != 0) throw new InvalidOperationException("Could not query the launched process (NTSTATUS 0x" + status.ToString("X8") + ").");
+        var parameters = new IntPtr(BitConverter.ToInt64(Read(process, information.PebBaseAddress + 0x20, 8), 0));
+        var directory = Read(process, parameters + 0x38, 16);
+        var length = BitConverter.ToUInt16(directory, 0);
+        var text = new IntPtr(BitConverter.ToInt64(directory, 8));
+        return Encoding.Unicode.GetString(Read(process, text, length));
+    }
 }
 '@
 $app = Join-Path $env:LOCALAPPDATA "Programs\FingVibe"
@@ -299,7 +340,8 @@ function Invoke-InteractiveSetup([string] $Path, [string] $Name, [bool] $Launch)
                     if ($script:process.HasExited) { throw "$Name app exited before showing a window." }
                     $script:process.MainWindowHandle -ne 0
                 }
-                Assert-True ($log -match ('Working directory:\s*' + [regex]::Escape($app))) "$Name did not use the installation working directory."
+                $workingDirectory = [InstallerNativeControls]::GetCurrentDirectory($script:process.Handle).TrimEnd('\')
+                Assert-True ($workingDirectory -eq $app.TrimEnd('\')) "$Name started FingVibe in '$workingDirectory' instead of the installation directory."
                 Assert-True ($script:process.CloseMainWindow()) "$Name app could not close normally."
                 Assert-True ($script:process.WaitForExit(15000)) "$Name app did not close."
                 $script:process = $null
