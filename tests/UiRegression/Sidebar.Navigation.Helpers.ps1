@@ -64,6 +64,42 @@ function Test-SidebarDividerAppearance([string] $Name = "sidebar-divider", [int]
     }
 }
 
+# BitmapIcon point-samples its monochrome mask, so oversized art leaves only scattered stroke pixels.
+# Recognizable 16-DIP family icons ink about 45-55 pixels at 100% scale; the broken 256 px masks inked 20-31.
+function Assert-SidebarFamilyIcons([string] $Name) {
+    $window = Get-UiReviewWindowBounds $windowHandle
+    $bitmap = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "$Name.png"))
+    try {
+        foreach ($id in @("OverviewNavItem", "NetworkNavItem", "DevicesNavItem", "ToolsNavItem")) {
+            $item = (Find-SidebarElement AutomationId $id).Current.BoundingRectangle
+            # Skip the selection pill at the item's left edge and any focus border around it.
+            $left = [int]($item.Left - $window.Left + 8 * $scale)
+            $right = [int]([Math]::Min($item.Left + 34 * $scale, $item.Right) - $window.Left)
+            $middle = $item.Top - $window.Top + $item.Height / 2
+            $top = [int]($middle - 12 * $scale)
+            $bottom = [int]($middle + 12 * $scale)
+            $counts = @{}
+            for ($y = $top; $y -lt $bottom; $y++) {
+                for ($x = $left; $x -lt $right; $x++) { $counts[$bitmap.GetPixel($x, $y).ToArgb()]++ }
+            }
+            $background = [System.Drawing.Color]::FromArgb(
+                ($counts.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 1).Key)
+            $ink = 0
+            for ($y = $top; $y -lt $bottom; $y++) {
+                for ($x = $left; $x -lt $right; $x++) {
+                    $pixel = $bitmap.GetPixel($x, $y)
+                    if ([Math]::Abs([int]$pixel.R - $background.R) + [Math]::Abs([int]$pixel.G - $background.G) +
+                        [Math]::Abs([int]$pixel.B - $background.B) -gt 96) { $ink++ }
+                }
+            }
+            if ($ink -lt 38 * $scale * $scale) {
+                throw "$id family icon is not recognizable in '$Name': $ink inked pixels (expected at least $([int](38 * $scale * $scale)))."
+            }
+        }
+    }
+    finally { $bitmap.Dispose() }
+}
+
 function Test-SidebarIconDragGuide {
     Focus-SidebarWindow
     $grip = (Find-SidebarElement AutomationId NavigationResizeGrip).Current.BoundingRectangle
@@ -120,6 +156,7 @@ function Test-SidebarResizing {
         Test-SidebarContentInset $page[0]
     }
     Save-SidebarAppearance "sidebar-resize-icons"
+    Assert-SidebarFamilyIcons "sidebar-resize-icons"
     Switch-SidebarPane
     Assert-SidebarPaneWidth 160
     Resize-SidebarPane @(280)

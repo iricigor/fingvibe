@@ -28,4 +28,5 @@ if ($tools.Current.BoundingRectangle.Bottom -gt $settings.Current.BoundingRectan
     throw "Tools must remain pinned directly above Settings."
 }
 Save-SidebarAppearance "sidebar-expanded" -AssertMatchingSolid
+Assert-SidebarFamilyIcons "sidebar-expanded"
 Test-SidebarResizing
