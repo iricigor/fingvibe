@@ -344,6 +344,11 @@ public static class DeviceFilterReviewContrast {
                     $null = Wait-UiRegressionState -Description "filter foreground restored after high contrast" -Condition {
                         (Get-FilterLabelColor InventoryStatusFilter) -eq $originalColor
                     }
+                    # UIA reports the restored brush before WinUI finishes re-rendering; later emphasis
+                    # baselines need the rendered pre-high-contrast inactive label, not a high-contrast frame.
+                    $null = Wait-UiRegressionState -Description "rendered inactive filter emphasis restored after high contrast" -Condition {
+                        [Math]::Abs((Get-FilterLabelEmphasis InventoryStatusFilter) - $inactive) -le 0.05
+                    }
                 })
         }
     }
