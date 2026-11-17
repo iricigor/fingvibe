@@ -9,6 +9,10 @@ Expansion lasts for the current app session, including visits to About, and
 resets on restart without changing saved preferences. The separate
 **About FingVibe & updates** row opens build information and existing links.
 
+All four cards use the same compact icon, title and summary layout. Down/up
+chevrons expand or collapse preferences inside their card; About's right chevron
+opens its existing page. Headers grow with wrapped text and Windows text scaling.
+
 [![Settings with Mode, Theme, Window backdrop, and Devices page controls](../screenshots/manual/settings.png)](../screenshots/manual/settings.png)
 
 *Historical native test-build screenshot from before collapsible sections.
