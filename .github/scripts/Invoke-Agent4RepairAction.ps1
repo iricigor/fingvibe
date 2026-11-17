@@ -42,6 +42,10 @@ function Get-Agent4RepairBudget($Entries) {
         }
         foreach ($match in [regex]::Matches($body, $patterns["repair-attempt"])) {
             $attempt = [int] $match.Groups[1].Value; $kind = $match.Groups[2].Value; $key = $match.Groups[3].Value
+            if ($reservations.ContainsKey($key) -and $key -cin $reservations.Keys -and
+                $reservations[$key].attempt -eq $attempt -and $reservations[$key].kind -ceq $kind) {
+                continue
+            }
             if ($attempt -ne $count + 1 -or $reservations.ContainsKey($key)) { throw "Contradictory repair attempts; history must be cumulative and unique." }
             $count = $attempt
             $reservations[$key] = @{ attempt = $attempt; kind = $kind }

@@ -149,7 +149,11 @@ or inspect the evidence artifact repeatedly before offering.
    claim or delivery receipt. Before a future `repair` Sending record/start,
    reserve/readback its shared budget attempt with `Invoke-Agent4RepairAction.ps1`
    (`action: "code"`) as defined in protocol.md. Include the returned ordinal and
-   marker in the start; Developer verifies it without counting twice.
+   reservation key in the start, with a URL/ID reference to the canonical
+   reservation; Developer verifies it without counting twice. Never copy the raw
+   `repair-attempt` HTML marker into Sending records, starts, diagnostics or
+   reports. Exact duplicate key/ordinal/kind references in existing history count
+   once; conflicting reservations still block.
    Changed scope/head invalidates its assessment:
    reassess and rerun instead of substituting a task manually.
    Isolate task-local preparation/action errors and continue independent proposed
