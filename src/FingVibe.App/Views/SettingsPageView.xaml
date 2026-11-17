@@ -3,6 +3,48 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:FingVibe.App">
+    <UserControl.Resources>
+        <Style x:Key="SettingsSectionStyle" TargetType="Expander">
+            <Setter Property="MinHeight" Value="68" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        </Style>
+        <Style x:Key="SettingsCardHeaderStyle" TargetType="Grid">
+            <Setter Property="ColumnSpacing" Value="12" />
+            <Setter Property="Padding" Value="0,12" />
+        </Style>
+        <Style x:Key="SettingsCardIconStyle" TargetType="FontIcon">
+            <Setter Property="FontFamily" Value="Segoe Fluent Icons" />
+            <Setter Property="FontSize" Value="20" />
+            <Setter Property="Width" Value="32" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="IsTextScaleFactorEnabled" Value="False" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="AutomationProperties.AccessibilityView" Value="Raw" />
+        </Style>
+        <Style x:Key="SettingsCardTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style x:Key="SettingsCardSummaryStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Style>
+        <Style x:Key="SettingsNavigationCardStyle" TargetType="Button">
+            <Setter Property="MinHeight" Value="68" />
+            <Setter Property="Padding" Value="16,0,8,0" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Background" Value="{ThemeResource ExpanderHeaderBackground}" />
+            <Setter Property="BorderBrush" Value="{ThemeResource ExpanderHeaderBorderBrush}" />
+            <Setter Property="BorderThickness" Value="{ThemeResource ExpanderHeaderBorderThickness}" />
+            <Setter Property="CornerRadius" Value="{ThemeResource ControlCornerRadius}" />
+        </Style>
+    </UserControl.Resources>
     <Grid>
     <ScrollViewer x:Name="SettingsPage" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
@@ -15,14 +57,21 @@
                 <TextBlock Grid.Column="1" Text="Settings" Style="{StaticResource ScannerPageTitleStyle}"
                            Margin="0" VerticalAlignment="Center" />
             </Grid>
-            <Expander x:Name="AppearanceSection" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+            <StackPanel x:Name="SettingsCards" Spacing="4">
+            <Expander x:Name="AppearanceSection" Style="{StaticResource SettingsSectionStyle}"
                       AutomationProperties.Name="Appearance preferences">
                 <Expander.Header>
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="Appearance" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
-                        <TextBlock x:Name="AppearanceSummary" TextWrapping="Wrap"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    </StackPanel>
+                    <Grid Style="{StaticResource SettingsCardHeaderStyle}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="32" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon Glyph="&#xE790;" Style="{StaticResource SettingsCardIconStyle}" />
+                        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                            <TextBlock x:Name="AppearanceSettingsHeading" Text="Appearance" Style="{StaticResource SettingsCardTitleStyle}" />
+                            <TextBlock x:Name="AppearanceSummary" Style="{StaticResource SettingsCardSummaryStyle}" />
+                        </StackPanel>
+                    </Grid>
                 </Expander.Header>
                 <StackPanel Spacing="12">
                     <Grid x:Name="AppearanceOptions" ColumnSpacing="16" RowSpacing="12"
@@ -71,14 +120,20 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
             </Expander>
-            <Expander x:Name="DevicesSection" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+            <Expander x:Name="DevicesSection" Style="{StaticResource SettingsSectionStyle}"
                       AutomationProperties.Name="Devices page preferences">
                 <Expander.Header>
-                    <StackPanel Spacing="4">
-                        <TextBlock x:Name="DevicesSettingsHeading" Text="Devices page" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
-                        <TextBlock x:Name="DevicesSummary" TextWrapping="Wrap"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    </StackPanel>
+                    <Grid Style="{StaticResource SettingsCardHeaderStyle}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="32" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon Glyph="&#xE772;" Style="{StaticResource SettingsCardIconStyle}" />
+                        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                            <TextBlock x:Name="DevicesSettingsHeading" Text="Devices page" Style="{StaticResource SettingsCardTitleStyle}" />
+                            <TextBlock x:Name="DevicesSummary" Style="{StaticResource SettingsCardSummaryStyle}" />
+                        </StackPanel>
+                    </Grid>
                 </Expander.Header>
                 <StackPanel Spacing="8">
                     <Grid x:Name="DevicePreferences" ColumnSpacing="16" RowSpacing="8"
@@ -186,14 +241,20 @@
                     </Grid>
                 </StackPanel>
             </Expander>
-            <Expander x:Name="ScheduledScansSection" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+            <Expander x:Name="ScheduledScansSection" Style="{StaticResource SettingsSectionStyle}"
                       AutomationProperties.Name="Scheduled scan preferences">
                 <Expander.Header>
-                    <StackPanel Spacing="4">
-                        <TextBlock x:Name="ScheduledScansHeading" Text="Scheduled scans" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
-                        <TextBlock x:Name="ScheduledScansSummary" TextWrapping="Wrap"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    </StackPanel>
+                    <Grid Style="{StaticResource SettingsCardHeaderStyle}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="32" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon Glyph="&#xE787;" Style="{StaticResource SettingsCardIconStyle}" />
+                        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                            <TextBlock x:Name="ScheduledScansHeading" Text="Scheduled scans" Style="{StaticResource SettingsCardTitleStyle}" />
+                            <TextBlock x:Name="ScheduledScansSummary" Style="{StaticResource SettingsCardSummaryStyle}" />
+                        </StackPanel>
+                    </Grid>
                 </Expander.Header>
                 <StackPanel Spacing="8">
                     <TextBlock x:Name="ScheduledScansDescription"
@@ -228,26 +289,37 @@
                 </StackPanel>
             </Expander>
             <Button x:Name="AboutSettingsButton" Click="AboutSettingsButton_Click"
-                    Style="{StaticResource ScannerSummaryButtonStyle}"
+                    Style="{StaticResource SettingsNavigationCardStyle}"
                     AutomationProperties.Name="About FingVibe &amp; updates">
-                <Grid ColumnSpacing="16">
+                <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <StackPanel Spacing="4">
-                        <TextBlock Text="About FingVibe &amp; updates" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
-                        <TextBlock x:Name="AboutSummary" TextWrapping="Wrap"
-                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    </StackPanel>
-                    <Ellipse x:Name="AboutUpdateIndicator" Grid.Column="1" Width="8" Height="8"
-                             Fill="#D97706" VerticalAlignment="Center" Visibility="Collapsed"
-                             IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
-                    <FontIcon Grid.Column="2" Glyph="&#xE76C;" FontSize="12" VerticalAlignment="Center"
-                              IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                    <Grid Style="{StaticResource SettingsCardHeaderStyle}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="32" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid VerticalAlignment="Center">
+                            <FontIcon Glyph="&#xE946;" Style="{StaticResource SettingsCardIconStyle}" />
+                            <Ellipse x:Name="AboutUpdateIndicator" Width="8" Height="8"
+                                     Fill="#D97706" HorizontalAlignment="Right" VerticalAlignment="Top"
+                                     Visibility="Collapsed" IsHitTestVisible="False"
+                                     AutomationProperties.AccessibilityView="Raw" />
+                        </Grid>
+                        <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                            <TextBlock x:Name="AboutSettingsHeading" Text="About FingVibe &amp; updates" Style="{StaticResource SettingsCardTitleStyle}" />
+                            <TextBlock x:Name="AboutSummary" Style="{StaticResource SettingsCardSummaryStyle}" />
+                        </StackPanel>
+                    </Grid>
+                    <Grid Grid.Column="1" Width="32" Height="32" Margin="20,0,0,0" VerticalAlignment="Center">
+                        <FontIcon Glyph="&#xE76C;" FontSize="12" IsTextScaleFactorEnabled="False"
+                                  IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                    </Grid>
                 </Grid>
             </Button>
+            </StackPanel>
         </StackPanel>
     </ScrollViewer>
     <local:AboutPage x:Name="AboutView" Visibility="Collapsed" BackRequested="AboutView_BackRequested" />

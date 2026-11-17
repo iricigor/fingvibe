@@ -11,6 +11,45 @@
         SettingsPage = "SettingsPageView"
     }
     $appDirectory = Join-Path $PSScriptRoot "..\src\FingVibe.App"
+    $settings = [xml](Get-Content (Join-Path $appDirectory "Views\SettingsPageView.xaml") -Raw)
+    $cards = $settings.SelectSingleNode("//*[@*[local-name()='Name']='SettingsCards']")
+    if (-not $cards -or [double]$cards.GetAttribute("Spacing") -lt 4 -or [double]$cards.GetAttribute("Spacing") -gt 6) {
+        throw "Settings cards must form one compact stack with 4-6 DIP gaps."
+    }
+    foreach ($styleName in @("SettingsSectionStyle", "SettingsNavigationCardStyle")) {
+        $style = $settings.SelectSingleNode("//*[@*[local-name()='Key']='$styleName']")
+        if (-not $style -or
+            $style.SelectSingleNode("./*[local-name()='Setter' and @Property='MinHeight']").GetAttribute("Value") -cne "68" -or
+            $style.SelectSingleNode("./*[local-name()='Setter' and (@Property='Height' or @Property='Template')]")) {
+            throw "$styleName must retain its native template and a growing 68-DIP minimum, not a fixed height."
+        }
+    }
+    $titleStyle = $settings.SelectSingleNode("//*[@*[local-name()='Key']='SettingsCardTitleStyle']")
+    if ($titleStyle.SelectSingleNode("./*[@Property='FontSize']").GetAttribute("Value") -cne "14" -or
+        $titleStyle.SelectSingleNode("./*[@Property='FontWeight']").GetAttribute("Value") -cne "Normal" -or
+        $titleStyle.SelectSingleNode("./*[@Property='TextWrapping']").GetAttribute("Value") -cne "Wrap") {
+        throw "Settings card titles must use regular 14-DIP wrapping text."
+    }
+    $iconStyle = $settings.SelectSingleNode("//*[@*[local-name()='Key']='SettingsCardIconStyle']")
+    if ($iconStyle.SelectSingleNode("./*[@Property='Width']").GetAttribute("Value") -cne "32" -or
+        $iconStyle.SelectSingleNode("./*[@Property='AutomationProperties.AccessibilityView']").GetAttribute("Value") -cne "Raw") {
+        throw "Settings leading icons must reserve a fixed column without duplicating accessible labels."
+    }
+    foreach ($entry in @(
+        @{ Id = "AppearanceSection"; Type = "Expander"; Summary = "AppearanceSummary" },
+        @{ Id = "DevicesSection"; Type = "Expander"; Summary = "DevicesSummary" },
+        @{ Id = "ScheduledScansSection"; Type = "Expander"; Summary = "ScheduledScansSummary" },
+        @{ Id = "AboutSettingsButton"; Type = "Button"; Summary = "AboutSummary" }
+    )) {
+        $card = $cards.SelectSingleNode("./*[@*[local-name()='Name']='$($entry.Id)']")
+        $header = $card.SelectSingleNode(".//*[local-name()='Grid' and @Style='{StaticResource SettingsCardHeaderStyle}']")
+        if ($card.LocalName -cne $entry.Type -or -not $header -or
+            $header.SelectSingleNode("./*[local-name()='Grid.ColumnDefinitions']/*[1]").GetAttribute("Width") -cne "32" -or
+            -not $header.SelectSingleNode(".//*[local-name()='FontIcon' and @Style='{StaticResource SettingsCardIconStyle}']") -or
+            -not $header.SelectSingleNode(".//*[@*[local-name()='Name']='$($entry.Summary)' and @Style='{StaticResource SettingsCardSummaryStyle}']")) {
+            throw "$($entry.Id) must preserve its native interaction and use the shared icon/text header treatment."
+        }
+    }
     $shellDocument = [xml](Get-Content (Join-Path $appDirectory "MainWindow.xaml") -Raw)
     $rootGrid = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='RootGrid']")
     $ribbonArea = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='BuildRibbonArea']")
