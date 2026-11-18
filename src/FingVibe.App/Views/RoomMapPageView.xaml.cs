@@ -419,7 +419,7 @@ public sealed partial class RoomMapPageView : UserControl
             Foreground = Brush("TextFillColorSecondaryBrush")
         });
         strip.Content = header;
-        AutomationProperties.SetAutomationId(strip, "RoomMapUnassignedStrip");
+        AutomationProperties.SetAutomationId(strip, "RoomMapUnassigned");
         AutomationProperties.SetName(strip,
             $"No room assigned, {layout.UnassignedDevices.Count} devices");
         AutomationProperties.SetLocalizedControlType(strip, "unassigned devices");

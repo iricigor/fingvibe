@@ -15,9 +15,10 @@
     $unassignedSummary = $roomMapDocument.SelectSingleNode(
         "//*[@*[local-name()='Name']='RoomMapUnassignedSummaryText']")
     if ($unassignedSummary.LocalName -cne "TextBlock" -or
-        $unassignedSummary.GetAttribute("AutomationProperties.AutomationId") -cne "RoomMapUnassigned" -or
-        $unassignedSummary.GetAttribute("IsTabStop") -cne "True") {
-        throw "Room map must expose an always-realized focusable unassigned summary peer."
+        $unassignedSummary.GetAttribute("AutomationProperties.AutomationId") -cne "RoomMapUnassignedSummary" -or
+        $unassignedSummary.HasAttribute("IsTabStop") -or
+        (Get-Content (Join-Path $appDirectory "Views\RoomMapPageView.xaml.cs") -Raw) -notmatch 'SetAutomationId\(strip, "RoomMapUnassigned"\)') {
+        throw "Room map must keep the unassigned summary as static text and the focusable strip as RoomMapUnassigned."
     }
     $peopleRoomsDocument = [xml](Get-Content (Join-Path $appDirectory "Views\PeopleRoomsPageView.xaml") -Raw)
     $peopleRoomsCode = Get-Content (Join-Path $appDirectory "Views\PeopleRoomsPageView.xaml.cs") -Raw

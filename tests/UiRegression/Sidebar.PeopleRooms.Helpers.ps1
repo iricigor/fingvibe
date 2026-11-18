@@ -80,8 +80,9 @@ function Open-PeopleRoomsDetails([string] $Name, [string] $PageId) {
 function Test-RoomMapEntries {
     Select-SidebarPage 'People & rooms' 'Search people and rooms'
     Invoke-PeopleRoomsElement AutomationId ViewRoomMapButton PeopleRoomsPage
-    $root = Find-PeopleRoomsElement AutomationId RoomMapRootPlaceholder RoomMapPage
-    if ($root.Current.IsKeyboardFocusable -ne $true) { throw 'The Room map gateway fallback must remain keyboard reachable.' }
+    # Never name this $root: helper callbacks resolve the window root through dynamic scope.
+    $gateway = Find-PeopleRoomsElement AutomationId RoomMapRootPlaceholder RoomMapPage
+    if ($gateway.Current.IsKeyboardFocusable -ne $true) { throw 'The Room map gateway fallback must remain keyboard reachable.' }
     $unassigned = Find-PeopleRoomsElement AutomationId RoomMapUnassigned RoomMapPage
     if ($unassigned.Current.IsKeyboardFocusable -ne $true) { throw 'The Room map unassigned strip must remain keyboard reachable.' }
     $null = Find-PeopleRoomsElement AutomationId ManageRoomsButton RoomMapPage
