@@ -144,10 +144,18 @@ public sealed partial class DevicesPageView : UserControl
 
     private void DeviceMatchButton_PointerExited(object sender, PointerRoutedEventArgs e)
     {
-        if (sender is Button button && ToolTipService.GetToolTip(button) is ToolTip tooltip)
+        if (sender is not Button button || ToolTipService.GetToolTip(button) is not ToolTip tooltip)
         {
-            tooltip.IsOpen = false;
+            return;
         }
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            await Task.Delay(500);
+            if (!button.IsPointerOver && tooltip.IsOpen)
+            {
+                tooltip.IsOpen = false;
+            }
+        });
     }
 
     private void Results_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs args)
