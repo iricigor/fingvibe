@@ -27,6 +27,7 @@
                     <SolidColorBrush x:Key="ScannerOfflineForegroundBrush" Color="#475569" />
                     <SolidColorBrush x:Key="ScannerImportedBackgroundBrush" Color="#22D49A28" />
                     <SolidColorBrush x:Key="ScannerImportedForegroundBrush" Color="#785214" />
+                    <SolidColorBrush x:Key="ScannerPossibleMatchBrush" Color="#8A5A00" />
                     <SolidColorBrush x:Key="PeopleRoomsBadgeBackgroundBrush" Color="#DEEAFE" />
                     <SolidColorBrush x:Key="PeopleRoomsBadgeForegroundBrush" Color="#1D4ED8" />
                     <SolidColorBrush x:Key="PeopleRoomsHeaderHouseBrush" Color="#2563EB" />
@@ -56,6 +57,7 @@
                     <SolidColorBrush x:Key="ScannerOfflineForegroundBrush" Color="#CBD5E1" />
                     <SolidColorBrush x:Key="ScannerImportedBackgroundBrush" Color="#26E7B65A" />
                     <SolidColorBrush x:Key="ScannerImportedForegroundBrush" Color="#F3D28B" />
+                    <SolidColorBrush x:Key="ScannerPossibleMatchBrush" Color="#F3D28B" />
                     <SolidColorBrush x:Key="PeopleRoomsBadgeBackgroundBrush" Color="#1E3A8A" />
                     <SolidColorBrush x:Key="PeopleRoomsBadgeForegroundBrush" Color="#BFDBFE" />
                     <SolidColorBrush x:Key="PeopleRoomsHeaderHouseBrush" Color="#60A5FA" />
@@ -81,6 +83,7 @@
                     <SolidColorBrush x:Key="ScannerOfflineForegroundBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                     <SolidColorBrush x:Key="ScannerImportedBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
                     <SolidColorBrush x:Key="ScannerImportedForegroundBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="ScannerPossibleMatchBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                     <SolidColorBrush x:Key="PeopleRoomsBadgeBackgroundBrush" Color="{ThemeResource SystemColorWindowColor}" />
                     <SolidColorBrush x:Key="PeopleRoomsBadgeForegroundBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                     <SolidColorBrush x:Key="PeopleRoomsHeaderHouseBrush" Color="{ThemeResource SystemColorWindowTextColor}" />

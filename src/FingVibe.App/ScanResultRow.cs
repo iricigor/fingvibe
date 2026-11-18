@@ -499,6 +499,21 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(NameOpacity)));
     }
 
+    public IReadOnlyList<DeviceMatchSuggestion> MatchSuggestions { get; private set; } = [];
+    public bool HasMatchSuggestions => MatchSuggestions.Count > 0;
+    public string MatchSuggestionText { get; private set; } = string.Empty;
+    public string MatchSuggestionName => MatchSuggestions.Count == 1
+        ? "Review 1 possible matching MAC address" : $"Review {MatchSuggestions.Count} possible matching MAC addresses";
+
+    public void SetMatchSuggestions(IReadOnlyList<DeviceMatchSuggestion> suggestions, string text)
+    {
+        MatchSuggestions = suggestions;
+        MatchSuggestionText = text;
+        foreach (var property in new[] { nameof(MatchSuggestions), nameof(HasMatchSuggestions),
+                     nameof(MatchSuggestionText), nameof(MatchSuggestionName) })
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
+    }
+
     public void SetPeopleRoomAssignments(
         Guid? personId,
         string? personShortName,

@@ -32,6 +32,7 @@ public sealed partial class MainWindow
             : string.Empty;
         UpdateDeviceNameActions();
         DevicePage.ShowDevice(row);
+        ShowSelectedMatchSuggestions(opening: true);
         DevicePage.ShowUsageCategory(row, CanEditUsage(row), reset: true);
         UpdateDeviceHistory();
         UpdateClassificationDetails();

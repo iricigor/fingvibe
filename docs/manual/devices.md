@@ -127,6 +127,45 @@ A relative age, such as `2 h ago`, describes saved evidence.
 Hover or focus the value to see its exact time or explanation.
 Age text refreshes while Devices is open; it does not run another scan.
 
+## Possible matching MAC addresses
+
+A small pale-yellow link icon at the right of a device's name means another
+record on the same network may be the same physical device, for example a
+laptop's Ethernet and Wi-Fi adapters. The icon has an accessible name and the
+same explanation for keyboard users; its meaning does not depend on color.
+
+Hover over or focus the icon to see up to three counterparts with their reasons,
+such as *Possible matching MAC address: Rey (192.168.0.114). Same discovered
+name.* Click it, or press Enter or Space while it has focus, to open that row's
+Device Details with **Merge MAC addresses** expanded and in view
+([review and decline](device-details.md#review-possible-matching-mac-addresses)).
+
+FingVibe suggests a match only for this evidence, strongest first:
+
+1. **This PC's network adapters:** both MACs belong to this computer's Ethernet
+   or Wi-Fi adapters, read locally without network traffic.
+2. **Same device ID:** both records reported the same UPnP device UUID, or the
+   same mDNS device ID of the same kind.
+3. **Same name:** a current name matches. Network host names (mDNS, NetBIOS,
+   reverse DNS and Fing hostnames) compare by the part before the first dot, so
+   `REY`, `rey.local` and `rey.fritz.box` match but `rey-2` does not. Other
+   names, such as names typed in FingVibe or Fing and SSDP friendly names,
+   compare in full, ignoring case and surrounding spaces. Reported names count
+   only from the most recent scan that reported a name.
+
+Names are ignored when empty, when they contain the record's IP address or its
+MAC (or its last three MAC bytes), or when they are common defaults: `iPhone`,
+`iPad`, `Android`, `Galaxy`, `localhost`, `raspberrypi`, `Chromecast`, `ESP`,
+`espressif` and `Unknown`. Names do not match when both records have a clearly
+known, different type, unless one is a computer or smart device; a
+**(likely)** type never blocks a match.
+
+Only records seen locally on the same identified network are compared. Fing Only
+records, virtual devices and the MAC records they group are never suggested.
+MAC prefix, adapter vendor, nearby IP addresses, open ports, response times and a
+shared Person or Room are never evidence, and no confidence score is shown.
+A suggestion is not proof of one physical device.
+
 ## Private and virtual devices
 
 **Randomized MAC** is the display label for a locally administered MAC address.
