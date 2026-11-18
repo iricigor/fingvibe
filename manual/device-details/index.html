@@ -508,6 +508,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#review-possible-matching-mac-addresses" class="md-nav__link">
+    <span class="md-ellipsis">
+      Review possible matching MAC addresses
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#rename" class="md-nav__link">
     <span class="md-ellipsis">
       Rename
@@ -1131,6 +1140,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#review-possible-matching-mac-addresses" class="md-nav__link">
+    <span class="md-ellipsis">
+      Review possible matching MAC addresses
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#rename" class="md-nav__link">
     <span class="md-ellipsis">
       Rename
@@ -1210,7 +1228,8 @@ Use the <strong>Devices</strong> return action when finished.</p>
 name and status grouped on the right. At narrow widths the tabs move below the header:</p>
 <ul>
 <li><strong>Overview</strong> (selected each time you open a device): network overview,
-  assignments, observation summary, usage category, identification, and ports and services.</li>
+  assignments, observation summary, usage category, possible matching MAC
+  addresses, identification, and ports and services.</li>
 <li><strong>History</strong>: Activity, scan observations and, for virtual devices, MAC and address history.</li>
 </ul>
 <p>Choose <strong>View device history</strong> in the summary, or select <strong>History</strong>, to switch.
@@ -1243,6 +1262,31 @@ no additional requests. Up to four distinct values per kind (128 characters
 each) are stored locally, including virtual-device connection observations.
 Earlier scans have no retroactive evidence. A shared name or ID does not prove
 that two records represent the same device, and does not automatically link them.</p>
+<h2 id="review-possible-matching-mac-addresses">Review possible matching MAC addresses<a class="headerlink" href="#review-possible-matching-mac-addresses" title="Permanent link">&para;</a></h2>
+<p>When another record may be the same physical device
+(<a href="../devices/#possible-matching-mac-addresses">how matches are found</a>),
+<strong>Merge MAC addresses</strong> appears on <strong>Overview</strong> directly above
+<strong>Device identification</strong>. Its header shows a yellow link icon and
+<strong>1 possible match</strong> or <strong>N possible matches</strong>. Devices without suggestions do
+not show the section.</p>
+<p>The section opens expanded when you open such a device, including from the
+Devices link icon. If you collapse it, it stays collapsed while that device
+remains open; later refreshes do not reopen it.</p>
+<p>It compares <strong>This device</strong> with <strong>Selected other MAC address</strong>
+(<em>suggestion i of n</em>): name, status, IP / MAC, and vendor / OS / type. Below,
+<em>Suggested because …</em> states the reason and that the suggestion does not
+establish physical identity.</p>
+<ul>
+<li><strong>Change device...</strong> appears when there is more than one suggestion. It lists
+  only the suggestions, strongest first.</li>
+<li><strong>Decline suggestion</strong> keeps the two records separate permanently. Both link
+  icons for that pair disappear, other suggestions remain, and the next
+  suggestion is shown; the section disappears when none remain. A declined pair
+  is never suggested again, even if stronger evidence appears later.</li>
+</ul>
+<p>Declines are saved in <code>device-inventory.sqlite</code> and survive restarts. If a save
+fails, the section shows the error and keeps the suggestion. Linking records is
+not available yet.</p>
 <h2 id="rename">Rename<a class="headerlink" href="#rename" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Choose the <strong>Rename device</strong> pencil beside the device name.</li>

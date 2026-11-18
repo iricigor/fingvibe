@@ -530,6 +530,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#possible-matching-mac-addresses" class="md-nav__link">
+    <span class="md-ellipsis">
+      Possible matching MAC addresses
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#private-and-virtual-devices" class="md-nav__link">
     <span class="md-ellipsis">
       Private and virtual devices
@@ -1176,6 +1185,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#possible-matching-mac-addresses" class="md-nav__link">
+    <span class="md-ellipsis">
+      Possible matching MAC addresses
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#private-and-virtual-devices" class="md-nav__link">
     <span class="md-ellipsis">
       Private and virtual devices
@@ -1326,6 +1344,40 @@ A relative age, such as <code>2 h ago</code>, describes saved evidence.</p>
 <strong>Unavailable</strong> means suitable evidence is missing or cannot be read.
 Hover or focus the value to see its exact time or explanation.
 Age text refreshes while Devices is open; it does not run another scan.</p>
+<h2 id="possible-matching-mac-addresses">Possible matching MAC addresses<a class="headerlink" href="#possible-matching-mac-addresses" title="Permanent link">&para;</a></h2>
+<p>A small pale-yellow link icon at the right of a device's name means another
+record on the same network may be the same physical device, for example a
+laptop's Ethernet and Wi-Fi adapters. The icon has an accessible name and the
+same explanation for keyboard users; its meaning does not depend on color.</p>
+<p>Hover over or focus the icon to see up to three counterparts with their reasons,
+such as <em>Possible matching MAC address: Rey (192.168.0.114). Same discovered
+name.</em> Click it, or press Enter or Space while it has focus, to open that row's
+Device Details with <strong>Merge MAC addresses</strong> expanded and in view
+(<a href="../device-details/#review-possible-matching-mac-addresses">review and decline</a>).</p>
+<p>FingVibe suggests a match only for this evidence, strongest first:</p>
+<ol>
+<li><strong>This PC's network adapters:</strong> both MACs belong to this computer's Ethernet
+   or Wi-Fi adapters, read locally without network traffic.</li>
+<li><strong>Same device ID:</strong> both records reported the same UPnP device UUID, or the
+   same mDNS device ID of the same kind.</li>
+<li><strong>Same name:</strong> a current name matches. Network host names (mDNS, NetBIOS,
+   reverse DNS and Fing hostnames) compare by the part before the first dot, so
+   <code>REY</code>, <code>rey.local</code> and <code>rey.fritz.box</code> match but <code>rey-2</code> does not. Other
+   names, such as names typed in FingVibe or Fing and SSDP friendly names,
+   compare in full, ignoring case and surrounding spaces. Reported names count
+   only from the most recent scan that reported a name.</li>
+</ol>
+<p>Names are ignored when empty, when they contain the record's IP address or its
+MAC (or its last three MAC bytes), or when they are common defaults: <code>iPhone</code>,
+<code>iPad</code>, <code>Android</code>, <code>Galaxy</code>, <code>localhost</code>, <code>raspberrypi</code>, <code>Chromecast</code>, <code>ESP</code>,
+<code>espressif</code> and <code>Unknown</code>. Names do not match when both records have a clearly
+known, different type, unless one is a computer or smart device; a
+<strong>(likely)</strong> type never blocks a match.</p>
+<p>Only records seen locally on the same identified network are compared. Fing Only
+records, virtual devices and the MAC records they group are never suggested.
+MAC prefix, adapter vendor, nearby IP addresses, open ports, response times and a
+shared Person or Room are never evidence, and no confidence score is shown.
+A suggestion is not proof of one physical device.</p>
 <h2 id="private-and-virtual-devices">Private and virtual devices<a class="headerlink" href="#private-and-virtual-devices" title="Permanent link">&para;</a></h2>
 <p><strong>Randomized MAC</strong> is the display label for a locally administered MAC address.
 It is not a known manufacturer and does not prove random generation or rotation:
