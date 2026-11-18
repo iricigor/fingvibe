@@ -67,6 +67,9 @@ function Test-ExpansionInk([object[]] $Elements, [int[]] $SystemColors) {
     try {
         foreach ($element in $Elements) {
             $bounds = $element.Current.BoundingRectangle
+            # Re-laid-out or virtualized peers can briefly report empty or infinite bounds; wait for real geometry.
+            if ($bounds.IsEmpty -or -not ([double]::IsFinite($bounds.Left) -and [double]::IsFinite($bounds.Top) -and
+                    [double]::IsFinite($bounds.Width) -and [double]::IsFinite($bounds.Height))) { return $false }
             $left = [int][Math]::Ceiling($bounds.Left - $window.Left)
             $top = [int][Math]::Ceiling($bounds.Top - $window.Top)
             $right = [int][Math]::Floor([Math]::Min($bounds.Right - $window.Left, $bitmap.Width))
