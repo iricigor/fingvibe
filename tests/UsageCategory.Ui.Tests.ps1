@@ -608,7 +608,7 @@ try {
     if ((Find-Usage UsageCategoryEvidence).Current.Name -match '%') { throw "No evidence must not fabricate a percentage." }
     Save-UsageCapture "usage-no-evidence"
     $phase = Step-UiRegressionPhase $phase "usage/merge-suggestions" $ScreenshotDirectory
-    Open-UsageDevice "Usage laptop"
+    Open-UsageDevice "Concurrent name"
     if (Find-Usage MergeMacAddresses -Optional) { throw "Devices without suggestions must not show Merge MAC addresses." }
     Show-MatchRows
     $alpha = Assert-MatchButton "Match alpha" 2
