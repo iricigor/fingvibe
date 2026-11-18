@@ -1693,7 +1693,14 @@ They also verify silent/very silent launch suppression and the checked-by-defaul
 Finish choice for both fresh installs and upgrades, exercising checked and
 unchecked outcomes through the native wizard. Launch checks verify the installed
 process/window and Setup's logged working directory; existing timing logs include
-the additional interactive cases.
+the additional interactive cases. Lifecycle fixtures that only need installer
+state or the launch protocol use a small launchable application; cases that check
+real payload integrity, production upgrade/adoption, or real application startup
+use the actual published payload. Fixture installers remain uncompressed and
+temporary.
+Uninstall operations resolve the registered `UninstallString` rather than assuming
+a numbered uninstaller name, explicitly identify the operation, and wait for
+Inno's second phase and final log closure before the next install starts.
 The real installer also upgrades a lower same-family installation, removing an
 obsolete file from the previous ownership manifest while keeping unknown files
 and saved data, and the lower version is then rejected as a downgrade.
@@ -1701,9 +1708,10 @@ One representative previous-feature check upgrades a 1.3 installation whose
 build number is higher to the 1.4 feature version (the actual release installer
 on `main`, otherwise a test-only 1.4 fixture), then rejects the 1.3 downgrade.
 Synthetic saved inventory, history and settings files must stay unchanged
-through upgrade, rejected downgrade and uninstall. Fixtures reuse the current
-payload and installer script, so older families would exercise identical logic;
-adding a feature version adds no lifecycle case.
+through upgrade, rejected downgrade and uninstall. Fixtures reuse the production
+installer script with a small payload, so older-family version and ownership logic
+is exercised without repeatedly copying the full published application. Adding a
+feature version still adds no lifecycle case.
 
 Test-only fixture installers are built with `New-Installer.ps1 -FixtureCompression`
 (no compression, non-solid) into a temporary directory that is deleted afterwards;

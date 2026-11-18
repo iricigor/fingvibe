@@ -82,7 +82,11 @@ $global:LASTEXITCODE = 0
     $lookup = $lifecycleAst.FindAll({
         param($node)
         $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
-            $node.Name -in @('Get-InstallerCaption', 'Get-InstallerButton')
+            $node.Name -in @(
+                'Get-InstallerCaption', 'Get-InstallerButton',
+                'Get-UninstallerExecutable', 'Resolve-RegisteredUninstaller',
+                'New-LifecycleFixtureApp'
+            )
     }, $true)
     foreach ($definition in $lookup) { Invoke-Expression $definition.Extent.Text }
     # Inno Setup 6.7 renders "&Next"; keep older "&Next >" captions working.
@@ -102,6 +106,45 @@ $global:LASTEXITCODE = 0
     $cancel = [pscustomobject]@{ Text = 'Cancel'; ClassName = 'TNewButton'; Visible = $true; Enabled = $true }
     if ($null -ne (Get-InstallerButton @($cancel) @('Next', 'Install', 'Finish'))) {
         throw "The lifecycle must not activate unrelated installer actions."
+    }
+    $registeredApp = Join-Path $fixture "registered app"
+    $outsideApp = Join-Path $fixture "outside app"
+    $null = New-Item -ItemType Directory -Path $registeredApp, $outsideApp -Force
+    $numberedUninstaller = Join-Path $registeredApp "unins001.exe"
+    $outsideUninstaller = Join-Path $outsideApp "unins002.exe"
+    "fixture" | Set-Content -LiteralPath $numberedUninstaller
+    "fixture" | Set-Content -LiteralPath $outsideUninstaller
+    $registrationInfo = [pscustomobject]@{ UninstallString = "`"$numberedUninstaller`" /quiet" }
+    if ((Resolve-RegisteredUninstaller $registrationInfo $registeredApp) -ne $numberedUninstaller) {
+        throw "Lifecycle uninstall lookup must accept the registered numbered uninstaller and arguments."
+    }
+    if ((Get-UninstallerExecutable $registrationInfo.UninstallString) -ne $numberedUninstaller) {
+        throw "Lifecycle uninstall command parsing must preserve a quoted path."
+    }
+    Assert-Throws { Resolve-RegisteredUninstaller ([pscustomobject]@{}) $registeredApp } '*UninstallString*'
+    Assert-Throws { Resolve-RegisteredUninstaller ([pscustomobject]@{ UninstallString = "not a command" }) $registeredApp } '*Could not parse*'
+    Assert-Throws { Resolve-RegisteredUninstaller ([pscustomobject]@{ UninstallString = "`"$outsideUninstaller`"" }) $registeredApp } '*outside*'
+    Assert-Throws { Resolve-RegisteredUninstaller ([pscustomobject]@{ UninstallString = "`"$registeredApp\setup.exe`"" }) $registeredApp } '*Inno Setup uninstaller*'
+    if ($lifecycle -match 'unins000\.exe') {
+        throw "Lifecycle orchestration must not hardcode Inno's first uninstaller filename."
+    }
+    $invokeCalls = [regex]::Matches($lifecycle, '(?m)^\s*Invoke-Installer\b.*$')
+    if ($invokeCalls.Count -eq 0) { throw "Lifecycle must use the explicit installer operation helper." }
+    foreach ($call in $invokeCalls) {
+        if ($call.Value -notmatch '-Operation\s+(Install|Uninstall)') {
+            throw "Every lifecycle installer invocation must identify its operation: $call"
+        }
+    }
+    foreach ($pattern in @('/SECONDPHASE=', 'Log closed', 'Get-InnoSecondPhaseProcesses')) {
+        if (-not $lifecycle.Contains($pattern)) {
+            throw "Uninstall synchronization is missing $pattern."
+        }
+    }
+    $launchFixture = New-LifecycleFixtureApp $app (Join-Path $fixture "launch fixture")
+    foreach ($required in @("FingVibe.App.exe", "FingVibe.App.dll", "Assets\Scanner.ico")) {
+        if (-not (Test-Path -LiteralPath (Join-Path $launchFixture $required) -PathType Leaf)) {
+            throw "Lifecycle launch fixture is missing $required."
+        }
     }
     $fixtureCalls = [regex]::Matches($lifecycle, '(?m)^.*& \$builder .*$')
     if ($fixtureCalls.Count -ne 1 -or $fixtureCalls[0].Value -notmatch '-OutputDirectory \$fixture -FixtureCompression') {
