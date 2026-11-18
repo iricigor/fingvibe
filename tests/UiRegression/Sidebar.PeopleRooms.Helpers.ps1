@@ -217,7 +217,7 @@ function Test-RoomMapAccessibility {
     }
     $textCondition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text)
-    # UI Automation clips bounds to the visible viewport, so only fully visible elements report their real size.
+    # UI Automation can return clipped bounds for a partially visible peer while keeping IsOffscreen false.
     $viewport = {
         $map = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
             [System.Windows.Automation.PropertyCondition]::new(
@@ -231,12 +231,14 @@ function Test-RoomMapAccessibility {
     $fullyVisible = {
         param($Elements)
         $area = & $viewport
-        @($Elements | Where-Object {
+        $contained = @($Elements | Where-Object {
             $bounds = $_.Current.BoundingRectangle
             -not $_.Current.IsOffscreen -and -not $bounds.IsEmpty -and
                 $bounds.Left -ge $area.Left - 1 -and $bounds.Right -le $area.Right + 1 -and
                 $bounds.Top -ge $area.Top - 1 -and $bounds.Bottom -le $area.Bottom + 1
         })
+        if ($contained.Count -eq 0) { return @() }
+        Select-UiRegressionLargestRenderedPeers -Elements $contained -Tolerance $tolerance
     }
     $settings = [Windows.UI.ViewManagement.UISettings, Windows.UI.ViewManagement, ContentType = WindowsRuntime]::new()
     $originalScale = $settings.TextScaleFactor
