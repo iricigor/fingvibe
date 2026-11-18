@@ -48,6 +48,8 @@ public sealed record DeviceObservation(
     bool Present,
     IReadOnlyList<UdpServiceObservation>? UdpObservations = null)
 {
+    public IReadOnlyList<ObservedDeviceValue> ReportedValues { get; init; } = [];
+
     public ScanResult ToScanResult(string mac) => new(
         IPAddress.Parse(Address), Present ? HostStatus.Alive : HostStatus.Unreachable,
         Latency, ProbeDuration, Hostname, PhysicalAddress.Parse(mac), Vendor, Ports, Classification, UdpObservations);
@@ -177,7 +179,12 @@ public sealed record DeviceInventoryData(
                 result.DeviceName, result.VendorName, result.DetectedClassification, result.OpenPortItems,
                 result.RoundtripTimeMilliseconds, result.ProbeDuration,
                 previous?.FirstSeen ?? snapshot.CompletedAt, snapshot.CompletedAt, snapshot.CompletedAt, true,
-                result.UdpObservations));
+                result.UdpObservations)
+            {
+                ReportedValues = complete
+                    ? DeviceReportedValues.Retain(previous?.ReportedValues ?? [], result.ReportedValues, snapshot.CompletedAt)
+                    : previous?.ReportedValues ?? []
+            });
             devices[mac] = device with { Observations = observations };
         }
 

@@ -164,6 +164,11 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     }
 
     public ScanResult? Result { get; private set; }
+    public IReadOnlyList<ObservedDeviceValue> ReportedValues =>
+        _inventoryDevice is { LatestObservation: { } scope } device
+            ? device.Observations.FirstOrDefault(item => item.Address == AddressText
+                && item.NetworkId == scope.NetworkId && item.Subnet == scope.Subnet)?.ReportedValues ?? []
+            : [];
     public ScanResultRow(PrivateVirtualDevice device, DeviceInventoryData data, int prefixLength)
         : this(new InventoryDevice(device.LastActiveMac, data.Devices[device.LastActiveMac].Imported,
             device.History.Where(item => item.Mac == device.LastActiveMac).Select(item => item.Observation).ToArray())
@@ -280,7 +285,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         foreach (var property in new[] { nameof(Result), nameof(AddressText), nameof(OpenPortItems),
                      nameof(LatencyLabel), nameof(LatencyMilliseconds), nameof(MacAddressText),
                      nameof(AddressPrefix), nameof(AddressHost), nameof(AddressHostFontSize),
-                     nameof(DisplayAddressPrefix), nameof(DisplayAddressHost) })
+                     nameof(DisplayAddressPrefix), nameof(DisplayAddressHost), nameof(ReportedValues) })
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
     }
     public PhysicalAddress? MacAddress => Result?.MacAddress

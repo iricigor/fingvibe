@@ -10,11 +10,17 @@ public sealed record SsdpDeviceInfo(
     string? DeviceType,
     string? Manufacturer,
     string? ModelName,
-    string? Server);
+    string? Server)
+{
+    public string? DeviceUuid { get; init; }
+}
 
 public sealed record MdnsDeviceInfo(
     IReadOnlyList<string> Services, string? Model = null, bool HasConflictingModels = false,
-    string? HostName = null);
+    string? HostName = null)
+{
+    public IReadOnlyList<ReportedDeviceValue> ReportedValues { get; init; } = [];
+}
 
 public sealed record ServiceBanner(string Source, string Value);
 

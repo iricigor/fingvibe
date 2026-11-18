@@ -100,6 +100,7 @@ public sealed class ScanSnapshotStore
                     || address.AddressFamily != System.Net.Sockets.AddressFamily.InterNetwork
                     || !Enum.IsDefined(result.Status)
                     || result.OpenPorts is null
+                    || !DeviceReportedValues.IsValid(result.ReportedValues ?? [])
                     || (result.UdpObservations?.Any(item => item is null || item.Port is not (53 or 123)
                         || !Enum.IsDefined(item.State) || string.IsNullOrWhiteSpace(item.ServiceName)
                         || string.IsNullOrWhiteSpace(item.Detail)) ?? false)
@@ -129,7 +130,10 @@ public sealed class ScanSnapshotStore
                         return new OpenPort(port.Port, port.ServiceName ?? string.Empty, port.Protocol);
                     }).ToArray(),
                     result.Classification,
-                    result.UdpObservations);
+                    result.UdpObservations)
+                {
+                    ReportedValues = result.ReportedValues ?? []
+                };
             }).ToArray();
 
             return new ScanSnapshot(document.Subnet, document.CompletedAt, results, document.Duration)
@@ -191,7 +195,8 @@ public sealed class ScanSnapshotStore
                 result.VendorName,
                 result.OpenPortItems.Select(port => new CachedOpenPort(port.Port, port.ServiceName, port.Protocol)).ToArray(),
                 result.Classification,
-                result.UdpObservationItems))
+                result.UdpObservationItems,
+                result.ReportedValues))
                 .ToArray(),
             snapshot.Duration, snapshot.ScanId, snapshot.State, snapshot.NetworkId);
 
@@ -231,7 +236,8 @@ public sealed class ScanSnapshotStore
         string? VendorName,
         CachedOpenPort[]? OpenPorts,
         DeviceClassification? Classification = null,
-        IReadOnlyList<UdpServiceObservation>? UdpObservations = null);
+        IReadOnlyList<UdpServiceObservation>? UdpObservations = null,
+        IReadOnlyList<ReportedDeviceValue>? ReportedValues = null);
 
     private sealed record CachedOpenPort(int Port, string? ServiceName, EndpointProtocol Protocol = EndpointProtocol.Tcp);
 }
