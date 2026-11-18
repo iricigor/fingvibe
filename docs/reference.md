@@ -1639,14 +1639,14 @@ changed by the application or by local build/test commands.
 
 Local and pull request build/publish outputs retain only English (`en`) managed satellite resources through the application's `SatelliteResourceLanguages` setting. Neutral resources, including dependencies' default English strings, remain included. Official releases retain all available languages: the release workflow overrides the setting with an empty global MSBuild property (`/property:SatelliteResourceLanguages=`), disabling this filter. Both workflows use the Release configuration, so the configuration name alone does not determine language filtering. This does not force the runtime UI culture to English or filter Windows App SDK native/PRI resources in the self-contained deployment. When checking the result locally, start with clean build and publish output directories: previously copied language folders are not removed by changing this setting.
 
-Pull requests affecting application code or validation infrastructure upload a `fingvibe-win-x64-pr-*` artifact from the **🔨 Pull request build** Actions run, plus a `fingvibe-setup-win-x64-pr-*` installer artifact. Each successful same-repository build posts a new runnable-app artifact-link comment, preserving earlier comments and links (artifacts expire after 14 days). Artifact names include the run attempt, so reruns do not replace earlier downloads. Documentation-only, agent-loop/inspector-only and non-native test-only changes do not publish an app. Every push to `main` publishes a GitHub Release tagged `v1.3.<run number>` (version `1.3.<run number>`) with a self-contained Windows x64 ZIP and `FingVibe-<version>-win-x64-Setup.exe`, both from the same published binaries. Earlier releases used `1.0.<run number>`, `1.1.<run number>` and `1.2.<run number>`; the minor feature version orders above any earlier minor version's run number, so existing installations update normally.
+Pull requests affecting application code or validation infrastructure upload a `fingvibe-win-x64-pr-*` artifact from the **🔨 Pull request build** Actions run, plus a `fingvibe-setup-win-x64-pr-*` installer artifact. Each successful same-repository build posts a new runnable-app artifact-link comment, preserving earlier comments and links (artifacts expire after 14 days). Artifact names include the run attempt, so reruns do not replace earlier downloads. Documentation-only, agent-loop/inspector-only and non-native test-only changes do not publish an app. Every push to `main` publishes a GitHub Release tagged `v1.4.<run number>` (version `1.4.<run number>`) with a self-contained Windows x64 ZIP and `FingVibe-<version>-win-x64-Setup.exe`, both from the same published binaries. Earlier releases used `1.0.<run number>`, `1.1.<run number>`, `1.2.<run number>` and `1.3.<run number>`; the minor feature version orders above any earlier minor version's run number, so existing installations update normally.
 
-Release bodies begin with the [PR-linked 1.3 feature summary](release-notes-1.3.md),
+Release bodies begin with the [PR-linked 1.4 feature summary](release-notes-1.4.md),
 followed by GitHub's automatically generated notes for the individual release.
-The summary covers application changes since the 1.2 bump, including nested
-deliveries and explicitly distinguished superseded provenance; it does not
-advertise abandoned work as a delivered feature. The earlier
-[1.2 summary](release-notes-1.2.md) is retained.
+The summary covers application changes since the 1.3 preparation, including
+multiple deliveries and explicitly distinguished superseded provenance; it does
+not advertise abandoned work as a delivered feature. The earlier
+[1.2](release-notes-1.2.md) and [1.3](release-notes-1.3.md) summaries are retained.
 
 The unsigned Inno Setup installer supports Windows 11 x64 and installs only for
 the current user at `%LOCALAPPDATA%\Programs\FingVibe`, without requesting
@@ -1680,7 +1680,7 @@ GitHub runners). After publishing the app, run:
 
 ```powershell
 .\tools\New-Installer.ps1 -AppDirectory artifacts\fingvibe-win-x64 `
-    -Version 1.3.123 -OutputDirectory artifacts\installer
+    -Version 1.4.123 -OutputDirectory artifacts\installer
 ```
 
 `tests\Installer.Script.Tests.ps1` checks packaging helpers without installing or
@@ -1704,9 +1704,9 @@ Inno's second phase and final log closure before the next install starts.
 The real installer also upgrades a lower same-family installation, removing an
 obsolete file from the previous ownership manifest while keeping unknown files
 and saved data, and the lower version is then rejected as a downgrade.
-One representative previous-feature check upgrades a 1.2 installation whose
-build number is higher to the 1.3 feature version (the actual release installer
-on `main`, otherwise a test-only 1.3 fixture), then rejects the 1.2 downgrade.
+One representative previous-feature check upgrades a 1.3 installation whose
+build number is higher to the 1.4 feature version (the actual release installer
+on `main`, otherwise a test-only 1.4 fixture), then rejects the 1.3 downgrade.
 Synthetic saved inventory, history and settings files must stay unchanged
 through upgrade, rejected downgrade and uninstall. Fixtures reuse the production
 installer script with a small payload, so older-family version and ownership logic
@@ -1722,7 +1722,7 @@ its total in `lifecycle-timings.csv` and the job summary, including on failure.
 Installer logs are retained as Actions artifacts, including on failure.
 Any installer failure blocks release publication.
 
-To bump the feature version (for example, to 1.4), change the release version in
+To bump the feature version (for example, to 1.5), change the release version in
 `.github/workflows/release.yml` and the single `$FeatureFamily` value at the top of
 `tests\Installer.Lifecycle.Tests.ps1`, and add the release-notes file. The previous
 family and every fixture version are derived from that value, and

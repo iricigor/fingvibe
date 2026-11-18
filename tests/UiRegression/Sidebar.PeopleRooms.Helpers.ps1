@@ -85,13 +85,13 @@ function Test-RoomMapEntries {
     if ($gateway.Current.IsKeyboardFocusable -ne $true) { throw 'The Room map gateway fallback must remain keyboard reachable.' }
     $unassigned = Find-PeopleRoomsElement AutomationId RoomMapUnassigned RoomMapPage
     if ($unassigned.Current.IsKeyboardFocusable -ne $true) { throw 'The Room map unassigned strip must remain keyboard reachable.' }
-    $null = Find-PeopleRoomsElement AutomationId ManageRoomsButton RoomMapPage
-    Invoke-PeopleRoomsElement AutomationId ManageRoomsButton RoomMapPage
+    $null = Find-PeopleRoomsElement AutomationId RoomMapBackButton RoomMapPage
+    Invoke-PeopleRoomsElement AutomationId RoomMapBackButton RoomMapPage
     $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
 
     Select-SidebarPage 'Tools' 'View room map'
     Invoke-PeopleRoomsElement Name 'View room map'
-    Invoke-PeopleRoomsElement AutomationId ManageRoomsButton RoomMapPage
+    Invoke-PeopleRoomsElement AutomationId RoomMapBackButton RoomMapPage
     $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
 
     Select-SidebarPage 'Tools' 'Network troubleshooting'
@@ -99,9 +99,94 @@ function Test-RoomMapEntries {
     # The visible "Run checks" button is exposed to UI Automation as "Run network troubleshooting".
     $null = Find-PeopleRoomsElement AutomationId RunButton
     Invoke-PeopleRoomsElement AutomationId TroubleshootingViewRoomMapButton
-    Invoke-PeopleRoomsElement AutomationId ManageRoomsButton RoomMapPage
+    Invoke-PeopleRoomsElement AutomationId RoomMapBackButton RoomMapPage
     $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
-    Write-Host 'Room map entry points, conceptual gateway fallback, focus reachability and return to management passed.'
+    Write-Host 'Room map entry points, conceptual gateway fallback, focus reachability and return to Rooms passed.'
+}
+
+function Test-RoomMapDetailsRoundTrip {
+    $inventory = Join-Path (Join-Path $fixtureDirectory 'room-map-scale') 'inventory.json'
+    if (-not (Test-Path -LiteralPath $inventory)) { throw 'Test-RoomMapScale must create the Room map scale fixture first.' }
+    $savedInventory = $env:FINGVIBE_UI_REVIEW_INVENTORY
+    Stop-SidebarApp
+    try {
+        $env:FINGVIBE_UI_REVIEW_INVENTORY = $inventory
+        Start-SidebarApp
+        Set-SidebarWindowWidth $expandedWidth
+        Select-SidebarPage 'Tools' 'View room map'
+        Invoke-PeopleRoomsElement Name 'View room map'
+
+        $roomId = '00000000-0000-0000-0000-000000000004'
+        $room = Find-PeopleRoomsElement AutomationId "RoomMapOpenRoom-$roomId" RoomMapPage
+        $room.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        $roomBack = Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, 'Back to Room map')) `
+            -Description 'Room details return to Room map' -Container { $root }
+        if ($roomBack.Current.AutomationId -ne 'RoomBackButton') {
+            throw "Room details must expose the origin-aware Room map Back action."
+        }
+        $roomBack.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        $returnedRoom = Wait-UiRegressionState -Description 'Room map room origin restored' -Condition {
+            $candidate = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
+                    "RoomMapOpenRoom-$roomId"))
+            if ($candidate -and -not $candidate.Current.IsOffscreen) { $candidate }
+        }
+        if (-not $returnedRoom.Current.HasKeyboardFocus) {
+            throw 'Returning from Room Details must restore focus to the originating room-name action.'
+        }
+
+        $device = Find-PeopleRoomsElement AutomationId 'RoomMapDevice-001122000063' RoomMapPage
+        $scrollViewer = Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapScroll')) `
+            -Description 'Room map round-trip scroll viewer' -Container {
+                $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.PropertyCondition]::new(
+                        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapPage'))
+            }
+        $scroll = $scrollViewer.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        $horizontal = $scroll.Current.HorizontalScrollPercent
+        $vertical = $scroll.Current.VerticalScrollPercent
+        if ($horizontal -le 0 -and $vertical -le 0) {
+            throw 'The round-trip test must begin from a scrolled Room map position.'
+        }
+        $device.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        $deviceBack = Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, 'Back to Room map')) `
+            -Description 'Device details return to Room map' -Container { $root }
+        if ($deviceBack.Current.AutomationId -ne 'DeviceBackButton') {
+            throw "Device Details must expose the origin-aware Room map Back action."
+        }
+        $deviceBack.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        $returnedDevice = Wait-UiRegressionState -Description 'Room map device origin restored' -Condition {
+            $candidate = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
+                    'RoomMapDevice-001122000063'))
+            if ($candidate -and -not $candidate.Current.IsOffscreen) { $candidate }
+        }
+        $restoredViewer = Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapScroll')) `
+            -Description 'restored Room map scroll viewer' -Container {
+                $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.PropertyCondition]::new(
+                        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapPage'))
+            }
+        $restoredScroll = $restoredViewer.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        if (-not $returnedDevice.Current.HasKeyboardFocus -or
+            [Math]::Abs($restoredScroll.Current.HorizontalScrollPercent - $horizontal) -gt 1 -or
+            [Math]::Abs($restoredScroll.Current.VerticalScrollPercent - $vertical) -gt 1) {
+            throw 'Returning from Device Details must restore the originating device focus and Room map scroll position.'
+        }
+        Write-Host 'Room map device and room detail round trips restored origin focus and scroll state.'
+    }
+    finally {
+        Stop-SidebarApp
+        $env:FINGVIBE_UI_REVIEW_INVENTORY = $savedInventory
+        Start-SidebarApp
+        Set-SidebarWindowWidth $expandedWidth
+    }
 }
 
 function Test-RoomMapAppearance([string] $Name) {
@@ -109,7 +194,7 @@ function Test-RoomMapAppearance([string] $Name) {
     Invoke-PeopleRoomsElement Name 'View room map'
     $null = Find-PeopleRoomsElement AutomationId RoomMapRootPlaceholder RoomMapPage
     Save-SidebarAppearance "room-map-$Name" -AssertMatchingSolid
-    Invoke-PeopleRoomsElement AutomationId ManageRoomsButton RoomMapPage
+    Invoke-PeopleRoomsElement AutomationId RoomMapBackButton RoomMapPage
     $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
 }
 
@@ -164,6 +249,12 @@ function Test-RoomMapScale {
         $page = Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapPage')) `
             -Description 'Room map scale page' -Container { $root }
+        $onlineOnly = Find-PeopleRoomsElement AutomationId RoomMapOnlineOnlySwitch RoomMapPage
+        $onlineOnlyToggle = $onlineOnly.GetCurrentPattern(
+            [System.Windows.Automation.TogglePattern]::Pattern)
+        if ($onlineOnlyToggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
+            throw 'The Room map Only online switch must be on by default.'
+        }
         $elements = $page.FindAll([System.Windows.Automation.TreeScope]::Descendants,
             [System.Windows.Automation.Condition]::TrueCondition)
         $deviceElements = @($elements | Where-Object {
@@ -172,26 +263,253 @@ function Test-RoomMapScale {
         $roomElements = @($elements | Where-Object {
             $_.Current.AutomationId -like 'RoomMapRoom-*'
         })
-        if ($deviceElements.Count -ne 100) { throw "The Room map must retain all 100 relevant devices; found $($deviceElements.Count)." }
+        if ($deviceElements.Count -ne 80) {
+            throw "Only online must show the 80 online devices by default; found $($deviceElements.Count)."
+        }
+        $shownIds = @($deviceElements | ForEach-Object { $_.Current.AutomationId })
+        if ($shownIds -contains 'RoomMapDevice-001122000000') {
+            throw 'Only online exposed an offline Room map device.'
+        }
         if ($roomElements.Count -ne 10) { throw "The Room map must retain all ten saved rooms; found $($roomElements.Count)." }
+        $onlineOnlyToggle.Toggle()
+        $null = Wait-UiRegressionState -Description 'all Room map devices after disabling Only online' -Condition {
+            $current = $page.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.Condition]::TrueCondition) |
+                Where-Object { $_.Current.AutomationId -like 'RoomMapDevice-*' }
+            @($current).Count -eq 100
+        }
+        $elements = $page.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.Condition]::TrueCondition)
+        $deviceElements = @($elements | Where-Object {
+            $_.Current.AutomationId -like 'RoomMapDevice-*'
+        })
+        if ($deviceElements.Count -ne 100) {
+            throw "Turning off Only online must show all 100 relevant devices; found $($deviceElements.Count)."
+        }
         $layoutClock.Stop()
         $last = Find-PeopleRoomsElement AutomationId 'RoomMapDevice-001122000063' RoomMapPage
         if ($last.Current.IsKeyboardFocusable -ne $true) { throw 'The last Room map device must remain keyboard reachable.' }
         if ($last.Current.IsOffscreen -ne $false) { throw 'The focused last Room map device must be brought into view.' }
         @{
             rooms = $roomElements.Count
-            devices = $deviceElements.Count
+            onlineDevicesByDefault = 80
+            allDevices = $deviceElements.Count
             layoutAndRenderSeconds = $layoutClock.Elapsed.TotalSeconds
             focusedFinalDevice = $last.Current.AutomationId
         } | ConvertTo-Json -Depth 4 |
             Set-Content -LiteralPath (Join-Path $ScreenshotDirectory 'room-map-scale.json') -Encoding UTF8
-        Write-Host "Room map rendered 10 rooms and 100 devices in $($layoutClock.Elapsed.TotalSeconds.ToString('F2')) seconds and reached the final keyboard target."
+        Write-Host "Room map rendered 10 rooms, hid 20 offline devices by default, restored all 100 devices, and reached the final keyboard target in $($layoutClock.Elapsed.TotalSeconds.ToString('F2')) seconds."
     }
     finally {
         Stop-SidebarApp
         $env:FINGVIBE_UI_REVIEW_INVENTORY = $savedInventory
         Start-SidebarApp
         Set-SidebarWindowWidth $expandedWidth
+    }
+}
+
+function Get-SidebarAppearanceSelection([string] $Picker) {
+    Select-SidebarPage Settings "Window backdrop"
+    Expand-UiReviewSettingsSection -Root $root -Section AppearanceSection
+    $combo = Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Picker)) `
+        -Description "appearance picker '$Picker'" -Container { $root }
+    $selected = $combo.GetCurrentPattern([System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()
+    if ($selected.Count -ne 1) { throw "Appearance picker '$Picker' must have one selected choice." }
+    $selected[0].Current.Name
+}
+
+function Assert-RoomMapConnectionInk([string] $Name, [double] $TextScale) {
+    # Connection paths are Raw-view shapes without control peers, so legibility is measured from rendered pixels on
+    # the shared trunk in the root gutter: it runs down from the root-entry anchor, and nothing is drawn above it.
+    $page = Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapPage')) `
+        -Description 'Room map connection page' -Container { $root }
+    $rootRoom = @($page.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.Condition]::TrueCondition) | Where-Object {
+            $_.Current.AutomationId -eq 'RoomMapRootPlaceholder' -or
+                ($_.Current.AutomationId -like 'RoomMapRoom-*' -and $_.Current.Name -like '*, root room*')
+        })
+    if ($rootRoom.Count -ne 1) { throw "The Room map must show one root room for '$Name'." }
+    $scrollViewer = $page.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapScroll'))
+    if ($scrollViewer) {
+        $scroll = $scrollViewer.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        if ($scroll.Current.VerticallyScrollable -or $scroll.Current.HorizontallyScrollable) {
+            $scroll.SetScrollPercent($(if ($scroll.Current.HorizontallyScrollable) { 0 } else { -1 }),
+                $(if ($scroll.Current.VerticallyScrollable) { 0 } else { -1 }))
+            Start-Sleep -Milliseconds 300
+        }
+        if ($scroll.Current.VerticallyScrollable) {
+            $windowBounds = $root.Current.BoundingRectangle
+            $viewportBounds = $scrollViewer.Current.BoundingRectangle
+            $viewportTopValue = if (-not [double]::IsNaN($viewportBounds.Top) -and
+                -not [double]::IsInfinity($viewportBounds.Top)) {
+                $viewportBounds.Top
+            } else { $windowBounds.Top }
+            $viewportHeight = if (-not [double]::IsNaN($viewportBounds.Height) -and
+                -not [double]::IsInfinity($viewportBounds.Height) -and $viewportBounds.Height -gt 0) {
+                $viewportBounds.Height
+            } else { $windowBounds.Height }
+            $visibleTop = [Math]::Max($viewportTopValue, $windowBounds.Top) + 8 * $scale
+            $viewportBottomValue = if (-not [double]::IsNaN($viewportBounds.Bottom) -and
+                -not [double]::IsInfinity($viewportBounds.Bottom)) {
+                $viewportBounds.Bottom
+            } else { $windowBounds.Bottom }
+            $visibleBottom = [Math]::Min($viewportBottomValue, $windowBounds.Bottom) - 24 * $scale
+            $entryOffset = (40 + 56 * $TextScale + 22) * $scale
+            for ($move = 0; $move -lt 4; $move++) {
+                $rootTop = $rootRoom[0].Current.BoundingRectangle.Top
+                if ([double]::IsNaN($rootTop) -or [double]::IsInfinity($rootTop)) { break }
+                $entryY = $rootTop + $entryOffset
+                $visibleLength = [Math]::Min($entryY + 120 * $scale, $visibleBottom) -
+                    [Math]::Max($entryY, $visibleTop)
+                if ($visibleLength -ge 40 * $scale) { break }
+                $delta = $entryY - $visibleTop
+                $viewSize = $scroll.Current.VerticalViewSize
+                $visibleViewportHeight = $visibleBottom - $visibleTop
+                $extent = $visibleViewportHeight * (100 / $viewSize - 1)
+                if ($viewSize -le 0 -or $viewSize -ge 100 -or $extent -le 0 -or
+                    [double]::IsNaN($extent) -or [double]::IsInfinity($extent)) {
+                    throw "The Room map connection viewport has no measurable vertical extent for '$Name'."
+                }
+                $previousPercent = $scroll.Current.VerticalScrollPercent
+                $percent = [Math]::Max(0, [Math]::Min(100,
+                    $previousPercent + 100 * $delta / $extent))
+                if ([Math]::Abs($percent - $previousPercent) -lt 0.01) {
+                    throw "The Room map connection entry cannot reach the visible viewport for '$Name' " +
+                        "(entry=$([Math]::Round($entryY, 2)), root=$([Math]::Round($rootTop, 2)), " +
+                        "visible=$([Math]::Round($visibleTop, 2))-$([Math]::Round($visibleBottom, 2)), " +
+                        "scroll=$([Math]::Round($previousPercent, 2))%, target=$([Math]::Round($percent, 2))%, " +
+                        "view=$([Math]::Round($viewSize, 2))%, extent=$([Math]::Round($extent, 2)))."
+                }
+                $scroll.SetScrollPercent(-1, $percent)
+                Start-Sleep -Milliseconds 300
+            }
+        }
+    }
+    $bounds = $rootRoom[0].Current.BoundingRectangle
+    $path = Join-Path $ScreenshotDirectory "room-map-connections-$Name.png"
+    Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path $path
+    $window = Get-UiReviewWindowBounds $windowHandle
+    $bitmap = [System.Drawing.Bitmap]::new($path)
+    try {
+        $connectionLefts = @($page.FindAll(
+            [System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.Condition]::TrueCondition) | Where-Object {
+                $_.Current.AutomationId -like 'RoomMapConnection-*' -and
+                    -not [double]::IsNaN($_.Current.BoundingRectangle.Left) -and
+                    -not [double]::IsInfinity($_.Current.BoundingRectangle.Left)
+            } | ForEach-Object { $_.Current.BoundingRectangle.Left - $window.Left })
+        $trunkX = if ($connectionLefts.Count -gt 0) {
+            [int][Math]::Round(($connectionLefts | Measure-Object -Minimum).Minimum)
+        } elseif (-not [double]::IsNaN($bounds.Left) -and -not [double]::IsInfinity($bounds.Left)) {
+            [int][Math]::Round($bounds.Left - $window.Left - 16 * $scale)
+        } else {
+            $scrollBounds = $scrollViewer.Current.BoundingRectangle
+            if ([double]::IsNaN($scrollBounds.Left) -or [double]::IsInfinity($scrollBounds.Left) -or
+                [double]::IsNaN($scrollBounds.Width) -or [double]::IsInfinity($scrollBounds.Width)) {
+                throw "Room map connection bounds are unavailable for '$Name'."
+            }
+            # The canvas is the scroll viewport minus 16 DIP; the shared trunk is 344 DIP from its right edge.
+            [int][Math]::Round(
+                $scrollBounds.Left - $window.Left + $scrollBounds.Width - 360 * $scale)
+        }
+        $viewportTopValue = if (-not [double]::IsNaN($scrollViewer.Current.BoundingRectangle.Top) -and
+            -not [double]::IsInfinity($scrollViewer.Current.BoundingRectangle.Top)) {
+            $scrollViewer.Current.BoundingRectangle.Top
+        } else { $window.Top }
+        $viewportBottomValue = if (-not [double]::IsNaN($scrollViewer.Current.BoundingRectangle.Bottom) -and
+            -not [double]::IsInfinity($scrollViewer.Current.BoundingRectangle.Bottom)) {
+            $scrollViewer.Current.BoundingRectangle.Bottom
+        } else { $window.Bottom }
+        $visibleTop = [int][Math]::Max(
+            0,
+            [Math]::Ceiling($viewportTopValue - $window.Top + 4 * $scale))
+        $visibleBottom = [int][Math]::Min(
+            [double]($viewportBottomValue - $window.Top),
+            [double]($bitmap.Height - [int](24 * $scale)))
+        $firstRow = $visibleTop
+        $lastRow = $visibleBottom
+        if (-not [double]::IsNaN($bounds.Top) -and -not [double]::IsInfinity($bounds.Top)) {
+            $top = [int][Math]::Round($bounds.Top - $window.Top)
+            $entryY = $top + [int][Math]::Ceiling((40 + 56 * $TextScale + 22) * $scale)
+            $firstRow = [int][Math]::Max(
+                $visibleTop, $entryY + [int][Math]::Ceiling(4 * $scale))
+            $lastRow = [int][Math]::Min(
+                [double]($entryY + [int](120 * $scale)),
+                [double]$visibleBottom)
+        }
+        if ($trunkX -lt 3 -or $trunkX + 3 -ge $bitmap.Width -or $firstRow -lt 0 -or
+            $lastRow -ge $bitmap.Height -or $lastRow - $firstRow -lt 40 * $scale) {
+            throw "The Room map connection trunk must be inside the captured window for '$Name'. " +
+                "TrunkX=$trunkX; firstRow=$firstRow; lastRow=$lastRow; capture=$($bitmap.Width)x$($bitmap.Height); " +
+                "scroll=$($scroll.Current.VerticalScrollPercent)%."
+        }
+        $sum = { param($Pixel) [int]$Pixel.R + $Pixel.G + $Pixel.B }
+        $backgroundX = [Math]::Max(0, $trunkX - [int](8 * $scale))
+        $background = & $sum $bitmap.GetPixel($backgroundX, $firstRow + [int](4 * $scale))
+        $inked = 0
+        for ($y = $firstRow; $y -le $lastRow; $y++) {
+            $contrast = 0
+            for ($x = $trunkX - 2; $x -le $trunkX + 2; $x++) {
+                $contrast = [Math]::Max($contrast, [Math]::Abs((& $sum $bitmap.GetPixel($x, $y)) - $background))
+            }
+            if ($contrast -ge 90) { $inked++ }
+        }
+        $ratio = $inked / ($lastRow - $firstRow + 1)
+        if ($ratio -lt 0.85) {
+            throw "Room map connections must stay legible in '$Name'; only " +
+                "$([Math]::Round($ratio * 100))% of the visible trunk interval contrasts with the background."
+        }
+    }
+    finally { $bitmap.Dispose() }
+}
+
+function Assert-RoomMapDetailsBack([string] $Name) {
+    # Find the button itself: its keyboard-focus ToolTip carries the same name without the Invoke pattern.
+    $back = Find-UiRegressionElement -Condition ([System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'DeviceBackButton'),
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, 'Back to Room map'))) `
+        -Description "Device details Room map Back for '$Name'" -Container { $root }
+    $tolerance = 1.5 * $scale
+    $bounds = $back.Current.BoundingRectangle
+    $window = $root.Current.BoundingRectangle
+    $label = $back.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text))
+    # A Button with string Content may not expose its TextBlock as a separate peer; when it does, it must fit.
+    $text = if ($label) { $label.Current.BoundingRectangle } else { $null }
+    if ($label -and $label.Current.Name -cne "$([char]0x2190) Room map") {
+        throw "The Room map Back button must show the Room map destination in '$Name'; found '$($label.Current.Name)'."
+    }
+    if ($bounds.IsEmpty -or $bounds.Width -lt 80 * $scale -or $bounds.Height -lt 32 * $scale -or
+        $bounds.Left -lt $window.Left -or $bounds.Right -gt $window.Right -or
+        $bounds.Top -lt $window.Top -or $bounds.Bottom -gt $window.Bottom -or
+        $text -and ($text.Width -le 0 -or $text.Left -lt $bounds.Left - $tolerance -or $text.Right -gt $bounds.Right + $tolerance -or
+            $text.Top -lt $bounds.Top - $tolerance -or $text.Bottom -gt $bounds.Bottom + $tolerance)) {
+        throw "The Room map Back button is clipped in '$Name'. Button=$bounds; label=$text; window=$window."
+    }
+    foreach ($tabId in @('DeviceOverviewTab', 'DeviceHistoryTab')) {
+        $tab = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $tabId))
+        if (-not $tab) { throw "Device Details tab '$tabId' is missing in '$Name'." }
+        $overlap = [System.Windows.Rect]::Intersect($bounds, $tab.Current.BoundingRectangle)
+        if (-not $overlap.IsEmpty -and $overlap.Width -gt $tolerance -and $overlap.Height -gt $tolerance) {
+            throw "The Room map Back button overlaps '$tabId' in '$Name'. Button=$bounds; tab=$($tab.Current.BoundingRectangle)."
+        }
+    }
+    Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path (Join-Path $ScreenshotDirectory "room-map-details-back-$Name.png")
+    $back.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $null = Wait-UiRegressionState -Description "Room map after the '$Name' Back check" -Condition {
+        $candidate = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapScroll'))
+        $candidate -and -not $candidate.Current.IsOffscreen
     }
 }
 
@@ -206,9 +524,21 @@ function Test-RoomMapAccessibility {
         Select-SidebarPage 'Tools' 'View room map'
         Invoke-PeopleRoomsElement Name 'View room map'
         $null = Find-PeopleRoomsElement AutomationId 'RoomMapRoom-00000000-0000-0000-0000-000000000001' RoomMapPage
-        Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
+        $page = Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapPage')) `
             -Description 'Room map accessibility page' -Container { $root }
+        $onlyOnline = Find-PeopleRoomsElement AutomationId RoomMapOnlineOnlySwitch RoomMapPage
+        $toggle = $onlyOnline.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+        if ($toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On) {
+            $toggle.Toggle()
+            $null = Wait-UiRegressionState -Description 'all Room map accessibility devices' -Condition {
+                $devices = $page.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.Condition]::TrueCondition) |
+                    Where-Object { $_.Current.AutomationId -like 'RoomMapDevice-*' }
+                @($devices).Count -eq 100
+            }
+        }
+        $page
     }
     $mapElements = {
         param($Page, [string] $Prefix)
@@ -252,6 +582,39 @@ function Test-RoomMapAccessibility {
         Start-SidebarApp
         Set-SidebarWindowWidth $expandedWidth
         $page = & $openMap
+        $mode = Get-SidebarAppearanceSelection ModePicker
+        $style = Get-SidebarAppearanceSelection ThemePicker
+        $highContrast = $null
+        $themesFailed = $true
+        try {
+            foreach ($theme in @('Standard Light', 'Standard Dark')) {
+                Set-SidebarAppearance ThemePicker $theme
+                $null = & $openMap
+                Assert-RoomMapConnectionInk ($theme.Replace(' ', '-').ToLowerInvariant()) 1
+            }
+            $highContrast = [SidebarReviewKeyboard]::GetHighContrastFlags()
+            [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast -bor 1)
+            Start-Sleep -Seconds 2
+            if (([SidebarReviewKeyboard]::GetHighContrastFlags() -band 1) -eq 0) { throw 'High contrast did not activate.' }
+            $null = & $openMap
+            Assert-RoomMapConnectionInk 'high-contrast' 1
+            $themesFailed = $false
+        }
+        finally {
+            Invoke-UiRegressionCleanup -PrimaryFailed $themesFailed -Steps @(
+                {
+                    if ($null -ne $highContrast) {
+                        [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast)
+                        Start-Sleep -Seconds 2
+                    }
+                },
+                {
+                    Select-SidebarPage Settings "Window backdrop"
+                    Set-UiReviewAppearanceChoice -Root $root -Picker ModePicker -Choice $mode
+                    Set-UiReviewAppearanceChoice -Root $root -Picker ThemePicker -Choice $style
+                })
+        }
+        $page = & $openMap
         $tiles = & $mapElements $page 'RoomMapDevice-'
         if ($tiles.Count -ne 100) { throw "The Room map must render all 100 devices before resizing; found $($tiles.Count)." }
         $normal = @{}
@@ -289,6 +652,8 @@ function Test-RoomMapAccessibility {
         $last = Find-PeopleRoomsElement AutomationId 'RoomMapDevice-001122000063' RoomMapPage
         if ($last.Current.IsOffscreen) { throw 'Keyboard focus must bring the last Room map device into view in a narrow window.' }
         Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path (Join-Path $ScreenshotDirectory 'room-map-narrow.png')
+        $last.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        Assert-RoomMapDetailsBack 'narrow'
 
         Stop-SidebarApp
         $key.SetValue('TextScaleFactor', 200, [Microsoft.Win32.RegistryValueKind]::DWord)
@@ -299,6 +664,7 @@ function Test-RoomMapAccessibility {
         Start-SidebarApp
         Set-SidebarWindowWidth $expandedWidth
         $page = & $openMap
+        Assert-RoomMapConnectionInk 'text-scale-200' 2
         $tiles = & $mapElements $page 'RoomMapDevice-'
         $rooms = & $mapElements $page 'RoomMapRoom-'
         if ($tiles.Count -ne 100 -or $rooms.Count -ne 10) {
@@ -335,7 +701,13 @@ function Test-RoomMapAccessibility {
         $last = Find-PeopleRoomsElement AutomationId 'RoomMapDevice-001122000063' RoomMapPage
         if ($last.Current.IsOffscreen) { throw 'Keyboard focus must bring the last Room map device into view at 200% text scale.' }
         Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path (Join-Path $ScreenshotDirectory 'room-map-text-scale-200.png')
-        Write-Host 'Room map narrow-window scrolling, normal-size devices and 200% text-scale layout passed.'
+        $last.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        Assert-RoomMapDetailsBack 'text-scale-200'
+        Set-SidebarWindowWidth 640
+        $last = Find-PeopleRoomsElement AutomationId 'RoomMapDevice-001122000063' RoomMapPage
+        $last.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        Assert-RoomMapDetailsBack 'text-scale-200-narrow'
+        Write-Host 'Room map narrow-window scrolling, normal-size devices, 200% text-scale layout, connection legibility and Room map Back headers passed.'
         $failed = $false
     }
     finally {

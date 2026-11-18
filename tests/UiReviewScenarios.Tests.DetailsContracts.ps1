@@ -47,6 +47,8 @@
         -not $header.SelectSingleNode(".//*[@x:Name='DeviceBackButton']", $namespaces)) {
         throw "Back, segmented tabs and identity must share the responsive details header."
     }
+    $deviceBack = $header.SelectSingleNode(".//*[@x:Name='DeviceBackButton']", $namespaces)
+    Assert-Equal $deviceBack.GetAttribute("AutomationProperties.AutomationId") "DeviceBackButton" "Device Details Back is stable for Room map return"
     $columns = $page.SelectSingleNode("//*[@x:Name='DetailsColumns']", $namespaces)
     foreach ($id in @("NetworkOverviewCard", "AssignmentsCard", "DeviceHistorySummaryCard", "UsageCategoryCard")) {
         if (-not $columns.SelectSingleNode("./*[@x:Name='$id']", $namespaces)) {
@@ -54,6 +56,13 @@
         }
     }
     $detailsCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml.cs") -Raw
+    $roomDetailsCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\RoomDetailsPageView.xaml.cs") -Raw
+    if ($detailsCode -notmatch 'SetBackDestination\(bool roomMap\)' -or
+        $detailsCode -notmatch 'Back to Room map' -or
+        $roomDetailsCode -notmatch 'SetBackDestination\(bool roomMap\)' -or
+        $roomDetailsCode -notmatch 'Back to Room map') {
+        throw "Device and Room Details must expose source-aware Back labels and accessible names for Room map returns."
+    }
     if ($detailsCode -notmatch '(?s)internal void ShowDevice\(.*?DetailsTabs\.SelectedItem = OverviewTab;') {
         throw "Opening a device must reset Device Details to Overview."
     }
