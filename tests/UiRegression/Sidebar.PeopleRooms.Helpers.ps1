@@ -217,6 +217,24 @@ function Test-RoomMapAccessibility {
     }
     $textCondition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text)
+    # UI Automation clips bounds to the visible viewport, so only fully visible elements report their real size.
+    $viewport = {
+        $map = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapScroll'))
+        if (-not $map) { throw 'The Room map scroll viewer is missing.' }
+        $map.Current.BoundingRectangle
+    }
+    $fullyVisible = {
+        param($Elements)
+        $area = & $viewport
+        @($Elements | Where-Object {
+            $bounds = $_.Current.BoundingRectangle
+            -not $_.Current.IsOffscreen -and -not $bounds.IsEmpty -and
+                $bounds.Left -ge $area.Left - 1 -and $bounds.Right -le $area.Right + 1 -and
+                $bounds.Top -ge $area.Top - 1 -and $bounds.Bottom -le $area.Bottom + 1
+        })
+    }
     $settings = [Windows.UI.ViewManagement.UISettings, Windows.UI.ViewManagement, ContentType = WindowsRuntime]::new()
     $originalScale = $settings.TextScaleFactor
     $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\Microsoft\Accessibility')
@@ -229,9 +247,12 @@ function Test-RoomMapAccessibility {
         Start-SidebarApp
         Set-SidebarWindowWidth $expandedWidth
         $page = & $openMap
+        $tiles = & $mapElements $page 'RoomMapDevice-'
+        if ($tiles.Count -ne 100) { throw "The Room map must render all 100 devices before resizing; found $($tiles.Count)." }
         $normal = @{}
-        foreach ($tile in (& $mapElements $page 'RoomMapDevice-')) { $normal[$tile.Current.AutomationId] = $tile.Current.BoundingRectangle }
-        if ($normal.Count -ne 100) { throw "The Room map must render all 100 devices before resizing; found $($normal.Count)." }
+        foreach ($tile in (& $fullyVisible $tiles)) { $normal[$tile.Current.AutomationId] = $tile.Current.BoundingRectangle }
+        if ($normal.Count -eq 0) { throw 'At least one Room map device must be fully visible before resizing.' }
+        $normalSizes = @($normal.Values | ForEach-Object { [System.Windows.Size]::new($_.Width, $_.Height) })
         Set-SidebarWindowWidth 640
         # The scroll viewer is not focusable, and the RoomMapPage pane has no ScrollPattern to reveal it with.
         $page = Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
@@ -248,12 +269,16 @@ function Test-RoomMapAccessibility {
         $page = Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapPage')) `
             -Description 'resized Room map page' -Container { $root }
-        foreach ($tile in (& $mapElements $page 'RoomMapDevice-')) {
-            $before = $normal[$tile.Current.AutomationId]
+        $narrowTiles = & $fullyVisible (& $mapElements $page 'RoomMapDevice-')
+        if ($narrowTiles.Count -eq 0) { throw 'At least one Room map device must be fully visible in a narrow window.' }
+        foreach ($tile in $narrowTiles) {
             $after = $tile.Current.BoundingRectangle
-            if (-not $before -or [Math]::Abs($after.Width - $before.Width) -gt $tolerance -or
-                [Math]::Abs($after.Height - $before.Height) -gt $tolerance) {
-                throw "Room map device $($tile.Current.AutomationId) must keep its normal size in a narrow window."
+            $expected = if ($normal.ContainsKey($tile.Current.AutomationId)) {
+                @([System.Windows.Size]::new($normal[$tile.Current.AutomationId].Width, $normal[$tile.Current.AutomationId].Height))
+            } else { $normalSizes }
+            if (-not ($expected | Where-Object {
+                    [Math]::Abs($after.Width - $_.Width) -le $tolerance -and [Math]::Abs($after.Height - $_.Height) -le $tolerance })) {
+                throw "Room map device $($tile.Current.AutomationId) must keep its normal size in a narrow window ($($after.Width)x$($after.Height))."
             }
         }
         $last = Find-PeopleRoomsElement AutomationId 'RoomMapDevice-001122000063' RoomMapPage
@@ -274,7 +299,9 @@ function Test-RoomMapAccessibility {
         if ($tiles.Count -ne 100 -or $rooms.Count -ne 10) {
             throw "Enlarged text must keep all 10 rooms and 100 devices; found $($rooms.Count) and $($tiles.Count)."
         }
-        foreach ($tile in $tiles) {
+        $visibleTiles = & $fullyVisible $tiles
+        if ($visibleTiles.Count -eq 0) { throw 'At least one Room map device must be fully visible at 200% text scale.' }
+        foreach ($tile in $visibleTiles) {
             $bounds = $tile.Current.BoundingRectangle
             foreach ($text in $tile.FindAll([System.Windows.Automation.TreeScope]::Descendants, $textCondition)) {
                 $label = $text.Current.BoundingRectangle
@@ -283,17 +310,23 @@ function Test-RoomMapAccessibility {
                 }
             }
         }
+        $area = & $viewport
+        $checkedRooms = 0
         foreach ($room in $rooms) {
             $bounds = $room.Current.BoundingRectangle
-            $firstTile = @($tiles | Where-Object { $bounds.Contains($_.Current.BoundingRectangle) } |
+            if ($room.Current.IsOffscreen -or $bounds.Top -lt $area.Top - 1 -or $bounds.Top -gt $area.Bottom) { continue }
+            $firstTile = @($visibleTiles | Where-Object { $bounds.Contains($_.Current.BoundingRectangle) } |
                 ForEach-Object { $_.Current.BoundingRectangle.Top } | Measure-Object -Minimum).Minimum
+            if ($null -eq $firstTile) { continue }
+            $checkedRooms++
             foreach ($text in $room.FindAll([System.Windows.Automation.TreeScope]::Descendants, $textCondition)) {
                 $label = $text.Current.BoundingRectangle
-                if ($label.Bottom -gt $bounds.Bottom + $tolerance -or ($firstTile -and $label.Bottom -gt $firstTile + $tolerance)) {
+                if ($label.Bottom -gt $firstTile + $tolerance) {
                     throw "Room header '$($text.Current.Name)' must stay above its devices at 200% text scale."
                 }
             }
         }
+        if ($checkedRooms -eq 0) { throw 'At least one Room map room header and device must be fully visible at 200% text scale.' }
         $last = Find-PeopleRoomsElement AutomationId 'RoomMapDevice-001122000063' RoomMapPage
         if ($last.Current.IsOffscreen) { throw 'Keyboard focus must bring the last Room map device into view at 200% text scale.' }
         Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path (Join-Path $ScreenshotDirectory 'room-map-text-scale-200.png')
