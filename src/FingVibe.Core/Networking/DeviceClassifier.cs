@@ -13,6 +13,8 @@ public sealed record SsdpDeviceInfo(
     string? Server)
 {
     public string? DeviceUuid { get; init; }
+    // When the responder's own SSDP reply was received in this scan.
+    public DateTimeOffset? ObservedAt { get; init; }
 }
 
 public sealed record MdnsDeviceInfo(
@@ -20,6 +22,9 @@ public sealed record MdnsDeviceInfo(
     string? HostName = null)
 {
     public IReadOnlyList<ReportedDeviceValue> ReportedValues { get; init; } = [];
+    // True only when this address itself sent a live mDNS answer announcing its own address in this scan.
+    public bool RespondedFromAddress { get; init; }
+    public IReadOnlyList<ServiceAdvertisement> Advertisements { get; init; } = [];
 }
 
 public sealed record ServiceBanner(string Source, string Value);

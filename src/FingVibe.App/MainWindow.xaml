@@ -248,7 +248,8 @@
                         FiltersChanged="DeviceFiltersChanged"
                         SortRequested="DeviceSortRequested"
                         DeviceRequested="DeviceRequested"
-                        MatchSuggestionRequested="DeviceMatchSuggestionRequested" />
+                        MatchSuggestionRequested="DeviceMatchSuggestionRequested"
+                        ServiceDiscoveryRequested="DeviceServiceDiscoveryRequested" />
 
                 <!-- Device details -->
                 <views:DeviceDetailsPageView x:Name="DevicePage" Grid.Row="1" Visibility="Collapsed"

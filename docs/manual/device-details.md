@@ -110,6 +110,23 @@ An error leaves the draft visible so you can review it.
 Names and corrections normally follow the device's MAC address, not its IP.
 A changing MAC can break that association.
 
+## Service discovery
+
+**Service discovery (N)** appears below **Device identification** and above
+**Ports & services** when the device advertised services. Each entry shows the
+service and protocol (mDNS/DNS-SD or SSDP/UPnP), the advertised endpoint, any
+advertised instance, name, manufacturer or model, an inferred role, the
+observation time, and a separate **TCP verification** result.
+
+- Advertisements are response evidence, not a verified identity or an exact
+  hardware model. A role such as *Spotify Connect playback endpoint* or
+  *Hue bridge service* describes a service, not the device's name or model.
+- Advertised TCP ports are checked once per scan, only on the address that
+  advertised them, with a 400 ms timeout. Only a port that answers is added to
+  **Ports & services**; an unanswered port is labeled *not counted as open*.
+- UDP endpoints (for example Matter commissioning) and SSDP descriptions are
+  listed but not probed.
+
 ## Inspect services
 
 The normal LAN scan checks ten common TCP ports.

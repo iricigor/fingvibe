@@ -665,6 +665,23 @@
           "functions": [],
           "captures": [],
           "fixtureAssignments": []
+        },
+        {
+          "file": "Devices.ServiceDiscovery.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [],
+          "refactored": true,
+          "introducedBy": "#481: latest-scan service-discovery icon, MAC-unavailable responder, keyboard activation and the Device Details Service discovery section.",
+          "functions": [
+            { "name": "New-ServiceFixtureAdvertisement", "refactored": true },
+            { "name": "Find-ServiceDiscoveryRow", "refactored": true },
+            { "name": "Find-ServiceDiscoveryIcon", "refactored": true }
+          ],
+          "captures": [
+            "4311e12b44e0a254d7a5f309912ba624bf392a816e6c7480bf5b4c085d16c713",
+            "6b1edaa04e77da1312253be9dd8a43a7eee3a80089f32fa77bff56e3a9660bf2"
+          ],
+          "fixtureAssignments": []
         }
       ],
       "scenarioOrder": [
@@ -677,7 +694,8 @@
         "Layout",
         "Appearance",
         "Interaction",
-        "Sorting"
+        "Sorting",
+        "ServiceDiscovery"
       ]
     },
     {

@@ -66,6 +66,7 @@ public sealed partial class DevicesPageView : UserControl
     public event EventHandler<string>? SortRequested;
     public event EventHandler<ScanResultRow>? DeviceRequested;
     public event EventHandler<ScanResultRow>? MatchSuggestionRequested;
+    public event EventHandler<ScanResultRow>? ServiceDiscoveryRequested;
 
     internal string SearchText { get => ResultSearchBox.Text; set => ResultSearchBox.Text = value; }
     internal bool OpenPortsOnly { get => OpenPortsFilter.IsChecked == true; set => OpenPortsFilter.IsChecked = value; }
@@ -627,6 +628,12 @@ public sealed partial class DevicesPageView : UserControl
     {
         if (sender is FrameworkElement { DataContext: ScanResultRow row })
             MatchSuggestionRequested?.Invoke(this, row);
+    }
+
+    private void ServiceDiscoveryButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ScanResultRow row })
+            ServiceDiscoveryRequested?.Invoke(this, row);
     }
 
 }

@@ -20,6 +20,7 @@ public sealed class LanScannerService
     private readonly Func<IPAddress, int, Task<IcmpEchoReply>> _sendEcho;
     private readonly TimeProvider _timeProvider;
     private readonly Func<IPAddress, LanNetwork, CancellationToken, Task<PhysicalAddress?>> _arp;
+    private readonly Func<IPAddress, int, CancellationToken, Task<bool>>? _connect;
 
     public LanScannerService(
         int timeoutMilliseconds = DefaultTimeoutMilliseconds,
@@ -49,7 +50,8 @@ public sealed class LanScannerService
         Func<IPAddress, CancellationToken, Task<ScanDiscovery>> discover,
         Func<IPAddress, int, Task<IcmpEchoReply>> sendEcho,
         TimeProvider timeProvider,
-        Func<IPAddress, LanNetwork, CancellationToken, Task<PhysicalAddress?>>? arp = null)
+        Func<IPAddress, LanNetwork, CancellationToken, Task<PhysicalAddress?>>? arp = null,
+        Func<IPAddress, int, CancellationToken, Task<bool>>? connect = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timeoutMilliseconds);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumConcurrency);
@@ -60,6 +62,7 @@ public sealed class LanScannerService
         _sendEcho = sendEcho;
         _timeProvider = timeProvider;
         _arp = arp ?? ((_, _, _) => Task.FromResult<PhysicalAddress?>(null));
+        _connect = connect;
     }
 
     public async Task<ScanSummary> ScanAsync(
@@ -80,6 +83,7 @@ public sealed class LanScannerService
         cancellationToken = lifetime.Token;
         var discoveryTask = _discover(network.LocalAddress, cancellationToken);
         using var enrichmentSlots = new SemaphoreSlim(32, 32);
+        var verifier = new AdvertisedEndpointVerifier(_connect);
 
         try
         {
@@ -113,7 +117,7 @@ public sealed class LanScannerService
                     if (!MacAddressResolver.IsUsableNeighbor(mac.GetAddressBytes(), 5))
                         throw new InvalidOperationException($"Fresh ARP returned an invalid MAC for {addresses[index]}.");
                     var result = await EnrichAsync(addresses[index], network, discoveryTask, enrichmentSlots,
-                        token, stopwatch.Elapsed, null, null, mac).ConfigureAwait(false);
+                        token, stopwatch.Elapsed, null, null, verifier, mac).ConfigureAwait(false);
                     token.ThrowIfCancellationRequested();
                     confirmed[index] = result;
                     Interlocked.Increment(ref alive);
@@ -124,6 +128,26 @@ public sealed class LanScannerService
             }).ConfigureAwait(false);
 
             if (arpAddresses.Length > 0)
+                await CheckpointAsync().ConfigureAwait(false);
+
+            // A fresh, validated mDNS/SSDP reply from the address itself is presence evidence even when ICMP and
+            // fresh ARP fail. Only scanned subnet addresses are admitted, once each, with no measured latency.
+            var discovery = await discoveryTask.ConfigureAwait(false);
+            var advertised = Remaining().Where(index => IsServiceDiscoveryResponder(discovery, addresses[index])).ToArray();
+            await Parallel.ForEachAsync(advertised, new ParallelOptions
+            {
+                CancellationToken = cancellationToken,
+                MaxDegreeOfParallelism = FreshArpProbe.MaximumConcurrency
+            }, async (index, token) =>
+            {
+                var result = await EnrichAsync(addresses[index], network, discoveryTask, enrichmentSlots,
+                    token, TimeSpan.Zero, null, null, verifier).ConfigureAwait(false);
+                token.ThrowIfCancellationRequested();
+                confirmed[index] = result;
+                Interlocked.Increment(ref alive);
+                resultProgress.Report(result);
+            }).ConfigureAwait(false);
+            if (advertised.Length > 0)
                 await CheckpointAsync().ConfigureAwait(false);
             for (var round = 0; round < 2 && Remaining().Length > 0; round++)
             {
@@ -187,6 +211,7 @@ public sealed class LanScannerService
                         network,
                         discoveryTask,
                         enrichmentSlots,
+                        verifier,
                         token).ConfigureAwait(false);
                     token.ThrowIfCancellationRequested();
                     record(index, result);
@@ -213,11 +238,16 @@ public sealed class LanScannerService
         return new IcmpEchoReply(reply.Status, reply.RoundtripTime, reply.Options?.Ttl);
     }
 
+    private static bool IsServiceDiscoveryResponder(ScanDiscovery discovery, IPAddress address) =>
+        discovery.MdnsDevices.GetValueOrDefault(address) is { RespondedFromAddress: true }
+        || discovery.SsdpDevices.GetValueOrDefault(address)?.Any(device => device.ObservedAt is not null) == true;
+
     private async Task<ScanResult> ProbeAsync(
         IPAddress address,
         LanNetwork network,
         Task<ScanDiscovery> discoveryTask,
         SemaphoreSlim enrichmentSlots,
+        AdvertisedEndpointVerifier verifier,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -236,7 +266,7 @@ public sealed class LanScannerService
 
             return await EnrichAsync(address, network, discoveryTask, enrichmentSlots, cancellationToken,
                 stopwatch.Elapsed, reply.RoundtripTimeMilliseconds,
-                address.Equals(network.GatewayAddress) ? null : reply.Ttl).ConfigureAwait(false);
+                address.Equals(network.GatewayAddress) ? null : reply.Ttl, verifier).ConfigureAwait(false);
         }
         catch (PingException)
         {
@@ -249,7 +279,7 @@ public sealed class LanScannerService
     private async Task<ScanResult> EnrichAsync(
         IPAddress address, LanNetwork network, Task<ScanDiscovery> discoveryTask,
         SemaphoreSlim enrichmentSlots, CancellationToken cancellationToken, TimeSpan duration,
-        long? latency, int? ttl, PhysicalAddress? confirmedMac = null)
+        long? latency, int? ttl, AdvertisedEndpointVerifier verifier, PhysicalAddress? confirmedMac = null)
     {
         await enrichmentSlots.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -257,11 +287,16 @@ public sealed class LanScannerService
             var enrichment = await _resultEnricher.EnrichAsync(address, discoveryTask, cancellationToken,
                 ttl, confirmedMac).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
+            var (advertisements, openPorts) = enrichment.ServiceAdvertisements.Count == 0
+                ? (enrichment.ServiceAdvertisements, enrichment.OpenPorts)
+                : await verifier.VerifyAsync(address, enrichment.ServiceAdvertisements, enrichment.OpenPorts,
+                    cancellationToken).ConfigureAwait(false);
             return new ScanResult(address, HostStatus.Alive, latency, duration, enrichment.DeviceName,
-                confirmedMac ?? enrichment.MacAddress, enrichment.VendorName, enrichment.OpenPorts,
+                confirmedMac ?? enrichment.MacAddress, enrichment.VendorName, openPorts,
                 DeviceClassifier.ApplyNetworkContext(enrichment.Classification ?? DeviceClassification.Unknown, address, network))
             {
-                ReportedValues = enrichment.ReportedValues
+                ReportedValues = enrichment.ReportedValues,
+                ServiceAdvertisements = advertisements
             };
         }
         finally { enrichmentSlots.Release(); }

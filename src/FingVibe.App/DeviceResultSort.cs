@@ -51,19 +51,22 @@ internal static class DeviceResultSort
             ResultSortColumn.Address => CompareAddresses(left.AddressText, right.AddressText),
             ResultSortColumn.Status => left.Status.CompareTo(right.Status),
             ResultSortColumn.Response => Nullable.Compare(left.LatencyMilliseconds, right.LatencyMilliseconds),
-            ResultSortColumn.MacAddress => CompareText(left.MacAddressText, right.MacAddressText),
+            ResultSortColumn.MacAddress => CompareText(MacKey(left), MacKey(right)),
             ResultSortColumn.LastSeen => Nullable.Compare(left.LastSeen.Timestamp, right.LastSeen.Timestamp),
             ResultSortColumn.UsageCategory => CompareText(left.UsageCategoryText, right.UsageCategoryText),
             _ => throw new ArgumentOutOfRangeException(nameof(column), column, "Unknown Devices sort column.")
         };
 
         if (comparison == 0)
-            comparison = string.Compare(left.MacAddressText, right.MacAddressText, StringComparison.Ordinal);
+            comparison = string.Compare(MacKey(left), MacKey(right), StringComparison.Ordinal);
         if (comparison == 0)
             comparison = CompareAddresses(left.AddressText, right.AddressText);
 
         return ascending ? Math.Sign(comparison) : -Math.Sign(comparison);
     }
+
+    // Rows without a MAC (shown as "MAC unavailable" or "-") sort before every MAC address.
+    private static string MacKey(ScanResultRow row) => row.MacAddress is null ? string.Empty : row.MacAddressText;
 
     private static int CompareText(string left, string right) =>
         string.Compare(left, right, StringComparison.OrdinalIgnoreCase);

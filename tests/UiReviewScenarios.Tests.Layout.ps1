@@ -192,6 +192,21 @@
         $matchButtonExit -cne "DeviceMatchButton_PointerExited") {
         throw "Possible-match ToolTips must explicitly open and close with pointer entry and exit."
     }
+    $serviceButton = $devicesDocument.SelectSingleNode("//*[@*[local-name()='Name']='ServiceDiscoveryButton']")
+    $serviceCell = $serviceButton.ParentNode
+    $servicePorts = $serviceCell.SelectSingleNode("./*[local-name()='ItemsControl']")
+    if ($serviceCell.GetAttribute("Grid.Column") -cne "3" -or -not $servicePorts -or
+        $servicePorts.GetAttribute("ItemsSource") -cne "{x:Bind OpenPortItems, Mode=OneWay}" -or
+        $servicePorts.GetAttribute("HorizontalAlignment") -cne "Left" -or
+        $serviceButton.GetAttribute("Grid.Column") -cne "1" -or $serviceButton.GetAttribute("HorizontalAlignment") -cne "Right" -or
+        $serviceButton.GetAttribute("Visibility") -cne "{x:Bind HasLatestServiceDiscovery, Mode=OneWay}" -or
+        $serviceButton.GetAttribute("AutomationProperties.AutomationId") -cne "ServiceDiscoveryButton" -or
+        $serviceButton.GetAttribute("AutomationProperties.Name") -cne "{x:Bind ServiceDiscoveryName, Mode=OneWay}" -or
+        $serviceButton.GetAttribute("AutomationProperties.HelpText") -cne "{x:Bind ServiceDiscoveryText, Mode=OneWay}" -or
+        $serviceButton.GetAttribute("ToolTipService.ToolTip") -cne "{x:Bind ServiceDiscoveryText, Mode=OneWay}" -or
+        $serviceButton.SelectSingleNode("./*[local-name()='FontIcon']").GetAttribute("Glyph") -cne [string][char]0xE95A) {
+        throw "The Open ports cell must keep verified ports left-aligned and a named, right-aligned U+E95A service-discovery button for latest-scan advertisements."
+    }
     $detailsDocument = [xml](Get-Content (Join-Path $appDirectory "Views\DeviceDetailsPageView.xaml") -Raw)
     foreach ($id in @("MergeMacCount", "MergeMacOtherHeading", "MergeMacOtherName", "MergeMacReason")) {
         $node = $detailsDocument.SelectSingleNode("//*[@*[local-name()='Name']='$id']")
@@ -386,11 +401,12 @@
         $assignments = $details.SelectSingleNode("//*[@*[local-name()='Name']='AssignmentsCard']")
         $identification = $details.SelectSingleNode("//*[@*[local-name()='Name']='IdentificationCard']")
         $ports = $details.SelectSingleNode("//*[@*[local-name()='Name']='PortsServicesCard']")
+        $serviceDiscovery = $details.SelectSingleNode("//*[@*[local-name()='Name']='ServiceDiscoveryCard']")
         if ($overview.ParentNode -ne $assignments.ParentNode -or
             $assignments.GetAttribute("Grid.Column") -ne "1" -or
             $identification.ParentNode -ne $overview.ParentNode.ParentNode -or
-            $identification.NextSibling -ne $ports) {
-            throw "Details must put network/assignments in the top row, then full-width identification and ports."
+            $identification.NextSibling -ne $serviceDiscovery -or $serviceDiscovery.NextSibling -ne $ports) {
+            throw "Details must put network/assignments in the top row, then full-width identification, service discovery and ports."
         }
         $assignmentLayout = $assignments.FirstChild
         $assignmentNote = $details.SelectSingleNode("//*[@*[local-name()='Name']='DeviceAssignmentStatusText']")
