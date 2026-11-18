@@ -2,11 +2,11 @@
     x:Class="FingVibe.App.Views.RoomMapPageView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:local="using:FingVibe.App">
+    xmlns:local="using:FingVibe.App"
+    AutomationProperties.AutomationId="RoomMapPage">
     <Grid x:Name="RoomMapPage"
           Margin="{StaticResource ScannerPageContentMargin}"
           RowSpacing="14"
-          AutomationProperties.AutomationId="RoomMapPage"
           SizeChanged="RoomMapPage_SizeChanged">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />

@@ -29,6 +29,15 @@ public sealed partial class RoomMapPageView : UserControl
 
     public event RoutedEventHandler? ManageRoomsRequested;
 
+    // Panels have no automation peer, so expose the page itself as the RoomMapPage pane.
+    protected override AutomationPeer OnCreateAutomationPeer() => new RoomMapPagePeer(this);
+
+    private sealed class RoomMapPagePeer(RoomMapPageView owner) : FrameworkElementAutomationPeer(owner)
+    {
+        protected override AutomationControlType GetAutomationControlTypeCore() => AutomationControlType.Pane;
+        protected override string GetClassNameCore() => nameof(RoomMapPageView);
+    }
+
     internal void Show(
         DeviceInventoryData data,
         LanNetwork? network,
