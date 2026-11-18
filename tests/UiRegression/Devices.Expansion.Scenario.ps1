@@ -103,8 +103,17 @@ function Test-MacExpansionHighContrast {
     try {
         Set-DeviceFilterContrastFlags -Flags ($flags -bor 1)
         Wait-DeviceFilterContrastReady -Enabled $true
+        $appDirectory = Split-Path -Parent (Resolve-Path -LiteralPath $AppPath).Path
+        Add-Type -Path (Join-Path $appDirectory 'WinRT.Runtime.dll')
+        Add-Type -Path (Join-Path $appDirectory 'Microsoft.Windows.SDK.NET.dll')
+        $foreground = [Windows.UI.ViewManagement.UISettings]::new().GetColorValue(
+            [Windows.UI.ViewManagement.UIColorType]::Foreground)
         # Window text, highlight text (selected row) and button text are the high-contrast foregrounds in use.
         $systemColors = @(8, 14, 18 | ForEach-Object { [DeviceFilterReviewContrast]::GetSysColor($_) })
+        # The WinRT foreground can update for WinUI before the worker's Win32 color cache does.
+        $systemColors += [int]$foreground.R -bor
+            ([int]$foreground.G -shl 8) -bor
+            ([int]$foreground.B -shl 16)
         $chevron = Wait-UiRegressionState -Description 'expanded MAC row rendered in high contrast' -Condition {
             $candidate = Find-ExpansionRow
             if (-not $candidate) { return $null }
