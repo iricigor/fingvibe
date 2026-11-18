@@ -1166,7 +1166,12 @@ Some features contact external services as explained below.</p>
 <tr>
 <td>LAN discovery and identification</td>
 <td>Devices on the selected local network</td>
-<td>Ping, fresh ARP, mDNS/DNS-SD and SSDP name/service discovery, and bounded service probes, including TCP checks of up to 64 ports per scan that devices advertised for their own address.</td>
+<td>Ping, fresh ARP, mDNS/DNS-SD and SSDP name/service discovery, and bounded service probes: 17 common TCP ports per responding device, plus TCP checks of up to 64 ports per scan that devices advertised for their own address.</td>
+</tr>
+<tr>
+<td>Manual device service scans</td>
+<td>Only the device selected in details</td>
+<td>When you choose them: 193 additional TCP ports with optional single DNS/NTP UDP requests, or, after a warning, a full scan of all 65,535 TCP ports. Many connection attempts can trigger security monitoring on the device or network.</td>
 </tr>
 <tr>
 <td>MAC vendor lookup</td>
