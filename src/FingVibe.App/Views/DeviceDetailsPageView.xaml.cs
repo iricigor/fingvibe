@@ -69,6 +69,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
     public event RoutedEventHandler? NameSaveRequested;
     public event RoutedEventHandler? NameResetRequested;
     public event RoutedEventHandler? PortScanRequested;
+    public event RoutedEventHandler? FullPortScanRequested;
     public event EventHandler? ClassificationChanged;
     public event RoutedEventHandler? ClassificationSaveRequested;
     public event RoutedEventHandler? ClassificationResetRequested;
@@ -450,13 +451,41 @@ public sealed partial class DeviceDetailsPageView : UserControl
         }
     }
 
-    internal void SetPortScanRunning(bool running, bool canProbe)
+    internal void SetPortScanRunning(bool running, bool canProbe, bool fullScan = false)
     {
-        DevicePortScanButton.Content = running ? "Cancel additional scan" : "Scan additional ports";
-        DevicePortScanButton.IsEnabled = running || canProbe;
+        DevicePortScanButton.Content = running && !fullScan ? "Cancel additional scan" : "Scan additional ports";
+        DevicePortScanButton.IsEnabled = running ? !fullScan : canProbe;
+        DeviceFullPortScanButton.Content = running && fullScan ? "Cancel full scan" : "Full TCP port scan";
+        DeviceFullPortScanButton.IsEnabled = running ? fullScan : canProbe;
         DeviceIncludeUdpCheckBox.IsEnabled = !running && canProbe;
         DeviceAddressPicker.IsEnabled = !running && canProbe;
     }
+
+    internal async Task<bool> ConfirmFullPortScanAsync(string address)
+    {
+        var content = new StackPanel { Spacing = 12, MaxWidth = 460 };
+        foreach (var paragraph in FullPortScanWarning(address))
+            content.Children.Add(new TextBlock { Text = paragraph, TextWrapping = TextWrapping.Wrap });
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = "Start a full TCP port scan?",
+            Content = new ScrollViewer { Content = content },
+            PrimaryButtonText = "Start full scan",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Close
+        };
+        AutomationProperties.SetAutomationId(dialog, "FullPortScanWarningDialog");
+        return await dialog.ShowAsync() == ContentDialogResult.Primary;
+    }
+
+    internal static IReadOnlyList<string> FullPortScanWarning(string address) =>
+    [
+        $"FingVibe will attempt a TCP connection to every port from 1 to 65,535 on {address}: 65,535 connection attempts, up to 128 at a time.",
+        "This can take several minutes. Many connection attempts can trigger security monitoring, intrusion alerts or device logs. Scan only devices you own or are authorized to scan.",
+        "Each attempt waits only 200 ms, so sleeping or slow Wi-Fi devices can be missed; rescan if a port you expect is absent. The default and additional scans wait longer and remain more reliable for their ports.",
+        "You can cancel at any time. Open ports found before cancelling are kept. UDP is not included."
+    ];
 
     internal void ShowUdpObservations(IReadOnlyList<UdpServiceObservation> observations)
     {
@@ -735,6 +764,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
     private void DeviceNameSaveButton_Click(object sender, RoutedEventArgs e) => NameSaveRequested?.Invoke(this, e);
     private void DeviceNameResetButton_Click(object sender, RoutedEventArgs e) => NameResetRequested?.Invoke(this, e);
     private void DevicePortScanButton_Click(object sender, RoutedEventArgs e) => PortScanRequested?.Invoke(this, e);
+    private void DeviceFullPortScanButton_Click(object sender, RoutedEventArgs e) => FullPortScanRequested?.Invoke(this, e);
     private void DeviceAddressPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (!_updatingAddresses && DeviceAddressPicker.SelectedItem is string address)

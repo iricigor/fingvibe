@@ -9,7 +9,9 @@ public sealed partial class MainWindow
 {
     private readonly PortScannerService _portScanner = new();
     private readonly UdpServiceProbe _udpServiceProbe = new();
+    private static readonly int AdditionalPortCount = PortScannerService.AdditionalPorts.Count;
     private CancellationTokenSource? _devicePortScanCancellation;
+    private bool _devicePortScanIsFull;
     private TaskCompletionSource? _devicePortScanCompletion;
     private ScanResultRow? _selectedDeviceRow;
     private bool _isSavingDeviceNameOverride;
@@ -169,34 +171,47 @@ public sealed partial class MainWindow
         RefreshVisibleResults();
     }
 
+    private bool TryGetDeviceProbeTarget(out ScanResultRow row, out ScanResult result, out LanNetwork network)
+    {
+        row = null!;
+        result = null!;
+        network = null!;
+        if (_selectedDeviceRow is not { CanProbe: true, Result: { } current } selected)
+        {
+            DevicePage.PortScanStatus = "A current local observation is required. Historical or Fing-only addresses are not probed.";
+            return false;
+        }
+        if (NetworkPicker.SelectedItem is not LanNetwork selectedNetwork || _currentScanSnapshot?.Subnet != selectedNetwork.Cidr)
+        {
+            DevicePage.PortScanStatus = "Select the network used for this observation before probing its address.";
+            return false;
+        }
+        if (selected.VirtualDevice is { } virtualDevice && GetScanNetworkIdentity(selectedNetwork) != virtualDevice.NetworkId)
+        {
+            DevicePage.PortScanStatus = "The selected Windows network profile does not match this virtual device's current observation.";
+            return false;
+        }
+        (row, result, network) = (selected, current, selectedNetwork);
+        return true;
+    }
+
+    private bool TryAcquireDeviceProbeLease(out IDisposable? lease)
+    {
+        if (_networkActivityCoordinator.TryAcquire(NetworkActivityKind.DeviceServiceScan, out lease)) return true;
+        DevicePage.PortScanStatus = "Another network measurement is active or stopping. Wait before retrying.";
+        return false;
+    }
+
     private async void DevicePortScanButton_Click(object sender, RoutedEventArgs e)
     {
         if (_devicePortScanCancellation is { } active)
         {
-            active.Cancel();
+            if (!_devicePortScanIsFull) active.Cancel();
             return;
         }
-        if (_selectedDeviceRow is not { CanProbe: true, Result: { } result } row)
-        {
-            DevicePage.PortScanStatus = "A current local observation is required. Historical or Fing-only addresses are not probed.";
+        if (!TryGetDeviceProbeTarget(out var row, out var result, out var network)
+            || !TryAcquireDeviceProbeLease(out var lease))
             return;
-        }
-
-        if (NetworkPicker.SelectedItem is not LanNetwork network || _currentScanSnapshot?.Subnet != network.Cidr)
-        {
-            DevicePage.PortScanStatus = "Select the network used for this observation before probing its address.";
-            return;
-        }
-        if (row.VirtualDevice is { } virtualDevice && GetScanNetworkIdentity(network) != virtualDevice.NetworkId)
-        {
-            DevicePage.PortScanStatus = "The selected Windows network profile does not match this virtual device's current observation.";
-            return;
-        }
-        if (!_networkActivityCoordinator.TryAcquire(NetworkActivityKind.DeviceServiceScan, out var lease))
-        {
-            DevicePage.PortScanStatus = "Another network measurement is active or stopping. Wait before retrying.";
-            return;
-        }
 
         using var activity = lease;
         using var cancellation = new CancellationTokenSource();
@@ -212,14 +227,14 @@ public sealed partial class MainWindow
         bool IsSelected() => ReferenceEquals(_selectedDeviceRow, row);
         DevicePage.SetPortScanRunning(true, row.CanProbe);
         NetworkPicker.IsEnabled = false;
-        DevicePage.PortScanStatus = "TCP: scanning 0/100 additional ports...";
+        DevicePage.PortScanStatus = $"TCP: scanning 0/{AdditionalPortCount} additional ports...";
         DevicePage.UdpScanStatus = includeUdp ? "UDP: checking 0/2 services..." : "UDP: not requested.";
         var tcpProgress = new Progress<ScanProgress>(progress =>
         {
             if (IsSelected() && tcpRunning && !cancellation.IsCancellationRequested)
             {
                 tcpCompleted = Math.Max(tcpCompleted, progress.Completed);
-                DevicePage.PortScanStatus = $"TCP: scanning {tcpCompleted}/100 additional ports...";
+                DevicePage.PortScanStatus = $"TCP: scanning {tcpCompleted}/{AdditionalPortCount} additional ports...";
             }
         });
         var udpProgress = new Progress<ScanProgress>(progress =>
@@ -275,7 +290,7 @@ public sealed partial class MainWindow
                 if (IsSelected())
                 {
                     DevicePage.ShowPorts(row.Result?.OpenPortItems ?? []);
-                    DevicePage.PortScanStatus = $"TCP: complete (100/100); {ports.Count} additional open port(s) found.";
+                    DevicePage.PortScanStatus = $"TCP: complete ({AdditionalPortCount}/{AdditionalPortCount}); {ports.Count} additional open port(s) found.";
                 }
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
@@ -316,6 +331,111 @@ public sealed partial class MainWindow
                 if (IsSelected()) DevicePage.UdpScanStatus = "UDP: canceled; previous observations retained.";
             }
             finally { udpRunning = false; }
+        }
+    }
+
+    private async void DeviceFullPortScanRequested(object? sender, RoutedEventArgs e)
+    {
+        if (_devicePortScanCancellation is { } active)
+        {
+            if (_devicePortScanIsFull) active.Cancel();
+            return;
+        }
+        if (!TryGetDeviceProbeTarget(out var row, out var result, out var network)) return;
+        var address = result.Address;
+        bool IsSelected() => ReferenceEquals(_selectedDeviceRow, row);
+        if (!await DevicePage.ConfirmFullPortScanAsync(address.ToString()))
+        {
+            if (IsSelected()) DevicePage.PortScanStatus = "Full TCP: not started.";
+            return;
+        }
+        // The dialog is asynchronous: start only for the same device, address and network that were confirmed.
+        if (!IsSelected() || _devicePortScanCancellation is not null) return;
+        if (!TryGetDeviceProbeTarget(out _, out var confirmed, out var confirmedNetwork)
+            || !confirmed.Address.Equals(address) || !Equals(confirmedNetwork, network))
+        {
+            DevicePage.PortScanStatus = "Full TCP: not started because the device address or network changed. Confirm again to scan.";
+            return;
+        }
+        if (!TryAcquireDeviceProbeLease(out var lease)) return;
+
+        using var activity = lease;
+        using var cancellation = new CancellationTokenSource();
+        _devicePortScanCancellation = cancellation;
+        _devicePortScanIsFull = true;
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _devicePortScanCompletion = completion;
+        var total = PortScannerService.FullTcpPlan.Count;
+        var running = true;
+        var changed = false;
+        var checkedPorts = 0;
+        var found = new HashSet<int>();
+        DevicePage.SetPortScanRunning(true, row.CanProbe, fullScan: true);
+        NetworkPicker.IsEnabled = false;
+        DevicePage.UdpScanStatus = string.Empty;
+        DevicePage.PortScanStatus = $"Full TCP: checking 0/{total:N0} ports...";
+        var progress = new Progress<ScanProgress>(value =>
+        {
+            if (!running || cancellation.IsCancellationRequested) return;
+            checkedPorts = Math.Max(checkedPorts, value.Completed);
+            if (IsSelected())
+                DevicePage.PortScanStatus = $"Full TCP: checking {checkedPorts:N0}/{total:N0} ports; {found.Count} open so far...";
+        });
+        var results = new Progress<OpenPort>(port =>
+        {
+            // Reports posted before cancellation or failure still describe this device; keep them.
+            found.Add(port.Port);
+            row.UpdateOpenPorts((row.Result?.OpenPortItems ?? []).Append(port).DistinctBy(item => item.Identity)
+                .OrderBy(item => item.Port).ThenBy(item => item.Protocol).ToArray());
+            changed = true;
+            RefreshVisibleResults();
+            if (IsSelected()) DevicePage.ShowPorts(row.Result?.OpenPortItems ?? []);
+        });
+        string outcome;
+        try
+        {
+            try
+            {
+                var ports = await _portScanner.ScanFullTcpAsync(address, cancellation.Token, network.LocalAddress, progress, results);
+                running = false;
+                row.UpdateOpenPorts((row.Result?.OpenPortItems ?? []).Concat(ports).DistinctBy(port => port.Identity)
+                    .OrderBy(port => port.Port).ThenBy(port => port.Protocol).ToArray());
+                changed = true;
+                RefreshVisibleResults();
+                if (IsSelected()) DevicePage.ShowPorts(row.Result?.OpenPortItems ?? []);
+                outcome = $"Full TCP: complete ({total:N0}/{total:N0} ports checked); {ports.Count} open port(s) found.";
+            }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+            {
+                outcome = $"Full TCP: canceled after at least {checkedPorts:N0}/{total:N0} ports; coverage is incomplete. "
+                    + $"{found.Count} open port(s) found before cancelling are retained.";
+            }
+            catch (System.Net.Sockets.SocketException exception)
+            {
+                outcome = $"Full TCP: failed after at least {checkedPorts:N0}/{total:N0} ports: {exception.Message} "
+                    + $"Coverage is incomplete; {found.Count} open port(s) found are retained.";
+            }
+            running = false;
+            if (IsSelected()) DevicePage.PortScanStatus = outcome;
+            if (changed)
+            {
+                try { await SaveDeviceProbeResultsAsync(row.Result!); }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or ArgumentException)
+                {
+                    if (IsSelected()) DevicePage.PortScanStatus += $" Results could not be saved: {exception.Message}";
+                    ShowSnapshotError($"Full TCP scan results could not be saved: {exception.Message}");
+                }
+            }
+        }
+        finally
+        {
+            running = false;
+            _devicePortScanCancellation = null;
+            _devicePortScanIsFull = false;
+            NetworkPicker.IsEnabled = true;
+            if (IsSelected()) DevicePage.SetPortScanRunning(false, row.CanProbe);
+            _devicePortScanCompletion = null;
+            completion.TrySetResult();
         }
     }
 

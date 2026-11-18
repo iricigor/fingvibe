@@ -141,12 +141,61 @@ and /0-/7 all four. Addresses remain continuous and accessible as their original
 full text; IPv6 and addresses outside the selected subnet retain their presentation.
 This emphasis follows network selection, including retained inventory from other subnets.
 
-In current device details, **Scan additional ports** checks a curated preset of
-exactly 100 additional TCP ports, covering file sharing/storage, remote access,
-mail, directory/authentication, databases/caches, messaging, web administration,
-home automation/media, infrastructure, and printing. The automatic LAN scan
-still checks only its original 10 TCP ports. The additional scan uses at most
-16 simultaneous connections with 400 ms per-connection deadlines.
+Every LAN scan checks the same **17 default TCP ports** on each responding
+device, all at once with a 400 ms connection timeout: 22 SSH, 53 DNS, 80 HTTP,
+139 NetBIOS, 443 HTTPS, 445 SMB, 515 LPD, 554 RTSP, 631 IPP, 1883 MQTT,
+5357 WSD, 8008/8009 Google Cast, 8080 HTTP alternate, 8123 Home Assistant,
+8888 Web/application and 9100 Printer. The original ten remain; #567 added
+139, 515, 631, 1883, 5357, 8123 and 8888 (common Windows/SMB, printer, smart-home
+and web-UI services) and removed them from the additional list.
+
+In current device details, **Scan additional ports** checks **193 additional
+TCP ports** on the selected device only. It never probes a default port, keeps
+the 400 ms timeout, and uses at most **32 simultaneous connections** (16 before
+#567). The list is a ceiling of 200 by design, not a quota: it keeps every
+remaining port from the former 100-port catalogue and adds services commonly found
+on home and small-office networks. Labels describe common or likely uses, not
+verified products.
+
+| Family (count) | Ports and labels | Why it is included |
+| --- | --- | --- |
+| Remote shells and administration (6) | 23 Telnet, 992 Telnet over TLS, 2222 SSH alternate, 5555 Android Debug Bridge, 5985 WinRM, 5986 Secure WinRM | Exposed remote administration, including Android TVs/phones with debugging enabled |
+| Remote desktop and screen sharing (10) | 3283 Apple Remote Desktop, 3389 Remote Desktop, 4899 Radmin, 5800 VNC web access, 5900-5903 VNC, 5938 TeamViewer, 6568 AnyDesk | Interactive remote-control services on PCs and Macs |
+| Web applications and dashboards (21) | 81, 7080, 8000, 8081-8083, 8088, 8090, 8180 HTTP alternate; 3000, 3001, 4000, 5000, 5050, 8001, 9000 Web/application; 5601 Kibana; 8006 Proxmox management; 8112 Deluge web UI; 9090 Prometheus/administration; 9091 Transmission web UI | Device, NAS, router and self-hosted web interfaces |
+| HTTPS and secure management (11) | 943 OpenVPN Access Server, 4443/7443/8443/8843/9443/10443 HTTPS alternate, 5001 Secure web/application, 5989 Secure CIM/WBEM, 10000 Webmin, 16993 Intel AMT HTTPS | TLS management consoles for NAS, controllers, servers and firmware |
+| Network infrastructure, VPN, proxies and platform APIs (26) | 111 RPC port mapper, 135 MS RPC, 179 BGP, 593 RPC over HTTP, 853 DNS over TLS, 902 VMware ESXi, 1080 SOCKS proxy, 1194 OpenVPN, 1723 PPTP VPN, 2375 Docker API, 2376 Secure Docker API, 2377 Docker Swarm, 2379 etcd, 3128 HTTP proxy, 5335 Unbound DNS, 5358 Secure WSD, 5988 CIM/WBEM, 6443 Kubernetes API, 6789 UniFi speed test, 7547 TR-069 remote management, 8118 Privoxy, 8291 MikroTik Winbox, 8728 MikroTik API, 8729 Secure MikroTik API, 10250 Kubernetes kubelet, 16992 Intel AMT | Routers, VPN/DNS appliances, hypervisors and container hosts |
+| Directory and authentication (8) | 49 TACACS+, 88 Kerberos, 389 LDAP, 464 Kerberos password changes, 636 LDAPS, 749 Kerberos administration, 3268 AD Global Catalog, 3269 Secure AD Global Catalog | Domain controllers and network-device authentication |
+| File transfer and sharing (17) | 20 FTP data, 21 FTP, 115 Simple File Transfer Protocol, 548 AFP, 873 rsync, 989 FTPS data, 990 FTPS, 2121 FTP alternate, 5005 Synology WebDAV, 5006 Secure Synology WebDAV, 6690 Synology Drive, 6800 aria2 RPC, 6881 BitTorrent, 8384 Syncthing UI, 9418 Git, 22000 Syncthing sync, 51413 Transmission peer | NAS, sync and download services |
+| Network storage (3) | 860 iSCSI system, 2049 NFS, 3260 iSCSI | Block and file storage targets |
+| Mail and news (12) | 25 SMTP, 109 POP2, 110 POP3, 119 NNTP, 143 IMAP, 465 SMTPS, 563 Secure NNTP, 587 SMTP submission, 993 IMAPS, 995 POP3S, 2525 SMTP alternate, 4190 ManageSieve | Self-hosted mail servers |
+| Databases and caches (20) | 1433 Microsoft SQL Server, 1521 Oracle, 3050 Firebird, 3306 MySQL, 3307 MySQL alternate, 5432 PostgreSQL, 5433 PostgreSQL alternate, 5984 CouchDB, 6379 Redis, 7474 Neo4j HTTP, 7687 Neo4j Bolt, 8086 InfluxDB, 8529 ArangoDB, 9042 Cassandra, 9160 Cassandra Thrift, 9200 Elasticsearch, 9300 Elasticsearch transport, 11211 Memcached, 27017 MongoDB, 28015 RethinkDB | Databases that should rarely be reachable from the LAN |
+| Messaging and chat (14) | 2181 ZooKeeper, 4222 NATS, 4369 Erlang port mapper, 5222 XMPP client, 5269 XMPP server, 5671 Secure AMQP, 5672 AMQP, 6650 Pulsar, 6667 IRC, 8883 Secure MQTT, 9092 Kafka, 15672 RabbitMQ management, 61613 STOMP, 61616 ActiveMQ | Message brokers and chat servers |
+| Monitoring (5) | 4949 Munin, 5666 Nagios NRPE, 9093 Alertmanager, 10050 Zabbix agent, 19999 Netdata | Monitoring agents on servers and home labs |
+| Home automation and industrial IoT (6) | 502 Modbus TCP, 1880 Node-RED, 4840 OPC UA, 6053 ESPHome API, 6668 Tuya local control, 8581 Homebridge UI | Smart-home hubs, controllers and local IoT APIs |
+| Media, TVs, speakers and cameras (23) | 1400 Sonos control, 1925 Philips TV control, 1935 RTMP, 2020 ONVIF camera, 2869 UPnP events, 3483 Squeezebox control, 3689 DAAP, 5004 HDHomeRun HTTP streaming, 6466 Android TV remote, 6600 Music Player Daemon, 7000 AirPlay-associated service, 7100 AirPlay mirroring, 8002 Samsung TV remote, 8060 Roku control, 8096 Jellyfin/Emby, 8200 MiniDLNA web status, 8554 RTSP alternate, 8920 Secure Jellyfin/Emby, 10243 Windows Media sharing, 32400 Plex, 32469 Plex DLNA, 34567 DVR/NVR control, 37777 Dahua camera/DVR | TVs, speakers, media servers, IP cameras and recorders |
+| Phones and tablets (1) | 62078 Apple device sync | iPhone/iPad Wi-Fi sync |
+| Game consoles and game servers (6) | 3074 Xbox Live, 3478 PlayStation Network, 9295 PlayStation Remote Play, 25565 Minecraft, 27015 Steam/Source game server, 27036 Steam In-Home Streaming | Consoles and locally hosted game servers |
+| Voice over IP (2) | 5060 SIP, 5061 SIP over TLS | VoIP phones and PBXs |
+| Printers (2) | 9101, 9102 Printer alternate | Additional raw printer queues |
+
+**Full TCP port scan** is a separate action in the same section. It checks every
+TCP port from 1 to 65,535 exactly once, on the selected current address only,
+and starts only after a warning is accepted each time. The warning explains the
+65,535 connection attempts, the possible several-minute runtime, that security
+monitoring or device logs can flag it, that only owned or authorized devices
+should be scanned, and that sleeping or slow Wi-Fi devices can be missed by the
+shorter timeout and may need a rescan. Cancel or Escape starts nothing. The full
+scan uses a fixed **200 ms** timeout and at most **128 simultaneous attempts**,
+with no speed setting, and does not include UDP. Ports outside both lists are
+labeled **Unlisted service**. Progress shows checked/total ports and the open
+ports found so far; each open port appears as soon as it answers. The same
+button becomes **Cancel full scan**; leaving details or closing the app also
+cancels it. Cancellation or failure keeps the open ports already found and
+reports that coverage is incomplete; only a finished scan reports
+65,535/65,535. While either scan runs, the other scan action and the address
+picker are unavailable. Scheduled, default and LAN-wide scans never start the
+additional or full scan. A full scan still re-checks ports covered by earlier
+scans, and advertised services remain separate from verified open ports.
 
 Device details places **Network overview** at the top left and **Assignments**
 at the top right (roughly 60/40), with aligned bottom edges and the assignments
@@ -213,10 +262,13 @@ Existing saved entries without a protocol retain their TCP meaning.
 -ScreenshotDirectory <output-directory>` exercises the default/opt-in controls,
 independent progress, TCP-before-UDP completion, confirmed/inconclusive/error
 states, cancellation, saved protocol identity, and service icons in all six
-app themes. It uses synthetic loopback-only TCP/DNS/NTP responders and is wired
+app themes. It also checks the full-scan warning text, keyboard opening, that
+Escape and Cancel send no full-scan probe, incremental discovery of an unlisted
+port, and cancellation with retained results; it never runs all 65,535 probes.
+It uses synthetic loopback-only TCP/DNS/NTP responders and is wired
 into GitHub Actions UI capture. Run it only on a disposable interactive desktop,
-not a working user's desktop; it requires free loopback ports 1883/TCP, 53/UDP,
-and 123/UDP and fails explicitly when they are unavailable. On disposable
+not a working user's desktop; it requires free loopback ports 7/TCP, 2222/TCP,
+8080/TCP, 8443/TCP, 53/UDP and 123/UDP and fails explicitly when they are unavailable. On disposable
 GitHub Actions runners only, it temporarily stops Windows Time if running to
 release 123/UDP and restores the service afterward. The application itself
 needs no new administrator rights.
@@ -846,7 +898,7 @@ Identification is best-effort and local. SSDP discovery uses the selected interf
 - **Attribution.** A service, its endpoint and TXT metadata belong to an address only when that address itself sent the live answers, including the A record for its own host name. An address merely mentioned in another responder's packet is neither a responder nor a service owner. Records with TTL 0 (goodbye) and malformed packets are discarded. SSDP replies are accepted only when the `LOCATION` host equals the replying address.
 - **Freshness and presence.** Only answers received in the current scan's discovery window count; nothing is cached between scans. After ping and fresh ARP, `LanScannerService` admits each remaining scanned-subnet address with such a reply once, as the existing **Online** status with no measured latency (Devices shows `--`). Repeated answers dedupe by address; conflicting host claims are not merged across addresses.
 - **Roles.** `ServiceDiscoveryCatalog` labels Spotify Connect, Philips Hue, Home Assistant, Matter and other known types with an inferred role. Unknown valid types are kept under their own type name. Advertised instance, name (`fn`, `location_name`, `DN`), manufacturer and model (`md`, `model`, `modelid`, `am`, `ty`) stay separate advertised metadata. They never become a hostname, saved name or classification model.
-- **Endpoint verification.** `AdvertisedEndpointVerifier` connects only to TCP ports advertised by the address being enriched, never to another advertised host or a UDP endpoint. It uses the 400 ms connect timeout, at most **8 endpoints per device, 64 per scan and 32 at once**, so the worst case is two 0.4 s waves. Endpoints are deduplicated per scan, and ports already open in the fixed list are reused. Only an answering port joins `OpenPorts`; others are marked *no response* or *not checked*. The fixed default and additional port lists and their counts are unchanged.
+- **Endpoint verification.** `AdvertisedEndpointVerifier` connects only to TCP ports advertised by the address being enriched, never to another advertised host or a UDP endpoint. It uses the 400 ms connect timeout, at most **8 endpoints per device, 64 per scan and 32 at once**, so the worst case is two 0.4 s waves. Endpoints are deduplicated per scan, and ports already open in the fixed list are reused. Only an answering port joins `OpenPorts`; others are marked *no response* or *not checked*. These verification bounds are independent of the default, additional and full TCP scan settings.
 - **Data flow.** `ScanResult.ServiceAdvertisements` travels through scan checkpoints (`ScanSnapshotStore`, including the inventory's `scan_checkpoint`) and, for MAC-identified devices, the latest `DeviceObservation`. A MAC-less responder stays a current-scan row shown as **MAC unavailable**, restored with its checkpoint after restart. It never becomes inventory equipment, never receives a synthetic MAC, and is never matched to saved equipment by IP. Older saved data simply has no advertisements.
 
 Default-scan overhead was measured with the opt-in `DefaultScanOverheadBenchmark` (`FINGVIBE_SCAN_BENCHMARK=1`) on the pre-split revision `e7a31a7` and on #481. Both runs used the same synthetic fixtures, three repetitions, 12 CPUs and .NET 8, with real-time 700 ms ICMP timeouts, 100 ms ARP, a 1.5 s discovery window and 400 ms enrichment:
@@ -856,7 +908,20 @@ Default-scan overhead was measured with the opt-in `DefaultScanOverheadBenchmark
 | Responsive /27: 30 hosts all answer ping; 4 advertise 3 answering endpoints | 1.52 s (1.54, 1.51, 1.51) | 1.53 s (1.55, 1.52, 1.52) | +0.01 s, 12 endpoint probes |
 | Timeout-heavy /24: 254 hosts, 10 answer ping, 8 service-only responders, 144 silent advertised endpoints | 23.81 s (23.80, 23.82, 23.80) | 25.04 s (25.03, 25.05, 25.05) | +1.23 s, 64 endpoint probes (cap) |
 
-Both stay within the shared **+2 second** default-scan ceiling. #567 must verify the combined final overhead against these same pre-split numbers, not a new baseline. Comparison and design inspiration: [LanAtlas](https://github.com/morfredus/LanAtlas) (GPL-3.0, reviewed at `c690485`). These protocol ideas are implemented independently; no LanAtlas source or assets are used.
+Both stay within the shared **+2 second** default-scan ceiling.
+
+#567 reran the same benchmark on the pre-split revision `e7a31a7` and on its final revision (17 default ports, 193 additional ports at 32 concurrency), on the same 12-CPU machine with .NET 8, three repetitions each. Two fixtures were added that replace the simulated 400 ms enrichment with each revision's real default TCP port list: closed ports on loopback for the responsive fixture, and silent TEST-NET-1 (192.0.2.0/24) addresses for the timeout-heavy fixture. `OptionalAdditionalScanDuration` times the real additional scan against the same two targets.
+
+| Measurement | Pre-split `e7a31a7` mean | #567 mean | Change |
+| --- | --- | --- | --- |
+| Responsive /27, simulated enrichment | 1.52 s (1.53, 1.51, 1.52) | 1.54 s (1.58, 1.53, 1.53) | +0.02 s |
+| Timeout-heavy /24, simulated enrichment | 23.81 s (23.80, 23.82, 23.80) | 25.05 s (25.04, 25.06, 25.04) | +1.24 s |
+| Responsive /27, real default ports (10 vs 17) to loopback | 1.51 s (1.51, 1.51, 1.51) | 1.52 s (1.52, 1.52, 1.53) | +0.01 s |
+| Timeout-heavy /24, real default ports (10 vs 17) to 192.0.2.0/24 | 23.80 s (23.80, 23.80, 23.81) | 25.06 s (25.08, 25.06, 25.06) | **+1.26 s** |
+| Additional scan, loopback closed ports | 2.84 s, 100 ports at 16 | 2.46 s, 193 ports at 32 | -0.38 s |
+| Additional scan, silent TEST-NET-1 address | 2.84 s, 100 ports at 16 | 2.84 s, 193 ports at 32 | 0.00 s |
+
+Service discovery, endpoint verification and the seven added default ports together add at most 1.26 s, inside the **+2 second** ceiling. The seven extra default ports run concurrently with the others under the same 400 ms timeout, so they do not lengthen the per-host wait. At 16 concurrent connections, the 193-port additional scan took 4.88 s (loopback) and 5.27 s (TEST-NET-1), so its fixed concurrency was raised to 32 to keep the former duration. No additional-scan deadline or full-scan completion time is promised. At its fixed limits, the full scan needs at least 512 waves of 200 ms (about 1 minute 43 seconds) when every port times out; responsive refusals finish sooner. Comparison and design inspiration: [LanAtlas](https://github.com/morfredus/LanAtlas) (GPL-3.0, reviewed at `c690485`). These protocol ideas are implemented independently; no LanAtlas source or assets are used.
 
 Explicit device types/models outweigh service-only clues. When explicit evidence is absent, narrow product/manufacturer clues can suggest categories such as WD My Cloud/Synology/QNAP storage, Philips Lighting/Signify/Tuya smart devices, media devices, or game consoles. OS-specific discovered names, such as `Android-...`, are hints, not proof that the device is a phone. These inferred values are visibly marked **(likely)** in the list and details, with the supporting evidence shown in details. A generic TP-Link, Amazon, or Apple vendor, randomized MAC, or open SMB port alone does not determine an OS or device category. Conflicting or unsupported results remain **Unknown**; silent devices may still require manual correction. No fingerprinting cloud API is contacted; the existing vendor-registry downloads and optional public-network lookup are unchanged.
 

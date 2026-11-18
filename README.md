@@ -67,6 +67,8 @@ retry after a one-second pause, which can nearly double scan traffic and adds ti
 but cannot guarantee the same device count every scan. Previously observed and imported
 devices remain in the inventory. Identification is best-effort, open ports are not
 a security verdict, and scan results are not continuous monitoring or an event timeline.
+A **Full TCP port scan** runs only for one device after a warning each time; its
+short timeout can miss sleeping or slow Wi-Fi devices.
 The scanner limits a target to 65,534 usable addresses. An **Unknown** or
 **(likely)** classification is intentional when evidence is absent or uncertain;
 you can inspect the evidence and save a correction instead of relying on a guess.

@@ -423,6 +423,10 @@
                     <CheckBox x:Name="DeviceIncludeUdpCheckBox" Content="Include UDP service checks"
                               IsChecked="False" AutomationProperties.AutomationId="DeviceIncludeUdpCheckBox"
                               ToolTipService.ToolTip="Send one read-only DNS and NTP request. Silence is inconclusive." />
+                    <Button x:Name="DeviceFullPortScanButton" Content="Full TCP port scan"
+                            HorizontalAlignment="Left" Click="DeviceFullPortScanButton_Click"
+                            AutomationProperties.AutomationId="DeviceFullPortScanButton"
+                            ToolTipService.ToolTip="Check every TCP port, 1-65,535, on this device after a warning. Does not include UDP." />
                     <TextBlock x:Name="DevicePortScanStatusText" TextWrapping="Wrap"
                                AutomationProperties.AutomationId="DeviceTcpScanStatus" AutomationProperties.LiveSetting="Polite"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
