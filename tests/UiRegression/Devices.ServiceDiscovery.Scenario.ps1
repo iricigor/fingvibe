@@ -2,7 +2,8 @@ Stop-UiRegressionApp -Process $process
 $serviceFixture = Join-Path $fixtureDirectory 'service-discovery-scan.json'
 $serviceObserved = [DateTimeOffset]::UtcNow.AddMinutes(-2).ToString('O')
 function New-ServiceFixtureAdvertisement([string] $Type, [string] $Label, [string] $Role, [string] $Instance,
-    [int] $Port, [int] $Verification, [string] $Name = $null, [string] $Model = $null) {
+    [int] $Port, [int] $Verification, $Name = $null, $Model = $null) {
+    # Untyped optional values stay null; a [string] parameter would turn them into invalid empty metadata.
     @{
         protocol = 0; serviceType = $Type; serviceLabel = $Label; role = $Role; instanceName = $Instance
         host = 'synthetic-host.local'; port = $Port; transport = 0; advertisedName = $Name; manufacturer = $null
