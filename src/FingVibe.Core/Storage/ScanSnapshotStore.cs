@@ -101,6 +101,7 @@ public sealed class ScanSnapshotStore
                     || !Enum.IsDefined(result.Status)
                     || result.OpenPorts is null
                     || !DeviceReportedValues.IsValid(result.ReportedValues ?? [])
+                    || !ServiceAdvertisement.IsValid(result.ServiceAdvertisements ?? [])
                     || (result.UdpObservations?.Any(item => item is null || item.Port is not (53 or 123)
                         || !Enum.IsDefined(item.State) || string.IsNullOrWhiteSpace(item.ServiceName)
                         || string.IsNullOrWhiteSpace(item.Detail)) ?? false)
@@ -132,7 +133,8 @@ public sealed class ScanSnapshotStore
                     result.Classification,
                     result.UdpObservations)
                 {
-                    ReportedValues = result.ReportedValues ?? []
+                    ReportedValues = result.ReportedValues ?? [],
+                    ServiceAdvertisements = result.ServiceAdvertisements ?? []
                 };
             }).ToArray();
 
@@ -196,7 +198,8 @@ public sealed class ScanSnapshotStore
                 result.OpenPortItems.Select(port => new CachedOpenPort(port.Port, port.ServiceName, port.Protocol)).ToArray(),
                 result.Classification,
                 result.UdpObservationItems,
-                result.ReportedValues))
+                result.ReportedValues,
+                result.ServiceAdvertisements))
                 .ToArray(),
             snapshot.Duration, snapshot.ScanId, snapshot.State, snapshot.NetworkId);
 
@@ -237,7 +240,8 @@ public sealed class ScanSnapshotStore
         CachedOpenPort[]? OpenPorts,
         DeviceClassification? Classification = null,
         IReadOnlyList<UdpServiceObservation>? UdpObservations = null,
-        IReadOnlyList<ReportedDeviceValue>? ReportedValues = null);
+        IReadOnlyList<ReportedDeviceValue>? ReportedValues = null,
+        IReadOnlyList<ServiceAdvertisement>? ServiceAdvertisements = null);
 
     private sealed record CachedOpenPort(int Port, string? ServiceName, EndpointProtocol Protocol = EndpointProtocol.Tcp);
 }

@@ -57,8 +57,31 @@ public sealed class ScanResultEnricher : IScanResultEnricher
                 mdns, nameTask.Result.DisplayName, vendorTask.Result, portsTask.Result, bannersTask.Result, responseTtl))
         {
             ReportedValues = CollectReportedValues(discovery.SsdpDevices.GetValueOrDefault(address) ?? [],
-                mdns, nameTask.Result.Candidates)
+                mdns, nameTask.Result.Candidates),
+            ServiceAdvertisements = CollectAdvertisements(discovery.SsdpDevices.GetValueOrDefault(address) ?? [], mdns)
         };
+    }
+
+    internal static IReadOnlyList<ServiceAdvertisement> CollectAdvertisements(
+        IReadOnlyList<SsdpDeviceInfo> ssdp, MdnsDeviceInfo? mdns)
+    {
+        static string? Bounded(string? value) =>
+            value?.Trim() is { Length: > 0 and <= ServiceAdvertisement.MaximumTextLength } text && !text.Any(char.IsControl)
+                ? text : null;
+        var advertisements = new List<ServiceAdvertisement>(mdns?.Advertisements ?? []);
+        foreach (var device in ssdp)
+        {
+            if (device.ObservedAt is not { } observedAt) continue;
+            var deviceType = Bounded(device.DeviceType);
+            var shortType = deviceType?.Split(':') is { Length: >= 2 } parts ? Bounded(parts[^2]) : null;
+            advertisements.Add(new ServiceAdvertisement(
+                ServiceDiscoveryProtocol.Ssdp, deviceType ?? "upnp:rootdevice", "UPnP device",
+                shortType is null ? null : $"UPnP {shortType}", null, null, null, null,
+                Bounded(device.FriendlyName), Bounded(device.Manufacturer), Bounded(device.ModelName), observedAt));
+        }
+        return advertisements
+            .DistinctBy(item => (item.Protocol, item.ServiceType, item.InstanceName, item.Port, item.AdvertisedName))
+            .Take(ServiceAdvertisement.MaximumPerResult).ToArray();
     }
 
     internal static IReadOnlyList<ReportedDeviceValue> CollectReportedValues(

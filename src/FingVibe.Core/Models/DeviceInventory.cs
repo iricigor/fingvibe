@@ -49,10 +49,15 @@ public sealed record DeviceObservation(
     IReadOnlyList<UdpServiceObservation>? UdpObservations = null)
 {
     public IReadOnlyList<ObservedDeviceValue> ReportedValues { get; init; } = [];
+    // Advertisements received with this observation's latest response; absent in older saved data.
+    public IReadOnlyList<ServiceAdvertisement> ServiceAdvertisements { get; init; } = [];
 
     public ScanResult ToScanResult(string mac) => new(
         IPAddress.Parse(Address), Present ? HostStatus.Alive : HostStatus.Unreachable,
-        Latency, ProbeDuration, Hostname, PhysicalAddress.Parse(mac), Vendor, Ports, Classification, UdpObservations);
+        Latency, ProbeDuration, Hostname, PhysicalAddress.Parse(mac), Vendor, Ports, Classification, UdpObservations)
+    {
+        ServiceAdvertisements = ServiceAdvertisements
+    };
 }
 
 public sealed record InventoryDevice(
@@ -193,7 +198,8 @@ public sealed record DeviceInventoryData(
             {
                 ReportedValues = complete
                     ? DeviceReportedValues.Retain(previous?.ReportedValues ?? [], result.ReportedValues, snapshot.CompletedAt)
-                    : previous?.ReportedValues ?? []
+                    : previous?.ReportedValues ?? [],
+                ServiceAdvertisements = result.ServiceAdvertisements
             });
             devices[mac] = device with { Observations = observations };
         }

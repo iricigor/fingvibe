@@ -154,6 +154,8 @@ public sealed partial class DeviceInventoryStore
             reported.Any(item => item.LastReceivedAt == default ||
                 item.LastReceivedAt < observation.FirstSeen || item.LastReceivedAt > observation.LastChecked)))
             throw new InvalidDataException("A device observation contains invalid reported names or identifiers.");
+        if (observation.ServiceAdvertisements is not { } advertisements || !ServiceAdvertisement.IsValid(advertisements))
+            throw new InvalidDataException("A device observation contains invalid service-discovery evidence.");
         if (observation is null || !IsIpv4(observation.Address) || observation.FirstSeen == default
             || observation.LastSeen < observation.FirstSeen || observation.LastChecked < observation.LastSeen
             || observation.Classification is null || observation.Ports is null

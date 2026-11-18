@@ -290,6 +290,49 @@ public sealed partial class DeviceDetailsPageView : UserControl
             : row.IsCurrentScanResponse ? "Responded in the current local scan."
             : "Last-known local address; not a current response.";
         SetPortScanRunning(false, row.CanProbe);
+        ShowServiceDiscovery(row.ServiceAdvertisements);
+    }
+
+    private void ShowServiceDiscovery(IReadOnlyList<ServiceAdvertisement> advertisements)
+    {
+        ServiceDiscoveryCard.Visibility = advertisements.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        ServiceDiscoveryHeading.Text = ServiceDiscoveryPresentation.Heading(advertisements);
+        ServiceDiscoveryList.Children.Clear();
+        for (var index = 0; index < advertisements.Count; index++)
+        {
+            var item = advertisements[index];
+            var fields = new Grid { ColumnSpacing = 24, RowSpacing = 8 };
+            fields.SizeChanged += Fields_SizeChanged;
+            foreach (var (label, value) in ServiceDiscoveryPresentation.Fields(item))
+                fields.Children.Add(new DeviceDetailValue { Label = label, Value = value });
+            var entry = new StackPanel { Spacing = 8 };
+            var title = new TextBlock
+            {
+                Text = item.Summary, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap
+            };
+            AutomationProperties.SetAutomationId(title, $"ServiceDiscoveryEntry{index}");
+            entry.Children.Add(title);
+            entry.Children.Add(fields);
+            ServiceDiscoveryList.Children.Add(new Border
+            {
+                Child = entry, Padding = new Thickness(10), CornerRadius = new CornerRadius(6),
+                BorderThickness = new Thickness(1),
+                BorderBrush = (Brush)Application.Current.Resources["ControlStrokeColorDefaultBrush"]
+            });
+            LayoutFields(fields);
+        }
+    }
+
+    internal void RevealServiceDiscovery()
+    {
+        if (ServiceDiscoveryCard.Visibility != Visibility.Visible) return;
+        DetailsTabs.SelectedItem = OverviewTab;
+        ShowTab(OverviewTab);
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            ServiceDiscoveryCard.UpdateLayout();
+            ServiceDiscoveryCard.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false, VerticalAlignmentRatio = 0 });
+        });
     }
 
     internal void ResetScroll()

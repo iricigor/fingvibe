@@ -49,6 +49,12 @@ public sealed partial class MainWindow
         if (ReferenceEquals(_selectedDeviceRow, row)) DevicePage.RevealMatchSuggestions();
     }
 
+    private void DeviceServiceDiscoveryRequested(object? sender, ScanResultRow row)
+    {
+        ShowDeviceDetails(row);
+        if (ReferenceEquals(_selectedDeviceRow, row)) DevicePage.RevealServiceDiscovery();
+    }
+
     private async void DeviceMatchDeclineRequested(object? sender, string otherMac)
     {
         var row = _selectedDeviceRow;

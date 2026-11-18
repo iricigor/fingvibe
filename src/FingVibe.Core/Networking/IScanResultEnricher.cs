@@ -30,4 +30,5 @@ public sealed record ScanEnrichment(
     DeviceClassification? Classification = null)
 {
     public IReadOnlyList<ReportedDeviceValue> ReportedValues { get; init; } = [];
+    public IReadOnlyList<ServiceAdvertisement> ServiceAdvertisements { get; init; } = [];
 }

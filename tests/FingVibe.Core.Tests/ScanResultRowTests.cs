@@ -431,8 +431,10 @@ public sealed class ScanResultRowTests
         Assert.Equal("00-11-22", row.MacOui);
         Assert.Equal("-AB-CD-EF", row.MacNic);
         Assert.Equal(row.MacAddressText, row.MacOui + row.MacNic);
-        Assert.Equal("-", CreateRow().MacOui);
+        Assert.Equal("MAC unavailable", CreateRow().MacOui);
         Assert.Equal("", CreateRow().MacNic);
+        Assert.Equal("MAC unavailable", CreateRow().MacAddressText);
+        Assert.Equal("-", CreateRow(status: HostStatus.Unreachable).MacAddressText);
     }
 
     [Theory]

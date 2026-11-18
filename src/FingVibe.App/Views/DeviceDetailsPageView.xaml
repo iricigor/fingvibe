@@ -400,6 +400,19 @@
                     </Expander>
                 </StackPanel>
             </Border>
+            <Border x:Name="ServiceDiscoveryCard" Style="{StaticResource ScannerSummaryCardStyle}" Visibility="Collapsed"
+                    AutomationProperties.AutomationId="ServiceDiscoveryCard">
+                <StackPanel Spacing="8">
+                    <TextBlock x:Name="ServiceDiscoveryHeading" Text="Service discovery (0)" FontSize="18" FontWeight="SemiBold"
+                               TextWrapping="Wrap" AutomationProperties.AutomationId="ServiceDiscoveryHeading"
+                               AutomationProperties.HeadingLevel="Level2" />
+                    <TextBlock x:Name="ServiceDiscoverySummaryText" TextWrapping="Wrap"
+                               AutomationProperties.AutomationId="ServiceDiscoverySummary"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Text="Advertised services are response evidence, not a verified identity or exact model. Advertised ports count as open only after a TCP response." />
+                    <StackPanel x:Name="ServiceDiscoveryList" Spacing="12" AutomationProperties.AutomationId="ServiceDiscoveryList" />
+                </StackPanel>
+            </Border>
             <Border x:Name="PortsServicesCard" Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="8">
                     <TextBlock x:Name="DevicePortsHeading" Text="Ports &amp; services (0)" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
