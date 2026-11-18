@@ -7,7 +7,8 @@ Device details has two segmented tabs beside **Devices**, with the device's
 name and status grouped on the right. At narrow widths the tabs move below the header:
 
 - **Overview** (selected each time you open a device): network overview,
-  assignments, observation summary, usage category, identification, and ports and services.
+  assignments, observation summary, usage category, possible matching MAC
+  addresses, identification, and ports and services.
 - **History**: Activity, scan observations and, for virtual devices, MAC and address history.
 
 Choose **View device history** in the summary, or select **History**, to switch.
@@ -48,6 +49,35 @@ no additional requests. Up to four distinct values per kind (128 characters
 each) are stored locally, including virtual-device connection observations.
 Earlier scans have no retroactive evidence. A shared name or ID does not prove
 that two records represent the same device, and does not automatically link them.
+
+## Review possible matching MAC addresses
+
+When another record may be the same physical device
+([how matches are found](devices.md#possible-matching-mac-addresses)),
+**Merge MAC addresses** appears on **Overview** directly above
+**Device identification**. Its header shows a yellow link icon and
+**1 possible match** or **N possible matches**. Devices without suggestions do
+not show the section.
+
+The section opens expanded when you open such a device, including from the
+Devices link icon. If you collapse it, it stays collapsed while that device
+remains open; later refreshes do not reopen it.
+
+It compares **This device** with **Selected other MAC address**
+(*suggestion i of n*): name, status, IP / MAC, and vendor / OS / type. Below,
+*Suggested because …* states the reason and that the suggestion does not
+establish physical identity.
+
+- **Change device...** appears when there is more than one suggestion. It lists
+  only the suggestions, strongest first.
+- **Decline suggestion** keeps the two records separate permanently. Both link
+  icons for that pair disappear, other suggestions remain, and the next
+  suggestion is shown; the section disappears when none remain. A declined pair
+  is never suggested again, even if stronger evidence appears later.
+
+Declines are saved in `device-inventory.sqlite` and survive restarts. If a save
+fails, the section shows the error and keeps the suggestion. Linking records is
+not available yet.
 
 ## Rename
 

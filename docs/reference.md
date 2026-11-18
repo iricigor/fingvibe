@@ -1015,7 +1015,9 @@ other filters, which retain responsive wrapping at narrower window widths.
 
 `device-inventory.sqlite` contains inventory, local observations, names,
 classification corrections, People/Rooms, persistent virtual devices, scan
-history and network/subnet discovery baselines. Completed-scan changes commit
+history, network/subnet discovery baselines and declined possible-match MAC
+pairs (`declined_matches`, keyed by the sorted pair and added to existing
+inventories without a format change). Completed-scan changes commit
 together in a SQLite transaction with full synchronous durability and an
 optimistic revision check; stale app instances must restart and analyze again.
 Scans append history rows, while metadata edits update only changed records and
