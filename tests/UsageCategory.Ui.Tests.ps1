@@ -404,11 +404,27 @@ function Assert-MatchButton([string] $Name, [int] $Count) {
     return $button
 }
 
+function Get-MatchSectionState {
+    # The header count TextBlock has no UIA peer inside the Expander header; the page mirrors it in the section HelpText.
+    $section = Find-Usage MergeMacAddresses -Optional
+    $other = Find-Usage MergeMacOtherName -Optional
+    [pscustomobject]@{
+        Count = if ($section) { $section.Current.HelpText } else { "<missing section>" }
+        Other = if ($other) { $other.Current.Name } else { "<missing other device>" }
+    }
+}
+
 function Assert-MatchSection([string] $Count, [string] $Other, [string] $Reason, [string] $Heading) {
-    Wait-Usage {
-        $count = Find-Usage MergeMacCount -Optional
-        $count -and $count.Current.Name -eq $Count -and (Find-Usage MergeMacOtherName).Current.Name -eq $Other
-    } "Merge MAC addresses showing $Count and $Other"
+    try {
+        Wait-Usage {
+            $state = Get-MatchSectionState
+            $state.Count -eq $Count -and $state.Other -eq $Other
+        } "Merge MAC addresses showing $Count and $Other"
+    }
+    catch {
+        $state = Get-MatchSectionState
+        throw "$($_.Exception.Message) Observed count '$($state.Count)' and other device '$($state.Other)'."
+    }
     $expander = Find-Usage MergeMacAddresses
     if ($expander.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -ne "Expanded") {
         throw "Merge MAC addresses must open expanded."
@@ -663,7 +679,8 @@ try {
     $lock = [IO.FileStream]::new("$inventory.lock", [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
     Invoke-Usage MergeMacDecline
     Wait-Usage { Find-Usage MergeMacError -Optional } "visible decline failure"
-    if ((Find-Usage MergeMacCount).Current.Name -ne "2 possible matches" -or (Find-Usage MergeMacOtherName).Current.Name -ne "Match beta") {
+    $state = Get-MatchSectionState
+    if ($state.Count -ne "2 possible matches" -or $state.Other -ne "Match beta") {
         throw "A failed decline must keep the suggestion."
     }
     Save-UsageCapture "match-decline-error" MergeMacError
