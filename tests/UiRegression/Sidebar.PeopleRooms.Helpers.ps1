@@ -233,7 +233,14 @@ function Test-RoomMapAccessibility {
         foreach ($tile in (& $mapElements $page 'RoomMapDevice-')) { $normal[$tile.Current.AutomationId] = $tile.Current.BoundingRectangle }
         if ($normal.Count -ne 100) { throw "The Room map must render all 100 devices before resizing; found $($normal.Count)." }
         Set-SidebarWindowWidth 640
-        $page = Find-PeopleRoomsElement AutomationId RoomMapScroll RoomMapPage
+        # The scroll viewer is not focusable, and the RoomMapPage pane has no ScrollPattern to reveal it with.
+        $page = Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapScroll')) `
+            -Description 'narrow Room map scroll viewer' -Container {
+                $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.PropertyCondition]::new(
+                        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapPage'))
+            }
         $scroll = $page.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
         if (-not $scroll.Current.HorizontallyScrollable -or -not $scroll.Current.VerticallyScrollable) {
             throw 'A narrow window must scroll the Room map horizontally and vertically instead of shrinking it.'
