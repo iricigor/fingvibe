@@ -224,6 +224,44 @@ $lifecycleOutcome = "failed"
 function Assert-True([bool] $Condition, [string] $Message) {
     if (-not $Condition) { throw $Message }
 }
+function Get-UninstallerExecutable([string] $CommandLine) {
+    if ([string]::IsNullOrWhiteSpace($CommandLine)) {
+        throw "Registered UninstallString is missing or empty."
+    }
+    $match = [regex]::Match($CommandLine.Trim(),
+        '^(?:"(?<quoted>[^"]+\.exe)"|(?<plain>\S+\.exe))(?:\s+.*)?$',
+        [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if (-not $match.Success) {
+        throw "Could not parse the registered UninstallString: $CommandLine"
+    }
+    if ($match.Groups["quoted"].Success) { $match.Groups["quoted"].Value }
+    else { $match.Groups["plain"].Value }
+}
+function Resolve-RegisteredUninstaller([object] $Registration, [string] $AppDirectory) {
+    $property = if ($null -ne $Registration) { $Registration.PSObject.Properties["UninstallString"] }
+    if ($null -eq $property) {
+        throw "Registered uninstall information does not contain UninstallString."
+    }
+    $executable = Get-UninstallerExecutable ([string] $property.Value)
+    $directory = [IO.Path]::GetFullPath($AppDirectory).TrimEnd("\")
+    $path = [IO.Path]::GetFullPath([Environment]::ExpandEnvironmentVariables($executable))
+    if (-not $path.StartsWith($directory + "\", [StringComparison]::OrdinalIgnoreCase)) {
+        throw "Registered UninstallString resolves outside the FingVibe installation directory: $path"
+    }
+    if ([IO.Path]::GetFileName($path) -notmatch '^unins\d+\.exe$') {
+        throw "Registered UninstallString does not name an Inno Setup uninstaller: $path"
+    }
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        throw "Registered Inno Setup uninstaller is missing: $path"
+    }
+    $path
+}
+function Get-RegisteredUninstaller {
+    if (-not (Test-Path -LiteralPath $registration)) {
+        throw "FingVibe uninstall registration is missing."
+    }
+    Resolve-RegisteredUninstaller (Get-ItemProperty -LiteralPath $registration) $app
+}
 function Measure-Phase([string] $Kind, [string] $Name, [scriptblock] $Action) {
     $timer = [Diagnostics.Stopwatch]::StartNew()
     $outcome = "failed"
@@ -236,9 +274,40 @@ function Measure-Phase([string] $Kind, [string] $Name, [scriptblock] $Action) {
         Write-Host "Installer $Kind $Name $outcome in $seconds s."
     }
 }
-function Invoke-Setup([string] $Path, [string] $Name, [switch] $ExpectFailure, [string[]] $Extra = @(),
+function Get-InnoSecondPhaseProcesses([string] $Path) {
+    $marker = "/SECONDPHASE=`"$([IO.Path]::GetFullPath($Path))`""
+    @(Get-CimInstance -ClassName Win32_Process | Where-Object {
+        $_.CommandLine -and
+        $_.CommandLine.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase) -ge 0
+    })
+}
+function Test-InnoUninstallComplete([string] $Path, [string] $LogPath, [bool] $Succeeded) {
+    if (@(Get-InnoSecondPhaseProcesses $Path).Count -gt 0 -or
+        -not (Test-Path -LiteralPath $LogPath -PathType Leaf)) {
+        return $false
+    }
+    $log = Get-Content -LiteralPath $LogPath -Raw
+    if ($log -notmatch '(?m)Log closed\.\s*$') { return $false }
+    if ($Succeeded) {
+        return -not (Test-Path -LiteralPath $registration) -and
+            -not (Test-Path -LiteralPath $versionKey) -and
+            -not (Test-Path -LiteralPath $Path) -and
+            -not (Test-Path -LiteralPath (Join-Path $app "FingVibe.App.exe"))
+    }
+    (Test-Path -LiteralPath $registration) -and (Test-Path -LiteralPath $Path)
+}
+function Wait-InnoUninstall([string] $Path, [string] $Name, [bool] $Succeeded) {
+    $logPath = Join-Path $logs "$Name.log"
+    $null = Wait-UiRegressionState -Description "$Name complete uninstall cleanup" `
+        -TimeoutMilliseconds 30000 -PollMilliseconds 50 -Condition {
+            Test-InnoUninstallComplete $Path $logPath $Succeeded
+        }
+}
+function Invoke-Installer([string] $Path, [string] $Name,
+    [ValidateSet("Install", "Uninstall")][string] $Operation,
+    [switch] $ExpectFailure, [string[]] $Extra = @(),
     [ValidateSet("SILENT", "VERYSILENT")][string] $Mode = "VERYSILENT") {
-    $kind = if ($Path -like "*unins000.exe") { "uninstall" } else { "setup" }
+    $kind = $Operation.ToLowerInvariant()
     Measure-Phase $kind $Name {
         $arguments = @("/$Mode", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-", "/LOG=`"$(Join-Path $logs "$Name.log")`"") + $Extra
         $setup = Start-Process -FilePath $Path -ArgumentList $arguments -PassThru
@@ -246,12 +315,15 @@ function Invoke-Setup([string] $Path, [string] $Name, [switch] $ExpectFailure, [
             Stop-Process -Id $setup.Id -Force
             throw "Installer timed out: $Name"
         }
+        if ($Operation -eq "Uninstall") {
+            Wait-InnoUninstall $Path $Name (-not $ExpectFailure)
+        }
         if ($ExpectFailure) {
             Assert-True ($setup.ExitCode -ne 0) "$Name unexpectedly succeeded."
         } else {
             Assert-True ($setup.ExitCode -eq 0) "$Name failed with exit code $($setup.ExitCode). See $logs."
-            Assert-True (@(Get-InstalledAppProcess).Count -eq 0) "$Mode setup must not launch FingVibe."
-            Assert-True ((Get-Content (Join-Path $logs "$Name.log") -Raw) -notmatch '-- Run entry --') "$Mode setup processed a Run entry."
+            Assert-True (@(Get-InstalledAppProcess).Count -eq 0) "$Operation in $Mode must not launch FingVibe."
+            Assert-True ((Get-Content (Join-Path $logs "$Name.log") -Raw) -notmatch '-- Run entry --') "$Operation in $Mode processed a Run entry."
         }
     }
 }
@@ -374,10 +446,47 @@ function New-FixtureInstaller([string] $Source, [string] $FixtureVersion) {
     }
     Join-Path $fixture "FingVibe-$FixtureVersion-win-x64-Setup.exe"
 }
+function New-LifecycleFixtureApp([string] $Source, [string] $Destination) {
+    $null = New-Item -ItemType Directory -Path (Join-Path $Destination "Assets") -Force
+    Copy-Item -LiteralPath (Join-Path $Source "Assets\Scanner.ico") `
+        -Destination (Join-Path $Destination "Assets\Scanner.ico")
+    "fixture" | Set-Content -LiteralPath (Join-Path $Destination "FingVibe.App.dll")
+    $fixtureSource = Join-Path $Destination "FingVibe.LaunchFixture.cs"
+    @'
+using System;
+using System.Drawing;
+using System.Windows.Forms;
+
+public static class InstallerLaunchFixture
+{
+    [STAThread]
+    public static void Main()
+    {
+        Application.EnableVisualStyles();
+        Application.SetCompatibleTextRenderingDefault(false);
+        using (var window = new Form())
+        {
+            window.Text = "FingVibe installer fixture";
+            window.ClientSize = new Size(320, 180);
+            window.StartPosition = FormStartPosition.CenterScreen;
+            Application.Run(window);
+        }
+    }
+}
+'@ | Set-Content -LiteralPath $fixtureSource
+    $compiler = Join-Path $env:WINDIR "Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+    if (-not (Test-Path -LiteralPath $compiler -PathType Leaf)) {
+        throw "Installer lifecycle fixture compiler not found: $compiler"
+    }
+    & $compiler /nologo /target:winexe /platform:x64 "/out:$(Join-Path $Destination "FingVibe.App.exe")" `
+        /reference:System.Windows.Forms.dll /reference:System.Drawing.dll $fixtureSource
+    if ($LASTEXITCODE -ne 0) { throw "Installer lifecycle fixture compilation failed with exit code $LASTEXITCODE." }
+    Remove-Item -LiteralPath $fixtureSource
+    $Destination
+}
 function Uninstall-App([string] $Name) {
-    $uninstaller = Join-Path $app "unins000.exe"
-    Assert-True (Test-Path -LiteralPath $uninstaller) "Uninstaller is missing."
-    Invoke-Setup $uninstaller $Name
+    $uninstaller = Get-RegisteredUninstaller
+    Invoke-Installer -Path $uninstaller -Name $Name -Operation Uninstall
     Assert-True (-not (Test-Path -LiteralPath $registration)) "Uninstall registration was not removed."
     Assert-True (-not (Test-Path -LiteralPath $versionKey)) "Installer version was not removed."
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $app "FingVibe.App.exe"))) "Installed executable was not removed."
@@ -415,7 +524,10 @@ try {
     Get-ChildItem -LiteralPath $source -Recurse -File | ForEach-Object {
         $sourceHashes[[IO.Path]::GetRelativePath($source, $_.FullName)] = (Get-FileHash -LiteralPath $_.FullName).Hash
     }
-    Invoke-Setup $installer "fresh-install" -Mode SILENT
+    $fixtureSource = Measure-Phase "compile" "launch-fixture" {
+        New-LifecycleFixtureApp $source (Join-Path $fixture "fixture-source")
+    }
+    Invoke-Installer -Path $installer -Name "fresh-install" -Operation Install -Mode SILENT
     Assert-True ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $Version) "Installed version differs from release version."
     Assert-True ((Get-ItemProperty -LiteralPath $registration).InstallLocation.TrimEnd('\') -eq $app) "Installation must be per-user."
     $startShortcut = Join-Path ([Environment]::GetFolderPath("Programs")) "FingVibe.lnk"
@@ -434,9 +546,9 @@ try {
         } until ($script:process.MainWindowHandle -ne 0 -or [DateTime]::UtcNow -gt $deadline)
         Assert-True ($script:process.MainWindowHandle -ne 0) "Installed app did not open a window."
     }
-    Invoke-Setup $installer "running-app-blocks-install" -ExpectFailure
+    Invoke-Installer -Path $installer -Name "running-app-blocks-install" -Operation Install -ExpectFailure
     Assert-True ((Get-Content -LiteralPath (Join-Path $logs "running-app-blocks-install.log") -Raw) -match 'Close FingVibe') "App-running rejection was not reported."
-    Invoke-Setup (Join-Path $app "unins000.exe") "running-app-blocks-uninstall" -ExpectFailure
+    Invoke-Installer -Path (Get-RegisteredUninstaller) -Name "running-app-blocks-uninstall" -Operation Uninstall -ExpectFailure
     Assert-True ($process.CloseMainWindow()) "Could not close the installed app normally."
     Assert-True ($process.WaitForExit(15000)) "Installed app did not close."
     $process = $null
@@ -454,21 +566,21 @@ try {
         $featureInstaller = $installer
     } else {
         $featureVersion = "$FeatureFamily.$($v.Build)"
-        $featureInstaller = New-FixtureInstaller $source $featureVersion
+        $featureInstaller = New-FixtureInstaller $fixtureSource $featureVersion
     }
     $legacyVersion = "$previousFamily.$($v.Build + 1)"
     Assert-True ([version] $legacyVersion -lt [version] $featureVersion) "Feature version must order above the higher-build previous-family fixture."
-    $legacyInstaller = New-FixtureInstaller $source $legacyVersion
-    Invoke-Setup $legacyInstaller "legacy-$previousFamily-install"
+    $legacyInstaller = New-FixtureInstaller $fixtureSource $legacyVersion
+    Invoke-Installer -Path $legacyInstaller -Name "legacy-$previousFamily-install" -Operation Install
     Assert-True ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $legacyVersion) "$previousFamily fixture was not installed."
     foreach ($name in @("device-inventory.sqlite", "latest-scan.json", "people-rooms.json", "appearance.json", "device-table.json", "periodic-scan.json")) {
         "synthetic $previousFamily $name" | Set-Content -LiteralPath (Join-Path $data $name)
     }
     $legacyData = Get-SavedDataHashes
-    Invoke-Setup $featureInstaller "feature-upgrade-from-$previousFamily"
+    Invoke-Installer -Path $featureInstaller -Name "feature-upgrade-from-$previousFamily" -Operation Install
     Assert-True ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $featureVersion) "$previousFamily installation was not upgraded to $featureVersion."
     Assert-SavedDataUnchanged $legacyData "$previousFamily feature-version upgrade changed saved inventory, history, or settings."
-    Invoke-Setup $legacyInstaller "reject-$previousFamily-feature-downgrade" -ExpectFailure
+    Invoke-Installer -Path $legacyInstaller -Name "reject-$previousFamily-feature-downgrade" -Operation Install -ExpectFailure
     Assert-True ((Get-Content -LiteralPath (Join-Path $logs "reject-$previousFamily-feature-downgrade.log") -Raw) -match 'Downgrades are not supported') "$previousFamily downgrade rejection was not reported."
     Assert-True ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $featureVersion) "Rejected $previousFamily downgrade changed installed version."
     Assert-SavedDataUnchanged $legacyData "Rejected $previousFamily downgrade changed saved inventory, history, or settings."
@@ -480,22 +592,23 @@ try {
     $lowerVersion = "$($v.Major).$($v.Minor).$($v.Build - 1)"
     $fixtureApp = Join-Path $fixture "app"
     $null = New-Item -ItemType Directory -Path $fixtureApp
-    Copy-Item -Path (Join-Path $source "*") -Destination $fixtureApp -Recurse
+    Copy-Item -Path (Join-Path $fixtureSource "*") -Destination $fixtureApp -Recurse
     "obsolete managed file" | Set-Content -LiteralPath (Join-Path $fixtureApp "obsolete-test.txt")
     $lowerInstaller = New-FixtureInstaller $fixtureApp $lowerVersion
-    Invoke-Setup $lowerInstaller "lower-$lowerVersion-install"
+    $currentInstaller = New-FixtureInstaller $fixtureSource $Version
+    Invoke-Installer -Path $lowerInstaller -Name "lower-$lowerVersion-install" -Operation Install
     Assert-True ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $lowerVersion) "Lower-version fixture was not installed."
     Assert-True (Test-Path -LiteralPath (Join-Path $app "obsolete-test.txt")) "Lower-version fixture did not install its managed file."
     $unknown = Join-Path $app "user-file.txt"
     "keep unknown file" | Set-Content -LiteralPath $unknown
     $upgradeData = Get-SavedDataHashes
-    Invoke-Setup $installer "real-installer-upgrade-from-$lowerVersion"
+    Invoke-Installer -Path $installer -Name "real-installer-upgrade-from-$lowerVersion" -Operation Install
     Assert-True ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $Version) "Real installer did not upgrade the lower-version installation."
     Assert-True (-not (Test-Path -LiteralPath (Join-Path $app "obsolete-test.txt"))) "Upgrade retained obsolete managed file."
     Assert-True ((Get-Content -LiteralPath $unknown) -eq "keep unknown file") "Upgrade changed an unknown file."
     Assert-SavedDataUnchanged $upgradeData "Real installer upgrade changed saved data."
     Assert-InstalledPayload "Upgraded payload differs"
-    Invoke-Setup $lowerInstaller "reject-downgrade" -ExpectFailure
+    Invoke-Installer -Path $lowerInstaller -Name "reject-downgrade" -Operation Install -ExpectFailure
     Assert-True ((Get-Content -LiteralPath (Join-Path $logs "reject-downgrade.log") -Raw) -match 'Downgrades are not supported') "Downgrade rejection was not reported."
     Assert-True ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $Version) "Rejected downgrade changed installed version."
     Assert-SavedDataUnchanged $upgradeData "Rejected downgrade changed saved data."
@@ -505,7 +618,7 @@ try {
 
     # Emulate the existing ZIP script over the retained unknown file; the real installer adopts it.
     Copy-Item -Path (Join-Path $source "*") -Destination $app -Recurse -Force
-    Invoke-Setup $installer "adopt-script-install" -Extra @("/TASKS=desktopicon")
+    Invoke-Installer -Path $installer -Name "adopt-script-install" -Operation Install -Extra @("/TASKS=desktopicon")
     Assert-True ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $Version) "Real installer did not adopt the script installation."
     Assert-True (Test-Path -LiteralPath $desktopShortcut) "Selected desktop shortcut is missing."
     Assert-True ((Get-Content -LiteralPath $unknown) -eq "keep unknown file") "Adoption removed an unknown file."
@@ -516,7 +629,8 @@ try {
     foreach ($launch in @($true, $false)) {
         $choice = if ($launch) { 'checked' } else { 'unchecked' }
         Invoke-InteractiveSetup $lowerInstaller "fresh-finish-$choice" $launch
-        Invoke-InteractiveSetup $installer "upgrade-finish-$choice" $launch
+        $upgradeInstaller = if ($launch) { $installer } else { $currentInstaller }
+        Invoke-InteractiveSetup $upgradeInstaller "upgrade-finish-$choice" $launch
         Uninstall-App "finish-$choice-uninstall"
     }
     $lifecycleOutcome = "succeeded"
