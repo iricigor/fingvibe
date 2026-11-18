@@ -47,6 +47,14 @@
                                TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                AutomationProperties.AutomationId="RoomMapSummaryText" />
+                    <TextBlock x:Name="RoomMapUnassignedSummaryText"
+                               Text="No room assigned · 0 devices"
+                               IsTabStop="True"
+                               TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               AutomationProperties.AutomationId="RoomMapUnassigned"
+                               AutomationProperties.Name="No room assigned, 0 devices"
+                               AutomationProperties.LiveSetting="Polite" />
                 </StackPanel>
             </Grid>
 

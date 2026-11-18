@@ -11,6 +11,14 @@
         SettingsPage = "SettingsPageView"
     }
     $appDirectory = Join-Path $PSScriptRoot "..\src\FingVibe.App"
+    $roomMapDocument = [xml](Get-Content (Join-Path $appDirectory "Views\RoomMapPageView.xaml") -Raw)
+    $unassignedSummary = $roomMapDocument.SelectSingleNode(
+        "//*[@*[local-name()='Name']='RoomMapUnassignedSummaryText']")
+    if ($unassignedSummary.LocalName -cne "TextBlock" -or
+        $unassignedSummary.GetAttribute("AutomationProperties.AutomationId") -cne "RoomMapUnassigned" -or
+        $unassignedSummary.GetAttribute("IsTabStop") -cne "True") {
+        throw "Room map must expose an always-realized focusable unassigned summary peer."
+    }
     $peopleRoomsDocument = [xml](Get-Content (Join-Path $appDirectory "Views\PeopleRoomsPageView.xaml") -Raw)
     $peopleRoomsCode = Get-Content (Join-Path $appDirectory "Views\PeopleRoomsPageView.xaml.cs") -Raw
     $headingRow = $peopleRoomsDocument.SelectSingleNode("//*[@*[local-name()='Name']='PeopleRoomsHeadingRow']")

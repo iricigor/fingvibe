@@ -82,6 +82,8 @@ public sealed partial class RoomMapPageView : UserControl
         {
             RoomMapNetworkText.Text = "No active IPv4 network";
             RoomMapSummaryText.Text = "Select a network to show its saved room assignments and scan evidence.";
+            RoomMapUnassignedSummaryText.Text = "No room assigned · unavailable";
+            AutomationProperties.SetName(RoomMapUnassignedSummaryText, "No room assigned, unavailable");
             RoomMapErrorText.Visibility = Visibility.Collapsed;
             RoomMapScroll.Visibility = Visibility.Collapsed;
             RoomMapEmptyState.Visibility = Visibility.Visible;
@@ -106,6 +108,12 @@ public sealed partial class RoomMapPageView : UserControl
         RoomMapSummaryText.Text =
             $"{roomCount} {(roomCount == 1 ? "saved room" : "saved rooms")} · "
             + $"{deviceCount} {(deviceCount == 1 ? "device" : "devices")} · {onlineCount} online";
+        RoomMapUnassignedSummaryText.Text =
+            $"No room assigned · {projection.UnassignedDevices.Count} "
+            + $"{(projection.UnassignedDevices.Count == 1 ? "device" : "devices")}";
+        AutomationProperties.SetName(
+            RoomMapUnassignedSummaryText,
+            $"No room assigned, {projection.UnassignedDevices.Count} devices");
         RoomMapErrorText.Text = _networkError ?? string.Empty;
         RoomMapErrorText.Visibility = string.IsNullOrWhiteSpace(_networkError)
             ? Visibility.Collapsed
@@ -411,7 +419,7 @@ public sealed partial class RoomMapPageView : UserControl
             Foreground = Brush("TextFillColorSecondaryBrush")
         });
         strip.Content = header;
-        AutomationProperties.SetAutomationId(strip, "RoomMapUnassigned");
+        AutomationProperties.SetAutomationId(strip, "RoomMapUnassignedStrip");
         AutomationProperties.SetName(strip,
             $"No room assigned, {layout.UnassignedDevices.Count} devices");
         AutomationProperties.SetLocalizedControlType(strip, "unassigned devices");
