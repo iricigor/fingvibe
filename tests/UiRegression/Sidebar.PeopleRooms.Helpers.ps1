@@ -138,8 +138,14 @@ function Test-RoomMapDetailsRoundTrip {
         }
 
         $device = Find-PeopleRoomsElement AutomationId 'RoomMapDevice-001122000063' RoomMapPage
-        $scroll = (Find-PeopleRoomsElement AutomationId RoomMapScroll RoomMapPage).GetCurrentPattern(
-            [System.Windows.Automation.ScrollPattern]::Pattern)
+        $scrollViewer = Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapScroll')) `
+            -Description 'Room map round-trip scroll viewer' -Container {
+                $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.PropertyCondition]::new(
+                        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapPage'))
+            }
+        $scroll = $scrollViewer.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
         $horizontal = $scroll.Current.HorizontalScrollPercent
         $vertical = $scroll.Current.VerticalScrollPercent
         if ($horizontal -le 0 -and $vertical -le 0) {
@@ -160,8 +166,14 @@ function Test-RoomMapDetailsRoundTrip {
                     'RoomMapDevice-001122000063'))
             if ($candidate -and -not $candidate.Current.IsOffscreen) { $candidate }
         }
-        $restoredScroll = (Find-PeopleRoomsElement AutomationId RoomMapScroll RoomMapPage).GetCurrentPattern(
-            [System.Windows.Automation.ScrollPattern]::Pattern)
+        $restoredViewer = Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapScroll')) `
+            -Description 'restored Room map scroll viewer' -Container {
+                $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.PropertyCondition]::new(
+                        [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapPage'))
+            }
+        $restoredScroll = $restoredViewer.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
         if (-not $returnedDevice.Current.HasKeyboardFocus -or
             [Math]::Abs($restoredScroll.Current.HorizontalScrollPercent - $horizontal) -gt 1 -or
             [Math]::Abs($restoredScroll.Current.VerticalScrollPercent - $vertical) -gt 1) {
