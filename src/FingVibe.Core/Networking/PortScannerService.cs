@@ -139,15 +139,17 @@ public sealed class PortScannerService
         return results.OfType<OpenPort>().OrderBy(port => port.Port).ToArray();
     }
 
+    // blocked receives ports whose connection Windows refused with access denied (for example loopback 137/TCP).
+    // They are reported separately, never counted as open, and do not abort the remaining probes.
     public Task<IReadOnlyList<OpenPort>> ScanAdditionalAsync(
         IPAddress address,
         CancellationToken cancellationToken,
         IPAddress? localAddress = null,
         IProgress<ScanProgress>? progress = null,
-        IProgress<OpenPort>? resultProgress = null) =>
+        IProgress<OpenPort>? resultProgress = null,
+        Action<int>? blocked = null) =>
         RunProbesAsync(AdditionalPlan with { Timeout = _timeout },
-            (port, timeout, token) => _probe?.Invoke(address, port, timeout, token)
-                ?? ProbeAsync(address, port, token, localAddress, timeout),
+            (port, timeout, token) => ProbeOrBlockedAsync(address, port, timeout, token, localAddress, blocked),
             cancellationToken, progress, resultProgress);
 
     public Task<IReadOnlyList<OpenPort>> ScanFullTcpAsync(
@@ -155,11 +157,27 @@ public sealed class PortScannerService
         CancellationToken cancellationToken,
         IPAddress? localAddress = null,
         IProgress<ScanProgress>? progress = null,
-        IProgress<OpenPort>? resultProgress = null) =>
+        IProgress<OpenPort>? resultProgress = null,
+        Action<int>? blocked = null) =>
         RunProbesAsync(FullTcpPlan,
-            (port, timeout, token) => _probe?.Invoke(address, port, timeout, token)
-                ?? ProbeAsync(address, port, token, localAddress, timeout),
+            (port, timeout, token) => ProbeOrBlockedAsync(address, port, timeout, token, localAddress, blocked),
             cancellationToken, progress, resultProgress);
+
+    private async Task<OpenPort?> ProbeOrBlockedAsync(IPAddress address, KeyValuePair<int, string> port, TimeSpan timeout,
+        CancellationToken cancellationToken, IPAddress? localAddress, Action<int>? blocked)
+    {
+        try
+        {
+            return await (_probe?.Invoke(address, port, timeout, cancellationToken)
+                ?? ProbeAsync(address, port, cancellationToken, localAddress, timeout)).ConfigureAwait(false);
+        }
+        catch (SocketException exception) when (exception.SocketErrorCode == SocketError.AccessDenied
+            && !cancellationToken.IsCancellationRequested)
+        {
+            blocked?.Invoke(port.Key);
+            return null;
+        }
+    }
 
     // Cancellation stops further dispatch and cancels in-flight probes. Completed open ports were already
     // reported through resultProgress, so callers retain them when this throws.

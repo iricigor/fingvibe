@@ -225,4 +225,25 @@ public sealed class AdditionalPortScannerTests
         await Assert.ThrowsAsync<SocketException>(() => scan.WaitAsync(TimeSpan.FromSeconds(30)));
         Assert.Contains(found, port => port.Port == 80);
     }
+
+    [Fact]
+    public async Task AccessDeniedPortsAreReportedAsBlockedWithoutAbortingTheScan()
+    {
+        var blocked = new System.Collections.Concurrent.ConcurrentBag<int>();
+        var scanner = new PortScannerService((_, port, _, _) => port.Key switch
+        {
+            137 => Task.FromException<OpenPort?>(new SocketException((int)SocketError.AccessDenied)),
+            7 => Task.FromResult<OpenPort?>(new OpenPort(7, port.Value)),
+            _ => Task.FromResult<OpenPort?>(null)
+        });
+
+        var results = await scanner.ScanFullTcpAsync(IPAddress.Loopback, CancellationToken.None,
+            blocked: blocked.Add).WaitAsync(TimeSpan.FromSeconds(30));
+
+        Assert.Equal(new[] { 137 }, blocked);
+        Assert.Equal(new[] { 7 }, results.Select(port => port.Port));
+        await Assert.ThrowsAsync<SocketException>(() => new PortScannerService((_, port, _, _) =>
+            Task.FromException<OpenPort?>(new SocketException((int)SocketError.AddressNotAvailable)))
+            .ScanFullTcpAsync(IPAddress.Loopback, CancellationToken.None));
+    }
 }

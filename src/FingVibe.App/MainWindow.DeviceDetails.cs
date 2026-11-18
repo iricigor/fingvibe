@@ -224,6 +224,7 @@ public sealed partial class MainWindow
         var changed = false;
         var tcpCompleted = 0;
         var udpCompleted = 0;
+        var blockedPorts = 0;
         bool IsSelected() => ReferenceEquals(_selectedDeviceRow, row);
         DevicePage.SetPortScanRunning(true, row.CanProbe);
         NetworkPicker.IsEnabled = false;
@@ -282,7 +283,8 @@ public sealed partial class MainWindow
         {
             try
             {
-                var ports = await _portScanner.ScanAdditionalAsync(result.Address, cancellation.Token, network.LocalAddress, tcpProgress, tcpResults);
+                var ports = await _portScanner.ScanAdditionalAsync(result.Address, cancellation.Token, network.LocalAddress, tcpProgress, tcpResults,
+                    _ => Interlocked.Increment(ref blockedPorts));
                 row.UpdateOpenPorts((row.Result?.OpenPortItems ?? []).Concat(ports).DistinctBy(port => port.Identity)
                     .OrderBy(port => port.Port).ThenBy(port => port.Protocol).ToArray());
                 changed = true;
@@ -290,7 +292,8 @@ public sealed partial class MainWindow
                 if (IsSelected())
                 {
                     DevicePage.ShowPorts(row.Result?.OpenPortItems ?? []);
-                    DevicePage.PortScanStatus = $"TCP: complete ({AdditionalPortCount}/{AdditionalPortCount}); {ports.Count} additional open port(s) found.";
+                    DevicePage.PortScanStatus = $"TCP: complete ({AdditionalPortCount}/{AdditionalPortCount}); {ports.Count} additional open port(s) found."
+                        + BlockedPortsNote(Volatile.Read(ref blockedPorts));
                 }
             }
             catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
@@ -369,6 +372,7 @@ public sealed partial class MainWindow
         var running = true;
         var changed = false;
         var checkedPorts = 0;
+        var blockedPorts = 0;
         var found = new HashSet<int>();
         DevicePage.SetPortScanRunning(true, row.CanProbe, fullScan: true);
         NetworkPicker.IsEnabled = false;
@@ -396,7 +400,8 @@ public sealed partial class MainWindow
         {
             try
             {
-                var ports = await _portScanner.ScanFullTcpAsync(address, cancellation.Token, network.LocalAddress, progress, results);
+                var ports = await _portScanner.ScanFullTcpAsync(address, cancellation.Token, network.LocalAddress, progress, results,
+                    _ => Interlocked.Increment(ref blockedPorts));
                 running = false;
                 row.UpdateOpenPorts((row.Result?.OpenPortItems ?? []).Concat(ports).DistinctBy(port => port.Identity)
                     .OrderBy(port => port.Port).ThenBy(port => port.Protocol).ToArray());
@@ -416,6 +421,7 @@ public sealed partial class MainWindow
                     + $"Coverage is incomplete; {found.Count} open port(s) found are retained.";
             }
             running = false;
+            outcome += BlockedPortsNote(Volatile.Read(ref blockedPorts));
             if (IsSelected()) DevicePage.PortScanStatus = outcome;
             if (changed)
             {
@@ -438,6 +444,9 @@ public sealed partial class MainWindow
             completion.TrySetResult();
         }
     }
+
+    private static string BlockedPortsNote(int blocked) => blocked == 0 ? string.Empty
+        : $" Windows blocked {blocked:N0} connection attempt(s); those ports could not be checked and are not counted as open.";
 
     private async Task StopDevicePortScanAsync()
     {

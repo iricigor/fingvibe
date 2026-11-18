@@ -511,7 +511,7 @@ function Test-FullTcpScan {
     Wait-ServiceState { (Find-ServiceControl DeviceTcpScanStatus).Current.Name -like "Full TCP: checking *65,535 ports; * open so far..." } "full-scan progress"
     Save-ServiceEvidence "services-full-running"
     Invoke-ServiceControl "Cancel full scan"
-    Wait-ServiceState { (Find-ServiceControl DeviceTcpScanStatus).Current.Name -like "Full TCP: canceled after at least */65,535 ports; coverage is incomplete.*retained." } "full-scan cancellation"
+    Wait-ServiceState { (Find-ServiceControl DeviceTcpScanStatus).Current.Name -like "Full TCP: canceled after at least */65,535 ports; coverage is incomplete.*retained.*" } "full-scan cancellation"
     Wait-ServiceState { (Find-ServiceControl DeviceFullPortScanButton).Current.Name -eq "Full TCP port scan" -and
         (Find-ServiceControl DevicePortScanButton).Current.IsEnabled } "full-scan cleanup"
     foreach ($endpoint in @("7/TCP - Unlisted service", "2222/TCP - SSH alternate", "8443/TCP - HTTPS alternate")) {
