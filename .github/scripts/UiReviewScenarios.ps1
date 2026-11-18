@@ -113,7 +113,7 @@ function Get-UiReviewCapturePlan {
                     PeopleRoomsPageView = @("People", "Rooms", "PersonDetails", "RoomDetails", "DeviceDetails", "RoomMap")
                     PersonDetailsPageView = @("PersonDetails", "People", "DeviceDetails")
                     RoomDetailsPageView = @("RoomDetails", "Rooms", "DeviceDetails")
-                    RoomMapPageView = @("RoomMap")
+                    RoomMapPageView = @("RoomMap", "DeviceDetails", "RoomDetails")
                     SettingsPageView = @($UiReviewScenarios.Keys)
                 }
                 $view = $Matches[1]
@@ -161,7 +161,11 @@ function Get-UiReviewCapturePlan {
             }
             elseif ($path -eq 'src/FingVibe.Core/Models/RoomMapLayout.cs' -or
                 $path -match '^src/FingVibe.App/(MainWindow.RoomMap|Views/RoomMapPageView)\.cs$') {
-                Add-Scenarios @("RoomMap") "$path changed Room map projection, layout, routing or rendering."
+                $roomMapScenarios = @("RoomMap")
+                if ($path -match '^src/FingVibe.App/') {
+                    $roomMapScenarios += @("DeviceDetails", "RoomDetails")
+                }
+                Add-Scenarios $roomMapScenarios "$path changed Room map projection, layout, routing, rendering or return navigation."
             }
             elseif ($path -eq 'src/FingVibe.Core/Storage/DeviceInventoryStore.Analytics.cs') {
                 Add-Scenarios @("DeviceDetails", "DeviceHistory", "Network", "PersonDetails", "Settings") `

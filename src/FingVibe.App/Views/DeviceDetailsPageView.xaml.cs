@@ -86,6 +86,15 @@ public sealed partial class DeviceDetailsPageView : UserControl
     internal string ClassificationNotice { set => DeviceClassificationNoticeText.Text = value; }
     internal string AssignmentStatus { set => DeviceAssignmentStatusText.Text = value; }
 
+    internal void SetBackDestination(bool roomMap)
+    {
+        DeviceBackButton.Content = roomMap ? "\u2190 Room map" : "\u2190 Devices";
+        AutomationProperties.SetName(DeviceBackButton, roomMap ? "Back to Room map" : "Back to devices");
+        ToolTipService.SetToolTip(DeviceBackButton, roomMap ? "Back to Room map" : "Back to devices");
+        DeviceBackButton.UpdateLayout();
+        LayoutHeader(HeaderGrid.ActualWidth);
+    }
+
     internal void ShowDevice(ScanResultRow row)
     {
         _historyGeneration++;
@@ -570,11 +579,14 @@ public sealed partial class DeviceDetailsPageView : UserControl
     }
 
     private void Header_SizeChanged(object sender, SizeChangedEventArgs e)
+        => LayoutHeader(e.NewSize.Width);
+
+    private void LayoutHeader(double width)
     {
         var scale = new Windows.UI.ViewManagement.UISettings().TextScaleFactor;
         DetailsTabsHost.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
         DeviceBackButton.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
-        var wide = e.NewSize.Width >= Math.Max(720 * scale,
+        var wide = width >= Math.Max(720 * scale,
             DetailsTabsHost.DesiredSize.Width + DeviceBackButton.DesiredSize.Width + 320 * scale + 32);
         Grid.SetRow(DetailsTabsHost, wide ? 0 : 1);
         Grid.SetColumn(DetailsTabsHost, wide ? 1 : 0);

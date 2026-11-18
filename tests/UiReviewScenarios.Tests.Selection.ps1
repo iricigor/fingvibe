@@ -158,7 +158,7 @@
     Test-Change @{ "src\FingVibe.App\MainWindow.NetworkIdentity.cs" = "changed" } `
         @("Devices", "Overview", "Network", "DeviceDetails", "PersonDetails", "RoomMap", "Troubleshooting") "Network identity code"
     Test-Change @{ "src\FingVibe.App\MainWindow.RoomMap.cs" = "changed" } `
-        @("Devices", "RoomMap") "Room map shell owner"
+        @("Devices", "DeviceDetails", "RoomMap", "RoomDetails") "Room map shell owner"
     Test-Change @{ "src\FingVibe.Core\Models\RoomMapLayout.cs" = "changed" } `
         @("Devices", "RoomMap") "Room map projection/layout"
     Test-Change @{ "src\FingVibe.App\MainWindow.Results.cs" = "changed" } `
@@ -207,6 +207,6 @@
         PeopleRoomsPageView = @("Devices", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomMap", "RoomDetails")
         PersonDetailsPageView = @("Devices", "DeviceDetails", "People", "PersonDetails")
         RoomDetailsPageView = @("Devices", "DeviceDetails", "Rooms", "RoomDetails")
-        RoomMapPageView = @("Devices", "RoomMap")
+        RoomMapPageView = @("Devices", "DeviceDetails", "RoomMap", "RoomDetails")
         SettingsPageView = @($UiReviewScenarios.Keys)
     }

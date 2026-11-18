@@ -1173,6 +1173,7 @@
             { "name": "Set-PeopleRoomsText", "refactored": true },
             { "name": "Open-PeopleRoomsDetails", "refactored": true },
             { "name": "Test-RoomMapEntries", "refactored": true },
+            { "name": "Test-RoomMapDetailsRoundTrip", "refactored": true, "introducedBy": "#557: room and device details return to the originating Room map focus and scroll state." },
             { "name": "Test-RoomMapAppearance", "refactored": true },
             { "name": "Test-RoomMapScale", "refactored": true },
             { "name": "Test-RoomMapAccessibility", "refactored": true, "introducedBy": "#361: narrow-window scrolling with normal-size devices and 200% text-scale room and device labels on the 10-room/100-device fixture." },

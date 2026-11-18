@@ -6,10 +6,12 @@
     xmlns:models="using:FingVibe.Core.Models">
     <ScrollViewer x:Name="RoomDetailPage">
         <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
-            <Button Click="BackToRoomsButton_Click" AutomationProperties.Name="Back to people and rooms">
+            <Button x:Name="RoomBackButton" Click="BackToRoomsButton_Click"
+                    AutomationProperties.AutomationId="RoomBackButton"
+                    AutomationProperties.Name="Back to people and rooms">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <FontIcon Glyph="&#xE72B;" FontSize="14" />
-                    <TextBlock Text="People &amp; rooms" />
+                    <TextBlock x:Name="RoomBackButtonText" Text="People &amp; rooms" />
                 </StackPanel>
             </Button>
             <Grid ColumnSpacing="12">

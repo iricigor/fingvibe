@@ -173,7 +173,6 @@ public sealed partial class MainWindow : Window
         if (page == RoomMapPage)
         {
             UpdateRoomMapPage();
-            RoomMapPage.ResetScroll();
         }
         UpdateDeviceActivity();
         DevicePage.SetActivityActive(page == DevicePage);
@@ -188,7 +187,15 @@ public sealed partial class MainWindow : Window
     private void ViewNetworkButton_Click(object sender, RoutedEventArgs e) =>
         MainNavigation.SelectedItem = NetworkNavItem;
 
-    private void BackToDevicesButton_Click(object sender, RoutedEventArgs e) =>
+    private void BackToDevicesButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_deviceDetailsFromRoomMap)
+        {
+            _deviceDetailsFromRoomMap = false;
+            ReturnToRoomMap();
+            return;
+        }
         ShowPage(DevicesPage);
+    }
 
 }

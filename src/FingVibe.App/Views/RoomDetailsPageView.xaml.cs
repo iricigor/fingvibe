@@ -1,5 +1,6 @@
 using FingVibe.Core.Models;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 
 namespace FingVibe.App.Views;
@@ -17,6 +18,16 @@ public sealed partial class RoomDetailsPageView : UserControl
 
     internal string Status { set => RoomDetailStatusText.Text = value; }
     internal ManagedRoom? SelectedRoom { get; set; }
+
+    internal void SetBackDestination(bool roomMap)
+    {
+        RoomBackButtonText.Text = roomMap ? "Room map" : "People & rooms";
+        AutomationProperties.SetName(
+            RoomBackButton, roomMap ? "Back to Room map" : "Back to people and rooms");
+        ToolTipService.SetToolTip(
+            RoomBackButton, roomMap ? "Back to Room map" : "Back to people and rooms");
+        RoomBackButton.UpdateLayout();
+    }
 
     internal void Refresh(PeopleRoomsData data, IReadOnlyList<AssignedDeviceListRow> devices,
         bool hasCurrentScan, bool canEdit)

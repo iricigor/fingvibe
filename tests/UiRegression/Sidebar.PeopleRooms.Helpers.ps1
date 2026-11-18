@@ -104,6 +104,79 @@ function Test-RoomMapEntries {
     Write-Host 'Room map entry points, conceptual gateway fallback, focus reachability and return to management passed.'
 }
 
+function Test-RoomMapDetailsRoundTrip {
+    $inventory = Join-Path (Join-Path $fixtureDirectory 'room-map-scale') 'inventory.json'
+    if (-not (Test-Path -LiteralPath $inventory)) { throw 'Test-RoomMapScale must create the Room map scale fixture first.' }
+    $savedInventory = $env:FINGVIBE_UI_REVIEW_INVENTORY
+    Stop-SidebarApp
+    try {
+        $env:FINGVIBE_UI_REVIEW_INVENTORY = $inventory
+        Start-SidebarApp
+        Set-SidebarWindowWidth $expandedWidth
+        Select-SidebarPage 'Tools' 'View room map'
+        Invoke-PeopleRoomsElement Name 'View room map'
+
+        $roomId = '00000000-0000-0000-0000-000000000004'
+        $room = Find-PeopleRoomsElement AutomationId "RoomMapOpenRoom-$roomId" RoomMapPage
+        $room.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        $roomBack = Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, 'Back to Room map')) `
+            -Description 'Room details return to Room map' -Container { $root }
+        if ($roomBack.Current.AutomationId -ne 'RoomBackButton') {
+            throw "Room details must expose the origin-aware Room map Back action."
+        }
+        $roomBack.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        $returnedRoom = Wait-UiRegressionState -Description 'Room map room origin restored' -Condition {
+            $candidate = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
+                    "RoomMapOpenRoom-$roomId"))
+            if ($candidate -and -not $candidate.Current.IsOffscreen) { $candidate }
+        }
+        if (-not $returnedRoom.Current.HasKeyboardFocus) {
+            throw 'Returning from Room Details must restore focus to the originating room-name action.'
+        }
+
+        $device = Find-PeopleRoomsElement AutomationId 'RoomMapDevice-001122000063' RoomMapPage
+        $scroll = (Find-PeopleRoomsElement AutomationId RoomMapScroll RoomMapPage).GetCurrentPattern(
+            [System.Windows.Automation.ScrollPattern]::Pattern)
+        $horizontal = $scroll.Current.HorizontalScrollPercent
+        $vertical = $scroll.Current.VerticalScrollPercent
+        if ($horizontal -le 0 -and $vertical -le 0) {
+            throw 'The round-trip test must begin from a scrolled Room map position.'
+        }
+        $device.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        $deviceBack = Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::NameProperty, 'Back to Room map')) `
+            -Description 'Device details return to Room map' -Container { $root }
+        if ($deviceBack.Current.AutomationId -ne 'DeviceBackButton') {
+            throw "Device Details must expose the origin-aware Room map Back action."
+        }
+        $deviceBack.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        $returnedDevice = Wait-UiRegressionState -Description 'Room map device origin restored' -Condition {
+            $candidate = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::AutomationIdProperty,
+                    'RoomMapDevice-001122000063'))
+            if ($candidate -and -not $candidate.Current.IsOffscreen) { $candidate }
+        }
+        $restoredScroll = (Find-PeopleRoomsElement AutomationId RoomMapScroll RoomMapPage).GetCurrentPattern(
+            [System.Windows.Automation.ScrollPattern]::Pattern)
+        if (-not $returnedDevice.Current.HasKeyboardFocus -or
+            [Math]::Abs($restoredScroll.Current.HorizontalScrollPercent - $horizontal) -gt 1 -or
+            [Math]::Abs($restoredScroll.Current.VerticalScrollPercent - $vertical) -gt 1) {
+            throw 'Returning from Device Details must restore the originating device focus and Room map scroll position.'
+        }
+        Write-Host 'Room map device and room detail round trips restored origin focus and scroll state.'
+    }
+    finally {
+        Stop-SidebarApp
+        $env:FINGVIBE_UI_REVIEW_INVENTORY = $savedInventory
+        Start-SidebarApp
+        Set-SidebarWindowWidth $expandedWidth
+    }
+}
+
 function Test-RoomMapAppearance([string] $Name) {
     Select-SidebarPage 'Tools' 'View room map'
     Invoke-PeopleRoomsElement Name 'View room map'

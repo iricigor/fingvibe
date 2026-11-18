@@ -293,7 +293,9 @@
 
                 <!-- Room map -->
                 <views:RoomMapPageView x:Name="RoomMapPage" Grid.Row="1" Visibility="Collapsed"
-                        ManageRoomsRequested="ManageRoomsFromMapButton_Click" />
+                        ManageRoomsRequested="ManageRoomsFromMapButton_Click"
+                        DeviceRequested="RoomMapDeviceRequested"
+                        RoomRequested="RoomMapRoomRequested" />
 
                 <!-- Tools -->
                 <local:ToolsPage x:Name="ToolsPage" Grid.Row="1" Visibility="Collapsed"

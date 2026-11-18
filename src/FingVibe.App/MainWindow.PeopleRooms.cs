@@ -138,6 +138,8 @@ public sealed partial class MainWindow
 
     private void RoomRequested(object? sender, ManagedRoom room)
     {
+        _roomDetailsFromRoomMap = false;
+        RoomDetailPage.SetBackDestination(false);
         RoomDetailPage.SelectedRoom = room;
         UpdatePeopleRoomsPages();
         ShowPage(RoomDetailPage);
@@ -454,7 +456,16 @@ public sealed partial class MainWindow
 
     private void BackToPeopleButton_Click(object sender, RoutedEventArgs e) => ShowPage(PeopleRoomsPage);
 
-    private void BackToRoomsButton_Click(object sender, RoutedEventArgs e) => ShowPage(PeopleRoomsPage);
+    private void BackToRoomsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_roomDetailsFromRoomMap)
+        {
+            _roomDetailsFromRoomMap = false;
+            ReturnToRoomMap();
+            return;
+        }
+        ShowPage(PeopleRoomsPage);
+    }
 
     private void UpdateDeviceAssignmentPickers()
     {

@@ -304,6 +304,120 @@ public sealed class RoomMapLayoutTests
             after.Rooms.SelectMany(room => room.Devices).Select(device => device.Bounds));
         Assert.Equal(before.UnassignedBounds, after.UnassignedBounds);
         Assert.Equal(before.Height, after.Height);
+        Assert.Equal(
+            before.Connections.Select(connection =>
+                (connection.SourceId, connection.TargetId, connection.Kind, connection.Points)),
+            after.Connections.Select(connection =>
+                (connection.SourceId, connection.TargetId, connection.Kind, connection.Points)));
+    }
+
+    [Fact]
+    public void LayoutRoutesEveryRouterAndFallbackRoomThroughReservedGutters()
+    {
+        var rootId = Guid.NewGuid();
+        var routerRoomId = Guid.NewGuid();
+        var wallRoomId = Guid.NewGuid();
+        var gateway = DeviceSource("gateway", "Gateway", DeviceType.Router, rootId) with { IsGateway = true };
+        var localRouter = DeviceSource("root-router", "Root access point", DeviceType.Router, rootId);
+        var rooms = new RoomMapRoom[]
+        {
+            new(rootId, "Hall", "H", null, [gateway, localRouter], true, false),
+            new(
+                routerRoomId,
+                "Router room",
+                "RR",
+                null,
+                [
+                    DeviceSource("router-one", "Router one", DeviceType.Router, routerRoomId),
+                    DeviceSource("router-two", "Router two", DeviceType.Router, routerRoomId),
+                    DeviceSource("computer", "Computer", DeviceType.Computer, routerRoomId)
+                ],
+                false,
+                false),
+            new(
+                wallRoomId,
+                "Quiet room",
+                "QR",
+                null,
+                [DeviceSource("phone", "Phone", DeviceType.Phone, wallRoomId)],
+                false,
+                false)
+        };
+        var projection = new RoomMapProjection(
+            Network.DisplayLabel,
+            Network,
+            "network",
+            rooms,
+            [DeviceSource("unassigned", "Unassigned", DeviceType.Phone)]);
+
+        var layout = RoomMapLayout.Create(projection, 1024);
+
+        Assert.Equal(5, layout.Connections.Count);
+        Assert.Equal(2, layout.Connections.Count(connection => connection.Kind == RoomMapConnectionKind.Router));
+        Assert.Single(layout.Connections, connection => connection.Kind == RoomMapConnectionKind.Room);
+        Assert.Single(layout.Connections, connection => connection.Kind == RoomMapConnectionKind.RootRouter);
+        var unassigned = Assert.Single(
+            layout.Connections, connection => connection.Kind == RoomMapConnectionKind.Unassigned);
+        Assert.True(unassigned.IsDashed);
+        Assert.DoesNotContain(layout.Connections, connection => connection.SourceId == gateway.IdentityKey);
+        Assert.All(layout.Connections, connection =>
+        {
+            Assert.True(connection.Points.Count >= 4);
+            Assert.All(
+                connection.Points.Zip(connection.Points.Skip(1)),
+                segment => Assert.True(
+                    Math.Abs(segment.First.X - segment.Second.X) < 0.001 ||
+                    Math.Abs(segment.First.Y - segment.Second.Y) < 0.001,
+                    $"{connection.Kind} connection contains a diagonal segment."));
+        });
+        Assert.All(layout.Connections, connection =>
+        {
+            var interiorSegments = connection.Points
+                .Zip(connection.Points.Skip(1))
+                .Skip(1)
+                .SkipLast(1);
+            Assert.All(interiorSegments, segment =>
+                Assert.DoesNotContain(
+                    layout.Rooms,
+                    room => IntersectsInterior(segment.First, segment.Second, room.Bounds)));
+        });
+        Assert.All(layout.Connections.Where(connection => connection.Kind is not RoomMapConnectionKind.RootRouter),
+            connection => Assert.Equal("root-entry", connection.TargetId));
+        Assert.Equal(localRouter.IdentityKey,
+            Assert.Single(layout.Connections, connection => connection.Kind == RoomMapConnectionKind.RootRouter).SourceId);
+        Assert.Equal(gateway.IdentityKey,
+            Assert.Single(layout.Connections, connection => connection.Kind == RoomMapConnectionKind.RootRouter).TargetId);
+    }
+
+    [Fact]
+    public void LayoutRoutesUnresolvedGatewayRootsWithoutInventingADevice()
+    {
+        var roomId = Guid.NewGuid();
+        var projection = new RoomMapProjection(
+            Network.DisplayLabel,
+            Network,
+            "network",
+            [
+                new(
+                    roomId,
+                    "Office",
+                    "O",
+                    null,
+                    [DeviceSource("router", "Router", DeviceType.Router, roomId)],
+                    false,
+                    false),
+                new(null, "Gateway unavailable", "GW", null, [], true, false, true, "No gateway.")
+            ],
+            []);
+
+        var layout = RoomMapLayout.Create(projection, 720);
+
+        var connection = Assert.Single(layout.Connections);
+        Assert.Equal(RoomMapConnectionKind.Router, connection.Kind);
+        Assert.Equal("root-entry", connection.TargetId);
+        var placeholder = Assert.Single(layout.Rooms, room => room.IsRoot);
+        Assert.True(connection.Points[^1].X >= placeholder.Bounds.X);
+        Assert.Empty(placeholder.Devices);
     }
 
     [Fact]
@@ -380,4 +494,23 @@ public sealed class RoomMapLayoutTests
             roomId,
             false,
             false);
+
+    private static bool IntersectsInterior(RoomMapPoint start, RoomMapPoint end, RoomMapBounds bounds)
+    {
+        if (Math.Abs(start.Y - end.Y) < 0.001)
+        {
+            return start.Y > bounds.Y + 0.001 &&
+                start.Y < bounds.Bottom - 0.001 &&
+                Math.Max(start.X, end.X) > bounds.X + 0.001 &&
+                Math.Min(start.X, end.X) < bounds.Right - 0.001;
+        }
+        if (Math.Abs(start.X - end.X) < 0.001)
+        {
+            return start.X > bounds.X + 0.001 &&
+                start.X < bounds.Right - 0.001 &&
+                Math.Max(start.Y, end.Y) > bounds.Y + 0.001 &&
+                Math.Min(start.Y, end.Y) < bounds.Bottom - 0.001;
+        }
+        return false;
+    }
 }

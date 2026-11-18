@@ -53,19 +53,27 @@ section. You can also open the same page from the **Room map** card in
 The map includes all saved rooms, their assigned devices, and a separate
 **No room assigned** area. Empty saved rooms remain visible. Room and device
 sizes use bounded tiers, so counts do not turn into a proportional floor plan.
-The selected network's gateway identifies the root room. This PC and its
-saved room have separate highlights when that evidence is available.
+Orthogonal lines connect each router or fallback room anchor to the root
+gateway entry; the **No room assigned** area uses a dashed line. Additional
+routers in the root room connect locally to the gateway. The selected
+network's gateway identifies the root room. This PC and its saved room have
+separate highlights when that evidence is available.
 
 **Online**, **Offline**, and **No local scan evidence** describe the latest
 saved result for the selected network. They do not prove physical presence.
 The Internet symbol and room arrangement describe organization and conceptual
-connection, not discovered cable, Wi-Fi, mesh, or Internet topology. This
-read-only version does not draw individual room connection paths.
+connection, not discovered cable, Wi-Fi, mesh, or Internet topology.
 
-The first version of the page is read-only. Use **Manage rooms** to return to
-the existing room management page. Narrow windows keep normal-size device
-icons and allow horizontal and vertical scrolling. With larger Windows text
-sizes, room headers and device tiles grow taller so labels stay inside them.
+Choose a device tile or room name to open its existing details page. The Back
+action reads **Back to Room map** and returns to the same scroll and keyboard
+focus position. If the saved membership changed while details were open,
+FingVibe selects a valid nearby device or room instead. Completed scans and
+assignment changes refresh the retained map without moving unchanged items.
+
+Use **Manage rooms** to return to the existing room management page. Narrow
+windows keep normal-size device icons and allow horizontal and vertical
+scrolling. With larger Windows text sizes, room headers and device tiles grow
+taller so labels stay inside them.
 
 ## Find, edit, or delete
 
