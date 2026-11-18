@@ -154,9 +154,11 @@ public sealed class DeviceEnrichmentTests
     [Fact]
     public void CommonPortDefinitions_AreStableAndHaveAccessibleLabels()
     {
-        var expectedPorts = new[] { 22, 53, 80, 443, 445, 554, 8008, 8009, 8080, 9100 };
+        int[] original = [22, 53, 80, 443, 445, 554, 8008, 8009, 8080, 9100];
+        int[] added = [139, 515, 631, 1883, 5357, 8123, 8888];
 
-        Assert.Equal(expectedPorts, PortScannerService.CommonPorts.Keys);
+        Assert.Equal(original.Concat(added).Order(), PortScannerService.CommonPorts.Keys);
+        Assert.Equal(17, PortScannerService.CommonPorts.Count);
         Assert.All(
             PortScannerService.CommonPorts,
             port => Assert.Equal(
@@ -167,12 +169,22 @@ public sealed class DeviceEnrichmentTests
     [Fact]
     public void AdditionalPortDefinitions_AreBoundedAndDoNotRepeatCommonPorts()
     {
-        Assert.Equal(100, PortScannerService.AdditionalPorts.Count);
-        int[] original = [21, 23, 25, 110, 135, 139, 143, 389, 465, 587, 993, 995,
-            1433, 1521, 1883, 3306, 3389, 5432, 5672, 5900, 6379, 8000, 8443, 8883];
-        Assert.All(original, port => Assert.Contains(port, PortScannerService.AdditionalPorts.Keys));
+        int[] originalCatalogue = [20, 21, 23, 25, 110, 135, 139, 143, 389, 465, 587, 993, 995, 1433, 1521, 1883,
+            3306, 3389, 5432, 5672, 5900, 6379, 8000, 8443, 8883, 115, 548, 873, 989, 990, 2049, 3260, 593, 5800,
+            5901, 5902, 5985, 5986, 109, 119, 563, 2525, 4190, 88, 636, 464, 749, 3268, 3269, 3050, 7474, 7687,
+            8529, 9042, 9160, 11211, 27017, 28015, 4222, 4369, 5671, 6650, 9092, 15672, 61613, 3000, 3001, 5000,
+            5001, 8001, 8081, 8088, 8888, 9000, 9443, 5601, 8006, 9090, 10000, 1880, 3689, 5004, 6600, 7000, 8060,
+            8096, 8920, 8123, 8200, 8384, 32400, 111, 179, 515, 631, 2375, 2376, 6443, 9101, 9200];
+        var additional = PortScannerService.AdditionalPorts.Keys.ToArray();
+
+        Assert.Equal(100, originalCatalogue.Distinct().Count());
+        Assert.All(originalCatalogue.Except(PortScannerService.CommonPorts.Keys),
+            port => Assert.Contains(port, additional));
+        Assert.True(additional.Except(originalCatalogue).Count() >= 50, "Expected genuinely new service coverage.");
+        Assert.InRange(additional.Length, originalCatalogue.Length + 1, 200);
+        Assert.Equal(additional.Length, additional.Distinct().Count());
         Assert.All(PortScannerService.AdditionalPorts.Values, name => Assert.False(string.IsNullOrWhiteSpace(name)));
-        Assert.Empty(PortScannerService.CommonPorts.Keys.Intersect(PortScannerService.AdditionalPorts.Keys));
-        Assert.All(PortScannerService.AdditionalPorts.Keys, port => Assert.InRange(port, 1, 65_535));
+        Assert.Empty(PortScannerService.CommonPorts.Keys.Intersect(additional));
+        Assert.All(additional, port => Assert.InRange(port, 1, 65_535));
     }
 }

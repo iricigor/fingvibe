@@ -14,7 +14,9 @@ using System.Threading;
 using System.Threading.Tasks;
 public sealed class AdditionalServicesFixture : IDisposable
 {
-    private readonly TcpListener tcp = new TcpListener(IPAddress.Loopback, 1883);
+    private readonly TcpListener tcp = new TcpListener(IPAddress.Loopback, 2222);
+    private readonly TcpListener fullOnly = new TcpListener(IPAddress.Loopback, 7);
+    public int FullOnlyAccepts;
     private readonly TcpListener[] web = {
         new TcpListener(IPAddress.Loopback, 8080),
         new TcpListener(IPAddress.Loopback, 8443)
@@ -40,7 +42,9 @@ public sealed class AdditionalServicesFixture : IDisposable
             web[0].Start();
             endpoint = "8443/TCP";
             web[1].Start();
-            workers = new[] { Reply(dns, true), Reply(ntp, false), Accept(web[0]), Accept(web[1]) };
+            endpoint = "7/TCP";
+            fullOnly.Start();
+            workers = new[] { Reply(dns, true), Reply(ntp, false), Accept(web[0]), Accept(web[1]), CountAccepts(fullOnly) };
         }
         catch (SocketException exception)
         {
@@ -56,6 +60,12 @@ public sealed class AdditionalServicesFixture : IDisposable
     private async Task Accept(TcpListener listener)
     {
         try { while (!stopping) { using (await listener.AcceptTcpClientAsync()) {} } }
+        catch (ObjectDisposedException) when (stopping) {}
+        catch (SocketException) when (stopping) {}
+    }
+    private async Task CountAccepts(TcpListener listener)
+    {
+        try { while (!stopping) { using (await listener.AcceptTcpClientAsync()) { Interlocked.Increment(ref FullOnlyAccepts); } } }
         catch (ObjectDisposedException) when (stopping) {}
         catch (SocketException) when (stopping) {}
     }
@@ -97,6 +107,7 @@ public sealed class AdditionalServicesFixture : IDisposable
     {
         stopping = true;
         tcp.Stop();
+        fullOnly.Stop();
         foreach (var listener in web) listener.Stop();
         if (dns != null) dns.Dispose();
         if (ntp != null) ntp.Dispose();
@@ -442,6 +453,72 @@ function Test-EndpointLinks {
     }
 }
 
+function Get-FullScanWarning {
+    $dialog = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "FullPortScanWarningDialog"))
+    if ($dialog -and -not $dialog.Current.IsOffscreen) { return $dialog }
+    return $null
+}
+
+function Open-FullScanWarning {
+    $button = Find-ServiceControl DeviceFullPortScanButton
+    Wait-ServiceState { $button.Current.IsEnabled -and $button.Current.Name -eq "Full TCP port scan" } "full-scan action"
+    $button.SetFocus()
+    Wait-ServiceState { [System.Windows.Automation.AutomationElement]::FocusedElement.Current.AutomationId -eq "DeviceFullPortScanButton" } "full-scan keyboard focus"
+    [System.Windows.Forms.SendKeys]::SendWait(" ")
+    Wait-ServiceState { Get-FullScanWarning } "full-scan warning"
+    $text = ((Get-FullScanWarning).FindAll([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::Text)) | ForEach-Object { $_.Current.Name }) -join " "
+    foreach ($caveat in @("every port from 1 to 65,535 on 127.0.0.1", "65,535 connection attempts", "several minutes",
+            "security monitoring", "own or are authorized", "sleeping or slow Wi-Fi devices", "rescan", "UDP is not included")) {
+        if ($text -notlike "*$caveat*") { throw "The full-scan warning is missing '$caveat': $text" }
+    }
+}
+
+function Invoke-FullScanWarningButton([string] $Name) {
+    $button = (Get-FullScanWarning).FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty, $Name))
+    if (-not $button) { throw "The full-scan warning has no '$Name' button." }
+    $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Wait-ServiceState { -not (Get-FullScanWarning) } "full-scan warning dismissal"
+}
+
+function Assert-FullScanNotStarted([string] $Description) {
+    Wait-ServiceState { (Find-ServiceControl DeviceTcpScanStatus).Current.Name -eq "Full TCP: not started." } $Description
+    Start-Sleep -Milliseconds 500
+    if ($fixture.FullOnlyAccepts -ne 0) { throw "A full-scan probe was sent after $Description." }
+    if ((Find-ServiceControl DeviceFullPortScanButton).Current.Name -ne "Full TCP port scan") { throw "$Description left a scan running." }
+}
+
+function Test-FullTcpScan {
+    if ($fixture.FullOnlyAccepts -ne 0) { throw "Default or additional scans probed the full-scan-only port 7/TCP." }
+    Open-FullScanWarning
+    Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "services-full-warning.png")
+    [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
+    Wait-ServiceState { -not (Get-FullScanWarning) } "full-scan warning dismissal by Escape"
+    Assert-FullScanNotStarted "dismissing the full-scan warning"
+    Open-FullScanWarning
+    Invoke-FullScanWarningButton Cancel
+    Assert-FullScanNotStarted "declining the full-scan warning"
+    Open-FullScanWarning
+    Invoke-FullScanWarningButton "Start full scan"
+    Wait-ServiceState { (Find-ServiceControl DeviceFullPortScanButton).Current.Name -eq "Cancel full scan" } "running full scan"
+    if ((Find-ServiceControl DevicePortScanButton).Current.IsEnabled) { throw "Additional scanning must be unavailable during a full scan." }
+    Wait-ServiceState { Find-ServiceControl "7/TCP - Unlisted service" -ByName -Optional } "incremental full-scan endpoint" 5
+    Wait-ServiceState { (Find-ServiceControl DeviceTcpScanStatus).Current.Name -like "Full TCP: checking *65,535 ports; * open so far..." } "full-scan progress"
+    Save-ServiceEvidence "services-full-running"
+    Invoke-ServiceControl "Cancel full scan"
+    Wait-ServiceState { (Find-ServiceControl DeviceTcpScanStatus).Current.Name -like "Full TCP: canceled after at least */65,535 ports; coverage is incomplete.*retained.*" } "full-scan cancellation"
+    Wait-ServiceState { (Find-ServiceControl DeviceFullPortScanButton).Current.Name -eq "Full TCP port scan" -and
+        (Find-ServiceControl DevicePortScanButton).Current.IsEnabled } "full-scan cleanup"
+    foreach ($endpoint in @("7/TCP - Unlisted service", "2222/TCP - SSH alternate", "8443/TCP - HTTPS alternate")) {
+        if (-not (Find-ServiceControl $endpoint -ByName -Optional)) { throw "Cancelling the full scan lost $endpoint." }
+    }
+    Save-ServiceEvidence "services-full-canceled"
+}
 $previousReview = $env:FINGVIBE_UI_REVIEW
 $previousSnapshot = $env:FINGVIBE_UI_REVIEW_SNAPSHOT
 $snapshot = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-services-$([Guid]::NewGuid().ToString('N')).json"
@@ -479,13 +556,13 @@ try {
     Invoke-ServiceControl "Scan additional ports"
     Wait-ServiceState { (Find-ServiceControl DeviceTcpScanStatus).Current.Name -like "TCP: complete*" } "TCP-only completion"
     if ($fixture.DnsRequests -ne 0 -or $fixture.NtpRequests -ne 0) { throw "Default scanning sent UDP requests." }
-    if (Find-ServiceControl "1883/TCP - MQTT" -ByName -Optional) { throw "The TCP fixture unexpectedly responded before starting." }
+    if (Find-ServiceControl "2222/TCP - SSH alternate" -ByName -Optional) { throw "The TCP fixture unexpectedly responded before starting." }
     Wait-ServiceState { (Find-ServiceControl DevicePortScanButton).Current.Name -eq "Scan additional ports" } "usable TCP-only button"
     Show-ServiceScanSection -ExtraSpace 24
     $fixture.StartTcp()
     $udp.Toggle()
     Invoke-ServiceControl "Scan additional ports"
-    Wait-ServiceState { Find-ServiceControl "1883/TCP - MQTT" -ByName -Optional } "new TCP endpoint before UDP" 2
+    Wait-ServiceState { Find-ServiceControl "2222/TCP - SSH alternate" -ByName -Optional } "new TCP endpoint before UDP" 2
     if ((Find-ServiceControl DeviceUdpScanStatus).Current.Name -notlike "UDP: checking*") {
         throw "A newly completed TCP endpoint was not exposed while UDP was still pending."
     }
@@ -524,6 +601,7 @@ try {
     Wait-ServiceState { (Find-ServiceControl DeviceUdpScanStatus).Current.Name -like "UDP: canceled*" } "UDP cancellation"
     Wait-ServiceState { (Find-ServiceControl DevicePortScanButton).Current.Name -eq "Scan additional ports" } "cancellation cleanup"
     Save-ServiceEvidence "services-canceled"
+    Test-FullTcpScan
     $fixture.DnsMode = 0
     Invoke-ServiceControl "Scan additional ports"
     Select-ServicePage Overview
@@ -543,7 +621,7 @@ try {
         Save-ServiceEvidence "services-list-$theme" -DevicesList
         Open-ServiceDetails
         Save-ServiceEvidence "services-details-$theme"
-        $endpointCopy = Find-ServiceControl "Copy 1883/TCP - MQTT" -ByName
+        $endpointCopy = Find-ServiceControl "Copy 2222/TCP - SSH alternate" -ByName
         $endpointCopy.SetFocus()
         Wait-ServiceState { -not $endpointCopy.Current.IsOffscreen -and $endpointCopy.Current.BoundingRectangle.Width -ge 30 } "endpoint capture focus"
         Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "services-endpoints-$theme.png")

@@ -258,6 +258,7 @@
                         NameSaveRequested="DeviceNameSaveButton_Click"
                         NameResetRequested="DeviceNameResetButton_Click"
                         PortScanRequested="DevicePortScanButton_Click"
+                        FullPortScanRequested="DeviceFullPortScanRequested"
                         ClassificationChanged="ClassificationPicker_SelectionChanged"
                         ClassificationSaveRequested="DeviceClassificationSaveButton_Click"
                         ClassificationResetRequested="DeviceClassificationResetButton_Click"
