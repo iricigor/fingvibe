@@ -361,14 +361,17 @@ function Assert-RoomMapDetailsBack([string] $Name) {
     $label = $back.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text))
-    if (-not $label -or $label.Current.Name -ne "$([char]0x2190) Room map") {
-        throw "The Room map Back button must show '← Room map' in '$Name'."
+    # A Button with string Content may not expose its TextBlock as a separate peer; when it does, it must fit.
+    $text = if ($label) { $label.Current.BoundingRectangle } else { $null }
+    if ($label -and $label.Current.Name -cne "$([char]0x2190) Room map") {
+        throw "The Room map Back button must show the Room map destination in '$Name'; found '$($label.Current.Name)'."
     }
-    $text = $label.Current.BoundingRectangle
-    if ($text.Width -le 0 -or $text.Left -lt $bounds.Left - $tolerance -or $text.Right -gt $bounds.Right + $tolerance -or
-        $text.Top -lt $bounds.Top - $tolerance -or $text.Bottom -gt $bounds.Bottom + $tolerance -or
-        $bounds.Left -lt $window.Left -or $bounds.Right -gt $window.Right) {
-        throw "The Room map Back label is clipped in '$Name'. Button=$bounds; label=$text; window=$window."
+    if ($bounds.IsEmpty -or $bounds.Width -lt 80 * $scale -or $bounds.Height -lt 32 * $scale -or
+        $bounds.Left -lt $window.Left -or $bounds.Right -gt $window.Right -or
+        $bounds.Top -lt $window.Top -or $bounds.Bottom -gt $window.Bottom -or
+        $text -and ($text.Width -le 0 -or $text.Left -lt $bounds.Left - $tolerance -or $text.Right -gt $bounds.Right + $tolerance -or
+            $text.Top -lt $bounds.Top - $tolerance -or $text.Bottom -gt $bounds.Bottom + $tolerance)) {
+        throw "The Room map Back button is clipped in '$Name'. Button=$bounds; label=$text; window=$window."
     }
     foreach ($tabId in @('DeviceOverviewTab', 'DeviceHistoryTab')) {
         $tab = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
