@@ -247,7 +247,8 @@
                 <views:DevicesPageView x:Name="DevicesPage" Grid.Row="1" Visibility="Collapsed"
                         FiltersChanged="DeviceFiltersChanged"
                         SortRequested="DeviceSortRequested"
-                        DeviceRequested="DeviceRequested" />
+                        DeviceRequested="DeviceRequested"
+                        MatchSuggestionRequested="DeviceMatchSuggestionRequested" />
 
                 <!-- Device details -->
                 <views:DeviceDetailsPageView x:Name="DevicePage" Grid.Row="1" Visibility="Collapsed"
@@ -261,7 +262,8 @@
                         ClassificationResetRequested="DeviceClassificationResetButton_Click"
                         PersonAssignmentRequested="DevicePersonAssignmentRequested"
                         RoomAssignmentRequested="DeviceRoomAssignmentRequested"
-                        AddressRequested="DeviceAddressRequested" />
+                        AddressRequested="DeviceAddressRequested"
+                        MatchDeclineRequested="DeviceMatchDeclineRequested" />
 
                 <!-- People and rooms -->
                 <views:PeopleRoomsPageView x:Name="PeopleRoomsPage" Grid.Row="1" Visibility="Collapsed"

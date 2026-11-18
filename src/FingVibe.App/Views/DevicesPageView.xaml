@@ -677,6 +677,7 @@
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <FontIcon x:Name="DeviceIcon" Glyph="{x:Bind IconGlyph, Mode=OneWay}" FontFamily="Segoe Fluent Icons" FontSize="20" Width="24"
                                                       VerticalAlignment="Center"
@@ -691,6 +692,17 @@
                                                            Visibility="{x:Bind local:DeviceColumnLayoutHelpers.SecondaryTypeVisibility(Columns.ShowMergedType, DeviceTypeText), Mode=OneWay}" TextTrimming="CharacterEllipsis"
                                                            ToolTipService.ToolTip="{x:Bind DeviceTypeSource, Mode=OneWay}" />
                                             </StackPanel>
+                                            <Button x:Name="DeviceMatchButton" Grid.Column="2" Click="DeviceMatchButton_Click"
+                                                    Visibility="{x:Bind HasMatchSuggestions, Mode=OneWay}"
+                                                    Width="24" Height="24" MinWidth="24" MinHeight="24" Padding="0"
+                                                    VerticalAlignment="Center" Background="Transparent" BorderThickness="0"
+                                                    ToolTipService.ToolTip="{x:Bind MatchSuggestionText, Mode=OneWay}"
+                                                    AutomationProperties.AutomationId="DeviceMatchButton"
+                                                    AutomationProperties.Name="{x:Bind MatchSuggestionName, Mode=OneWay}"
+                                                    AutomationProperties.HelpText="{x:Bind MatchSuggestionText, Mode=OneWay}">
+                                                <FontIcon Glyph="&#xE71B;" FontFamily="Segoe Fluent Icons" FontSize="14"
+                                                          Foreground="{ThemeResource ScannerPossibleMatchBrush}" />
+                                            </Button>
                                         </Grid>
                                         <StackPanel Grid.Column="1" Spacing="{x:Bind Columns.RowSpacing, Mode=OneWay}" VerticalAlignment="Center">
                                         <TextBlock FontFamily="Consolas" TextTrimming="CharacterEllipsis"
