@@ -1172,10 +1172,16 @@
             { "name": "Invoke-PeopleRoomsElement", "refactored": true },
             { "name": "Set-PeopleRoomsText", "refactored": true },
             { "name": "Open-PeopleRoomsDetails", "refactored": true },
+            { "name": "Test-RoomMapEntries", "refactored": true },
+            { "name": "Test-RoomMapAppearance", "refactored": true },
+            { "name": "Test-RoomMapScale", "refactored": true },
+            { "name": "Test-RoomMapAccessibility", "refactored": true, "introducedBy": "#361: narrow-window scrolling with normal-size devices and 200% text-scale room and device labels on the 10-room/100-device fixture." },
             { "name": "Test-PeopleRoomsFlows", "refactored": true },
             { "name": "Test-PeopleRoomsPersistenceErrors", "refactored": true }
           ],
-          "captures": [],
+          "captures": [
+            "98398f39a18546d52fcea617ee18b263d93f4c075ce94fe7c514210608ce8648"
+          ],
           "fixtureAssignments": []
         },
         {

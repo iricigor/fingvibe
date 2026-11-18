@@ -55,6 +55,7 @@
             if ($Value -eq "//Button[@Name='Import from Fing']") { return "control-Import from Fing" }
             if ($Value -eq "//Button[@Name='SQL editor']") { return "control-SQL editor" }
             if ($Value -eq "//Button[@Name='Database backups']") { return "control-Database backups" }
+            if ($Value -eq "//Button[@Name='View room map']") { return "control-View room map" }
             throw "Unexpected XPath '$Value'."
         }
         return "control-$Value"
@@ -71,6 +72,7 @@
         elseif ($ElementId -eq "control-Import from Fing") { $script:currentPage = "FingImport" }
         elseif ($ElementId -eq "control-SQL editor") { $script:currentPage = "SqlEditor" }
         elseif ($ElementId -eq "control-Database backups") { $script:currentPage = "DatabaseBackups" }
+        elseif ($ElementId -eq "control-View room map") { $script:currentPage = "RoomMap" }
         elseif ($ElementId -eq "person-row") { $script:currentPage = "PersonDetails" }
         elseif ($ElementId -eq "room-row") { $script:currentPage = "RoomDetails" }
         else { throw "Unexpected click '$ElementId'." }
@@ -113,6 +115,10 @@
                     "control-Run SQL query" { $script:currentPage -eq "SqlEditor" }
                     "control-Cancel SQL query" { $script:currentPage -eq "SqlEditor" }
                     "control-Database backups" { $script:currentPage -eq "Tools" }
+                    "control-View room map" { $script:currentPage -eq "Tools" }
+                    "control-Room map" { $script:currentPage -eq "RoomMap" }
+                    "control-Manage rooms" { $script:currentPage -eq "RoomMap" }
+                    "control-No room assigned" { $script:currentPage -eq "RoomMap" }
                     "control-Back up now" { $script:currentPage -eq "DatabaseBackups" }
                     "control-Open backup folder" { $script:currentPage -eq "DatabaseBackups" }
                     "control-Completed backups" { $script:currentPage -eq "DatabaseBackups" }

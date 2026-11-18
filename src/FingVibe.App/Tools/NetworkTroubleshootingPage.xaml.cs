@@ -69,6 +69,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
     }
 
     public event EventHandler? BackRequested;
+    public event EventHandler? RoomMapRequested;
     internal NetworkActivityCoordinator? ActivityCoordinator { get; set; }
     public bool HasActiveTest => _runTask is { IsCompleted: false };
 
@@ -85,6 +86,9 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
         RefreshNetworks(_shellNetwork);
         RunButton.Focus(FocusState.Programmatic);
     }
+
+    private void RoomMapButton_Click(object sender, RoutedEventArgs e) =>
+        RoomMapRequested?.Invoke(this, EventArgs.Empty);
 
     public async Task StopForNavigationAsync()
     {

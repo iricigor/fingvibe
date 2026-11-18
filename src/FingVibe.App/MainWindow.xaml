@@ -268,6 +268,7 @@
                 <!-- People and rooms -->
                 <views:PeopleRoomsPageView x:Name="PeopleRoomsPage" Grid.Row="1" Visibility="Collapsed"
                         AddRequested="AddPersonButton_Click"
+                        RoomMapRequested="ViewRoomMapButton_Click"
                         PersonRequested="PersonRequested"
                         EditRequested="PersonEditRequested"
                         DeleteRequested="PersonDeleteRequested"
@@ -292,8 +293,13 @@
                         UnassignRequested="RoomUnassignRequested"
                         DeviceRequested="DeviceRequested" />
 
+                <!-- Room map -->
+                <views:RoomMapPageView x:Name="RoomMapPage" Grid.Row="1" Visibility="Collapsed"
+                        ManageRoomsRequested="ManageRoomsFromMapButton_Click" />
+
                 <!-- Tools -->
-                <local:ToolsPage x:Name="ToolsPage" Grid.Row="1" Visibility="Collapsed" />
+                <local:ToolsPage x:Name="ToolsPage" Grid.Row="1" Visibility="Collapsed"
+                        RoomMapRequested="ViewRoomMapFromToolsButton_Click" />
 
                 <!-- Settings -->
                 <views:SettingsPageView x:Name="SettingsPage" Grid.Row="1" Visibility="Collapsed"

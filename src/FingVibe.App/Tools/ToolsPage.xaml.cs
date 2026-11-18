@@ -12,6 +12,8 @@ public sealed partial class ToolsPage : UserControl
     private Action<string>? _showManagement;
     private bool _resumeImport;
 
+    public event EventHandler? RoomMapRequested;
+
     public ToolsPage()
     {
         InitializeComponent();
@@ -138,6 +140,12 @@ public sealed partial class ToolsPage : UserControl
         await StopForNavigationAsync();
         SpeedTestCard.Focus(FocusState.Programmatic);
     }
+
+    private void RoomMapCard_Click(object sender, RoutedEventArgs e) =>
+        RoomMapRequested?.Invoke(this, EventArgs.Empty);
+
+    private void TroubleshootingView_RoomMapRequested(object? sender, EventArgs e) =>
+        RoomMapRequested?.Invoke(this, e);
 
     private void ShowImport()
     {

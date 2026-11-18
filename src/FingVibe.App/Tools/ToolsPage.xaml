@@ -77,6 +77,23 @@
                         <TextBlock Text="Open speed test &#x2192;" TextWrapping="Wrap" />
                     </StackPanel>
                 </Button>
+                <Button x:Name="RoomMapCard" Click="RoomMapCard_Click"
+                        Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="View room map">
+                    <StackPanel Spacing="8">
+                        <Grid ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <local:PageHeaderIcon Icon="rooms" />
+                            <TextBlock Grid.Column="1" Text="Room map" Style="{ThemeResource SubtitleTextBlockStyle}"
+                                       VerticalAlignment="Center" TextWrapping="Wrap" />
+                        </Grid>
+                        <TextBlock Text="See saved room assignments, device status, and the conceptual gateway layout."
+                                   TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock Text="View room map &#x2192;" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Button>
                 <Button x:Name="TroubleshootingCard" Click="TroubleshootingCard_Click"
                         Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="Network troubleshooting">
                     <StackPanel Spacing="8">
@@ -117,7 +134,8 @@
                              Visibility="Collapsed"
                              BackRequested="SpeedTestView_BackRequested" />
         <local:NetworkTroubleshootingPage x:Name="TroubleshootingView" Visibility="Collapsed"
-                                          BackRequested="TroubleshootingView_BackRequested" />
+                                          BackRequested="TroubleshootingView_BackRequested"
+                                          RoomMapRequested="TroubleshootingView_RoomMapRequested" />
         <local:FingImportPage x:Name="FingImportView" Visibility="Collapsed"
                               BackRequested="FingImportView_BackRequested"
                               ManagementRequested="FingImportView_ManagementRequested" />

@@ -28,6 +28,13 @@
     $cell.Current.BoundingRectangle = New-TestRectangle 20 768 36 32
     $cell.Current.IsOffscreen = $true
     Assert-Regression (-not (Test-UiRegressionElementWithin $cell $viewport $window)) 'Offscreen peers cannot prove rendered visibility.'
+    $full = New-BoundedElement 20 100 112 52
+    $tolerated = New-BoundedElement 140 100 111 51
+    $clippedBottom = New-BoundedElement 20 117 112 35
+    $clippedRight = New-BoundedElement 100 100 70 52
+    $largest = @(Select-UiRegressionLargestRenderedPeers @($full, $tolerated, $clippedBottom, $clippedRight) -Tolerance 1.5)
+    Assert-Regression ($largest.Count -eq 2 -and $full -in $largest -and $tolerated -in $largest) 'Largest-rendered peer selection must exclude UIA rectangles clipped on any edge while retaining tolerance-sized peers.'
+    Assert-Regression (@(Select-UiRegressionLargestRenderedPeers @() -Tolerance 1.5).Count -eq 0) 'Largest-rendered peer selection must preserve an empty candidate set.'
 
     $viewport = New-BoundedElement 0 0 500 300
     $window = New-BoundedElement 0 0 500 300

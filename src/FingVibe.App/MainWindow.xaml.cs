@@ -130,9 +130,15 @@ public sealed partial class MainWindow : Window
             ShowPage(DevicesPage);
         }
         else if (args.InvokedItemContainer == PeopleRoomsNavItem
-                 && (PersonDetailPage.Visibility == Visibility.Visible || RoomDetailPage.Visibility == Visibility.Visible))
+                 && (PersonDetailPage.Visibility == Visibility.Visible
+                     || RoomDetailPage.Visibility == Visibility.Visible
+                     || RoomMapPage.Visibility == Visibility.Visible))
         {
             ShowPage(PeopleRoomsPage);
+        }
+        else if (args.InvokedItemContainer == ToolsNavItem && RoomMapPage.Visibility == Visibility.Visible)
+        {
+            ShowPage(ToolsPage);
         }
     }
 
@@ -157,13 +163,18 @@ public sealed partial class MainWindow : Window
         foreach (var candidate in new UIElement[]
                  {
                      OverviewPage, NetworkPage, DevicesPage, DevicePage, PeopleRoomsPage,
-                     PersonDetailPage, RoomDetailPage, ToolsPage, SettingsPage
+                     PersonDetailPage, RoomDetailPage, RoomMapPage, ToolsPage, SettingsPage
                  })
         {
             candidate.Visibility = candidate == page ? Visibility.Visible : Visibility.Collapsed;
         }
 
         if (page == ToolsPage) ToolsPage.Open();
+        if (page == RoomMapPage)
+        {
+            UpdateRoomMapPage();
+            RoomMapPage.ResetScroll();
+        }
         UpdateDeviceActivity();
         DevicePage.SetActivityActive(page == DevicePage);
         UpdateNetworkActivity();
