@@ -188,6 +188,28 @@
         throw "Scan LAN must retain its accessible label with a preceding decorative, theme-inherited, scalable refresh icon and wrapping text."
     }
     $devicesDocument = [xml](Get-Content (Join-Path $appDirectory "Views\DevicesPageView.xaml") -Raw)
+    $matchButton = $devicesDocument.SelectSingleNode("//*[@*[local-name()='Name']='DeviceMatchButton']")
+    $matchTooltip = $matchButton.SelectSingleNode("./*[local-name()='ToolTipService.ToolTip']/*[local-name()='ToolTip']")
+    if (-not $matchTooltip -or
+        $matchButton.GetAttribute("AutomationProperties.HelpText") -cne "{x:Bind MatchSuggestionText, Mode=OneWay}" -or
+        $matchTooltip.GetAttribute("AutomationProperties.AutomationId") -cne "DeviceMatchTooltip" -or
+        $matchTooltip.GetAttribute("AutomationProperties.Name") -cne "{x:Bind MatchSuggestionText, Mode=OneWay}" -or
+        $matchTooltip.GetAttribute("Content") -cne "{x:Bind MatchSuggestionText, Mode=OneWay}") {
+        throw "Possible-match buttons must expose the full hover copy on an explicitly identified, named ToolTip peer."
+    }
+    $matchButtonEnter = $matchButton.GetAttribute("PointerEntered")
+    $matchButtonExit = $matchButton.GetAttribute("PointerExited")
+    if ($matchButtonEnter -cne "DeviceMatchButton_PointerEntered" -or
+        $matchButtonExit -cne "DeviceMatchButton_PointerExited") {
+        throw "Possible-match ToolTips must explicitly open and close with pointer entry and exit."
+    }
+    $detailsDocument = [xml](Get-Content (Join-Path $appDirectory "Views\DeviceDetailsPageView.xaml") -Raw)
+    foreach ($id in @("MergeMacCount", "MergeMacOtherHeading", "MergeMacOtherName", "MergeMacReason")) {
+        $node = $detailsDocument.SelectSingleNode("//*[@*[local-name()='Name']='$id']")
+        if ($node.LocalName -cne "TextBlock" -or $node.GetAttribute("AutomationProperties.AutomationId") -cne $id) {
+            throw "Merge suggestion state '$id' must remain a separately addressable text peer."
+        }
+    }
     if ($devicesDocument.SelectSingleNode("//*[@*[local-name()='Name']='ScanButton']")) {
         throw "Devices must not duplicate the shared primary scan action."
     }

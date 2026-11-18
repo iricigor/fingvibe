@@ -90,6 +90,7 @@ public sealed record DeviceInventoryData(
 {
     public IReadOnlyList<PrivateVirtualDevice> VirtualDevices { get; init; } = [];
     public IReadOnlyList<DeviceDiscoveryBaseline> DiscoveryBaselines { get; init; } = [];
+    public IReadOnlyList<DeclinedDeviceMatch> DeclinedMatches { get; init; } = [];
     [JsonIgnore]
     public ScanSnapshot? LatestScan { get; init; }
     internal IReadOnlyList<ScanEvidenceWrite> PendingScanEvidence { get; init; } = [];
@@ -120,6 +121,15 @@ public sealed record DeviceInventoryData(
         var devices = Devices.ToDictionary(pair => pair.Key, pair => pair.Value);
         devices[identity.Id] = devices[identity.Id] with { UsageCategoryOverride = category };
         return this with { Devices = devices };
+    }
+
+    public DeviceInventoryData DeclineMatch(string mac, string otherMac)
+    {
+        var declined = DeclinedDeviceMatch.Create(mac, otherMac);
+        if (!Devices.ContainsKey(declined.FirstMac) || !Devices.ContainsKey(declined.SecondMac))
+            throw new ArgumentException("Both declined MAC addresses must be saved devices.");
+        return DeclinedMatches.Any(item => item.Key == declined.Key) ? this
+            : this with { DeclinedMatches = [.. DeclinedMatches, declined] };
     }
 
     public DeviceInventoryData UpdateProbeResults(ScanResult result)

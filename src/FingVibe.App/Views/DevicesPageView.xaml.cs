@@ -65,6 +65,7 @@ public sealed partial class DevicesPageView : UserControl
     public event EventHandler? FiltersChanged;
     public event EventHandler<string>? SortRequested;
     public event EventHandler<ScanResultRow>? DeviceRequested;
+    public event EventHandler<ScanResultRow>? MatchSuggestionRequested;
 
     internal string SearchText { get => ResultSearchBox.Text; set => ResultSearchBox.Text = value; }
     internal bool OpenPortsOnly { get => OpenPortsFilter.IsChecked == true; set => OpenPortsFilter.IsChecked = value; }
@@ -130,6 +131,31 @@ public sealed partial class DevicesPageView : UserControl
         if (results is INotifyCollectionChanged current) current.CollectionChanged += Results_CollectionChanged;
         ResultsList.ItemsSource = results;
         _lastSeenAges.RefreshIfActive(results);
+    }
+
+    private void DeviceMatchButton_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is Button button && ToolTipService.GetToolTip(button) is ToolTip tooltip)
+        {
+            tooltip.PlacementTarget = button;
+            tooltip.IsOpen = true;
+        }
+    }
+
+    private void DeviceMatchButton_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is not Button button || ToolTipService.GetToolTip(button) is not ToolTip tooltip)
+        {
+            return;
+        }
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            await Task.Delay(500);
+            if (!button.IsPointerOver && tooltip.IsOpen)
+            {
+                tooltip.IsOpen = false;
+            }
+        });
     }
 
     private void Results_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs args)
@@ -595,6 +621,12 @@ public sealed partial class DevicesPageView : UserControl
         {
             DeviceRequested?.Invoke(this, row);
         }
+    }
+
+    private void DeviceMatchButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ScanResultRow row })
+            MatchSuggestionRequested?.Invoke(this, row);
     }
 
 }

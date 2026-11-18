@@ -46,6 +46,10 @@ public sealed partial class DeviceInventoryStore
                 item is null || string.IsNullOrWhiteSpace(item.NetworkId) || !ValidSubnet(item.Subnet))
             || data.DiscoveryBaselines.Distinct().Count() != data.DiscoveryBaselines.Count)
             throw new InvalidDataException("The inventory contains invalid discovery baselines.");
+        if (data.DeclinedMatches is null || data.DeclinedMatches.Any(item => item is null || !item.IsValid()
+                || !data.Devices.ContainsKey(item.FirstMac) || !data.Devices.ContainsKey(item.SecondMac))
+            || data.DeclinedMatches.Select(item => item.Key).Distinct().Count() != data.DeclinedMatches.Count)
+            throw new InvalidDataException("The inventory contains invalid declined device matches.");
         foreach (var (key, device) in data.Devices)
         {
             if (device is null || key != PeopleRoomsData.NormalizeMacAddress(key) || device.Mac != key
