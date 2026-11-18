@@ -81,9 +81,9 @@ function Test-RoomMapEntries {
     Select-SidebarPage 'People & rooms' 'Search people and rooms'
     Invoke-PeopleRoomsElement AutomationId ViewRoomMapButton PeopleRoomsPage
     $root = Find-PeopleRoomsElement AutomationId RoomMapRootPlaceholder RoomMapPage
-    Assert-Equal $root.Current.IsKeyboardFocusable $true 'Gateway fallback remains keyboard reachable'
+    if ($root.Current.IsKeyboardFocusable -ne $true) { throw 'The Room map gateway fallback must remain keyboard reachable.' }
     $unassigned = Find-PeopleRoomsElement AutomationId RoomMapUnassigned RoomMapPage
-    Assert-Equal $unassigned.Current.IsKeyboardFocusable $true 'Unassigned strip remains keyboard reachable'
+    if ($unassigned.Current.IsKeyboardFocusable -ne $true) { throw 'The Room map unassigned strip must remain keyboard reachable.' }
     $null = Find-PeopleRoomsElement AutomationId ManageRoomsButton RoomMapPage
     Invoke-PeopleRoomsElement AutomationId ManageRoomsButton RoomMapPage
     $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
@@ -170,12 +170,12 @@ function Test-RoomMapScale {
         $roomElements = @($elements | Where-Object {
             $_.Current.AutomationId -like 'RoomMapRoom-*'
         })
-        Assert-Equal $deviceElements.Count 100 'Room map retains every one of 100 relevant devices'
-        Assert-Equal $roomElements.Count 10 'Room map retains all ten saved rooms'
+        if ($deviceElements.Count -ne 100) { throw "The Room map must retain all 100 relevant devices; found $($deviceElements.Count)." }
+        if ($roomElements.Count -ne 10) { throw "The Room map must retain all ten saved rooms; found $($roomElements.Count)." }
         $layoutClock.Stop()
         $last = Find-PeopleRoomsElement AutomationId 'RoomMapDevice-001122000063' RoomMapPage
-        Assert-Equal $last.Current.IsKeyboardFocusable $true 'Last map device remains keyboard reachable'
-        Assert-Equal $last.Current.IsOffscreen $false 'Focused last map device is brought into view'
+        if ($last.Current.IsKeyboardFocusable -ne $true) { throw 'The last Room map device must remain keyboard reachable.' }
+        if ($last.Current.IsOffscreen -ne $false) { throw 'The focused last Room map device must be brought into view.' }
         @{
             rooms = $roomElements.Count
             devices = $deviceElements.Count
