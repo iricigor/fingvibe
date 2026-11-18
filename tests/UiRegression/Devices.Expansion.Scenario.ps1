@@ -209,13 +209,31 @@ function Test-MacExpansionTextScale {
         $more = @(Find-ExpansionParts $candidate 'DeviceMacExpansionMore')
         if ($labels.Count -eq 3 -and $more.Count -eq 1) { , (@($labels | Sort-Object { $_.Current.BoundingRectangle.Top }) + $more) }
     }
+    # The expanded row is the last fixture row and grows past the list viewport at 200% text scale.
+    # UIA clips peer bounds to the viewport, so bring its last line fully into view before measuring.
+    $list = Find-DeviceElement ResultsList
+    $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(-1, 100)
+    $listBounds = $list.Current.BoundingRectangle
+    $lines = Wait-UiRegressionState -Description 'expanded MAC lines scrolled into the list viewport' -Condition {
+        $candidate = Find-ExpansionRow
+        if (-not $candidate) { return $null }
+        $labels = @(Find-ExpansionParts $candidate 'DeviceMacExpansionLabel')
+        $more = @(Find-ExpansionParts $candidate 'DeviceMacExpansionMore')
+        if ($labels.Count -ne 3 -or $more.Count -ne 1) { return $null }
+        $last = $more[0].Current.BoundingRectangle
+        # Clipped peers report the viewport edge as their bottom, so also wait for an unclipped readable height.
+        if ($last.IsEmpty -or -not [double]::IsFinite($last.Bottom) -or $last.Bottom -gt $listBounds.Bottom + $scale -or
+            $last.Height -lt 24 * $scale) { return $null }
+        , (@($labels | Sort-Object { $_.Current.BoundingRectangle.Top }) + $more)
+    }
     $window = $root.Current.BoundingRectangle
     $previousBottom = 0
     foreach ($line in $lines) {
         $bounds = $line.Current.BoundingRectangle
         if ($bounds.IsEmpty -or $bounds.Left -lt $window.Left -or $bounds.Right -gt $window.Right -or
+            $bounds.Top -lt $listBounds.Top - $scale -or $bounds.Bottom -gt $listBounds.Bottom + $scale -or
             $bounds.Height -lt 24 * $scale -or $bounds.Top -lt $previousBottom - $scale) {
-            throw "Earlier MAC lines must stay readable, unclipped and non-overlapping at 200% text scale. Line=$bounds; window=$window; scale=$scale."
+            throw "Earlier MAC lines must stay readable, unclipped and non-overlapping at 200% text scale. Line=$bounds; list=$listBounds; window=$window; scale=$scale."
         }
         $previousBottom = $bounds.Bottom
     }
