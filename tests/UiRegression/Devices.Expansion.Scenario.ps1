@@ -14,7 +14,8 @@ foreach ($index in 1..6) {
         networkId = 'ui-review-network'; subnet = '127.0.0.1/32'
         address = "127.0.0.$index"; hostname = $null; vendor = if ($index -eq 1) { "Long expansion vendor $index" } else { "Private" }
         ports = @(); latency = $index; probeDuration = '00:00:00.001'
-        classification = @{ type = 0; operatingSystem = 0; typeEvidence = 'Synthetic'; operatingSystemEvidence = 'Synthetic' }
+        # Same visible type as 'Expansion normal', so both rows have the same name/type lines and only the chevron differs.
+        classification = @{ type = 1; operatingSystem = 0; typeEvidence = 'Synthetic'; operatingSystemEvidence = 'Synthetic' }
         firstSeen = $seen; lastSeen = $seen; lastChecked = $seen; present = $index -eq 6
     }
     $devices[$mac] = @{ mac = $mac; imported = @{}; observations = @($observation); scanHistory = @() }
@@ -188,7 +189,7 @@ function Test-MacExpansionTextScale {
                 [System.Windows.Automation.AutomationElement]::NameProperty, 'Expansion normal'))
     } | Select-Object -First 1
     if (-not $normal -or [Math]::Abs($normal.Current.BoundingRectangle.Height - $row.Current.BoundingRectangle.Height) -gt $scale) {
-        throw 'Collapsed multi-MAC rows must keep single-MAC row height at 200% text scale.'
+        throw "Collapsed multi-MAC rows must keep single-MAC row height at 200% text scale. Normal=$($normal.Current.BoundingRectangle); collapsed=$($row.Current.BoundingRectangle); scale=$scale."
     }
     $chevron = @(Find-ExpansionParts $row 'DeviceMacExpansionButton')
     $rowBounds = $row.Current.BoundingRectangle
@@ -247,7 +248,7 @@ try {
             [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'DeviceMacExpansionButton'))
     if ($normalChevron) { throw 'A single-MAC row must not expose a MAC expansion chevron.' }
     if ([Math]::Abs($normal.Current.BoundingRectangle.Height - $row.Current.BoundingRectangle.Height) -gt $scale) {
-        throw 'Collapsed multi-MAC rows must retain the same height as single-MAC rows.'
+        throw "Collapsed multi-MAC rows must retain the same height as single-MAC rows. Normal=$($normal.Current.BoundingRectangle); collapsed=$($row.Current.BoundingRectangle)."
     }
     $chevron = $row.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new(
