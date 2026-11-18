@@ -658,9 +658,19 @@
           "kind": "scenario",
           "originalRanges": [],
           "refactored": true,
-          "introducedBy": "#544: virtual-device earlier MAC chevron, hidden search matches, keyboard, navigation state and narrow layout.",
-          "functions": [],
+          "introducedBy": "#544: virtual-device earlier MAC chevron, hidden search matches, keyboard, navigation state, narrow layout, high contrast and 200% text scale.",
+          "functions": [
+            { "name": "Find-ExpansionRow", "refactored": true },
+            { "name": "Find-ExpansionParts", "refactored": true },
+            { "name": "Test-ExpansionInk", "refactored": true },
+            { "name": "Test-MacExpansionHighContrast", "refactored": true },
+            { "name": "Set-ExpansionTextScale", "refactored": true },
+            { "name": "Restore-ExpansionTextScale", "refactored": true },
+            { "name": "Test-MacExpansionTextScale", "refactored": true }
+          ],
           "captures": [
+            "f78987a7389e6ca2da85cba6a1ebbe4a0dc6461e2318e6185413a2122f9e7699",
+            "83e9930d94795f303e615a2bdd32b93f63c892636cc07b51d414f744f862ad18",
             "4ce23e01a5898416da27e38d919cec00b06f7d662e67532c3ee280cce6003e84",
             "b0beb270b6bf54d17e5c5909f89e6f6e8573f21be1df2ad7717dd6892ebdc8e9"
           ],
@@ -678,6 +688,23 @@
           "functions": [],
           "captures": [],
           "fixtureAssignments": []
+        },
+        {
+          "file": "Devices.ServiceDiscovery.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [],
+          "refactored": true,
+          "introducedBy": "#481: latest-scan service-discovery icon, MAC-unavailable responder, keyboard activation and the Device Details Service discovery section.",
+          "functions": [
+            { "name": "New-ServiceFixtureAdvertisement", "refactored": true },
+            { "name": "Find-ServiceDiscoveryRow", "refactored": true },
+            { "name": "Find-ServiceDiscoveryIcon", "refactored": true }
+          ],
+          "captures": [
+            "4311e12b44e0a254d7a5f309912ba624bf392a816e6c7480bf5b4c085d16c713",
+            "6b1edaa04e77da1312253be9dd8a43a7eee3a80089f32fa77bff56e3a9660bf2"
+          ],
+          "fixtureAssignments": []
         }
       ],
       "scenarioOrder": [
@@ -691,7 +718,8 @@
         "Appearance",
         "Interaction",
         "Expansion",
-        "Sorting"
+        "Sorting",
+        "ServiceDiscovery"
       ]
     },
     {

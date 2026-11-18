@@ -215,6 +215,11 @@ function Get-UiReviewCapturePlan {
             elseif ($path -match '^src/FingVibe.App/(MainWindow.PeopleRooms.cs|ManagedPeopleRoomsRows.cs|PeopleRooms(Presentation|Icons).cs|Views/PeopleRooms(Dialogs|IconPicker).cs)$') {
                 Add-Scenarios @("People", "PersonDetails", "Rooms", "RoomDetails", "DeviceDetails", "RoomMap") "$path changed people, rooms, or assignments."
             }
+            elseif ($path -eq 'src/FingVibe.App/ServiceDiscoveryPresentation.cs' -or
+                $path -match '^src/FingVibe.Core/(Models/ServiceAdvertisement|Networking/(MdnsDeviceDiscoveryService|SsdpDiscoveryService|AdvertisedEndpointVerifier|ScanResultEnricher|LanScannerService))\.cs$' -or
+                $path -eq 'tests/UiRegression/Devices.ServiceDiscovery.Scenario.ps1') {
+                Add-Scenarios @("Devices", "DeviceDetails") "$path changed service-discovery evidence or its presentation."
+            }
             elseif ($path -match '^src/FingVibe.App/(MainWindow.Overview.cs|OverviewScanContext.cs)$') {
                 Add-Scenarios @("Overview") "$path changed the scan summary."
             }

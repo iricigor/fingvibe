@@ -8,7 +8,7 @@ Some features contact external services as explained below.
 
 | Feature | Where requests go | Information involved |
 | --- | --- | --- |
-| LAN discovery and identification | Devices on the selected local network | Ping, fresh ARP, name/service discovery, and bounded service probes. |
+| LAN discovery and identification | Devices on the selected local network | Ping, fresh ARP, mDNS/DNS-SD and SSDP name/service discovery, and bounded service probes, including TCP checks of up to 64 ports per scan that devices advertised for their own address. |
 | MAC vendor lookup | Official IEEE registries | Registry downloads, cached locally for 30 days. No inventory upload is needed. |
 | Public IP/provider details | `ipwho.is` | Your public source IP; the service returns provider and approximate location information. |
 | Configured provider logos | Logo.dev | Provider name and your public source IP, not LAN inventory or scan results. |

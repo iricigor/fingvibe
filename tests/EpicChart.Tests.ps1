@@ -34,6 +34,28 @@ try {
     foreach ($row in $report.snapshots) {
         Assert-True (($row.completed + $row.inProgress + $row.notStarted) -eq 3) "Stack total must match native cohort."
     }
+    Assert-True ($report.forecast.status -eq "estimated" -and $report.forecast.windowHours -eq 3.5 -and
+        $report.forecast.remainingHours -eq 7) "Young Epics use exact elapsed time and include all unfinished tasks."
+    Assert-True ([DateTimeOffset] $report.forecast.finishAt -eq $now.AddHours(7)) "Finish must extrapolate from completed progress."
+    $summary = Format-EpicChartForecast $report
+    Assert-True ($summary -like "*2026-11-16 20:30 +00:00*7h 0m remaining (2 tasks)*0.29 tasks/hour*3.5 elapsed hours*not a deadline guarantee*") "Summary must disclose local finish, duration, rate, window and assumptions."
+    foreach ($case in @(
+        @{ extra = 49; finish = "2026-11-16 20:30"; duration = "7h 0m" },
+        @{ extra = 50; finish = "2026-11-16 20:35"; duration = "7h 0m" },
+        @{ extra = 51; finish = "2026-11-16 20:35"; duration = "7h 0m" },
+        @{ extra = 74; finish = "2026-11-16 20:35"; duration = "7h 0m" },
+        @{ extra = 75; finish = "2026-11-16 20:35"; duration = "7h 5m" },
+        @{ extra = 76; finish = "2026-11-16 20:35"; duration = "7h 5m" }
+    )) {
+        # With two tasks left, each extra elapsed second moves the finish three seconds.
+        $rounded = Get-EpicChartSnapshots $children $histories ([DateTimeOffset] "2026-11-16T10:00:00Z") (
+            $now.AddSeconds($case.extra)) ([TimeZoneInfo]::Utc)
+        $text = Format-EpicChartForecast $rounded
+        Assert-True ($text.Contains("$($case.finish) +00:00") -and $text.Contains("$($case.duration) remaining")) "Finish and duration rounding must handle either side of their five-minute midpoints."
+    }
+    $zeroWindow = Get-EpicChartSnapshots $children $histories $now $now ([TimeZoneInfo]::Utc)
+    Assert-True ($zeroWindow.forecast.status -eq "unavailable" -and
+        (Format-EpicChartForecast $zeroWindow) -like "*no elapsed observation time*") "Zero elapsed time cannot produce an ETA."
     $missing = $histories.Clone(); $missing.Remove(1)
     Assert-Fails { Get-EpicChartSnapshots $children $missing $now $now ([TimeZoneInfo]::Utc) } "*Missing lifecycle*"
     $oldReason = $children[0].state_reason; $children[0].state_reason = "not_planned"
@@ -48,6 +70,10 @@ try {
     $histories[1] += Event reopened "2026-11-16T13:00:00Z"
     $reopened = Get-EpicChartSnapshots $children $histories ([DateTimeOffset] "2026-11-16T10:00:00Z") $now ([TimeZoneInfo]::Utc)
     Assert-True ($reopened.snapshots[-1].completed -eq 0 -and $reopened.snapshots[-1].inProgress -eq 2) "An evidenced reopened task resumes progress."
+    Assert-True ($reopened.forecast.status -eq "unavailable" -and $reopened.forecast.netCompleted -eq 0 -and
+        (Format-EpicChartForecast $reopened) -like "*no positive net completion progress*") "A closure followed by reopening provides no net throughput."
+    $negative = Get-EpicChartSnapshots $children $histories ([DateTimeOffset] "2026-11-16T12:30:00Z") $now ([TimeZoneInfo]::Utc)
+    Assert-True ($negative.forecast.status -eq "unavailable" -and $negative.forecast.netCompleted -eq -1) "Negative completion progress cannot produce an ETA."
     $histories[1][1].Remove("state_reason")
     Assert-Fails { Get-EpicChartSnapshots $children $histories $now $now ([TimeZoneInfo]::Utc) } "*Historical closure reason*"
     $histories[1] = $original; $children[0].state = "closed"
@@ -56,6 +82,31 @@ try {
     $dst = Get-EpicChartSnapshots $children $histories ([DateTimeOffset] "2026-10-01T00:00:00Z") $now (
         [TimeZoneInfo]::FindSystemTimeZoneById("Central European Standard Time"))
     Assert-True ($dst.snapshots[-1].label -like "*14:30*+01:00") "Local labels must include explicit UTC offset."
+    Assert-True ((Format-EpicChartForecast $dst) -like "*2026-11-18 14:30 +01:00*") "Forecast must use the report timezone and finish-date offset."
+
+    $rollingChildren = @(1..4 | ForEach-Object {
+        @{ number = $_; state = $(if ($_ -le 2) { "closed" } else { "open" })
+            state_reason = "completed"; created_at = "2026-11-01T00:00:00Z"; labels = @() }
+    })
+    $rollingHistories = @{
+        1 = @((Event labeled "2026-11-15T10:00:00Z" active), (Event closed "2026-11-15T13:15:00Z"))
+        2 = @((Event labeled "2026-11-15T10:00:00Z" active), (Event closed "2026-11-15T13:45:00Z"))
+        3 = @(); 4 = @()
+    }
+    $rolling = Get-EpicChartSnapshots $rollingChildren $rollingHistories (
+        [DateTimeOffset] "2026-11-01T00:00:00Z") $now ([TimeZoneInfo]::Utc)
+    Assert-True ($rolling.forecast.windowHours -eq 24 -and $rolling.forecast.netCompleted -eq 1 -and
+        $rolling.forecast.remainingHours -eq 48) "Use the exact 24-hour baseline, not the oldest rendered hour or lifetime completions."
+    $stalled = Get-EpicChartSnapshots $rollingChildren $rollingHistories (
+        [DateTimeOffset] "2026-11-01T00:00:00Z") $now.AddDays(2) ([TimeZoneInfo]::Utc)
+    Assert-True ($stalled.forecast.status -eq "unavailable") "Old completions cannot disguise a stalled recent window."
+    foreach ($number in 3..4) {
+        $rollingChildren[$number - 1].state = "closed"
+        $rollingHistories[$number] = @((Event labeled "2026-11-16T10:00:00Z" active),
+            (Event closed "2026-11-16T12:00:00Z"))
+    }
+    $done = Get-EpicChartSnapshots $rollingChildren $rollingHistories $now $now ([TimeZoneInfo]::Utc)
+    Assert-True ((Format-EpicChartForecast $done) -eq "**Estimated finish:** All tasks completed.") "A completed cohort needs no extrapolation even with zero elapsed time."
 
     $published = Get-EpicChartMarker 448 published
     $comments = @(@{ body = $published; updatedAt = "2026-11-16T12:30:00Z"; url = "fixture://chart" })
@@ -151,6 +202,7 @@ try {
     Assert-True ($result.status -eq "published" -and $script:comments.Count -eq 1) "Successful reporting updates the reservation, not a second comment."
     Assert-True ($script:comments[0].body.Contains("https://github.com/user-attachments/assets/") -and
         -not $script:comments[0].body.Contains($root)) "Published image must be hosted, never a local path."
+    Assert-True ($script:comments[0].body -like "*ETA unavailable - no positive net completion progress*") "Publication must include an explicit forecast even without completions."
     $script:comments = @()
     $evidence.utc = [DateTimeOffset]::UtcNow.AddMinutes(-20).ToString("o")
     $script:restFixtures = @{

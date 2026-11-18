@@ -178,6 +178,8 @@ $published
 
 **Completed:** $($last.completed) | **In progress:** $($last.inProgress) | **Not started:** $($last.notStarted) | **Total:** $($last.total).
 
+$(Format-EpicChartForecast $report)
+
 Timezone: $($timezone.Id). Green = completed; orange = in progress (including review/CI waits); red = not started. Lines follow cumulative stack tops; gray dashed reference = total.
 
 Current native child cohort: $(($children.number | Sort-Object | ForEach-Object { "#$_" }) -join ', '). Historical membership is not reconstructed. Latest 24 hourly snapshots plus the current partial hour; task lifecycle timestamps, not coding-time estimates.

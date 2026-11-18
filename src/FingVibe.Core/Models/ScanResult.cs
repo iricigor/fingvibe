@@ -23,6 +23,8 @@ public sealed record ScanResult(
     IReadOnlyList<UdpServiceObservation>? UdpObservations = null)
 {
     public IReadOnlyList<ReportedDeviceValue> ReportedValues { get; init; } = [];
+    // Current-scan mDNS/SSDP evidence; saved with the scan checkpoint and the device's latest observation.
+    public IReadOnlyList<ServiceAdvertisement> ServiceAdvertisements { get; init; } = [];
     public DeviceClassification DetectedClassification => Classification ?? DeviceClassification.Unknown;
     public string AddressText => Address.ToString();
 
@@ -40,7 +42,7 @@ public sealed record ScanResult(
     public IReadOnlyList<UdpServiceObservation> UdpObservationItems => UdpObservations ?? [];
 
     public string MacAddressText => MacAddress is null
-        ? "-"
+        ? Status == HostStatus.Alive ? "MAC unavailable" : "-"
         : string.Join("-", MacAddress.GetAddressBytes().Select(value => value.ToString("X2")));
 
     public bool MatchesFilter(string? filter)

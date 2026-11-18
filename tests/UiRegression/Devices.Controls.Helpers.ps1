@@ -45,6 +45,14 @@ public static class DeviceFilterReviewContrast
     }
     [DllImport("user32.dll")]
     public static extern int GetSysColor(int index);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr SendMessageTimeout(IntPtr window, uint message, UIntPtr parameter,
+        string setting, uint flags, uint timeout, out UIntPtr result);
+    public static void NotifyTextScaleChanged() {
+        UIntPtr result;
+        if (SendMessageTimeout(new IntPtr(0xffff), 0x001a, UIntPtr.Zero, "Accessibility", 2, 5000, out result) == IntPtr.Zero)
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+    }
 }
 "@
 

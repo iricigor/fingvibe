@@ -161,6 +161,10 @@
         @("Devices", "RoomMap") "Room map shell owner"
     Test-Change @{ "src\FingVibe.Core\Models\RoomMapLayout.cs" = "changed" } `
         @("Devices", "RoomMap") "Room map projection/layout"
+    Test-Change @{ "src\FingVibe.Core\Networking\AdvertisedEndpointVerifier.cs" = "changed" } `
+        @("Devices", "DeviceDetails") "Service-discovery evidence"
+    Test-Change @{ "src\FingVibe.App\ServiceDiscoveryPresentation.cs" = "changed" } `
+        @("Devices", "DeviceDetails") "Service-discovery presentation"
     Test-Change @{ "src\FingVibe.App\MainWindow.Results.cs" = "changed" } `
         @("Devices", "Settings", "DevicesEmpty") "Results and empty state"
     Test-Change @{ "src\FingVibe.App\DeviceResultFilter.cs" = "changed" } `

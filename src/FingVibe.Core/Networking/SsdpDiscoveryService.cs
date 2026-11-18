@@ -67,7 +67,7 @@ public sealed class SsdpDiscoveryService
                 var info = await GetDeviceInfoAsync(device, token).ConfigureAwait(false);
                 if (info is not null)
                 {
-                    devices.GetOrAdd(device.Address, _ => new()).TryAdd(device.Location, info);
+                    devices.GetOrAdd(device.Address, _ => new()).TryAdd(device.Location, info with { ObservedAt = device.ReceivedAt });
                 }
             }).ConfigureAwait(false);
 
@@ -109,7 +109,7 @@ public sealed class SsdpDiscoveryService
                 {
                     locations.TryAdd(uri, new SsdpDeviceLocation(
                         response.RemoteEndPoint.Address, uri,
-                        GetHeader(Encoding.UTF8.GetString(response.Buffer), "SERVER")));
+                        GetHeader(Encoding.UTF8.GetString(response.Buffer), "SERVER"), DateTimeOffset.UtcNow));
                 }
             }
         }
@@ -232,5 +232,5 @@ public sealed class SsdpDiscoveryService
         return null;
     }
 
-    private sealed record SsdpDeviceLocation(IPAddress Address, Uri Location, string? Server);
+    private sealed record SsdpDeviceLocation(IPAddress Address, Uri Location, string? Server, DateTimeOffset ReceivedAt);
 }

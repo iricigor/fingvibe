@@ -415,14 +415,16 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         foreach (var property in new[] { nameof(Result), nameof(AddressText), nameof(OpenPortItems),
                      nameof(LatencyLabel), nameof(LatencyMilliseconds), nameof(MacAddressText),
                      nameof(AddressPrefix), nameof(AddressHost), nameof(AddressHostFontSize),
-                     nameof(DisplayAddressPrefix), nameof(DisplayAddressHost), nameof(ReportedValues) })
+                     nameof(DisplayAddressPrefix), nameof(DisplayAddressHost), nameof(ReportedValues),
+                     nameof(ServiceAdvertisements), nameof(HasLatestServiceDiscovery), nameof(ServiceDiscoveryName),
+                     nameof(ServiceDiscoveryText) })
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
     }
     public PhysicalAddress? MacAddress => Result?.MacAddress
         ?? (_inventoryDevice is null ? null : PhysicalAddress.Parse(_inventoryDevice.Mac));
     public string AddressText => Result?.AddressText ?? _inventoryDevice?.Imported.Address ?? "-";
     public string MacAddressText => MacAddress is { } mac
-        ? string.Join("-", mac.GetAddressBytes().Select(value => value.ToString("X2"))) : "-";
+        ? string.Join("-", mac.GetAddressBytes().Select(value => value.ToString("X2"))) : Result?.MacAddressText ?? "-";
     public string HostnameText => !string.IsNullOrWhiteSpace(Result?.DeviceName)
         ? Result.DeviceName : _inventoryDevice?.Imported.Hostname ?? "-";
     public string AutomaticName => VirtualDevice?.AutomaticName ?? _inventoryDevice?.Imported.Name
@@ -445,6 +447,12 @@ public sealed class ScanResultRow : INotifyPropertyChanged
             .OrderBy(port => port.Port).ThenBy(port => port.Protocol).ToArray()
         : Result?.OpenPortItems ?? [];
     public ImportedDeviceMetadata? ImportedMetadata => _inventoryDevice?.Imported;
+    public IReadOnlyList<ServiceAdvertisement> ServiceAdvertisements => Result?.ServiceAdvertisements ?? [];
+    // The Devices icon reflects only advertisements received in the latest scan; Device Details keeps their time.
+    public bool HasLatestServiceDiscovery => IsCurrentScanResponse && ServiceAdvertisements.Count > 0;
+    public string ServiceDiscoveryName => ServiceAdvertisements.Count == 1
+        ? "Service discovery: 1 advertised service" : $"Service discovery: {ServiceAdvertisements.Count} advertised services";
+    public string ServiceDiscoveryText => ServiceDiscoveryPresentation.Tooltip(ServiceAdvertisements);
     private DeviceClassification Detected => Result?.DetectedClassification ?? DeviceClassification.Unknown;
     public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
     public string NameText => _customName ?? AutomaticName;
@@ -525,7 +533,8 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public double DeviceTypeOpacity => Type == DeviceType.Unknown ? 0.65 : 1;
     public bool HasLatency => _showLatency && IsCurrentScanResponse && Result?.RoundtripTimeMilliseconds is >= 0;
     public long? LatencyMilliseconds => HasLatency ? Result?.RoundtripTimeMilliseconds : null;
-    public string LatencyLabel => HasLatency ? Result!.RoundtripText : "-";
+    public string LatencyLabel => HasLatency ? Result!.RoundtripText
+        : IsCurrentScanResponse && Result?.RoundtripTimeMilliseconds is null && ServiceAdvertisements.Count > 0 ? "--" : "-";
     public double LatencyFraction { get; private set; }
     public double LatencyFill => HasLatency ? 20 + (80 * LatencyFraction) : 0;
 

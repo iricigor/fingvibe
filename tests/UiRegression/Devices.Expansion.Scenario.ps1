@@ -44,7 +44,167 @@ $data = @{
    duration = '00:00:00.100'; results = @() } | ConvertTo-Json -Depth 8 |
     Set-Content -LiteralPath $snapshot -Encoding UTF8
 
+function Find-ExpansionRow {
+    @(Get-DeviceRows) | Where-Object {
+        $_.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::NameProperty, 'Expansion virtual'))
+    } | Select-Object -First 1
+}
+
+function Find-ExpansionParts($Row, [string] $Id) {
+    @($Row.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Id)))
+}
+
+function Test-ExpansionInk([object[]] $Elements, [int[]] $SystemColors) {
+    # True when every element shows ink near a high-contrast system text color that differs from its own background.
+    $capture = Save-DeviceCapture 'devices-mac-expansion-high-contrast'
+    $window = Get-UiReviewWindowBounds $windowHandle
+    $bitmap = [Drawing.Bitmap]::new($capture)
+    try {
+        foreach ($element in $Elements) {
+            $bounds = $element.Current.BoundingRectangle
+            $left = [int][Math]::Ceiling($bounds.Left - $window.Left)
+            $top = [int][Math]::Ceiling($bounds.Top - $window.Top)
+            $right = [int][Math]::Floor([Math]::Min($bounds.Right - $window.Left, $bitmap.Width))
+            $bottom = [int][Math]::Floor([Math]::Min($bounds.Bottom - $window.Top, $bitmap.Height))
+            if ($left -lt 0 -or $top -lt 0 -or $right -le $left -or $bottom -le $top) { return $false }
+            $background = $bitmap.GetPixel($left, $top)
+            $inked = $false
+            foreach ($color in $SystemColors) {
+                $expected = [Drawing.Color]::FromArgb($color -band 255, ($color -shr 8) -band 255, ($color -shr 16) -band 255)
+                $backgroundDistance = [Math]::Max([Math]::Abs([int]$background.R - $expected.R),
+                    [Math]::Max([Math]::Abs([int]$background.G - $expected.G), [Math]::Abs([int]$background.B - $expected.B)))
+                if ($backgroundDistance -le 32) { continue }
+                for ($y = $top; $y -lt $bottom -and -not $inked; $y++) {
+                    for ($x = $left; $x -lt $right -and -not $inked; $x++) {
+                        $pixel = $bitmap.GetPixel($x, $y)
+                        $inked = [Math]::Max([Math]::Abs([int]$pixel.R - $expected.R),
+                            [Math]::Max([Math]::Abs([int]$pixel.G - $expected.G), [Math]::Abs([int]$pixel.B - $expected.B))) -le 16
+                    }
+                }
+                if ($inked) { break }
+            }
+            if (-not $inked) {
+                Write-Host "High-contrast ink missing for '$($element.Current.AutomationId)' at $bounds; background $background."
+                return $false
+            }
+        }
+        return $true
+    }
+    finally { $bitmap.Dispose() }
+}
+
+function Test-MacExpansionHighContrast {
+    $flags = [DeviceFilterReviewContrast]::Get()
+    $contrastFailed = $true
+    try {
+        Set-DeviceFilterContrastFlags -Flags ($flags -bor 1)
+        Wait-DeviceFilterContrastReady -Enabled $true
+        # Window text, highlight text (selected row) and button text are the high-contrast foregrounds in use.
+        $systemColors = @(8, 14, 18 | ForEach-Object { [DeviceFilterReviewContrast]::GetSysColor($_) })
+        $chevron = Wait-UiRegressionState -Description 'expanded MAC row rendered in high contrast' -Condition {
+            $candidate = Find-ExpansionRow
+            if (-not $candidate) { return $null }
+            $labels = Find-ExpansionParts $candidate 'DeviceMacExpansionLabel'
+            $button = Find-ExpansionParts $candidate 'DeviceMacExpansionButton'
+            $more = Find-ExpansionParts $candidate 'DeviceMacExpansionMore'
+            if ($labels.Count -ne 3 -or $button.Count -ne 1 -or $more.Count -ne 1) { return $null }
+            if (Test-ExpansionInk (@($button[0], $more[0]) + $labels) $systemColors) { $button[0] }
+        }
+        # State is announced by name and help text, not by color.
+        $bounds = $chevron.Current.BoundingRectangle
+        if ($chevron.Current.Name -cne 'Hide 5 more MAC addresses' -or $chevron.Current.HelpText -cne '5 more MAC addresses, expanded' -or
+            $bounds.Width -lt 23.5 * $scale -or $bounds.Height -lt 23.5 * $scale) {
+            throw "The high-contrast chevron must stay a named 24-DIP target: $($chevron.Current.Name) / $($chevron.Current.HelpText) / $bounds."
+        }
+        $contrastFailed = $false
+    }
+    finally {
+        Invoke-UiRegressionCleanup -PrimaryFailed $contrastFailed -Steps @(
+            { Set-DeviceFilterContrastFlags -Flags $flags },
+            { Wait-DeviceFilterContrastReady -Enabled (($flags -band 1) -ne 0) })
+    }
+}
+
+$expansionTextScale = @{}
+function Set-ExpansionTextScale {
+    # The app reads the Windows text scale at startup, so call this while the app is closed.
+    $appDirectory = Split-Path -Parent (Resolve-Path -LiteralPath $AppPath).Path
+    Add-Type -Path (Join-Path $appDirectory 'WinRT.Runtime.dll')
+    Add-Type -Path (Join-Path $appDirectory 'Microsoft.Windows.SDK.NET.dll')
+    $settings = [Windows.UI.ViewManagement.UISettings]::new()
+    $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\Microsoft\Accessibility')
+    try {
+        $value = $key.GetValue('TextScaleFactor', $null)
+        $expansionTextScale.Settings = $settings
+        $expansionTextScale.Scale = $settings.TextScaleFactor
+        $expansionTextScale.Value = $value
+        $expansionTextScale.Kind = if ($null -ne $value) { $key.GetValueKind('TextScaleFactor') } else { $null }
+        $key.SetValue('TextScaleFactor', 200, [Microsoft.Win32.RegistryValueKind]::DWord)
+    }
+    finally { $key.Dispose() }
+    [DeviceFilterReviewContrast]::NotifyTextScaleChanged()
+    $null = Wait-UiRegressionState -Description 'effective Windows text scale of 200 percent' -Condition {
+        [Math]::Abs($settings.TextScaleFactor - 2) -lt 0.01
+    }
+}
+
+function Restore-ExpansionTextScale {
+    if (-not $expansionTextScale.Settings) { return }
+    $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\Microsoft\Accessibility')
+    try {
+        if ($null -eq $expansionTextScale.Value) { $key.DeleteValue('TextScaleFactor', $false) }
+        else { $key.SetValue('TextScaleFactor', $expansionTextScale.Value, $expansionTextScale.Kind) }
+    }
+    finally { $key.Dispose() }
+    [DeviceFilterReviewContrast]::NotifyTextScaleChanged()
+    $null = Wait-UiRegressionState -Description 'restored Windows text scale' -Condition {
+        [Math]::Abs($expansionTextScale.Settings.TextScaleFactor - $expansionTextScale.Scale) -lt 0.01
+    }
+    $expansionTextScale.Clear()
+}
+
+function Test-MacExpansionTextScale {
+    $row = Wait-UiRegressionState -Description 'collapsed MAC row at 200% text scale' -Condition { Find-ExpansionRow }
+    $normal = @(Get-DeviceRows) | Where-Object {
+        $_.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::NameProperty, 'Expansion normal'))
+    } | Select-Object -First 1
+    if (-not $normal -or [Math]::Abs($normal.Current.BoundingRectangle.Height - $row.Current.BoundingRectangle.Height) -gt $scale) {
+        throw 'Collapsed multi-MAC rows must keep single-MAC row height at 200% text scale.'
+    }
+    $chevron = @(Find-ExpansionParts $row 'DeviceMacExpansionButton')
+    $rowBounds = $row.Current.BoundingRectangle
+    if ($chevron.Count -ne 1 -or -not $rowBounds.Contains($chevron[0].Current.BoundingRectangle) -or
+        $chevron[0].Current.BoundingRectangle.Width -lt 23.5 * $scale -or $chevron[0].Current.BoundingRectangle.Height -lt 23.5 * $scale) {
+        throw "The chevron must stay a whole 24-DIP target inside its row at 200% text scale. Row=$rowBounds."
+    }
+    $chevron[0].GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $lines = Wait-UiRegressionState -Description 'three earlier MAC lines at 200% text scale' -Condition {
+        $candidate = Find-ExpansionRow
+        if (-not $candidate) { return $null }
+        $labels = @(Find-ExpansionParts $candidate 'DeviceMacExpansionLabel')
+        $more = @(Find-ExpansionParts $candidate 'DeviceMacExpansionMore')
+        if ($labels.Count -eq 3 -and $more.Count -eq 1) { , (@($labels | Sort-Object { $_.Current.BoundingRectangle.Top }) + $more) }
+    }
+    $window = $root.Current.BoundingRectangle
+    $previousBottom = 0
+    foreach ($line in $lines) {
+        $bounds = $line.Current.BoundingRectangle
+        if ($bounds.IsEmpty -or $bounds.Left -lt $window.Left -or $bounds.Right -gt $window.Right -or
+            $bounds.Height -lt 24 * $scale -or $bounds.Top -lt $previousBottom - $scale) {
+            throw "Earlier MAC lines must stay readable, unclipped and non-overlapping at 200% text scale. Line=$bounds; window=$window; scale=$scale."
+        }
+        $previousBottom = $bounds.Bottom
+    }
+    $null = Save-DeviceCapture 'devices-mac-expansion-text-scale-200'
+}
 Stop-UiRegressionApp -Process $process
+$expansionFailed = $true
 try {
     $env:FINGVIBE_UI_REVIEW_INVENTORY = $inventory
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $snapshot
@@ -184,6 +344,8 @@ try {
                 [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'DeviceMacExpansionLabel')).Count -eq 3
     }
     Save-DeviceCapture 'devices-mac-expansion-wide'
+    $disposableDesktop = $env:GITHUB_ACTIONS -eq 'true' -and $env:RUNNER_OS -eq 'Windows'
+    if ($disposableDesktop) { Test-MacExpansionHighContrast }
     Set-DeviceWidth 640
     $row = @(Get-DeviceRows) | Where-Object {
         $_.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
@@ -201,6 +363,8 @@ try {
     $narrowChevron.SetFocus()
     Save-DeviceCapture 'devices-mac-expansion-narrow'
     Stop-UiRegressionApp -Process $process
+    # System text scale and high contrast are changed only on disposable CI desktops.
+    if ($disposableDesktop) { Set-ExpansionTextScale }
     $process = Start-Process -FilePath (Resolve-Path -LiteralPath $AppPath).Path -PassThru
     $windowHandle = Wait-UiRegressionWindow -Process $process
     $root = [System.Windows.Automation.AutomationElement]::FromHandle($windowHandle)
@@ -219,10 +383,14 @@ try {
                 [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'DeviceMacExpansionLabel')).Count -ne 0) {
         throw 'MAC row expansion must start collapsed after an application restart.'
     }
+    if ($disposableDesktop) { Test-MacExpansionTextScale }
     Write-Host 'Virtual-device chevron, extra MAC lines, search restore, keyboard and round-trip state passed.'
+    $expansionFailed = $false
 }
 finally {
-    Stop-UiRegressionApp -Process $process
+    Invoke-UiRegressionCleanup -PrimaryFailed $expansionFailed -Steps @(
+        { Stop-UiRegressionApp -Process $process },
+        { Restore-ExpansionTextScale })
     $env:FINGVIBE_UI_REVIEW_INVENTORY = $savedInventory
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $savedSnapshot
     $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT = $savedCurrentSnapshot

@@ -754,9 +754,14 @@
                                                    Visibility="{x:Bind Columns.ShowMergedOs, Mode=OneWay}" TextTrimming="CharacterEllipsis"
                                                    ToolTipService.ToolTip="{x:Bind OperatingSystemSource, Mode=OneWay}" />
                                         </StackPanel>
-                                        <ItemsControl Grid.Column="3" ItemsSource="{x:Bind OpenPortItems, Mode=OneWay}" VerticalAlignment="Center"
-                                                      Margin="0,0,12,0"
-                                                      Visibility="{x:Bind Columns.Ports.IsVisible, Mode=OneWay}">
+                                        <Grid Grid.Column="3" Margin="0,0,12,0" ColumnSpacing="8" VerticalAlignment="Center"
+                                              Visibility="{x:Bind Columns.Ports.IsVisible, Mode=OneWay}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                        <ItemsControl ItemsSource="{x:Bind OpenPortItems, Mode=OneWay}" VerticalAlignment="Center"
+                                                      HorizontalAlignment="Left">
                                             <ItemsControl.ItemsPanel>
                                                 <ItemsPanelTemplate>
                                                     <StackPanel Orientation="Horizontal" Spacing="8" />
@@ -773,6 +778,19 @@
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
+                                            <Button x:Name="ServiceDiscoveryButton" Grid.Column="1" Click="ServiceDiscoveryButton_Click"
+                                                    Visibility="{x:Bind HasLatestServiceDiscovery, Mode=OneWay}"
+                                                    Width="24" Height="24" MinWidth="24" MinHeight="24" Padding="0"
+                                                    VerticalAlignment="Center" HorizontalAlignment="Right"
+                                                    Background="Transparent" BorderThickness="0"
+                                                    AutomationProperties.AutomationId="ServiceDiscoveryButton"
+                                                    AutomationProperties.Name="{x:Bind ServiceDiscoveryName, Mode=OneWay}"
+                                                    AutomationProperties.HelpText="{x:Bind ServiceDiscoveryText, Mode=OneWay}"
+                                                    ToolTipService.ToolTip="{x:Bind ServiceDiscoveryText, Mode=OneWay}">
+                                                <FontIcon Glyph="&#xE95A;" FontFamily="Segoe Fluent Icons" FontSize="16"
+                                                          Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+                                            </Button>
+                                        </Grid>
                                         <Grid x:Name="ConnectionCell" Grid.Column="4" Margin="0,0,12,0" MinHeight="26" VerticalAlignment="Center"
                                               Visibility="{x:Bind Columns.Connection.IsVisible, Mode=OneWay}"
                                               ToolTipService.ToolTip="Response bar is relative to responding hosts in this scan: green is fastest, red is slowest.">

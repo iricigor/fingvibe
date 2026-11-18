@@ -222,7 +222,7 @@ function Test-MatchTextScaling {
     # Runs at 200% text scale after the merge-suggestions phase declined Match alpha/beta, so only beta lacks an icon.
     Show-MatchRows
     # Assert-MatchButton's absolute row cap is for 100% text; at 200% density is compared with the icon-free row instead.
-    Wait-Usage { (Find-MatchButton "Match alpha" -Optional).Button.Current.Name -eq "Review 1 possible matching MAC address" } `
+    Wait-Usage { (Find-MatchButton "Match alpha" -Optional -Transient).Button.Current.Name -eq "Review 1 possible matching MAC address" } `
         "'Match alpha' icon naming 1 suggestion at 200% text scale"
     $alpha = (Find-MatchButton "Match alpha").Button
     if ((Find-MatchButton "Match beta" -Optional).Button) { throw "The declined pair must stay declined at 200% text scale." }
@@ -413,12 +413,14 @@ function Get-MatchRows {
     }
 }
 
-function Find-MatchButton([string] $Name, [switch] $Optional) {
+function Find-MatchButton([string] $Name, [switch] $Optional, [switch] $Transient) {
     $row = @(Get-MatchRows | Where-Object {
         $_.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
             [System.Windows.Automation.PropertyCondition]::new(
                 [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceNameText")).Current.Name -ceq $Name
     })
+    # Rows can be re-realized while focus or the list changes; waits retry instead of failing on that instant.
+    if ($row.Count -ne 1 -and $Transient) { return $null }
     if ($row.Count -ne 1) { throw "Expected one '$Name' possible-match row; found $($row.Count)." }
     $button = $row[0].FindFirst([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new(
@@ -430,7 +432,7 @@ function Find-MatchButton([string] $Name, [switch] $Optional) {
 
 function Assert-MatchButton([string] $Name, [int] $Count) {
     $label = if ($Count -eq 1) { "Review 1 possible matching MAC address" } else { "Review $Count possible matching MAC addresses" }
-    Wait-Usage { (Find-MatchButton $Name -Optional).Button.Current.Name -eq $label } "'$Name' icon naming $Count suggestions"
+    Wait-Usage { (Find-MatchButton $Name -Optional -Transient).Button.Current.Name -eq $label } "'$Name' icon naming $Count suggestions"
     $button = (Find-MatchButton $Name).Button
     $scale = [UiReviewNativeWindow]::GetDpiForWindow($script:process.MainWindowHandle) / 96.0
     $cell = (Find-MatchButton $Name).Row.Current.BoundingRectangle
@@ -674,7 +676,7 @@ try {
         "Click to review in Device Details.")
     (Find-MatchButton "Match beta").Row.SetFocus()
     [System.Windows.Forms.SendKeys]::SendWait("{TAB}")
-    Wait-Usage { (Find-MatchButton "Match beta").Button.Current.HasKeyboardFocus } "keyboard focus on the possible-match icon"
+    Wait-Usage { (Find-MatchButton "Match beta" -Optional -Transient).Button.Current.HasKeyboardFocus } "keyboard focus on the possible-match icon"
     [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
     Assert-MatchSection "1 possible match" "Match alpha" "the discovered names match" "1 of 1"
     $section = (Find-Usage MergeMacAddresses).Current
