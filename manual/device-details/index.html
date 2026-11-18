@@ -535,6 +535,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#service-discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      Service discovery
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#inspect-services" class="md-nav__link">
     <span class="md-ellipsis">
       Inspect services
@@ -1167,6 +1176,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#service-discovery" class="md-nav__link">
+    <span class="md-ellipsis">
+      Service discovery
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#inspect-services" class="md-nav__link">
     <span class="md-ellipsis">
       Inspect services
@@ -1314,6 +1332,22 @@ It does not remove the device name, assignments, or original imported evidence.
 An error leaves the draft visible so you can review it.</p>
 <p>Names and corrections normally follow the device's MAC address, not its IP.
 A changing MAC can break that association.</p>
+<h2 id="service-discovery">Service discovery<a class="headerlink" href="#service-discovery" title="Permanent link">&para;</a></h2>
+<p><strong>Service discovery (N)</strong> appears below <strong>Device identification</strong> and above
+<strong>Ports &amp; services</strong> when the device advertised services. Each entry shows the
+service and protocol (mDNS/DNS-SD or SSDP/UPnP), the advertised endpoint, any
+advertised instance, name, manufacturer or model, an inferred role, the
+observation time, and a separate <strong>TCP verification</strong> result.</p>
+<ul>
+<li>Advertisements are response evidence, not a verified identity or an exact
+  hardware model. A role such as <em>Spotify Connect playback endpoint</em> or
+  <em>Hue bridge service</em> describes a service, not the device's name or model.</li>
+<li>Advertised TCP ports are checked once per scan, only on the address that
+  advertised them, with a 400 ms timeout. Only a port that answers is added to
+  <strong>Ports &amp; services</strong>; an unanswered port is labeled <em>not counted as open</em>.</li>
+<li>UDP endpoints (for example Matter commissioning) and SSDP descriptions are
+  listed but not probed.</li>
+</ul>
 <h2 id="inspect-services">Inspect services<a class="headerlink" href="#inspect-services" title="Permanent link">&para;</a></h2>
 <p>The normal LAN scan checks ten common TCP ports.
 For a currently responding address, <strong>Scan additional ports</strong> checks a curated

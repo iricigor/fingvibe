@@ -521,6 +521,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#service-discovery-responders" class="md-nav__link">
+    <span class="md-ellipsis">
+      Service discovery responders
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#last-seen" class="md-nav__link">
     <span class="md-ellipsis">
       Last seen
@@ -1176,6 +1185,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#service-discovery-responders" class="md-nav__link">
+    <span class="md-ellipsis">
+      Service discovery responders
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#last-seen" class="md-nav__link">
     <span class="md-ellipsis">
       Last seen
@@ -1236,7 +1254,7 @@ Unused IP addresses do not become device records.</p>
 <tbody>
 <tr>
 <td>Online</td>
-<td>The device responded to ping or ARP in its latest applicable scan evidence, including saved results.</td>
+<td>The device responded to ping, fresh ARP, or a validated mDNS/SSDP reply from its own address in its latest applicable scan evidence, including saved results.</td>
 </tr>
 <tr>
 <td>Offline</td>
@@ -1336,6 +1354,25 @@ Filtering does not change that scale.</p>
 Hover over an icon for the port number and name.
 An open port is <strong>not a security verdict</strong>. It does not prove a service is safe,
 unsafe, or running a particular operating system.</p>
+<h2 id="service-discovery-responders">Service discovery responders<a class="headerlink" href="#service-discovery-responders" title="Permanent link">&para;</a></h2>
+<p>Some devices ignore ping and ARP but announce services through mDNS/DNS-SD or
+SSDP/UPnP. A fresh, valid reply sent by the device's own address during the
+current scan also makes that device <strong>Online</strong>; there is no separate status.</p>
+<ul>
+<li><strong>Response</strong> shows <code>--</code> because no ping time was measured.</li>
+<li>The name stays your saved name first, then the actual advertised host name,
+  then the IP address. Service names and roles never replace names.</li>
+<li><strong>MAC unavailable</strong> means the device answered without a usable MAC address.
+  It stays visible for that scan but is not saved as equipment, matched by IP
+  address, or given an invented MAC.</li>
+<li>In <strong>Open ports</strong>, verified ports stay on the left. A right-aligned
+  service-discovery icon appears only for advertisements from the latest scan.
+  Hover over or focus it for the advertised services and observation time;
+  select it to open <strong>Service discovery</strong> in Device Details.</li>
+</ul>
+<p>Stale, expired (goodbye), malformed, unrelated, or out-of-network announcements
+never make a device Online. An address that is only mentioned in another
+device's announcement is not treated as a responder.</p>
 <h2 id="last-seen">Last seen<a class="headerlink" href="#last-seen" title="Permanent link">&para;</a></h2>
 <p><strong>Last seen</strong> shows the latest local presence evidence for the selected network.
 <strong>Online</strong> in that column describes the displayed scan.
