@@ -18,7 +18,7 @@ public sealed partial class MainWindow
 
     private void DeviceRequested(object? sender, ScanResultRow row) => ShowDeviceDetails(row);
 
-    private void ShowDeviceDetails(ScanResultRow row)
+    private void ShowDeviceDetails(ScanResultRow row, bool fromRoomMap = false)
     {
         _devicePortScanCancellation?.Cancel();
         if (_isScanning && !_initialResultsPublished)
@@ -27,6 +27,8 @@ public sealed partial class MainWindow
         }
 
         _selectedDeviceRow = row;
+        _deviceDetailsFromRoomMap = fromRoomMap;
+        DevicePage.SetBackDestination(fromRoomMap);
         DevicePage.NameInput = row.NameText;
         DevicePage.NameSaveLabel = "Save";
         DevicePage.NameStatus = _deviceNameOverridesUnavailable

@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Shapes;
 
@@ -15,7 +16,11 @@ public sealed partial class RoomMapPageView : UserControl
     private string? _networkId;
     private string? _networkError;
     private double _renderWidth;
+    private RoomMapNavigationState? _returnState;
+    private readonly Dictionary<string, RoomMapNavigationTarget> _navigationTargets =
+        new(StringComparer.Ordinal);
     private readonly Windows.UI.ViewManagement.UISettings _uiSettings = new();
+    private string[] _brushThemes = ["Light"];
 
     public RoomMapPageView()
     {
@@ -35,6 +40,8 @@ public sealed partial class RoomMapPageView : UserControl
     }
 
     public event RoutedEventHandler? ManageRoomsRequested;
+    public event EventHandler<string>? DeviceRequested;
+    public event EventHandler<Guid>? RoomRequested;
 
     // Panels have no automation peer, so expose the page itself as the RoomMapPage pane.
     protected override AutomationPeer OnCreateAutomationPeer() => new RoomMapPagePeer(this);
@@ -61,6 +68,7 @@ public sealed partial class RoomMapPageView : UserControl
 
     internal void ResetScroll()
     {
+        _returnState = null;
         RoomMapScroll.ChangeView(0, 0, null);
         _renderWidth = 0;
         Render();
@@ -75,6 +83,29 @@ public sealed partial class RoomMapPageView : UserControl
     private void ManageRoomsButton_Click(object sender, RoutedEventArgs e) =>
         ManageRoomsRequested?.Invoke(this, e);
 
+    internal void RestoreNavigation()
+    {
+        if (_returnState is not { } state)
+        {
+            return;
+        }
+
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            RoomMapCanvas.UpdateLayout();
+            RoomMapScroll.ChangeView(state.HorizontalOffset, state.VerticalOffset, null, disableAnimation: true);
+            var target = NavigationTarget(state);
+            target?.Control.Focus(FocusState.Programmatic);
+            target?.Control.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false });
+        });
+    }
+
+    internal void SetNavigationError(string message)
+    {
+        RoomMapErrorText.Text = message;
+        RoomMapErrorText.Visibility = Visibility.Visible;
+    }
+
     private void RoomMapPage_SizeChanged(object sender, SizeChangedEventArgs e) =>
         Render();
 
@@ -85,6 +116,9 @@ public sealed partial class RoomMapPageView : UserControl
             return;
         }
 
+        _brushThemes = new Windows.UI.ViewManagement.AccessibilitySettings().HighContrast
+            ? ["HighContrast"]
+            : ActualTheme == ElementTheme.Dark ? ["Dark", "Default"] : ["Light"];
         if (_network is null)
         {
             RoomMapNetworkText.Text = "No active IPv4 network";
@@ -96,6 +130,7 @@ public sealed partial class RoomMapPageView : UserControl
             RoomMapEmptyState.Visibility = Visibility.Visible;
             RoomMapEmptyText.Text = "No network to map";
             RoomMapCanvas.Children.Clear();
+            _navigationTargets.Clear();
             return;
         }
 
@@ -105,6 +140,11 @@ public sealed partial class RoomMapPageView : UserControl
             return;
         }
         _renderWidth = availableWidth;
+        var previousViewport = new RoomMapViewportState(
+            RoomMapScroll.HorizontalOffset,
+            RoomMapScroll.VerticalOffset,
+            FocusedNavigationId());
+        var preserveViewport = _navigationTargets.Count > 0;
 
         var projection = RoomMapProjection.Create(_data, _network, _networkId);
         var layout = RoomMapLayout.Create(projection, availableWidth, _uiSettings.TextScaleFactor);
@@ -130,7 +170,9 @@ public sealed partial class RoomMapPageView : UserControl
         RoomMapCanvas.Width = layout.Width;
         RoomMapCanvas.Height = layout.Height;
         RoomMapCanvas.Children.Clear();
+        _navigationTargets.Clear();
 
+        AddConnections(layout.Connections);
         foreach (var room in layout.Rooms)
         {
             AddRoom(room);
@@ -147,6 +189,10 @@ public sealed partial class RoomMapPageView : UserControl
         AddRootLink(layout);
         AddGlobe(layout.GlobeBounds);
         AddUnassignedStrip(layout);
+        if (preserveViewport)
+        {
+            RestoreViewport(previousViewport);
+        }
     }
 
     private void AddRoom(RoomMapRoomPlacement room)
@@ -164,14 +210,43 @@ public sealed partial class RoomMapPageView : UserControl
             IsHitTestVisible = false
         };
         titleRow.Children.Add(roomIcon);
-        var roomName = new TextBlock
+        FrameworkElement roomName;
+        if (room.Id is { } roomId)
         {
-            Text = room.Name,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-            TextWrapping = TextWrapping.Wrap,
-            MaxLines = 2,
-            TextTrimming = TextTrimming.CharacterEllipsis
-        };
+            var openRoom = new HyperlinkButton
+            {
+                Padding = new Thickness(0),
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Content = new TextBlock
+                {
+                    Text = room.Name,
+                    FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                    TextWrapping = TextWrapping.Wrap,
+                    MaxLines = 2,
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                }
+            };
+            AutomationProperties.SetAutomationId(openRoom, $"RoomMapOpenRoom-{roomId:D}");
+            AutomationProperties.SetName(openRoom, $"Open {room.Name} room details");
+            openRoom.Click += (_, _) =>
+            {
+                CaptureNavigationState($"RoomMapOpenRoom-{roomId:D}", roomId);
+                RoomRequested?.Invoke(this, roomId);
+            };
+            roomName = openRoom;
+        }
+        else
+        {
+            roomName = new TextBlock
+            {
+                Text = room.Name,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                TextWrapping = TextWrapping.Wrap,
+                MaxLines = 2,
+                TextTrimming = TextTrimming.CharacterEllipsis
+            };
+        }
         Grid.SetColumn(roomName, 1);
         titleRow.Children.Add(roomName);
         if (room.IsRoot)
@@ -226,8 +301,10 @@ public sealed partial class RoomMapPageView : UserControl
             UseSystemFocusVisuals = true,
             IsTabStop = true
         };
-        AutomationProperties.SetAutomationId(card,
-            room.Id is { } id ? $"RoomMapRoom-{id:D}" : "RoomMapRootPlaceholder");
+        var roomAutomationId = room.Id is { } roomCardId
+            ? $"RoomMapRoom-{roomCardId:D}"
+            : "RoomMapRootPlaceholder";
+        AutomationProperties.SetAutomationId(card, roomAutomationId);
         AutomationProperties.SetName(card,
             room.IsPlaceholder
                 ? $"{room.Name}. {room.PlaceholderText}"
@@ -238,6 +315,15 @@ public sealed partial class RoomMapPageView : UserControl
         Canvas.SetLeft(card, room.Bounds.X);
         Canvas.SetTop(card, room.Bounds.Y);
         RoomMapCanvas.Children.Add(card);
+        RegisterNavigationTarget(roomAutomationId, card, room.Id, room.Bounds);
+        if (roomName is Control roomNameControl && room.Id is not null)
+        {
+            RegisterNavigationTarget(
+                AutomationProperties.GetAutomationId(roomNameControl),
+                roomNameControl,
+                room.Id,
+                room.Bounds);
+        }
     }
 
     private void AddDevice(RoomMapDevicePlacement placement)
@@ -290,7 +376,7 @@ public sealed partial class RoomMapPageView : UserControl
         tileContent.Children.Add(icon);
         tileContent.Children.Add(text);
 
-        var tile = new ListViewItem
+        var tile = new Button
         {
             Content = tileContent,
             Width = placement.Bounds.Width,
@@ -312,14 +398,21 @@ public sealed partial class RoomMapPageView : UserControl
             UseSystemFocusVisuals = true,
             IsTabStop = true
         };
-        AutomationProperties.SetAutomationId(tile, $"RoomMapDevice-{device.IdentityKey}");
+        var automationId = $"RoomMapDevice-{device.IdentityKey}";
+        AutomationProperties.SetAutomationId(tile, automationId);
         AutomationProperties.SetName(tile, device.AccessibleName + (device.IsLocal ? ", your device" : string.Empty));
         AutomationProperties.SetHelpText(tile, $"{device.Type.Label()} · {device.Address}");
         AutomationProperties.SetLocalizedControlType(tile, "device");
         ToolTipService.SetToolTip(tile, $"{device.Name}\n{device.Type.Label()} · {device.Address}\n{device.StatusText}");
+        tile.Click += (_, _) =>
+        {
+            CaptureNavigationState(automationId, device.RoomId);
+            DeviceRequested?.Invoke(this, device.IdentityKey);
+        };
         Canvas.SetLeft(tile, placement.Bounds.X);
         Canvas.SetTop(tile, placement.Bounds.Y);
         RoomMapCanvas.Children.Add(tile);
+        RegisterNavigationTarget(automationId, tile, device.RoomId, placement.Bounds);
     }
 
     private void AddAnchor(RoomMapAnchorPlacement anchor)
@@ -337,6 +430,47 @@ public sealed partial class RoomMapPageView : UserControl
         Canvas.SetLeft(marker, anchor.Bounds.X);
         Canvas.SetTop(marker, anchor.Bounds.Y);
         RoomMapCanvas.Children.Add(marker);
+    }
+
+    private void AddConnections(IEnumerable<RoomMapConnection> connections)
+    {
+        foreach (var (connection, index) in connections.Select((connection, index) => (connection, index)))
+        {
+            if (connection.Points.Count < 2)
+            {
+                continue;
+            }
+
+            var figure = new PathFigure
+            {
+                StartPoint = new Windows.Foundation.Point(connection.Points[0].X, connection.Points[0].Y)
+            };
+            foreach (var point in connection.Points.Skip(1))
+            {
+                figure.Segments.Add(new LineSegment
+                {
+                    Point = new Windows.Foundation.Point(point.X, point.Y)
+                });
+            }
+            var geometry = new PathGeometry();
+            geometry.Figures.Add(figure);
+            var path = new Microsoft.UI.Xaml.Shapes.Path
+            {
+                Data = geometry,
+                Stroke = Brush("TextFillColorSecondaryBrush"),
+                StrokeThickness = 2,
+                IsHitTestVisible = false
+            };
+            if (connection.IsDashed)
+            {
+                path.StrokeDashArray = new DoubleCollection { 5, 4 };
+                path.Opacity = 0.75;
+            }
+            AutomationProperties.SetAutomationId(
+                path, $"RoomMapConnection-{connection.Kind}-{index}");
+            AutomationProperties.SetAccessibilityView(path, AccessibilityView.Raw);
+            RoomMapCanvas.Children.Add(path);
+        }
     }
 
     private void AddRootLink(RoomMapLayout layout)
@@ -439,7 +573,119 @@ public sealed partial class RoomMapPageView : UserControl
         }
     }
 
-    private static Brush Brush(string key) =>
-        Application.Current.Resources[key] as Brush
-        ?? throw new InvalidOperationException($"Required Room map brush '{key}' is unavailable.");
+    // Application.Resources[key] resolves the application's theme, but the user's theme is applied as a
+    // RequestedTheme on the window content, so code-built map elements look up this page's actual theme.
+    private Brush Brush(string key) =>
+        ThemeBrush(Application.Current.Resources, key, _brushThemes)
+            ?? Application.Current.Resources[key] as Brush
+            ?? throw new InvalidOperationException($"Required Room map brush '{key}' is unavailable.");
+
+    private static Brush? ThemeBrush(ResourceDictionary dictionary, string key, string[] themes)
+    {
+        foreach (var theme in themes)
+        {
+            if (dictionary.ThemeDictionaries.TryGetValue(theme, out var themed) &&
+                themed is ResourceDictionary resources &&
+                resources.TryGetValue(key, out var value) &&
+                value is Brush brush)
+            {
+                return brush;
+            }
+        }
+        foreach (var merged in dictionary.MergedDictionaries)
+        {
+            if (ThemeBrush(merged, key, themes) is { } brush)
+            {
+                return brush;
+            }
+        }
+        return null;
+    }
+
+    private void CaptureNavigationState(string focusId, Guid? roomId)
+    {
+        var target = _navigationTargets.GetValueOrDefault(focusId);
+        _returnState = new(
+            focusId,
+            roomId,
+            RoomMapScroll.HorizontalOffset,
+            RoomMapScroll.VerticalOffset,
+            target?.X ?? 0,
+            target?.Y ?? 0);
+    }
+
+    private void RegisterNavigationTarget(
+        string automationId,
+        Control control,
+        Guid? roomId,
+        RoomMapBounds bounds)
+    {
+        _navigationTargets[automationId] = new(
+            control,
+            roomId,
+            bounds.CenterX,
+            bounds.CenterY);
+    }
+
+    private string? FocusedNavigationId()
+    {
+        if (Visibility != Visibility.Visible || FocusManager.GetFocusedElement(XamlRoot) is not FrameworkElement focused)
+        {
+            return null;
+        }
+
+        var automationId = AutomationProperties.GetAutomationId(focused);
+        return automationId is not null && _navigationTargets.ContainsKey(automationId)
+            ? automationId
+            : null;
+    }
+
+    private void RestoreViewport(RoomMapViewportState viewport)
+    {
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            RoomMapCanvas.UpdateLayout();
+            RoomMapScroll.ChangeView(
+                viewport.HorizontalOffset, viewport.VerticalOffset, null, disableAnimation: true);
+            if (viewport.FocusId is not null &&
+                _navigationTargets.GetValueOrDefault(viewport.FocusId) is { } target)
+            {
+                target.Control.Focus(FocusState.Programmatic);
+                target.Control.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false });
+            }
+        });
+    }
+
+    private RoomMapNavigationTarget? NavigationTarget(RoomMapNavigationState state)
+    {
+        if (_navigationTargets.GetValueOrDefault(state.FocusId) is { } exact)
+        {
+            return exact;
+        }
+
+        var candidates = _navigationTargets.Values.Where(target =>
+            state.RoomId is not null && target.RoomId == state.RoomId);
+        return (candidates.Any() ? candidates : _navigationTargets.Values)
+            .OrderBy(target => Math.Pow(target.X - state.X, 2) + Math.Pow(target.Y - state.Y, 2))
+            .FirstOrDefault();
+    }
+
+    private sealed record RoomMapViewportState(
+        double HorizontalOffset,
+        double VerticalOffset,
+        string? FocusId);
+
+    private sealed record RoomMapNavigationState(
+        string FocusId,
+        Guid? RoomId,
+        double HorizontalOffset,
+        double VerticalOffset,
+        double X,
+        double Y);
+
+    private sealed record RoomMapNavigationTarget(
+        Control Control,
+        Guid? RoomId,
+        double X,
+        double Y);
 }

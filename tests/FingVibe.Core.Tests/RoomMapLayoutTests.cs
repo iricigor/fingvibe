@@ -1,11 +1,13 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.NetworkInformation;
 using FingVibe.Core.Models;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace FingVibe.Core.Tests;
 
-public sealed class RoomMapLayoutTests
+public sealed class RoomMapLayoutTests(ITestOutputHelper output)
 {
     private static readonly LanNetwork Network = new(
         "Ethernet",
@@ -304,6 +306,282 @@ public sealed class RoomMapLayoutTests
             after.Rooms.SelectMany(room => room.Devices).Select(device => device.Bounds));
         Assert.Equal(before.UnassignedBounds, after.UnassignedBounds);
         Assert.Equal(before.Height, after.Height);
+        Assert.Equal(
+            before.Connections.Select(connection =>
+                (connection.SourceId, connection.TargetId, connection.Kind, connection.Points)),
+            after.Connections.Select(connection =>
+                (connection.SourceId, connection.TargetId, connection.Kind, connection.Points)));
+    }
+
+    [Fact]
+    public void LayoutRoutesEveryRouterAndFallbackRoomThroughReservedGutters()
+    {
+        var rootId = Guid.NewGuid();
+        var routerRoomId = Guid.NewGuid();
+        var wallRoomId = Guid.NewGuid();
+        var gateway = DeviceSource("gateway", "Gateway", DeviceType.Router, rootId) with { IsGateway = true };
+        var localRouter = DeviceSource("root-router", "Root access point", DeviceType.Router, rootId);
+        var rooms = new RoomMapRoom[]
+        {
+            new(rootId, "Hall", "H", null, [gateway, localRouter], true, false),
+            new(
+                routerRoomId,
+                "Router room",
+                "RR",
+                null,
+                [
+                    DeviceSource("router-one", "Router one", DeviceType.Router, routerRoomId),
+                    DeviceSource("router-two", "Router two", DeviceType.Router, routerRoomId),
+                    DeviceSource("computer", "Computer", DeviceType.Computer, routerRoomId)
+                ],
+                false,
+                false),
+            new(
+                wallRoomId,
+                "Quiet room",
+                "QR",
+                null,
+                [DeviceSource("phone", "Phone", DeviceType.Phone, wallRoomId)],
+                false,
+                false)
+        };
+        var projection = new RoomMapProjection(
+            Network.DisplayLabel,
+            Network,
+            "network",
+            rooms,
+            [DeviceSource("unassigned", "Unassigned", DeviceType.Phone)]);
+
+        var layout = RoomMapLayout.Create(projection, 1024);
+
+        Assert.Equal(5, layout.Connections.Count);
+        Assert.Equal(2, layout.Connections.Count(connection => connection.Kind == RoomMapConnectionKind.Router));
+        Assert.Single(layout.Connections, connection => connection.Kind == RoomMapConnectionKind.Room);
+        Assert.Single(layout.Connections, connection => connection.Kind == RoomMapConnectionKind.RootRouter);
+        var unassigned = Assert.Single(
+            layout.Connections, connection => connection.Kind == RoomMapConnectionKind.Unassigned);
+        Assert.True(unassigned.IsDashed);
+        Assert.DoesNotContain(layout.Connections, connection => connection.SourceId == gateway.IdentityKey);
+        Assert.All(layout.Connections, connection =>
+        {
+            Assert.True(connection.Points.Count >= 4);
+            Assert.All(
+                connection.Points.Zip(connection.Points.Skip(1)),
+                segment => Assert.True(
+                    Math.Abs(segment.First.X - segment.Second.X) < 0.001 ||
+                    Math.Abs(segment.First.Y - segment.Second.Y) < 0.001,
+                    $"{connection.Kind} connection contains a diagonal segment."));
+        });
+        Assert.All(layout.Connections, connection =>
+        {
+            var interiorSegments = connection.Points
+                .Zip(connection.Points.Skip(1))
+                .Skip(1)
+                .SkipLast(1);
+            Assert.All(interiorSegments, segment =>
+                Assert.DoesNotContain(
+                    layout.Rooms,
+                    room => IntersectsInterior(segment.First, segment.Second, room.Bounds)));
+        });
+        Assert.All(layout.Connections.Where(connection => connection.Kind is not RoomMapConnectionKind.RootRouter),
+            connection => Assert.Equal("root-entry", connection.TargetId));
+        Assert.Equal(localRouter.IdentityKey,
+            Assert.Single(layout.Connections, connection => connection.Kind == RoomMapConnectionKind.RootRouter).SourceId);
+        Assert.Equal(gateway.IdentityKey,
+            Assert.Single(layout.Connections, connection => connection.Kind == RoomMapConnectionKind.RootRouter).TargetId);
+    }
+
+    [Fact]
+    public void LayoutRoutesUnresolvedGatewayRootsWithoutInventingADevice()
+    {
+        var roomId = Guid.NewGuid();
+        var projection = new RoomMapProjection(
+            Network.DisplayLabel,
+            Network,
+            "network",
+            [
+                new(
+                    roomId,
+                    "Office",
+                    "O",
+                    null,
+                    [DeviceSource("router", "Router", DeviceType.Router, roomId)],
+                    false,
+                    false),
+                new(null, "Gateway unavailable", "GW", null, [], true, false, true, "No gateway.")
+            ],
+            []);
+
+        var layout = RoomMapLayout.Create(projection, 720);
+
+        var connection = Assert.Single(layout.Connections);
+        Assert.Equal(RoomMapConnectionKind.Router, connection.Kind);
+        Assert.Equal("root-entry", connection.TargetId);
+        var placeholder = Assert.Single(layout.Rooms, room => room.IsRoot);
+        Assert.True(connection.Points[^1].X >= placeholder.Bounds.X);
+        Assert.Empty(placeholder.Devices);
+    }
+
+    [Theory]
+    [InlineData(true, 1d, 1024d)]
+    [InlineData(true, 2d, 1024d)]
+    [InlineData(true, 3d, 720d)]
+    [InlineData(false, 1d, 720d)]
+    [InlineData(false, 2d, 1024d)]
+    [InlineData(false, 3d, 1024d)]
+    public void ScaleLayoutLinksEveryRouterAndRoomWithoutCrossingRoomsDevicesOrText(
+        bool gatewayResolved,
+        double textScale,
+        double width)
+    {
+        var projection = SkewedScaleProjection(gatewayResolved);
+        var layout = RoomMapLayout.Create(projection, width, textScale);
+
+        Assert.Equal(88, layout.Rooms.Where(room => !room.IsPlaceholder).Sum(room => room.DeviceCount));
+        Assert.Equal(12, layout.UnassignedDevices.Count);
+        var root = Assert.Single(layout.Rooms, room => room.IsRoot);
+        Assert.Equal(!gatewayResolved, root.IsPlaceholder);
+
+        var routers = projection.Rooms.SelectMany(room => room.Devices)
+            .Where(device => device.IsRouter && !device.IsGateway)
+            .Select(device => device.IdentityKey)
+            .ToArray();
+        var routerFreeRooms = layout.Rooms
+            .Where(room => !room.IsRoot && room.Devices.All(device => !device.Device.IsRouter))
+            .ToArray();
+        Assert.NotEmpty(routerFreeRooms);
+        Assert.Equal(routers.Length + routerFreeRooms.Length + 1, layout.Connections.Count);
+        Assert.All(routers, identity =>
+            Assert.Single(layout.Connections, connection => connection.SourceId == identity));
+        Assert.All(routerFreeRooms, room => Assert.Single(layout.Connections, connection =>
+            connection.Kind == RoomMapConnectionKind.Room && connection.SourceId == $"room:{room.Id:D}"));
+        Assert.DoesNotContain(layout.Connections, connection =>
+            projection.Rooms.SelectMany(room => room.Devices)
+                .Any(device => device.IsGateway && device.IdentityKey == connection.SourceId));
+        Assert.Equal(gatewayResolved ? 2 : 0,
+            layout.Connections.Count(connection => connection.Kind == RoomMapConnectionKind.RootRouter));
+        Assert.True(Assert.Single(layout.Connections,
+            connection => connection.Kind == RoomMapConnectionKind.Unassigned).IsDashed);
+
+        // Room bounds contain their header text and device tiles; the unassigned strip contains its heading and tiles.
+        var devices = layout.Rooms.SelectMany(room => room.Devices).Concat(layout.UnassignedDevices).ToArray();
+        foreach (var connection in layout.Connections)
+        {
+            var source = devices.FirstOrDefault(device => device.Device.IdentityKey == connection.SourceId);
+            var sourceRoom = layout.Rooms.FirstOrDefault(room =>
+                room.Devices.Any(device => device.Device.IdentityKey == connection.SourceId) ||
+                connection.SourceId == $"room:{room.Id:D}");
+            var segments = connection.Points.Zip(connection.Points.Skip(1)).ToArray();
+            for (var index = 0; index < segments.Length; index++)
+            {
+                var (start, end) = segments[index];
+                Assert.True(Math.Abs(start.X - end.X) < 0.001 || Math.Abs(start.Y - end.Y) < 0.001,
+                    $"{connection.SourceId} contains a diagonal segment.");
+                // The first segment deliberately leaves the source room, and the last one enters the root room.
+                var deliberate = index == 0 ? sourceRoom : index == segments.Length - 1 ? root : null;
+                var room = layout.Rooms.FirstOrDefault(room =>
+                    !ReferenceEquals(room, deliberate) && IntersectsInterior(start, end, room.Bounds));
+                Assert.True(room is null, $"{connection.SourceId} segment {index} crosses room {room?.Name}.");
+                var device = devices.FirstOrDefault(device =>
+                    !ReferenceEquals(device, source) && IntersectsInterior(start, end, device.Bounds));
+                Assert.True(device is null,
+                    $"{connection.SourceId} segment {index} crosses device {device?.Device.Name}.");
+                Assert.False(connection.Kind != RoomMapConnectionKind.Unassigned &&
+                    IntersectsInterior(start, end, layout.UnassignedBounds),
+                    $"{connection.SourceId} segment {index} crosses the unassigned strip.");
+                Assert.False(IntersectsInterior(start, end, layout.GlobeBounds),
+                    $"{connection.SourceId} segment {index} crosses the Internet globe.");
+            }
+        }
+    }
+
+    [Fact]
+    public void ScaleLayoutReportsInitialStatusAndMembershipUpdateCosts()
+    {
+        var projection = SkewedScaleProjection(gatewayResolved: true);
+        var statusOnly = projection with
+        {
+            Rooms = projection.Rooms.Select(room => room with
+            {
+                Devices = room.Devices.Select((device, index) => index % 3 == 0
+                    ? device with { Status = RoomMapDeviceStatus.Offline }
+                    : device).ToArray()
+            }).ToArray()
+        };
+        var moved = projection.Rooms[1].Devices[^1] with { RoomId = projection.Rooms[2].Id };
+        var membership = projection with
+        {
+            Rooms = projection.Rooms.Select((room, index) => index switch
+            {
+                1 => room with { Devices = room.Devices.Take(room.Devices.Count - 1).ToArray() },
+                2 => room with { Devices = [.. room.Devices, moved] },
+                _ => room
+            }).ToArray()
+        };
+        _ = RoomMapLayout.Create(projection, 1024);
+
+        var (initialMs, initial) = MeasureLayout(projection);
+        var (statusMs, status) = MeasureLayout(statusOnly);
+        var (membershipMs, relayout) = MeasureLayout(membership);
+        output.WriteLine(
+            $"Room map layout and routing for 10 rooms, 100 devices: initial {initialMs:F3} ms, "
+            + $"status-only update {statusMs:F3} ms, membership update {membershipMs:F3} ms "
+            + $"(mean of 20 runs; {initial.Connections.Count} connections).");
+
+        Assert.Equal(Geometry(initial), Geometry(status));
+        Assert.NotEqual(Geometry(initial), Geometry(relayout));
+        Assert.All(new[] { initialMs, statusMs, membershipMs }, cost =>
+            Assert.True(cost < 250, $"Room map layout must stay interactive; measured {cost:F1} ms."));
+    }
+
+    private static (double Milliseconds, RoomMapLayout Layout) MeasureLayout(RoomMapProjection projection)
+    {
+        const int runs = 20;
+        RoomMapLayout? layout = null;
+        var clock = Stopwatch.StartNew();
+        for (var run = 0; run < runs; run++)
+        {
+            layout = RoomMapLayout.Create(projection, 1024);
+        }
+        clock.Stop();
+        return (clock.Elapsed.TotalMilliseconds / runs, layout!);
+    }
+
+    private static string Geometry(RoomMapLayout layout) => string.Join("|",
+        layout.Rooms.SelectMany(room => room.Devices.Select(device => $"{device.Device.IdentityKey}@{device.Bounds}"))
+            .Concat(layout.Rooms.Select(room => $"{room.Name}@{room.Bounds}"))
+            .Concat(layout.Connections.Select(connection =>
+                $"{connection.SourceId}:{string.Join(";", connection.Points)}")));
+
+    // 88 room devices with skewed membership plus 12 unassigned devices: 100 relevant devices in total.
+    private static RoomMapProjection SkewedScaleProjection(bool gatewayResolved)
+    {
+        int[] sizes = [28, 18, 12, 9, 6, 5, 4, 3, 2, 1];
+        int[] routerCounts = [3, 2, 1, 0, 2, 0, 1, 0, 1, 0];
+        var rooms = new List<RoomMapRoom>();
+        for (var roomIndex = 0; roomIndex < sizes.Length; roomIndex++)
+        {
+            var roomId = new Guid($"00000000-0000-0000-0000-{roomIndex + 1:D12}");
+            var isRoot = gatewayResolved && roomIndex == 0;
+            var devices = Enumerable.Range(0, sizes[roomIndex]).Select(deviceIndex =>
+            {
+                var router = deviceIndex < routerCounts[roomIndex];
+                var device = DeviceSource(
+                    $"{roomIndex:D2}-{deviceIndex:D2}",
+                    $"{(router ? "Router" : "Device")} {roomIndex:D2}-{deviceIndex:D2}",
+                    router ? DeviceType.Router : DeviceType.Computer,
+                    roomId);
+                return isRoot && deviceIndex == 0 ? device with { IsGateway = true } : device;
+            }).ToArray();
+            rooms.Add(new(roomId, $"Room {roomIndex:D2}", $"R{roomIndex}", null, devices, isRoot, roomIndex == 3));
+        }
+        if (!gatewayResolved)
+        {
+            rooms.Add(new(null, "Gateway unavailable", "GW", null, [], true, false, true, "No gateway."));
+        }
+        var unassigned = Enumerable.Range(0, 12).Select(index =>
+            DeviceSource($"U-{index:D2}", $"Unassigned {index:D2}", DeviceType.Phone)).ToArray();
+        return new RoomMapProjection(Network.DisplayLabel, Network, "selected-network", rooms, unassigned);
     }
 
     [Fact]
@@ -380,4 +658,23 @@ public sealed class RoomMapLayoutTests
             roomId,
             false,
             false);
+
+    private static bool IntersectsInterior(RoomMapPoint start, RoomMapPoint end, RoomMapBounds bounds)
+    {
+        if (Math.Abs(start.Y - end.Y) < 0.001)
+        {
+            return start.Y > bounds.Y + 0.001 &&
+                start.Y < bounds.Bottom - 0.001 &&
+                Math.Max(start.X, end.X) > bounds.X + 0.001 &&
+                Math.Min(start.X, end.X) < bounds.Right - 0.001;
+        }
+        if (Math.Abs(start.X - end.X) < 0.001)
+        {
+            return start.X > bounds.X + 0.001 &&
+                start.X < bounds.Right - 0.001 &&
+                Math.Max(start.Y, end.Y) > bounds.Y + 0.001 &&
+                Math.Min(start.Y, end.Y) < bounds.Bottom - 0.001;
+        }
+        return false;
+    }
 }

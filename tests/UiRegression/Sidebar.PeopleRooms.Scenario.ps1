@@ -1,5 +1,6 @@
 Test-RoomMapEntries
 Test-RoomMapScale
 Test-RoomMapAccessibility
+Test-RoomMapDetailsRoundTrip
 Test-PeopleRoomsFlows
 Test-PeopleRoomsPersistenceErrors

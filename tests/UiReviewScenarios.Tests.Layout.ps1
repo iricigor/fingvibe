@@ -12,12 +12,23 @@
     }
     $appDirectory = Join-Path $PSScriptRoot "..\src\FingVibe.App"
     $roomMapDocument = [xml](Get-Content (Join-Path $appDirectory "Views\RoomMapPageView.xaml") -Raw)
+    $roomMapCode = Get-Content (Join-Path $appDirectory "Views\RoomMapPageView.xaml.cs") -Raw
+    $roomMapLayoutCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.Core\Models\RoomMapLayout.cs") -Raw
+    $roomMapShellCode = Get-Content (Join-Path $appDirectory "MainWindow.RoomMap.cs") -Raw
+    if ($roomMapCode -notmatch 'AddConnections\(layout\.Connections\)' -or
+        $roomMapCode -notmatch 'internal void RestoreNavigation' -or
+        $roomMapCode -notmatch 'DeviceRequested\?\.\s*Invoke' -or
+        $roomMapCode -notmatch 'RoomRequested\?\.\s*Invoke' -or
+        $roomMapLayoutCode -notmatch 'RouteConnections' -or
+        $roomMapShellCode -notmatch 'ReturnToRoomMap') {
+        throw "Room map must render immutable conceptual routes and route device/room activation through origin-aware shell return navigation."
+    }
     $unassignedSummary = $roomMapDocument.SelectSingleNode(
         "//*[@*[local-name()='Name']='RoomMapUnassignedSummaryText']")
     if ($unassignedSummary.LocalName -cne "TextBlock" -or
         $unassignedSummary.GetAttribute("AutomationProperties.AutomationId") -cne "RoomMapUnassignedSummary" -or
         $unassignedSummary.HasAttribute("IsTabStop") -or
-        (Get-Content (Join-Path $appDirectory "Views\RoomMapPageView.xaml.cs") -Raw) -notmatch 'SetAutomationId\(strip, "RoomMapUnassigned"\)') {
+        $roomMapCode -notmatch 'SetAutomationId\(strip, "RoomMapUnassigned"\)') {
         throw "Room map must keep the unassigned summary as static text and the focusable strip as RoomMapUnassigned."
     }
     $peopleRoomsDocument = [xml](Get-Content (Join-Path $appDirectory "Views\PeopleRoomsPageView.xaml") -Raw)
