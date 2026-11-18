@@ -14,8 +14,8 @@ foreach ($index in 1..6) {
         networkId = 'ui-review-network'; subnet = '127.0.0.1/32'
         address = "127.0.0.$index"; hostname = $null; vendor = if ($index -eq 1) { "Long expansion vendor $index" } else { "Private" }
         ports = @(); latency = $index; probeDuration = '00:00:00.001'
-        # Same visible type as 'Expansion normal', so both rows have the same name/type lines and only the chevron differs.
-        classification = @{ type = 1; operatingSystem = 0; typeEvidence = 'Synthetic'; operatingSystemEvidence = 'Synthetic' }
+        # Members must stay Unknown: PrivateVirtualDevice excludes MACs with known type/OS evidence from grouping.
+        classification = @{ type = 0; operatingSystem = 0; typeEvidence = 'Synthetic'; operatingSystemEvidence = 'Synthetic' }
         firstSeen = $seen; lastSeen = $seen; lastChecked = $seen; present = $index -eq 6
     }
     $devices[$mac] = @{ mac = $mac; imported = @{}; observations = @($observation); scanHistory = @() }
@@ -26,7 +26,8 @@ $devices["001122334455"] = @{
     observations = @(@{
         networkId = 'ui-review-network'; subnet = '127.0.0.1/32'; address = '127.0.0.20'
         hostname = 'normal'; vendor = 'Example'; ports = @(); latency = 1; probeDuration = '00:00:00.001'
-        classification = @{ type = 1; operatingSystem = 2; typeEvidence = 'Synthetic'; operatingSystemEvidence = 'Synthetic' }
+        # Unknown type, like the virtual row, so neither shows a secondary type line and only the chevron differs.
+        classification = @{ type = 0; operatingSystem = 2; typeEvidence = 'Synthetic'; operatingSystemEvidence = 'Synthetic' }
         firstSeen = $time.ToString('o'); lastSeen = $time.ToString('o'); lastChecked = $time.ToString('o'); present = $true
     }); scanHistory = @()
 }
