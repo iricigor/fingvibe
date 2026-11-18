@@ -67,7 +67,9 @@ function Get-EpicChartSnapshots($Children, [hashtable] $Histories, [DateTimeOffs
         if ($at -ge $Created -and $at -lt $Now) { $times.Add($at) }
     }
     $times.Add($Now)
-    $snapshots = @(foreach ($at in $times) {
+    $forecastStart = if ($Created -gt $Now.AddHours(-24)) { $Created } else { $Now.AddHours(-24) }
+    # Evaluate the exact forecast baseline separately from the rendered hourly boundaries.
+    $evaluated = @(foreach ($at in (@($forecastStart) + $times.ToArray())) {
         $completed = 0; $progress = 0
         foreach ($record in $records) {
             $started = $false; $closed = $false
@@ -88,7 +90,54 @@ function Get-EpicChartSnapshots($Children, [hashtable] $Histories, [DateTimeOffs
             total = $records.Count
         }
     })
-    @{ snapshots = $snapshots; warnings = @($warnings); timeZone = $TimeZone.Id }
+    $snapshots = @($evaluated | Select-Object -Skip 1)
+    $last = $snapshots[-1]
+    $hours = ($Now - $forecastStart).TotalHours
+    $gain = $last.completed - $evaluated[0].completed
+    $forecast = @{
+        status = "unavailable"; windowHours = $hours; netCompleted = $gain
+        remaining = $last.total - $last.completed
+    }
+    if ($forecast.remaining -eq 0) {
+        $forecast.status = "completed"
+    } elseif ($hours -gt 0 -and $gain -gt 0) {
+        $forecast.rate = $gain / $hours
+        $remainingTicks = [decimal] ($Now - $forecastStart).Ticks * $forecast.remaining / $gain
+        $forecast.remainingHours = [double] ($remainingTicks / [TimeSpan]::TicksPerHour)
+        if ($remainingTicks -le ([DateTimeOffset]::MaxValue - $Now).Ticks) {
+            $forecast.finishAt = $Now.AddTicks([long] [Math]::Round($remainingTicks, 0,
+                [MidpointRounding]::AwayFromZero)).ToUniversalTime().ToString("o")
+            $forecast.status = "estimated"
+        } else {
+            $forecast.reason = "projected finish exceeds the supported date range"
+        }
+    } else {
+        $forecast.reason = if ($hours -le 0) { "no elapsed observation time" } else { "no positive net completion progress" }
+    }
+    @{ snapshots = $snapshots; warnings = @($warnings); timeZone = $TimeZone.Id; forecast = $forecast }
+}
+
+function Format-EpicChartForecast($Report) {
+    $forecast = $Report.forecast
+    if ($forecast.status -eq "completed") { return "**Estimated finish:** All tasks completed." }
+    $culture = [Globalization.CultureInfo]::InvariantCulture
+    $window = $forecast.windowHours.ToString("0.##", $culture)
+    $basis = "$($forecast.netCompleted) net completed over $window elapsed hours (including idle time)"
+    if ($forecast.status -eq "unavailable") {
+        return "**Estimated finish:** ETA unavailable - $($forecast.reason). Observed $basis."
+    }
+    $finishUtc = [DateTimeOffset] $forecast.finishAt
+    $interval = 5 * [TimeSpan]::TicksPerMinute
+    $remainder = $finishUtc.Ticks % $interval
+    $roundedFinish = $finishUtc.AddTicks(-$remainder)
+    if ($remainder -ge $interval / 2) { $roundedFinish = $roundedFinish.AddMinutes(5) }
+    $finish = [TimeZoneInfo]::ConvertTime($roundedFinish,
+        [TimeZoneInfo]::FindSystemTimeZoneById($Report.timeZone)).ToString("yyyy-MM-dd HH:mm zzz")
+    $remainingTicks = ($finishUtc - [DateTimeOffset] $Report.snapshots[-1].at).Ticks
+    $minutes = [long] (5 * [Math]::Round(([decimal] $remainingTicks / $interval), 0, [MidpointRounding]::AwayFromZero))
+    $remaining = "$([Math]::Floor($minutes / 60))h $($minutes % 60)m"
+    $rate = $forecast.rate.ToString("0.##", $culture)
+    "**Estimated finish:** ~$finish | ~$remaining remaining ($($forecast.remaining) tasks), rounded to 5 minutes. Based on $rate tasks/hour; $basis. Assumes equally weighted tasks, steady pace and unchanged scope; not a deadline guarantee."
 }
 
 function Save-EpicChart($Report, [int] $Epic, [string] $Path) {
@@ -175,4 +224,4 @@ function Save-EpicChart($Report, [int] $Epic, [string] $Path) {
     }
 }
 
-Export-ModuleMember -Function Get-EpicChartMarker, Test-EpicChartDue, Get-EpicChartSnapshots, Save-EpicChart
+Export-ModuleMember -Function Get-EpicChartMarker, Test-EpicChartDue, Get-EpicChartSnapshots, Format-EpicChartForecast, Save-EpicChart

@@ -53,6 +53,17 @@ checks and publication verification, not candidate selection.
   orange in progress (including review/CI waits), and red not started. Trend
   lines follow their **cumulative tops**; a gray dashed line marks total tasks.
   The comment includes the timestamp, timezone, counts, cohort and window caveat.
+- The text summary estimates when all current-cohort tasks will finish from the
+  net increase in completed tasks over the exact last 24 elapsed hours, or since
+  Epic creation if newer. Reopenings reduce progress; idle time and all unfinished
+  tasks (including review/CI waits) count. The estimate includes local finish time
+  with UTC offset, approximate hours remaining, tasks/hour and observation interval.
+  Displayed finish time and remaining duration round to the nearest five minutes
+  (halfway rounds up); the underlying completion rate remains unrounded.
+  No positive net progress or no elapsed observation time yields an explicit
+  unavailable explanation; an entirely completed cohort reports all tasks completed.
+  Tasks are equally weighted, scope and pace are assumed unchanged, and the ETA
+  is not a deadline guarantee. Historical cohort membership is not reconstructed.
 
 ## Publication safety
 
