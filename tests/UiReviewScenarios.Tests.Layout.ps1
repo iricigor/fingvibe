@@ -179,6 +179,13 @@
         $matchButtonExit -cne "DeviceMatchButton_PointerExited") {
         throw "Possible-match ToolTips must explicitly open and close with pointer entry and exit."
     }
+    $detailsDocument = [xml](Get-Content (Join-Path $appDirectory "Views\DeviceDetailsPageView.xaml") -Raw)
+    foreach ($id in @("MergeMacCount", "MergeMacOtherHeading", "MergeMacOtherName", "MergeMacReason")) {
+        $node = $detailsDocument.SelectSingleNode("//*[@*[local-name()='Name']='$id']")
+        if ($node.LocalName -cne "TextBlock" -or $node.GetAttribute("AutomationProperties.AutomationId") -cne $id) {
+            throw "Merge suggestion state '$id' must remain a separately addressable text peer."
+        }
+    }
     if ($devicesDocument.SelectSingleNode("//*[@*[local-name()='Name']='ScanButton']")) {
         throw "Devices must not duplicate the shared primary scan action."
     }

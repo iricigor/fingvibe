@@ -43,6 +43,7 @@ public sealed partial class DeviceDetailsPageView
         }
         var count = matches.Count == 1 ? "1 possible match" : $"{matches.Count} possible matches";
         MergeMacCount.Text = count;
+        AutomationProperties.SetName(MergeMacCount, count);
         AutomationProperties.SetHelpText(MergeMacExpander, count);
         MergeMacThisName.Text = device.Name;
         MergeMacThisStatus.Text = device.Status;
@@ -95,11 +96,14 @@ public sealed partial class DeviceDetailsPageView
         var index = Math.Max(0, _matches.ToList().FindIndex(item => item.OtherMac == _selectedMatchMac));
         var match = _matches[index];
         MergeMacOtherHeading.Text = $"Selected other MAC address · suggestion {index + 1} of {_matches.Count}";
+        AutomationProperties.SetName(MergeMacOtherHeading, MergeMacOtherHeading.Text);
         MergeMacOtherName.Text = match.Other.Name;
+        AutomationProperties.SetName(MergeMacOtherName, match.Other.Name);
         MergeMacOtherStatus.Text = match.Other.Status;
         MergeMacOtherAddresses.Text = match.Other.Addresses;
         MergeMacOtherDescription.Text = match.Other.Description;
         MergeMacReason.Text = $"Suggested because {match.Explanation}. This does not establish physical identity.";
+        AutomationProperties.SetName(MergeMacReason, MergeMacReason.Text);
         MergeMacDecline.IsEnabled = true;
         AutomationProperties.SetName(MergeMacDecline, $"Decline suggestion: {match.Other.Name}");
     }
