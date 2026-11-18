@@ -79,6 +79,55 @@ public sealed class PrivateVirtualDeviceTests
         Assert.Equal("Private D0-C9-07", row.NameText);
     }
 
+    [Fact]
+    public void VirtualDeviceRowsExposeThreeEarlierMacsAndKeepHiddenSearchMatches()
+    {
+        var macs = Enumerable.Range(1, 6).Select(index =>
+            $"D0C907{index:D6}").ToArray();
+        var data = DeviceInventoryData.Empty;
+        for (var index = 0; index < macs.Length; index++)
+        {
+            data = Scan(data, index, Result(macs[index], $"192.0.2.{index + 1}"));
+        }
+        var row = new ScanResultRow(Assert.Single(data.VirtualDevices), data, 24);
+
+        Assert.True(row.HasEarlierMacAddresses);
+        Assert.Equal(5, row.EarlierMacAddressCount);
+        Assert.True(row.MatchesFilter(macs[0]));
+        Assert.False(row.AreMacAddressesExpanded);
+        Assert.Empty(row.VisibleMacExpansionLines);
+        Assert.Empty(row.MoreMacAddressesText);
+        row.SetMacExpansionState(true);
+        Assert.Equal(3, row.VisibleMacExpansionLines.Count);
+        Assert.Equal(3, row.VisibleMacExpansionLines.Select(line => line.Mac).Distinct().Count());
+        Assert.Equal("D0-C9-07-00-00-05", row.VisibleMacExpansionLines[0].Mac);
+        Assert.StartsWith("+2 more MAC addresses", row.MoreMacAddressesText, StringComparison.Ordinal);
+        var expansionChanges = new List<string?>();
+        row.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(row.VisibleMacExpansionLines))
+                expansionChanges.Add(args.PropertyName);
+        };
+        row.RefreshLastSeenAge(DateTimeOffset.UtcNow);
+        Assert.NotEmpty(expansionChanges);
+
+        row.SetMacExpansionState(false, macs[0]);
+        Assert.True(row.AreMacAddressesExpanded);
+        Assert.Equal(4, row.VisibleMacExpansionLines.Count);
+        Assert.Contains(row.VisibleMacExpansionLines, line => line.Mac == "D0-C9-07-00-00-01");
+        Assert.False(row.CanToggleMacAddresses);
+        Assert.StartsWith("+1 more MAC address", row.MoreMacAddressesText, StringComparison.Ordinal);
+
+        row.SetMacExpansionSearch(string.Empty);
+        Assert.False(row.AreMacAddressesExpanded);
+        Assert.Empty(row.VisibleMacExpansionLines);
+        row.SetMacExpansionState(true);
+        row.SetMacExpansionSearch("not-a-mac");
+        row.SetMacExpansionSearch(string.Empty);
+        Assert.True(row.AreMacAddressesExpanded);
+        Assert.Equal(3, row.VisibleMacExpansionLines.Count);
+    }
+
     [Theory]
     [InlineData(InventoryDeviceStatus.Online)]
     [InlineData(InventoryDeviceStatus.Offline)]

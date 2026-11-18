@@ -177,6 +177,23 @@
         throw "Scan LAN must retain its accessible label with a preceding decorative, theme-inherited, scalable refresh icon and wrapping text."
     }
     $devicesDocument = [xml](Get-Content (Join-Path $appDirectory "Views\DevicesPageView.xaml") -Raw)
+    $devicesCode = Get-Content (Join-Path $appDirectory "Views\DevicesPageView.xaml.cs") -Raw
+    $deviceRowCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\ScanResultRow.cs") -Raw
+    $results = $devicesDocument.SelectSingleNode("//*[@*[local-name()='Name']='ResultsList']")
+    $chevron = $results.SelectSingleNode(".//*[@*[local-name()='Name']='DeviceMacExpansionButton']")
+    $expansionLines = $results.SelectSingleNode(".//*[@*[local-name()='Name']='DeviceMacExpansionLines']")
+    if (-not $chevron -or -not $expansionLines -or
+        $chevron.GetAttribute("Click") -cne "DeviceMacExpansionButton_Click" -or
+        $chevron.GetAttribute("Visibility") -cne "{x:Bind HasEarlierMacAddresses, Mode=OneWay}" -or
+        $expansionLines.LocalName -cne "ItemsControl" -or
+        $results.GetAttribute("KeyDown") -cne "ResultsList_KeyDown" -or
+        $devicesCode -notmatch 'HashSet<string> _expandedMacRows' -or
+        $devicesCode -notmatch 'DeviceMacExpansionButton_Click' -or
+        $devicesCode -notmatch 'ResultsList_KeyDown' -or
+        $deviceRowCode -notmatch 'VisibleMacExpansionLines' -or
+        $deviceRowCode -notmatch 'SearchExpandsMacAddresses') {
+        throw "Devices must expose an in-row chevron, reusable MAC lines, remembered expansion state and hidden-search expansion without separate ListView items."
+    }
     $matchButton = $devicesDocument.SelectSingleNode("//*[@*[local-name()='Name']='DeviceMatchButton']")
     $matchTooltip = $matchButton.SelectSingleNode("./*[local-name()='ToolTipService.ToolTip']/*[local-name()='ToolTip']")
     if (-not $matchTooltip -or

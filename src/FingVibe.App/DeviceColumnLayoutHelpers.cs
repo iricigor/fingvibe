@@ -13,6 +13,7 @@ public static class DeviceColumnLayoutHelpers
     public static Thickness HeaderPrimaryMargin(double top) => new(0, top, 0, 0);
     public static Thickness HeaderTextMargin(double vertical) => new(0, vertical, 12, vertical);
     public static Thickness HeaderSecondaryMargin(double vertical) => new(0, vertical, 0, vertical);
+    public static Thickness MacExpansionIconMargin(bool visible) => new(visible ? 8 : 0, 0, 0, 0);
     public static string KnownMetadataText(string? value) =>
         string.IsNullOrWhiteSpace(value) || value is "Unknown" or "-" ? string.Empty : value;
 
@@ -29,6 +30,8 @@ public static class DeviceColumnLayoutHelpers
         canHide ? header : $"{header} (always shown)";
 
     public static Visibility ToVisibility(bool visible) => visible ? Visibility.Visible : Visibility.Collapsed;
+    public static Visibility TextVisibility(string? value) =>
+        ToVisibility(!string.IsNullOrWhiteSpace(value));
     public static double UsageCategoryBadgeMaximumWidth(double columnWidth, bool hasIndicator) =>
         Math.Max(0, columnWidth - 12 - (hasIndicator ? 18 : 0));
     public static Visibility SecondaryTypeVisibility(bool merged, string value) =>

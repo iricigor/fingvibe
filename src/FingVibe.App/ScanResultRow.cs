@@ -6,6 +6,29 @@ using FingVibe.Core.Networking;
 
 namespace FingVibe.App;
 
+public sealed record DeviceMacExpansionLine(
+    string Label,
+    string Address,
+    string Mac,
+    string Vendor,
+    string Status,
+    DateTimeOffset LastSeenAt,
+    string AccessibleText)
+{
+    public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
+    public string LastSeen => DeviceDetailsPresentation.FriendlyTimestamp(
+        LastSeenAt, DateTimeOffset.UtcNow);
+    public string AddressPrefix => string.Join(".", Address.Split('.').Take(3)) is { Length: > 0 } prefix
+        ? prefix + "." : string.Empty;
+    public string AddressHost => Address.Split('.').LastOrDefault() ?? Address;
+    public bool Matches(string search) =>
+        !string.IsNullOrWhiteSpace(search)
+        && (Address.Contains(search, StringComparison.OrdinalIgnoreCase)
+            || Mac.Contains(search, StringComparison.OrdinalIgnoreCase)
+            || Mac.Replace("-", string.Empty).Contains(search.Replace("-", string.Empty), StringComparison.OrdinalIgnoreCase)
+            || Vendor.Contains(search, StringComparison.OrdinalIgnoreCase));
+}
+
 public sealed class ScanResultRow : INotifyPropertyChanged
 {
     private string? _customName;
@@ -24,6 +47,9 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     private bool _showLatency = true;
     private DeviceInventoryData? _sourceData;
     private readonly Dictionary<string, ScanResult> _connectionOverrides = new();
+    private bool _macsExpanded;
+    private string _macSearch = string.Empty;
+    private IReadOnlyList<DeviceMacExpansionLine> _earlierMacLines = [];
     private int _prefixLength;
     public PrivateVirtualDevice? VirtualDevice { get; private set; }
     public string IdentityKey => VirtualDevice?.Id.ToString("D") ?? MacAddress?.ToString() ?? AddressText;
@@ -120,7 +146,11 @@ public sealed class ScanResultRow : INotifyPropertyChanged
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LastSeenOpacity)));
     }
 
-    public void RefreshLastSeenAge(DateTimeOffset now) => SetLastSeen(LastSeen.At(now));
+    public void RefreshLastSeenAge(DateTimeOffset now)
+    {
+        SetLastSeen(LastSeen.At(now));
+        if (_earlierMacLines.Count > 0) NotifyMacExpansionChanged();
+    }
 
     public ScanResultRow(ScanResult? result, int prefixLength, string? customName = null,
         DeviceClassificationOverride? classificationOverride = null, bool historical = false)
@@ -183,6 +213,58 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         UsageCategoryOverride = device.UsageCategoryOverride;
         _sourceData = data;
         Result = device.LatestConnection.Observation.ToScanResult(device.LastActiveMac);
+        RefreshMacExpansionLines();
+    }
+
+    public bool HasEarlierMacAddresses => _earlierMacLines.Count > 0;
+    public int EarlierMacAddressCount => _earlierMacLines.Count;
+    public bool SearchExpandsMacAddresses =>
+        !string.IsNullOrWhiteSpace(_macSearch) && _earlierMacLines.Any(line => line.Matches(_macSearch));
+    public bool AreMacAddressesExpanded => _macsExpanded || SearchExpandsMacAddresses;
+    public bool CanToggleMacAddresses => HasEarlierMacAddresses && !SearchExpandsMacAddresses;
+    public string MacExpansionGlyph => AreMacAddressesExpanded ? "\uE70D" : "\uE76C";
+    public string MacExpansionState =>
+        HasEarlierMacAddresses
+            ? $"{EarlierMacAddressCount} more MAC {(EarlierMacAddressCount == 1 ? "address" : "addresses")}, "
+                + (AreMacAddressesExpanded ? "expanded" : "collapsed")
+                + (SearchExpandsMacAddresses ? " by search" : string.Empty)
+            : "No earlier MAC addresses";
+    public string MacExpansionName => AreMacAddressesExpanded
+        ? SearchExpandsMacAddresses && !_macsExpanded
+            ? $"{MacExpansionState}"
+            : $"Hide {EarlierMacAddressCount} more MAC {(EarlierMacAddressCount == 1 ? "address" : "addresses")}"
+        : $"Show {EarlierMacAddressCount} more MAC {(EarlierMacAddressCount == 1 ? "address" : "addresses")}";
+    public IReadOnlyList<DeviceMacExpansionLine> VisibleMacExpansionLines =>
+        !AreMacAddressesExpanded
+            ? []
+            : _earlierMacLines
+                .Where((line, index) => index < 3 || line.Matches(_macSearch))
+                .ToArray();
+    public string MoreMacAddressesText
+    {
+        get
+        {
+            if (!AreMacAddressesExpanded) return string.Empty;
+            var remaining = EarlierMacAddressCount - VisibleMacExpansionLines.Count;
+            return remaining <= 0 ? string.Empty
+                : $"+{remaining} more MAC {(remaining == 1 ? "address" : "addresses")} · "
+                    + "full list in Device Details › History";
+        }
+    }
+
+    public void SetMacExpansionState(bool expanded, string? search = null)
+    {
+        _macsExpanded = expanded;
+        _macSearch = search?.Trim() ?? string.Empty;
+        NotifyMacExpansionChanged();
+    }
+
+    public void SetMacExpansionSearch(string? search)
+    {
+        var next = search?.Trim() ?? string.Empty;
+        if (_macSearch == next) return;
+        _macSearch = next;
+        NotifyMacExpansionChanged();
     }
 
     public IReadOnlyList<ScanResult> CurrentConnections => !IsCurrentScanResponse ? []
@@ -244,6 +326,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     {
         if (VirtualDevice?.Id != device.Id) throw new ArgumentException("The virtual identity must not change.", nameof(device));
         VirtualDevice = device;
+        RefreshMacExpansionLines();
         SetCustomName(device.Name);
         SetClassificationOverride(device.Classification);
         SetUsageCategory(device.UsageCategoryOverride, UsageInference, UsageStatus);
@@ -260,6 +343,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         _sourceData = updated._sourceData;
         _prefixLength = updated._prefixLength;
         VirtualDevice = updated.VirtualDevice;
+        RefreshMacExpansionLines();
         Result = updated.Result;
         _customName = updated._customName;
         _classificationOverride = updated._classificationOverride;
@@ -271,6 +355,52 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         MacNic = updated.MacNic;
         if (CurrentConnections.Any(item => item.AddressText == address)) SelectAddress(address);
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(string.Empty));
+    }
+
+    private void RefreshMacExpansionLines()
+    {
+        if (VirtualDevice is not { } device)
+        {
+            _earlierMacLines = [];
+            return;
+        }
+
+        _earlierMacLines = device.History
+            .Where(item => !string.Equals(item.Mac, device.LastActiveMac, StringComparison.OrdinalIgnoreCase))
+            .GroupBy(item => item.Mac, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group
+                .OrderByDescending(item => item.Observation.LastSeen)
+                .ThenByDescending(item => item.Observation.LastChecked)
+                .ThenBy(item => item.Observation.Address, StringComparer.Ordinal)
+                .First())
+            .OrderByDescending(item => item.Observation.LastSeen)
+            .ThenByDescending(item => item.Observation.LastChecked)
+            .ThenBy(item => item.Mac, StringComparer.Ordinal)
+            .Select(item => new DeviceMacExpansionLine(
+                "Earlier MAC address",
+                item.Observation.Address,
+                FormatMac(item.Mac),
+                DeviceVendorPresentation.DisplayText(item.Observation.Vendor),
+                item.Observation.Present ? "Online" : "Offline",
+                item.Observation.LastSeen,
+                $"Earlier MAC address: {FormatMac(item.Mac)}, {item.Observation.Address}, "
+                    + $"{DeviceVendorPresentation.DisplayText(item.Observation.Vendor)}, "
+                    + $"{(item.Observation.Present ? "Online" : "Offline")}, "
+                    + $"last seen {item.Observation.LastSeen:g}"))
+            .ToArray();
+        NotifyMacExpansionChanged();
+    }
+
+    private void NotifyMacExpansionChanged()
+    {
+        foreach (var property in new[]
+        {
+            nameof(HasEarlierMacAddresses), nameof(EarlierMacAddressCount), nameof(SearchExpandsMacAddresses),
+            nameof(AreMacAddressesExpanded), nameof(CanToggleMacAddresses), nameof(MacExpansionGlyph),
+            nameof(MacExpansionState), nameof(MacExpansionName), nameof(VisibleMacExpansionLines),
+            nameof(MoreMacAddressesText)
+        })
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property));
     }
 
     public void SelectAddress(string address)
@@ -478,6 +608,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
             || (ImportedMetadata?.OperatingSystem?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
             || (ImportedMetadata?.Family?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
             || (ImportedMetadata?.Model?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
+            || _earlierMacLines.Any(line => line.Matches(search))
             || (VirtualDevice is not null && ConnectionHistoryText.Contains(search, StringComparison.OrdinalIgnoreCase))
             || CurrentConnections.Any(item => item.MatchesFilter(filter))
             || (Result?.MatchesFilter(filter) ?? false);

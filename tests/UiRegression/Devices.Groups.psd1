@@ -4,6 +4,7 @@
     # Modules within a group share state in their original relative order; groups never share state.
     Groups = @(
         @{ Name = 'presentation'; Modules = @('Overview', 'Layout', 'Appearance', 'Interaction', 'ServiceDiscovery') }
+        @{ Name = 'row-expansion'; Modules = @('Expansion') }
         @{ Name = 'filters-previews'; Modules = @('Filters', 'Refinements', 'Previews') }
         @{ Name = 'columns-sorting'; Modules = @('Columns', 'Sorting') }
     )

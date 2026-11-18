@@ -2,7 +2,7 @@
 param(
     [Parameter(Mandatory)]
     [ValidateSet("sidebar", "sidebar-presentation", "sidebar-scan-flows", "sidebar-scan-presentation", "sidebar-preferences-scheduling",
-        "devices", "devices-presentation", "devices-filters-previews", "devices-columns-sorting",
+        "devices", "devices-presentation", "devices-row-expansion", "devices-filters-previews", "devices-columns-sorting",
         "details-summary", "details-identity", "details-observations", "details-activity", "network-activity",
         "tools", "tools-utilities", "tools-device-data")]
     [string] $Suite,
