@@ -218,6 +218,41 @@ function Assert-UsageCell([string] $Name, [string] $Category, [bool] $Indicator,
     Open-UsageDevice $Name
 }
 
+function Test-MatchTextScaling {
+    # Runs at 200% text scale after the merge-suggestions phase declined Match alpha/beta, so only beta lacks an icon.
+    Show-MatchRows
+    # Assert-MatchButton's absolute row cap is for 100% text; at 200% density is compared with the icon-free row instead.
+    Wait-Usage { (Find-MatchButton "Match alpha" -Optional).Button.Current.Name -eq "Review 1 possible matching MAC address" } `
+        "'Match alpha' icon naming 1 suggestion at 200% text scale"
+    $alpha = (Find-MatchButton "Match alpha").Button
+    if ((Find-MatchButton "Match beta" -Optional).Button) { throw "The declined pair must stay declined at 200% text scale." }
+    $scale = [UiReviewNativeWindow]::GetDpiForWindow($script:process.MainWindowHandle) / 96.0
+    $iconRow = (Find-MatchButton "Match alpha").Row.Current.BoundingRectangle
+    $plainRow = (Find-MatchButton "Match beta" -Optional).Row.Current.BoundingRectangle
+    $icon = $alpha.Current.BoundingRectangle
+    if ([Math]::Abs($iconRow.Height - $plainRow.Height) -gt $scale) {
+        throw "The possible-match icon must not change row density at 200% text scale. Icon row=$iconRow; plain row=$plainRow; scale=$scale."
+    }
+    if (-not $iconRow.Contains($icon) -or $icon.Width -lt 23.5 * $scale -or $icon.Height -lt 23.5 * $scale) {
+        throw "The possible-match icon must stay a whole 24-DIP target at 200% text scale. Row=$iconRow; icon=$icon; scale=$scale."
+    }
+    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "match-icon-text-scale-200.png")
+    $alpha.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    Assert-MatchSection "1 possible match" "Match gamma" "both records reported the same UPnP device UUID" "1 of 1"
+    $window = $script:root.Current.BoundingRectangle
+    foreach ($id in @("MergeMacOtherHeading", "MergeMacOtherName", "MergeMacOtherAddresses", "MergeMacReason", "MergeMacDecline")) {
+        $control = Show-Usage $id
+        $bounds = $control.Current.BoundingRectangle
+        if ($bounds.Left -lt $window.Left -or $bounds.Right -gt $window.Right -or $bounds.Height -lt 24 * $scale) {
+            throw "$id must stay readable and unclipped at 200% text scale. Bounds=$bounds; window=$window; scale=$scale."
+        }
+    }
+    $decline = Show-Usage MergeMacDecline
+    $decline.SetFocus()
+    Wait-Usage { (Find-Usage MergeMacDecline).Current.HasKeyboardFocus } "keyboard focus on Decline suggestion at 200% text scale"
+    Save-UsageCapture "match-section-text-scale-200" MergeMacReason
+}
+
 function Test-UsageTextScaling {
     $appDirectory = Split-Path -Parent $AppPath
     Add-Type -Path (Join-Path $appDirectory 'WinRT.Runtime.dll')
@@ -237,6 +272,7 @@ function Test-UsageTextScaling {
         Assert-UsageCell "Concurrent name" Permanent $true -Narrow -Scaled -Capture "usage-badge-text-scale-200"
         Test-PageBackHeaders $script:root $script:process.MainWindowHandle $ScreenshotDirectory 'text-scale-200' `
             -OpenDetails { Open-UsageDevice 'Concurrent name' } -Scaled
+        Test-MatchTextScaling
         $failed = $false
     }
     finally {
