@@ -1176,6 +1176,9 @@
             { "name": "Test-RoomMapDetailsRoundTrip", "refactored": true, "introducedBy": "#557: room and device details return to the originating Room map focus and scroll state." },
             { "name": "Test-RoomMapAppearance", "refactored": true },
             { "name": "Test-RoomMapScale", "refactored": true },
+            { "name": "Get-SidebarAppearanceSelection", "refactored": true, "introducedBy": "#557: read the current Settings appearance choices so Room map theme checks restore them." },
+            { "name": "Assert-RoomMapConnectionInk", "refactored": true, "introducedBy": "#557: rendered Room map connection trunk contrast in light, dark, high-contrast and 200% text-scale modes." },
+            { "name": "Assert-RoomMapDetailsBack", "refactored": true, "introducedBy": "#557: unclipped Room map Back label beside the Device Details tabs at narrow width and 200% text scale." },
             { "name": "Test-RoomMapAccessibility", "refactored": true, "introducedBy": "#361: narrow-window scrolling with normal-size devices and 200% text-scale room and device labels on the 10-room/100-device fixture." },
             { "name": "Test-PeopleRoomsFlows", "refactored": true },
             { "name": "Test-PeopleRoomsPersistenceErrors", "refactored": true }
