@@ -36,4 +36,25 @@ public sealed class ScanResultEnricherTests
             result.OpenPorts,
             port => Assert.Equal(PortScannerService.CommonPorts[port.Port], port.ServiceName));
     }
+
+    [Fact]
+    public async Task EnrichAsync_ProbesOnlyTheSeventeenDefaultPortsWithTheDefaultTimeout()
+    {
+        var probed = new System.Collections.Concurrent.ConcurrentBag<(int Port, TimeSpan Timeout)>();
+        var scanner = new PortScannerService((_, port, timeout, _) =>
+        {
+            probed.Add((port.Key, timeout));
+            return Task.FromResult<Models.OpenPort?>(port.Key == 5357 ? new(port.Key, port.Value) : null);
+        });
+        var enricher = new ScanResultEnricher(new DeviceNameResolver(TimeSpan.Zero), scanner, new MacAddressResolver(),
+            new IeeeVendorRegistry(), new ServiceBannerProbe(TimeSpan.Zero));
+
+        var result = await enricher.EnrichAsync(IPAddress.Parse("192.0.2.10"),
+            Task.FromResult(new ScanDiscovery(new Dictionary<IPAddress, IReadOnlyList<SsdpDeviceInfo>>(),
+                new Dictionary<IPAddress, MdnsDeviceInfo>())), CancellationToken.None);
+
+        Assert.Equal(PortScannerService.CommonPorts.Keys.Order(), probed.Select(item => item.Port).Order());
+        Assert.All(probed, item => Assert.Equal(TimeSpan.FromMilliseconds(400), item.Timeout));
+        Assert.Equal("5357/TCP - WSD", Assert.Single(result.OpenPorts).AccessibleLabel);
+    }
 }

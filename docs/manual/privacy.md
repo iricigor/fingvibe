@@ -8,7 +8,8 @@ Some features contact external services as explained below.
 
 | Feature | Where requests go | Information involved |
 | --- | --- | --- |
-| LAN discovery and identification | Devices on the selected local network | Ping, fresh ARP, mDNS/DNS-SD and SSDP name/service discovery, and bounded service probes, including TCP checks of up to 64 ports per scan that devices advertised for their own address. |
+| LAN discovery and identification | Devices on the selected local network | Ping, fresh ARP, mDNS/DNS-SD and SSDP name/service discovery, and bounded service probes: 17 common TCP ports per responding device, plus TCP checks of up to 64 ports per scan that devices advertised for their own address. |
+| Manual device service scans | Only the device selected in details | When you choose them: 193 additional TCP ports with optional single DNS/NTP UDP requests, or, after a warning, a full scan of all 65,535 TCP ports. Many connection attempts can trigger security monitoring on the device or network. |
 | MAC vendor lookup | Official IEEE registries | Registry downloads, cached locally for 30 days. No inventory upload is needed. |
 | Public IP/provider details | `ipwho.is` | Your public source IP; the service returns provider and approximate location information. |
 | Configured provider logos | Logo.dev | Provider name and your public source IP, not LAN inventory or scan results. |

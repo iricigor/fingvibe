@@ -32,7 +32,7 @@ public sealed class DefaultScanOverheadBenchmark(ITestOutputHelper output)
     {
         output.WriteLine($"Revision features: service discovery={(AdvertisementType is not null ? "present" : "absent")}; " +
             $"CPUs={Environment.ProcessorCount}; {System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription}.");
-        foreach (var fixture in new[] { Fixture.Responsive, Fixture.TimeoutHeavy })
+        foreach (var fixture in new[] { Fixture.Responsive, Fixture.TimeoutHeavy, Fixture.RealResponsive, Fixture.RealTimeoutHeavy })
         {
             var durations = new List<double>();
             Counters? counters = null;
@@ -46,6 +46,25 @@ public sealed class DefaultScanOverheadBenchmark(ITestOutputHelper output)
                 $"ICMP probes={counters!.Icmp}, ARP probes={counters.Arp}, enrichments={counters.Enrichments}, " +
                 $"endpoint probes={counters.Endpoints}, alive={counters.Alive}; " +
                 $"durations s=[{string.Join(", ", durations.Select(value => value.ToString("F2")))}], mean={durations.Average():F2}.");
+        }
+    }
+
+    [ScanBenchmark]
+    public async Task OptionalAdditionalScanDuration()
+    {
+        output.WriteLine($"Default ports={PortScannerService.CommonPorts.Count}; additional ports={PortScannerService.AdditionalPorts.Count}; " +
+            $"additional concurrency={PortScannerService.AdditionalConcurrency}; timeout=400 ms.");
+        foreach (var (name, target) in new[] { ("loopback closed ports", IPAddress.Loopback), ("TEST-NET-1 silent", IPAddress.Parse("192.0.2.1")) })
+        {
+            var durations = new List<double>();
+            for (var run = 0; run < Repetitions; run++)
+            {
+                var clock = Stopwatch.StartNew();
+                await new PortScannerService().ScanAdditionalAsync(target, CancellationToken.None);
+                durations.Add(clock.Elapsed.TotalSeconds);
+            }
+            output.WriteLine($"additional scan, {name}: durations s=[{string.Join(", ", durations.Select(value => value.ToString("F2")))}], " +
+                $"mean={durations.Average():F2}.");
         }
     }
 
@@ -70,7 +89,7 @@ public sealed class DefaultScanOverheadBenchmark(ITestOutputHelper output)
         }
         var discovery = new ScanDiscovery(new Dictionary<IPAddress, IReadOnlyList<SsdpDeviceInfo>>(), mdns);
 
-        var enricher = new SimulatedEnricher(counters, serviceOnly);
+        var enricher = new SimulatedEnricher(counters, serviceOnly, fixture.RealPortTarget);
         Func<IPAddress, CancellationToken, Task<ScanDiscovery>> discover = async (_, token) =>
         {
             await Task.Delay(1500, token);
@@ -141,7 +160,7 @@ public sealed class DefaultScanOverheadBenchmark(ITestOutputHelper output)
     }
 
     private sealed record Fixture(string Name, int Prefix, int IcmpResponders, int ServiceOnlyResponders,
-        int AdvertiserStride, int EndpointsPerAdvertiser, bool EndpointsRespond)
+        int AdvertiserStride, int EndpointsPerAdvertiser, bool EndpointsRespond, Func<IPAddress, IPAddress>? RealPortTarget = null)
     {
         public int Hosts => (1 << (32 - Prefix)) - 2;
         public int AdvertisedEndpoints => (IcmpResponders + ServiceOnlyResponders + AdvertiserStride - 1) / AdvertiserStride
@@ -152,6 +171,17 @@ public sealed class DefaultScanOverheadBenchmark(ITestOutputHelper output)
 
         // Most hosts time out, retries run, and service-only responders advertise endpoints that never answer.
         public static Fixture TimeoutHeavy { get; } = new("timeout-heavy /24", 24, 10, 8, 1, 8, false);
+
+        // Same fixtures, but each enrichment runs the revision's real default TCP port list instead of a fixed
+        // 400 ms delay: against loopback (closed ports) or unroutable TEST-NET-1 addresses (silent timeouts).
+        public static Fixture RealResponsive { get; } = Responsive with
+            { Name = "responsive /27, real default ports to loopback", RealPortTarget = _ => IPAddress.Loopback };
+
+        public static Fixture RealTimeoutHeavy { get; } = TimeoutHeavy with
+        {
+            Name = "timeout-heavy /24, real default ports to 192.0.2.0/24",
+            RealPortTarget = address => new IPAddress([192, 0, 2, address.GetAddressBytes()[3]])
+        };
     }
 
     private sealed class Counters
@@ -168,14 +198,16 @@ public sealed class DefaultScanOverheadBenchmark(ITestOutputHelper output)
         public void Report(ScanResult value) { }
     }
 
-    private sealed class SimulatedEnricher(Counters counters, HashSet<IPAddress> serviceOnly) : IScanResultEnricher
+    private sealed class SimulatedEnricher(Counters counters, HashSet<IPAddress> serviceOnly,
+        Func<IPAddress, IPAddress>? realPortTarget) : IScanResultEnricher
     {
         public async Task<ScanEnrichment> EnrichAsync(
             IPAddress address, Task<ScanDiscovery> discoveryTask, CancellationToken cancellationToken, int? responseTtl = null)
         {
             Interlocked.Increment(ref counters.Enrichments);
             // The fixed default TCP scan times out at 400 ms on hosts without open ports.
-            await Task.Delay(400, cancellationToken);
+            if (realPortTarget is null) await Task.Delay(400, cancellationToken);
+            else await new PortScannerService().ScanAsync(realPortTarget(address), cancellationToken);
             var discovery = await discoveryTask;
             var enrichment = new ScanEnrichment(null,
                 serviceOnly.Contains(address) ? null : PhysicalAddress.Parse($"0200{address.GetAddressBytes()[2]:X2}{address.GetAddressBytes()[3]:X2}0000"),

@@ -129,9 +129,10 @@ observation time, and a separate **TCP verification** result.
 
 ## Inspect services
 
-The normal LAN scan checks ten common TCP ports.
+The normal LAN scan checks 17 common TCP ports on each responding device.
 For a currently responding address, **Scan additional ports** checks a curated
-set of 100 additional TCP ports.
+set of 193 additional TCP ports, and **Full TCP port scan** checks all 65,535.
+See the [technical reference](https://github.com/iricigor/fingvibe/blob/main/docs/reference.md) for the exact port lists.
 
 1. Confirm the device responded in the current local scan.
 2. If several current addresses exist, select **Current address to inspect / probe**.
@@ -144,6 +145,23 @@ UDP service checks cover a small supported set, not every UDP port.
 **No response** is inconclusive; it is not proof that a UDP port is open or closed.
 Do not run probes against historical imported addresses.
 The app prevents conflicting network measurements from running together.
+
+### Full TCP port scan
+
+Use **Full TCP port scan** only for a device you own or are authorized to scan.
+
+1. Choose **Full TCP port scan**.
+2. Read the warning: the scan sends 65,535 connection attempts, can take several
+   minutes, and can trigger security monitoring or device logs.
+3. Choose **Start full scan**, or **Cancel** to start nothing.
+4. Watch the checked/total count. Open ports appear as soon as they answer.
+5. Choose **Cancel full scan** to stop. Open ports already found are kept,
+   and the status says coverage is incomplete.
+
+Each attempt waits only 200 ms, so a sleeping or slow Wi-Fi device can be missed.
+Rescan if an expected port is absent; the default and additional scans wait longer
+for their ports. Ports outside the named lists appear as **Unlisted service**.
+The full scan does not include UDP and never runs automatically.
 
 Each compact service tile shows its service/port and endpoint with Copy.
 Supported web endpoints retain a browser link; **Try HTTP/HTTPS** is tentative,
