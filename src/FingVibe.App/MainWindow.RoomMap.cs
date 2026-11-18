@@ -47,7 +47,7 @@ public sealed partial class MainWindow
         var room = _peopleRooms.Rooms.FirstOrDefault(item => item.Id == roomId);
         if (room is null)
         {
-            RoomMapPage.SetNavigationError("That room is no longer saved. Return to Manage rooms or choose another room.");
+            RoomMapPage.SetNavigationError("That room is no longer saved. Return to Rooms or choose another room.");
             return;
         }
 
@@ -66,7 +66,7 @@ public sealed partial class MainWindow
         RoomMapPage.RestoreNavigation();
     }
 
-    private void ManageRoomsFromMapButton_Click(object sender, RoutedEventArgs e)
+    private void BackToRoomsFromMapButton_Click(object sender, RoutedEventArgs e)
     {
         MainNavigation.SelectedItem = PeopleRoomsNavItem;
         ShowPage(PeopleRoomsPage);

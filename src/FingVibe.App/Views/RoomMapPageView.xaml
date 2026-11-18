@@ -18,19 +18,21 @@
             <Grid x:Name="RoomMapHeadingRow" ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <local:PageHeaderIcon Icon="rooms" />
-                <TextBlock Grid.Column="1" Text="Room map"
+                <Button x:Name="RoomMapBackButton"
+                        Content="&#x2190; Rooms"
+                        MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
+                        MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
+                        AutomationProperties.AutomationId="RoomMapBackButton"
+                        AutomationProperties.Name="Back to Rooms"
+                        Style="{StaticResource PageBackButtonStyle}"
+                        Click="BackToRoomsButton_Click" />
+                <local:PageHeaderIcon Grid.Column="1" Icon="rooms" />
+                <TextBlock Grid.Column="2" Text="Room map"
                            Style="{StaticResource ScannerPageTitleStyle}"
                            Margin="0" VerticalAlignment="Center" TextWrapping="Wrap" />
-                <Button x:Name="ManageRoomsButton"
-                        Grid.Column="2"
-                        Content="Manage rooms"
-                        AutomationProperties.AutomationId="ManageRoomsButton"
-                        AutomationProperties.Name="Manage rooms"
-                        Click="ManageRoomsButton_Click" />
             </Grid>
 
             <Grid Grid.Row="1" ColumnSpacing="12">
@@ -55,6 +57,15 @@
                                AutomationProperties.Name="No room assigned, 0 devices"
                                AutomationProperties.LiveSetting="Polite" />
                 </StackPanel>
+                <ToggleSwitch x:Name="RoomMapOnlineOnlySwitch"
+                              Grid.Column="1"
+                              Header="Only online"
+                              IsOn="True"
+                              HorizontalAlignment="Right"
+                              AutomationProperties.AutomationId="RoomMapOnlineOnlySwitch"
+                              AutomationProperties.Name="Only online devices"
+                              AutomationProperties.HelpText="Hide offline devices and devices without local scan evidence"
+                              Toggled="OnlineOnlySwitch_Toggled" />
             </Grid>
 
             <Border Grid.Row="2" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"

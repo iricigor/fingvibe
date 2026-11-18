@@ -392,6 +392,75 @@ public sealed class RoomMapLayoutTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void LayoutKeepsCompactRoomSizesIntrinsicWithinSharedRows()
+    {
+        var rootId = Guid.NewGuid();
+        var largeId = Guid.NewGuid();
+        var mediumId = Guid.NewGuid();
+        var bedroomId = Guid.NewGuid();
+        var markoId = Guid.NewGuid();
+        var gateway = DeviceSource("gateway", "Gateway", DeviceType.Router, rootId) with { IsGateway = true };
+        var rooms = new RoomMapRoom[]
+        {
+            new(rootId, "Hall", "H", null, [gateway], true, false),
+            new(largeId, "Large", "L", null,
+                Enumerable.Range(0, 10)
+                    .Select(index => DeviceSource($"large-{index}", $"Large {index}", DeviceType.Computer, largeId))
+                    .ToArray(), false, false),
+            new(mediumId, "Medium", "M", null,
+                Enumerable.Range(0, 4)
+                    .Select(index => DeviceSource($"medium-{index}", $"Medium {index}", DeviceType.Computer, mediumId))
+                    .ToArray(), false, false),
+            new(bedroomId, "Bedroom", "B", null,
+                [DeviceSource("bedroom", "Bedroom", DeviceType.Computer, bedroomId)], false, false),
+            new(markoId, "Marko's room", "MR", null,
+                [DeviceSource("marko", "Marko", DeviceType.Computer, markoId)], false, false)
+        };
+
+        var layout = RoomMapLayout.Create(
+            new(Network.DisplayLabel, Network, "network", rooms, []), 1160);
+        var bedroom = Assert.Single(layout.Rooms, room => room.Id == bedroomId);
+        var marko = Assert.Single(layout.Rooms, room => room.Id == markoId);
+        var large = Assert.Single(layout.Rooms, room => room.Id == largeId);
+
+        Assert.Equal(large.Bounds.Y, bedroom.Bounds.Y, 3);
+        Assert.True(marko.Bounds.Y > bedroom.Bounds.Y);
+        Assert.Equal(bedroom.Bounds.Width, marko.Bounds.Width, 3);
+        Assert.Equal(bedroom.Bounds.Height, marko.Bounds.Height, 3);
+        Assert.True(bedroom.Bounds.Height < large.Bounds.Height);
+    }
+
+    [Fact]
+    public void LayoutUsesDirectCorridorForAnUnobstructedLowerRoom()
+    {
+        var rootId = Guid.NewGuid();
+        var upperId = Guid.NewGuid();
+        var markoId = Guid.NewGuid();
+        var gateway = DeviceSource("gateway", "Gateway", DeviceType.Router, rootId) with { IsGateway = true };
+        var markoRouter = DeviceSource("marko-router", "Marko router", DeviceType.Router, markoId);
+        var rooms = new RoomMapRoom[]
+        {
+            new(rootId, "Hall", "H", null, [gateway], true, false),
+            new(upperId, "Upper room", "A", null,
+                [DeviceSource("upper", "Upper", DeviceType.Computer, upperId)], false, false),
+            new(markoId, "Marko's room", "M", null, [markoRouter], false, false)
+        };
+
+        var layout = RoomMapLayout.Create(
+            new(Network.DisplayLabel, Network, "network", rooms, []), 720);
+        var connection = Assert.Single(layout.Connections,
+            item => item.SourceId == markoRouter.IdentityKey);
+
+        var first = connection.Points[0];
+        var target = connection.Points[^1];
+        Assert.All(connection.Points, point =>
+            Assert.True(
+                Math.Abs(point.Y - first.Y) < 0.001 ||
+                Math.Abs(point.Y - target.Y) < 0.001,
+                "An unobstructed route must not detour into a lower row gutter."));
+    }
+
+    [Fact]
     public void LayoutRoutesUnresolvedGatewayRootsWithoutInventingADevice()
     {
         var roomId = Guid.NewGuid();

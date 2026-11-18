@@ -350,22 +350,22 @@ public sealed record RoomMapLayout(
         for (var index = 0; index < otherRooms.Length;)
         {
             var take = Math.Min(columns, otherRooms.Length - index);
-            var rowHeight = 0d;
+            var rowBounds = new List<RoomMapBounds>(take);
             for (var column = 0; column < take; column++)
             {
                 var room = otherRooms[index + column];
                 var roomWidth = RoomWidth(SizeTier(room), cellWidth);
                 var cellLeft = Margin + column * (cellWidth + ColumnGap);
                 var x = cellLeft + (cellWidth - roomWidth) / 2;
-                rowHeight = Math.Max(rowHeight, MeasureRoom(room, x, rowTop, roomWidth, metrics).Height);
+                rowBounds.Add(MeasureRoom(room, x, rowTop, roomWidth, metrics));
             }
+            var rowHeight = rowBounds.Max(bounds => bounds.Height);
             for (var column = 0; column < take; column++)
             {
                 var room = otherRooms[index + column];
-                var roomWidth = RoomWidth(SizeTier(room), cellWidth);
-                var cellLeft = Margin + column * (cellWidth + ColumnGap);
+                var bounds = rowBounds[column];
                 placements.Add(PlaceRoom(
-                    room, cellLeft + (cellWidth - roomWidth) / 2, rowTop, roomWidth, rowHeight, metrics));
+                    room, bounds.X, bounds.Y, bounds.Width, bounds.Height, metrics));
             }
             rowTop += rowHeight + RowGap;
             index += take;
@@ -536,6 +536,7 @@ public sealed record RoomMapLayout(
                         RoomMapConnectionKind.Room,
                         Center(wall.Bounds),
                         room,
+                        rooms,
                         trunkX,
                         target));
                 }
@@ -550,6 +551,7 @@ public sealed record RoomMapLayout(
                     RoomMapConnectionKind.Router,
                     Center(anchor.Bounds),
                     room,
+                    rooms,
                     trunkX,
                     target));
             }
@@ -588,22 +590,41 @@ public sealed record RoomMapLayout(
         RoomMapConnectionKind kind,
         RoomMapPoint source,
         RoomMapRoomPlacement room,
+        IReadOnlyList<RoomMapRoomPlacement> rooms,
         double trunkX,
         RoomMapPoint target) =>
         new(
             sourceId,
             targetId,
             kind,
-            RouteOutsideRoom(source, room.Bounds, trunkX, target));
+            RouteOutsideRoom(source, room, rooms, trunkX, target));
 
     private static IReadOnlyList<RoomMapPoint> RouteOutsideRoom(
         RoomMapPoint source,
-        RoomMapBounds room,
+        RoomMapRoomPlacement sourceRoom,
+        IReadOnlyList<RoomMapRoomPlacement> rooms,
         double trunkX,
         RoomMapPoint target)
     {
-        var laneX = room.Right + 8;
-        var rowGapY = room.Bottom + RowGap / 2;
+        var laneX = sourceRoom.Bounds.Right + 8;
+        var horizontalMin = Math.Min(laneX, trunkX);
+        var horizontalMax = Math.Max(laneX, trunkX);
+        var direct = rooms.All(room =>
+            ReferenceEquals(room, sourceRoom) ||
+            !IntersectsHorizontalCorridor(room.Bounds, horizontalMin, horizontalMax, source.Y));
+        if (direct)
+        {
+            return Orthogonal(
+            [
+                source,
+                new(laneX, source.Y),
+                new(trunkX, source.Y),
+                new(trunkX, target.Y),
+                target
+            ]);
+        }
+
+        var rowGapY = sourceRoom.Bounds.Bottom + RowGap / 2;
         return Orthogonal(
         [
             source,
@@ -614,6 +635,13 @@ public sealed record RoomMapLayout(
             target
         ]);
     }
+
+    private static bool IntersectsHorizontalCorridor(
+        RoomMapBounds bounds,
+        double left,
+        double right,
+        double y) =>
+        y > bounds.Y && y < bounds.Bottom && right > bounds.X && left < bounds.Right;
 
     private static IReadOnlyList<RoomMapPoint> RouteRootRouter(
         RoomMapBounds sourceBounds,

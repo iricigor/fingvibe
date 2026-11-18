@@ -297,7 +297,7 @@
 
                 <!-- Room map -->
                 <views:RoomMapPageView x:Name="RoomMapPage" Grid.Row="1" Visibility="Collapsed"
-                        ManageRoomsRequested="ManageRoomsFromMapButton_Click"
+                        BackToRoomsRequested="BackToRoomsFromMapButton_Click"
                         DeviceRequested="RoomMapDeviceRequested"
                         RoomRequested="RoomMapRoomRequested" />
 

@@ -85,13 +85,13 @@ function Test-RoomMapEntries {
     if ($gateway.Current.IsKeyboardFocusable -ne $true) { throw 'The Room map gateway fallback must remain keyboard reachable.' }
     $unassigned = Find-PeopleRoomsElement AutomationId RoomMapUnassigned RoomMapPage
     if ($unassigned.Current.IsKeyboardFocusable -ne $true) { throw 'The Room map unassigned strip must remain keyboard reachable.' }
-    $null = Find-PeopleRoomsElement AutomationId ManageRoomsButton RoomMapPage
-    Invoke-PeopleRoomsElement AutomationId ManageRoomsButton RoomMapPage
+    $null = Find-PeopleRoomsElement AutomationId RoomMapBackButton RoomMapPage
+    Invoke-PeopleRoomsElement AutomationId RoomMapBackButton RoomMapPage
     $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
 
     Select-SidebarPage 'Tools' 'View room map'
     Invoke-PeopleRoomsElement Name 'View room map'
-    Invoke-PeopleRoomsElement AutomationId ManageRoomsButton RoomMapPage
+    Invoke-PeopleRoomsElement AutomationId RoomMapBackButton RoomMapPage
     $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
 
     Select-SidebarPage 'Tools' 'Network troubleshooting'
@@ -99,9 +99,9 @@ function Test-RoomMapEntries {
     # The visible "Run checks" button is exposed to UI Automation as "Run network troubleshooting".
     $null = Find-PeopleRoomsElement AutomationId RunButton
     Invoke-PeopleRoomsElement AutomationId TroubleshootingViewRoomMapButton
-    Invoke-PeopleRoomsElement AutomationId ManageRoomsButton RoomMapPage
+    Invoke-PeopleRoomsElement AutomationId RoomMapBackButton RoomMapPage
     $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
-    Write-Host 'Room map entry points, conceptual gateway fallback, focus reachability and return to management passed.'
+    Write-Host 'Room map entry points, conceptual gateway fallback, focus reachability and return to Rooms passed.'
 }
 
 function Test-RoomMapDetailsRoundTrip {
@@ -194,7 +194,7 @@ function Test-RoomMapAppearance([string] $Name) {
     Invoke-PeopleRoomsElement Name 'View room map'
     $null = Find-PeopleRoomsElement AutomationId RoomMapRootPlaceholder RoomMapPage
     Save-SidebarAppearance "room-map-$Name" -AssertMatchingSolid
-    Invoke-PeopleRoomsElement AutomationId ManageRoomsButton RoomMapPage
+    Invoke-PeopleRoomsElement AutomationId RoomMapBackButton RoomMapPage
     $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
 }
 
@@ -249,6 +249,12 @@ function Test-RoomMapScale {
         $page = Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapPage')) `
             -Description 'Room map scale page' -Container { $root }
+        $onlineOnly = Find-PeopleRoomsElement AutomationId RoomMapOnlineOnlySwitch RoomMapPage
+        $onlineOnlyToggle = $onlineOnly.GetCurrentPattern(
+            [System.Windows.Automation.TogglePattern]::Pattern)
+        if ($onlineOnlyToggle.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::On) {
+            throw 'The Room map Only online switch must be on by default.'
+        }
         $elements = $page.FindAll([System.Windows.Automation.TreeScope]::Descendants,
             [System.Windows.Automation.Condition]::TrueCondition)
         $deviceElements = @($elements | Where-Object {
@@ -257,20 +263,42 @@ function Test-RoomMapScale {
         $roomElements = @($elements | Where-Object {
             $_.Current.AutomationId -like 'RoomMapRoom-*'
         })
-        if ($deviceElements.Count -ne 100) { throw "The Room map must retain all 100 relevant devices; found $($deviceElements.Count)." }
+        if ($deviceElements.Count -ne 80) {
+            throw "Only online must show the 80 online devices by default; found $($deviceElements.Count)."
+        }
+        $shownIds = @($deviceElements | ForEach-Object { $_.Current.AutomationId })
+        if ($shownIds -contains 'RoomMapDevice-001122000000') {
+            throw 'Only online exposed an offline Room map device.'
+        }
         if ($roomElements.Count -ne 10) { throw "The Room map must retain all ten saved rooms; found $($roomElements.Count)." }
+        $onlineOnlyToggle.Toggle()
+        $null = Wait-UiRegressionState -Description 'all Room map devices after disabling Only online' -Condition {
+            $current = $page.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.Condition]::TrueCondition) |
+                Where-Object { $_.Current.AutomationId -like 'RoomMapDevice-*' }
+            @($current).Count -eq 100
+        }
+        $elements = $page.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.Condition]::TrueCondition)
+        $deviceElements = @($elements | Where-Object {
+            $_.Current.AutomationId -like 'RoomMapDevice-*'
+        })
+        if ($deviceElements.Count -ne 100) {
+            throw "Turning off Only online must show all 100 relevant devices; found $($deviceElements.Count)."
+        }
         $layoutClock.Stop()
         $last = Find-PeopleRoomsElement AutomationId 'RoomMapDevice-001122000063' RoomMapPage
         if ($last.Current.IsKeyboardFocusable -ne $true) { throw 'The last Room map device must remain keyboard reachable.' }
         if ($last.Current.IsOffscreen -ne $false) { throw 'The focused last Room map device must be brought into view.' }
         @{
             rooms = $roomElements.Count
-            devices = $deviceElements.Count
+            onlineDevicesByDefault = 80
+            allDevices = $deviceElements.Count
             layoutAndRenderSeconds = $layoutClock.Elapsed.TotalSeconds
             focusedFinalDevice = $last.Current.AutomationId
         } | ConvertTo-Json -Depth 4 |
             Set-Content -LiteralPath (Join-Path $ScreenshotDirectory 'room-map-scale.json') -Encoding UTF8
-        Write-Host "Room map rendered 10 rooms and 100 devices in $($layoutClock.Elapsed.TotalSeconds.ToString('F2')) seconds and reached the final keyboard target."
+        Write-Host "Room map rendered 10 rooms, hid 20 offline devices by default, restored all 100 devices, and reached the final keyboard target in $($layoutClock.Elapsed.TotalSeconds.ToString('F2')) seconds."
     }
     finally {
         Stop-SidebarApp
@@ -340,7 +368,8 @@ function Assert-RoomMapConnectionInk([string] $Name, [double] $TextScale) {
                 if ($visibleLength -ge 40 * $scale) { break }
                 $delta = $entryY - $visibleTop
                 $viewSize = $scroll.Current.VerticalViewSize
-                $extent = $viewportHeight * (100 / $viewSize - 1)
+                $visibleViewportHeight = $visibleBottom - $visibleTop
+                $extent = $visibleViewportHeight * (100 / $viewSize - 1)
                 if ($viewSize -le 0 -or $viewSize -ge 100 -or $extent -le 0 -or
                     [double]::IsNaN($extent) -or [double]::IsInfinity($extent)) {
                     throw "The Room map connection viewport has no measurable vertical extent for '$Name'."
@@ -349,7 +378,11 @@ function Assert-RoomMapConnectionInk([string] $Name, [double] $TextScale) {
                 $percent = [Math]::Max(0, [Math]::Min(100,
                     $previousPercent + 100 * $delta / $extent))
                 if ([Math]::Abs($percent - $previousPercent) -lt 0.01) {
-                    throw "The Room map connection entry cannot reach the visible viewport for '$Name'."
+                    throw "The Room map connection entry cannot reach the visible viewport for '$Name' " +
+                        "(entry=$([Math]::Round($entryY, 2)), root=$([Math]::Round($rootTop, 2)), " +
+                        "visible=$([Math]::Round($visibleTop, 2))-$([Math]::Round($visibleBottom, 2)), " +
+                        "scroll=$([Math]::Round($previousPercent, 2))%, target=$([Math]::Round($percent, 2))%, " +
+                        "view=$([Math]::Round($viewSize, 2))%, extent=$([Math]::Round($extent, 2)))."
                 }
                 $scroll.SetScrollPercent(-1, $percent)
                 Start-Sleep -Milliseconds 300
@@ -491,9 +524,21 @@ function Test-RoomMapAccessibility {
         Select-SidebarPage 'Tools' 'View room map'
         Invoke-PeopleRoomsElement Name 'View room map'
         $null = Find-PeopleRoomsElement AutomationId 'RoomMapRoom-00000000-0000-0000-0000-000000000001' RoomMapPage
-        Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
+        $page = Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
             [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapPage')) `
             -Description 'Room map accessibility page' -Container { $root }
+        $onlyOnline = Find-PeopleRoomsElement AutomationId RoomMapOnlineOnlySwitch RoomMapPage
+        $toggle = $onlyOnline.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+        if ($toggle.Current.ToggleState -eq [System.Windows.Automation.ToggleState]::On) {
+            $toggle.Toggle()
+            $null = Wait-UiRegressionState -Description 'all Room map accessibility devices' -Condition {
+                $devices = $page.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.Condition]::TrueCondition) |
+                    Where-Object { $_.Current.AutomationId -like 'RoomMapDevice-*' }
+                @($devices).Count -eq 100
+            }
+        }
+        $page
     }
     $mapElements = {
         param($Page, [string] $Prefix)

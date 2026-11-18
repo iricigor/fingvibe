@@ -58,6 +58,7 @@ gateway entry; the **No room assigned** area uses a dashed line. Additional
 routers in the root room connect locally to the gateway. The selected
 network's gateway identifies the root room. This PC and its saved room have
 separate highlights when that evidence is available.
+Connector bends are rounded to make the room relationships easier to follow.
 
 **Online**, **Offline**, and **No local scan evidence** describe the latest
 saved result for the selected network. They do not prove physical presence.
@@ -70,7 +71,10 @@ focus position. If the saved membership changed while details were open,
 FingVibe selects a valid nearby device or room instead. Completed scans and
 assignment changes refresh the retained map without moving unchanged items.
 
-Use **Manage rooms** to return to the existing room management page. Narrow
+**Only online** starts on and hides offline devices and devices without local
+scan evidence while preserving the room layout. Turn it off to show every
+relevant device again. Use **← Rooms** to return to the existing room
+management page. Narrow
 windows keep normal-size device icons and allow horizontal and vertical
 scrolling. With larger Windows text sizes, room headers and device tiles grow
 taller so labels stay inside them.

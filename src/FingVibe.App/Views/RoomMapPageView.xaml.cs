@@ -1,4 +1,5 @@
 using FingVibe.Core.Models;
+using System.Numerics;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Automation.Peers;
@@ -21,6 +22,7 @@ public sealed partial class RoomMapPageView : UserControl
         new(StringComparer.Ordinal);
     private readonly Windows.UI.ViewManagement.UISettings _uiSettings = new();
     private string[] _brushThemes = ["Light"];
+    private bool _highContrast;
 
     public RoomMapPageView()
     {
@@ -39,7 +41,7 @@ public sealed partial class RoomMapPageView : UserControl
         Loaded += (_, _) => Render();
     }
 
-    public event RoutedEventHandler? ManageRoomsRequested;
+    public event RoutedEventHandler? BackToRoomsRequested;
     public event EventHandler<string>? DeviceRequested;
     public event EventHandler<Guid>? RoomRequested;
 
@@ -80,8 +82,14 @@ public sealed partial class RoomMapPageView : UserControl
         Render();
     }
 
-    private void ManageRoomsButton_Click(object sender, RoutedEventArgs e) =>
-        ManageRoomsRequested?.Invoke(this, e);
+    private void BackToRoomsButton_Click(object sender, RoutedEventArgs e) =>
+        BackToRoomsRequested?.Invoke(this, e);
+
+    private void OnlineOnlySwitch_Toggled(object sender, RoutedEventArgs e)
+    {
+        _renderWidth = 0;
+        Render();
+    }
 
     internal void RestoreNavigation()
     {
@@ -116,9 +124,11 @@ public sealed partial class RoomMapPageView : UserControl
             return;
         }
 
-        _brushThemes = new Windows.UI.ViewManagement.AccessibilitySettings().HighContrast
+        _highContrast = new Windows.UI.ViewManagement.AccessibilitySettings().HighContrast;
+        _brushThemes = _highContrast
             ? ["HighContrast"]
             : ActualTheme == ElementTheme.Dark ? ["Dark", "Default"] : ["Light"];
+        RoomMapOnlineOnlySwitch.IsEnabled = _network is not null;
         if (_network is null)
         {
             RoomMapNetworkText.Text = "No active IPv4 network";
@@ -151,16 +161,30 @@ public sealed partial class RoomMapPageView : UserControl
         var deviceCount = projection.Devices.Count;
         var roomCount = projection.Rooms.Count(room => room.Id is not null);
         var onlineCount = projection.Devices.Count(device => device.Status == RoomMapDeviceStatus.Online);
+        var onlyOnline = RoomMapOnlineOnlySwitch.IsOn;
+        var onlineDeviceIds = projection.Devices
+            .Where(device => device.Status == RoomMapDeviceStatus.Online)
+            .Select(device => device.IdentityKey)
+            .ToHashSet(StringComparer.Ordinal);
         RoomMapNetworkText.Text = projection.NetworkLabel;
-        RoomMapSummaryText.Text =
-            $"{roomCount} {(roomCount == 1 ? "saved room" : "saved rooms")} · "
-            + $"{deviceCount} {(deviceCount == 1 ? "device" : "devices")} · {onlineCount} online";
+        RoomMapSummaryText.Text = onlyOnline
+            ? $"{roomCount} {(roomCount == 1 ? "saved room" : "saved rooms")} · "
+                + $"{onlineCount} of {deviceCount} {(deviceCount == 1 ? "device" : "devices")} shown online"
+            : $"{roomCount} {(roomCount == 1 ? "saved room" : "saved rooms")} · "
+                + $"{deviceCount} {(deviceCount == 1 ? "device" : "devices")} · {onlineCount} online";
+        var visibleUnassignedCount = onlyOnline
+            ? projection.UnassignedDevices.Count(device => device.Status == RoomMapDeviceStatus.Online)
+            : projection.UnassignedDevices.Count;
         RoomMapUnassignedSummaryText.Text =
-            $"No room assigned · {projection.UnassignedDevices.Count} "
-            + $"{(projection.UnassignedDevices.Count == 1 ? "device" : "devices")}";
+            $"No room assigned · {visibleUnassignedCount} "
+            + (onlyOnline ? "online " : string.Empty)
+            + $"{(visibleUnassignedCount == 1 ? "device" : "devices")}"
+            + (onlyOnline && visibleUnassignedCount != projection.UnassignedDevices.Count
+                ? $" of {projection.UnassignedDevices.Count} shown"
+                : string.Empty);
         AutomationProperties.SetName(
             RoomMapUnassignedSummaryText,
-            $"No room assigned, {projection.UnassignedDevices.Count} devices");
+            $"No room assigned, {visibleUnassignedCount} devices shown");
         RoomMapErrorText.Text = _networkError ?? string.Empty;
         RoomMapErrorText.Visibility = string.IsNullOrWhiteSpace(_networkError)
             ? Visibility.Collapsed
@@ -172,23 +196,23 @@ public sealed partial class RoomMapPageView : UserControl
         RoomMapCanvas.Children.Clear();
         _navigationTargets.Clear();
 
-        AddConnections(layout.Connections);
+        AddConnections(layout.Connections, onlyOnline, onlineDeviceIds, visibleUnassignedCount);
         foreach (var room in layout.Rooms)
         {
             AddRoom(room);
             foreach (var device in room.Devices)
             {
-                AddDevice(device);
+                AddDevice(device, onlyOnline);
             }
             foreach (var anchor in room.Anchors)
             {
-                AddAnchor(anchor);
+                AddAnchor(anchor, onlyOnline, onlineDeviceIds);
             }
         }
 
         AddRootLink(layout);
         AddGlobe(layout.GlobeBounds);
-        AddUnassignedStrip(layout);
+        AddUnassignedStrip(layout, onlyOnline);
         if (preserveViewport)
         {
             RestoreViewport(previousViewport);
@@ -295,12 +319,19 @@ public sealed partial class RoomMapPageView : UserControl
             Background = Brush("CardBackgroundFillColorDefaultBrush"),
             BorderBrush = room.IsLocalRoom || room.IsRoot
                 ? Brush("AccentFillColorDefaultBrush")
-                : Brush("ScannerCardBorderBrush"),
-            BorderThickness = new Thickness(room.IsRoot ? 2 : room.IsLocalRoom ? 1.5 : 1),
+                : Brush("ControlStrongStrokeColorDefaultBrush"),
+            BorderThickness = new Thickness(2),
             CornerRadius = new CornerRadius(10),
             UseSystemFocusVisuals = true,
             IsTabStop = true
         };
+        if (!_highContrast)
+        {
+            var shadow = new ThemeShadow();
+            shadow.Receivers.Add(RoomMapCanvas);
+            card.Shadow = shadow;
+            card.Translation = new Vector3(0, 0, 12);
+        }
         var roomAutomationId = room.Id is { } roomCardId
             ? $"RoomMapRoom-{roomCardId:D}"
             : "RoomMapRootPlaceholder";
@@ -326,9 +357,13 @@ public sealed partial class RoomMapPageView : UserControl
         }
     }
 
-    private void AddDevice(RoomMapDevicePlacement placement)
+    private void AddDevice(RoomMapDevicePlacement placement, bool onlyOnline)
     {
         var device = placement.Device;
+        if (onlyOnline && device.Status != RoomMapDeviceStatus.Online)
+        {
+            return;
+        }
         var foreground = device.Status switch
         {
             RoomMapDeviceStatus.Online => Brush("ScannerOnlineForegroundBrush"),
@@ -415,8 +450,16 @@ public sealed partial class RoomMapPageView : UserControl
         RegisterNavigationTarget(automationId, tile, device.RoomId, placement.Bounds);
     }
 
-    private void AddAnchor(RoomMapAnchorPlacement anchor)
+    private void AddAnchor(
+        RoomMapAnchorPlacement anchor,
+        bool onlyOnline,
+        IReadOnlySet<string> onlineDeviceIds)
     {
+        if (onlyOnline && anchor.DeviceIdentity is { } identity && !onlineDeviceIds.Contains(identity))
+        {
+            return;
+        }
+
         var marker = new Ellipse
         {
             Width = anchor.Bounds.Width,
@@ -432,11 +475,27 @@ public sealed partial class RoomMapPageView : UserControl
         RoomMapCanvas.Children.Add(marker);
     }
 
-    private void AddConnections(IEnumerable<RoomMapConnection> connections)
+    private void AddConnections(
+        IEnumerable<RoomMapConnection> connections,
+        bool onlyOnline,
+        IReadOnlySet<string> onlineDeviceIds,
+        int visibleUnassignedCount)
     {
         foreach (var (connection, index) in connections.Select((connection, index) => (connection, index)))
         {
             if (connection.Points.Count < 2)
+            {
+                continue;
+            }
+            if (onlyOnline && connection.Kind switch
+            {
+                RoomMapConnectionKind.Router => !onlineDeviceIds.Contains(connection.SourceId),
+                RoomMapConnectionKind.RootRouter =>
+                    !onlineDeviceIds.Contains(connection.SourceId) ||
+                    !onlineDeviceIds.Contains(connection.TargetId),
+                RoomMapConnectionKind.Unassigned => visibleUnassignedCount == 0,
+                _ => false
+            })
             {
                 continue;
             }
@@ -445,13 +504,7 @@ public sealed partial class RoomMapPageView : UserControl
             {
                 StartPoint = new Windows.Foundation.Point(connection.Points[0].X, connection.Points[0].Y)
             };
-            foreach (var point in connection.Points.Skip(1))
-            {
-                figure.Segments.Add(new LineSegment
-                {
-                    Point = new Windows.Foundation.Point(point.X, point.Y)
-                });
-            }
+            AddRoundedConnectionSegments(figure, connection.Points);
             var geometry = new PathGeometry();
             geometry.Figures.Add(figure);
             var path = new Microsoft.UI.Xaml.Shapes.Path
@@ -459,6 +512,8 @@ public sealed partial class RoomMapPageView : UserControl
                 Data = geometry,
                 Stroke = Brush("TextFillColorSecondaryBrush"),
                 StrokeThickness = 2,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
                 IsHitTestVisible = false
             };
             if (connection.IsDashed)
@@ -471,6 +526,53 @@ public sealed partial class RoomMapPageView : UserControl
             AutomationProperties.SetAccessibilityView(path, AccessibilityView.Raw);
             RoomMapCanvas.Children.Add(path);
         }
+    }
+
+    private static void AddRoundedConnectionSegments(
+        PathFigure figure,
+        IReadOnlyList<RoomMapPoint> points)
+    {
+        for (var index = 1; index < points.Count - 1; index++)
+        {
+            var previous = points[index - 1];
+            var corner = points[index];
+            var next = points[index + 1];
+            var incomingX = corner.X - previous.X;
+            var incomingY = corner.Y - previous.Y;
+            var outgoingX = next.X - corner.X;
+            var outgoingY = next.Y - corner.Y;
+            var incomingLength = Math.Sqrt(incomingX * incomingX + incomingY * incomingY);
+            var outgoingLength = Math.Sqrt(outgoingX * outgoingX + outgoingY * outgoingY);
+            if (incomingLength < 0.001 || outgoingLength < 0.001 ||
+                Math.Abs(incomingX * outgoingX + incomingY * outgoingY) > 0.001)
+            {
+                figure.Segments.Add(new LineSegment
+                {
+                    Point = new Windows.Foundation.Point(corner.X, corner.Y)
+                });
+                continue;
+            }
+
+            var radius = Math.Min(8, Math.Min(incomingLength / 2, outgoingLength / 2));
+            var entry = new Windows.Foundation.Point(
+                corner.X - incomingX / incomingLength * radius,
+                corner.Y - incomingY / incomingLength * radius);
+            var exit = new Windows.Foundation.Point(
+                corner.X + outgoingX / outgoingLength * radius,
+                corner.Y + outgoingY / outgoingLength * radius);
+            figure.Segments.Add(new LineSegment { Point = entry });
+            figure.Segments.Add(new QuadraticBezierSegment
+            {
+                Point1 = new Windows.Foundation.Point(corner.X, corner.Y),
+                Point2 = exit
+            });
+        }
+
+        var end = points[^1];
+        figure.Segments.Add(new LineSegment
+        {
+            Point = new Windows.Foundation.Point(end.X, end.Y)
+        });
     }
 
     private void AddRootLink(RoomMapLayout layout)
@@ -527,8 +629,12 @@ public sealed partial class RoomMapPageView : UserControl
         RoomMapCanvas.Children.Add(globe);
     }
 
-    private void AddUnassignedStrip(RoomMapLayout layout)
+    private void AddUnassignedStrip(RoomMapLayout layout, bool onlyOnline)
     {
+        var visibleDeviceCount = onlyOnline
+            ? layout.UnassignedDevices.Count(device =>
+                device.Device.Status == RoomMapDeviceStatus.Online)
+            : layout.UnassignedDevices.Count;
         var strip = new ListViewItem
         {
             Width = layout.UnassignedBounds.Width,
@@ -552,7 +658,9 @@ public sealed partial class RoomMapPageView : UserControl
         });
         header.Children.Add(new TextBlock
         {
-            Text = layout.UnassignedDevices.Count == 0
+            Text = visibleDeviceCount == 0 && layout.UnassignedDevices.Count > 0 && onlyOnline
+                ? "No online devices. Turn off Only online to show every unassigned device."
+                : layout.UnassignedDevices.Count == 0
                 ? "Every mapped device has a saved room."
                 : "These devices remain on the selected network but have no saved room assignment.",
             FontSize = 11,
@@ -562,14 +670,14 @@ public sealed partial class RoomMapPageView : UserControl
         strip.Content = header;
         AutomationProperties.SetAutomationId(strip, "RoomMapUnassigned");
         AutomationProperties.SetName(strip,
-            $"No room assigned, {layout.UnassignedDevices.Count} devices");
+            $"No room assigned, {visibleDeviceCount} devices shown");
         AutomationProperties.SetLocalizedControlType(strip, "unassigned devices");
         Canvas.SetLeft(strip, layout.UnassignedBounds.X);
         Canvas.SetTop(strip, layout.UnassignedBounds.Y);
         RoomMapCanvas.Children.Add(strip);
         foreach (var device in layout.UnassignedDevices)
         {
-            AddDevice(device);
+            AddDevice(device, onlyOnline);
         }
     }
 
