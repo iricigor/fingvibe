@@ -124,7 +124,9 @@ Assert-True ($result.status -eq "requested" -and $result.attempt -eq 1 -and $scr
 $request = New-Fixture
 $script:fixture.failTrigger = $true
 Assert-Fails { Invoke-Agent4RepairAction $request $api } "*outcome uncertain*"
-Assert-True ((Get-Agent4RepairBudget $script:fixture.comments).consumed -eq 1) "An uncertain request is not refunded."
+$null = Add-Comment $script:fixture.comments[0].body
+$budget = Get-Agent4RepairBudget $script:fixture.comments
+Assert-True ($budget.consumed -eq 1 -and $budget.uncertain.Count -eq 1) "An uncertain request is not refunded or resolved by a duplicate reservation reference."
 $script:fixture.failTrigger = $false
 Assert-True ((Invoke-Agent4RepairAction $request $api).status -eq "already-recorded") "A crash/uncertain trigger cannot cause duplicate delivery."
 $script:fixture.run.run_attempt = 2
@@ -153,6 +155,26 @@ $null = Add-Comment "<!-- fingvibe:assignment=old-code developer=developer-1 act
 $script:fixture.paginate = $true
 $request.expectedRepairCount = 1
 Assert-True ((Invoke-Agent4RepairAction $request $api).attempt -eq 2) "Paginated comments and nested reply reservations contribute to the shared budget."
+
+foreach ($repairCount in 1, 3) {
+    $request = New-Fixture
+    for ($attempt = 1; $attempt -le $repairCount; $attempt++) {
+        $marker = "<!-- fingvibe:repair-attempt=$attempt kind=code key=old-code-$attempt -->"
+        $null = Add-Comment "Repair reservation.`n$marker"
+        $null = Add-Comment "Sending repair. Reservation: $marker`n<!-- fingvibe:assignment=old-code-$attempt developer=developer-1 action=repair -->`n<!-- fingvibe:assignment-end=old-code-$attempt -->"
+    }
+    $firstMarker = "<!-- fingvibe:repair-attempt=1 kind=code key=old-code-1 -->"
+    $null = Add-Comment "Later diagnostic repeats an earlier reservation: $firstMarker $firstMarker"
+    $script:fixture.replies["R1"] = @{ id = "R1"; createdAt = "2026-11-16T22:50:00Z"; body = $firstMarker }
+    $script:fixture.paginate = $true
+    $request.expectedRepairCount = $repairCount
+    $result = Invoke-Agent4RepairAction $request $api
+    Assert-True ($result.attempt -eq $repairCount + 1 -and $script:fixture.reruns -eq 1) "Copied Sending/diagnostic/reply markers consume one attempt per reservation and permit the next sequential repair."
+    $null = Add-Comment "<!-- fingvibe:repair-attempt=$($result.attempt) kind=rerun key=$($result.key) -->"
+    $budget = Get-Agent4RepairBudget $script:fixture.comments
+    Assert-True ($budget.consumed -eq $repairCount + 1 -and $budget.uncertain.Count -eq 0) "Repeating a completed rerun reservation neither consumes another attempt nor makes its result uncertain."
+    Assert-True ((Invoke-Agent4RepairAction $request $api).status -eq "already-recorded" -and $script:fixture.reruns -eq 1) "Duplicate ledger references never authorize another CI request."
+}
 
 $request = New-Fixture
 $script:fixture.changeAfterReserve = $true
@@ -203,6 +225,9 @@ foreach ($case in @(
 foreach ($bodies in @(
     @("<!-- fingvibe:repair-attempt=2 kind=rerun key=r1 -->"),
     @("<!-- fingvibe:repair-attempt=1 kind=rerun key=r1 -->", "<!-- fingvibe:repair-attempt=2 kind=rerun key=r1 -->"),
+    @("<!-- fingvibe:repair-attempt=1 kind=code key=r1 -->", "<!-- fingvibe:repair-attempt=1 kind=rerun key=r1 -->"),
+    @("<!-- fingvibe:repair-attempt=1 kind=code key=r1 -->", "<!-- fingvibe:repair-attempt=1 kind=code key=r2 -->"),
+    @("<!-- fingvibe:repair-attempt=1 kind=code key=r1 -->", "<!-- fingvibe:repair-attempt=1 kind=code key=R1 -->"),
     @("<!-- fingvibe:repair-attempt=1 kind=rerun key=r1 -->", "<!-- fingvibe:repair-baseline=0 assignments=none -->"),
     @("<!-- fingvibe:repair-baseline=0 assignments=future -->", "<!-- fingvibe:assignment=future developer=developer-1 action=repair -->"),
     @("<!-- fingvibe:repair-result=r1 state=requested -->"),

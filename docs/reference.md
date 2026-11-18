@@ -357,7 +357,17 @@ clear stale restrictions before showing Online devices or Online devices with
 open ports.
 
 Every Devices data-column header is sortable: click to select ascending order,
-then click again to reverse it. Name (including saved custom names), Vendor,
+then click again to reverse it. **Name** has four states instead of two:
+repeated clicks (or Enter/Space on the focused header) cycle through ascending
+ignoring emojis (**Name Aa ↑**), descending ignoring emojis (**Name Aa ↓**),
+ascending (**Name ↑**), and descending (**Name ↓**), then repeat. The small
+`Aa` marker appears only while emojis are ignored; the header tooltip and
+accessible help text name the active mode, for example "Name ascending,
+ignoring emojis". Ignoring emojis removes complete emoji sequences anywhere in
+the name (including variation selectors, joined sequences, skin tones, flags,
+and keycaps) and collapses the spaces they leave, only for comparison; displayed
+and saved names keep their emojis, and ordinary digits, punctuation, and
+non-emoji symbols still count. Name (including saved custom names), Vendor,
 OS, and Device type use case-insensitive displayed text; unknown/missing text
 retains ordinary lexical ordering. IP addresses sort numerically, Status by
 inventory status, Response by latency (missing first ascending), and Open ports
@@ -1558,6 +1568,12 @@ apps** entry; a desktop shortcut is optional. Windows may show an unknown
 publisher or SmartScreen warning. No code signing or automatic updater is
 included; download only builds you trust.
 
+After a successful interactive installation or upgrade, **Start FingVibe** is
+checked by default on the final screen. **Finish** launches the installed app
+with its installation folder as the working directory only if that choice stays
+checked. Setup does not wait for the app to exit. `/SILENT` and `/VERYSILENT`
+installations never launch it automatically.
+
 For manual updates, close FingVibe and run the newer installer. Setup refuses to
 install or uninstall while FingVibe is running and rejects downgrades. Existing
 files from the ZIP convenience script can be adopted in the same location.
@@ -1586,6 +1602,11 @@ disposable GitHub-hosted runner. PR, independent Full and release validation run
 the same fixed lifecycle: they compile the actual installer and verify payload
 hashes, fresh installation, window launch, running-app blocking, ZIP/script
 adoption, shortcuts, uninstall, and saved-data/unknown-file preservation.
+They also verify silent/very silent launch suppression and the checked-by-default
+Finish choice for both fresh installs and upgrades, exercising checked and
+unchecked outcomes through the native wizard. Launch checks verify the installed
+process/window and Setup's logged working directory; existing timing logs include
+the additional interactive cases.
 The real installer also upgrades a lower same-family installation, removing an
 obsolete file from the previous ownership manifest while keeping unknown files
 and saved data, and the lower version is then rejected as a downgrade.

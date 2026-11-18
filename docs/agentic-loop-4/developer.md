@@ -128,7 +128,10 @@ attempts in task reports, including Dispatcher CI reruns; missing history is not
 a fresh allowance. For future starts, Dispatcher reserves/readbacks the next
 shared `repair-attempt` before sending. Verify its ordinal, `kind=code` and
 `key=<your-assignment-id>` against the start and history before edits; do not
-increment it again. A missing/mismatched reservation blocks work. Already accepted
+increment it again. Reference its URL/ID, key and attempt in reports or
+diagnostics; never copy the raw `repair-attempt` HTML marker. Exact copies of a
+reservation in existing history count once, not as additional consumed attempts.
+A missing/mismatched reservation blocks work. Already accepted
 assignments keep their original accounting until their reports are reconciled.
 When the candidate carries `finalizeRejection`, read that
 assignment's Discussion report and treat its reason as the failure evidence to

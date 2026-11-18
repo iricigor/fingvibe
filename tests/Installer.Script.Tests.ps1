@@ -54,6 +54,19 @@ $global:LASTEXITCODE = 0
         '(?m)^Compression=\{#Compression\}\s*$', '(?m)^SolidCompression=\{#SolidCompression\}\s*$')) {
         if ($script -notmatch $pattern) { throw "Installer script must default to LZMA2/solid compression: $pattern" }
     }
+    $runSection = [regex]::Match($script, '(?ms)^\[Run\]\s*\r?\n(.*?)(?=^\[|\z)')
+    $runEntries = @($runSection.Groups[1].Value -split '\r?\n' | Where-Object { $_.Trim() -and -not $_.TrimStart().StartsWith(';') })
+    if (-not $runSection.Success -or $runEntries.Count -ne 1) {
+        throw "Installer must have exactly one optional post-install launch entry."
+    }
+    $run = $runEntries[0]
+    foreach ($parameter in @('Filename: "{app}\FingVibe.App.exe"', 'WorkingDir: "{app}"', 'Description: "Start FingVibe"')) {
+        if (-not $run.Contains($parameter)) { throw "Installer launch is missing $parameter." }
+    }
+    $flags = [regex]::Match($run, '(?:^|;)\s*Flags:\s*([^;]+)').Groups[1].Value.Trim() -split '\s+'
+    if (@($flags | Sort-Object) -join ' ' -cne 'nowait postinstall skipifsilent') {
+        throw "Launch must be checked by default, wait for Finish, never wait for app exit, and skip both silent modes."
+    }
     # Published installers never use fixture compression; fixtures are built only into the lifecycle's temporary directory.
     foreach ($workflow in @("ci.yml", "release.yml", "native-validation.yml")) {
         $text = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\.github\workflows\$workflow") -Raw
@@ -63,6 +76,33 @@ $global:LASTEXITCODE = 0
         }
     }
     $lifecycle = Get-Content -LiteralPath (Join-Path $PSScriptRoot "Installer.Lifecycle.Tests.ps1") -Raw
+    $parseErrors = $null
+    $lifecycleAst = [Management.Automation.Language.Parser]::ParseInput($lifecycle, [ref]$null, [ref]$parseErrors)
+    if ($parseErrors) { throw "Installer lifecycle must parse: $parseErrors" }
+    $lookup = $lifecycleAst.FindAll({
+        param($node)
+        $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
+            $node.Name -in @('Get-InstallerCaption', 'Get-InstallerButton')
+    }, $true)
+    foreach ($definition in $lookup) { Invoke-Expression $definition.Extent.Text }
+    # Inno Setup 6.7 renders "&Next"; keep older "&Next >" captions working.
+    foreach ($caption in @('&Next', '&Next >', '&Install', '&Finish')) {
+        $button = [pscustomobject]@{ Handle = 1; Text = $caption; ClassName = 'TNewButton'; Visible = $true; Enabled = $true }
+        $hidden = [pscustomobject]@{ Handle = 2; Text = $caption; ClassName = 'TNewButton'; Visible = $false; Enabled = $true }
+        $disabled = [pscustomobject]@{ Handle = 3; Text = $caption; ClassName = 'TNewButton'; Visible = $true; Enabled = $false }
+        $label = [pscustomobject]@{ Handle = 4; Text = $caption; ClassName = 'TNewStaticText'; Visible = $true; Enabled = $true }
+        $names = @('Next', 'Install', 'Finish')
+        $actual = Get-InstallerButton @($hidden, $disabled, $label, $button) $names
+        if ($actual.Handle -ne 1) { throw "Native wizard lookup must select the visible, enabled action by caption and class." }
+        if ($null -ne (Get-InstallerButton @($hidden, $disabled, $label) $names)) {
+            throw "Hidden, disabled or non-button controls cannot advance the installer."
+        }
+        Assert-Throws { Get-InstallerButton @($button, $button) $names } '*More than one installer navigation button*'
+    }
+    $cancel = [pscustomobject]@{ Text = 'Cancel'; ClassName = 'TNewButton'; Visible = $true; Enabled = $true }
+    if ($null -ne (Get-InstallerButton @($cancel) @('Next', 'Install', 'Finish'))) {
+        throw "The lifecycle must not activate unrelated installer actions."
+    }
     $fixtureCalls = [regex]::Matches($lifecycle, '(?m)^.*& \$builder .*$')
     if ($fixtureCalls.Count -ne 1 -or $fixtureCalls[0].Value -notmatch '-OutputDirectory \$fixture -FixtureCompression') {
         throw "Lifecycle fixtures must use fixture compression and the disposable fixture directory only."

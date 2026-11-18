@@ -25,7 +25,7 @@ public sealed partial class MainWindow
                     [new ManagedPerson(Guid.Parse("db958652-55aa-409f-afca-d60c68081574"), "UI review person", "UI", IconId: "person-filled")],
                     [new ManagedRoom(Guid.Parse("db958652-55aa-409f-afca-d60c68081575"), "UI review room", "UI", IconId: "garden")])
                 : await _peopleRoomsStore.LoadAsync();
-            SetPeopleRoomsStatus("People and rooms are saved locally.");
+            SetPeopleRoomsStorageNotice("People and rooms are saved locally.");
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidDataException)
         {
@@ -78,7 +78,7 @@ public sealed partial class MainWindow
 
     private void UpdatePeopleRoomsPages()
     {
-        if (PeoplePage is null || RoomsPage is null || PersonDetailPage is null || RoomDetailPage is null)
+        if (PeopleRoomsPage is null || PersonDetailPage is null || RoomDetailPage is null)
         {
             return;
         }
@@ -86,8 +86,7 @@ public sealed partial class MainWindow
         var canEdit = _peopleRoomsReady && !_peopleRoomsUnavailable && _inventoryReady && !_inventoryUnavailable;
         var devices = GetAssignedDeviceRows();
         var hasCurrentScan = _currentScanSnapshot is not null || _allResults.Any(row => !row.IsFingOnly);
-        PeoplePage.ShowPeople(_peopleRooms, devices, hasCurrentScan, canEdit);
-        RoomsPage.ShowRooms(_peopleRooms, devices, hasCurrentScan, canEdit);
+        PeopleRoomsPage.ShowPeopleRooms(_peopleRooms, devices, hasCurrentScan, canEdit);
         PersonDetailPage.Refresh(_peopleRooms, devices, hasCurrentScan, canEdit);
         RoomDetailPage.Refresh(_peopleRooms, devices, hasCurrentScan, canEdit);
         UpdateEquipmentActivity();
@@ -272,16 +271,21 @@ public sealed partial class MainWindow
         }
     }
 
+    // The storage notice explains the details-page footnotes; the People & rooms tables omit it.
+    private void SetPeopleRoomsStorageNotice(string message)
+    {
+        SetPeopleRoomsStatus(message);
+        if (PeopleRoomsPage is not null)
+        {
+            PeopleRoomsPage.Status = string.Empty;
+        }
+    }
+
     private void SetPeopleRoomsStatus(string message)
     {
-        if (PeoplePage is not null)
+        if (PeopleRoomsPage is not null)
         {
-            PeoplePage.Status = message;
-        }
-
-        if (RoomsPage is not null)
-        {
-            RoomsPage.Status = message;
+            PeopleRoomsPage.Status = message;
         }
 
         if (DevicePage is not null)
@@ -319,7 +323,7 @@ public sealed partial class MainWindow
         if (await SavePeopleRoomsAsync(data => data.DeletePerson(person.Id)))
         {
             PersonDetailPage.SelectedPerson = null;
-            ShowPage(PeoplePage);
+            ShowPage(PeopleRoomsPage);
         }
     }
 
@@ -342,7 +346,7 @@ public sealed partial class MainWindow
         if (await SavePeopleRoomsAsync(data => data.DeleteRoom(room.Id)))
         {
             RoomDetailPage.SelectedRoom = null;
-            ShowPage(RoomsPage);
+            ShowPage(PeopleRoomsPage);
         }
     }
 
@@ -447,9 +451,9 @@ public sealed partial class MainWindow
         }
     }
 
-    private void BackToPeopleButton_Click(object sender, RoutedEventArgs e) => ShowPage(PeoplePage);
+    private void BackToPeopleButton_Click(object sender, RoutedEventArgs e) => ShowPage(PeopleRoomsPage);
 
-    private void BackToRoomsButton_Click(object sender, RoutedEventArgs e) => ShowPage(RoomsPage);
+    private void BackToRoomsButton_Click(object sender, RoutedEventArgs e) => ShowPage(PeopleRoomsPage);
 
     private void UpdateDeviceAssignmentPickers()
     {

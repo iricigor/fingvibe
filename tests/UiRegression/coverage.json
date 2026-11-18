@@ -287,6 +287,11 @@
               "assertions": []
             },
             {
+              "name": "Set-DeviceFilterContrastFlags",
+              "refactored": true,
+              "assertions": []
+            },
+            {
               "name": "Wait-DeviceFilterContrastReady",
               "refactored": true,
               "assertions": []
@@ -459,7 +464,7 @@
             ]
           ],
           "baselineSha256": "4e9e98ecc3193f689ae00ebe2449e217dcf56b92fae3a870022e9722f969b9a9",
-          "refactored": false,
+          "refactored": true,
           "functions": [
             {
               "assertions": [
@@ -469,13 +474,16 @@
               "refactored": false,
               "baselineSha256": "53adc3cf7ec0792c045046695c3016291b88191f9fdd4e9b5205161b52920f37"
             },
+            { "name": "Get-DeviceNameSortKey", "refactored": true },
+            { "name": "Assert-DeviceNameSortState", "refactored": true },
+            { "name": "Invoke-DeviceNameSortKey", "refactored": true },
             {
               "assertions": [
                 "a8c486a292ea328d23c3175ecb4bdd85e65d08e3141d1ec6961edab268339b11",
                 "26a6aad37ab34d8b054a8ca4494b731e03f74c4de89a319cb892d95e14844807"
               ],
               "name": "Assert-SortedFixture",
-              "refactored": false,
+              "refactored": true,
               "baselineSha256": "6be0e5c05f2b1ea4393145528f009fb954da37bbf03d4812544949b706dadba0"
             },
             {
@@ -489,7 +497,7 @@
                 "8af1cf7a629b9e4d4cde1a78449e610ebe07b2af503889297e801e60f799617a"
               ],
               "name": "Test-DeviceColumnSorting",
-              "refactored": false,
+              "refactored": true,
               "baselineSha256": "16aa8287fb09f54b730f2fd0fe0535001323a35a00b4c708840fc74371f0aec0"
             }
           ],
@@ -735,7 +743,7 @@
             {
               "assertions": [],
               "name": "Set-SidebarAppearance",
-              "refactored": false,
+              "refactored": true,
               "baselineSha256": "d727e045926246e6b8e490b6f261fc4bc17b74cbe4fb573d48e34b38fd0aa786"
             },
             {
@@ -844,6 +852,11 @@
               "name": "Test-SidebarDividerAppearance",
               "refactored": true,
               "baselineSha256": "c5642974231412edb77c17bc690bf32092efa922d5c57d9b3a2403914f89851c"
+            },
+            {
+              "name": "Assert-SidebarFamilyIcons",
+              "refactored": true,
+              "introducedBy": "#550: require recognizable rendered Overview, Network, Devices and Tools family icons in the expanded and icon-only sidebar."
             },
             {
               "assertions": [
@@ -1250,7 +1263,7 @@
             1324
           ],
           "baselineSha256": "450d9141e94a5cb9b59997c1cd0e7b9a8dfe0047f0ca24b7a63af389a01436f2",
-          "refactored": false,
+          "refactored": true,
           "functions": [],
           "captures": [
             "9a972709a1fcf3a3d50edaeb9eacd40d825dee49e1042c6e2d6b66b1cb11fa46",

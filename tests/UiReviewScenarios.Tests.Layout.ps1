@@ -4,13 +4,70 @@
         NetworkPage = "NetworkPageView"
         DevicesPage = "DevicesPageView"
         DevicePage = "DeviceDetailsPageView"
-        PeoplePage = "PeoplePageView"
-        RoomsPage = "RoomsPageView"
+        PeopleRoomsPage = "PeopleRoomsPageView"
         PersonDetailPage = "PersonDetailsPageView"
         RoomDetailPage = "RoomDetailsPageView"
         SettingsPage = "SettingsPageView"
     }
     $appDirectory = Join-Path $PSScriptRoot "..\src\FingVibe.App"
+    $peopleRoomsDocument = [xml](Get-Content (Join-Path $appDirectory "Views\PeopleRoomsPageView.xaml") -Raw)
+    $peopleRoomsCode = Get-Content (Join-Path $appDirectory "Views\PeopleRoomsPageView.xaml.cs") -Raw
+    $headingRow = $peopleRoomsDocument.SelectSingleNode("//*[@*[local-name()='Name']='PeopleRoomsHeadingRow']")
+    if (-not $headingRow) { throw "People & rooms must expose its shared icon/title layout." }
+    $headingIcon = $headingRow.SelectSingleNode("./*[local-name()='Viewbox']")
+    $headingTitle = $headingRow.SelectSingleNode("./*[local-name()='TextBlock']")
+    if (-not $headingIcon -or $headingIcon.GetAttribute("Width") -cne "48" -or
+        $headingIcon.GetAttribute("Height") -cne "48" -or
+        $headingIcon.GetAttribute("AutomationProperties.AccessibilityView") -cne "Raw" -or
+        $headingRow.GetAttribute("ColumnSpacing") -cne "12" -or
+        $headingTitle.GetAttribute("Grid.Column") -cne "1" -or
+        $headingTitle.GetAttribute("VerticalAlignment") -cne "Center" -or
+        $headingTitle.GetAttribute("TextWrapping") -cne "Wrap") {
+        throw "People & rooms must align its wrapping title beside one decorative 48-DIP icon with a 12-DIP gap."
+    }
+    foreach ($section in @(
+        @{ Name = "People"; Add = "AddPersonButton" },
+        @{ Name = "Rooms"; Add = "AddRoomButton" }
+    )) {
+        $name = $section.Name
+        $card = $peopleRoomsDocument.SelectSingleNode("//*[@*[local-name()='Name']='${name}TableBorder']")
+        $empty = $card.SelectSingleNode(".//*[@*[local-name()='Name']='${name}EmptyState']")
+        $status = $card.SelectSingleNode(".//*[@*[local-name()='Name']='${name}StatusText']")
+        $headers = $card.SelectSingleNode(".//*[@*[local-name()='Name']='${name}ColumnHeaders']")
+        $addButtons = @($peopleRoomsDocument.SelectNodes("//*[@Click='$($section.Add)_Click']"))
+        if (-not $empty -or -not $status -or -not $headers -or
+            $addButtons.Count -ne 1 -or $addButtons[0].GetAttribute("x:Name") -cne $section.Add -or
+            $status.GetAttribute("TextWrapping") -cne "Wrap" -or
+            $peopleRoomsCode -match "\b${name}TableBorder\.Visibility\s*=" -or
+            $peopleRoomsCode -notmatch "${name}ColumnHeaders\.Visibility\s*=\s*${name}List\.Visibility\s*=") {
+            throw "$name must retain its status, count and single guarded Add action when its rows are empty or unavailable."
+        }
+        # #551: header and row grids are measured separately, so they must share columns and container insets.
+        $list = $card.SelectSingleNode(".//*[local-name()='ListView' and @*[local-name()='Name']='${name}List']")
+        $row = $list.SelectSingleNode(".//*[local-name()='DataTemplate']/*[local-name()='Grid']")
+        $headerColumns = @($headers.SelectNodes("./*[local-name()='Grid.ColumnDefinitions']/*") | ForEach-Object { $_.GetAttribute("Width") }) -join ","
+        $rowColumns = @($row.SelectNodes("./*[local-name()='Grid.ColumnDefinitions']/*") | ForEach-Object { $_.GetAttribute("Width") }) -join ","
+        $rowAction = $row.SelectSingleNode("./*[local-name()='Button' and @*[local-name()='Grid.Column']='4']")
+        $headerAction = $headers.SelectSingleNode("./*[local-name()='Button' and @*[local-name()='Grid.Column']='4']")
+        $styleKey = [regex]::Match($list.GetAttribute("ItemContainerStyle"), '^\{StaticResource (\S+)\}$').Groups[1].Value
+        $itemStyle = $peopleRoomsDocument.SelectSingleNode("//*[local-name()='Style' and @*[local-name()='Key']='$styleKey']")
+        $setter = { param($property) $itemStyle.SelectSingleNode("./*[local-name()='Setter' and @Property='$property']").GetAttribute("Value") }
+        if ($headerColumns -cne $rowColumns -or $headers.GetAttribute("Padding").Split(",")[0] -cne $row.GetAttribute("Padding").Split(",")[0] -or
+            -not $rowAction -or -not $headerAction -or $headerAction.GetAttribute("Content") -cne $rowAction.GetAttribute("Content") -or
+            $headerAction.GetAttribute("Opacity") -cne "0" -or $headerAction.GetAttribute("IsTabStop") -cne "False" -or
+            $headerAction.GetAttribute("AutomationProperties.AccessibilityView") -cne "Raw" -or
+            -not $itemStyle -or (& $setter HorizontalContentAlignment) -cne "Stretch" -or
+            (& $setter Padding) -cne "0" -or (& $setter Margin) -cne "0") {
+            throw "$name headers must share the row columns, a hidden More-width action column and an uninset stretched row container."
+        }
+    }
+    $peopleRoomsStatusSetter = [regex]::Match($peopleRoomsCode, 'internal string Status\s*\{[\s\S]*?\n    \}').Value
+    $mainWindowCode = (Get-ChildItem -LiteralPath $appDirectory -Filter "MainWindow*.cs" | ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
+    if ($peopleRoomsStatusSetter -notmatch 'Visibility\.Collapsed' -or
+        $mainWindowCode -match 'SetPeopleRoomsStatus\("People and rooms are saved (locally|with the local device inventory)\.' -or
+        $mainWindowCode -notmatch 'PeopleRoomsPage\.Status = string\.Empty;') {
+        throw "People & rooms must omit the storage notice and collapse empty status lines while keeping save and error feedback."
+    }
     $settings = [xml](Get-Content (Join-Path $appDirectory "Views\SettingsPageView.xaml") -Raw)
     $cards = $settings.SelectSingleNode("//*[@*[local-name()='Name']='SettingsCards']")
     if (-not $cards -or [double]$cards.GetAttribute("Spacing") -lt 4 -or [double]$cards.GetAttribute("Spacing") -gt 6) {

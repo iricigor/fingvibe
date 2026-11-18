@@ -86,7 +86,7 @@ function Test-SettingsDisclosure {
     $null = Wait-UiRegressionState {
         (Find-SidebarElement AutomationId AboutSettingsButton).Current.HasKeyboardFocus
     } "About row focus after Back"
-    Select-SidebarPage People "Search people"
+    Select-SidebarPage "People & rooms" "Search people and rooms"
     Select-SidebarPage Settings "Appearance preferences"
     if ((Find-SidebarElement AutomationId DevicesSection).GetCurrentPattern(
         [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -ne "Expanded" -or
@@ -370,6 +370,6 @@ function Test-SettingsLayout {
     }
     if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
     Set-UiReviewTheme -Root $root -Theme "Standard Dark"
-    Select-SidebarPage People "Search people"
+    Select-SidebarPage "People & rooms" "Search people and rooms"
     Write-Host "Settings mode/theme mapping, six palettes, responsive bounds, mandatory IP, and column reset passed."
 }

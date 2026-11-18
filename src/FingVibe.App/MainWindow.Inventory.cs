@@ -53,7 +53,7 @@ public sealed partial class MainWindow
             {
                 ApplyInventoryData(saved);
                 _peopleRoomsReady = true;
-                SetPeopleRoomsStatus("People and rooms are saved with the local device inventory.");
+                SetPeopleRoomsStorageNotice("People and rooms are saved with the local device inventory.");
             }
             else
             {
@@ -243,7 +243,7 @@ public sealed partial class MainWindow
             () => CurrentDeviceData,
             () => _inventoryReady && !_inventoryUnavailable && !_isScanning,
             ImportAnalyzedDataAsync,
-            category => MainNavigation.SelectedItem = category == "People" ? PeopleNavItem : RoomsNavItem,
+            _ => MainNavigation.SelectedItem = PeopleRoomsNavItem,
             WinRT.Interop.WindowNative.GetWindowHandle(this));
     }
 

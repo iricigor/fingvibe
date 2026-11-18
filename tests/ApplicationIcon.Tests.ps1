@@ -168,6 +168,54 @@ foreach ($brand in @(@{ Name = "ConnectedHome-48.png"; Size = 96 }, @{ Name = "C
     finally { $image.Dispose() }
 }
 
+# Page-family icons load by ms-appx URI at runtime, so the published payload must carry every referenced file.
+$appSource = Join-Path $PSScriptRoot "..\src\FingVibe.App"
+$pageIconSource = Join-Path $appSource "Assets\PageIcons"
+$pageIcons = @(Get-ChildItem -LiteralPath $pageIconSource -Filter *.png -File)
+if ($pageIcons.Count -eq 0) { throw "No page-family icons were found in $pageIconSource." }
+$referenced = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+foreach ($xaml in Get-ChildItem -LiteralPath $appSource -Filter *.xaml -File -Recurse |
+    Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' }) {
+    $text = Get-Content -LiteralPath $xaml.FullName -Raw
+    foreach ($match in [regex]::Matches($text, 'ms-appx:///Assets/PageIcons/([A-Za-z0-9-]+\.png)')) {
+        $null = $referenced.Add($match.Groups[1].Value)
+    }
+    # PageHeaderIcon resolves Icon="name" to name-color.png and name-mono.png.
+    foreach ($match in [regex]::Matches($text, '<local:PageHeaderIcon\b[^>]*\bIcon="([A-Za-z0-9-]+)"')) {
+        $null = $referenced.Add("$($match.Groups[1].Value)-color.png")
+        $null = $referenced.Add("$($match.Groups[1].Value)-mono.png")
+    }
+}
+if ($referenced.Count -eq 0) { throw "No page-family icon references were found; the reference scan is out of date." }
+foreach ($name in $referenced) {
+    if (-not (Test-Path -LiteralPath (Join-Path $pageIconSource $name) -PathType Leaf)) {
+        throw "Page-family icon $name is referenced but missing from the source assets."
+    }
+}
+# BitmapIcon point-samples monochrome masks, so 16-DIP sidebar icons need 2x (32 px) art to stay legible.
+$mainWindow = Get-Content -LiteralPath (Join-Path $appSource "MainWindow.xaml") -Raw
+$sidebarIcons = @([regex]::Matches($mainWindow,
+        '<BitmapIcon\b[^>]*\bUriSource="ms-appx:///Assets/PageIcons/([A-Za-z0-9-]+\.png)"') |
+    ForEach-Object { $_.Groups[1].Value })
+if ($sidebarIcons.Count -ne 4) { throw "Expected four sidebar family BitmapIcons; found $($sidebarIcons.Count)." }
+foreach ($name in $sidebarIcons) {
+    $image = [System.Drawing.Image]::FromFile((Join-Path $pageIconSource $name))
+    try {
+        if ($name -notlike "*-mono-32.png" -or $image.Width -ne 32 -or $image.Height -ne 32 -or
+            -not [System.Drawing.Image]::IsAlphaPixelFormat($image.PixelFormat)) {
+            throw "Sidebar icon $name must be a 32 px single-color mask with alpha."
+        }
+    }
+    finally { $image.Dispose() }
+}
+foreach ($icon in $pageIcons) {
+    $deployed = Join-Path $AppDirectory "Assets\PageIcons\$($icon.Name)"
+    if (-not (Test-Path -LiteralPath $deployed -PathType Leaf) -or
+        (Get-FileHash -LiteralPath $icon.FullName).Hash -ne (Get-FileHash -LiteralPath $deployed).Hash) {
+        throw "Page-family icon Assets\PageIcons\$($icon.Name) is missing from or differs in the published payload."
+    }
+}
+
 $embedded = [ApplicationIconResources]::ReadFirstIconGroup((Resolve-Path -LiteralPath $executable).Path)
 if ($embedded.Count -eq 0) { throw "The executable has no embedded icon." }
 $embeddedSizes = @($embedded.Keys | Sort-Object)
@@ -180,4 +228,4 @@ foreach ($size in $requiredSizes) {
     }
 }
 
-Write-Host "Icon frames ($($requiredSizes -join ', ') px), transparency, deployment, in-app brand images and embedded executable icon checks passed."
+Write-Host "Icon frames ($($requiredSizes -join ', ') px), transparency, deployment, in-app brand images, $($pageIcons.Count) page-family icons and embedded executable icon checks passed."

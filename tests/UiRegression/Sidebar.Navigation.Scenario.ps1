@@ -3,11 +3,10 @@ $null = Find-SidebarElement Name "LAN scanner"
 foreach ($page in @(
     @("Network", "Public IP address"),
     @("Devices", "Search devices"),
-    @("Rooms", "Search rooms"),
+    @("People & rooms", "Search people and rooms"),
     @("Tools", "Speed test"),
     @("Settings", "Window backdrop"),
-    @("Overview", "Online devices"),
-    @("People", "Search people")
+    @("Overview", "Online devices")
 )) {
     Select-SidebarPage $page[0] $page[1]
     Assert-SharedNetworkHeader
@@ -29,4 +28,5 @@ if ($tools.Current.BoundingRectangle.Bottom -gt $settings.Current.BoundingRectan
     throw "Tools must remain pinned directly above Settings."
 }
 Save-SidebarAppearance "sidebar-expanded" -AssertMatchingSolid
+Assert-SidebarFamilyIcons "sidebar-expanded"
 Test-SidebarResizing
