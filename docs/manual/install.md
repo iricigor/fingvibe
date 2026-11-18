@@ -17,11 +17,14 @@ If it cannot start, see [Speed test problems](problems.md#the-speed-test-does-no
 2. Download `FingVibe-<version>-win-x64-Setup.exe`.
 3. Close any running copy of FingVibe.
 4. Run the installer.
-5. Open FingVibe from the Start menu.
+5. Leave **Start FingVibe** checked and select **Finish** to open the app.
+   Clear the checkbox if you want to open it later from the Start menu.
 
 The installer installs the app for your Windows user. It does not need
 administrator rights. Its default app folder is
 `%LOCALAPPDATA%\Programs\FingVibe`.
+The same launch choice is offered after an interactive update. Silent and very
+silent installations never start FingVibe automatically.
 
 !!! warning "Unsigned download"
     FingVibe downloads are unsigned. Windows may show an unknown-publisher or
