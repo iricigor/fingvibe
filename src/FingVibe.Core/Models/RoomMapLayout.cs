@@ -245,13 +245,34 @@ public readonly record struct RoomMapBounds(double X, double Y, double Width, do
 {
     public double Right => X + Width;
     public double Bottom => Y + Height;
+    public double CenterX => X + Width / 2;
+    public double CenterY => Y + Height / 2;
     public bool Intersects(RoomMapBounds other) =>
         X < other.Right && Right > other.X && Y < other.Bottom && Bottom > other.Y;
 }
 
 public sealed record RoomMapDevicePlacement(RoomMapDevice Device, RoomMapBounds Bounds);
 
-public sealed record RoomMapAnchorPlacement(string Kind, RoomMapBounds Bounds);
+public sealed record RoomMapAnchorPlacement(string Kind, RoomMapBounds Bounds, string? DeviceIdentity = null);
+
+public enum RoomMapConnectionKind
+{
+    Room,
+    Router,
+    RootRouter,
+    Unassigned
+}
+
+public readonly record struct RoomMapPoint(double X, double Y);
+
+public sealed record RoomMapConnection(
+    string SourceId,
+    string TargetId,
+    RoomMapConnectionKind Kind,
+    IReadOnlyList<RoomMapPoint> Points)
+{
+    public bool IsDashed => Kind == RoomMapConnectionKind.Unassigned;
+}
 
 public sealed record RoomMapRoomPlacement(
     Guid? Id,
@@ -278,7 +299,8 @@ public sealed record RoomMapLayout(
     double RootLinkStartY,
     double RootLinkEndY,
     RoomMapBounds UnassignedBounds,
-    IReadOnlyList<RoomMapDevicePlacement> UnassignedDevices)
+    IReadOnlyList<RoomMapDevicePlacement> UnassignedDevices,
+    IReadOnlyList<RoomMapConnection> Connections)
 {
     private const double MinimumWidth = 720;
     private const double Margin = 8;
@@ -328,22 +350,22 @@ public sealed record RoomMapLayout(
         for (var index = 0; index < otherRooms.Length;)
         {
             var take = Math.Min(columns, otherRooms.Length - index);
-            var rowHeight = 0d;
+            var rowBounds = new List<RoomMapBounds>(take);
             for (var column = 0; column < take; column++)
             {
                 var room = otherRooms[index + column];
                 var roomWidth = RoomWidth(SizeTier(room), cellWidth);
                 var cellLeft = Margin + column * (cellWidth + ColumnGap);
                 var x = cellLeft + (cellWidth - roomWidth) / 2;
-                rowHeight = Math.Max(rowHeight, MeasureRoom(room, x, rowTop, roomWidth, metrics).Height);
+                rowBounds.Add(MeasureRoom(room, x, rowTop, roomWidth, metrics));
             }
+            var rowHeight = rowBounds.Max(bounds => bounds.Height);
             for (var column = 0; column < take; column++)
             {
                 var room = otherRooms[index + column];
-                var roomWidth = RoomWidth(SizeTier(room), cellWidth);
-                var cellLeft = Margin + column * (cellWidth + ColumnGap);
+                var bounds = rowBounds[column];
                 placements.Add(PlaceRoom(
-                    room, cellLeft + (cellWidth - roomWidth) / 2, rowTop, roomWidth, rowHeight, metrics));
+                    room, bounds.X, bounds.Y, bounds.Width, bounds.Height, metrics));
             }
             rowTop += rowHeight + RowGap;
             index += take;
@@ -366,6 +388,8 @@ public sealed record RoomMapLayout(
         var unassignedPlacements = PlaceUnassigned(
             projection.UnassignedDevices, Margin, unassignedTop, unassignedWidth, metrics);
         var unassignedHeight = unassignedPlacements.Height;
+        var unassignedBounds = new RoomMapBounds(Margin, unassignedTop, unassignedWidth, unassignedHeight);
+        var connections = RouteConnections(placements, unassignedBounds, unassignedPlacements.Devices.Count);
 
         return new(
             width,
@@ -376,8 +400,9 @@ public sealed record RoomMapLayout(
             rootCenter,
             rootBottom,
             globeBounds.Y - 4,
-            new(Margin, unassignedTop, unassignedWidth, unassignedHeight),
-            unassignedPlacements.Devices);
+            unassignedBounds,
+            unassignedPlacements.Devices,
+            connections);
     }
 
     private static int SizeTier(RoomMapRoom room) =>
@@ -433,13 +458,20 @@ public sealed record RoomMapLayout(
         }
         for (var index = 0; index < bodyDevices.Length; index++)
         {
-            placements.Add(new(
-                bodyDevices[index],
-                new(
-                    x + 16 + index % columns * (DeviceWidth + DeviceGap),
-                    y + headerHeight + index / columns * (deviceHeight + DeviceGap),
-                    DeviceWidth,
-                    deviceHeight)));
+            var device = bodyDevices[index];
+            var bounds = new RoomMapBounds(
+                x + 16 + index % columns * (DeviceWidth + DeviceGap),
+                y + headerHeight + index / columns * (deviceHeight + DeviceGap),
+                DeviceWidth,
+                deviceHeight);
+            placements.Add(new(device, bounds));
+            if (room.IsRoot && device.IsGateway)
+            {
+                anchors.Add(new(
+                    "gateway-entry",
+                    new(bounds.X - 4, bounds.CenterY - 4, 8, 8),
+                    device.IdentityKey));
+            }
         }
         for (var index = 0; index < edgeDevices.Length; index++)
         {
@@ -449,7 +481,10 @@ public sealed record RoomMapLayout(
                 EdgeDeviceWidth,
                 deviceHeight);
             placements.Add(new(edgeDevices[index], deviceBounds));
-            anchors.Add(new("router", new(deviceBounds.Right - 4, deviceBounds.Y + deviceHeight / 2 - 4, 8, 8)));
+            anchors.Add(new(
+                "router",
+                new(deviceBounds.Right - 4, deviceBounds.Y + deviceHeight / 2 - 4, 8, 8),
+                edgeDevices[index].IdentityKey));
         }
         if (!room.IsRoot && edgeDevices.Length == 0)
         {
@@ -470,6 +505,186 @@ public sealed record RoomMapLayout(
             new(x, y, width, height),
             placements,
             anchors);
+    }
+
+    private static IReadOnlyList<RoomMapConnection> RouteConnections(
+        IReadOnlyList<RoomMapRoomPlacement> rooms,
+        RoomMapBounds unassignedBounds,
+        int unassignedDeviceCount)
+    {
+        var root = rooms.FirstOrDefault(room => room.IsRoot);
+        var rootEntry = root?.Anchors.FirstOrDefault(anchor => anchor.Kind == "root-entry");
+        if (root is null || rootEntry is null)
+        {
+            return [];
+        }
+
+        var trunkX = root.Bounds.X - RootGutter / 2;
+        var target = Center(rootEntry.Bounds);
+        var connections = new List<RoomMapConnection>();
+        foreach (var room in rooms.Where(room => !room.IsRoot))
+        {
+            var routerAnchors = room.Anchors.Where(anchor => anchor.Kind == "router").ToArray();
+            if (routerAnchors.Length == 0)
+            {
+                var wall = room.Anchors.FirstOrDefault(anchor => anchor.Kind == "room-wall");
+                if (wall is not null)
+                {
+                    connections.Add(RouteToRootEntry(
+                        $"room:{room.Id?.ToString("D") ?? room.Name}",
+                        "root-entry",
+                        RoomMapConnectionKind.Room,
+                        Center(wall.Bounds),
+                        room,
+                        rooms,
+                        trunkX,
+                        target));
+                }
+                continue;
+            }
+
+            foreach (var anchor in routerAnchors)
+            {
+                connections.Add(RouteToRootEntry(
+                    anchor.DeviceIdentity ?? $"router:{room.Name}",
+                    "root-entry",
+                    RoomMapConnectionKind.Router,
+                    Center(anchor.Bounds),
+                    room,
+                    rooms,
+                    trunkX,
+                    target));
+            }
+        }
+
+        var gatewayEntry = root.Anchors.FirstOrDefault(anchor => anchor.Kind == "gateway-entry");
+        if (gatewayEntry is not null)
+        {
+            foreach (var anchor in root.Anchors.Where(anchor => anchor.Kind == "router"))
+            {
+                connections.Add(new(
+                    anchor.DeviceIdentity ?? $"router:{root.Name}",
+                    gatewayEntry.DeviceIdentity ?? "gateway",
+                    RoomMapConnectionKind.RootRouter,
+                    RouteRootRouter(anchor.Bounds, root.Bounds, trunkX, gatewayEntry.Bounds)));
+            }
+        }
+
+        if (unassignedDeviceCount > 0)
+        {
+            var source = new RoomMapPoint(unassignedBounds.Right - 4, unassignedBounds.Y + 12);
+            var exitY = unassignedBounds.Y - RowGap / 2;
+            connections.Add(new(
+                "unassigned",
+                "root-entry",
+                RoomMapConnectionKind.Unassigned,
+                Orthogonal([source, new(source.X, exitY), new(trunkX, exitY), new(trunkX, target.Y), target])));
+        }
+
+        return connections;
+    }
+
+    private static RoomMapConnection RouteToRootEntry(
+        string sourceId,
+        string targetId,
+        RoomMapConnectionKind kind,
+        RoomMapPoint source,
+        RoomMapRoomPlacement room,
+        IReadOnlyList<RoomMapRoomPlacement> rooms,
+        double trunkX,
+        RoomMapPoint target) =>
+        new(
+            sourceId,
+            targetId,
+            kind,
+            RouteOutsideRoom(source, room, rooms, trunkX, target));
+
+    private static IReadOnlyList<RoomMapPoint> RouteOutsideRoom(
+        RoomMapPoint source,
+        RoomMapRoomPlacement sourceRoom,
+        IReadOnlyList<RoomMapRoomPlacement> rooms,
+        double trunkX,
+        RoomMapPoint target)
+    {
+        var laneX = sourceRoom.Bounds.Right + 8;
+        var horizontalMin = Math.Min(laneX, trunkX);
+        var horizontalMax = Math.Max(laneX, trunkX);
+        var direct = rooms.All(room =>
+            ReferenceEquals(room, sourceRoom) ||
+            !IntersectsHorizontalCorridor(room.Bounds, horizontalMin, horizontalMax, source.Y));
+        if (direct)
+        {
+            return Orthogonal(
+            [
+                source,
+                new(laneX, source.Y),
+                new(trunkX, source.Y),
+                new(trunkX, target.Y),
+                target
+            ]);
+        }
+
+        var rowGapY = sourceRoom.Bounds.Bottom + RowGap / 2;
+        return Orthogonal(
+        [
+            source,
+            new(laneX, source.Y),
+            new(laneX, rowGapY),
+            new(trunkX, rowGapY),
+            new(trunkX, target.Y),
+            target
+        ]);
+    }
+
+    private static bool IntersectsHorizontalCorridor(
+        RoomMapBounds bounds,
+        double left,
+        double right,
+        double y) =>
+        y > bounds.Y && y < bounds.Bottom && right > bounds.X && left < bounds.Right;
+
+    private static IReadOnlyList<RoomMapPoint> RouteRootRouter(
+        RoomMapBounds sourceBounds,
+        RoomMapBounds root,
+        double trunkX,
+        RoomMapBounds targetBounds)
+    {
+        var source = Center(sourceBounds);
+        var outsideX = root.Right + 4;
+        var laneY = root.Bottom + RowGap / 2;
+        var target = Center(targetBounds);
+        return Orthogonal(
+        [
+            source,
+            new(outsideX, source.Y),
+            new(outsideX, laneY),
+            new(trunkX, laneY),
+            new(trunkX, target.Y),
+            target
+        ]);
+    }
+
+    private static RoomMapPoint Center(RoomMapBounds bounds) =>
+        new(bounds.CenterX, bounds.CenterY);
+
+    private static IReadOnlyList<RoomMapPoint> Orthogonal(IEnumerable<RoomMapPoint> points)
+    {
+        var orthogonal = new List<RoomMapPoint>();
+        foreach (var point in points)
+        {
+            if (orthogonal.Count == 0)
+            {
+                orthogonal.Add(point);
+                continue;
+            }
+            var previous = orthogonal[^1];
+            if (Math.Abs(point.X - previous.X) < 0.001 && Math.Abs(point.Y - previous.Y) < 0.001)
+            {
+                continue;
+            }
+            orthogonal.Add(point);
+        }
+        return orthogonal;
     }
 
     private static (

@@ -117,7 +117,7 @@
                     "control-Database backups" { $script:currentPage -eq "Tools" }
                     "control-View room map" { $script:currentPage -eq "Tools" }
                     "control-Room map" { $script:currentPage -eq "RoomMap" }
-                    "control-Manage rooms" { $script:currentPage -eq "RoomMap" }
+                    "control-Back to Rooms" { $script:currentPage -eq "RoomMap" }
                     "control-No room assigned" { $script:currentPage -eq "RoomMap" }
                     "control-Back up now" { $script:currentPage -eq "DatabaseBackups" }
                     "control-Open backup folder" { $script:currentPage -eq "DatabaseBackups" }

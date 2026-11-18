@@ -270,7 +270,7 @@ function Show-UiReviewCaptureScenario {
         $cardId = Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@Name='View room map']"
         Invoke-WebDriverElement -ElementId $cardId
         $null = Assert-VisibleUiReviewElement -Value "Room map"
-        $null = Assert-VisibleUiReviewElement -Value "Manage rooms"
+        $null = Assert-VisibleUiReviewElement -Value "Back to Rooms"
         $null = Assert-VisibleUiReviewElement -Value "No room assigned"
     }
 }
