@@ -11,7 +11,7 @@ function Assert-Fails([scriptblock] $Action, [string] $Pattern) {
 function New-Fixture {
     $script:fixture = @{
         comments = @(); requests = @(); reruns = 0; failTrigger = $false; failReadback = $false; newerRun = $false
-        changeAfterReserve = $false; paginate = $false; replies = @{}
+        changeAfterReserve = $false; paginate = $false; cursorSequence = @(); replies = @{}
         issue = @{ number = 101; state = "open"; labels = @(@{ name = "type:task" }) }
         parent = @{ number = 92; state = "open"; labels = @(@{ name = "type:epic" }) }
         pull = @{ number = 201; state = "open"; mergeable = $true; base = @{ ref = "main" }
@@ -72,10 +72,33 @@ $api = {
             return @{ data = @{ node = @{ replies = @{ nodes = $nodes; pageInfo = @{ hasNextPage = $false } } } } }
         }
         $comments = if ($script:fixture.failReadback) { @() } else { $script:fixture.comments }
+        $allComments = $comments
         $more = $false
-        if ($script:fixture.paginate -and $comments.Count -gt 1) {
+        $endCursor = $null
+        if ($script:fixture.cursorSequence.Count) {
+            $afterMatch = [regex]::Match($Fields.query, 'after:"([^"]+)"')
+            $pageIndex = 0
+            if ($afterMatch.Success) {
+                $pageIndex = -1
+                for ($index = 0; $index -lt $script:fixture.cursorSequence.Count; $index++) {
+                    if ($script:fixture.cursorSequence[$index] -ceq $afterMatch.Groups[1].Value) {
+                        $pageIndex = $index + 1
+                        break
+                    }
+                }
+                Assert-True ($pageIndex -ge 0) "Unexpected repair history cursor."
+            }
+            Assert-True ($pageIndex -lt $allComments.Count) "Incomplete synthetic repair history page."
+            $comments = if ($pageIndex -lt $script:fixture.cursorSequence.Count) {
+                @($allComments[$pageIndex])
+            } else {
+                @($allComments | Select-Object -Skip $pageIndex)
+            }
+            $more = $pageIndex -lt $script:fixture.cursorSequence.Count
+            $endCursor = if ($more) { $script:fixture.cursorSequence[$pageIndex] } else { $null }
+        } elseif ($script:fixture.paginate -and $comments.Count -gt 1) {
             if ($Fields.query.Contains('after:"next"')) { $comments = @($comments | Select-Object -Skip 1) }
-            else { $comments = @($comments[0]); $more = $true }
+            else { $comments = @($comments[0]); $more = $true; $endCursor = "next" }
         }
         $nodes = @(foreach ($comment in $comments) {
             $entry = $comment.Clone()
@@ -83,7 +106,7 @@ $api = {
             $entry.replies = @{ nodes = $replies; pageInfo = @{ hasNextPage = $false } }
             $entry
         })
-        return @{ data = @{ node = @{ comments = @{ nodes = $nodes; pageInfo = @{ hasNextPage = $more; endCursor = "next" } } } } }
+        return @{ data = @{ node = @{ comments = @{ nodes = $nodes; pageInfo = @{ hasNextPage = $more; endCursor = $endCursor } } } } }
     }
     if ($Endpoint.StartsWith("repos/TestOwner/TestRepo/actions/workflows/501/runs?")) {
         return @{ workflow_runs = @(@{ id = $(if ($script:fixture.newerRun) { 302 } else { 301 }) }) }
@@ -155,6 +178,33 @@ $null = Add-Comment "<!-- fingvibe:assignment=old-code developer=developer-1 act
 $script:fixture.paginate = $true
 $request.expectedRepairCount = 1
 Assert-True ((Invoke-Agent4RepairAction $request $api).attempt -eq 2) "Paginated comments and nested reply reservations contribute to the shared budget."
+
+$request = New-Fixture
+$script:fixture.comments = @(
+    @{ id = "DC_kwDOVT1KL84BLKVK"; body = "Task history A"; createdAt = "2026-11-16T22:00:00Z" },
+    @{ id = "DC_kwDOVT1KL84BLKvk"; body = "Task history B"; createdAt = "2026-11-16T22:01:00Z" }
+)
+Assert-True ((Invoke-Agent4RepairAction $request $api).attempt -eq 1) "GraphQL node IDs differing only by case are distinct."
+
+$request = New-Fixture
+$script:fixture.comments = @(
+    @{ id = "DC_duplicate"; body = "Task history A"; createdAt = "2026-11-16T22:00:00Z" },
+    @{ id = "DC_duplicate"; body = "Task history B"; createdAt = "2026-11-16T22:01:00Z" }
+)
+Assert-Fails { Invoke-Agent4RepairAction $request $api } "*Missing or duplicate repair history entries*"
+
+$request = New-Fixture
+$null = Add-Comment "Task history A"
+$null = Add-Comment "Task history B"
+$null = Add-Comment "Task history C"
+$script:fixture.cursorSequence = @("CursorA", "cursora")
+Assert-True ((Invoke-Agent4RepairAction $request $api).attempt -eq 1) "GraphQL pagination cursors differing only by case are distinct."
+
+$request = New-Fixture
+$null = Add-Comment "Task history A"
+$null = Add-Comment "Task history B"
+$script:fixture.cursorSequence = @("RepeatedCursor", "RepeatedCursor")
+Assert-Fails { Invoke-Agent4RepairAction $request $api } "*Invalid repair history pagination*"
 
 foreach ($repairCount in 1, 3) {
     $request = New-Fixture
