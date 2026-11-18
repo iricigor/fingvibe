@@ -210,38 +210,40 @@ function Test-MacExpansionTextScale {
         if ($labels.Count -eq 3 -and $more.Count -eq 1) { , (@($labels | Sort-Object { $_.Current.BoundingRectangle.Top }) + $more) }
     }
     # At 200% text scale the list viewport (about 192 px) is shorter than the expanded row, and UIA clips peer
-    # bounds to it, so all lines are never unclipped at once. Check each adjacent pair of lines (in tree order)
-    # at a bounded scroll position where both are fully inside the list viewport.
+    # bounds to the scroll viewport, reporting the clip edge as a clipped line's bottom. Sample a bounded set of
+    # scroll positions, take each line's largest observed height as its unclipped height, and check each adjacent
+    # pair (in tree order) at a position where both show that full height inside the list.
     $list = Find-DeviceElement ResultsList
     $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     $listBounds = $list.Current.BoundingRectangle
     $window = $root.Current.BoundingRectangle
     $positions = if ($scroll.Current.VerticallyScrollable) { 0..50 | ForEach-Object { $_ * 2 } } else { @(-1) }
-    $getLineBounds = {
+    $isVisible = {
+        param($Bounds)
+        -not $Bounds.IsEmpty -and [double]::IsFinite($Bounds.Top) -and [double]::IsFinite($Bounds.Height) -and
+            $Bounds.Top -ge $listBounds.Top - 0.5 -and $Bounds.Bottom -le $listBounds.Bottom + 0.5
+    }
+    $samples = [System.Collections.Generic.List[object]]::new()
+    foreach ($percent in $positions) {
+        if ($percent -ge 0) { $scroll.SetScrollPercent(-1, $percent); Start-Sleep -Milliseconds 50 }
         $candidate = Find-ExpansionRow
-        if (-not $candidate) { return $null }
+        if (-not $candidate) { continue }
         $labels = @(Find-ExpansionParts $candidate 'DeviceMacExpansionLabel')
         $more = @(Find-ExpansionParts $candidate 'DeviceMacExpansionMore')
-        if ($labels.Count -ne 3 -or $more.Count -ne 1) { return $null }
-        , @((@($labels) + $more) | ForEach-Object { $_.Current.BoundingRectangle })
+        if ($labels.Count -ne 3 -or $more.Count -ne 1) { continue }
+        $samples.Add(@((@($labels) + $more) | ForEach-Object { $_.Current.BoundingRectangle }))
     }
-    $isLineInView = {
-        param($Bounds)
-        -not $Bounds.IsEmpty -and [double]::IsFinite($Bounds.Top) -and [double]::IsFinite($Bounds.Bottom) -and
-            $Bounds.Top -gt $listBounds.Top + 0.5 -and $Bounds.Bottom -lt $listBounds.Bottom - 0.5
+    $fullHeights = foreach ($index in 0..3) {
+        ($samples | ForEach-Object { $_[$index] } | Where-Object { & $isVisible $_ } |
+            Measure-Object -Property Height -Maximum).Maximum
     }
     foreach ($index in 0..2) {
-        $pair = $null
-        foreach ($percent in $positions) {
-            if ($percent -ge 0) { $scroll.SetScrollPercent(-1, $percent); Start-Sleep -Milliseconds 50 }
-            $all = & $getLineBounds
-            if ($all -and (& $isLineInView $all[$index]) -and (& $isLineInView $all[$index + 1])) {
-                $pair = @($all[$index], $all[$index + 1])
-                break
-            }
-        }
+        $pair = $samples | Where-Object {
+            (& $isVisible $_[$index]) -and (& $isVisible $_[$index + 1]) -and
+                $_[$index].Height -ge $fullHeights[$index] - 0.5 -and $_[$index + 1].Height -ge $fullHeights[$index + 1] - 0.5
+        } | ForEach-Object { , @($_[$index], $_[$index + 1]) } | Select-Object -First 1
         if (-not $pair) {
-            throw "Earlier MAC lines $index and $($index + 1) never fit the list viewport together at 200% text scale. List=$listBounds; lines=$((& $getLineBounds) -join ' | ')."
+            throw "Earlier MAC lines $index and $($index + 1) were never fully visible together at 200% text scale. List=$listBounds; full heights=$($fullHeights -join ', '); samples=$($samples.Count)."
         }
         foreach ($bounds in $pair) {
             if ($bounds.Left -lt $window.Left -or $bounds.Right -gt $window.Right -or $bounds.Height -lt 24 * $scale) {
@@ -251,8 +253,7 @@ function Test-MacExpansionTextScale {
         if ($pair[1].Top -lt $pair[0].Bottom - $scale) {
             throw "Earlier MAC lines must not overlap at 200% text scale. Lines=$($pair[0]) / $($pair[1]); scale=$scale."
         }
-    }
-    $null = Save-DeviceCapture 'devices-mac-expansion-text-scale-200'
+    }    $null = Save-DeviceCapture 'devices-mac-expansion-text-scale-200'
 }
 Stop-UiRegressionApp -Process $process
 $expansionFailed = $true
