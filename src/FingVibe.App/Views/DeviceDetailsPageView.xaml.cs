@@ -15,6 +15,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
     internal static bool CompletedObservationsEnabled => true;
 
     private bool _updatingAssignments;
+    private bool _backToRoomMap;
     private bool _updatingAddresses;
     private bool _editingClassification;
     private bool _classificationEnabled;
@@ -88,9 +89,13 @@ public sealed partial class DeviceDetailsPageView : UserControl
 
     internal void SetBackDestination(bool roomMap)
     {
+        if (roomMap == _backToRoomMap) return;
+        _backToRoomMap = roomMap;
         DeviceBackButton.Content = roomMap ? "\u2190 Room map" : "\u2190 Devices";
         AutomationProperties.SetName(DeviceBackButton, roomMap ? "Back to Room map" : "Back to devices");
-        ToolTipService.SetToolTip(DeviceBackButton, roomMap ? "Back to Room map" : "Back to devices");
+        // The default Devices Back button keeps having no ToolTip: a keyboard-focused ToolTip would be a second
+        // "Back to devices" automation peer without an Invoke pattern.
+        ToolTipService.SetToolTip(DeviceBackButton, roomMap ? "Back to Room map" : null);
         DeviceBackButton.UpdateLayout();
         LayoutHeader(HeaderGrid.ActualWidth);
     }
