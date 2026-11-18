@@ -96,7 +96,8 @@ function Test-RoomMapEntries {
 
     Select-SidebarPage 'Tools' 'Network troubleshooting'
     Invoke-PeopleRoomsElement Name 'Network troubleshooting'
-    $null = Find-PeopleRoomsElement Name 'Run checks'
+    # The visible "Run checks" button is exposed to UI Automation as "Run network troubleshooting".
+    $null = Find-PeopleRoomsElement AutomationId RunButton
     Invoke-PeopleRoomsElement AutomationId TroubleshootingViewRoomMapButton
     Invoke-PeopleRoomsElement AutomationId ManageRoomsButton RoomMapPage
     $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
