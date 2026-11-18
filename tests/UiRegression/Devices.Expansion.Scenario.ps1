@@ -59,7 +59,7 @@ function Find-ExpansionParts($Row, [string] $Id) {
 }
 
 function Test-ExpansionInk([object[]] $Elements, [int[]] $SystemColors) {
-    # True when every element shows ink near a high-contrast system text color that differs from its own background.
+    # Require real high-contrast ink while allowing anti-aliased coverage of a small icon.
     $capture = Save-DeviceCapture 'devices-mac-expansion-high-contrast'
     $window = Get-UiReviewWindowBounds $windowHandle
     $bitmap = [Drawing.Bitmap]::new($capture)
@@ -75,14 +75,27 @@ function Test-ExpansionInk([object[]] $Elements, [int[]] $SystemColors) {
             $inked = $false
             foreach ($color in $SystemColors) {
                 $expected = [Drawing.Color]::FromArgb($color -band 255, ($color -shr 8) -band 255, ($color -shr 16) -band 255)
-                $backgroundDistance = [Math]::Max([Math]::Abs([int]$background.R - $expected.R),
-                    [Math]::Max([Math]::Abs([int]$background.G - $expected.G), [Math]::Abs([int]$background.B - $expected.B)))
-                if ($backgroundDistance -le 32) { continue }
+                $redDelta = [int]$expected.R - $background.R
+                $greenDelta = [int]$expected.G - $background.G
+                $blueDelta = [int]$expected.B - $background.B
+                $lengthSquared = $redDelta * $redDelta + $greenDelta * $greenDelta + $blueDelta * $blueDelta
+                if ($lengthSquared -le 32 * 32) { continue }
                 for ($y = $top; $y -lt $bottom -and -not $inked; $y++) {
                     for ($x = $left; $x -lt $right -and -not $inked; $x++) {
                         $pixel = $bitmap.GetPixel($x, $y)
-                        $inked = [Math]::Max([Math]::Abs([int]$pixel.R - $expected.R),
-                            [Math]::Max([Math]::Abs([int]$pixel.G - $expected.G), [Math]::Abs([int]$pixel.B - $expected.B))) -le 16
+                        $redPixelDelta = [int]$pixel.R - $background.R
+                        $greenPixelDelta = [int]$pixel.G - $background.G
+                        $bluePixelDelta = [int]$pixel.B - $background.B
+                        $coverage = [Math]::Max(0d, [Math]::Min(1d,
+                            [double]($redPixelDelta * $redDelta + $greenPixelDelta * $greenDelta +
+                                $bluePixelDelta * $blueDelta) / $lengthSquared))
+                        $compositedRed = $background.R + $coverage * $redDelta
+                        $compositedGreen = $background.G + $coverage * $greenDelta
+                        $compositedBlue = $background.B + $coverage * $blueDelta
+                        $rasterError = [Math]::Max([Math]::Abs($pixel.R - $compositedRed),
+                            [Math]::Max([Math]::Abs($pixel.G - $compositedGreen),
+                                [Math]::Abs($pixel.B - $compositedBlue)))
+                        $inked = $coverage -ge 0.8 -and $rasterError -le 8
                     }
                 }
                 if ($inked) { break }
@@ -103,17 +116,8 @@ function Test-MacExpansionHighContrast {
     try {
         Set-DeviceFilterContrastFlags -Flags ($flags -bor 1)
         Wait-DeviceFilterContrastReady -Enabled $true
-        $appDirectory = Split-Path -Parent (Resolve-Path -LiteralPath $AppPath).Path
-        Add-Type -Path (Join-Path $appDirectory 'WinRT.Runtime.dll')
-        Add-Type -Path (Join-Path $appDirectory 'Microsoft.Windows.SDK.NET.dll')
-        $foreground = [Windows.UI.ViewManagement.UISettings]::new().GetColorValue(
-            [Windows.UI.ViewManagement.UIColorType]::Foreground)
         # Window text, highlight text (selected row) and button text are the high-contrast foregrounds in use.
         $systemColors = @(8, 14, 18 | ForEach-Object { [DeviceFilterReviewContrast]::GetSysColor($_) })
-        # The WinRT foreground can update for WinUI before the worker's Win32 color cache does.
-        $systemColors += [int]$foreground.R -bor
-            ([int]$foreground.G -shl 8) -bor
-            ([int]$foreground.B -shl 16)
         $chevron = Wait-UiRegressionState -Description 'expanded MAC row rendered in high contrast' -Condition {
             $candidate = Find-ExpansionRow
             if (-not $candidate) { return $null }
