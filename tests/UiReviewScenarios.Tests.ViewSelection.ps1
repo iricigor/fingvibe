@@ -30,5 +30,5 @@
         ".github\scripts\UiReviewNavigation.ps1" = "New navigation"
         "tests\UiReviewScenarios.Tests.ps1" = "New tests"
         "README.md" = "Tools documentation"
-    } @("Devices", "DeviceDetails", "DeviceHistory", "Tools", "SpeedTest", "Troubleshooting", "About", "FingImport", "SqlEditor", "DatabaseBackups") "Tools structural changes include all tools and scan discovery"
+    } @("Devices", "DeviceDetails", "DeviceHistory", "RoomMap", "Tools", "SpeedTest", "Troubleshooting", "About", "FingImport", "SqlEditor", "DatabaseBackups") "Tools structural changes include all tools and scan discovery"
     $base = $originalBase

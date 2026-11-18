@@ -130,6 +130,7 @@ function Show-UiReviewCaptureScenario {
         "FingImport" { "Tools" }
         "SqlEditor" { "Tools" }
         "DatabaseBackups" { "Tools" }
+        "RoomMap" { "Tools" }
         "PersonDetails" { "People & rooms" }
         "RoomDetails" { "People & rooms" }
         "People" { "People & rooms" }
@@ -207,6 +208,7 @@ function Show-UiReviewCaptureScenario {
         "FingImport" { "Import from Fing" }
         "SqlEditor" { "SQL editor" }
         "DatabaseBackups" { "Database backups" }
+        "RoomMap" { "View room map" }
         "People" { "Search people and rooms" }
         "Rooms" { "Search people and rooms" }
         "Settings" { "Appearance preferences" }
@@ -263,5 +265,12 @@ function Show-UiReviewCaptureScenario {
         $null = Assert-VisibleUiReviewElement -Value "Back up now"
         $null = Assert-VisibleUiReviewElement -Value "Open backup folder"
         $null = Assert-VisibleUiReviewElement -Value "Completed backups"
+    }
+    elseif ($Scenario -eq "RoomMap") {
+        $cardId = Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@Name='View room map']"
+        Invoke-WebDriverElement -ElementId $cardId
+        $null = Assert-VisibleUiReviewElement -Value "Room map"
+        $null = Assert-VisibleUiReviewElement -Value "Manage rooms"
+        $null = Assert-VisibleUiReviewElement -Value "No room assigned"
     }
 }

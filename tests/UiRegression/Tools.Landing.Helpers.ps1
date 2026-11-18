@@ -29,7 +29,7 @@ function Assert-ToolsLandingLayout {
         [int] $Height = 720,
         [Parameter(Mandatory)][string] $Variant
     )
-    $ids = @("SqlEditorCard", "FingImportCard", "SpeedTestCard", "TroubleshootingCard", "DatabaseBackupsCard")
+    $ids = @("SqlEditorCard", "FingImportCard", "SpeedTestCard", "RoomMapCard", "TroubleshootingCard", "DatabaseBackupsCard")
     # An active landing must not depend on sidebar peers being realized during resize.
     if (-not (Get-ToolsLandingElement "ToolsLanding" -Optional)) { Select-Page "Tools" }
     $bounds = Get-UiReviewWindowBounds -WindowHandle $process.MainWindowHandle

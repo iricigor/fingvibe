@@ -75,6 +75,7 @@ public sealed partial class MainWindow
         UpdateEquipmentActivity();
         _ = RefreshUsageCategoriesAsync(force: true);
         ToolsPage.SetNetworkContext(selectedNetwork);
+        UpdateRoomMapPage();
         OverviewPage.ShowSubnet(selectedNetwork);
         NetworkPage.ShowLocalNetwork(selectedNetwork);
         if (NetworkPicker.SelectedItem is not LanNetwork network)

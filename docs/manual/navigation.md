@@ -20,9 +20,13 @@ The text labels remain the instructions.
 
 Tool cards fill two equal-width columns, read left to right:
 **SQL editor** and **Import from Fing**, then **Speed test** and
-**Network troubleshooting**. **Database backups** starts the next row on the
-left, at the same width. Scroll down in a small window to reach later cards.
-Keyboard focus follows that same order.
+**Room map**, then **Network troubleshooting** and **Database backups**.
+Scroll down in a small window to reach later cards. Keyboard focus follows
+that same order.
+
+The Room map has no sidebar item. Open it from **Tools**, from the Rooms
+section of **People & rooms**, or from the network troubleshooting diagram.
+Its **Manage rooms** action returns to room management.
 
 ## Overview
 

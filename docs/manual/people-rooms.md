@@ -43,6 +43,30 @@ Assignments normally need a valid six-byte MAC address.
 They do not follow an IP address alone. Randomized or changing MACs can lose
 the link; supported inferred virtual identities keep their own assignments.
 
+## View the Room map
+
+Open **People & rooms**, then choose **View room map** in the **Rooms**
+section. You can also open the same page from the **Room map** card in
+**Tools**, or from the **Network path and status** section in
+**Network troubleshooting**.
+
+The map includes all saved rooms, their assigned devices, and a separate
+**No room assigned** area. Empty saved rooms remain visible. Room and device
+sizes use bounded tiers, so counts do not turn into a proportional floor plan.
+The selected network's gateway identifies the root room. This PC and its
+saved room have separate highlights when that evidence is available.
+
+**Online**, **Offline**, and **No local scan evidence** describe the latest
+saved result for the selected network. They do not prove physical presence.
+The Internet symbol and room arrangement describe organization and conceptual
+connection, not discovered cable, Wi-Fi, mesh, or Internet topology. This
+read-only version does not draw individual room connection paths.
+
+The first version of the page is read-only. Use **Manage rooms** to return to
+the existing room management page. Narrow windows keep normal-size device
+icons and allow horizontal and vertical scrolling. With larger Windows text
+sizes, room headers and device tiles grow taller so labels stay inside them.
+
 ## Find, edit, or delete
 
 Use **Search people and rooms** to filter both sections at once. Open an entry to review its assigned

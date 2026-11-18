@@ -89,6 +89,7 @@ public sealed partial class MainWindow
         PeopleRoomsPage.ShowPeopleRooms(_peopleRooms, devices, hasCurrentScan, canEdit);
         PersonDetailPage.Refresh(_peopleRooms, devices, hasCurrentScan, canEdit);
         RoomDetailPage.Refresh(_peopleRooms, devices, hasCurrentScan, canEdit);
+        UpdateRoomMapPage();
         UpdateEquipmentActivity();
     }
 

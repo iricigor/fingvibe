@@ -39,6 +39,21 @@ function Test-UiRegressionElementWithin {
     return $true
 }
 
+function Select-UiRegressionLargestRenderedPeers {
+    param([object[]] $Elements, [double] $Tolerance = 1.0)
+    $candidates = @($Elements)
+    if ($candidates.Count -eq 0) { return @() }
+    $renderedWidth = ($candidates | ForEach-Object { $_.Current.BoundingRectangle.Width } |
+        Measure-Object -Maximum).Maximum
+    $renderedHeight = ($candidates | ForEach-Object { $_.Current.BoundingRectangle.Height } |
+        Measure-Object -Maximum).Maximum
+    @($candidates | Where-Object {
+        $bounds = $_.Current.BoundingRectangle
+        [Math]::Abs($bounds.Width - $renderedWidth) -le $Tolerance -and
+            [Math]::Abs($bounds.Height - $renderedHeight) -le $Tolerance
+    })
+}
+
 function Show-UiRegressionScrollTargets {
     param(
         [Parameter(Mandatory)][scriptblock] $GetViewport,
