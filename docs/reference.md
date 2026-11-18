@@ -187,7 +187,9 @@ should be scanned, and that sleeping or slow Wi-Fi devices can be missed by the
 shorter timeout and may need a rescan. Cancel or Escape starts nothing. The full
 scan uses a fixed **200 ms** timeout and at most **128 simultaneous attempts**,
 with no speed setting, and does not include UDP. Ports outside both lists are
-labeled **Unlisted service**. Progress shows checked/total ports and the open
+labeled **Unlisted service**. A port whose connection Windows itself refuses with access denied (for example
+137/TCP on loopback) is counted as blocked and reported in the outcome, never as open,
+and does not stop the remaining probes; the additional scan does the same. Progress shows checked/total ports and the open
 ports found so far; each open port appears as soon as it answers. The same
 button becomes **Cancel full scan**; leaving details or closing the app also
 cancels it. Cancellation or failure keeps the open ports already found and
