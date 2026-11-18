@@ -20,6 +20,7 @@ public sealed partial class RoomMapPageView : UserControl
     private readonly Dictionary<string, RoomMapNavigationTarget> _navigationTargets =
         new(StringComparer.Ordinal);
     private readonly Windows.UI.ViewManagement.UISettings _uiSettings = new();
+    private string[] _brushThemes = ["Light"];
 
     public RoomMapPageView()
     {
@@ -115,6 +116,9 @@ public sealed partial class RoomMapPageView : UserControl
             return;
         }
 
+        _brushThemes = new Windows.UI.ViewManagement.AccessibilitySettings().HighContrast
+            ? ["HighContrast"]
+            : ActualTheme == ElementTheme.Dark ? ["Dark", "Default"] : ["Light"];
         if (_network is null)
         {
             RoomMapNetworkText.Text = "No active IPv4 network";
@@ -569,9 +573,34 @@ public sealed partial class RoomMapPageView : UserControl
         }
     }
 
-    private static Brush Brush(string key) =>
-        Application.Current.Resources[key] as Brush
-        ?? throw new InvalidOperationException($"Required Room map brush '{key}' is unavailable.");
+    // Application.Resources[key] resolves the application's theme, but the user's theme is applied as a
+    // RequestedTheme on the window content, so code-built map elements look up this page's actual theme.
+    private Brush Brush(string key) =>
+        ThemeBrush(Application.Current.Resources, key, _brushThemes)
+            ?? Application.Current.Resources[key] as Brush
+            ?? throw new InvalidOperationException($"Required Room map brush '{key}' is unavailable.");
+
+    private static Brush? ThemeBrush(ResourceDictionary dictionary, string key, string[] themes)
+    {
+        foreach (var theme in themes)
+        {
+            if (dictionary.ThemeDictionaries.TryGetValue(theme, out var themed) &&
+                themed is ResourceDictionary resources &&
+                resources.TryGetValue(key, out var value) &&
+                value is Brush brush)
+            {
+                return brush;
+            }
+        }
+        foreach (var merged in dictionary.MergedDictionaries)
+        {
+            if (ThemeBrush(merged, key, themes) is { } brush)
+            {
+                return brush;
+            }
+        }
+        return null;
+    }
 
     private void CaptureNavigationState(string focusId, Guid? roomId)
     {
