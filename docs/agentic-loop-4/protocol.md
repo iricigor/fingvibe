@@ -329,9 +329,10 @@ Use its reserved attempt number in the code start; Developer verifies it instead
 of incrementing again. Do not use this helper for implement/resume/finalize.
 
 The helper rechecks open task/native Epic/PR identity, exclusions, PR head/base
-and complete paginated task Discussion history. Reruns additionally require the
-exact latest completed failed/timed-out Actions run and current run attempt,
-bound to that PR/head in the same repository. It requests
+and complete paginated task Discussion history. GitHub GraphQL node IDs and
+opaque pagination cursors are compared as case-sensitive ordinal values. Reruns
+additionally require the exact latest completed failed/timed-out Actions run and
+current run attempt, bound to that PR/head in the same repository. It requests
 `POST /repos/{repository}/actions/runs/{runId}/rerun-failed-jobs`, not a whole
 workflow rerun. Relevant fresh checks and durable reporting are exceptions to
 the no-duplicate-query rule; they are not CI-completion polling.

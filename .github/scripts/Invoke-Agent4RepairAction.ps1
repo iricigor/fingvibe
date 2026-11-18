@@ -116,7 +116,8 @@ function Invoke-Agent4RepairAction([System.Collections.IDictionary] $Request, [s
             throw "Discussion repository/category/task identity mismatch."
         }
         function Read-Comments([string] $Id, [string] $Type, [string] $Field) {
-            $entries = @(); $cursor = $null; $seen = @{}
+            $entries = @(); $cursor = $null
+            $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
             do {
                 $after = if ($cursor) { ',after:"' + $cursor + '"' } else { "" }
                 $selection = "id body createdAt"
@@ -132,8 +133,7 @@ function Invoke-Agent4RepairAction([System.Collections.IDictionary] $Request, [s
                 $entries += $connection.nodes
                 $cursor = $connection.pageInfo.endCursor
                 if ($connection.pageInfo.hasNextPage) {
-                    if (-not $cursor -or $seen.ContainsKey($cursor)) { throw "Invalid repair history pagination." }
-                    $seen[$cursor] = $true
+                    if (-not $cursor -or -not $seen.Add($cursor)) { throw "Invalid repair history pagination." }
                 }
             } while ($connection.pageInfo.hasNextPage)
             return ,$entries
@@ -151,15 +151,14 @@ function Invoke-Agent4RepairAction([System.Collections.IDictionary] $Request, [s
                 foreach ($reply in $replies.nodes) { $reply }
             }
         })
-        $seen = @{}
+        $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
         foreach ($entry in $entries) {
             $timestamp = [DateTimeOffset]::MinValue
-            if ($entry.id -isnot [string] -or -not $entry.id -or $seen.ContainsKey($entry.id) -or
+            if ($entry.id -isnot [string] -or -not $entry.id -or -not $seen.Add($entry.id) -or
                 $entry.body -isnot [string] -or
                 -not [DateTimeOffset]::TryParse([string] $entry.createdAt, [ref] $timestamp)) {
                 throw "Missing or duplicate repair history entries."
             }
-            $seen[$entry.id] = $true
         }
         $discussion.comments = @($entries | Sort-Object -Stable { $_.createdAt })
         $discussion
