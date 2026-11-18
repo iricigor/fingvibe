@@ -696,10 +696,13 @@
                                                     Visibility="{x:Bind HasMatchSuggestions, Mode=OneWay}"
                                                     Width="24" Height="24" MinWidth="24" MinHeight="24" Padding="0"
                                                     VerticalAlignment="Center" Background="Transparent" BorderThickness="0"
-                                                    ToolTipService.ToolTip="{x:Bind MatchSuggestionText, Mode=OneWay}"
                                                     AutomationProperties.AutomationId="DeviceMatchButton"
                                                     AutomationProperties.Name="{x:Bind MatchSuggestionName, Mode=OneWay}"
                                                     AutomationProperties.HelpText="{x:Bind MatchSuggestionText, Mode=OneWay}">
+                                                <ToolTipService.ToolTip>
+                                                    <ToolTip Content="{x:Bind MatchSuggestionText, Mode=OneWay}"
+                                                             AutomationProperties.Name="{x:Bind MatchSuggestionText, Mode=OneWay}" />
+                                                </ToolTipService.ToolTip>
                                                 <FontIcon Glyph="&#xE71B;" FontFamily="Segoe Fluent Icons" FontSize="14"
                                                           Foreground="{ThemeResource ScannerPossibleMatchBrush}" />
                                             </Button>

@@ -164,6 +164,13 @@
         throw "Scan LAN must retain its accessible label with a preceding decorative, theme-inherited, scalable refresh icon and wrapping text."
     }
     $devicesDocument = [xml](Get-Content (Join-Path $appDirectory "Views\DevicesPageView.xaml") -Raw)
+    $matchButton = $devicesDocument.SelectSingleNode("//*[@*[local-name()='Name']='DeviceMatchButton']")
+    $matchTooltip = $matchButton.SelectSingleNode("./*[local-name()='ToolTipService.ToolTip']/*[local-name()='ToolTip']")
+    if (-not $matchTooltip -or
+        $matchTooltip.GetAttribute("AutomationProperties.Name") -cne "{x:Bind MatchSuggestionText, Mode=OneWay}" -or
+        $matchTooltip.GetAttribute("Content") -cne "{x:Bind MatchSuggestionText, Mode=OneWay}") {
+        throw "Possible-match buttons must expose the full hover copy on an explicit named ToolTip peer."
+    }
     if ($devicesDocument.SelectSingleNode("//*[@*[local-name()='Name']='ScanButton']")) {
         throw "Devices must not duplicate the shared primary scan action."
     }
