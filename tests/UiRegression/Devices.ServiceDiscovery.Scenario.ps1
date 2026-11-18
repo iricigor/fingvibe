@@ -25,7 +25,8 @@ $serviceResults = @(
             (New-ServiceFixtureAdvertisement '_spotify-connect._tcp.local' 'Spotify Connect' 'Spotify Connect playback endpoint' 'Kitchen' 4070 1))
     },
     @{
-        address = '127.0.0.3'; status = 0; roundtripTimeMilliseconds = $null; probeDuration = '00:00:00'
+        # UI review gives MAC-less loopback rows the "Review custom name" MAC, so keep this responder off loopback.
+        address = '192.0.2.3'; status = 0; roundtripTimeMilliseconds = $null; probeDuration = '00:00:00'
         deviceName = 'hue-bridge.local'; macAddress = $null; vendorName = 'Unknown'; openPorts = @()
         serviceAdvertisements = @(
             (New-ServiceFixtureAdvertisement '_hue._tcp.local' 'Philips Hue' 'Hue bridge service' 'Hue Bridge' 443 2 -Name 'Hue Bridge'))
@@ -113,11 +114,13 @@ foreach ($expected in @('MAC unavailable', '--', 'Hue Bridge', '_hue._tcp.local'
         throw "Device Details must show '$expected' for the MAC-less service-discovery responder."
     }
 }
-$identification = @($texts | Where-Object { $_.Current.Name -ceq 'Device identification' })
-$ports = @($texts | Where-Object { $_.Current.Name -like 'Ports & services (*' })
-if ($identification.Count -ne 1 -or $ports.Count -ne 1 -or
-    $identification[0].Current.BoundingRectangle.Top -ge $heading.Current.BoundingRectangle.Top -or
-    $heading.Current.BoundingRectangle.Top -ge $ports[0].Current.BoundingRectangle.Top) {
+# Scrolling to Service discovery can leave Device identification offscreen with empty bounds, so compare tree order.
+$sectionNames = @($texts | ForEach-Object { $_.Current.Name })
+$identificationIndex = [Array]::IndexOf($sectionNames, 'Device identification')
+$headingIndex = [Array]::IndexOf($sectionNames, 'Service discovery (1)')
+$portsIndex = @(0..($sectionNames.Count - 1) | Where-Object { $sectionNames[$_] -like 'Ports & services (*' })
+if (@($sectionNames | Where-Object { $_ -ceq 'Device identification' }).Count -ne 1 -or $portsIndex.Count -ne 1 -or
+    $identificationIndex -lt 0 -or $headingIndex -le $identificationIndex -or $portsIndex[0] -le $headingIndex) {
     throw 'Service discovery must sit below Device identification and above Ports & services.'
 }
 $null = Save-DeviceCapture 'device-details-service-discovery'
