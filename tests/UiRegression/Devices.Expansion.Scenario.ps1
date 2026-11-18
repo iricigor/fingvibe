@@ -209,33 +209,48 @@ function Test-MacExpansionTextScale {
         $more = @(Find-ExpansionParts $candidate 'DeviceMacExpansionMore')
         if ($labels.Count -eq 3 -and $more.Count -eq 1) { , (@($labels | Sort-Object { $_.Current.BoundingRectangle.Top }) + $more) }
     }
-    # The expanded row is the last fixture row and grows past the list viewport at 200% text scale.
-    # UIA clips peer bounds to the viewport, so bring its last line fully into view before measuring.
+    # At 200% text scale the list viewport (about 192 px) is shorter than the expanded row, and UIA clips peer
+    # bounds to it, so all lines are never unclipped at once. Check each adjacent pair of lines (in tree order)
+    # at a bounded scroll position where both are fully inside the list viewport.
     $list = Find-DeviceElement ResultsList
-    $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern).SetScrollPercent(-1, 100)
+    $scroll = $list.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     $listBounds = $list.Current.BoundingRectangle
-    $lines = Wait-UiRegressionState -Description 'expanded MAC lines scrolled into the list viewport' -Condition {
+    $window = $root.Current.BoundingRectangle
+    $positions = if ($scroll.Current.VerticallyScrollable) { 0..50 | ForEach-Object { $_ * 2 } } else { @(-1) }
+    $getLineBounds = {
         $candidate = Find-ExpansionRow
         if (-not $candidate) { return $null }
         $labels = @(Find-ExpansionParts $candidate 'DeviceMacExpansionLabel')
         $more = @(Find-ExpansionParts $candidate 'DeviceMacExpansionMore')
         if ($labels.Count -ne 3 -or $more.Count -ne 1) { return $null }
-        $last = $more[0].Current.BoundingRectangle
-        # Clipped peers report the viewport edge as their bottom, so also wait for an unclipped readable height.
-        if ($last.IsEmpty -or -not [double]::IsFinite($last.Bottom) -or $last.Bottom -gt $listBounds.Bottom + $scale -or
-            $last.Height -lt 24 * $scale) { return $null }
-        , (@($labels | Sort-Object { $_.Current.BoundingRectangle.Top }) + $more)
+        , @((@($labels) + $more) | ForEach-Object { $_.Current.BoundingRectangle })
     }
-    $window = $root.Current.BoundingRectangle
-    $previousBottom = 0
-    foreach ($line in $lines) {
-        $bounds = $line.Current.BoundingRectangle
-        if ($bounds.IsEmpty -or $bounds.Left -lt $window.Left -or $bounds.Right -gt $window.Right -or
-            $bounds.Top -lt $listBounds.Top - $scale -or $bounds.Bottom -gt $listBounds.Bottom + $scale -or
-            $bounds.Height -lt 24 * $scale -or $bounds.Top -lt $previousBottom - $scale) {
-            throw "Earlier MAC lines must stay readable, unclipped and non-overlapping at 200% text scale. Line=$bounds; list=$listBounds; window=$window; scale=$scale."
+    $isLineInView = {
+        param($Bounds)
+        -not $Bounds.IsEmpty -and [double]::IsFinite($Bounds.Top) -and [double]::IsFinite($Bounds.Bottom) -and
+            $Bounds.Top -gt $listBounds.Top + 0.5 -and $Bounds.Bottom -lt $listBounds.Bottom - 0.5
+    }
+    foreach ($index in 0..2) {
+        $pair = $null
+        foreach ($percent in $positions) {
+            if ($percent -ge 0) { $scroll.SetScrollPercent(-1, $percent); Start-Sleep -Milliseconds 50 }
+            $all = & $getLineBounds
+            if ($all -and (& $isLineInView $all[$index]) -and (& $isLineInView $all[$index + 1])) {
+                $pair = @($all[$index], $all[$index + 1])
+                break
+            }
         }
-        $previousBottom = $bounds.Bottom
+        if (-not $pair) {
+            throw "Earlier MAC lines $index and $($index + 1) never fit the list viewport together at 200% text scale. List=$listBounds; lines=$((& $getLineBounds) -join ' | ')."
+        }
+        foreach ($bounds in $pair) {
+            if ($bounds.Left -lt $window.Left -or $bounds.Right -gt $window.Right -or $bounds.Height -lt 24 * $scale) {
+                throw "Earlier MAC lines must stay readable and unclipped at 200% text scale. Line=$bounds; list=$listBounds; window=$window; scale=$scale."
+            }
+        }
+        if ($pair[1].Top -lt $pair[0].Bottom - $scale) {
+            throw "Earlier MAC lines must not overlap at 200% text scale. Lines=$($pair[0]) / $($pair[1]); scale=$scale."
+        }
     }
     $null = Save-DeviceCapture 'devices-mac-expansion-text-scale-200'
 }
