@@ -654,6 +654,19 @@
           "fixtureAssignments": []
         },
         {
+          "file": "Devices.Expansion.Scenario.ps1",
+          "kind": "scenario",
+          "originalRanges": [],
+          "refactored": true,
+          "introducedBy": "#544: virtual-device earlier MAC chevron, hidden search matches, keyboard, navigation state and narrow layout.",
+          "functions": [],
+          "captures": [
+            "4ce23e01a5898416da27e38d919cec00b06f7d662e67532c3ee280cce6003e84",
+            "b0beb270b6bf54d17e5c5909f89e6f6e8573f21be1df2ad7717dd6892ebdc8e9"
+          ],
+          "fixtureAssignments": []
+        },
+        {
           "file": "Devices.Sorting.Scenario.ps1",
           "kind": "scenario",
           "originalRanges": [
@@ -677,6 +690,7 @@
         "Layout",
         "Appearance",
         "Interaction",
+        "Expansion",
         "Sorting"
       ]
     },

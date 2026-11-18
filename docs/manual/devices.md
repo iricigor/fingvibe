@@ -182,4 +182,18 @@ A multiple-PC icon can mark a **virtual device**: FingVibe's inferred identity
 for certain sparse private-prefix observations across changing MAC addresses.
 It does not mean a virtual machine. The association is an estimate, not proof
 that several observations belong to one physical device.
+
+When the row represents more than one saved MAC address, its chevron expands up
+to three earlier addresses. Each line keeps that MAC's own IP address,
+manufacturer, status and Last seen evidence. Additional addresses are
+summarized; the complete history remains in Device Details. The chevron alone
+changes expansion; choosing the rest of the row still opens Device Details.
+
+Search can reveal an earlier MAC or IP address that is outside the three-line
+preview. The matching row expands while the search is active, then returns to
+its previous state when the search is cleared. Expansion also remains in
+memory while sorting, filtering, scanning or moving between pages, and starts
+collapsed when FingVibe restarts. Use Right Arrow or Left Arrow on a focused
+row to expand or collapse it.
+
 See [Device details](device-details.md#virtual-device-details).

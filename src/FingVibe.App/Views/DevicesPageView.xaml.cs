@@ -23,6 +23,7 @@ public sealed partial class DevicesPageView : UserControl
     private readonly MultiSelectFilter<Guid?> _rooms;
     private readonly MultiSelectFilter<DeviceUsageCategory> _usageCategories;
     private readonly DeviceLastSeenAgeRefresh _lastSeenAges;
+    private readonly HashSet<string> _expandedMacRows = new(StringComparer.Ordinal);
     private IEnumerable<ScanResultRow> _results = [];
 
     public DevicesPageView()
@@ -128,6 +129,8 @@ public sealed partial class DevicesPageView : UserControl
         DismissCellPreview();
         if (_results is INotifyCollectionChanged previous) previous.CollectionChanged -= Results_CollectionChanged;
         _results = results;
+        foreach (var row in results)
+            row.SetMacExpansionState(_expandedMacRows.Contains(row.IdentityKey), SearchText);
         if (results is INotifyCollectionChanged current) current.CollectionChanged += Results_CollectionChanged;
         ResultsList.ItemsSource = results;
         _lastSeenAges.RefreshIfActive(results);
@@ -160,7 +163,11 @@ public sealed partial class DevicesPageView : UserControl
 
     private void Results_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs args)
     {
-        if (args.NewItems is { } added) _lastSeenAges.RefreshIfActive(added.OfType<ScanResultRow>());
+        if (args.NewItems is not { } added) return;
+        var rows = added.OfType<ScanResultRow>().ToArray();
+        foreach (var row in rows)
+            row.SetMacExpansionState(_expandedMacRows.Contains(row.IdentityKey), SearchText);
+        _lastSeenAges.RefreshIfActive(rows);
     }
 
     private void UpdateLastSeenAgeRefresh() => _lastSeenAges.SetActive(IsLoaded && Visibility == Visibility.Visible);
@@ -312,7 +319,7 @@ public sealed partial class DevicesPageView : UserControl
         if (ResultsList.ItemsPanelRoot is not { } panel) return;
         foreach (var container in panel.Children.OfType<ListViewItem>())
             if (ResultsList.ItemFromContainer(container) is ScanResultRow row)
-                AutomationProperties.SetHelpText(container, FullRowValues(row));
+                UpdateRowAutomation(container, row);
     }
 
     private void ResultsList_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
@@ -322,6 +329,8 @@ public sealed partial class DevicesPageView : UserControl
         if (args.Item is ScanResultRow row)
         {
             Microsoft.UI.Xaml.Automation.AutomationProperties.SetHelpText(args.ItemContainer, FullRowValues(row));
+            row.SetMacExpansionState(_expandedMacRows.Contains(row.IdentityKey), SearchText);
+            if (args.ItemContainer is ListViewItem container) UpdateRowAutomation(container, row);
             row.IsPointerOver = false;
             row.IsSelected = ReferenceEquals(ResultsList.SelectedItem, row);
             args.ItemContainer.RemoveHandler(PointerEnteredEvent, new PointerEventHandler(ResultRow_PointerEntered));
@@ -362,7 +371,12 @@ public sealed partial class DevicesPageView : UserControl
         }
     }
 
-    private void ResultSearchBox_TextChanged(object sender, TextChangedEventArgs e) => OnFiltersChanged();
+    private void ResultSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        foreach (var row in _results) row.SetMacExpansionSearch(SearchText);
+        OnFiltersChanged();
+        RefreshRowDescriptions();
+    }
     private void OpenPortsFilter_Changed(object sender, RoutedEventArgs e) => OnFiltersChanged();
 
     private void OnFiltersChanged()
@@ -621,6 +635,47 @@ public sealed partial class DevicesPageView : UserControl
         {
             DeviceRequested?.Invoke(this, row);
         }
+    }
+
+    private void ResultsList_KeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Key is not (Windows.System.VirtualKey.Right or Windows.System.VirtualKey.Left) ||
+            FocusManager.GetFocusedElement(XamlRoot) is not DependencyObject focused ||
+            FindAncestor<ListViewItem>(focused) is not { } container ||
+            ResultsList.ItemFromContainer(container) is not ScanResultRow row ||
+            !row.CanToggleMacAddresses)
+        {
+            return;
+        }
+
+        SetMacRowExpanded(row, e.Key == Windows.System.VirtualKey.Right);
+        UpdateRowAutomation(container, row);
+        container.Focus(FocusState.Programmatic);
+        e.Handled = true;
+    }
+
+    private void DeviceMacExpansionButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { DataContext: ScanResultRow row } element)
+        {
+            SetMacRowExpanded(row, !row.AreMacAddressesExpanded);
+            if (FindAncestor<ListViewItem>(element) is { } container)
+                UpdateRowAutomation(container, row);
+        }
+    }
+
+    private void SetMacRowExpanded(ScanResultRow row, bool expanded)
+    {
+        if (!row.HasEarlierMacAddresses) return;
+        if (expanded) _expandedMacRows.Add(row.IdentityKey);
+        else _expandedMacRows.Remove(row.IdentityKey);
+        row.SetMacExpansionState(expanded, SearchText);
+    }
+
+    private static void UpdateRowAutomation(ListViewItem container, ScanResultRow row)
+    {
+        AutomationProperties.SetHelpText(container, FullRowValues(row));
+        AutomationProperties.SetItemStatus(container, row.MacExpansionState);
     }
 
     private void DeviceMatchButton_Click(object sender, RoutedEventArgs e)
