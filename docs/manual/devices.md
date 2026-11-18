@@ -8,7 +8,7 @@ Unused IP addresses do not become device records.
 
 | Status | Meaning |
 | --- | --- |
-| Online | The device responded to ping or ARP in its latest applicable scan evidence, including saved results. |
+| Online | The device responded to ping, fresh ARP, or a validated mDNS/SSDP reply from its own address in its latest applicable scan evidence, including saved results. |
 | Offline | A previously observed device did not respond in a later successful scan of the same identified network and subnet. |
 | Unknown | No suitable local scan status is available. Restart alone does not make a known status Unknown. |
 | Fing Only | The imported MAC address has never been observed in a local FingVibe scan. |
@@ -115,6 +115,27 @@ Service icons represent observed ports, such as a web or file-sharing service.
 Hover over an icon for the port number and name.
 An open port is **not a security verdict**. It does not prove a service is safe,
 unsafe, or running a particular operating system.
+
+## Service discovery responders
+
+Some devices ignore ping and ARP but announce services through mDNS/DNS-SD or
+SSDP/UPnP. A fresh, valid reply sent by the device's own address during the
+current scan also makes that device **Online**; there is no separate status.
+
+- **Response** shows `--` because no ping time was measured.
+- The name stays your saved name first, then the actual advertised host name,
+  then the IP address. Service names and roles never replace names.
+- **MAC unavailable** means the device answered without a usable MAC address.
+  It stays visible for that scan but is not saved as equipment, matched by IP
+  address, or given an invented MAC.
+- In **Open ports**, verified ports stay on the left. A right-aligned
+  service-discovery icon appears only for advertisements from the latest scan.
+  Hover over or focus it for the advertised services and observation time;
+  select it to open **Service discovery** in Device Details.
+
+Stale, expired (goodbye), malformed, unrelated, or out-of-network announcements
+never make a device Online. An address that is only mentioned in another
+device's announcement is not treated as a responder.
 
 ## Last seen
 

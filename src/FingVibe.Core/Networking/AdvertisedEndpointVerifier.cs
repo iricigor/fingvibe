@@ -8,10 +8,10 @@ namespace FingVibe.Core.Networking;
 // advertised the service is probed; other advertised hosts and UDP endpoints are never contacted.
 internal sealed class AdvertisedEndpointVerifier
 {
-    // 64 probes at 16 at a time and 400 ms each bound the worst case to four waves, 1.6 seconds per scan.
+    // 64 probes at 32 at a time and 400 ms each bound the worst case to two waves, 0.8 seconds per scan.
     internal const int MaximumEndpointsPerScan = 64;
     internal const int MaximumEndpointsPerDevice = 8;
-    internal const int MaximumConcurrency = 16;
+    internal const int MaximumConcurrency = 32;
     internal static readonly TimeSpan ConnectTimeout = TimeSpan.FromMilliseconds(400);
 
     private readonly Func<IPAddress, int, CancellationToken, Task<bool>> _connect;

@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 namespace FingVibe.Core.Models;
@@ -37,12 +38,15 @@ public sealed record ServiceAdvertisement(
     public const int MaximumPerResult = 32;
     public const int MaximumTextLength = 256;
 
+    [JsonIgnore]
     public string ProtocolText => Protocol == ServiceDiscoveryProtocol.Mdns ? "mDNS/DNS-SD" : "SSDP/UPnP";
 
+    [JsonIgnore]
     public string EndpointText => Port is { } port
         ? $"{Host ?? "advertised host"}:{port}/{(Transport ?? EndpointProtocol.Tcp).ToString().ToUpperInvariant()}"
         : "No endpoint advertised";
 
+    [JsonIgnore]
     public string VerificationText => Verification switch
     {
         AdvertisedEndpointState.Open => "TCP verified: open",
@@ -51,6 +55,7 @@ public sealed record ServiceAdvertisement(
         _ => Transport == EndpointProtocol.Udp ? "UDP endpoint - not probed" : "No TCP endpoint to verify"
     };
 
+    [JsonIgnore]
     public string Summary => Role is null ? ServiceLabel : $"{ServiceLabel} ({Role})";
 
     public static bool IsValid(IReadOnlyList<ServiceAdvertisement>? items) =>
