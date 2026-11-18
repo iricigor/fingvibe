@@ -223,7 +223,10 @@ function Test-RoomMapAccessibility {
             [System.Windows.Automation.PropertyCondition]::new(
                 [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapScroll'))
         if (-not $map) { throw 'The Room map scroll viewer is missing.' }
-        $map.Current.BoundingRectangle
+        # The scroll viewer's automation bounds can extend past the physical window frame.
+        $frame = $root.Current.BoundingRectangle
+        [System.Windows.Rect]::Intersect($map.Current.BoundingRectangle,
+            [System.Windows.Rect]::new($frame.Left, $frame.Top, $frame.Width, [Math]::Max(0, $frame.Height - 16 * $scale)))
     }
     $fullyVisible = {
         param($Elements)
