@@ -1210,17 +1210,28 @@ section. You can also open the same page from the <strong>Room map</strong> card
 <p>The map includes all saved rooms, their assigned devices, and a separate
 <strong>No room assigned</strong> area. Empty saved rooms remain visible. Room and device
 sizes use bounded tiers, so counts do not turn into a proportional floor plan.
-The selected network's gateway identifies the root room. This PC and its
-saved room have separate highlights when that evidence is available.</p>
+Orthogonal lines connect each router or fallback room anchor to the root
+gateway entry; the <strong>No room assigned</strong> area uses a dashed line. Additional
+routers in the root room connect locally to the gateway. The selected
+network's gateway identifies the root room. This PC and its saved room have
+separate highlights when that evidence is available.
+Connector bends are rounded to make the room relationships easier to follow.</p>
 <p><strong>Online</strong>, <strong>Offline</strong>, and <strong>No local scan evidence</strong> describe the latest
 saved result for the selected network. They do not prove physical presence.
 The Internet symbol and room arrangement describe organization and conceptual
-connection, not discovered cable, Wi-Fi, mesh, or Internet topology. This
-read-only version does not draw individual room connection paths.</p>
-<p>The first version of the page is read-only. Use <strong>Manage rooms</strong> to return to
-the existing room management page. Narrow windows keep normal-size device
-icons and allow horizontal and vertical scrolling. With larger Windows text
-sizes, room headers and device tiles grow taller so labels stay inside them.</p>
+connection, not discovered cable, Wi-Fi, mesh, or Internet topology.</p>
+<p>Choose a device tile or room name to open its existing details page. The Back
+action reads <strong>Back to Room map</strong> and returns to the same scroll and keyboard
+focus position. If the saved membership changed while details were open,
+FingVibe selects a valid nearby device or room instead. Completed scans and
+assignment changes refresh the retained map without moving unchanged items.</p>
+<p><strong>Only online</strong> starts on and hides offline devices and devices without local
+scan evidence while preserving the room layout. Turn it off to show every
+relevant device again. Use <strong>← Rooms</strong> to return to the existing room
+management page. Narrow
+windows keep normal-size device icons and allow horizontal and vertical
+scrolling. With larger Windows text sizes, room headers and device tiles grow
+taller so labels stay inside them.</p>
 <h2 id="find-edit-or-delete">Find, edit, or delete<a class="headerlink" href="#find-edit-or-delete" title="Permanent link">&para;</a></h2>
 <p>Use <strong>Search people and rooms</strong> to filter both sections at once. Open an entry to review its assigned
 equipment. Use its edit action to change the name, icon, or notes.</p>
