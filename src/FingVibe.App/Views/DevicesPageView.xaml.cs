@@ -133,6 +133,23 @@ public sealed partial class DevicesPageView : UserControl
         _lastSeenAges.RefreshIfActive(results);
     }
 
+    private void DeviceMatchButton_PointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is Button button && ToolTipService.GetToolTip(button) is ToolTip tooltip)
+        {
+            tooltip.PlacementTarget = button;
+            tooltip.IsOpen = true;
+        }
+    }
+
+    private void DeviceMatchButton_PointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (sender is Button button && ToolTipService.GetToolTip(button) is ToolTip tooltip)
+        {
+            tooltip.IsOpen = false;
+        }
+    }
+
     private void Results_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs args)
     {
         if (args.NewItems is { } added) _lastSeenAges.RefreshIfActive(added.OfType<ScanResultRow>());

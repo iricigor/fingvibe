@@ -167,9 +167,16 @@
     $matchButton = $devicesDocument.SelectSingleNode("//*[@*[local-name()='Name']='DeviceMatchButton']")
     $matchTooltip = $matchButton.SelectSingleNode("./*[local-name()='ToolTipService.ToolTip']/*[local-name()='ToolTip']")
     if (-not $matchTooltip -or
+        $matchTooltip.GetAttribute("AutomationProperties.AutomationId") -cne "DeviceMatchTooltip" -or
         $matchTooltip.GetAttribute("AutomationProperties.Name") -cne "{x:Bind MatchSuggestionText, Mode=OneWay}" -or
         $matchTooltip.GetAttribute("Content") -cne "{x:Bind MatchSuggestionText, Mode=OneWay}") {
-        throw "Possible-match buttons must expose the full hover copy on an explicit named ToolTip peer."
+        throw "Possible-match buttons must expose the full hover copy on an explicitly identified, named ToolTip peer."
+    }
+    $matchButtonEnter = $matchButton.GetAttribute("PointerEntered")
+    $matchButtonExit = $matchButton.GetAttribute("PointerExited")
+    if ($matchButtonEnter -cne "DeviceMatchButton_PointerEntered" -or
+        $matchButtonExit -cne "DeviceMatchButton_PointerExited") {
+        throw "Possible-match ToolTips must explicitly open and close with pointer entry and exit."
     }
     if ($devicesDocument.SelectSingleNode("//*[@*[local-name()='Name']='ScanButton']")) {
         throw "Devices must not duplicate the shared primary scan action."
