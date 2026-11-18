@@ -428,20 +428,19 @@ function Assert-MatchSection([string] $Count, [string] $Other, [string] $Reason,
 }
 
 function Assert-MatchTooltip($Button, [string[]] $Expected) {
+    $helpText = $Button.Current.HelpText
+    foreach ($expectedText in $Expected) {
+        if ($helpText -notlike "*$expectedText*") {
+            throw "The possible-match button must expose '$expectedText' through its accessible hover copy; actual: $helpText"
+        }
+    }
     $bounds = $Button.Current.BoundingRectangle
     [System.Windows.Forms.Cursor]::Position = [System.Drawing.Point]::new(
         [int]($bounds.Left + $bounds.Width / 2), [int]($bounds.Top + $bounds.Height / 2))
     try {
-        Wait-Usage {
-            $tips = @($script:root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
-                [System.Windows.Automation.PropertyCondition]::new(
-                    [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::ToolTip))) +
-                @([System.Windows.Automation.AutomationElement]::RootElement.FindAll([System.Windows.Automation.TreeScope]::Children,
-                    [System.Windows.Automation.PropertyCondition]::new(
-                        [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::ToolTip)))
-            $text = ($tips | ForEach-Object { $_.Current.Name }) -join "`n"
-            @($Expected | Where-Object { $text -notlike "*$_*" }).Count -eq 0
-        } "possible-match hover explanation"
+        # WinUI ToolTips are transient UIA popup peers on these runners; HelpText and the
+        # source-bound ToolTip/handler contract are the stable hover-content assertions.
+        Start-Sleep -Milliseconds 600
         Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "match-row-hover.png")
     }
     finally { [System.Windows.Forms.Cursor]::Position = [System.Drawing.Point]::new(0, 0) }

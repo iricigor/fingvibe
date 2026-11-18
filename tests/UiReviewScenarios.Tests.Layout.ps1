@@ -167,6 +167,7 @@
     $matchButton = $devicesDocument.SelectSingleNode("//*[@*[local-name()='Name']='DeviceMatchButton']")
     $matchTooltip = $matchButton.SelectSingleNode("./*[local-name()='ToolTipService.ToolTip']/*[local-name()='ToolTip']")
     if (-not $matchTooltip -or
+        $matchButton.GetAttribute("AutomationProperties.HelpText") -cne "{x:Bind MatchSuggestionText, Mode=OneWay}" -or
         $matchTooltip.GetAttribute("AutomationProperties.AutomationId") -cne "DeviceMatchTooltip" -or
         $matchTooltip.GetAttribute("AutomationProperties.Name") -cne "{x:Bind MatchSuggestionText, Mode=OneWay}" -or
         $matchTooltip.GetAttribute("Content") -cne "{x:Bind MatchSuggestionText, Mode=OneWay}") {
