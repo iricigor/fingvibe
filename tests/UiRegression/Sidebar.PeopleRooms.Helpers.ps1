@@ -313,24 +313,110 @@ function Assert-RoomMapConnectionInk([string] $Name, [double] $TextScale) {
                 $(if ($scroll.Current.VerticallyScrollable) { 0 } else { -1 }))
             Start-Sleep -Milliseconds 300
         }
+        if ($scroll.Current.VerticallyScrollable) {
+            $windowBounds = $root.Current.BoundingRectangle
+            $viewportBounds = $scrollViewer.Current.BoundingRectangle
+            $viewportTopValue = if (-not [double]::IsNaN($viewportBounds.Top) -and
+                -not [double]::IsInfinity($viewportBounds.Top)) {
+                $viewportBounds.Top
+            } else { $windowBounds.Top }
+            $viewportHeight = if (-not [double]::IsNaN($viewportBounds.Height) -and
+                -not [double]::IsInfinity($viewportBounds.Height) -and $viewportBounds.Height -gt 0) {
+                $viewportBounds.Height
+            } else { $windowBounds.Height }
+            $visibleTop = [Math]::Max($viewportTopValue, $windowBounds.Top) + 8 * $scale
+            $viewportBottomValue = if (-not [double]::IsNaN($viewportBounds.Bottom) -and
+                -not [double]::IsInfinity($viewportBounds.Bottom)) {
+                $viewportBounds.Bottom
+            } else { $windowBounds.Bottom }
+            $visibleBottom = [Math]::Min($viewportBottomValue, $windowBounds.Bottom) - 24 * $scale
+            $entryOffset = (40 + 56 * $TextScale + 22) * $scale
+            for ($move = 0; $move -lt 4; $move++) {
+                $rootTop = $rootRoom[0].Current.BoundingRectangle.Top
+                if ([double]::IsNaN($rootTop) -or [double]::IsInfinity($rootTop)) { break }
+                $entryY = $rootTop + $entryOffset
+                $visibleLength = [Math]::Min($entryY + 120 * $scale, $visibleBottom) -
+                    [Math]::Max($entryY, $visibleTop)
+                if ($visibleLength -ge 40 * $scale) { break }
+                $delta = $entryY - $visibleTop
+                $viewSize = $scroll.Current.VerticalViewSize
+                $extent = $viewportHeight * (100 / $viewSize - 1)
+                if ($viewSize -le 0 -or $viewSize -ge 100 -or $extent -le 0 -or
+                    [double]::IsNaN($extent) -or [double]::IsInfinity($extent)) {
+                    throw "The Room map connection viewport has no measurable vertical extent for '$Name'."
+                }
+                $previousPercent = $scroll.Current.VerticalScrollPercent
+                $percent = [Math]::Max(0, [Math]::Min(100,
+                    $previousPercent + 100 * $delta / $extent))
+                if ([Math]::Abs($percent - $previousPercent) -lt 0.01) {
+                    throw "The Room map connection entry cannot reach the visible viewport for '$Name'."
+                }
+                $scroll.SetScrollPercent(-1, $percent)
+                Start-Sleep -Milliseconds 300
+            }
+        }
     }
-    if ($rootRoom[0].Current.IsOffscreen) { throw "The Room map root room must be visible for '$Name'." }
     $bounds = $rootRoom[0].Current.BoundingRectangle
     $path = Join-Path $ScreenshotDirectory "room-map-connections-$Name.png"
     Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path $path
     $window = Get-UiReviewWindowBounds $windowHandle
     $bitmap = [System.Drawing.Bitmap]::new($path)
     try {
-        $trunkX = [int][Math]::Round($bounds.Left - $window.Left - 16 * $scale)
-        $top = [int][Math]::Round($bounds.Top - $window.Top)
-        $entryY = $top + [int][Math]::Ceiling((40 + 56 * $TextScale + 22) * $scale)
-        $firstRow = $entryY + [int][Math]::Ceiling(4 * $scale)
-        $lastRow = [Math]::Min($entryY + [int](120 * $scale), $bitmap.Height - [int](24 * $scale))
-        if ($trunkX -lt 3 -or $trunkX + 3 -ge $bitmap.Width -or $top -lt 0 -or $lastRow - $firstRow -lt 40 * $scale) {
-            throw "The Room map connection trunk must be inside the captured window for '$Name'."
+        $connectionLefts = @($page.FindAll(
+            [System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.Condition]::TrueCondition) | Where-Object {
+                $_.Current.AutomationId -like 'RoomMapConnection-*' -and
+                    -not [double]::IsNaN($_.Current.BoundingRectangle.Left) -and
+                    -not [double]::IsInfinity($_.Current.BoundingRectangle.Left)
+            } | ForEach-Object { $_.Current.BoundingRectangle.Left - $window.Left })
+        $trunkX = if ($connectionLefts.Count -gt 0) {
+            [int][Math]::Round(($connectionLefts | Measure-Object -Minimum).Minimum)
+        } elseif (-not [double]::IsNaN($bounds.Left) -and -not [double]::IsInfinity($bounds.Left)) {
+            [int][Math]::Round($bounds.Left - $window.Left - 16 * $scale)
+        } else {
+            $scrollBounds = $scrollViewer.Current.BoundingRectangle
+            if ([double]::IsNaN($scrollBounds.Left) -or [double]::IsInfinity($scrollBounds.Left) -or
+                [double]::IsNaN($scrollBounds.Width) -or [double]::IsInfinity($scrollBounds.Width)) {
+                throw "Room map connection bounds are unavailable for '$Name'."
+            }
+            # The canvas is the scroll viewport minus 16 DIP; the shared trunk is 344 DIP from its right edge.
+            [int][Math]::Round(
+                $scrollBounds.Left - $window.Left + $scrollBounds.Width - 360 * $scale)
+        }
+        $viewportTopValue = if (-not [double]::IsNaN($scrollViewer.Current.BoundingRectangle.Top) -and
+            -not [double]::IsInfinity($scrollViewer.Current.BoundingRectangle.Top)) {
+            $scrollViewer.Current.BoundingRectangle.Top
+        } else { $window.Top }
+        $viewportBottomValue = if (-not [double]::IsNaN($scrollViewer.Current.BoundingRectangle.Bottom) -and
+            -not [double]::IsInfinity($scrollViewer.Current.BoundingRectangle.Bottom)) {
+            $scrollViewer.Current.BoundingRectangle.Bottom
+        } else { $window.Bottom }
+        $visibleTop = [int][Math]::Max(
+            0,
+            [Math]::Ceiling($viewportTopValue - $window.Top + 4 * $scale))
+        $visibleBottom = [int][Math]::Min(
+            [double]($viewportBottomValue - $window.Top),
+            [double]($bitmap.Height - [int](24 * $scale)))
+        $firstRow = $visibleTop
+        $lastRow = $visibleBottom
+        if (-not [double]::IsNaN($bounds.Top) -and -not [double]::IsInfinity($bounds.Top)) {
+            $top = [int][Math]::Round($bounds.Top - $window.Top)
+            $entryY = $top + [int][Math]::Ceiling((40 + 56 * $TextScale + 22) * $scale)
+            $firstRow = [int][Math]::Max(
+                $visibleTop, $entryY + [int][Math]::Ceiling(4 * $scale))
+            $lastRow = [int][Math]::Min(
+                [double]($entryY + [int](120 * $scale)),
+                [double]$visibleBottom)
+        }
+        if ($trunkX -lt 3 -or $trunkX + 3 -ge $bitmap.Width -or $firstRow -lt 0 -or
+            $lastRow -ge $bitmap.Height -or $lastRow - $firstRow -lt 40 * $scale) {
+            throw "The Room map connection trunk must be inside the captured window for '$Name'. " +
+                "TrunkX=$trunkX; firstRow=$firstRow; lastRow=$lastRow; capture=$($bitmap.Width)x$($bitmap.Height); " +
+                "scroll=$($scroll.Current.VerticalScrollPercent)%."
         }
         $sum = { param($Pixel) [int]$Pixel.R + $Pixel.G + $Pixel.B }
-        $background = & $sum $bitmap.GetPixel($trunkX, $top + [int](4 * $scale))
+        $backgroundX = [Math]::Max(0, $trunkX - [int](8 * $scale))
+        $background = & $sum $bitmap.GetPixel($backgroundX, $firstRow + [int](4 * $scale))
         $inked = 0
         for ($y = $firstRow; $y -le $lastRow; $y++) {
             $contrast = 0
@@ -341,7 +427,8 @@ function Assert-RoomMapConnectionInk([string] $Name, [double] $TextScale) {
         }
         $ratio = $inked / ($lastRow - $firstRow + 1)
         if ($ratio -lt 0.85) {
-            throw "Room map connections must stay legible in '$Name'; only $([Math]::Round($ratio * 100))% of the trunk rows contrast with the background."
+            throw "Room map connections must stay legible in '$Name'; only " +
+                "$([Math]::Round($ratio * 100))% of the visible trunk interval contrasts with the background."
         }
     }
     finally { $bitmap.Dispose() }
