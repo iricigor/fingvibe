@@ -1175,6 +1175,7 @@
             { "name": "Test-RoomMapEntries", "refactored": true },
             { "name": "Test-RoomMapAppearance", "refactored": true },
             { "name": "Test-RoomMapScale", "refactored": true },
+            { "name": "Test-RoomMapAccessibility", "refactored": true, "introducedBy": "#361: narrow-window scrolling with normal-size devices and 200% text-scale room and device labels on the 10-room/100-device fixture." },
             { "name": "Test-PeopleRoomsFlows", "refactored": true },
             { "name": "Test-PeopleRoomsPersistenceErrors", "refactored": true }
           ],

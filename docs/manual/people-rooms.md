@@ -64,7 +64,8 @@ read-only version does not draw individual room connection paths.
 
 The first version of the page is read-only. Use **Manage rooms** to return to
 the existing room management page. Narrow windows keep normal-size device
-icons and allow horizontal and vertical scrolling.
+icons and allow horizontal and vertical scrolling. With larger Windows text
+sizes, room headers and device tiles grow taller so labels stay inside them.
 
 ## Find, edit, or delete
 

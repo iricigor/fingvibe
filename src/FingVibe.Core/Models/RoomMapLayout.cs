@@ -288,14 +288,23 @@ public sealed record RoomMapLayout(
     private const double RootGutter = 32;
     private const double DeviceWidth = 112;
     private const double EdgeDeviceWidth = 88;
-    private const double DeviceHeight = 52;
     private const double DeviceGap = 8;
-    private const double HeaderHeight = 96;
-    private const double UnassignedHeaderHeight = 48;
+    private const double MaximumTextScale = 3;
 
-    public static RoomMapLayout Create(RoomMapProjection projection, double viewportWidth)
+    // Text-bearing heights grow with the Windows text scale; widths and icons keep their normal size.
+    private sealed record Metrics(double DeviceHeight, double HeaderHeight, double UnassignedHeaderHeight)
+    {
+        public static Metrics For(double textScale)
+        {
+            var scale = double.IsFinite(textScale) ? Math.Clamp(textScale, 1, MaximumTextScale) : 1;
+            return new(24 + 28 * scale, 40 + 56 * scale, 20 + 28 * scale);
+        }
+    }
+
+    public static RoomMapLayout Create(RoomMapProjection projection, double viewportWidth, double textScale = 1)
     {
         ArgumentNullException.ThrowIfNull(projection);
+        var metrics = Metrics.For(textScale);
         var width = Math.Max(MinimumWidth, double.IsFinite(viewportWidth) ? Math.Ceiling(viewportWidth) : MinimumWidth);
         var columns = width >= 1160 ? 3 : width >= 900 ? 2 : 1;
         var leftWidth = width - Margin * 2 - RootWidth - RootGutter;
@@ -311,8 +320,8 @@ public sealed record RoomMapLayout(
 
         if (root is not null)
         {
-            var rootBounds = MeasureRoom(root, Margin + leftWidth + RootGutter, 0, RootWidth);
-            placements.Add(PlaceRoom(root, rootBounds.X, rootBounds.Y, rootBounds.Width, rootBounds.Height));
+            var rootBounds = MeasureRoom(root, Margin + leftWidth + RootGutter, 0, RootWidth, metrics);
+            placements.Add(PlaceRoom(root, rootBounds.X, rootBounds.Y, rootBounds.Width, rootBounds.Height, metrics));
         }
 
         var rowTop = 0d;
@@ -326,7 +335,7 @@ public sealed record RoomMapLayout(
                 var roomWidth = RoomWidth(SizeTier(room), cellWidth);
                 var cellLeft = Margin + column * (cellWidth + ColumnGap);
                 var x = cellLeft + (cellWidth - roomWidth) / 2;
-                rowHeight = Math.Max(rowHeight, MeasureRoom(room, x, rowTop, roomWidth).Height);
+                rowHeight = Math.Max(rowHeight, MeasureRoom(room, x, rowTop, roomWidth, metrics).Height);
             }
             for (var column = 0; column < take; column++)
             {
@@ -334,7 +343,7 @@ public sealed record RoomMapLayout(
                 var roomWidth = RoomWidth(SizeTier(room), cellWidth);
                 var cellLeft = Margin + column * (cellWidth + ColumnGap);
                 placements.Add(PlaceRoom(
-                    room, cellLeft + (cellWidth - roomWidth) / 2, rowTop, roomWidth, rowHeight));
+                    room, cellLeft + (cellWidth - roomWidth) / 2, rowTop, roomWidth, rowHeight, metrics));
             }
             rowTop += rowHeight + RowGap;
             index += take;
@@ -355,7 +364,7 @@ public sealed record RoomMapLayout(
         var unassignedTop = contentBottom + RowGap;
         var unassignedWidth = width - Margin * 2;
         var unassignedPlacements = PlaceUnassigned(
-            projection.UnassignedDevices, Margin, unassignedTop, unassignedWidth);
+            projection.UnassignedDevices, Margin, unassignedTop, unassignedWidth, metrics);
         var unassignedHeight = unassignedPlacements.Height;
 
         return new(
@@ -382,18 +391,19 @@ public sealed record RoomMapLayout(
             _ => cellWidth
         };
 
-    private static RoomMapBounds MeasureRoom(RoomMapRoom room, double x, double y, double width)
+    private static RoomMapBounds MeasureRoom(RoomMapRoom room, double x, double y, double width, Metrics metrics)
     {
+        var (deviceHeight, headerHeight) = (metrics.DeviceHeight, metrics.HeaderHeight);
         var edgeDevices = room.Devices.Count(device => device.IsRouter && !device.IsGateway);
         var bodyDevices = room.Devices.Where(device => !device.IsRouter || device.IsGateway).ToArray();
         var edgeReserve = edgeDevices > 0 ? EdgeDeviceWidth + DeviceGap : 0;
         var columns = Math.Max(1, (int)Math.Floor(
             (width - 32 - edgeReserve + DeviceGap) / (DeviceWidth + DeviceGap)));
         var bodyRows = (int)Math.Ceiling((double)Math.Max(bodyDevices.Length, 0) / columns);
-        var bodyHeight = bodyRows > 0 ? bodyRows * (DeviceHeight + DeviceGap) - DeviceGap : 0;
-        var edgeHeight = edgeDevices > 0 ? edgeDevices * (DeviceHeight + DeviceGap) - DeviceGap : 0;
+        var bodyHeight = bodyRows > 0 ? bodyRows * (deviceHeight + DeviceGap) - DeviceGap : 0;
+        var edgeHeight = edgeDevices > 0 ? edgeDevices * (deviceHeight + DeviceGap) - DeviceGap : 0;
         var contentHeight = Math.Max(bodyHeight, edgeHeight);
-        return new(x, y, width, Math.Max(128, HeaderHeight + contentHeight + 16));
+        return new(x, y, width, Math.Max(32 + headerHeight, headerHeight + contentHeight + 16));
     }
 
     private static RoomMapRoomPlacement PlaceRoom(
@@ -401,8 +411,10 @@ public sealed record RoomMapLayout(
         double x,
         double y,
         double width,
-        double height)
+        double height,
+        Metrics metrics)
     {
+        var (deviceHeight, headerHeight) = (metrics.DeviceHeight, metrics.HeaderHeight);
         var edgeDevices = room.Devices.Where(device => device.IsRouter && !device.IsGateway)
             .OrderBy(device => device.Name, StringComparer.OrdinalIgnoreCase)
             .ThenBy(device => device.IdentityKey, StringComparer.Ordinal).ToArray();
@@ -417,7 +429,7 @@ public sealed record RoomMapLayout(
         var anchors = new List<RoomMapAnchorPlacement>();
         if (room.IsRoot)
         {
-            anchors.Add(new("root-entry", new(x + 8, y + HeaderHeight + 18, 8, 8)));
+            anchors.Add(new("root-entry", new(x + 8, y + headerHeight + 18, 8, 8)));
         }
         for (var index = 0; index < bodyDevices.Length; index++)
         {
@@ -425,23 +437,23 @@ public sealed record RoomMapLayout(
                 bodyDevices[index],
                 new(
                     x + 16 + index % columns * (DeviceWidth + DeviceGap),
-                    y + HeaderHeight + index / columns * (DeviceHeight + DeviceGap),
+                    y + headerHeight + index / columns * (deviceHeight + DeviceGap),
                     DeviceWidth,
-                    DeviceHeight)));
+                    deviceHeight)));
         }
         for (var index = 0; index < edgeDevices.Length; index++)
         {
             var deviceBounds = new RoomMapBounds(
                 x + width - EdgeDeviceWidth - 16,
-                y + HeaderHeight + index * (DeviceHeight + DeviceGap),
+                y + headerHeight + index * (deviceHeight + DeviceGap),
                 EdgeDeviceWidth,
-                DeviceHeight);
+                deviceHeight);
             placements.Add(new(edgeDevices[index], deviceBounds));
-            anchors.Add(new("router", new(deviceBounds.Right - 4, deviceBounds.Y + 22, 8, 8)));
+            anchors.Add(new("router", new(deviceBounds.Right - 4, deviceBounds.Y + deviceHeight / 2 - 4, 8, 8)));
         }
         if (!room.IsRoot && edgeDevices.Length == 0)
         {
-            anchors.Add(new("room-wall", new(x + width - 12, y + HeaderHeight + 18, 8, 8)));
+            anchors.Add(new("room-wall", new(x + width - 12, y + headerHeight + 18, 8, 8)));
         }
 
         return new(
@@ -466,22 +478,24 @@ public sealed record RoomMapLayout(
             IReadOnlyList<RoomMapDevice> devices,
             double x,
             double y,
-            double width)
+            double width,
+            Metrics metrics)
     {
+        var (deviceHeight, headerHeight) = (metrics.DeviceHeight, metrics.UnassignedHeaderHeight);
         var columns = Math.Max(1, (int)Math.Floor(
             (width - 32 + DeviceGap) / (DeviceWidth + DeviceGap)));
         var placements = devices.Select((device, index) => new RoomMapDevicePlacement(
             device,
             new(
                 x + 16 + index % columns * (DeviceWidth + DeviceGap),
-                y + UnassignedHeaderHeight + 4 + index / columns * (DeviceHeight + DeviceGap),
+                y + headerHeight + 4 + index / columns * (deviceHeight + DeviceGap),
                 DeviceWidth,
-                DeviceHeight))).ToArray();
+                deviceHeight))).ToArray();
         var rows = (int)Math.Ceiling((double)devices.Count / columns);
         var height = Math.Max(
-            116,
-            UnassignedHeaderHeight + 16
-            + (rows > 0 ? rows * (DeviceHeight + DeviceGap) - DeviceGap : 0));
+            68 + headerHeight,
+            headerHeight + 16
+            + (rows > 0 ? rows * (deviceHeight + DeviceGap) - DeviceGap : 0));
         return (height, placements);
     }
 }

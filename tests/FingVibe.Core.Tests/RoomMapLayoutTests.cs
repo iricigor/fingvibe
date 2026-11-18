@@ -175,8 +175,11 @@ public sealed class RoomMapLayoutTests
         Assert.DoesNotContain(projection.UnassignedDevices, device => device.IsGateway);
     }
 
-    [Fact]
-    public void LayoutRepresentsTenRoomsAndOneHundredDevicesWithoutOverlap()
+    [Theory]
+    [InlineData(1d)]
+    [InlineData(2d)]
+    [InlineData(3d)]
+    public void LayoutRepresentsTenRoomsAndOneHundredDevicesWithoutOverlap(double textScale)
     {
         var rooms = Enumerable.Range(0, 10).Select(roomIndex =>
             new RoomMapRoom(
@@ -196,7 +199,8 @@ public sealed class RoomMapLayoutTests
             DeviceSource($"U-{index:D2}", $"Unassigned {index:D2}", DeviceType.Phone)).ToArray();
         var projection = new RoomMapProjection(Network.DisplayLabel, Network, "selected-network", rooms, unassigned);
 
-        var layout = RoomMapLayout.Create(projection, 1024);
+        var layout = RoomMapLayout.Create(projection, 1024, textScale);
+        var normal = RoomMapLayout.Create(projection, 1024);
 
         Assert.Equal(10, layout.Rooms.Count);
         Assert.Equal(100, layout.Rooms.Sum(room => room.DeviceCount));
@@ -246,6 +250,17 @@ public sealed class RoomMapLayoutTests
             Assert.False(pair.device.Bounds.Intersects(pair.other.Bounds)));
         var root = Assert.Single(layout.Rooms, room => room.IsRoot);
         Assert.True(root.Bounds.X > layout.Rooms.Where(room => !room.IsRoot).Max(room => room.Bounds.X));
+
+        // Enlarged text gets taller headers and tiles; widths and the room arrangement are unchanged.
+        var devices = layout.Rooms.SelectMany(room => room.Devices).ToArray();
+        var normalDevices = normal.Rooms.SelectMany(room => room.Devices).ToArray();
+        Assert.Equal(normalDevices.Select(device => device.Bounds.Width), devices.Select(device => device.Bounds.Width));
+        Assert.Equal(normal.Rooms.Select(room => (room.Bounds.X, room.Bounds.Width)), layout.Rooms.Select(room => (room.Bounds.X, room.Bounds.Width)));
+        Assert.All(devices, device => Assert.Equal(24 + 28 * textScale, device.Bounds.Height, 3));
+        Assert.All(layout.Rooms, room => Assert.All(room.Devices, device =>
+            Assert.True(device.Bounds.Y - room.Bounds.Y >= 40 + 56 * textScale - 0.001, $"{room.Name} header space is too small.")));
+        if (textScale == 1) Assert.Equal(normal.Height, layout.Height);
+        else Assert.True(layout.Height > normal.Height);
     }
 
     [Fact]

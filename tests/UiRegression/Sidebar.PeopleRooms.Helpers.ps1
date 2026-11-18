@@ -195,6 +195,120 @@ function Test-RoomMapScale {
     }
 }
 
+function Test-RoomMapAccessibility {
+    # Reuses Test-RoomMapScale's 10-room/100-device fixture: narrow windows scroll instead of shrinking,
+    # and 200% Windows text scale keeps every label inside its room or device tile.
+    $inventory = Join-Path (Join-Path $fixtureDirectory 'room-map-scale') 'inventory.json'
+    if (-not (Test-Path -LiteralPath $inventory)) { throw 'Test-RoomMapScale must create the Room map scale fixture first.' }
+    $savedInventory = $env:FINGVIBE_UI_REVIEW_INVENTORY
+    $tolerance = 1.5 * $scale
+    $openMap = {
+        Select-SidebarPage 'Tools' 'View room map'
+        Invoke-PeopleRoomsElement Name 'View room map'
+        $null = Find-PeopleRoomsElement AutomationId 'RoomMapRoom-00000000-0000-0000-0000-000000000001' RoomMapPage
+        Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapPage')) `
+            -Description 'Room map accessibility page' -Container { $root }
+    }
+    $mapElements = {
+        param($Page, [string] $Prefix)
+        @($Page.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.Condition]::TrueCondition) | Where-Object { $_.Current.AutomationId -like "$Prefix*" })
+    }
+    $textCondition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text)
+    $settings = [Windows.UI.ViewManagement.UISettings, Windows.UI.ViewManagement, ContentType = WindowsRuntime]::new()
+    $originalScale = $settings.TextScaleFactor
+    $key = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\Microsoft\Accessibility')
+    $originalValue = $key.GetValue('TextScaleFactor', $null)
+    $originalKind = if ($null -ne $originalValue) { $key.GetValueKind('TextScaleFactor') } else { $null }
+    $failed = $true
+    Stop-SidebarApp
+    try {
+        $env:FINGVIBE_UI_REVIEW_INVENTORY = $inventory
+        Start-SidebarApp
+        Set-SidebarWindowWidth $expandedWidth
+        $page = & $openMap
+        $normal = @{}
+        foreach ($tile in (& $mapElements $page 'RoomMapDevice-')) { $normal[$tile.Current.AutomationId] = $tile.Current.BoundingRectangle }
+        if ($normal.Count -ne 100) { throw "The Room map must render all 100 devices before resizing; found $($normal.Count)." }
+        Set-SidebarWindowWidth 640
+        $page = Find-PeopleRoomsElement AutomationId RoomMapScroll RoomMapPage
+        $scroll = $page.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        if (-not $scroll.Current.HorizontallyScrollable -or -not $scroll.Current.VerticallyScrollable) {
+            throw 'A narrow window must scroll the Room map horizontally and vertically instead of shrinking it.'
+        }
+        $page = Find-UiRegressionElement -Condition ([System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'RoomMapPage')) `
+            -Description 'resized Room map page' -Container { $root }
+        foreach ($tile in (& $mapElements $page 'RoomMapDevice-')) {
+            $before = $normal[$tile.Current.AutomationId]
+            $after = $tile.Current.BoundingRectangle
+            if (-not $before -or [Math]::Abs($after.Width - $before.Width) -gt $tolerance -or
+                [Math]::Abs($after.Height - $before.Height) -gt $tolerance) {
+                throw "Room map device $($tile.Current.AutomationId) must keep its normal size in a narrow window."
+            }
+        }
+        $last = Find-PeopleRoomsElement AutomationId 'RoomMapDevice-001122000063' RoomMapPage
+        if ($last.Current.IsOffscreen) { throw 'Keyboard focus must bring the last Room map device into view in a narrow window.' }
+        Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path (Join-Path $ScreenshotDirectory 'room-map-narrow.png')
+
+        Stop-SidebarApp
+        $key.SetValue('TextScaleFactor', 200, [Microsoft.Win32.RegistryValueKind]::DWord)
+        [SidebarReviewKeyboard]::NotifyTextScaleChanged()
+        $null = Wait-UiRegressionState -Description 'effective Windows text scale of 200 percent' -Condition {
+            [Math]::Abs($settings.TextScaleFactor - 2) -lt 0.01
+        }
+        Start-SidebarApp
+        Set-SidebarWindowWidth $expandedWidth
+        $page = & $openMap
+        $tiles = & $mapElements $page 'RoomMapDevice-'
+        $rooms = & $mapElements $page 'RoomMapRoom-'
+        if ($tiles.Count -ne 100 -or $rooms.Count -ne 10) {
+            throw "Enlarged text must keep all 10 rooms and 100 devices; found $($rooms.Count) and $($tiles.Count)."
+        }
+        foreach ($tile in $tiles) {
+            $bounds = $tile.Current.BoundingRectangle
+            foreach ($text in $tile.FindAll([System.Windows.Automation.TreeScope]::Descendants, $textCondition)) {
+                $label = $text.Current.BoundingRectangle
+                if ($label.Top -lt $bounds.Top - $tolerance -or $label.Bottom -gt $bounds.Bottom + $tolerance) {
+                    throw "Room map device $($tile.Current.AutomationId) clips '$($text.Current.Name)' at 200% text scale."
+                }
+            }
+        }
+        foreach ($room in $rooms) {
+            $bounds = $room.Current.BoundingRectangle
+            $firstTile = @($tiles | Where-Object { $bounds.Contains($_.Current.BoundingRectangle) } |
+                ForEach-Object { $_.Current.BoundingRectangle.Top } | Measure-Object -Minimum).Minimum
+            foreach ($text in $room.FindAll([System.Windows.Automation.TreeScope]::Descendants, $textCondition)) {
+                $label = $text.Current.BoundingRectangle
+                if ($label.Bottom -gt $bounds.Bottom + $tolerance -or ($firstTile -and $label.Bottom -gt $firstTile + $tolerance)) {
+                    throw "Room header '$($text.Current.Name)' must stay above its devices at 200% text scale."
+                }
+            }
+        }
+        $last = Find-PeopleRoomsElement AutomationId 'RoomMapDevice-001122000063' RoomMapPage
+        if ($last.Current.IsOffscreen) { throw 'Keyboard focus must bring the last Room map device into view at 200% text scale.' }
+        Save-UiRegressionScreenshot -WindowHandle $windowHandle -Path (Join-Path $ScreenshotDirectory 'room-map-text-scale-200.png')
+        Write-Host 'Room map narrow-window scrolling, normal-size devices and 200% text-scale layout passed.'
+        $failed = $false
+    }
+    finally {
+        Invoke-UiRegressionCleanup -PrimaryFailed $failed -Steps @(
+            { Stop-SidebarApp },
+            {
+                if ($null -eq $originalValue) { $key.DeleteValue('TextScaleFactor', $false) }
+                else { $key.SetValue('TextScaleFactor', $originalValue, $originalKind) }
+                [SidebarReviewKeyboard]::NotifyTextScaleChanged()
+                $null = Wait-UiRegressionState -Description 'restored Windows text scale' -Condition {
+                    [Math]::Abs($settings.TextScaleFactor - $originalScale) -lt 0.01
+                }
+            },
+            { $key.Dispose() },
+            { $env:FINGVIBE_UI_REVIEW_INVENTORY = $savedInventory; Start-SidebarApp; Set-SidebarWindowWidth $expandedWidth })
+    }
+}
+
 function Test-PeopleRoomsFlows {
     Set-SidebarWindowWidth $expandedWidth
     foreach ($category in @('Person', 'Room')) {

@@ -15,6 +15,7 @@ public sealed partial class RoomMapPageView : UserControl
     private string? _networkId;
     private string? _networkError;
     private double _renderWidth;
+    private readonly Windows.UI.ViewManagement.UISettings _uiSettings = new();
 
     public RoomMapPageView()
     {
@@ -24,6 +25,12 @@ public sealed partial class RoomMapPageView : UserControl
             _renderWidth = 0;
             Render();
         };
+        // Text scale changes arrive off the UI thread; relayout so enlarged labels keep their room space.
+        _uiSettings.TextScaleFactorChanged += (_, _) => DispatcherQueue.TryEnqueue(() =>
+        {
+            _renderWidth = 0;
+            Render();
+        });
         Loaded += (_, _) => Render();
     }
 
@@ -100,7 +107,7 @@ public sealed partial class RoomMapPageView : UserControl
         _renderWidth = availableWidth;
 
         var projection = RoomMapProjection.Create(_data, _network, _networkId);
-        var layout = RoomMapLayout.Create(projection, availableWidth);
+        var layout = RoomMapLayout.Create(projection, availableWidth, _uiSettings.TextScaleFactor);
         var deviceCount = projection.Devices.Count;
         var roomCount = projection.Rooms.Count(room => room.Id is not null);
         var onlineCount = projection.Devices.Count(device => device.Status == RoomMapDeviceStatus.Online);
