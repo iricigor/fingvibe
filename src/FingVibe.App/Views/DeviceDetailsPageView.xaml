@@ -320,11 +320,14 @@
                     </StackPanel>
                     <TextBlock x:Name="DeviceClassificationStatusText" TextWrapping="Wrap"
                                AutomationProperties.LiveSetting="Polite" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <Expander Header="How this device was identified" HorizontalAlignment="Stretch"
+                    <Expander x:Name="DeviceIdentificationEvidence" Header="How this device was identified" HorizontalAlignment="Stretch"
                               HorizontalContentAlignment="Stretch">
                         <StackPanel Spacing="8">
                             <TextBlock x:Name="DeviceOsEvidenceText" TextWrapping="Wrap" />
                             <TextBlock x:Name="DeviceTypeEvidenceText" TextWrapping="Wrap" />
+                            <TextBlock x:Name="DeviceReportedValuesText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                            <TextBlock Text="Received passively during scans and saved locally. Names and device IDs are evidence, not proof that two records are the same device."
+                                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </StackPanel>
                     </Expander>
                     <Expander x:Name="DeviceImportedMetadata" Header="Imported Fing data" IsExpanded="False"

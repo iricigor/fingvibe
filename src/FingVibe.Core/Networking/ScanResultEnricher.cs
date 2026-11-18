@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.NetworkInformation;
+using FingVibe.Core.Models;
 
 namespace FingVibe.Core.Networking;
 
@@ -43,17 +44,45 @@ public sealed class ScanResultEnricher : IScanResultEnricher
         var discovery = await discoveryTask.ConfigureAwait(false);
         var ssdpNames = SsdpDiscoveryService.GetDisplayNames(discovery.SsdpDevices);
         var mdns = discovery.MdnsDevices.GetValueOrDefault(address);
-        var nameTask = _nameResolver.ResolveAsync(address, ssdpNames, cancellationToken,
+        var nameTask = _nameResolver.ResolveWithEvidenceAsync(address, ssdpNames, cancellationToken,
             mdns?.HostName, queryMdns: false);
         await Task.WhenAll(portsTask, vendorTask, nameTask, bannersTask).ConfigureAwait(false);
 
         return new ScanEnrichment(
-            nameTask.Result,
+            nameTask.Result.DisplayName,
             macAddress,
             vendorTask.Result,
             portsTask.Result,
             DeviceClassifier.ClassifyAdvertisements(discovery.SsdpDevices.GetValueOrDefault(address) ?? [],
-                mdns, nameTask.Result, vendorTask.Result, portsTask.Result, bannersTask.Result, responseTtl));
+                mdns, nameTask.Result.DisplayName, vendorTask.Result, portsTask.Result, bannersTask.Result, responseTtl))
+        {
+            ReportedValues = CollectReportedValues(discovery.SsdpDevices.GetValueOrDefault(address) ?? [],
+                mdns, nameTask.Result.Candidates)
+        };
+    }
+
+    internal static IReadOnlyList<ReportedDeviceValue> CollectReportedValues(
+        IReadOnlyList<SsdpDeviceInfo> ssdp, MdnsDeviceInfo? mdns, IReadOnlyList<DeviceNameCandidate> names)
+    {
+        var values = new List<ReportedDeviceValue>(mdns?.ReportedValues ?? []);
+        foreach (var device in ssdp)
+        {
+            if (device.FriendlyName is { } name) values.Add(new(ReportedDeviceValueKind.SsdpName, name));
+            if (device.DeviceUuid is { } uuid) values.Add(new(ReportedDeviceValueKind.UpnpUuid, uuid));
+        }
+        foreach (var candidate in names)
+        {
+            var kind = candidate.Source switch
+            {
+                DeviceNameSource.Ssdp => ReportedDeviceValueKind.SsdpName,
+                DeviceNameSource.Mdns => ReportedDeviceValueKind.MdnsName,
+                DeviceNameSource.NetBios => ReportedDeviceValueKind.NetBiosName,
+                DeviceNameSource.ReverseDns => ReportedDeviceValueKind.ReverseDnsName,
+                _ => throw new ArgumentOutOfRangeException(nameof(names))
+            };
+            values.Add(new(kind, candidate.Name));
+        }
+        return DeviceReportedValues.Collect(values);
     }
 
     private async Task<IReadOnlyList<ServiceBanner>> ProbeBannersAsync(IPAddress address,

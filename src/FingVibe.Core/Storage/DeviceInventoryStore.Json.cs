@@ -143,6 +143,13 @@ public sealed partial class DeviceInventoryStore
 
     private static void ValidateObservation(DeviceObservation observation)
     {
+        if (observation is null || observation.ReportedValues is not { } reported || reported.Count != 0 && (
+            reported.Count > Enum.GetValues<ReportedDeviceValueKind>().Length * DeviceReportedValues.MaximumPerKind ||
+            reported.Any(item => item is null) ||
+            !DeviceReportedValues.IsValid(reported.Select(item => new ReportedDeviceValue(item.Kind, item.Value)).ToArray()) ||
+            reported.Any(item => item.LastReceivedAt == default ||
+                item.LastReceivedAt < observation.FirstSeen || item.LastReceivedAt > observation.LastChecked)))
+            throw new InvalidDataException("A device observation contains invalid reported names or identifiers.");
         if (observation is null || !IsIpv4(observation.Address) || observation.FirstSeen == default
             || observation.LastSeen < observation.FirstSeen || observation.LastChecked < observation.LastSeen
             || observation.Classification is null || observation.Ports is null

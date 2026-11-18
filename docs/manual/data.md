@@ -14,7 +14,7 @@ It is different from the installer folder under
 
 | File | Purpose |
 | --- | --- |
-| `device-inventory.sqlite` | Authoritative inventory, names, identification corrections, people/rooms, assignments, virtual identities, history, and discovery baselines. |
+| `device-inventory.sqlite` | Authoritative inventory, names, identification corrections, passively reported names/device IDs with last-received times, people/rooms, assignments, virtual identities, history, and discovery baselines. |
 | `latest-scan.json` | Separate saved-scan cache. SQLite checkpoints are authoritative when present. |
 | `appearance.json` | Appearance choices. |
 | `device-table.json` | Column choices, widths, row density, previews, and Status filtering. |

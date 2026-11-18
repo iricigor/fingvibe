@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Diagnostics;
+using FingVibe.Core.Models;
 
 namespace FingVibe.Core.Networking;
 
@@ -191,6 +192,7 @@ public sealed class MdnsDeviceDiscoveryService
             else if (type == 16)
             {
                 var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                var entries = new List<KeyValuePair<string, string>>();
                 var textOffset = offset;
                 while (textOffset < end)
                 {
@@ -204,11 +206,14 @@ public sealed class MdnsDeviceDiscoveryService
                     var separator = text.IndexOf('=');
                     if (separator > 0)
                     {
-                        values.TryAdd(text[..separator], text[(separator + 1)..].Trim());
+                        var key = text[..separator];
+                        var value = text[(separator + 1)..].Trim();
+                        values.TryAdd(key, value);
+                        entries.Add(new(key, value));
                     }
                     textOffset += textLength;
                 }
-                records.Add(new(name, type, Text: values));
+                records.Add(new(name, type, Text: values, TextEntries: entries));
             }
 
             offset = end;
@@ -244,8 +249,12 @@ public sealed class MdnsDeviceDiscoveryService
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             var metadata = records.Where(record => metadataNames.Contains(record.Name));
             var services = instances.Select(record => ServiceForInstance(record.Name)!);
-            devices[group.Key] = CreateDeviceInfo(metadata, services,
-                hosts.Order(StringComparer.OrdinalIgnoreCase).First());
+            var info = CreateDeviceInfo(metadata, services, hosts.Order(StringComparer.OrdinalIgnoreCase).First());
+            devices[group.Key] = info with
+            {
+                ReportedValues = DeviceReportedValues.Collect(info.ReportedValues.Concat(
+                    hosts.Select(host => new ReportedDeviceValue(ReportedDeviceValueKind.MdnsName, host))))
+            };
         }
         return devices;
     }
@@ -270,12 +279,32 @@ public sealed class MdnsDeviceDiscoveryService
                 }
             }
         }
+        var values = new List<ReportedDeviceValue>();
+        foreach (var record in records.Where(record => record.Text is not null))
+        {
+            var identifier = ServiceForInstance(record.Name) switch
+            {
+                "_googlecast._tcp.local" => (ReportedDeviceValueKind.GoogleCastId, "id"),
+                "_hap._tcp.local" => (ReportedDeviceValueKind.HomeKitId, "id"),
+                "_airplay._tcp.local" => (ReportedDeviceValueKind.AirPlayDeviceId, "deviceid"),
+                "_ipp._tcp.local" or "_ipps._tcp.local" or "_printer._tcp.local" => (ReportedDeviceValueKind.PrinterUuid, "UUID"),
+                _ => ((ReportedDeviceValueKind Kind, string Key)?)null
+            };
+            if (identifier is not { } field) continue;
+            foreach (var entry in record.TextEntries ?? record.Text!.ToArray())
+                if (string.Equals(entry.Key, field.Key, StringComparison.OrdinalIgnoreCase))
+                    values.Add(new(field.Kind, entry.Value));
+        }
         return new MdnsDeviceInfo(services.Select(service => service.ToLowerInvariant())
             .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray(),
-            models.Count == 1 ? models.Single() : null, models.Count > 1, hostName);
+            models.Count == 1 ? models.Single() : null, models.Count > 1, hostName)
+        {
+            ReportedValues = DeviceReportedValues.Collect(values)
+        };
     }
 }
 
 internal sealed record MdnsResourceRecord(
     string Name, int Type, string? Target = null, IPAddress? Address = null,
-    IReadOnlyDictionary<string, string>? Text = null);
+    IReadOnlyDictionary<string, string>? Text = null,
+    IReadOnlyList<KeyValuePair<string, string>>? TextEntries = null);

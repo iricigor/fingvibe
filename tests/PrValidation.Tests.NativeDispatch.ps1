@@ -35,7 +35,7 @@
         $env:GITHUB_STEP_SUMMARY = Join-Path $runnerFixture "summary.txt"
         $env:UI_REGRESSION_FAIL = $null
         $planPath = Join-Path $runnerFixture "capture-plan.json"
-        $definitions = @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios DeviceDetails)
+        $definitions = @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios DeviceDetails, Network)
         ConvertTo-Json -InputObject $definitions -Depth 5 | Set-Content $planPath
         $runner = Join-Path $scripts "Invoke-UiRegression.ps1"
         $parameters = @{
@@ -56,6 +56,7 @@
             "details-identity" = @("DeviceDiscovery.Ui", "UsageCategory.Ui")
             "details-observations" = @("DeviceScanHistory.Ui")
             "details-activity" = @("DeviceActivity.Ui")
+            "network-activity" = @("NetworkActivity.Ui")
             "tools-utilities" = @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui")
             "tools-device-data" = @("AdditionalServices.Ui", "SqlEditor.Ui")
         }
@@ -70,7 +71,7 @@
         }
         $calls = @(Get-Content $env:UI_REGRESSION_CALLS | ConvertFrom-Json)
         Assert-Equal $calls.Name @("SidebarNavigation", "SidebarNavigation", "SidebarNavigation", "SidebarNavigation", "DevicesList.Ui", "DevicesList.Ui", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
-            "UsageCategory.Ui", "DeviceScanHistory.Ui", "DeviceActivity.Ui",
+            "UsageCategory.Ui", "DeviceScanHistory.Ui", "DeviceActivity.Ui", "NetworkActivity.Ui",
             "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "Dispatch every preserved suite and focused updates once"
         $deviceGroups = @((Import-PowerShellDataFile -LiteralPath (Join-Path $PSScriptRoot "UiRegression\Devices.Groups.psd1")).Groups.Name)
         Assert-Equal @($matrixSuites | Where-Object { $_ -like "devices*" }) @($deviceGroups | ForEach-Object { "devices-$_" }) "CI matrix runs every Devices group once on its own worker"
@@ -82,8 +83,8 @@
         Assert-Equal @($calls | Where-Object Name -eq "SidebarNavigation" | ForEach-Object { $_.Parameters.Group }) @("presentation", "scan-flows", "scan-presentation", "preferences-scheduling") "Sidebar forwards each independent group"
         Assert-Equal $calls[7].Parameters.SummaryOnly $true "Details summary dispatch tests only retained summaries"
         Assert-Equal $calls[10].Parameters.ObservationsOnly $true "Details history dispatch includes full observation rendering and paging"
-        Assert-Equal ([DateTimeOffset]$calls[12].Parameters.BuildTimestamp).UtcDateTime ([DateTimeOffset]$parameters.BuildTimestamp).UtcDateTime "Forward stamped identity"
-        Assert-Equal $calls[12].Parameters.PullRequestNumber 198 "Forward PR identity"
+        Assert-Equal ([DateTimeOffset]$calls[13].Parameters.BuildTimestamp).UtcDateTime ([DateTimeOffset]$parameters.BuildTimestamp).UtcDateTime "Forward stamped identity"
+        Assert-Equal $calls[13].Parameters.PullRequestNumber 198 "Forward PR identity"
         Assert-Equal ($calls.Parameters.AppPath | Select-Object -Unique) $parameters.AppPath "Reuse supplied app, including spaces"
         $troubleshootingCall = @($calls | Where-Object Name -eq "NetworkTroubleshooting.Ui")[0]
         Assert-Equal $troubleshootingCall.HostEdition "Desktop" "Troubleshooting resolves WinRT in Windows PowerShell"
@@ -92,37 +93,40 @@
         & powershell.exe -NoProfile -File $runner -Suite sidebar -AppPath $parameters.AppPath `
             -ScreenshotDirectory $parameters.ScreenshotDirectory -CapturePlanPath $planPath
         if ($LASTEXITCODE -ne 0) { throw "Sidebar runner must support multi-scenario plans under Windows PowerShell." }
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 20 "Windows PowerShell dispatches the sidebar without parsing details selection"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 21 "Windows PowerShell dispatches the sidebar without parsing details selection"
         ConvertTo-Json -InputObject @($definitions | Where-Object Scenario -eq Devices) -Depth 5 | Set-Content $planPath
-        foreach ($suite in @("details-summary", "details-identity", "details-observations", "details-activity")) {
+        foreach ($suite in @("details-summary", "details-identity", "details-observations", "details-activity", "network-activity")) {
             & $runner -Suite $suite @parameters
-            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 20 "Unselected $suite must not launch native checks"
+            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 21 "Unselected $suite must not launch native checks"
         }
         ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios Network) -Depth 5 | Set-Content $planPath
-        foreach ($suite in @("details-summary", "details-observations", "details-activity")) {
+        foreach ($suite in @("details-summary", "details-identity", "details-observations", "details-activity")) {
             & $runner -Suite $suite @parameters
-            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 20 "Network-only plan adds no checks to $suite"
+            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 21 "Network-only plan adds no checks to $suite"
         }
-        & $runner -Suite details-identity @parameters
-        $networkCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip 20 | ConvertFrom-Json)
+        & $runner -Suite network-activity @parameters
+        $networkCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip 21 | ConvertFrom-Json)
         Assert-Equal $networkCalls.Name @("NetworkActivity.Ui") "Network-only plan still runs its activity regression"
+        ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios DeviceDetails) -Depth 5 |
+            Set-Content $planPath
+        $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
+        & $runner -Suite network-activity @parameters
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count $before "Device-Details-only plans do not launch Network Activity"
         ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios DeviceDetails, Network) -Depth 5 |
             Set-Content $planPath
-        foreach ($suite in @("details-summary", "details-identity", "details-observations", "details-activity")) {
+        foreach ($suite in @("details-summary", "details-identity", "details-observations", "details-activity", "network-activity")) {
             $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
             & $runner -Suite $suite @parameters
             $suiteCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json)
-            $expected = if ($suite -eq "details-identity") { @($expectedSuiteChecks[$suite]) + "NetworkActivity.Ui" } else { $expectedSuiteChecks[$suite] }
-            Assert-Equal $suiteCalls.Name $expected "Combined plan runs Network Activity once, in details-identity"
+            Assert-Equal $suiteCalls.Name $expectedSuiteChecks[$suite] "Combined plan runs Network Activity once, in its independent suite"
         }
         ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios DeviceHistory, Network) -Depth 5 |
             Set-Content $planPath
-        foreach ($suite in @("details-summary", "details-identity", "details-observations", "details-activity")) {
+        foreach ($suite in @("details-summary", "details-identity", "details-observations", "details-activity", "network-activity")) {
             $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
             & $runner -Suite $suite @parameters
             $suiteCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json)
-            $expected = if ($suite -eq "details-identity") { @($expectedSuiteChecks[$suite]) + "NetworkActivity.Ui" } else { $expectedSuiteChecks[$suite] }
-            Assert-Equal $suiteCalls.Name $expected "History-tab plan preserves split suites and Network Activity coverage"
+            Assert-Equal $suiteCalls.Name $expectedSuiteChecks[$suite] "History-tab plan preserves split suites and Network Activity coverage"
         }
         # Shared contracts must select plans that run their consumers' native checks, not Devices-only no-op details jobs.
         $selectionRepository = Join-Path $runnerFixture "shared-contract-selection"
@@ -140,9 +144,10 @@
         $sharedPlanPath = Join-Path $runnerFixture "shared-contract-plan.json"
         $sharedDetailChecks = [ordered]@{
             "details-summary" = @("DeviceScanHistory.Ui", "EquipmentActivity.Ui")
-            "details-identity" = @("DeviceDiscovery.Ui", "UsageCategory.Ui", "NetworkActivity.Ui")
+            "details-identity" = @("DeviceDiscovery.Ui", "UsageCategory.Ui")
             "details-observations" = @("DeviceScanHistory.Ui")
             "details-activity" = @("DeviceActivity.Ui")
+            "network-activity" = @("NetworkActivity.Ui")
         }
         foreach ($sharedCase in @(@($sharedPaths[0]), @($sharedPaths[1]), @($sharedPaths[2]), $sharedPaths)) {
             $null = Invoke-UiReviewGit $selectionRepository @("checkout", "--quiet", "--detach", $selectionBase)
@@ -171,6 +176,11 @@
             }
         }
         Assert-Throws { & $runner -Suite history @parameters } "*history*"
+        $env:UI_REGRESSION_FAIL = "NetworkActivity.Ui"
+        Assert-Throws { & $runner -Suite network-activity @parameters } "*Simulated regression failure: NetworkActivity.Ui*"
+        if ((Get-Content $env:GITHUB_STEP_SUMMARY -Raw) -notmatch 'network-activity / NetworkActivity.Ui elapsed:') {
+            throw "Independent Network Activity must preserve failure propagation and timing diagnostics."
+        }
         $env:UI_REGRESSION_FAIL = "DevicesList.Ui"
         Assert-Throws { & $runner -Suite devices @parameters } "*Simulated regression failure*"
         if ($null -ne @(Get-Content $env:UI_REGRESSION_CALLS | ConvertFrom-Json)[-1].Parameters.Group) {

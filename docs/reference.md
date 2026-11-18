@@ -584,9 +584,9 @@ zero/unknown, current normal/virtual metadata, identity deduplication, network
 isolation and calendar boundaries. The disposable native `NetworkActivity.Ui`
 module uses an isolated 1,000-device fixture and verifies all periods/groupings,
 filter combinations, 720-cell reachability, keyboard/light/dark/narrow layout, loading,
-replacement/cancellation, error/Retry and empty history. It runs in the existing
-`details-identity` job when Network is selected, using that job's budget
-headroom; full validation includes it.
+replacement/cancellation, error/Retry and empty history. It runs in the independent
+`network-activity` job when Network is selected; full validation includes it.
+Its isolated fixture, app lifecycle, assertions and captures are unchanged.
 `tests\NetworkActivity.Script.Tests.ps1` verifies that fixture and its production
 query without desktop automation. The shared renderer also retains the existing
 Device Activity light/dark/high-contrast native coverage. No native test runs on
@@ -1255,9 +1255,10 @@ across four independent matrix jobs (#292): `details-summary`
 `UsageCategory.Ui`), `details-observations` (`DeviceScanHistory.Ui -ObservationsOnly`)
 and `details-activity` (`DeviceActivity.Ui`). Each job launches its own fixtures and app
 instances, is selected by the `DeviceDetails` or `DeviceHistory` capture-plan scenario, and must
-dispatch at least one check. `details-identity` also runs the Network page's
-`NetworkActivity.Ui` when the `Network` scenario is selected, using that job's
-budget headroom. Checks within a script still share sequential
+dispatch at least one check. The separate `network-activity` suite runs
+`NetworkActivity.Ui` only when `Network` is selected, instead of adding it to
+`details-identity`. Both PR and Full validation dispatch it once with its own
+isolated fixture and app lifecycle. Checks within a script still share sequential
 fixture state. History, discovery and usage checks also write
 `call-costs.json`: per-phase calls and inclusive/exclusive milliseconds for
 lookup, positioning, wait, launch, close and scan categories. Exclusive time
@@ -1265,6 +1266,13 @@ removes nested measured calls, so positioning/wait exclusive time is property
 reads, scrolling and polling sleeps. A failure in these checks captures a
 failure screenshot, records the open phase as failed, and cleanup errors never
 replace the original failure.
+
+For #535, rejected-head run 44151395996 spent about 86 seconds in Discovery,
+80 seconds in Usage, and 51 seconds in Network Activity inside a 262-second
+identity job. The new suite removes the already-independent Network check from
+that serial path without changing any assertions, sleeps or timeouts. It adds
+one worker's setup/upload overhead; the resulting job durations must be measured
+on the new revision rather than treating the projected headroom as acceptance.
 
 Epic Developer must inspect and report the complete GitHub Actions job duration
 for every applicable UI-regression job discovered from current workflows and
@@ -1634,7 +1642,7 @@ Pull requests expose two review checks:
 - `security-review` scans the repository for exposed secrets and fails on critical dependency vulnerabilities.
 - `ui-ux-review` launches the tested WinUI app, exercises the primary **Scan LAN** action, verifies critical accessible controls, and embeds fresh screenshots of Devices and the affected views/states on the pull request.
 
-The **🔨 Pull request build** workflow runs core/script tests and one Windows publish concurrently after change planning. Build and core tests cache NuGet packages with a shared Windows/dependency-configuration key and Windows-scoped fallback; normal restore still verifies/resolves required packages on hits and misses. Native `ui-smoke`, `ui-assignments`, `ui-capture` and the thirteen `ui-regression` matrix suites start once the build passes, without waiting for core tests. Installer validation also starts once the build passes, overlapping core tests; its job summary reports the wait after the payload upload separately from the job duration. These checks run on separate Windows runners in parallel. Every job downloads the same published payload; none rebuilds the app. The matrix separates four Sidebar groups (including independent scan flows and scan presentation), three Devices groups, four Device Details groups, and two Tools groups. Suites remain sequential within each runner to avoid competing for focus and input. The sidebar retains Windows PowerShell; other suites retain PowerShell Core. UI-review mode is enabled only at runtime, so the downloaded app remains the normal executable.
+The **🔨 Pull request build** workflow runs core/script tests and one Windows publish concurrently after change planning. Build and core tests cache NuGet packages with a shared Windows/dependency-configuration key and Windows-scoped fallback; normal restore still verifies/resolves required packages on hits and misses. Native `ui-smoke`, `ui-assignments`, `ui-capture` and the fourteen `ui-regression` matrix suites start once the build passes, without waiting for core tests. Installer validation also starts once the build passes, overlapping core tests; its job summary reports the wait after the payload upload separately from the job duration. These checks run on separate Windows runners in parallel. Every job downloads the same published payload; none rebuilds the app. The matrix separates four Sidebar groups (including independent scan flows and scan presentation), three Devices groups, four Device Details groups, Network Activity, and two Tools groups. Suites remain sequential within each runner to avoid competing for focus and input. The sidebar retains Windows PowerShell; other suites retain PowerShell Core. UI-review mode is enabled only at runtime, so the downloaded app remains the normal executable.
 
 Each failed `ui-regression` matrix suite automatically retries once in a new
 test process on the same runner. Successful suites and setup steps do not

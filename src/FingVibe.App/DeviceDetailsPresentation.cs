@@ -55,6 +55,12 @@ internal sealed record DeviceEndpointPresentation(
 
 internal static class DeviceDetailsPresentation
 {
+    internal static string ReportedValues(ScanResultRow row) => row.ReportedValues.Count == 0
+        ? $"No reported names or device IDs saved for {row.AddressText}."
+        : $"Reported names and device IDs for {row.AddressText}:\n"
+            + string.Join("\n", row.ReportedValues.Select(item =>
+                $"{item.Kind.Label()}: {item.Value} | Last received: {HistoryTimestamp(item.LastReceivedAt)}"));
+
     internal static string FriendlyTimestamp(DateTimeOffset? timestamp, DateTimeOffset now,
         TimeZoneInfo? timeZone = null, bool aggregate = false)
     {

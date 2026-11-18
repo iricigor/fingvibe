@@ -266,6 +266,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
 
     internal void UpdateScanObservation(ScanResultRow row)
     {
+        DeviceReportedValuesText.Text = DeviceDetailsPresentation.ReportedValues(row);
         var result = row.Result;
         _row = row;
         var addresses = row.CurrentConnections.Select(item => item.AddressText).ToArray();

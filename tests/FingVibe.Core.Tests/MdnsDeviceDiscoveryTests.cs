@@ -1,12 +1,42 @@
 using System.Net;
 using System.Text;
 using FingVibe.Core.Networking;
+using FingVibe.Core.Models;
 using Xunit;
 
 namespace FingVibe.Core.Tests;
 
 public sealed class MdnsDeviceDiscoveryTests
 {
+    [Theory]
+    [InlineData("_googlecast._tcp.local", "id", ReportedDeviceValueKind.GoogleCastId)]
+    [InlineData("_hap._tcp.local", "id", ReportedDeviceValueKind.HomeKitId)]
+    [InlineData("_airplay._tcp.local", "deviceid", ReportedDeviceValueKind.AirPlayDeviceId)]
+    [InlineData("_ipp._tcp.local", "UUID", ReportedDeviceValueKind.PrinterUuid)]
+    [InlineData("_ipps._tcp.local", "uuid", ReportedDeviceValueKind.PrinterUuid)]
+    [InlineData("_printer._tcp.local", "UUID", ReportedDeviceValueKind.PrinterUuid)]
+    public void DiscoveryRetainsBoundedIdsOnlyForTheAdvertisedHost(string service, string key, ReportedDeviceValueKind kind)
+    {
+        var instance = $"Synthetic.{service}";
+        var text = new[] { " fixture-id ", "FIXTURE-ID", "other-id", "", new string('x', 129),
+            "third-id", "fourth-id", "fifth-id", "bad\u0001value" };
+        var records = MdnsDeviceDiscoveryService.ParseRecords(Packet(
+            ("synthetic.local", 1, IPAddress.Parse("192.0.2.10").GetAddressBytes()),
+            ("alias.local", 1, IPAddress.Parse("192.0.2.10").GetAddressBytes()),
+            ("unrelated.local", 1, IPAddress.Parse("192.0.2.11").GetAddressBytes()),
+            (instance, 33, new byte[] { 0, 0, 0, 0, 0, 1 }.Concat(Name("synthetic.local")).ToArray()),
+            (instance, 16, text.SelectMany(value => Txt($"{key}={value}")).ToArray())));
+        var devices = MdnsDeviceDiscoveryService.BuildDeviceMap(records);
+        var evidence = devices[IPAddress.Parse("192.0.2.10")].ReportedValues;
+        Assert.Equal(new[] { "fixture-id", "fourth-id", "other-id", "third-id" },
+            evidence.Where(item => item.Kind == kind).Select(item => item.Value));
+        Assert.Equal(2, evidence.Count(item => item.Kind == ReportedDeviceValueKind.MdnsName));
+        Assert.DoesNotContain(devices[IPAddress.Parse("192.0.2.11")].ReportedValues, item => item.Kind == kind);
+        Assert.Empty(MdnsDeviceDiscoveryService.GetFollowUpQueries(records.Single(item => item.Type == 16)));
+        Assert.Equal(new[] { ("synthetic.local", 1), (instance, 16), ("Synthetic._device-info._tcp.local", 16) },
+            MdnsDeviceDiscoveryService.GetFollowUpQueries(records.Single(item => item.Type == 33)));
+    }
+
     [Fact]
     public void Parser_ReadsServiceAndModelAdvertisements()
     {

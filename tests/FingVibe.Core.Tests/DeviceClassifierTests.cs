@@ -112,13 +112,15 @@ public sealed class DeviceClassifierTests
             <root xmlns="urn:schemas-upnp-org:device-1-0"><device>
               <friendlyName> Router </friendlyName><manufacturer>Example</manufacturer>
               <modelName>Model 1</modelName><deviceType>urn:schemas-upnp-org:device:InternetGatewayDevice:1</deviceType>
-              <deviceList><device><friendlyName>Embedded</friendlyName><deviceType>Printer</deviceType></device></deviceList>
+              <UDN> UUID:SYNTHETIC-ROUTER </UDN>
+              <deviceList><device><friendlyName>Embedded</friendlyName><deviceType>Printer</deviceType><UDN>uuid:embedded</UDN></device></deviceList>
             </device></root>
             """);
         var info = SsdpDiscoveryService.ParseDeviceDescription(document, "Linux/5");
         Assert.NotNull(info);
         Assert.Equal("Router", info.FriendlyName);
         Assert.Equal("Model 1", info.ModelName);
+        Assert.Equal("synthetic-router", info.DeviceUuid);
         Assert.Equal(DeviceType.Router, DeviceClassifier.Classify(info, null).Type);
         Assert.Equal(DeviceOperatingSystem.Linux, DeviceClassifier.Classify(info, null).OperatingSystem);
     }

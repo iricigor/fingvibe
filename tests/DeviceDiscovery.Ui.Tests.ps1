@@ -111,11 +111,12 @@ function Get-DiscoveryOnlineCount {
     return [int]($Matches[1] -replace ',', '')
 }
 
-function Set-DiscoveryResults([string[]] $Macs, [hashtable] $Names = @{}) {
+function Set-DiscoveryResults([string[]] $Macs, [hashtable] $Names = @{}, [hashtable] $Evidence = @{}) {
     $results = @($Macs | ForEach-Object {
         @{ address = "127.0.0.1"; status = 0; roundtripTimeMilliseconds = 1; probeDuration = "00:00:00.001"
            deviceName = $Names[$_]; macAddress = $_; vendorName = $(if ($_ -like "D0C907*") { "Private" } else { "Example" })
-           openPorts = @() }
+           openPorts = @()
+           reportedValues = $(if ($Evidence.ContainsKey($_)) { $Evidence[$_] } else { @() }) }
     })
     @{ version = 3; subnet = "127.0.0.1/32"; completedAt = "2026-11-01T12:01:00+00:00"; results = $results } |
         ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $fixture -Encoding UTF8
@@ -220,7 +221,12 @@ try {
         Set-DiscoveryResults @("020000000001")
         Invoke-DiscoveryScan
         Assert-NoDiscovery
-        Set-DiscoveryResults @("020000000001", "001122334466", "D0C907000001")
+        Set-DiscoveryResults @("020000000001", "001122334466", "D0C907000001") -Evidence @{
+            "001122334466" = @(
+                @{ kind = 0; value = "Synthetic SSDP name" },
+                @{ kind = 4; value = "synthetic-device-id" }
+            )
+        }
         Invoke-DiscoveryScan
         Assert-DiscoveryEntries @("001122334466", "D0C907000001") "discovery-$target"
         (Find-DiscoveryControl "Discovery-$target").GetCurrentPattern(
@@ -236,6 +242,27 @@ try {
         if (-not $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $nameCondition)) {
             throw "Discovery did not open details for $expectedName."
         }
+        $null = Show-UiRegressionScrollTargets -Description "identification evidence header" `
+            -GetViewport { Find-DiscoveryControl DeviceDetailsScroll } -GetWindow { $script:root } `
+            -GetTargets { Find-DiscoveryControl DeviceIdentificationEvidence }
+        (Find-DiscoveryControl DeviceIdentificationEvidence).GetCurrentPattern(
+            [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+        $null = Show-UiRegressionScrollTargets -Description "saved reported device evidence" `
+            -GetViewport { Find-DiscoveryControl DeviceDetailsScroll } -GetWindow { $script:root } `
+            -GetTargets { Find-DiscoveryControl DeviceReportedValuesText -Optional }
+        $evidenceText = (Find-DiscoveryControl DeviceReportedValuesText).Current.Name
+        if ($target -eq "001122334466") {
+            if ($evidenceText -notlike '*SSDP friendly name: Synthetic SSDP name*' -or
+                $evidenceText -notlike '*UPnP device UUID: synthetic-device-id*' -or
+                $evidenceText -notlike '*Last received:*') {
+                throw "Device Details did not retain the protocol-labelled names/IDs and received time: $evidenceText"
+            }
+        } elseif ($evidenceText -ne "No reported names or device IDs saved for 127.0.0.1.") {
+            throw "Evidence from another device leaked into the empty selected observation: $evidenceText"
+        }
+        Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "reported-evidence-$target.png")
+        (Find-DiscoveryControl DeviceIdentificationEvidence).GetCurrentPattern(
+            [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse()
         Invoke-DiscoveryScan
         Assert-NoDiscovery
         Stop-DiscoveryApp

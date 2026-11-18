@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
+using FingVibe.Core.Models;
 
 namespace FingVibe.Core.Networking;
 
@@ -203,7 +204,10 @@ public sealed class SsdpDiscoveryService
         string? Field(string name) => device.Elements()
             .FirstOrDefault(element => element.Name.LocalName == name)?.Value.Trim();
         return new SsdpDeviceInfo(
-            Field("friendlyName"), Field("deviceType"), Field("manufacturer"), Field("modelName"), server);
+            Field("friendlyName"), Field("deviceType"), Field("manufacturer"), Field("modelName"), server)
+        {
+            DeviceUuid = DeviceReportedValues.Normalize(ReportedDeviceValueKind.UpnpUuid, Field("UDN"))
+        };
     }
 
     private static bool IsAllowedLocation(Uri location, IPAddress respondingAddress)
