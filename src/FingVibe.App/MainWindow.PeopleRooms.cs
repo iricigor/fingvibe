@@ -53,7 +53,7 @@ public sealed partial class MainWindow
         string? roomShortName = null;
         string? roomName = null;
         var assignment = row.VirtualDevice is { } virtualDevice ? virtualDevice.Assignment
-            : row.MacAddress is { } macAddress ? _peopleRooms.Assignments.GetValueOrDefault(macAddress.ToString()) : null;
+            : row.MacAddress is { } macAddress ? CurrentDeviceData.GetAssignment(macAddress.ToString()) : null;
         if (assignment is not null)
         {
             if (assignment.PersonId is { } assignedPersonId
@@ -95,15 +95,16 @@ public sealed partial class MainWindow
 
     private IReadOnlyList<AssignedDeviceListRow> GetAssignedDeviceRows()
     {
-        return _peopleRooms.Assignments
-            .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(pair => new AssignedDeviceListRow(
-                pair.Key,
-                _allResults.FirstOrDefault(row => row.VirtualDevice is null && row.MacAddress?.ToString() == pair.Key)
-                    ?? (CurrentDeviceData.Devices.TryGetValue(pair.Key, out var device)
-                        ? new ScanResultRow(device, 0, _deviceNameOverrides.GetValueOrDefault(pair.Key),
-                            _classificationOverrides.GetValueOrDefault(pair.Key),
-                            historical: true) : null)))
+        var data = CurrentDeviceData;
+        // Linked members show their shared assignment; their own saved assignments stay preserved for Unlink.
+        return _peopleRooms.Assignments.Keys.Where(mac => data.FindLinkedDevice(mac) is null)
+            .Concat(data.LinkedDevices.Where(device => device.Assignment is not null)
+                .SelectMany(device => device.Members.Select(member => member.Mac)))
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .Select(mac => new AssignedDeviceListRow(
+                mac,
+                _allResults.FirstOrDefault(row => row.VirtualDevice is null && row.MacAddress?.ToString() == mac)
+                    ?? (data.Devices.TryGetValue(mac, out var device) ? ScanResultRow.ForDevice(device, data) : null)))
             .Concat(_allResults.Where(row => row.VirtualDevice?.Assignment is not null)
                 .Select(row => new AssignedDeviceListRow(row.IdentityKey, row)))
             .ToArray();
@@ -231,6 +232,14 @@ public sealed partial class MainWindow
         try
         {
             var updated = update(_peopleRooms);
+            DeviceAssignment? Existing(DeviceAssignment? assignment)
+            {
+                if (assignment is null) return null;
+                var kept = new DeviceAssignment(
+                    updated.People.Any(person => person.Id == assignment.PersonId) ? assignment.PersonId : null,
+                    updated.Rooms.Any(room => room.Id == assignment.RoomId) ? assignment.RoomId : null);
+                return kept is { PersonId: null, RoomId: null } ? null : kept;
+            }
             await PersistDeviceDataAsync(CurrentDeviceData with
             {
                 PeopleRooms = updated,
@@ -241,13 +250,17 @@ public sealed partial class MainWindow
                         PersonId = updated.People.Any(person => person.Id == assignment.PersonId) ? assignment.PersonId : null,
                         RoomId = updated.Rooms.Any(room => room.Id == assignment.RoomId) ? assignment.RoomId : null
                     }
-                }).ToArray()
+                }).ToArray(),
+                LinkedDevices = CurrentDeviceData.LinkedDevices
+                    .Select(device => device with { Assignment = Existing(device.Assignment) }).ToArray()
             });
             _peopleRooms = updated;
             foreach (var row in _allResults)
             {
                 if (row.VirtualDevice is { } virtualDevice)
                     row.UpdateVirtualDevice(CurrentDeviceData.VirtualDevices.First(device => device.Id == virtualDevice.Id));
+                if (row.LinkedDevice is { } linkedDevice)
+                    row.UpdateLinkedDevice(CurrentDeviceData.LinkedDevices.First(device => device.Id == linkedDevice.Id));
                 ApplyPeopleRoomAssignments(row);
             }
 
@@ -413,7 +426,7 @@ public sealed partial class MainWindow
 
         try
         {
-            if (_allResults.FirstOrDefault(row => row.VirtualDevice is not null && row.IdentityKey == macAddress) is { } virtualRow)
+            if (_allResults.FirstOrDefault(row => (row.VirtualDevice is not null || row.IsLinked) && row.IdentityKey == macAddress) is { } virtualRow)
             {
                 if (await SaveRowAssignmentAsync(virtualRow, true, null)) PersonDetailPage.Status = "Device unassigned.";
                 return;
@@ -438,7 +451,7 @@ public sealed partial class MainWindow
 
         try
         {
-            if (_allResults.FirstOrDefault(row => row.VirtualDevice is not null && row.IdentityKey == macAddress) is { } virtualRow)
+            if (_allResults.FirstOrDefault(row => (row.VirtualDevice is not null || row.IsLinked) && row.IdentityKey == macAddress) is { } virtualRow)
             {
                 if (await SaveRowAssignmentAsync(virtualRow, false, null)) RoomDetailPage.Status = "Device unassigned.";
                 return;
@@ -487,6 +500,8 @@ public sealed partial class MainWindow
             ? "Saved people and rooms could not be loaded; assignments are disabled."
             : _selectedDeviceRow.VirtualDevice is not null
                 ? "Assignments belong to this virtual device and follow its inferred MAC associations."
+            : _selectedDeviceRow.IsLinked
+                ? "This linked device has one shared Person and Room for all of its MAC addresses."
             : macAddress is null
                 ? "A valid six-byte MAC address is required to save assignments; IP addresses can change."
                 : macAddress.GetAddressBytes().Length != 6
@@ -575,6 +590,28 @@ public sealed partial class MainWindow
 
     private async Task<bool> SaveRowAssignmentAsync(ScanResultRow row, bool person, Guid? id)
     {
+        if (row.LinkedDevice is { } linked)
+        {
+            await _deviceDataSaveLock.WaitAsync();
+            try
+            {
+                await SaveLinkedDeviceAsync(linked.Id, device =>
+                {
+                    var assignment = person
+                        ? (device.Assignment ?? new()) with { PersonId = id }
+                        : (device.Assignment ?? new()) with { RoomId = id };
+                    return device with { Assignment = assignment is { PersonId: null, RoomId: null } ? null : assignment };
+                });
+                UpdateDeviceAssignmentPickers();
+                return true;
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+            {
+                SetPeopleRoomsStatus($"The linked-device assignment could not be saved: {exception.Message}");
+                return false;
+            }
+            finally { _deviceDataSaveLock.Release(); }
+        }
         if (row.VirtualDevice is null)
             return await SavePeopleRoomsAsync(data => person
                 ? data.AssignPerson(row.IdentityKey, id) : data.AssignRoom(row.IdentityKey, id));

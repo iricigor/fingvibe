@@ -1,0 +1,256 @@
+using System.Globalization;
+using FingVibe.Core.Models;
+
+namespace FingVibe.App;
+
+public enum MergeSectionState { NoSuggestions, PossibleMatches, Linked, Unavailable }
+
+public sealed record MergeSectionHeader(MergeSectionState State, string Text, string Explanation);
+
+public enum LinkedField { Name, DeviceType, OperatingSystem, Vendor, Family, Model, Icon, Person, Room, UsageCategory }
+
+public enum LinkedFieldChoice { None, ThisDevice, OtherDevice, Typed }
+
+/// <summary>A record offered by the Choose device picker; suggestions carry their reason.</summary>
+public sealed record LinkCandidate(string Mac, ScanResultRow Row, DeviceMatchSuggestion? Suggestion, bool Declined)
+{
+    public bool IsSuggested => Suggestion is not null;
+}
+
+public sealed record LinkedMemberLine(string Mac, string Address, string AdapterVendor, string Status, DateTimeOffset LinkedAt, bool IsThisDevice)
+{
+    public string Text => $"{FormatMac(Mac)}{(IsThisDevice ? " (this record)" : string.Empty)} · {Address} · "
+        + $"{AdapterVendor} · {Status} · linked {LinkedAt.ToLocalTime().ToString("d", CultureInfo.CurrentCulture)}";
+
+    private static string FormatMac(string mac) =>
+        string.Join("-", Enumerable.Range(0, mac.Length / 2).Select(index => mac.Substring(index * 2, 2)));
+}
+
+/// <summary>One row of "Choose the shared device data"; a differing value needs an explicit choice.</summary>
+public sealed class LinkedFieldDraft
+{
+    private readonly object? _thisValue;
+    private readonly object? _otherValue;
+
+    internal LinkedFieldDraft(LinkedField field, string label, string thisText, object? thisValue,
+        string otherText, object? otherValue, bool differs)
+    {
+        Field = field;
+        Label = label;
+        ThisText = thisText;
+        OtherText = otherText;
+        _thisValue = thisValue;
+        _otherValue = otherValue;
+        Differs = differs;
+    }
+
+    public LinkedField Field { get; }
+    public string Label { get; }
+    public string ThisText { get; }
+    public string OtherText { get; }
+    public bool Differs { get; }
+    public bool CanType => Field == LinkedField.Name;
+    public LinkedFieldChoice Choice { get; private set; }
+    public string TypedName { get; private set; } = string.Empty;
+
+    public bool IsResolved => Choice switch
+    {
+        LinkedFieldChoice.ThisDevice or LinkedFieldChoice.OtherDevice => true,
+        LinkedFieldChoice.Typed => !string.IsNullOrWhiteSpace(TypedName),
+        _ => !Differs
+    };
+
+    public string ResultText => Choice switch
+    {
+        LinkedFieldChoice.ThisDevice => ThisText,
+        LinkedFieldChoice.OtherDevice => OtherText,
+        LinkedFieldChoice.Typed when IsResolved => TypedName.Trim(),
+        _ => Differs ? "Choose a value" : ThisText
+    };
+
+    internal object? Result => Choice switch
+    {
+        LinkedFieldChoice.OtherDevice => _otherValue,
+        LinkedFieldChoice.Typed => TypedName.Trim(),
+        _ => _thisValue
+    };
+
+    public void Choose(LinkedFieldChoice choice)
+    {
+        if (choice == LinkedFieldChoice.Typed) throw new ArgumentException("Type a name instead.", nameof(choice));
+        if (!Differs && choice != LinkedFieldChoice.None)
+            throw new InvalidOperationException("Matching values are kept without a choice.");
+        Choice = choice;
+    }
+
+    /// <summary>Types the shared name; clearing the text returns to the earlier unresolved state.</summary>
+    public void TypeName(string? text)
+    {
+        if (!CanType) throw new InvalidOperationException("Only the name can be typed.");
+        TypedName = text ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(TypedName)) Choice = LinkedFieldChoice.Typed;
+        else if (Choice == LinkedFieldChoice.Typed) Choice = LinkedFieldChoice.None;
+    }
+}
+
+/// <summary>The draft shared values for linking two records. Nothing is saved until <see cref="ToChoices"/> is used.</summary>
+public sealed class LinkedDeviceDraft
+{
+    private LinkedDeviceDraft(ScanResultRow device, ScanResultRow other, IReadOnlyList<LinkedFieldDraft> fields)
+    {
+        Device = device;
+        Other = other;
+        Fields = fields;
+    }
+
+    public ScanResultRow Device { get; }
+    public ScanResultRow Other { get; }
+    public IReadOnlyList<LinkedFieldDraft> Fields { get; }
+    public int UnresolvedCount => Fields.Count(field => !field.IsResolved);
+    public bool CanMerge => UnresolvedCount == 0;
+    public LinkedFieldDraft? this[LinkedField field] => Fields.FirstOrDefault(item => item.Field == field);
+
+    public static LinkedDeviceDraft Create(ScanResultRow device, ScanResultRow other)
+    {
+        var fields = new List<LinkedFieldDraft>
+        {
+            Same(LinkedField.Name, "Name", device.NameText, device.NameText, other.NameText, other.NameText),
+            Same(LinkedField.DeviceType, "Device type", device.DeviceTypeText, device.Type, other.DeviceTypeText, other.Type),
+            Same(LinkedField.OperatingSystem, "Operating system", device.OperatingSystemText, device.OperatingSystem,
+                other.OperatingSystemText, other.OperatingSystem),
+            Same(LinkedField.Vendor, "Vendor / manufacturer", device.BrandText, Optional(device.BrandText),
+                other.BrandText, Optional(other.BrandText))
+        };
+        if (device.FamilyText != "-" || other.FamilyText != "-")
+            fields.Add(Same(LinkedField.Family, "Family", device.FamilyText, Optional(device.FamilyText),
+                other.FamilyText, Optional(other.FamilyText)));
+        if (device.ModelText != "-" || other.ModelText != "-")
+            fields.Add(Same(LinkedField.Model, "Model", device.ModelText, Optional(device.ModelText),
+                other.ModelText, Optional(other.ModelText)));
+        if (device.ClassificationOverride?.Icon is not null || other.ClassificationOverride?.Icon is not null)
+            fields.Add(Same(LinkedField.Icon, "Device icon", device.IconText, device.ClassificationOverride?.Icon,
+                other.IconText, other.ClassificationOverride?.Icon));
+        fields.Add(Same(LinkedField.Person, "Person", device.PersonFullName, device.PersonId, other.PersonFullName, other.PersonId));
+        fields.Add(Same(LinkedField.Room, "Room", device.RoomFullName, device.RoomId, other.RoomFullName, other.RoomId));
+        fields.Add(new(LinkedField.UsageCategory, "Usage category", UsageText(device), Usage(device),
+            UsageText(other), Usage(other), device.EffectiveUsageCategory != other.EffectiveUsageCategory));
+        return new(device, other, fields);
+    }
+
+    public LinkedDeviceChoices ToChoices()
+    {
+        if (!CanMerge) throw new InvalidOperationException("Choose every differing value before merging.");
+        T? Value<T>(LinkedField field) where T : struct => (T?)this[field]?.Result;
+        string? Text(LinkedField field) => this[field]?.Result as string;
+        var usage = (UsageChoice)this[LinkedField.UsageCategory]!.Result!;
+        var other = (UsageChoice)Usage(Other)!;
+        // Matching automatic categories stay automatic; any manual or chosen category becomes the shared override.
+        var shared = !this[LinkedField.UsageCategory]!.Differs && usage.Override is null && other.Override is null
+            ? null : usage.Effective;
+        var person = Value<Guid>(LinkedField.Person);
+        var room = Value<Guid>(LinkedField.Room);
+        return new(Text(LinkedField.Name)!,
+            new DeviceClassificationOverride(Value<DeviceOperatingSystem>(LinkedField.OperatingSystem),
+                Value<DeviceType>(LinkedField.DeviceType), Value<DeviceType>(LinkedField.Icon),
+                Text(LinkedField.Vendor), Text(LinkedField.Family), Text(LinkedField.Model)),
+            person is null && room is null ? null : new DeviceAssignment(person, room), shared);
+    }
+
+    private sealed record UsageChoice(DeviceUsageCategory? Effective, DeviceUsageCategory? Override);
+
+    private static object? Usage(ScanResultRow row) => new UsageChoice(row.EffectiveUsageCategory, row.UsageCategoryOverride);
+
+    private static string UsageText(ScanResultRow row) => row.EffectiveUsageCategory is not { } category ? "Unavailable"
+        : $"{category} - {(row.UsageCategoryOverride is not null ? "Manual" : "Auto")}";
+
+    private static string? Optional(string text) => text == "-" ? null : text;
+
+    private static LinkedFieldDraft Same(LinkedField field, string label, string thisText, object? thisValue,
+        string otherText, object? otherValue) =>
+        new(field, label, thisText, thisValue, otherText, otherValue, !Equals(thisValue, otherValue));
+}
+
+public static class LinkedDevicePresentation
+{
+    public const string VirtualExplanation =
+        "A virtual device groups changing private MAC addresses automatically, so it can't be linked. "
+        + "You can still name it and assign it to a person or room.";
+
+    public const string LinkedExplanation =
+        "Linked by you. Edit the shared name, identification, Person, Room and usage category in their own sections.";
+
+    public const string SeparateRecords =
+        "MAC addresses, adapter vendors, IPs, ports and scan histories stay separate. No source records are deleted.";
+
+    public const string PickerFooter = "Virtual devices can't be linked and aren't listed.";
+
+    public static MergeSectionHeader Header(ScanResultRow row, DeviceInventoryData data)
+    {
+        var mac = row.MacAddress?.GetAddressBytes().Length == 6 ? row.MacAddress.ToString() : null;
+        if (row.IsVirtualIdentity || mac is not null && data.VirtualGroupedMacs().Contains(mac))
+            return new(MergeSectionState.Unavailable, "Not available for virtual devices", VirtualExplanation);
+        if (mac is null || !data.Devices.ContainsKey(mac))
+            return new(MergeSectionState.Unavailable, "Not available without a saved MAC address",
+                "Linking needs a saved MAC address record. IP addresses can change.");
+        if (data.FindLinkedDevice(mac) is { } linked)
+            return new(MergeSectionState.Linked, $"{linked.Members.Count} MAC addresses", LinkedExplanation);
+        return row.MatchSuggestions.Count switch
+        {
+            0 => new(MergeSectionState.NoSuggestions, "No suggestions",
+                "No other record looks like this device. Choose a device to link it manually."),
+            1 => new(MergeSectionState.PossibleMatches, "1 possible match", string.Empty),
+            var count => new(MergeSectionState.PossibleMatches, $"{count} possible matches", string.Empty)
+        };
+    }
+
+    /// <summary>Suggestions first (strongest first), then every other unlinked record outside virtual devices.</summary>
+    public static IReadOnlyList<LinkCandidate> Candidates(ScanResultRow device, IEnumerable<ScanResultRow> rows,
+        DeviceInventoryData data, string? search = null)
+    {
+        var mac = device.MacAddress?.ToString() ?? throw new ArgumentException("A MAC address is required.", nameof(device));
+        var grouped = data.VirtualGroupedMacs();
+        var declined = data.DeclinedMatches.Select(item => item.Key).ToHashSet(StringComparer.Ordinal);
+        var eligible = rows.Where(row => row.VirtualDevice is null && row.MacAddress?.GetAddressBytes().Length == 6)
+            .Select(row => (Mac: row.MacAddress!.ToString(), Row: row))
+            .Where(item => item.Mac != mac && data.Devices.ContainsKey(item.Mac) && !grouped.Contains(item.Mac)
+                && data.FindLinkedDevice(item.Mac) is null)
+            .DistinctBy(item => item.Mac)
+            .ToDictionary(item => item.Mac, item => item.Row, StringComparer.Ordinal);
+        var suggested = device.MatchSuggestions.Where(item => eligible.ContainsKey(item.OtherMac))
+            .Select(item => new LinkCandidate(item.OtherMac, eligible[item.OtherMac], item, false)).ToArray();
+        var others = eligible.Where(pair => suggested.All(item => item.Mac != pair.Key))
+            .OrderBy(pair => pair.Value.NameText, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(pair => pair.Key, StringComparer.Ordinal)
+            .Select(pair => new LinkCandidate(pair.Key, pair.Value, null,
+                declined.Contains(DeclinedDeviceMatch.Create(mac, pair.Key).Key)));
+        return suggested.Concat(others).Where(item => Matches(item, search)).ToArray();
+    }
+
+    public static IReadOnlyList<LinkedMemberLine> Members(LinkedDevice linked,
+        IReadOnlyDictionary<string, ScanResultRow> rows, string currentMac) =>
+        linked.Members.Select(member =>
+        {
+            var row = rows.GetValueOrDefault(member.Mac);
+            return new LinkedMemberLine(member.Mac, row?.AddressText ?? "-",
+                DeviceVendorPresentation.DisplayText(row?.Result?.VendorName ?? "Unknown"),
+                row?.StatusLabel ?? "Unknown", member.LinkedAt, member.Mac == currentMac);
+        }).ToArray();
+
+    public static string CandidateText(LinkCandidate candidate) =>
+        $"{candidate.Row.NameText} · {candidate.Row.AddressText} · {candidate.Row.MacAddressText}"
+        + (candidate.Suggestion is { } suggestion ? $" · {suggestion.ShortReason}" : string.Empty)
+        + (candidate.Declined ? " · Declined" : string.Empty);
+
+    private static bool Matches(LinkCandidate candidate, string? search)
+    {
+        var text = search?.Trim();
+        if (string.IsNullOrEmpty(text)) return true;
+        var row = candidate.Row;
+        var compact = text.Replace("-", string.Empty).Replace(":", string.Empty);
+        return row.NameText.Contains(text, StringComparison.CurrentCultureIgnoreCase)
+            || row.AddressText.Contains(text, StringComparison.OrdinalIgnoreCase)
+            || row.MacAddressText.Contains(text, StringComparison.OrdinalIgnoreCase)
+            || compact.Length > 0 && candidate.Mac.Contains(compact, StringComparison.OrdinalIgnoreCase)
+            || row.VendorDisplayText.Contains(text, StringComparison.CurrentCultureIgnoreCase);
+    }
+}

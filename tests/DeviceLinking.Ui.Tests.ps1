@@ -1,0 +1,517 @@
+param(
+    [Parameter(Mandatory)][string] $AppPath,
+    [Parameter(Mandatory)][string] $ScreenshotDirectory
+)
+
+$ErrorActionPreference = "Stop"
+if ($env:GITHUB_ACTIONS -ne "true") { throw "Device-linking UI checks require a disposable GitHub Actions desktop." }
+. (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewScreenshot.ps1")
+. (Join-Path $PSScriptRoot "..\.github\scripts\UiReviewAppearance.ps1")
+. (Join-Path $PSScriptRoot "UiRegression\Helpers.ps1")
+. (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
+Initialize-InventorySqlite $AppPath
+
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public static class LinkReviewAccessibility {
+    [StructLayout(LayoutKind.Sequential)] private struct HC { public uint Size; public uint Flags; public IntPtr Scheme; }
+    [DllImport("user32.dll", SetLastError=true)] private static extern bool SystemParametersInfo(uint action, uint parameter, ref HC value, uint flags);
+    public static uint GetContrast() {
+        var value = new HC { Size = (uint)Marshal.SizeOf<HC>() };
+        if (!SystemParametersInfo(0x0042, value.Size, ref value, 0)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+        return value.Flags;
+    }
+    public static void SetContrast(uint flags) {
+        var value = new HC { Size = (uint)Marshal.SizeOf<HC>(), Flags = flags };
+        if (!SystemParametersInfo(0x0043, value.Size, ref value, 2)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+    }
+    [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+    private static extern IntPtr SendMessageTimeout(IntPtr window, uint message, UIntPtr parameter,
+        string setting, uint flags, uint timeout, out UIntPtr result);
+    public static void NotifyTextScaleChanged() {
+        UIntPtr result;
+        if (SendMessageTimeout(new IntPtr(0xffff), 0x001a, UIntPtr.Zero, "Accessibility", 2, 5000, out result) == IntPtr.Zero)
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+    }
+}
+'@
+
+$virtualExplanation = "A virtual device groups changing private MAC addresses automatically, so it can't be linked. You can still name it and assign it to a person or room."
+$linkedExplanation = "Linked by you. Edit the shared name, identification, Person, Room and usage category in their own sections."
+
+function Find-Link([string] $Value, [switch] $ByName, [switch] $Optional) {
+    $property = if ($ByName) { [System.Windows.Automation.AutomationElement]::NameProperty }
+        else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
+    $call = Start-UiRegressionCall lookup
+    try {
+        $condition = [System.Windows.Automation.PropertyCondition]::new($property, $Value)
+        $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        if (-not $element -and (Show-UiRegressionDeviceTabFor $script:root $Value)) {
+            $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        }
+    }
+    finally { Complete-UiRegressionCall $call }
+    if (-not $element -and -not $Optional) { throw "Missing device-linking control '$Value'." }
+    return $element
+}
+
+function Wait-Link([scriptblock] $Condition, [string] $Description) {
+    $call = Start-UiRegressionCall wait
+    try {
+        $deadline = [DateTime]::UtcNow.AddSeconds(25)
+        do {
+            if (& $Condition) { return }
+            Start-Sleep -Milliseconds 100
+        } while ([DateTime]::UtcNow -lt $deadline)
+        throw "Timed out waiting for $Description."
+    }
+    finally { Complete-UiRegressionCall $call }
+}
+
+function Start-LinkApp {
+    $call = Start-UiRegressionCall launch
+    try {
+        $script:process = Start-Process -FilePath $AppPath -PassThru
+        Wait-Link {
+            $script:process.Refresh()
+            if ($script:process.HasExited) { throw "Device-linking app exited: $($script:process.ExitCode)." }
+            $script:process.MainWindowHandle -ne [IntPtr]::Zero
+        } "app startup"
+        Initialize-UiReviewWindow $script:process.MainWindowHandle
+        $script:root = [System.Windows.Automation.AutomationElement]::FromHandle($script:process.MainWindowHandle)
+        Wait-Link { Find-Link DevicesNavItem -Optional } "navigation"
+    }
+    finally { Complete-UiRegressionCall $call }
+}
+
+function Stop-LinkApp {
+    $call = Start-UiRegressionCall close
+    try {
+        if ($script:process -and -not $script:process.HasExited) {
+            $null = $script:process.CloseMainWindow()
+            if (-not $script:process.WaitForExit(5000)) { throw "Device-linking app did not close normally." }
+        }
+    }
+    finally { Complete-UiRegressionCall $call }
+}
+
+function Get-LinkRows([string] $Name) {
+    $list = Find-Link ResultsList -Optional
+    if (-not $list -or $list.Current.IsOffscreen) { return }
+    foreach ($row in $list.FindAll([System.Windows.Automation.TreeScope]::Children,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem))) {
+        $cell = $row.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceNameText"))
+        if ($cell -and $cell.Current.Name -ceq $Name) { $row }
+    }
+}
+
+function Show-LinkDevices([string] $Search) {
+    $back = Find-Link "Back to devices" -ByName -Optional
+    if ($back -and -not $back.Current.IsOffscreen) {
+        $back.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    } else {
+        (Find-Link DevicesNavItem).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    }
+    Wait-Link { $list = Find-Link ResultsList -Optional; $list -and -not $list.Current.IsOffscreen } "Devices"
+    (Find-Link "Search devices" -ByName).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Search)
+}
+
+# Opens the only row matching a search (a name or a MAC address) and expects its displayed name.
+function Open-LinkDevice([string] $Search, [string] $Name = $Search) {
+    Show-LinkDevices $Search
+    Wait-Link {
+        $list = Find-Link ResultsList -Optional
+        $all = if ($list) { @($list.FindAll([System.Windows.Automation.TreeScope]::Children,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem))) } else { @() }
+        $all.Count -eq 1 -and @(Get-LinkRows $Name).Count -eq 1
+    } "the only '$Name' row for '$Search'"
+    $row = @(Get-LinkRows $Name)[0]
+    $row.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+    Wait-Link { $scroll = Find-Link DeviceDetailsScroll -Optional; $scroll -and -not $scroll.Current.IsOffscreen } "device details"
+}
+
+function Show-Link([string] $Id) {
+    $call = Start-UiRegressionCall positioning
+    try {
+        $viewport = Find-Link DeviceDetailsScroll
+        $scroll = $viewport.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        foreach ($percent in 0..100) {
+            if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
+            Start-Sleep -Milliseconds 10
+            $control = Find-Link $Id
+            $bounds = $control.Current.BoundingRectangle
+            $area = $viewport.Current.BoundingRectangle
+            $bottom = [Math]::Min($area.Bottom, $script:root.Current.BoundingRectangle.Bottom - 16)
+            if (-not $control.Current.IsOffscreen -and $bounds.Height -gt 0 -and
+                $bounds.Top -ge $area.Top -and $bounds.Bottom -le $bottom) { return $control }
+        }
+        throw "Device-linking control '$Id' is clipped or unreachable."
+    }
+    finally { Complete-UiRegressionCall $call }
+}
+
+function Invoke-Link([string] $Id) {
+    (Show-Link $Id).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+}
+
+function Save-LinkCapture([string] $Name, [string] $Control = "MergeMacAddresses") {
+    $null = Show-Link $Control
+    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Name.png")
+}
+
+function Get-LinkSection {
+    $section = Find-Link MergeMacAddresses -Optional
+    if (-not $section) { return $null }
+    [pscustomobject]@{
+        Header = $section.Current.HelpText
+        State = $section.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState
+        Element = $section
+    }
+}
+
+function Assert-LinkSection([string] $Header, [string] $State) {
+    Wait-Link { $section = Get-LinkSection; $section -and $section.Header -eq $Header } "Merge MAC addresses showing '$Header'"
+    $section = Get-LinkSection
+    if ($section.State -ne $State) { throw "Merge MAC addresses '$Header' must open $State, not $($section.State)." }
+    $identification = (Find-Link "Edit device identification" -ByName).Current.BoundingRectangle
+    if ($identification.Top -lt $section.Element.Current.BoundingRectangle.Bottom) {
+        throw "Merge MAC addresses must sit directly above Device identification."
+    }
+}
+
+function Expand-LinkSection {
+    $expansion = (Find-Link MergeMacAddresses).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+    if ($expansion.Current.ExpandCollapseState -ne "Expanded") { $expansion.Expand() }
+}
+
+function Get-LinkPickerItems {
+    $list = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "MergeMacPickerList"))
+    if (-not $list) { return }
+    $list.FindAll([System.Windows.Automation.TreeScope]::Children,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem))
+}
+
+function Open-LinkPicker([string] $Expected) {
+    Invoke-Link MergeMacChangeDevice
+    Wait-Link { (@(Get-LinkPickerItems).Current.Name -join "|") -like $Expected } "picker items '$Expected'"
+    if (-not (Find-Link MergeMacPickerFooter -Optional)) { throw "The picker must explain that virtual devices aren't listed." }
+}
+
+function Select-LinkPickerItem([string] $Name) {
+    $item = @(Get-LinkPickerItems | Where-Object { $_.Current.Name -like "$Name*" })
+    if ($item.Count -ne 1) { throw "Expected one picker item '$Name'; found $($item.Count)." }
+    $item[0].SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
+    Wait-Link { -not (Find-Link MergeMacPickerList -Optional) } "the picker to close"
+}
+
+function Close-LinkPicker {
+    [System.Windows.Forms.SendKeys]::SendWait("{ESC}")
+    Wait-Link { -not (Find-Link MergeMacPickerList -Optional) } "the picker to close"
+}
+
+function Select-LinkChoice([string] $Id) {
+    (Show-Link $Id).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    Wait-Link { (Find-Link $Id).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } "choice $Id"
+}
+
+function Set-LinkName([string] $Name) {
+    (Show-Link MergeMacNameInput).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Name)
+}
+
+function Assert-LinkMerge([bool] $Enabled, [string] $Unresolved) {
+    Wait-Link { (Find-Link MergeMacMerge).Current.IsEnabled -eq $Enabled } "Merge as one device enabled=$Enabled"
+    if ((Find-Link MergeMacUnresolved).Current.Name -notlike $Unresolved) {
+        throw "Unexpected unresolved summary: $((Find-Link MergeMacUnresolved).Current.Name)"
+    }
+}
+
+function Resolve-LinkDraft {
+    Set-LinkName "Link desk"
+    Select-LinkChoice MergeMacChoiceDeviceTypeOther
+    $person = Show-Link MergeMacChoicePersonThis
+    $person.SetFocus()
+    # Keyboard: Space selects the focused radio button.
+    [System.Windows.Forms.SendKeys]::SendWait(" ")
+    Wait-Link { (Find-Link MergeMacChoicePersonThis).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } "keyboard person choice"
+    Select-LinkChoice MergeMacChoiceRoomOther
+}
+
+function Get-LinkCount { Get-InventorySqliteValue $database "SELECT COUNT(*) FROM linked_devices" }
+
+$fixture = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-link-ui-$([Guid]::NewGuid().ToString('N'))"
+$inventory = Join-Path $fixture "inventory.json"
+$database = [IO.Path]::ChangeExtension($inventory, ".sqlite")
+$snapshot = Join-Path $fixture "snapshot.json"
+$previous = @{}
+$script:process = $null
+$lock = $null
+$contrast = $null
+$scaleKey = $null
+$originalScale = $null
+$originalKind = $null
+$phase = $null
+$failed = $false
+foreach ($key in @("FINGVIBE_UI_REVIEW", "FINGVIBE_UI_REVIEW_INVENTORY", "FINGVIBE_UI_REVIEW_SNAPSHOT",
+    "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT", "FINGVIBE_UI_REVIEW_DEVICE_TABLE", "FINGVIBE_UI_REVIEW_NETWORK")) {
+    $previous[$key] = [Environment]::GetEnvironmentVariable($key)
+}
+try {
+    $null = New-Item -ItemType Directory -Path $fixture
+    $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
+    $phase = Step-UiRegressionPhase $phase "linking/fixture" $ScreenshotDirectory
+    $time = [DateTimeOffset]::UtcNow.AddDays(-1)
+    $person = [Guid]::NewGuid().ToString()
+    $room = [Guid]::NewGuid().ToString()
+    function New-LinkObservation([string] $Address, [string] $Vendor, [bool] $Present = $false, [object[]] $Reported = @()) {
+        @{
+            networkId = "ui-review-network"; subnet = "127.0.0.1/32"; address = $Address
+            hostname = $null; vendor = $Vendor; ports = @(); latency = 1; probeDuration = "00:00:00.001"
+            classification = @{ type = 0; operatingSystem = 0; typeEvidence = "Fixture"; operatingSystemEvidence = "Fixture" }
+            firstSeen = $time.ToString("o"); lastSeen = $time.AddMinutes(11).ToString("o")
+            lastChecked = $time.AddMinutes(13).ToString("o"); present = $Present
+            reportedValues = @($Reported | ForEach-Object { @{ kind = $_[0]; value = $_[1]; lastReceivedAt = $time.AddMinutes(11).ToString("o") } })
+        }
+    }
+    # Synthetic records: Wi-Fi, dock and declined share a UPnP UUID (kind 4); plain has no evidence; two private MACs form a virtual device.
+    $uuid = @(, @(4, "uuid-link-fixture"))
+    $oldPrivate = New-LinkObservation "127.0.0.7" "Private"
+    $currentPrivate = New-LinkObservation "127.0.0.8" "Private" $true
+    $data = @{
+        revision = [Guid]::NewGuid().ToString()
+        devices = @{
+            "001122BB0001" = @{ mac = "001122BB0001"; imported = @{}; scanHistory = @(); observations = @(New-LinkObservation "127.0.0.2" "Example" -Reported $uuid) }
+            "001122BB0002" = @{ mac = "001122BB0002"; imported = @{}; scanHistory = @(); observations = @(New-LinkObservation "127.0.0.3" "Example" -Reported $uuid) }
+            "001122BB0003" = @{ mac = "001122BB0003"; imported = @{}; scanHistory = @(); observations = @(New-LinkObservation "127.0.0.4" "Example" -Reported $uuid) }
+            "001122BB0004" = @{ mac = "001122BB0004"; imported = @{}; scanHistory = @(); observations = @(New-LinkObservation "127.0.0.5" "Example") }
+            "D0C9070000A1" = @{ mac = "D0C9070000A1"; imported = @{}; scanHistory = @(); observations = @($oldPrivate) }
+            "D0C9070000A2" = @{ mac = "D0C9070000A2"; imported = @{}; scanHistory = @(); observations = @($currentPrivate) }
+        }
+        names = @{ "001122BB0001" = "Link desk Wi-Fi"; "001122BB0002" = "Link desk dock"; "001122BB0003" = "Link declined"; "001122BB0004" = "Link plain" }
+        classifications = @{ "001122BB0001" = @{ type = 1 }; "001122BB0002" = @{ type = 2 } }
+        peopleRooms = @{
+            people = @(@{ id = $person; name = "Link person"; shortName = "LP" })
+            rooms = @(@{ id = $room; name = "Link room"; shortName = "LR" })
+            assignments = @{ "001122BB0001" = @{ personId = $person }; "001122BB0002" = @{ roomId = $room } }
+        }
+        virtualDevices = @(@{
+            id = [Guid]::NewGuid().ToString(); networkId = "ui-review-network"; subnet = "127.0.0.1/32"
+            prefix = "D0C907"; number = 1; lastActiveMac = "D0C9070000A2"; lastChecked = $time.AddMinutes(13).ToString("o")
+            present = $true; name = "Link virtual"; scanHistory = @()
+            history = @(@{ mac = "D0C9070000A1"; observation = $oldPrivate; inferred = $true },
+                @{ mac = "D0C9070000A2"; observation = $currentPrivate; inferred = $true })
+        })
+        discoveryBaselines = @()
+    }
+    @{ version = 4; data = $data } | ConvertTo-Json -Depth 15 | Set-Content -LiteralPath $inventory -Encoding utf8
+    @{ version = 3; subnet = "127.0.0.1/32"; completedAt = $time.AddMinutes(13).ToString("o"); results = @() } |
+        ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $snapshot -Encoding utf8
+    $env:FINGVIBE_UI_REVIEW = "1"
+    $env:FINGVIBE_UI_REVIEW_INVENTORY = $inventory
+    $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $snapshot
+    $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT = "0"
+    $env:FINGVIBE_UI_REVIEW_DEVICE_TABLE = Join-Path $fixture "table.json"
+    $env:FINGVIBE_UI_REVIEW_NETWORK = "ui-review-network"
+
+    $phase = Step-UiRegressionPhase $phase "linking/section-states" $ScreenshotDirectory
+    Start-LinkApp
+    Open-LinkDevice "Link plain"
+    Assert-LinkSection "No suggestions" "Collapsed"
+    Save-LinkCapture "link-no-suggestions"
+    Expand-LinkSection
+    Wait-Link { (Find-Link MergeMacChangeDevice -Optional).Current.Name -eq "Choose device" } "Choose device..."
+    Open-LinkPicker "Other devices|Link declined*|Link desk dock*|Link desk Wi-Fi*"
+    if (@(Get-LinkPickerItems).Current.Name -match "Link virtual|Suggested") { throw "The picker must exclude virtual devices and empty groups." }
+    (Find-Link MergeMacPickerSearch).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("dock")
+    Wait-Link { (@(Get-LinkPickerItems).Current.Name -join "|") -like "Other devices|Link desk dock*" } "search to find only the dock"
+    Close-LinkPicker
+    Open-LinkDevice "Link virtual"
+    Assert-LinkSection "Not available for virtual devices" "Collapsed"
+    Expand-LinkSection
+    Wait-Link { (Find-Link MergeMacExplanation -Optional).Current.Name -eq $virtualExplanation } "the virtual-device explanation"
+    if (Find-Link MergeMacChangeDevice -Optional) { throw "Virtual devices must not offer linking." }
+    Save-LinkCapture "link-virtual-unavailable" MergeMacExplanation
+
+    $phase = Step-UiRegressionPhase $phase "linking/compare-cancel" $ScreenshotDirectory
+    Open-LinkDevice "Link desk Wi-Fi"
+    Assert-LinkSection "2 possible matches" "Expanded"
+    Wait-Link { (Find-Link MergeMacOtherHeading).Current.Name -eq "Selected other MAC address · suggestion 1 of 2" } "first suggestion"
+    Open-LinkPicker "Suggested|Link desk dock*Same device ID*|Link declined*Same device ID*|Other devices|Link plain*"
+    Select-LinkPickerItem "Link declined"
+    Wait-Link { (Find-Link MergeMacOtherName).Current.Name -eq "Link declined" } "the second suggestion"
+    Invoke-Link MergeMacDecline
+    Assert-LinkSection "1 possible match" "Expanded"
+    Wait-Link { (Find-Link MergeMacOtherName).Current.Name -eq "Link desk dock" } "the remaining suggestion"
+    Open-LinkPicker "Suggested|Link desk dock*|Other devices|Link declined*Declined|Link plain*"
+    Close-LinkPicker
+    Assert-LinkMerge $false "4 differences need a choice*"
+    foreach ($id in @("MergeMacChoiceNameThis", "MergeMacChoiceNameOther", "MergeMacChoiceDeviceTypeThis", "MergeMacChoiceDeviceTypeOther",
+        "MergeMacChoicePersonThis", "MergeMacChoiceRoomOther", "MergeMacNameInput", "MergeMacSeparateRecords")) {
+        $null = Find-Link $id
+    }
+    if (Find-Link MergeMacChoiceOperatingSystemThis -Optional) { throw "Matching values must not ask for a choice." }
+    if ((Find-Link MergeMacResultDeviceType).Current.Name -ne "Linked device Device type: Choose a value") {
+        throw "Unresolved values must say they need a choice: $((Find-Link MergeMacResultDeviceType).Current.Name)"
+    }
+    Save-LinkCapture "link-comparison-unresolved" MergeMacUnresolved
+    Resolve-LinkDraft
+    Assert-LinkMerge $true "Every value is chosen*"
+    if ((Find-Link MergeMacResultRoom).Current.Name -ne "Linked device Room: Link room") { throw "The chosen room must be the linked value." }
+    Invoke-Link MergeMacCancel
+    Assert-LinkMerge $false "4 differences need a choice*"
+    if ((Find-Link MergeMacNameInput).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value) {
+        throw "Cancel must discard the typed name."
+    }
+    if ((Get-LinkCount) -ne 0) { throw "Cancel must not save a linked device." }
+
+    $phase = Step-UiRegressionPhase $phase "linking/failed-save-merge" $ScreenshotDirectory
+    Resolve-LinkDraft
+    $lock = [IO.FileStream]::new("$inventory.lock", [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+    Invoke-Link MergeMacMerge
+    Wait-Link { Find-Link MergeMacError -Optional } "visible link failure"
+    Assert-LinkSection "1 possible match" "Expanded"
+    Assert-LinkMerge $true "Every value is chosen*"
+    if ((Find-Link MergeMacNameInput).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value -ne "Link desk") {
+        throw "A failed save must keep the draft."
+    }
+    if ((Get-LinkCount) -ne 0) { throw "A failed save must not link the devices." }
+    Save-LinkCapture "link-save-error" MergeMacError
+    $lock.Dispose()
+    $lock = $null
+    Invoke-Link MergeMacMerge
+    Assert-LinkSection "2 MAC addresses" "Expanded"
+    Wait-Link { (Find-Link MergeMacExplanation -Optional).Current.Name -eq $linkedExplanation } "the linked explanation"
+    $memberText = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text)
+    $members = @((Find-Link MergeMacAddresses).FindAll([System.Windows.Automation.TreeScope]::Descendants, $memberText) |
+        Where-Object { $_.Current.Name -like "00-11-22-BB-00-0? *· 127.0.0.? · Example · Offline · linked *" })
+    if ($members.Count -ne 2 -or $members[0].Current.Name -notlike "00-11-22-BB-00-01 (this record) · 127.0.0.2 *") {
+        throw "The linked section must list each MAC with its IP, adapter vendor, status and date linked: $($members.Current.Name -join ' | ')"
+    }
+    foreach ($id in @("MergeMacChangeDevice", "MergeMacMerge", "MergeMacError")) {
+        if (Find-Link $id -Optional) { throw "A linked device must not show $id (Unlink is a later task)." }
+    }
+    if ((Get-LinkCount) -ne 1 -or
+        (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.name') FROM linked_devices") -ne "Link desk" -or
+        (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.identification.type') FROM linked_devices") -ne 2 -or
+        (Get-InventorySqliteValue $database "SELECT json_extract(data,'$') FROM names WHERE id='001122BB0001'") -ne "Link desk Wi-Fi" -or
+        (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.type') FROM classifications WHERE id='001122BB0001'") -ne 1) {
+        throw "Linking must save shared values atomically and keep each member's own values."
+    }
+    Save-LinkCapture "link-linked" MergeMacExplanation
+    Show-LinkDevices "Link desk"
+    Wait-Link { @(Get-LinkRows "Link desk").Count -eq 2 } "both member rows showing the shared name"
+
+    $phase = Step-UiRegressionPhase $phase "linking/shared-edit-restart" $ScreenshotDirectory
+    Open-LinkDevice "00-11-22-BB-00-02" "Link desk"
+    Assert-LinkSection "2 MAC addresses" "Collapsed"
+    Invoke-Link UsageCategoryEdit
+    $null = Show-Link UsageCategoryPicker
+    Set-UiReviewAppearanceChoice -Root $script:root -Picker UsageCategoryPicker -Choice Guest
+    Invoke-Link UsageCategorySave
+    Wait-Link { (Find-Link UsageCategoryEffective).Current.Name -like "Guest | Manual override*" } "shared Guest category"
+    Stop-LinkApp
+    Start-LinkApp
+    Open-LinkDevice "00-11-22-BB-00-01" "Link desk"
+    Assert-LinkSection "2 MAC addresses" "Collapsed"
+    $null = Show-Link UsageCategoryEffective
+    Wait-Link { (Find-Link UsageCategoryEffective).Current.Name -like "Guest | Manual override*" } "the shared category on the other member after restart"
+    if ((Get-InventorySqliteValue $database "SELECT COUNT(*) FROM devices WHERE id='001122BB0002' AND json_extract(data,'$.usageCategoryOverride') IS NOT NULL") -ne 0) {
+        throw "Shared edits must not overwrite a member's own usage category."
+    }
+
+    $phase = Step-UiRegressionPhase $phase "linking/high-contrast" $ScreenshotDirectory
+    $contrast = [LinkReviewAccessibility]::GetContrast()
+    [LinkReviewAccessibility]::SetContrast($contrast -bor 1)
+    Start-Sleep -Seconds 2
+    if (([LinkReviewAccessibility]::GetContrast() -band 1) -eq 0) { throw "High contrast did not activate." }
+    Expand-LinkSection
+    Save-LinkCapture "link-linked-high-contrast" MergeMacExplanation
+    Open-LinkDevice "Link plain"
+    Assert-LinkSection "No suggestions" "Collapsed"
+    Save-LinkCapture "link-no-suggestions-high-contrast"
+    [LinkReviewAccessibility]::SetContrast($contrast)
+    $contrast = $null
+    Start-Sleep -Seconds 1
+
+    $phase = Step-UiRegressionPhase $phase "linking/text-scaling" $ScreenshotDirectory
+    $appDirectory = Split-Path -Parent $AppPath
+    Add-Type -Path (Join-Path $appDirectory 'WinRT.Runtime.dll')
+    Add-Type -Path (Join-Path $appDirectory 'Microsoft.Windows.SDK.NET.dll')
+    $settings = [Windows.UI.ViewManagement.UISettings]::new()
+    $originalFactor = $settings.TextScaleFactor
+    $scaleKey = [Microsoft.Win32.Registry]::CurrentUser.CreateSubKey('Software\Microsoft\Accessibility')
+    $originalScale = $scaleKey.GetValue('TextScaleFactor', $null)
+    $originalKind = if ($null -ne $originalScale) { $scaleKey.GetValueKind('TextScaleFactor') } else { $null }
+    Stop-LinkApp
+    $scaleKey.SetValue('TextScaleFactor', 200, [Microsoft.Win32.RegistryValueKind]::DWord)
+    [LinkReviewAccessibility]::NotifyTextScaleChanged()
+    Wait-Link { [Math]::Abs($settings.TextScaleFactor - 2) -lt 0.01 } "effective Windows text scale of 200 percent"
+    Start-LinkApp
+    Open-LinkDevice "Link plain"
+    Expand-LinkSection
+    Open-LinkPicker "Other devices|Link declined*"
+    Select-LinkPickerItem "Link declined"
+    Wait-Link { (Find-Link MergeMacOtherHeading).Current.Name -eq "Selected other MAC address · chosen manually" } "a manual choice"
+    if (Find-Link MergeMacReason -Optional) { throw "A manually chosen device must omit the suggestion reason." }
+    if (Find-Link MergeMacDecline -Optional) { throw "Only suggestions can be declined." }
+    $scale = [UiReviewNativeWindow]::GetDpiForWindow($script:process.MainWindowHandle) / 96.0
+    $window = $script:root.Current.BoundingRectangle
+    foreach ($id in @("MergeMacChoiceNameThis", "MergeMacChoiceNameOther", "MergeMacNameInput", "MergeMacMerge", "MergeMacCancel")) {
+        $bounds = (Show-Link $id).Current.BoundingRectangle
+        if ($bounds.Left -lt $window.Left -or $bounds.Right -gt $window.Right -or $bounds.Height -lt 16 * $scale) {
+            throw "$id must stay readable and unclipped at 200% text scale. Bounds=$bounds; window=$window; scale=$scale."
+        }
+    }
+    Save-LinkCapture "link-comparison-text-scale-200" MergeMacMerge
+    $cancel = Show-Link MergeMacCancel
+    $cancel.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait(" ")
+    Wait-Link { (Find-Link MergeMacChangeDevice -Optional).Current.Name -eq "Choose device" } "Cancel to clear the manual choice"
+    if ((Get-LinkCount) -ne 1) { throw "Cancel must not change saved links." }
+    $phase = Step-UiRegressionPhase $phase $null $ScreenshotDirectory
+    Write-Host "Device linking states, picker, explicit choices, Cancel, failed-save draft, atomic save, shared editing, restart, high contrast, keyboard and text scaling passed."
+}
+catch {
+    $failed = $true
+    Write-Host $_
+    Write-Host $_.ScriptStackTrace
+    if ($script:process -and -not $script:process.HasExited -and $script:process.MainWindowHandle -ne [IntPtr]::Zero) {
+        try { Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "linking-failure.png") }
+        catch { Write-Warning "Could not capture linking failure: $($_.Exception.Message)" }
+    }
+    throw
+}
+finally {
+    Invoke-UiRegressionCleanup -PrimaryFailed $failed -Steps @(
+        { if ($phase) { Complete-UiRegressionPhase -Phase $phase -Directory $ScreenshotDirectory -Succeeded $false } },
+        { Write-UiRegressionCallCosts -Directory $ScreenshotDirectory -Name "DeviceLinking.Ui" },
+        { if ($lock) { $lock.Dispose() } },
+        { if ($null -ne $contrast) { [LinkReviewAccessibility]::SetContrast($contrast) } },
+        { if ($script:process -and -not $script:process.HasExited) { Stop-Process -Id $script:process.Id } },
+        {
+            if ($scaleKey) {
+                if ($null -eq $originalScale) { $scaleKey.DeleteValue('TextScaleFactor', $false) }
+                else { $scaleKey.SetValue('TextScaleFactor', $originalScale, $originalKind) }
+                [LinkReviewAccessibility]::NotifyTextScaleChanged()
+                $scaleKey.Dispose()
+            }
+        },
+        {
+            foreach ($key in $previous.Keys) {
+                if ([string]::IsNullOrEmpty($previous[$key])) { Remove-Item -LiteralPath "Env:$key" -ErrorAction SilentlyContinue }
+                else { [Environment]::SetEnvironmentVariable($key, $previous[$key]) }
+            }
+        },
+        { if (Test-Path -LiteralPath $fixture) { Remove-Item -LiteralPath $fixture -Recurse -Force } }
+    )
+}

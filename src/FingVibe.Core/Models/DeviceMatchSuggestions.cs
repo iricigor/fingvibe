@@ -82,8 +82,9 @@ public static class DeviceMatchSuggestions
     {
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(localAdapterMacs);
-        var grouped = data.VirtualDevices.SelectMany(slot => slot.History.Select(item => item.Mac))
-            .ToHashSet(StringComparer.Ordinal);
+        var grouped = data.VirtualGroupedMacs().ToHashSet(StringComparer.Ordinal);
+        // Linked records are neither suggested nor given suggestions until linked-device suggestions exist.
+        grouped.UnionWith(data.LinkedDevices.SelectMany(device => device.Members.Select(member => member.Mac)));
         var declined = data.DeclinedMatches.Select(item => item.Key).ToHashSet(StringComparer.Ordinal);
         // Group records by normalized evidence keys instead of comparing every pair.
         var groups = new Dictionary<(string Network, DeviceMatchReason Reason, string Kind, string Value), HashSet<string>>();

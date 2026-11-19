@@ -31,12 +31,21 @@ public sealed partial class MainWindow
     private void ShowSelectedMatchSuggestions(bool opening)
     {
         if (_selectedDeviceRow is not { } row) return;
+        var data = CurrentDeviceData;
         var rows = MacRows();
-        DevicePage.ShowMatchSuggestions(DeviceMatchPresentation.Card(row),
-            row.MatchSuggestions.Select(item => new DeviceMatchItem(item.OtherMac,
-                rows.TryGetValue(item.OtherMac, out var other) ? DeviceMatchPresentation.Card(other)
-                    : new(DeviceMatchPresentation.FormatMac(item.OtherMac), "Unknown", DeviceMatchPresentation.FormatMac(item.OtherMac), "-"),
-                item.ShortReason, item.Explanation)).ToArray(), opening);
+        var header = LinkedDevicePresentation.Header(row, data);
+        var canLink = header.State is MergeSectionState.NoSuggestions or MergeSectionState.PossibleMatches;
+        DeviceLinkChoice Choice(LinkCandidate candidate) => new(candidate.Mac, DeviceMatchPresentation.Card(candidate.Row),
+            candidate.Suggestion?.ShortReason, candidate.Suggestion?.Explanation, candidate.Declined,
+            LinkedDevicePresentation.CandidateText(candidate));
+        IReadOnlyList<DeviceLinkChoice> Search(string? text) => canLink
+            ? LinkedDevicePresentation.Candidates(row, _allResults, data, text).Select(Choice).ToArray() : [];
+        var mac = row.MacAddress?.ToString();
+        var members = mac is not null && data.FindLinkedDevice(mac) is { } linked
+            ? LinkedDevicePresentation.Members(linked, rows, mac).Select(line => line.Text).ToArray() : [];
+        DevicePage.ShowMergeSection(new(header, DeviceMatchPresentation.Card(row),
+            Search(null).Where(item => item.IsSuggested).ToArray(), members, Search,
+            other => rows.TryGetValue(other, out var otherRow) ? LinkedDeviceDraft.Create(row, otherRow) : null), opening);
     }
 
     private Dictionary<string, ScanResultRow> MacRows() => _allResults
@@ -46,7 +55,7 @@ public sealed partial class MainWindow
     private void DeviceMatchSuggestionRequested(object? sender, ScanResultRow row)
     {
         ShowDeviceDetails(row);
-        if (ReferenceEquals(_selectedDeviceRow, row)) DevicePage.RevealMatchSuggestions();
+        if (ReferenceEquals(_selectedDeviceRow, row) && row.HasMatchSuggestions) DevicePage.RevealMatchSuggestions();
     }
 
     private void DeviceServiceDiscoveryRequested(object? sender, ScanResultRow row)

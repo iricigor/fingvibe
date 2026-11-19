@@ -33,9 +33,7 @@ public static class EquipmentActivityPresentation
             cancellationToken.ThrowIfCancellationRequested();
             var id = evidence.Devices[index].Identity;
             var row = id.Kind == "virtual" ? new ScanResultRow(slots[id], data, 0)
-                : data.Devices.TryGetValue(id.Id, out var device)
-                    ? new ScanResultRow(device, 0, data.Names.GetValueOrDefault(id.Id),
-                        data.Classifications.GetValueOrDefault(id.Id)) : null;
+                : data.Devices.TryGetValue(id.Id, out var device) ? ScanResultRow.ForDevice(device, data) : null;
             names[index] = row?.NameText ?? id.Id;
             var category = (row is null ? null : data.GetUsageCategoryOverride(id)) ?? categories[id].Category;
             contributors[index] = new(id, null, row?.Type ?? DeviceType.Unknown, category);

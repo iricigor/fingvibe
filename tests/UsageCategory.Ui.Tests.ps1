@@ -442,6 +442,17 @@ function Assert-MatchButton([string] $Name, [int] $Count) {
     return $button
 }
 
+function Get-MatchPickerItems {
+    # The picker is a Flyout popup, so its list is found from the window root rather than the details page.
+    $list = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "MergeMacPickerList"))
+    if (-not $list) { return }
+    $list.FindAll([System.Windows.Automation.TreeScope]::Children,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem))
+}
+
 function Get-MatchSectionState {
     # The header count TextBlock has no UIA peer inside the Expander header; the page mirrors it in the section HelpText.
     $section = Find-Usage MergeMacAddresses -Optional
@@ -662,7 +673,10 @@ try {
     Save-UsageCapture "usage-no-evidence"
     $phase = Step-UiRegressionPhase $phase "usage/merge-suggestions" $ScreenshotDirectory
     Open-UsageDevice "Concurrent name"
-    if (Find-Usage MergeMacAddresses -Optional) { throw "Devices without suggestions must not show Merge MAC addresses." }
+    Wait-Usage { (Find-Usage MergeMacAddresses -Optional).Current.HelpText -eq "No suggestions" } "Merge MAC addresses without suggestions"
+    if ((Find-Usage MergeMacAddresses).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -ne "Collapsed") {
+        throw "Merge MAC addresses without suggestions must open collapsed."
+    }
     Show-MatchRows
     $alpha = Assert-MatchButton "Match alpha" 2
     $null = Assert-MatchButton "Match gamma" 1
@@ -684,24 +698,20 @@ try {
     if ($section.IsOffscreen -or $section.BoundingRectangle.Top -lt $viewport.Top -or $section.BoundingRectangle.Top -ge $viewport.Bottom) {
         throw "Opening a suggestion from Devices must bring Merge MAC addresses into view."
     }
-    if (Find-Usage MergeMacChangeDevice -Optional) { throw "Change device... requires more than one suggestion." }
+    if (-not (Find-Usage MergeMacChangeDevice -Optional)) { throw "Change device... must stay available to choose another device." }
     Save-UsageCapture "match-section-single" MergeMacReason
     Show-MatchRows
     (Assert-MatchButton "Match alpha" 2).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Assert-MatchSection "2 possible matches" "Match gamma" "both records reported the same UPnP device UUID" "1 of 2"
     Invoke-Usage MergeMacChangeDevice
-    $choiceCondition = [System.Windows.Automation.PropertyCondition]::new(
-        [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::MenuItem)
-    Wait-Usage {
-        @($script:root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $choiceCondition) |
-            Where-Object { $_.Current.Name -like "Match beta*" }).Count -eq 1
-    } "Change device... suggestions"
-    $choices = @($script:root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $choiceCondition))
-    if (($choices.Current.Name -join "|") -notlike "Match gamma*Same device ID*|Match beta*Same discovered name*") {
-        throw "Change device... must list only the suggestions, strongest first: $($choices.Current.Name -join ' | ')"
+    Wait-Usage { @(Get-MatchPickerItems | Where-Object { $_.Current.Name -like "Match beta*" }).Count -eq 1 } "Change device... suggestions"
+    $choices = @(Get-MatchPickerItems)
+    if (($choices.Current.Name -join "|") -notlike "Suggested|Match gamma*Same device ID*|Match beta*Same discovered name*|Other devices|Concurrent name*|Usage imported*") {
+        throw "Change device... must list suggestions strongest first, then other devices: $($choices.Current.Name -join ' | ')"
     }
-    ($choices | Where-Object { $_.Current.Name -like "Match beta*" }).GetCurrentPattern(
-        [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $beta = $choices | Where-Object { $_.Current.Name -like "Match beta*" }
+    $beta.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
     Wait-Usage { (Find-Usage MergeMacOtherHeading).Current.Name -like "*suggestion 2 of 2" } "the second suggestion"
     Save-UsageCapture "match-section-change-device" MergeMacReason
     $expansion = (Find-Usage MergeMacAddresses).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)

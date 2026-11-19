@@ -41,6 +41,8 @@ public static class PrivateVirtualDeviceAllocator
 {
     public static bool IsEligible(DeviceInventoryData data, InventoryDevice device)
     {
+        // A MAC the user linked is a known device, never part of an inferred virtual device.
+        if (data.FindLinkedDevice(device.Mac) is not null) return false;
         var observation = device.LatestObservation;
         var mac = PhysicalAddress.Parse(device.Mac).GetAddressBytes();
         if (mac.Length != 6 || (mac[0] & 3) != 0 || observation?.Vendor != "Private"

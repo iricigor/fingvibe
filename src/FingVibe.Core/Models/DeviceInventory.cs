@@ -96,6 +96,7 @@ public sealed record DeviceInventoryData(
     public IReadOnlyList<PrivateVirtualDevice> VirtualDevices { get; init; } = [];
     public IReadOnlyList<DeviceDiscoveryBaseline> DiscoveryBaselines { get; init; } = [];
     public IReadOnlyList<DeclinedDeviceMatch> DeclinedMatches { get; init; } = [];
+    public IReadOnlyList<LinkedDevice> LinkedDevices { get; init; } = [];
     [JsonIgnore]
     public ScanSnapshot? LatestScan { get; init; }
     internal IReadOnlyList<ScanEvidenceWrite> PendingScanEvidence { get; init; } = [];
@@ -104,8 +105,53 @@ public sealed record DeviceInventoryData(
         new Dictionary<string, InventoryDevice>(), new Dictionary<string, string>(),
         new Dictionary<string, DeviceClassificationOverride>(), new PeopleRoomsData());
 
+    public LinkedDevice? FindLinkedDevice(string mac) => LinkedDevices.FirstOrDefault(device => device.HasMember(mac));
+
+    /// <summary>The Person/Room shown for a MAC: the linked device's shared assignment, or the MAC's own.</summary>
+    public DeviceAssignment? GetAssignment(string mac) => FindLinkedDevice(mac) is { } linked
+        ? linked.Assignment : PeopleRooms.Assignments.GetValueOrDefault(mac);
+
+    /// <summary>MAC records grouped by a virtual device; they can't be linked.</summary>
+    public IReadOnlySet<string> VirtualGroupedMacs() =>
+        VirtualDevices.SelectMany(slot => slot.History.Select(item => item.Mac)).ToHashSet(StringComparer.Ordinal);
+
+    public DeviceInventoryData LinkDevices(string mac, string otherMac, LinkedDeviceChoices choices, DateTimeOffset linkedAt)
+    {
+        ArgumentNullException.ThrowIfNull(choices);
+        var first = PeopleRoomsData.NormalizeMacAddress(mac);
+        var second = PeopleRoomsData.NormalizeMacAddress(otherMac);
+        if (first == second) throw new ArgumentException("A device cannot be linked to itself.", nameof(otherMac));
+        if (!Devices.ContainsKey(first) || !Devices.ContainsKey(second))
+            throw new ArgumentException("Both linked MAC addresses must be saved devices.");
+        if (FindLinkedDevice(first) is not null || FindLinkedDevice(second) is not null)
+            throw new InvalidOperationException("One of these MAC addresses is already linked to another device.");
+        var grouped = VirtualGroupedMacs();
+        if (grouped.Contains(first) || grouped.Contains(second))
+            throw new InvalidOperationException("Virtual devices, and the MAC addresses they group, can't be linked.");
+        var name = choices.Name?.Trim();
+        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("A linked device needs a name.", nameof(choices));
+        var assignment = choices.Assignment is { PersonId: null, RoomId: null } ? null : choices.Assignment;
+        var linked = new LinkedDevice(Guid.NewGuid(), [new(first, linkedAt), new(second, linkedAt)], name,
+            choices.Identification, new(name, choices.Identification), assignment, choices.UsageCategoryOverride);
+        if (!linked.IsValid(this)) throw new ArgumentException("The linked device values are invalid.", nameof(choices));
+        return this with { LinkedDevices = [.. LinkedDevices, linked] };
+    }
+
+    public DeviceInventoryData UpdateLinkedDevice(Guid id, Func<LinkedDevice, LinkedDevice> update)
+    {
+        var current = LinkedDevices.FirstOrDefault(device => device.Id == id)
+            ?? throw new ArgumentException("The linked device no longer exists.", nameof(id));
+        var updated = update(current);
+        if (updated.Id != id || !updated.Members.SequenceEqual(current.Members) || updated.Confirmed != current.Confirmed)
+            throw new InvalidOperationException("Shared edits cannot change linked members or confirmed values.");
+        if (!updated.IsValid(this)) throw new ArgumentException("The linked device values are invalid.");
+        return this with { LinkedDevices = LinkedDevices.Select(device => device.Id == id ? updated : device).ToArray() };
+    }
+
+    /// <summary>Linked members share one override; each member's own saved override stays preserved for Unlink.</summary>
     public DeviceUsageCategory? GetUsageCategoryOverride(LogicalDeviceId identity) => identity.Kind switch
     {
+        "mac" when FindLinkedDevice(identity.Id) is { } linked && Devices.ContainsKey(identity.Id) => linked.UsageCategoryOverride,
         "mac" when Devices.TryGetValue(identity.Id, out var device) => device.UsageCategoryOverride,
         "virtual" when VirtualDevices.FirstOrDefault(slot => slot.Id.ToString("D") == identity.Id) is { } slot
             => slot.UsageCategoryOverride,
@@ -117,6 +163,8 @@ public sealed record DeviceInventoryData(
         if (category is { } value && !Enum.IsDefined(value))
             throw new ArgumentOutOfRangeException(nameof(category));
         _ = GetUsageCategoryOverride(identity);
+        if (identity.Kind == "mac" && FindLinkedDevice(identity.Id) is { } linked)
+            return UpdateLinkedDevice(linked.Id, device => device with { UsageCategoryOverride = category });
         if (identity.Kind == "virtual")
             return this with
             {

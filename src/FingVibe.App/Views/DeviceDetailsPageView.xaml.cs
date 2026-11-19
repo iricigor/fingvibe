@@ -392,6 +392,8 @@ public sealed partial class DeviceDetailsPageView : UserControl
         DeviceNameValue.FocusRename();
     }
 
+    internal void SetNameResetLabel(string label) => DeviceNameResetButton.Content = label;
+
     internal void SetNameActions(bool canSave, bool canReset, string? resetToolTip)
     {
         if (_row is { } row) DeviceNameValue.Value = row.NameText;
@@ -541,9 +543,9 @@ public sealed partial class DeviceDetailsPageView : UserControl
         ToolTipService.SetToolTip(DeviceTypeIcon, row.IconSource);
         DeviceOsText.Value = row.OperatingSystemText;
         DeviceTypeValueText.Value = row.DeviceTypeText;
-        DeviceOsText.Source = row.ClassificationOverride?.OperatingSystem is not null ? "Saved correction"
+        DeviceOsText.Source = row.ClassificationOverride?.OperatingSystem is not null ? row.IdentificationSourceLabel
             : FingClassificationMapper.OperatingSystem(row.ImportedMetadata?.OperatingSystem) is not null ? "Imported from Fing" : "Automatic detection";
-        DeviceTypeValueText.Source = row.ClassificationOverride?.Type is not null ? "Saved correction"
+        DeviceTypeValueText.Source = row.ClassificationOverride?.Type is not null ? row.IdentificationSourceLabel
             : FingClassificationMapper.Type(row.ImportedMetadata?.Type) is not null ? "Imported from Fing" : "Automatic detection";
         DeviceBrandText.Value = row.BrandText;
         DeviceBrandText.Source = row.BrandSource;
@@ -552,7 +554,7 @@ public sealed partial class DeviceDetailsPageView : UserControl
         DeviceModelText.Value = row.ModelText;
         DeviceModelText.Source = row.ModelSource;
         DeviceIconText.Value = row.IconText;
-        DeviceIconText.Source = row.ClassificationOverride?.Icon is not null ? "Saved correction"
+        DeviceIconText.Source = row.ClassificationOverride?.Icon is not null ? row.IdentificationSourceLabel
             : row.UsesVirtualIcon ? "Inferred virtual identity" : "Follows device type";
         DeviceVendorText.Text = $"Detected MAC vendor: {row.Result?.VendorName ?? "Unavailable - no detected MAC-vendor evidence"}. "
             + "Registry evidence; may differ from the hardware manufacturer.";
@@ -568,6 +570,10 @@ public sealed partial class DeviceDetailsPageView : UserControl
             ? "Use imported Fing type" : "Automatic";
         ((ComboBoxItem)DeviceIconPicker.Items[0]).Content = row.IsVirtualIdentity
             ? "Use virtual-device icon" : "Follow device type";
+        DeviceClassificationResetButton.Content = row.IsLinked ? "Restore values chosen when linked" : "Reset saved identification";
+        ToolTipService.SetToolTip(DeviceClassificationResetButton, row.IsLinked
+            ? "Restore the shared identification confirmed when these MAC addresses were linked. Names, assignments and each MAC's own values are unchanged."
+            : "Clear all six saved identification overrides. Names, assignments and original Fing data are unchanged.");
         if (!_editingClassification) PopulateClassificationInputs(row);
     }
 

@@ -44,6 +44,22 @@
                 </VisualState.Setters>
             </VisualState>
         </VisualStateGroup>
+        <VisualStateGroup x:Name="MergeSectionStates">
+            <VisualState x:Name="MergeNoSuggestions" />
+            <VisualState x:Name="MergePossibleMatches">
+                <VisualState.Setters>
+                    <Setter Target="MergeMacIcon.Foreground" Value="{ThemeResource ScannerPossibleMatchBrush}" />
+                    <Setter Target="MergeMacCount.Foreground" Value="{ThemeResource ScannerPossibleMatchBrush}" />
+                </VisualState.Setters>
+            </VisualState>
+            <VisualState x:Name="MergeLinked">
+                <VisualState.Setters>
+                    <Setter Target="MergeMacIcon.Foreground" Value="{ThemeResource ScannerLinkedDeviceBrush}" />
+                    <Setter Target="MergeMacCount.Foreground" Value="{ThemeResource ScannerLinkedDeviceBrush}" />
+                </VisualState.Setters>
+            </VisualState>
+            <VisualState x:Name="MergeUnavailable" />
+        </VisualStateGroup>
     </VisualStateManager.VisualStateGroups>
     <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
         <StackPanel Spacing="16">
@@ -260,7 +276,7 @@
                         </StackPanel>
                 </Border>
             </Grid>
-            <Expander x:Name="MergeMacExpander" Visibility="Collapsed"
+            <Expander x:Name="MergeMacExpander"
                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
                       AutomationProperties.AutomationId="MergeMacAddresses"
                       AutomationProperties.Name="Merge MAC addresses">
@@ -271,52 +287,103 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <FontIcon Glyph="&#xE71B;" FontFamily="Segoe Fluent Icons" FontSize="18" VerticalAlignment="Center"
-                                  Foreground="{ThemeResource ScannerPossibleMatchBrush}"
+                        <FontIcon x:Name="MergeMacIcon" Glyph="&#xE71B;" FontFamily="Segoe Fluent Icons" FontSize="18"
+                                  VerticalAlignment="Center" Foreground="{ThemeResource ScannerNoMatchBrush}"
                                   AutomationProperties.AccessibilityView="Raw" />
                         <TextBlock Grid.Column="1" Text="Merge MAC addresses" FontSize="18" FontWeight="SemiBold"
                                    TextWrapping="Wrap" VerticalAlignment="Center" />
                         <TextBlock x:Name="MergeMacCount" Grid.Column="2" VerticalAlignment="Center" TextWrapping="Wrap"
-                                   Foreground="{ThemeResource ScannerPossibleMatchBrush}"
+                                   Foreground="{ThemeResource ScannerNoMatchBrush}"
                                    AutomationProperties.AutomationId="MergeMacCount" />
                     </Grid>
                 </Expander.Header>
                 <StackPanel Spacing="12">
-                    <Grid x:Name="MergeMacDevices" ColumnSpacing="24" RowSpacing="16" SizeChanged="Fields_SizeChanged">
-                        <StackPanel Spacing="4" AutomationProperties.AutomationId="MergeMacThisDevice">
-                            <TextBlock Text="This device" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            <TextBlock x:Name="MergeMacThisName" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap"
-                                       FontFamily="Segoe UI Emoji" />
-                            <TextBlock x:Name="MergeMacThisStatus" TextWrapping="Wrap" />
-                            <TextBlock x:Name="MergeMacThisAddresses" FontFamily="Consolas" TextWrapping="Wrap"
-                                       IsTextSelectionEnabled="True" />
-                            <TextBlock x:Name="MergeMacThisDescription" TextWrapping="Wrap"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        </StackPanel>
-                        <StackPanel Spacing="4" AutomationProperties.AutomationId="MergeMacOtherDevice">
-                            <TextBlock x:Name="MergeMacOtherHeading" TextWrapping="Wrap"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       AutomationProperties.AutomationId="MergeMacOtherHeading" />
-                            <TextBlock x:Name="MergeMacOtherName" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap"
-                                       FontFamily="Segoe UI Emoji" AutomationProperties.AutomationId="MergeMacOtherName" />
-                            <TextBlock x:Name="MergeMacOtherStatus" TextWrapping="Wrap" />
-                            <TextBlock x:Name="MergeMacOtherAddresses" FontFamily="Consolas" TextWrapping="Wrap"
-                                       IsTextSelectionEnabled="True" AutomationProperties.AutomationId="MergeMacOtherAddresses" />
-                            <TextBlock x:Name="MergeMacOtherDescription" TextWrapping="Wrap"
-                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        </StackPanel>
-                    </Grid>
-                    <TextBlock x:Name="MergeMacReason" TextWrapping="Wrap" AutomationProperties.AutomationId="MergeMacReason" />
+                    <TextBlock x:Name="MergeMacExplanation" TextWrapping="Wrap" Visibility="Collapsed"
+                               AutomationProperties.AutomationId="MergeMacExplanation" />
+                    <StackPanel x:Name="MergeMacLinkedMembers" Spacing="4" Visibility="Collapsed"
+                                AutomationProperties.AutomationId="MergeMacLinkedMembers"
+                                AutomationProperties.Name="Linked MAC addresses" />
+                    <StackPanel x:Name="MergeMacCandidatePanel" Spacing="12" Visibility="Collapsed">
+                        <Grid x:Name="MergeMacDevices" ColumnSpacing="24" RowSpacing="16" SizeChanged="Fields_SizeChanged">
+                            <StackPanel Spacing="4" AutomationProperties.AutomationId="MergeMacThisDevice">
+                                <TextBlock Text="This device" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock x:Name="MergeMacThisName" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap"
+                                           FontFamily="Segoe UI Emoji" />
+                                <TextBlock x:Name="MergeMacThisStatus" TextWrapping="Wrap" />
+                                <TextBlock x:Name="MergeMacThisAddresses" FontFamily="Consolas" TextWrapping="Wrap"
+                                           IsTextSelectionEnabled="True" />
+                                <TextBlock x:Name="MergeMacThisDescription" TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                            <StackPanel Spacing="4" AutomationProperties.AutomationId="MergeMacOtherDevice">
+                                <TextBlock x:Name="MergeMacOtherHeading" TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           AutomationProperties.AutomationId="MergeMacOtherHeading" />
+                                <TextBlock x:Name="MergeMacOtherName" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap"
+                                           FontFamily="Segoe UI Emoji" AutomationProperties.AutomationId="MergeMacOtherName" />
+                                <TextBlock x:Name="MergeMacOtherStatus" TextWrapping="Wrap" />
+                                <TextBlock x:Name="MergeMacOtherAddresses" FontFamily="Consolas" TextWrapping="Wrap"
+                                           IsTextSelectionEnabled="True" AutomationProperties.AutomationId="MergeMacOtherAddresses" />
+                                <TextBlock x:Name="MergeMacOtherDescription" TextWrapping="Wrap"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock x:Name="MergeMacReason" TextWrapping="Wrap" AutomationProperties.AutomationId="MergeMacReason" />
+                    </StackPanel>
                     <StackPanel x:Name="MergeMacActions" Orientation="Horizontal" Spacing="8">
                         <Button x:Name="MergeMacChangeDevice" Content="Change device..."
                                 AutomationProperties.AutomationId="MergeMacChangeDevice"
-                                AutomationProperties.Name="Change suggested device">
+                                AutomationProperties.Name="Change device">
                             <Button.Flyout>
-                                <MenuFlyout x:Name="MergeMacChoices" Placement="Bottom" />
+                                <Flyout x:Name="MergeMacPicker" Placement="Bottom" Opened="MergeMacPicker_Opened">
+                                    <StackPanel Width="440" Spacing="8" AutomationProperties.AutomationId="MergeMacPicker">
+                                        <TextBox x:Name="MergeMacPickerSearch" PlaceholderText="Search by name, IP or MAC address"
+                                                 AutomationProperties.AutomationId="MergeMacPickerSearch"
+                                                 AutomationProperties.Name="Search devices to link"
+                                                 TextChanged="MergeMacPickerSearch_TextChanged" />
+                                        <ListView x:Name="MergeMacPickerList" MaxHeight="360" SelectionMode="None"
+                                                  IsItemClickEnabled="True" ItemClick="MergeMacPickerList_ItemClick"
+                                                  AutomationProperties.AutomationId="MergeMacPickerList"
+                                                  AutomationProperties.Name="Devices to link" />
+                                        <TextBlock x:Name="MergeMacPickerEmpty" Text="No matching devices." Visibility="Collapsed"
+                                                   AutomationProperties.AutomationId="MergeMacPickerEmpty" />
+                                        <TextBlock Text="Virtual devices can't be linked and aren't listed." TextWrapping="Wrap"
+                                                   FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                                   AutomationProperties.AutomationId="MergeMacPickerFooter" />
+                                    </StackPanel>
+                                </Flyout>
                             </Button.Flyout>
                         </Button>
                         <Button x:Name="MergeMacDecline" Content="Decline suggestion"
                                 Click="MergeMacDecline_Click" AutomationProperties.AutomationId="MergeMacDecline" />
+                    </StackPanel>
+                    <StackPanel x:Name="MergeMacComparison" Spacing="12" Visibility="Collapsed"
+                                AutomationProperties.AutomationId="MergeMacComparison">
+                        <TextBlock Text="Choose the shared device data" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap"
+                                   AutomationProperties.HeadingLevel="Level3" />
+                        <Grid x:Name="MergeMacTable" ColumnSpacing="12" RowSpacing="8"
+                              AutomationProperties.AutomationId="MergeMacTable"
+                              AutomationProperties.Name="Choose the shared device data">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" MinWidth="120" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                        </Grid>
+                        <TextBlock Text="MAC addresses, adapter vendors, IPs, ports and scan histories stay separate. No source records are deleted."
+                                   TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   AutomationProperties.AutomationId="MergeMacSeparateRecords" />
+                        <TextBlock x:Name="MergeMacUnresolved" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
+                                   AutomationProperties.AutomationId="MergeMacUnresolved" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="MergeMacMerge" Content="Merge as one device" IsEnabled="False"
+                                    Style="{StaticResource AccentButtonStyle}" Click="MergeMacMerge_Click"
+                                    AutomationProperties.AutomationId="MergeMacMerge" />
+                            <Button x:Name="MergeMacCancel" Content="Cancel" Click="MergeMacCancel_Click"
+                                    AutomationProperties.AutomationId="MergeMacCancel"
+                                    AutomationProperties.Name="Cancel linking" />
+                        </StackPanel>
                     </StackPanel>
                     <InfoBar x:Name="MergeMacError" IsOpen="False" IsClosable="False" Severity="Error"
                              Title="The suggestion could not be declined" AutomationProperties.AutomationId="MergeMacError"

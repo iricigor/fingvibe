@@ -17,8 +17,11 @@ public static class EquipmentActivity
     {
         if (!data.PeopleRooms.People.Any(person => person.Id == personId))
             return new([], []);
-        var assigned = data.PeopleRooms.Assignments.Where(pair => pair.Value.PersonId == personId)
-            .Select(pair => LogicalDeviceId.Mac(pair.Key))
+        var assigned = data.PeopleRooms.Assignments.Keys
+            .Concat(data.LinkedDevices.SelectMany(device => device.Members.Select(member => member.Mac)))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Where(mac => data.GetAssignment(mac)?.PersonId == personId)
+            .Select(LogicalDeviceId.Mac)
             .Concat(data.VirtualDevices.Where(slot => slot.Assignment?.PersonId == personId)
                 .Select(slot => LogicalDeviceId.Virtual(slot.Id))).Distinct().ToArray();
         var slots = data.VirtualDevices.Where(slot => slot.NetworkId == networkId && slot.Subnet == subnet)

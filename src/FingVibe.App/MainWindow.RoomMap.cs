@@ -26,11 +26,7 @@ public sealed partial class MainWindow
                 string.Equals(item.IdentityKey, identityKey, StringComparison.Ordinal));
         if (row is null && CurrentDeviceData.Devices.TryGetValue(identityKey, out var device))
         {
-            row = new ScanResultRow(
-                device, 0,
-                _deviceNameOverrides.GetValueOrDefault(identityKey),
-                _classificationOverrides.GetValueOrDefault(identityKey),
-                historical: true);
+            row = ScanResultRow.ForDevice(device, CurrentDeviceData);
         }
         if (row is null)
         {

@@ -132,6 +132,13 @@ public sealed partial class DeviceInventoryStore
             if (appended.Any(item => item.NetworkId != slot.NetworkId || item.Subnet != slot.Subnet || item.VirtualDeviceId is not null))
                 throw new InvalidDataException("Virtual scan history must belong to its device's network and subnet.");
         }
+        if (data.LinkedDevices is null || data.LinkedDevices.Any(device => device is null || !device.IsValid(data))
+            || data.LinkedDevices.Select(device => device.Id).Distinct().Count() != data.LinkedDevices.Count)
+            throw new InvalidDataException("The inventory contains invalid linked devices.");
+        var linkedMacs = data.LinkedDevices.SelectMany(device => device.Members.Select(member => member.Mac)).ToArray();
+        var grouped = data.VirtualGroupedMacs();
+        if (linkedMacs.Distinct(StringComparer.Ordinal).Count() != linkedMacs.Length || linkedMacs.Any(grouped.Contains))
+            throw new InvalidDataException("A MAC address can belong to only one linked device and never to a virtual device.");
     }
 
     private static void ValidateScanHistory(IReadOnlyList<DeviceScanObservation> history)

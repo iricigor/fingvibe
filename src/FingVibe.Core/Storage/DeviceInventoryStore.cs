@@ -66,11 +66,13 @@ public sealed partial class DeviceInventoryStore
             var rooms = ReadEntities<ManagedRoom>(connection, transaction, "rooms", cancellationToken);
             var baselines = ReadEntities<DeviceDiscoveryBaseline>(connection, transaction, "baselines", cancellationToken);
             var declined = ReadEntities<DeclinedDeviceMatch>(connection, transaction, "declined_matches", cancellationToken);
+            var linked = ReadEntities<LinkedDevice>(connection, transaction, "linked_devices", cancellationToken);
             if (slots.Any(pair => pair.Key != pair.Value.Id.ToString("D"))
                 || people.Any(pair => pair.Key != pair.Value.Id.ToString("D"))
                 || rooms.Any(pair => pair.Key != pair.Value.Id.ToString("D"))
                 || baselines.Any(pair => pair.Key != BaselineKey(pair.Value))
-                || declined.Any(pair => pair.Key != pair.Value.Key))
+                || declined.Any(pair => pair.Key != pair.Value.Key)
+                || linked.Any(pair => pair.Key != pair.Value.Id.ToString("D")))
                 throw new InvalidDataException("The inventory contains mismatched saved identities.");
             var dataLoaded = new DeviceInventoryData(revision, devices,
                 ReadEntities<string>(connection, transaction, "names", cancellationToken),
@@ -81,6 +83,7 @@ public sealed partial class DeviceInventoryStore
                 VirtualDevices = slots.Values.ToArray(),
                 DiscoveryBaselines = baselines.Values.ToArray(),
                 DeclinedMatches = declined.Values.ToArray(),
+                LinkedDevices = linked.Values.ToArray(),
                 LatestScan = ReadLatestScan(connection, transaction)
             };
             Validate(dataLoaded, metadataOnly ? dataLoaded : null);
@@ -243,7 +246,8 @@ public sealed partial class DeviceInventoryStore
     }
 
     private static readonly string[] EntityTables =
-        ["devices", "virtual_devices", "names", "classifications", "people", "rooms", "assignments", "baselines", "declined_matches"];
+        ["devices", "virtual_devices", "names", "classifications", "people", "rooms", "assignments", "baselines", "declined_matches",
+            "linked_devices"];
 
     private static void WriteChanges(SqliteConnection connection, SqliteTransaction transaction,
         DeviceInventoryData data, DeviceInventoryData previous, CancellationToken cancellationToken)
@@ -271,6 +275,9 @@ public sealed partial class DeviceInventoryStore
             previous.DiscoveryBaselines.ToDictionary(BaselineKey), cancellationToken);
         Sync(connection, transaction, "declined_matches", data.DeclinedMatches.ToDictionary(item => item.Key),
             previous.DeclinedMatches.ToDictionary(item => item.Key), cancellationToken);
+        // Membership and shared values live in one row, so linking commits them together with this transaction.
+        Sync(connection, transaction, "linked_devices", data.LinkedDevices.ToDictionary(item => item.Id.ToString("D")),
+            previous.LinkedDevices.ToDictionary(item => item.Id.ToString("D")), cancellationToken);
         foreach (var (key, device) in data.Devices)
             AppendHistory(connection, transaction, "mac", key, device.ScanHistory,
                 previous.Devices.GetValueOrDefault(key)?.ScanHistory, cancellationToken);
