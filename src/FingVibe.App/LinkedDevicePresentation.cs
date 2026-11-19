@@ -23,7 +23,7 @@ public sealed record LinkedMemberLine(string Mac, string Address, string Adapter
         + $"{AdapterVendor} · {Status} · linked {LinkedAt.ToLocalTime().ToString("d", CultureInfo.CurrentCulture)}"
         + (IsShownInDevices ? " · Shown in Devices" : string.Empty);
 
-    private static string FormatMac(string mac) =>
+    public static string FormatMac(string mac) =>
         string.Join("-", Enumerable.Range(0, mac.Length / 2).Select(index => mac.Substring(index * 2, 2)));
 }
 

@@ -266,7 +266,8 @@
                         RoomAssignmentRequested="DeviceRoomAssignmentRequested"
                         AddressRequested="DeviceAddressRequested"
                         MatchDeclineRequested="DeviceMatchDeclineRequested"
-                        LinkRequested="DeviceLinkRequested" />
+                        LinkRequested="DeviceLinkRequested"
+                        UnlinkRequested="DeviceUnlinkRequested" />
 
                 <!-- People and rooms -->
                 <views:PeopleRoomsPageView x:Name="PeopleRoomsPage" Grid.Row="1" Visibility="Collapsed"

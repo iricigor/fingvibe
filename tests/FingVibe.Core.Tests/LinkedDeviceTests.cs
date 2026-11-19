@@ -88,6 +88,120 @@ public sealed class LinkedDeviceTests : IDisposable
     }
 
     [Fact]
+    public void UnlinkTransfersSharedValuesToTheRemainingMacAndRestoresTheDetachedValues()
+    {
+        var original = Inventory() with
+        {
+            Classifications = new Dictionary<string, DeviceClassificationOverride>
+            {
+                [A] = new(Type: DeviceType.Phone),
+                [B] = new(Type: DeviceType.Router)
+            }
+        };
+        var linked = original.LinkDevices(A, B, Choices(), Start);
+        var id = linked.LinkedDevices[0].Id;
+        var edited = linked.UpdateLinkedDevice(id, device => device with
+        {
+            Name = "Shared edit",
+            Identification = device.Identification with { Type = DeviceType.Computer },
+            Assignment = new(Person.Id, Room.Id)
+        }).SetUsageCategoryOverride(LogicalDeviceId.Mac(A), DeviceUsageCategory.Permanent);
+
+        var unlinked = edited.UnlinkDevice(B);
+
+        Assert.Empty(unlinked.LinkedDevices);
+        Assert.Equal("Shared edit", unlinked.Names[A]);
+        Assert.Equal("Laptop dock", unlinked.Names[B]);
+        Assert.Equal(DeviceType.Computer, unlinked.Classifications[A].Type);
+        Assert.Equal(DeviceType.Router, unlinked.Classifications[B].Type);
+        Assert.Equal(new DeviceAssignment(Person.Id, Room.Id), unlinked.PeopleRooms.Assignments[A]);
+        Assert.Equal(new DeviceAssignment(null, Room.Id), unlinked.PeopleRooms.Assignments[B]);
+        Assert.Equal(DeviceUsageCategory.Permanent, unlinked.Devices[A].UsageCategoryOverride);
+        Assert.Equal(DeviceUsageCategory.Guest, unlinked.Devices[B].UsageCategoryOverride);
+        Assert.Equal(original.Devices[A].Observations, unlinked.Devices[A].Observations);
+        Assert.Equal(original.Devices[B].ScanHistory, unlinked.Devices[B].ScanHistory);
+        var declined = Assert.Single(unlinked.DeclinedMatches);
+        Assert.Equal(DeclinedDeviceMatch.Create(A, B).Key, declined.Key);
+        Assert.Null(unlinked.FindLinkedDevice(A));
+        Assert.Null(unlinked.FindLinkedDevice(B));
+        Assert.Equal("Shared edit", ScanResultRow.CreateInventoryRows(unlinked).Single(row => row.IdentityKey == A).NameText);
+        Assert.Equal("Laptop dock", ScanResultRow.CreateInventoryRows(unlinked).Single(row => row.IdentityKey == B).NameText);
+        var rows = ScanResultRow.CreateInventoryRows(unlinked).ToArray();
+        var manual = LinkedDevicePresentation.Candidates(rows.Single(row => row.IdentityKey == A), rows, unlinked)
+            .Single(candidate => candidate.Mac == B);
+        Assert.True(manual.Declined);
+
+        var opposite = edited.UnlinkDevice(A);
+        Assert.Equal("Laptop Wi-Fi", opposite.Names[A]);
+        Assert.Equal("Shared edit", opposite.Names[B]);
+        Assert.Equal(DeviceType.Phone, opposite.Classifications[A].Type);
+        Assert.Equal(DeviceType.Computer, opposite.Classifications[B].Type);
+        Assert.False(opposite.PeopleRooms.Assignments.ContainsKey(A));
+        Assert.Equal(new DeviceAssignment(Person.Id, Room.Id), opposite.PeopleRooms.Assignments[B]);
+        Assert.Null(opposite.Devices[A].UsageCategoryOverride);
+        Assert.Equal(DeviceUsageCategory.Permanent, opposite.Devices[B].UsageCategoryOverride);
+    }
+
+    [Fact]
+    public void UnlinkRejectsUnknownMacsAndMoreThanTwoMembers()
+    {
+        var original = Inventory();
+        var linked = original.LinkDevices(A, B, Choices(), Start);
+        var group = linked.LinkedDevices[0] with
+        {
+            Members = [.. linked.LinkedDevices[0].Members, new(C, Start)]
+        };
+
+        Assert.Throws<ArgumentException>(() => original.UnlinkDevice(A));
+        Assert.Throws<InvalidOperationException>(() =>
+            (linked with { LinkedDevices = [group] }).UnlinkDevice(A));
+    }
+
+    [Fact]
+    public async Task UnlinkPersistsAllChangesTogetherAndSurvivesRestart()
+    {
+        var path = Path.Combine(_directory, "device-inventory.json");
+        var store = new DeviceInventoryStore(path);
+        var saved = await store.SaveAsync(Inventory(), Guid.Empty);
+        var linked = await store.SaveAsync(saved.LinkDevices(A, B, Choices(), Start), saved.Revision);
+
+        await store.SaveAsync(linked.UnlinkDevice(B), linked.Revision);
+
+        var restarted = (await new DeviceInventoryStore(path).LoadAsync())!;
+        Assert.Empty(restarted.LinkedDevices);
+        Assert.Single(restarted.DeclinedMatches);
+        Assert.Equal("Work laptop", restarted.Names[A]);
+        Assert.Equal("Laptop dock", restarted.Names[B]);
+        Assert.Equal(Choices().Identification, restarted.Classifications[A]);
+        Assert.Equal(DeviceUsageCategory.Personal, restarted.Devices[A].UsageCategoryOverride);
+        Assert.Equal(DeviceUsageCategory.Guest, restarted.Devices[B].UsageCategoryOverride);
+        Assert.Equal(new DeviceAssignment(Person.Id, Room.Id), restarted.PeopleRooms.Assignments[A]);
+        Assert.Equal(new DeviceAssignment(null, Room.Id), restarted.PeopleRooms.Assignments[B]);
+        Assert.Equal(0L, Scalar(path, "SELECT COUNT(*) FROM linked_devices"));
+        Assert.Equal(1L, Scalar(path, "SELECT COUNT(*) FROM declined_matches"));
+    }
+
+    [Fact]
+    public async Task AStaleUnlinkSaveChangesNothing()
+    {
+        var path = Path.Combine(_directory, "device-inventory.json");
+        var store = new DeviceInventoryStore(path);
+        var saved = await store.SaveAsync(Inventory(), Guid.Empty);
+        var linked = await store.SaveAsync(saved.LinkDevices(A, B, Choices(), Start), saved.Revision);
+        Execute(path, $"UPDATE inventory SET revision='{Guid.NewGuid()}'");
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            store.SaveAsync(linked.UnlinkDevice(B), linked.Revision));
+
+        var unchanged = (await new DeviceInventoryStore(path).LoadAsync())!;
+        Assert.Single(unchanged.LinkedDevices);
+        Assert.Empty(unchanged.DeclinedMatches);
+        Assert.Equal("Laptop Wi-Fi", unchanged.Names[A]);
+        Assert.Equal(DeviceType.Phone, unchanged.Classifications[A].Type);
+        Assert.Null(unchanged.Devices[A].UsageCategoryOverride);
+    }
+
+    [Fact]
     public void LinkingRejectsInvalidPairsAndAlreadyLinkedOrVirtualRecords()
     {
         var data = Inventory();

@@ -19,7 +19,7 @@ public sealed record MergeSectionModel(
     MergeSectionHeader Header,
     DeviceMatchCard Device,
     IReadOnlyList<DeviceLinkChoice> Suggestions,
-    IReadOnlyList<string> Members,
+    IReadOnlyList<LinkedMemberLine> Members,
     Func<string?, IReadOnlyList<DeviceLinkChoice>> Search,
     Func<string, LinkedDeviceDraft?> CreateDraft);
 
@@ -30,11 +30,14 @@ public sealed partial class DeviceDetailsPageView
     private LinkedDeviceDraft? _draft;
     private bool _matchExpansionApplied;
     private bool _linking;
+    private bool _unlinking;
+    private string? _unlinkMac;
     private readonly Dictionary<LinkedField, TextBlock> _mergeResults = [];
     private TextBox? _mergeNameInput;
 
     public event EventHandler<string>? MatchDeclineRequested;
     public event EventHandler<DeviceLinkRequest>? LinkRequested;
+    public event EventHandler<string>? UnlinkRequested;
 
     internal string? SelectedMatchMac => _selectedMatch?.Mac;
 
@@ -47,6 +50,7 @@ public sealed partial class DeviceDetailsPageView
             _selectedMatch = null;
             _draft = null;
             _linking = false;
+            ResetUnlinkState();
             MergeMacError.IsOpen = false;
             MergeMacPickerSearch.Text = string.Empty;
         }
@@ -132,6 +136,16 @@ public sealed partial class DeviceDetailsPageView
         UpdateMergeState();
     }
 
+    /// <summary>Reports a failed unlink; the inline confirmation stays available for a retry.</summary>
+    internal void ShowUnlinkError(string message)
+    {
+        _unlinking = false;
+        MergeMacError.Title = "The devices could not be unlinked";
+        MergeMacError.Message = $"Nothing was saved and the devices remain linked. {message}";
+        MergeMacError.IsOpen = true;
+        UpdateUnlinkState();
+    }
+
     private void Select(DeviceLinkChoice choice)
     {
         _selectedMatch = choice;
@@ -139,16 +153,40 @@ public sealed partial class DeviceDetailsPageView
         BuildMergeTable();
     }
 
-    private void ShowLinkedMembers(IReadOnlyList<string> members)
+    private void ShowLinkedMembers(IReadOnlyList<LinkedMemberLine> members)
     {
         MergeMacLinkedMembers.Children.Clear();
         foreach (var member in members)
         {
-            var line = new TextBlock { Text = member, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true };
-            AutomationProperties.SetName(line, member);
-            MergeMacLinkedMembers.Children.Add(line);
+            var row = new Grid { ColumnSpacing = 12 };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var line = new TextBlock
+            {
+                Text = member.Text, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            AutomationProperties.SetName(line, member.Text);
+            row.Children.Add(line);
+            if (members.Count == 2)
+            {
+                var unlink = new Button
+                {
+                    Content = "Unlink",
+                    Tag = member.Mac
+                };
+                AutomationProperties.SetName(unlink, $"Unlink {LinkedMemberLine.FormatMac(member.Mac)}");
+                AutomationProperties.SetAutomationId(unlink, $"MergeMacUnlink{member.Mac}");
+                unlink.Click += MergeMacUnlink_Click;
+                Grid.SetColumn(unlink, 1);
+                row.Children.Add(unlink);
+            }
+            MergeMacLinkedMembers.Children.Add(row);
         }
         MergeMacLinkedMembers.Visibility = members.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        if (members.Count == 0 || _unlinkMac is not null && members.All(member => member.Mac != _unlinkMac))
+            ResetUnlinkState();
+        UpdateUnlinkState();
     }
 
     private void ShowSelectedMatch()
@@ -392,5 +430,54 @@ public sealed partial class DeviceDetailsPageView
         }
         ShowSelectedMatch();
         MergeMacChangeDevice.Focus(FocusState.Programmatic);
+    }
+
+    private void MergeMacUnlink_Click(object sender, RoutedEventArgs e)
+    {
+        if (_unlinking || sender is not Button { Tag: string mac }) return;
+        _unlinkMac = mac;
+        MergeMacUnlinkPrompt.Text =
+            $"Unlink {LinkedMemberLine.FormatMac(mac)}? It becomes a separate device again, with its latest "
+            + "member-specific name, identification, Person, Room and usage category; shared edits stay with the "
+            + "remaining device. Its history stays with it.";
+        AutomationProperties.SetName(MergeMacUnlinkPrompt, MergeMacUnlinkPrompt.Text);
+        MergeMacError.IsOpen = false;
+        MergeMacUnlinkConfirmation.Visibility = Visibility.Visible;
+        UpdateUnlinkState();
+        MergeMacUnlinkConfirm.Focus(FocusState.Programmatic);
+    }
+
+    private void MergeMacUnlinkCancel_Click(object sender, RoutedEventArgs e)
+    {
+        if (_unlinking) return;
+        MergeMacError.IsOpen = false;
+        ResetUnlinkState();
+    }
+
+    private void MergeMacUnlinkConfirm_Click(object sender, RoutedEventArgs e)
+    {
+        if (_unlinking || _unlinkMac is not { } mac) return;
+        _unlinking = true;
+        MergeMacError.IsOpen = false;
+        UpdateUnlinkState();
+        UnlinkRequested?.Invoke(this, mac);
+    }
+
+    private void ResetUnlinkState()
+    {
+        _unlinkMac = null;
+        _unlinking = false;
+        MergeMacUnlinkConfirmation.Visibility = Visibility.Collapsed;
+        UpdateUnlinkState();
+    }
+
+    private void UpdateUnlinkState()
+    {
+        MergeMacUnlinkConfirm.IsEnabled = !_unlinking && _unlinkMac is not null;
+        MergeMacUnlinkCancel.IsEnabled = !_unlinking;
+        MergeMacUnlinkConfirm.Content = _unlinking ? "Unlinking..." : "Unlink";
+        foreach (var button in MergeMacLinkedMembers.Children.OfType<Grid>()
+                     .SelectMany(row => row.Children.OfType<Button>()))
+            button.IsEnabled = !_unlinking;
     }
 }

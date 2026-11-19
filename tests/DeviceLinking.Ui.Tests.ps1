@@ -329,11 +329,21 @@ function Assert-MatchSection([string] $Count, [string] $Other, [string] $Reason,
     if ((Find-Link MergeMacOtherHeading).Current.Name -ne "Selected other MAC address · suggestion $Heading") {
         throw "Unexpected suggestion position: $((Find-Link MergeMacOtherHeading).Current.Name)"
     }
-    $summary = (Find-Link DeviceHistoryState).Current.BoundingRectangle
-    $identification = (Find-Link "Edit device identification" -ByName).Current.BoundingRectangle
-    $section = $expander.Current.BoundingRectangle
-    if ($section.Top -lt $summary.Bottom -or $identification.Top -lt $section.Bottom) {
-        throw "Merge MAC addresses must sit after the observation summary and directly above Device identification."
+    # The section reflows after save/error changes; wait for layout to settle before judging its position.
+    $script:layout = $null
+    try {
+        Wait-Link {
+            $script:layout = @{
+                Summary = (Find-Link DeviceHistoryState).Current.BoundingRectangle
+                Identification = (Find-Link "Edit device identification" -ByName).Current.BoundingRectangle
+                Section = (Find-Link MergeMacAddresses).Current.BoundingRectangle
+            }
+            $script:layout.Section.Top -ge $script:layout.Summary.Bottom -and
+                $script:layout.Identification.Top -ge $script:layout.Section.Bottom
+        } "Merge MAC addresses between the observation summary and Device identification"
+    }
+    catch {
+        throw "Merge MAC addresses must sit after the observation summary and directly above Device identification. Summary=$($script:layout.Summary); section=$($script:layout.Section); identification=$($script:layout.Identification)."
     }
 }
 
@@ -584,7 +594,12 @@ try {
         throw "The linked section must list each MAC with its IP, adapter vendor, status and date linked: $($members.Current.Name -join ' | ')"
     }
     foreach ($id in @("MergeMacChangeDevice", "MergeMacMerge", "MergeMacError")) {
-        if (Find-Link $id -Optional) { throw "A linked device must not show $id (Unlink is a later task)." }
+        if (Find-Link $id -Optional) { throw "A linked device must not show $id." }
+    }
+    foreach ($id in @("MergeMacUnlink001122BB0001", "MergeMacUnlink001122BB0002")) {
+        if ((Show-Link $id).Current.Name -notlike "Unlink 00-11-22-BB-00-0?") {
+            throw "Each linked MAC must have an accessible Unlink action: $id"
+        }
     }
     if ((Get-LinkCount) -ne 1 -or
         (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.name') FROM linked_devices") -ne "Link desk" -or
@@ -769,8 +784,64 @@ try {
     [System.Windows.Forms.SendKeys]::SendWait(" ")
     Wait-Link { (Find-Link MergeMacChangeDevice -Optional).Current.Name -eq "Choose device" } "Cancel to clear the manual choice"
     if ((Get-LinkCount) -ne 1) { throw "Cancel must not change saved links." }
+
+    $phase = Step-UiRegressionPhase $phase "linking/unlink-failed-save-and-success" $ScreenshotDirectory
+    Open-LinkDevice "00-11-22-BB-00-01" "Link desk"
+    Expand-LinkSection
+    Invoke-Link MergeMacUnlink001122BB0002
+    Wait-Link { (Find-Link MergeMacUnlinkPrompt -Optional).Current.Name -like "Unlink 00-11-22-BB-00-02?*shared edits stay with the remaining device*" } "the inline unlink confirmation"
+    if ((Show-Link MergeMacUnlinkConfirm).Current.Name -ne "Unlink" -or
+        (Show-Link MergeMacUnlinkCancel).Current.Name -ne "Cancel unlink") {
+        throw "The inline unlink confirmation must expose clear Unlink and Cancel actions."
+    }
+    $cancelUnlink = Show-Link MergeMacUnlinkCancel
+    $cancelUnlink.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait(" ")
+    Wait-Link { -not (Find-Link MergeMacUnlinkConfirmation -Optional) } "keyboard Cancel to keep the link"
+    if ((Get-LinkCount) -ne 1) { throw "Cancel unlink must not remove the linked device." }
+
+    Invoke-Link MergeMacUnlink001122BB0002
+    Wait-Link { Find-Link MergeMacUnlinkConfirmation -Optional } "the unlink confirmation again"
+    $lock = [IO.FileStream]::new("$inventory.lock", [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+    Invoke-Link MergeMacUnlinkConfirm
+    Wait-Link { Find-Link MergeMacError -Optional } "visible unlink failure"
+    if ((Get-LinkCount) -ne 1 -or -not (Find-Link MergeMacUnlinkConfirmation -Optional)) {
+        throw "A failed unlink save must keep both the link and its confirmation."
+    }
+    Save-LinkCapture "unlink-save-error" MergeMacError
+    $lock.Dispose()
+    $lock = $null
+    Invoke-Link MergeMacUnlinkConfirm
+    Assert-LinkSection "No suggestions" "Expanded"
+    Wait-Link { -not (Find-Link MergeMacUnlinkConfirmation -Optional) -and (Get-LinkCount) -eq 0 } "the link to be removed"
+
+    if ((Get-InventorySqliteValue $database "SELECT COUNT(*) FROM declined_matches") -ne 2 -or
+        (Get-InventorySqliteValue $database "SELECT json_extract(data,'$') FROM names WHERE id='001122BB0001'") -ne "Link desk" -or
+        (Get-InventorySqliteValue $database "SELECT json_extract(data,'$') FROM names WHERE id='001122BB0002'") -ne "Link desk dock" -or
+        (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.type') FROM classifications WHERE id='001122BB0001'") -ne 2 -or
+        (Get-InventorySqliteValue $database "SELECT COUNT(*) FROM classifications WHERE id='001122BB0002' AND json_extract(data,'$.type')=2") -ne 1 -or
+        (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.usageCategoryOverride') FROM devices WHERE id='001122BB0001'") -ne 3 -or
+        (Get-InventorySqliteValue $database "SELECT COUNT(*) FROM devices WHERE id='001122BB0002' AND json_extract(data,'$.usageCategoryOverride') IS NOT NULL") -ne 0 -or
+        (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.personId') FROM assignments WHERE id='001122BB0001'") -ne $person -or
+        (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.roomId') FROM assignments WHERE id='001122BB0001'") -ne $room -or
+        (Get-InventorySqliteValue $database "SELECT COUNT(*) FROM assignments WHERE id='001122BB0002' AND json_extract(data,'$.personId') IS NOT NULL") -ne 0 -or
+        (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.roomId') FROM assignments WHERE id='001122BB0002'") -ne $room) {
+        throw "Unlink must atomically transfer shared values to the remaining MAC and preserve the detached MAC values."
+    }
+    Save-LinkCapture "link-unlinked" MergeMacAddresses
+    Show-LinkDevices "Link desk"
+    Wait-Link {
+        @(Get-LinkRows "Link desk").Count -eq 1 -and @(Get-LinkRows "Link desk dock").Count -eq 1
+    } "separate member rows after unlink"
+    Stop-LinkApp
+    Start-LinkApp
+    Open-LinkDevice "00-11-22-BB-00-02" "Link desk dock"
+    Assert-LinkSection "1 possible match" "Expanded"
+    if ((Get-LinkCount) -ne 0) { throw "The unlinked state must survive restart." }
+    Open-LinkDevice "00-11-22-BB-00-01" "Link desk"
+    Assert-LinkSection "No suggestions" "Collapsed"
     $phase = Step-UiRegressionPhase $phase $null $ScreenshotDirectory
-    Write-Host "Device linking states, picker, explicit choices, Cancel, failed-save draft, atomic save, shared editing, restart, high contrast, keyboard and text scaling passed."
+    Write-Host "Device linking, shared editing and atomic two-MAC unlink with Cancel, failure retention, keyboard, restart, high contrast and text scaling passed."
 }
 catch {
     $failed = $true

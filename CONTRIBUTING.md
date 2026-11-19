@@ -140,14 +140,16 @@ for the desktop-free foundation check. These are contributor/reviewer
 expectations, not a new mandatory manifest or gate. Enforced coverage
 selection remains separate work in #256.
 
-Device Details checks run in five independent CI jobs: `details-summary`,
-`details-identity`, `details-observations` and `details-activity` follow the
+Device Details checks run in six independent CI jobs: `details-summary`,
+`details-identity`, `details-usage`, `details-observations` and `details-activity` follow the
 Overview/History tab boundary, and `details-linking` covers linking device
-records. Add observation-table checks to
-`details-observations`, Activity checks to `details-activity` and linking checks
-to `details-linking`.
+records. Add observation-table checks to `details-observations`, usage-category
+checks to `details-usage`, Activity checks to `details-activity` and linking
+checks to `details-linking`. Keep each suite independently retryable so one
+flaky native group does not rerun every Device Details check.
 The Network page's `NetworkActivity.Ui` runs independently in `network-activity`
-when Network is selected; do not also dispatch it from `details-identity`.
+when Network is selected; do not also dispatch it from `details-identity` or
+`details-usage`.
 Person details' `EquipmentActivity.Ui` uses `details-summary` when PersonDetails
 is selected, retaining its existing Device summary checks. Shared count/grid
 changes select Network and PersonDetails as well as affected Device Activity.

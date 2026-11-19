@@ -1348,8 +1348,9 @@ separate. See #314 for the fresh Devices prerequisite and delivered measurements
 
 Device Details regression follows the #262 Overview/History tab boundary
 across independent matrix jobs (#292): `details-summary`
-(`DeviceScanHistory.Ui -SummaryOnly`), `details-identity` (`DeviceDiscovery.Ui`,
-`UsageCategory.Ui`), `details-observations` (`DeviceScanHistory.Ui -ObservationsOnly`),
+(`DeviceScanHistory.Ui -SummaryOnly`), `details-identity` (`DeviceDiscovery.Ui`),
+`details-usage` (`UsageCategory.Ui`), `details-observations`
+(`DeviceScanHistory.Ui -ObservationsOnly`),
 `details-activity` (`DeviceActivity.Ui`) and `details-linking` (`DeviceLinking.Ui`, #547/#548:
 Merge MAC addresses states, possible-match icons, tooltips, review, Decline and its
 failure/restart, picker, explicit choices, Cancel, failed-save draft, shared editing,
@@ -1358,7 +1359,7 @@ linking and possible-match fixtures). Each job launches its own fixtures and app
 instances, is selected by the `DeviceDetails` or `DeviceHistory` capture-plan scenario, and must
 dispatch at least one check. The separate `network-activity` suite runs
 `NetworkActivity.Ui` only when `Network` is selected, instead of adding it to
-`details-identity`. Both PR and Full validation dispatch it once with its own
+`details-identity` or `details-usage`. Both PR and Full validation dispatch each once with its own
 isolated fixture and app lifecycle. Checks within a script still share sequential
 fixture state. History, discovery and usage checks also write
 `call-costs.json`: per-phase calls and inclusive/exclusive milliseconds for
@@ -1619,8 +1620,8 @@ clipping is not. Positioning logs report adjustments and elapsed time without
 replacing full-job duration evidence or removing intentional hover/appearance
 waits.
 
-The disposable Windows `details-identity` regression suite also runs
-`tests\UsageCategory.Ui.Tests.ps1`. It uses isolated inventory/snapshot/table fixtures
+The disposable Windows `details-usage` regression suite runs
+`tests\UsageCategory.Ui.Tests.ps1` independently from Device discovery. It uses isolated inventory/snapshot/table fixtures
 and review network identity to exercise automatic/unavailable/no-evidence states, separate Save/Cancel,
 restart persistence, retained failed-save drafts, concurrent reload, unrelated
 metadata preservation, keyboard controls, narrow layouts, light/dark themes and

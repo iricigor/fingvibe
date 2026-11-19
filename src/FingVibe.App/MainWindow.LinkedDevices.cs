@@ -35,6 +35,38 @@ public sealed partial class MainWindow
         DevicePage.RevealMatchSuggestions();
     }
 
+    private async void DeviceUnlinkRequested(object? sender, string mac)
+    {
+        var row = _selectedDeviceRow;
+        var linked = CurrentDeviceData.FindLinkedDevice(mac);
+        if (row is null || linked is null) return;
+        var detached = PeopleRoomsData.NormalizeMacAddress(mac);
+        var remaining = linked.Members.FirstOrDefault(member => member.Mac != detached)?.Mac;
+        await _deviceDataSaveLock.WaitAsync();
+        try
+        {
+            await PersistDeviceDataAsync(CurrentDeviceData.UnlinkDevice(mac));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+                                              or InvalidOperationException or InvalidDataException or ArgumentException)
+        {
+            if (ReferenceEquals(_selectedDeviceRow, row)) DevicePage.ShowUnlinkError(exception.Message);
+            return;
+        }
+        finally { _deviceDataSaveLock.Release(); }
+
+        // The linked-device row splits into separate member rows; reopen the remaining device, which keeps the shared values.
+        RefreshInventoryRows();
+        if (!ReferenceEquals(_selectedDeviceRow, row) && _selectedDeviceRow?.IdentityKey != row.IdentityKey) return;
+        var remainingRow = _allResults.FirstOrDefault(item => item.IdentityKey == remaining)
+            ?? (remaining is not null && CurrentDeviceData.Devices.TryGetValue(remaining, out var device)
+                ? ScanResultRow.ForDevice(device, CurrentDeviceData) : null);
+        if (remainingRow is null) return;
+        ApplyPeopleRoomAssignments(remainingRow);
+        ShowDeviceDetails(remainingRow, _deviceDetailsFromRoomMap);
+        DevicePage.RevealMatchSuggestions();
+    }
+
     /// <summary>Saves a shared-value edit; callers hold the device-data save lock.</summary>
     private async Task SaveLinkedDeviceAsync(Guid id, Func<LinkedDevice, LinkedDevice> update)
     {

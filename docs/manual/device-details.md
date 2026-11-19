@@ -119,14 +119,36 @@ values: later scans update each MAC's own evidence, not the shared values.
 return to the values confirmed when you linked the records.
 
 Each MAC keeps its own saved name, identification, Person/Room and category
-while linked, ready for a later Unlink. Unlink is not available yet; it is
-planned separately. Activity and automatic usage evidence use the linked device:
-any responding member makes a scan a response, every eligible member must have
-a nonresponse for that scan to count as no response, and otherwise the scan
-remains unknown. Members never observed on the selected network do not
-contribute. Evidence collected before linking remains part of the current
-members' combined history. The History card remains separate; it still uses the
-representative MAC until that surface is updated later.
+while linked, ready to restore if you unlink it. Activity and automatic usage
+evidence use the linked device: any responding member makes a scan a response,
+every eligible member must have a nonresponse for that scan to count as no
+response, and otherwise the scan remains unknown. Members never observed on the
+selected network do not contribute. Evidence collected before linking remains
+part of the current members' combined history. The History card remains
+separate; it still uses the representative MAC until that surface is updated
+later.
+
+### Unlink two MAC addresses
+
+In the expanded linked-device section, each MAC address has **Unlink**. Choose
+it to review the inline confirmation, then choose **Unlink** again to save or
+**Cancel** to leave everything unchanged.
+
+The detached MAC becomes a separate device with its latest member-specific
+name, identification, Person, Room and usage category. Imported and discovered
+values received while linked remain available to it. The remaining device keeps
+the linked device's current shared values as ordinary saved values; a later
+Reset uses that MAC's normal imported or discovered values. Both MACs keep their
+addresses, vendors, observations and scan histories. The pair is permanently
+declined as an automatic suggestion, but it can still be linked manually.
+
+After unlinking, Devices, Overview and People & Rooms show and count the two MAC
+addresses as separate devices again, and Device Details reopens on the remaining
+device. Activity and usage evidence again use each MAC's own history, including
+evidence collected while linked.
+
+If saving fails, the section shows the error and keeps the linked device and
+confirmation in place.
 
 ## Rename
 
