@@ -246,7 +246,16 @@ function Resolve-LinkDraft {
     Wait-Link { (Find-Link MergeMacChoicePersonThis).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } "keyboard person choice"
     Select-LinkChoice MergeMacChoiceRoomOther
     foreach ($field in @("Vendor", "Family", "Model")) {
-        Select-LinkChoice "MergeMacChoice${field}Separate"
+        $id = "MergeMacChoice${field}Separate"
+        $call = Start-UiRegressionCall positioning
+        try {
+            $choice = Show-UiRegressionScrollTargets -GetViewport { Find-Link DeviceDetailsScroll } `
+                -GetTargets { Find-Link $id } -GetWindow { $script:root } `
+                -Description "$field Keep separate choice" -BottomMargin 16
+        }
+        finally { Complete-UiRegressionCall $call }
+        $choice.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+        Wait-Link { (Find-Link $id).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } "$field Keep separate selected"
         $label = if ($field -eq "Vendor") { "Vendor / manufacturer" } else { $field }
         if ((Find-Link "MergeMacResult$field").Current.Name -ne "Linked device ${label}: No shared value") {
             throw "$field must show that no value will be shared."
