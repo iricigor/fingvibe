@@ -508,11 +508,35 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#review-possible-matching-mac-addresses" class="md-nav__link">
+  <a href="#merge-mac-addresses" class="md-nav__link">
     <span class="md-ellipsis">
-      Review possible matching MAC addresses
+      Merge MAC addresses
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Merge MAC addresses">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#link-two-records-as-one-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      Link two records as one device
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#edit-a-linked-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      Edit a linked device
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1164,11 +1188,35 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#review-possible-matching-mac-addresses" class="md-nav__link">
+  <a href="#merge-mac-addresses" class="md-nav__link">
     <span class="md-ellipsis">
-      Review possible matching MAC addresses
+      Merge MAC addresses
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Merge MAC addresses">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#link-two-records-as-one-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      Link two records as one device
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#edit-a-linked-device" class="md-nav__link">
+    <span class="md-ellipsis">
+      Edit a linked device
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1310,31 +1358,71 @@ no additional requests. Up to four distinct values per kind (128 characters
 each) are stored locally, including virtual-device connection observations.
 Earlier scans have no retroactive evidence. A shared name or ID does not prove
 that two records represent the same device, and does not automatically link them.</p>
-<h2 id="review-possible-matching-mac-addresses">Review possible matching MAC addresses<a class="headerlink" href="#review-possible-matching-mac-addresses" title="Permanent link">&para;</a></h2>
-<p>When another record may be the same physical device
-(<a href="../devices/#possible-matching-mac-addresses">how matches are found</a>),
-<strong>Merge MAC addresses</strong> appears on <strong>Overview</strong> directly above
-<strong>Device identification</strong>. Its header shows a yellow link icon and
-<strong>1 possible match</strong> or <strong>N possible matches</strong>. Devices without suggestions do
-not show the section.</p>
-<p>The section opens expanded when you open such a device, including from the
-Devices link icon. If you collapse it, it stays collapsed while that device
-remains open; later refreshes do not reopen it.</p>
-<p>It compares <strong>This device</strong> with <strong>Selected other MAC address</strong>
-(<em>suggestion i of n</em>): name, status, IP / MAC, and vendor / OS / type. Below,
-<em>Suggested because …</em> states the reason and that the suggestion does not
-establish physical identity.</p>
+<h2 id="merge-mac-addresses">Merge MAC addresses<a class="headerlink" href="#merge-mac-addresses" title="Permanent link">&para;</a></h2>
+<p><strong>Merge MAC addresses</strong> appears on every device's <strong>Overview</strong>, directly above
+<strong>Device identification</strong>. Its collapsed header shows what there is to do:</p>
 <ul>
-<li><strong>Change device...</strong> appears when there is more than one suggestion. It lists
-  only the suggestions, strongest first.</li>
+<li><strong>No suggestions</strong> in pale gray: nothing looks like the same device. The
+  expanded section offers <strong>Choose device...</strong> to link a record manually.</li>
+<li><strong>N possible matches</strong> with a yellow link icon: another record may be the same
+  physical device (<a href="../devices/#possible-matching-mac-addresses">how matches are found</a>).</li>
+<li><strong>2 MAC addresses</strong> in green: you linked these records as one device.</li>
+<li><strong>Not available for virtual devices</strong> in pale gray. A virtual device groups
+  changing private MAC addresses automatically, so it can't be linked. You can
+  still name it and assign it to a person or room.</li>
+</ul>
+<p>With suggestions, the section opens expanded when you open the device, including
+from the Devices link icon. If you collapse it, it stays collapsed while that
+device remains open; later refreshes do not reopen it.</p>
+<p>It compares <strong>This device</strong> with <strong>Selected other MAC address</strong>
+(<em>suggestion i of n</em>, or <em>chosen manually</em>): name, status, IP / MAC, and
+vendor / OS / type. For a suggestion, <em>Suggested because …</em> states the reason
+and that the suggestion does not establish physical identity.</p>
+<ul>
+<li><strong>Change device...</strong> (or <strong>Choose device...</strong>) opens a searchable picker.
+  <strong>Suggested</strong> lists suggestions strongest first with their reason; <strong>Other
+  devices</strong> lists every other unlinked record that isn't part of a virtual
+  device. Declined pairs are tagged <strong>Declined</strong> and can still be linked
+  manually. Virtual devices can't be linked and aren't listed.</li>
 <li><strong>Decline suggestion</strong> keeps the two records separate permanently. Both link
   icons for that pair disappear, other suggestions remain, and the next
-  suggestion is shown; the section disappears when none remain. A declined pair
-  is never suggested again, even if stronger evidence appears later.</li>
+  suggestion is shown. A declined pair is never suggested again, even if
+  stronger evidence appears later. Declines survive restarts; if a save fails,
+  the section shows the error and keeps the suggestion.</li>
 </ul>
-<p>Declines are saved in <code>device-inventory.sqlite</code> and survive restarts. If a save
-fails, the section shows the error and keeps the suggestion. Linking records is
-not available yet.</p>
+<h3 id="link-two-records-as-one-device">Link two records as one device<a class="headerlink" href="#link-two-records-as-one-device" title="Permanent link">&para;</a></h3>
+<p><strong>Choose the shared device data</strong> lists each field with <strong>This device</strong>,
+<strong>Other MAC address</strong> and the <strong>Linked device value</strong>: name, device type,
+operating system and vendor / manufacturer; family, model and device icon when
+either record has one; then Person, Room and usage category.</p>
+<ul>
+<li>Matching values are kept. Each differing value needs an explicit choice; you
+  can also type the shared name. FingVibe never silently prefers the online or
+  the first record.</li>
+<li>Matching automatic usage categories stay automatic. Differing categories need
+  a choice, which is saved as the linked device's manual category.</li>
+<li><strong>Merge as one device</strong> stays disabled until every difference is resolved.
+  <strong>Cancel</strong> discards your choices without saving anything.</li>
+<li>If saving fails, the section shows the error and keeps your choices; nothing
+  is linked and no suggestion disappears until saving succeeds.</li>
+</ul>
+<p>MAC addresses, adapter vendors, IPs, ports and scan histories stay separate. No
+source records are deleted.</p>
+<p>After linking, the section says <strong>Linked by you</strong> and lists each MAC address
+with its IP, adapter vendor, status and the date it was linked. Linked records
+get no new suggestions yet.</p>
+<h3 id="edit-a-linked-device">Edit a linked device<a class="headerlink" href="#edit-a-linked-device" title="Permanent link">&para;</a></h3>
+<p>Use the existing name, identification, <strong>Person</strong>/<strong>Room</strong> and usage-category
+editors on either MAC address's Device Details; they change the shared values,
+and both Devices rows update. The confirmed name and identification are fixed
+values: later scans update each MAC's own evidence, not the shared values.
+<strong>Restore name chosen when linked</strong> and <strong>Restore values chosen when linked</strong>
+return to the values confirmed when you linked the records.</p>
+<p>Each MAC keeps its own saved name, identification, Person/Room and category
+while linked, ready for a later Unlink. Unlink is not available yet; it is
+planned separately. Until then, Devices, Overview and People &amp; Rooms still show
+and count each MAC address as its own row (both with the shared values), and
+activity remains per MAC address.</p>
 <h2 id="rename">Rename<a class="headerlink" href="#rename" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Choose the <strong>Rename device</strong> pencil beside the device name.</li>
