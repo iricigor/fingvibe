@@ -59,7 +59,9 @@ try {
     $missing = $histories.Clone(); $missing.Remove(1)
     Assert-Fails { Get-EpicChartSnapshots $children $missing $now $now ([TimeZoneInfo]::Utc) } "*Missing lifecycle*"
     $oldReason = $children[0].state_reason; $children[0].state_reason = "not_planned"
-    Assert-Fails { Get-EpicChartSnapshots $children $histories $now $now ([TimeZoneInfo]::Utc) } "*Non-completed closure*"
+    $nonCompleted = Get-EpicChartSnapshots $children $histories ([DateTimeOffset] "2026-11-16T10:00:00Z") $now ([TimeZoneInfo]::Utc)
+    Assert-True ($nonCompleted.snapshots[-1].total -eq 2 -and $nonCompleted.snapshots[-1].completed -eq 0) "Non-completed closures are excluded from the cohort, not counted as completed."
+    Assert-True (($nonCompleted.warnings -join "`n") -like "*#1 has non-completed closure reason(s): not_planned; excluded from chart cohort.*") "Exclusions must be disclosed in warnings."
     $children[0].state_reason = $oldReason
     $oldEvents = $histories[2]; $histories[2] = @()
     Assert-Fails { Get-EpicChartSnapshots $children $histories $now $now ([TimeZoneInfo]::Utc) } "*Missing start evidence*"

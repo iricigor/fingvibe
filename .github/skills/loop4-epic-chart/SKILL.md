@@ -43,9 +43,10 @@ checks and publication verification, not candidate selection.
   unstarted; completed closure finishes it; reopening resumes it.
   PR submission, successful CI and ended assignments are not completion.
 - All three categories must be evidenced. Missing/truncated/inconsistent history
-  and non-completed closures stop reporting explicitly, rather than inventing
-  counts. This can prevent charts for legacy Epics; reconcile evidence with a
-  human, never relabel/close issues to make a chart.
+  stop reporting explicitly, rather than inventing counts. Closed children with
+  non-completed closure reasons are excluded from the chart cohort with an
+  explicit warning in the report/comment. This avoids miscounting superseded or
+  not-planned tasks as completed progress.
 - The image shows at most the latest 24 hourly snapshots plus the current partial
   hour, starting no earlier than Epic creation. Default timezone is the local
   Windows timezone; `-TimeZoneId` selects another installed timezone. Labels show
