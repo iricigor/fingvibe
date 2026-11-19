@@ -391,6 +391,17 @@ uncertain writes and actual rendered stack colors without native UI automation.
 See the [skill contract](.github/skills/loop4-epic-chart/SKILL.md) for missing
 evidence, GitHub image credentials and pending-publication recovery.
 
+## Next-cycle loop5 Developer source
+
+[Loop5 setup](docs/agentic-loop-5/README.md) provides one shared
+[`Developer`](.github/agents/automation-5-developer.agent.md) definition with
+distinct UI-supplied worker identities. It is developed alongside the still-used
+4️⃣ environment, not installed or activated as a replacement. Existing profiles,
+live Automations and coordination records remain unchanged. The setup documents
+pending host identity/routing verification and missing loop5 runtime integration;
+source checks do not authorize execution. Run `tests/Agent5Developer.Tests.ps1`
+without starting live Automations.
+
 ## Architecture discussions with Architect
 
 For issue intake, Epic/task templates, and the label/ownership contract for
