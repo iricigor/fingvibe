@@ -13,7 +13,7 @@ public sealed record MergeSectionHeader(MergeSectionState State, string CountTex
 
 public enum LinkedField { Name, DeviceType, OperatingSystem, Vendor, Family, Model, Icon, Person, Room, UsageCategory }
 
-public enum LinkedFieldChoice { None, ThisDevice, OtherDevice, Typed }
+public enum LinkedFieldChoice { None, ThisDevice, OtherDevice, Typed, KeepSeparate }
 
 /// <summary>A record or linked device offered by the picker; suggestions carry their reason.</summary>
 public sealed record LinkCandidate(string Mac, ScanResultRow Row, DeviceMatchSuggestion? Suggestion, bool Declined, int MacCount = 1)
@@ -56,12 +56,13 @@ public sealed class LinkedFieldDraft
     public string OtherText { get; }
     public bool Differs { get; }
     public bool CanType => Field == LinkedField.Name;
+    public bool CanKeepSeparate => Field is LinkedField.Vendor or LinkedField.Family or LinkedField.Model;
     public LinkedFieldChoice Choice { get; private set; }
     public string TypedName { get; private set; } = string.Empty;
 
     public bool IsResolved => Choice switch
     {
-        LinkedFieldChoice.ThisDevice or LinkedFieldChoice.OtherDevice => true,
+        LinkedFieldChoice.ThisDevice or LinkedFieldChoice.OtherDevice or LinkedFieldChoice.KeepSeparate => true,
         LinkedFieldChoice.Typed => !string.IsNullOrWhiteSpace(TypedName),
         _ => !Differs
     };
@@ -70,6 +71,7 @@ public sealed class LinkedFieldDraft
     {
         LinkedFieldChoice.ThisDevice => ThisText,
         LinkedFieldChoice.OtherDevice => OtherText,
+        LinkedFieldChoice.KeepSeparate => "No shared value",
         LinkedFieldChoice.Typed when IsResolved => TypedName.Trim(),
         _ => Differs ? "Choose a value" : ThisText
     };
@@ -77,6 +79,7 @@ public sealed class LinkedFieldDraft
     internal object? Result => Choice switch
     {
         LinkedFieldChoice.OtherDevice => _otherValue,
+        LinkedFieldChoice.KeepSeparate => null,
         LinkedFieldChoice.Typed => TypedName.Trim(),
         _ => _thisValue
     };
@@ -84,7 +87,9 @@ public sealed class LinkedFieldDraft
     public void Choose(LinkedFieldChoice choice)
     {
         if (choice == LinkedFieldChoice.Typed) throw new ArgumentException("Type a name instead.", nameof(choice));
-        if (!Differs && choice != LinkedFieldChoice.None)
+        if (choice == LinkedFieldChoice.KeepSeparate && !CanKeepSeparate)
+            throw new InvalidOperationException("Only vendor, family and model can be kept separate.");
+        if (!Differs && !CanKeepSeparate && choice != LinkedFieldChoice.None)
             throw new InvalidOperationException("Matching values are kept without a choice.");
         Choice = choice;
     }
