@@ -270,7 +270,14 @@ public sealed partial class DeviceDetailsPageView
                 var result = new TextBlock { TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
                 AutomationProperties.SetAutomationId(result, $"MergeMacResult{field.Field}");
                 _mergeResults[field.Field] = result;
-                Add(result, row, 3);
+                if (field.CanKeepSeparate)
+                {
+                    var values = new StackPanel { Spacing = 4 };
+                    values.Children.Add(result);
+                    values.Children.Add(Value(field, LinkedFieldChoice.KeepSeparate, "Keep separate / no shared value"));
+                    Add(values, row, 3);
+                }
+                else Add(result, row, 3);
             }
         }
 
@@ -283,16 +290,25 @@ public sealed partial class DeviceDetailsPageView
 
         FrameworkElement Value(LinkedFieldDraft field, LinkedFieldChoice side, string text)
         {
-            if (!field.Differs)
+            if (!field.Differs && !field.CanKeepSeparate)
                 return new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, VerticalAlignment = VerticalAlignment.Center };
             var radio = new RadioButton
             {
                 Content = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap },
-                GroupName = $"MergeMac{field.Field}", IsChecked = field.Choice == side, Tag = side
+                GroupName = $"MergeMac{field.Field}", Tag = side,
+                IsChecked = field.Choice == side || !field.Differs && field.CanKeepSeparate
+                    && field.Choice == LinkedFieldChoice.None && side == LinkedFieldChoice.ThisDevice
             };
             var sideName = side == LinkedFieldChoice.ThisDevice ? "this device" : "other MAC address";
-            AutomationProperties.SetName(radio, $"{field.Label}: use {sideName} value {text}");
-            AutomationProperties.SetAutomationId(radio, $"MergeMacChoice{field.Field}{(side == LinkedFieldChoice.ThisDevice ? "This" : "Other")}");
+            AutomationProperties.SetName(radio, side == LinkedFieldChoice.KeepSeparate
+                ? $"{field.Label}: keep separate, no shared value" : $"{field.Label}: use {sideName} value {text}");
+            var suffix = side switch
+            {
+                LinkedFieldChoice.ThisDevice => "This",
+                LinkedFieldChoice.OtherDevice => "Other",
+                _ => "Separate"
+            };
+            AutomationProperties.SetAutomationId(radio, $"MergeMacChoice{field.Field}{suffix}");
             radio.Checked += (_, _) =>
             {
                 field.Choose(side);

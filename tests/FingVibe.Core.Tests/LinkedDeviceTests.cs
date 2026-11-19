@@ -526,6 +526,148 @@ public sealed class LinkedDeviceTests : IDisposable
     }
 
     [Fact]
+    public void IdentificationCanStaySeparateWithoutResolvingOtherDifferences()
+    {
+        var (device, other) = Rows(Inventory());
+        device.SetClassificationOverride(new(Brand: "Wi-Fi vendor", Family: "Adapter", Model: "Wi-Fi model"));
+        other.SetClassificationOverride(new(Brand: "Board vendor", Family: "Motherboard", Model: "Board model"));
+        var draft = LinkedDeviceDraft.Create(device, other);
+
+        foreach (var field in new[] { LinkedField.Vendor, LinkedField.Family, LinkedField.Model })
+        {
+            var value = draft[field]!;
+            Assert.False(value.IsResolved);
+            value.Choose(LinkedFieldChoice.ThisDevice);
+            Assert.Equal(value.ThisText, value.Result);
+            value.Choose(LinkedFieldChoice.KeepSeparate);
+            Assert.True(value.IsResolved);
+            Assert.Equal("No shared value", value.ResultText);
+            Assert.Null(value.Result);
+            value.Choose(LinkedFieldChoice.OtherDevice);
+            Assert.Equal(value.OtherText, value.Result);
+            value.Choose(LinkedFieldChoice.None);
+            Assert.False(value.IsResolved);
+            value.Choose(LinkedFieldChoice.KeepSeparate);
+        }
+
+        Assert.False(draft.CanMerge);
+        Assert.Throws<InvalidOperationException>(() => draft.ToChoices());
+        foreach (var field in draft.Fields.Where(field => !field.CanKeepSeparate))
+            Assert.Throws<InvalidOperationException>(() => field.Choose(LinkedFieldChoice.KeepSeparate));
+        foreach (var field in draft.Fields.Where(field => !field.IsResolved))
+            field.Choose(LinkedFieldChoice.ThisDevice);
+
+        var choices = draft.ToChoices();
+        Assert.Null(choices.Identification.Brand);
+        Assert.Null(choices.Identification.Family);
+        Assert.Null(choices.Identification.Model);
+    }
+
+    [Fact]
+    public void MatchingIdentificationStaysSharedByDefaultButCanBeKeptSeparate()
+    {
+        var (device, other) = Rows(Inventory());
+        var identification = new DeviceClassificationOverride(Brand: "Same vendor", Family: "Same family", Model: "Same model");
+        device.SetClassificationOverride(identification);
+        other.SetClassificationOverride(identification);
+        var draft = LinkedDeviceDraft.Create(device, other);
+        foreach (var field in draft.Fields.Where(field => field.Differs))
+            field.Choose(LinkedFieldChoice.ThisDevice);
+
+        Assert.Equal("Same vendor", draft.ToChoices().Identification.Brand);
+        Assert.Equal("Same family", draft.ToChoices().Identification.Family);
+        Assert.Equal("Same model", draft.ToChoices().Identification.Model);
+        foreach (var field in draft.Fields.Where(field => field.CanKeepSeparate))
+        {
+            field.Choose(LinkedFieldChoice.KeepSeparate);
+            Assert.Null(field.Result);
+            field.Choose(LinkedFieldChoice.OtherDevice);
+            Assert.Equal(field.OtherText, field.Result);
+            field.Choose(LinkedFieldChoice.KeepSeparate);
+        }
+        Assert.Null(draft.ToChoices().Identification.Brand);
+        Assert.Null(draft.ToChoices().Identification.Family);
+        Assert.Null(draft.ToChoices().Identification.Model);
+    }
+
+    [Theory]
+    [InlineData(2, LinkedFieldChoice.KeepSeparate)]
+    [InlineData(3, LinkedFieldChoice.KeepSeparate)]
+    [InlineData(4, LinkedFieldChoice.KeepSeparate)]
+    [InlineData(2, LinkedFieldChoice.ThisDevice)]
+    [InlineData(2, LinkedFieldChoice.OtherDevice)]
+    public async Task IdentificationChoicesPersistWithoutChangingMembers(int memberCount, LinkedFieldChoice choice)
+    {
+        const string fourth = "001122AA0004";
+        var original = Scan(Inventory(), 1, Result(fourth, "192.0.2.13"));
+        original = original with
+        {
+            Classifications = original.Devices.Keys.ToDictionary(mac => mac,
+                mac => new DeviceClassificationOverride(Brand: $"Vendor {mac}", Family: $"Family {mac}", Model: $"Model {mac}")),
+            Devices = original.Devices.ToDictionary(pair => pair.Key,
+                pair => pair.Value with { Imported = new(Brand: "Imported vendor", Family: "Imported family", Model: "Imported model") })
+        };
+        var data = memberCount == 2 ? original : original.LinkDevices(A, B, Choices(), Start);
+        if (memberCount == 4) data = data.LinkDevices(C, fourth, Choices("Other group") with
+        {
+            Identification = new(Brand: "Other group vendor", Family: "Other group family", Model: "Other group model")
+        }, Start);
+        var target = memberCount == 2 ? B : C;
+        var device = ScanResultRow.ForDevice(data.Devices[A], data);
+        var other = ScanResultRow.ForDevice(data.Devices[target], data);
+        var draft = LinkedDeviceDraft.Create(device, other);
+        foreach (var field in draft.Fields)
+        {
+            if (field.CanKeepSeparate) field.Choose(choice);
+            else if (field.Differs) field.Choose(LinkedFieldChoice.ThisDevice);
+        }
+        var expected = draft.ToChoices().Identification;
+        var linked = data.LinkDevices(A, target, draft.ToChoices(), Start.AddDays(1));
+        var path = Path.Combine(_directory, "device-inventory.json");
+        await new DeviceInventoryStore(path).SaveAsync(linked, Guid.Empty);
+        var loaded = await new DeviceInventoryStore(path).LoadAsync();
+
+        Assert.NotNull(loaded);
+        var group = Assert.Single(loaded.LinkedDevices);
+        Assert.Equal(memberCount, group.Members.Count);
+        Assert.Equal(expected, group.Identification);
+        Assert.Equal(expected, group.Confirmed.Identification);
+        if (choice == LinkedFieldChoice.KeepSeparate)
+            Assert.All(group.Members, member =>
+            {
+                var row = ScanResultRow.ForDevice(loaded.Devices[member.Mac], loaded);
+                Assert.Equal("-", row.BrandText);
+                Assert.Equal("-", row.FamilyText);
+                Assert.Equal("-", row.ModelText);
+            });
+        else
+        {
+            var source = choice == LinkedFieldChoice.ThisDevice ? device : other;
+            Assert.Equal(source.BrandText, expected.Brand);
+            Assert.Equal(source.FamilyText, expected.Family);
+            Assert.Equal(source.ModelText, expected.Model);
+        }
+        foreach (var mac in original.Devices.Keys)
+        {
+            Assert.Equal(original.Classifications[mac], loaded.Classifications[mac]);
+            Assert.Equal(original.Devices[mac].Imported, loaded.Devices[mac].Imported);
+        }
+        var unlinked = loaded.UnlinkDevice(B);
+        Assert.Equal(original.Classifications[B], unlinked.Classifications[B]);
+        var detached = ScanResultRow.ForDevice(unlinked.Devices[B], unlinked);
+        Assert.Equal(original.Classifications[B].Brand, detached.BrandText);
+        Assert.Equal(original.Classifications[B].Family, detached.FamilyText);
+        Assert.Equal(original.Classifications[B].Model, detached.ModelText);
+        if (memberCount == 2 && choice == LinkedFieldChoice.KeepSeparate)
+        {
+            var remaining = ScanResultRow.ForDevice(unlinked.Devices[A], unlinked);
+            Assert.Equal(original.Classifications[A].Brand, remaining.BrandText);
+            Assert.Equal(original.Classifications[A].Family, remaining.FamilyText);
+            Assert.Equal(original.Classifications[A].Model, remaining.ModelText);
+        }
+    }
+
+    [Fact]
     public void MatchingAutomaticUsageStaysAutomaticButMatchingManualCategoriesAreKept()
     {
         var data = Inventory() with { Names = new Dictionary<string, string>(), Classifications = new Dictionary<string, DeviceClassificationOverride>(),
