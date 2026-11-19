@@ -9,7 +9,7 @@ name and status grouped on the right. At narrow widths the tabs move below the h
 - **Overview** (selected each time you open a device): network overview,
   assignments, observation summary, usage category, possible matching MAC
   addresses, identification, and ports and services.
-- **History**: Activity, scan observations and, for virtual devices, MAC and address history.
+- **History**: Activity, scan observations and, for virtual and linked devices, MAC and address history.
 
 Choose **View device history** in the summary, or select **History**, to switch.
 With the keyboard, move focus to a tab and press Space or Enter. Switching tabs keeps unsaved
@@ -152,9 +152,9 @@ evidence use the linked device: any responding member makes a scan a response,
 every eligible member must have a nonresponse for that scan to count as no
 response, and otherwise the scan remains unknown. Members never observed on the
 selected network do not contribute. Evidence collected before linking remains
-part of the current members' combined history. The History card remains
-separate; it still uses the representative MAC until that surface is updated
-later.
+part of the current members' combined history. The History tab's **Scan
+observations** list and **MAC and address history** cover every member; see
+[Linked-device history and tool targets](#linked-device-history-and-tool-targets).
 
 ### Unlink MAC addresses
 
@@ -237,6 +237,7 @@ See the [technical reference](https://github.com/iricigor/fingvibe/blob/main/doc
 
 1. Confirm the device responded in the current local scan.
 2. If several current addresses exist, select **Current address to inspect / probe**.
+   For a linked device it lists every responding member as **MAC · IP**.
 3. Review **Ports & services**.
 4. Optionally select **Include UDP service checks**.
 5. Choose **Scan additional ports**.
@@ -292,6 +293,36 @@ to that identity and can follow its associated MAC changes.
 On the **History** tab, expand **MAC and address history** for the member addresses, times, and preserved
 evidence. Do not treat this association as proof of a physical device.
 Fing import still matches full MAC addresses, not virtual names or prefixes.
+
+## Linked-device history and tool targets
+
+On a linked device's **History** tab, the **Linked device** card's **MAC and
+address history** lists every member MAC address. The member shown in Devices
+comes first. Each lists:
+
+- **Confirmed by you on** the date you linked it. This is your confirmation,
+  not an inference.
+- Each connection: IP address, current response or previous connection, first
+  and last seen, network and subnet.
+- **Saved values Unlink restores**: that MAC's own name, identification,
+  Person, Room and usage category. A renamed Person or Room shows its current
+  name; a deleted one is restored as unassigned.
+
+**Scan observations** shows one row per completed scan of the current members on
+the selected network, using the [Activity rules](history.md): a response from any
+member is a response; a scan counts as no response only when every member already
+seen on that network recorded one; other scans are not listed. A scan never
+appears twice.
+
+**Current address to inspect / probe** lists every member MAC and IP address
+that responded in the current scan as **MAC · IP**; addresses seen only
+earlier are not listed. Port scans and UDP checks target the selected real
+address, and their results are saved on that MAC's own record. Probing requires
+the selected Windows network profile to match the address's network, as for a
+virtual device. The choice applies only to this Device Details visit: it stays
+selected across refreshes while that MAC/IP still responds, otherwise Device
+Details shows the representative address and says so. Reopening Device Details
+starts from the representative, and the member shown in Devices never changes.
 
 ## History availability
 

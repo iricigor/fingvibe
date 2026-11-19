@@ -166,8 +166,13 @@ public sealed partial class DeviceDetailsPageView : UserControl
                 _historySession.Complete(request, AsyncSurfaceState.Error, () => DeviceScanHistoryExpander.UpdateLayout());
         }
         UpdateHistoryPageActions();
-        VirtualDeviceHistoryCard.Visibility = row.VirtualDevice is { } device
+        var linked = row.IsLinkedDeviceRow;
+        VirtualDeviceHistoryCard.Visibility = linked || row.VirtualDevice is { } device
             && device.NetworkId == networkId && device.Subnet == subnet ? Visibility.Visible : Visibility.Collapsed;
+        VirtualDeviceHistoryTitle.Text = linked ? "Linked device" : "Virtual device";
+        VirtualDeviceHistoryDescription.Text = linked
+            ? "You confirmed these MAC addresses as one device. Each MAC keeps its own connections and saved values; Unlink restores them. Completed scan observations count a response from any member."
+            : "MACs are associated by private vendor prefix and the lowest available device number. This is an inference, not proof of one physical device. Names, identification and assignments follow this virtual device.";
         VirtualDeviceHistoryText.Text = row.ConnectionHistoryText;
     }
 
@@ -284,14 +289,14 @@ public sealed partial class DeviceDetailsPageView : UserControl
         DeviceReportedValuesText.Text = DeviceDetailsPresentation.ReportedValues(row);
         var result = row.Result;
         _row = row;
-        var addresses = row.CurrentConnections.Select(item => item.AddressText).ToArray();
+        var addresses = row.CurrentTargetChoices;
         _updatingAddresses = true;
         try
         {
             if (DeviceAddressPicker.ItemsSource is not IEnumerable<string> previous || !previous.SequenceEqual(addresses))
                 DeviceAddressPicker.ItemsSource = addresses;
-            DeviceAddressPicker.SelectedItem = row.AddressText;
-            DeviceAddressPicker.Visibility = addresses.Length > 1 ? Visibility.Visible : Visibility.Collapsed;
+            DeviceAddressPicker.SelectedItem = row.SelectedTargetChoice;
+            DeviceAddressPicker.Visibility = addresses.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
         }
         finally { _updatingAddresses = false; }
         DeviceNameValue.Value = row.NameText;

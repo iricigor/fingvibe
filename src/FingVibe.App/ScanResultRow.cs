@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Net.NetworkInformation;
 using FingVibe.Core.Import;
 using FingVibe.Core.Models;
@@ -123,8 +124,9 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     }
 
     public bool IsVirtualIdentity => VirtualDevice is not null;
-    public IReadOnlyList<DeviceScanObservation> ScanHistory =>
-        VirtualDevice?.ScanHistory ?? _inventoryDevice?.ScanHistory ?? [];
+    public IReadOnlyList<DeviceScanObservation> ScanHistory => _linkedMembers.Count > 0
+        ? new LinkedScanHistory(_linkedMembers.Select(member => member.ScanHistory))
+        : VirtualDevice?.ScanHistory ?? _inventoryDevice?.ScanHistory ?? [];
     public DeviceHistorySummary GetHistorySummary(string? networkId, string? subnet)
     {
         if (_linkedMembers.Count == 0)
@@ -211,7 +213,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
 
     public ScanResult? Result { get; private set; }
     public IReadOnlyList<ObservedDeviceValue> ReportedValues =>
-        _inventoryDevice is { LatestObservation: { } scope } device
+        TargetDevice is { LatestObservation: { } scope } device
             ? device.Observations.FirstOrDefault(item => item.Address == AddressText
                 && item.NetworkId == scope.NetworkId && item.Subnet == scope.Subnet)?.ReportedValues ?? []
             : [];
@@ -288,9 +290,42 @@ public sealed class ScanResultRow : INotifyPropertyChanged
             ? device.Observations.Where(item => item.Present && item.LastChecked == device.CurrentCompletedAt
                 && item.NetworkId == device.CurrentNetworkId && item.Subnet == device.CurrentSubnet)
                 .OrderBy(item => item.Address, StringComparer.Ordinal)
-                .Select(item => _connectionOverrides.GetValueOrDefault(item.Address) ?? item.ToScanResult(device.Mac)).ToArray()
+                .Select(item => _connectionOverrides.GetValueOrDefault(ConnectionKey(device.Mac, item.Address))
+                    ?? item.ToScanResult(device.Mac)).ToArray()
             : Result is { } result ? [result] : [];
-    public string ConnectionHistoryText => VirtualDevice is not { } device ? string.Empty
+
+    /// <summary>
+    /// The real addresses Device Details can inspect and probe: for a linked device every member MAC/IP responding in
+    /// the current scan (the Devices representative first), otherwise this record's current addresses.
+    /// </summary>
+    public IReadOnlyList<ScanResult> CurrentTargets => !IsLinkedDeviceRow ? CurrentConnections
+        : !IsCurrentScanResponse || _inventoryDevice is not { } shown ? []
+        : _linkedMembers.SelectMany(member => member.Observations.Where(item => item.Present
+                && item.LastChecked == shown.CurrentCompletedAt
+                && item.NetworkId == shown.CurrentNetworkId && item.Subnet == shown.CurrentSubnet)
+                .Select(item => (member.Mac, Observation: item)))
+            .OrderBy(item => item.Mac != shown.Mac).ThenBy(item => item.Mac, StringComparer.Ordinal)
+            .ThenBy(item => item.Observation.Address, StringComparer.Ordinal)
+            .Select(item => _connectionOverrides.GetValueOrDefault(ConnectionKey(item.Mac, item.Observation.Address))
+                ?? item.Observation.ToScanResult(item.Mac)).ToArray();
+
+    /// <summary>Picker text for a target: "MAC · IP" for a linked device, otherwise the IP address.</summary>
+    public string TargetChoice(ScanResult target) => IsLinkedDeviceRow && target.MacAddress is { } mac
+        ? $"{FormatMac(mac.ToString())} · {target.AddressText}" : target.AddressText;
+    public IReadOnlyList<string> CurrentTargetChoices => CurrentTargets.Select(TargetChoice).ToArray();
+    public string SelectedTargetChoice => Result is { } result ? TargetChoice(result) : AddressText;
+
+    /// <summary>The network of the address being inspected; a probe needs the matching Windows network profile.</summary>
+    public string? TargetNetworkId => TargetDevice?.CurrentNetworkId;
+
+    // The member whose address Device Details is inspecting; never changes which member Devices shows.
+    private InventoryDevice? TargetDevice => IsLinkedDeviceRow && Result?.MacAddress?.ToString() is { } mac
+        ? _linkedMembers.FirstOrDefault(member => member.Mac == mac) ?? _inventoryDevice : _inventoryDevice;
+
+    private static string ConnectionKey(string? mac, string address) => $"{mac}|{address}";
+
+    public string ConnectionHistoryText => _linkedMembers.Count > 0 ? LinkedHistoryText()
+        : VirtualDevice is not { } device ? string.Empty
         : string.Join("\n\n", device.History.OrderByDescending(item => item.Observation.LastSeen)
             .ThenBy(item => item.Mac, StringComparer.Ordinal).Select(item =>
             {
@@ -319,6 +354,50 @@ public sealed class ScanResultRow : INotifyPropertyChanged
 
     private static string FormatMac(string mac) =>
         string.Join("-", Enumerable.Range(0, 6).Select(i => mac.Substring(i * 2, 2)));
+
+    /// <summary>Each member MAC with its own connections, confirmation date and the saved values Unlink restores.</summary>
+    private string LinkedHistoryText()
+    {
+        var shownMac = _inventoryDevice?.Mac;
+        var dates = LinkedDevice?.Members.ToDictionary(member => member.Mac, member => member.LinkedAt) ?? [];
+        var data = _sourceData;
+        return string.Join("\n\n", _linkedMembers
+            .OrderBy(member => member.Mac != shownMac)
+            .ThenByDescending(member => member.Observations.Select(item => (DateTimeOffset?)item.LastSeen).Max())
+            .ThenBy(member => member.Mac, StringComparer.Ordinal)
+            .Select(member =>
+            {
+                var header = FormatMac(member.Mac)
+                    + (dates.TryGetValue(member.Mac, out var linkedAt)
+                        ? $" · Confirmed by you on {linkedAt.ToLocalTime().ToString("d", CultureInfo.CurrentCulture)}" : string.Empty)
+                    + (member.Mac == shownMac ? " · Shown in Devices" : string.Empty);
+                var connections = member.Observations.Count == 0
+                    ? ["No local connections; imported from Fing only."]
+                    : member.Observations.OrderByDescending(item => item.LastSeen)
+                        .ThenBy(item => item.Address, StringComparer.Ordinal)
+                        .Select(item => $"{item.Address} · "
+                            + (item.Present && item.LastChecked == member.CurrentCompletedAt
+                                && item.NetworkId == member.CurrentNetworkId && item.Subnet == member.CurrentSubnet
+                                    ? "Current response" : "Previous connection")
+                            + $" · first seen {item.FirstSeen:g} · last seen {item.LastSeen:g}"
+                            + $" · network {item.NetworkId ?? "unidentified"} · {item.Subnet}");
+                var name = data?.Names.GetValueOrDefault(member.Mac) ?? member.Imported.Name;
+                var identification = data?.Classifications.GetValueOrDefault(member.Mac);
+                var assignment = data?.PeopleRooms.Assignments.GetValueOrDefault(member.Mac);
+                // Assignments are kept by ID: a renamed Person/Room shows its current name; a deleted one restores as unassigned.
+                var person = data?.PeopleRooms.People.FirstOrDefault(item => item.Id == assignment?.PersonId)?.Name;
+                var room = data?.PeopleRooms.Rooms.FirstOrDefault(item => item.Id == assignment?.RoomId)?.Name;
+                var restored = $"Saved values Unlink restores: name {name ?? "automatic"}, "
+                    + $"type {identification?.Type?.Label() ?? member.Imported.Type ?? "automatic"}, "
+                    + $"OS {identification?.OperatingSystem?.Label() ?? member.Imported.OperatingSystem ?? "automatic"}, "
+                    + $"brand {identification?.Brand ?? member.Imported.Brand ?? "-"}, "
+                    + $"family {identification?.Family ?? member.Imported.Family ?? "-"}, "
+                    + $"model {identification?.Model ?? member.Imported.Model ?? "-"}, "
+                    + $"person {person ?? "unassigned"}, room {room ?? "unassigned"}, "
+                    + $"usage category {member.UsageCategoryOverride?.ToString() ?? "automatic"}";
+                return string.Join("\n", [header, .. connections, restored]);
+            }));
+    }
 
     public static IEnumerable<ScanResultRow> CreateInventoryRows(DeviceInventoryData data)
     {
@@ -367,6 +446,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         var row = ForDevice(device, data, device.LatestObservation is { } observation
             ? int.Parse(observation.Subnet.Split('/')[1]) : 0, IsHistoricalDevice(device));
         row._linkedMembers = members;
+        row._sourceData = data;
         row.RefreshMacExpansionLines();
         return row;
     }
@@ -421,7 +501,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     {
         if (IdentityKey != updated.IdentityKey)
             throw new ArgumentException("The device identity must not change.", nameof(updated));
-        var address = AddressText;
+        var choice = SelectedTargetChoice;
         _inventoryDevice = updated._inventoryDevice;
         _historical = updated._historical;
         _showLatency = updated._showLatency;
@@ -440,7 +520,8 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         AddressHost = updated.AddressHost;
         MacOui = updated.MacOui;
         MacNic = updated.MacNic;
-        if (CurrentConnections.Any(item => item.AddressText == address)) SelectAddress(address);
+        // A chosen address stays selected only while that member/address still responds; otherwise the default returns.
+        if (CurrentTargets.FirstOrDefault(item => TargetChoice(item) == choice) is { } target) SetResult(target);
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(string.Empty));
     }
 
@@ -523,13 +604,50 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     {
         var connection = CurrentConnections.FirstOrDefault(item => item.AddressText == address)
             ?? throw new ArgumentException("Select an address responding in the current scan.", nameof(address));
+        SetResult(connection);
+    }
+
+    /// <summary>Selects a <see cref="CurrentTargetChoices"/> entry for Device Details to inspect and probe.</summary>
+    public void SelectTarget(string choice)
+    {
+        var target = CurrentTargets.FirstOrDefault(item => TargetChoice(item) == choice)
+            ?? throw new ArgumentException("Select an address responding in the current scan.", nameof(choice));
+        SetResult(target);
+    }
+
+    /// <summary>
+    /// Returns a linked device to the member shown in Devices after Device Details inspected another member.
+    /// Returns whether anything changed.
+    /// </summary>
+    public bool ResetTarget()
+    {
+        if (!IsLinkedDeviceRow || _inventoryDevice is not { } shown || Result?.MacAddress?.ToString() is not { } mac
+            || mac == shown.Mac)
+            return false;
+        var latest = shown.LatestObservation;
+        var target = latest is null ? null
+            : CurrentTargets.FirstOrDefault(item => item.MacAddress?.ToString() == shown.Mac && item.AddressText == latest.Address)
+                ?? latest.ToScanResult(shown.Mac);
+        if (target is null) return false;
+        SetResult(target);
+        return true;
+    }
+
+    private void SetResult(ScanResult connection)
+    {
         Result = connection;
+        var address = connection.AddressText;
         var octets = address.Split('.');
         var count = Math.Min(_prefixLength / 8, 3);
         AddressPrefix = count == 0 ? string.Empty : string.Join(".", octets.Take(count)) + ".";
         AddressHost = string.Join(".", octets.Skip(count));
+        if (connection.MacAddress?.GetAddressBytes().Length == 6)
+        {
+            MacOui = MacAddressText[..8];
+            MacNic = MacAddressText[8..];
+        }
         foreach (var property in new[] { nameof(Result), nameof(AddressText), nameof(OpenPortItems),
-                     nameof(LatencyLabel), nameof(LatencyMilliseconds), nameof(MacAddressText),
+                     nameof(LatencyLabel), nameof(LatencyMilliseconds), nameof(MacAddressText), nameof(MacOui), nameof(MacNic),
                      nameof(AddressPrefix), nameof(AddressHost), nameof(AddressHostFontSize),
                      nameof(DisplayAddressPrefix), nameof(DisplayAddressHost), nameof(ReportedValues),
                      nameof(ServiceAdvertisements), nameof(HasLatestServiceDiscovery), nameof(ServiceDiscoveryName),
@@ -810,7 +928,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     {
         if (Result is null) throw new InvalidOperationException("Imported-only devices have no local probe result.");
         Result = Result with { OpenPorts = openPorts };
-        _connectionOverrides[Result.AddressText] = Result;
+        _connectionOverrides[ConnectionKey(Result.MacAddress?.ToString(), Result.AddressText)] = Result;
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Result)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(OpenPortItems)));
     }
@@ -819,7 +937,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     {
         if (Result is null) throw new InvalidOperationException("Imported-only devices have no local probe result.");
         Result = Result with { UdpObservations = observations };
-        _connectionOverrides[Result.AddressText] = Result;
+        _connectionOverrides[ConnectionKey(Result.MacAddress?.ToString(), Result.AddressText)] = Result;
     }
 
     public void UpdateLatencyRange(long minimum, long maximum)

@@ -1115,7 +1115,10 @@ MAC belongs to one linked device, never to a virtual device, and keeps its own
 saved values for a later Unlink. Adding a record or combining two linked devices
 rewrites the surviving `linked_devices` row and deletes the absorbed one in the
 same transaction; declining a linked device's suggestion stores every current
-cross pair in `declined_matches`. Completed-scan changes commit
+cross pair in `declined_matches`. A linked device's Device Details scan
+observations are read by one grouped, paged query over its current members'
+indexed `scan_history` rows (plus unsaved rows); no combined rows are stored and
+member history is never rewritten. Completed-scan changes commit
 together in a SQLite transaction with full synchronous durability and an
 optimistic revision check; stale app instances must restart and analyze again.
 Scans append history rows, while metadata edits update only changed records and
@@ -1354,10 +1357,11 @@ across independent matrix jobs (#292): `details-summary`
 (`DeviceScanHistory.Ui -SummaryOnly`), `details-identity` (`DeviceDiscovery.Ui`),
 `details-usage` (`UsageCategory.Ui`), `details-observations`
 (`DeviceScanHistory.Ui -ObservationsOnly`),
-`details-activity` (`DeviceActivity.Ui`) and `details-linking` (`DeviceLinking.Ui`, #547/#548/#582:
+`details-activity` (`DeviceActivity.Ui`) and `details-linking` (`DeviceLinking.Ui`, #547/#548/#582/#583:
 Merge MAC addresses states including the mixed linked-with-suggestion header, possible-match icons,
 tooltips, review, Decline and its failure/restart, picker, explicit choices, Cancel, failed-save draft,
-shared editing, one linked-device row, adding a record and combining a linked device, unlinking from
+shared editing, one linked-device row, adding a record and combining a linked device, the linked-device
+History card's members, unlinking from
 two and five MAC addresses, restart, high contrast, keyboard and text scaling, using separate
 linking and possible-match fixtures). Each job launches its own fixtures and app
 instances, is selected by the `DeviceDetails` or `DeviceHistory` capture-plan scenario, and must

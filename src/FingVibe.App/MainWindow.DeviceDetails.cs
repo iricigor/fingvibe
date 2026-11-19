@@ -13,6 +13,7 @@ public sealed partial class MainWindow
     private CancellationTokenSource? _devicePortScanCancellation;
     private bool _devicePortScanIsFull;
     private TaskCompletionSource? _devicePortScanCompletion;
+    private ScanResultRow? _deviceTargetResetPending;
     private ScanResultRow? _selectedDeviceRow;
     private bool _isSavingDeviceNameOverride;
 
@@ -27,6 +28,8 @@ public sealed partial class MainWindow
         }
 
         _selectedDeviceRow = row;
+        // Reopening Device Details starts from the member shown in Devices.
+        ResetDeviceTarget(row);
         _deviceDetailsFromRoomMap = fromRoomMap;
         DevicePage.SetBackDestination(fromRoomMap);
         DevicePage.NameInput = row.NameText;
@@ -52,6 +55,34 @@ public sealed partial class MainWindow
         var network = NetworkPicker.SelectedItem as LanNetwork;
         DevicePage.ShowHistory(row, network is null ? null : GetScanNetworkIdentity(network), network?.Cidr);
         UpdateDeviceActivity();
+    }
+
+    /// <summary>
+    /// Returns a linked device from a Device Details address choice to the member Devices shows. A running probe still
+    /// reports results for its chosen address, so the reset waits until it finishes.
+    /// </summary>
+    private void ResetDeviceTarget(ScanResultRow? row)
+    {
+        if (row is null) return;
+        if (_devicePortScanCompletion is not null)
+        {
+            _deviceTargetResetPending = row;
+            return;
+        }
+        if (row.ResetTarget()) RefreshVisibleResults();
+    }
+
+    private void CompletePendingDeviceTargetReset()
+    {
+        if (_deviceTargetResetPending is not { } row) return;
+        _deviceTargetResetPending = null;
+        if (!row.ResetTarget()) return;
+        RefreshVisibleResults();
+        if (ReferenceEquals(_selectedDeviceRow, row) && DevicePage.Visibility == Visibility.Visible)
+        {
+            DevicePage.UpdateScanObservation(row);
+            DevicePage.ShowPorts(row.Result?.OpenPortItems ?? []);
+        }
     }
 
     private void DeviceNameInput_TextChanged(object sender, TextChangedEventArgs e)
@@ -175,7 +206,7 @@ public sealed partial class MainWindow
     private void DeviceAddressRequested(object? sender, string address)
     {
         if (_selectedDeviceRow is not { } row || _devicePortScanCancellation is not null) return;
-        row.SelectAddress(address);
+        row.SelectTarget(address);
         UpdateLatencyRange(row);
         DevicePage.ShowConnection(row);
         RefreshVisibleResults();
@@ -199,6 +230,11 @@ public sealed partial class MainWindow
         if (selected.VirtualDevice is { } virtualDevice && GetScanNetworkIdentity(selectedNetwork) != virtualDevice.NetworkId)
         {
             DevicePage.PortScanStatus = "The selected Windows network profile does not match this virtual device's current observation.";
+            return false;
+        }
+        if (selected.IsLinkedDeviceRow && GetScanNetworkIdentity(selectedNetwork) != selected.TargetNetworkId)
+        {
+            DevicePage.PortScanStatus = "The selected Windows network profile does not match the network of this linked device's selected address.";
             return false;
         }
         (row, result, network) = (selected, current, selectedNetwork);
@@ -287,6 +323,7 @@ public sealed partial class MainWindow
             if (IsSelected()) DevicePage.SetPortScanRunning(false, row.CanProbe);
             _devicePortScanCompletion = null;
             completion.TrySetResult();
+            CompletePendingDeviceTargetReset();
         }
 
         async Task ScanTcpAsync()
@@ -452,6 +489,7 @@ public sealed partial class MainWindow
             if (IsSelected()) DevicePage.SetPortScanRunning(false, row.CanProbe);
             _devicePortScanCompletion = null;
             completion.TrySetResult();
+            CompletePendingDeviceTargetReset();
         }
     }
 

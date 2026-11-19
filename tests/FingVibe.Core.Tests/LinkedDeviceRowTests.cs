@@ -206,6 +206,139 @@ public sealed class LinkedDeviceRowTests : IDisposable
         Assert.Equal("1 device", PeopleRoomsPresentation.DeviceCount(assigned.Count));
     }
 
+    [Fact]
+    public void CompletedScansCombineMembersWithTheActivityResponseRules()
+    {
+        DeviceScanObservation Row(int minute, bool present, string network = "home") =>
+            new(Start.AddMinutes(minute), network, Subnet, present) { ScanId = ScanId(minute) };
+        // A first responds at 0, B at 1; C never responds and so never contributes.
+        DeviceScanObservation[] a = [Row(0, true), Row(1, false), Row(2, false), Row(3, false), Row(3, true, "office"), Row(5, false), Row(6, false)];
+        DeviceScanObservation[] b = [Row(1, true), Row(2, false), Row(4, false), Row(6, false)];
+        DeviceScanObservation[] c = [Row(2, false), Row(7, false)];
+        var history = new LinkedScanHistory([a, b, c]);
+
+        var page = DeviceHistoryQuery.ReadPage(history, "home", Subnet);
+
+        // 3, 4 and 5 are unknown: a member already seen there has no record and nobody responded. 7 has no eligible member.
+        Assert.Equal([(6, false), (2, false), (1, true), (0, true)],
+            page.Items.Select(item => ((int)(item.CompletedAt - Start).TotalMinutes, item.Present)));
+        Assert.Equal(4, page.TotalCount);
+        Assert.All(page.Items, item => Assert.Equal(ScanId((int)(item.CompletedAt - Start).TotalMinutes), item.ScanId));
+        var first = DeviceHistoryQuery.ReadPage(history, "home", Subnet, pageSize: 2);
+        var older = DeviceHistoryQuery.ReadPage(history, "home", Subnet, first.Last, pageSize: 2);
+        Assert.Equal(page.Items.Skip(2), older.Items);
+        Assert.Equal(first.Items, DeviceHistoryQuery.ReadPage(history, "home", Subnet, older.First, newer: true, pageSize: 2).Items);
+        Assert.Equal([true], DeviceHistoryQuery.ReadPage(history, "office", Subnet).Items.Select(item => item.Present));
+    }
+
+    [Fact]
+    public async Task SavedCompletedScansCombineInOneQueryIncludingUnsavedScans()
+    {
+        var store = new DeviceInventoryStore(Path.Combine(_directory, "device-inventory.json"));
+        var data = Link(Scan(DeviceInventoryData.Empty, 0, Result(A, "192.0.2.10"), Result(B, "192.0.2.11")), A, B);
+        data = Scan(data, 1, Result(B, "192.0.2.11"));
+        data = Scan(data, 2);
+        data = Scan(data, "office", 3, Result(A, "192.0.2.10"));
+        data = Scan(data, 4, Result(A, "192.0.2.10"));
+        await store.SaveAsync(data, Guid.Empty);
+        var saved = (await store.LoadMetadataAsync())!;
+        var pending = Scan(Scan(saved, 5, Result(A, "192.0.2.10")), 6);
+
+        foreach (var current in new[] { saved, pending })
+        {
+            var history = ScanResultRow.CreateInventoryRows(current).Single(item => item.IsLinkedDeviceRow).ScanHistory;
+            var memory = new LinkedScanHistory([current.Devices[A].ScanHistory.ToArray(), current.Devices[B].ScanHistory.ToArray()]);
+            var expected = DeviceHistoryQuery.ReadPage(memory, "home", Subnet);
+            Assert.Equal(ReferenceEquals(current, saved) ? 4 : 6, expected.TotalCount);
+            Assert.Equal(expected.Items, DeviceHistoryQuery.ReadPage(history, "home", Subnet).Items);
+            Assert.Equal(expected.TotalCount, DeviceHistoryQuery.ReadPage(history, "home", Subnet).TotalCount);
+            var first = DeviceHistoryQuery.ReadPage(history, "home", Subnet, pageSize: 3);
+            var older = DeviceHistoryQuery.ReadPage(history, "home", Subnet, first.Last, pageSize: 3);
+            Assert.Equal(expected.Items, first.Items.Concat(older.Items));
+            Assert.Equal(first.Items, DeviceHistoryQuery.ReadPage(history, "home", Subnet, older.First, newer: true, pageSize: 3).Items);
+        }
+        // Newest first: 6 nobody responded, 5 A, 4 A, 2 nobody, 1 B, 0 both.
+        Assert.Equal([false, true, true, false, true, true],
+            DeviceHistoryQuery.ReadPage(ScanResultRow.CreateInventoryRows(pending).Single(item => item.IsLinkedDeviceRow).ScanHistory,
+                "home", Subnet).Items.Select(item => item.Present));
+    }
+
+    [Fact]
+    public void HistoryListsEveryMemberWithItsConfirmationConnectionsAndRestoredValues()
+    {
+        var person = new ManagedPerson(Guid.NewGuid(), "Ada", "AD");
+        var data = Scan(DeviceInventoryData.Empty, 0, Result(A, "192.0.2.10"), Result(B, "192.0.2.11"));
+        data = Scan(data, "office", 1, Result(B, "192.0.2.77"));
+        data = data with
+        {
+            Names = new Dictionary<string, string> { [A] = "Ada's Wi-Fi" },
+            Classifications = new Dictionary<string, DeviceClassificationOverride>
+            {
+                [A] = new(DeviceOperatingSystem.Windows, DeviceType.Computer, null, "Contoso", null, null)
+            },
+            PeopleRooms = new PeopleRoomsData([person], [], new Dictionary<string, DeviceAssignment> { [A] = new(person.Id, null) })
+        };
+        data = Scan(Link(data, A, B), "home", 2, Result(A, "192.0.2.10"));
+        data = data with { PeopleRooms = new PeopleRoomsData([person with { Name = "Ada L." }], [], data.PeopleRooms.Assignments) };
+        var row = ScanResultRow.CreateInventoryRows(data).Single(item => item.IsLinkedDeviceRow);
+        var confirmed = $"Confirmed by you on {Start.ToLocalTime().ToString("d", System.Globalization.CultureInfo.CurrentCulture)}";
+
+        var members = row.ConnectionHistoryText.Split("\n\n");
+
+        Assert.Equal(2, members.Length);
+        Assert.StartsWith($"00-11-22-AA-00-01 · {confirmed} · Shown in Devices\n192.0.2.10 · Current response", members[0]);
+        Assert.Contains("· network home · 192.0.2.0/24", members[0]);
+        Assert.EndsWith("Saved values Unlink restores: name Ada's Wi-Fi, type Computer, OS Windows, brand Contoso, family -, model -, "
+            + "person Ada L., room unassigned, usage category automatic", members[0]);
+        Assert.StartsWith($"00-11-22-AA-00-02 · {confirmed}\n", members[1]);
+        Assert.Contains("192.0.2.77 · Previous connection", members[1]);
+        Assert.Contains("· network office · 192.0.2.0/24", members[1]);
+        Assert.Contains("192.0.2.11 · Previous connection", members[1]);
+        Assert.Contains("name automatic, type automatic, OS automatic, brand -, family -, model -, person unassigned", members[1]);
+        Assert.DoesNotContain("Inferred", row.ConnectionHistoryText);
+    }
+
+    [Fact]
+    public void DetailsTargetsEveryRespondingMemberAddressWithoutChangingTheRepresentative()
+    {
+        var data = Link(Scan(DeviceInventoryData.Empty, 0, Result(A, "192.0.2.10"), Result(B, "192.0.2.50")), A, B);
+        data = Scan(data, 1, Result(A, "192.0.2.10"), Result(B, "192.0.2.11"), Result(B, "192.0.2.12"));
+        var row = ScanResultRow.CreateInventoryRows(data).Single(item => item.IsLinkedDeviceRow);
+
+        // 192.0.2.50 no longer responds, so it is history only.
+        Assert.Equal(["00-11-22-AA-00-01 · 192.0.2.10", "00-11-22-AA-00-02 · 192.0.2.11", "00-11-22-AA-00-02 · 192.0.2.12"],
+            row.CurrentTargetChoices);
+        Assert.Equal("00-11-22-AA-00-01 · 192.0.2.10", row.SelectedTargetChoice);
+        Assert.Throws<ArgumentException>(() => row.SelectTarget("00-11-22-AA-00-02 · 192.0.2.50"));
+
+        row.SelectTarget("00-11-22-AA-00-02 · 192.0.2.12");
+        row.UpdateOpenPorts([new OpenPort(22, "SSH")]);
+
+        Assert.Equal(("192.0.2.12", "00-11-22-AA-00-02", "home"), (row.AddressText, row.MacAddressText, row.TargetNetworkId));
+        Assert.Equal(A, row.RepresentativeMac);
+        Assert.Equal([22], row.CurrentTargets.Single(item => item.AddressText == "192.0.2.12").OpenPortItems.Select(port => port.Port));
+        Assert.Empty(row.CurrentTargets.Single(item => item.AddressText == "192.0.2.11").OpenPortItems);
+        var probed = data.UpdateProbeResults(row.Result!);
+        Assert.Equal(["192.0.2.12"], probed.Devices[B].Observations.Where(item => item.Ports.Count > 0).Select(item => item.Address));
+        Assert.All(probed.Devices[A].Observations, item => Assert.Empty(item.Ports));
+
+        // A refresh keeps the choice while it still responds, then falls back to the representative.
+        data = Scan(data, 2, Result(A, "192.0.2.10"), Result(B, "192.0.2.12"));
+        row.UpdateObservation(ScanResultRow.CreateInventoryRows(data).Single(item => item.IsLinkedDeviceRow));
+        Assert.Equal("00-11-22-AA-00-02 · 192.0.2.12", row.SelectedTargetChoice);
+        data = Scan(data, 3, Result(A, "192.0.2.10"), Result(B, "192.0.2.11"));
+        row.UpdateObservation(ScanResultRow.CreateInventoryRows(data).Single(item => item.IsLinkedDeviceRow));
+        Assert.Equal("00-11-22-AA-00-01 · 192.0.2.10", row.SelectedTargetChoice);
+
+        row.SelectTarget("00-11-22-AA-00-02 · 192.0.2.11");
+        Assert.True(row.ResetTarget());
+        Assert.Equal(("00-11-22-AA-00-01 · 192.0.2.10", "00-11-22-AA-00-01"), (row.SelectedTargetChoice, row.MacAddressText));
+        Assert.False(row.ResetTarget());
+        Assert.Equal(["192.0.2.10"], row.CurrentConnections.Select(item => item.AddressText));
+    }
+
+    private static Guid ScanId(int minute) => new($"00000000-0000-0000-0000-{minute:D12}");
+
     public void Dispose()
     {
         if (Directory.Exists(_directory)) Directory.Delete(_directory, recursive: true);

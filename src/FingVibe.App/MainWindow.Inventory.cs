@@ -141,6 +141,7 @@ public sealed partial class MainWindow
     private void RefreshInventoryRows(IEnumerable<ScanResult>? unkeyed = null)
     {
         var selectedKey = DevicesPage.SelectedResult?.IdentityKey;
+        var selectedTarget = _selectedDeviceRow?.SelectedTargetChoice;
         var retainedRows = _isScanning
             ? _allResults.ToDictionary(row => row.IdentityKey) : new Dictionary<string, ScanResultRow>();
         _allResults.Clear();
@@ -179,6 +180,8 @@ public sealed partial class MainWindow
         {
             _selectedDeviceRow = displayed;
             DevicePage.UpdateScanObservation(displayed);
+            if (displayed.IsLinkedDeviceRow && selectedTarget is not null && displayed.SelectedTargetChoice != selectedTarget)
+                DevicePage.PortScanStatus = $"{selectedTarget} no longer responds; showing {displayed.SelectedTargetChoice}.";
             UpdateDeviceNameActions();
         }
         UpdateNetworkIdentity();

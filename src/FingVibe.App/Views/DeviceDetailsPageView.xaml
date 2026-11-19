@@ -706,8 +706,9 @@
             </Border>
             <Border x:Name="VirtualDeviceHistoryCard" Style="{StaticResource ScannerSummaryCardStyle}" Visibility="Collapsed">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Virtual device" FontWeight="SemiBold" />
-                    <TextBlock Text="MACs are associated by private vendor prefix and the lowest available device number. This is an inference, not proof of one physical device. Names, identification and assignments follow this virtual device."
+                    <TextBlock x:Name="VirtualDeviceHistoryTitle" Text="Virtual device" FontWeight="SemiBold"
+                               AutomationProperties.AutomationId="VirtualDeviceHistoryTitle" />
+                    <TextBlock x:Name="VirtualDeviceHistoryDescription" Text="MACs are associated by private vendor prefix and the lowest available device number. This is an inference, not proof of one physical device. Names, identification and assignments follow this virtual device."
                                TextWrapping="Wrap" />
                     <Expander Header="MAC and address history" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                         <TextBlock x:Name="VirtualDeviceHistoryText" TextWrapping="Wrap" IsTextSelectionEnabled="True"
