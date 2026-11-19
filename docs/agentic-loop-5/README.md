@@ -2,9 +2,9 @@
 
 [Task #592](https://github.com/iricigor/fingvibe/issues/592) provides one shared
 [`Developer`](../../.github/agents/automation-5-developer.agent.md) definition.
-This is next-cycle source/setup work, developed alongside the still-used
-**4️⃣** environment. It does not replace, rename or modify older source profiles,
-saved Automations, schedules, permissions, routing or coordination records.
+This is next-cycle source/setup work. It does not replace, rename or modify
+any existing source profile, saved Automation, schedule, permission, routing
+or coordination record.
 Do not install or activate loop5 as part of this delivery.
 
 ## Any number of workers, one definition
@@ -45,17 +45,17 @@ across loops.
 
 ## Behavior and isolation
 
-Every worker follows the [same behavior contract](developer.md), reusing the
-existing loop4 contract as a read-only behavioral baseline rather than copying
-it into worker-specific profiles. Loop4-specific commands, host identities, participation
-labels, assignments and records are not a runnable loop5 configuration.
-Missing loop5 runtime integration is a blocker, not permission to run old-loop
-helpers or mutate its state. This delivery does not provide a loop5 Dispatcher.
+Every worker follows only the [same loop5 behavior contract](developer.md). The
+shared definition, UI-specific name and loop5 integration are self-contained;
+they do not import another environment's behavior, instructions, host identity,
+scripts, participation labels, assignments, reporting records or permissions.
+Missing loop5 runtime integration is a blocker, not permission to borrow another
+environment's helpers or mutate its state. This delivery does not provide a
+loop5 Dispatcher.
 
-The existing 4️⃣ Automations can continue operating under their existing
-instructions. Loop5 has no live workload in this delivery. Any later parallel
-execution still requires repository-wide ownership and conflict assessment;
-separate agent names do not make competing edits safe.
+Loop5 has no live workload in this delivery. Any later parallel execution still
+requires repository-wide ownership and conflict assessment; separate agent names
+do not make competing edits safe.
 
 ## Source checks and pending adoption
 
@@ -76,7 +76,7 @@ Before live adoption, separately authorize and record actual evidence for:
   correlation for every configured worker; rejection of foreign or duplicate
   execution.
 - Loop5-specific reporting/ownership/runtime integration that cannot consume or
-  modify the still-used loop4 assignments and coordination records.
+  modify any other environment's assignments and coordination records.
 
 All of that live verification remains **pending**. A passing source check,
 merged PR, configured name or accepted message is not evidence of live routing,

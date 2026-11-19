@@ -13,6 +13,7 @@ Assert-True ($setup.Contains("absent/contradictory") -and
     $setup.Contains("assignment names a different worker")) "Missing, contradictory and foreign worker names must block work."
 Assert-True ($setup -notmatch 'Coordination identity:' -and
     $setup -notmatch 'Resolve-Agent5DeveloperIdentity') "No separate identity or validator is needed."
+Assert-True ($setup -notmatch 'loop4|4️⃣') "Setup must not teach an older loop's mechanics or names."
 
 $profiles = @(Get-ChildItem -LiteralPath (Join-Path $repository ".github\agents") -Filter "automation-5*developer*.agent.md")
 Assert-True ($profiles.Count -eq 1) "Every worker must share one loop5 Developer definition, without identity wrappers."
@@ -23,9 +24,10 @@ Assert-True ($profile -match '(?m)^name: Developer\r?$' -and
 Assert-True ($profile -notmatch 'Your identity is|4️⃣ Developer|5️⃣Developer[0-9]') "The shared profile must not select or enumerate default workers."
 Assert-True ($profile -notmatch 'Resolve-Agent5DeveloperIdentity|worker-1|worker-2') "The shared profile must not require a validator or numbered worker IDs."
 $contract = Get-Content -LiteralPath (Join-Path $repository "docs\agentic-loop-5\developer.md") -Raw
-Assert-True ($contract.Contains("../agentic-loop-4/developer.md") -and
-    $contract.Contains("../agentic-loop-4/protocol.md")) "Every worker must reuse the existing behavior rather than duplicate it."
-Assert-True ($contract.Contains("Do not accept loop4 offers/starts") -and
-    $setup.Contains("All of that live verification remains **pending**")) "Source validation must not imply live adoption or cross-loop authority."
+Assert-True ($contract.Contains("These files are the")) "The loop5 contract must be self-contained for its source stage."
+Assert-True ($contract -notmatch 'loop4|agentic-loop-4|4️⃣') "The loop5 Developer contract must not teach or reference another loop's mechanics."
+Assert-True ($profile -notmatch 'loop4|4️⃣') "The loop5 agent definition must not teach another loop's mechanics."
+Assert-True ($setup.Contains("another environment's") -and
+    $setup.Contains("All of that live verification remains **pending**")) "Source validation must isolate loop5 without granting live authority."
 
 Write-Host "Agent5 shared Developer source and identity checks passed."

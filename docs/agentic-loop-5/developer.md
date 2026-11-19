@@ -1,7 +1,9 @@
 # Shared loop5 Developer contract
 
-Read CONTRIBUTING.md, docs/development-backlog.md and this directory's README.
-Every loop5 worker uses the single `Developer` definition and this contract.
+Read this directory's README and this contract. Every loop5 worker uses the
+single `Developer` definition and this contract only. These files are the
+loop5-specific developer mechanics for this stage; use only loop5 instructions,
+scripts, protocol fields, identities and records.
 Only each worker's exact UI-supplied name differs.
 
 ## Identity before work
@@ -20,33 +22,41 @@ ownership context must use that same name; keep every other worker's assignments
 and retained context separate. Never infer availability or identity from worker
 order or an Automation label.
 
-## Reused behavior, not inherited authority
+## Loop5 behavior and authority
 
-Read the complete existing
-[shared Developer behavior](../agentic-loop-4/developer.md) and its referenced
-[offer/start protocol](../agentic-loop-4/protocol.md) and
-[setup baseline](../agentic-loop-4/README.md). Reuse their assessment, inert
-startup, explicit start, correlation, duplicate-execution, ownership/conflict,
-validation/review, repair-accounting and reporting safeguards for every worker.
-Do not duplicate the behavior into worker-specific files.
+Without a verified, current loop5 offer, remain inert. Answer an offer only
+with the exact offer/recipient correlation and your own availability and
+assessment; an assessment does not authorize edits, CI, reporting mutations or
+merges. Do not select work that was not offered, and do not allocate work to
+another Developer.
 
-For loop5 this is a behavioral baseline, **not an executable loop4 assignment
-or a grant of its runtime authority**. References there to loop4 profiles,
-Dispatcher identities, script commands, participation labels, worktree paths,
-Discussion markers and records remain loop4-only. Do not invoke those commands
-or adopt those records for loop5. A verified loop5 integration and its explicit
-run permissions must exist before any executable assignment can be accepted;
-otherwise report the missing integration and finish inert.
+For an offered task, assess its stated scope, dependencies, ownership, active
+work, current PR/head, validation and concrete conflicts. Report evidence for
+each conclusion. Unknown evidence is unknown, not permission or failure. Reject
+stale, foreign, malformed or contradictory assignments explicitly. A matching
+offer alone never authorizes implementation.
 
-An offer permits assessment only, never implementation. Start only from a
-verified, fresh, explicitly correlated loop5 start for a task you accepted.
-Reject foreign, stale or unoffered starts. A duplicate receives a status reply,
-not another execution. Never overlap your own assignments, take over uncertain
-workers, release another owner's work, or infer stopped execution from message
-acceptance, elapsed time, PR submission or issue closure.
+Start only from a fresh, correlated loop5 start that names your exact worker
+name, task, action and explicit run permissions. Verify sender, recipient,
+repository, Epic, task scope and head/task context again before acting. A
+duplicate or uncertain send receives correlation status only, never another
+execution. Preserve one in-flight execution per worker and task; do not infer
+termination from message acceptance, elapsed time, PR publication or issue
+closure.
 
-This source delivery supplies no loop5 Dispatcher/runtime integration and
-authorizes no workload, merge, live installation, schedule or migration.
-Do not accept loop4 offers/starts even if their worker name matches.
-Preserve existing older-loop behavior and live Automations. Missing host
-capabilities or verification are explicit blockers, never fallback to loop4.
+An authorized implementation start is bounded by the task's agreed scope and
+acceptance criteria. Use a separate task worktree, avoid unrelated files, preserve
+other owners' work, assess concrete conflicts, implement focused changes and
+regression coverage, then validate and publish through the loop5-specific
+workflow supplied with that start. Do not invent workflow fields, state markers,
+scripts, labels or ownership rules.
+
+This source delivery supplies no loop5 Dispatcher, protocol, runtime integration
+or executable workflow. Until those loop5 mechanics are separately delivered and
+authorized, report the missing integration and finish inert.
+
+This source delivery authorizes no workload, merge, live installation, schedule
+or migration. Do not use a same-named worker, message, script or assignment
+outside loop5. Preserve existing environments and Automations. Missing host
+capabilities or verification are explicit blockers, never permission to borrow
+non-loop5 mechanics.
