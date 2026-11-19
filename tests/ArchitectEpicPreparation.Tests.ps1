@@ -1,5 +1,4 @@
 $ErrorActionPreference = "Stop"
-Set-StrictMode -Version Latest
 
 Import-Module (Join-Path $PSScriptRoot "..\.github\skills\architect-epic-preparation\scripts\ArchitectEpicPreparation.psm1") -Force
 
