@@ -104,24 +104,24 @@ either record has one; then Person, Room and usage category.
 MAC addresses, adapter vendors, IPs, ports and scan histories stay separate. No
 source records are deleted.
 
-After linking, the section says **Linked by you** and lists each MAC address
-with its IP, adapter vendor, status and the date it was linked. Linked records
-get no new suggestions yet.
+After linking, the two records become [one row in Devices](devices.md#linked-devices),
+and the section says **Linked by you**. It lists each MAC address with its IP,
+adapter vendor, status and the date it was linked, and marks the representative
+MAC address **Shown in Devices**. Linked records get no new suggestions yet.
 
 ### Edit a linked device
 
 Use the existing name, identification, **Person**/**Room** and usage-category
-editors on either MAC address's Device Details; they change the shared values,
-and both Devices rows update. The confirmed name and identification are fixed
+editors in the linked device's Device Details; they change the shared values.
+The confirmed name and identification are fixed
 values: later scans update each MAC's own evidence, not the shared values.
 **Restore name chosen when linked** and **Restore values chosen when linked**
 return to the values confirmed when you linked the records.
 
 Each MAC keeps its own saved name, identification, Person/Room and category
 while linked, ready for a later Unlink. Unlink is not available yet; it is
-planned separately. Until then, Devices, Overview and People & Rooms still show
-and count each MAC address as its own row (both with the shared values), and
-activity remains per MAC address.
+planned separately. Activity, usage evidence and the History card still use the
+MAC address shown in Devices.
 
 ## Rename
 

@@ -46,8 +46,8 @@ the link; supported inferred virtual identities keep their own assignments.
 A [linked device](device-details.md#link-two-records-as-one-device) has one
 shared **Person** and **Room** for all of its MAC addresses; changing either on
 any of its MAC addresses changes it for the linked device. Each MAC's own earlier
-assignment is kept for a later Unlink. Until linked devices are shown as one row,
-person and room counts still count each linked MAC address separately.
+assignment is kept for a later Unlink. A linked device counts once in person and
+room device counts, the Room map and their online counts.
 
 ## View the Room map
 

@@ -16,14 +16,17 @@ public sealed record DeviceMacExpansionLine(
     string AccessibleText)
 {
     public DeviceColumnLayout Columns => DeviceColumnLayout.Current;
-    public string LastSeen => DeviceDetailsPresentation.FriendlyTimestamp(
+    public string LastSeen => LastSeenAt == default ? "Never seen locally" : DeviceDetailsPresentation.FriendlyTimestamp(
         LastSeenAt, DateTimeOffset.UtcNow);
+    /// <summary>Every address this MAC was seen at, so search can find a linked member by any of its IPs.</summary>
+    public IReadOnlyList<string> SearchAddresses { get; init; } = [];
     public string AddressPrefix => string.Join(".", Address.Split('.').Take(3)) is { Length: > 0 } prefix
         ? prefix + "." : string.Empty;
     public string AddressHost => Address.Split('.').LastOrDefault() ?? Address;
     public bool Matches(string search) =>
         !string.IsNullOrWhiteSpace(search)
         && (Address.Contains(search, StringComparison.OrdinalIgnoreCase)
+            || SearchAddresses.Any(address => address.Contains(search, StringComparison.OrdinalIgnoreCase))
             || Mac.Contains(search, StringComparison.OrdinalIgnoreCase)
             || Mac.Replace("-", string.Empty).Contains(search.Replace("-", string.Empty), StringComparison.OrdinalIgnoreCase)
             || Vendor.Contains(search, StringComparison.OrdinalIgnoreCase));
@@ -50,9 +53,11 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     private bool _macsExpanded;
     private string _macSearch = string.Empty;
     private IReadOnlyList<DeviceMacExpansionLine> _earlierMacLines = [];
+    private IReadOnlyList<InventoryDevice> _linkedMembers = [];
     private int _prefixLength;
     public PrivateVirtualDevice? VirtualDevice { get; private set; }
-    public string IdentityKey => VirtualDevice?.Id.ToString("D") ?? MacAddress?.ToString() ?? AddressText;
+    public string IdentityKey => VirtualDevice?.Id.ToString("D") ?? LinkedDevice?.Id.ToString("D")
+        ?? MacAddress?.ToString() ?? AddressText;
     public string? CustomName => _customName;
     public LogicalDeviceId? UsageIdentity => VirtualDevice is { } slot ? LogicalDeviceId.Virtual(slot.Id)
         : MacAddress?.GetAddressBytes().Length == 6 ? LogicalDeviceId.Mac(MacAddress.ToString()) : null;
@@ -119,10 +124,20 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public bool IsVirtualIdentity => VirtualDevice is not null;
     public IReadOnlyList<DeviceScanObservation> ScanHistory =>
         VirtualDevice?.ScanHistory ?? _inventoryDevice?.ScanHistory ?? [];
-    public DeviceHistorySummary GetHistorySummary(string? networkId, string? subnet) =>
-        DeviceHistorySummary.Create(ScanHistory,
-            VirtualDevice is { } device ? device.History.Select(item => item.Observation)
-                : _inventoryDevice?.Observations ?? [], networkId, subnet);
+    public DeviceHistorySummary GetHistorySummary(string? networkId, string? subnet)
+    {
+        if (_linkedMembers.Count == 0)
+            return DeviceHistorySummary.Create(ScanHistory,
+                VirtualDevice is { } device ? device.History.Select(item => item.Observation)
+                    : _inventoryDevice?.Observations ?? [], networkId, subnet);
+        // A linked device was last seen when any member was; members never seen on this network add nothing.
+        var summaries = _linkedMembers.Select(member =>
+            DeviceHistorySummary.Create(member.ScanHistory, member.Observations, networkId, subnet)).ToArray();
+        var latest = summaries.Where(item => item.LastSeen is not null).MaxBy(item => item.LastSeen)
+            ?? summaries[_linkedMembers.ToList().FindIndex(member => member.Mac == _inventoryDevice?.Mac) is var index and >= 0 ? index : 0];
+        var first = summaries.Where(item => item.FirstSeen is not null).MinBy(item => item.FirstSeen);
+        return first is null ? latest : latest with { FirstSeen = first.FirstSeen, FirstSeenIsAggregate = first.FirstSeenIsAggregate };
+    }
     public string VirtualIdentityDescription => IsVirtualIdentity
         ? "Virtual device - inferred identity across changing MAC addresses." : string.Empty;
     public DateTimeOffset? CurrentScanCompletedAt => VirtualDevice?.CurrentCompletedAt ?? _inventoryDevice?.CurrentCompletedAt;
@@ -248,7 +263,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
             var remaining = EarlierMacAddressCount - VisibleMacExpansionLines.Count;
             return remaining <= 0 ? string.Empty
                 : $"+{remaining} more MAC {(remaining == 1 ? "address" : "addresses")} · "
-                    + "full list in Device Details › History";
+                    + (IsLinked ? "full list in Device Details" : "full list in Device Details › History");
         }
     }
 
@@ -313,13 +328,53 @@ public sealed class ScanResultRow : INotifyPropertyChanged
                 && data.VirtualDevices.Any(slot => slot.History.Any(item => item.Mac == device.Mac)
                     && observation?.NetworkId == slot.NetworkId && observation.Subnet == slot.Subnet))
                 continue;
+            if (data.FindLinkedDevice(device.Mac) is not null) continue;
             yield return ForDevice(device, data, observation is null ? 0 : int.Parse(observation.Subnet.Split('/')[1]),
-                historical: observation is null || observation.LastChecked != device.CurrentCompletedAt
-                    || observation.NetworkId != device.CurrentNetworkId || observation.Subnet != device.CurrentSubnet);
+                historical: IsHistoricalDevice(device));
         }
         foreach (var device in data.VirtualDevices)
             yield return new(device, data, int.Parse(device.Subnet.Split('/')[1]));
+        foreach (var linked in data.LinkedDevices)
+            yield return ForLinkedDevice(linked, data);
     }
+
+    private static bool IsHistoricalDevice(InventoryDevice device) => device.LatestObservation is not { } observation
+        || observation.LastChecked != device.CurrentCompletedAt
+        || observation.NetworkId != device.CurrentNetworkId || observation.Subnet != device.CurrentSubnet;
+
+    /// <summary>
+    /// One row for a linked device. Every network value (IP, MAC, adapter vendor, response time, ports) comes from
+    /// one representative member; the other members are its expandable "Linked MAC address" lines.
+    /// </summary>
+    public static ScanResultRow ForLinkedDevice(LinkedDevice linked, DeviceInventoryData data)
+    {
+        var members = linked.Members.Select(member => data.Devices[member.Mac]).ToArray();
+        var scope = members.FirstOrDefault(member => member.CurrentSubnet is not null);
+        var mac = scope is null ? null : LinkedDeviceRepresentatives.Select(linked, data,
+            scope.CurrentNetworkId, scope.CurrentSubnet!, scope.CurrentCompletedAt);
+        if (mac is null)
+        {
+            // Not seen on the current network: show the network where a member was most recently seen.
+            var latest = members.SelectMany(member => member.Observations.Select(observation => (member.Mac, observation)))
+                .OrderByDescending(item => item.observation.LastSeen).ThenBy(item => item.Mac, StringComparer.Ordinal)
+                .FirstOrDefault();
+            mac = latest.observation is null ? members.Select(member => member.Mac).Order(StringComparer.Ordinal).First()
+                : LinkedDeviceRepresentatives.Select(linked, data, latest.observation.NetworkId, latest.observation.Subnet, null)
+                    ?? latest.Mac;
+        }
+        var device = data.Devices[mac];
+        var row = ForDevice(device, data, device.LatestObservation is { } observation
+            ? int.Parse(observation.Subnet.Split('/')[1]) : 0, IsHistoricalDevice(device));
+        row._linkedMembers = members;
+        row.RefreshMacExpansionLines();
+        return row;
+    }
+
+    /// <summary>Whether this row stands for the whole linked device rather than one member record.</summary>
+    public bool IsLinkedDeviceRow => _linkedMembers.Count > 0;
+
+    /// <summary>The member MAC shown in Devices for a linked device row.</summary>
+    public string? RepresentativeMac => IsLinkedDeviceRow ? _inventoryDevice?.Mac : null;
 
     /// <summary>A MAC record's row; a linked member shows its linked device's shared values.</summary>
     public static ScanResultRow ForDevice(InventoryDevice device, DeviceInventoryData data, int prefixLength = 0, bool historical = true)
@@ -345,6 +400,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         if (VirtualDevice is not null || MacAddress?.ToString() is not { } mac || !device.HasMember(mac))
             throw new ArgumentException("Only a member MAC record can show a linked device.", nameof(device));
         LinkedDevice = device;
+        if (_linkedMembers.Count > 0) RefreshMacExpansionLines();
         SetCustomName(device.Name);
         SetClassificationOverride(device.Identification);
         SetUsageCategory(device.UsageCategoryOverride, UsageInference, UsageStatus);
@@ -372,6 +428,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         _prefixLength = updated._prefixLength;
         VirtualDevice = updated.VirtualDevice;
         LinkedDevice = updated.LinkedDevice;
+        _linkedMembers = updated._linkedMembers;
         RefreshMacExpansionLines();
         Result = updated.Result;
         _customName = updated._customName;
@@ -388,6 +445,35 @@ public sealed class ScanResultRow : INotifyPropertyChanged
 
     private void RefreshMacExpansionLines()
     {
+        if (_linkedMembers.Count > 0 && _inventoryDevice is { } shown)
+        {
+            _earlierMacLines = _linkedMembers.Where(member => member.Mac != shown.Mac)
+                .Select(member => (Member: member, Observation: member.LatestObservation))
+                .OrderByDescending(item => item.Member.Status == InventoryDeviceStatus.Online)
+                .ThenByDescending(item => item.Observation?.LastSeen)
+                .ThenBy(item => item.Member.Mac, StringComparer.Ordinal)
+                .Select(item =>
+                {
+                    var address = item.Observation?.Address ?? item.Member.Imported.Address ?? "-";
+                    var vendor = DeviceVendorPresentation.DisplayText(item.Observation?.Vendor ?? "Unknown");
+                    var status = item.Member.Status switch
+                    {
+                        InventoryDeviceStatus.Online => "Online",
+                        InventoryDeviceStatus.FingOnly => "Fing Only",
+                        _ => "Offline"
+                    };
+                    return new DeviceMacExpansionLine("Linked MAC address", address, FormatMac(item.Member.Mac), vendor, status,
+                        item.Observation?.LastSeen ?? default,
+                        $"Linked MAC address: {FormatMac(item.Member.Mac)}, {address}, {vendor}, {status}, "
+                            + (item.Observation is { } observation ? $"last seen {observation.LastSeen:g}" : "never seen locally"))
+                    {
+                        SearchAddresses = item.Member.Observations.Select(observation => observation.Address)
+                            .Append(item.Member.Imported.Address).OfType<string>().Distinct(StringComparer.Ordinal).ToArray()
+                    };
+                }).ToArray();
+            NotifyMacExpansionChanged();
+            return;
+        }
         if (VirtualDevice is not { } device)
         {
             _earlierMacLines = [];
@@ -643,6 +729,8 @@ public sealed class ScanResultRow : INotifyPropertyChanged
             || (ImportedMetadata?.Family?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
             || (ImportedMetadata?.Model?.Contains(search, StringComparison.OrdinalIgnoreCase) ?? false)
             || _earlierMacLines.Any(line => line.Matches(search))
+            || (search.Length > 0 && _linkedMembers.Any(member => member.Observations.Any(observation =>
+                observation.Address.Contains(search, StringComparison.OrdinalIgnoreCase))))
             || (VirtualDevice is not null && ConnectionHistoryText.Contains(search, StringComparison.OrdinalIgnoreCase))
             || CurrentConnections.Any(item => item.MatchesFilter(filter))
             || (Result?.MatchesFilter(filter) ?? false);

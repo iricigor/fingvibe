@@ -1103,8 +1103,9 @@ classification corrections, People/Rooms, persistent virtual devices, scan
 history, network/subnet discovery baselines and declined possible-match MAC
 pairs (`declined_matches`, keyed by the sorted pair and added to existing
 inventories without a format change) and linked devices (`linked_devices`, one
-row per linked device holding its member MACs with link dates, shared values and
-the values confirmed at linking, also added without a format change). A linked
+row per linked device holding its member MACs with link dates, shared values,
+the values confirmed at linking and the representative MAC saved for each
+network/subnet, also added without a format change). A linked
 MAC belongs to one linked device, never to a virtual device, and keeps its own
 saved values for a later Unlink. Completed-scan changes commit
 together in a SQLite transaction with full synchronous durability and an

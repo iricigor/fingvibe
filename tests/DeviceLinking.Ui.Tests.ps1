@@ -248,6 +248,23 @@ function Resolve-LinkDraft {
 
 function Get-LinkCount { Get-InventorySqliteValue $database "SELECT COUNT(*) FROM linked_devices" }
 
+function Find-LinkChevron {
+    $row = @(Get-LinkRows "Link desk")
+    if ($row.Count -ne 1) { return $null }
+    $row[0].FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceMacExpansionButton"))
+}
+
+function Find-LinkedLine([string] $Pattern) {
+    $row = @(Get-LinkRows "Link desk")
+    if ($row.Count -ne 1) { return $null }
+    @($row[0].FindAll([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceMacExpansionLabel")) |
+        Where-Object { $_.Current.Name -like $Pattern -and -not $_.Current.IsOffscreen })[0]
+}
+
 $fixture = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-link-ui-$([Guid]::NewGuid().ToString('N'))"
 $inventory = Join-Path $fixture "inventory.json"
 $database = [IO.Path]::ChangeExtension($inventory, ".sqlite")
@@ -393,8 +410,9 @@ try {
     $memberText = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text)
     $members = @((Find-Link MergeMacAddresses).FindAll([System.Windows.Automation.TreeScope]::Descendants, $memberText) |
-        Where-Object { $_.Current.Name -like "00-11-22-BB-00-0? *· 127.0.0.? · Example · Offline · linked *" })
-    if ($members.Count -ne 2 -or $members[0].Current.Name -notlike "00-11-22-BB-00-01 (this record) · 127.0.0.2 *") {
+        Where-Object { $_.Current.Name -like "00-11-22-BB-00-0? · 127.0.0.? · Example · Offline · linked *" })
+    if ($members.Count -ne 2 -or $members[0].Current.Name -notlike "00-11-22-BB-00-01 · 127.0.0.2 *· Shown in Devices" -or
+        $members[1].Current.Name -like "*Shown in Devices") {
         throw "The linked section must list each MAC with its IP, adapter vendor, status and date linked: $($members.Current.Name -join ' | ')"
     }
     foreach ($id in @("MergeMacChangeDevice", "MergeMacMerge", "MergeMacError")) {
@@ -408,8 +426,24 @@ try {
         throw "Linking must save shared values atomically and keep each member's own values."
     }
     Save-LinkCapture "link-linked" MergeMacExplanation
+
+    $phase = Step-UiRegressionPhase $phase "linking/one-row" $ScreenshotDirectory
+    # Five rows (four records and one virtual device) become four: the pair counts once.
     Show-LinkDevices "Link desk"
-    Wait-Link { @(Get-LinkRows "Link desk").Count -eq 2 } "both member rows showing the shared name"
+    Wait-Link { @(Get-LinkRows "Link desk").Count -eq 1 -and (Find-Link "Showing 1 of 4 devices" -ByName -Optional) } `
+        "one linked-device row counted once"
+    $chevron = Find-LinkChevron
+    if ($chevron.Current.Name -ne "Show 1 more MAC address") { throw "Unexpected chevron name: $($chevron.Current.Name)" }
+    $chevron.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait(" ")
+    Wait-Link { Find-LinkedLine "Linked MAC address: 00-11-22-BB-00-02, 127.0.0.3, Example, Offline*" } "the linked MAC line"
+    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "link-one-row-expanded.png")
+    Show-LinkDevices "127.0.0.3"
+    Wait-Link { @(Get-LinkRows "Link desk").Count -eq 1 -and (Find-LinkedLine "Linked MAC address: 00-11-22-BB-00-02*") } `
+        "search by a member IP finding and expanding the row"
+    if ((Find-LinkChevron).Current.IsEnabled) { throw "A search match must keep the row expanded." }
+    Show-LinkDevices ""
+    Wait-Link { Find-Link "Showing 4 devices" -ByName -Optional } "the unfiltered total counting the linked device once"
 
     $phase = Step-UiRegressionPhase $phase "linking/shared-edit-restart" $ScreenshotDirectory
     Open-LinkDevice "00-11-22-BB-00-02" "Link desk"

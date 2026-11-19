@@ -137,7 +137,8 @@ public sealed partial class DeviceInventoryStore
             throw new InvalidDataException("The inventory contains invalid linked devices.");
         var linkedMacs = data.LinkedDevices.SelectMany(device => device.Members.Select(member => member.Mac)).ToArray();
         var grouped = data.VirtualGroupedMacs();
-        if (linkedMacs.Distinct(StringComparer.Ordinal).Count() != linkedMacs.Length || linkedMacs.Any(grouped.Contains))
+        if (linkedMacs.Distinct(StringComparer.Ordinal).Count() != linkedMacs.Length || linkedMacs.Any(grouped.Contains)
+            || data.LinkedDevices.Any(device => device.Representatives.Any(item => !ValidSubnet(item.Subnet))))
             throw new InvalidDataException("A MAC address can belong to only one linked device and never to a virtual device.");
     }
 

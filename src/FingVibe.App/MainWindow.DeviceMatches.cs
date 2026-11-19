@@ -42,7 +42,7 @@ public sealed partial class MainWindow
             ? LinkedDevicePresentation.Candidates(row, _allResults, data, text).Select(Choice).ToArray() : [];
         var mac = row.MacAddress?.ToString();
         var members = mac is not null && data.FindLinkedDevice(mac) is { } linked
-            ? LinkedDevicePresentation.Members(linked, rows, mac).Select(line => line.Text).ToArray() : [];
+            ? LinkedDevicePresentation.Members(linked, data, row.RepresentativeMac ?? mac).Select(line => line.Text).ToArray() : [];
         DevicePage.ShowMergeSection(new(header, DeviceMatchPresentation.Card(row),
             Search(null).Where(item => item.IsSuggested).ToArray(), members, Search,
             other => rows.TryGetValue(other, out var otherRow) ? LinkedDeviceDraft.Create(row, otherRow) : null), opening);
