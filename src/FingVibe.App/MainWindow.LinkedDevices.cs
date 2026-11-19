@@ -33,6 +33,34 @@ public sealed partial class MainWindow
         ShowSelectedMatchSuggestions(opening: false);
     }
 
+    private async void DeviceUnlinkRequested(object? sender, string mac)
+    {
+        var row = _selectedDeviceRow;
+        var linked = CurrentDeviceData.FindLinkedDevice(mac);
+        if (row is null || linked is null) return;
+        await _deviceDataSaveLock.WaitAsync();
+        try
+        {
+            await PersistDeviceDataAsync(CurrentDeviceData.UnlinkDevice(mac));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+                                              or InvalidOperationException or InvalidDataException or ArgumentException)
+        {
+            if (ReferenceEquals(_selectedDeviceRow, row)) DevicePage.ShowUnlinkError(exception.Message);
+            return;
+        }
+        finally { _deviceDataSaveLock.Release(); }
+
+        ApplyUnlinkedDevice(linked);
+        ApplyUsageCategories();
+        if (!ReferenceEquals(_selectedDeviceRow, row)) return;
+        DevicePage.NameInput = row.NameText;
+        UpdateDeviceNameActions();
+        UpdateClassificationDetails();
+        UpdateDeviceAssignmentPickers();
+        UpdateMatchSuggestions();
+    }
+
     /// <summary>Saves a shared-value edit; callers hold the device-data save lock.</summary>
     private async Task SaveLinkedDeviceAsync(Guid id, Func<LinkedDevice, LinkedDevice> update)
     {
@@ -47,6 +75,20 @@ public sealed partial class MainWindow
                      .Where(row => row.VirtualDevice is null && row.MacAddress?.ToString() is { } mac && linked.HasMember(mac)))
         {
             row.UpdateLinkedDevice(linked);
+            ApplyPeopleRoomAssignments(row);
+        }
+        RefreshVisibleResults();
+        UpdatePeopleRoomsPages();
+    }
+
+    private void ApplyUnlinkedDevice(LinkedDevice linked)
+    {
+        var refreshed = ScanResultRow.CreateInventoryRows(CurrentDeviceData).ToDictionary(row => row.IdentityKey);
+        foreach (var row in _allResults.Concat(_selectedDeviceRow is { } selected ? [selected] : []).Distinct()
+                     .Where(row => row.MacAddress?.ToString() is { } mac && linked.HasMember(mac)))
+        {
+            var mac = row.MacAddress!.ToString();
+            row.UpdateObservation(refreshed[mac]);
             ApplyPeopleRoomAssignments(row);
         }
         RefreshVisibleResults();

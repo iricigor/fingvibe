@@ -148,6 +148,47 @@ public sealed record DeviceInventoryData(
         return this with { LinkedDevices = LinkedDevices.Select(device => device.Id == id ? updated : device).ToArray() };
     }
 
+    /// <summary>Detaches one of two linked members, preserving both records and transferring shared values to the other.</summary>
+    public DeviceInventoryData UnlinkDevice(string mac)
+    {
+        var detached = PeopleRoomsData.NormalizeMacAddress(mac);
+        var linked = FindLinkedDevice(detached)
+            ?? throw new ArgumentException("The MAC address is not linked to another device.", nameof(mac));
+        if (linked.Members.Count != 2)
+            throw new InvalidOperationException("Only a two-MAC linked device can be unlinked here.");
+
+        var remaining = linked.Members.Single(member => member.Mac != detached).Mac;
+        var devices = Devices.ToDictionary(pair => pair.Key, pair => pair.Value);
+        devices[remaining] = devices[remaining] with { UsageCategoryOverride = linked.UsageCategoryOverride };
+
+        var names = Names.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        names[remaining] = linked.Name;
+        var classifications = Classifications.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        classifications[remaining] = linked.Identification;
+
+        var assignments = PeopleRooms.Assignments.ToDictionary(pair => pair.Key, pair => pair.Value,
+            StringComparer.OrdinalIgnoreCase);
+        assignments.Remove(remaining);
+        if (linked.Assignment is { } assignment && (assignment.PersonId is not null || assignment.RoomId is not null))
+            assignments[remaining] = assignment;
+        var peopleRooms = new PeopleRoomsData(PeopleRooms.People, PeopleRooms.Rooms, assignments);
+
+        var declined = DeclinedDeviceMatch.Create(detached, remaining);
+        var declinedMatches = DeclinedMatches.Any(item => item.Key == declined.Key)
+            ? DeclinedMatches
+            : [.. DeclinedMatches, declined];
+
+        return this with
+        {
+            Devices = devices,
+            Names = names,
+            Classifications = classifications,
+            PeopleRooms = peopleRooms,
+            DeclinedMatches = declinedMatches,
+            LinkedDevices = LinkedDevices.Where(device => device.Id != linked.Id).ToArray()
+        };
+    }
+
     /// <summary>Linked members share one override; each member's own saved override stays preserved for Unlink.</summary>
     public DeviceUsageCategory? GetUsageCategoryOverride(LogicalDeviceId identity) => identity.Kind switch
     {

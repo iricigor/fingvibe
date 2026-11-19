@@ -118,10 +118,25 @@ values: later scans update each MAC's own evidence, not the shared values.
 return to the values confirmed when you linked the records.
 
 Each MAC keeps its own saved name, identification, Person/Room and category
-while linked, ready for a later Unlink. Unlink is not available yet; it is
-planned separately. Until then, Devices, Overview and People & Rooms still show
-and count each MAC address as its own row (both with the shared values), and
-activity remains per MAC address.
+while linked, ready to restore if you unlink it.
+
+### Unlink two MAC addresses
+
+In the expanded linked-device section, each MAC address has **Unlink**. Choose
+it to review the inline confirmation, then choose **Unlink** again to save or
+**Cancel** to leave everything unchanged.
+
+The detached MAC becomes a separate device with its latest member-specific
+name, identification, Person, Room and usage category. Imported and discovered
+values received while linked remain available to it. The remaining device keeps
+the linked device's current shared values as ordinary saved values; a later
+Reset uses that MAC's normal imported or discovered values. Both MACs keep their
+addresses, vendors, observations and scan histories. The pair is permanently
+declined as an automatic suggestion, but it can still be linked manually.
+
+If saving fails, the section shows the error and keeps the linked device and
+confirmation in place. Devices, Overview and People & Rooms still show and
+count the MAC records separately until the separate one-row display task.
 
 ## Rename
 
