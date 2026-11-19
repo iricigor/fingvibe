@@ -3,6 +3,13 @@ Set-StrictMode -Version Latest
 
 Import-Module (Join-Path $PSScriptRoot "..\.github\skills\architect-epic-preparation\scripts\ArchitectEpicPreparation.psm1") -Force
 
+function Assert-GenericEpicPreparation([string] $Path) {
+    $text = [IO.File]::ReadAllText($Path)
+    if ([regex]::IsMatch($text, '(?im)Epic #\d+|issue #\d+|#[1-9]\d{2,}')) {
+        throw "Architect Epic preparation source must not reference a specific repository issue: $Path"
+    }
+}
+
 function Assert-ArchitectEqual($Actual, $Expected, [string] $Message) {
     if (($Actual -join "|") -cne ($Expected -join "|")) {
         throw "$Message Expected '$Expected', got '$Actual'."
@@ -35,6 +42,15 @@ function New-ArchitectDiscussion([int] $Number, [string] $Kind, [int] $Issue, [s
         closed = $Closed
         category = [pscustomobject]@{ id = "C$Number"; name = $Category }
     }
+}
+
+$skillRoot = Join-Path $PSScriptRoot "..\.github\skills\architect-epic-preparation"
+foreach ($path in @(
+    (Join-Path $skillRoot "SKILL.md"),
+    (Join-Path $skillRoot "scripts\ArchitectEpicPreparation.psm1"),
+    (Join-Path $skillRoot "scripts\Prepare-ArchitectEpic.ps1")
+)) {
+    Assert-GenericEpicPreparation $path
 }
 
 $epic = [pscustomobject]@{
