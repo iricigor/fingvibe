@@ -311,6 +311,8 @@ public sealed partial class DeviceDetailsPageView
 
     private void UpdateMergeState()
     {
+        MergeMacCancel.IsEnabled = !_linking;
+        MergeMacChangeDevice.IsEnabled = !_linking;
         if (_draft is not { } draft)
         {
             MergeMacMerge.IsEnabled = false;
@@ -336,8 +338,6 @@ public sealed partial class DeviceDetailsPageView
         AutomationProperties.SetName(MergeMacUnresolved, MergeMacUnresolved.Text);
         MergeMacMerge.IsEnabled = draft.CanMerge && !_linking;
         MergeMacMerge.Content = _linking ? "Merging..." : "Merge as one device";
-        MergeMacCancel.IsEnabled = !_linking;
-        MergeMacChangeDevice.IsEnabled = !_linking;
     }
 
     private void MergeMacPicker_Opened(object? sender, object e)
