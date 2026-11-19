@@ -75,5 +75,10 @@ MAC and virtual identities are different kinds of records.
 Summing both can count overlapping evidence twice.
 Stored observation times are not a continuous availability log.
 
+Reporting views still expose each linked MAC address as its own record. They do
+not combine a [linked device](device-details.md#linked-device-history-and-tool-targets)'s
+members the way Device Details and Activity do, so counting their rows counts
+each member separately.
+
 For reporting views, exact limits, timestamp rules, and safe joins, use the
 [SQL reporting reference](https://github.com/iricigor/fingvibe/blob/main/docs/sql-reporting.md).

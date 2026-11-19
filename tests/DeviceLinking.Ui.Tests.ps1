@@ -574,6 +574,20 @@ try {
     if (Find-Link MergeMacChangeDevice -Optional) { throw "Virtual devices must not offer linking." }
     Save-LinkCapture "link-virtual-unavailable" MergeMacExplanation
 
+    # #583: a saved linked device's History card lists every member with its confirmation and restored values.
+    $phase = Step-UiRegressionPhase $phase "linking/history-card" $ScreenshotDirectory
+    Open-LinkDevice "Link pair"
+    Wait-Link { (Find-Link VirtualDeviceHistoryTitle -Optional).Current.Name -eq "Linked device" } "the linked-device history card"
+    $memberHistory = (Find-Link "MAC and address history" -ByName).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+    if ($memberHistory.Current.ExpandCollapseState -ne "Expanded") { $memberHistory.Expand() }
+    Wait-Link {
+        $text = (Find-Link VirtualDeviceHistory -Optional).Current.Name
+        $text -like "00-11-22-BB-00-0? · Confirmed by you on *" -and $text -like "*00-11-22-BB-00-08 · Confirmed by you on *" -and
+            $text -like "*00-11-22-BB-00-09 · Confirmed by you on *" -and $text -like "*127.0.0.14 · Previous connection*" -and
+            $text -like "*Saved values Unlink restores: name Link pair A,*" -and $text -like "*Saved values Unlink restores: name Link pair B,*" -and
+            $text -notlike "*Inferred*"
+    } "every linked member in MAC and address history"
+
     $phase = Step-UiRegressionPhase $phase "linking/compare-cancel" $ScreenshotDirectory
     Open-LinkDevice "Link desk Wi-Fi"
     Assert-LinkSection "2 possible matches" "Expanded"

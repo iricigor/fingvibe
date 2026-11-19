@@ -9,6 +9,11 @@ internal sealed class SqliteScanHistory(string path, string kind, string id, int
     IReadOnlyList<DeviceScanObservation>? pending = null) : IReadOnlyList<DeviceScanObservation>, IDeviceHistoryQuery
 {
     private readonly IReadOnlyList<DeviceScanObservation> _pending = pending ?? [];
+    internal string DatabasePath => path;
+    private string Kind => kind;
+    private string Id => id;
+    private int SavedCount => savedCount;
+    private IReadOnlyList<DeviceScanObservation> Pending => _pending;
     public int Count => checked(savedCount + _pending.Count);
     internal SqliteScanHistory WithPending(IReadOnlyList<DeviceScanObservation> additions) =>
         new(path, kind, id, savedCount, additions);
@@ -134,6 +139,111 @@ internal sealed class SqliteScanHistory(string path, string kind, string id, int
             }
             var rows = Read(connection, filter, newer ? "completed_ticks ASC,sequence DESC"
                 : "completed_ticks DESC,sequence ASC", pageSize, parameters.ToArray());
+            if (newer) rows.Reverse();
+            return new DeviceHistoryPage(rows.Select(row => row.Item).ToArray(),
+                rows.Count == 0 ? null : new(rows[0].Item.CompletedAt, rows[0].Sequence),
+                rows.Count == 0 ? null : new(rows[^1].Item.CompletedAt, rows[^1].Sequence), total);
+        });
+    }
+
+    /// <summary>
+    /// One page of a linked device's combined completed scans (see <see cref="LinkedScanHistory"/>), computed in one
+    /// grouped query over the members' indexed rows rather than by loading their histories.
+    /// </summary>
+    internal static DeviceHistoryPage ReadLinkedPage(IReadOnlyList<SqliteScanHistory> members, string networkId, string subnet,
+        DeviceHistoryCursor? cursor, bool newer, int pageSize)
+    {
+        if (members.Count == 0) return new([], null, null, 0);
+        var first = members[0];
+        return first.Query(connection =>
+        {
+            var parameters = new List<(string, object?)> { ("$network", networkId), ("$subnet", subnet) };
+            var sources = new List<string>();
+            var pending = false;
+            for (var index = 0; index < members.Count; index++)
+            {
+                var member = members[index];
+                if (index > 0)
+                {
+                    using var count = connection.CreateCommand();
+                    count.CommandText = "SELECT count FROM history_counts WHERE kind=$kind AND id=$id";
+                    count.Parameters.AddWithValue("$kind", member.Kind);
+                    count.Parameters.AddWithValue("$id", member.Id);
+                    if (Convert.ToInt32(count.ExecuteScalar() ?? 0, CultureInfo.InvariantCulture) < member.SavedCount)
+                        throw new InvalidDataException("Saved scan history changed or is incomplete. Reload the inventory.");
+                }
+                parameters.AddRange([($"$kind{index}", member.Kind), ($"$id{index}", member.Id), ($"$saved{index}", member.SavedCount)]);
+                sources.Add($"""
+                    SELECT id,completed_ticks,completed_at,scan_id,present FROM scan_history INDEXED BY history_scope_time
+                    WHERE kind=$kind{index} AND id=$id{index} AND network_id=$network AND subnet=$subnet
+                        AND sequence<$saved{index} AND virtual_id IS NULL
+                    """);
+                if (member.Pending.Count == 0) continue;
+                if (!pending && index > 0)
+                    DeviceInventoryStore.Execute(connection, null, """
+                        CREATE TEMP TABLE IF NOT EXISTS pending_history (
+                            kind TEXT, id TEXT, sequence INTEGER, completed_at TEXT,
+                            network_id TEXT, subnet TEXT, present INTEGER, completed_ticks INTEGER, scan_id TEXT, virtual_id TEXT);
+                        """);
+                if (index > 0)
+                    for (var item = 0; item < member.Pending.Count; item++)
+                    {
+                        var observation = member.Pending[item];
+                        DeviceInventoryStore.Execute(connection, null, """
+                            INSERT INTO pending_history VALUES($kind,$id,$sequence,$time,$network,$subnet,$present,$ticks,$scan,$virtual)
+                            """, ("$kind", member.Kind), ("$id", member.Id), ("$sequence", member.SavedCount + item),
+                            ("$time", observation.CompletedAt.ToString("O")), ("$network", observation.NetworkId),
+                            ("$subnet", observation.Subnet), ("$present", observation.Present ? 1 : 0),
+                            ("$ticks", observation.CompletedAt.UtcTicks), ("$scan", observation.ScanId?.ToString("D")),
+                            ("$virtual", observation.VirtualDeviceId?.ToString("D")));
+                    }
+                pending = true;
+            }
+            if (pending)
+                sources.Add("""
+                    SELECT id,completed_ticks,completed_at,scan_id,present FROM pending_history
+                    WHERE network_id=$network AND subnet=$subnet AND virtual_id IS NULL
+                    """);
+            // A response from any member wins; otherwise every member already seen there (by its first response)
+            // needs a recorded nonresponse. Anything else is unknown and not listed, matching activity evidence.
+            var known = $"""
+                WITH src AS ({string.Join(" UNION ALL ", sources)}),
+                firsts AS (SELECT id,MIN(completed_ticks) AS f FROM src WHERE present=1 GROUP BY id),
+                grouped AS (
+                    SELECT s.completed_ticks AS t,s.scan_id AS sid,MIN(s.completed_at) AS at,MAX(s.present) AS responded,
+                        COUNT(DISTINCT CASE WHEN s.present=0 AND f.f<=s.completed_ticks THEN s.id END) AS absent
+                    FROM src AS s LEFT JOIN firsts AS f ON f.id=s.id GROUP BY s.completed_ticks,s.scan_id),
+                known AS (
+                    SELECT t,sid,at,responded,ROW_NUMBER() OVER (PARTITION BY t ORDER BY sid) - 1 AS idx FROM grouped AS g
+                    WHERE responded=1 OR (absent>0 AND absent=(SELECT COUNT(*) FROM firsts WHERE f<=g.t)))
+                """;
+            using var countCommand = connection.CreateCommand();
+            countCommand.CommandText = known + " SELECT COUNT(*) FROM known";
+            foreach (var (name, value) in parameters) countCommand.Parameters.AddWithValue(name, value ?? DBNull.Value);
+            var total = checked(Convert.ToInt32(countCommand.ExecuteScalar(), CultureInfo.InvariantCulture));
+            var filter = "1=1";
+            if (cursor is not null)
+            {
+                parameters.Add(("$ticks", cursor.CompletedAt.UtcTicks));
+                parameters.Add(("$sequence", cursor.Sequence));
+                filter = newer ? "(t>$ticks OR t=$ticks AND idx<$sequence)" : "(t<$ticks OR t=$ticks AND idx>$sequence)";
+            }
+            using var command = connection.CreateCommand();
+            command.CommandText = known + $" SELECT at,t,sid,responded,idx FROM known WHERE {filter} ORDER BY "
+                + (newer ? "t ASC,idx DESC" : "t DESC,idx ASC") + $" LIMIT {pageSize}";
+            foreach (var (name, value) in parameters) command.Parameters.AddWithValue(name, value ?? DBNull.Value);
+            var rows = new List<(DeviceScanObservation Item, int Sequence)>();
+            using (var reader = command.ExecuteReader())
+                while (reader.Read())
+                {
+                    var timestamp = DateTimeOffset.Parse(reader.GetString(0), CultureInfo.InvariantCulture);
+                    if (timestamp == default || timestamp.UtcTicks != reader.GetInt64(1))
+                        throw new InvalidDataException("Saved scan history contains an invalid time or state.");
+                    rows.Add((new(timestamp, networkId, subnet, reader.GetInt64(3) == 1)
+                    {
+                        ScanId = reader.IsDBNull(2) ? null : Guid.Parse(reader.GetString(2))
+                    }, reader.GetInt32(4)));
+                }
             if (newer) rows.Reverse();
             return new DeviceHistoryPage(rows.Select(row => row.Item).ToArray(),
                 rows.Count == 0 ? null : new(rows[0].Item.CompletedAt, rows[0].Sequence),

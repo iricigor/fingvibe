@@ -27,7 +27,7 @@ internal sealed class AppendedScanHistory : IReadOnlyList<DeviceScanObservation>
     public IEnumerator<DeviceScanObservation> GetEnumerator() => _base.Concat(_items).GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-    private IReadOnlyList<DeviceScanObservation> QueryHistory =>
+    internal IReadOnlyList<DeviceScanObservation> QueryHistory =>
         _base is Storage.SqliteScanHistory saved ? saved.WithPending(_items) : this.ToArray();
 
     public DeviceHistorySummary Summarize(IEnumerable<DeviceObservation> aggregates, string networkId, string subnet) =>

@@ -154,7 +154,11 @@ public sealed partial class MainWindow : Window
     private void ShowPage(UIElement page)
     {
         if (page != DevicePage)
+        {
             _devicePortScanCancellation?.Cancel();
+            // A Device Details address choice never changes the member Devices shows.
+            ResetDeviceTarget(_selectedDeviceRow);
+        }
         if (ToolsPage.Visibility == Visibility.Visible && page != ToolsPage)
         {
             _ = ToolsPage.StopForNavigationAsync();
