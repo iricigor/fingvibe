@@ -196,6 +196,45 @@ public sealed class AnalyticsEvidenceTests : IDisposable
     }
 
     [Fact]
+    public async Task LinkedMembersBecomeOneIdentityWithCombinedPreLinkAndCurrentEvidence()
+    {
+        var store = new DeviceInventoryStore(Database);
+        var first = Scan(Day.AddDays(-40), Response(A));
+        var data = await Save(store, DeviceInventoryData.Empty, first);
+        data = await Save(store, data, Scan(Day.AddDays(-2)));
+        data = await Save(store, data, Scan(Day.AddDays(-1), Response(B)));
+        data = await Save(store, data, Scan(Day));
+        var choices = new LinkedDeviceChoices("Linked laptop", new(), null, null);
+        data = await store.SaveAsync(data.LinkDevices(A, B, choices, Day.AddHours(1)), data.Revision);
+        var linked = Assert.Single(data.LinkedDevices);
+        var identity = LogicalDeviceId.Linked(linked.Id);
+
+        var evidence = await store.QueryAnalyticsAsync(Request(data, 7));
+
+        Assert.Equal(identity, Assert.Single(evidence.Devices).Identity);
+        Assert.Equal(first.CompletedAt, Assert.Single(evidence.Devices).FirstReliableSighting);
+        Assert.Equal(
+            [AnalyticsResponse.Unknown, AnalyticsResponse.Responded, AnalyticsResponse.DidNotRespond],
+            evidence.Scans.Select(scan => Assert.Single(scan.Responses)));
+        Assert.Equal(AnalyticsResponse.DidNotRespond, Assert.Single(evidence.LatestScan!.Responses));
+
+        var aliases = await store.QueryAnalyticsAsync(Request(data, 7,
+            [LogicalDeviceId.Mac(A), LogicalDeviceId.Mac(B), identity]));
+        Assert.Equal(identity, Assert.Single(aliases.Devices).Identity);
+        Assert.Equal(evidence.Scans.Select(scan => scan.ScanId), aliases.Scans.Select(scan => scan.ScanId));
+
+        var withOverride = await store.SaveAsync(
+            data.SetUsageCategoryOverride(identity, DeviceUsageCategory.Guest), data.Revision);
+        Assert.Equal(DeviceUsageCategory.Guest, withOverride.GetUsageCategoryOverride(identity));
+
+        var unlinked = await store.SaveAsync(withOverride with { LinkedDevices = [] }, withOverride.Revision);
+        var current = await store.QueryAnalyticsAsync(Request(unlinked, 7));
+        Assert.Equal([LogicalDeviceId.Mac(A), LogicalDeviceId.Mac(B)],
+            current.Devices.Select(device => device.Identity));
+        Assert.DoesNotContain(current.Devices, device => device.Identity == identity);
+    }
+
+    [Fact]
     public async Task AmbiguousRawMacAssociationDoesNotChooseAnArbitraryHistoricalVirtualSlot()
     {
         var store = new DeviceInventoryStore(Database);
@@ -226,6 +265,7 @@ public sealed class AnalyticsEvidenceTests : IDisposable
         var evidence = await store.QueryAnalyticsAsync(Request(data));
         Assert.Equal(2, evidence.Devices.Count);
         Assert.Equal(LogicalDeviceId.Mac(A), evidence.Devices[0].Identity);
+        Assert.True(evidence.Devices[0].AmbiguousMapping);
         Assert.Equal(LogicalDeviceId.Virtual(slot.Id), evidence.Devices[1].Identity);
         Assert.Equal(Day.AddHours(10), evidence.Devices[0].FirstReliableSighting);
         Assert.Equal(new[] { AnalyticsResponse.Unknown, AnalyticsResponse.Responded }, evidence.Scans[0].Responses);

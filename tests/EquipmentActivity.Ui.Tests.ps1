@@ -128,27 +128,26 @@ try {
     $null = Wait-Equipment
     Assert-EquipmentPeers
     if ((Find-Equipment EquipmentIndicator).Current.Name -ne "Equipment online" -or
-        (Find-Equipment EquipmentIndicatorContext).Current.Name -notlike "*2 of 3*ui-review-network*Older scan*") {
+        (Find-Equipment EquipmentIndicatorContext).Current.Name -notlike "*1 of 2*ui-review-network*Older scan*") {
         throw "Latest selected-network equipment response count/age is incorrect."
     }
-    Assert-EquipmentCell EquipmentActivityCell-5-12 "*2 distinct devices*Responded: network-0, network-1*"
+    Assert-EquipmentCell EquipmentActivityCell-5-12 "*1 distinct devices*Responded: Linked network pair*"
     Assert-EquipmentCell EquipmentActivityCell-5-13 "*0 distinct devices*"
-    Assert-EquipmentCell EquipmentActivityCell-5-14 "*At least 2 devices*Unknown/ineligible: network-999*"
+    Assert-EquipmentCell EquipmentActivityCell-5-14 "*At least 1 devices*Unknown/ineligible: network-999*"
     Assert-EquipmentCell EquipmentActivityCell-5-15 "*Unknown - no eligible scan evidence*"
-    foreach ($state in @(@(12, "2"), @(13, "0"), @(14, "2+"), @(15, "?"))) {
+    foreach ($state in @(@(12, "1"), @(13, "0"), @(14, "1+"), @(15, "?"))) {
         $null = Assert-ActivityGridGlyph (Show-Equipment "EquipmentActivityCell-5-$($state[0])") $state[1]
     }
     Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "equipment-daily-evidence.png")
     Choose-EquipmentPeriod "Last 30 days"
     Assert-EquipmentCell EquipmentActivityCell-29-23 "*-24:00*"
     Choose-EquipmentPeriod "30 days by weekday"
-    Assert-EquipmentCell EquipmentActivityCell-2-10 "*Average 1.5 devices; exact sum 3 / 2 exact dates*"
-    $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-2-10) "1.5?"
+    Assert-EquipmentCell EquipmentActivityCell-2-10 "*Average 1 devices; exact sum 2 / 2 exact dates*"
+    $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-2-10) "1?"
     [Windows.Forms.SendKeys]::SendWait("{RIGHT}{LEFT}{ENTER}")
     Assert-EquipmentCell EquipmentActivityCell-2-10 "*2 / * applicable dates observed*"
     Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "equipment-weekdays.png")
     $null = Show-Equipment "Permanent - Manual" -ByName
-    $null = Show-Equipment "Guest - Manual" -ByName
 
     foreach ($action in @("period", "hours", "person", "navigation")) {
         $request = Hold-Equipment
@@ -214,7 +213,7 @@ try {
     if ((Find-Equipment EquipmentIndicator).Current.Name -ne "Equipment online") {
         throw "Retry after restoring malformed equipment evidence did not recover its indicator."
     }
-    Assert-EquipmentCell EquipmentActivityCell-5-6 "*2 distinct devices*"
+    Assert-EquipmentCell EquipmentActivityCell-5-6 "*At least 1 devices*"
     foreach ($hours in @(3, 4, 1)) {
         $before = (Get-UiRegressionSurfaceState -GetElement { Find-Equipment EquipmentActivityScroll } -Description Equipment).Request
         (Show-Equipment EquipmentActivityHours).GetCurrentPattern([Windows.Automation.RangeValuePattern]::Pattern).SetValue($hours)
@@ -240,8 +239,8 @@ try {
         Set-UiReviewTheme -Root $script:root -Theme $theme
         Open-EquipmentPerson
         $null = Wait-Equipment
-        Assert-EquipmentCell EquipmentActivityCell-5-12 "*2 distinct devices*"
-        $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-5-12) "2"
+        Assert-EquipmentCell EquipmentActivityCell-5-12 "*1 distinct devices*"
+        $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-5-12) "1"
         $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-5-15) "?"
         Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "equipment-$($theme.Replace(' ', '-')).png")
     }
@@ -259,14 +258,14 @@ try {
     $null = Show-Equipment EditPersonDetailButton
     $null = Show-Equipment DeletePersonDetailButton
     Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "equipment-narrow.png")
-    $normalGlyphHeight = (Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-5-12) "2").Current.BoundingRectangle.Height
+    $normalGlyphHeight = (Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-5-12) "1").Current.BoundingRectangle.Height
     Invoke-ActivityGridHighContrast -Check {
-        $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-5-12) "2"
+        $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-5-12) "1"
         $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-5-13) "0"
         $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-5-15) "?"
         Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "equipment-high-contrast.png")
         Choose-EquipmentPeriod "30 days by weekday"
-        $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-2-10) "1.5?"
+        $null = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-2-10) "1?"
         Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "equipment-high-contrast-weekdays.png")
         Choose-EquipmentPeriod "Last 7 days"
     }
@@ -279,7 +278,7 @@ try {
         $null = Wait-Equipment
     } -Stop { Stop-UiRegressionApp -Process $script:process } -Check {
         Choose-EquipmentPeriod "30 days by weekday"
-        $largeGlyph = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-2-10) "1.5?"
+        $largeGlyph = Assert-ActivityGridGlyph (Show-Equipment EquipmentActivityCell-2-10) "1?"
         if ($largeGlyph.Current.BoundingRectangle.Height -le $normalGlyphHeight * 1.5) {
             throw "Equipment activity text did not actually enlarge with Windows text scale."
         }

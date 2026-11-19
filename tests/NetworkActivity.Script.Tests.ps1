@@ -45,20 +45,22 @@ try {
     $request = [FingVibe.Core.Models.AnalyticsEvidenceRequest]::new(
         "ui-review-network", "127.0.0.1/32", [DateTimeOffset]::UtcNow, 30, [TimeZoneInfo]::Local, $data.Revision)
     $evidence = $store.QueryAnalyticsAsync($request, $token).GetAwaiter().GetResult()
-    if ($evidence.Devices.Count -ne 1000) { throw "Native fixture must contain 1,000 logical devices." }
+    if ($evidence.Devices.Count -ne 999 -or $data.LinkedDevices.Count -ne 1) {
+        throw "Native fixture must contain 999 logical devices from 1,000 MAC records with one linked pair."
+    }
     $contributors = [FingVibe.Core.Models.ActivityContributor[]]@($evidence.Devices | ForEach-Object {
         [FingVibe.Core.Models.ActivityContributor]::new($_.Identity, $null, 0, 0)
     })
     $buckets = [FingVibe.Core.Models.DeviceActivity]::Group($evidence, 1, $token)
     $days = [FingVibe.Core.Models.NetworkActivity]::Count($buckets, $contributors, [FingVibe.Core.Models.ActivityCountFilter]::new(), $token)
     $yesterday = [DateOnly]::FromDateTime([DateTime]::Today.AddDays(-1))
-    foreach ($expected in @(@(12, 3, "Exact"), @(13, 0, "Exact"), @(14, 2, "Partial"), @(15, 0, "Unknown"))) {
+    foreach ($expected in @(@(12, 2, "Exact"), @(13, 0, "Exact"), @(14, 1, "Partial"), @(15, 0, "Unknown"))) {
         $day = @($days | Where-Object { $_.Date -eq $yesterday -and $_.StartHour -eq $expected[0] })[0]
         if ($day.Count -ne $expected[1] -or $day.Coverage.ToString() -ne $expected[2]) { throw "Incorrect native count fixture at $($expected[0]): $day" }
     }
     $week = [FingVibe.Core.Models.NetworkActivity]::ByWeekday($days, $token)
     $wednesday = @($week | Where-Object { $_.Day.ToString() -eq "Wednesday" -and $_.StartHour -eq 9 })[0]
-    if ($wednesday.Mean -ne 12 -or $wednesday.ExactDates -ne 3) { throw "Native exact weekday fixture is incorrect." }
+    if ($wednesday.Mean -ne 11 -or $wednesday.ExactDates -ne 3) { throw "Native exact weekday fixture is incorrect." }
     Invoke-InventoryMalformedTimestamp -Path (Join-Path $fixture 'inventory.sqlite') -Table scan_evidence -WhileMalformed {
         $malformedError = $null
         try { $null = $store.QueryAnalyticsAsync($request, $token).GetAwaiter().GetResult() }

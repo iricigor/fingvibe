@@ -28,6 +28,8 @@ function New-DeviceActivityFixture([string] $Directory) {
         devices = @{
             "001122334455" = @{ mac = "001122334455"; imported = @{}; observations = @($observation); scanHistory = @($history) }
             "001122334466" = @{ mac = "001122334466"; imported = @{ name = "Activity imported" }; observations = @(); scanHistory = @() }
+            "001122334477" = @{ mac = "001122334477"; imported = @{}; observations = @($observation); scanHistory = @($history) }
+            "001122334488" = @{ mac = "001122334488"; imported = @{}; observations = @(); scanHistory = @() }
         }
         names = @{ "001122334455" = "Activity laptop" }; classifications = @{}
         peopleRooms = @{ people = @(); rooms = @(); assignments = @{} }
@@ -37,4 +39,13 @@ function New-DeviceActivityFixture([string] $Directory) {
         Set-Content -LiteralPath (Join-Path $Directory "inventory.json") -Encoding utf8
     @{ version = 3; subnet = "127.0.0.1/32"; completedAt = $last; results = @() } |
         ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $Directory "snapshot.json") -Encoding utf8
+}
+
+function Add-DeviceActivityLinkedFixture([string] $Directory) {
+    $store = [FingVibe.Core.Storage.DeviceInventoryStore]::new((Join-Path $Directory "inventory.sqlite"))
+    $loaded = $store.LoadMetadataAsync([Threading.CancellationToken]::None).GetAwaiter().GetResult()
+    $choices = [FingVibe.Core.Models.LinkedDeviceChoices]::new(
+        "Activity linked", [FingVibe.Core.Models.DeviceClassificationOverride]::new(), $null, $null)
+    $linked = $loaded.LinkDevices("001122334477", "001122334488", $choices, [DateTimeOffset]::UtcNow)
+    $null = $store.SaveAsync($linked, $loaded.Revision, [Threading.CancellationToken]::None).GetAwaiter().GetResult()
 }

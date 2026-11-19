@@ -68,8 +68,14 @@ function New-NetworkActivityFixture([string] $Directory, [switch] $Empty, [switc
         ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $Directory "snapshot.json") -Encoding utf8
     $database = Join-Path $Directory "inventory.sqlite"
     $store = [FingVibe.Core.Storage.DeviceInventoryStore]::new($database)
-    $null = $store.LoadMetadataAsync([Threading.CancellationToken]::None).GetAwaiter().GetResult()
+    $loaded = $store.LoadMetadataAsync([Threading.CancellationToken]::None).GetAwaiter().GetResult()
     if ($Empty) { return }
+    $assignment = $loaded.GetAssignment("001122000000")
+    $classification = $loaded.Classifications["001122000000"]
+    $choices = [FingVibe.Core.Models.LinkedDeviceChoices]::new(
+        "Linked network pair", $classification, $assignment, $loaded.Devices["001122000000"].UsageCategoryOverride)
+    $linked = $loaded.LinkDevices("001122000000", "001122000001", $choices, [DateTimeOffset] $first)
+    $null = $store.SaveAsync($linked, $loaded.Revision, [Threading.CancellationToken]::None).GetAwaiter().GetResult()
     $connection = [Microsoft.Data.Sqlite.SqliteConnection]::new("Data Source=$database;Pooling=False")
     try {
         $connection.Open()

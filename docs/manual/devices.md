@@ -244,5 +244,7 @@ The row is **Online** when any member responded in the selected network's
 latest scan, and **Last seen** is the latest of its members on that network. It
 counts once in the Devices totals, *Showing N devices*, Overview, the header's
 online count, People & Rooms and the Room map. A member MAC seen locally for the
-first time is not announced as a newly discovered device. Activity and usage
-evidence still come from each MAC address separately.
+first time is not announced as a newly discovered device. Activity, Network
+Activity, Person equipment and automatic usage evidence also count the linked
+device once. They combine each current member's eligible history, including
+evidence from before the link.

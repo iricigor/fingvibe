@@ -59,7 +59,8 @@ public sealed class ScanResultRow : INotifyPropertyChanged
     public string IdentityKey => VirtualDevice?.Id.ToString("D") ?? LinkedDevice?.Id.ToString("D")
         ?? MacAddress?.ToString() ?? AddressText;
     public string? CustomName => _customName;
-    public LogicalDeviceId? UsageIdentity => VirtualDevice is { } slot ? LogicalDeviceId.Virtual(slot.Id)
+    public LogicalDeviceId? UsageIdentity => LinkedDevice is { } linked ? LogicalDeviceId.Linked(linked.Id)
+        : VirtualDevice is { } slot ? LogicalDeviceId.Virtual(slot.Id)
         : MacAddress?.GetAddressBytes().Length == 6 ? LogicalDeviceId.Mac(MacAddress.ToString()) : null;
     public DeviceUsageCategory? UsageCategoryOverride { get; private set; }
     public DeviceUsageInference? UsageInference { get; private set; }

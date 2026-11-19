@@ -121,6 +121,73 @@ public sealed class AnalyticsEvidenceBenchmark(ITestOutputHelper output) : IDisp
             output.WriteLine($"{(equipment ? "Equipment" : "Network")} cancellation + exclusive-lock resource-release ms (20): {string.Join(", ", cancellations.Select(ms => ms.ToString("F3")))}; max={cancellations.Max():F3}; ceiling=250.");
             Assert.True(cancellations.Max() <= 250, $"Cancellation/resource release exceeded 250ms: {cancellations.Max():F3}.");
         }
+
+        var linkedMembers = data.Devices.Values
+            .Where(device => device.Observations.Any(observation =>
+                observation.NetworkId == "network-0" && observation.Subnet == Subnet))
+            .Select(device => device.Mac).Order(StringComparer.Ordinal).Take(300).ToArray();
+        Assert.Equal(300, linkedMembers.Length);
+        var linkedData = data;
+        for (var index = 0; index < linkedMembers.Length; index += 2)
+        {
+            var assignment = linkedData.GetAssignment(linkedMembers[index])
+                ?? linkedData.GetAssignment(linkedMembers[index + 1]);
+            linkedData = linkedData.LinkDevices(linkedMembers[index], linkedMembers[index + 1],
+                new($"Linked benchmark {index / 2}", new(), assignment, null), End.AddDays(-100));
+        }
+        linkedData = await store.SaveAsync(linkedData, linkedData.Revision);
+        Assert.Equal(150, linkedData.LinkedDevices.Count);
+        var linkedRequest = request with { ExpectedRevision = linkedData.Revision };
+        var linkedId = LogicalDeviceId.Linked(linkedData.LinkedDevices[0].Id);
+        var linkedRoster = EquipmentActivity.Select(linkedData, EquipmentPerson, "network-0", Subnet).QueryDevices;
+        Assert.NotEmpty(linkedRoster);
+        await Measure("linked single device 30-date query + production activity buckets", 1000,
+            linkedRequest with { Devices = [linkedId] }, store, classify: false);
+        await Measure("linked network 30-date query + production aligned bucket union", 2000,
+            linkedRequest, store, classify: false);
+        await Measure("linked equipment 30-date query + production aligned bucket union", 2000,
+            linkedRequest with { Devices = linkedRoster }, store, classify: false);
+        await Measure("linked all-device 7-date query + production usage classification", 2000,
+            linkedRequest with { CalendarDays = 7 }, store, classify: true);
+        await Measure("linked Network page 30-date query + current filters/classification + count presentation", 2000,
+            linkedRequest, store, classify: false, networkData: linkedData);
+        await Measure("linked Person equipment 30-date query + assignment counts/indicator/categories/presentation", 2000,
+            linkedRequest, store, classify: false, equipmentData: linkedData);
+
+        foreach (var equipment in new[] { false, true })
+        {
+            var cancellations = new List<double>();
+            for (var run = 0; run < 20; run++)
+            {
+                using var cancellation = new CancellationTokenSource();
+                var query = Task.Run(async () =>
+                {
+                    if (equipment)
+                    {
+                        var display = await EquipmentActivityPresentation.LoadAsync(store, linkedData, EquipmentPerson,
+                            linkedRequest, 1, true, cancellation.Token);
+                        return display.Grid;
+                    }
+                    var evidence = await store.QueryAnalyticsAsync(linkedRequest, cancellation.Token);
+                    return NetworkActivityPresentation.Create(evidence, linkedData, 1, true, new(), cancellation.Token);
+                }, cancellation.Token);
+                await Task.Delay(20);
+                var clock = Stopwatch.StartNew();
+                cancellation.Cancel();
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => query);
+                using (var connection = Open())
+                using (var command = connection.CreateCommand())
+                {
+                    command.CommandText = "BEGIN EXCLUSIVE; ROLLBACK;";
+                    command.ExecuteNonQuery();
+                }
+                cancellations.Add(clock.Elapsed.TotalMilliseconds);
+            }
+            output.WriteLine($"Linked {(equipment ? "Equipment" : "Network")} cancellation + exclusive-lock resource-release ms (20): " +
+                $"{string.Join(", ", cancellations.Select(ms => ms.ToString("F3")))}; max={cancellations.Max():F3}; ceiling=250.");
+            Assert.True(cancellations.Max() <= 250,
+                $"Linked cancellation/resource release exceeded 250ms: {cancellations.Max():F3}.");
+        }
     }
 
     private async Task Measure(string label, double milliseconds, AnalyticsEvidenceRequest request,

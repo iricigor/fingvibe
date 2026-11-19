@@ -47,7 +47,11 @@ A [linked device](device-details.md#link-two-records-as-one-device) has one
 shared **Person** and **Room** for all of its MAC addresses; changing either on
 any of its MAC addresses changes it for the linked device. Each MAC's own earlier
 assignment is kept for a later Unlink. A linked device counts once in person and
-room device counts, the Room map and their online counts.
+room device counts, the Room map, their online counts and the person's equipment
+Activity. A response from any eligible member counts the linked device once; if
+no member responds, all eligible members must have a recorded nonresponse
+before the equipment is counted as not responding. Missing member evidence stays
+unknown rather than proving absence.
 
 ## View the Room map
 

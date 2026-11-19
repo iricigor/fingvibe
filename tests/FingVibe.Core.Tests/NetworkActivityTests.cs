@@ -254,6 +254,36 @@ public sealed class NetworkActivityTests
     }
 
     [Fact]
+    public void LinkedDeviceContributesOnceWithSharedTypeRoomAndUsage()
+    {
+        var evidence = Evidence([]);
+        var linkedId = LogicalDeviceId.Linked(Guid.NewGuid());
+        evidence = evidence with { Devices = [new(linkedId, Now.AddDays(-40), false)] };
+        var room = new ManagedRoom(Guid.NewGuid(), "Office", "OFF");
+        var person = new ManagedPerson(Guid.NewGuid(), "Owner", "OW");
+        var linked = new LinkedDevice(Guid.Parse(linkedId.Id),
+            [new(Ids[0].Id, Now.AddDays(-10)), new(Ids[1].Id, Now.AddDays(-10))],
+            "Shared laptop", new(DeviceOperatingSystem.Windows, DeviceType.Computer),
+            new("Shared laptop", new(DeviceOperatingSystem.Windows, DeviceType.Computer)),
+            new(person.Id, room.Id), DeviceUsageCategory.Personal);
+        var data = DeviceInventoryData.Empty with
+        {
+            Revision = evidence.Revision,
+            Devices = Ids.Take(2).ToDictionary(id => id.Id,
+                id => new InventoryDevice(id.Id, new ImportedDeviceMetadata(), [])),
+            PeopleRooms = new PeopleRoomsData([person], [room]),
+            LinkedDevices = [linked]
+        };
+
+        var contributors = NetworkActivityPresentation.Contributors(data, evidence);
+
+        Assert.Equal(new ActivityContributor(linkedId, room.Id, DeviceType.Computer,
+            DeviceUsageCategory.Personal), Assert.Single(contributors));
+        var display = NetworkActivityPresentation.Create(evidence, contributors, 1, false, new());
+        Assert.Equal(1, display.Contributors);
+    }
+
+    [Fact]
     public void CancellationAndContributorMisalignmentFailExplicitly()
     {
         var evidence = Evidence([]);

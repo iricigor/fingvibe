@@ -634,13 +634,15 @@ same captured saved revision. All Activity surfaces share the grid renderer;
 their different count/response semantics remain separate.
 
 `NetworkActivityTests` covers count unions, exact means, filters, lower bounds,
-zero/unknown, current normal/virtual metadata, identity deduplication, network
-isolation and calendar boundaries. The disposable native `NetworkActivity.Ui`
-module uses an isolated 1,000-device fixture and verifies all periods/groupings,
+zero/unknown, current normal/virtual/linked metadata, identity deduplication,
+network isolation and calendar boundaries. The disposable native
+`NetworkActivity.Ui` module uses an isolated 1,000-MAC fixture with one linked
+pair (999 logical devices) and verifies all periods/groupings,
 filter combinations, 720-cell reachability, keyboard/light/dark/narrow layout, loading,
 replacement/cancellation, error/Retry and empty history. It runs in the independent
 `network-activity` job when Network is selected; full validation includes it.
-Its isolated fixture, app lifecycle, assertions and captures are unchanged.
+Its linked-pair fixture now proves that Network counts the logical linked
+device once while preserving the existing app lifecycle, filters and captures.
 `tests\NetworkActivity.Script.Tests.ps1` verifies that fixture and its production
 query without desktop automation. The shared renderer also retains the existing
 Device Activity light/dark/high-contrast native coverage. No native test runs on
@@ -673,12 +675,15 @@ publishes the observable selection/state. Loading and errors clear old results;
 Retry runs a fresh request. Queries read only selected equipment history,
 deduplicate existing virtual associations in storage, and retain out-of-network
 assignments as unknown contributors. Imported-only devices are not offline.
+Linked assignments resolve to one logical device; member MAC assignments are
+not also counted.
 Queries, counts and classification run off the UI thread.
 
 `EquipmentActivityTests` covers exact means/zero/partial evidence, latest scan
-eligibility, strict age boundaries, current assignments, virtual deduplication,
-network isolation and obsolete results. `EquipmentActivity.Script.Tests.ps1`
-checks the three-equipment/1,000-device production-query fixture without a
+eligibility, strict age boundaries, current assignments, virtual/linked
+deduplication, network isolation and obsolete results.
+`EquipmentActivity.Script.Tests.ps1` checks the linked-pair/1,000-MAC
+production-query fixture without a
 desktop. The focused `EquipmentActivity.Ui` module runs in `details-summary`
 when PersonDetails is selected, retaining existing summary coverage. It covers
 all periods and groupings, contributor details, category source, loading and
@@ -1550,6 +1555,11 @@ result, 20 warm samples after warmup, nearest-rank p95, managed allocations and
 process RSS are printed. First-query measurements do not force an OS cache flush.
 Additional managed allocation is a conservative total-allocation ceiling, not
 process RSS or a claim that native SQLite memory is managed.
+
+After the original workload measurements, the benchmark links 300 ordinary
+network-0 MACs into 150 pairs and repeats linked single-device, Network,
+equipment and all-device usage queries without rewriting the 10-million-row
+fixture. Linked devices use the same p95, allocation and cancellation ceilings.
 
 The benchmark includes production aligned `DeviceActivity` buckets (and
 single-device weekday grouping), the complete Network page query, current

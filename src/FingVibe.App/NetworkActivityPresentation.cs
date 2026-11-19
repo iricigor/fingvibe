@@ -17,6 +17,7 @@ public static class NetworkActivityPresentation
         var categories = DeviceUsageClassifier.Classify(
             evidence with { FirstDate = evidence.LastDate.AddDays(-6) }, cancellationToken);
         var slots = data.VirtualDevices.ToDictionary(slot => LogicalDeviceId.Virtual(slot.Id));
+        var linked = data.LinkedDevices.ToDictionary(device => LogicalDeviceId.Linked(device.Id));
         var result = new ActivityContributor[evidence.Devices.Count];
         for (var index = 0; index < result.Length; index++)
         {
@@ -24,7 +25,13 @@ public static class NetworkActivityPresentation
             var id = evidence.Devices[index].Identity;
             ScanResultRow row;
             Guid? room;
-            if (id.Kind == "virtual")
+            if (id.Kind == "linked")
+            {
+                var device = linked[id];
+                row = ScanResultRow.ForLinkedDevice(device, data);
+                room = device.Assignment?.RoomId;
+            }
+            else if (id.Kind == "virtual")
             {
                 var slot = slots[id];
                 row = new(slot, data, 0);
