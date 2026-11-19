@@ -128,6 +128,10 @@ jobs:
           .\tests\Agent4TaskWorktree.Tests.ps1
           .\tests\EpicChart.Tests.ps1
 
+      - name: Test loop5 shared Developer source without live Automations
+        shell: pwsh
+        run: .\tests\Agent5Developer.Tests.ps1
+
       - name: Test ISP logo build configuration
         shell: pwsh
         run: .\tests\LogoDevConfiguration.Tests.ps1
