@@ -10,6 +10,7 @@ if ($env:GITHUB_ACTIONS -ne "true") { throw "Device-linking UI checks require a 
 . (Join-Path $PSScriptRoot "UiRegression\Helpers.ps1")
 . (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
 Initialize-InventorySqlite $AppPath
+$null = [Reflection.Assembly]::LoadFrom((Join-Path (Split-Path -Parent $AppPath) "FingVibe.Core.dll"))
 
 Add-Type @'
 using System;
@@ -246,7 +247,21 @@ function Resolve-LinkDraft {
     Select-LinkChoice MergeMacChoiceRoomOther
 }
 
-function Get-LinkCount { Get-InventorySqliteValue $database "SELECT COUNT(*) FROM linked_devices" }
+# Keeps this device's value for every difference in the draft.
+function Resolve-LinkDraftThis {
+    foreach ($field in @("Name", "DeviceType", "OperatingSystem", "Vendor", "Family", "Model", "Icon", "Person", "Room", "UsageCategory")) {
+        if (Find-Link "MergeMacChoice${field}This" -Optional) { Select-LinkChoice "MergeMacChoice${field}This" }
+    }
+    Assert-LinkMerge $true "Every value is chosen*"
+}
+
+function Get-SpareMemberCount {
+    Get-InventorySqliteValue $database "SELECT json_array_length(data,'$.members') FROM linked_devices WHERE id='$spareId'"
+}
+
+# Links made by these checks; the fixture's saved "Link spare" and "Link pair" devices are excluded.
+function Get-LinkFilter { "id NOT IN ('$spareId','$pairId')" }
+function Get-LinkCount { Get-InventorySqliteValue $database "SELECT COUNT(*) FROM linked_devices WHERE $(Get-LinkFilter)" }
 
 # Possible-match checks (#545/#547) use their own fixture with Match alpha/beta/gamma and two plain records.
 function Show-MatchRows {
@@ -406,8 +421,8 @@ function Use-LinkInventory([string] $Path) {
     $script:database = [IO.Path]::ChangeExtension($Path, ".sqlite")
 }
 
-function Find-LinkChevron {
-    $row = @(Get-LinkRows "Link desk")
+function Find-LinkChevron([string] $Name = "Link desk") {
+    $row = @(Get-LinkRows $Name)
     if ($row.Count -ne 1) { return $null }
     $row[0].FindFirst([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new(
@@ -459,6 +474,7 @@ try {
     }
     # Synthetic records: Wi-Fi, dock and declined share a UPnP UUID (kind 4); plain has no evidence; two private MACs form a virtual device.
     $uuid = @(, @(4, "uuid-link-fixture"))
+    $spareUuid = @(, @(4, "uuid-spare-fixture"))
     $oldPrivate = New-LinkObservation "127.0.0.7" "Private"
     $currentPrivate = New-LinkObservation "127.0.0.8" "Private" $true
     $data = @{
@@ -470,8 +486,16 @@ try {
             "001122BB0004" = @{ mac = "001122BB0004"; imported = @{}; scanHistory = @(); observations = @(New-LinkObservation "127.0.0.5" "Example") }
             "D0C9070000A1" = @{ mac = "D0C9070000A1"; imported = @{}; scanHistory = @(); observations = @($oldPrivate) }
             "D0C9070000A2" = @{ mac = "D0C9070000A2"; imported = @{}; scanHistory = @(); observations = @($currentPrivate) }
+            # #582: "Link spare" and "Link pair" are saved linked devices; Spare candidate shares a UPnP UUID with spare A.
+            "001122BB0005" = @{ mac = "001122BB0005"; imported = @{}; scanHistory = @(); observations = @(New-LinkObservation "127.0.0.11" "Example" -Reported $spareUuid) }
+            "001122BB0006" = @{ mac = "001122BB0006"; imported = @{}; scanHistory = @(); observations = @(New-LinkObservation "127.0.0.12" "Example") }
+            "001122BB0007" = @{ mac = "001122BB0007"; imported = @{}; scanHistory = @(); observations = @(New-LinkObservation "127.0.0.13" "Example" -Reported $spareUuid) }
+            "001122BB0008" = @{ mac = "001122BB0008"; imported = @{}; scanHistory = @(); observations = @(New-LinkObservation "127.0.0.14" "Example") }
+            "001122BB0009" = @{ mac = "001122BB0009"; imported = @{}; scanHistory = @(); observations = @(New-LinkObservation "127.0.0.15" "Example") }
         }
-        names = @{ "001122BB0001" = "Link desk Wi-Fi"; "001122BB0002" = "Link desk dock"; "001122BB0003" = "Link declined"; "001122BB0004" = "Link plain" }
+        names = @{ "001122BB0001" = "Link desk Wi-Fi"; "001122BB0002" = "Link desk dock"; "001122BB0003" = "Link declined"; "001122BB0004" = "Link plain"
+            "001122BB0005" = "Link spare A"; "001122BB0006" = "Link spare B"; "001122BB0007" = "Spare candidate"
+            "001122BB0008" = "Link pair A"; "001122BB0009" = "Link pair B" }
         classifications = @{ "001122BB0001" = @{ type = 1 }; "001122BB0002" = @{ type = 2 } }
         peopleRooms = @{
             people = @(@{ id = $person; name = "Link person"; shortName = "LP" })
@@ -488,6 +512,20 @@ try {
         discoveryBaselines = @()
     }
     @{ version = 4; data = $data } | ConvertTo-Json -Depth 15 | Set-Content -LiteralPath $inventory -Encoding utf8
+    # Saved linked devices are created through the store, as the app saves them.
+    $store = [FingVibe.Core.Storage.DeviceInventoryStore]::new($inventory)
+    $loaded = $store.LoadMetadataAsync([Threading.CancellationToken]::None).GetAwaiter().GetResult()
+    function New-LinkChoices([string] $Name) {
+        $none = [NullString]::Value
+        [FingVibe.Core.Models.LinkedDeviceChoices]::new($Name,
+            [FingVibe.Core.Models.DeviceClassificationOverride]::new($null, $null, $null, $none, $none, $none), $null, $null)
+    }
+    $linkedFixture = $loaded.LinkDevices("001122BB0005", "001122BB0006", (New-LinkChoices "Link spare"), $time)
+    $linkedFixture = $linkedFixture.LinkDevices("001122BB0008", "001122BB0009", (New-LinkChoices "Link pair"), $time.AddMinutes(1))
+    $saved = $store.SaveAsync($linkedFixture, $loaded.Revision, [Threading.CancellationToken]::None).GetAwaiter().GetResult()
+    $spareId = $saved.FindLinkedDevice("001122BB0005").Id.ToString("D")
+    $pairId = $saved.FindLinkedDevice("001122BB0008").Id.ToString("D")
+    $store = $null
     # Possible matches: alpha and gamma share a UPnP UUID (kind 4); alpha and beta share an mDNS/NetBIOS name (kinds 1, 2).
     $matchData = @{
         revision = [Guid]::NewGuid().ToString()
@@ -583,8 +621,16 @@ try {
     $lock.Dispose()
     $lock = $null
     Invoke-Link MergeMacMerge
-    Assert-LinkSection "2 MAC addresses" "Expanded"
+    # The dock still shares a UPnP UUID with "Link declined" (only the Wi-Fi pair was declined), so the new linked
+    # device opens with a mixed header and that suggestion selected.
+    Assert-LinkSection "2 MAC addresses · 1 possible match" "Expanded"
     Wait-Link { (Find-Link MergeMacExplanation -Optional).Current.Name -eq $linkedExplanation } "the linked explanation"
+    Wait-Link { (Find-Link MergeMacOtherName -Optional).Current.Name -eq "Link declined" } "the linked device's suggestion"
+    if ((Find-Link MergeMacOtherHeading).Current.Name -ne "Selected other MAC address · suggestion 1 of 1" -or
+        (Find-Link MergeMacChangeDevice).Current.Name -ne "Change device") {
+        throw "A linked device's suggestion must be reviewed like any other."
+    }
+    Save-LinkCapture "link-linked-mixed-header" MergeMacReason
     $memberText = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text)
     $members = @((Find-Link MergeMacAddresses).FindAll([System.Windows.Automation.TreeScope]::Descendants, $memberText) |
@@ -593,17 +639,23 @@ try {
         $members[1].Current.Name -like "*Shown in Devices") {
         throw "The linked section must list each MAC with its IP, adapter vendor, status and date linked: $($members.Current.Name -join ' | ')"
     }
-    foreach ($id in @("MergeMacChangeDevice", "MergeMacMerge", "MergeMacError")) {
-        if (Find-Link $id -Optional) { throw "A linked device must not show $id." }
-    }
+    if (Find-Link MergeMacError -Optional) { throw "A successful link must clear the previous error." }
     foreach ($id in @("MergeMacUnlink001122BB0001", "MergeMacUnlink001122BB0002")) {
         if ((Show-Link $id).Current.Name -notlike "Unlink 00-11-22-BB-00-0?") {
             throw "Each linked MAC must have an accessible Unlink action: $id"
         }
     }
+    # Declining it for the linked device records the pair for every member; only Add MAC address... remains.
+    Invoke-Link MergeMacDecline
+    Assert-LinkSection "2 MAC addresses" "Expanded"
+    Wait-Link { (Find-Link MergeMacChangeDevice -Optional).Current.Name -eq "Add MAC address" } "Add MAC address..."
+    if (Find-Link MergeMacMerge -Optional) { throw "A linked device without a chosen record must not offer Merge." }
+    if ((Get-InventorySqliteValue $database "SELECT group_concat(id) FROM declined_matches") -ne "001122BB0001|001122BB0003,001122BB0002|001122BB0003") {
+        throw "Declining a linked device's suggestion must decline every current pair."
+    }
     if ((Get-LinkCount) -ne 1 -or
-        (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.name') FROM linked_devices") -ne "Link desk" -or
-        (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.identification.type') FROM linked_devices") -ne 2 -or
+        (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.name') FROM linked_devices WHERE $(Get-LinkFilter)") -ne "Link desk" -or
+        (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.identification.type') FROM linked_devices WHERE $(Get-LinkFilter)") -ne 2 -or
         (Get-InventorySqliteValue $database "SELECT json_extract(data,'$') FROM names WHERE id='001122BB0001'") -ne "Link desk Wi-Fi" -or
         (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.type') FROM classifications WHERE id='001122BB0001'") -ne 1) {
         throw "Linking must save shared values atomically and keep each member's own values."
@@ -611,9 +663,9 @@ try {
     Save-LinkCapture "link-linked" MergeMacExplanation
 
     $phase = Step-UiRegressionPhase $phase "linking/one-row" $ScreenshotDirectory
-    # Five rows (four records and one virtual device) become four: the pair counts once.
+    # Eight rows (five records, two saved linked devices and one virtual device) become seven: the new pair counts once.
     Show-LinkDevices "Link desk"
-    Wait-Link { @(Get-LinkRows "Link desk").Count -eq 1 -and (Find-Link "Showing 1 of 4 devices" -ByName -Optional) } `
+    Wait-Link { @(Get-LinkRows "Link desk").Count -eq 1 -and (Find-Link "Showing 1 of 7 devices" -ByName -Optional) } `
         "one linked-device row counted once"
     $chevron = Find-LinkChevron
     if ($chevron.Current.Name -ne "Show 1 more MAC address") { throw "Unexpected chevron name: $($chevron.Current.Name)" }
@@ -626,7 +678,7 @@ try {
         "search by a member IP finding and expanding the row"
     if ((Find-LinkChevron).Current.IsEnabled) { throw "A search match must keep the row expanded." }
     Show-LinkDevices ""
-    Wait-Link { Find-Link "Showing 4 devices" -ByName -Optional } "the unfiltered total counting the linked device once"
+    Wait-Link { Find-Link "Showing 7 devices" -ByName -Optional } "the unfiltered total counting the linked device once"
 
     $phase = Step-UiRegressionPhase $phase "linking/shared-edit-restart" $ScreenshotDirectory
     Open-LinkDevice "00-11-22-BB-00-02" "Link desk"
@@ -815,7 +867,7 @@ try {
     Assert-LinkSection "No suggestions" "Expanded"
     Wait-Link { -not (Find-Link MergeMacUnlinkConfirmation -Optional) -and (Get-LinkCount) -eq 0 } "the link to be removed"
 
-    if ((Get-InventorySqliteValue $database "SELECT COUNT(*) FROM declined_matches") -ne 2 -or
+    if ((Get-InventorySqliteValue $database "SELECT COUNT(*) FROM declined_matches") -ne 3 -or
         (Get-InventorySqliteValue $database "SELECT json_extract(data,'$') FROM names WHERE id='001122BB0001'") -ne "Link desk" -or
         (Get-InventorySqliteValue $database "SELECT json_extract(data,'$') FROM names WHERE id='001122BB0002'") -ne "Link desk dock" -or
         (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.type') FROM classifications WHERE id='001122BB0001'") -ne 2 -or
@@ -836,12 +888,78 @@ try {
     Stop-LinkApp
     Start-LinkApp
     Open-LinkDevice "00-11-22-BB-00-02" "Link desk dock"
-    Assert-LinkSection "1 possible match" "Expanded"
+    # The dock's pair with "Link declined" was declined for the whole linked device, so it has no suggestions.
+    Assert-LinkSection "No suggestions" "Collapsed"
     if ((Get-LinkCount) -ne 0) { throw "The unlinked state must survive restart." }
     Open-LinkDevice "00-11-22-BB-00-01" "Link desk"
     Assert-LinkSection "No suggestions" "Collapsed"
+
+    $phase = Step-UiRegressionPhase $phase "linking/add-combine-unlink" $ScreenshotDirectory
+    $pairLinkedAt = Get-InventorySqliteValue $database "SELECT json_extract(data,'$.members[0].linkedAt') FROM linked_devices WHERE id='$pairId'"
+    Open-LinkDevice "Link spare"
+    Assert-LinkSection "2 MAC addresses · 1 possible match" "Expanded"
+    Wait-Link { (Find-Link MergeMacOtherName -Optional).Current.Name -eq "Spare candidate" } "the record suggested to the linked device"
+    if ((Find-Link MergeMacReason).Current.Name -notlike "Suggested because both records reported the same UPnP device UUID.*") {
+        throw "A linked device's suggestion must give the member's reason: $((Find-Link MergeMacReason).Current.Name)"
+    }
+    Save-LinkCapture "link-mixed-header" MergeMacReason
+    Resolve-LinkDraftThis
+    Invoke-Link MergeMacCancel
+    Assert-LinkMerge $false "*a choice before merging."
+    if ((Get-SpareMemberCount) -ne 2) { throw "Cancel must not add the record." }
+    Resolve-LinkDraftThis
+    $lock = [IO.FileStream]::new("$inventory.lock", [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
+    Invoke-Link MergeMacMerge
+    Wait-Link { Find-Link MergeMacError -Optional } "visible add failure"
+    Assert-LinkMerge $true "Every value is chosen*"
+    if ((Get-SpareMemberCount) -ne 2) { throw "A failed save must not add the record." }
+    $lock.Dispose()
+    $lock = $null
+    Invoke-Link MergeMacMerge
+    Assert-LinkSection "3 MAC addresses" "Expanded"
+    Wait-Link { (Find-Link MergeMacChangeDevice -Optional).Current.Name -eq "Add MAC address" } "Add MAC address... after adding a record"
+    if ((Get-SpareMemberCount) -ne 3) { throw "Adding a record must keep the linked device's identity." }
+    Save-LinkCapture "link-three-macs" MergeMacChangeDevice
+
+    # Choosing a linked device adds all of its MACs; the open device's identity and every linked date survive.
+    Open-LinkPicker "Other devices|*Link pair*2 MAC addresses*"
+    if (@(Get-LinkPickerItems).Current.Name -match "Link spare|Spare candidate") {
+        throw "The picker must not offer the linked device's own MAC addresses."
+    }
+    Select-LinkPickerItem "Link pair"
+    Wait-Link {
+        (Find-Link MergeMacOtherHeading -Optional).Current.Name -eq "Selected other MAC address · chosen manually" -and
+            (Find-Link MergeMacOtherName).Current.Name -eq "Link pair"
+    } "the chosen linked device"
+    Resolve-LinkDraftThis
+    Assert-LinkMerge $true "Every value is chosen*"
+    Invoke-Link MergeMacMerge
+    Assert-LinkSection "5 MAC addresses" "Expanded"
+    if ((Get-InventorySqliteValue $database "SELECT COUNT(*) FROM linked_devices") -ne 1 -or (Get-SpareMemberCount) -ne 5 -or
+        (Get-InventorySqliteValue $database "SELECT COUNT(*) FROM linked_devices, json_each(linked_devices.data,'$.members') WHERE linked_devices.id='$spareId' AND json_extract(json_each.value,'$.linkedAt')='$pairLinkedAt'") -ne 2) {
+        throw "Combining must keep the open linked device and every member's linked date."
+    }
+    Show-LinkDevices "Link "
+    Wait-Link { @(Get-LinkRows "Link spare").Count -eq 1 -and @(Get-LinkRows "Link pair").Count -eq 0 } "one row for the combined device"
+    if ((Find-LinkChevron "Link spare").Current.Name -ne "Show 4 more MAC addresses") { throw "The combined row must list its other MACs." }
+
+    Open-LinkDevice "Link spare"
+    Expand-LinkSection
+    Invoke-Link MergeMacUnlink001122BB0009
+    Wait-Link {
+        (Find-Link MergeMacUnlinkPrompt -Optional).Current.Name -like "Unlink 00-11-22-BB-00-09?*shared edits stay with the linked device and its other MAC addresses*"
+    } "the larger-device unlink confirmation"
+    Invoke-Link MergeMacUnlinkConfirm
+    Assert-LinkSection "4 MAC addresses" "Expanded"
+    if ((Get-SpareMemberCount) -ne 4 -or
+        (Get-InventorySqliteValue $database "SELECT COUNT(*) FROM declined_matches WHERE id LIKE '%001122BB0009%'") -ne 4) {
+        throw "Unlinking from a larger device must keep it and decline the MAC against every remaining member."
+    }
+    Save-LinkCapture "link-unlinked-from-five" MergeMacAddresses
+    Show-LinkDevices "Link pair B"
+    Wait-Link { @(Get-LinkRows "Link pair B").Count -eq 1 } "the detached MAC's own row and name"
     $phase = Step-UiRegressionPhase $phase $null $ScreenshotDirectory
-    Write-Host "Device linking, shared editing and atomic two-MAC unlink with Cancel, failure retention, keyboard, restart, high contrast and text scaling passed."
+    Write-Host "Device linking, shared editing, group suggestions, adding, combining and unlinking with Cancel, failure retention, keyboard, restart, high contrast and text scaling passed."
 }
 catch {
     $failed = $true

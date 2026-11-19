@@ -115,6 +115,14 @@ public sealed record DeviceInventoryData(
     public IReadOnlySet<string> VirtualGroupedMacs() =>
         VirtualDevices.SelectMany(slot => slot.History.Select(item => item.Mac)).ToHashSet(StringComparer.Ordinal);
 
+    /// <summary>The MACs that act as one unit: a linked device's members, or the MAC itself.</summary>
+    public IReadOnlyList<string> LinkUnit(string mac) =>
+        FindLinkedDevice(mac)?.Members.Select(member => member.Mac).ToArray() ?? [mac];
+
+    /// <summary>
+    /// Links two records, adds a record to a linked device or combines two linked devices. The open device's linked
+    /// identity survives (otherwise the other one's); every member keeps its original linked date and its own values.
+    /// </summary>
     public DeviceInventoryData LinkDevices(string mac, string otherMac, LinkedDeviceChoices choices, DateTimeOffset linkedAt)
     {
         ArgumentNullException.ThrowIfNull(choices);
@@ -123,18 +131,36 @@ public sealed record DeviceInventoryData(
         if (first == second) throw new ArgumentException("A device cannot be linked to itself.", nameof(otherMac));
         if (!Devices.ContainsKey(first) || !Devices.ContainsKey(second))
             throw new ArgumentException("Both linked MAC addresses must be saved devices.");
-        if (FindLinkedDevice(first) is not null || FindLinkedDevice(second) is not null)
-            throw new InvalidOperationException("One of these MAC addresses is already linked to another device.");
+        var open = FindLinkedDevice(first);
+        var other = FindLinkedDevice(second);
+        if (open is not null && open.Id == other?.Id)
+            throw new InvalidOperationException("These MAC addresses are already linked as one device.");
         var grouped = VirtualGroupedMacs();
         if (grouped.Contains(first) || grouped.Contains(second))
             throw new InvalidOperationException("Virtual devices, and the MAC addresses they group, can't be linked.");
         var name = choices.Name?.Trim();
         if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("A linked device needs a name.", nameof(choices));
         var assignment = choices.Assignment is { PersonId: null, RoomId: null } ? null : choices.Assignment;
-        var linked = new LinkedDevice(Guid.NewGuid(), [new(first, linkedAt), new(second, linkedAt)], name,
-            choices.Identification, new(name, choices.Identification), assignment, choices.UsageCategoryOverride);
+        var survivor = open ?? other;
+        var absorbed = open is null ? null : other;
+        IReadOnlyList<LinkedDeviceMember> members = open is null && other is not null
+            ? [.. other.Members, new(first, linkedAt)]
+            : [.. open?.Members ?? [new(first, linkedAt)], .. other?.Members ?? [new(second, linkedAt)]];
+        var representatives = (survivor?.Representatives ?? []).Concat(absorbed?.Representatives ?? [])
+            .DistinctBy(item => (item.NetworkId, item.Subnet)).ToArray();
+        var linked = new LinkedDevice(survivor?.Id ?? Guid.NewGuid(), members, name,
+            choices.Identification, new(name, choices.Identification), assignment, choices.UsageCategoryOverride)
+        {
+            Representatives = representatives
+        };
         if (!linked.IsValid(this)) throw new ArgumentException("The linked device values are invalid.", nameof(choices));
-        return this with { LinkedDevices = [.. LinkedDevices, linked] };
+        var retired = absorbed?.Id;
+        return this with
+        {
+            LinkedDevices = survivor is null ? [.. LinkedDevices, linked]
+                : LinkedDevices.Where(device => device.Id != retired)
+                    .Select(device => device.Id == survivor.Id ? linked : device).ToArray()
+        };
     }
 
     public DeviceInventoryData UpdateLinkedDevice(Guid id, Func<LinkedDevice, LinkedDevice> update)
@@ -148,14 +174,35 @@ public sealed record DeviceInventoryData(
         return this with { LinkedDevices = LinkedDevices.Select(device => device.Id == id ? updated : device).ToArray() };
     }
 
-    /// <summary>Detaches one of two linked members, preserving both records and transferring shared values to the other.</summary>
+    /// <summary>
+    /// Detaches one member, preserving every record. From two members the remaining MAC becomes a normal device with
+    /// the shared values; from more, the linked device keeps its values. The detached MAC is declined against every
+    /// remaining member.
+    /// </summary>
     public DeviceInventoryData UnlinkDevice(string mac)
     {
         var detached = PeopleRoomsData.NormalizeMacAddress(mac);
         var linked = FindLinkedDevice(detached)
             ?? throw new ArgumentException("The MAC address is not linked to another device.", nameof(mac));
-        if (linked.Members.Count != 2)
-            throw new InvalidOperationException("Only a two-MAC linked device can be unlinked here.");
+        var declinedMatches = DeclinedMatches.ToList();
+        foreach (var member in linked.Members.Where(member => member.Mac != detached))
+        {
+            var declined = DeclinedDeviceMatch.Create(detached, member.Mac);
+            if (declinedMatches.All(item => item.Key != declined.Key)) declinedMatches.Add(declined);
+        }
+        if (linked.Members.Count > 2)
+        {
+            var smaller = linked with
+            {
+                Members = linked.Members.Where(member => member.Mac != detached).ToArray(),
+                Representatives = linked.Representatives.Where(item => item.Mac != detached).ToArray()
+            };
+            return this with
+            {
+                DeclinedMatches = declinedMatches,
+                LinkedDevices = LinkedDevices.Select(device => device.Id == linked.Id ? smaller : device).ToArray()
+            };
+        }
 
         var remaining = linked.Members.Single(member => member.Mac != detached).Mac;
         var devices = Devices.ToDictionary(pair => pair.Key, pair => pair.Value);
@@ -172,11 +219,6 @@ public sealed record DeviceInventoryData(
         if (linked.Assignment is { } assignment && (assignment.PersonId is not null || assignment.RoomId is not null))
             assignments[remaining] = assignment;
         var peopleRooms = new PeopleRoomsData(PeopleRooms.People, PeopleRooms.Rooms, assignments);
-
-        var declined = DeclinedDeviceMatch.Create(detached, remaining);
-        var declinedMatches = DeclinedMatches.Any(item => item.Key == declined.Key)
-            ? DeclinedMatches
-            : [.. DeclinedMatches, declined];
 
         return this with
         {
@@ -222,13 +264,19 @@ public sealed record DeviceInventoryData(
         return this with { Devices = devices };
     }
 
+    /// <summary>Declines every current pair between two units (a record or a linked device's members).</summary>
     public DeviceInventoryData DeclineMatch(string mac, string otherMac)
     {
-        var declined = DeclinedDeviceMatch.Create(mac, otherMac);
-        if (!Devices.ContainsKey(declined.FirstMac) || !Devices.ContainsKey(declined.SecondMac))
+        var unit = LinkUnit(PeopleRoomsData.NormalizeMacAddress(mac));
+        var otherUnit = LinkUnit(PeopleRoomsData.NormalizeMacAddress(otherMac));
+        if (unit.Intersect(otherUnit, StringComparer.Ordinal).Any())
+            throw new ArgumentException("A device cannot be declined as its own match.", nameof(otherMac));
+        if (unit.Concat(otherUnit).Any(item => !Devices.ContainsKey(item)))
             throw new ArgumentException("Both declined MAC addresses must be saved devices.");
-        return DeclinedMatches.Any(item => item.Key == declined.Key) ? this
-            : this with { DeclinedMatches = [.. DeclinedMatches, declined] };
+        var declinedMatches = DeclinedMatches.ToList();
+        foreach (var declined in unit.SelectMany(first => otherUnit.Select(second => DeclinedDeviceMatch.Create(first, second))))
+            if (declinedMatches.All(item => item.Key != declined.Key)) declinedMatches.Add(declined);
+        return declinedMatches.Count == DeclinedMatches.Count ? this : this with { DeclinedMatches = declinedMatches };
     }
 
     public DeviceInventoryData UpdateProbeResults(ScanResult result)

@@ -706,6 +706,9 @@ public sealed class ScanResultRow : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>Whether a linked or virtual device's other MAC address lines match a search.</summary>
+    public bool MatchesEarlierMac(string search) => _earlierMacLines.Any(line => line.Matches(search));
+
     public bool MatchesFilter(string? filter)
     {
         var search = filter?.Trim() ?? string.Empty;

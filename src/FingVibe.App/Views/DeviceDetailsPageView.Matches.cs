@@ -6,8 +6,9 @@ namespace FingVibe.App.Views;
 
 public sealed record DeviceMatchCard(string Name, string Status, string Addresses, string Description);
 
-/// <summary>A device offered for linking. Suggestions carry their reason; others may be tagged Declined.</summary>
-public sealed record DeviceLinkChoice(string Mac, DeviceMatchCard Card, string? ShortReason, string? Explanation, bool Declined, string Text)
+/// <summary>A device offered for linking. Suggestions carry their reason; others may be tagged Declined; linked devices show their MAC count.</summary>
+public sealed record DeviceLinkChoice(string Mac, DeviceMatchCard Card, string? ShortReason, string? Explanation, bool Declined, string Text,
+    int MacCount = 1)
 {
     public bool IsSuggested => Explanation is not null;
 }
@@ -31,6 +32,8 @@ public sealed partial class DeviceDetailsPageView
     private bool _matchExpansionApplied;
     private bool _linking;
     private bool _unlinking;
+    private bool _mergeLinked;
+    private int _memberCount;
     private string? _unlinkMac;
     private readonly Dictionary<LinkedField, TextBlock> _mergeResults = [];
     private TextBox? _mergeNameInput;
@@ -56,13 +59,16 @@ public sealed partial class DeviceDetailsPageView
         }
         _merge = model;
         var header = model.Header;
-        MergeMacCount.Text = header.Text;
+        _mergeLinked = header.State is MergeSectionState.Linked or MergeSectionState.LinkedWithMatches;
+        MergeMacCount.Text = header.CountText;
+        MergeMacMatchCount.Text = header.MatchText is { } matches ? $"· {matches}" : string.Empty;
         AutomationProperties.SetName(MergeMacCount, header.Text);
         AutomationProperties.SetHelpText(MergeMacExpander, header.Text);
         VisualStateManager.GoToState(this, header.State switch
         {
             MergeSectionState.PossibleMatches => "MergePossibleMatches",
             MergeSectionState.Linked => "MergeLinked",
+            MergeSectionState.LinkedWithMatches => "MergeLinkedWithMatches",
             MergeSectionState.Unavailable => "MergeUnavailable",
             _ => "MergeNoSuggestions"
         }, false);
@@ -71,7 +77,7 @@ public sealed partial class DeviceDetailsPageView
         AutomationProperties.SetName(MergeMacExplanation, header.Explanation);
         ShowLinkedMembers(model.Members);
 
-        var canLink = header.State is MergeSectionState.NoSuggestions or MergeSectionState.PossibleMatches;
+        var canLink = header.State != MergeSectionState.Unavailable;
         if (!canLink)
         {
             _selectedMatch = null;
@@ -92,7 +98,7 @@ public sealed partial class DeviceDetailsPageView
         MergeMacThisAddresses.Text = model.Device.Addresses;
         MergeMacThisDescription.Text = model.Device.Description;
         MergeMacActions.Visibility = canLink ? Visibility.Visible : Visibility.Collapsed;
-        if (!_matchExpansionApplied && header.State == MergeSectionState.PossibleMatches)
+        if (!_matchExpansionApplied && header.State is MergeSectionState.PossibleMatches or MergeSectionState.LinkedWithMatches)
         {
             MergeMacExpander.IsExpanded = true;
             _matchExpansionApplied = true;
@@ -155,6 +161,7 @@ public sealed partial class DeviceDetailsPageView
 
     private void ShowLinkedMembers(IReadOnlyList<LinkedMemberLine> members)
     {
+        _memberCount = members.Count;
         MergeMacLinkedMembers.Children.Clear();
         foreach (var member in members)
         {
@@ -168,7 +175,7 @@ public sealed partial class DeviceDetailsPageView
             };
             AutomationProperties.SetName(line, member.Text);
             row.Children.Add(line);
-            if (members.Count == 2)
+            if (members.Count >= 2)
             {
                 var unlink = new Button
                 {
@@ -194,8 +201,9 @@ public sealed partial class DeviceDetailsPageView
         var suggestions = _merge?.Suggestions ?? [];
         var selected = _selectedMatch;
         MergeMacCandidatePanel.Visibility = selected is null ? Visibility.Collapsed : Visibility.Visible;
-        MergeMacChangeDevice.Content = selected is null ? "Choose device..." : "Change device...";
-        AutomationProperties.SetName(MergeMacChangeDevice, selected is null ? "Choose device" : "Change device");
+        var choose = _mergeLinked ? "Add MAC address" : "Choose device";
+        MergeMacChangeDevice.Content = selected is null ? $"{choose}..." : "Change device...";
+        AutomationProperties.SetName(MergeMacChangeDevice, selected is null ? choose : "Change device");
         MergeMacDecline.Visibility = selected?.IsSuggested == true ? Visibility.Visible : Visibility.Collapsed;
         if (selected is not null)
         {
@@ -372,13 +380,14 @@ public sealed partial class DeviceDetailsPageView
                 content.Children.Add(new TextBlock { Text = choice.Card.Addresses, TextWrapping = TextWrapping.Wrap, FontSize = 12 });
                 if (choice.ShortReason is { } reason)
                     content.Children.Add(new TextBlock { Text = reason, TextWrapping = TextWrapping.Wrap, FontSize = 12 });
-                if (choice.Declined)
+                foreach (var tag in new[] { choice.MacCount > 1 ? $"{choice.MacCount} MAC addresses" : null,
+                             choice.Declined ? "Declined" : null }.OfType<string>())
                     content.Children.Add(new Border
                     {
                         BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(4), Padding = new Thickness(6, 0, 6, 0),
                         HorizontalAlignment = HorizontalAlignment.Left,
                         BorderBrush = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
-                        Child = new TextBlock { Text = "Declined", FontSize = 12 }
+                        Child = new TextBlock { Text = tag, FontSize = 12 }
                     });
                 var item = new ListViewItem { Content = content, Tag = choice };
                 AutomationProperties.SetName(item, choice.Text);
@@ -439,7 +448,8 @@ public sealed partial class DeviceDetailsPageView
         MergeMacUnlinkPrompt.Text =
             $"Unlink {LinkedMemberLine.FormatMac(mac)}? It becomes a separate device again, with its latest "
             + "member-specific name, identification, Person, Room and usage category; shared edits stay with the "
-            + "remaining device. Its history stays with it.";
+            + (_memberCount > 2 ? "linked device and its other MAC addresses" : "remaining device")
+            + ". Its history stays with it.";
         AutomationProperties.SetName(MergeMacUnlinkPrompt, MergeMacUnlinkPrompt.Text);
         MergeMacError.IsOpen = false;
         MergeMacUnlinkConfirmation.Visibility = Visibility.Visible;

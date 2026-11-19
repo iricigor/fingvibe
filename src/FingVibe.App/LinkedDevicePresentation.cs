@@ -3,18 +3,23 @@ using FingVibe.Core.Models;
 
 namespace FingVibe.App;
 
-public enum MergeSectionState { NoSuggestions, PossibleMatches, Linked, Unavailable }
+public enum MergeSectionState { NoSuggestions, PossibleMatches, Linked, LinkedWithMatches, Unavailable }
 
-public sealed record MergeSectionHeader(MergeSectionState State, string Text, string Explanation);
+/// <summary>The collapsed header: a count (and, for a linked device with suggestions, a separate match count).</summary>
+public sealed record MergeSectionHeader(MergeSectionState State, string CountText, string Explanation, string? MatchText = null)
+{
+    public string Text => MatchText is null ? CountText : $"{CountText} · {MatchText}";
+}
 
 public enum LinkedField { Name, DeviceType, OperatingSystem, Vendor, Family, Model, Icon, Person, Room, UsageCategory }
 
 public enum LinkedFieldChoice { None, ThisDevice, OtherDevice, Typed }
 
-/// <summary>A record offered by the Choose device picker; suggestions carry their reason.</summary>
-public sealed record LinkCandidate(string Mac, ScanResultRow Row, DeviceMatchSuggestion? Suggestion, bool Declined)
+/// <summary>A record or linked device offered by the picker; suggestions carry their reason.</summary>
+public sealed record LinkCandidate(string Mac, ScanResultRow Row, DeviceMatchSuggestion? Suggestion, bool Declined, int MacCount = 1)
 {
     public bool IsSuggested => Suggestion is not null;
+    public bool IsLinkedDevice => MacCount > 1;
 }
 
 public sealed record LinkedMemberLine(string Mac, string Address, string AdapterVendor, string Status, DateTimeOffset LinkedAt, bool IsShownInDevices)
@@ -194,36 +199,53 @@ public static class LinkedDevicePresentation
             return new(MergeSectionState.Unavailable, "Not available without a saved MAC address",
                 "Linking needs a saved MAC address record. IP addresses can change.");
         if (data.FindLinkedDevice(mac) is { } linked)
-            return new(MergeSectionState.Linked, $"{linked.Members.Count} MAC addresses", LinkedExplanation);
+            return row.MatchSuggestions.Count == 0
+                ? new(MergeSectionState.Linked, $"{linked.Members.Count} MAC addresses", LinkedExplanation)
+                : new(MergeSectionState.LinkedWithMatches, $"{linked.Members.Count} MAC addresses", LinkedExplanation,
+                    MatchCount(row.MatchSuggestions.Count));
         return row.MatchSuggestions.Count switch
         {
             0 => new(MergeSectionState.NoSuggestions, "No suggestions",
                 "No other record looks like this device. Choose a device to link it manually."),
-            1 => new(MergeSectionState.PossibleMatches, "1 possible match", string.Empty),
-            var count => new(MergeSectionState.PossibleMatches, $"{count} possible matches", string.Empty)
+            var count => new(MergeSectionState.PossibleMatches, MatchCount(count), string.Empty)
         };
     }
 
-    /// <summary>Suggestions first (strongest first), then every other unlinked record outside virtual devices.</summary>
+    private static string MatchCount(int count) => count == 1 ? "1 possible match" : $"{count} possible matches";
+
+    /// <summary>
+    /// Suggestions first (strongest first), then every other record or linked device outside virtual devices. A linked
+    /// device is offered once with its MAC count; the open device's own members are never offered.
+    /// </summary>
     public static IReadOnlyList<LinkCandidate> Candidates(ScanResultRow device, IEnumerable<ScanResultRow> rows,
         DeviceInventoryData data, string? search = null)
     {
         var mac = device.MacAddress?.ToString() ?? throw new ArgumentException("A MAC address is required.", nameof(device));
+        var own = data.LinkUnit(mac).ToHashSet(StringComparer.Ordinal);
         var grouped = data.VirtualGroupedMacs();
         var declined = data.DeclinedMatches.Select(item => item.Key).ToHashSet(StringComparer.Ordinal);
-        var eligible = rows.Where(row => row.VirtualDevice is null && row.MacAddress?.GetAddressBytes().Length == 6)
-            .Select(row => (Mac: row.MacAddress!.ToString(), Row: row))
-            .Where(item => item.Mac != mac && data.Devices.ContainsKey(item.Mac) && !grouped.Contains(item.Mac)
-                && data.FindLinkedDevice(item.Mac) is null)
-            .DistinctBy(item => item.Mac)
-            .ToDictionary(item => item.Mac, item => item.Row, StringComparer.Ordinal);
-        var suggested = device.MatchSuggestions.Where(item => eligible.ContainsKey(item.OtherMac))
-            .Select(item => new LinkCandidate(item.OtherMac, eligible[item.OtherMac], item, false)).ToArray();
-        var others = eligible.Where(pair => suggested.All(item => item.Mac != pair.Key))
-            .OrderBy(pair => pair.Value.NameText, StringComparer.CurrentCultureIgnoreCase)
-            .ThenBy(pair => pair.Key, StringComparer.Ordinal)
-            .Select(pair => new LinkCandidate(pair.Key, pair.Value, null,
-                declined.Contains(DeclinedDeviceMatch.Create(mac, pair.Key).Key)));
+        var eligible = new List<(string Mac, ScanResultRow Row, IReadOnlyList<string> Unit)>();
+        foreach (var row in rows.Where(row => row.VirtualDevice is null && row.MacAddress?.GetAddressBytes().Length == 6))
+        {
+            var rowMac = row.MacAddress!.ToString();
+            if (own.Contains(rowMac) || !data.Devices.ContainsKey(rowMac) || grouped.Contains(rowMac)) continue;
+            var linked = data.FindLinkedDevice(rowMac);
+            if (linked is not null && !row.IsLinkedDeviceRow) continue;
+            if (eligible.Any(item => item.Unit.Contains(rowMac))) continue;
+            eligible.Add((rowMac, row, linked is null ? [rowMac] : data.LinkUnit(rowMac)));
+        }
+        var suggested = device.MatchSuggestions
+            .Select(item => (Suggestion: item, Entry: eligible.FirstOrDefault(entry => entry.Unit.Contains(item.OtherMac))))
+            .Where(item => item.Entry.Row is not null)
+            .DistinctBy(item => item.Entry.Mac)
+            .Select(item => new LinkCandidate(item.Suggestion.OtherMac, item.Entry.Row, item.Suggestion, false, item.Entry.Unit.Count))
+            .ToArray();
+        var others = eligible.Where(entry => suggested.All(item => item.Row != entry.Row))
+            .OrderBy(entry => entry.Row.NameText, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(entry => entry.Mac, StringComparer.Ordinal)
+            .Select(entry => new LinkCandidate(entry.Mac, entry.Row, null,
+                own.All(first => entry.Unit.All(second => declined.Contains(DeclinedDeviceMatch.Create(first, second).Key))),
+                entry.Unit.Count));
         return suggested.Concat(others).Where(item => Matches(item, search)).ToArray();
     }
 
@@ -246,6 +268,7 @@ public static class LinkedDevicePresentation
 
     public static string CandidateText(LinkCandidate candidate) =>
         $"{candidate.Row.NameText} · {candidate.Row.AddressText} · {candidate.Row.MacAddressText}"
+        + (candidate.IsLinkedDevice ? $" · {candidate.MacCount} MAC addresses" : string.Empty)
         + (candidate.Suggestion is { } suggestion ? $" · {suggestion.ShortReason}" : string.Empty)
         + (candidate.Declined ? " · Declined" : string.Empty);
 
@@ -259,6 +282,7 @@ public static class LinkedDevicePresentation
             || row.AddressText.Contains(text, StringComparison.OrdinalIgnoreCase)
             || row.MacAddressText.Contains(text, StringComparison.OrdinalIgnoreCase)
             || compact.Length > 0 && candidate.Mac.Contains(compact, StringComparison.OrdinalIgnoreCase)
-            || row.VendorDisplayText.Contains(text, StringComparison.CurrentCultureIgnoreCase);
+            || row.VendorDisplayText.Contains(text, StringComparison.CurrentCultureIgnoreCase)
+            || candidate.IsLinkedDevice && row.MatchesEarlierMac(text);
     }
 }
