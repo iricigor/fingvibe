@@ -11,6 +11,7 @@ if ($env:GITHUB_ACTIONS -ne "true") { throw "Device activity UI checks require a
 . (Join-Path $PSScriptRoot "Inventory.Sqlite.Helpers.ps1")
 . (Join-Path $PSScriptRoot "DeviceActivity.Fixture.ps1")
 Initialize-InventorySqlite $AppPath
+Add-Type -Path (Join-Path (Split-Path -Parent $AppPath) "FingVibe.Core.dll")
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes, System.Windows.Forms
 . (Join-Path $PSScriptRoot "ActivityGrid.Ui.Helpers.ps1")
 
@@ -288,6 +289,7 @@ try {
     $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
     $phase = Start-UiRegressionPhase -Name "activity/evidence-and-lifecycle"
     New-DeviceActivityFixture $fixture
+    Add-DeviceActivityLinkedFixture $fixture
     $env:FINGVIBE_UI_REVIEW = "1"
     $env:FINGVIBE_UI_REVIEW_INVENTORY = Join-Path $fixture "inventory.json"
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = Join-Path $fixture "snapshot.json"
@@ -380,6 +382,18 @@ try {
     Open-ActivityDevice
     $null = Wait-ActivityState "30 days by weekday, 1-hour cells" $imported.Request
     if ((Find-Activity ActivityStatus).Current.Name -notlike "*squares have scan results*") { throw "Restored device selection lost scan evidence." }
+
+    Open-ActivityDevice "Activity linked"
+    $linked = Wait-ActivityState "30 days by weekday, 1-hour cells" $imported.Request
+    $linkedWednesday = Select-ActivityCell 2 9
+    if ($linkedWednesday.Current.Name -notmatch '3 responding days / [45] applicable dates') {
+        throw "The linked Activity identity did not combine the member evidence: $($linkedWednesday.Current.Name)"
+    }
+    if ((Find-Activity ActivityStatus).Current.Name -notlike "*squares have scan results*") {
+        throw "The linked member without network evidence incorrectly removed available Activity."
+    }
+    Open-ActivityDevice
+    $null = Wait-ActivityState "30 days by weekday, 1-hour cells" $linked.Request
 
     $hoursRequest = Start-HeldActivityRefresh
     $previousRequests = @(Get-ActivityRequests)

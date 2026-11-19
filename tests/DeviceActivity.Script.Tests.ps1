@@ -95,9 +95,11 @@ try {
         $null = [Reflection.Assembly]::LoadFrom((Join-Path $bin $name))
     }
     [SQLitePCL.Batteries_V2]::Init()
+    Add-DeviceActivityLinkedFixture $fixture
     $store = [FingVibe.Core.Storage.DeviceInventoryStore]::new((Join-Path $fixture "inventory.sqlite"))
     $token = [Threading.CancellationToken]::None
     $saved = $store.LoadMetadataAsync($token).GetAwaiter().GetResult()
+    if ($saved.LinkedDevices.Count -ne 1) { throw "Native Activity fixture must persist one linked device." }
     $identity = [FingVibe.Core.Models.LogicalDeviceId]::Mac("001122334455")
     $ids = [FingVibe.Core.Models.LogicalDeviceId[]]@($identity)
     $request = [FingVibe.Core.Models.AnalyticsEvidenceRequest]::new(
@@ -116,6 +118,18 @@ try {
     $wednesday = @($weekdays | Where-Object { $_.Day.ToString() -eq "Wednesday" -and $_.StartHour -eq 9 })[0]
     if ($wednesday.RespondingDates -ne 3 -or $wednesday.ApplicableDates -notin @(4, 5) -or
         $wednesday.UnknownDates -ne $wednesday.ApplicableDates - 3) { throw "Native weekday fixture denominator is incorrect." }
+    $linkedIdentity = [FingVibe.Core.Models.LogicalDeviceId]::Linked($saved.LinkedDevices[0].Id)
+    $linkedIds = [FingVibe.Core.Models.LogicalDeviceId[]]@($linkedIdentity)
+    $linkedRequest = [FingVibe.Core.Models.AnalyticsEvidenceRequest]::new(
+        "ui-review-network", "127.0.0.1/32", [DateTimeOffset]::UtcNow, 30, [TimeZoneInfo]::Local,
+        $saved.Revision, $linkedIds)
+    $linkedEvidence = $store.QueryAnalyticsAsync($linkedRequest, $token).GetAwaiter().GetResult()
+    $linkedBuckets = [FingVibe.Core.Models.DeviceActivity]::Group($linkedEvidence, 1, $token)
+    $linkedPositive = @($linkedBuckets.Days | Where-Object { $_.Date -eq $yesterday -and $_.StartHour -eq 11 })[0]
+    if ($linkedEvidence.Devices.Count -ne 1 -or $linkedEvidence.Devices[0].Identity -ne $linkedIdentity -or
+        $linkedPositive.Devices[0].Responded -ne 1 -or $linkedPositive.Devices[0].DidNotRespond -ne 2) {
+        throw "Native linked Activity identity did not combine the eligible member evidence."
+    }
     $writer = [Microsoft.Data.Sqlite.SqliteConnection]::new("Data Source=$(Join-Path $fixture 'inventory.sqlite');Pooling=False")
     try {
         $writer.Open()

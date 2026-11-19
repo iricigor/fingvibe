@@ -120,8 +120,13 @@ return to the values confirmed when you linked the records.
 
 Each MAC keeps its own saved name, identification, Person/Room and category
 while linked, ready for a later Unlink. Unlink is not available yet; it is
-planned separately. Activity, usage evidence and the History card still use the
-MAC address shown in Devices.
+planned separately. Activity and automatic usage evidence use the linked device:
+any responding member makes a scan a response, every eligible member must have
+a nonresponse for that scan to count as no response, and otherwise the scan
+remains unknown. Members never observed on the selected network do not
+contribute. Evidence collected before linking remains part of the current
+members' combined history. The History card remains separate; it still uses the
+representative MAC until that surface is updated later.
 
 ## Rename
 
@@ -252,6 +257,8 @@ Green/R means responded; amber/minus means scanned with no response, not absence
 A muted `?` marks no scan data; dim dots mark later today. A small trailing `?`
 beside a weekday count marks unknown dates without changing its denominator.
 Skipped DST hours show `N/A`. Scroll horizontally when needed to reach all hours.
+For a linked device, each square combines the current member MACs under those
+same response rules, including history collected before they were linked.
 The newest-first **Scan observations** list retains paging and exact timestamps
 in accessible row descriptions and tooltips.
 See [History and usage categories](history.md).

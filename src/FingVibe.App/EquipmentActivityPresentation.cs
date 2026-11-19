@@ -26,13 +26,15 @@ public static class EquipmentActivityPresentation
         var categories = DeviceUsageClassifier.Classify(
             evidence with { FirstDate = evidence.LastDate.AddDays(-6) }, cancellationToken);
         var slots = data.VirtualDevices.ToDictionary(slot => LogicalDeviceId.Virtual(slot.Id));
+        var linked = data.LinkedDevices.ToDictionary(device => LogicalDeviceId.Linked(device.Id));
         var names = new string[evidence.Devices.Count];
         var contributors = new ActivityContributor[names.Length];
         for (var index = 0; index < names.Length; index++)
         {
             cancellationToken.ThrowIfCancellationRequested();
             var id = evidence.Devices[index].Identity;
-            var row = id.Kind == "virtual" ? new ScanResultRow(slots[id], data, 0)
+            var row = id.Kind == "linked" ? ScanResultRow.ForLinkedDevice(linked[id], data)
+                : id.Kind == "virtual" ? new ScanResultRow(slots[id], data, 0)
                 : data.Devices.TryGetValue(id.Id, out var device) ? ScanResultRow.ForDevice(device, data) : null;
             names[index] = row?.NameText ?? id.Id;
             var category = (row is null ? null : data.GetUsageCategoryOverride(id)) ?? categories[id].Category;

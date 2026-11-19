@@ -114,11 +114,11 @@ try {
     Start-NetworkApp
     $null = Wait-NetworkActivity
     Assert-NetworkPeers
-    Assert-NetworkCell NetworkActivityCell-5-12 "*3 distinct devices; exact daily count*"
+    Assert-NetworkCell NetworkActivityCell-5-12 "*2 distinct devices; exact daily count*"
     Assert-NetworkCell NetworkActivityCell-5-13 "*0 distinct devices; exact daily count*"
-    Assert-NetworkCell NetworkActivityCell-5-14 "*At least 2 devices*"
+    Assert-NetworkCell NetworkActivityCell-5-14 "*At least 1 devices*"
     Assert-NetworkCell NetworkActivityCell-5-15 "*Unknown - no eligible scan evidence*"
-    foreach ($state in @(@(12, "3"), @(13, "0"), @(14, "2+"), @(15, "?"))) {
+    foreach ($state in @(@(12, "2"), @(13, "0"), @(14, "1+"), @(15, "?"))) {
         $null = Assert-ActivityGridGlyph (Show-NetworkActivity "NetworkActivityCell-5-$($state[0])") $state[1]
     }
     Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-daily-evidence.png")
@@ -136,8 +136,8 @@ try {
     Choose-NetworkActivity NetworkActivityPeriod "Last 30 days"
     Assert-NetworkCell NetworkActivityCell-29-23 "*-24:00*"
     Choose-NetworkActivity NetworkActivityPeriod "30 days by weekday"
-    Assert-NetworkCell NetworkActivityCell-2-9 "*Average 12 devices; exact sum 36 / 3 exact dates*"
-    $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-2-9) "12?"
+    Assert-NetworkCell NetworkActivityCell-2-9 "*Average 11 devices; exact sum 33 / 3 exact dates*"
+    $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-2-9) "11?"
     [Windows.Forms.SendKeys]::SendWait("{RIGHT}{LEFT}{ENTER}")
     Assert-NetworkCell NetworkActivityCell-2-9 "*3 / * applicable dates observed*"
     Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-weekdays.png")
@@ -191,7 +191,7 @@ try {
     (Show-NetworkActivity NetworkActivityRefresh).GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
     $null = Wait-NetworkActivity $malformed.Request
     Assert-NetworkPeers
-    Assert-NetworkCell NetworkActivityCell-5-6 "*2 distinct devices*"
+    Assert-NetworkCell NetworkActivityCell-5-6 "*1 distinct devices*"
     foreach ($hours in @(3, 4, 1)) {
         $before = (Get-UiRegressionSurfaceState -GetElement { Find-NetworkActivity NetworkActivityScroll } -Description Network).Request
         (Show-NetworkActivity NetworkActivityHours).GetCurrentPattern([Windows.Automation.RangeValuePattern]::Pattern).SetValue($hours)
@@ -218,8 +218,8 @@ try {
         Set-UiReviewTheme -Root $script:root -Theme $theme
         (Find-NetworkActivity NetworkNavItem).GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
         $null = Wait-NetworkActivity $before
-        Assert-NetworkCell NetworkActivityCell-5-12 "*2 distinct devices*"
-        $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-5-12) "2"
+        Assert-NetworkCell NetworkActivityCell-5-12 "*1 distinct devices*"
+        $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-5-12) "1"
         $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-5-15) "?"
         Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-$($theme.Replace(' ', '-')).png")
     }
@@ -235,14 +235,14 @@ try {
         throw "Narrow Network activity must retain horizontally reachable cells."
     }
     Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-narrow.png")
-    $normalGlyphHeight = (Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-5-12) "2").Current.BoundingRectangle.Height
+    $normalGlyphHeight = (Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-5-12) "1").Current.BoundingRectangle.Height
     Invoke-ActivityGridHighContrast -Check {
-        $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-5-12) "2"
+        $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-5-12) "1"
         $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-5-13) "0"
         $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-5-15) "?"
         Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-high-contrast.png")
         Choose-NetworkActivity NetworkActivityPeriod "30 days by weekday"
-        $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-2-9) "2?"
+        $null = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-2-9) "1?"
         Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-high-contrast-weekdays.png")
         Choose-NetworkActivity NetworkActivityPeriod "Last 7 days"
     }
@@ -255,7 +255,7 @@ try {
         $null = Wait-NetworkActivity
     } -Stop { Stop-UiRegressionApp -Process $script:process } -Check {
         Choose-NetworkActivity NetworkActivityPeriod "30 days by weekday"
-        $largeGlyph = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-2-9) "12?"
+        $largeGlyph = Assert-ActivityGridGlyph (Show-NetworkActivity NetworkActivityCell-2-9) "11?"
         if ($largeGlyph.Current.BoundingRectangle.Height -le $normalGlyphHeight * 1.5) {
             throw "Network activity text did not actually enlarge with Windows text scale."
         }

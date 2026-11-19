@@ -36,6 +36,18 @@ Weekday counts keep their applicable-date denominator; a small trailing `?`
 marks unknown dates. Skipped DST hours show `N/A`.
 There is no normal Refresh button; failed loads offer **Retry**.
 
+For a linked device, one Activity column combines the current member MACs:
+any eligible response wins; otherwise all eligible members must have a recorded
+nonresponse for **no response**. If one member is unknown and none responded,
+the result remains unknown. Members never observed on the selected network do
+not contribute. The combination includes each current member's history from
+before the link.
+
+Network Activity and a person's equipment Activity count that linked column
+once. Changing current membership changes later queries without rewriting saved
+MAC evidence. If a link is later removed, each MAC returns to independent
+analytics; the remaining linked device stops including the detached MAC.
+
 The newest-first **Scan observations** list below retains paging. Each row's
 accessible description and tooltip preserve its exact local timestamp and offset.
 Saved scans are not continuous live status.
@@ -54,6 +66,8 @@ The **Usage category** column can show:
 Rules run in that order. They use today and the previous six local dates on
 the selected network, bounded by the device's first reliable sighting.
 Overnight is 18:00-06:00; weekends also belong to that comparison group.
+For a linked device, the same rules use the combined member responses above and
+one shared category. A saved shared override still takes precedence.
 
 **Limited evidence** means the result is based on too few dates or scans to
 meet the app's evidence thresholds. The category may still appear.

@@ -27,22 +27,24 @@ try {
     $request = [FingVibe.Core.Models.AnalyticsEvidenceRequest]::new(
         "ui-review-network", "127.0.0.1/32", [DateTimeOffset]::UtcNow, 30, [TimeZoneInfo]::Local, $data.Revision, $selection.QueryDevices)
     $evidence = $store.QueryAnalyticsAsync($request, $token).GetAwaiter().GetResult()
-    if ($data.Devices.Count -ne 1000 -or $evidence.Devices.Count -ne 3) { throw "Equipment query did not isolate three assignments from the large inventory." }
+    if ($data.Devices.Count -ne 1000 -or $evidence.Devices.Count -ne 2 -or $data.LinkedDevices.Count -ne 1) {
+        throw "Equipment query did not isolate one linked device plus one independent assignment from the large inventory."
+    }
     $latest = [FingVibe.Core.Models.EquipmentActivity]::Latest($evidence)
-    if ($latest.State.ToString() -ne "Online" -or $latest.Responded -ne 2 -or $latest.Total -ne 3) { throw "Native latest-scan fixture is incorrect." }
+    if ($latest.State.ToString() -ne "Online" -or $latest.Responded -ne 1 -or $latest.Total -ne 2) { throw "Native latest-scan fixture is incorrect." }
     $contributors = [FingVibe.Core.Models.ActivityContributor[]]@($evidence.Devices | ForEach-Object {
         [FingVibe.Core.Models.ActivityContributor]::new($_.Identity, $null, 0, 0)
     })
     $buckets = [FingVibe.Core.Models.DeviceActivity]::Group($evidence, 1, $token)
     $days = [FingVibe.Core.Models.NetworkActivity]::Count($buckets, $contributors, [FingVibe.Core.Models.ActivityCountFilter]::new(), $token)
     $yesterday = [DateOnly]::FromDateTime([DateTime]::Today.AddDays(-1))
-    foreach ($expected in @(@(12, 2, "Exact"), @(13, 0, "Exact"), @(14, 2, "Partial"), @(15, 0, "Unknown"))) {
+    foreach ($expected in @(@(12, 1, "Exact"), @(13, 0, "Exact"), @(14, 1, "Partial"), @(15, 0, "Unknown"))) {
         $day = @($days | Where-Object { $_.Date -eq $yesterday -and $_.StartHour -eq $expected[0] })[0]
         if ($day.Count -ne $expected[1] -or $day.Coverage.ToString() -ne $expected[2]) { throw "Incorrect equipment count fixture at $($expected[0]): $day" }
     }
     $week = [FingVibe.Core.Models.NetworkActivity]::ByWeekday($days, $token)
     $wednesday = @($week | Where-Object { $_.Day.ToString() -eq "Wednesday" -and $_.StartHour -eq 10 })[0]
-    if ($wednesday.Mean -ne 1.5 -or $wednesday.ExactDates -ne 2) { throw "Native equipment weekday fixture is incorrect." }
+    if ($wednesday.Mean -ne 1 -or $wednesday.ExactDates -ne 2) { throw "Native equipment weekday fixture is incorrect." }
     $empty = [FingVibe.Core.Models.EquipmentActivity]::Select($data,
         [Guid]"00000000-0000-0000-0000-000000000242", "ui-review-network", "127.0.0.1/32")
     if ($empty.QueryDevices.Count -ne 0) { throw "No-equipment person inherited another person's assignments." }
