@@ -527,6 +527,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#add-mac-addresses-and-combine-linked-devices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Add MAC addresses and combine linked devices
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#edit-a-linked-device" class="md-nav__link">
     <span class="md-ellipsis">
       Edit a linked device
@@ -536,9 +545,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#unlink-two-mac-addresses" class="md-nav__link">
+  <a href="#unlink-mac-addresses" class="md-nav__link">
     <span class="md-ellipsis">
-      Unlink two MAC addresses
+      Unlink MAC addresses
     </span>
   </a>
   
@@ -1216,6 +1225,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#add-mac-addresses-and-combine-linked-devices" class="md-nav__link">
+    <span class="md-ellipsis">
+      Add MAC addresses and combine linked devices
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#edit-a-linked-device" class="md-nav__link">
     <span class="md-ellipsis">
       Edit a linked device
@@ -1225,9 +1243,9 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#unlink-two-mac-addresses" class="md-nav__link">
+  <a href="#unlink-mac-addresses" class="md-nav__link">
     <span class="md-ellipsis">
-      Unlink two MAC addresses
+      Unlink MAC addresses
     </span>
   </a>
   
@@ -1384,7 +1402,9 @@ that two records represent the same device, and does not automatically link them
   expanded section offers <strong>Choose device...</strong> to link a record manually.</li>
 <li><strong>N possible matches</strong> with a yellow link icon: another record may be the same
   physical device (<a href="../devices/#possible-matching-mac-addresses">how matches are found</a>).</li>
-<li><strong>2 MAC addresses</strong> in green: you linked these records as one device.</li>
+<li><strong>N MAC addresses</strong> in green: you linked these records as one device.</li>
+<li><strong>N MAC addresses · N possible matches</strong> in green and yellow, with a yellow
+  link icon: a linked device with a new suggestion.</li>
 <li><strong>Not available for virtual devices</strong> in pale gray. A virtual device groups
   changing private MAC addresses automatically, so it can't be linked. You can
   still name it and assign it to a person or room.</li>
@@ -1397,10 +1417,12 @@ device remains open; later refreshes do not reopen it.</p>
 vendor / OS / type. For a suggestion, <em>Suggested because …</em> states the reason
 and that the suggestion does not establish physical identity.</p>
 <ul>
-<li><strong>Change device...</strong> (or <strong>Choose device...</strong>) opens a searchable picker.
-  <strong>Suggested</strong> lists suggestions strongest first with their reason; <strong>Other
-  devices</strong> lists every other unlinked record that isn't part of a virtual
-  device. Declined pairs are tagged <strong>Declined</strong> and can still be linked
+<li><strong>Change device...</strong> (or <strong>Choose device...</strong>, or <strong>Add MAC address...</strong> for
+  a linked device) opens a searchable picker. <strong>Suggested</strong> lists suggestions
+  strongest first with their reason; <strong>Other devices</strong> lists every other record
+  or linked device that isn't part of a virtual device. A linked device appears
+  once, tagged <strong>N MAC addresses</strong>; a linked device's own MAC addresses are never
+  listed. Declined pairs are tagged <strong>Declined</strong> and can still be linked
   manually. Virtual devices can't be linked and aren't listed.</li>
 <li><strong>Decline suggestion</strong> keeps the two records separate permanently. Both link
   icons for that pair disappear, other suggestions remain, and the next
@@ -1429,7 +1451,29 @@ source records are deleted.</p>
 <p>After linking, the two records become <a href="../devices/#linked-devices">one row in Devices</a>,
 and the section says <strong>Linked by you</strong>. It lists each MAC address with its IP,
 adapter vendor, status and the date it was linked, and marks the representative
-MAC address <strong>Shown in Devices</strong>. Linked records get no new suggestions yet.</p>
+MAC address <strong>Shown in Devices</strong>.</p>
+<h3 id="add-mac-addresses-and-combine-linked-devices">Add MAC addresses and combine linked devices<a class="headerlink" href="#add-mac-addresses-and-combine-linked-devices" title="Permanent link">&para;</a></h3>
+<p>A linked device can hold more than two MAC addresses. In its expanded section,
+<strong>Add MAC address...</strong> opens the same picker and <strong>Choose the shared device
+data</strong> comparison, with the same explicit choices, <strong>Cancel</strong> and failed-save
+behavior. <strong>This device</strong> shows the linked device's shared values.</p>
+<ul>
+<li>Choosing a record adds its MAC address.</li>
+<li>Choosing another linked device adds all of its MAC addresses. The device you
+  have open keeps its identity, and the other linked device disappears only when
+  the save succeeds.</li>
+<li>Every MAC address keeps its original linked date and its own saved name,
+  identification, Person/Room and category for a later Unlink. The values you
+  choose become the shared values, and <strong>Restore … chosen when linked</strong> returns
+  to them.</li>
+</ul>
+<p>A linked device gets suggestions as one device. Another record is suggested
+when it matches any of its MAC addresses through that MAC address's own
+evidence (the shared name or identification you chose is not evidence), and it
+appears once with the strongest reason. MAC addresses of the same linked device
+are never suggested to each other. Declining a linked device's suggestion
+declines every current pair between them; a MAC address added later can be
+suggested again.</p>
 <h3 id="edit-a-linked-device">Edit a linked device<a class="headerlink" href="#edit-a-linked-device" title="Permanent link">&para;</a></h3>
 <p>Use the existing name, identification, <strong>Person</strong>/<strong>Room</strong> and usage-category
 editors in the linked device's Device Details; they change the shared values.
@@ -1446,21 +1490,23 @@ selected network do not contribute. Evidence collected before linking remains
 part of the current members' combined history. The History card remains
 separate; it still uses the representative MAC until that surface is updated
 later.</p>
-<h3 id="unlink-two-mac-addresses">Unlink two MAC addresses<a class="headerlink" href="#unlink-two-mac-addresses" title="Permanent link">&para;</a></h3>
+<h3 id="unlink-mac-addresses">Unlink MAC addresses<a class="headerlink" href="#unlink-mac-addresses" title="Permanent link">&para;</a></h3>
 <p>In the expanded linked-device section, each MAC address has <strong>Unlink</strong>. Choose
 it to review the inline confirmation, then choose <strong>Unlink</strong> again to save or
 <strong>Cancel</strong> to leave everything unchanged.</p>
 <p>The detached MAC becomes a separate device with its latest member-specific
 name, identification, Person, Room and usage category. Imported and discovered
-values received while linked remain available to it. The remaining device keeps
-the linked device's current shared values as ordinary saved values; a later
-Reset uses that MAC's normal imported or discovered values. Both MACs keep their
-addresses, vendors, observations and scan histories. The pair is permanently
-declined as an automatic suggestion, but it can still be linked manually.</p>
-<p>After unlinking, Devices, Overview and People &amp; Rooms show and count the two MAC
-addresses as separate devices again, and Device Details reopens on the remaining
-device. Activity and usage evidence again use each MAC's own history, including
-evidence collected while linked.</p>
+values received while linked remain available to it. With three or more MAC
+addresses, the linked device keeps its current values and other MAC addresses.
+With two, the remaining device keeps the linked device's current shared values
+as ordinary saved values; a later Reset uses that MAC's normal imported or
+discovered values. Every MAC keeps its addresses, vendors, observations and scan
+histories. The detached MAC is permanently declined as an automatic suggestion
+against every remaining MAC address, but it can still be linked manually.</p>
+<p>After unlinking, Devices, Overview and People &amp; Rooms show and count the
+detached MAC address as a separate device again, and Device Details reopens on
+the remaining device. Activity and usage evidence again use the detached MAC's
+own history, including evidence collected while linked.</p>
 <p>If saving fails, the section shows the error and keeps the linked device and
 confirmation in place.</p>
 <h2 id="rename">Rename<a class="headerlink" href="#rename" title="Permanent link">&para;</a></h2>

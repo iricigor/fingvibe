@@ -1433,6 +1433,11 @@ records, virtual devices and the MAC records they group are never suggested.
 MAC prefix, adapter vendor, nearby IP addresses, open ports, response times and a
 shared Person or Room are never evidence, and no confidence score is shown.
 A suggestion is not proof of one physical device.</p>
+<p>A <a href="#linked-devices">linked device</a> is suggested as one device: its row shows the
+icon when another record matches any of its MAC addresses through that MAC
+address's own evidence, and the other record lists it once. The shared name and
+identification chosen when linking are not evidence, and MAC addresses of the
+same linked device are never suggested to each other.</p>
 <h2 id="private-and-virtual-devices">Private and virtual devices<a class="headerlink" href="#private-and-virtual-devices" title="Permanent link">&para;</a></h2>
 <p><strong>Randomized MAC</strong> is the display label for a locally administered MAC address.
 It is not a known manufacturer and does not prove random generation or rotation:
