@@ -213,7 +213,7 @@ try {
     if ((Find-Equipment EquipmentIndicator).Current.Name -ne "Equipment online") {
         throw "Retry after restoring malformed equipment evidence did not recover its indicator."
     }
-    Assert-EquipmentCell EquipmentActivityCell-5-6 "*At least 1 devices*"
+    Assert-EquipmentCell EquipmentActivityCell-5-6 "*1 distinct devices; exact daily count*Responded: Linked network pair*"
     foreach ($hours in @(3, 4, 1)) {
         $before = (Get-UiRegressionSurfaceState -GetElement { Find-Equipment EquipmentActivityScroll } -Description Equipment).Request
         (Show-Equipment EquipmentActivityHours).GetCurrentPattern([Windows.Automation.RangeValuePattern]::Pattern).SetValue($hours)
