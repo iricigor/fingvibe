@@ -395,7 +395,7 @@ evidence, GitHub image credentials and pending-publication recovery.
 
 [Loop5 setup](docs/agentic-loop-5/README.md) provides one shared
 [`Developer`](.github/agents/automation-5-developer.agent.md) definition with
-distinct UI-supplied worker identities. It is developed alongside the still-used
+worker identity supplied by each UI name, without assuming a Developer count. It is developed alongside the still-used
 4️⃣ environment, not installed or activated as a replacement. Existing profiles,
 live Automations and coordination records remain unchanged. The setup documents
 pending host identity/routing verification and missing loop5 runtime integration;
