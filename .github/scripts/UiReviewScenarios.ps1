@@ -188,7 +188,7 @@ function Get-UiReviewCapturePlan {
                 Add-Scenarios @("Devices", "DevicesEmpty", "Settings") "$path changed results, filtering, or table controls."
             }
             elseif ($path -match '^src/FingVibe.App/.+Page\.xaml$' -and
-                [System.IO.Path]::GetFileName($path) -notin @("ToolsPage.xaml", "SpeedTestPage.xaml", "AboutPage.xaml", "NetworkHealthPage.xaml", "FingImportPage.xaml", "SqlEditorPage.xaml", "DatabaseBackupsPage.xaml")) {
+                [System.IO.Path]::GetFileName($path) -notin @("ToolsPage.xaml", "SpeedTestPage.xaml", "AboutPage.xaml", "NetworkHealthPage.xaml", "NetworkTroubleshootingPage.xaml", "FingImportPage.xaml", "SqlEditorPage.xaml", "DatabaseBackupsPage.xaml")) {
                 throw "View '$path' has no selection rule. Extend the scenario catalog, selection, navigation, and tests."
             }
             elseif ($path -match '^src/FingVibe.App/(Tools/AboutPage(\.Updates\.cs|\.xaml(\.cs)?)|MainWindow\.Updates\.cs|Updates/.+\.cs)$' -or
@@ -211,7 +211,8 @@ function Get-UiReviewCapturePlan {
             elseif ($path -eq "src/FingVibe.App/MainWindow.Inventory.cs") {
                 Add-Scenarios @("Devices", "Overview", "Network", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomDetails", "FingImport", "SqlEditor", "RoomMap") "$path changed inventory orchestration."
             }
-            elseif ($path -match '^src/FingVibe.App/Tools/NetworkHealthPage\.xaml(\.cs)?$') {
+            # NetworkTroubleshootingPage is the pre-rename path; --no-renames diffs report it as deleted.
+            elseif ($path -match '^src/FingVibe.App/Tools/Network(Health|Troubleshooting)Page\.xaml(\.cs)?$') {
                 Add-Scenarios @("Tools", "NetworkHealth", "RoomMap") "$path changed Network health."
             }
             elseif ($path -match '^src/FingVibe.App/Tools/ToolsPage\.xaml(\.cs)?$') {

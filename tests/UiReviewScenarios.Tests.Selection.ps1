@@ -188,6 +188,20 @@
     Test-Change @{ "src\FingVibe.App\Tools\SpeedTestPage.xaml" = "changed" } @("Devices", "Tools", "SpeedTest", "NetworkHealth", "About", "FingImport", "SqlEditor", "DatabaseBackups") "Tools views"
     Test-Change @{ "src\FingVibe.App\Tools\NetworkHealthPage.xaml" = "changed" } @("Devices", "RoomMap", "Tools", "NetworkHealth") "Network health view"
     Test-Change @{ "src\FingVibe.App\Tools\NetworkHealthPage.xaml.cs" = "changed" } @("Devices", "RoomMap", "Tools", "NetworkHealth") "Network health behavior"
+    & {
+        # Renames are diffed with --no-renames, so the pre-rename page arrives as a deleted path.
+        $oldPage = "src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml"
+        $null = Invoke-UiReviewGit $repository @("checkout", "--quiet", "--detach", $base)
+        $null = New-Item -ItemType Directory -Path (Split-Path (Join-Path $repository $oldPage)) -Force
+        Set-Content -LiteralPath (Join-Path $repository $oldPage) -Value "old troubleshooting page"
+        $null = Invoke-UiReviewGit $repository @("add", ".")
+        $null = Invoke-UiReviewGit $repository @("commit", "--quiet", "-m", "Old troubleshooting page")
+        $renameBase = Invoke-UiReviewGit $repository @("rev-parse", "HEAD")
+        $null = Invoke-UiReviewGit $repository @("rm", "--quiet", $oldPage)
+        $null = Invoke-UiReviewGit $repository @("commit", "--quiet", "-m", "Remove renamed troubleshooting page")
+        Assert-Equal @(Get-UiReviewCapturePlan -RepositoryPath $repository -BaseRevision $renameBase).Scenario `
+            @("Devices", "RoomMap", "Tools", "NetworkHealth") "Removed pre-rename troubleshooting page selects Network health"
+    }
     Test-Change @{ "src\FingVibe.App\Tools\AboutPage.xaml" = "changed" } @("Devices", "About", "Settings") "About view"
     Test-Change @{ "src\FingVibe.App\Tools\AboutPage.xaml.cs" = "changed" } @("Devices", "About", "Settings") "About behavior"
     foreach ($updateOwner in @("src\FingVibe.App\Tools\AboutPage.Updates.cs", "src\FingVibe.App\MainWindow.Updates.cs",
