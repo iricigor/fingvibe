@@ -1114,7 +1114,14 @@ network/subnet, also added without a format change). A linked
 MAC belongs to one linked device, never to a virtual device, and keeps its own
 saved values for a later Unlink. Adding a record or combining two linked devices
 rewrites the surviving `linked_devices` row and deletes the absorbed one in the
-same transaction; declining a linked device's suggestion stores every current
+same transaction. When choosing shared data, vendor/manufacturer, family and
+model also offer **Keep separate / no shared value**. This explicit choice
+resolves a difference without promoting either NIC's identification to the whole
+device. Matching values remain shared by default but can also be kept separate.
+Unshared fields stay blank in linked identification across restarts; each NIC's
+metadata and corrections remain intact. If Unlink leaves one MAC, shared values
+are retained and its own corrections for unshared vendor, family and model are
+preserved. Declining a linked device's suggestion stores every current
 cross pair in `declined_matches`. A linked device's Device Details scan
 observations are read by one grouped, paged query over its current members'
 indexed `scan_history` rows (plus unsaved rows); no combined rows are stored and

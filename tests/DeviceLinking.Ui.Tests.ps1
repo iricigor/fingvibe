@@ -245,6 +245,13 @@ function Resolve-LinkDraft {
     [System.Windows.Forms.SendKeys]::SendWait(" ")
     Wait-Link { (Find-Link MergeMacChoicePersonThis).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } "keyboard person choice"
     Select-LinkChoice MergeMacChoiceRoomOther
+    foreach ($field in @("Vendor", "Family", "Model")) {
+        Select-LinkChoice "MergeMacChoice${field}Separate"
+        $label = if ($field -eq "Vendor") { "Vendor / manufacturer" } else { $field }
+        if ((Find-Link "MergeMacResult$field").Current.Name -ne "Linked device ${label}: No shared value") {
+            throw "$field must show that no value will be shared."
+        }
+    }
 }
 
 # Keeps this device's value for every difference in the draft.
@@ -481,7 +488,7 @@ try {
         revision = [Guid]::NewGuid().ToString()
         devices = @{
             "001122BB0001" = @{ mac = "001122BB0001"; imported = @{}; scanHistory = @(); observations = @(New-LinkObservation "127.0.0.2" "Example" -Reported $uuid) }
-            "001122BB0002" = @{ mac = "001122BB0002"; imported = @{}; scanHistory = @(); observations = @(New-LinkObservation "127.0.0.3" "Example" -Reported $uuid) }
+            "001122BB0002" = @{ mac = "001122BB0002"; imported = @{ brand = "Board vendor"; family = "Motherboard"; model = "Board model" }; scanHistory = @(); observations = @(New-LinkObservation "127.0.0.3" "Example" -Reported $uuid) }
             "001122BB0003" = @{ mac = "001122BB0003"; imported = @{}; scanHistory = @(); observations = @(New-LinkObservation "127.0.0.4" "Example" -Reported $uuid) }
             "001122BB0004" = @{ mac = "001122BB0004"; imported = @{}; scanHistory = @(); observations = @(New-LinkObservation "127.0.0.5" "Example") }
             "D0C9070000A1" = @{ mac = "D0C9070000A1"; imported = @{}; scanHistory = @(); observations = @($oldPrivate) }
@@ -496,7 +503,7 @@ try {
         names = @{ "001122BB0001" = "Link desk Wi-Fi"; "001122BB0002" = "Link desk dock"; "001122BB0003" = "Link declined"; "001122BB0004" = "Link plain"
             "001122BB0005" = "Link spare A"; "001122BB0006" = "Link spare B"; "001122BB0007" = "Spare candidate"
             "001122BB0008" = "Link pair A"; "001122BB0009" = "Link pair B" }
-        classifications = @{ "001122BB0001" = @{ type = 1 }; "001122BB0002" = @{ type = 2 } }
+        classifications = @{ "001122BB0001" = @{ type = 1; brand = "Wi-Fi vendor"; family = "Adapter"; model = "Wi-Fi model" }; "001122BB0002" = @{ type = 2 } }
         peopleRooms = @{
             people = @(@{ id = $person; name = "Link person"; shortName = "LP" })
             rooms = @(@{ id = $room; name = "Link room"; shortName = "LR" })
@@ -600,7 +607,7 @@ try {
     Wait-Link { (Find-Link MergeMacOtherName).Current.Name -eq "Link desk dock" } "the remaining suggestion"
     Open-LinkPicker "Suggested|Link desk dock*|Other devices|Link declined*Declined|Link pair*2 MAC addresses|Link plain*"
     Close-LinkPicker
-    Assert-LinkMerge $false "4 differences need a choice*"
+    Assert-LinkMerge $false "7 differences need a choice*"
     foreach ($id in @("MergeMacChoiceNameThis", "MergeMacChoiceNameOther", "MergeMacChoiceDeviceTypeThis", "MergeMacChoiceDeviceTypeOther",
         "MergeMacChoicePersonThis", "MergeMacChoiceRoomOther", "MergeMacNameInput", "MergeMacSeparateRecords")) {
         $null = Find-Link $id
@@ -609,12 +616,18 @@ try {
     if ((Find-Link MergeMacResultDeviceType).Current.Name -ne "Linked device Device type: Choose a value") {
         throw "Unresolved values must say they need a choice: $((Find-Link MergeMacResultDeviceType).Current.Name)"
     }
+    Select-LinkChoice MergeMacChoiceVendorSeparate
+    Select-LinkChoice MergeMacChoiceVendorOther
+    if ((Find-Link MergeMacChoiceVendorSeparate).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected -or
+        (Find-Link MergeMacResultVendor).Current.Name -ne "Linked device Vendor / manufacturer: Board vendor") {
+        throw "Choosing a source must replace Keep separate in the same radio group."
+    }
     Save-LinkCapture "link-comparison-unresolved" MergeMacUnresolved
     Resolve-LinkDraft
     Assert-LinkMerge $true "Every value is chosen*"
     if ((Find-Link MergeMacResultRoom).Current.Name -ne "Linked device Room: Link room") { throw "The chosen room must be the linked value." }
     Invoke-Link MergeMacCancel
-    Assert-LinkMerge $false "4 differences need a choice*"
+    Assert-LinkMerge $false "7 differences need a choice*"
     if ((Find-Link MergeMacNameInput).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value) {
         throw "Cancel must discard the typed name."
     }
@@ -674,6 +687,9 @@ try {
         (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.type') FROM classifications WHERE id='001122BB0001'") -ne 1) {
         throw "Linking must save shared values atomically and keep each member's own values."
     }
+    if ((Get-InventorySqliteValue $database "SELECT COUNT(*) FROM linked_devices WHERE $(Get-LinkFilter) AND json_extract(data,'$.identification.brand') IS NULL AND json_extract(data,'$.identification.family') IS NULL AND json_extract(data,'$.identification.model') IS NULL") -ne 1) {
+        throw "Keep separate must persist no shared vendor, family or model."
+    }
     Save-LinkCapture "link-linked" MergeMacExplanation
 
     $phase = Step-UiRegressionPhase $phase "linking/one-row" $ScreenshotDirectory
@@ -706,6 +722,14 @@ try {
     Start-LinkApp
     Open-LinkDevice "00-11-22-BB-00-01" "Link desk"
     Assert-LinkSection "2 MAC addresses" "Collapsed"
+    Invoke-Link DeviceClassificationEditButton
+    foreach ($field in @("Brand", "Family", "Model")) {
+        $input = Show-Link "Device${field}Input"
+        if ($input.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value) {
+            throw "Unshared $field must remain blank after restart, without member fallback."
+        }
+    }
+    Invoke-Link DeviceClassificationCancelButton
     $null = Show-Link UsageCategoryEffective
     Wait-Link { (Find-Link UsageCategoryEffective).Current.Name -like "Guest | Manual override*" } "the shared category on the other member after restart"
     if ((Get-InventorySqliteValue $database "SELECT COUNT(*) FROM devices WHERE id='001122BB0002' AND json_extract(data,'$.usageCategoryOverride') IS NOT NULL") -ne 0) {
@@ -838,12 +862,16 @@ try {
     if (Find-Link MergeMacDecline -Optional) { throw "Only suggestions can be declined." }
     $scale = [UiReviewNativeWindow]::GetDpiForWindow($script:process.MainWindowHandle) / 96.0
     $window = $script:root.Current.BoundingRectangle
-    foreach ($id in @("MergeMacChoiceNameThis", "MergeMacChoiceNameOther", "MergeMacNameInput", "MergeMacMerge", "MergeMacCancel")) {
+    foreach ($id in @("MergeMacChoiceNameThis", "MergeMacChoiceNameOther", "MergeMacChoiceVendorSeparate", "MergeMacNameInput", "MergeMacMerge", "MergeMacCancel")) {
         $bounds = (Show-Link $id).Current.BoundingRectangle
         if ($bounds.Left -lt $window.Left -or $bounds.Right -gt $window.Right -or $bounds.Height -lt 16 * $scale) {
             throw "$id must stay readable and unclipped at 200% text scale. Bounds=$bounds; window=$window; scale=$scale."
         }
     }
+    $separate = Show-Link MergeMacChoiceVendorSeparate
+    $separate.SetFocus()
+    [System.Windows.Forms.SendKeys]::SendWait(" ")
+    Wait-Link { (Find-Link MergeMacChoiceVendorSeparate).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } "keyboard Keep separate choice at 200% text scale"
     Save-LinkCapture "link-comparison-text-scale-200" MergeMacMerge
     $cancel = Show-Link MergeMacCancel
     $cancel.SetFocus()
@@ -893,6 +921,12 @@ try {
         (Get-InventorySqliteValue $database "SELECT COUNT(*) FROM assignments WHERE id='001122BB0002' AND json_extract(data,'$.personId') IS NOT NULL") -ne 0 -or
         (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.roomId') FROM assignments WHERE id='001122BB0002'") -ne $room) {
         throw "Unlink must atomically transfer shared values to the remaining MAC and preserve the detached MAC values."
+    }
+    if ((Get-InventorySqliteValue $database "SELECT json_extract(data,'$.brand') FROM classifications WHERE id='001122BB0001'") -ne "Wi-Fi vendor" -or
+        (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.family') FROM classifications WHERE id='001122BB0001'") -ne "Adapter" -or
+        (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.model') FROM classifications WHERE id='001122BB0001'") -ne "Wi-Fi model" -or
+        (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.imported.brand') FROM devices WHERE id='001122BB0002'") -ne "Board vendor") {
+        throw "Unlink must preserve each NIC's unshared identification."
     }
     Save-LinkCapture "link-unlinked" MergeMacAddresses
     Show-LinkDevices "Link desk"

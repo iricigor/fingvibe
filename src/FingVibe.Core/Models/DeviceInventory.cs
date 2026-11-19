@@ -211,7 +211,13 @@ public sealed record DeviceInventoryData(
         var names = Names.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
         names[remaining] = linked.Name;
         var classifications = Classifications.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
-        classifications[remaining] = linked.Identification;
+        var ownIdentification = Classifications.GetValueOrDefault(remaining);
+        classifications[remaining] = linked.Identification with
+        {
+            Brand = linked.Identification.Brand ?? ownIdentification?.Brand,
+            Family = linked.Identification.Family ?? ownIdentification?.Family,
+            Model = linked.Identification.Model ?? ownIdentification?.Model
+        };
 
         var assignments = PeopleRooms.Assignments.ToDictionary(pair => pair.Key, pair => pair.Value,
             StringComparer.OrdinalIgnoreCase);
