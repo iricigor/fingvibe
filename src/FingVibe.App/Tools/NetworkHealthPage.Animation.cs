@@ -9,7 +9,7 @@ using Windows.UI.ViewManagement;
 
 namespace FingVibe.App;
 
-public sealed partial class NetworkTroubleshootingPage
+public sealed partial class NetworkHealthPage
 {
     private readonly DiagnosticDiagramMotion _diagramMotion = new();
     private readonly DispatcherTimer _diagramTimer = new() { Interval = TimeSpan.FromMilliseconds(16) };
@@ -158,6 +158,6 @@ public sealed partial class NetworkTroubleshootingPage
         var replay = _cancellation is null && _diagramMotion.HasWork;
         CancelRunButton.IsEnabled = _cancellation is not null || replay;
         CancelRunButton.Content = replay ? "Stop replay" : "Cancel";
-        AutomationProperties.SetName(CancelRunButton, replay ? "Stop diagnostic animation" : "Cancel network troubleshooting");
+        AutomationProperties.SetName(CancelRunButton, replay ? "Stop diagnostic animation" : "Cancel network diagnostics");
     }
 }

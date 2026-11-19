@@ -191,6 +191,13 @@ public sealed partial class MainWindow : Window
     private void ViewNetworkButton_Click(object sender, RoutedEventArgs e) =>
         MainNavigation.SelectedItem = NetworkNavItem;
 
+    private async void NetworkHealthRequested(object? sender, EventArgs e)
+    {
+        MainNavigation.SelectedItem = ToolsNavItem;
+        if (ToolsPage.Visibility != Visibility.Visible) ShowPage(ToolsPage);
+        await ToolsPage.OpenNetworkHealthAsync();
+    }
+
     private void BackToDevicesButton_Click(object sender, RoutedEventArgs e)
     {
         if (_deviceDetailsFromRoomMap)

@@ -37,11 +37,11 @@ public sealed partial class ToolsPage : UserControl
         set
         {
             SpeedTestView.ActivityCoordinator = value;
-            TroubleshootingView.ActivityCoordinator = value;
+            NetworkHealthView.ActivityCoordinator = value;
         }
     }
 
-    public bool HasActiveTest => SpeedTestView.HasActiveTest || TroubleshootingView.HasActiveTest || SqlEditorView.IsRunning;
+    public bool HasActiveTest => SpeedTestView.HasActiveTest || NetworkHealthView.HasActiveTest || SqlEditorView.IsRunning;
 
     internal void ConfigureSqlEditor(string? databasePath) => SqlEditorView.Configure(databasePath);
 
@@ -67,27 +67,27 @@ public sealed partial class ToolsPage : UserControl
         }
     }
 
-    public void SetNetworkContext(LanNetwork? network) => TroubleshootingView.SetNetworkContext(network);
+    public void SetNetworkContext(LanNetwork? network) => NetworkHealthView.SetNetworkContext(network);
 
-    internal void ConfigureTroubleshooting(Func<LanNetwork, Guid?, IReadOnlyList<IPAddress>> peers) =>
-        TroubleshootingView.ConfigurePeerCandidates(peers);
+    internal void ConfigureNetworkHealth(Func<LanNetwork, Guid?, IReadOnlyList<IPAddress>> peers) =>
+        NetworkHealthView.ConfigurePeerCandidates(peers);
 
     public async Task StopForNavigationAsync()
     {
         SpeedTestView.Visibility = Visibility.Collapsed;
-        TroubleshootingView.Visibility = Visibility.Collapsed;
+        NetworkHealthView.Visibility = Visibility.Collapsed;
         FingImportView.Visibility = Visibility.Collapsed;
         SqlEditorView.Visibility = Visibility.Collapsed;
         DatabaseBackupsView.Close();
         DatabaseBackupsView.Visibility = Visibility.Collapsed;
         ToolsLanding.Visibility = Visibility.Visible;
-        await Task.WhenAll(SpeedTestView.StopForNavigationAsync(), TroubleshootingView.StopForNavigationAsync(),
+        await Task.WhenAll(SpeedTestView.StopForNavigationAsync(), NetworkHealthView.StopForNavigationAsync(),
             SqlEditorView.StopAsync());
         SpeedTestView.ResetForNavigation();
     }
 
     public Task StopForWindowCloseAsync() => Task.WhenAll(
-        SpeedTestView.StopForWindowCloseAsync(), TroubleshootingView.StopForWindowCloseAsync(), SqlEditorView.StopAsync());
+        SpeedTestView.StopForWindowCloseAsync(), NetworkHealthView.StopForWindowCloseAsync(), SqlEditorView.StopAsync());
 
     private void SqlEditorCard_Click(object sender, RoutedEventArgs e)
     {
@@ -115,17 +115,20 @@ public sealed partial class ToolsPage : UserControl
         SqlEditorCard.Focus(FocusState.Programmatic);
     }
 
-    private async void TroubleshootingCard_Click(object sender, RoutedEventArgs e)
+    private async void NetworkHealthCard_Click(object sender, RoutedEventArgs e) => await OpenNetworkHealthAsync();
+
+    internal async Task OpenNetworkHealthAsync()
     {
         ToolsLanding.Visibility = Visibility.Collapsed;
-        TroubleshootingView.Visibility = Visibility.Visible;
-        await TroubleshootingView.OpenAsync();
+        FingImportView.Visibility = Visibility.Collapsed;
+        NetworkHealthView.Visibility = Visibility.Visible;
+        await NetworkHealthView.OpenAsync();
     }
 
-    private async void TroubleshootingView_BackRequested(object? sender, EventArgs e)
+    private async void NetworkHealthView_BackRequested(object? sender, EventArgs e)
     {
         await StopForNavigationAsync();
-        TroubleshootingCard.Focus(FocusState.Programmatic);
+        NetworkHealthCard.Focus(FocusState.Programmatic);
     }
 
     private void SpeedTestCard_Click(object sender, RoutedEventArgs e)
@@ -144,7 +147,7 @@ public sealed partial class ToolsPage : UserControl
     private void RoomMapCard_Click(object sender, RoutedEventArgs e) =>
         RoomMapRequested?.Invoke(this, EventArgs.Empty);
 
-    private void TroubleshootingView_RoomMapRequested(object? sender, EventArgs e) =>
+    private void NetworkHealthView_RoomMapRequested(object? sender, EventArgs e) =>
         RoomMapRequested?.Invoke(this, e);
 
     private void ShowImport()

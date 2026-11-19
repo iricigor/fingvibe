@@ -7,14 +7,14 @@ For the optional internet speed test, see [Cloudflare speed test](speed-test.md)
 The desktop interface is native WinUI 3; WebView2 is restricted to the local
 Cloudflare speed-test host. Tools uses matching 48-DIP Segoe Fluent icons beside
 the names inside its existing landing buttons and beside individual page titles:
-a speedometer for Speed test, a repair wrench for Network troubleshooting, and
+a speedometer for Speed test, a repair wrench for Network health, and
 an import arrow for Import from Fing. The existing information symbol and build
 details now live on Settings' About page rather than a Tools card.
 The icons follow the theme's primary text color, including Windows high contrast;
 titles wrap at narrow widths. Icons are decorative, so button names and keyboard
 navigation remain unchanged. Each individual tool places its secondary
 **← Tools** action at the right of the title row, vertically centered with the
-heading. **Run checks** and **Start test** use the same accent-button styling;
+heading. **Run diagnostics** and **Start test** use the same accent-button styling;
 **Import all** retains its existing emphasis. Supporting actions stay neutral.
 
 - [Run locally and scan behavior](#run-locally)
@@ -472,7 +472,7 @@ IPv4 MAC enrichment first checks Windows' neighbor table for the exact IP on the
 
 Starting a scan retains the displayed list while initial ICMP results are collected. After that durable checkpoint, browsing, filtering, sorting and device details become available before background ARP. Later checkpoints update the table quietly while preserving selection, without moving focus or showing a retry popup. Scan LAN remains unavailable and Cancel scan remains accessible until the logical scan finishes or stops. Initial ICMP progress is unnumbered. Background status keeps **Initial results shown** visible and names five ordered stages: **(1/5) Background ARP**, **(2/5) Waiting 10 seconds before ICMP attempt 2**, **(3/5) Background ICMP attempt 2**, **(4/5) Waiting 10 seconds before ICMP attempt 3**, and **(5/5) Background ICMP attempt 3**. Each probing stage counts its own remaining addresses, including ARP nonresponses; waits are explicitly distinguished from active probes. Silent addresses can make bounded ARP substantially longer than ICMP, but the initial results remain usable throughout. Confirming every address skips the remaining stages and finalizes immediately. Cancellation or failure retains the last committed checkpoint, without making silent devices Offline.
 
-Manual and scheduled scans share one execution path. It holds the app's single network-activity slot for the whole scan, so LAN scans never overlap speed tests, troubleshooting or device-service scans; a busy request is rejected, not queued. If the Windows network identity changes during a scan, its observations are saved unscoped and no device is marked Offline.
+Manual and scheduled scans share one execution path. It holds the app's single network-activity slot for the whole scan, so LAN scans never overlap speed tests, network diagnostics or device-service scans; a busy request is rejected, not queued. If the Windows network identity changes during a scan, its observations are saved unscoped and no device is marked Offline.
 
 ### Scheduled scans
 
@@ -1323,7 +1323,7 @@ one published payload:
 | `sidebar-scan-flows` | Refresh, PeopleRooms (shared scanned-inventory fixture) |
 | `sidebar-scan-presentation` | Progress (independent themes, geometry, keyboard and text-scaling checks) |
 | `sidebar-preferences-scheduling` | SettingsDisclosure, Persistence, Scheduled |
-| `tools-utilities` | BuildIdentity.Ui, NetworkTroubleshooting.Ui, FingImport.Ui |
+| `tools-utilities` | BuildIdentity.Ui, NetworkHealth.Ui, FingImport.Ui |
 | `tools-device-data` | AdditionalServices.Ui, SqlEditor.Ui |
 
 This is the assertion/capture ownership boundary: each original behavior module

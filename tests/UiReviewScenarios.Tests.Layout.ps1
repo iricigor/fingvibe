@@ -274,7 +274,7 @@
         throw "Tools cards must share two equal-width grid columns."
     }
     Assert-Equal @($cards | ForEach-Object { $_.GetAttribute("x:Name") }) `
-        @("SqlEditorCard", "FingImportCard", "SpeedTestCard", "RoomMapCard", "TroubleshootingCard", "DatabaseBackupsCard") `
+        @("SqlEditorCard", "FingImportCard", "SpeedTestCard", "RoomMapCard", "NetworkHealthCard", "DatabaseBackupsCard") `
         "Tools visual and keyboard row order"
     foreach ($card in $cards) {
         if ($card.GetAttribute("Grid.ColumnSpan") -notin @("", "1") -or
@@ -285,7 +285,7 @@
     }
     $toolIcons = @(
         @{ Page = "SpeedTestPage"; Title = "Speed test"; Card = "SpeedTestCard"; Click = "SpeedTestCard_Click"; Icon = "speed-test" },
-        @{ Page = "NetworkTroubleshootingPage"; Title = "Network troubleshooting"; Card = "TroubleshootingCard"; Click = "TroubleshootingCard_Click"; Icon = "troubleshooting" },
+        @{ Page = "NetworkHealthPage"; Title = "Network health"; Card = "NetworkHealthCard"; Click = "NetworkHealthCard_Click"; Icon = "troubleshooting" },
         @{ Page = "AboutPage"; Title = "About FingVibe"; Card = "AboutCard"; Click = "AboutCard_Click"; Icon = "about" },
         @{ Page = "FingImportPage"; Title = "Import from Fing"; Card = "FingImportCard"; Click = "FingImportCard_Click"; Icon = "import" },
         @{ Page = "SqlEditorPage"; Title = "SQL editor"; Card = "SqlEditorCard"; Click = "SqlEditorCard_Click"; Icon = "tools" },
@@ -331,10 +331,10 @@
     foreach ($tool in $toolIcons) {
         $pageDocument = [System.Xml.XmlDocument]::new()
         $pageDocument.Load((Join-Path $appDirectory "Tools\$($tool.Page).xaml"))
-        if ($tool.Page -eq "NetworkTroubleshootingPage") {
+        if ($tool.Page -eq "NetworkHealthPage") {
             $run = $pageDocument.SelectSingleNode("//*[@*[local-name()='Name']='RunButton']")
             if ($run.GetAttribute("Style") -cne "{ThemeResource AccentButtonStyle}") {
-                throw "Run checks must use the existing primary-action accent style."
+                throw "Run diagnostics must use the existing primary-action accent style."
             }
         }
         $card = $toolsDocument.SelectSingleNode("//*[@*[local-name()='Name']='$($tool.Card)']")

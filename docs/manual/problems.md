@@ -26,7 +26,7 @@ Check Windows connection status. VPN, Hyper-V, and other virtual adapters can
 appear alongside physical connections. Select the intended directly connected
 IPv4 network.
 
-In troubleshooting, use **Refresh adapters** after changes.
+In Network health, use **Refresh adapters** after changes.
 A VPN can still affect internet routes even when the LAN picker is correct.
 Large scan ranges may exceed the 65,534-address limit.
 IPv6-only device discovery is outside this scanner's current IPv4 scope.
@@ -96,7 +96,7 @@ An unanswered router or hop may block diagnostic responses while passing normal
 traffic. Windows DNS can answer from cache. A VPN may change the route.
 Compare independent checks instead of treating one missing response as proof.
 
-See [Network troubleshooting](network-checks.md).
+See [Network health](network-checks.md).
 
 ## A name, OS, or device type is wrong
 

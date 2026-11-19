@@ -113,7 +113,7 @@ function Test-PageBackHeaders {
             @{ Card = 'SqlEditorCard'; Title = 'SQL editor' },
             @{ Card = 'FingImportCard'; Title = 'Import from Fing' },
             @{ Card = 'SpeedTestCard'; Title = 'Speed test' },
-            @{ Card = 'TroubleshootingCard'; Title = 'Network troubleshooting' },
+            @{ Card = 'NetworkHealthCard'; Title = 'Network health' },
             @{ Card = 'DatabaseBackupsCard'; Title = 'Database backups' }
         )) {
             $card = Find-PageHeaderElement $Root $page.Card -AllowOffscreen

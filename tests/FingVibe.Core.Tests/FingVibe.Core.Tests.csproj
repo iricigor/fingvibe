@@ -72,8 +72,8 @@
     <Compile Include="..\..\src\FingVibe.App\PeopleRoomsPresentation.cs" Link="PeopleRoomsPresentation.cs" />
     <Compile Include="..\..\src\FingVibe.App\LinkedDevicePresentation.cs" Link="LinkedDevicePresentation.cs" />
     <Compile Include="..\..\src\FingVibe.App\PeopleRoomsIcons.cs" Link="PeopleRoomsIcons.cs" />
-    <None Include="..\..\src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml"
-          Link="NetworkTroubleshootingPage.xaml" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\src\FingVibe.App\Tools\NetworkHealthPage.xaml"
+          Link="NetworkHealthPage.xaml" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml"
           Link="DeviceDetailsPageView.xaml" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

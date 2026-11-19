@@ -93,6 +93,39 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </Grid>
             </Border>
+            <Border x:Name="NetworkHealthSummary" Style="{StaticResource ScannerSummaryCardStyle}"
+                    AutomationProperties.AutomationId="NetworkHealthSummary" AutomationProperties.Name="Network health summary">
+                <Grid ColumnSpacing="24" RowSpacing="12" SizeChanged="NetworkHealthSummary_SizeChanged">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Spacing="4">
+                        <TextBlock Text="Network health" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Ellipse Width="10" Height="10" StrokeThickness="1.5" VerticalAlignment="Center"
+                                     Stroke="{ThemeResource TextFillColorSecondaryBrush}"
+                                     IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                            <TextBlock Grid.Column="1" Text="Monitoring off" FontWeight="SemiBold" TextWrapping="Wrap"
+                                       AutomationProperties.AutomationId="NetworkHealthSummaryState" />
+                        </Grid>
+                        <TextBlock Text="Background health checks are not running, so no current health is shown. Run diagnostics on the Network health page to check now."
+                                   TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                    <Button x:Name="OpenNetworkHealthButton" Grid.Column="1" Content="Open network health &#x203A;"
+                            VerticalAlignment="Center" Click="OpenNetworkHealthButton_Click"
+                            AutomationProperties.AutomationId="OpenNetworkHealthButton"
+                            AutomationProperties.Name="Open network health" />
+                </Grid>
+            </Border>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <Grid ColumnSpacing="24" RowSpacing="16">
                     <Grid.ColumnDefinitions>

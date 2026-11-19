@@ -56,7 +56,7 @@ public sealed class PeriodicScanPresentationTests
     [Theory]
     [InlineData(nameof(NetworkActivityKind.LanScan), "another LAN scan")]
     [InlineData(nameof(NetworkActivityKind.InternetSpeedTest), "a Cloudflare speed test")]
-    [InlineData(nameof(NetworkActivityKind.NetworkTroubleshooting), "network troubleshooting")]
+    [InlineData(nameof(NetworkActivityKind.NetworkTroubleshooting), "network diagnostics")]
     [InlineData(nameof(NetworkActivityKind.DeviceServiceScan), "a device service scan")]
     [InlineData(null, "another network measurement")]
     public void BusyStatusNamesTheBlockingActivity(string? activity, string name)

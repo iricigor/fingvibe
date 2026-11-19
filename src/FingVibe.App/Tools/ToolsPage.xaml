@@ -94,8 +94,8 @@
                         <TextBlock Text="View room map &#x2192;" TextWrapping="Wrap" />
                     </StackPanel>
                 </Button>
-                <Button x:Name="TroubleshootingCard" Click="TroubleshootingCard_Click"
-                        Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="Network troubleshooting">
+                <Button x:Name="NetworkHealthCard" Click="NetworkHealthCard_Click"
+                        Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="Network health">
                     <StackPanel Spacing="8">
                         <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
@@ -103,12 +103,12 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <local:PageHeaderIcon Icon="troubleshooting" />
-                            <TextBlock Grid.Column="1" Text="Network troubleshooting" Style="{ThemeResource SubtitleTextBlockStyle}"
+                            <TextBlock Grid.Column="1" Text="Network health" Style="{ThemeResource SubtitleTextBlockStyle}"
                                        VerticalAlignment="Center" TextWrapping="Wrap" />
                         </Grid>
-                        <TextBlock Text="Check local addresses, internet IPs, traceroute, and DNS on request."
+                        <TextBlock Text="See monitoring status and run diagnostics for local addresses, internet IPs, traceroute, and DNS."
                                    TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Text="Open network troubleshooting &#x2192;" TextWrapping="Wrap" />
+                        <TextBlock Text="Open network health &#x2192;" TextWrapping="Wrap" />
                     </StackPanel>
                 </Button>
                 <Button x:Name="DatabaseBackupsCard" Click="DatabaseBackupsCard_Click"
@@ -133,9 +133,9 @@
         <local:SpeedTestPage x:Name="SpeedTestView"
                              Visibility="Collapsed"
                              BackRequested="SpeedTestView_BackRequested" />
-        <local:NetworkTroubleshootingPage x:Name="TroubleshootingView" Visibility="Collapsed"
-                                          BackRequested="TroubleshootingView_BackRequested"
-                                          RoomMapRequested="TroubleshootingView_RoomMapRequested" />
+        <local:NetworkHealthPage x:Name="NetworkHealthView" Visibility="Collapsed"
+                                 BackRequested="NetworkHealthView_BackRequested"
+                                 RoomMapRequested="NetworkHealthView_RoomMapRequested" />
         <local:FingImportPage x:Name="FingImportView" Visibility="Collapsed"
                               BackRequested="FingImportView_BackRequested"
                               ManagementRequested="FingImportView_ManagementRequested" />

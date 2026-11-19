@@ -15,7 +15,7 @@ using Windows.UI.ViewManagement;
 
 namespace FingVibe.App;
 
-public sealed partial class NetworkTroubleshootingPage : UserControl
+public sealed partial class NetworkHealthPage : UserControl
 {
     private readonly NetworkDiscoveryService _discovery = new();
     private readonly NetworkDiagnosticService _service = new(new NetworkDiagnosticProbes());
@@ -41,11 +41,11 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
     private NetworkDiagnosticReport? _report;
     private static bool IsUiReview => Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW") == "1";
 
-    public NetworkTroubleshootingPage()
+    public NetworkHealthPage()
     {
         InitializeComponent();
-        _runSurface.StateChanged += (_, _) => AutomationProperties.SetItemStatus(TroubleshootingScroll, _runSurface.Status);
-        AutomationProperties.SetItemStatus(TroubleshootingScroll, _runSurface.Status);
+        _runSurface.StateChanged += (_, _) => AutomationProperties.SetItemStatus(NetworkHealthScroll, _runSurface.Status);
+        AutomationProperties.SetItemStatus(NetworkHealthScroll, _runSurface.Status);
         _diagramTimer.Tick += DiagramTimer_Tick;
         Loaded += (_, _) =>
         {
@@ -140,7 +140,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
             }
             if (!_open || !IsLoaded || revision != _contextState.Revision) return;
             RefreshNetworks(current.Network);
-            ProgressText.Text = "The selected network context changed. Context refreshed; run checks again.";
+            ProgressText.Text = "The selected network context changed. Context refreshed; run diagnostics again.";
         }
         catch (Exception exception) when (exception is COMException or InvalidOperationException or InvalidCastException
             or System.Net.NetworkInformation.NetworkInformationException or ArgumentException)
@@ -263,7 +263,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
             _observations.Add(observation.Checkpoint, observation);
         _observations[DiagnosticCheckpoint.LanPeer] = _observations[DiagnosticCheckpoint.LanPeer] with
         {
-            Detail = "Run checks to select one online peer. Scan the selected LAN first if needed."
+            Detail = "Run diagnostics to select one online peer. Scan the selected LAN first if needed."
         };
         TracePanel.Children.Clear();
         TraceStatus.Text = "Not run. Up to 16 hops, one ICMP probe per hop, 1.5-second timeout.";
@@ -398,7 +398,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
                 _runSurface.Complete(request, failed ? AsyncSurfaceState.Error : AsyncSurfaceState.Ready, () =>
                 {
                     Render();
-                    TroubleshootingScroll.UpdateLayout();
+                    NetworkHealthScroll.UpdateLayout();
                 });
             }
         }
@@ -430,6 +430,14 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
     }
 
     private void BackButton_Click(object sender, RoutedEventArgs e) => BackRequested?.Invoke(this, EventArgs.Empty);
+
+    private void CurrentHealthLayout_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var narrow = e.NewSize.Width < 560;
+        Grid.SetRow(RunControls, narrow ? 1 : 0);
+        Grid.SetColumn(RunControls, narrow ? 0 : 1);
+        Grid.SetRow(ProgressText, narrow ? 2 : 1);
+    }
 
     private void Render()
     {
@@ -531,7 +539,7 @@ public sealed partial class NetworkTroubleshootingPage : UserControl
             Detail = address is null ? peer.Detail : "Synthetic UI-review peer evidence; no diagnostic probes sent."
         };
         Render();
-        TroubleshootingScroll.UpdateLayout();
+        NetworkHealthScroll.UpdateLayout();
     }
 
     private Brush PortForeground() => new SolidColorBrush(_accessibility.HighContrast

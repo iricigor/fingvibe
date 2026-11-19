@@ -125,7 +125,7 @@ function Show-UiReviewCaptureScenario {
         "DeviceHistory" { "Devices" }
         "DevicesEmpty" { "Devices" }
         "SpeedTest" { "Tools" }
-        "Troubleshooting" { "Tools" }
+        "NetworkHealth" { "Tools" }
         "About" { "Settings" }
         "FingImport" { "Tools" }
         "SqlEditor" { "Tools" }
@@ -203,7 +203,7 @@ function Show-UiReviewCaptureScenario {
         "Network" { "Public IP address" }
         "Tools" { "Speed test" }
         "SpeedTest" { "Speed test" }
-        "Troubleshooting" { "Network troubleshooting" }
+        "NetworkHealth" { "Network health" }
         "About" { "About FingVibe & updates" }
         "FingImport" { "Import from Fing" }
         "SqlEditor" { "SQL editor" }
@@ -226,13 +226,14 @@ function Show-UiReviewCaptureScenario {
         Invoke-WebDriverElement -ElementId $cardId
         $null = Assert-VisibleUiReviewElement -Value "Start Cloudflare speed test"
     }
-    elseif ($Scenario -eq "Troubleshooting") {
-        $cardId = Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@Name='Network troubleshooting']"
+    elseif ($Scenario -eq "NetworkHealth") {
+        $cardId = Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@Name='Network health']"
         Invoke-WebDriverElement -ElementId $cardId
         $null = Assert-VisibleUiReviewElement -Value "Back to Tools"
-        $null = Assert-VisibleUiReviewElement -Value "Router WAN IPv4 address"
-        # The run action is below the initial viewport; native tests scroll to and verify it.
-        $null = Find-WebDriverElement -Using name -Value "Run network troubleshooting"
+        $null = Assert-VisibleUiReviewElement -Value "Monitoring off"
+        $null = Assert-VisibleUiReviewElement -Value "Run network diagnostics"
+        # Connection settings are below the initial viewport; native tests scroll to and verify them.
+        $null = Find-WebDriverElement -Using name -Value "Router WAN IPv4 address"
     }
     elseif ($Scenario -eq "About") {
         $cardId = Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@Name='About FingVibe & updates']"

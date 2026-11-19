@@ -241,7 +241,8 @@
                         AboutRequested="AboutFingVibe_Click" />
 
                 <!-- Network -->
-                <views:NetworkPageView x:Name="NetworkPage" Grid.Row="1" Visibility="Collapsed" />
+                <views:NetworkPageView x:Name="NetworkPage" Grid.Row="1" Visibility="Collapsed"
+                        NetworkHealthRequested="NetworkHealthRequested" />
 
                 <!-- Devices -->
                 <views:DevicesPageView x:Name="DevicesPage" Grid.Row="1" Visibility="Collapsed"

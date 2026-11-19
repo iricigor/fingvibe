@@ -58,7 +58,7 @@ unknown rather than proving absence.
 Open **People & rooms**, then choose **View room map** in the **Rooms**
 section. You can also open the same page from the **Room map** card in
 **Tools**, or from the **Network path and status** section in
-**Network troubleshooting**.
+**Network health**.
 
 The map includes all saved rooms, their assigned devices, and a separate
 **No room assigned** area. Empty saved rooms remain visible. Room and device

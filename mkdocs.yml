@@ -90,7 +90,7 @@ nav:
   - Tools:
       - Import from Fing: manual/import.md
       - SQL reports: manual/sql.md
-      - Network troubleshooting: manual/network-checks.md
+      - Network health: manual/network-checks.md
       - Speed test: manual/speed-test.md
   - Help:
       - Privacy and network requests: manual/privacy.md

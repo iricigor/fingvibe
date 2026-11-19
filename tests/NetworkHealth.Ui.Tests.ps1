@@ -6,12 +6,17 @@ param(
 
 $ErrorActionPreference = "Stop"
 $diagramDocument = [System.Xml.XmlDocument]::new()
-$diagramDocument.Load((Join-Path $PSScriptRoot "..\src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml"))
+$diagramDocument.Load((Join-Path $PSScriptRoot "..\src\FingVibe.App\Tools\NetworkHealthPage.xaml"))
 $diagramCard = $diagramDocument.SelectSingleNode("//*[local-name()='Border'][.//*[@*[local-name()='Name']='DiagramScroll']]")
-foreach ($name in @("RunButton", "CancelRunButton", "RunProgress", "ProgressText")) {
-    if (-not $diagramCard.SelectSingleNode(".//*[@*[local-name()='Name']='$name']")) {
-        throw "Run controls and progress must belong to the diagram card: $name."
+$healthCard = $diagramDocument.SelectSingleNode("//*[local-name()='Border'][@*[local-name()='Name']='CurrentHealthCard']")
+foreach ($name in @("RunButton", "CancelRunButton", "RunProgress", "ProgressText", "HealthStateText")) {
+    if (-not $healthCard -or -not $healthCard.SelectSingleNode(".//*[@*[local-name()='Name']='$name']")) {
+        throw "Run controls, progress and current health must belong to the top current-health card: $name."
     }
+}
+$cards = @($diagramDocument.SelectNodes("//*[local-name()='ScrollViewer']/*[local-name()='StackPanel']/*[local-name()='Border']"))
+if ($cards.Count -lt 2 -or $cards[0] -ne $healthCard -or $cards[1] -ne $diagramCard) {
+    throw "Current health must be the first card, directly followed by the manual diagnostic path and status."
 }
 $connectors = @($diagramDocument.SelectNodes("//*[local-name()='Canvas']/*[local-name()='Path']"))
 if ($connectors.Count -ne 8 -or @($connectors | Where-Object { $_.GetAttribute("Data") -match '\bQ' }).Count -ne 2 -or
@@ -32,7 +37,7 @@ if (-not (Get-Command Wait-UiRegressionState -ErrorAction SilentlyContinue)) {
 Add-Type -TypeDefinition @"
 using System;
 using System.Runtime.InteropServices;
-public static class TroubleshootingReviewKeyboard
+public static class NetworkHealthReviewKeyboard
 {
     [DllImport("user32.dll")]
     private static extern void keybd_event(byte key, byte scan, uint flags, UIntPtr extra);
@@ -65,7 +70,7 @@ function Find-Control([string] $Name, [System.Windows.Automation.ControlType] $T
         if ($element) { return $element }
         Start-Sleep -Milliseconds 100
     } while ([DateTime]::UtcNow -lt $deadline)
-    throw "Missing troubleshooting control: $Name."
+    throw "Missing Network health control: $Name."
 }
 
 function Invoke-Control([string] $Name) {
@@ -89,7 +94,7 @@ function Scroll-Control([string] $Id) {
 }
 
 function Show-Controls([string[]] $Names) {
-    $scroll = Scroll-Control "TroubleshootingScroll"
+    $scroll = Scroll-Control "NetworkHealthScroll"
     foreach ($percent in 0..20) {
         $scroll.SetScrollPercent(-1, $percent * 5)
         Start-Sleep -Milliseconds 100
@@ -122,7 +127,7 @@ function Start-ReviewProcess {
         if ($process.HasExited) { throw "App exited with code $($process.ExitCode)." }
     } while ($process.MainWindowHandle -eq 0 -and [DateTime]::UtcNow -lt $deadline)
     if ($process.MainWindowHandle -eq 0) { throw "App did not open a window." }
-    [TroubleshootingReviewKeyboard]::AllowForeground()
+    [NetworkHealthReviewKeyboard]::AllowForeground()
     $deadline = [DateTime]::UtcNow.AddSeconds(5)
     do {
         $null = [UiReviewNativeWindow]::SetForegroundWindow($process.MainWindowHandle)
@@ -148,38 +153,47 @@ function Stop-ReviewProcess {
 try {
     Start-ReviewProcess
     Select-Page Tools
-    Invoke-Control "Network troubleshooting"
-    foreach ($heading in @("Connection and checks", "Network path and status", "Detailed checkpoint diagnostics", "Traceroute")) {
+    Invoke-Control "Network health"
+    foreach ($heading in @("Monitoring off", "Manual diagnostics", "Connection and checks", "Network path and status", "Detailed checkpoint diagnostics", "Traceroute")) {
         $null = Find-Control $heading ([System.Windows.Automation.ControlType]::Text)
     }
+    $null = Find-Control "Background health checks are not running, so there is no current health result. This is not a healthy state." ([System.Windows.Automation.ControlType]::Text)
     $null = Find-Control "Back to Tools" ([System.Windows.Automation.ControlType]::Button)
+    $run = Find-Control "Run network diagnostics" ([System.Windows.Automation.ControlType]::Button)
+    $null = Wait-UiRegressionState -Description "Run diagnostics keyboard focus on open" -Condition { $run.Current.HasKeyboardFocus }
     $wan = Find-Control "Router WAN IPv4 address" ([System.Windows.Automation.ControlType]::Edit)
     $value = $wan.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern)
     $value.SetValue("bad-address")
     $null = Find-Control "WAN input/settings error: Enter an IPv4 address as four decimal octets (for example, 203.0.113.10), or leave it blank. The previously saved valid value was not replaced." ([System.Windows.Automation.ControlType]::Text)
     $value.SetValue("203.0.113.10")
     $value.SetValue("")
-    $scroll = Scroll-Control "TroubleshootingScroll"
-    Show-Controls @("Run network troubleshooting")
-    Invoke-Control "Run network troubleshooting"
+    $scroll = Scroll-Control "NetworkHealthScroll"
+    Show-Controls @("Run network diagnostics")
+    Invoke-Control "Run network diagnostics"
     $null = Find-Control "UI-review mode does not send diagnostic probes." ([System.Windows.Automation.ControlType]::Text)
     if ($script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new(
-            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "TroubleshootingScroll")).Current.ItemStatus -ne "Idle") {
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "NetworkHealthScroll")).Current.ItemStatus -ne "Idle") {
         throw "The inactive diagnostic surface must publish an observable Idle state."
     }
-    if ((Find-Control "Cancel network troubleshooting" ([System.Windows.Automation.ControlType]::Button)).Current.IsEnabled) {
+    if ((Find-Control "Cancel network diagnostics" ([System.Windows.Automation.ControlType]::Button)).Current.IsEnabled) {
         throw "UI review incorrectly started diagnostic network activity."
     }
     if ($ScreenshotDirectory) {
         $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
-        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "troubleshooting-ready.png")
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-ready.png")
     }
-    if (-not $scroll.Current.VerticallyScrollable) { throw "Troubleshooting page must scroll at ordinary window sizes." }
-    Show-Controls @("Network path and status", "Ready / not tested")
-    $run = Find-Control "Run network troubleshooting" ([System.Windows.Automation.ControlType]::Button)
+    if (-not $scroll.Current.VerticallyScrollable) { throw "Network health page must scroll at ordinary window sizes." }
+    $scroll.SetScrollPercent(-1, 0)
+    Start-Sleep -Milliseconds 200
+    $state = Find-Control "Monitoring off" ([System.Windows.Automation.ControlType]::Text)
     $pathHeading = Find-Control "Network path and status" ([System.Windows.Automation.ControlType]::Text)
-    $illustration = Find-Control "Logical checks$([char]0x2014)not a physical network map." ([System.Windows.Automation.ControlType]::Text)
+    if ($run.Current.IsOffscreen -or $state.Current.IsOffscreen -or
+        $run.Current.BoundingRectangle.Bottom -ge $pathHeading.Current.BoundingRectangle.Top -or
+        $state.Current.BoundingRectangle.Bottom -ge $pathHeading.Current.BoundingRectangle.Top) {
+        throw "Current health and Run diagnostics must be visible at the top, above the manual diagnostic path."
+    }
+    Show-Controls @("Network path and status", "Ready / not tested")
     $null = Find-Control "LAN peers" ([System.Windows.Automation.ControlType]::Text)
     $peerHeading = Find-Control "Selected peer" ([System.Windows.Automation.ControlType]::Text)
     $peerBounds = (Find-Address LanPeer).Current.BoundingRectangle
@@ -190,13 +204,9 @@ try {
         [Math]::Abs(($peerBounds.Left - 15) - ($gatewayBounds.Right + $wanBounds.Left) / 2) -gt 2) {
         throw "The selected peer checkpoint must be below its icon/title and directly above the router, not on the decorative branch."
     }
-    if ($run.Current.IsOffscreen -or $run.Current.BoundingRectangle.Top -le $pathHeading.Current.BoundingRectangle.Bottom -or
-        $run.Current.BoundingRectangle.Bottom -ge $illustration.Current.BoundingRectangle.Top) {
-        throw "Run checks must be visible near the top of the diagram card, below its heading and above the illustration."
-    }
     if ($ScreenshotDirectory) {
-        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "troubleshooting-diagram.png")
-        $bitmap = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "troubleshooting-diagram.png"))
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-diagram.png")
+        $bitmap = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "network-health-diagram.png"))
         try {
             $windowBounds = Get-UiReviewWindowBounds $process.MainWindowHandle
             $addressBounds = (Find-Address Loopback).Current.BoundingRectangle
@@ -279,16 +289,23 @@ try {
     if (-not (Scroll-Control "DiagramScroll").Current.HorizontallyScrollable) {
         throw "The illustrative diagram must remain horizontally scrollable in a narrow window."
     }
+    $scroll.SetScrollPercent(-1, 0)
+    Start-Sleep -Milliseconds 300
+    $narrowWindow = Get-UiReviewWindowBounds $process.MainWindowHandle
+    $narrowRun = (Find-Control "Run network diagnostics" ([System.Windows.Automation.ControlType]::Button)).Current
+    if ($narrowRun.IsOffscreen -or $narrowRun.BoundingRectangle.Right -gt $narrowWindow.X + $narrowWindow.Width) {
+        throw "Run diagnostics must stay fully reachable in a narrow window."
+    }
     $null = [UiReviewNativeWindow]::SetWindowPos(
         $process.MainWindowHandle, [IntPtr]::Zero, $bounds.X, $bounds.Y, $bounds.Width, $bounds.Height, 0x0044)
-    Show-Controls @("Run network troubleshooting", "Selected peer")
-    $peerPhase = Start-UiRegressionPhase -Name "Troubleshooting selected-peer states and accessibility"
+    Show-Controls @("Selected peer")
+    $peerPhase = Start-UiRegressionPhase -Name "Network health selected-peer states and accessibility"
     foreach ($state in @(2, 3, 4)) {
         $address = if ($state -eq 4) { $null } else { "192.0.2.42" }
         $latency = if ($state -eq 2) { 3 } else { $null }
         @{ Address = $address; State = $state; Latency = $latency } |
             ConvertTo-Json | Set-Content -LiteralPath $peerPath
-        Invoke-Control "Run network troubleshooting"
+        Invoke-Control "Run network diagnostics"
         $expected = switch ($state) {
             2 { "Selected LAN peer: 192.0.2.42; Responded - 3 ms" }
             3 { "Selected LAN peer: 192.0.2.42; Unanswered" }
@@ -309,34 +326,51 @@ try {
             throw "Detailed diagnostics must include the same peer or unavailable scan-first guidance."
         }
         if ($ScreenshotDirectory -and $state -ne 4) {
-            Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "troubleshooting-peer-$state.png")
+            Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-peer-$state.png")
         }
     }
     $scroll.SetScrollPercent(-1, 0)
     Start-Sleep -Milliseconds 400
     Invoke-Control "Back to Tools"
-    Invoke-Control "Network troubleshooting"
+    Invoke-Control "Network health"
     if ((Find-Control "Router WAN IPv4 address" ([System.Windows.Automation.ControlType]::Edit)).
         GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value -ne "") {
         throw "UI-review mode reused an unsaved WAN value."
     }
     Select-Page Overview
     Select-Page Tools
-    $null = Find-Control "Network troubleshooting" ([System.Windows.Automation.ControlType]::Button)
+    $null = Find-Control "Network health" ([System.Windows.Automation.ControlType]::Button)
     Invoke-Control "Speed test"
     $null = Find-Control "Start Cloudflare speed test" ([System.Windows.Automation.ControlType]::Button)
+    Select-Page Network
+    $summaryState = (Find-Control "Monitoring off" ([System.Windows.Automation.ControlType]::Text)).Current.BoundingRectangle
+    $publicLabel = (Find-Control "Public IP address" ([System.Windows.Automation.ControlType]::Text)).Current.BoundingRectangle
+    $sizeLabel = (Find-Control "Network size" ([System.Windows.Automation.ControlType]::Text)).Current.BoundingRectangle
+    $openHealth = (Find-Control "Open network health" ([System.Windows.Automation.ControlType]::Button)).Current.BoundingRectangle
+    if ($summaryState.Top -le $publicLabel.Bottom -or $summaryState.Bottom -ge $sizeLabel.Top -or $openHealth.Bottom -ge $sizeLabel.Top) {
+        throw "The Network health summary must be the second Network section, after identity and before network size."
+    }
+    Invoke-Control "Open network health"
+    $summaryRun = Find-Control "Run network diagnostics" ([System.Windows.Automation.ControlType]::Button)
+    $null = Wait-UiRegressionState -Description "Network summary opens Network health with keyboard focus" -Condition { $summaryRun.Current.HasKeyboardFocus }
+    if (-not (Find-Control "Tools" ([System.Windows.Automation.ControlType]::ListItem)).
+        GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected) {
+        throw "Open network health must open the single Tools Network health destination."
+    }
+    Invoke-Control "Back to Tools"
+    $null = Find-Control "Network health" ([System.Windows.Automation.ControlType]::Button)
     @{ Address = "192.0.2.42"; State = 2; Latency = 3 } |
         ConvertTo-Json | Set-Content -LiteralPath $peerPath
     foreach ($mode in @("Light", "Dark")) {
         Select-Page Settings
         Set-UiReviewAppearanceChoice -Root $script:root -Picker ModePicker -Choice $mode
         Select-Page Tools
-        Invoke-Control "Network troubleshooting"
-        Show-Controls @("Run network troubleshooting", "Selected peer")
-        Invoke-Control "Run network troubleshooting"
+        Invoke-Control "Network health"
+        Show-Controls @("Selected peer")
+        Invoke-Control "Run network diagnostics"
         $null = Find-Control "Selected LAN peer: 192.0.2.42; Responded - 3 ms" ([System.Windows.Automation.ControlType]::Text)
         if ($ScreenshotDirectory) {
-            Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "troubleshooting-peer-$mode.png")
+            Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-peer-$mode.png")
         }
     }
     if ($env:GITHUB_ACTIONS -eq "true") {
@@ -356,14 +390,15 @@ try {
             [SidebarReviewKeyboard]::SetHighContrastFlags($contrast -bor 1)
             $key.SetValue('TextScaleFactor', 200, [Microsoft.Win32.RegistryValueKind]::DWord)
             [SidebarReviewKeyboard]::NotifyTextScaleChanged()
-            $null = Wait-UiRegressionState -Description "200 percent troubleshooting text" -Condition {
+            $null = Wait-UiRegressionState -Description "200 percent Network health text" -Condition {
                 [Math]::Abs($settings.TextScaleFactor - 2) -lt 0.01
             }
             Start-ReviewProcess
             Select-Page Tools
-            Invoke-Control "Network troubleshooting"
-            Show-Controls @("Run network troubleshooting", "Selected peer")
-            Invoke-Control "Run network troubleshooting"
+            Invoke-Control "Network health"
+            $null = Find-Control "Monitoring off" ([System.Windows.Automation.ControlType]::Text)
+            Show-Controls @("Selected peer")
+            Invoke-Control "Run network diagnostics"
             $null = Find-Control "Selected LAN peer: 192.0.2.42; Responded - 3 ms" ([System.Windows.Automation.ControlType]::Text)
             $scaled = (Find-Address LanPeer).Current.BoundingRectangle
             $gateway = (Find-Address Gateway).Current.BoundingRectangle
@@ -384,7 +419,7 @@ try {
                 throw "The enlarged peer address must be fully reachable in the narrow diagram viewport."
             }
             if ($ScreenshotDirectory) {
-                Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "troubleshooting-peer-text-200-high-contrast.png")
+                Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-peer-text-200-high-contrast.png")
             }
             $failed = $false
         }
@@ -392,7 +427,7 @@ try {
             $primary = $_
             if ($ScreenshotDirectory -and $process -and -not $process.HasExited) {
                 try {
-                    Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "troubleshooting-peer-accessibility-failure.png")
+                    Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-peer-accessibility-failure.png")
                 }
                 catch { Write-Warning "Peer accessibility failure screenshot also failed: $_" }
             }
@@ -406,7 +441,7 @@ try {
                     else { $key.SetValue('TextScaleFactor', $originalValue, $originalKind) }
                     [SidebarReviewKeyboard]::NotifyTextScaleChanged()
                     [SidebarReviewKeyboard]::SetHighContrastFlags($contrast)
-                    $null = Wait-UiRegressionState -Description "restored troubleshooting text scale" -Condition {
+                    $null = Wait-UiRegressionState -Description "restored Network health text scale" -Condition {
                         [Math]::Abs($settings.TextScaleFactor - $originalScale) -lt 0.01
                     }
                 },
@@ -414,13 +449,13 @@ try {
         }
     }
     $peerPhasePassed = $true
-    Write-Host "Troubleshooting checkpoints, peer outcomes/themes/accessibility, WAN validation, privacy, scrolling, navigation, and speed-test entry passed."
+    Write-Host "Network health current state, checkpoints, peer outcomes/themes/accessibility, WAN validation, privacy, scrolling, Network summary/Tools navigation, and speed-test entry passed."
 }
 catch {
     if ($ScreenshotDirectory -and $process -and -not $process.HasExited -and
         [UiReviewNativeWindow]::GetForegroundWindow() -eq $process.MainWindowHandle) {
         $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
-        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "troubleshooting-failure.png")
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-failure.png")
     }
     throw
 }

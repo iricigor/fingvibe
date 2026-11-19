@@ -1,22 +1,28 @@
-# Network troubleshooting
+# Network health
 
-Use **Tools > Network troubleshooting** to run connection checks manually.
-Opening the page does not send diagnostic probes.
+Use **Tools > Network health** to run connection checks manually. The
+**Open network health** button in the Network page's **Network health**
+section opens the same page. Opening the page does not send diagnostic probes.
 
-## Run checks
+The top of the page shows **Monitoring off**. Background health checks are not
+available yet, so FingVibe shows no current health result instead of implying
+that the network is healthy.
 
-1. Open **Tools > Network troubleshooting**.
-2. Review the **LAN adapter context**.
+## Run diagnostics
+
+1. Open **Tools > Network health**.
+2. Review the **LAN adapter context** under **Connection and checks**.
 3. Use **Refresh adapters** if your connection changed.
 4. Leave the optional router WAN address blank unless you know it.
 5. Read **What these checks send**.
-6. Choose **Run checks**.
+6. Choose **Run diagnostics** at the top of the page.
 7. Read each checkpoint and the traceroute result.
 
-[![Network troubleshooting with sample adapter context, optional WAN input, and Run checks](../screenshots/manual/network-checks.png)](../screenshots/manual/network-checks.png)
+[![Earlier Network troubleshooting layout with sample adapter context, optional WAN input, and Run checks](../screenshots/manual/network-checks.png)](../screenshots/manual/network-checks.png)
 
-*Safe UI-review ready state. Review mode disables actual diagnostic probes.
-That test-only restriction does not apply to a normal release.
+*Safe UI-review ready state of the earlier layout; the button is now named
+**Run diagnostics** and sits above the diagram. Review mode disables actual
+diagnostic probes. That test-only restriction does not apply to a normal release.
 [Screenshot sources](screenshots.md).*
 
 **Cancel**, leaving the page, changing its network context, or closing the app

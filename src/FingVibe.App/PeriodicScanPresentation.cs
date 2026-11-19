@@ -95,7 +95,7 @@ internal static class PeriodicScanPresentation
     {
         NetworkActivityKind.LanScan => "another LAN scan",
         NetworkActivityKind.InternetSpeedTest => "a Cloudflare speed test",
-        NetworkActivityKind.NetworkTroubleshooting => "network troubleshooting",
+        NetworkActivityKind.NetworkTroubleshooting => "network diagnostics",
         NetworkActivityKind.DeviceServiceScan => "a device service scan",
         _ => "another network measurement"
     };

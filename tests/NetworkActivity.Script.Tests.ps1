@@ -22,11 +22,13 @@ $namespaces = [Xml.XmlNamespaceManager]::new($xaml.NameTable)
 $namespaces.AddNamespace("ui", "http://schemas.microsoft.com/winfx/2006/xaml/presentation")
 $namespaces.AddNamespace("x", "http://schemas.microsoft.com/winfx/2006/xaml")
 $cards = $xaml.SelectNodes("//ui:ScrollViewer[@x:Name='NetworkPage']/ui:StackPanel/ui:Border", $namespaces)
-if ($cards.Count -ne 3 -or
+if ($cards.Count -ne 4 -or
     -not $cards[0].SelectSingleNode(".//ui:TextBlock[@x:Name='PublicAddressText']", $namespaces) -or
-    -not $cards[1].SelectSingleNode(".//ui:TextBlock[@x:Name='SubnetSizeText']", $namespaces) -or
-    -not $cards[2].SelectSingleNode(".//ui:ComboBox[@x:Name='NetworkActivityPeriod']", $namespaces)) {
-    throw "Network identity, subnet details and Activity must remain separate top-level cards in that order."
+    $cards[1].GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml") -cne "NetworkHealthSummary" -or
+    -not $cards[1].SelectSingleNode(".//ui:Button[@x:Name='OpenNetworkHealthButton']", $namespaces) -or
+    -not $cards[2].SelectSingleNode(".//ui:TextBlock[@x:Name='SubnetSizeText']", $namespaces) -or
+    -not $cards[3].SelectSingleNode(".//ui:ComboBox[@x:Name='NetworkActivityPeriod']", $namespaces)) {
+    throw "Network identity, the Network health summary, subnet details and Activity must remain separate top-level cards in that order."
 }
 $bin = Join-Path $PSScriptRoot "FingVibe.Core.Tests\bin\Release\net8.0"
 $null = [Runtime.InteropServices.NativeLibrary]::Load((Join-Path $bin "runtimes\win-x64\native\e_sqlite3.dll"))
