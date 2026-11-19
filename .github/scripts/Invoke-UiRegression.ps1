@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory)]
     [ValidateSet("sidebar", "sidebar-presentation", "sidebar-scan-flows", "sidebar-scan-presentation", "sidebar-preferences-scheduling",
         "devices", "devices-presentation", "devices-row-expansion", "devices-filters-previews", "devices-columns-sorting",
-        "details-summary", "details-identity", "details-observations", "details-activity", "details-linking", "network-activity",
+        "details-summary", "details-identity", "details-usage", "details-observations", "details-activity", "details-linking", "network-activity",
         "tools", "tools-utilities", "tools-device-data")]
     [string] $Suite,
     [Parameter(Mandatory)][string] $AppPath,
@@ -66,6 +66,9 @@ try {
             if ($Suite -eq "details-identity" -and
                 ($plan.Scenario | Where-Object { $_ -in @("DeviceDetails", "DeviceHistory") })) {
                 Invoke-RegressionCheck "DeviceDiscovery.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "discovery") }
+            }
+            if ($Suite -eq "details-usage" -and
+                ($plan.Scenario | Where-Object { $_ -in @("DeviceDetails", "DeviceHistory") })) {
                 Invoke-RegressionCheck "UsageCategory.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "usage-category") }
             }
             if ($Suite -eq "details-observations" -and

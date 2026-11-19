@@ -54,7 +54,8 @@
             "devices-filters-previews" = @("DevicesList.Ui")
             "devices-columns-sorting" = @("DevicesList.Ui")
             "details-summary" = @("DeviceScanHistory.Ui")
-            "details-identity" = @("DeviceDiscovery.Ui", "UsageCategory.Ui")
+            "details-identity" = @("DeviceDiscovery.Ui")
+            "details-usage" = @("UsageCategory.Ui")
             "details-observations" = @("DeviceScanHistory.Ui")
             "details-activity" = @("DeviceActivity.Ui")
             "details-linking" = @("DeviceLinking.Ui")
@@ -97,12 +98,12 @@
         if ($LASTEXITCODE -ne 0) { throw "Sidebar runner must support multi-scenario plans under Windows PowerShell." }
         Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 23 "Windows PowerShell dispatches the sidebar without parsing details selection"
         ConvertTo-Json -InputObject @($definitions | Where-Object Scenario -eq Devices) -Depth 5 | Set-Content $planPath
-        foreach ($suite in @("details-summary", "details-identity", "details-observations", "details-activity", "details-linking", "network-activity")) {
+        foreach ($suite in @("details-summary", "details-identity", "details-usage", "details-observations", "details-activity", "details-linking", "network-activity")) {
             & $runner -Suite $suite @parameters
             Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 23 "Unselected $suite must not launch native checks"
         }
         ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios Network) -Depth 5 | Set-Content $planPath
-        foreach ($suite in @("details-summary", "details-identity", "details-observations", "details-activity", "details-linking")) {
+        foreach ($suite in @("details-summary", "details-identity", "details-usage", "details-observations", "details-activity", "details-linking")) {
             & $runner -Suite $suite @parameters
             Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 23 "Network-only plan adds no checks to $suite"
         }
@@ -116,7 +117,7 @@
         Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count $before "Device-Details-only plans do not launch Network Activity"
         ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios DeviceDetails, Network) -Depth 5 |
             Set-Content $planPath
-        foreach ($suite in @("details-summary", "details-identity", "details-observations", "details-activity", "details-linking", "network-activity")) {
+        foreach ($suite in @("details-summary", "details-identity", "details-usage", "details-observations", "details-activity", "details-linking", "network-activity")) {
             $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
             & $runner -Suite $suite @parameters
             $suiteCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json)
@@ -124,7 +125,7 @@
         }
         ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios DeviceHistory, Network) -Depth 5 |
             Set-Content $planPath
-        foreach ($suite in @("details-summary", "details-identity", "details-observations", "details-activity", "details-linking", "network-activity")) {
+        foreach ($suite in @("details-summary", "details-identity", "details-usage", "details-observations", "details-activity", "details-linking", "network-activity")) {
             $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
             & $runner -Suite $suite @parameters
             $suiteCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json)
@@ -146,7 +147,8 @@
         $sharedPlanPath = Join-Path $runnerFixture "shared-contract-plan.json"
         $sharedDetailChecks = [ordered]@{
             "details-summary" = @("DeviceScanHistory.Ui", "EquipmentActivity.Ui")
-            "details-identity" = @("DeviceDiscovery.Ui", "UsageCategory.Ui")
+            "details-identity" = @("DeviceDiscovery.Ui")
+            "details-usage" = @("UsageCategory.Ui")
             "details-observations" = @("DeviceScanHistory.Ui")
             "details-activity" = @("DeviceActivity.Ui")
             "details-linking" = @("DeviceLinking.Ui")
