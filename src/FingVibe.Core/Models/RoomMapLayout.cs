@@ -178,13 +178,18 @@ public sealed record RoomMapProjection(
 
             var address = observation?.Address ?? importedAddress!.ToString();
             var correction = data.Classifications.GetValueOrDefault(mac);
-            var type = correction?.Type
+            var linked = data.FindLinkedDevice(mac);
+            var type = linked is not null
+                ? linked.Identification.Type ?? FingClassificationMapper.Type(inventoryDevice.Imported.Type)
+                    ?? observation?.Classification.Type ?? DeviceType.Unknown
+                : correction?.Type
                 ?? FingClassificationMapper.Type(inventoryDevice.Imported.Type)
                 ?? observation?.Classification.Type
                 ?? DeviceType.Unknown;
-            var icon = correction?.Icon ?? type;
-            var assignment = data.PeopleRooms.Assignments.GetValueOrDefault(mac);
+            var icon = (linked is null ? correction?.Icon : linked.Identification.Icon) ?? type;
+            var assignment = data.GetAssignment(mac);
             var name = FirstText(
+                linked?.Name,
                 data.Names.GetValueOrDefault(mac),
                 inventoryDevice.Imported.Name,
                 observation?.Hostname,

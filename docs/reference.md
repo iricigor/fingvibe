@@ -1102,7 +1102,11 @@ other filters, which retain responsive wrapping at narrower window widths.
 classification corrections, People/Rooms, persistent virtual devices, scan
 history, network/subnet discovery baselines and declined possible-match MAC
 pairs (`declined_matches`, keyed by the sorted pair and added to existing
-inventories without a format change). Completed-scan changes commit
+inventories without a format change) and linked devices (`linked_devices`, one
+row per linked device holding its member MACs with link dates, shared values and
+the values confirmed at linking, also added without a format change). A linked
+MAC belongs to one linked device, never to a virtual device, and keeps its own
+saved values for a later Unlink. Completed-scan changes commit
 together in a SQLite transaction with full synchronous durability and an
 optimistic revision check; stale app instances must restart and analyze again.
 Scans append history rows, while metadata edits update only changed records and
@@ -1337,10 +1341,12 @@ consumption with this baseline, keeping queue time and pipeline critical path
 separate. See #314 for the fresh Devices prerequisite and delivered measurements.
 
 Device Details regression follows the #262 Overview/History tab boundary
-across four independent matrix jobs (#292): `details-summary`
+across independent matrix jobs (#292): `details-summary`
 (`DeviceScanHistory.Ui -SummaryOnly`), `details-identity` (`DeviceDiscovery.Ui`,
-`UsageCategory.Ui`), `details-observations` (`DeviceScanHistory.Ui -ObservationsOnly`)
-and `details-activity` (`DeviceActivity.Ui`). Each job launches its own fixtures and app
+`UsageCategory.Ui`), `details-observations` (`DeviceScanHistory.Ui -ObservationsOnly`),
+`details-activity` (`DeviceActivity.Ui`) and `details-linking` (`DeviceLinking.Ui`, #547:
+Merge MAC addresses states, picker, explicit choices, Cancel, failed-save draft,
+shared editing, restart, high contrast, keyboard and text scaling). Each job launches its own fixtures and app
 instances, is selected by the `DeviceDetails` or `DeviceHistory` capture-plan scenario, and must
 dispatch at least one check. The separate `network-activity` suite runs
 `NetworkActivity.Ui` only when `Network` is selected, instead of adding it to

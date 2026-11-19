@@ -42,6 +42,8 @@ public sealed partial class MainWindow
             ? "Saved classifications could not be loaded. Changes are disabled to protect the saved file."
             : row.VirtualDevice is not null
                 ? "Corrections belong to this virtual device and follow its inferred MAC associations."
+            : row.IsLinked
+                ? "Identification is shared by this linked device and its MAC addresses. Each MAC's own saved values are kept."
             : row.MacAddress is null
                 ? "A MAC address is required to save corrections; IP addresses can change."
                 : MacAddressResolver.IsPrivateOrRandomized(row.MacAddress)
@@ -60,14 +62,17 @@ public sealed partial class MainWindow
             && !_classificationOverridesUnavailable && !_isSavingClassification;
         var choices = DevicePage.ClassificationChoices;
         var current = _selectedDeviceRow?.ClassificationOverride ?? new DeviceClassificationOverride();
-        DevicePage.SetClassificationActions(enabled, enabled && choices != current, enabled && !current.IsEmpty);
+        var canReset = _selectedDeviceRow?.LinkedDevice is { } linked
+            ? current != linked.Confirmed.Identification : !current.IsEmpty;
+        DevicePage.SetClassificationActions(enabled, enabled && choices != current, enabled && canReset);
     }
 
     private async void DeviceClassificationSaveButton_Click(object sender, RoutedEventArgs e) =>
         await SaveClassificationOverrideAsync(DevicePage.ClassificationChoices);
 
     private async void DeviceClassificationResetButton_Click(object sender, RoutedEventArgs e) =>
-        await SaveClassificationOverrideAsync(new DeviceClassificationOverride());
+        await SaveClassificationOverrideAsync(_selectedDeviceRow?.LinkedDevice?.Confirmed.Identification
+            ?? new DeviceClassificationOverride());
 
     private async Task SaveClassificationOverrideAsync(DeviceClassificationOverride value)
     {
@@ -94,23 +99,30 @@ public sealed partial class MainWindow
 
         try
         {
-            if (row.VirtualDevice is not null)
+            var linked = row.LinkedDevice;
+            if (linked is not null)
+                await SaveLinkedDeviceAsync(linked.Id, device => device with { Identification = value });
+            else if (row.VirtualDevice is not null)
                 await SaveVirtualDeviceAsync(row, device => device with { Classification = value.IsEmpty ? null : value });
             else
                 await PersistDeviceDataAsync(CurrentDeviceData with { Classifications = updated });
-            if (row.VirtualDevice is null) _classificationOverrides = updated;
-            foreach (var matching in _allResults.Append(row).Distinct()
-                .Where(item => item.IdentityKey == row.IdentityKey))
-            {
-                matching.SetClassificationOverride(value.IsEmpty ? null : value);
-            }
+            if (row.VirtualDevice is null && linked is null) _classificationOverrides = updated;
+            if (linked is null)
+                foreach (var matching in _allResults.Append(row).Distinct()
+                    .Where(item => item.IdentityKey == row.IdentityKey))
+                {
+                    matching.SetClassificationOverride(value.IsEmpty ? null : value);
+                }
 
             RefreshVisibleResults();
             if (_selectedDeviceRow?.IdentityKey == row.IdentityKey)
             {
                 DevicePage.CompleteClassificationEdit();
                 UpdateClassificationDetails();
-                DevicePage.ClassificationStatus = value.IsEmpty
+                DevicePage.ClassificationStatus = linked is not null
+                    ? value == linked.Confirmed.Identification ? "Restored the identification chosen when linked."
+                        : "Shared identification saved."
+                    : value.IsEmpty
                     ? row.ImportedMetadata is null ? "Automatic detection restored."
                         : "Saved corrections cleared; imported data or automatic detection is now used."
                     : "Device identification saved.";

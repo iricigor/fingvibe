@@ -37,8 +37,9 @@ internal static class PeopleRoomsPresentation
         PeopleRoomsData data, IReadOnlyList<AssignedDeviceListRow> devices, Guid? personId, Guid? roomId) =>
         devices.Where(row =>
         {
-            var assignment = row.ScanResult?.VirtualDevice is { } device
-                ? device.Assignment : data.Assignments.GetValueOrDefault(row.IdentityKey);
+            var assignment = row.ScanResult?.VirtualDevice is { } device ? device.Assignment
+                : row.ScanResult?.LinkedDevice is { } linked ? linked.Assignment
+                : data.Assignments.GetValueOrDefault(row.IdentityKey);
             return assignment is not null
                 && (personId is null || assignment.PersonId == personId)
                 && (roomId is null || assignment.RoomId == roomId);

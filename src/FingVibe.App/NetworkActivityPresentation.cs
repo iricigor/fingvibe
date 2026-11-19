@@ -32,8 +32,8 @@ public static class NetworkActivityPresentation
             }
             else
             {
-                row = new(data.Devices[id.Id], 0, classificationOverride: data.Classifications.GetValueOrDefault(id.Id));
-                room = data.PeopleRooms.Assignments.GetValueOrDefault(id.Id)?.RoomId;
+                row = ScanResultRow.ForDevice(data.Devices[id.Id], data);
+                room = data.GetAssignment(id.Id)?.RoomId;
             }
             result[index] = new(id, room, row.Type, data.GetUsageCategoryOverride(id) ?? categories[id].Category);
         }

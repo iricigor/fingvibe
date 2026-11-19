@@ -140,10 +140,12 @@ for the desktop-free foundation check. These are contributor/reviewer
 expectations, not a new mandatory manifest or gate. Enforced coverage
 selection remains separate work in #256.
 
-Device Details checks run in four independent CI jobs that follow the
-Overview/History tab boundary: `details-summary`, `details-identity`,
-`details-observations` and `details-activity`. Add observation-table checks to
-`details-observations` and Activity checks to `details-activity`.
+Device Details checks run in five independent CI jobs: `details-summary`,
+`details-identity`, `details-observations` and `details-activity` follow the
+Overview/History tab boundary, and `details-linking` covers linking device
+records. Add observation-table checks to
+`details-observations`, Activity checks to `details-activity` and linking checks
+to `details-linking`.
 The Network page's `NetworkActivity.Ui` runs independently in `network-activity`
 when Network is selected; do not also dispatch it from `details-identity`.
 Person details' `EquipmentActivity.Ui` uses `details-summary` when PersonDetails

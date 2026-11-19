@@ -85,7 +85,9 @@ public sealed partial class MainWindow
 
         var macAddress = row.MacAddress;
         string? savedName = null;
-        var hasCustomName = row.VirtualDevice is { } virtualDevice
+        var linked = row.LinkedDevice;
+        var hasCustomName = linked is not null ? (savedName = linked.Name) != linked.Confirmed.Name
+            : row.VirtualDevice is { } virtualDevice
             ? (savedName = virtualDevice.Name) is not null
             : macAddress is not null && _deviceNameOverrides.TryGetValue(macAddress.ToString(), out savedName);
         var currentName = savedName ?? row.AutomaticName;
@@ -101,8 +103,11 @@ public sealed partial class MainWindow
             && _inventoryReady && !_inventoryUnavailable
             && !_deviceNameOverridesUnavailable
             && !_isSavingDeviceNameOverride;
+        DevicePage.SetNameResetLabel(linked is null ? "Use imported / discovered name" : "Restore name chosen when linked");
         DevicePage.SetNameActions(canSave, canReset,
-            hasCustomName ? $"Revert to imported name or discovered hostname: {row.AutomaticName}" : null);
+            !hasCustomName ? null
+            : linked is not null ? $"Restore the name chosen when linked: {linked.Confirmed.Name}"
+            : $"Revert to imported name or discovered hostname: {row.AutomaticName}");
     }
 
     private async Task SaveDeviceNameOverrideAsync(string? customName)
@@ -116,6 +121,7 @@ public sealed partial class MainWindow
         }
 
         _isSavingDeviceNameOverride = true;
+        var reverting = customName is null;
         UpdateDeviceNameActions();
         await _deviceDataSaveLock.WaitAsync();
         var updatedNames = new Dictionary<string, string>(_deviceNameOverrides, StringComparer.OrdinalIgnoreCase);
@@ -130,7 +136,9 @@ public sealed partial class MainWindow
 
         try
         {
-            if (row.VirtualDevice is not null)
+            if (row.LinkedDevice is { } linked)
+                await SaveLinkedDeviceAsync(linked.Id, device => device with { Name = customName ?? device.Confirmed.Name });
+            else if (row.VirtualDevice is not null)
                 await SaveVirtualDeviceAsync(row, device => device with { Name = customName });
             else
                 await PersistDeviceDataAsync(CurrentDeviceData with { Names = updatedNames });
@@ -151,13 +159,13 @@ public sealed partial class MainWindow
             UpdateDeviceNameActions();
         }
 
-        if (row.VirtualDevice is null) _deviceNameOverrides = updatedNames;
-        row.SetCustomName(customName);
+        if (row.VirtualDevice is null && !row.IsLinked) _deviceNameOverrides = updatedNames;
+        if (!row.IsLinked) row.SetCustomName(customName);
         RefreshVisibleResults();
         if (ReferenceEquals(_selectedDeviceRow, row))
         {
             DevicePage.NameInput = row.NameText;
-            DevicePage.NameSaveLabel = customName is null ? "✓ Reverted" : "✓ Saved";
+            DevicePage.NameSaveLabel = reverting ? "✓ Reverted" : "✓ Saved";
             DevicePage.NameStatus = string.Empty;
             UpdateDeviceNameActions();
         }

@@ -159,7 +159,7 @@ Hover over or focus the icon to see up to three counterparts with their reasons,
 such as *Possible matching MAC address: Rey (192.168.0.114). Same discovered
 name.* Click it, or press Enter or Space while it has focus, to open that row's
 Device Details with **Merge MAC addresses** expanded and in view
-([review and decline](device-details.md#review-possible-matching-mac-addresses)).
+([review, decline or link](device-details.md#merge-mac-addresses)).
 
 FingVibe suggests a match only for this evidence, strongest first:
 

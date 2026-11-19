@@ -50,34 +50,78 @@ each) are stored locally, including virtual-device connection observations.
 Earlier scans have no retroactive evidence. A shared name or ID does not prove
 that two records represent the same device, and does not automatically link them.
 
-## Review possible matching MAC addresses
+## Merge MAC addresses
 
-When another record may be the same physical device
-([how matches are found](devices.md#possible-matching-mac-addresses)),
-**Merge MAC addresses** appears on **Overview** directly above
-**Device identification**. Its header shows a yellow link icon and
-**1 possible match** or **N possible matches**. Devices without suggestions do
-not show the section.
+**Merge MAC addresses** appears on every device's **Overview**, directly above
+**Device identification**. Its collapsed header shows what there is to do:
 
-The section opens expanded when you open such a device, including from the
-Devices link icon. If you collapse it, it stays collapsed while that device
-remains open; later refreshes do not reopen it.
+- **No suggestions** in pale gray: nothing looks like the same device. The
+  expanded section offers **Choose device...** to link a record manually.
+- **N possible matches** with a yellow link icon: another record may be the same
+  physical device ([how matches are found](devices.md#possible-matching-mac-addresses)).
+- **2 MAC addresses** in green: you linked these records as one device.
+- **Not available for virtual devices** in pale gray. A virtual device groups
+  changing private MAC addresses automatically, so it can't be linked. You can
+  still name it and assign it to a person or room.
+
+With suggestions, the section opens expanded when you open the device, including
+from the Devices link icon. If you collapse it, it stays collapsed while that
+device remains open; later refreshes do not reopen it.
 
 It compares **This device** with **Selected other MAC address**
-(*suggestion i of n*): name, status, IP / MAC, and vendor / OS / type. Below,
-*Suggested because …* states the reason and that the suggestion does not
-establish physical identity.
+(*suggestion i of n*, or *chosen manually*): name, status, IP / MAC, and
+vendor / OS / type. For a suggestion, *Suggested because …* states the reason
+and that the suggestion does not establish physical identity.
 
-- **Change device...** appears when there is more than one suggestion. It lists
-  only the suggestions, strongest first.
+- **Change device...** (or **Choose device...**) opens a searchable picker.
+  **Suggested** lists suggestions strongest first with their reason; **Other
+  devices** lists every other unlinked record that isn't part of a virtual
+  device. Declined pairs are tagged **Declined** and can still be linked
+  manually. Virtual devices can't be linked and aren't listed.
 - **Decline suggestion** keeps the two records separate permanently. Both link
   icons for that pair disappear, other suggestions remain, and the next
-  suggestion is shown; the section disappears when none remain. A declined pair
-  is never suggested again, even if stronger evidence appears later.
+  suggestion is shown. A declined pair is never suggested again, even if
+  stronger evidence appears later. Declines survive restarts; if a save fails,
+  the section shows the error and keeps the suggestion.
 
-Declines are saved in `device-inventory.sqlite` and survive restarts. If a save
-fails, the section shows the error and keeps the suggestion. Linking records is
-not available yet.
+### Link two records as one device
+
+**Choose the shared device data** lists each field with **This device**,
+**Other MAC address** and the **Linked device value**: name, device type,
+operating system and vendor / manufacturer; family, model and device icon when
+either record has one; then Person, Room and usage category.
+
+- Matching values are kept. Each differing value needs an explicit choice; you
+  can also type the shared name. FingVibe never silently prefers the online or
+  the first record.
+- Matching automatic usage categories stay automatic. Differing categories need
+  a choice, which is saved as the linked device's manual category.
+- **Merge as one device** stays disabled until every difference is resolved.
+  **Cancel** discards your choices without saving anything.
+- If saving fails, the section shows the error and keeps your choices; nothing
+  is linked and no suggestion disappears until saving succeeds.
+
+MAC addresses, adapter vendors, IPs, ports and scan histories stay separate. No
+source records are deleted.
+
+After linking, the section says **Linked by you** and lists each MAC address
+with its IP, adapter vendor, status and the date it was linked. Linked records
+get no new suggestions yet.
+
+### Edit a linked device
+
+Use the existing name, identification, **Person**/**Room** and usage-category
+editors on either MAC address's Device Details; they change the shared values,
+and both Devices rows update. The confirmed name and identification are fixed
+values: later scans update each MAC's own evidence, not the shared values.
+**Restore name chosen when linked** and **Restore values chosen when linked**
+return to the values confirmed when you linked the records.
+
+Each MAC keeps its own saved name, identification, Person/Room and category
+while linked, ready for a later Unlink. Unlink is not available yet; it is
+planned separately. Until then, Devices, Overview and People & Rooms still show
+and count each MAC address as its own row (both with the shared values), and
+activity remains per MAC address.
 
 ## Rename
 

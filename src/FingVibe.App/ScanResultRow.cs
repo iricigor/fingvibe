@@ -313,13 +313,41 @@ public sealed class ScanResultRow : INotifyPropertyChanged
                 && data.VirtualDevices.Any(slot => slot.History.Any(item => item.Mac == device.Mac)
                     && observation?.NetworkId == slot.NetworkId && observation.Subnet == slot.Subnet))
                 continue;
-            yield return new(device, observation is null ? 0 : int.Parse(observation.Subnet.Split('/')[1]),
-                data.Names.GetValueOrDefault(device.Mac), data.Classifications.GetValueOrDefault(device.Mac),
+            yield return ForDevice(device, data, observation is null ? 0 : int.Parse(observation.Subnet.Split('/')[1]),
                 historical: observation is null || observation.LastChecked != device.CurrentCompletedAt
                     || observation.NetworkId != device.CurrentNetworkId || observation.Subnet != device.CurrentSubnet);
         }
         foreach (var device in data.VirtualDevices)
             yield return new(device, data, int.Parse(device.Subnet.Split('/')[1]));
+    }
+
+    /// <summary>A MAC record's row; a linked member shows its linked device's shared values.</summary>
+    public static ScanResultRow ForDevice(InventoryDevice device, DeviceInventoryData data, int prefixLength = 0, bool historical = true)
+    {
+        var linked = data.FindLinkedDevice(device.Mac);
+        var row = new ScanResultRow(device, prefixLength, linked?.Name ?? data.Names.GetValueOrDefault(device.Mac),
+            linked?.Identification ?? data.Classifications.GetValueOrDefault(device.Mac), historical);
+        if (linked is not null)
+        {
+            row.LinkedDevice = linked;
+            row.UsageCategoryOverride = linked.UsageCategoryOverride;
+        }
+        return row;
+    }
+
+    public LinkedDevice? LinkedDevice { get; private set; }
+    public bool IsLinked => LinkedDevice is not null;
+
+    public void UpdateLinkedDevice(LinkedDevice device)
+    {
+        if (LinkedDevice is { } current && current.Id != device.Id)
+            throw new ArgumentException("The linked identity must not change.", nameof(device));
+        if (VirtualDevice is not null || MacAddress?.ToString() is not { } mac || !device.HasMember(mac))
+            throw new ArgumentException("Only a member MAC record can show a linked device.", nameof(device));
+        LinkedDevice = device;
+        SetCustomName(device.Name);
+        SetClassificationOverride(device.Identification);
+        SetUsageCategory(device.UsageCategoryOverride, UsageInference, UsageStatus);
     }
 
     public void UpdateVirtualDevice(PrivateVirtualDevice device)
@@ -343,6 +371,7 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         _sourceData = updated._sourceData;
         _prefixLength = updated._prefixLength;
         VirtualDevice = updated.VirtualDevice;
+        LinkedDevice = updated.LinkedDevice;
         RefreshMacExpansionLines();
         Result = updated.Result;
         _customName = updated._customName;
@@ -429,17 +458,22 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         ? Result.DeviceName : _inventoryDevice?.Imported.Hostname ?? "-";
     public string AutomaticName => VirtualDevice?.AutomaticName ?? _inventoryDevice?.Imported.Name
         ?? (HostnameText != "-" ? HostnameText : AddressText);
-    public string VendorText => _classificationOverride?.Brand ?? _inventoryDevice?.Imported.Brand ?? Result?.VendorName ?? "Unknown";
-    public string BrandText => _classificationOverride?.Brand ?? ImportedMetadata?.Brand
-        ?? (VendorText is "Unknown" or "Private" or "Private/Randomized" ? "-" : VendorText);
-    public string FamilyText => _classificationOverride?.Family ?? ImportedMetadata?.Family ?? "-";
-    public string ModelText => _classificationOverride?.Model ?? ImportedMetadata?.Model ?? "-";
-    public string BrandSource => _classificationOverride?.Brand is not null ? "Saved correction"
+    // A linked member shows only the linked device's shared identification, never another member's imported values.
+    private ImportedDeviceMetadata? SharedImported => IsLinked ? null : ImportedMetadata;
+    private string SavedSource => IsLinked ? "Linked device value" : "Saved correction";
+    public string IdentificationSourceLabel => SavedSource;
+    public string VendorText => _classificationOverride?.Brand ?? SharedImported?.Brand ?? Result?.VendorName ?? "Unknown";
+    public string BrandText => _classificationOverride?.Brand ?? (IsLinked ? "-" : ImportedMetadata?.Brand
+        ?? (VendorText is "Unknown" or "Private" or "Private/Randomized" ? "-" : VendorText));
+    public string FamilyText => _classificationOverride?.Family ?? SharedImported?.Family ?? "-";
+    public string ModelText => _classificationOverride?.Model ?? SharedImported?.Model ?? "-";
+    public string BrandSource => _classificationOverride?.Brand is not null ? SavedSource
+        : IsLinked ? string.Empty
         : ImportedMetadata?.Brand is not null ? "Imported from Fing" : "Manufacturer lookup";
-    public string FamilySource => _classificationOverride?.Family is not null ? "Saved correction"
-        : ImportedMetadata?.Family is not null ? "Imported from Fing" : string.Empty;
-    public string ModelSource => _classificationOverride?.Model is not null ? "Saved correction"
-        : ImportedMetadata?.Model is not null ? "Imported from Fing" : string.Empty;
+    public string FamilySource => _classificationOverride?.Family is not null ? SavedSource
+        : SharedImported?.Family is not null ? "Imported from Fing" : string.Empty;
+    public string ModelSource => _classificationOverride?.Model is not null ? SavedSource
+        : SharedImported?.Model is not null ? "Imported from Fing" : string.Empty;
     public string VendorDisplayText => DeviceVendorPresentation.DisplayText(VendorText);
     public string VendorDescription => DeviceVendorPresentation.Description(VendorText);
     public IReadOnlyList<OpenPort> OpenPortItems => IsCurrentScanResponse && _inventoryDevice is not null
@@ -470,17 +504,17 @@ public sealed class ScanResultRow : INotifyPropertyChanged
         + (_classificationOverride?.Type is null && FingClassificationMapper.Type(ImportedMetadata?.Type) is null && Detected.TypeIsInferred
             ? " (likely)" : string.Empty);
     public string OperatingSystemSource => _classificationOverride?.OperatingSystem is not null
-        ? $"User-selected. Automatic: {Detected.OperatingSystem.Label()}. {Detected.OperatingSystemEvidence}"
+        ? $"{(IsLinked ? "Linked device value. This MAC's automatic value" : "User-selected. Automatic")}: {Detected.OperatingSystem.Label()}. {Detected.OperatingSystemEvidence}"
         : ImportedMetadata?.OperatingSystem is { } os
             ? $"Imported from Fing: {os}{(FingClassificationMapper.OperatingSystem(os) is null ? " (unmapped; using automatic category)" : string.Empty)}. Automatic: {Detected.OperatingSystemEvidence}" : Detected.OperatingSystemEvidence;
     public string DeviceTypeSource => _classificationOverride?.Type is not null
-        ? $"User-selected. Automatic: {Detected.Type.Label()}. {Detected.TypeEvidence}"
+        ? $"{(IsLinked ? "Linked device value. This MAC's automatic value" : "User-selected. Automatic")}: {Detected.Type.Label()}. {Detected.TypeEvidence}"
         : ImportedMetadata?.Type is { } type
             ? $"Imported from Fing: {type}{(FingClassificationMapper.Type(type) is null ? " (unmapped; using automatic category)" : string.Empty)}. Automatic: {Detected.TypeEvidence}" : Detected.TypeEvidence;
     public bool UsesVirtualIcon => IsVirtualIdentity && _classificationOverride?.Icon is null;
     public string IconText => UsesVirtualIcon ? "Virtual device (multiple PCs)" : Icon.Label();
     public string IconSource => _classificationOverride?.Icon is not null
-        ? $"User-selected icon: {Icon.Label()}"
+        ? $"{(IsLinked ? "Linked device icon" : "User-selected icon")}: {Icon.Label()}"
         : UsesVirtualIcon ? VirtualIdentityDescription : $"Icon follows device type: {Type.Label()}";
     public string IconGlyph => UsesVirtualIcon ? "\uE975" : GetIconGlyph(Icon);
     public static string GetIconGlyph(DeviceType icon) => icon switch

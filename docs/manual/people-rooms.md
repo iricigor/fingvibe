@@ -43,6 +43,12 @@ Assignments normally need a valid six-byte MAC address.
 They do not follow an IP address alone. Randomized or changing MACs can lose
 the link; supported inferred virtual identities keep their own assignments.
 
+A [linked device](device-details.md#link-two-records-as-one-device) has one
+shared **Person** and **Room** for all of its MAC addresses; changing either on
+any of its MAC addresses changes it for the linked device. Each MAC's own earlier
+assignment is kept for a later Unlink. Until linked devices are shown as one row,
+person and room counts still count each linked MAC address separately.
+
 ## View the Room map
 
 Open **People & rooms**, then choose **View room map** in the **Rooms**

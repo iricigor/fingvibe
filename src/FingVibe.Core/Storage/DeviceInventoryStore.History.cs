@@ -27,6 +27,7 @@ public sealed partial class DeviceInventoryStore
     {
         // Added after format 3; existing inventories gain the empty table without a format change.
         Execute(connection, null, "CREATE TABLE IF NOT EXISTS declined_matches (id TEXT PRIMARY KEY, data TEXT NOT NULL)");
+        Execute(connection, null, "CREATE TABLE IF NOT EXISTS linked_devices (id TEXT PRIMARY KEY, data TEXT NOT NULL)");
         using var versionCommand = connection.CreateCommand();
         versionCommand.CommandText = "SELECT version FROM inventory WHERE id=1";
         var version = Convert.ToInt32(versionCommand.ExecuteScalar(), CultureInfo.InvariantCulture);
