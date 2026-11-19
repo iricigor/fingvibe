@@ -34,10 +34,10 @@ public sealed partial class MainWindow
         var data = CurrentDeviceData;
         var rows = MacRows();
         var header = LinkedDevicePresentation.Header(row, data);
-        var canLink = header.State is MergeSectionState.NoSuggestions or MergeSectionState.PossibleMatches;
+        var canLink = header.State != MergeSectionState.Unavailable;
         DeviceLinkChoice Choice(LinkCandidate candidate) => new(candidate.Mac, DeviceMatchPresentation.Card(candidate.Row),
             candidate.Suggestion?.ShortReason, candidate.Suggestion?.Explanation, candidate.Declined,
-            LinkedDevicePresentation.CandidateText(candidate));
+            LinkedDevicePresentation.CandidateText(candidate), candidate.MacCount);
         IReadOnlyList<DeviceLinkChoice> Search(string? text) => canLink
             ? LinkedDevicePresentation.Candidates(row, _allResults, data, text).Select(Choice).ToArray() : [];
         var mac = row.MacAddress?.ToString();
@@ -48,9 +48,18 @@ public sealed partial class MainWindow
             other => rows.TryGetValue(other, out var otherRow) ? LinkedDeviceDraft.Create(row, otherRow) : null), opening);
     }
 
-    private Dictionary<string, ScanResultRow> MacRows() => _allResults
-        .Where(row => row.VirtualDevice is null && row.MacAddress?.GetAddressBytes().Length == 6)
-        .GroupBy(row => row.MacAddress!.ToString()).ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+    /// <summary>Rows by MAC; every member of a linked device maps to the linked device's row.</summary>
+    private Dictionary<string, ScanResultRow> MacRows()
+    {
+        var rows = new Dictionary<string, ScanResultRow>(StringComparer.Ordinal);
+        foreach (var row in _allResults.Where(row => row.VirtualDevice is null && row.MacAddress?.GetAddressBytes().Length == 6))
+        {
+            var macs = row.IsLinkedDeviceRow && row.LinkedDevice is { } linked
+                ? linked.Members.Select(member => member.Mac) : [row.MacAddress!.ToString()];
+            foreach (var mac in macs) rows.TryAdd(mac, row);
+        }
+        return rows;
+    }
 
     private void DeviceMatchSuggestionRequested(object? sender, ScanResultRow row)
     {

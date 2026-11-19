@@ -55,12 +55,16 @@ public sealed partial class MainWindow
         }
         finally { _deviceDataSaveLock.Release(); }
 
-        // The linked-device row splits into separate member rows; reopen the remaining device, which keeps the shared values.
+        // The detached MAC gets its own row again; reopen the remaining device, which keeps the shared values
+        // (the linked device itself while two or more MACs remain).
         RefreshInventoryRows();
         if (!ReferenceEquals(_selectedDeviceRow, row) && _selectedDeviceRow?.IdentityKey != row.IdentityKey) return;
-        var remainingRow = _allResults.FirstOrDefault(item => item.IdentityKey == remaining)
-            ?? (remaining is not null && CurrentDeviceData.Devices.TryGetValue(remaining, out var device)
-                ? ScanResultRow.ForDevice(device, CurrentDeviceData) : null);
+        var still = remaining is null ? null : CurrentDeviceData.FindLinkedDevice(remaining);
+        var key = still?.Id.ToString("D") ?? remaining;
+        var remainingRow = _allResults.FirstOrDefault(item => item.IdentityKey == key)
+            ?? (still is not null ? ScanResultRow.ForLinkedDevice(still, CurrentDeviceData)
+                : remaining is not null && CurrentDeviceData.Devices.TryGetValue(remaining, out var device)
+                    ? ScanResultRow.ForDevice(device, CurrentDeviceData) : null);
         if (remainingRow is null) return;
         ApplyPeopleRoomAssignments(remainingRow);
         ShowDeviceDetails(remainingRow, _deviceDetailsFromRoomMap);

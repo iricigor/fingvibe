@@ -143,18 +143,152 @@ public sealed class LinkedDeviceTests : IDisposable
     }
 
     [Fact]
-    public void UnlinkRejectsUnknownMacsAndMoreThanTwoMembers()
+    public void UnlinkRejectsUnknownMacs()
     {
-        var original = Inventory();
-        var linked = original.LinkDevices(A, B, Choices(), Start);
-        var group = linked.LinkedDevices[0] with
-        {
-            Members = [.. linked.LinkedDevices[0].Members, new(C, Start)]
-        };
+        Assert.Throws<ArgumentException>(() => Inventory().UnlinkDevice(A));
+    }
 
-        Assert.Throws<ArgumentException>(() => original.UnlinkDevice(A));
-        Assert.Throws<InvalidOperationException>(() =>
-            (linked with { LinkedDevices = [group] }).UnlinkDevice(A));
+    [Fact]
+    public void AddingARecordKeepsTheLinkedIdentityDatesAndEveryMembersOwnValues()
+    {
+        var linked = Inventory().LinkDevices(A, B, Choices(), Start);
+        var id = linked.LinkedDevices[0].Id;
+        var later = Start.AddDays(1);
+        var choices = Choices("Desk") with { Assignment = null, UsageCategoryOverride = null };
+
+        var added = linked.LinkDevices(B, C, choices, later);
+
+        var device = Assert.Single(added.LinkedDevices);
+        Assert.Equal(id, device.Id);
+        Assert.Equal([(A, Start), (B, Start), (C, later)], device.Members.Select(member => (member.Mac, member.LinkedAt)));
+        Assert.Equal(new LinkedDeviceConfirmation("Desk", choices.Identification), device.Confirmed);
+        Assert.Null(device.Assignment);
+        Assert.Equal("Laptop Wi-Fi", added.Names[A]);
+        Assert.Equal(DeviceType.Phone, added.Classifications[A].Type);
+        Assert.Equal(Room.Id, added.PeopleRooms.Assignments[B].RoomId);
+        Assert.Equal(DeviceUsageCategory.Guest, added.Devices[B].UsageCategoryOverride);
+        Assert.Single(ScanResultRow.CreateInventoryRows(added));
+
+        // Opened from the single record, the existing linked device's identity still survives.
+        var fromRecord = Assert.Single(linked.LinkDevices(C, A, choices, later).LinkedDevices);
+        Assert.Equal(id, fromRecord.Id);
+        Assert.Equal([A, B, C], fromRecord.Members.Select(member => member.Mac));
+        Assert.Throws<InvalidOperationException>(() => added.LinkDevices(A, C, choices, later));
+    }
+
+    [Fact]
+    public void CombiningLinkedDevicesKeepsTheOpenDevicesIdentityAndEveryLinkedDate()
+    {
+        const string D = "001122AA0004";
+        var data = Scan(Inventory(), 1, Result(A, "192.0.2.10"), Result(B, "192.0.2.11"), Result(C, "192.0.2.12"),
+            Result(D, "192.0.2.13"));
+        var first = data.LinkDevices(A, B, Choices(), Start);
+        var both = Scan(first.LinkDevices(C, D, Choices("Dock pair"), Start.AddDays(1)), 2, Result(A, "192.0.2.10"),
+            Result(B, "192.0.2.11"), Result(C, "192.0.2.12"), Result(D, "192.0.2.13"));
+        var openId = both.FindLinkedDevice(C)!.Id;
+
+        var combined = both.LinkDevices(C, A, Choices("Desk"), Start.AddDays(2));
+
+        var device = Assert.Single(combined.LinkedDevices);
+        Assert.Equal(openId, device.Id);
+        Assert.Equal([(C, Start.AddDays(1)), (D, Start.AddDays(1)), (A, Start), (B, Start)],
+            device.Members.Select(member => (member.Mac, member.LinkedAt)));
+        Assert.Equal("Desk", device.Name);
+        Assert.Single(device.Representatives);
+        Assert.Equal("Laptop Wi-Fi", combined.Names[A]);
+        Assert.Equal(DeviceUsageCategory.Guest, combined.Devices[B].UsageCategoryOverride);
+        Assert.Same(device, combined.FindLinkedDevice(B));
+        Assert.True(device.IsValid(combined));
+    }
+
+    [Fact]
+    public void UnlinkingFromThreeKeepsTheLinkedValuesAndDeclinesTheDetachedMacAgainstEveryMember()
+    {
+        var linked = Scan(Inventory().LinkDevices(A, B, Choices(), Start).LinkDevices(A, C, Choices(), Start.AddDays(1)),
+            1, Result(C, "192.0.2.12"));
+        var id = linked.LinkedDevices[0].Id;
+        Assert.Equal(C, Assert.Single(linked.LinkedDevices[0].Representatives).Mac);
+
+        var smaller = linked.UnlinkDevice(C);
+
+        var device = Assert.Single(smaller.LinkedDevices);
+        Assert.Equal(id, device.Id);
+        Assert.Equal([A, B], device.Members.Select(member => member.Mac));
+        Assert.Equal("Work laptop", device.Name);
+        Assert.Equal(new DeviceAssignment(Person.Id, Room.Id), device.Assignment);
+        Assert.Empty(device.Representatives);
+        Assert.False(smaller.Names.ContainsKey(C));
+        Assert.Equal([DeclinedDeviceMatch.Create(A, C).Key, DeclinedDeviceMatch.Create(B, C).Key],
+            smaller.DeclinedMatches.Select(item => item.Key));
+        Assert.Equal(2, ScanResultRow.CreateInventoryRows(smaller).Count());
+
+        var separate = smaller.UnlinkDevice(B);
+        Assert.Empty(separate.LinkedDevices);
+        Assert.Equal("Work laptop", separate.Names[A]);
+        Assert.Equal(3, separate.DeclinedMatches.Count);
+    }
+
+    [Fact]
+    public async Task AddingAndUnlinkingFromLargerLinkedDevicesSurviveRestart()
+    {
+        var path = Path.Combine(_directory, "device-inventory.json");
+        var store = new DeviceInventoryStore(path);
+        var saved = await store.SaveAsync(Inventory(), Guid.Empty);
+        var linked = await store.SaveAsync(saved.LinkDevices(A, B, Choices(), Start), saved.Revision);
+        await store.SaveAsync(linked.LinkDevices(A, C, Choices("Desk"), Start.AddDays(1)), linked.Revision);
+
+        var reopened = new DeviceInventoryStore(path);
+        var restarted = (await reopened.LoadAsync())!;
+        var device = Assert.Single(restarted.LinkedDevices);
+        Assert.Equal(linked.LinkedDevices[0].Id, device.Id);
+        Assert.Equal([(A, Start), (B, Start), (C, Start.AddDays(1))], device.Members.Select(member => (member.Mac, member.LinkedAt)));
+        Assert.Equal("Desk", device.Name);
+
+        await reopened.SaveAsync(restarted.UnlinkDevice(A), restarted.Revision);
+        var final = (await new DeviceInventoryStore(path).LoadAsync())!;
+        Assert.Equal([B, C], Assert.Single(final.LinkedDevices).Members.Select(member => member.Mac));
+        Assert.Equal("Laptop Wi-Fi", final.Names[A]);
+        Assert.Equal(2L, Scalar(path, "SELECT COUNT(*) FROM declined_matches"));
+    }
+
+    [Fact]
+    public void GroupSuggestionsAppearOncePerLinkedDeviceAndDeclinesCoverEveryCurrentPair()
+    {
+        const string D = "001122AA0004";
+        const string E = "001122AA0005";
+        var data = Scan(Inventory(), 1, Result(A, "192.0.2.10"), Result(B, "192.0.2.11"), Result(C, "192.0.2.12"),
+            Result(D, "192.0.2.13"), Result(E, "192.0.2.14"));
+        data = (data with
+        {
+            Names = new Dictionary<string, string> { [A] = "desk.local", [B] = "desk.local", [C] = "desk.local", [D] = "Work laptop",
+                [E] = "desk.local" },
+            Classifications = new Dictionary<string, DeviceClassificationOverride>()
+        }).LinkDevices(A, B, Choices(), Start);
+        IReadOnlyDictionary<string, IReadOnlyList<DeviceMatchSuggestion>> Find(DeviceInventoryData inventory) =>
+            DeviceMatchSuggestions.Find(inventory, new HashSet<string>());
+
+        var found = Find(data);
+        // C and E each match the linked device once (and each other); members are never suggested to each other,
+        // and the shared name "Work laptop" is not evidence for D.
+        Assert.Equal([A, E], found[C].Select(item => item.OtherMac).Order());
+        Assert.Equal([C, E], found[A].Select(item => item.OtherMac).Order());
+        Assert.Same(found[A], found[B]);
+        Assert.False(found.ContainsKey(D));
+
+        // One declined cross pair leaves the other matching member; declining the group covers every current pair.
+        var partly = data with { DeclinedMatches = [DeclinedDeviceMatch.Create(A, C)] };
+        Assert.Equal([B, E], Find(partly)[C].Select(item => item.OtherMac).Order());
+        var declined = data.DeclineMatch(C, B);
+        Assert.Equal([DeclinedDeviceMatch.Create(A, C).Key, DeclinedDeviceMatch.Create(B, C).Key],
+            declined.DeclinedMatches.Select(item => item.Key));
+        Assert.Equal([E], Find(declined)[C].Select(item => item.OtherMac));
+        Assert.Equal([E], Find(declined)[A].Select(item => item.OtherMac));
+        Assert.Throws<ArgumentException>(() => data.DeclineMatch(A, B));
+
+        // A later member creates fresh pairs, so the linked device is suggested to C again through E.
+        var grown = declined.LinkDevices(A, E, Choices(), Start.AddDays(1));
+        Assert.Equal(E, Assert.Single(Find(grown)[C]).OtherMac);
+        Assert.Equal([C], Find(grown)[A].Select(item => item.OtherMac));
     }
 
     [Fact]
@@ -202,7 +336,7 @@ public sealed class LinkedDeviceTests : IDisposable
     }
 
     [Fact]
-    public void LinkingRejectsInvalidPairsAndAlreadyLinkedOrVirtualRecords()
+    public void LinkingRejectsInvalidPairsTheSameLinkedDeviceAndVirtualRecords()
     {
         var data = Inventory();
         var linked = data.LinkDevices(A, B, Choices(), Start);
@@ -210,7 +344,7 @@ public sealed class LinkedDeviceTests : IDisposable
         Assert.Throws<ArgumentException>(() => data.LinkDevices(A, A, Choices(), Start));
         Assert.Throws<ArgumentException>(() => data.LinkDevices(A, "001122AA00FF", Choices(), Start));
         Assert.Throws<ArgumentException>(() => data.LinkDevices(A, C, Choices(" "), Start));
-        Assert.Throws<InvalidOperationException>(() => linked.LinkDevices(C, B, Choices(), Start));
+        Assert.Throws<InvalidOperationException>(() => linked.LinkDevices(B, A, Choices(), Start));
         var virtualData = Scan(data, 1, Result(Private, "192.0.2.20", "Private"));
         Assert.Contains(Private, virtualData.VirtualGroupedMacs());
         Assert.Throws<InvalidOperationException>(() => virtualData.LinkDevices(C, Private, Choices(), Start));
@@ -219,7 +353,7 @@ public sealed class LinkedDeviceTests : IDisposable
     }
 
     [Fact]
-    public void LinkedMacsNeverJoinVirtualDevicesAndAreNotSuggested()
+    public void LinkedMacsNeverJoinVirtualDevicesAndAreSuggestedAsOneDevice()
     {
         var data = Scan(DeviceInventoryData.Empty, 0, Result(A, "192.0.2.10"));
         data = data with { Devices = new Dictionary<string, InventoryDevice>(data.Devices)
@@ -233,8 +367,9 @@ public sealed class LinkedDeviceTests : IDisposable
         Assert.Single(ScanResultRow.CreateInventoryRows(scanned), row => row.IsLinkedDeviceRow);
         var named = linked with { Names = new Dictionary<string, string> { [A] = "same.local", [C] = "same.local" },
             Devices = new Dictionary<string, InventoryDevice>(linked.Devices) { [C] = scanned.Devices[A] with { Mac = C } } };
-        Assert.False(DeviceMatchSuggestions.Find(named, new HashSet<string>()).ContainsKey(A));
-        Assert.False(DeviceMatchSuggestions.Find(named, new HashSet<string>()).ContainsKey(C));
+        var found = DeviceMatchSuggestions.Find(named, new HashSet<string>());
+        Assert.Equal(A, Assert.Single(found[C]).OtherMac);
+        Assert.Same(found[A], found[Private]);
     }
 
     [Fact]
@@ -411,7 +546,7 @@ public sealed class LinkedDeviceTests : IDisposable
     }
 
     [Fact]
-    public void PickerListsSuggestionsFirstThenOtherUnlinkedRecordsAndTagsDeclinedPairs()
+    public void PickerListsSuggestionsFirstThenOtherRecordsAndLinkedDevicesAndTagsDeclinedPairs()
     {
         var data = Scan(Inventory(), 1, Result(A, "192.0.2.10"), Result(B, "192.0.2.11"), Result(C, "192.0.2.12"),
             Result("001122AA0004", "192.0.2.13"), Result("001122AA0005", "192.0.2.14"), Result(Private, "192.0.2.20", "Private"));
@@ -424,13 +559,26 @@ public sealed class LinkedDeviceTests : IDisposable
 
         var candidates = LinkedDevicePresentation.Candidates(alpha, rows, data);
 
-        Assert.Equal([B, C], candidates.Select(item => item.Mac));
+        Assert.Equal([B, C, "001122AA0004"], candidates.Select(item => item.Mac));
         Assert.True(candidates[0].IsSuggested);
         Assert.False(candidates[0].Declined);
         Assert.True(candidates[1].Declined);
         Assert.EndsWith("· Declined", LinkedDevicePresentation.CandidateText(candidates[1]));
+        Assert.Equal(2, candidates[2].MacCount);
+        Assert.EndsWith("· 2 MAC addresses", LinkedDevicePresentation.CandidateText(candidates[2]));
         Assert.Equal([C], LinkedDevicePresentation.Candidates(alpha, rows, data, "char").Select(item => item.Mac));
         Assert.Equal([C], LinkedDevicePresentation.Candidates(alpha, rows, data, "00:11:22:AA:00:03").Select(item => item.Mac));
+        Assert.Equal(["001122AA0004"], LinkedDevicePresentation.Candidates(alpha, rows, data, "00-11-22-AA-00-05")
+            .Select(item => item.Mac));
+
+        // A linked device is offered every other record, never its own members; a suggestion via any member counts once.
+        var group = rows.Single(row => row.IsLinkedDeviceRow);
+        group.SetMatchSuggestions([new("001122AA0005", C, DeviceMatchReason.SameName, string.Empty)], string.Empty);
+        Assert.Equal([C, A, B], LinkedDevicePresentation.Candidates(group, rows, data).Select(item => item.Mac));
+        alpha.SetMatchSuggestions([new(A, "001122AA0005", DeviceMatchReason.SameName, string.Empty)], string.Empty);
+        var suggestedGroup = LinkedDevicePresentation.Candidates(alpha, rows, data)[0];
+        Assert.Equal(("001122AA0005", true, 2), (suggestedGroup.Mac, suggestedGroup.IsSuggested, suggestedGroup.MacCount));
+        Assert.Single(LinkedDevicePresentation.Candidates(alpha, rows, data), item => item.MacCount == 2);
     }
 
     [Fact]
@@ -449,6 +597,11 @@ public sealed class LinkedDeviceTests : IDisposable
         plain.SetMatchSuggestions([new(C, A, DeviceMatchReason.SameName, ""), new(C, B, DeviceMatchReason.SameName, "")], "");
         Assert.Equal(new MergeSectionHeader(MergeSectionState.PossibleMatches, "2 possible matches", string.Empty),
             LinkedDevicePresentation.Header(plain, data));
+        var linkedRow = rows.Single(row => row.IsLinkedDeviceRow);
+        linkedRow.SetMatchSuggestions([new(A, C, DeviceMatchReason.SameName, "")], "");
+        var mixed = LinkedDevicePresentation.Header(linkedRow, data);
+        Assert.Equal((MergeSectionState.LinkedWithMatches, "2 MAC addresses", "1 possible match", "2 MAC addresses · 1 possible match"),
+            (mixed.State, mixed.CountText, mixed.MatchText, mixed.Text));
     }
 
     private static (ScanResultRow Device, ScanResultRow Other) Rows(DeviceInventoryData data)

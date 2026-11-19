@@ -77,14 +77,20 @@ public static class DeviceMatchSuggestions
         ReportedDeviceValueKind.AirPlayDeviceId, ReportedDeviceValueKind.PrinterUuid
     ];
 
+    /// <summary>
+    /// Suggestions per MAC. A linked device is one unit: an outside record matching any member through that member's
+    /// own evidence is suggested once to the whole device (keyed by every member), and members are never suggested to
+    /// each other. A unit pair stays suggested while at least one matching cross pair is not declined.
+    /// </summary>
     public static IReadOnlyDictionary<string, IReadOnlyList<DeviceMatchSuggestion>> Find(
         DeviceInventoryData data, IReadOnlySet<string> localAdapterMacs)
     {
         ArgumentNullException.ThrowIfNull(data);
         ArgumentNullException.ThrowIfNull(localAdapterMacs);
         var grouped = data.VirtualGroupedMacs().ToHashSet(StringComparer.Ordinal);
-        // Linked records are neither suggested nor given suggestions until linked-device suggestions exist.
-        grouped.UnionWith(data.LinkedDevices.SelectMany(device => device.Members.Select(member => member.Mac)));
+        var units = data.LinkedDevices.SelectMany(device => device.Members.Select(member => (member.Mac, device.Id)))
+            .ToDictionary(item => item.Mac, item => $"linked:{item.Id:D}", StringComparer.Ordinal);
+        string Unit(string mac) => units.GetValueOrDefault(mac) ?? mac;
         var declined = data.DeclinedMatches.Select(item => item.Key).ToHashSet(StringComparer.Ordinal);
         // Group records by normalized evidence keys instead of comparing every pair.
         var groups = new Dictionary<(string Network, DeviceMatchReason Reason, string Kind, string Value), HashSet<string>>();
@@ -122,6 +128,7 @@ public static class DeviceMatchSuggestions
                 for (var j = i + 1; j < ordered.Length; j++)
                 {
                     var pair = (ordered[i], ordered[j]);
+                    if (Unit(ordered[i]) == Unit(ordered[j])) continue;
                     if (pairs.TryGetValue(pair, out var existing) && existing.Reason <= reason) continue;
                     if (declined.Contains($"{ordered[i]}|{ordered[j]}")) continue;
                     if (reason == DeviceMatchReason.SameName
@@ -132,16 +139,39 @@ public static class DeviceMatchSuggestions
                 }
         }
 
-        var result = new Dictionary<string, List<DeviceMatchSuggestion>>(StringComparer.Ordinal);
-        foreach (var ((first, second), (reason, evidence)) in pairs)
+        // One suggestion per pair of units: the strongest matching MAC pair, ties broken by MAC order.
+        var unitPairs = new Dictionary<(string, string), (string Mac, string OtherMac, DeviceMatchReason Reason, string Evidence)>();
+        foreach (var ((first, second), (reason, evidence)) in pairs.OrderBy(pair => pair.Key.Item1, StringComparer.Ordinal)
+                     .ThenBy(pair => pair.Key.Item2, StringComparer.Ordinal))
         {
-            Collect(result, first).Add(new(first, second, reason, evidence));
-            Collect(result, second).Add(new(second, first, reason, evidence));
+            var (mac, other) = string.CompareOrdinal(Unit(first), Unit(second)) < 0 ? (first, second) : (second, first);
+            var key = (Unit(mac), Unit(other));
+            if (unitPairs.TryGetValue(key, out var existing) && existing.Reason <= reason) continue;
+            unitPairs[key] = (mac, other, reason, evidence);
         }
-        return result.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<DeviceMatchSuggestion>)pair.Value
+
+        var result = new Dictionary<string, List<DeviceMatchSuggestion>>(StringComparer.Ordinal);
+        foreach (var (mac, other, reason, evidence) in unitPairs.Values)
+        {
+            Collect(result, mac).Add(new(mac, other, reason, evidence));
+            Collect(result, other).Add(new(other, mac, reason, evidence));
+        }
+        var found = result.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<DeviceMatchSuggestion>)pair.Value
             .OrderBy(item => item.Reason)
             .ThenByDescending(item => data.Devices[item.OtherMac].LatestObservation?.LastSeen)
             .ThenBy(item => item.OtherMac, StringComparer.Ordinal).ToArray(), StringComparer.Ordinal);
+        // Every member of a linked device shows the device's suggestions.
+        foreach (var linked in data.LinkedDevices)
+        {
+            var list = linked.Members.SelectMany(member => found.GetValueOrDefault(member.Mac) ?? [])
+                .OrderBy(item => item.Reason)
+                .ThenByDescending(item => data.Devices[item.OtherMac].LatestObservation?.LastSeen)
+                .ThenBy(item => item.OtherMac, StringComparer.Ordinal).ToArray();
+            foreach (var member in linked.Members)
+                if (list.Length == 0) found.Remove(member.Mac);
+                else found[member.Mac] = list;
+        }
+        return found;
     }
 
     /// <summary>The comparable form of a name, or null when it cannot be evidence for this record.</summary>

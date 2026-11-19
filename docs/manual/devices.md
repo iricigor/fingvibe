@@ -187,6 +187,12 @@ MAC prefix, adapter vendor, nearby IP addresses, open ports, response times and 
 shared Person or Room are never evidence, and no confidence score is shown.
 A suggestion is not proof of one physical device.
 
+A [linked device](#linked-devices) is suggested as one device: its row shows the
+icon when another record matches any of its MAC addresses through that MAC
+address's own evidence, and the other record lists it once. The shared name and
+identification chosen when linking are not evidence, and MAC addresses of the
+same linked device are never suggested to each other.
+
 ## Private and virtual devices
 
 **Randomized MAC** is the display label for a locally administered MAC address.
