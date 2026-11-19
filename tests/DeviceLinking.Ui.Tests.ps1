@@ -578,13 +578,13 @@ try {
     Open-LinkDevice "Link desk Wi-Fi"
     Assert-LinkSection "2 possible matches" "Expanded"
     Wait-Link { (Find-Link MergeMacOtherHeading).Current.Name -eq "Selected other MAC address · suggestion 1 of 2" } "first suggestion"
-    Open-LinkPicker "Suggested|Link desk dock*Same device ID*|Link declined*Same device ID*|Other devices|Link plain*"
+    Open-LinkPicker "Suggested|Link desk dock*Same device ID*|Link declined*Same device ID*|Other devices|Link pair*2 MAC addresses|Link plain*"
     Select-LinkPickerItem "Link declined"
     Wait-Link { (Find-Link MergeMacOtherName).Current.Name -eq "Link declined" } "the second suggestion"
     Invoke-Link MergeMacDecline
     Assert-LinkSection "1 possible match" "Expanded"
     Wait-Link { (Find-Link MergeMacOtherName).Current.Name -eq "Link desk dock" } "the remaining suggestion"
-    Open-LinkPicker "Suggested|Link desk dock*|Other devices|Link declined*Declined|Link plain*"
+    Open-LinkPicker "Suggested|Link desk dock*|Other devices|Link declined*Declined|Link pair*2 MAC addresses|Link plain*"
     Close-LinkPicker
     Assert-LinkMerge $false "4 differences need a choice*"
     foreach ($id in @("MergeMacChoiceNameThis", "MergeMacChoiceNameOther", "MergeMacChoiceDeviceTypeThis", "MergeMacChoiceDeviceTypeOther",
