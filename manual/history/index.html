@@ -1198,6 +1198,16 @@ with arrow keys. Narrow grids scroll horizontally without dropping hours.
 Weekday counts keep their applicable-date denominator; a small trailing <code>?</code>
 marks unknown dates. Skipped DST hours show <code>N/A</code>.
 There is no normal Refresh button; failed loads offer <strong>Retry</strong>.</p>
+<p>For a linked device, one Activity column combines the current member MACs:
+any eligible response wins; otherwise all eligible members must have a recorded
+nonresponse for <strong>no response</strong>. If one member is unknown and none responded,
+the result remains unknown. Members never observed on the selected network do
+not contribute. The combination includes each current member's history from
+before the link.</p>
+<p>Network Activity and a person's equipment Activity count that linked column
+once. Changing current membership changes later queries without rewriting saved
+MAC evidence. If a link is later removed, each MAC returns to independent
+analytics; the remaining linked device stops including the detached MAC.</p>
 <p>The newest-first <strong>Scan observations</strong> list below retains paging. Each row's
 accessible description and tooltip preserve its exact local timestamp and offset.
 Saved scans are not continuous live status.</p>
@@ -1231,7 +1241,9 @@ Saved scans are not continuous live status.</p>
 </table>
 <p>Rules run in that order. They use today and the previous six local dates on
 the selected network, bounded by the device's first reliable sighting.
-Overnight is 18:00-06:00; weekends also belong to that comparison group.</p>
+Overnight is 18:00-06:00; weekends also belong to that comparison group.
+For a linked device, the same rules use the combined member responses above and
+one shared category. A saved shared override still takes precedence.</p>
 <p><strong>Limited evidence</strong> means the result is based on too few dates or scans to
 meet the app's evidence thresholds. The category may still appear.
 For example, 12 responses out of 14 eligible scans can suggest Permanent,
