@@ -116,7 +116,7 @@ public sealed class LinkedDeviceTests : IDisposable
 
         Assert.Empty(scanned.VirtualDevices);
         Assert.False(PrivateVirtualDeviceAllocator.IsEligible(scanned, scanned.Devices[Private]));
-        Assert.Contains(ScanResultRow.CreateInventoryRows(scanned), row => row.IdentityKey == Private);
+        Assert.Single(ScanResultRow.CreateInventoryRows(scanned), row => row.IsLinkedDeviceRow);
         var named = linked with { Names = new Dictionary<string, string> { [A] = "same.local", [C] = "same.local" },
             Devices = new Dictionary<string, InventoryDevice>(linked.Devices) { [C] = scanned.Devices[A] with { Mac = C } } };
         Assert.False(DeviceMatchSuggestions.Find(named, new HashSet<string>()).ContainsKey(A));
@@ -203,7 +203,7 @@ public sealed class LinkedDeviceTests : IDisposable
             Identification = new(DeviceOperatingSystem.Windows, DeviceType.Computer, null, null, null, null)
         }, Start);
 
-        var rows = ScanResultRow.CreateInventoryRows(linked).Where(row => row.IsLinked).ToArray();
+        var rows = new[] { A, B }.Select(mac => ScanResultRow.ForDevice(linked.Devices[mac], linked)).ToArray();
 
         Assert.Equal(2, rows.Length);
         Assert.All(rows, row =>
@@ -216,6 +216,7 @@ public sealed class LinkedDeviceTests : IDisposable
             Assert.Equal("Linked device value", row.IdentificationSourceLabel);
         });
         Assert.False(ScanResultRow.CreateInventoryRows(linked).Single(row => row.IdentityKey == C).IsLinked);
+        Assert.Single(ScanResultRow.CreateInventoryRows(linked), row => row.IsLinked);
     }
 
     [Fact]
@@ -227,15 +228,17 @@ public sealed class LinkedDeviceTests : IDisposable
         var network = new LanNetwork("Ethernet", IPAddress.Parse("192.0.2.5"), IPAddress.Parse("192.0.2.0"), 24,
             true, IPAddress.Parse("192.0.2.1"), "ethernet-test");
 
+        var id = linked.LinkedDevices[0].Id.ToString("D");
         var devices = RoomMapProjection.Create(automatic, network, "home").Devices
-            .Where(device => device.IdentityKey is A or B).ToArray();
+            .Where(device => device.IdentityKey is A or B || device.IdentityKey == id).ToArray();
 
-        Assert.Equal(2, devices.Length);
+        Assert.Equal(id, Assert.Single(devices).IdentityKey);
         Assert.All(devices, device =>
         {
             Assert.Equal("Work laptop", device.Name);
             Assert.Equal(DeviceType.Unknown, device.Type);
             Assert.Equal(Room.Id, device.RoomId);
+            Assert.Equal("192.0.2.10", device.Address);
         });
     }
 
@@ -325,7 +328,7 @@ public sealed class LinkedDeviceTests : IDisposable
         var plain = rows.Single(row => row.IdentityKey == C);
 
         Assert.Equal(new MergeSectionHeader(MergeSectionState.Linked, "2 MAC addresses", LinkedDevicePresentation.LinkedExplanation),
-            LinkedDevicePresentation.Header(rows.Single(row => row.IdentityKey == A), data));
+            LinkedDevicePresentation.Header(rows.Single(row => row.IsLinkedDeviceRow), data));
         Assert.Equal(MergeSectionState.Unavailable, LinkedDevicePresentation.Header(rows.Single(row => row.IsVirtualIdentity), data).State);
         Assert.Equal(LinkedDevicePresentation.VirtualExplanation, LinkedDevicePresentation.Header(rows.Single(row => row.IsVirtualIdentity), data).Explanation);
         Assert.Equal("No suggestions", LinkedDevicePresentation.Header(plain, data).Text);

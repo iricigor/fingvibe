@@ -96,15 +96,19 @@ public sealed partial class MainWindow
     private IReadOnlyList<AssignedDeviceListRow> GetAssignedDeviceRows()
     {
         var data = CurrentDeviceData;
-        // Linked members show their shared assignment; their own saved assignments stay preserved for Unlink.
+        // A linked device counts once with its shared assignment; members' own assignments stay preserved for Unlink.
         return _peopleRooms.Assignments.Keys.Where(mac => data.FindLinkedDevice(mac) is null)
-            .Concat(data.LinkedDevices.Where(device => device.Assignment is not null)
-                .SelectMany(device => device.Members.Select(member => member.Mac)))
             .Order(StringComparer.OrdinalIgnoreCase)
             .Select(mac => new AssignedDeviceListRow(
                 mac,
                 _allResults.FirstOrDefault(row => row.VirtualDevice is null && row.MacAddress?.ToString() == mac)
                     ?? (data.Devices.TryGetValue(mac, out var device) ? ScanResultRow.ForDevice(device, data) : null)))
+            .Concat(data.LinkedDevices.Where(device => device.Assignment is not null).Select(device =>
+            {
+                var key = device.Id.ToString("D");
+                return new AssignedDeviceListRow(key, _allResults.FirstOrDefault(row => row.IdentityKey == key)
+                    ?? ScanResultRow.ForLinkedDevice(device, data));
+            }))
             .Concat(_allResults.Where(row => row.VirtualDevice?.Assignment is not null)
                 .Select(row => new AssignedDeviceListRow(row.IdentityKey, row)))
             .ToArray();

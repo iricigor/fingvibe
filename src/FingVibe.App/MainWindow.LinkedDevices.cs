@@ -9,12 +9,13 @@ public sealed partial class MainWindow
     {
         var row = _selectedDeviceRow;
         if (row?.MacAddress?.ToString() is not { } mac) return;
+        LinkedDevice linked;
         await _deviceDataSaveLock.WaitAsync();
         try
         {
             await PersistDeviceDataAsync(CurrentDeviceData.LinkDevices(mac, request.OtherMac, request.Choices, DateTimeOffset.UtcNow));
-            ApplyLinkedDevice(CurrentDeviceData.FindLinkedDevice(mac)
-                ?? throw new InvalidOperationException("The saved inventory does not contain the new linked device."));
+            linked = CurrentDeviceData.FindLinkedDevice(mac)
+                ?? throw new InvalidOperationException("The saved inventory does not contain the new linked device.");
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
                                               or InvalidOperationException or InvalidDataException or ArgumentException)
@@ -24,13 +25,14 @@ public sealed partial class MainWindow
         }
         finally { _deviceDataSaveLock.Release(); }
 
-        ApplyUsageCategories();
-        if (!ReferenceEquals(_selectedDeviceRow, row)) return;
-        DevicePage.NameInput = row.NameText;
-        UpdateDeviceNameActions();
-        UpdateClassificationDetails();
-        UpdateDeviceAssignmentPickers();
-        ShowSelectedMatchSuggestions(opening: false);
+        // The two member rows become one linked-device row; reopen it with the linked section in view.
+        RefreshInventoryRows();
+        if (!ReferenceEquals(_selectedDeviceRow, row) && _selectedDeviceRow?.IdentityKey != row.IdentityKey) return;
+        var linkedRow = _allResults.FirstOrDefault(item => item.IdentityKey == linked.Id.ToString("D"))
+            ?? ScanResultRow.ForLinkedDevice(linked, CurrentDeviceData);
+        ApplyPeopleRoomAssignments(linkedRow);
+        ShowDeviceDetails(linkedRow, _deviceDetailsFromRoomMap);
+        DevicePage.RevealMatchSuggestions();
     }
 
     /// <summary>Saves a shared-value edit; callers hold the device-data save lock.</summary>

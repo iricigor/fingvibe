@@ -218,3 +218,31 @@ collapsed when FingVibe restarts. Use Right Arrow or Left Arrow on a focused
 row to expand or collapse it.
 
 See [Device details](device-details.md#virtual-device-details).
+
+## Linked devices
+
+A [linked device](device-details.md#link-two-records-as-one-device) appears as
+one row with its shared name, type, OS, Person, Room and usage category and its
+own device-type icon. Its IP address, MAC address, adapter vendor, response time
+and ports all come from one **representative** MAC address on the selected
+network, never a mix of several MACs:
+
+- The representative stays the same while it responds on that network.
+- Otherwise a responding member is shown, or, if none responds, the member most
+  recently seen there (an exact tie goes to the lower MAC address).
+- Each network remembers its representative across scans and restarts, so
+  another network may show a different member. Members never seen on a network
+  don't affect the row there.
+
+The chevron lists up to three other members as **Linked MAC address** lines,
+responding members first, then the most recently seen; further members are
+summarized as *+N more MAC addresses · full list in Device Details*. Search
+finds the row by any member's MAC address or any IP address a member was seen
+at, expanding it while the search is active.
+
+The row is **Online** when any member responded in the selected network's
+latest scan, and **Last seen** is the latest of its members on that network. It
+counts once in the Devices totals, *Showing N devices*, Overview, the header's
+online count, People & Rooms and the Room map. A member MAC seen locally for the
+first time is not announced as a newly discovered device. Activity and usage
+evidence still come from each MAC address separately.

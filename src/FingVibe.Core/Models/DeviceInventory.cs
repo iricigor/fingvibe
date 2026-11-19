@@ -310,6 +310,9 @@ public sealed record DeviceInventoryData(
         return observed with
         {
             VirtualDevices = virtualDevices,
+            LinkedDevices = !historical && complete && networkId is not null
+                ? LinkedDeviceRepresentatives.Observe(observed, networkId, snapshot.Subnet, snapshot.CompletedAt)
+                : observed.LinkedDevices,
             DiscoveryBaselines = !historical && complete && networkId is not null
                 ? DiscoveryBaselines.Append(new(networkId, snapshot.Subnet)).Distinct().ToArray()
                 : DiscoveryBaselines

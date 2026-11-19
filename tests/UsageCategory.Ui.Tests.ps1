@@ -218,41 +218,6 @@ function Assert-UsageCell([string] $Name, [string] $Category, [bool] $Indicator,
     Open-UsageDevice $Name
 }
 
-function Test-MatchTextScaling {
-    # Runs at 200% text scale after the merge-suggestions phase declined Match alpha/beta, so only beta lacks an icon.
-    Show-MatchRows
-    # Assert-MatchButton's absolute row cap is for 100% text; at 200% density is compared with the icon-free row instead.
-    Wait-Usage { (Find-MatchButton "Match alpha" -Optional -Transient).Button.Current.Name -eq "Review 1 possible matching MAC address" } `
-        "'Match alpha' icon naming 1 suggestion at 200% text scale"
-    $alpha = (Find-MatchButton "Match alpha").Button
-    if ((Find-MatchButton "Match beta" -Optional).Button) { throw "The declined pair must stay declined at 200% text scale." }
-    $scale = [UiReviewNativeWindow]::GetDpiForWindow($script:process.MainWindowHandle) / 96.0
-    $iconRow = (Find-MatchButton "Match alpha").Row.Current.BoundingRectangle
-    $plainRow = (Find-MatchButton "Match beta" -Optional).Row.Current.BoundingRectangle
-    $icon = $alpha.Current.BoundingRectangle
-    if ([Math]::Abs($iconRow.Height - $plainRow.Height) -gt $scale) {
-        throw "The possible-match icon must not change row density at 200% text scale. Icon row=$iconRow; plain row=$plainRow; scale=$scale."
-    }
-    if (-not $iconRow.Contains($icon) -or $icon.Width -lt 23.5 * $scale -or $icon.Height -lt 23.5 * $scale) {
-        throw "The possible-match icon must stay a whole 24-DIP target at 200% text scale. Row=$iconRow; icon=$icon; scale=$scale."
-    }
-    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "match-icon-text-scale-200.png")
-    $alpha.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-    Assert-MatchSection "1 possible match" "Match gamma" "both records reported the same UPnP device UUID" "1 of 1"
-    $window = $script:root.Current.BoundingRectangle
-    foreach ($id in @("MergeMacOtherHeading", "MergeMacOtherName", "MergeMacOtherAddresses", "MergeMacReason", "MergeMacDecline")) {
-        $control = Show-Usage $id
-        $bounds = $control.Current.BoundingRectangle
-        if ($bounds.Left -lt $window.Left -or $bounds.Right -gt $window.Right -or $bounds.Height -lt 24 * $scale) {
-            throw "$id must stay readable and unclipped at 200% text scale. Bounds=$bounds; window=$window; scale=$scale."
-        }
-    }
-    $decline = Show-Usage MergeMacDecline
-    $decline.SetFocus()
-    Wait-Usage { (Find-Usage MergeMacDecline).Current.HasKeyboardFocus } "keyboard focus on Decline suggestion at 200% text scale"
-    Save-UsageCapture "match-section-text-scale-200" MergeMacReason
-}
-
 function Test-UsageTextScaling {
     $appDirectory = Split-Path -Parent $AppPath
     Add-Type -Path (Join-Path $appDirectory 'WinRT.Runtime.dll')
@@ -272,7 +237,6 @@ function Test-UsageTextScaling {
         Assert-UsageCell "Concurrent name" Permanent $true -Narrow -Scaled -Capture "usage-badge-text-scale-200"
         Test-PageBackHeaders $script:root $script:process.MainWindowHandle $ScreenshotDirectory 'text-scale-200' `
             -OpenDetails { Open-UsageDevice 'Concurrent name' } -Scaled
-        Test-MatchTextScaling
         $failed = $false
     }
     finally {
@@ -386,131 +350,6 @@ function Save-UsageCapture([string] $Name, [string] $Control = "UsageCategoryEff
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "$Name.png")
 }
 
-function Show-MatchRows {
-    $back = Find-Usage "Back to devices" -ByName -Optional
-    if ($back -and -not $back.Current.IsOffscreen) {
-        $back.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-    } else {
-        (Find-Usage DevicesNavItem).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-    }
-    Wait-Usage { $list = Find-Usage ResultsList -Optional; $list -and -not $list.Current.IsOffscreen } "Devices"
-    (Find-Usage "Search devices" -ByName).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue("Match ")
-    Wait-Usage { @(Get-MatchRows).Count -eq 3 } "the three synthetic possible-match rows"
-    $scroll = (Find-Usage TableViewport).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-    if ($scroll.Current.HorizontallyScrollable) { $scroll.SetScrollPercent(0, -1) }
-}
-
-function Get-MatchRows {
-    $list = Find-Usage ResultsList -Optional
-    if (-not $list) { return }
-    foreach ($row in $list.FindAll([System.Windows.Automation.TreeScope]::Children,
-        [System.Windows.Automation.PropertyCondition]::new(
-            [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem))) {
-        $name = $row.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
-            [System.Windows.Automation.PropertyCondition]::new(
-                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceNameText"))
-        if ($name -and $name.Current.Name -like "Match *") { $row }
-    }
-}
-
-function Find-MatchButton([string] $Name, [switch] $Optional, [switch] $Transient) {
-    $row = @(Get-MatchRows | Where-Object {
-        $_.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
-            [System.Windows.Automation.PropertyCondition]::new(
-                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceNameText")).Current.Name -ceq $Name
-    })
-    # Rows can be re-realized while focus or the list changes; waits retry instead of failing on that instant.
-    if ($row.Count -ne 1 -and $Transient) { return $null }
-    if ($row.Count -ne 1) { throw "Expected one '$Name' possible-match row; found $($row.Count)." }
-    $button = $row[0].FindFirst([System.Windows.Automation.TreeScope]::Descendants,
-        [System.Windows.Automation.PropertyCondition]::new(
-            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DeviceMatchButton"))
-    if ($button -and ($button.Current.IsOffscreen -or $button.Current.BoundingRectangle.IsEmpty)) { $button = $null }
-    if (-not $button -and -not $Optional) { throw "The '$Name' row has no possible-match icon." }
-    return @{ Row = $row[0]; Button = $button }
-}
-
-function Assert-MatchButton([string] $Name, [int] $Count) {
-    $label = if ($Count -eq 1) { "Review 1 possible matching MAC address" } else { "Review $Count possible matching MAC addresses" }
-    Wait-Usage { (Find-MatchButton $Name -Optional -Transient).Button.Current.Name -eq $label } "'$Name' icon naming $Count suggestions"
-    $button = (Find-MatchButton $Name).Button
-    $scale = [UiReviewNativeWindow]::GetDpiForWindow($script:process.MainWindowHandle) / 96.0
-    $cell = (Find-MatchButton $Name).Row.Current.BoundingRectangle
-    if ($button.Current.BoundingRectangle.Height -gt 24.5 * $scale -or $cell.Height -gt 60 * $scale) {
-        throw "The possible-match icon must not change table density."
-    }
-    return $button
-}
-
-function Get-MatchPickerItems {
-    # The picker is a Flyout popup, so its list is found from the window root rather than the details page.
-    $list = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
-        [System.Windows.Automation.PropertyCondition]::new(
-            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "MergeMacPickerList"))
-    if (-not $list) { return }
-    $list.FindAll([System.Windows.Automation.TreeScope]::Children,
-        [System.Windows.Automation.PropertyCondition]::new(
-            [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::ListItem))
-}
-
-function Get-MatchSectionState {
-    # The header count TextBlock has no UIA peer inside the Expander header; the page mirrors it in the section HelpText.
-    $section = Find-Usage MergeMacAddresses -Optional
-    $other = Find-Usage MergeMacOtherName -Optional
-    [pscustomobject]@{
-        Count = if ($section) { $section.Current.HelpText } else { "<missing section>" }
-        Other = if ($other) { $other.Current.Name } else { "<missing other device>" }
-    }
-}
-
-function Assert-MatchSection([string] $Count, [string] $Other, [string] $Reason, [string] $Heading) {
-    try {
-        Wait-Usage {
-            $state = Get-MatchSectionState
-            $state.Count -eq $Count -and $state.Other -eq $Other
-        } "Merge MAC addresses showing $Count and $Other"
-    }
-    catch {
-        $state = Get-MatchSectionState
-        throw "$($_.Exception.Message) Observed count '$($state.Count)' and other device '$($state.Other)'."
-    }
-    $expander = Find-Usage MergeMacAddresses
-    if ($expander.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -ne "Expanded") {
-        throw "Merge MAC addresses must open expanded."
-    }
-    if ((Find-Usage MergeMacReason).Current.Name -notlike "Suggested because $Reason. This does not establish physical identity.") {
-        throw "Unexpected suggestion reason: $((Find-Usage MergeMacReason).Current.Name)"
-    }
-    if ((Find-Usage MergeMacOtherHeading).Current.Name -ne "Selected other MAC address · suggestion $Heading") {
-        throw "Unexpected suggestion position: $((Find-Usage MergeMacOtherHeading).Current.Name)"
-    }
-    $summary = (Find-Usage DeviceHistoryState).Current.BoundingRectangle
-    $identification = (Find-Usage "Edit device identification" -ByName).Current.BoundingRectangle
-    $section = $expander.Current.BoundingRectangle
-    if ($section.Top -lt $summary.Bottom -or $identification.Top -lt $section.Bottom) {
-        throw "Merge MAC addresses must sit after the observation summary and directly above Device identification."
-    }
-}
-
-function Assert-MatchTooltip($Button, [string[]] $Expected) {
-    $helpText = $Button.Current.HelpText
-    foreach ($expectedText in $Expected) {
-        if ($helpText -notlike "*$expectedText*") {
-            throw "The possible-match button must expose '$expectedText' through its accessible hover copy; actual: $helpText"
-        }
-    }
-    $bounds = $Button.Current.BoundingRectangle
-    [System.Windows.Forms.Cursor]::Position = [System.Drawing.Point]::new(
-        [int]($bounds.Left + $bounds.Width / 2), [int]($bounds.Top + $bounds.Height / 2))
-    try {
-        # WinUI ToolTips are transient UIA popup peers on these runners; HelpText and the
-        # source-bound ToolTip/handler contract are the stable hover-content assertions.
-        Start-Sleep -Milliseconds 600
-        Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "match-row-hover.png")
-    }
-    finally { [System.Windows.Forms.Cursor]::Position = [System.Drawing.Point]::new(0, 0) }
-}
-
 function Write-UsageSql([string] $Sql) {
     $connection = [Microsoft.Data.Sqlite.SqliteConnection]::new("Data Source=$database;Pooling=False")
     try {
@@ -552,33 +391,13 @@ try {
     $history = @(0..13 | ForEach-Object {
         @{ completedAt = $time.AddMinutes($_).ToString("o"); networkId = "ui-review-network"; subnet = "127.0.0.1/32"; present = ($_ -lt 12) }
     })
-    $matchObservation = {
-        param([string] $Address, [object[]] $Reported)
-        @{
-            networkId = "ui-review-network"; subnet = "127.0.0.1/32"; address = $Address
-            hostname = $null; vendor = "Example"; ports = @(); latency = 1; probeDuration = "00:00:00.001"
-            classification = @{ type = 0; operatingSystem = 0; typeEvidence = "Fixture"; operatingSystemEvidence = "Fixture" }
-            firstSeen = $time.ToString("o"); lastSeen = $time.AddMinutes(11).ToString("o")
-            lastChecked = $time.AddMinutes(13).ToString("o"); present = $false
-            reportedValues = @($Reported | ForEach-Object { @{ kind = $_[0]; value = $_[1]; lastReceivedAt = $time.AddMinutes(11).ToString("o") } })
-        }
-    }
-    # Synthetic possible matches: alpha and gamma share a UPnP UUID (kind 4); alpha and beta share an mDNS/NetBIOS name (kinds 1, 2).
-    $matchDevices = @{
-        "001122AA0001" = @{ mac = "001122AA0001"; imported = @{}; scanHistory = @()
-            observations = @(& $matchObservation "127.0.0.2" @(@(1, "kitchen-display.local"), @(4, "uuid-match-fixture"))) }
-        "001122AA0002" = @{ mac = "001122AA0002"; imported = @{}; scanHistory = @()
-            observations = @(& $matchObservation "127.0.0.3" @(, @(2, "KITCHEN-DISPLAY"))) }
-        "001122AA0003" = @{ mac = "001122AA0003"; imported = @{}; scanHistory = @()
-            observations = @(& $matchObservation "127.0.0.4" @(, @(4, "uuid-match-fixture"))) }
-    }
     $data = @{
         revision = [Guid]::NewGuid().ToString()
         devices = @{
             "001122334455" = @{ mac = "001122334455"; imported = @{}; observations = @($observation); scanHistory = $history }
             "001122334466" = @{ mac = "001122334466"; imported = @{ name = "Usage imported" }; observations = @(); scanHistory = @() }
-        } + $matchDevices
-        names = @{ "001122334455" = "Usage laptop"; "001122AA0001" = "Match alpha"; "001122AA0002" = "Match beta"; "001122AA0003" = "Match gamma" }
+        }
+        names = @{ "001122334455" = "Usage laptop" }
         classifications = @{}
         peopleRooms = @{
             people = @(@{ id = $person; name = "Fixture person"; shortName = "FP" })
@@ -671,97 +490,6 @@ try {
     Assert-UsageCell "Usage imported" Unclassified $false -Narrow -Capture "usage-unclassified-badge"
     if ((Find-Usage UsageCategoryEvidence).Current.Name -match '%') { throw "No evidence must not fabricate a percentage." }
     Save-UsageCapture "usage-no-evidence"
-    $phase = Step-UiRegressionPhase $phase "usage/merge-suggestions" $ScreenshotDirectory
-    Open-UsageDevice "Concurrent name"
-    Wait-Usage { (Find-Usage MergeMacAddresses -Optional).Current.HelpText -eq "No suggestions" } "Merge MAC addresses without suggestions"
-    if ((Find-Usage MergeMacAddresses).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -ne "Collapsed") {
-        throw "Merge MAC addresses without suggestions must open collapsed."
-    }
-    Show-MatchRows
-    $alpha = Assert-MatchButton "Match alpha" 2
-    $null = Assert-MatchButton "Match gamma" 1
-    $beta = Assert-MatchButton "Match beta" 1
-    $help = $alpha.Current.HelpText
-    $strongest = $help.IndexOf("Match gamma (127.0.0.4). Same device ID (UPnP device UUID).")
-    if ($strongest -lt 0 -or $help.IndexOf("Match beta (127.0.0.3). Same discovered name.") -lt $strongest) {
-        throw "Row explanations must name each counterpart and reason, strongest first: $help"
-    }
-    Assert-MatchTooltip $beta @("Possible matching MAC address: Match alpha (127.0.0.2). Same discovered name.",
-        "Click to review in Device Details.")
-    (Find-MatchButton "Match beta").Row.SetFocus()
-    [System.Windows.Forms.SendKeys]::SendWait("{TAB}")
-    Wait-Usage { (Find-MatchButton "Match beta" -Optional -Transient).Button.Current.HasKeyboardFocus } "keyboard focus on the possible-match icon"
-    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
-    Assert-MatchSection "1 possible match" "Match alpha" "the discovered names match" "1 of 1"
-    $section = (Find-Usage MergeMacAddresses).Current
-    $viewport = (Find-Usage DeviceDetailsScroll).Current.BoundingRectangle
-    if ($section.IsOffscreen -or $section.BoundingRectangle.Top -lt $viewport.Top -or $section.BoundingRectangle.Top -ge $viewport.Bottom) {
-        throw "Opening a suggestion from Devices must bring Merge MAC addresses into view."
-    }
-    if (-not (Find-Usage MergeMacChangeDevice -Optional)) { throw "Change device... must stay available to choose another device." }
-    Save-UsageCapture "match-section-single" MergeMacReason
-    Show-MatchRows
-    (Assert-MatchButton "Match alpha" 2).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-    Assert-MatchSection "2 possible matches" "Match gamma" "both records reported the same UPnP device UUID" "1 of 2"
-    Invoke-Usage MergeMacChangeDevice
-    Wait-Usage { @(Get-MatchPickerItems | Where-Object { $_.Current.Name -like "Match beta*" }).Count -eq 1 } "Change device... suggestions"
-    $choices = @(Get-MatchPickerItems)
-    if (($choices.Current.Name -join "|") -notlike "Suggested|Match gamma*Same device ID*|Match beta*Same discovered name*|Other devices|Concurrent name*|Usage imported*") {
-        throw "Change device... must list suggestions strongest first, then other devices: $($choices.Current.Name -join ' | ')"
-    }
-    $beta = $choices | Where-Object { $_.Current.Name -like "Match beta*" }
-    $beta.SetFocus()
-    [System.Windows.Forms.SendKeys]::SendWait("{ENTER}")
-    Wait-Usage { (Find-Usage MergeMacOtherHeading).Current.Name -like "*suggestion 2 of 2" } "the second suggestion"
-    Save-UsageCapture "match-section-change-device" MergeMacReason
-    $expansion = (Find-Usage MergeMacAddresses).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
-    $expansion.Collapse()
-    Choose-Usage Personal
-    Invoke-Usage UsageCategorySave
-    Assert-Usage Personal "Manual override"
-    Start-Sleep -Milliseconds 300
-    $expansion = (Find-Usage MergeMacAddresses).GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
-    if ($expansion.Current.ExpandCollapseState -ne "Collapsed") { throw "A refresh must not reopen a collapsed section." }
-    $expansion.Expand()
-    Wait-Usage { (Find-Usage MergeMacOtherHeading).Current.Name -like "*suggestion 2 of 2" } "the retained second suggestion"
-    $lock = [IO.FileStream]::new("$inventory.lock", [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite, [IO.FileShare]::None)
-    Invoke-Usage MergeMacDecline
-    Wait-Usage { Find-Usage MergeMacError -Optional } "visible decline failure"
-    $state = Get-MatchSectionState
-    if ($state.Count -ne "2 possible matches" -or $state.Other -ne "Match beta") {
-        throw "A failed decline must keep the suggestion."
-    }
-    Save-UsageCapture "match-decline-error" MergeMacError
-    $lock.Dispose()
-    $lock = $null
-    Invoke-Usage MergeMacDecline
-    Assert-MatchSection "1 possible match" "Match gamma" "both records reported the same UPnP device UUID" "1 of 1"
-    if (Find-Usage MergeMacError -Optional) { throw "A successful decline must clear the previous error." }
-    if ((Get-InventorySqliteValue $database "SELECT group_concat(id) FROM declined_matches") -ne "001122AA0001|001122AA0002") {
-        throw "The declined pair must be saved in the inventory."
-    }
-    Show-MatchRows
-    $null = Assert-MatchButton "Match alpha" 1
-    $null = Assert-MatchButton "Match gamma" 1
-    if ((Find-MatchButton "Match beta" -Optional).Button) { throw "Declining must remove the icon from both records." }
-    Stop-UsageApp
-    Start-UsageApp
-    Show-MatchRows
-    $null = Assert-MatchButton "Match alpha" 1
-    if ((Find-MatchButton "Match beta" -Optional).Button) { throw "A declined pair must stay declined after restart." }
-    Open-UsageDevice "Match gamma"
-    Assert-MatchSection "1 possible match" "Match alpha" "both records reported the same UPnP device UUID" "1 of 1"
-    $contrast = [UsageReviewContrast]::Get()
-    [UsageReviewContrast]::Set($contrast -bor 1)
-    Start-Sleep -Seconds 2
-    if (([UsageReviewContrast]::Get() -band 1) -eq 0) { throw "High contrast did not activate." }
-    Save-UsageCapture "match-section-high-contrast" MergeMacReason
-    Show-MatchRows
-    $null = Assert-MatchButton "Match alpha" 1
-    Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory "match-icon-high-contrast.png")
-    [UsageReviewContrast]::Set($contrast)
-    $contrast = $null
-    Start-Sleep -Seconds 1
     $phase = Step-UiRegressionPhase $phase "usage/themes-narrow" $ScreenshotDirectory
     foreach ($theme in @("Standard Light", "Standard Dark")) {
         Select-UsageSettings
