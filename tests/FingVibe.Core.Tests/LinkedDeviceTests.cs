@@ -219,6 +219,27 @@ public sealed class LinkedDeviceTests : IDisposable
     }
 
     [Fact]
+    public void RoomMapShowsSharedValuesAndNeverAMembersHiddenType()
+    {
+        var linked = Inventory().LinkDevices(A, B, Choices(), Start);
+        var automatic = linked.UpdateLinkedDevice(linked.LinkedDevices[0].Id,
+            device => device with { Identification = device.Identification with { Type = null } });
+        var network = new LanNetwork("Ethernet", IPAddress.Parse("192.0.2.5"), IPAddress.Parse("192.0.2.0"), 24,
+            true, IPAddress.Parse("192.0.2.1"), "ethernet-test");
+
+        var devices = RoomMapProjection.Create(automatic, network, "home").Devices
+            .Where(device => device.IdentityKey is A or B).ToArray();
+
+        Assert.Equal(2, devices.Length);
+        Assert.All(devices, device =>
+        {
+            Assert.Equal("Work laptop", device.Name);
+            Assert.Equal(DeviceType.Unknown, device.Type);
+            Assert.Equal(Room.Id, device.RoomId);
+        });
+    }
+
+    [Fact]
     public void DifferencesNeedExplicitChoicesAndMatchingValuesAreKept()
     {
         var (device, other) = Rows(Inventory());

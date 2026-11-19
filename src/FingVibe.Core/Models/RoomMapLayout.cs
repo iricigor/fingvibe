@@ -179,7 +179,10 @@ public sealed record RoomMapProjection(
             var address = observation?.Address ?? importedAddress!.ToString();
             var correction = data.Classifications.GetValueOrDefault(mac);
             var linked = data.FindLinkedDevice(mac);
-            var type = linked?.Identification.Type ?? correction?.Type
+            var type = linked is not null
+                ? linked.Identification.Type ?? FingClassificationMapper.Type(inventoryDevice.Imported.Type)
+                    ?? observation?.Classification.Type ?? DeviceType.Unknown
+                : correction?.Type
                 ?? FingClassificationMapper.Type(inventoryDevice.Imported.Type)
                 ?? observation?.Classification.Type
                 ?? DeviceType.Unknown;
