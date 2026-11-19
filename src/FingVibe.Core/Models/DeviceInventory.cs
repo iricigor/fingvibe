@@ -192,6 +192,8 @@ public sealed record DeviceInventoryData(
     /// <summary>Linked members share one override; each member's own saved override stays preserved for Unlink.</summary>
     public DeviceUsageCategory? GetUsageCategoryOverride(LogicalDeviceId identity) => identity.Kind switch
     {
+        "linked" when LinkedDevices.FirstOrDefault(device => device.Id.ToString("D") == identity.Id) is { } linked
+            => linked.UsageCategoryOverride,
         "mac" when FindLinkedDevice(identity.Id) is { } linked && Devices.ContainsKey(identity.Id) => linked.UsageCategoryOverride,
         "mac" when Devices.TryGetValue(identity.Id, out var device) => device.UsageCategoryOverride,
         "virtual" when VirtualDevices.FirstOrDefault(slot => slot.Id.ToString("D") == identity.Id) is { } slot
@@ -204,6 +206,9 @@ public sealed record DeviceInventoryData(
         if (category is { } value && !Enum.IsDefined(value))
             throw new ArgumentOutOfRangeException(nameof(category));
         _ = GetUsageCategoryOverride(identity);
+        if (identity.Kind == "linked"
+            && LinkedDevices.FirstOrDefault(device => device.Id.ToString("D") == identity.Id) is { } linkedIdentity)
+            return UpdateLinkedDevice(linkedIdentity.Id, device => device with { UsageCategoryOverride = category });
         if (identity.Kind == "mac" && FindLinkedDevice(identity.Id) is { } linked)
             return UpdateLinkedDevice(linked.Id, device => device with { UsageCategoryOverride = category });
         if (identity.Kind == "virtual")
@@ -351,6 +356,9 @@ public sealed record DeviceInventoryData(
         return observed with
         {
             VirtualDevices = virtualDevices,
+            LinkedDevices = !historical && complete && networkId is not null
+                ? LinkedDeviceRepresentatives.Observe(observed, networkId, snapshot.Subnet, snapshot.CompletedAt)
+                : observed.LinkedDevices,
             DiscoveryBaselines = !historical && complete && networkId is not null
                 ? DiscoveryBaselines.Append(new(networkId, snapshot.Subnet)).Distinct().ToArray()
                 : DiscoveryBaselines

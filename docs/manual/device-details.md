@@ -104,21 +104,29 @@ either record has one; then Person, Room and usage category.
 MAC addresses, adapter vendors, IPs, ports and scan histories stay separate. No
 source records are deleted.
 
-After linking, the section says **Linked by you** and lists each MAC address
-with its IP, adapter vendor, status and the date it was linked. Linked records
-get no new suggestions yet.
+After linking, the two records become [one row in Devices](devices.md#linked-devices),
+and the section says **Linked by you**. It lists each MAC address with its IP,
+adapter vendor, status and the date it was linked, and marks the representative
+MAC address **Shown in Devices**. Linked records get no new suggestions yet.
 
 ### Edit a linked device
 
 Use the existing name, identification, **Person**/**Room** and usage-category
-editors on either MAC address's Device Details; they change the shared values,
-and both Devices rows update. The confirmed name and identification are fixed
+editors in the linked device's Device Details; they change the shared values.
+The confirmed name and identification are fixed
 values: later scans update each MAC's own evidence, not the shared values.
 **Restore name chosen when linked** and **Restore values chosen when linked**
 return to the values confirmed when you linked the records.
 
 Each MAC keeps its own saved name, identification, Person/Room and category
-while linked, ready to restore if you unlink it.
+while linked, ready to restore if you unlink it. Activity and automatic usage
+evidence use the linked device: any responding member makes a scan a response,
+every eligible member must have a nonresponse for that scan to count as no
+response, and otherwise the scan remains unknown. Members never observed on the
+selected network do not contribute. Evidence collected before linking remains
+part of the current members' combined history. The History card remains
+separate; it still uses the representative MAC until that surface is updated
+later.
 
 ### Unlink two MAC addresses
 
@@ -134,9 +142,13 @@ Reset uses that MAC's normal imported or discovered values. Both MACs keep their
 addresses, vendors, observations and scan histories. The pair is permanently
 declined as an automatic suggestion, but it can still be linked manually.
 
+After unlinking, Devices, Overview and People & Rooms show and count the two MAC
+addresses as separate devices again, and Device Details reopens on the remaining
+device. Activity and usage evidence again use each MAC's own history, including
+evidence collected while linked.
+
 If saving fails, the section shows the error and keeps the linked device and
-confirmation in place. Devices, Overview and People & Rooms still show and
-count the MAC records separately until the separate one-row display task.
+confirmation in place.
 
 ## Rename
 
@@ -267,6 +279,8 @@ Green/R means responded; amber/minus means scanned with no response, not absence
 A muted `?` marks no scan data; dim dots mark later today. A small trailing `?`
 beside a weekday count marks unknown dates without changing its denominator.
 Skipped DST hours show `N/A`. Scroll horizontally when needed to reach all hours.
+For a linked device, each square combines the current member MACs under those
+same response rules, including history collected before they were linked.
 The newest-first **Scan observations** list retains paging and exact timestamps
 in accessible row descriptions and tooltips.
 See [History and usage categories](history.md).

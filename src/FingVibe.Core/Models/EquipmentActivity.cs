@@ -18,15 +18,21 @@ public static class EquipmentActivity
         if (!data.PeopleRooms.People.Any(person => person.Id == personId))
             return new([], []);
         var assigned = data.PeopleRooms.Assignments.Keys
-            .Concat(data.LinkedDevices.SelectMany(device => device.Members.Select(member => member.Mac)))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Where(mac => data.GetAssignment(mac)?.PersonId == personId)
+            .Where(mac => data.FindLinkedDevice(mac) is null && data.GetAssignment(mac)?.PersonId == personId)
             .Select(LogicalDeviceId.Mac)
+            .Concat(data.LinkedDevices.Where(device => device.Assignment?.PersonId == personId)
+                .Select(device => LogicalDeviceId.Linked(device.Id)))
             .Concat(data.VirtualDevices.Where(slot => slot.Assignment?.PersonId == personId)
                 .Select(slot => LogicalDeviceId.Virtual(slot.Id))).Distinct().ToArray();
         var slots = data.VirtualDevices.Where(slot => slot.NetworkId == networkId && slot.Subnet == subnet)
             .Select(slot => LogicalDeviceId.Virtual(slot.Id)).ToHashSet();
-        bool Queryable(LogicalDeviceId id) => id.Kind == "mac" ? data.Devices.ContainsKey(id.Id) : slots.Contains(id);
+        bool Queryable(LogicalDeviceId id) => id.Kind switch
+        {
+            "linked" => data.LinkedDevices.Any(device => device.Id.ToString("D") == id.Id),
+            "mac" => data.Devices.ContainsKey(id.Id),
+            "virtual" => slots.Contains(id),
+            _ => false
+        };
         return new(assigned.Where(Queryable).ToArray(), assigned.Where(id => !Queryable(id)).ToArray());
     }
 

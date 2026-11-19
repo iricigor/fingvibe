@@ -41,7 +41,9 @@ public sealed record DeviceDiscovery(string Mac, Guid? VirtualDeviceId = null)
         foreach (var mac in responding.Where(mac => !representedMacs.Contains(mac)))
         {
             if (!knownMacs.Contains(mac)
-                && !knownSlots.Any(slot => slot.History.Any(item => item.Mac == mac)))
+                && !knownSlots.Any(slot => slot.History.Any(item => item.Mac == mac))
+                // A linked member's identity is already known even before this MAC is seen locally.
+                && persisted.FindLinkedDevice(mac) is null)
                 discoveries.Add(new(mac));
         }
         return discoveries.OrderBy(item => item.Mac, StringComparer.Ordinal).ToArray();

@@ -9,6 +9,9 @@ namespace FingVibe.Core.Storage;
 
 public sealed partial class DeviceInventoryStore
 {
+    private sealed record AnalyticsSelection(
+        LogicalDeviceId Identity, IReadOnlyList<LogicalDeviceId> Sources, bool Ambiguous);
+
     public Task<AnalyticsEvidence> QueryAnalyticsAsync(
         AnalyticsEvidenceRequest request, CancellationToken cancellationToken = default)
     {
@@ -41,9 +44,11 @@ public sealed partial class DeviceInventoryStore
             var revision = read.Revision();
             CheckRevision(revision, request.ExpectedRevision);
             var slots = read.Entities<PrivateVirtualDevice>("virtual_devices");
+            var linked = read.Entities<LinkedDevice>("linked_devices");
             var people = read.Entities<ManagedPerson>("people");
             var rooms = read.Entities<ManagedRoom>("rooms");
             if (slots.Any(pair => pair.Key != pair.Value.Id.ToString("D"))
+                || linked.Any(pair => pair.Key != pair.Value.Id.ToString("D"))
                 || people.Any(pair => pair.Key != pair.Value.Id.ToString("D"))
                 || rooms.Any(pair => pair.Key != pair.Value.Id.ToString("D")))
                 throw new InvalidDataException("Saved analytics metadata contains mismatched identities.");
@@ -52,7 +57,8 @@ public sealed partial class DeviceInventoryStore
                 read.Entities<DeviceClassificationOverride>("classifications"),
                 new PeopleRoomsData(people.Values.ToArray(), rooms.Values.ToArray(), read.Entities<DeviceAssignment>("assignments")))
             {
-                VirtualDevices = slots.Values.ToArray()
+                VirtualDevices = slots.Values.ToArray(),
+                LinkedDevices = linked.Values.ToArray()
             };
             Validate(data);
             var selected = SelectAnalyticsDevices(data, request);
@@ -85,94 +91,128 @@ public sealed partial class DeviceInventoryStore
             for (var index = 0; index < selected.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                var (identity, ambiguous) = selected[index];
-                var legacyMappingAmbiguous = identity.Kind == "mac" && data.VirtualDevices.Any(slot =>
-                    slot.NetworkId == request.NetworkId && slot.Subnet == request.Subnet
-                    && slot.History.Any(item => item.Mac == identity.Id));
-                (string, object?)[] parameters =
-                [
-                    ("$kind", identity.Kind), ("$id", identity.Id),
-                    ("$legacy", legacyMappingAmbiguous ? "ambiguous" : "known"), .. scope
-                ];
+                var selection = selected[index];
+                var linkedResponses = selection.Identity.Kind == "linked"
+                    ? new Dictionary<AnalyticsScanBuilder, AnalyticsResponse[]>() : null;
                 DateTimeOffset? first = null;
-                if (!ambiguous)
+                var ambiguous = selection.Ambiguous;
+                for (var sourceIndex = 0; sourceIndex < selection.Sources.Count; sourceIndex++)
                 {
-                    foreach (var row in read.Rows("""
-                                 SELECT h.completed_at,h.completed_ticks,h.scan_id,e.completed_ticks,e.state,e.network_id,e.subnet
-                                 FROM scan_history AS h INDEXED BY history_scope_presence
-                                 LEFT JOIN scan_evidence AS e ON e.scan_id=h.scan_id
-                                 WHERE h.kind=$kind AND h.id=$id AND h.network_id=$network AND h.subnet=$subnet
-                                     AND h.present=1 AND h.completed_ticks<=$end
-                                     AND h.virtual_id IS NULL AND (h.scan_id IS NOT NULL OR $legacy='known')
-                                 ORDER BY h.completed_ticks ASC,h.sequence DESC LIMIT 1
-                                 """, parameters))
+                    var source = selection.Sources[sourceIndex];
+                    var legacyMappingAmbiguous = source.Kind == "mac" && data.VirtualDevices.Any(slot =>
+                        slot.NetworkId == request.NetworkId && slot.Subnet == request.Subnet
+                        && slot.History.Any(item => item.Mac == source.Id));
+                    ambiguous |= legacyMappingAmbiguous;
+                    (string, object?)[] parameters =
+                    [
+                        ("$kind", source.Kind), ("$id", source.Id),
+                        ("$legacy", legacyMappingAmbiguous ? "ambiguous" : "known"), .. scope
+                    ];
+                    DateTimeOffset? sourceFirst = null;
+                    if (!selection.Ambiguous)
                     {
-                        first = AnalyticsReadSession.Timestamp(row, 0, 1);
-                        if (raw.sqlite3_column_type(row, 2) != raw.SQLITE_NULL
-                            && (raw.sqlite3_column_type(row, 3) == raw.SQLITE_NULL
-                                || raw.sqlite3_column_int64(row, 3) != first.Value.UtcTicks
-                                || raw.sqlite3_column_int64(row, 4) != (int)ScanCheckpointState.Complete
-                                || AnalyticsReadSession.Text(row, 5) != request.NetworkId
-                                || AnalyticsReadSession.Text(row, 6) != request.Subnet))
-                            throw new InvalidDataException("First-sighting evidence does not match a completed scan.");
+                        foreach (var row in read.Rows("""
+                                     SELECT h.completed_at,h.completed_ticks,h.scan_id,e.completed_ticks,e.state,e.network_id,e.subnet
+                                     FROM scan_history AS h INDEXED BY history_scope_presence
+                                     LEFT JOIN scan_evidence AS e ON e.scan_id=h.scan_id
+                                     WHERE h.kind=$kind AND h.id=$id AND h.network_id=$network AND h.subnet=$subnet
+                                         AND h.present=1 AND h.completed_ticks<=$end
+                                         AND h.virtual_id IS NULL AND (h.scan_id IS NOT NULL OR $legacy='known')
+                                     ORDER BY h.completed_ticks ASC,h.sequence DESC LIMIT 1
+                                     """, parameters))
+                        {
+                            sourceFirst = AnalyticsReadSession.Timestamp(row, 0, 1);
+                            if (raw.sqlite3_column_type(row, 2) != raw.SQLITE_NULL
+                                && (raw.sqlite3_column_type(row, 3) == raw.SQLITE_NULL
+                                    || raw.sqlite3_column_int64(row, 3) != sourceFirst.Value.UtcTicks
+                                    || raw.sqlite3_column_int64(row, 4) != (int)ScanCheckpointState.Complete
+                                    || AnalyticsReadSession.Text(row, 5) != request.NetworkId
+                                    || AnalyticsReadSession.Text(row, 6) != request.Subnet))
+                                throw new InvalidDataException("First-sighting evidence does not match a completed scan.");
+                            first = first is null || sourceFirst < first ? sourceFirst : first;
+                        }
                     }
-                }
-                devices[index] = new(identity, first, ambiguous || legacyMappingAmbiguous);
-                const string historySql = """
-                    SELECT completed_at,completed_ticks,present,scan_id,virtual_id FROM scan_history INDEXED BY history_scope_time
-                    WHERE kind=$kind AND id=$id AND network_id=$network AND subnet=$subnet
-                        AND completed_ticks>=$start AND completed_ticks<=$end
-                        AND ($scan IS NULL OR scan_id=$scan)
-                    ORDER BY completed_ticks,sequence
-                    """;
-                AddRows(start.UtcTicks, request.QueryTime.UtcTicks);
-                if (latest is not null && latest.Time < start)
-                    AddRows(latest.Time.UtcTicks, latest.Time.UtcTicks, latest.Id);
+                    const string historySql = """
+                        SELECT completed_at,completed_ticks,present,scan_id,virtual_id FROM scan_history INDEXED BY history_scope_time
+                        WHERE kind=$kind AND id=$id AND network_id=$network AND subnet=$subnet
+                            AND completed_ticks>=$start AND completed_ticks<=$end
+                            AND ($scan IS NULL OR scan_id=$scan)
+                        ORDER BY completed_ticks,sequence
+                        """;
+                    AddRows(start.UtcTicks, request.QueryTime.UtcTicks);
+                    if (latest is not null && latest.Time < start)
+                        AddRows(latest.Time.UtcTicks, latest.Time.UtcTicks, latest.Id);
 
-                void AddRows(long from, long to, Guid? onlyScan = null)
-                {
-                    foreach (var row in read.Rows(historySql,
-                                 [.. parameters.Where(pair => pair.Item1 != "$end"), ("$start", from), ("$end", to),
-                                     ("$scan", onlyScan?.ToString("D"))]))
+                    void AddRows(long from, long to, Guid? onlyScan = null)
                     {
-                        var time = AnalyticsReadSession.Timestamp(row, 0, 1);
-                        var present = raw.sqlite3_column_int64(row, 2);
-                        if (present is not (0 or 1))
-                            throw new InvalidDataException("Saved analytics contains an invalid response.");
-                        var mappedToVirtual = raw.sqlite3_column_type(row, 4) != raw.SQLITE_NULL;
-                        if (mappedToVirtual && (identity.Kind != "mac" || present != 1
-                            || raw.sqlite3_column_type(row, 3) == raw.SQLITE_NULL
-                            || !Guid.TryParse(AnalyticsReadSession.Text(row, 4), out var virtualId)
-                            || !data.VirtualDevices.Any(slot => slot.Id == virtualId && slot.NetworkId == request.NetworkId
-                                && slot.Subnet == request.Subnet && slot.History.Any(item => item.Mac == identity.Id))))
-                            throw new InvalidDataException("Saved evidence has an invalid virtual association.");
-                        AnalyticsScanBuilder scan;
-                        if (raw.sqlite3_column_type(row, 3) != raw.SQLITE_NULL)
+                        foreach (var row in read.Rows(historySql,
+                                     [.. parameters.Where(pair => pair.Item1 != "$end"), ("$start", from), ("$end", to),
+                                         ("$scan", onlyScan?.ToString("D"))]))
                         {
-                            var scanId = Guid.Parse(AnalyticsReadSession.Text(row, 3));
-                            if (!scans.TryGetValue(scanId, out scan!) || scan.Time != time
-                                || scan.State != ScanCheckpointState.Complete)
-                                throw new InvalidDataException("Saved device evidence does not match its completed scan.");
-                        }
-                        else
-                        {
-                            if (time < start) continue;
-                            if (!legacy.TryGetValue(time.UtcTicks, out scan!))
-                                legacy.Add(time.UtcTicks, scan = new(null, time, null, 0, selected.Count));
-                        }
-                        // Only the recorded virtual identity is read. Raw MAC history is never backfilled into a slot.
-                        if (!ambiguous && !mappedToVirtual
-                            && !(legacyMappingAmbiguous && scan.Id is null) && first is not null && time >= first)
-                        {
-                            var response = present == 1 ? AnalyticsResponse.Responded : AnalyticsResponse.DidNotRespond;
-                            var previous = scan.Responses[index];
-                            if (scan.Id is not null && previous != AnalyticsResponse.Unknown)
-                                throw new InvalidDataException("A logical device has duplicate evidence in one scan.");
-                            if (previous != AnalyticsResponse.Responded)
-                                scan.Responses[index] = response;
+                            var time = AnalyticsReadSession.Timestamp(row, 0, 1);
+                            var present = raw.sqlite3_column_int64(row, 2);
+                            if (present is not (0 or 1))
+                                throw new InvalidDataException("Saved analytics contains an invalid response.");
+                            var mappedToVirtual = raw.sqlite3_column_type(row, 4) != raw.SQLITE_NULL;
+                            if (mappedToVirtual && (source.Kind != "mac" || present != 1
+                                || raw.sqlite3_column_type(row, 3) == raw.SQLITE_NULL
+                                || !Guid.TryParse(AnalyticsReadSession.Text(row, 4), out var virtualId)
+                                || !data.VirtualDevices.Any(slot => slot.Id == virtualId && slot.NetworkId == request.NetworkId
+                                    && slot.Subnet == request.Subnet && slot.History.Any(item => item.Mac == source.Id))))
+                                throw new InvalidDataException("Saved evidence has an invalid virtual association.");
+                            AnalyticsScanBuilder scan;
+                            if (raw.sqlite3_column_type(row, 3) != raw.SQLITE_NULL)
+                            {
+                                var scanId = Guid.Parse(AnalyticsReadSession.Text(row, 3));
+                                if (!scans.TryGetValue(scanId, out scan!) || scan.Time != time
+                                    || scan.State != ScanCheckpointState.Complete)
+                                    throw new InvalidDataException("Saved device evidence does not match its completed scan.");
+                            }
+                            else
+                            {
+                                if (time < start) continue;
+                                if (!legacy.TryGetValue(time.UtcTicks, out scan!))
+                                    legacy.Add(time.UtcTicks, scan = new(null, time, null, 0, selected.Count));
+                            }
+                            // Only the recorded virtual identity is read. Raw MAC history is never backfilled into a slot.
+                            if (!selection.Ambiguous && !mappedToVirtual
+                                && !(legacyMappingAmbiguous && scan.Id is null) && sourceFirst is not null && time >= sourceFirst)
+                            {
+                                var response = present == 1 ? AnalyticsResponse.Responded : AnalyticsResponse.DidNotRespond;
+                                if (linkedResponses is not null)
+                                {
+                                    if (!linkedResponses.TryGetValue(scan, out var memberResponses))
+                                        linkedResponses.Add(scan, memberResponses =
+                                            Enumerable.Repeat(AnalyticsResponse.Unknown, selection.Sources.Count).ToArray());
+                                    if (scan.Id is not null && memberResponses[sourceIndex] != AnalyticsResponse.Unknown)
+                                        throw new InvalidDataException("A logical device has duplicate evidence in one scan.");
+                                    if (memberResponses[sourceIndex] != AnalyticsResponse.Responded)
+                                        memberResponses[sourceIndex] = response;
+                                }
+                                else
+                                {
+                                    var previous = scan.Responses[index];
+                                    if (scan.Id is not null && previous != AnalyticsResponse.Unknown)
+                                        throw new InvalidDataException("A logical device has duplicate evidence in one scan.");
+                                    if (previous != AnalyticsResponse.Responded)
+                                        scan.Responses[index] = response;
+                                }
+                            }
                         }
                     }
                 }
+                if (linkedResponses is not null)
+                {
+                    foreach (var (scan, memberResponses) in linkedResponses)
+                    {
+                        scan.Responses[index] = memberResponses.Any(response => response == AnalyticsResponse.Responded)
+                            ? AnalyticsResponse.Responded
+                            : memberResponses.Length > 0 && memberResponses.All(response =>
+                                response == AnalyticsResponse.DidNotRespond)
+                                ? AnalyticsResponse.DidNotRespond : AnalyticsResponse.Unknown;
+                    }
+                }
+                devices[index] = new(selection.Identity, first, ambiguous);
             }
             var ordered = scans.Values.Concat(legacy.Values).Where(scan => scan.Time >= start)
                 .OrderBy(scan => scan.Time).ThenBy(scan => scan.Id).ToArray();
@@ -196,11 +236,15 @@ public sealed partial class DeviceInventoryStore
         }
     }
 
-    private static List<(LogicalDeviceId Identity, bool Ambiguous)> SelectAnalyticsDevices(
+    private static List<AnalyticsSelection> SelectAnalyticsDevices(
         DeviceInventoryData data, AnalyticsEvidenceRequest request)
     {
         var slots = data.VirtualDevices.Where(slot => slot.NetworkId == request.NetworkId && slot.Subnet == request.Subnet)
             .ToDictionary(slot => LogicalDeviceId.Virtual(slot.Id));
+        var linked = data.LinkedDevices.ToDictionary(device => LogicalDeviceId.Linked(device.Id));
+        var linkedMacs = data.LinkedDevices.SelectMany(device => device.Members.Select(member =>
+            (Mac: member.Mac, Identity: LogicalDeviceId.Linked(device.Id))))
+            .ToDictionary(pair => pair.Mac, pair => pair.Identity, StringComparer.Ordinal);
         var aliases = new Dictionary<LogicalDeviceId, LogicalDeviceId[]>();
         foreach (var device in data.Devices.Values.Where(device => PrivateVirtualDeviceAllocator.IsEligible(data, device)))
         {
@@ -211,16 +255,23 @@ public sealed partial class DeviceInventoryStore
         var requested = request.Devices ?? data.Devices.Values
             .Where(device => device.Observations.Count == 0
                 || device.Observations.Any(item => item.NetworkId == request.NetworkId && item.Subnet == request.Subnet))
-            .Select(device => LogicalDeviceId.Mac(device.Mac)).Where(id => !aliases.ContainsKey(id))
+            .Select(device => linkedMacs.TryGetValue(device.Mac, out var linkedId)
+                ? linkedId : LogicalDeviceId.Mac(device.Mac))
+            .Where(id => id.Kind != "mac" || !aliases.ContainsKey(id))
             .Concat(slots.Keys).ToArray();
         var chosen = new Dictionary<LogicalDeviceId, bool>();
         foreach (var identity in requested)
         {
-            if (identity is null || identity.Kind is not ("mac" or "virtual")
+            if (identity is null || identity.Kind is not ("mac" or "linked" or "virtual")
                 || identity.Kind == "mac" && !data.Devices.ContainsKey(identity.Id)
+                || identity.Kind == "linked" && !linked.ContainsKey(identity)
                 || identity.Kind == "virtual" && !slots.ContainsKey(identity))
                 throw new ArgumentException("The analytics selection contains an unknown or out-of-network identity.");
-            if (aliases.TryGetValue(identity, out var matches))
+            if (identity.Kind == "mac" && linkedMacs.TryGetValue(identity.Id, out var linkedId))
+            {
+                chosen[linkedId] = false;
+            }
+            else if (aliases.TryGetValue(identity, out var matches))
             {
                 if (matches.Length == 1) chosen[matches[0]] = false;
                 else chosen[identity] = true;
@@ -228,7 +279,14 @@ public sealed partial class DeviceInventoryStore
             else chosen[identity] = false;
         }
         return chosen.OrderBy(pair => pair.Key.Kind, StringComparer.Ordinal).ThenBy(pair => pair.Key.Id, StringComparer.Ordinal)
-            .Select(pair => (pair.Key, pair.Value)).ToList();
+            .Select(pair => new AnalyticsSelection(pair.Key, pair.Key.Kind switch
+            {
+                "linked" => linked[pair.Key].Members
+                    .Where(member => data.Devices[member.Mac].Observations.Any(observation =>
+                        observation.NetworkId == request.NetworkId && observation.Subnet == request.Subnet))
+                    .Select(member => LogicalDeviceId.Mac(member.Mac)).ToArray(),
+                _ => [pair.Key]
+            }, pair.Value)).ToList();
     }
 
     private static AnalyticsScanBuilder ReadAnalyticsScan(sqlite3_stmt row, int deviceCount)

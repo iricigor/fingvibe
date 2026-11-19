@@ -3,6 +3,7 @@ namespace FingVibe.Core.Models;
 public sealed record LogicalDeviceId(string Kind, string Id)
 {
     public static LogicalDeviceId Mac(string mac) => new("mac", PeopleRoomsData.NormalizeMacAddress(mac));
+    public static LogicalDeviceId Linked(Guid id) => new("linked", id.ToString("D"));
     public static LogicalDeviceId Virtual(Guid id) => new("virtual", id.ToString("D"));
 }
 

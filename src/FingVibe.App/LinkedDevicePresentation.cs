@@ -17,10 +17,11 @@ public sealed record LinkCandidate(string Mac, ScanResultRow Row, DeviceMatchSug
     public bool IsSuggested => Suggestion is not null;
 }
 
-public sealed record LinkedMemberLine(string Mac, string Address, string AdapterVendor, string Status, DateTimeOffset LinkedAt, bool IsThisDevice)
+public sealed record LinkedMemberLine(string Mac, string Address, string AdapterVendor, string Status, DateTimeOffset LinkedAt, bool IsShownInDevices)
 {
-    public string Text => $"{FormatMac(Mac)}{(IsThisDevice ? " (this record)" : string.Empty)} · {Address} · "
-        + $"{AdapterVendor} · {Status} · linked {LinkedAt.ToLocalTime().ToString("d", CultureInfo.CurrentCulture)}";
+    public string Text => $"{FormatMac(Mac)} · {Address} · "
+        + $"{AdapterVendor} · {Status} · linked {LinkedAt.ToLocalTime().ToString("d", CultureInfo.CurrentCulture)}"
+        + (IsShownInDevices ? " · Shown in Devices" : string.Empty);
 
     public static string FormatMac(string mac) =>
         string.Join("-", Enumerable.Range(0, mac.Length / 2).Select(index => mac.Substring(index * 2, 2)));
@@ -226,14 +227,21 @@ public static class LinkedDevicePresentation
         return suggested.Concat(others).Where(item => Matches(item, search)).ToArray();
     }
 
-    public static IReadOnlyList<LinkedMemberLine> Members(LinkedDevice linked,
-        IReadOnlyDictionary<string, ScanResultRow> rows, string currentMac) =>
+    public static IReadOnlyList<LinkedMemberLine> Members(LinkedDevice linked, DeviceInventoryData data, string? shownMac) =>
         linked.Members.Select(member =>
         {
-            var row = rows.GetValueOrDefault(member.Mac);
-            return new LinkedMemberLine(member.Mac, row?.AddressText ?? "-",
-                DeviceVendorPresentation.DisplayText(row?.Result?.VendorName ?? "Unknown"),
-                row?.StatusLabel ?? "Unknown", member.LinkedAt, member.Mac == currentMac);
+            var device = data.Devices.GetValueOrDefault(member.Mac);
+            var observation = device?.LatestObservation;
+            var status = device?.Status switch
+            {
+                InventoryDeviceStatus.Online => "Online",
+                InventoryDeviceStatus.Offline => "Offline",
+                InventoryDeviceStatus.FingOnly => "Fing Only",
+                _ => "Unknown"
+            };
+            return new LinkedMemberLine(member.Mac, observation?.Address ?? device?.Imported.Address ?? "-",
+                DeviceVendorPresentation.DisplayText(observation?.Vendor ?? "Unknown"),
+                status, member.LinkedAt, member.Mac == shownMac);
         }).ToArray();
 
     public static string CandidateText(LinkCandidate candidate) =>

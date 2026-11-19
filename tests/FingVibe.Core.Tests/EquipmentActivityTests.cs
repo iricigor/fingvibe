@@ -147,6 +147,42 @@ public sealed class EquipmentActivityTests
     }
 
     [Fact]
+    public void LinkedMembersUseOneSharedEquipmentIdentity()
+    {
+        var evidence = Evidence(Scan("2026-11-07T16:00:00Z",
+            AnalyticsResponse.Responded, AnalyticsResponse.Responded));
+        var linked = new LinkedDevice(Guid.NewGuid(),
+            [new(Ids[0].Id, Now.AddDays(-10)), new(Ids[1].Id, Now.AddDays(-10))],
+            "Shared laptop", new(DeviceOperatingSystem.Windows, DeviceType.Computer),
+            new("Shared laptop", new(DeviceOperatingSystem.Windows, DeviceType.Computer)),
+            new(PersonId: Person.Id), DeviceUsageCategory.Guest);
+        var data = DeviceInventoryData.Empty with
+        {
+            Revision = evidence.Revision,
+            Devices = Ids.ToDictionary(id => id.Id, id => new InventoryDevice(id.Id, new(), [])),
+            Names = new Dictionary<string, string> { [Ids[0].Id] = "First", [Ids[1].Id] = "Second" },
+            PeopleRooms = new PeopleRoomsData([Person]),
+            LinkedDevices = [linked]
+        };
+
+        var selection = EquipmentActivity.Select(data, Person.Id, evidence.NetworkId, evidence.Subnet);
+
+        Assert.Equal(LogicalDeviceId.Linked(linked.Id), Assert.Single(selection.QueryDevices));
+        Assert.Empty(selection.UnavailableDevices);
+        var linkedEvidence = evidence with
+        {
+            Devices = [new(LogicalDeviceId.Linked(linked.Id), Now.AddDays(-50), false)],
+            Scans = evidence.Scans.Select(scan => scan with { Responses = [AnalyticsResponse.Responded] }).ToArray(),
+            LatestScan = evidence.LatestScan! with { Responses = [AnalyticsResponse.Responded] }
+        };
+        var display = EquipmentActivityPresentation.Create(linkedEvidence, data, 1, false);
+        Assert.Equal(1, display.Latest.Total);
+        Assert.Contains("Shared laptop", display.Contributors);
+        Assert.Equal(DeviceUsageCategory.Guest, data.GetUsageCategoryOverride(LogicalDeviceId.Linked(linked.Id)));
+        Assert.Equal(DeviceUsageCategory.Permanent, Assert.Single(display.Categories).Value.Category);
+    }
+
+    [Fact]
     public async Task CurrentAssignmentsVirtualDeduplicationNetworkIsolationAndDeletionUseSavedEvidence()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"fingvibe-equipment-{Guid.NewGuid():N}");

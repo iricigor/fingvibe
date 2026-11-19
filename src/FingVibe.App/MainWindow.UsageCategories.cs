@@ -113,7 +113,8 @@ public sealed partial class MainWindow
     }
 
     private bool CanEditUsage(ScanResultRow row) => _inventoryReady && !_inventoryUnavailable && row.UsageIdentity is { } id
-        && (id.Kind == "mac" ? _inventory.Devices.ContainsKey(id.Id)
+        && (id.Kind == "linked" ? _inventory.LinkedDevices.Any(device => device.Id.ToString("D") == id.Id)
+            : id.Kind == "mac" ? _inventory.Devices.ContainsKey(id.Id)
             : _inventory.VirtualDevices.Any(slot => slot.Id.ToString("D") == id.Id));
 
     private void ApplyUsageCategories()

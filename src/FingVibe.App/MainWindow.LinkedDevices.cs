@@ -9,12 +9,13 @@ public sealed partial class MainWindow
     {
         var row = _selectedDeviceRow;
         if (row?.MacAddress?.ToString() is not { } mac) return;
+        LinkedDevice linked;
         await _deviceDataSaveLock.WaitAsync();
         try
         {
             await PersistDeviceDataAsync(CurrentDeviceData.LinkDevices(mac, request.OtherMac, request.Choices, DateTimeOffset.UtcNow));
-            ApplyLinkedDevice(CurrentDeviceData.FindLinkedDevice(mac)
-                ?? throw new InvalidOperationException("The saved inventory does not contain the new linked device."));
+            linked = CurrentDeviceData.FindLinkedDevice(mac)
+                ?? throw new InvalidOperationException("The saved inventory does not contain the new linked device.");
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
                                               or InvalidOperationException or InvalidDataException or ArgumentException)
@@ -24,13 +25,14 @@ public sealed partial class MainWindow
         }
         finally { _deviceDataSaveLock.Release(); }
 
-        ApplyUsageCategories();
-        if (!ReferenceEquals(_selectedDeviceRow, row)) return;
-        DevicePage.NameInput = row.NameText;
-        UpdateDeviceNameActions();
-        UpdateClassificationDetails();
-        UpdateDeviceAssignmentPickers();
-        ShowSelectedMatchSuggestions(opening: false);
+        // The two member rows become one linked-device row; reopen it with the linked section in view.
+        RefreshInventoryRows();
+        if (!ReferenceEquals(_selectedDeviceRow, row) && _selectedDeviceRow?.IdentityKey != row.IdentityKey) return;
+        var linkedRow = _allResults.FirstOrDefault(item => item.IdentityKey == linked.Id.ToString("D"))
+            ?? ScanResultRow.ForLinkedDevice(linked, CurrentDeviceData);
+        ApplyPeopleRoomAssignments(linkedRow);
+        ShowDeviceDetails(linkedRow, _deviceDetailsFromRoomMap);
+        DevicePage.RevealMatchSuggestions();
     }
 
     private async void DeviceUnlinkRequested(object? sender, string mac)
@@ -38,6 +40,8 @@ public sealed partial class MainWindow
         var row = _selectedDeviceRow;
         var linked = CurrentDeviceData.FindLinkedDevice(mac);
         if (row is null || linked is null) return;
+        var detached = PeopleRoomsData.NormalizeMacAddress(mac);
+        var remaining = linked.Members.FirstOrDefault(member => member.Mac != detached)?.Mac;
         await _deviceDataSaveLock.WaitAsync();
         try
         {
@@ -51,14 +55,16 @@ public sealed partial class MainWindow
         }
         finally { _deviceDataSaveLock.Release(); }
 
-        ApplyUnlinkedDevice(linked);
-        ApplyUsageCategories();
-        if (!ReferenceEquals(_selectedDeviceRow, row)) return;
-        DevicePage.NameInput = row.NameText;
-        UpdateDeviceNameActions();
-        UpdateClassificationDetails();
-        UpdateDeviceAssignmentPickers();
-        UpdateMatchSuggestions();
+        // The linked-device row splits into separate member rows; reopen the remaining device, which keeps the shared values.
+        RefreshInventoryRows();
+        if (!ReferenceEquals(_selectedDeviceRow, row) && _selectedDeviceRow?.IdentityKey != row.IdentityKey) return;
+        var remainingRow = _allResults.FirstOrDefault(item => item.IdentityKey == remaining)
+            ?? (remaining is not null && CurrentDeviceData.Devices.TryGetValue(remaining, out var device)
+                ? ScanResultRow.ForDevice(device, CurrentDeviceData) : null);
+        if (remainingRow is null) return;
+        ApplyPeopleRoomAssignments(remainingRow);
+        ShowDeviceDetails(remainingRow, _deviceDetailsFromRoomMap);
+        DevicePage.RevealMatchSuggestions();
     }
 
     /// <summary>Saves a shared-value edit; callers hold the device-data save lock.</summary>
@@ -75,20 +81,6 @@ public sealed partial class MainWindow
                      .Where(row => row.VirtualDevice is null && row.MacAddress?.ToString() is { } mac && linked.HasMember(mac)))
         {
             row.UpdateLinkedDevice(linked);
-            ApplyPeopleRoomAssignments(row);
-        }
-        RefreshVisibleResults();
-        UpdatePeopleRoomsPages();
-    }
-
-    private void ApplyUnlinkedDevice(LinkedDevice linked)
-    {
-        var refreshed = ScanResultRow.CreateInventoryRows(CurrentDeviceData).ToDictionary(row => row.IdentityKey);
-        foreach (var row in _allResults.Concat(_selectedDeviceRow is { } selected ? [selected] : []).Distinct()
-                     .Where(row => row.MacAddress?.ToString() is { } mac && linked.HasMember(mac)))
-        {
-            var mac = row.MacAddress!.ToString();
-            row.UpdateObservation(refreshed[mac]);
             ApplyPeopleRoomAssignments(row);
         }
         RefreshVisibleResults();

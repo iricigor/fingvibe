@@ -147,10 +147,17 @@ public sealed record RoomMapProjection(
         var representedMacs = virtualDevices.SelectMany(slot => slot.History.Select(item => item.Mac))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var devices = new List<RoomMapDevice>();
+        // A linked device appears once, through its representative MAC on this network.
+        var currentScan = data.Devices.Values.FirstOrDefault(device => device.CurrentCompletedAt is not null
+            && device.CurrentNetworkId == networkId && device.CurrentSubnet == network.Cidr)?.CurrentCompletedAt;
+        var linkedShown = data.LinkedDevices.ToDictionary(item => item.Id, item =>
+            LinkedDeviceRepresentatives.Select(item, data, networkId, network.Cidr, currentScan)
+            ?? item.Members.Select(member => member.Mac).Order(StringComparer.Ordinal).First());
 
         foreach (var (mac, inventoryDevice) in data.Devices.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase))
         {
-            if (representedMacs.Contains(mac))
+            var linked = data.FindLinkedDevice(mac);
+            if (representedMacs.Contains(mac) || linked is not null && linkedShown[linked.Id] != mac)
             {
                 continue;
             }
@@ -178,7 +185,6 @@ public sealed record RoomMapProjection(
 
             var address = observation?.Address ?? importedAddress!.ToString();
             var correction = data.Classifications.GetValueOrDefault(mac);
-            var linked = data.FindLinkedDevice(mac);
             var type = linked is not null
                 ? linked.Identification.Type ?? FingClassificationMapper.Type(inventoryDevice.Imported.Type)
                     ?? observation?.Classification.Type ?? DeviceType.Unknown
@@ -196,7 +202,7 @@ public sealed record RoomMapProjection(
                 inventoryDevice.Imported.Hostname,
                 address);
             devices.Add(new(
-                mac,
+                linked?.Id.ToString("D") ?? mac,
                 name,
                 address,
                 type,
