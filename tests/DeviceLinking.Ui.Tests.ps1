@@ -518,7 +518,7 @@ try {
         (Get-InventorySqliteValue $database "SELECT json_extract(data,'$') FROM names WHERE id='001122BB0001'") -ne "Link desk" -or
         (Get-InventorySqliteValue $database "SELECT json_extract(data,'$') FROM names WHERE id='001122BB0002'") -ne "Link desk dock" -or
         (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.type') FROM classifications WHERE id='001122BB0001'") -ne 2 -or
-        (Get-InventorySqliteValue $database "SELECT COUNT(*) FROM classifications WHERE id='001122BB0002'") -ne 0 -or
+        (Get-InventorySqliteValue $database "SELECT COUNT(*) FROM classifications WHERE id='001122BB0002' AND json_extract(data,'$.type')=2") -ne 1 -or
         (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.usageCategoryOverride') FROM devices WHERE id='001122BB0001'") -ne 3 -or
         (Get-InventorySqliteValue $database "SELECT COUNT(*) FROM devices WHERE id='001122BB0002' AND json_extract(data,'$.usageCategoryOverride') IS NOT NULL") -ne 0 -or
         (Get-InventorySqliteValue $database "SELECT json_extract(data,'$.personId') FROM assignments WHERE id='001122BB0001'") -ne $person -or

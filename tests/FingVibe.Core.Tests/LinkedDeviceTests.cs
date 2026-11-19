@@ -90,7 +90,14 @@ public sealed class LinkedDeviceTests : IDisposable
     [Fact]
     public void UnlinkTransfersSharedValuesToTheRemainingMacAndRestoresTheDetachedValues()
     {
-        var original = Inventory();
+        var original = Inventory() with
+        {
+            Classifications = new Dictionary<string, DeviceClassificationOverride>
+            {
+                [A] = new(Type: DeviceType.Phone),
+                [B] = new(Type: DeviceType.Router)
+            }
+        };
         var linked = original.LinkDevices(A, B, Choices(), Start);
         var id = linked.LinkedDevices[0].Id;
         var edited = linked.UpdateLinkedDevice(id, device => device with
@@ -106,7 +113,7 @@ public sealed class LinkedDeviceTests : IDisposable
         Assert.Equal("Shared edit", unlinked.Names[A]);
         Assert.Equal("Laptop dock", unlinked.Names[B]);
         Assert.Equal(DeviceType.Computer, unlinked.Classifications[A].Type);
-        Assert.False(unlinked.Classifications.ContainsKey(B));
+        Assert.Equal(DeviceType.Router, unlinked.Classifications[B].Type);
         Assert.Equal(new DeviceAssignment(Person.Id, Room.Id), unlinked.PeopleRooms.Assignments[A]);
         Assert.Equal(new DeviceAssignment(null, Room.Id), unlinked.PeopleRooms.Assignments[B]);
         Assert.Equal(DeviceUsageCategory.Permanent, unlinked.Devices[A].UsageCategoryOverride);
