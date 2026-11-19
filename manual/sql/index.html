@@ -1230,6 +1230,10 @@ Leaving the tool or closing the app cancels pending work.</p>
 <p>MAC and virtual identities are different kinds of records.
 Summing both can count overlapping evidence twice.
 Stored observation times are not a continuous availability log.</p>
+<p>Reporting views still expose each linked MAC address as its own record. They do
+not combine a <a href="../device-details/#linked-device-history-and-tool-targets">linked device</a>'s
+members the way Device Details and Activity do, so counting their rows counts
+each member separately.</p>
 <p>For reporting views, exact limits, timestamp rules, and safe joins, use the
 <a href="https://github.com/iricigor/fingvibe/blob/main/docs/sql-reporting.md">SQL reporting reference</a>.</p>
 

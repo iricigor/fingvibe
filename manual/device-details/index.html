@@ -628,6 +628,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#linked-device-history-and-tool-targets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Linked-device history and tool targets
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#history-availability" class="md-nav__link">
     <span class="md-ellipsis">
       History availability
@@ -1326,6 +1335,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#linked-device-history-and-tool-targets" class="md-nav__link">
+    <span class="md-ellipsis">
+      Linked-device history and tool targets
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#history-availability" class="md-nav__link">
     <span class="md-ellipsis">
       History availability
@@ -1362,7 +1380,7 @@ name and status grouped on the right. At narrow widths the tabs move below the h
 <li><strong>Overview</strong> (selected each time you open a device): network overview,
   assignments, observation summary, usage category, possible matching MAC
   addresses, identification, and ports and services.</li>
-<li><strong>History</strong>: Activity, scan observations and, for virtual devices, MAC and address history.</li>
+<li><strong>History</strong>: Activity, scan observations and, for virtual and linked devices, MAC and address history.</li>
 </ul>
 <p>Choose <strong>View device history</strong> in the summary, or select <strong>History</strong>, to switch.
 With the keyboard, move focus to a tab and press Space or Enter. Switching tabs keeps unsaved
@@ -1487,9 +1505,9 @@ evidence use the linked device: any responding member makes a scan a response,
 every eligible member must have a nonresponse for that scan to count as no
 response, and otherwise the scan remains unknown. Members never observed on the
 selected network do not contribute. Evidence collected before linking remains
-part of the current members' combined history. The History card remains
-separate; it still uses the representative MAC until that surface is updated
-later.</p>
+part of the current members' combined history. The History tab's <strong>Scan
+observations</strong> list and <strong>MAC and address history</strong> cover every member; see
+<a href="#linked-device-history-and-tool-targets">Linked-device history and tool targets</a>.</p>
 <h3 id="unlink-mac-addresses">Unlink MAC addresses<a class="headerlink" href="#unlink-mac-addresses" title="Permanent link">&para;</a></h3>
 <p>In the expanded linked-device section, each MAC address has <strong>Unlink</strong>. Choose
 it to review the inline confirmation, then choose <strong>Unlink</strong> again to save or
@@ -1559,7 +1577,8 @@ set of 193 additional TCP ports, and <strong>Full TCP port scan</strong> checks 
 See the <a href="https://github.com/iricigor/fingvibe/blob/main/docs/reference.md">technical reference</a> for the exact port lists.</p>
 <ol>
 <li>Confirm the device responded in the current local scan.</li>
-<li>If several current addresses exist, select <strong>Current address to inspect / probe</strong>.</li>
+<li>If several current addresses exist, select <strong>Current address to inspect / probe</strong>.
+   For a linked device it lists every responding member as <strong>MAC · IP</strong>.</li>
 <li>Review <strong>Ports &amp; services</strong>.</li>
 <li>Optionally select <strong>Include UDP service checks</strong>.</li>
 <li>Choose <strong>Scan additional ports</strong>.</li>
@@ -1606,6 +1625,33 @@ to that identity and can follow its associated MAC changes.</p>
 <p>On the <strong>History</strong> tab, expand <strong>MAC and address history</strong> for the member addresses, times, and preserved
 evidence. Do not treat this association as proof of a physical device.
 Fing import still matches full MAC addresses, not virtual names or prefixes.</p>
+<h2 id="linked-device-history-and-tool-targets">Linked-device history and tool targets<a class="headerlink" href="#linked-device-history-and-tool-targets" title="Permanent link">&para;</a></h2>
+<p>On a linked device's <strong>History</strong> tab, the <strong>Linked device</strong> card's <strong>MAC and
+address history</strong> lists every member MAC address. The member shown in Devices
+comes first. Each lists:</p>
+<ul>
+<li><strong>Confirmed by you on</strong> the date you linked it. This is your confirmation,
+  not an inference.</li>
+<li>Each connection: IP address, current response or previous connection, first
+  and last seen, network and subnet.</li>
+<li><strong>Saved values Unlink restores</strong>: that MAC's own name, identification,
+  Person, Room and usage category. A renamed Person or Room shows its current
+  name; a deleted one is restored as unassigned.</li>
+</ul>
+<p><strong>Scan observations</strong> shows one row per completed scan of the current members on
+the selected network, using the <a href="../history/">Activity rules</a>: a response from any
+member is a response; a scan counts as no response only when every member already
+seen on that network recorded one; other scans are not listed. A scan never
+appears twice.</p>
+<p><strong>Current address to inspect / probe</strong> lists every member MAC and IP address
+that responded in the current scan as <strong>MAC · IP</strong>; addresses seen only
+earlier are not listed. Port scans and UDP checks target the selected real
+address, and their results are saved on that MAC's own record. Probing requires
+the selected Windows network profile to match the address's network, as for a
+virtual device. The choice applies only to this Device Details visit: it stays
+selected across refreshes while that MAC/IP still responds, otherwise Device
+Details shows the representative address and says so. Reopening Device Details
+starts from the representative, and the member shown in Devices never changes.</p>
 <h2 id="history-availability">History availability<a class="headerlink" href="#history-availability" title="Permanent link">&para;</a></h2>
 <p><strong>Observation summary</strong> sits beside Usage category, below Network overview and
 Assignments. Cards align in two rows on wide windows and stack on narrow ones.
