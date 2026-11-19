@@ -41,11 +41,20 @@ function Get-EpicChartSnapshots($Children, [hashtable] $Histories, [DateTimeOffs
         $stateEvents = @($events | Where-Object { $_.event -in @("closed", "reopened") })
         $closed = $stateEvents.Count -gt 0 -and $stateEvents[-1].event -eq "closed"
         if ($closed -ne ($child.state -eq "closed")) { throw "Inconsistent closure history for #$number." }
+        $exclude = $false
+        $nonCompletedReasons = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
         foreach ($closure in @($stateEvents | Where-Object event -EQ closed)) {
             $reason = $closure.state_reason
             if (-not $reason -and $closed -and $closure -eq $stateEvents[-1]) { $reason = $child.state_reason }
             if (-not $reason) { throw "Historical closure reason is unavailable for #$number; reconcile evidence." }
-            if ($reason -ne "completed") { throw "Non-completed closure for #$number cannot be represented as completed." }
+            if ($reason -ne "completed") {
+                $exclude = $true
+                $null = $nonCompletedReasons.Add($reason)
+            }
+        }
+        if ($exclude) {
+            $warnings.Add("#$number has non-completed closure reason(s): $(@($nonCompletedReasons) -join ", "); excluded from chart cohort.")
+            continue
         }
         if (-not $started.Count -and ($closed -or
             @($child.labels | Where-Object { $_.name -in @("active", "status:review") }).Count)) {
