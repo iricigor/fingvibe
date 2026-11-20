@@ -47,7 +47,7 @@ Invoke-FullCheck "speed-test" {
 foreach ($name in @(
     "UiReviewScenarios", "UiRegression.Helpers", "AdditionalServices.Script", "SqlEditor.Script",
     "UsageCategory.Script", "DeviceActivity.Script", "NetworkActivity.Script", "EquipmentActivity.Script", "PrValidation", "DispatcherGate",
-    "LogoDevConfiguration", "BuildIdentity.Metadata", "Installer.Script", "GitleaksDownload", "DownloadRelease"
+    "DocumentationSyncAgent", "LogoDevConfiguration", "BuildIdentity.Metadata", "Installer.Script", "GitleaksDownload", "DownloadRelease"
 )) {
     Invoke-FullCheck $name {
         $hostName = if ($PSVersionTable.PSEdition -eq "Desktop") { "powershell.exe" } else { "pwsh.exe" }

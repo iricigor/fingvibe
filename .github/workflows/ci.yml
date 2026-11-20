@@ -132,6 +132,10 @@ jobs:
         shell: pwsh
         run: .\tests\Agent5Developer.Tests.ps1
 
+      - name: Test documentation synchronization agent
+        shell: pwsh
+        run: .\tests\DocumentationSyncAgent.Tests.ps1
+
       - name: Test ISP logo build configuration
         shell: pwsh
         run: .\tests\LogoDevConfiguration.Tests.ps1
