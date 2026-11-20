@@ -178,6 +178,41 @@ function Test-ServiceStatusPage([string] $ScreenshotName) {
     }
 }
 
+function Test-ServiceStatusTextContrast([string] $Mode) {
+    $path = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-service-status-contrast-$([Guid]::NewGuid().ToString('N')).png"
+    Save-UiReviewWindowScreenshot $process.MainWindowHandle $path
+    $bitmap = [System.Drawing.Bitmap]::new($path)
+    try {
+        $window = Get-UiReviewWindowBounds $process.MainWindowHandle
+        foreach ($id in @("ServiceStatusReport-microsoft-outlook", "ServiceStatusDetail-microsoft-outlook", "ServiceStatusTimestamp-microsoft-azure")) {
+            $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id))
+            if (-not $element -or $element.Current.IsOffscreen) { throw "$Mode Service status text is not visible: $id." }
+            $bounds = $element.Current.BoundingRectangle
+            $left = [Math]::Max(0, [int]($bounds.Left - $window.Left)); $top = [Math]::Max(0, [int]($bounds.Top - $window.Top))
+            $right = [Math]::Min($bitmap.Width - 1, [int]($bounds.Right - $window.Left)); $bottom = [Math]::Min($bitmap.Height - 1, [int]($bounds.Bottom - $window.Top))
+            $darkest = 1.0; $lightest = 0.0
+            for ($y = $top; $y -le $bottom; $y++) {
+                for ($x = $left; $x -le $right; $x++) {
+                    $pixel = $bitmap.GetPixel($x, $y)
+                    $channels = foreach ($channel in @($pixel.R, $pixel.G, $pixel.B)) {
+                        $value = $channel / 255.0
+                        if ($value -le 0.04045) { $value / 12.92 } else { [Math]::Pow(($value + 0.055) / 1.055, 2.4) }
+                    }
+                    $luminance = 0.2126 * $channels[0] + 0.7152 * $channels[1] + 0.0722 * $channels[2]
+                    $darkest = [Math]::Min($darkest, $luminance); $lightest = [Math]::Max($lightest, $luminance)
+                }
+            }
+            $ratio = ($lightest + 0.05) / ($darkest + 0.05)
+            if ($ratio -lt 3) { throw "$Mode Service status text $id renders at contrast $([Math]::Round($ratio, 2)):1, below 3:1." }
+        }
+    }
+    finally {
+        $bitmap.Dispose()
+        Remove-Item -LiteralPath $path
+    }
+}
+
 function Find-Address([string] $Checkpoint) {
     $condition = [System.Windows.Automation.PropertyCondition]::new(
         [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "DiagramAddress$Checkpoint")
@@ -478,6 +513,14 @@ try {
         if ($ScreenshotDirectory) {
             Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-peer-$mode.png")
         }
+        (Scroll-Control "NetworkHealthScroll").SetScrollPercent(-1, 0)
+        Invoke-Control "Open service status"
+        $null = Wait-UiRegressionState -Description "$mode controlled provider reports" -Condition { (Get-ServiceStatusEntryIds).Count -eq 12 }
+        Test-ServiceStatusTextContrast $mode
+        if ($ScreenshotDirectory) {
+            Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "service-status-$mode.png")
+        }
+        Invoke-Control "Back to Network health"
     }
     if ($env:GITHUB_ACTIONS -eq "true") {
         if (-not ("SidebarReviewKeyboard" -as [type])) {

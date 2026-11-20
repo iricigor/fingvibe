@@ -143,7 +143,7 @@ public sealed partial class ServiceStatusPage : UserControl
         {
             var group = new StackPanel
             {
-                BorderBrush = Resource("CardStrokeColorDefaultBrush"),
+                Style = RowStyle("ServiceStatusGroupStyle"),
                 BorderThickness = new Thickness(0, 0, 0, index == groups.Count - 1 ? 0 : 1)
             };
             var first = true;
@@ -221,11 +221,7 @@ public sealed partial class ServiceStatusPage : UserControl
 
     private Border CategoryChip(ServiceStatusRow row) => new()
     {
-        Background = Resource("SubtleFillColorSecondaryBrush"),
-        BorderBrush = Resource("CardStrokeColorDefaultBrush"),
-        BorderThickness = new Thickness(1),
-        CornerRadius = new CornerRadius(4),
-        Padding = new Thickness(8, 2, 8, 2),
+        Style = RowStyle("ServiceStatusChipStyle"),
         HorizontalAlignment = HorizontalAlignment.Left,
         VerticalAlignment = VerticalAlignment.Center,
         Child = new TextBlock { Text = row.CategoryText, FontSize = 12 }
@@ -236,36 +232,26 @@ public sealed partial class ServiceStatusPage : UserControl
         var grid = new Grid { ColumnSpacing = 8, VerticalAlignment = VerticalAlignment.Center };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        var brush = ToneBrush(row.Tone);
+        // Neutral and high-contrast states use theme styles; color alone never carries the state.
+        var themed = row.Tone == ServiceStatusTone.Neutral || _accessibility.HighContrast;
         var dot = new Ellipse
         {
             Width = 8, Height = 8, Margin = new Thickness(0, 7, 0, 0), VerticalAlignment = VerticalAlignment.Top,
             IsHitTestVisible = false
         };
-        if (row.Tone == ServiceStatusTone.Neutral || _accessibility.HighContrast)
-        {
-            dot.Stroke = brush;
-            dot.StrokeThickness = 1.5;
-            if (row.Tone != ServiceStatusTone.Neutral) dot.Fill = brush;
-        }
-        else
-        {
-            dot.Fill = brush;
-        }
+        if (row.Tone == ServiceStatusTone.Neutral) dot.Style = RowStyle("ServiceStatusNeutralDotStyle");
+        else if (themed) dot.Style = RowStyle("ServiceStatusHighContrastDotStyle");
+        else dot.Fill = ToneBrush(row.Tone);
         AutomationProperties.SetAccessibilityView(dot, AccessibilityView.Raw);
         grid.Children.Add(dot);
         var text = new StackPanel { Spacing = 2 };
-        var headline = new TextBlock
-        {
-            Text = row.Headline, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap,
-            Foreground = row.Tone == ServiceStatusTone.Neutral ? Resource("TextFillColorPrimaryBrush") : brush
-        };
+        var headline = new TextBlock { Text = row.Headline, Style = RowStyle("ServiceStatusPrimaryHeadlineStyle") };
+        if (!themed) headline.Foreground = ToneBrush(row.Tone);
         AutomationProperties.SetAutomationId(headline, $"ServiceStatusReport-{row.Entry.Id}");
         text.Children.Add(headline);
-        text.Children.Add(new TextBlock
-        {
-            Text = row.Detail, FontSize = 12, TextWrapping = TextWrapping.Wrap, Foreground = Resource("TextFillColorSecondaryBrush")
-        });
+        var detail = new TextBlock { Text = row.Detail, Style = RowStyle("ServiceStatusSecondaryTextStyle") };
+        AutomationProperties.SetAutomationId(detail, $"ServiceStatusDetail-{row.Entry.Id}");
+        text.Children.Add(detail);
         Grid.SetColumn(text, 1);
         grid.Children.Add(text);
         return grid;
@@ -275,10 +261,7 @@ public sealed partial class ServiceStatusPage : UserControl
     {
         var panel = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
         panel.Children.Add(new TextBlock { Text = row.SourceLine, FontSize = 13, TextWrapping = TextWrapping.Wrap });
-        var timestamp = new TextBlock
-        {
-            Text = row.TimestampLine, FontSize = 12, TextWrapping = TextWrapping.Wrap, Foreground = Resource("TextFillColorSecondaryBrush")
-        };
+        var timestamp = new TextBlock { Text = row.TimestampLine, Style = RowStyle("ServiceStatusSecondaryTextStyle") };
         AutomationProperties.SetAutomationId(timestamp, $"ServiceStatusTimestamp-{row.Entry.Id}");
         panel.Children.Add(timestamp);
         return panel;
@@ -297,15 +280,13 @@ public sealed partial class ServiceStatusPage : UserControl
         return link;
     }
 
-    private Brush ToneBrush(ServiceStatusTone tone)
+    private SolidColorBrush ToneBrush(ServiceStatusTone tone)
     {
-        if (_accessibility.HighContrast || tone == ServiceStatusTone.Neutral)
-            return Resource(tone == ServiceStatusTone.Neutral ? "TextFillColorSecondaryBrush" : "TextFillColorPrimaryBrush");
         var dark = ActualTheme == ElementTheme.Dark;
         return new SolidColorBrush(tone == ServiceStatusTone.Good
             ? dark ? Color.FromArgb(255, 108, 203, 95) : Color.FromArgb(255, 15, 123, 15)
             : dark ? Color.FromArgb(255, 252, 225, 0) : Color.FromArgb(255, 157, 93, 0));
     }
 
-    private static Brush Resource(string key) => (Brush)Application.Current.Resources[key];
+    private Style RowStyle(string key) => (Style)Resources[key];
 }
