@@ -1199,6 +1199,11 @@ Some features contact external services as explained below.</p>
 <td>Ping/traceroute traffic and DNS queries for <code>example.com</code>.</td>
 </tr>
 <tr>
+<td>Optional background network monitoring</td>
+<td>Selected LAN gateway, <code>1.1.1.1</code>, <code>8.8.8.8</code>, Windows DNS, and public DNS resolvers</td>
+<td>Five one-second-spaced ICMP probes per target every 60 seconds plus DNS queries for <code>example.com</code>; raw results stay in the app's live state and are not uploaded or persisted by this feature.</td>
+</tr>
+<tr>
 <td>Stable-release update checks and user-requested downloads</td>
 <td><code>api.github.com</code>, GitHub Releases and its asset CDN</td>
 <td>Public source IP and ordinary HTTP headers; no LAN inventory or saved scans are sent.</td>
@@ -1213,7 +1218,9 @@ Some features contact external services as explained below.</p>
 <p>Public lookup and provider logos are optional displays. Missing configuration
 or service failure does not prevent local scanning.
 The speed test is manual and asks for confirmation before each run.
-Network health probes start only when you choose <strong>Run diagnostics</strong>; monitoring is off and no background checks run.
+Manual Network health probes start only when you choose <strong>Run diagnostics</strong>.
+Background monitoring is separately opt-in from Background activity Settings and
+is off by default. The option discloses its targets and cadence before use.
 Official stable builds check for updates automatically while open; downloads and
 installation require your action. Development, PR and Test builds do not check
 automatically. See <a href="../navigation/#check-for-updates">Check for updates</a>.</p>

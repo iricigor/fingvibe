@@ -70,7 +70,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#scheduled-scans-and-discoveries" class="md-skip">
+        <a href="#background-activity-and-discoveries" class="md-skip">
           Skip to content
         </a>
       
@@ -548,6 +548,15 @@
   <a href="#enable-a-schedule" class="md-nav__link">
     <span class="md-ellipsis">
       Enable a schedule
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#monitor-network-health-in-the-background" class="md-nav__link">
+    <span class="md-ellipsis">
+      Monitor network health in the background
     </span>
   </a>
   
@@ -1104,6 +1113,15 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#monitor-network-health-in-the-background" class="md-nav__link">
+    <span class="md-ellipsis">
+      Monitor network health in the background
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#keep-the-app-open" class="md-nav__link">
     <span class="md-ellipsis">
       Keep the app open
@@ -1149,14 +1167,15 @@
   
 
 
-<h1 id="scheduled-scans-and-discoveries">Scheduled scans and discoveries<a class="headerlink" href="#scheduled-scans-and-discoveries" title="Permanent link">&para;</a></h1>
+<h1 id="background-activity-and-discoveries">Background activity and discoveries<a class="headerlink" href="#background-activity-and-discoveries" title="Permanent link">&para;</a></h1>
 <p>Scheduled scans are optional. They are <strong>off by default</strong>.
-They use the network selected in the shared <strong>Network:</strong> picker.</p>
+They use the network selected in the shared <strong>Network:</strong> picker.
+The independent <strong>Monitor network health</strong> option is also off by default.</p>
 <h2 id="enable-a-schedule">Enable a schedule<a class="headerlink" href="#enable-a-schedule" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Select the intended network.</li>
 <li>Open <strong>Settings</strong>.</li>
-<li>Expand <strong>Scheduled scans</strong>.</li>
+<li>Expand <strong>Background activity</strong>.</li>
 <li>Turn scheduling on.</li>
 <li>Choose <strong>15 minutes</strong>, <strong>30 minutes</strong>, <strong>1 hour</strong>, <strong>2 hours</strong>, or <strong>4 hours</strong>.</li>
 <li>Read the status sentence for the next approximate scan time.</li>
@@ -1164,8 +1183,30 @@ They use the network selected in the shared <strong>Network:</strong> picker.</p
 <p>The default interval is one hour.
 The first scheduled scan waits one full interval after enabling or loading.
 Changing the interval restarts that wait; it does not immediately run a scan.</p>
+<h2 id="monitor-network-health-in-the-background">Monitor network health in the background<a class="headerlink" href="#monitor-network-health-in-the-background" title="Permanent link">&para;</a></h2>
+<p>Turn <strong>Monitor network health</strong> on in the same Background activity section
+when you want raw connectivity observations while FingVibe is open. Enabling
+monitoring does not enable scheduled LAN scans, and enabling scheduled scans
+does not enable monitoring.</p>
+<p>The first monitoring cycle waits 60 seconds. Every subsequent cycle is due
+on the same minute cadence. Each cycle sends five ICMP requests to the selected
+network's gateway, <code>1.1.1.1</code>, and <code>8.8.8.8</code>, with starts for each target spaced
+one second apart and the normal 1.5-second probe timeout. It then resolves
+<code>example.com</code> through Windows DNS (including its cache), Cloudflare DNS, and
+Google DNS. The resulting raw state contract keeps per-target timings,
+responses, failures, cancellation detail, and DNS source labels; it does not
+calculate a health verdict.</p>
+<p>Manual LAN scans, speed tests, network diagnostics, and device-service scans
+take priority. They cancel an active monitoring cycle and start only after it
+has stopped, so measurements do not overlap. A conflict or cancellation is
+reported as skipped or cancelled, not as a connectivity failure.</p>
+<p>Windows sleep pauses both scheduled scans and monitoring. Disabling monitoring,
+changing the selected network, and closing FingVibe cancel an in-flight cycle
+and wait for it to stop. A re-enabled monitor or refreshed network starts with
+a new full 60-second wait; stale observations from the previous context are
+rejected.</p>
 <h2 id="keep-the-app-open">Keep the app open<a class="headerlink" href="#keep-the-app-open" title="Permanent link">&para;</a></h2>
-<p>Scheduling works while FingVibe is open, including when minimized.
+<p>Background activity works while FingVibe is open, including when minimized.
 There is no separate Windows service, tray worker, or closed-app scheduler.
 Closing the app stops scheduling.</p>
 <p>Windows sleep pauses scheduling. After resume, the app waits a full interval.
@@ -1176,7 +1217,7 @@ The shared header explains that scheduling operates while the app is open.</p>
 Normal user cancellation waits a full interval before the next attempt.
 Turning scheduling off or closing the app stops scheduled work.
 Already committed checkpoint observations remain saved as incomplete.</p>
-<p>LAN scans cannot overlap speed tests, network diagnostics, or device-service probes.
+<p>LAN scans cannot overlap monitoring, speed tests, network diagnostics, or device-service probes.
 If the app is busy, the network is unavailable, or a scan/save fails, Settings
 shows the reason and retry time. Retry waits grow up to the chosen interval.</p>
 <p>These scans have the same evidence limits as manual scans.
