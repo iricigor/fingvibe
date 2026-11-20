@@ -14,12 +14,16 @@ namespace FingVibe.App;
 public sealed partial class ServiceStatusPage : UserControl
 {
     private const double NarrowTableWidth = 860;
+    private static readonly HttpClient ProviderStatusHttp = new()
+    {
+        Timeout = TimeSpan.FromSeconds(15)
+    };
     private readonly AccessibilitySettings _accessibility = new();
     private readonly UISettings _uiSettings = new();
     private readonly ServiceStatusPageModel _model = new(
         Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW") == "1"
             ? new ControlledServiceStatusSource(TimeProvider.System)
-            : new UnconnectedServiceStatusSource(),
+            : new OfficialServiceStatusSource(ProviderStatusHttp),
         TimeProvider.System);
     private CancellationTokenSource? _load;
     private bool _open;

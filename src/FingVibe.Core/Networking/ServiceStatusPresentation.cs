@@ -76,11 +76,13 @@ public static class ServiceStatusPresentation
                 report?.Scope ?? "Published scope unavailable", ServiceStatusTone.Attention),
             ProviderReportState.SourcePending => ("Source pending", "Not monitored", ServiceStatusTone.Neutral),
             ProviderReportState.OfficialPageOnly => ("Official page only", "Not monitored", ServiceStatusTone.Neutral),
-            ProviderReportState.Unavailable => ("Feed unavailable", "Status unknown - try refresh", ServiceStatusTone.Attention),
+            ProviderReportState.Unavailable =>
+                ("Feed unavailable", report?.Scope ?? "Status unknown - try refresh", ServiceStatusTone.Attention),
             ProviderReportState.Stale => ("Report outdated",
                 report?.RetrievedAt is { } retrieved ? $"Retained from {Time(retrieved, now)} - not current" : "Retained report - not current",
                 ServiceStatusTone.Attention),
-            ProviderReportState.Malformed => ("Feed unreadable", "Status unknown - unexpected data", ServiceStatusTone.Attention),
+            ProviderReportState.Malformed =>
+                ("Feed unreadable", report?.Scope ?? "Status unknown - unexpected data", ServiceStatusTone.Attention),
             _ => ("Feed not connected", "Not monitored - open the status page", ServiceStatusTone.Neutral)
         };
         var timestamp = state switch

@@ -16,6 +16,7 @@ Some features contact external services as explained below.
 | Speed test | `speed.cloudflare.com` | Measurement traffic, public source IP, and default engine result reporting after per-run confirmation. |
 | Network health diagnostics | Local checkpoints, public IP targets, and DNS resolvers | Ping/traceroute traffic and DNS queries for `example.com`. |
 | Optional background network monitoring | Selected LAN gateway, `1.1.1.1`, `8.8.8.8`, Windows DNS, and public DNS resolvers | Five one-second-spaced ICMP probes per target every 60 seconds plus DNS queries for `example.com`; raw results stay in the app's live state and are not uploaded or persisted by this feature. |
+| Service status provider reports | Official Microsoft Azure, AWS, Google, Cloudflare and GitHub status endpoints | Ordinary public GET requests for provider status data and your public source IP; no LAN inventory, selected adapter, credentials, local diagnostic results or monitoring history is sent. Results are held only in memory for five minutes. |
 | Stable-release update checks and user-requested downloads | `api.github.com`, GitHub Releases and its asset CDN | Public source IP and ordinary HTTP headers; no LAN inventory or saved scans are sent. |
 | Links opened from the app | Your external browser | Normal requests to the selected website. |
 
