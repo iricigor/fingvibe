@@ -1507,6 +1507,16 @@ a PR diff that could omit history/discovery. Each native suite has its own
 disposable runner and diagnostics; suites within one runner remain sequential,
 sidebar retains Windows PowerShell, and matrix fail-fast is disabled.
 
+Each Full non-UI PowerShell script check runs in a fresh, non-interactive
+process using the runner's PowerShell edition, without loading profiles.
+Children inherit the environment and start in the selected source directory;
+types, functions, variables, command mocks and child environment changes do not
+carry into another check. Child output remains in the named check transcript.
+A launch failure, terminating error or nonzero child exit fails that check;
+later independent checks still run, and any failed check fails the aggregate.
+The existing catalog, timings and `checks.json` format are unchanged. This
+process boundary does not isolate shared files or external services.
+
 Full means exhaustive **currently runnable** coverage, not restoration:
 Activity and the observation table disabled under #271 remain dormant on
 revisions where they are disabled. Their retained tests and assertions are not
