@@ -403,6 +403,21 @@ pending host identity/routing verification and missing loop5 runtime integration
 source checks do not authorize execution. Run `tests/Agent5Developer.Tests.ps1`
 without starting live Automations.
 
+## Local documentation synchronization
+
+[Documentation sync](.github/agents/documentation-sync.agent.md) is a separate,
+local Copilot desktop Automation agent. It audits recent `main` changes with a
+minimum 24-hour lookback and creates or updates one agent-owned documentation
+pull request; it never merges, changes application code, captures screenshots,
+or replaces human-owned documentation work.
+
+Use the [setup and trial guide](docs/documentation-sync.md) and its
+[one-line Automation prompt](docs/automation-prompts/documentation-sync.md).
+After source publication, the user manually selects the agent, configures the
+local 03:00 schedule, completes the trial, and only then enables activation.
+The agent file, prompt and guide do not prove that a local Automation exists or
+is running.
+
 ## Architecture discussions with Architect
 
 For issue intake, Epic/task templates, and the label/ownership contract for
