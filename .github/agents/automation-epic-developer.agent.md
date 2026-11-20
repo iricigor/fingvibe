@@ -319,9 +319,13 @@ Use representative isolated small/empty/error and relevant large-data fixtures,
 agree measurable budgets before implementation, and keep query/resource tests
 WinUI-free where appropriate without replacing native integration. Inspect
 current-revision phase/failure diagnostics; do not hide failures by retries,
-longer timeouts or reduced assertions. Independent baseline/full validation
-(#242) is additional evidence, not a waiver of required checks; this does not
-introduce #256's mandatory coverage-manifest policy.
+longer timeouts or reduced assertions. Add or update the issue's committed PR
+regression manifest and keep its selectors/expected assertions aligned with
+the delivered change. CI owns the minimum selectors; do not edit the manifest
+to bypass a required component. Independent baseline/full validation (#242) is
+additional evidence, not a waiver of required checks. The Phase 1 manifest
+gate is additive and preserves existing full PR validation; any later cutover
+belongs to #649 and requires separate human approval.
 
 Discover every applicable UI-regression job from the current workflows and
 scenario-selection evidence, including future matrix entries and newly added

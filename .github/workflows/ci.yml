@@ -2,6 +2,7 @@ name: 🔨 Pull request build
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
   workflow_dispatch:
     inputs:
       additional_scenarios:
@@ -46,6 +47,48 @@ jobs:
           .\.github\scripts\Get-PrValidationChanges.ps1 `
             -BaseRevision $env:BASE_REVISION -HeadRevision $env:HEAD_REVISION `
             -Manual:($env:EVENT_NAME -eq "workflow_dispatch")
+
+  regression-coverage:
+    name: pr-regression-coverage
+    needs: changes
+    if: github.event_name == 'pull_request'
+    runs-on: windows-latest
+    steps:
+      - name: Check out source and history
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6.1.0
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Validate manifest and run selected regression coverage
+        env:
+          BASE_REVISION: ${{ github.event.pull_request.base.sha }}
+          HEAD_REVISION: ${{ github.event.pull_request.head.sha }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        shell: pwsh
+        run: |
+          .\.github\scripts\Get-PrRegressionPlan.ps1 `
+            -RepositoryPath "${{ github.workspace }}" `
+            -BaseRevision $env:BASE_REVISION -HeadRevision $env:HEAD_REVISION `
+            -PullRequestBody $env:PR_BODY `
+            -OutputPath artifacts\pr-regression\plan.json
+          .\.github\scripts\Invoke-PrRegressionTests.ps1 `
+            -PlanPath artifacts\pr-regression\plan.json `
+            -RepositoryPath "${{ github.workspace }}"
+
+      - name: Retain regression coverage plan
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: fingvibe-pr-regression-${{ github.event.pull_request.number }}-attempt-${{ github.run_attempt }}
+          path: artifacts\pr-regression\plan.json
+          if-no-files-found: warn
+          retention-days: 14
 
   tests:
     name: core-tests
@@ -731,7 +774,7 @@ jobs:
           retention-days: 14
 
   ui-publish:
-    needs: [changes, tests, build, installer, ui-smoke, ui-assignments, ui-capture, ui-regression]
+    needs: [changes, regression-coverage, tests, build, installer, ui-smoke, ui-assignments, ui-capture, ui-regression]
     if: >
       !cancelled()
       && needs.changes.outputs.ui == 'true'
@@ -753,7 +796,7 @@ jobs:
           persist-credentials: false
 
       - name: Download completed captures
-        if: needs.tests.result == 'success' && needs.ui-smoke.result == 'success' && needs.ui-assignments.result == 'success' && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
+        if: needs.regression-coverage.result == 'success' && needs.tests.result == 'success' && needs.ui-smoke.result == 'success' && needs.ui-assignments.result == 'success' && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
         uses: actions/download-artifact@v8.0.2
         with:
           artifact-ids: ${{ needs.ui-capture.outputs.artifact-id }}
@@ -762,7 +805,7 @@ jobs:
 
       - name: Publish screenshots for inline review
         id: pages
-        if: needs.tests.result == 'success' && needs.ui-smoke.result == 'success' && needs.ui-assignments.result == 'success' && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
+        if: needs.regression-coverage.result == 'success' && needs.tests.result == 'success' && needs.ui-smoke.result == 'success' && needs.ui-assignments.result == 'success' && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -774,7 +817,7 @@ jobs:
 
       - name: Add screenshots to pull request
         id: pr-comment
-        if: needs.tests.result == 'success' && needs.ui-smoke.result == 'success' && needs.ui-assignments.result == 'success' && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
+        if: needs.regression-coverage.result == 'success' && needs.tests.result == 'success' && needs.ui-smoke.result == 'success' && needs.ui-assignments.result == 'success' && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           COMMENT_BODY_PATH: ${{ steps.pages.outputs.body-path }}
@@ -787,8 +830,9 @@ jobs:
           $body >> $env:GITHUB_STEP_SUMMARY
 
       - name: Explain UI/UX review failure
-        if: failure() || needs.tests.result == 'failure' || needs.build.result == 'failure' || needs.installer.result == 'failure' || needs.ui-smoke.result == 'failure' || needs.ui-assignments.result == 'failure' || needs.ui-capture.result == 'failure' || needs.ui-regression.result == 'failure'
+        if: failure() || needs.regression-coverage.result == 'failure' || needs.tests.result == 'failure' || needs.build.result == 'failure' || needs.installer.result == 'failure' || needs.ui-smoke.result == 'failure' || needs.ui-assignments.result == 'failure' || needs.ui-capture.result == 'failure' || needs.ui-regression.result == 'failure'
         env:
+          COVERAGE_RESULT: ${{ needs.regression-coverage.result }}
           TEST_RESULT: ${{ needs.tests.result }}
           BUILD_RESULT: ${{ needs.build.result }}
           INSTALLER_RESULT: ${{ needs.installer.result }}
@@ -804,6 +848,7 @@ jobs:
         shell: pwsh
         run: |
           $reasons = [System.Collections.Generic.List[string]]::new()
+          if ($env:COVERAGE_RESULT -eq "failure") { $reasons.Add("- Deterministic PR regression coverage failed. Inspect the manifest, selector plan and selected-test results.") }
           if ($env:TEST_RESULT -eq "failure") { $reasons.Add("- Regression tests failed; installer and UI validation could not proceed. App publishing runs independently.") }
           if ($env:BUILD_RESULT -eq "failure") { $reasons.Add("- The Windows app could not be published or its validation payload could not be uploaded.") }
           if ($env:INSTALLER_RESULT -eq "failure") { $reasons.Add("- Installer packaging, lifecycle validation, or tested download publication failed. Inspect the installer job and its diagnostic logs.") }
@@ -820,7 +865,7 @@ jobs:
             -Repository $env:GITHUB_REPOSITORY -Marker $marker -Body $body
 
       - name: Clear resolved UI/UX failure comment
-        if: success() && needs.tests.result == 'success' && needs.ui-smoke.result == 'success' && needs.ui-assignments.result == 'success' && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
+        if: success() && needs.regression-coverage.result == 'success' && needs.tests.result == 'success' && needs.ui-smoke.result == 'success' && needs.ui-assignments.result == 'success' && needs.ui-capture.result == 'success' && needs.installer.result == 'success' && needs.ui-regression.result == 'success'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -831,13 +876,14 @@ jobs:
 
   ui-ux-review:
     name: ui-ux-review
-    needs: [changes, tests, build, installer, ui-smoke, ui-assignments, ui-capture, ui-regression, ui-publish]
+    needs: [changes, regression-coverage, tests, build, installer, ui-smoke, ui-assignments, ui-capture, ui-regression, ui-publish]
     if: always()
     runs-on: windows-latest
     steps:
       - name: Report validation result
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
+          COVERAGE_RESULT: ${{ needs.regression-coverage.result }}
           TEST_RESULT: ${{ needs.tests.result }}
           BUILD_RESULT: ${{ needs.build.result }}
           INSTALLER_RESULT: ${{ needs.installer.result }}
@@ -854,6 +900,10 @@ jobs:
         shell: pwsh
         run: |
           if ($env:CHANGES_RESULT -ne "success") { throw "Validation planning failed or was cancelled." }
+          $expectedCoverage = if ($env:EVENT_NAME -eq "pull_request") { "success" } else { "skipped" }
+          if ($env:COVERAGE_RESULT -ne $expectedCoverage) {
+            throw "Deterministic PR regression coverage did not complete successfully."
+          }
           if ($env:TEST_REQUIRED -notin @("true", "false") -or $env:BUILD_REQUIRED -notin @("true", "false") -or $env:UI_REQUIRED -notin @("true", "false")) {
             throw "Validation planning returned missing or invalid requirements."
           }

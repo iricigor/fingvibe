@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/iricigor/fingvibe/.github/pr-regression/schema.json",
+  "title": "FingVibe PR regression manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "issue",
+    "category",
+    "changedBehavior",
+    "selectors",
+    "expectedAssertions"
+  ],
+  "properties": {
+    "schema": {
+      "const": "fingvibe-pr-regression-v1"
+    },
+    "issue": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "category": {
+      "enum": [
+        "documentation",
+        "core",
+        "ui",
+        "validation"
+      ]
+    },
+    "changedBehavior": {
+      "type": "string",
+      "minLength": 1
+    },
+    "selectors": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "expectedAssertions": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}

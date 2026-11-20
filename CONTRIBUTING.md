@@ -137,9 +137,16 @@ busy timeout.
 
 Review current-revision disposable Windows evidence for affected behavior and
 retain coverage mappings and phase diagnostics. See the [test reference](docs/reference.md#test)
-for the desktop-free foundation check. These are contributor/reviewer
-expectations, not a new mandatory manifest or gate. Enforced coverage
-selection remains separate work in #256.
+for the desktop-free foundation check. These are contributor/reviewer expectations in addition to the deterministic
+PR regression gate. Every implementation PR commits
+`.github/pr-regression-manifests/<issue>.json` and references that exact file
+from the PR template's machine-readable marker. The manifest declares the
+changed behavior, category, expected assertions and allowlisted selector IDs
+from `.github/pr-regression/selectors.json`; it cannot contain commands. CI
+independently classifies changed paths, adds its component minimums, rejects
+unknown/zero-match selectors, executes the selected local tests and leaves native
+selectors to the existing authoritative matrix. Reviewers still judge whether
+the declared tests meaningfully cover the change.
 
 Device Details checks run in six independent CI jobs: `details-summary`,
 `details-identity`, `details-usage`, `details-observations` and `details-activity` follow the
@@ -181,7 +188,10 @@ remain omitted until their separately authorized restoration; full execution
 does not re-enable them. Standalone full validation runs automatically on
 pushes to `main` (including merges) and remains manually dispatchable, without
 changing PR or release gates. See [execution modes and evidence](docs/reference.md#independent-native-validation).
-Enforced specifications and any gate cutover remain #256, not this comparison.
+Phase 1 enforces manifest validity and selected coverage alongside the existing
+authoritative full PR checks. The observational comparison remains independent;
+any gate cutover stays behind comparison evidence and explicit approval in
+#649.
 
 ### Split test entry modules
 
@@ -197,7 +207,7 @@ the matching position; do not grow the entry script or a shared catch-all.
 
 | Entry | Modules, in load order |
 | --- | --- |
-| `PrValidation.Tests.ps1` | `Planning` (path classification, allow-list, native closure); `CommentPublication`; `WorkflowContracts` (release identity, action versions, job graph); `NativeDispatch` (suite selection, retries, runner fixtures); `FinalGate` (failure diagnostics, required gate, draft readiness) |
+| `PrValidation.Tests.ps1` | `Planning` (path classification, allow-list, native closure); `CommentPublication`; `WorkflowContracts` (release identity, action versions, job graph); `NativeDispatch` (suite selection, retries, runner fixtures); `FinalGate` (failure diagnostics, required gate, draft readiness); `RegressionCoverage` (manifest, path/category, selectors, zero-match and CI-minimum contracts) |
 | `UiReviewScenarios.Tests.ps1` | Page contracts: `DetailsContracts`, `HeaderContracts`, `HistoryContracts`, `AppearanceContracts`; then, inside the fixture repository, `Selection`, `Layout` (shell, Tools and page-view layout), `ViewSelection`, `Publishing` (manifest and screenshots), `Navigation` |
 | `UiRegression.Helpers.Tests.ps1` | Shared foundation: `Waits`, `Visibility`, `Lifecycle`, `Groups` (group runner, call costs, cleanup), `SurfaceStatus`. Feature helpers: `Sidebar`, `Tools`, `SourceContracts` (history and backup source checks), `Backups`, `DevicesFilters`. They load interleaved, preserving the original order |
 | `DeviceScanHistory.Ui.Tests.ps1` | Helpers: `Shared` (fixture/lifecycle), `Summary`, `Observations` (paging and rows). Phases inside the entry's `try`: `FixturePhase`, `StatePhases`, then `PagingPhase`. The entry keeps parameters, environment and fixture ownership, the summary-only early return, failure capture and cleanup |

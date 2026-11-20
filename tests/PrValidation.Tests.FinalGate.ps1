@@ -56,13 +56,14 @@ throw "Simulated native $Part failure"
 $gateMatch = [regex]::Match($workflow, '(?s)- name: Report validation result.*?run: \|\r?\n(.*?)(?=\r?\n  [a-z][a-z-]*:\r?\n|\z)')
 if (-not $gateMatch.Success) { throw "Required UI gate script was not found." }
 $gate = [scriptblock]::Create(($gateMatch.Groups[1].Value -replace '(?m)^          ', ''))
-$names = @("CHANGES_RESULT", "TEST_RESULT", "BUILD_RESULT", "INSTALLER_RESULT", "TEST_REQUIRED", "BUILD_REQUIRED", "UI_REQUIRED", "SMOKE_RESULT", "ASSIGNMENTS_RESULT", "CAPTURE_RESULT", "REGRESSION_RESULT", "PUBLISH_RESULT", "TRUSTED", "EVENT_NAME", "GITHUB_STEP_SUMMARY")
+$names = @("CHANGES_RESULT", "COVERAGE_RESULT", "TEST_RESULT", "BUILD_RESULT", "INSTALLER_RESULT", "TEST_REQUIRED", "BUILD_REQUIRED", "UI_REQUIRED", "SMOKE_RESULT", "ASSIGNMENTS_RESULT", "CAPTURE_RESULT", "REGRESSION_RESULT", "PUBLISH_RESULT", "TRUSTED", "EVENT_NAME", "GITHUB_STEP_SUMMARY")
 $saved = @{}
 $summary = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-gate-$([Guid]::NewGuid()).txt"
 try {
     foreach ($name in $names) { $saved[$name] = [Environment]::GetEnvironmentVariable($name) }
     $env:GITHUB_STEP_SUMMARY = $summary
     $env:CHANGES_RESULT = "success"
+    $env:COVERAGE_RESULT = "success"
     $env:TEST_RESULT = "success"
     $env:BUILD_RESULT = "success"
     $env:INSTALLER_RESULT = "success"
@@ -84,6 +85,11 @@ try {
         }
         [Environment]::SetEnvironmentVariable($name, "success")
     }
+    foreach ($result in @("failure", "cancelled", "skipped", "")) {
+        $env:COVERAGE_RESULT = $result
+        Assert-Throws { & $gate } "*Deterministic PR regression coverage did not*"
+    }
+    $env:COVERAGE_RESULT = "success"
     foreach ($name in @("TEST_REQUIRED", "BUILD_REQUIRED", "UI_REQUIRED")) {
         foreach ($value in @("", "invalid")) {
             [Environment]::SetEnvironmentVariable($name, $value)
@@ -95,9 +101,11 @@ try {
     $env:PUBLISH_RESULT = "failure"
     Assert-Throws { & $gate } "*publication/commenting did not complete*"
     $env:PUBLISH_RESULT = "skipped"
+    $env:COVERAGE_RESULT = "skipped"
     $env:EVENT_NAME = "workflow_dispatch"
     & $gate
     $env:EVENT_NAME = "pull_request"
+    $env:COVERAGE_RESULT = "success"
     $env:TRUSTED = "false"
     $env:SMOKE_RESULT = "skipped"
     $env:ASSIGNMENTS_RESULT = "skipped"
@@ -156,8 +164,8 @@ foreach ($pattern in @(
 if ($readyJob -match '(?i)gh pr (merge|edit)|mergePullRequest|enablePullRequestAutoMerge|--title|issues: write|actions: write|git push') {
     throw "Draft readiness must not merge, push, edit titles/metadata or request extra write permissions."
 }
-if ($workflow -match '(?ms)^  pull_request:\s*\r?\n\s+types:' -or $workflow -match '(?m)^\s*pull_request_target:') {
-    throw "Promotion must keep the default pull_request triggers; no title-edit or ready_for_review trigger."
+if ($workflow -match '(?m)^\s*pull_request_target:') {
+    throw "Promotion must not use pull_request_target."
 }
 
 . (Join-Path $PSScriptRoot "..\.github\scripts\Set-PrReadyForReview.ps1")

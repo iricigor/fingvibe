@@ -27,3 +27,13 @@ without an explicit request.
 Epic grouping does not authorize implementation or grant readiness, priority,
 assignment, or ownership. Follow the existing approval and lifecycle contract
 in `docs/development-backlog.md` and the selected agent's workflow.
+
+# Pull request regression manifests
+
+For implementation PRs, commit `.github/pr-regression-manifests/<issue>.json`
+and reference it with the exact marker from the pull request template. Use only
+IDs from `.github/pr-regression/selectors.json`; never place commands in a
+manifest or PR body. CI derives changed-path category and minimum selectors, so
+authors may add focused coverage but cannot remove required coverage. Preserve
+the existing full PR/native checks and `ui-ux-review`; deterministic selection
+does not authorize the Phase 2 comparison cutover tracked separately.
