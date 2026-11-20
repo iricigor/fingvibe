@@ -48,19 +48,50 @@ FingVibe judges each completed check with these fixed rules:
   a problem, checks run every 30 seconds. A problem clears after five consecutive
   healthy checks; an unhealthy check restarts that count. Cancelled, skipped and
   paused checks neither count nor restart it.
-- **Context:** changing the selected network, or turning monitoring off, starts
-  learning and recovery afresh. With more than one active gateway route (for
-  example a VPN or a second adapter), FingVibe reports **Uncertain** instead of
-  judging the selected LAN.
+- **Context:** changing the selected network starts learning afresh. With more
+  than one active gateway route (for example a VPN or a second adapter),
+  FingVibe reports **Uncertain** instead of judging the selected LAN.
 
 These are fixed defaults, not guarantees: a healthy verdict means only that these
-checks found no problem. Verdicts and recovery progress are kept in memory and
-are not saved.
+checks found no problem. Latency baselines and unconfirmed suspicions are kept in
+memory only. Confirmed problems and their recovery progress are saved as
+incidents (see [Incident history](#incident-history)), so recovery counting
+resumes on the same network after sleep, turning monitoring off or a restart.
 
 Below the verdict, this page and the Network page list the latest raw results:
 ping responses and latency range for the gateway, `1.1.1.1` and `8.8.8.8`, and
 the Windows, Cloudflare and Google DNS results. Results kept while monitoring is
 off or paused are marked as not current.
+
+## Incident history
+
+When monitoring confirms a problem, FingVibe saves it as an incident in the
+**Incident history** section, newest first. Each network keeps at most one
+active incident: further symptoms are added to it rather than creating a new
+incident every 30 seconds. After recovery is confirmed, a new problem becomes a
+new incident. Each entry shows its symptoms, when the problem was first observed
+and confirmed, the network, and one of these states:
+
+- **Ongoing:** still observed, with recovery progress (for example *2 of 5
+  consecutive healthy checks*).
+- **Recovered:** five consecutive healthy checks completed. The entry shows when
+  recovery was observed and how long after the first observation; that is not an
+  exact outage duration.
+- **Recovery unknown:** FingVibe has not observed the network since an
+  observation gap began, so it cannot say whether or when the problem ended.
+
+Closing FingVibe, sleep, turning monitoring off and selecting another network
+are recorded as observation gaps, never as recovery. When monitoring checks the
+same network again, recovery counting continues from the saved progress; a
+recovery that spans a gap is shown with its exact time as unknown. The Network
+page's **Network health** section shows the ongoing or most recent incident.
+Viewing history sends no probes and is separate from current health and manual
+diagnostics, which remain available while monitoring is off.
+
+Incidents are saved in the local device inventory database. Until that database
+exists (it is created by the first saved inventory change, such as a completed
+scan), new incidents are kept in memory with a visible note and saved later.
+Load and save failures are shown on this page and in the Network summary.
 ## Service status
 
 The **Service status** card below current health opens a separate page of

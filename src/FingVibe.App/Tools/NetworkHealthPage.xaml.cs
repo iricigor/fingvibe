@@ -85,6 +85,42 @@ public sealed partial class NetworkHealthPage : UserControl
         NetworkMonitorDots.RenderRows(RawObservationsPanel, RawObservationRows, view.Rows, "NetworkHealthRawResult");
     }
 
+    internal void ShowIncidentHistory(IReadOnlyList<NetworkIncidentRow> rows, string? storageMessage)
+    {
+        IncidentStorageText.Text = storageMessage ?? "";
+        IncidentStorageText.Visibility = storageMessage is null ? Visibility.Collapsed : Visibility.Visible;
+        IncidentEmptyText.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        IncidentRows.Children.Clear();
+        for (var index = 0; index < rows.Count; index++)
+        {
+            var row = rows[index];
+            var item = new StackPanel { Spacing = 2 };
+            // The status line carries the whole incident for assistive technology; the visual lines repeat its parts.
+            var status = new TextBlock
+            {
+                Text = $"{row.Status}: {row.Symptoms}",
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                TextWrapping = TextWrapping.Wrap
+            };
+            AutomationProperties.SetAutomationId(status, $"NetworkIncidentStatus{index}");
+            AutomationProperties.SetName(status, row.AccessibleName);
+            item.Children.Add(status);
+            foreach (var (text, secondary) in new[] { (row.Times, false), (row.Recovery, false), (row.Network, true), (row.Gaps, true) })
+            {
+                if (string.IsNullOrWhiteSpace(text)) continue;
+                var line = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap };
+                if (secondary) line.Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
+                AutomationProperties.SetAccessibilityView(line, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
+                item.Children.Add(line);
+            }
+            IncidentRows.Children.Add(new Border
+            {
+                Style = (Style)Application.Current.Resources["NetworkIncidentItemStyle"],
+                Child = item
+            });
+        }
+    }
+
     internal void ConfigurePeerCandidates(Func<LanNetwork, Guid?, IReadOnlyList<IPAddress>> peers) =>
         _peerCandidates = peers;
 

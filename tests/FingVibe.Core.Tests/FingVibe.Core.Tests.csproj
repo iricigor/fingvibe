@@ -64,6 +64,7 @@
     <Compile Include="..\..\src\FingVibe.App\NetworkMonitorController.cs" Link="NetworkMonitorController.cs" />
     <Compile Include="..\..\src\FingVibe.App\NetworkMonitorPresentation.cs" Link="NetworkMonitorPresentation.cs" />
     <Compile Include="..\..\src\FingVibe.App\NetworkMonitorViewPresentation.cs" Link="NetworkMonitorViewPresentation.cs" />
+    <Compile Include="..\..\src\FingVibe.App\NetworkIncidentPresentation.cs" Link="NetworkIncidentPresentation.cs" />
     <Compile Include="..\..\src\FingVibe.App\NetworkMonitorReviewFixture.cs" Link="NetworkMonitorReviewFixture.cs" />
     <Compile Include="..\..\src\FingVibe.App\DiscoveryNotificationPresentation.cs" Link="DiscoveryNotificationPresentation.cs" />
     <Compile Include="..\..\src\FingVibe.App\DiscoveryNotificationStore.cs" Link="DiscoveryNotificationStore.cs" />

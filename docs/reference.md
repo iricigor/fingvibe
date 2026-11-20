@@ -1135,7 +1135,12 @@ other filters, which retain responsive wrapping at narrower window widths.
 
 `device-inventory.sqlite` contains inventory, local observations, names,
 classification corrections, People/Rooms, persistent virtual devices, scan
-history, network/subnet discovery baselines and declined possible-match MAC
+history, network/subnet discovery baselines, network health incident history
+(`network_incidents`, `network_observation_gaps` and
+`network_recovery_progress`, owned by `NetworkHealthHistoryStore`, created on
+first use without a format change, written in their own short transactions and
+never changing the inventory revision; a partial unique index keeps one active
+incident per network context) and declined possible-match MAC
 pairs (`declined_matches`, keyed by the sorted pair and added to existing
 inventories without a format change) and linked devices (`linked_devices`, one
 row per linked device holding its member MACs with link dates, shared values,

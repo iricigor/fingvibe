@@ -125,6 +125,10 @@
                                     AutomationProperties.Name="Latest raw monitoring observations">
                             <StackPanel x:Name="SummaryRawRows" Spacing="2" />
                         </StackPanel>
+                        <TextBlock x:Name="SummaryIncidentText" TextWrapping="Wrap" Text="Incident history: no confirmed incidents saved."
+                                   AutomationProperties.AutomationId="NetworkHealthSummaryIncident" />
+                        <TextBlock x:Name="SummaryIncidentStorageText" TextWrapping="Wrap" FontWeight="SemiBold" Visibility="Collapsed"
+                                   AutomationProperties.AutomationId="NetworkHealthSummaryIncidentStorage" />
                     </StackPanel>
                     <Button x:Name="OpenNetworkHealthButton" Grid.Column="1" Content="Open network health &#x203A;"
                             VerticalAlignment="Center" Click="OpenNetworkHealthButton_Click"

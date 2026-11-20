@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 using FingVibe.Core.Models;
+using FingVibe.Core.Networking;
 using FingVibe.Core.Storage;
 using Microsoft.Windows.System.Power;
 
@@ -158,6 +159,11 @@ public sealed partial class MainWindow
             if (_periodicScansClosed)
             {
                 return;
+            }
+
+            if (status == SystemSuspendStatus.Entering)
+            {
+                QueueNetworkIncidentChanges(_networkIncidents.BeginGap(NetworkObservationGapReason.Sleep, DateTimeOffset.UtcNow));
             }
 
             await change();

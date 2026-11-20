@@ -32,7 +32,8 @@ public sealed record NetworkHealthAssessment(
     IReadOnlyList<string> Notes);
 
 /// <summary>
-/// Applies #344's approved detection defaults to completed raw monitor checks. State is in memory only.
+/// Applies #344's approved detection defaults to completed raw monitor checks. Baselines and streaks are in memory;
+/// <see cref="NetworkIncidentTracker"/> persists confirmed problems and recovery progress and restores them with <see cref="Resume"/>.
 /// Cancelled, skipped and unobserved checks are ignored, so they neither count toward nor reset any streak.
 /// </summary>
 public sealed class NetworkHealthEvaluator
@@ -71,9 +72,42 @@ public sealed class NetworkHealthEvaluator
         }
     }
 
+    /// <summary>Network context of the current in-memory state, or null after a reset.</summary>
+    public string? ContextKey
+    {
+        get { lock (_sync) return _context; }
+    }
+
     public void Reset()
     {
         lock (_sync) ResetState();
+    }
+
+    /// <summary>
+    /// Restores a persisted confirmed problem and its completed healthy-check count for the same network context,
+    /// so recovery resumes counting after a restart, sleep or re-enable instead of starting over. Baselines restart
+    /// learning; targets named by restored symptoms are known to have responded before.
+    /// </summary>
+    public void Resume(string contextKey, IEnumerable<NetworkHealthSymptom> problems, int recoveryChecks)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(contextKey);
+        ArgumentNullException.ThrowIfNull(problems);
+        ArgumentOutOfRangeException.ThrowIfNegative(recoveryChecks);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(recoveryChecks, RecoveryCheckCount);
+        lock (_sync)
+        {
+            ResetState();
+            _context = contextKey;
+            foreach (var symptom in problems)
+            {
+                _problems[new(symptom.Kind, symptom.Target)] = symptom;
+                // Latency and unanswered-ICMP symptoms both prove the target answered before, so a target that
+                // stops answering stays suspicious instead of being treated as never visible.
+                if (symptom.Target is { } target)
+                    Target(target).EverResponded = true;
+            }
+            _recovery = _problems.Count == 0 ? 0 : recoveryChecks;
+        }
     }
 
     /// <param name="contextKey">Selected adapter/network identity; a change starts fresh baselines and streaks.</param>

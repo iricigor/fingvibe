@@ -109,6 +109,7 @@ public sealed partial class MainWindow
         var saved = IsUiReview && string.IsNullOrEmpty(ReviewInventoryPath) ? data with { Revision = Guid.NewGuid() }
             : await _inventoryStore.SaveAsync(data, _inventory.Revision);
         ApplyInventoryData(saved);
+        RetryNetworkIncidentSave();
         // Callers update row names and identification after the save; recompute once they finish.
         DispatcherQueue.TryEnqueue(UpdateMatchSuggestions);
         ToolsPage.InvalidateImportAnalysis("Saved device data changed. Analyze again before importing.");
