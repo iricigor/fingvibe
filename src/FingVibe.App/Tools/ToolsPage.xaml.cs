@@ -2,6 +2,7 @@ using System.Net;
 using FingVibe.Core.Models;
 using FingVibe.Core.Import;
 using FingVibe.Core.Storage;
+using FingVibe.App.Views;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 
@@ -12,7 +13,7 @@ public sealed partial class ToolsPage : UserControl
     private Action<string>? _showManagement;
     private bool _resumeImport;
 
-    public event EventHandler? RoomMapRequested;
+    public event EventHandler<RoomMapOrigin>? RoomMapRequested;
 
     public ToolsPage()
     {
@@ -166,10 +167,10 @@ public sealed partial class ToolsPage : UserControl
     }
 
     private void RoomMapCard_Click(object sender, RoutedEventArgs e) =>
-        RoomMapRequested?.Invoke(this, EventArgs.Empty);
+        RoomMapRequested?.Invoke(this, RoomMapOrigin.Tools);
 
     private void NetworkHealthView_RoomMapRequested(object? sender, EventArgs e) =>
-        RoomMapRequested?.Invoke(this, e);
+        RoomMapRequested?.Invoke(this, RoomMapOrigin.NetworkHealth);
 
     private void ShowImport()
     {

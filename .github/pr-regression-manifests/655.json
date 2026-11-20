@@ -1,0 +1,21 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 655,
+  "category": "validation",
+  "changedBehavior": "Room map Back returns to the page the map was opened from (People & rooms, Tools or Network health), keeps that destination across device and room detail round trips, and names it in the Back label, accessible name and tooltip.",
+  "selectors": [
+    "pr-validation",
+    "native-validation",
+    "ui-review-scenarios",
+    "native-sidebar-scan-flows",
+    "native-tools-utilities",
+    "documentation-tests"
+  ],
+  "expectedAssertions": [
+    "Opened from People & rooms, Room map Back is named Back to Rooms and returns to People & rooms.",
+    "Opened from the Tools Room map card, Back is named Back to Tools and returns to the Tools landing page.",
+    "Opened from Network health, Back is named Back to Network health and returns to Network health.",
+    "After device and room detail round trips from a Tools-opened map, Back is still named Back to Tools and returns to Tools.",
+    "The Tools RoomMap capture scenario shows the origin-aware Back to Tools action."
+  ]
+}
