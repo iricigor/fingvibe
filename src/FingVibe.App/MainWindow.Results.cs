@@ -71,16 +71,10 @@ public sealed partial class MainWindow
             .ToList();
         sortedResults.Sort(CompareResults);
 
-        if (!_isScanning) _visibleResults.Clear();
-        for (var index = 0; index < sortedResults.Count; index++)
-        {
-            var result = sortedResults[index];
-            result.IsAlternateRow = index % 2 == 1;
-            var existing = _visibleResults.IndexOf(result);
-            if (existing < 0) _visibleResults.Insert(index, result);
-            else if (existing != index) _visibleResults.Move(existing, index);
-        }
-        while (_visibleResults.Count > sortedResults.Count) _visibleResults.RemoveAt(_visibleResults.Count - 1);
+        if (!_isScanning && !InventoryPresentation.HasSameSequence(_visibleResults, sortedResults))
+            _visibleResults.Clear();
+        InventoryPresentation.Reconcile(
+            _visibleResults, sortedResults, (result, index) => result.IsAlternateRow = index % 2 == 1);
 
         if (selectedResult is ScanResultRow selectedRow && _visibleResults.Contains(selectedRow))
         {

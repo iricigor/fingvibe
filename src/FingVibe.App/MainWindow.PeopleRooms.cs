@@ -96,17 +96,28 @@ public sealed partial class MainWindow
     private IReadOnlyList<AssignedDeviceListRow> GetAssignedDeviceRows()
     {
         var data = CurrentDeviceData;
+        var rowsByMac = new Dictionary<string, ScanResultRow>(StringComparer.Ordinal);
+        var rowsByIdentity = new Dictionary<string, ScanResultRow>(StringComparer.Ordinal);
+        foreach (var row in _allResults)
+        {
+            rowsByIdentity.TryAdd(row.IdentityKey, row);
+            if (row.VirtualDevice is null && row.MacAddress?.ToString() is { } mac)
+                rowsByMac.TryAdd(mac, row);
+        }
+        var linkedMembers = data.LinkedDevices
+            .SelectMany(device => device.Members.Select(member => member.Mac))
+            .ToHashSet(StringComparer.Ordinal);
         // A linked device counts once with its shared assignment; members' own assignments stay preserved for Unlink.
-        return _peopleRooms.Assignments.Keys.Where(mac => data.FindLinkedDevice(mac) is null)
+        return _peopleRooms.Assignments.Keys.Where(mac => !linkedMembers.Contains(mac))
             .Order(StringComparer.OrdinalIgnoreCase)
             .Select(mac => new AssignedDeviceListRow(
                 mac,
-                _allResults.FirstOrDefault(row => row.VirtualDevice is null && row.MacAddress?.ToString() == mac)
+                rowsByMac.GetValueOrDefault(mac)
                     ?? (data.Devices.TryGetValue(mac, out var device) ? ScanResultRow.ForDevice(device, data) : null)))
             .Concat(data.LinkedDevices.Where(device => device.Assignment is not null).Select(device =>
             {
                 var key = device.Id.ToString("D");
-                return new AssignedDeviceListRow(key, _allResults.FirstOrDefault(row => row.IdentityKey == key)
+                return new AssignedDeviceListRow(key, rowsByIdentity.GetValueOrDefault(key)
                     ?? ScanResultRow.ForLinkedDevice(device, data));
             }))
             .Concat(_allResults.Where(row => row.VirtualDevice?.Assignment is not null)

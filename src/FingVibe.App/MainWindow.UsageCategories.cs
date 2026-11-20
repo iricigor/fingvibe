@@ -28,7 +28,8 @@ public sealed partial class MainWindow
         _usageClock.Start();
         DevicePage.UsageCategorySaveRequested += UsageCategorySaveRequested;
         DevicePage.UsageCategoryReloadRequested += UsageCategoryReloadRequested;
-        DevicePage.UsageCategoryRefreshRequested += (_, _) => _ = RefreshUsageCategoriesAsync(force: true);
+        DevicePage.UsageCategoryRefreshRequested += (_, _) =>
+            _ = RefreshUsageCategoriesAsync(force: true, explicitRefresh: true);
         Closed += (_, _) =>
         {
             _usageClosed = true;
@@ -44,7 +45,7 @@ public sealed partial class MainWindow
         _usageKey = null;
     }
 
-    private async Task RefreshUsageCategoriesAsync(bool force = false)
+    private async Task RefreshUsageCategoriesAsync(bool force = false, bool explicitRefresh = false)
     {
         if (!_usageInitialized || _usageClosed) return;
         if (!UsageVisible)
@@ -60,7 +61,7 @@ public sealed partial class MainWindow
         var zone = TimeZoneInfo.Local;
         var date = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(time, zone).DateTime);
         var key = (_inventory.Revision, networkId, network?.Cidr, date, zone.Id);
-        if (!force && _usageKey == key) return;
+        if (!InventoryPresentation.ShouldStartUsageRefresh(_usageKey, key, force, explicitRefresh)) return;
         CancelUsageQuery();
         _usageKey = key;
         var generation = _usageGeneration;
