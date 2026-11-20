@@ -65,7 +65,10 @@ function Show-UiRegressionScrollTargets {
         [switch] $AlignBottom,
         [ValidateRange(1, 10000)][int] $TimeoutMilliseconds = 10000
     )
-    $state = @{ Moves = 0; Geometry = $null; MissingBoundsMoves = 0; Direction = 0; Reversals = 0 }
+    $state = @{
+        Moves = 0; Geometry = $null; MissingBoundsMoves = 0; Direction = 0; Reversals = 0
+        StableGeometry = $null; StableSince = $null
+    }
     $targetDescription = $Description
     $positionClock = [Diagnostics.Stopwatch]::StartNew()
     $positioned = Wait-UiRegressionState -Description "$Description inside its viewport" -TimeoutMilliseconds $TimeoutMilliseconds -Condition {
@@ -115,7 +118,21 @@ function Show-UiRegressionScrollTargets {
             $fits = $targetTop -ge $top -and $targetBottom -le $bottom -and
                 @($elements | Where-Object { -not (Test-UiRegressionElementWithin $_ $viewportElement $windowElement) }).Count -eq 0
             if ($fits -and (-not $AlignBottom -or [Math]::Abs($targetBottom - $bottom) -le 1 -or
-                    $scroll.Current.VerticalScrollPercent -eq 0)) { return $elements[0] }
+                    $scroll.Current.VerticalScrollPercent -eq 0)) {
+                # UIA can expose old bounds for one observation after a resize or expansion.
+                # Require the fitted geometry to remain stable before accepting it.
+                $fitGeometry = "$targetTop|$targetBottom|$top|$bottom|$viewSize"
+                if ($state.StableGeometry -ceq $fitGeometry -and $state.StableSince.ElapsedMilliseconds -ge 100) {
+                    return $elements[0]
+                }
+                if ($state.StableGeometry -cne $fitGeometry) {
+                    $state.StableGeometry = $fitGeometry
+                    $state.StableSince = [Diagnostics.Stopwatch]::StartNew()
+                }
+                return $null
+            }
+            $state.StableGeometry = $null
+            $state.StableSince = $null
             if (-not $scroll.Current.VerticallyScrollable) {
                 throw "$targetDescription is clipped in a non-scrollable viewport."
             }
