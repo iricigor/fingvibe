@@ -41,6 +41,13 @@ public sealed partial class NetworkPageView : UserControl
         NetworkMonitorDots.RenderRows(SummaryRawPanel, SummaryRawRows, view.Rows, "NetworkSummaryRawResult");
     }
 
+    internal void ShowIncidentSummary(string summary, string? storageMessage)
+    {
+        SummaryIncidentText.Text = summary;
+        SummaryIncidentStorageText.Text = storageMessage ?? "";
+        SummaryIncidentStorageText.Visibility = storageMessage is null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
     internal void ShowLocalNetwork(LanNetwork? network)
     {
         MachineAddressText.Text = network?.LocalAddress.ToString() ?? "No active IPv4 interface";

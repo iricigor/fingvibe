@@ -108,6 +108,7 @@ public sealed partial class MainWindow : Window
         OpenPendingDiscoveryNotification();
         UpdatePeopleRoomsPages();
         UpdatePeopleRoomFilters();
+        await LoadNetworkIncidentHistoryAsync();
         await InitializeNetworkAsync();
         await ActivatePeriodicScansAsync();
         await ActivateNetworkMonitoringAsync();

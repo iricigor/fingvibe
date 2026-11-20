@@ -19,7 +19,8 @@ public sealed partial class MainWindow
     private readonly NetworkMonitorService _networkMonitorService =
         new(new NetworkDiagnosticProbes(), CreateNetworkMonitorTimeProvider());
     private readonly NetworkMonitorScheduler _networkMonitorScheduler;
-    private readonly NetworkHealthEvaluator _networkHealth = new();
+    private readonly NetworkIncidentTracker _networkIncidents = new(new NetworkHealthEvaluator());
+    private NetworkHealthEvaluator _networkHealth => _networkIncidents.Evaluator;
     private readonly NetworkMonitorController _networkMonitorController;
     private bool _networkMonitorLoadFailed;
     private string? _networkMonitorPersistenceError;
@@ -84,6 +85,8 @@ public sealed partial class MainWindow
         var settings = SettingsPage.SelectedNetworkMonitor;
         if (!settings.IsEnabled)
         {
+            // Turning monitoring off is an observation gap, never evidence that an incident recovered.
+            QueueNetworkIncidentChanges(_networkIncidents.BeginGap(NetworkObservationGapReason.MonitoringOff, DateTimeOffset.UtcNow));
             _networkHealth.Reset();
         }
 
@@ -132,6 +135,9 @@ public sealed partial class MainWindow
         }
 
         _networkHealth.Reset();
+        var selected = NetworkPicker.SelectedItem as LanNetwork;
+        QueueNetworkIncidentChanges(_networkIncidents.ContextChanged(
+            selected is null ? null : NetworkHealthContextKey(selected, MonitorNetworkId(selected)), DateTimeOffset.UtcNow));
         await _networkMonitorController.RefreshContextAsync();
         UpdateNetworkMonitorPresentation();
     }
@@ -172,7 +178,7 @@ public sealed partial class MainWindow
 
                 var reviewObservation = NetworkMonitorReviewFixture.Create(
                     network, DateTimeOffset.UtcNow, problem: fixture == "problem");
-                EvaluateNetworkHealth(network, "ui-review-network", reviewObservation);
+                EvaluateNetworkHealth(network, MonitorNetworkId(network), reviewObservation);
                 return new(NetworkMonitorRunStatus.Completed) { Observation = reviewObservation };
             }
 
@@ -235,11 +241,18 @@ public sealed partial class MainWindow
         // Windows chooses routing: with several active gateway routes (VPN or multiple adapters), the checks may
         // not traverse the selected LAN, so the verdict is reported as uncertain instead of judging that LAN.
         var routes = (NetworkPicker.ItemsSource as IEnumerable<LanNetwork>)?.Count(item => item.HasGateway) ?? 0;
-        _networkHealth.Evaluate(
+        QueueNetworkIncidentChanges(_networkIncidents.Evaluate(
             observation,
-            $"{networkId}|{network.LocalAddress}|{network.GatewayAddress}",
-            routes > 1);
+            NetworkHealthContextKey(network, networkId),
+            network.DisplayLabel,
+            routes > 1).Changed);
     }
+
+    private static string NetworkHealthContextKey(LanNetwork network, string? networkId) =>
+        $"{networkId}|{network.LocalAddress}|{network.GatewayAddress}";
+
+    private static string? MonitorNetworkId(LanNetwork network) =>
+        IsUiReview ? "ui-review-network" : ResolveNetworkIdentity(network, out _);
 
     // Lets disposable native checks observe the minute cadence in seconds; real timestamps are unchanged.
     private static TimeProvider CreateNetworkMonitorTimeProvider() =>

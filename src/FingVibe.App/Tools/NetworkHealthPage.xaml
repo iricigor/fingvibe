@@ -96,6 +96,19 @@
                             AutomationProperties.AutomationId="OpenServiceStatusButton" AutomationProperties.Name="Open service status" />
                 </Grid>
             </Border>
+            <Border x:Name="IncidentHistoryCard" Style="{StaticResource ScannerSummaryCardStyle}"
+                    AutomationProperties.AutomationId="NetworkIncidentHistory" AutomationProperties.Name="Incident history">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Incident history" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                    <TextBlock x:Name="IncidentHistoryNote" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Text="Saved history only: viewing it sends no probes. Current health is shown above." />
+                    <TextBlock x:Name="IncidentStorageText" Visibility="Collapsed" TextWrapping="Wrap" FontWeight="SemiBold"
+                               AutomationProperties.AutomationId="NetworkIncidentStorage" AutomationProperties.LiveSetting="Polite" />
+                    <TextBlock x:Name="IncidentEmptyText" TextWrapping="Wrap" AutomationProperties.AutomationId="NetworkIncidentEmpty"
+                               Text="No confirmed incidents are saved. Background monitoring records an incident after two suspicious checks in a row." />
+                    <StackPanel x:Name="IncidentRows" Spacing="10" />
+                </StackPanel>
+            </Border>
             <StackPanel Spacing="4">
                 <TextBlock Text="Manual diagnostics" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
                 <TextBlock Text="Results from the latest Run diagnostics on this page. Opening or viewing this page sends no probes."

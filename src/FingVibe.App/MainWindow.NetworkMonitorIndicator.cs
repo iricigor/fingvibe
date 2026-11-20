@@ -19,7 +19,11 @@ public sealed partial class MainWindow
     private void InitializeNetworkMonitorIndicator()
     {
         NetworkMonitorStateChanged += (_, snapshot) => ShowNetworkMonitor(snapshot);
-        _networkMonitorViewTimer.Tick += (_, _) => ShowNetworkMonitor(CurrentNetworkMonitorSnapshot);
+        _networkMonitorViewTimer.Tick += (_, _) =>
+        {
+            ShowNetworkMonitor(CurrentNetworkMonitorSnapshot);
+            UpdateNetworkIncidentPresentation();
+        };
         _networkMonitorViewTimer.Start();
         Closed += (_, _) => _networkMonitorViewTimer.Stop();
         ShowNetworkMonitor(CurrentNetworkMonitorSnapshot);

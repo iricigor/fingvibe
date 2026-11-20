@@ -10,14 +10,16 @@ $diagramDocument.Load((Join-Path $PSScriptRoot "..\src\FingVibe.App\Tools\Networ
 $diagramCard = $diagramDocument.SelectSingleNode("//*[local-name()='Border'][.//*[@*[local-name()='Name']='DiagramScroll']]")
 $healthCard = $diagramDocument.SelectSingleNode("//*[local-name()='Border'][@*[local-name()='Name']='CurrentHealthCard']")
 $serviceStatusCard = $diagramDocument.SelectSingleNode("//*[local-name()='Border'][@*[local-name()='Name']='ServiceStatusEntryCard']")
+$incidentCard = $diagramDocument.SelectSingleNode("//*[local-name()='Border'][@*[local-name()='Name']='IncidentHistoryCard']")
 foreach ($name in @("RunButton", "CancelRunButton", "RunProgress", "ProgressText", "HealthStateText")) {
     if (-not $healthCard -or -not $healthCard.SelectSingleNode(".//*[@*[local-name()='Name']='$name']")) {
         throw "Run controls, progress and current health must belong to the top current-health card: $name."
     }
 }
 $cards = @($diagramDocument.SelectNodes("//*[local-name()='ScrollViewer']/*[local-name()='StackPanel']/*[local-name()='Border']"))
-if ($cards.Count -lt 3 -or $cards[0] -ne $healthCard -or $cards[1] -ne $serviceStatusCard -or $cards[2] -ne $diagramCard) {
-    throw "Current health must be the first card, followed by the Service status entry and then the manual diagnostic path and status."
+if ($cards.Count -lt 4 -or $cards[0] -ne $healthCard -or $cards[1] -ne $serviceStatusCard -or $cards[2] -ne $incidentCard -or
+    $cards[3] -ne $diagramCard) {
+    throw "Current health must be the first card, followed by the Service status entry, saved incident history and then the manual diagnostic path and status."
 }
 $connectors = @($diagramDocument.SelectNodes("//*[local-name()='Canvas']/*[local-name()='Path']"))
 if ($connectors.Count -ne 8 -or @($connectors | Where-Object { $_.GetAttribute("Data") -match '\bQ' }).Count -ne 2 -or
@@ -684,6 +686,9 @@ try {
         if ((Find-ById "NetworkHealthState").Current.Name -notin @("Learning - no problems found", "Healthy")) {
             throw "Network health must show the learning or healthy verdict for the healthy fixture."
         }
+        if ((Find-ById "NetworkIncidentEmpty").Current.Name -notlike "No confirmed incidents are saved.*") {
+            throw "Network health must state that no incidents are saved before a problem is confirmed."
+        }
         if ($ScreenshotDirectory) {
             Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-monitoring.png")
         }
@@ -710,10 +715,26 @@ try {
             (Find-ById "NetworkHealthSummaryState").Current.Name -eq "Problem confirmed" -and
                 (Find-ById "NetworkHealthSummaryDetail").Current.Name -like "*High latency: Cloudflare 1.1.1.1 215 ms median (limit 150 ms)*"
         }
+        # The confirmed problem is recorded once as an ongoing incident, labelled as history rather than current health.
+        $null = Wait-UiRegressionState -Description "Network summary shows the ongoing incident from saved history" -Condition {
+            (Find-ById "NetworkHealthSummaryIncident").Current.Name -like "Incident history: ongoing incident since today *High latency: Cloudflare 1.1.1.1*"
+        }
         $indicator.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
         $null = Wait-UiRegressionState -Description "Network health explains the confirmed problem and recovery" -Condition {
             (Find-ById "NetworkHealthState").Current.Name -eq "Problem confirmed" -and
                 (Find-ById "NetworkHealthStateDetail").Current.Name -like "*Recovery: 0 of 5 consecutive healthy checks*"
+        }
+        $null = Wait-UiRegressionState -Description "Network health lists the ongoing incident newest first" -Condition {
+            (Find-ById "NetworkIncidentStatus0").Current.Name -like "Ongoing incident. High latency: Cloudflare 1.1.1.1*First observed today *confirmed today *Recovery: 0 of 5 consecutive healthy checks.*"
+        }
+        if ($script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, "NetworkIncidentStatus1"))) {
+            throw "Repeated suspicious checks must accumulate in one active incident, not create another."
+        }
+        $incidentBounds = (Find-ById "NetworkIncidentStatus0").Current.BoundingRectangle
+        $windowBounds = Get-UiReviewWindowBounds $process.MainWindowHandle
+        if ($incidentBounds.Left -lt $windowBounds.X -or $incidentBounds.Right -gt $windowBounds.X + $windowBounds.Width) {
+            throw "Incident history text must wrap within the window instead of overflowing horizontally."
         }
         if ($ScreenshotDirectory) {
             Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-problem.png")

@@ -190,7 +190,7 @@ internal static class NetworkMonitorViewPresentation
         _ => "Google DNS"
     };
 
-    private static string FormatTime(DateTimeOffset value, DateTimeOffset now, TimeZoneInfo timeZone, CultureInfo culture)
+    internal static string FormatTime(DateTimeOffset value, DateTimeOffset now, TimeZoneInfo timeZone, CultureInfo culture)
     {
         var local = TimeZoneInfo.ConvertTime(value, timeZone);
         var today = TimeZoneInfo.ConvertTime(now, timeZone).Date;

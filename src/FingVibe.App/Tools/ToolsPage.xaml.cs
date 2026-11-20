@@ -74,6 +74,9 @@ public sealed partial class ToolsPage : UserControl
 
     internal void ShowNetworkMonitor(NetworkMonitorView view) => NetworkHealthView.ShowNetworkMonitor(view);
 
+    internal void ShowIncidentHistory(IReadOnlyList<NetworkIncidentRow> rows, string? storageMessage) =>
+        NetworkHealthView.ShowIncidentHistory(rows, storageMessage);
+
     public async Task StopForNavigationAsync()
     {
         SpeedTestView.Visibility = Visibility.Collapsed;
