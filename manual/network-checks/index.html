@@ -710,6 +710,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#service-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      Service status
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#run-diagnostics" class="md-nav__link">
     <span class="md-ellipsis">
       Run diagnostics
@@ -1095,6 +1104,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#service-status" class="md-nav__link">
+    <span class="md-ellipsis">
+      Service status
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#run-diagnostics" class="md-nav__link">
     <span class="md-ellipsis">
       Run diagnostics
@@ -1156,6 +1174,28 @@ section opens the same page. Opening the page does not send diagnostic probes.</
 <p>The top of the page shows <strong>Monitoring off</strong>. Background health checks are not
 available yet, so FingVibe shows no current health result instead of implying
 that the network is healthy.</p>
+<h2 id="service-status">Service status<a class="headerlink" href="#service-status" title="Permanent link">&para;</a></h2>
+<p>The <strong>Service status</strong> card below current health opens a separate page of
+provider-published reports for six providers. Each provider has one everyday
+(<strong>Consumer</strong>) and one <strong>Infrastructure</strong> entry: Microsoft Outlook.com and
+Azure, Google Gmail and Google Cloud, Amazon.de shopping and AWS, Cloudflare
+1.1.1.1 public DNS and CDN/network, Apple iCloud and Developer services, and
+GitHub website/repositories and Actions. Use <strong>All</strong>, <strong>Consumer</strong> or
+<strong>Infrastructure</strong> to filter the table, and <strong>Back to Network health</strong> to return.</p>
+<p>Provider reports are not measurements of your connection, never change this
+network's measured health, and the page sends no local network probes. Each row
+keeps its state explicit: <strong>No incidents reported</strong>, an incident title such as
+<strong>Degraded service</strong>, <strong>Feed unavailable</strong>, <strong>Report outdated</strong>, <strong>Feed
+unreadable</strong>, <strong>Official page only</strong>, <strong>Source pending</strong> or <strong>Feed not
+connected</strong>. Only <strong>No incidents reported</strong> comes from a current provider
+report; every other state means FingVibe does not know the service's status.
+Provider timestamps are shown separately from the local <strong>Feed refresh</strong> time.</p>
+<p>In this version FingVibe does not retrieve live provider feeds: entries with an
+official feed show <strong>Feed not connected</strong>, and <strong>Refresh reports</strong> sends no
+requests. Outlook.com and Amazon.de shopping have no approved status source and
+Apple's pages are link-only, so those entries are never monitored. Every row
+links to the provider's official status page or service, which opens in your
+browser.</p>
 <h2 id="run-diagnostics">Run diagnostics<a class="headerlink" href="#run-diagnostics" title="Permanent link">&para;</a></h2>
 <ol>
 <li>Open <strong>Tools &gt; Network health</strong>.</li>
