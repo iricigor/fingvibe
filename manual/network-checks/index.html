@@ -725,6 +725,30 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Incident history">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#saved-incident-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      Saved incident evidence
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#retention-and-backups" class="md-nav__link">
+    <span class="md-ellipsis">
+      Retention and backups
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1137,6 +1161,30 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Incident history">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#saved-incident-evidence" class="md-nav__link">
+    <span class="md-ellipsis">
+      Saved incident evidence
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#retention-and-backups" class="md-nav__link">
+    <span class="md-ellipsis">
+      Retention and backups
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1332,6 +1380,30 @@ diagnostics, which remain available while monitoring is off.</p>
 exists (it is created by the first saved inventory change, such as a completed
 scan), new incidents are kept in memory with a visible note and saved later.
 Load and save failures are shown on this page and in the Network summary.</p>
+<h3 id="saved-incident-evidence">Saved incident evidence<a class="headerlink" href="#saved-incident-evidence" title="Permanent link">&para;</a></h3>
+<p>When an incident is confirmed, FingVibe automatically runs the same checks as
+<strong>Run diagnostics</strong> once for that incident, without opening this page: loopback,
+this PC's and the gateway's addresses, the <code>1.1.1.1</code> and <code>8.8.8.8</code> pings, the
+three DNS checks and a traceroute toward <code>1.1.1.1</code>. It does not ping other LAN
+devices. The run is limited to 45 seconds.</p>
+<p>User-started work has priority. Starting a LAN scan, speed test, device service
+scan or manual diagnostics stops the automatic run, and so do turning monitoring
+off, sleep, changing network and closing FingVibe. Completed checks are then
+saved as <strong>partial</strong> evidence with the reason. An interrupted or skipped run is
+never retried automatically; use <strong>Run diagnostics</strong> for a fresh manual check.</p>
+<p>Select an incident to see its saved evidence beside the list (below it in narrow
+windows). The evidence names its network and collection time, shows whether it
+is complete, partial, not run or failed, and lists each checkpoint and traceroute
+hop. It is history, not current status: viewing it sends no probes and does not
+change the current health or the manual diagnostics results.</p>
+<h3 id="retention-and-backups">Retention and backups<a class="headerlink" href="#retention-and-backups" title="Permanent link">&para;</a></h3>
+<p>Recovered incidents and their evidence are kept for 90 days after recovery was
+observed, and at most the newest 1,000 recovered incidents are kept. Ongoing and
+recovery-unknown incidents are never removed, and pruning never touches the device
+inventory or scan history. If old incidents cannot be removed, they are kept and
+a note is shown. <a href="../data/">Database backups</a> copy the whole inventory database,
+so they include incidents, their evidence, observation gaps and recovery
+progress.</p>
 <h2 id="service-status">Service status<a class="headerlink" href="#service-status" title="Permanent link">&para;</a></h2>
 <p>The <strong>Service status</strong> card below current health opens a separate page of
 provider-published reports for six providers. Each provider has one everyday

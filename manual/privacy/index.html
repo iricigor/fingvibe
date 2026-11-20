@@ -1200,8 +1200,8 @@ Some features contact external services as explained below.</p>
 </tr>
 <tr>
 <td>Optional background network monitoring</td>
-<td>Selected LAN gateway, <code>1.1.1.1</code>, <code>8.8.8.8</code>, Windows DNS, and public DNS resolvers</td>
-<td>Five one-second-spaced ICMP probes per target every 60 seconds plus DNS queries for <code>example.com</code>; raw results stay in the app's live state and are not uploaded or persisted by this feature.</td>
+<td>Selected LAN gateway, <code>1.1.1.1</code>, <code>8.8.8.8</code>, Windows DNS, and public DNS resolvers; after a confirmed incident, also loopback, this PC's address and a traceroute toward <code>1.1.1.1</code></td>
+<td>Five one-second-spaced ICMP probes per target every 60 seconds plus DNS queries for <code>example.com</code>, and one automatic deeper check (at most 45 seconds) per confirmed incident. Raw check results stay in the app's live state; confirmed incidents and their deeper-check evidence are saved only in the local inventory database and never uploaded.</td>
 </tr>
 <tr>
 <td>Service status provider reports</td>

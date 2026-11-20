@@ -1198,11 +1198,15 @@ Google DNS. The resulting raw state contract keeps per-target timings,
 responses, failures, cancellation detail, and DNS source labels. FingVibe judges
 completed checks with fixed rules; the header dot, <strong>Network health</strong> and the
 Network page show the resulting verdict and the latest raw results; see
-<a href="../network-checks/#monitoring-state-and-health-verdicts">Network health</a>.</p>
+<a href="../network-checks/#monitoring-state-and-health-verdicts">Network health</a>.
+When a problem is confirmed, monitoring also runs one deeper check for that
+incident, limited to 45 seconds, and saves its evidence with the incident; see
+<a href="../network-checks/#saved-incident-evidence">Saved incident evidence</a>.</p>
 <p>Manual LAN scans, speed tests, network diagnostics, and device-service scans
-take priority. They cancel an active monitoring cycle and start only after it
-has stopped, so measurements do not overlap. A conflict or cancellation is
-reported as skipped or cancelled, not as a connectivity failure.</p>
+take priority. They cancel an active monitoring cycle or deeper check and start
+only after it has stopped, so measurements do not overlap. A conflict or
+cancellation is reported as skipped or cancelled, not as a connectivity failure;
+an interrupted deeper check keeps its completed results and is not retried.</p>
 <p>Windows sleep pauses both scheduled scans and monitoring. Disabling monitoring,
 changing the selected network, and closing FingVibe cancel an in-flight cycle
 and wait for it to stop. A re-enabled monitor or refreshed network starts with
