@@ -126,14 +126,14 @@ public sealed partial class ToolsPage : UserControl
 
     private async void NetworkHealthCard_Click(object sender, RoutedEventArgs e) => await OpenNetworkHealthAsync();
 
-    internal async Task OpenNetworkHealthAsync(bool focusServiceStatus = false)
+    internal async Task OpenNetworkHealthAsync(bool focusServiceStatus = false, bool focusRoomMap = false)
     {
         ToolsLanding.Visibility = Visibility.Collapsed;
         FingImportView.Visibility = Visibility.Collapsed;
         ServiceStatusView.StopForNavigation();
         ServiceStatusView.Visibility = Visibility.Collapsed;
         NetworkHealthView.Visibility = Visibility.Visible;
-        await NetworkHealthView.OpenAsync(focusServiceStatus);
+        await NetworkHealthView.OpenAsync(focusServiceStatus, focusRoomMap);
     }
 
     private async void NetworkHealthView_BackRequested(object? sender, EventArgs e)

@@ -83,7 +83,8 @@ public sealed partial class MainWindow
         if (ToolsPage.Visibility != Visibility.Visible) ShowPage(ToolsPage);
         if (_roomMapOrigin == RoomMapOrigin.NetworkHealth)
         {
-            await ToolsPage.OpenNetworkHealthAsync();
+            // Network health keeps its scroll position, so focus its visible Room map entry rather than the top Run button.
+            await ToolsPage.OpenNetworkHealthAsync(focusRoomMap: true);
         }
     }
 

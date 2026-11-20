@@ -117,7 +117,13 @@ function Test-RoomMapEntries {
     }
     Invoke-PeopleRoomsElement AutomationId NetworkHealthViewRoomMapButton
     Invoke-RoomMapBack 'Back to Network health'
-    $null = Find-PeopleRoomsElement AutomationId RunButton
+    # Network health keeps the scroll position of its Room map entry and returns keyboard focus to that entry.
+    $null = Wait-UiRegressionState -Description 'Network health Room map entry focused after Back' -Condition {
+        $entry = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'NetworkHealthViewRoomMapButton'))
+        if ((Test-UiRegressionElementVisible $entry) -and $entry.Current.HasKeyboardFocus) { $entry }
+    }
     Write-Host 'Room map entry points, conceptual gateway fallback, focus reachability and origin-aware Back passed.'
 }
 

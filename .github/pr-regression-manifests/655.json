@@ -14,8 +14,9 @@
   "expectedAssertions": [
     "Opened from People & rooms, Room map Back is named Back to Rooms and returns to People & rooms.",
     "Opened from the Tools Room map card, Back is named Back to Tools and returns to the Tools landing page.",
-    "Opened from Network health, Back is named Back to Network health and returns to Network health.",
+    "Opened from Network health, Back is named Back to Network health, returns to Network health at its scroll position and focuses its visible View room map entry.",
     "After device and room detail round trips from a Tools-opened map, Back is still named Back to Tools and returns to Tools.",
-    "The Tools RoomMap capture scenario shows the origin-aware Back to Tools action."
+    "The Tools RoomMap capture scenario shows the origin-aware Back to Tools action.",
+    "The split UI regression module map registers the new Invoke-RoomMapBack helper."
   ]
 }
