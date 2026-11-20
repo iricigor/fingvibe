@@ -52,3 +52,9 @@ submitting a request does not mean it is approved or scheduled.
 Report the page link, the unclear/outdated sentence, and the app version.
 Screenshots with a test label may use sample values; that alone is not a bug.
 Incorrect workflow instructions or inaccessible visuals are useful findings.
+
+## Licensing
+
+The repository currently has no project license file. Choosing a license is an
+owner decision. Notices for bundled dependencies apply to those dependencies;
+they do not grant a license for FingVibe itself.

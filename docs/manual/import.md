@@ -53,6 +53,11 @@ Manual identification corrections take precedence over imported classification.
 Detailed original Fing values remain available in device details.
 Unknown or uncertain mappings are not treated as proven classifications.
 
+[![A synthetic imported-name conflict with Keep existing selected](../screenshots/manual/import-conflicts.png)](../screenshots/manual/import-conflicts.png)
+
+*The selected emoji belongs to the proposed sample name. Keep existing is the
+conflict choice; nothing has been imported. [Screenshot sources](screenshots.md).*
+
 ## Import the reviewed devices
 
 Use **Import device** for one device or **Import all** for all eligible changes.
@@ -68,6 +73,11 @@ Selection starts empty. Import all does not automatically approve overwrites;
 every save respects your field choices.
 Each requested batch saves completely or not at all.
 An error must not be treated as a partially successful import.
+
+[![Reviewed synthetic import cards with skipped assignment fields and Select devices and Import all actions](../screenshots/manual/import-review.png)](../screenshots/manual/import-review.png)
+
+*Scrolled native review state, not import success. Missing Person/Room entries
+are explicitly skipped. [Screenshot sources](screenshots.md).*
 
 Changing the file or relevant saved data can invalidate the preview.
 If the file changed or another app instance saved newer data, analyze again.

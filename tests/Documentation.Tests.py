@@ -46,10 +46,12 @@ class DocumentationTests(unittest.TestCase):
         result = self.check(
             '<img src="https://example.com/private.png">'
             '<script src="https://example.com/analytics.js"></script>'
+            '<link rel="icon" href="https://example.com/favicon.ico">'
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("no alternative text", result.stderr)
         self.assertIn("external asset request", result.stderr)
+        self.assertIn("external asset request: https://example.com/favicon.ico", result.stderr)
 
     def test_unhidden_icon_fails(self):
         result = self.check('<span class="twemoji"><svg></svg></span>')

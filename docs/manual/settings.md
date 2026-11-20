@@ -3,7 +3,7 @@
 Open **Settings**, then expand a preference section. Appearance changes apply immediately and are saved for your
 next launch. Read any save warning before assuming a choice was stored.
 
-Appearance, Devices page, and Scheduled scans start collapsed with current
+Appearance, Devices page, and Background activity start collapsed with current
 preference summaries. Expand or collapse each header with the pointer or keyboard.
 Expansion lasts for the current app session, including visits to About, and
 resets on restart without changing saved preferences. The separate
@@ -13,10 +13,10 @@ All four cards use the same compact icon, title and summary layout. Down/up
 chevrons expand or collapse preferences inside their card; About's right chevron
 opens its existing page. Headers grow with wrapped text and Windows text scaling.
 
-[![Settings with Mode, Theme, Window backdrop, and Devices page controls](../screenshots/manual/settings.png)](../screenshots/manual/settings.png)
+[![Current Settings with collapsed Appearance, Devices page, Background activity, and About rows](../screenshots/manual/settings.png)](../screenshots/manual/settings.png)
 
-*Historical native test-build screenshot from before collapsible sections.
-The controls remain available inside their sections. [Screenshot sources](screenshots.md).*
+*Native test-build capture with all preference sections collapsed.
+Expand the section you want to change. [Screenshot sources](screenshots.md).*
 
 ## Choose appearance
 

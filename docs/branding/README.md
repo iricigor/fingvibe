@@ -3,8 +3,8 @@
 **Current README mark:** since 2026-11-16 the README shows the
 [Connected home application icon](app-icon/README.md), at @iricigor's request in
 [task #348](https://github.com/iricigor/fingvibe/issues/348). The Network radar
-record below is kept as history; Network radar remains the documentation site's
-logo and favicon (`mkdocs.yml`).
+record below is kept as history. The documentation site's logo and favicon now
+reuse Connected home under [#253](https://github.com/iricigor/fingvibe/issues/253).
 
 For the separately selected page and tool icon family, see the
 [icon concept design record](icon-concepts/README.md). Those concepts do not

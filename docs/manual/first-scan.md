@@ -29,10 +29,10 @@ Initial results become available before the background checks finish.
 You can browse and filter them while those checks continue.
 **Cancel scan** remains available if you visit another page.
 
-[![Devices with a responding sample device and visible search and filters](../screenshots/manual/devices.png)](../screenshots/manual/devices.png)
+[![Devices after a completed loopback scan, with one responding review device](../screenshots/manual/first-scan.png)](../screenshots/manual/first-scan.png)
 
-*Safe loopback test data. This capture was taken after a cancellation test;
-the retained-result message is intentional. [Screenshot sources](screenshots.md).*
+*Safe loopback review scan, not a real LAN. The name and MAC are sample data.
+[Screenshot sources](screenshots.md).*
 
 ## What happens during a scan
 
@@ -51,7 +51,12 @@ The selected network cannot silently change to a different network mid-scan.
 
 ## Read the result safely
 
-**Online** means a ping or ARP response in the latest applicable scan evidence,
+Validated mDNS/SSDP service-discovery replies from an address on the selected
+subnet can also confirm that device before the ping retries. An address merely
+mentioned by another device is not a responder. These replies do not supply a
+ping response time.
+
+**Online** means a ping, fresh ARP or validated service-discovery response in the latest applicable scan evidence,
 including saved evidence. Unresolved devices keep their previous status during
 a new scan; check the evidence age rather than assuming continuous presence.
 An ARP-only response may have no ping response time; that is not an error.

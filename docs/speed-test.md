@@ -5,12 +5,11 @@ data-use disclosure before measurements begin; use **Cancel** to stop a run.
 Download, upload, and HTTP latency describe this PC's internet connection,
 not throughput between LAN devices.
 
-<a href="screenshots/speed-test.png"><img src="screenshots/speed-test.png" alt="FingVibe Speed test page ready to start, with Cloudflare disclosure and download and upload cards awaiting measurements" width="680"></a>
+<a href="screenshots/manual/speed-test.png"><img src="screenshots/manual/speed-test.png" alt="Current FingVibe Speed test ready state with Cloudflare disclosure and stopped download and upload gauges" width="960"></a>
 
-Native UI-review capture, cropped to the tool content to exclude the test-build
-ribbon. No live speed test was run and no measured results are implied.
-The gauges continue below this viewport.
-[Capture provenance and reproduction](screenshots/README.md#tool-screenshots).
+Complete native UI-review capture with its actual test-build ribbon.
+No live speed test was run and no measured results are implied.
+[Capture provenance and reproduction](manual/screenshots.md).
 
 ## Engine and privacy
 
@@ -28,11 +27,17 @@ Separate native download and upload gauges show provisional estimates from the o
 
 Needles smoothly approach the latest estimate from their current displayed position, without overshoot or animation restarts, when Windows animations are enabled. Numeric values remain the actual estimates, not interpolated data. Intermediate latency phases and switching directions retain each gauge's estimate and mark it as the latest provisional value, avoiding repeated returns to zero between rounds. Cancellation, errors, completion, and navigation stop the animation and clear provisional values. Final results remain separate. Bridge samples are validated for the current run, positive finite bandwidth, and download/upload phase.
 
-Azure testing is deferred; the payload generator below is preparation only.
+For practical user steps and WebView2 troubleshooting, see the
+[Speed test manual](manual/speed-test.md). The engine and validation notes here
+are contributor reference material.
 
-## Preparing an Azure download payload
+## Deferred Azure preparation (contributors only)
 
-Azure download measurement is not implemented yet. The intended extension runs Cloudflare first, then a separate Azure download measurement from the same Start action, keeping the two providers' results distinct.
+Azure download measurement is not implemented or approved for resumption.
+[DI-001](deferred-ideas.md#di-001-azure-hosted-speed-test-downloads) records why it
+stopped: an enforceable spending cap has not been established. Reconsider only
+under its recorded conditions. The historical preparation below is not a user
+setup step or a promised next speed-test stage.
 
 Generate a 256 MiB random binary payload outside the checkout, rather than committing a large file:
 
@@ -46,6 +51,14 @@ The future app configuration needs only the HTTPS blob URL and non-secret measur
 
 For a public blob, app-side duration/byte limits and cooldowns reduce normal traffic but cannot prevent reuse of the URL outside FingVibe. Azure budgets notify; they are not a hard spending cap. Blob Storage has no configurable per-blob monthly egress spending ceiling. Disabling anonymous access or blocking access is an emergency stop, not a precise byte cap. Stronger quotas require a server-side admission mechanism (for example, short-lived read-only SAS issuance with per-user limits); even a SAS limits time and permissions, not downloaded bytes. That adds infrastructure and can incur costs before enforcement takes effect.
 
-## Smoke-test status
+## Live-service validation limitation
 
-The package version, license, default endpoints, result units, bridge callbacks, and cancellation implementation were reviewed from the pinned npm package. The package's active latency/download/upload request is aborted when paused. A bounded live-service run and runtime verification of request termination were **not performed** in the Linux coding environment: WinUI/WebView2 cannot be launched here, and a live speed test consumes internet data and reports results to Cloudflare. The Windows/WebView2 live smoke test remains to be performed with user consent; it must verify successful metrics, a bounded run, request termination on Cancel, and retry after failure. Cloudflare documents no public numeric quota or availability commitment; its [website terms](https://www.cloudflare.com/website-terms/) apply, so users should run tests manually and respect service limits.
+The pinned package review established its version, license, endpoints, units,
+callbacks and `pause()` request-abort path. Documentation ready-state captures
+and deterministic bridge checks are not evidence of a completed live-service
+measurement or observed network-request termination. No live test was run for
+this documentation refresh. Such verification requires separate consent because
+it consumes data and reports results to Cloudflare; it should check successful
+metrics, request termination on Cancel and retry after failure. Cloudflare
+documents no public numeric quota or availability commitment; its
+[website terms](https://www.cloudflare.com/website-terms/) apply.

@@ -36,6 +36,12 @@ Weekday counts keep their applicable-date denominator; a small trailing `?`
 marks unknown dates. Skipped DST hours show `N/A`.
 There is no normal Refresh button; failed loads offer **Retry**.
 
+[![Device History tab with synthetic response and nonresponse squares among unknown hours](../screenshots/manual/device-history.png)](../screenshots/manual/device-history.png)
+
+*A controlled history fixture, not measured availability. Unknown hours remain
+unknown; green and amber squares describe recorded sample evidence.
+[Screenshot sources](screenshots.md).*
+
 For a linked device, one Activity column combines the current member MACs:
 any eligible response wins; otherwise all eligible members must have a recorded
 nonresponse for **no response**. If one member is unknown and none responded,
@@ -51,6 +57,11 @@ analytics; the remaining linked device stops including the detached MAC.
 The newest-first **Scan observations** list below retains paging. Each row's
 accessible description and tooltip preserve its exact local timestamp and offset.
 Saved scans are not continuous live status.
+
+[![Completed Scan Observations table with five synthetic response and nonresponse records](../screenshots/manual/scan-observations.png)](../screenshots/manual/scan-observations.png)
+
+*Five fixed historical test observations. Their timestamps and outcomes are
+illustrative, not a live device history. [Screenshot sources](screenshots.md).*
 
 ## Usage categories
 

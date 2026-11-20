@@ -8,10 +8,9 @@ across pages. Changing pages does not automatically start another scan.
 | <span aria-hidden="true">:material-view-dashboard-outline:</span> Overview | Read the displayed scan summary and open its device results. |
 | <span aria-hidden="true">:material-lan:</span> Network | See local addressing, network size, and available public-IP/provider details. |
 | <span aria-hidden="true">:material-devices:</span> Devices | Browse the persistent device inventory and start a LAN scan. |
-| <span aria-hidden="true">:material-account-group:</span> People | Create people and manage equipment assignments. |
-| <span aria-hidden="true">:material-home-outline:</span> Rooms | Create rooms and organize equipment by location. |
+| <span aria-hidden="true">:material-account-group:</span> People & rooms | Create people and rooms, manage equipment assignments, and open the Room map. |
 | <span aria-hidden="true">:material-tools:</span> Tools | Open import, SQL reports, diagnostics, and speed test. |
-| <span aria-hidden="true">:material-cog-outline:</span> Settings | Change appearance, device-table options, and scheduled scans; open About. |
+| <span aria-hidden="true">:material-cog-outline:</span> Settings | Change appearance, device-table options and background activity; open About and updates. |
 
 These manual icons are visual hints, not exact copies of every Windows glyph.
 The text labels remain the instructions.
@@ -33,6 +32,7 @@ Its **← Rooms** action returns to room management, matching other subpage Back
 Overview describes the **displayed scan**, not a live network monitor.
 Choose an online-device or open-port summary to open the corresponding
 Devices results. These shortcuts clear older search and filter restrictions.
+The **About FingVibe** card opens the same About page as Settings.
 
 A card's subnet size describes address capacity, not how many devices are
 connected. Before your first scan, follow the scan guidance rather than treating

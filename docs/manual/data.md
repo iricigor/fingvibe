@@ -71,6 +71,11 @@ database size and storage; 15 seconds is a delay, not a completion deadline.
 These are local copies on the same PC, not cloud or drive-loss protection.
 There is no restore, delete, folder-selection or retention-setting UI.
 
+[![Database backups with two completed fixture copies and one Daily representative](../screenshots/manual/database-backups.png)](../screenshots/manual/database-backups.png)
+
+*The database and backup folder are isolated runner fixtures. The displayed
+temporary path is not your normal data folder. [Screenshot sources](screenshots.md).*
+
 To preserve preferences too, make a manual whole-folder copy:
 
 1. Close **all** FingVibe instances.
@@ -88,6 +93,11 @@ The database and backups can grow over time.
 
 ## Restore a backup
 
+There is no restore button. Keep the original backup unchanged and close all
+instances before replacing any saved data.
+
+### Restore a whole-folder copy
+
 1. Close all FingVibe instances.
 2. Make a separate copy of the current data folder first.
 3. Move the current folder aside rather than merging files into it.
@@ -100,6 +110,28 @@ Restoration replaces the saved state with the backup's state.
 It does not merge later edits into an older copy.
 Historical results are not live Online evidence.
 If the restored database cannot be loaded, stop and keep both copies for diagnosis.
+
+### Restore a Database backups copy
+
+The automatic and **Back up now** copies contain the database only, not a
+whole data folder.
+
+1. Close all FingVibe instances and wait for them to finish closing.
+2. Copy the current whole data folder to a separate safe location.
+3. Copy the chosen `device-inventory-...sqlite` backup outside that folder.
+4. Move `%LOCALAPPDATA%\FingVibe` aside; keep it intact for recovery.
+5. Create a new `%LOCALAPPDATA%\FingVibe` folder.
+6. Copy the chosen backup into it as **`device-inventory.sqlite`**.
+7. Start a compatible current release and check names, assignments and history.
+
+Do not merge in `latest-scan.json`, old databases or SQLite sidecar files from
+the replaced state. The restored database's committed checkpoint supplies saved
+scan evidence. Preferences start at their defaults; if needed, copy only the
+preference JSON files listed above from the preserved folder while the app is
+closed. A database copy cannot recover later edits or lost preferences.
+
+If loading fails, stop and keep the preserved folder and backup for diagnosis.
+Run a new scan when you need current response evidence.
 
 ## Older JSON files
 

@@ -34,10 +34,16 @@ From Devices:
 Person and Room save independently when changed. Either can be **Unassigned**.
 You can also open a person or room's details and choose **Assign devices**.
 
-[![A sample person's details with Edit, Delete, and Assign devices actions](../screenshots/manual/person-details.png)](../screenshots/manual/person-details.png)
+[![A sample person's details with Edit, Delete and an empty equipment Activity state](../screenshots/manual/person-details.png)](../screenshots/manual/person-details.png)
 
 *This example has no assigned devices. The response count is not a presence
 measurement for a person. [Screenshot sources](screenshots.md).*
+
+[![A selected synthetic device with Person and Room labels in one combined column and its Last seen value](../screenshots/manual/assignments.png)](../screenshots/manual/assignments.png)
+
+*Both UI labels refer to invented review entries. Response counts and Last seen
+do not establish a person's presence. Open the wide image at full size.
+[Screenshot sources](screenshots.md).*
 
 Assignments normally need a valid six-byte MAC address.
 They do not follow an IP address alone. Randomized or changing MACs can lose

@@ -4,9 +4,13 @@ Open **Tools > Network health**, or choose **Open network health** in the
 **Network health** section of the Network page; both open the same page.
 Review the LAN adapter context and select **Run diagnostics**. Use
 **Refresh adapters** after changing connections.
-The top **Current health** card states **Monitoring off**: background health
-checks are not available yet, so the page never implies a healthy network
-without a check. No diagnostic probes run automatically. Run is blocked while a LAN scan,
+The top **Current health** card shows the separately opt-in background
+monitoring state. Monitoring is off by default; turn it on in
+**Settings > Background activity**. It can judge completed connectivity checks,
+save confirmed incidents and collect one bounded deeper check per incident.
+Opening this page does not itself start diagnostic probes. See the
+[current monitoring, incident and service-status guide](manual/network-checks.md).
+Run is blocked while a LAN scan,
 Cloudflare speed test, or another diagnostic run is active or stopping.
 Cancel, Back, navigation, a changed selected network context, and window close
 stop probes safely. Windows network-status notifications that leave the selected
@@ -21,13 +25,20 @@ status**, **Detailed checkpoint diagnostics**, **Traceroute**, and
 **Connection and checks** in bordered cards. Network-request disclosure and
 interpretation notes are expandable within their relevant cards.
 
+<a href="screenshots/manual/network-checks.png"><img src="screenshots/manual/network-checks.png" alt="Current Network health ready state with Monitoring off, manual diagnostics action, Service status and Incident history" width="960"></a>
+
+Current privacy-safe native capture. No diagnostic checks have run.
+[Current capture provenance](manual/screenshots.md).
+The earlier complete diagram below is retained as a clearly historical reference.
+
 <a href="screenshots/network-troubleshooting.png"><img src="screenshots/network-troubleshooting.png" alt="Earlier FingVibe Network troubleshooting controls and complete network diagram, including LAN peers, this PC, router, upstream hop, internet, Cloudflare, and Google, with network-specific addresses redacted" width="1280"></a>
 
 User-supplied native screenshot of the earlier Network troubleshooting layout,
 showing **Connection and checks** together with
 the complete **Network path and status** diagram, without the top-right
-test-build ribbon. The diagram is unchanged on the Network health page; the
-current-health card now sits above it and connection settings below it. Network-specific LAN, subnet, gateway, and WAN addresses
+test-build ribbon. The earlier layout is historical, not a screenshot of the documented release.
+The current-health card sits above manual diagnostics and connection settings.
+Network-specific LAN, subnet, gateway, and WAN addresses
 were redacted with the user's approval. This is the ready state: no diagnostic
 checks have run, and the diagram is illustrative, not discovered topology.
 [Capture provenance and reproduction](screenshots/README.md#tool-screenshots).
@@ -98,7 +109,7 @@ not masquerade as user edits and clear results.
 
 ## LAN diagram
 
-The screenshot above includes the complete diagram, from LAN peers and this PC
+The historical screenshot above includes the complete earlier diagram, from LAN peers and this PC
 through the router and upstream hop to the internet and both public providers.
 [Open the diagram and controls at full size](screenshots/network-troubleshooting.png).
 Hollow ports and **Untested** labels are deliberate: this capture is not a

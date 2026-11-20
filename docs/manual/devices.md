@@ -68,9 +68,10 @@ both Unknown and Randomized MAC. The threshold counts dropdown choices, not
 devices. An active Any filter keeps its meaning when new values appear.
 Status remembers Any after restart just as it remembers individual statuses.
 
-[![An empty Devices result caused by a search restriction, while inventory totals remain visible](../screenshots/manual/devices-empty.png)](../screenshots/manual/devices-empty.png)
+[![Devices with expanded filters and illustrative saved inventory](../screenshots/manual/devices.png)](../screenshots/manual/devices.png)
 
-*The sample search matches no device. It does not mean the inventory is empty.
+*Synthetic inventory, not real response measurements. Status and Room restrictions
+are active; the selected loopback target differs from the saved sample subnet.
 [Screenshot sources](screenshots.md).*
 
 ## Usage category
@@ -224,6 +225,11 @@ collapsed when FingVibe restarts. Use Right Arrow or Left Arrow on a focused
 row to expand or collapse it.
 
 See [Device details](device-details.md#virtual-device-details).
+
+[![An expanded virtual identity showing earlier MAC addresses with their own status](../screenshots/manual/virtual-device.png)](../screenshots/manual/virtual-device.png)
+
+*Invented identity/history fixture, not a proven physical-device association.
+[Screenshot sources](screenshots.md).*
 
 ## Linked devices
 

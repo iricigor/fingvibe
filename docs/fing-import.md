@@ -4,14 +4,14 @@ Open **Tools > Import from Fing** to bring device names, details, and assignment
 from a local Fing Excel export into FingVibe. Review the proposed changes before
 importing; analysis alone does not modify your inventory.
 
-<a href="screenshots/fing-import.png"><img src="screenshots/fing-import.png" alt="FingVibe synthetic Fing import preview with a sample controller's fields, skipped person assignment, and Select devices and Import all controls" width="680"></a>
+<a href="screenshots/manual/import-review.png"><img src="screenshots/manual/import-review.png" alt="Current synthetic Fing import review with skipped assignment fields and Select devices and Import all controls" width="960"></a>
 
 Native UI-review capture of reviewed changes from the built-in synthetic export,
-not a real workbook or private inventory, cropped to the review cards to exclude
-the test-build ribbon. The three sample devices and proposed
+not a real workbook or private inventory. The complete native window and
+test-build ribbon are unchanged. The three sample devices and proposed
 changes are illustrative. This scrolled view shows a skipped person assignment
 and the final import controls; file selection and analysis are above it.
-[Capture provenance and reproduction](screenshots/README.md#tool-screenshots).
+[Capture provenance and reproduction](manual/screenshots.md).
 
 ## Review and import
 
