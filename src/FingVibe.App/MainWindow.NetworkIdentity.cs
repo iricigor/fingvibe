@@ -22,12 +22,20 @@ public sealed partial class MainWindow
         var networks = IsUiReview
             ? new List<LanNetwork>
             {
-                new(
-                    "UI review loopback",
-                    IPAddress.Loopback,
-                    IPAddress.Loopback,
-                    32,
-                    false)
+                Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_DOCUMENTATION_NETWORK") == "1"
+                    ? new(
+                        "UI review home",
+                        IPAddress.Parse("127.0.0.2"),
+                        IPAddress.Parse("127.0.0.0"),
+                        24,
+                        true,
+                        IPAddress.Loopback)
+                    : new(
+                        "UI review loopback",
+                        IPAddress.Loopback,
+                        IPAddress.Loopback,
+                        32,
+                        false)
             }
             : _networkDiscovery.GetAvailableNetworks();
         if (IsUiReview && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_NO_NETWORK") == "1")

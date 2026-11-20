@@ -20,7 +20,8 @@ $null = New-Item -ItemType Directory -Path $ScreenshotDirectory -Force
 $fixtureDirectory = New-UiRegressionFixtureDirectory -Suite documentation-devices
 $savedEnvironment = @{}
 foreach ($name in @('FINGVIBE_UI_REVIEW', 'FINGVIBE_UI_REVIEW_INVENTORY',
-    'FINGVIBE_UI_REVIEW_SNAPSHOT', 'FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT')) {
+    'FINGVIBE_UI_REVIEW_SNAPSHOT', 'FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT',
+    'FINGVIBE_UI_REVIEW_DOCUMENTATION_NETWORK')) {
     $savedEnvironment[$name] = [Environment]::GetEnvironmentVariable($name)
 }
 $process = $null
@@ -48,6 +49,7 @@ try {
     $env:FINGVIBE_UI_REVIEW_INVENTORY = $fixture.Inventory
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $fixture.Snapshot
     $env:FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT = '1'
+    $env:FINGVIBE_UI_REVIEW_DOCUMENTATION_NETWORK = $null
     $process = Start-Process -FilePath (Resolve-Path -LiteralPath $AppPath).Path -PassThru
     $windowHandle = Wait-UiRegressionWindow -Process $process
     Initialize-UiReviewWindow $windowHandle
@@ -91,10 +93,11 @@ try {
     $process = $null
     $mapDirectory = Join-Path $fixtureDirectory 'room-map'
     $null = New-Item -ItemType Directory -Path $mapDirectory
-    $mapFixture = New-DocumentationDevicesFixture -Directory $mapDirectory -Subnet '127.0.0.1/32'
+    $mapFixture = New-DocumentationDevicesFixture -Directory $mapDirectory
     Add-DocumentationDevicesLink $mapFixture.Inventory
     $env:FINGVIBE_UI_REVIEW_INVENTORY = $mapFixture.Inventory
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = $mapFixture.Snapshot
+    $env:FINGVIBE_UI_REVIEW_DOCUMENTATION_NETWORK = '1'
     $process = Start-Process -FilePath (Resolve-Path -LiteralPath $AppPath).Path -PassThru
     $windowHandle = Wait-UiRegressionWindow -Process $process
     Initialize-UiReviewWindow $windowHandle
@@ -119,11 +122,28 @@ try {
                 $room.Current.IsOffscreen -or $room.Current.BoundingRectangle.IsEmpty
             }).Count -eq 0
     }
+    $hallway = Find-DeviceElement RoomMapRoom-10000000-0000-0000-0000-000000000001
+    $office = Find-DeviceElement RoomMapRoom-10000000-0000-0000-0000-000000000002
+    $gateway = Find-DeviceElement RoomMapDevice-001122550001
+    $localPc = @($root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.Condition]::TrueCondition) | Where-Object {
+            $_.Current.AutomationId -like 'RoomMapDevice-*' -and
+                $_.Current.Name -eq 'Workstation, Online, 127.0.0.2, your device'
+        })
+    $unassigned = Find-DeviceElement RoomMapUnassigned
+    if ($hallway.Current.Name -notlike '*, root room' -or
+        $office.Current.Name -notlike '*, your device is here' -or
+        $gateway.Current.Name -ne 'Home router, Online, 127.0.0.1' -or
+        $localPc.Count -ne 1 -or $localPc[0].Current.IsOffscreen -or
+        $localPc[0].Current.BoundingRectangle.IsEmpty -or
+        $unassigned.Current.IsOffscreen -or $unassigned.Current.BoundingRectangle.IsEmpty) {
+        throw 'The visible map must include its real synthetic gateway, linked local PC and unassigned equipment.'
+    }
     $null = Save-DeviceCapture 'documentation-room-map'
     @{ devices = $names; linkedPc = @{ name = 'Workstation'; macCount = 2; collapsed = $true }
         serviceDiscoveryOnly = @('Kitchen speaker', 'Hue bridge'); width = 1600; height = 900
         roomMap = @{ rooms = @('Hallway', 'Office', 'Living room'); devices = 9; unassigned = 2
-            localPc = 'Review PC'; syntheticSubnet = '127.0.0.1/32' }
+            localPc = 'Workstation'; gateway = 'Home router'; syntheticSubnet = '127.0.0.0/24' }
         source = $env:GITHUB_SHA; run = $env:GITHUB_RUN_ID; attempt = $env:GITHUB_RUN_ATTEMPT } |
         ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $ScreenshotDirectory 'documentation-devices-manifest.json') -Encoding utf8
 }

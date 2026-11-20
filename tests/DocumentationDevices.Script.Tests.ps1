@@ -58,21 +58,23 @@ try {
     }
     $mapDirectory = Join-Path $directory 'room-map'
     $null = New-Item -ItemType Directory -Path $mapDirectory
-    $mapFixture = New-DocumentationDevicesFixture -Directory $mapDirectory -Subnet '127.0.0.1/32'
+    $mapFixture = New-DocumentationDevicesFixture -Directory $mapDirectory
     Add-DocumentationDevicesLink $mapFixture.Inventory
     $mapStore = [FingVibe.Core.Storage.DeviceInventoryStore]::new([IO.Path]::ChangeExtension($mapFixture.Inventory, '.sqlite'))
     $mapMetadata = $mapStore.LoadMetadataAsync($token).GetAwaiter().GetResult()
     $mapSnapshot = [FingVibe.Core.Storage.ScanSnapshotStore]::new($mapFixture.Snapshot).LoadAsync($token).GetAwaiter().GetResult()
     $mapData = $mapMetadata.ObserveCompletedScan('ui-review-network', $mapSnapshot)
-    $network = [FingVibe.Core.Models.LanNetwork]::new('UI review loopback', [Net.IPAddress]::Loopback,
-        [Net.IPAddress]::Loopback, 32, $false)
+    $network = [FingVibe.Core.Models.LanNetwork]::new('UI review home', [Net.IPAddress]::Parse('127.0.0.2'),
+        [Net.IPAddress]::Parse('127.0.0.0'), 24, $true, [Net.IPAddress]::Loopback)
     $projection = [FingVibe.Core.Models.RoomMapProjection]::Create($mapData, $network, 'ui-review-network')
     if ($projection.Devices.Count -ne 9 -or $projection.UnassignedDevices.Count -ne 2 -or
         @($projection.Rooms | Where-Object { -not $_.IsPlaceholder }).Count -ne 3 -or
         @($projection.Devices | Where-Object Name -eq 'Workstation').Count -ne 1 -or
         @($projection.Devices | Where-Object Status -ne 'Online').Count -ne 0 -or
-        @($projection.Devices | Where-Object { $_.IsLocal -and $_.Name -eq 'Review PC' -and $_.Type -eq 'Computer' }).Count -ne 1) {
-        throw 'The actual Room map projection must show three populated rooms and nine devices, counting the linked PC once.'
+        @($projection.Devices | Where-Object { $_.IsLocal -and $_.Name -eq 'Workstation' -and $_.Type -eq 'Computer' }).Count -ne 1 -or
+        @($projection.Devices | Where-Object { $_.IsGateway -and $_.Name -eq 'Home router' -and $_.Type -eq 'Router' }).Count -ne 1 -or
+        $projection.RootRoom.Name -ne 'Hallway' -or $projection.RootRoom.IsPlaceholder) {
+        throw 'The map must show three rooms, nine devices, the Home router gateway and the linked Workstation as this PC.'
     }
     Write-Host 'Documentation Devices fixture/link/service-discovery checks passed without desktop automation.'
 }

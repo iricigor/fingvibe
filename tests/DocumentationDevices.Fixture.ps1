@@ -1,5 +1,4 @@
-function New-DocumentationDevicesFixture([string] $Directory, [DateTimeOffset] $Time = [DateTimeOffset]::UtcNow.AddMinutes(-1),
-    [string] $Subnet = '127.0.0.0/24') {
+function New-DocumentationDevicesFixture([string] $Directory, [DateTimeOffset] $Time = [DateTimeOffset]::UtcNow.AddMinutes(-1)) {
     $seen = $Time.ToString('o')
     $devices = @{}
     $results = [Collections.Generic.List[object]]::new()
@@ -26,12 +25,7 @@ function New-DocumentationDevicesFixture([string] $Directory, [DateTimeOffset] $
             observedAt = $seen; verification = $Verification
         }
     }
-    if ($Subnet -eq '127.0.0.1/32') {
-        # The review interface identifies .1 as this PC, not a discovered router.
-        Add-DocumentationDevice 1 'Review PC' 1 1 1 @(@{ port = 443; serviceName = 'HTTPS' })
-    } else {
-        Add-DocumentationDevice 1 'Home router' 4 3 1 @(@{ port = 443; serviceName = 'HTTPS' })
-    }
+    Add-DocumentationDevice 1 'Home router' 4 3 1 @(@{ port = 443; serviceName = 'HTTPS' })
     Add-DocumentationDevice 2 'Workstation Ethernet' 1 1 3 @(@{ port = 445; serviceName = 'SMB' })
     Add-DocumentationDevice 3 'Workstation Wi-Fi' 1 1 6 @(@{ port = 445; serviceName = 'SMB' })
     Add-DocumentationDevice 4 'Android phone' 2 2 12
@@ -63,7 +57,7 @@ function New-DocumentationDevicesFixture([string] $Directory, [DateTimeOffset] $
         peopleRooms = @{ people = @(); rooms = $rooms; assignments = $assignments }
         virtualDevices = @(); discoveryBaselines = @()
     } } | ConvertTo-Json -Depth 16 | Set-Content -LiteralPath $inventory -Encoding utf8
-    @{ version = 4; subnet = $Subnet; completedAt = $seen; duration = '00:00:02.500'
+    @{ version = 4; subnet = '127.0.0.0/24'; completedAt = $seen; duration = '00:00:02.500'
         results = @($results.ToArray()) } |
         ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $snapshot -Encoding utf8
     return @{ Inventory = $inventory; Snapshot = $snapshot }

@@ -104,6 +104,9 @@ two-NIC PC. Its native assertions require all nine rows, SD indicators, `--`
 response times and a collapsed PC chevron before saving the image and manifest.
 A second isolated instance captures the populated Room map with three rooms,
 the linked PC counted once and two unassigned devices.
+Only that second instance opts into `FINGVIBE_UI_REVIEW_DOCUMENTATION_NETWORK=1`:
+a synthetic loopback `/24` with Workstation at `.2` as this PC and Home router at
+`.1` as gateway. Normal network discovery and default loopback review are unchanged.
 Normal PR captures and existing regression fixtures/groups are unchanged.
 
 ## Related work
