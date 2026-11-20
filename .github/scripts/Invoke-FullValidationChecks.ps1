@@ -50,7 +50,12 @@ foreach ($name in @(
     "LogoDevConfiguration", "BuildIdentity.Metadata", "Installer.Script", "GitleaksDownload", "DownloadRelease"
 )) {
     Invoke-FullCheck $name {
-        & (Join-Path $SourceDirectory "tests\$name.Tests.ps1")
+        $hostName = if ($PSVersionTable.PSEdition -eq "Desktop") { "powershell.exe" } else { "pwsh.exe" }
+        $hostPath = Join-Path $PSHOME $hostName
+        $scriptPath = Join-Path $SourceDirectory "tests\$name.Tests.ps1"
+        & $hostPath -NoLogo -NoProfile -NonInteractive -File $scriptPath 2>&1 |
+            ForEach-Object { Write-Host $_ }
+        if ($LASTEXITCODE -ne 0) { throw "Script check '$name' failed with exit code $LASTEXITCODE." }
     }
 }
 Invoke-FullCheck "secrets" {

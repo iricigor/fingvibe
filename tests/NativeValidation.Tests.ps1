@@ -52,7 +52,7 @@ foreach ($mode in @("Baseline", "Full")) {
     }
 }
 
-$fixture = Join-Path ([IO.Path]::GetTempPath()) "fingvibe-native-modes-$([Guid]::NewGuid())"
+$fixture = Join-Path ([IO.Path]::GetTempPath()) "fingvibe native modes $([Guid]::NewGuid())"
 $saved = @{}
 $dispatchSource = Get-Content (Join-Path $PSScriptRoot "..\.github\scripts\Invoke-UiRegression.ps1") -Raw
 $expectedChecks = @([regex]::Matches($dispatchSource, 'Invoke-RegressionCheck "([^"]+)"') |
@@ -65,7 +65,7 @@ foreach ($name in @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui
 try {
     foreach ($name in @("NATIVE_TEST_CALLS", "NATIVE_TEST_FAIL", "GITHUB_STEP_SUMMARY",
         "FINGVIBE_UI_REVIEW", "FINGVIBE_UI_REVIEW_INVENTORY", "FINGVIBE_UI_REVIEW_SNAPSHOT",
-        "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT")) {
+        "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT", "NATIVE_SCRIPT_SOURCE", "NATIVE_SCRIPT_STATE")) {
         $saved[$name] = [Environment]::GetEnvironmentVariable($name)
     }
     $scripts = Join-Path $fixture ".github\scripts"
@@ -144,14 +144,32 @@ if ($env:NATIVE_TEST_FAIL -eq $name) { throw "Simulated native failure: $name" }
 param($Version, $ArchiveName, $ArchivePath, $ChecksumsName, $ChecksumsPath)
 throw "Simulated secret asset failure"
 '@ | Set-Content -LiteralPath (Join-Path $scripts "Download-Gitleaks.ps1")
-    foreach ($name in @("UiReviewScenarios", "UiRegression.Helpers", "AdditionalServices.Script",
+    $scriptChecks = @("UiReviewScenarios", "UiRegression.Helpers", "AdditionalServices.Script",
         "SqlEditor.Script", "UsageCategory.Script", "DeviceActivity.Script", "NetworkActivity.Script", "EquipmentActivity.Script", "PrValidation",
-        "DispatcherGate", "LogoDevConfiguration", "BuildIdentity.Metadata", "Installer.Script", "GitleaksDownload", "DownloadRelease")) {
+        "DispatcherGate", "LogoDevConfiguration", "BuildIdentity.Metadata", "Installer.Script", "GitleaksDownload", "DownloadRelease")
+    foreach ($name in $scriptChecks) {
         @'
 $name = [IO.Path]::GetFileName($PSCommandPath).Replace(".Tests.ps1", "")
+if ((Get-Location).Path -ne $env:NATIVE_SCRIPT_SOURCE) { throw "Incorrect child source directory." }
+if ($env:NATIVE_SCRIPT_STATE -ne "inherited") { throw "Earlier child leaked environment state." }
+if (Get-Variable FullCheckState -Scope Global -ErrorAction SilentlyContinue) { throw "Earlier child leaked a variable." }
+if (Test-Path Function:\FullCheckMock) { throw "Earlier child leaked a function." }
+if ((Get-Command node).CommandType -ne "Application") { throw "Parent command mock leaked into child." }
+if ($name -in @("UiRegression.Helpers", "AdditionalServices.Script")) {
+    $expected = if ($name -eq "UiRegression.Helpers") { 1 } else { 2 }
+    Add-Type "public static class FullCheckDuplicateType { public static int Value = $expected; }"
+    if ([FullCheckDuplicateType]::Value -ne $expected) { throw "Earlier child type was reused." }
+    Write-Host "$name isolated type value: $expected"
+}
+$global:FullCheckState = "child state"
+function global:FullCheckMock {}
+$env:NATIVE_SCRIPT_STATE = "child state"
 if ($name -eq "PrValidation") { throw "Simulated independent script failure" }
+if ($name -eq "DownloadRelease") { Write-Host "Simulated child exit"; exit 23 }
 '@ | Set-Content -LiteralPath (Join-Path $fixture "tests\$name.Tests.ps1")
     }
+    $env:NATIVE_SCRIPT_SOURCE = $fixture
+    $env:NATIVE_SCRIPT_STATE = "inherited"
     $savedExitCode = $global:LASTEXITCODE
     function dotnet {
         $global:LASTEXITCODE = 0
@@ -159,21 +177,55 @@ if ($name -eq "PrValidation") { throw "Simulated independent script failure" }
         if ($args[0] -eq "list") { '{"projects":[]}' }
     }
     function node { $global:LASTEXITCODE = 0 }
+    $script:fullCheckHostLookups = 0
+    function Join-Path {
+        param($Path, $ChildPath)
+        if ($Path -eq $PSHOME -and $ChildPath -in @("pwsh.exe", "powershell.exe")) {
+            $script:fullCheckHostLookups++
+            if ($script:fullCheckHostLookups -eq 4) {
+                return Microsoft.PowerShell.Management\Join-Path $fixture "missing-host.exe"
+            }
+        }
+        Microsoft.PowerShell.Management\Join-Path -Path $Path -ChildPath $ChildPath
+    }
     try {
         $logDirectory = Join-Path $fixture "checks"
         Assert-NativeThrows {
             & (Join-Path $scripts "Invoke-FullValidationChecks.ps1") -SourceDirectory $fixture -LogDirectory $logDirectory
         } "*Full non-UI validation failed*"
-        $checkResults = @(Get-Content (Join-Path $logDirectory "checks.json") -Raw | ConvertFrom-Json)
-        Assert-NativeEqual @($checkResults | Where-Object result -eq failure).name @("core", "PrValidation", "secrets") "Independent full failures are explicit"
+        $checkResults = Get-Content (Join-Path $logDirectory "checks.json") -Raw | ConvertFrom-Json
+        Assert-NativeEqual $checkResults.name (@("core", "speed-test") + $scriptChecks + @("secrets", "dependencies")) "Existing check catalog/order remains unchanged"
+        Assert-NativeEqual @($checkResults | Where-Object result -eq failure).name @("core", "SqlEditor.Script", "PrValidation", "DownloadRelease", "secrets") "Child launch, terminating error and nonzero exit failures are explicit"
+        Assert-NativeEqual @($checkResults | Where-Object name -in @("UiRegression.Helpers", "AdditionalServices.Script")).result @("success", "success") "Duplicate types execute with independent implementations"
         Assert-NativeEqual $checkResults[-1].name dependencies "Earlier failures must not hide independent checks"
         Assert-NativeEqual $checkResults[-1].result success "Dependency check must run after secret failure"
-        if ((Get-Content (Join-Path $logDirectory "PrValidation.log") -Raw) -notmatch "Simulated independent script failure") {
-            throw "Full non-UI diagnostics must retain the original failure."
+        Assert-NativeEqual $env:NATIVE_SCRIPT_STATE inherited "Child environment mutations cannot affect the parent"
+        foreach ($entry in $checkResults) {
+            Assert-NativeEqual $entry.PSObject.Properties.Name @("name", "result", "seconds") "Check evidence schema remains unchanged"
+            if ($entry.seconds -lt 0) {
+                throw "Named check results must retain the existing timing/schema contract."
+            }
+            if (-not (Test-Path -LiteralPath (Join-Path $logDirectory "$($entry.name).log"))) {
+                throw "Missing named check transcript: $($entry.name)"
+            }
+            if ((Get-Content $env:GITHUB_STEP_SUMMARY -Raw) -notmatch "$([regex]::Escape($entry.name)) : $($entry.result), [0-9.]+ seconds") {
+                throw "Missing named check timing in the step summary: $($entry.name)"
+            }
+        }
+        foreach ($diagnostic in @{
+            "UiRegression.Helpers" = "isolated type value: 1"
+            "AdditionalServices.Script" = "isolated type value: 2"
+            "SqlEditor.Script" = "missing-host.exe"
+            "PrValidation" = "Simulated independent script failure"
+            "DownloadRelease" = "Simulated child exit[\s\S]*exit code 23"
+        }.GetEnumerator()) {
+            if ((Get-Content (Join-Path $logDirectory "$($diagnostic.Key).log") -Raw) -notmatch $diagnostic.Value) {
+                throw "Full non-UI diagnostics must retain the original output/failure: $($diagnostic.Key)"
+            }
         }
     }
     finally {
-        Remove-Item Function:\dotnet, Function:\node
+        Remove-Item Function:\dotnet, Function:\node, Function:\Join-Path
         $global:LASTEXITCODE = $savedExitCode
     }
 }
