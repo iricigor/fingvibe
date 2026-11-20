@@ -84,7 +84,20 @@ public sealed partial class NetworkHealthPage : UserControl
         if (_runTask is { } run) await run;
         if (!_open) return;
         RefreshNetworks(_shellNetwork);
-        RunButton.Focus(FocusState.Programmatic);
+        FocusRunButton();
+    }
+
+    private void FocusRunButton()
+    {
+        if (RunButton.Focus(FocusState.Programmatic)) return;
+        // The page was collapsed until this open, so focus can only land after its first layout passes.
+        var attempts = 0;
+        void Retry(object? sender, object args)
+        {
+            if (!_open || !IsLoaded || RunButton.Focus(FocusState.Programmatic) || ++attempts >= 3)
+                RunButton.LayoutUpdated -= Retry;
+        }
+        RunButton.LayoutUpdated += Retry;
     }
 
     private void RoomMapButton_Click(object sender, RoutedEventArgs e) =>
