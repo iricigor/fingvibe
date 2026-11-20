@@ -59,6 +59,7 @@ public sealed partial class MainWindow
         {
             SettingsPage.NetworkMonitorChanged -= SettingsPage_NetworkMonitorChanged;
             _networkMonitorScheduler.StatusChanged -= NetworkMonitorScheduler_StatusChanged;
+            StopIncidentDiagnosticsForClose();
             _ = _networkMonitorController.ShutdownAsync();
         };
         UpdateNetworkMonitorPresentation();
@@ -93,6 +94,11 @@ public sealed partial class MainWindow
         SaveNetworkMonitorSettings(settings);
         var applied = _networkMonitorController.ApplyAsync(settings);
         UpdateNetworkMonitorPresentation();
+        if (!settings.IsEnabled)
+        {
+            await StopIncidentDiagnosticsAsync("monitoring was turned off");
+        }
+
         await applied;
         UpdateNetworkMonitorPresentation();
     }
@@ -136,8 +142,13 @@ public sealed partial class MainWindow
 
         _networkHealth.Reset();
         var selected = NetworkPicker.SelectedItem as LanNetwork;
-        QueueNetworkIncidentChanges(_networkIncidents.ContextChanged(
-            selected is null ? null : NetworkHealthContextKey(selected, MonitorNetworkId(selected)), DateTimeOffset.UtcNow));
+        var context = selected is null ? null : NetworkHealthContextKey(selected, MonitorNetworkId(selected));
+        QueueNetworkIncidentChanges(_networkIncidents.ContextChanged(context, DateTimeOffset.UtcNow));
+        if (_incidentDiagnosticsLatest is { } running && running.ContextKey != context)
+        {
+            await StopIncidentDiagnosticsAsync("the selected network changed");
+        }
+
         await _networkMonitorController.RefreshContextAsync();
         UpdateNetworkMonitorPresentation();
     }
@@ -241,11 +252,17 @@ public sealed partial class MainWindow
         // Windows chooses routing: with several active gateway routes (VPN or multiple adapters), the checks may
         // not traverse the selected LAN, so the verdict is reported as uncertain instead of judging that LAN.
         var routes = (NetworkPicker.ItemsSource as IEnumerable<LanNetwork>)?.Count(item => item.HasGateway) ?? 0;
-        QueueNetworkIncidentChanges(_networkIncidents.Evaluate(
+        var update = _networkIncidents.Evaluate(
             observation,
             NetworkHealthContextKey(network, networkId),
             network.DisplayLabel,
-            routes > 1).Changed);
+            routes > 1);
+        QueueNetworkIncidentChanges(update.Changed);
+        if (update.Confirmed is { } confirmed)
+        {
+            // Once per confirmed incident, never on later checks, restarts or when viewing history.
+            QueueIncidentDiagnostics(confirmed, network);
+        }
     }
 
     private static string NetworkHealthContextKey(LanNetwork network, string? networkId) =>

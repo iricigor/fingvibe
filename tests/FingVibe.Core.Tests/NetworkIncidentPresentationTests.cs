@@ -78,6 +78,62 @@ public sealed class NetworkIncidentPresentationTests
             NetworkIncidentPresentation.Summary([], now, TimeZoneInfo.Utc, Culture));
     }
 
+    [Fact]
+    public void EvidenceIsLabelledAsTimestampedHistoryWithChecksAndTrace()
+    {
+        var incident = Incident(NetworkIncidentState.Ongoing);
+        var evidence = new NetworkIncidentEvidence(incident.Id, incident.ContextKey, incident.NetworkLabel, Start.AddSeconds(31))
+        {
+            Outcome = NetworkEvidenceOutcome.Complete,
+            CompletedAt = Start.AddSeconds(52),
+            Observations = [new(FingVibe.Core.Models.DiagnosticCheckpoint.Gateway, "192.168.0.1",
+                FingVibe.Core.Models.DiagnosticState.Responded, "Reply", System.Net.IPAddress.Parse("192.168.0.1"), 3)],
+            Hops = [new(1, new(FingVibe.Core.Models.DiagnosticCheckpoint.Hop2, "1.1.1.1",
+                FingVibe.Core.Models.DiagnosticState.Responded, "Reply", System.Net.IPAddress.Parse("1.1.1.1"), 9), true)],
+            TraceComplete = true,
+            SummaryStatus = "All good",
+            SummaryExplanation = "The checks passed."
+        };
+        var view = NetworkIncidentPresentation.Evidence(incident, evidence, Start.AddHours(1), TimeZoneInfo.Utc, Culture);
+
+        Assert.Equal("Saved evidence from Wi-Fi - 192.168.0.10 (192.168.0.0/24), collected today 09:00:31 to today 09:00:52. " +
+            "This is history, not current status; viewing it sends no probes.", view.Context);
+        Assert.Equal("Complete: every check finished within the 45-second limit.", view.Outcome);
+        Assert.Equal("All good: The checks passed.", view.Summary);
+        Assert.Equal(("Default gateway LAN IPv4", "192.168.0.1 | Responded | Reply | response from 192.168.0.1 | 3 ms"),
+            (view.Checks[0].Label, view.Checks[0].Result));
+        Assert.StartsWith("Traceroute toward 1.1.1.1: destination reached at hop 1.", view.Trace);
+        Assert.Equal(("Hop 1", "Responded: 1.1.1.1, 9 ms"), (view.Hops[0].Label, view.Hops[0].Result));
+        Assert.EndsWith("Deeper diagnostics: complete.",
+            Assert.Single(NetworkIncidentPresentation.Rows([incident],
+                new Dictionary<Guid, NetworkIncidentEvidence> { [incident.Id] = evidence }, Start, TimeZoneInfo.Utc, Culture))
+                .AccessibleName);
+    }
+
+    [Fact]
+    public void PartialNotRunAndMissingEvidenceExplainThemselves()
+    {
+        var incident = Incident(NetworkIncidentState.Recovered);
+        var started = new NetworkIncidentEvidence(incident.Id, incident.ContextKey, incident.NetworkLabel, Start);
+        var partial = NetworkIncidentPresentation.Evidence(incident, started with
+        {
+            Outcome = NetworkEvidenceOutcome.Partial, CompletedAt = Start, Detail = NetworkIncidentDiagnostics.LimitReason
+        }, Start, TimeZoneInfo.Utc, Culture);
+        Assert.Equal($"Partial: {NetworkIncidentDiagnostics.LimitReason}", partial.Outcome);
+        Assert.Equal("Traceroute toward 1.1.1.1: no hops were observed.", partial.Trace);
+        Assert.DoesNotContain(" to today", partial.Context, StringComparison.Ordinal);
+
+        var notRun = NetworkIncidentPresentation.Evidence(incident, started with
+        {
+            Outcome = NetworkEvidenceOutcome.NotRun, CompletedAt = Start, Detail = "Not run because a LAN scan was in progress."
+        }, Start, TimeZoneInfo.Utc, Culture);
+        Assert.Equal(("Not run because a LAN scan was in progress.", (string?)null), (notRun.Outcome, notRun.Trace));
+
+        var none = NetworkIncidentPresentation.Evidence(incident, null, Start, TimeZoneInfo.Utc, Culture);
+        Assert.StartsWith("No deeper diagnostic evidence is saved for this incident.", none.Outcome);
+        Assert.Empty(none.Checks);
+    }
+
     [Theory]
     [InlineData(30, "under a minute")]
     [InlineData(90, "1 min")]

@@ -74,8 +74,9 @@ public sealed partial class ToolsPage : UserControl
 
     internal void ShowNetworkMonitor(NetworkMonitorView view) => NetworkHealthView.ShowNetworkMonitor(view);
 
-    internal void ShowIncidentHistory(IReadOnlyList<NetworkIncidentRow> rows, string? storageMessage) =>
-        NetworkHealthView.ShowIncidentHistory(rows, storageMessage);
+    internal void ShowIncidentHistory(IReadOnlyList<NetworkIncidentRow> rows,
+        IReadOnlyDictionary<Guid, NetworkEvidenceView> evidence, string? storageMessage) =>
+        NetworkHealthView.ShowIncidentHistory(rows, evidence, storageMessage);
 
     public async Task StopForNavigationAsync()
     {

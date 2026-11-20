@@ -106,7 +106,34 @@
                                AutomationProperties.AutomationId="NetworkIncidentStorage" AutomationProperties.LiveSetting="Polite" />
                     <TextBlock x:Name="IncidentEmptyText" TextWrapping="Wrap" AutomationProperties.AutomationId="NetworkIncidentEmpty"
                                Text="No confirmed incidents are saved. Background monitoring records an incident after two suspicious checks in a row." />
-                    <StackPanel x:Name="IncidentRows" Spacing="10" />
+                    <Grid x:Name="IncidentLayout" ColumnSpacing="24" RowSpacing="16" SizeChanged="IncidentLayout_SizeChanged">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition x:Name="IncidentEvidenceColumn" Width="1.2*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <ListView x:Name="IncidentList" SelectionMode="Single" SelectionChanged="IncidentList_SelectionChanged"
+                                  ScrollViewer.VerticalScrollMode="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                  AutomationProperties.AutomationId="NetworkIncidentList" AutomationProperties.Name="Saved incidents, newest first" />
+                        <StackPanel x:Name="IncidentEvidencePanel" Grid.Column="1" Spacing="6"
+                                    AutomationProperties.AutomationId="NetworkIncidentEvidence" AutomationProperties.Name="Saved incident evidence">
+                            <TextBlock Text="Saved evidence" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock x:Name="IncidentEvidenceContext" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       AutomationProperties.AutomationId="NetworkIncidentEvidenceContext"
+                                       Text="Select an incident to view its saved deeper diagnostic evidence. Viewing evidence sends no probes." />
+                            <TextBlock x:Name="IncidentEvidenceOutcome" TextWrapping="Wrap" Visibility="Collapsed"
+                                       AutomationProperties.AutomationId="NetworkIncidentEvidenceOutcome" AutomationProperties.LiveSetting="Polite" />
+                            <TextBlock x:Name="IncidentEvidenceSummary" TextWrapping="Wrap" FontWeight="SemiBold" Visibility="Collapsed"
+                                       AutomationProperties.AutomationId="NetworkIncidentEvidenceSummary" />
+                            <StackPanel x:Name="IncidentEvidenceChecks" Spacing="2" />
+                            <TextBlock x:Name="IncidentEvidenceTrace" TextWrapping="Wrap" Visibility="Collapsed"
+                                       AutomationProperties.AutomationId="NetworkIncidentEvidenceTrace" />
+                            <StackPanel x:Name="IncidentEvidenceHops" Spacing="2" />
+                        </StackPanel>
+                    </Grid>
                 </StackPanel>
             </Border>
             <StackPanel Spacing="4">

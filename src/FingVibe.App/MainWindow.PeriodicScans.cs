@@ -164,6 +164,7 @@ public sealed partial class MainWindow
             if (status == SystemSuspendStatus.Entering)
             {
                 QueueNetworkIncidentChanges(_networkIncidents.BeginGap(NetworkObservationGapReason.Sleep, DateTimeOffset.UtcNow));
+                await StopIncidentDiagnosticsAsync("the PC went to sleep");
             }
 
             await change();

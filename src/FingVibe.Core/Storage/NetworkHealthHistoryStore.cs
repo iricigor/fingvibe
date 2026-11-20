@@ -7,9 +7,10 @@ using Microsoft.Data.Sqlite;
 namespace FingVibe.Core.Storage;
 
 /// <summary>
-/// Owns the network incident, observation-gap and recovery-progress tables inside the existing device inventory
-/// database. Each load or save is one short SQLite transaction; inventory rows and its revision are never touched,
-/// and this store never creates the inventory database itself.
+/// Owns the network incident, observation-gap, recovery-progress and incident-evidence tables inside the existing
+/// device inventory database. Each load, save or prune is one short SQLite transaction; inventory rows and its revision
+/// are never touched, and this store never creates the inventory database itself. Inventory backups copy the whole
+/// database, so these tables are included in them.
 /// </summary>
 public sealed class NetworkHealthHistoryStore
 {
@@ -18,7 +19,7 @@ public sealed class NetworkHealthHistoryStore
 
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
     {
-        Converters = { new JsonStringEnumConverter() }
+        Converters = { new JsonStringEnumConverter(), new IPAddressConverter() }
     };
 
     private readonly string _databasePath;
@@ -40,14 +41,19 @@ public sealed class NetworkHealthHistoryStore
             return incidents;
         }, cancellationToken);
 
-    /// <summary>Writes the changed incidents with their gaps and recovery progress in one transaction.</summary>
+    /// <summary>Writes the changed incidents with their gaps, recovery progress and evidence in one transaction.</summary>
+    /// <param name="evidence">Deeper diagnostic evidence; each must reference a saved or co-saved incident.</param>
     /// <returns>False, without writing, when the inventory database does not exist yet.</returns>
-    public async Task<bool> SaveAsync(IReadOnlyCollection<NetworkIncident> incidents, CancellationToken cancellationToken = default)
+    public async Task<bool> SaveAsync(IReadOnlyCollection<NetworkIncident> incidents,
+        IReadOnlyCollection<NetworkIncidentEvidence>? evidence = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(incidents);
+        evidence ??= [];
         foreach (var incident in incidents) Validate(incident);
-        if (incidents.GroupBy(item => item.Id).Any(group => group.Count() > 1))
-            throw new ArgumentException("Each incident can be saved once per save.", nameof(incidents));
+        foreach (var item in evidence) Validate(item);
+        if (incidents.GroupBy(item => item.Id).Any(group => group.Count() > 1)
+            || evidence.GroupBy(item => item.IncidentId).Any(group => group.Count() > 1))
+            throw new ArgumentException("Each incident and its evidence can be saved once per save.", nameof(incidents));
         return await RunAsync<bool?>(connection =>
         {
             using var transaction = connection.BeginTransaction();
@@ -58,11 +64,83 @@ public sealed class NetworkHealthHistoryStore
                 cancellationToken.ThrowIfCancellationRequested();
                 Write(connection, transaction, incident);
             }
+            foreach (var item in evidence)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Write(connection, transaction, item);
+            }
             cancellationToken.ThrowIfCancellationRequested();
             transaction.Commit();
             return true;
         }, cancellationToken) ?? false;
     }
+
+    /// <summary>Saved deeper diagnostic evidence, or null when the inventory database does not exist yet.</summary>
+    public Task<IReadOnlyList<NetworkIncidentEvidence>?> LoadEvidenceAsync(CancellationToken cancellationToken = default) =>
+        RunAsync<IReadOnlyList<NetworkIncidentEvidence>?>(connection =>
+        {
+            using var transaction = connection.BeginTransaction();
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText = """
+                SELECT e.incident_id,e.context_key,e.outcome,e.data,i.context_key FROM network_incident_evidence e
+                LEFT JOIN network_incidents i ON i.id=e.incident_id ORDER BY e.started_at
+                """;
+            var evidence = new List<NetworkIncidentEvidence>();
+            using (var reader = command.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var item = JsonSerializer.Deserialize<NetworkIncidentEvidence>(reader.GetString(3), Options)
+                        ?? throw new InvalidDataException("Saved incident evidence is missing.");
+                    if (reader.IsDBNull(4) || item.IncidentId.ToString("D") != reader.GetString(0)
+                        || item.ContextKey != reader.GetString(1) || item.ContextKey != reader.GetString(4)
+                        || item.Outcome.ToString() != reader.GetString(2))
+                        throw new InvalidDataException("Saved incident evidence does not match its incident.");
+                    Validate(item);
+                    evidence.Add(item);
+                }
+            }
+            transaction.Commit();
+            return evidence;
+        }, cancellationToken);
+
+    /// <summary>
+    /// Applies retention: removes recovered incidents whose recovery was observed more than 90 days ago, then the
+    /// oldest recovered incidents beyond 1,000. Their evidence, gaps and progress are removed with them. Ongoing and
+    /// recovery-unknown incidents, inventory and scan history are never removed.
+    /// </summary>
+    /// <returns>The removed incident identities, or null when the inventory database does not exist yet.</returns>
+    public Task<IReadOnlyList<Guid>?> PruneAsync(DateTimeOffset now, CancellationToken cancellationToken = default) =>
+        RunAsync<IReadOnlyList<Guid>?>(connection =>
+        {
+            using var transaction = connection.BeginTransaction();
+            var recovered = new List<(string Id, DateTimeOffset RecoveredAt, long FirstTicks)>();
+            using (var command = connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+                command.CommandText = "SELECT id,recovered_at,first_observed_ticks FROM network_incidents WHERE state='recovered'";
+                using var reader = command.ExecuteReader();
+                while (reader.Read())
+                    recovered.Add((reader.GetString(0), ParseTime(reader.GetString(1)), reader.GetInt64(2)));
+            }
+            var cutoff = now - RetentionPeriod;
+            var newestFirst = recovered.OrderByDescending(item => item.RecoveredAt).ThenByDescending(item => item.FirstTicks).ToList();
+            var removed = newestFirst.Where((item, index) => item.RecoveredAt < cutoff || index >= MaximumResolvedIncidents)
+                .Select(item => item.Id).ToList();
+            foreach (var id in removed)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                DeviceInventoryStore.Execute(connection, transaction,
+                    "DELETE FROM network_incidents WHERE id=$id AND state='recovered'", ("$id", id));
+            }
+            transaction.Commit();
+            return removed.Select(Guid.Parse).ToList();
+        }, cancellationToken);
+
+    public static readonly TimeSpan RetentionPeriod = TimeSpan.FromDays(90);
+    public const int MaximumResolvedIncidents = 1000;
 
     private async Task<T?> RunAsync<T>(Func<SqliteConnection, T> action, CancellationToken cancellationToken)
     {
@@ -129,6 +207,14 @@ public sealed class NetworkHealthHistoryStore
                 healthy_checks INTEGER NOT NULL CHECK(healthy_checks BETWEEN 0 AND 4),
                 gap_since_problem INTEGER NOT NULL CHECK(gap_since_problem IN (0,1)),
                 updated_at TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS network_incident_evidence (
+                incident_id TEXT PRIMARY KEY REFERENCES network_incidents(id) ON DELETE CASCADE,
+                context_key TEXT NOT NULL,
+                outcome TEXT NOT NULL CHECK(outcome IN ('Running','Complete','Partial','NotRun','Failed')),
+                started_at TEXT NOT NULL,
+                completed_at TEXT,
+                data TEXT NOT NULL,
+                CHECK((outcome='Running') = (completed_at IS NULL)));
             """);
         transaction.Commit();
     }
@@ -251,6 +337,52 @@ public sealed class NetworkHealthHistoryStore
         }
         if (progress.Count > 0) throw new InvalidDataException("Saved recovery progress has no matching incident.");
         return incidents;
+    }
+
+    private static void Write(SqliteConnection connection, SqliteTransaction transaction, NetworkIncidentEvidence evidence)
+    {
+        var id = evidence.IncidentId.ToString("D");
+        using (var incident = connection.CreateCommand())
+        {
+            incident.Transaction = transaction;
+            incident.CommandText = """
+                SELECT i.context_key, e.outcome FROM network_incidents i
+                LEFT JOIN network_incident_evidence e ON e.incident_id=i.id WHERE i.id=$id
+                """;
+            incident.Parameters.AddWithValue("$id", id);
+            using var reader = incident.ExecuteReader();
+            if (!reader.Read() || reader.GetString(0) != evidence.ContextKey)
+                throw new InvalidOperationException("Incident evidence must be attached to its saved incident and network.");
+            // Evidence is collected once per incident: only a still-running record can be completed.
+            if (!reader.IsDBNull(1) && reader.GetString(1) != nameof(NetworkEvidenceOutcome.Running))
+                throw new InvalidOperationException("Saved incident evidence is final and cannot be replaced.");
+        }
+        DeviceInventoryStore.Execute(connection, transaction, """
+            INSERT INTO network_incident_evidence VALUES($id,$context,$outcome,$started,$completed,$data)
+            ON CONFLICT(incident_id) DO UPDATE SET outcome=excluded.outcome, completed_at=excluded.completed_at, data=excluded.data
+            """, ("$id", id), ("$context", evidence.ContextKey), ("$outcome", evidence.Outcome.ToString()),
+            ("$started", Time(evidence.StartedAt)),
+            ("$completed", evidence.CompletedAt is { } completed ? Time(completed) : null),
+            ("$data", JsonSerializer.Serialize(evidence, Options)));
+    }
+
+    private static void Validate(NetworkIncidentEvidence evidence)
+    {
+        if (evidence.IncidentId == Guid.Empty || string.IsNullOrWhiteSpace(evidence.ContextKey) || evidence.NetworkLabel is null
+            || (evidence.Outcome == NetworkEvidenceOutcome.Running) != (evidence.CompletedAt is null)
+            || evidence.CompletedAt < evidence.StartedAt
+            || evidence.Outcome is NetworkEvidenceOutcome.Partial or NetworkEvidenceOutcome.NotRun or NetworkEvidenceOutcome.Failed
+                && string.IsNullOrWhiteSpace(evidence.Detail))
+            throw new InvalidDataException("The incident evidence record is incomplete or inconsistent.");
+    }
+
+    private sealed class IPAddressConverter : JsonConverter<System.Net.IPAddress>
+    {
+        public override System.Net.IPAddress? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+            reader.TokenType == JsonTokenType.Null ? null : System.Net.IPAddress.Parse(reader.GetString()!);
+
+        public override void Write(Utf8JsonWriter writer, System.Net.IPAddress value, JsonSerializerOptions options) =>
+            writer.WriteStringValue(value.ToString());
     }
 
     private static void Validate(NetworkIncident incident)

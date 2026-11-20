@@ -22,6 +22,9 @@ public sealed class NetworkMonitorPresentationTests
         Assert.Contains("including its cache", NetworkMonitorPresentation.Disclosure);
         Assert.Contains("public DNS resolvers", NetworkMonitorPresentation.Disclosure);
         Assert.Contains("User-started network work takes priority", NetworkMonitorPresentation.Disclosure);
+        Assert.Contains("one deeper check", NetworkMonitorPresentation.Disclosure);
+        Assert.Contains("traceroute toward 1.1.1.1", NetworkMonitorPresentation.Disclosure);
+        Assert.Contains("45 seconds", NetworkMonitorPresentation.Disclosure);
     }
 
     [Fact]
