@@ -1,5 +1,10 @@
 # Documentation screenshots
 
+The images described below are historical captures. Current README and manual
+illustrations use the v1.4.223-compatible native captures documented in
+[Screenshot sources](../manual/screenshots.md). Keep the original records below
+as provenance, not current workflow instructions.
+
 ## Devices screenshot
 
 `devices.png` is a complete, unedited native Devices-page capture, not a mockup.

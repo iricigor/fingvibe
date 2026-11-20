@@ -172,11 +172,11 @@ unreadable rather than healthy.
 6. Choose **Run diagnostics** at the top of the page.
 7. Read each checkpoint and the traceroute result.
 
-[![Earlier Network troubleshooting layout with sample adapter context, optional WAN input, and Run checks](../screenshots/manual/network-checks.png)](../screenshots/manual/network-checks.png)
+[![Current Network health with Monitoring off, Run diagnostics, Service status and empty incident history](../screenshots/manual/network-checks.png)](../screenshots/manual/network-checks.png)
 
-*Safe UI-review ready state of the earlier layout; the button is now named
-**Run diagnostics** and sits above the diagram. Review mode disables actual
-diagnostic probes. That test-only restriction does not apply to a normal release.
+*Safe UI-review ready state with no completed checks or incidents.
+Review mode disables actual diagnostic probes; that test-only restriction does
+not apply to a normal release.
 [Screenshot sources](screenshots.md).*
 
 **Cancel**, leaving the page, changing its network context, or closing the app

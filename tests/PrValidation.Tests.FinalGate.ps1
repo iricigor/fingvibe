@@ -12,22 +12,27 @@ foreach ($wrapper in @(
         Directory = "artifacts\ui-assignments"; Log = "assignments.log"; Precreated = $false }
     @{ Step = "Capture required views"; Upload = "Upload UI review captures"; Part = "Capture"
         Directory = "artifacts\ui-review"; Log = "capture.log"; Precreated = $true }
+    @{ Step = "Capture documentation Devices and Room map showcase"; Upload = "Upload UI review captures"; Part = "Showcase"
+        Directory = "artifacts\ui-review"; Log = "documentation-devices.log"; Precreated = $true }
 )) {
-    $smokeMatch = [regex]::Match($workflow, '(?s)- name: ' + [regex]::Escape($wrapper.Step) + '.*?run: \|\r?\n(.*?)\r?\n      - name: ' + [regex]::Escape($wrapper.Upload))
+    $smokeMatch = [regex]::Match($workflow, '(?s)- name: ' + [regex]::Escape($wrapper.Step) + '.*?run: \|\r?\n(.*?)(?=\r?\n      - name: |\z)')
     if (-not $smokeMatch.Success) { throw "UI $($wrapper.Part) wrapper was not found." }
+    if ($workflow -notmatch ('- name: ' + [regex]::Escape($wrapper.Upload))) { throw "UI $($wrapper.Part) diagnostic upload was not found." }
     $smoke = [scriptblock]::Create(($smokeMatch.Groups[1].Value -replace '(?m)^          ', '' -replace '\$\{\{ github.workspace \}\}', '$env:GITHUB_WORKSPACE'))
     $fixture = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-smoke-failure-$([Guid]::NewGuid())"
     $savedWorkspace = $env:GITHUB_WORKSPACE
     try {
-        $null = New-Item -ItemType Directory -Path (Join-Path $fixture ".github\scripts") -Force
+        $runner = if ($wrapper.Part -eq 'Showcase') { 'tests\DocumentationDevices.Ui.Tests.ps1' } else { '.github\scripts\Invoke-UiReview.ps1' }
+        $null = New-Item -ItemType Directory -Path (Split-Path -Parent (Join-Path $fixture $runner)) -Force
         # Capture's plan step creates its directory first; smoke must create its own.
         if ($wrapper.Precreated) { $null = New-Item -ItemType Directory -Path (Join-Path $fixture $wrapper.Directory) -Force }
         @'
 param($Part, $AppPath, $ScreenshotDirectory, $CapturePlanPath)
+if (-not $Part) { $Part = 'Showcase' }
 "partial screenshot" | Set-Content (Join-Path $ScreenshotDirectory "partial.png")
 "driver failure details" | Set-Content (Join-Path $ScreenshotDirectory "driver.log")
 throw "Simulated native $Part failure"
-'@ | Set-Content (Join-Path $fixture ".github\scripts\Invoke-UiReview.ps1")
+'@ | Set-Content (Join-Path $fixture $runner)
         $env:GITHUB_WORKSPACE = $fixture
         Push-Location $fixture
         try {

@@ -181,9 +181,15 @@ jobs:
           fi
           curl --fail --silent --show-error --max-time 15 "$base/" -o live-index.html
           grep -q 'id="fingvibe-user-manual"' live-index.html
+          grep -q 'branding/app-icon/connected-home.png' live-index.html
+          grep -q 'rel="icon" href="branding/app-icon/connected-home.ico"' live-index.html
+          for asset in connected-home.png connected-home.ico; do
+            curl --fail --silent --show-error --max-time 15 "$base/branding/app-icon/$asset" -o "live-$asset"
+            cmp "checked-site/branding/app-icon/$asset" "live-$asset"
+          done
           curl --fail --silent --show-error --max-time 15 "$base/search/search_index.json" -o live-search.json
           jq -e '.docs | any(.title == "FingVibe user manual")' live-search.json > /dev/null
-          for image in about device-details devices-empty devices import network-checks network overview people person-details settings speed-test sql; do
-            curl --fail --silent --show-error --max-time 15 "$base/screenshots/manual/$image.png" -o /dev/null
+          for image in checked-site/screenshots/manual/*.png; do
+            curl --fail --silent --show-error --max-time 15 "$base/screenshots/manual/$(basename "$image")" -o /dev/null
           done
-          echo 'Verified live revision, manual homepage, search data, and all 13 new screenshots.'
+          echo 'Verified live revision, manual homepage, Connected home logo/favicon, search data, and all manual screenshots.'

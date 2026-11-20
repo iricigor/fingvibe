@@ -13,9 +13,9 @@ You can start with a built-in example without writing a query yourself.
 5. Read the result columns and the status message.
 6. Choose **Cancel** if you need to stop the query.
 
-[![SQL editor with a SELECT example and Run action, before execution](../screenshots/manual/sql.png)](../screenshots/manual/sql.png)
+[![SQL editor with a completed SELECT and one synthetic device-name result](../screenshots/manual/sql.png)](../screenshots/manual/sql.png)
 
-*Safe test-build capture. No result rows are shown in this ready state.
+*The SELECT completed against an isolated fixture database, not a user's inventory.
 [Screenshot sources](screenshots.md).*
 
 A **schema** describes available tables/views and columns.

@@ -52,6 +52,15 @@ use the same [data folder](data.md) for that user.
 
 FingVibe does not automatically install a new release.
 
+Official stable builds check GitHub for updates while open. Open
+**Settings > About FingVibe & updates** for **Check for updates**, the last
+confirmed result and any available download action. A verified installation can
+download Setup and ask before launching it; portable or uncertain installations
+use manual ZIP replacement. Test/PR/Development builds do not check for updates.
+See [update checks and downloads](navigation.md#check-for-updates).
+
+You can always update manually:
+
 1. Check the [release page](https://github.com/iricigor/fingvibe/releases/latest).
 2. Make a [backup](data.md#make-a-backup) before an important update.
 3. Close all running copies of FingVibe.

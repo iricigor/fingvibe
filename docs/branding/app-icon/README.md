@@ -7,8 +7,9 @@ from the [page and tool icon concepts](../icon-concepts/README.md) (Rooms,
 [task #348](https://github.com/iricigor/fingvibe/issues/348). On 2026-11-16 the
 user also asked to use it as the README logo, the navigation pane's brand tile
 (top left of the app) and a large icon at the top right of the About page. The
-documentation site logo, navigation and page icons and the other concept icons
-are unchanged.
+navigation and page icons and the other concept icons were unchanged by #348.
+The documentation site now also reuses this branding under
+[#253](https://github.com/iricigor/fingvibe/issues/253).
 
 ![Every icon frame at actual size and magnified 4x, on light and dark backgrounds](connected-home-preview.png)
 
@@ -49,6 +50,12 @@ exports:
 | `src\FingVibe.App\Assets\ConnectedHome-48.png` | 48 px master at 96 px | Navigation pane brand tile (48 DIP, sharp at 100% and 200% scaling) |
 | `src\FingVibe.App\Assets\ConnectedHome.png` | Full master at 256 px | About page icon (128 DIP) |
 | `connected-home.png` | Full master at 256 px | README logo (shown at 128 px) |
+
+The MkDocs header reuses `connected-home.png`. Its browser favicon,
+`connected-home.ico`, is an unchanged copy of the delivered
+`src\FingVibe.App\Assets\Scanner.ico`, including its separately tuned 16-256 px
+frames. When application branding changes, copy the regenerated ICO here too;
+do not replace its small frames with a downscaled full-detail PNG.
 
 The masters use
 a deliberately small SVG subset: rectangles, circles, polylines, single

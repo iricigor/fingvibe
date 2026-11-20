@@ -34,10 +34,16 @@ From Devices:
 Person and Room save independently when changed. Either can be **Unassigned**.
 You can also open a person or room's details and choose **Assign devices**.
 
-[![A sample person's details with Edit, Delete, and Assign devices actions](../screenshots/manual/person-details.png)](../screenshots/manual/person-details.png)
+[![A sample person's details with Edit, Delete and an empty equipment Activity state](../screenshots/manual/person-details.png)](../screenshots/manual/person-details.png)
 
 *This example has no assigned devices. The response count is not a presence
 measurement for a person. [Screenshot sources](screenshots.md).*
+
+[![A selected synthetic device with Person and Room labels in one combined column and its Last seen value](../screenshots/manual/assignments.png)](../screenshots/manual/assignments.png)
+
+*Both UI labels refer to invented review entries. Response counts and Last seen
+do not establish a person's presence. Open the wide image at full size.
+[Screenshot sources](screenshots.md).*
 
 Assignments normally need a valid six-byte MAC address.
 They do not follow an IP address alone. Randomized or changing MACs can lose
@@ -59,6 +65,13 @@ Open **People & rooms**, then choose **View room map** in the **Rooms**
 section. You can also open the same page from the **Room map** card in
 **Tools**, or from the **Network path and status** section in
 **Network health**.
+
+[![Room map with three populated rooms, Home router as gateway, a highlighted linked Workstation and two unassigned devices](../screenshots/manual/room-map.png)](../screenshots/manual/room-map.png)
+
+*Invented rooms and scan evidence. Home router is the synthetic gateway.
+Workstation's Ethernet and Wi-Fi MACs count once; its highlight identifies
+**This PC**. The connectors are conceptual, not discovered physical topology.
+[Screenshot sources](screenshots.md).*
 
 The map includes all saved rooms, their assigned devices, and a separate
 **No room assigned** area. Empty saved rooms remain visible. Room and device

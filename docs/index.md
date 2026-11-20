@@ -25,17 +25,20 @@ real home network. [Screenshot sources](manual/screenshots.md).*
 
 ## What this manual describes
 
-This initial manual was checked against release **v1.1.107** on **2026-11-09**.
+This manual was checked against release **v1.4.223** on **2026-11-20**
+([source revision](https://github.com/iricigor/fingvibe/commit/abb11b9199e5672d2061588056181218669a7f87)).
 It describes available behavior, not planned features.
 Your version is shown in **Settings > About FingVibe & updates**.
 
-**Activity grids and the Completed Scan Observations table are temporarily
-unavailable in this version.** First/last-seen summaries, saved scan evidence,
-and usage categories remain available. See [History](manual/history.md).
+Activity grids, scan observations, first/last-seen summaries and usage categories
+are available. See [History](manual/history.md). You can also run
+[SQL reports](manual/sql.md), review [new-device discoveries](manual/scheduled-scans.md#new-device-discoveries),
+and inspect [virtual and linked identities](manual/devices.md#private-and-virtual-devices).
 
 Select a screenshot to open it at full size. Screenshots may show a different
-test-build number. Their application source
-matches this release; sample values and test-only messages are not instructions.
+test-build number. [Screenshot sources](manual/screenshots.md) identifies each
+capture's revision and visible state; sample values and test-only messages are
+not instructions.
 
 !!! warning "A scan is a sample, not continuous monitoring"
     Online means a device responded in its latest applicable scan evidence. Offline does not

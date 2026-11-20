@@ -145,7 +145,7 @@ param($Version, $ArchiveName, $ArchivePath, $ChecksumsName, $ChecksumsPath)
 throw "Simulated secret asset failure"
 '@ | Set-Content -LiteralPath (Join-Path $scripts "Download-Gitleaks.ps1")
     $scriptChecks = @("UiReviewScenarios", "UiRegression.Helpers", "AdditionalServices.Script",
-        "SqlEditor.Script", "UsageCategory.Script", "DeviceActivity.Script", "NetworkActivity.Script", "EquipmentActivity.Script", "PrValidation",
+        "SqlEditor.Script", "UsageCategory.Script", "DeviceActivity.Script", "DocumentationDevices.Script", "NetworkActivity.Script", "EquipmentActivity.Script", "PrValidation",
         "DispatcherGate", "DocumentationSyncAgent", "LogoDevConfiguration", "BuildIdentity.Metadata", "Installer.Script", "GitleaksDownload", "DownloadRelease")
     foreach ($name in $scriptChecks) {
         @'

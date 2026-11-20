@@ -13,8 +13,8 @@ theme:
   custom_dir: docs/theme
   language: en
   font: false
-  logo: branding/network-radar.png
-  favicon: branding/network-radar.png
+  logo: branding/app-icon/connected-home.png
+  favicon: branding/app-icon/connected-home.ico
   features:
     - navigation.sections
     - navigation.footer

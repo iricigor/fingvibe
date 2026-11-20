@@ -38,7 +38,9 @@ class Page(HTMLParser):
         for attribute in ("href", "src"):
             if attrs.get(attribute):
                 resource = attribute == "src" or (
-                    tag == "link" and "stylesheet" in attrs.get("rel", "").split()
+                    tag == "link" and bool(
+                        {"stylesheet", "icon"} & set(attrs.get("rel", "").split())
+                    )
                 )
                 self.links.append((attrs[attribute], resource))
         if tag not in VOID_TAGS:

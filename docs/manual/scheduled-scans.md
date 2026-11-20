@@ -17,6 +17,12 @@ The default interval is one hour.
 The first scheduled scan waits one full interval after enabling or loading.
 Changing the interval restarts that wait; it does not immediately run a scan.
 
+[![Background activity Settings with scheduled scans on and network monitoring independently off](../screenshots/manual/scheduled-scans.png)](../screenshots/manual/scheduled-scans.png)
+
+*Isolated scheduling fixture with accelerated waits, not a real four-hour
+observation. The visible interval remains four hours.
+[Screenshot sources](screenshots.md).*
+
 ## Monitor network health in the background
 
 Turn **Monitor network health** on in the same Background activity section
@@ -107,5 +113,5 @@ the inventory or scan history.
 If Windows network identity is unavailable, FingVibe explains why discoveries
 cannot be scoped reliably. A save error also prevents the popup.
 
-The current screenshot set does not show the schedule card or discovery popup.
-They require state-specific native captures; see [Visual coverage](screenshots.md#remaining-visual-coverage).
+The screenshot set does not show the discovery popup or Windows notification.
+No notification capture is claimed; see [Visual coverage](screenshots.md#remaining-visual-coverage).

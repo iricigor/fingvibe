@@ -64,7 +64,9 @@ These settings do not change application release policy or branch protection.
 
 A successful PR build is not proof that the live site was deployed.
 After publication, the main job waits for the Pages build and verifies the live
-revision marker, manual homepage, local search data, and all thirteen new images.
+revision marker, manual homepage, Connected home logo/favicon, local search data,
+and all committed manual images. The deployed branding files must match the
+checked artifact byte for byte.
 After merge, check that result and the real `/fingvibe/` project URL.
 Inspect interactive search and navigation there too.
 
@@ -94,9 +96,25 @@ shows real measured results.
 Do not obtain fresh screenshots by automating a working user's desktop.
 Use existing disposable Windows CI capture tooling.
 
+For the varied Devices illustration, dispatch the **Pull request build** workflow
+on the agreed branch with **documentation_showcase** enabled. It runs the isolated
+documentation fixture after normal captures on the existing disposable runner.
+The fixture includes varied types, SD-only responders and an explicitly linked
+two-NIC PC. Its native assertions require all nine rows, SD indicators, `--`
+response times and a collapsed PC chevron before saving the image and manifest.
+A second isolated instance captures the populated Room map with three rooms,
+the linked PC counted once and two unassigned devices.
+Only that second instance opts into `FINGVIBE_UI_REVIEW_DOCUMENTATION_NETWORK=1`:
+a synthetic loopback `/24` with Workstation at `.2` as this PC and Home router at
+`.1` as gateway. Normal network discovery and default loopback review are unchanged.
+Normal PR captures and existing regression fixtures/groups are unchanged.
+
 ## Related work
 
-[#253](https://github.com/iricigor/fingvibe/issues/253) owns the separate
-documentation refresh/audit-agent request. This site adds no agent or schedule.
+[#253](https://github.com/iricigor/fingvibe/issues/253) owns the documentation,
+screenshot and Pages-branding refresh.
+[#650](https://github.com/iricigor/fingvibe/issues/650) separately owns the
+daily documentation audit agent and its verified schedule. This refresh adds
+no agent or schedule.
 Shared technical/contributor documentation and Activity restoration can evolve
 independently; reconcile their released behavior before changing user instructions.
