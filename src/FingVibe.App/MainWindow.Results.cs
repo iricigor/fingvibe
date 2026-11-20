@@ -71,8 +71,7 @@ public sealed partial class MainWindow
             .ToList();
         sortedResults.Sort(CompareResults);
 
-        if (!_isScanning && !InventoryPresentation.HasSameSequence(_visibleResults, sortedResults))
-            _visibleResults.Clear();
+        if (!_isScanning) _visibleResults.Clear();
         InventoryPresentation.Reconcile(
             _visibleResults, sortedResults, (result, index) => result.IsAlternateRow = index % 2 == 1);
 
