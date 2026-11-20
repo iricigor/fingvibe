@@ -19,8 +19,9 @@ The executable is stamped **v0.0.979 TEST**, built **2026-11-20 20:07:56 UTC**.
 That test identity, the amber ribbon, runner hostname, focus outlines and
 test-only messages remain visible. It is not presented as an official release.
 
-All 21 refreshed/new PNGs below are copied **unchanged**, with no cropping,
-stitching, retouching or fabricated results. They use Standard Dark.
+Twenty images from this run remain current. Two newer documentation-showcase
+images below bring the total to **22 current PNGs**. All are copied **unchanged**,
+with no cropping, stitching, retouching or fabricated results. They use Standard Dark.
 Most are **1280 x 800 pixels**; size exceptions are listed.
 Every selected image was inspected for readable intended content and safe data.
 
@@ -61,7 +62,6 @@ The `pr-979` artifact suffix is the manual workflow's run number, not PR #979.
 
 | Manual image | Artifact (`fingvibe-ui-regression-...-pr-979-attempt-1`) | Path inside artifact | State / size exception |
 | --- | --- | --- | --- |
-| `devices.png` | `devices-presentation` | `attempt-1/devices/devices-Standard Dark.png` | Expanded filters and 80 synthetic saved devices; 1280 x 720. |
 | `settings.png` | `sidebar-preferences-scheduling` | `attempt-1/sidebar/settings-collapsed.png` | Three collapsed preference sections and About; 1280 x 720. |
 | `scheduled-scans.png` | `sidebar-preferences-scheduling` | `attempt-1/sidebar/scheduled-scans-Standard Dark.png` | Scheduling on, four-hour choice, independent monitoring off; 1280 x 720. |
 | `device-history.png` | `details-activity` | `attempt-1/activity/activity-Standard-Dark-1280.png` | Activity with two synthetic response/nonresponse squares and unknown gaps. |
@@ -73,7 +73,7 @@ The `pr-979` artifact suffix is the manual workflow's run number, not PR #979.
 | `assignments.png` | `devices-columns-sorting` | `attempt-1/devices/devices-assignments-True-True.png` | Selected synthetic device with combined Person/Room labels and Last seen; 1880 x 720. |
 | `virtual-device.png` | `devices-row-expansion` | `attempt-1/devices/devices-mac-expansion-wide.png` | Expanded inferred identity with three earlier MACs and an additional-count summary; 1280 x 720. |
 
-The Devices fixture contains invented names/MACs, loopback addresses and
+The retained Devices-based regression images contain invented names/MACs, loopback addresses and
 illustrative response times. Its saved `127.0.0.0/24` context differs from the
 safe selected `127.0.0.1/32` target. The visible different-target warning is
 intentional, not edited out, and does not indicate a real LAN scan.
@@ -84,6 +84,48 @@ known history, including fixed historical timestamps. Their colors/counts are
 test evidence, not measured uptime. The backup path belongs to the runner's
 temporary fixture, not the normal user's data folder.
 
+### Devices and Room map showcase
+
+[Actions run 44818035581, attempt 1](https://github.com/iricigor/fingvibe/actions/runs/44818035581)
+captured two dedicated illustrations on **2026-11-20**. Source:
+[`13d1da75dc0c75af5398ba653606c1984285f3a0`](https://github.com/iricigor/fingvibe/commit/13d1da75dc0c75af5398ba653606c1984285f3a0).
+Normal application behavior remains the v1.4.223 baseline. The only application
+edit is an explicitly approved, opt-in review-mode network fixture for this
+illustration; default loopback review and normal network discovery are unchanged.
+The executable is **v0.0.992 TEST**, with **2026-11-20 21:11 UTC** visible on its
+build ribbon. Test identity and normal native focus/selection cues are retained.
+
+Artifact: **`fingvibe-ui-review-pr-992-attempt-1`**. The showcase capture step
+passed in **11.9 seconds**, including both isolated application instances.
+Its manifest was saved only after native readiness and content assertions passed.
+This records the capture step's outcome, not a claim about every workflow job.
+Both complete-window PNGs are **1600 x 900**, Standard Dark, and unchanged.
+
+| Manual image | Artifact image | Visible state |
+| --- | --- | --- |
+| `devices.png` | `documentation-devices.png` | Nine equipment rows and eight types, unrestricted expanded filters, collapsed explicitly linked Ethernet/Wi-Fi Workstation, and speaker/bridge SD indicators with `--` ping latency. |
+| `room-map.png` | `documentation-room-map.png` | Three populated invented rooms, nine equipment entries counted once each, two unassigned devices, Home router as gateway in Hallway and highlighted linked Workstation in Office. Only online is on. |
+
+The Devices fixture uses synthetic `127.0.0.0/24` observations while the safe
+selected target remains `127.0.0.1/32`; its different-target warning is intentional.
+The separate Room map instance enables `FINGVIBE_UI_REVIEW_DOCUMENTATION_NETWORK=1`.
+Its synthetic network uses `127.0.0.0/24`, local address `.2` and gateway `.1`,
+matching the invented observations and assignments. Home router is the gateway;
+Workstation's representative Ethernet address identifies This PC, and its two
+MACs count once. No adapter or gateway was discovered or configured on Windows.
+Lines and the Internet symbol are conceptual, not verified connectivity or
+discovered topology. No real LAN scan or internet speed measurement was performed.
+
+Metadata-only seed records are replayed through the existing completed-scan
+path, rather than prepopulating observations that review restoration excludes.
+The earlier attempt,
+[run 44814762409](https://github.com/iricigor/fingvibe/actions/runs/44814762409),
+failed before saving showcase images: an invisible Clear filters control was
+requested, and preseeded observations exposed incorrect fixture replay.
+The corrected source removes that lookup and tests actual observation replay
+and Room map projection. Existing regression assertions and timing guards
+were not weakened to obtain these illustrations.
+
 ## Initial manual captures
 
 The initial November 8 manual captures and their v1.1.107 comparison remain
@@ -91,6 +133,8 @@ documented in the
 [historical source record](https://github.com/iricigor/fingvibe/blob/abb11b9199e5672d2061588056181218669a7f87/docs/manual/screenshots.md).
 The unchanged `devices-empty.png` from that set is retained as historical
 evidence, not used to illustrate the current Devices instructions.
+The earlier 80-device Devices illustration and its original capture record remain
+in [the previous documentation revision](https://github.com/iricigor/fingvibe/blob/4f88b9c86f8878cce9d0a8cfbc47bb4e7406a98d/docs/manual/screenshots.md).
 The older README/tool images retain their separate
 [original provenance](https://github.com/iricigor/fingvibe/blob/main/docs/screenshots/README.md).
 
@@ -123,6 +167,8 @@ Dispatch **Pull request build** on the intended immutable source with
 `additional_scenarios` selecting the main-page scenarios. Existing focused
 regression suites own their own fixtures, setup, readiness and cleanup; retrieve
 their artifacts for SQL results, imports, assignments, Settings and history.
+Enable `documentation_showcase` for the dedicated Devices and Room map fixture;
+its images and manifest appear in the existing UI-review artifact.
 Do not change assertions or fixture ownership simply to obtain a picture.
 
 Inspect each selected PNG and retain only the intended safe image. Record its

@@ -68,10 +68,13 @@ both Unknown and Randomized MAC. The threshold counts dropdown choices, not
 devices. An active Any filter keeps its meaning when new values appear.
 Status remembers Any after restart just as it remembers individual statuses.
 
-[![Devices with expanded filters and illustrative saved inventory](../screenshots/manual/devices.png)](../screenshots/manual/devices.png)
+[![Nine synthetic devices with varied types, service-discovery indicators and a collapsed two-NIC Workstation](../screenshots/manual/devices.png)](../screenshots/manual/devices.png)
 
-*Synthetic inventory, not real response measurements. Status and Room restrictions
-are active; the selected loopback target differs from the saved sample subnet.
+*Eight device types, with no active filters. Workstation explicitly links Ethernet
+and Wi-Fi MACs; its chevron is collapsed. The speaker and bridge show service
+discovery (SD) indicators and `--`, not invented ping latency.
+These are synthetic examples, not real response measurements. The selected
+loopback target differs from the saved sample subnet.
 [Screenshot sources](screenshots.md).*
 
 ## Usage category

@@ -25,10 +25,11 @@ For PR artifacts and build identification, see the [build reference](docs/refere
 
 ## 🖥️ Devices at a glance
 
-<a href="docs/screenshots/manual/devices.png"><img src="docs/screenshots/manual/devices.png" alt="Current FingVibe Devices page with synthetic inventory, expanded filters, service icons, and response bars" width="960"></a>
+<a href="docs/screenshots/manual/devices.png"><img src="docs/screenshots/manual/devices.png" alt="FingVibe Devices with eight device types, service-discovery indicators and a collapsed two-NIC Workstation" width="960"></a>
 
-Native Devices-page capture in UI-review mode with deterministic sample data,
-not a real LAN or real response measurements. The saved sample subnet differs
+Nine synthetic equipment entries, including a linked Ethernet/Wi-Fi PC and
+service-discovery responders with no measured ping latency. This is a native
+UI-review capture, not a real LAN or real response measurements. The sample subnet differs
 from the safe selected loopback target, so the warning is intentional.
 [Capture details](docs/manual/screenshots.md).
 
