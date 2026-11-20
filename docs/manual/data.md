@@ -20,6 +20,7 @@ It is different from the installer folder under
 | `device-table.json` | Column choices, widths, row density, previews, and Status filtering. |
 | `navigation.json` | Wide-window navigation width/collapse preferences. |
 | `periodic-scan.json` | Scheduled-scan choice and interval. |
+| `network-monitor.json` | Opt-in background network-monitoring choice. |
 | `router-wan.json` | Optional WAN values by Windows network profile. |
 
 The folder can also contain cached vendor registries and older migration inputs.

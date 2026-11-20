@@ -78,7 +78,17 @@ internal sealed class ScanExecution(NetworkActivityCoordinator coordinator, ISca
 
     public async Task<ScanRunOutcome> RunAsync(ScanRequest request, CancellationToken cancellationToken = default)
     {
-        if (!coordinator.TryAcquire(NetworkActivityKind.LanScan, out var lease))
+        IDisposable? lease;
+        try
+        {
+            lease = await coordinator.AcquireAsync(NetworkActivityKind.LanScan, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            return new ScanRunOutcome(ScanRunStatus.Cancelled);
+        }
+
+        if (lease is null)
         {
             return new ScanRunOutcome(ScanRunStatus.Busy) { BlockingActivity = coordinator.ActiveKind };
         }

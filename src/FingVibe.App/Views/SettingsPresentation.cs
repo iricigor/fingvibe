@@ -31,6 +31,15 @@ public static class SettingsPresentation
         $"{(settings.IsEnabled ? "Enabled" : "Disabled")} \u00b7 Every {PeriodicScanPresentation.IntervalLabel(settings.IntervalMinutes)} \u00b7 While FingVibe is open" +
         (string.IsNullOrWhiteSpace(status) ? "" : $". {status}");
 
+    public static string BackgroundSummary(
+        PeriodicScanSettings scheduled,
+        NetworkMonitorSettings monitor,
+        string? scheduledStatus,
+        string? monitorStatus) =>
+        ScheduledSummary(scheduled, scheduledStatus) +
+        $" Network monitoring {(monitor.IsEnabled ? "enabled" : "disabled")}." +
+        (string.IsNullOrWhiteSpace(monitorStatus) ? "" : $" {monitorStatus}");
+
     public static string AppearanceStatus(string? saveError, string? materialStatus)
     {
         var status = saveError ?? (materialStatus is null

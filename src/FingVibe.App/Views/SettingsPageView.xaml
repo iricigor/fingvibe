@@ -242,7 +242,7 @@
                 </StackPanel>
             </Expander>
             <Expander x:Name="ScheduledScansSection" Style="{StaticResource SettingsSectionStyle}"
-                      AutomationProperties.Name="Scheduled scan preferences">
+                      AutomationProperties.Name="Background activity preferences">
                 <Expander.Header>
                     <Grid Style="{StaticResource SettingsCardHeaderStyle}">
                         <Grid.ColumnDefinitions>
@@ -251,7 +251,7 @@
                         </Grid.ColumnDefinitions>
                         <FontIcon Glyph="&#xE787;" Style="{StaticResource SettingsCardIconStyle}" />
                         <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
-                            <TextBlock x:Name="ScheduledScansHeading" Text="Scheduled scans" Style="{StaticResource SettingsCardTitleStyle}" />
+                            <TextBlock x:Name="ScheduledScansHeading" Text="Background activity" Style="{StaticResource SettingsCardTitleStyle}" />
                             <TextBlock x:Name="ScheduledScansSummary" Style="{StaticResource SettingsCardSummaryStyle}" />
                         </StackPanel>
                     </Grid>
@@ -285,6 +285,19 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock x:Name="ScheduledScanEvidenceNote"
                                TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <Border Height="1" Margin="0,4,0,4"
+                            Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            AutomationProperties.AccessibilityView="Raw" />
+                    <TextBlock x:Name="NetworkMonitoringDisclosure"
+                               TextWrapping="Wrap"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <ToggleSwitch x:Name="NetworkMonitoringSwitch" Loaded="DevicePreferenceSwitch_Loaded"
+                                  Header="Monitor network health" AutomationProperties.Name="Monitor network health"
+                                  Toggled="NetworkMonitoringSwitch_Toggled"
+                                  ToolTipService.ToolTip="Collect raw background ping and DNS observations while FingVibe is open." />
+                    <TextBlock x:Name="NetworkMonitorStatusText"
+                               TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
             </Expander>

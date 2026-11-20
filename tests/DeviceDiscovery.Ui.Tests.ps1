@@ -168,6 +168,7 @@ $previous = @{}
 foreach ($key in @("FINGVIBE_UI_REVIEW", "FINGVIBE_UI_REVIEW_INVENTORY", "FINGVIBE_UI_REVIEW_SNAPSHOT",
     "FINGVIBE_UI_REVIEW_CURRENT_SNAPSHOT", "FINGVIBE_UI_REVIEW_SCAN_RESULTS", "FINGVIBE_UI_REVIEW_NETWORK",
     "FINGVIBE_UI_REVIEW_SCAN_HOLD", "FINGVIBE_UI_REVIEW_PERIODIC_SCAN", "FINGVIBE_UI_REVIEW_PERIODIC_SCAN_TIME_SCALE",
+    "FINGVIBE_UI_REVIEW_NETWORK_MONITOR", "FINGVIBE_UI_REVIEW_NETWORK_MONITOR_TIME_SCALE",
     "FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD", "FINGVIBE_UI_REVIEW_DEVICE_TABLE")) {
     $previous[$key] = [Environment]::GetEnvironmentVariable($key)
 }
@@ -197,6 +198,8 @@ try {
     $env:FINGVIBE_UI_REVIEW_NETWORK = "ui-review-network"
     $env:FINGVIBE_UI_REVIEW_CHECKPOINT_HOLD = $null
     $env:FINGVIBE_UI_REVIEW_DEVICE_TABLE = $null
+    $env:FINGVIBE_UI_REVIEW_NETWORK_MONITOR = $null
+    $env:FINGVIBE_UI_REVIEW_NETWORK_MONITOR_TIME_SCALE = $null
     $observation = @{
         networkId = "ui-review-network"; subnet = "127.0.0.1/32"; address = "127.0.0.1"; hostname = $null
         vendor = "Example"; ports = @(); latency = 1; probeDuration = "00:00:00.001"

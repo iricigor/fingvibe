@@ -15,13 +15,16 @@ Some features contact external services as explained below.
 | Configured provider logos | Logo.dev | Provider name and your public source IP, not LAN inventory or scan results. |
 | Speed test | `speed.cloudflare.com` | Measurement traffic, public source IP, and default engine result reporting after per-run confirmation. |
 | Network health diagnostics | Local checkpoints, public IP targets, and DNS resolvers | Ping/traceroute traffic and DNS queries for `example.com`. |
+| Optional background network monitoring | Selected LAN gateway, `1.1.1.1`, `8.8.8.8`, Windows DNS, and public DNS resolvers | Five one-second-spaced ICMP probes per target every 60 seconds plus DNS queries for `example.com`; raw results stay in the app's live state and are not uploaded or persisted by this feature. |
 | Stable-release update checks and user-requested downloads | `api.github.com`, GitHub Releases and its asset CDN | Public source IP and ordinary HTTP headers; no LAN inventory or saved scans are sent. |
 | Links opened from the app | Your external browser | Normal requests to the selected website. |
 
 Public lookup and provider logos are optional displays. Missing configuration
 or service failure does not prevent local scanning.
 The speed test is manual and asks for confirmation before each run.
-Network health probes start only when you choose **Run diagnostics**; monitoring is off and no background checks run.
+Manual Network health probes start only when you choose **Run diagnostics**.
+Background monitoring is separately opt-in from Background activity Settings and
+is off by default. The option discloses its targets and cadence before use.
 Official stable builds check for updates automatically while open; downloads and
 installation require your action. Development, PR and Test builds do not check
 automatically. See [Check for updates](navigation.md#check-for-updates).
