@@ -22,6 +22,12 @@ internal static class InventoryPresentation
             return;
         }
 
+        ReconcileChanged(current, desired, present);
+    }
+
+    internal static void ReconcileChanged<T>(
+        ObservableCollection<T> current, IReadOnlyList<T> desired, Action<T, int>? present = null)
+    {
         for (var index = 0; index < desired.Count; index++)
         {
             var item = desired[index];

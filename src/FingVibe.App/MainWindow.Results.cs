@@ -71,9 +71,17 @@ public sealed partial class MainWindow
             .ToList();
         sortedResults.Sort(CompareResults);
 
-        if (!_isScanning) _visibleResults.Clear();
-        InventoryPresentation.Reconcile(
-            _visibleResults, sortedResults, (result, index) => result.IsAlternateRow = index % 2 == 1);
+        if (_isScanning && InventoryPresentation.HasSameSequence(_visibleResults, sortedResults))
+        {
+            for (var index = 0; index < sortedResults.Count; index++)
+                sortedResults[index].IsAlternateRow = index % 2 == 1;
+        }
+        else
+        {
+            if (!_isScanning) _visibleResults.Clear();
+            InventoryPresentation.ReconcileChanged(
+                _visibleResults, sortedResults, (result, index) => result.IsAlternateRow = index % 2 == 1);
+        }
 
         if (selectedResult is ScanResultRow selectedRow && _visibleResults.Contains(selectedRow))
         {
