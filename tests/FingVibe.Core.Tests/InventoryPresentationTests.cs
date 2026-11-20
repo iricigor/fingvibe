@@ -9,8 +9,9 @@ public sealed class InventoryPresentationTests
     [Fact]
     public void AutomaticUsageRefreshCoalescesCompletedStateButRetainsChangesAndExplicitRetry()
     {
-        Assert.False(InventoryPresentation.ShouldStartUsageRefresh("current", "current", true, false));
+        Assert.False(InventoryPresentation.ShouldStartUsageRefresh("current", "current", false, false));
         Assert.True(InventoryPresentation.ShouldStartUsageRefresh("current", "changed", true, false));
+        Assert.True(InventoryPresentation.ShouldStartUsageRefresh("current", "current", true, false));
         Assert.True(InventoryPresentation.ShouldStartUsageRefresh("current", "current", false, true));
     }
 

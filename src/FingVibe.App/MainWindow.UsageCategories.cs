@@ -45,7 +45,8 @@ public sealed partial class MainWindow
         _usageKey = null;
     }
 
-    private async Task RefreshUsageCategoriesAsync(bool force = false, bool explicitRefresh = false)
+    private async Task RefreshUsageCategoriesAsync(
+        bool force = false, bool explicitRefresh = false, bool refreshPresentation = false)
     {
         if (!_usageInitialized || _usageClosed) return;
         if (!UsageVisible)
@@ -61,7 +62,11 @@ public sealed partial class MainWindow
         var zone = TimeZoneInfo.Local;
         var date = DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(time, zone).DateTime);
         var key = (_inventory.Revision, networkId, network?.Cidr, date, zone.Id);
-        if (!InventoryPresentation.ShouldStartUsageRefresh(_usageKey, key, force, explicitRefresh)) return;
+        if (!InventoryPresentation.ShouldStartUsageRefresh(_usageKey, key, force, explicitRefresh))
+        {
+            if (refreshPresentation) ApplyUsageCategories();
+            return;
+        }
         CancelUsageQuery();
         _usageKey = key;
         var generation = _usageGeneration;
@@ -163,7 +168,7 @@ public sealed partial class MainWindow
             _deviceDataSaveLock.Release();
             DevicePage.CompleteUsageCategorySave(request, row, error, conflict);
         }
-        if (error is null) await RefreshUsageCategoriesAsync(force: true);
+        if (error is null) await RefreshUsageCategoriesAsync();
     }
 
     private async void UsageCategoryReloadRequested(object? sender, Guid token)
@@ -205,6 +210,6 @@ public sealed partial class MainWindow
             DevicePage.UsageCategoryReloadFailed(token, $"Saved category could not be reloaded: {exception.Message}. Your draft is retained.");
         }
         finally { _deviceDataSaveLock.Release(); }
-        await RefreshUsageCategoriesAsync(force: true);
+        await RefreshUsageCategoriesAsync();
     }
 }

@@ -6,11 +6,7 @@ internal static class InventoryPresentation
 {
     internal static bool ShouldStartUsageRefresh<T>(
         T currentKey, T nextKey, bool force, bool explicitRefresh)
-    {
-        // Automatic force requests refresh timezone state; only an explicit user retry bypasses the same key.
-        _ = force;
-        return explicitRefresh || !EqualityComparer<T>.Default.Equals(currentKey, nextKey);
-    }
+        => explicitRefresh || force || !EqualityComparer<T>.Default.Equals(currentKey, nextKey);
 
     internal static void Reconcile<T>(
         ObservableCollection<T> current, IReadOnlyList<T> desired, Action<T, int>? present = null)

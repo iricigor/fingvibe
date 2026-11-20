@@ -133,9 +133,9 @@ public sealed class InventoryPresentationBenchmark(ITestOutputHelper output)
         return
         [
             MeasureRefresh("usage-override-save", saved,
-                (next, true, false), (next, true, false)),
+                (next, true, false), (next, false, false)),
             MeasureRefresh("scan-checkpoint-or-import", saved,
-                (next, true, false), (next, true, false)),
+                (next, true, false), (next, false, false)),
             MeasureRefresh("navigation-same-state", next, (next, true, false)),
             MeasureRefresh("network-or-revision-change", saved, (next, true, false)),
             MeasureRefresh("explicit-refresh-or-retry", next, (next, true, true)),
