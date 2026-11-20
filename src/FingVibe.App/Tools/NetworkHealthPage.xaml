@@ -64,6 +64,30 @@
                                TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
                 </Grid>
             </Border>
+            <Border x:Name="ServiceStatusEntryCard" Style="{StaticResource ScannerSummaryCardStyle}"
+                    AutomationProperties.AutomationId="ServiceStatusEntry">
+                <Grid x:Name="ServiceStatusEntryLayout" ColumnSpacing="16" RowSpacing="12" SizeChanged="ServiceStatusEntryLayout_SizeChanged">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <local:PageHeaderIcon Icon="network" VerticalAlignment="Top" />
+                    <StackPanel Grid.Column="1" Spacing="4">
+                        <TextBlock Text="Service status" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                        <TextBlock Text="Consumer and infrastructure services from 6 providers" TextWrapping="Wrap" />
+                        <TextBlock Text="Provider reports are separate from this network's measured health."
+                                   TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                    <Button x:Name="OpenServiceStatusButton" Grid.Column="2" Content="Open service status" VerticalAlignment="Center"
+                            Click="OpenServiceStatusButton_Click" Style="{ThemeResource AccentButtonStyle}"
+                            AutomationProperties.AutomationId="OpenServiceStatusButton" AutomationProperties.Name="Open service status" />
+                </Grid>
+            </Border>
             <StackPanel Spacing="4">
                 <TextBlock Text="Manual diagnostics" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
                 <TextBlock Text="Results from the latest Run diagnostics on this page. Opening or viewing this page sends no probes."

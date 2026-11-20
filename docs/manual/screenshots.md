@@ -81,7 +81,7 @@ Do not fabricate result images to fill a gap.
 
 Use disposable Windows CI and the repository's native capture tooling.
 Request appropriate scenarios such as Devices, Overview, Network, DeviceDetails,
-People, PersonDetails, Settings, FingImport, SqlEditor, NetworkHealth, SpeedTest,
+People, PersonDetails, Settings, FingImport, SqlEditor, NetworkHealth, ServiceStatus, SpeedTest,
 and About. Use synthetic fixtures and keep measurements stopped.
 
 Inspect the downloaded image, commit only the intended safe PNG, and update this

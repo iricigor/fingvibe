@@ -1,0 +1,94 @@
+<UserControl
+    x:Class="FingVibe.App.ServiceStatusPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:FingVibe.App">
+    <UserControl.Resources>
+        <Style x:Key="ServiceStatusHeaderTextStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Style>
+    </UserControl.Resources>
+    <ScrollViewer x:Name="ServiceStatusScroll" HorizontalScrollBarVisibility="Disabled"
+                  AutomationProperties.AutomationId="ServiceStatusScroll">
+        <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Button Content="&#x2190; Network health" Click="BackButton_Click"
+                        MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
+                        MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
+                        AutomationProperties.Name="Back to Network health" Style="{StaticResource PageBackButtonStyle}" />
+                <local:PageHeaderIcon Grid.Column="1" Icon="network" />
+                <TextBlock Grid.Column="2" Text="Service status" Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
+                           VerticalAlignment="Center" TextWrapping="Wrap" />
+            </Grid>
+            <TextBlock Text="Provider reports, not measurements of your connection. A clear feed does not prove a service works for you."
+                       TextWrapping="Wrap" />
+            <Grid x:Name="ControlsLayout" ColumnSpacing="24" RowSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <SelectorBar x:Name="FilterBar" SelectionChanged="FilterBar_SelectionChanged"
+                             AutomationProperties.Name="Service category filter">
+                    <SelectorBarItem x:Name="AllFilter" Text="All 12" IsSelected="True" AutomationProperties.Name="All services" />
+                    <SelectorBarItem x:Name="ConsumerFilter" Text="Consumer" AutomationProperties.Name="Consumer services" />
+                    <SelectorBarItem x:Name="InfrastructureFilter" Text="Infrastructure" AutomationProperties.Name="Infrastructure services" />
+                </SelectorBar>
+                <TextBlock x:Name="RegionText" Grid.Column="1" Text="Region: all published regions" VerticalAlignment="Center"
+                           TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                <StackPanel x:Name="RefreshControls" Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <ProgressRing x:Name="RefreshProgress" IsActive="False" Width="24" Height="24" />
+                    <Button x:Name="RefreshButton" Content="Refresh reports" Click="RefreshButton_Click"
+                            Style="{ThemeResource AccentButtonStyle}" AutomationProperties.Name="Refresh provider reports" />
+                </StackPanel>
+            </Grid>
+            <Grid x:Name="SummaryLayout" ColumnSpacing="24" RowSpacing="4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <TextBlock x:Name="SummaryText" TextWrapping="Wrap" AutomationProperties.AutomationId="ServiceStatusSummary"
+                           AutomationProperties.LiveSetting="Polite" />
+                <TextBlock x:Name="RetrievalText" Grid.Column="1" TextWrapping="Wrap"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                           AutomationProperties.AutomationId="ServiceStatusRetrieval" />
+            </Grid>
+            <TextBlock x:Name="RequestErrorText" Visibility="Collapsed" TextWrapping="Wrap"
+                       Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                       AutomationProperties.AutomationId="ServiceStatusRequestError" AutomationProperties.LiveSetting="Assertive" />
+            <Border Style="{StaticResource ScannerSummaryCardStyle}" Padding="0" SizeChanged="TableCard_SizeChanged">
+                <StackPanel>
+                    <Grid x:Name="HeaderRow" Padding="20,14" ColumnSpacing="16"
+                          BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+                        <TextBlock Text="PROVIDER" Style="{StaticResource ServiceStatusHeaderTextStyle}" />
+                        <TextBlock Grid.Column="1" Text="SERVICE" Style="{StaticResource ServiceStatusHeaderTextStyle}" />
+                        <TextBlock Grid.Column="2" Text="CATEGORY" Style="{StaticResource ServiceStatusHeaderTextStyle}" />
+                        <TextBlock Grid.Column="3" Text="PROVIDER REPORT" Style="{StaticResource ServiceStatusHeaderTextStyle}" />
+                        <TextBlock Grid.Column="4" Text="SOURCE / LAST UPDATE" Style="{StaticResource ServiceStatusHeaderTextStyle}" />
+                        <TextBlock Grid.Column="5" Text="OPEN" Style="{StaticResource ServiceStatusHeaderTextStyle}" />
+                    </Grid>
+                    <StackPanel x:Name="EntriesPanel" AutomationProperties.Name="Provider reports" />
+                </StackPanel>
+            </Border>
+            <TextBlock TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                       Text="Outlook.com and Amazon.de shopping have no approved status source, and Apple pages are link-only, so these entries are not monitored. Provider reports never change this network's measured health, and this page sends no local network probes." />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

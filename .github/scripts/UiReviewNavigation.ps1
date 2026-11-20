@@ -126,6 +126,7 @@ function Show-UiReviewCaptureScenario {
         "DevicesEmpty" { "Devices" }
         "SpeedTest" { "Tools" }
         "NetworkHealth" { "Tools" }
+        "ServiceStatus" { "Tools" }
         "About" { "Settings" }
         "FingImport" { "Tools" }
         "SqlEditor" { "Tools" }
@@ -204,6 +205,7 @@ function Show-UiReviewCaptureScenario {
         "Tools" { "Speed test" }
         "SpeedTest" { "Speed test" }
         "NetworkHealth" { "Network health" }
+        "ServiceStatus" { "Network health" }
         "About" { "About FingVibe & updates" }
         "FingImport" { "Import from Fing" }
         "SqlEditor" { "SQL editor" }
@@ -234,6 +236,16 @@ function Show-UiReviewCaptureScenario {
         $null = Assert-VisibleUiReviewElement -Value "Run network diagnostics"
         # Connection settings are below the initial viewport; native tests scroll to and verify them.
         $null = Find-WebDriverElement -Using name -Value "Router WAN IPv4 address"
+    }
+    elseif ($Scenario -eq "ServiceStatus") {
+        $cardId = Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@Name='Network health']"
+        Invoke-WebDriverElement -ElementId $cardId
+        $openId = Assert-VisibleUiReviewElement -Value "Open service status"
+        Invoke-WebDriverElement -ElementId $openId
+        $null = Assert-VisibleUiReviewElement -Value "Back to Network health"
+        $null = Assert-VisibleUiReviewElement -Value "Refresh provider reports"
+        # The first controlled-fixture row proves the provider table rendered.
+        $null = Assert-VisibleUiReviewElement -Value "Source pending"
     }
     elseif ($Scenario -eq "About") {
         $cardId = Assert-VisibleUiReviewElement -Using xpath -Value "//Button[@Name='About FingVibe & updates']"

@@ -188,6 +188,10 @@
     Test-Change @{ "src\FingVibe.App\Tools\SpeedTestPage.xaml" = "changed" } @("Devices", "Tools", "SpeedTest", "NetworkHealth", "About", "FingImport", "SqlEditor", "DatabaseBackups") "Tools views"
     Test-Change @{ "src\FingVibe.App\Tools\NetworkHealthPage.xaml" = "changed" } @("Devices", "RoomMap", "Tools", "NetworkHealth") "Network health view"
     Test-Change @{ "src\FingVibe.App\Tools\NetworkHealthPage.xaml.cs" = "changed" } @("Devices", "RoomMap", "Tools", "NetworkHealth") "Network health behavior"
+    foreach ($serviceStatusOwner in @("src\FingVibe.App\Tools\ServiceStatusPage.xaml", "src\FingVibe.App\Tools\ServiceStatusPage.xaml.cs",
+        "src\FingVibe.Core\Networking\ServiceStatusPresentation.cs")) {
+        Test-Change @{ $serviceStatusOwner = "changed" } @("Devices", "Tools", "NetworkHealth", "ServiceStatus") "Service status owner: $serviceStatusOwner"
+    }
     & {
         # Renames are diffed with --no-renames, so the pre-rename page arrives as a deleted path.
         $oldPage = "src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml"
