@@ -126,9 +126,24 @@ public sealed class NetworkMonitorControllerTests
             original, "profile", original with { GatewayAddress = IPAddress.Parse("192.0.2.254") }, "profile"));
     }
 
+    [Fact]
+    public async Task IssueCadenceShortensTheNextWaitToThirtySeconds()
+    {
+        var interval = TimeSpan.FromMinutes(1);
+        await using var harness = new Harness(() => interval);
+        harness.Scheduler.Start();
+        await harness.ExpectAsync(NetworkMonitorSchedulerState.Waiting);
+        harness.Time.Advance(TimeSpan.FromMinutes(1));
+        var run = await harness.Runs.ReadNextAsync();
+        interval = TimeSpan.FromSeconds(30);
+        run.Complete(new NetworkMonitorRunOutcome(NetworkMonitorRunStatus.Completed));
+
+        var waiting = await harness.ExpectAsync(NetworkMonitorSchedulerState.Waiting);
+        Assert.Equal(TimeSpan.FromSeconds(30), waiting.NextCheckAt - harness.Time.GetUtcNow());
+    }
     private sealed class Harness : IAsyncDisposable
     {
-        public Harness()
+        public Harness(Func<TimeSpan>? interval = null)
         {
             Scheduler = new(async token =>
             {
@@ -136,7 +151,7 @@ public sealed class NetworkMonitorControllerTests
                     TaskCreationOptions.RunContinuationsAsynchronously);
                 Runs.Writer.TryWrite(new(token, completion));
                 return await completion.Task.WaitAsync(token);
-            }, Time);
+            }, Time, interval);
             Scheduler.StatusChanged += (_, status) => Statuses.Writer.TryWrite(status);
         }
 

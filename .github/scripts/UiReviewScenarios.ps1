@@ -146,8 +146,9 @@ function Get-UiReviewCapturePlan {
                 $path -eq 'src/FingVibe.Core/Models/NetworkActivity.cs' -or $path -eq 'tests/NetworkActivity.Fixture.ps1') {
                 Add-Scenarios @("Network", "PersonDetails") "$path changed shared network/equipment counts or fixtures."
             }
-            elseif ($path -match '^src/FingVibe.App/(MainWindow.NetworkMonitorIndicator|NetworkMonitor(ViewPresentation|Visuals|ReviewFixture))\.cs$') {
-                Add-Scenarios @("Network", "NetworkHealth") "$path changed the monitoring dot or raw-observation presentation."
+            elseif ($path -match '^src/FingVibe.App/(MainWindow.NetworkMonitor(Indicator|ing)|NetworkMonitor(ViewPresentation|Visuals|ReviewFixture|Scheduler))\.cs$' -or
+                $path -eq 'src/FingVibe.Core/Networking/NetworkHealthEvaluator.cs') {
+                Add-Scenarios @("Network", "NetworkHealth") "$path changed the monitoring dot, health verdicts or raw-observation presentation."
             }
             elseif ($path -match '^src/FingVibe.App/(MainWindow.NetworkActivity.cs|Views/NetworkPageView.Activity.cs)$' -or
                 $path -eq 'tests/NetworkActivity.Ui.Tests.ps1') {

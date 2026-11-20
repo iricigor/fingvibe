@@ -19,6 +19,7 @@ public sealed partial class MainWindow
     private readonly NetworkMonitorService _networkMonitorService =
         new(new NetworkDiagnosticProbes(), CreateNetworkMonitorTimeProvider());
     private readonly NetworkMonitorScheduler _networkMonitorScheduler;
+    private readonly NetworkHealthEvaluator _networkHealth = new();
     private readonly NetworkMonitorController _networkMonitorController;
     private bool _networkMonitorLoadFailed;
     private string? _networkMonitorPersistenceError;
@@ -81,6 +82,11 @@ public sealed partial class MainWindow
         }
 
         var settings = SettingsPage.SelectedNetworkMonitor;
+        if (!settings.IsEnabled)
+        {
+            _networkHealth.Reset();
+        }
+
         SaveNetworkMonitorSettings(settings);
         var applied = _networkMonitorController.ApplyAsync(settings);
         UpdateNetworkMonitorPresentation();
@@ -125,6 +131,7 @@ public sealed partial class MainWindow
             return;
         }
 
+        _networkHealth.Reset();
         await _networkMonitorController.RefreshContextAsync();
         UpdateNetworkMonitorPresentation();
     }
@@ -154,15 +161,19 @@ public sealed partial class MainWindow
         {
             if (IsUiReview)
             {
-                return Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_NETWORK_MONITOR_FIXTURE") == "1"
-                    ? new(NetworkMonitorRunStatus.Completed)
-                    {
-                        Observation = NetworkMonitorReviewFixture.Create(network, DateTimeOffset.UtcNow)
-                    }
-                    : new(NetworkMonitorRunStatus.Skipped)
+                var fixture = Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_NETWORK_MONITOR_FIXTURE");
+                if (fixture is not ("1" or "problem"))
+                {
+                    return new(NetworkMonitorRunStatus.Skipped)
                     {
                         Message = "UI-review mode does not send background network probes."
                     };
+                }
+
+                var reviewObservation = NetworkMonitorReviewFixture.Create(
+                    network, DateTimeOffset.UtcNow, problem: fixture == "problem");
+                EvaluateNetworkHealth(network, "ui-review-network", reviewObservation);
+                return new(NetworkMonitorRunStatus.Completed) { Observation = reviewObservation };
             }
 
             var networkId = ResolveNetworkIdentity(network, out _);
@@ -178,6 +189,7 @@ public sealed partial class MainWindow
                 };
             }
 
+            EvaluateNetworkHealth(network, networkId, observation);
             return observation.Cancelled
                 ? new(NetworkMonitorRunStatus.Cancelled)
                 {
@@ -214,8 +226,19 @@ public sealed partial class MainWindow
             _networkMonitorScheduler.Status,
             _networkMonitorController.IsSuspended,
             now,
-            text);
+            text) with { Health = _networkHealth.Current };
         NetworkMonitorStateChanged?.Invoke(this, CurrentNetworkMonitorSnapshot);
+    }
+
+    private void EvaluateNetworkHealth(LanNetwork network, string? networkId, NetworkMonitorObservation observation)
+    {
+        // Windows chooses routing: with several active gateway routes (VPN or multiple adapters), the checks may
+        // not traverse the selected LAN, so the verdict is reported as uncertain instead of judging that LAN.
+        var routes = (NetworkPicker.ItemsSource as IEnumerable<LanNetwork>)?.Count(item => item.HasGateway) ?? 0;
+        _networkHealth.Evaluate(
+            observation,
+            $"{networkId}|{network.LocalAddress}|{network.GatewayAddress}",
+            routes > 1);
     }
 
     // Lets disposable native checks observe the minute cadence in seconds; real timestamps are unchanged.

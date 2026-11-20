@@ -188,7 +188,8 @@
     Test-Change @{ "src\FingVibe.App\Tools\SpeedTestPage.xaml" = "changed" } @("Devices", "Tools", "SpeedTest", "NetworkHealth", "About", "FingImport", "SqlEditor", "DatabaseBackups") "Tools views"
     Test-Change @{ "src\FingVibe.App\Tools\NetworkHealthPage.xaml" = "changed" } @("Devices", "RoomMap", "Tools", "NetworkHealth") "Network health view"
     Test-Change @{ "src\FingVibe.App\Tools\NetworkHealthPage.xaml.cs" = "changed" } @("Devices", "RoomMap", "Tools", "NetworkHealth") "Network health behavior"
-    foreach ($monitorOwner in @("src\FingVibe.App\MainWindow.NetworkMonitorIndicator.cs", "src\FingVibe.App\NetworkMonitorViewPresentation.cs")) {
+    foreach ($monitorOwner in @("src\FingVibe.App\MainWindow.NetworkMonitorIndicator.cs", "src\FingVibe.App\NetworkMonitorViewPresentation.cs",
+        "src\FingVibe.Core\Networking\NetworkHealthEvaluator.cs")) {
         Test-Change @{ $monitorOwner = "changed" } @("Devices", "Network", "NetworkHealth") "Monitoring presentation owner: $monitorOwner"
     }
     foreach ($serviceStatusOwner in @("src\FingVibe.App\Tools\ServiceStatusPage.xaml", "src\FingVibe.App\Tools\ServiceStatusPage.xaml.cs",

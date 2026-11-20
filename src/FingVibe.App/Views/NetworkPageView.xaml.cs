@@ -34,7 +34,7 @@ public sealed partial class NetworkPageView : UserControl
         SummaryStateText.Text = view.Title;
         SummaryDetailText.Text = view.Kind == NetworkMonitorIndicatorKind.Off
             ? "Background health checks are not running, so no current health is shown. Run diagnostics on the Network health page to check now."
-            : NetworkMonitorViewPresentation.RawNote;
+            : view.Detail;
         SummaryLastCheckText.Text = view.LastCheck;
         SummaryLastCheckText.Visibility = view.Kind == NetworkMonitorIndicatorKind.Off && view.Rows.Count == 0
             ? Visibility.Collapsed : Visibility.Visible;

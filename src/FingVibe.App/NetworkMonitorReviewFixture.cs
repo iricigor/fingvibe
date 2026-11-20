@@ -3,15 +3,20 @@ using FingVibe.Core.Models;
 
 namespace FingVibe.App;
 
-/// <summary>Synthetic raw observation delivered in UI review instead of sending probes. Never live data.</summary>
+/// <summary>
+/// Synthetic raw observation delivered in UI review instead of sending probes. Never live data. The problem variant
+/// exceeds the absolute latency limits so two consecutive checks confirm a problem.
+/// </summary>
 internal static class NetworkMonitorReviewFixture
 {
-    public static NetworkMonitorObservation Create(LanNetwork network, DateTimeOffset now)
+    public static NetworkMonitorObservation Create(LanNetwork network, DateTimeOffset now, bool problem = false)
     {
         var gateway = network.GatewayAddress ?? IPAddress.Parse("192.0.2.1");
         var samples = new List<NetworkMonitorPingSample>();
-        Add(NetworkMonitorTarget.Gateway, DiagnosticCheckpoint.Gateway, gateway.ToString(), [2, 3, 2, 4, 3]);
-        Add(NetworkMonitorTarget.Cloudflare, DiagnosticCheckpoint.CloudflarePing, "1.1.1.1", [11, 12, 14, 11, 13]);
+        Add(NetworkMonitorTarget.Gateway, DiagnosticCheckpoint.Gateway, gateway.ToString(),
+            problem ? [41, 45, 42, 44, 43] : [2, 3, 2, 4, 3]);
+        Add(NetworkMonitorTarget.Cloudflare, DiagnosticCheckpoint.CloudflarePing, "1.1.1.1",
+            problem ? [210, 220, 205, 215, 230] : [11, 12, 14, 11, 13]);
         Add(NetworkMonitorTarget.Google, DiagnosticCheckpoint.GooglePing, "8.8.8.8", [15, 16, null, 15, 17]);
         return new(now.AddSeconds(-6), now, "ui-review-network", gateway, samples,
         [

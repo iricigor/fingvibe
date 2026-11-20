@@ -121,6 +121,28 @@
                 <Setter Property="Stroke" Value="{ThemeResource AccentFillColorDefaultBrush}" />
                 <Setter Property="Fill" Value="{ThemeResource AccentFillColorDefaultBrush}" />
             </Style>
+            <!-- Verdict dots pair system status brushes with distinct shapes; titles and names always state the verdict. -->
+            <Style x:Key="NetworkMonitorDotHealthyStyle" TargetType="Ellipse">
+                <Setter Property="Stroke" Value="{ThemeResource SystemFillColorSuccessBrush}" />
+                <Setter Property="Fill" Value="{ThemeResource SystemFillColorSuccessBrush}" />
+            </Style>
+            <Style x:Key="NetworkMonitorDotLearningStyle" TargetType="Ellipse">
+                <Setter Property="Stroke" Value="{ThemeResource SystemFillColorSuccessBrush}" />
+                <Setter Property="Fill" Value="Transparent" />
+            </Style>
+            <Style x:Key="NetworkMonitorDotVerifyingStyle" TargetType="Ellipse">
+                <Setter Property="Stroke" Value="{ThemeResource SystemFillColorCautionBrush}" />
+                <Setter Property="Fill" Value="Transparent" />
+            </Style>
+            <Style x:Key="NetworkMonitorDotProblemStyle" TargetType="Ellipse">
+                <Setter Property="Stroke" Value="{ThemeResource SystemFillColorCriticalBrush}" />
+                <Setter Property="Fill" Value="{ThemeResource SystemFillColorCriticalBrush}" />
+            </Style>
+            <Style x:Key="NetworkMonitorDotUncertainStyle" TargetType="Ellipse">
+                <Setter Property="Stroke" Value="{ThemeResource SystemFillColorCautionBrush}" />
+                <Setter Property="StrokeDashArray" Value="1.5,1" />
+                <Setter Property="Fill" Value="Transparent" />
+            </Style>
             <Style x:Key="NetworkMonitorDotStaleStyle" TargetType="Ellipse">
                 <Setter Property="Stroke" Value="{ThemeResource TextFillColorSecondaryBrush}" />
                 <Setter Property="Fill" Value="{ThemeResource TextFillColorTertiaryBrush}" />

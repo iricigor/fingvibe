@@ -495,18 +495,26 @@ observations. Foreground network work preempts the background coordinator
 lease and waits for cancellation before acquiring the shared slot. Disable,
 sleep, network-context change and shutdown all await cancellation. The
 `NetworkMonitorSnapshot` contract carries raw timings/results and cancellation
-detail without a health verdict. `NetworkMonitorViewPresentation` projects it
-for the header dot (`MainWindow.NetworkMonitorIndicator.cs`), Network health and
-the Network summary: off, paused, no-result, checking, observed and stale
-(older than 2.5 minutes) states, the last-check time and per-target ping/DNS
-rows, with dot styles in `App.xaml` that use shape and fill rather than health
-colours. UI-review mode reads
+detail. Core `NetworkHealthEvaluator` applies #344's detection defaults to completed
+checks in memory: per-target 20-median latency baselines (frozen while suspicious),
+20 ms gateway and 150 ms external absolute limits, ICMP-unanswered only for targets
+that responded before, Windows-DNS-only failures, two-check confirmation, five-check
+recovery, a context-key reset and an uncertain verdict with more than one active
+gateway route. Its `NextInterval` shortens the scheduler cadence to 30 seconds while
+verifying or tracking a problem, and the assessment rides on `NetworkMonitorSnapshot.Health`.
+`NetworkMonitorViewPresentation` projects it for the header dot
+(`MainWindow.NetworkMonitorIndicator.cs`), Network health and the Network summary:
+off/paused precedence, stale after three minutes without a completed check, then
+learning, healthy, verifying, problem or uncertain, plus the last-check time and
+per-target ping/DNS rows. Dot styles in `App.xaml` pair system status brushes with
+distinct shapes; titles and accessible names always state the verdict. UI-review mode reads
 this preference only when `FINGVIBE_UI_REVIEW_NETWORK_MONITOR` names an
 isolated file. `FINGVIBE_UI_REVIEW_NETWORK_MONITOR_TIME_SCALE` shortens waits
 for disposable automation; review mode never sends the background probes, and
-`FINGVIBE_UI_REVIEW_NETWORK_MONITOR_FIXTURE=1` delivers the synthetic
-`NetworkMonitorReviewFixture` observation instead. `tests\NetworkHealth.Ui.Tests.ps1`
-covers the dot, pulse marker, raw rows, navigation and header containment.
+`FINGVIBE_UI_REVIEW_NETWORK_MONITOR_FIXTURE=1` (or `problem`, above the latency
+limits) delivers the synthetic `NetworkMonitorReviewFixture` observation instead.
+`tests\NetworkHealth.Ui.Tests.ps1` covers the dot, pulse marker, learning and
+confirmed-problem verdicts, raw rows, navigation and header containment.
 
 ### First local discovery
 

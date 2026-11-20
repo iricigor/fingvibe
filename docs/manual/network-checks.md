@@ -10,29 +10,57 @@ current health result instead of implying that the network is healthy.
 Turn monitoring on under **Settings > Background activity**
 ([Scheduled scans and monitoring](scheduled-scans.md)).
 
-## Monitoring state and raw observations
+## Monitoring state and health verdicts
 
 A small dot beside **Network:** in the header shows the monitoring state on every
 page. Hover over it or focus it to read the state and last-check time, and select
 it to open this page. The dot pulses briefly when a check starts; with Windows
-animations turned off it stays still.
+animations turned off it stays still. The same state, with an explanation, appears
+at the top of this page and in the Network page's **Network health** section.
 
 | State | Dot | Meaning |
 | --- | --- | --- |
-| **Monitoring off** | Hollow outline | No background checks run. |
-| **Monitoring paused** | Dashed outline | Windows is asleep; checks resume after a full minute. |
-| **Monitoring on - no result yet** | Accent outline | Waiting for the first check. |
-| **Monitoring on - checking now** | Filled accent | A check is running. |
-| **Monitoring on - raw observations** | Filled accent | The latest check result is shown. |
-| **Monitoring on - last result not current** | Filled grey | No newer result has arrived for over two and a half minutes. |
+| **Monitoring off** | Hollow grey outline | No background checks run. |
+| **Monitoring paused** | Dashed grey outline | Windows is asleep; checks resume after a full minute. |
+| **Monitoring on - no result yet** | Accent outline | Waiting for the first completed check. |
+| **Learning - no problems found** | Green outline | No problem found while FingVibe learns normal latency. |
+| **Healthy** | Filled green | No problem found against learned normal latency. |
+| **Possible problem - verifying** | Amber outline | One suspicious check; FingVibe checks again within 30 seconds. |
+| **Problem confirmed** | Filled red | The same symptom appeared in two consecutive checks. |
+| **Uncertain - multiple network routes** | Dashed amber outline | Windows may route checks through another adapter or VPN. |
+| **Monitoring on - last result not current** | Filled grey | No check has completed for over three minutes. |
 
-When a check completes, this page and the Network page's **Network health**
-section list its time and the latest per-target results: ping responses and
-latency range for the gateway, `1.1.1.1` and `8.8.8.8`, and the Windows,
-Cloudflare and Google DNS results. These are raw observations, not a health
-verdict: FingVibe does not decide from them whether the network is healthy.
-Results kept while monitoring is off or paused are marked as not current.
+FingVibe judges each completed check with these fixed rules:
 
+- **Latency:** each target learns its normal latency from 20 healthy checks.
+  A median above 20 ms (gateway) or 150 ms (`1.1.1.1`, `8.8.8.8`) is suspicious
+  while learning; afterwards it must also exceed three times the learned normal
+  latency. Learning pauses while that target is suspicious or has a problem.
+- **ICMP probes unanswered:** two or more of five unanswered probes are
+  suspicious only for a target that has answered before. A target that never
+  answers is shown as limited visibility, not as an outage, because many
+  networks block ICMP. Unanswered ICMP is not application packet loss.
+- **DNS:** a Windows DNS failure is suspicious. A public resolver that does not
+  answer while Windows DNS works is noted as possibly blocked, not as a DNS
+  failure. Windows results may come from its cache.
+- **Confirmation and recovery:** a problem is confirmed after two consecutive
+  suspicious checks for the same symptom and target. While verifying or tracking
+  a problem, checks run every 30 seconds. A problem clears after five consecutive
+  healthy checks; an unhealthy check restarts that count. Cancelled, skipped and
+  paused checks neither count nor restart it.
+- **Context:** changing the selected network, or turning monitoring off, starts
+  learning and recovery afresh. With more than one active gateway route (for
+  example a VPN or a second adapter), FingVibe reports **Uncertain** instead of
+  judging the selected LAN.
+
+These are fixed defaults, not guarantees: a healthy verdict means only that these
+checks found no problem. Verdicts and recovery progress are kept in memory and
+are not saved.
+
+Below the verdict, this page and the Network page list the latest raw results:
+ping responses and latency range for the gateway, `1.1.1.1` and `8.8.8.8`, and
+the Windows, Cloudflare and Google DNS results. Results kept while monitoring is
+off or paused are marked as not current.
 ## Service status
 
 The **Service status** card below current health opens a separate page of
