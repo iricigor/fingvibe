@@ -37,15 +37,23 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Ellipse Width="10" Height="10" StrokeThickness="1.5" VerticalAlignment="Center"
-                                     Stroke="{ThemeResource TextFillColorSecondaryBrush}"
+                            <Ellipse x:Name="HealthStateDot" Width="10" Height="10" StrokeThickness="1.5" VerticalAlignment="Center"
+                                     Style="{StaticResource NetworkMonitorDotOffStyle}"
                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
                             <TextBlock x:Name="HealthStateText" Grid.Column="1" Text="Monitoring off" Style="{ThemeResource SubtitleTextBlockStyle}"
                                        TextWrapping="Wrap" AutomationProperties.AutomationId="NetworkHealthState" />
                         </Grid>
-                        <TextBlock Text="Background health checks are not running, so there is no current health result. This is not a healthy state."
+                        <TextBlock x:Name="HealthStateDetailText" Text="Background health checks are not running, so there is no current health result. This is not a healthy state."
                                    TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                    AutomationProperties.AutomationId="NetworkHealthStateDetail" />
+                        <TextBlock x:Name="LastCheckText" Text="No raw check has completed yet." TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="NetworkHealthLastCheck" />
+                        <StackPanel x:Name="RawObservationsPanel" Spacing="4" Visibility="Collapsed"
+                                    AutomationProperties.AutomationId="NetworkHealthRawObservations"
+                                    AutomationProperties.Name="Latest raw monitoring observations">
+                            <TextBlock Text="Latest raw observations - not a health verdict" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <StackPanel x:Name="RawObservationRows" Spacing="2" />
+                        </StackPanel>
                         <TextBlock x:Name="ContextText" TextWrapping="Wrap" />
                         <TextBlock Text="Windows chooses routes and DNS settings. Selecting an adapter does not bind probes to it; VPNs and multiple adapters can change the path."
                                    TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />

@@ -28,6 +28,19 @@ public sealed partial class NetworkPageView : UserControl
 
     internal void ShowSummary(string summary) => NetworkIdentityText.Text = summary;
 
+    internal void ShowNetworkMonitor(NetworkMonitorView view)
+    {
+        NetworkMonitorDots.Apply(SummaryStateDot, view.Kind);
+        SummaryStateText.Text = view.Title;
+        SummaryDetailText.Text = view.Kind == NetworkMonitorIndicatorKind.Off
+            ? "Background health checks are not running, so no current health is shown. Run diagnostics on the Network health page to check now."
+            : NetworkMonitorViewPresentation.RawNote;
+        SummaryLastCheckText.Text = view.LastCheck;
+        SummaryLastCheckText.Visibility = view.Kind == NetworkMonitorIndicatorKind.Off && view.Rows.Count == 0
+            ? Visibility.Collapsed : Visibility.Visible;
+        NetworkMonitorDots.RenderRows(SummaryRawPanel, SummaryRawRows, view.Rows, "NetworkSummaryRawResult");
+    }
+
     internal void ShowLocalNetwork(LanNetwork? network)
     {
         MachineAddressText.Text = network?.LocalAddress.ToString() ?? "No active IPv4 interface";

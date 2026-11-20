@@ -161,7 +161,28 @@
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="DetectedNetworkLabel" Text="Network:" VerticalAlignment="Center" />
+                        <StackPanel x:Name="NetworkLabelPanel" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                            <TextBlock x:Name="DetectedNetworkLabel" Text="Network:" VerticalAlignment="Center" />
+                            <Button x:Name="NetworkMonitorIndicator" Click="NetworkMonitorIndicator_Click"
+                                    Width="28" Height="28" Padding="0" MinWidth="0" MinHeight="0"
+                                    Background="Transparent" BorderThickness="0" VerticalAlignment="Center"
+                                    AutomationProperties.AutomationId="NetworkMonitorIndicator"
+                                    AutomationProperties.Name="Network monitoring: Monitoring off. Opens Network health.">
+                                <Grid Width="18" Height="18" IsHitTestVisible="False">
+                                    <Ellipse x:Name="NetworkMonitorPulse" Width="10" Height="10" StrokeThickness="2"
+                                             Opacity="0" RenderTransformOrigin="0.5,0.5"
+                                             Stroke="{ThemeResource AccentFillColorDefaultBrush}"
+                                             AutomationProperties.AccessibilityView="Raw">
+                                        <Ellipse.RenderTransform>
+                                            <ScaleTransform x:Name="NetworkMonitorPulseScale" />
+                                        </Ellipse.RenderTransform>
+                                    </Ellipse>
+                                    <Ellipse x:Name="NetworkMonitorDot" Width="10" Height="10" StrokeThickness="1.5"
+                                             Style="{StaticResource NetworkMonitorDotOffStyle}"
+                                             AutomationProperties.AccessibilityView="Raw" />
+                                </Grid>
+                            </Button>
+                        </StackPanel>
                         <ComboBox x:Name="NetworkPicker"
                                   Grid.Column="1"
                                   MinWidth="150"

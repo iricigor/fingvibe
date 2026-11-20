@@ -4,9 +4,34 @@ Use **Tools > Network health** to run connection checks manually. The
 **Open network health** button in the Network page's **Network health**
 section opens the same page. Opening the page does not send diagnostic probes.
 
-The top of the page shows **Monitoring off**. Background health checks are not
-available yet, so FingVibe shows no current health result instead of implying
-that the network is healthy.
+The top of the page shows the background monitoring state. With monitoring off,
+it shows **Monitoring off**: no background checks run, so FingVibe shows no
+current health result instead of implying that the network is healthy.
+Turn monitoring on under **Settings > Background activity**
+([Scheduled scans and monitoring](scheduled-scans.md)).
+
+## Monitoring state and raw observations
+
+A small dot beside **Network:** in the header shows the monitoring state on every
+page. Hover over it or focus it to read the state and last-check time, and select
+it to open this page. The dot pulses briefly when a check starts; with Windows
+animations turned off it stays still.
+
+| State | Dot | Meaning |
+| --- | --- | --- |
+| **Monitoring off** | Hollow outline | No background checks run. |
+| **Monitoring paused** | Dashed outline | Windows is asleep; checks resume after a full minute. |
+| **Monitoring on - no result yet** | Accent outline | Waiting for the first check. |
+| **Monitoring on - checking now** | Filled accent | A check is running. |
+| **Monitoring on - raw observations** | Filled accent | The latest check result is shown. |
+| **Monitoring on - last result not current** | Filled grey | No newer result has arrived for over two and a half minutes. |
+
+When a check completes, this page and the Network page's **Network health**
+section list its time and the latest per-target results: ping responses and
+latency range for the gateway, `1.1.1.1` and `8.8.8.8`, and the Windows,
+Cloudflare and Google DNS results. These are raw observations, not a health
+verdict: FingVibe does not decide from them whether the network is healthy.
+Results kept while monitoring is off or paused are marked as not current.
 
 ## Service status
 

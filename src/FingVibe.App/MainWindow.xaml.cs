@@ -37,6 +37,7 @@ public sealed partial class MainWindow : Window
         InitializeDeviceTableSettings();
         InitializePeopleRoomsViews();
         InitializePeriodicScans();
+        InitializeNetworkMonitorIndicator();
         InitializeNetworkMonitoring();
         InitializeDiscoveryNotifications();
         InitializeUsageCategories();

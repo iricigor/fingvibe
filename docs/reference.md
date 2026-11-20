@@ -495,10 +495,18 @@ observations. Foreground network work preempts the background coordinator
 lease and waits for cancellation before acquiring the shared slot. Disable,
 sleep, network-context change and shutdown all await cancellation. The
 `NetworkMonitorSnapshot` contract carries raw timings/results and cancellation
-detail without a health verdict; #619 owns presentation. UI-review mode reads
+detail without a health verdict. `NetworkMonitorViewPresentation` projects it
+for the header dot (`MainWindow.NetworkMonitorIndicator.cs`), Network health and
+the Network summary: off, paused, no-result, checking, observed and stale
+(older than 2.5 minutes) states, the last-check time and per-target ping/DNS
+rows, with dot styles in `App.xaml` that use shape and fill rather than health
+colours. UI-review mode reads
 this preference only when `FINGVIBE_UI_REVIEW_NETWORK_MONITOR` names an
 isolated file. `FINGVIBE_UI_REVIEW_NETWORK_MONITOR_TIME_SCALE` shortens waits
-for disposable automation; review mode never sends the background probes.
+for disposable automation; review mode never sends the background probes, and
+`FINGVIBE_UI_REVIEW_NETWORK_MONITOR_FIXTURE=1` delivers the synthetic
+`NetworkMonitorReviewFixture` observation instead. `tests\NetworkHealth.Ui.Tests.ps1`
+covers the dot, pulse marker, raw rows, navigation and header containment.
 
 ### First local discovery
 

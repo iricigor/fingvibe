@@ -111,6 +111,28 @@ function Show-Controls([string[]] $Names) {
     throw "Could not scroll the logical section into view: $($Names -join ', ')."
 }
 
+function Find-ById([string] $Id) {
+    $condition = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Id)
+    $deadline = [DateTime]::UtcNow.AddSeconds(8)
+    do {
+        $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        if ($element) { return $element }
+        Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "Missing element with automation ID: $Id."
+}
+
+function Assert-MonitorIndicatorContained {
+    $window = Get-UiReviewWindowBounds $process.MainWindowHandle
+    $indicator = (Find-ById "NetworkMonitorIndicator").Current
+    $picker = (Find-Control "Network" ([System.Windows.Automation.ControlType]::ComboBox)).Current.BoundingRectangle
+    $bounds = $indicator.BoundingRectangle
+    if ($indicator.IsOffscreen -or $bounds.Left -lt $window.X -or $bounds.Right -gt $window.X + $window.Width -or
+        ($bounds.Right -gt $picker.Left -and $bounds.Bottom -gt $picker.Top)) {
+        throw "The monitoring dot must stay inside the shared header beside, not over, the network selector."
+    }
+}
+
 function Find-Named([string] $Name) {
     $condition = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty, $Name)
     $deadline = [DateTime]::UtcNow.AddSeconds(8)
@@ -255,6 +277,10 @@ function Stop-ReviewProcess {
 
 try {
     Start-ReviewProcess
+    if ((Find-ById "NetworkMonitorIndicator").Current.Name -notlike "Network monitoring: Monitoring off. No raw check has completed yet.*") {
+        throw "The header dot must announce Monitoring off without implying health."
+    }
+    Assert-MonitorIndicatorContained
     Select-Page Tools
     Invoke-Control "Network health"
     foreach ($heading in @("Monitoring off", "Manual diagnostics", "Connection and checks", "Network path and status", "Detailed checkpoint diagnostics", "Traceroute")) {
@@ -558,6 +584,7 @@ try {
             $null = [UiReviewNativeWindow]::SetWindowPos(
                 $process.MainWindowHandle, [IntPtr]::Zero, $window.X, $window.Y, 640, 720, 0x0044)
             Start-Sleep -Milliseconds 400
+            Assert-MonitorIndicatorContained
             $diagramScroll = Scroll-Control "DiagramScroll"
             $diagramScroll.SetScrollPercent(35, -1)
             Show-Controls @("Selected peer", "Selected LAN peer: 192.0.2.42; Responded - 3 ms")
@@ -606,8 +633,69 @@ try {
                 { $key.Dispose() })
         }
     }
+    $monitorPath = Join-Path $peerDirectory "network-monitor.json"
+    '{"isEnabled":true}' | Set-Content -LiteralPath $monitorPath
+    $monitorEnvironment = @{}
+    foreach ($name in @("FINGVIBE_UI_REVIEW_NETWORK_MONITOR", "FINGVIBE_UI_REVIEW_NETWORK_MONITOR_TIME_SCALE", "FINGVIBE_UI_REVIEW_NETWORK_MONITOR_FIXTURE")) {
+        $monitorEnvironment[$name] = [Environment]::GetEnvironmentVariable($name)
+    }
+    try {
+        # A 20x monitor clock checks every 3 seconds; the fixture delivers synthetic raw observations without probes.
+        $env:FINGVIBE_UI_REVIEW_NETWORK_MONITOR = $monitorPath
+        $env:FINGVIBE_UI_REVIEW_NETWORK_MONITOR_TIME_SCALE = "20"
+        $env:FINGVIBE_UI_REVIEW_NETWORK_MONITOR_FIXTURE = "1"
+        Stop-ReviewProcess
+        Start-ReviewProcess
+        $indicator = Find-ById "NetworkMonitorIndicator"
+        $null = Wait-UiRegressionState -Description "monitoring dot marks a new check" -Condition {
+            $indicator.Current.ItemStatus -like "Check started*"
+        }
+        $null = Wait-UiRegressionState -Description "monitoring dot announces delivered raw observations" -Condition {
+            $indicator.Current.Name -like "Network monitoring: Monitoring on - raw observations. Last raw check: today *"
+        }
+        Select-Page Network
+        $null = Wait-UiRegressionState -Description "Network summary shows the latest raw observations" -Condition {
+            $result = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, "NetworkSummaryRawResult5"))
+            $result -and $result.Current.Name -eq "Google DNS: Error: Timed out after 2 seconds"
+        }
+        $null = Find-Control "Gateway 192.0.2.1: 5/5 ping responses, 2-4 ms" ([System.Windows.Automation.ControlType]::Text)
+        $null = Find-Control "Raw observations only; FingVibe does not judge network health from them." ([System.Windows.Automation.ControlType]::Text)
+        if ($ScreenshotDirectory) {
+            Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-summary-monitoring.png")
+        }
+        $indicator.SetFocus()
+        $null = Wait-UiRegressionState -Description "monitoring dot keyboard focus" -Condition { $indicator.Current.HasKeyboardFocus }
+        $indicator.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        $null = Find-Control "Run network diagnostics" ([System.Windows.Automation.ControlType]::Button)
+        if (-not (Find-Control "Tools" ([System.Windows.Automation.ControlType]::ListItem)).
+            GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected) {
+            throw "The monitoring dot must open the Tools Network health page."
+        }
+        $null = Find-Control "Latest raw observations - not a health verdict" ([System.Windows.Automation.ControlType]::Text)
+        $null = Wait-UiRegressionState -Description "Network health shows raw ping and DNS observations" -Condition {
+            $result = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, "NetworkHealthRawResult2"))
+            $result -and $result.Current.Name -eq "Google 8.8.8.8: 4/5 ping responses, 15-17 ms"
+        }
+        if ((Find-ById "NetworkHealthState").Current.Name -notlike "Monitoring on - *") {
+            throw "Network health must show the monitoring state, not a health verdict."
+        }
+        if ($ScreenshotDirectory) {
+            Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-monitoring.png")
+        }
+        $bounds = Get-UiReviewWindowBounds $process.MainWindowHandle
+        $null = [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero, $bounds.X, $bounds.Y, 640, 600, 0x0044)
+        Start-Sleep -Milliseconds 400
+        Assert-MonitorIndicatorContained
+    }
+    finally {
+        Stop-ReviewProcess
+        foreach ($name in $monitorEnvironment.Keys) { [Environment]::SetEnvironmentVariable($name, $monitorEnvironment[$name]) }
+        Remove-Item -LiteralPath $monitorPath -ErrorAction SilentlyContinue
+    }
     $peerPhasePassed = $true
-    Write-Host "Network health current state, Service status entry/states/filters/refresh/narrow/focus, checkpoints, peer outcomes/themes/accessibility, WAN validation, privacy, scrolling, Network summary/Tools navigation, and speed-test entry passed."
+    Write-Host "Network health current state, monitoring dot/raw observations/navigation/containment, Service status entry/states/filters/refresh/narrow/focus, checkpoints, peer outcomes/themes/accessibility, WAN validation, privacy, scrolling, Network summary/Tools navigation, and speed-test entry passed."
 }
 catch {
     if ($ScreenshotDirectory -and $process -and -not $process.HasExited -and

@@ -111,14 +111,20 @@
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <Ellipse Width="10" Height="10" StrokeThickness="1.5" VerticalAlignment="Center"
-                                     Stroke="{ThemeResource TextFillColorSecondaryBrush}"
+                            <Ellipse x:Name="SummaryStateDot" Width="10" Height="10" StrokeThickness="1.5" VerticalAlignment="Center"
+                                     Style="{StaticResource NetworkMonitorDotOffStyle}"
                                      IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
-                            <TextBlock Grid.Column="1" Text="Monitoring off" FontWeight="SemiBold" TextWrapping="Wrap"
+                            <TextBlock x:Name="SummaryStateText" Grid.Column="1" Text="Monitoring off" FontWeight="SemiBold" TextWrapping="Wrap"
                                        AutomationProperties.AutomationId="NetworkHealthSummaryState" />
                         </Grid>
-                        <TextBlock Text="Background health checks are not running, so no current health is shown. Run diagnostics on the Network health page to check now."
+                        <TextBlock x:Name="SummaryDetailText" Text="Background health checks are not running, so no current health is shown. Run diagnostics on the Network health page to check now."
                                    TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        <TextBlock x:Name="SummaryLastCheckText" Visibility="Collapsed" TextWrapping="Wrap"
+                                   AutomationProperties.AutomationId="NetworkHealthSummaryLastCheck" />
+                        <StackPanel x:Name="SummaryRawPanel" Spacing="2" Visibility="Collapsed"
+                                    AutomationProperties.Name="Latest raw monitoring observations">
+                            <StackPanel x:Name="SummaryRawRows" Spacing="2" />
+                        </StackPanel>
                     </StackPanel>
                     <Button x:Name="OpenNetworkHealthButton" Grid.Column="1" Content="Open network health &#x203A;"
                             VerticalAlignment="Center" Click="OpenNetworkHealthButton_Click"

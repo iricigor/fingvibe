@@ -103,6 +103,28 @@
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
             <Thickness x:Key="ScannerPageContentMargin">12,0,24,24</Thickness>
+            <!-- Monitoring dots carry state through shape and fill, never a health colour; text always names the state. -->
+            <Style x:Key="NetworkMonitorDotOffStyle" TargetType="Ellipse">
+                <Setter Property="Stroke" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Setter Property="Fill" Value="Transparent" />
+            </Style>
+            <Style x:Key="NetworkMonitorDotPausedStyle" TargetType="Ellipse">
+                <Setter Property="Stroke" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Setter Property="StrokeDashArray" Value="1.5,1" />
+                <Setter Property="Fill" Value="Transparent" />
+            </Style>
+            <Style x:Key="NetworkMonitorDotNoResultStyle" TargetType="Ellipse">
+                <Setter Property="Stroke" Value="{ThemeResource AccentFillColorDefaultBrush}" />
+                <Setter Property="Fill" Value="Transparent" />
+            </Style>
+            <Style x:Key="NetworkMonitorDotActiveStyle" TargetType="Ellipse">
+                <Setter Property="Stroke" Value="{ThemeResource AccentFillColorDefaultBrush}" />
+                <Setter Property="Fill" Value="{ThemeResource AccentFillColorDefaultBrush}" />
+            </Style>
+            <Style x:Key="NetworkMonitorDotStaleStyle" TargetType="Ellipse">
+                <Setter Property="Stroke" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+                <Setter Property="Fill" Value="{ThemeResource TextFillColorTertiaryBrush}" />
+            </Style>
             <local:PageHeaderSizing x:Key="PageHeaderSizing" />
             <Style x:Key="PageBackButtonStyle" TargetType="Button">
                 <Setter Property="Padding" Value="8" />
