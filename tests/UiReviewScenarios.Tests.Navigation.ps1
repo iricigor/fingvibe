@@ -69,6 +69,7 @@
         elseif ($ElementId -eq "control-Speed test") { $script:currentPage = "SpeedTest" }
         elseif ($ElementId -eq "control-About FingVibe & updates") { $script:currentPage = "About" }
         elseif ($ElementId -eq "control-Network health") { $script:currentPage = "NetworkHealth" }
+        elseif ($ElementId -eq "control-Open service status") { $script:currentPage = "ServiceStatus" }
         elseif ($ElementId -eq "control-Import from Fing") { $script:currentPage = "FingImport" }
         elseif ($ElementId -eq "control-SQL editor") { $script:currentPage = "SqlEditor" }
         elseif ($ElementId -eq "control-Database backups") { $script:currentPage = "DatabaseBackups" }
@@ -127,6 +128,10 @@
                     "control-Monitoring off" { $script:currentPage -eq "NetworkHealth" }
                     "control-Run network diagnostics" { $script:currentPage -eq "NetworkHealth" }
                     "control-Router WAN IPv4 address" { $script:currentPage -eq "NetworkHealth" }
+                    "control-Open service status" { $script:currentPage -eq "NetworkHealth" }
+                    "control-Back to Network health" { $script:currentPage -eq "ServiceStatus" }
+                    "control-Refresh provider reports" { $script:currentPage -eq "ServiceStatus" }
+                    "control-Source pending" { $script:currentPage -eq "ServiceStatus" }
                     "control-Back to Tools" { $script:currentPage -in @("NetworkHealth", "FingImport", "SqlEditor", "DatabaseBackups") }
                     "control-Back to Settings" { $script:currentPage -eq "About" }
                     "control-FingVibe LAN Scanner" { $script:currentPage -eq "About" }

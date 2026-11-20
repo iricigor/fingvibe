@@ -135,7 +135,10 @@
                              BackRequested="SpeedTestView_BackRequested" />
         <local:NetworkHealthPage x:Name="NetworkHealthView" Visibility="Collapsed"
                                  BackRequested="NetworkHealthView_BackRequested"
-                                 RoomMapRequested="NetworkHealthView_RoomMapRequested" />
+                                 RoomMapRequested="NetworkHealthView_RoomMapRequested"
+                                 ServiceStatusRequested="NetworkHealthView_ServiceStatusRequested" />
+        <local:ServiceStatusPage x:Name="ServiceStatusView" Visibility="Collapsed"
+                                 BackRequested="ServiceStatusView_BackRequested" />
         <local:FingImportPage x:Name="FingImportView" Visibility="Collapsed"
                               BackRequested="FingImportView_BackRequested"
                               ManagementRequested="FingImportView_ManagementRequested" />

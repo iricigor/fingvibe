@@ -70,6 +70,7 @@ public sealed partial class NetworkHealthPage : UserControl
 
     public event EventHandler? BackRequested;
     public event EventHandler? RoomMapRequested;
+    public event EventHandler? ServiceStatusRequested;
     internal NetworkActivityCoordinator? ActivityCoordinator { get; set; }
     public bool HasActiveTest => _runTask is { IsCompleted: false };
 
@@ -78,26 +79,26 @@ public sealed partial class NetworkHealthPage : UserControl
     internal void ConfigurePeerCandidates(Func<LanNetwork, Guid?, IReadOnlyList<IPAddress>> peers) =>
         _peerCandidates = peers;
 
-    public async Task OpenAsync()
+    public async Task OpenAsync(bool focusServiceStatus = false)
     {
         _open = true;
         if (_runTask is { } run) await run;
         if (!_open) return;
         RefreshNetworks(_shellNetwork);
-        FocusRunButton();
+        FocusAfterOpen(focusServiceStatus ? OpenServiceStatusButton : RunButton);
     }
 
-    private void FocusRunButton()
+    private void FocusAfterOpen(Control target)
     {
-        if (RunButton.Focus(FocusState.Programmatic)) return;
+        if (target.Focus(FocusState.Programmatic)) return;
         // The page was collapsed until this open, so focus can only land after its first layout passes.
         var attempts = 0;
         void Retry(object? sender, object args)
         {
-            if (!_open || !IsLoaded || RunButton.Focus(FocusState.Programmatic) || ++attempts >= 3)
-                RunButton.LayoutUpdated -= Retry;
+            if (!_open || !IsLoaded || target.Focus(FocusState.Programmatic) || ++attempts >= 3)
+                target.LayoutUpdated -= Retry;
         }
-        RunButton.LayoutUpdated += Retry;
+        target.LayoutUpdated += Retry;
     }
 
     private void RoomMapButton_Click(object sender, RoutedEventArgs e) =>
@@ -451,6 +452,17 @@ public sealed partial class NetworkHealthPage : UserControl
         Grid.SetColumn(RunControls, narrow ? 0 : 1);
         Grid.SetRow(ProgressText, narrow ? 2 : 1);
     }
+
+    private void ServiceStatusEntryLayout_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var narrow = e.NewSize.Width < 560;
+        Grid.SetRow(OpenServiceStatusButton, narrow ? 1 : 0);
+        Grid.SetColumn(OpenServiceStatusButton, narrow ? 1 : 2);
+        OpenServiceStatusButton.HorizontalAlignment = narrow ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;
+    }
+
+    private void OpenServiceStatusButton_Click(object sender, RoutedEventArgs e) =>
+        ServiceStatusRequested?.Invoke(this, EventArgs.Empty);
 
     private void Render()
     {
