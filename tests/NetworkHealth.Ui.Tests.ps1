@@ -650,8 +650,9 @@ try {
         $null = Wait-UiRegressionState -Description "monitoring dot marks a new check" -Condition {
             $indicator.Current.ItemStatus -like "Check started*"
         }
-        $null = Wait-UiRegressionState -Description "monitoring dot announces delivered raw observations" -Condition {
-            $indicator.Current.Name -like "Network monitoring: Monitoring on - raw observations. Last raw check: today *"
+        $null = Wait-UiRegressionState -Description "monitoring dot announces the learning or healthy verdict" -Condition {
+            $indicator.Current.Name -like "Network monitoring: Learning - no problems found. Last raw check: today *" -or
+                $indicator.Current.Name -like "Network monitoring: Healthy. Last raw check: today *"
         }
         Select-Page Network
         $null = Wait-UiRegressionState -Description "Network summary shows the latest raw observations" -Condition {
@@ -660,7 +661,9 @@ try {
             $result -and $result.Current.Name -eq "Google DNS: Error: Timed out after 2 seconds"
         }
         $null = Find-Control "Gateway 192.0.2.1: 5/5 ping responses, 2-4 ms" ([System.Windows.Automation.ControlType]::Text)
-        $null = Find-Control "Raw observations only; FingVibe does not judge network health from them." ([System.Windows.Automation.ControlType]::Text)
+        if ((Find-ById "NetworkHealthSummaryDetail").Current.Name -notlike "No problems found*") {
+            throw "The Network summary must explain the current verdict in text."
+        }
         if ($ScreenshotDirectory) {
             Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-summary-monitoring.png")
         }
@@ -672,14 +675,14 @@ try {
             GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected) {
             throw "The monitoring dot must open the Tools Network health page."
         }
-        $null = Find-Control "Latest raw observations - not a health verdict" ([System.Windows.Automation.ControlType]::Text)
+        $null = Find-Control "Latest raw observations" ([System.Windows.Automation.ControlType]::Text)
         $null = Wait-UiRegressionState -Description "Network health shows raw ping and DNS observations" -Condition {
             $result = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
                 [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, "NetworkHealthRawResult2"))
             $result -and $result.Current.Name -eq "Google 8.8.8.8: 4/5 ping responses, 15-17 ms"
         }
-        if ((Find-ById "NetworkHealthState").Current.Name -notlike "Monitoring on - *") {
-            throw "Network health must show the monitoring state, not a health verdict."
+        if ((Find-ById "NetworkHealthState").Current.Name -notin @("Learning - no problems found", "Healthy")) {
+            throw "Network health must show the learning or healthy verdict for the healthy fixture."
         }
         if ($ScreenshotDirectory) {
             Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-monitoring.png")
@@ -688,6 +691,33 @@ try {
         $null = [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero, $bounds.X, $bounds.Y, 640, 600, 0x0044)
         Start-Sleep -Milliseconds 400
         Assert-MonitorIndicatorContained
+
+        # Fixture latencies above the absolute limits: the second consecutive suspicious check (30 s cadence, 1.5 s
+        # at 20x) confirms a problem on the dot, Network health and the Network summary.
+        $env:FINGVIBE_UI_REVIEW_NETWORK_MONITOR_FIXTURE = "problem"
+        Stop-ReviewProcess
+        Start-ReviewProcess
+        $indicator = Find-ById "NetworkMonitorIndicator"
+        $null = Wait-UiRegressionState -Description "monitoring dot announces a possible problem" -TimeoutMilliseconds 15000 -Condition {
+            $indicator.Current.Name -like "Network monitoring: Possible problem - verifying.*" -or
+                $indicator.Current.Name -like "Network monitoring: Problem confirmed.*"
+        }
+        $null = Wait-UiRegressionState -Description "monitoring dot announces the confirmed problem" -TimeoutMilliseconds 15000 -Condition {
+            $indicator.Current.Name -like "Network monitoring: Problem confirmed. Last raw check: today *"
+        }
+        Select-Page Network
+        $null = Wait-UiRegressionState -Description "Network summary shows the confirmed problem" -Condition {
+            (Find-ById "NetworkHealthSummaryState").Current.Name -eq "Problem confirmed" -and
+                (Find-ById "NetworkHealthSummaryDetail").Current.Name -like "*High latency: Cloudflare 1.1.1.1 215 ms median (limit 150 ms)*"
+        }
+        $indicator.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        $null = Wait-UiRegressionState -Description "Network health explains the confirmed problem and recovery" -Condition {
+            (Find-ById "NetworkHealthState").Current.Name -eq "Problem confirmed" -and
+                (Find-ById "NetworkHealthStateDetail").Current.Name -like "*Recovery: 0 of 5 consecutive healthy checks*"
+        }
+        if ($ScreenshotDirectory) {
+            Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-problem.png")
+        }
     }
     finally {
         Stop-ReviewProcess
@@ -695,7 +725,7 @@ try {
         Remove-Item -LiteralPath $monitorPath -ErrorAction SilentlyContinue
     }
     $peerPhasePassed = $true
-    Write-Host "Network health current state, monitoring dot/raw observations/navigation/containment, Service status entry/states/filters/refresh/narrow/focus, checkpoints, peer outcomes/themes/accessibility, WAN validation, privacy, scrolling, Network summary/Tools navigation, and speed-test entry passed."
+    Write-Host "Network health current state, monitoring dot/learning and problem verdicts/raw observations/navigation/containment, Service status entry/states/filters/refresh/narrow/focus, checkpoints, peer outcomes/themes/accessibility, WAN validation, privacy, scrolling, Network summary/Tools navigation, and speed-test entry passed."
 }
 catch {
     if ($ScreenshotDirectory -and $process -and -not $process.HasExited -and

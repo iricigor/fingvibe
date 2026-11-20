@@ -34,7 +34,8 @@ internal sealed record NetworkMonitorStatus(
 // starts after the previous check ends, so no catch-up queue can accumulate after sleep or long probes.
 internal sealed class NetworkMonitorScheduler(
     Func<CancellationToken, Task<NetworkMonitorRunOutcome>> runCheck,
-    TimeProvider? timeProvider = null)
+    TimeProvider? timeProvider = null,
+    Func<TimeSpan>? nextInterval = null)
 {
     public static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
 
@@ -128,11 +129,13 @@ internal sealed class NetworkMonitorScheduler(
                 last = await AttemptAsync(stop);
                 lastObservation = last.Observation ?? lastObservation;
                 stop.ThrowIfCancellationRequested();
-                nextCheckAt += Interval;
+                // Health verdicts shorten the cadence to 30 seconds while verifying or tracking a problem.
+                var step = nextInterval?.Invoke() ?? Interval;
+                nextCheckAt += step;
                 if (nextCheckAt <= _time.GetUtcNow())
                 {
                     // A late/long run starts a new full wait, never an immediate catch-up queue.
-                    nextCheckAt = _time.GetUtcNow() + Interval;
+                    nextCheckAt = _time.GetUtcNow() + step;
                 }
             }
         }

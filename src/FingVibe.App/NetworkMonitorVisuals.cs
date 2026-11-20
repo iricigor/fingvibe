@@ -15,6 +15,11 @@ internal static class NetworkMonitorDots
             NetworkMonitorIndicatorKind.NoResult => "NetworkMonitorDotNoResultStyle",
             NetworkMonitorIndicatorKind.Checking or NetworkMonitorIndicatorKind.Observed => "NetworkMonitorDotActiveStyle",
             NetworkMonitorIndicatorKind.Stale => "NetworkMonitorDotStaleStyle",
+            NetworkMonitorIndicatorKind.Learning => "NetworkMonitorDotLearningStyle",
+            NetworkMonitorIndicatorKind.Healthy => "NetworkMonitorDotHealthyStyle",
+            NetworkMonitorIndicatorKind.Verifying => "NetworkMonitorDotVerifyingStyle",
+            NetworkMonitorIndicatorKind.Problem => "NetworkMonitorDotProblemStyle",
+            NetworkMonitorIndicatorKind.Uncertain => "NetworkMonitorDotUncertainStyle",
             _ => "NetworkMonitorDotOffStyle"
         }];
 

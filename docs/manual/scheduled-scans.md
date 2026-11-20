@@ -25,15 +25,16 @@ monitoring does not enable scheduled LAN scans, and enabling scheduled scans
 does not enable monitoring.
 
 The first monitoring cycle waits 60 seconds. Every subsequent cycle is due
-on the same minute cadence. Each cycle sends five ICMP requests to the selected
+on the same minute cadence, or every 30 seconds while FingVibe verifies or
+tracks a suspected problem. Each cycle sends five ICMP requests to the selected
 network's gateway, `1.1.1.1`, and `8.8.8.8`, with starts for each target spaced
 one second apart and the normal 1.5-second probe timeout. It then resolves
 `example.com` through Windows DNS (including its cache), Cloudflare DNS, and
 Google DNS. The resulting raw state contract keeps per-target timings,
-responses, failures, cancellation detail, and DNS source labels; it does not
-calculate a health verdict. The header dot, **Network health** and the Network
-page show the monitoring state and latest raw results; see
-[Network health](network-checks.md#monitoring-state-and-raw-observations).
+responses, failures, cancellation detail, and DNS source labels. FingVibe judges
+completed checks with fixed rules; the header dot, **Network health** and the
+Network page show the resulting verdict and the latest raw results; see
+[Network health](network-checks.md#monitoring-state-and-health-verdicts).
 
 Manual LAN scans, speed tests, network diagnostics, and device-service scans
 take priority. They cancel an active monitoring cycle and start only after it

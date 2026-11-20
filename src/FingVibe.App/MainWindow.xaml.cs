@@ -19,7 +19,7 @@ public sealed partial class MainWindow : Window
         _periodicScans = new PeriodicScanScheduler(RunScheduledScanAsync, CreatePeriodicScanTimeProvider());
         _periodicScanController = new PeriodicScanController(_periodicScans, LoadPeriodicScanSettings());
         _networkMonitorScheduler = new NetworkMonitorScheduler(
-            RunNetworkMonitorAsync, CreateNetworkMonitorTimeProvider());
+            RunNetworkMonitorAsync, CreateNetworkMonitorTimeProvider(), () => _networkHealth.NextInterval);
         _networkMonitorController = new NetworkMonitorController(
             _networkMonitorScheduler, LoadNetworkMonitorSettings());
         InitializeComponent();

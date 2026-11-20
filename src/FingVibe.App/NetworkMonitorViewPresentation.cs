@@ -1,5 +1,6 @@
 using System.Globalization;
 using FingVibe.Core.Models;
+using FingVibe.Core.Networking;
 
 namespace FingVibe.App;
 
@@ -10,7 +11,12 @@ internal enum NetworkMonitorIndicatorKind
     NoResult,
     Checking,
     Observed,
-    Stale
+    Stale,
+    Learning,
+    Healthy,
+    Verifying,
+    Problem,
+    Uncertain
 }
 
 internal sealed record NetworkMonitorRawRow(string Label, string Result);
@@ -25,28 +31,40 @@ internal sealed record NetworkMonitorView(
     public string IndicatorName => $"Network monitoring: {Title}. {LastCheck} Opens Network health.";
 }
 
-/// <summary>Projects the monitor snapshot for the header dot, Network health and the Network summary without a verdict.</summary>
+/// <summary>Projects the monitor snapshot and its health verdict for the header dot, Network health and the Network summary.</summary>
 internal static class NetworkMonitorViewPresentation
 {
     public const string OffDetail =
         "Background health checks are not running, so there is no current health result. This is not a healthy state.";
-    public const string RawNote = "Raw observations only; FingVibe does not judge network health from them.";
+    public const string RawNote = "Raw observations show what the latest check measured; ICMP and DNS replies can be blocked even when services work.";
 
-    // Two missed one-minute cycles plus probe time mean the retained result no longer reflects the current network.
-    public static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(2.5);
+    // Approved staleness: after three minutes without a completed check, old health is not shown as current.
+    public static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(3);
 
     public static NetworkMonitorView Create(
         NetworkMonitorSnapshot snapshot, DateTimeOffset now, TimeZoneInfo timeZone, CultureInfo culture)
     {
         var observation = snapshot.LastObservation;
-        var stale = observation is not null && now - observation.CompletedAt > StaleAfter;
+        // A restarted monitor (context change, wake, re-enable) has no observation yet, so no earlier verdict is shown.
+        var health = observation is null ? null : snapshot.Health;
+        var latest = new[] { observation?.CompletedAt, health?.ObservedAt }.Max();
+        var stale = latest is { } completed && now - completed > StaleAfter;
+        // Off and Paused take precedence; a running check keeps showing the current verdict while the dot pulses.
         var kind = snapshot.State switch
         {
             NetworkMonitorState.Off => NetworkMonitorIndicatorKind.Off,
             NetworkMonitorState.Paused => NetworkMonitorIndicatorKind.Paused,
+            _ when stale => NetworkMonitorIndicatorKind.Stale,
+            _ when health is not null => health.Verdict switch
+            {
+                NetworkHealthVerdict.Learning => NetworkMonitorIndicatorKind.Learning,
+                NetworkHealthVerdict.Healthy => NetworkMonitorIndicatorKind.Healthy,
+                NetworkHealthVerdict.Verifying => NetworkMonitorIndicatorKind.Verifying,
+                NetworkHealthVerdict.Problem => NetworkMonitorIndicatorKind.Problem,
+                _ => NetworkMonitorIndicatorKind.Uncertain
+            },
             NetworkMonitorState.Checking => NetworkMonitorIndicatorKind.Checking,
             _ when observation is null => NetworkMonitorIndicatorKind.NoResult,
-            _ when stale => NetworkMonitorIndicatorKind.Stale,
             _ => NetworkMonitorIndicatorKind.Observed
         };
         var title = kind switch
@@ -56,14 +74,45 @@ internal static class NetworkMonitorViewPresentation
             NetworkMonitorIndicatorKind.Checking => "Monitoring on - checking now",
             NetworkMonitorIndicatorKind.NoResult => "Monitoring on - no result yet",
             NetworkMonitorIndicatorKind.Stale => "Monitoring on - last result not current",
+            NetworkMonitorIndicatorKind.Learning => "Learning - no problems found",
+            NetworkMonitorIndicatorKind.Healthy => "Healthy",
+            NetworkMonitorIndicatorKind.Verifying => "Possible problem - verifying",
+            NetworkMonitorIndicatorKind.Problem => "Problem confirmed",
+            NetworkMonitorIndicatorKind.Uncertain => "Uncertain - multiple network routes",
             _ => "Monitoring on - raw observations"
         };
-        var detail = kind == NetworkMonitorIndicatorKind.Off
-            ? JoinSentences(OffDetail, ExtraNotes(snapshot.Detail))
-            : JoinSentences(snapshot.Detail, RawNote);
+        var detail = kind switch
+        {
+            NetworkMonitorIndicatorKind.Off => JoinSentences(OffDetail, ExtraNotes(snapshot.Detail)),
+            NetworkMonitorIndicatorKind.Stale => JoinSentences(
+                "No check has completed for over three minutes, so the last result is not shown as current health.", snapshot.Detail),
+            _ when health is not null && kind >= NetworkMonitorIndicatorKind.Learning =>
+                JoinSentences([VerdictText(health), .. health.Notes, snapshot.Detail]),
+            _ => JoinSentences(snapshot.Detail, RawNote)
+        };
         return new(kind, title, detail, LastCheck(observation, snapshot.State, stale, now, timeZone, culture), Rows(observation));
     }
 
+    private static string VerdictText(NetworkHealthAssessment health)
+    {
+        var symptoms = string.Join(" ", health.Symptoms.Select(symptom => Sentence(symptom.Description)));
+        return health.Verdict switch
+        {
+            NetworkHealthVerdict.Learning =>
+                $"No problems found. Learning normal latency: {health.BaselineChecks} of {NetworkHealthEvaluator.BaselineSize} " +
+                $"healthy checks; until then the fixed limits ({NetworkHealthEvaluator.GatewayThresholdMilliseconds:0} ms gateway, " +
+                $"{NetworkHealthEvaluator.ExternalThresholdMilliseconds:0} ms internet) apply.",
+            NetworkHealthVerdict.Healthy => "No problems found against the learned normal latency and the fixed limits.",
+            NetworkHealthVerdict.Verifying =>
+                $"{symptoms} Checking again every 30 seconds; a second suspicious check in a row confirms a problem.",
+            NetworkHealthVerdict.Problem =>
+                $"{symptoms} Recovery: {health.RecoveryChecks} of {NetworkHealthEvaluator.RecoveryCheckCount} consecutive " +
+                "healthy checks. Checking every 30 seconds.",
+            _ => "FingVibe does not judge the selected LAN while Windows may route the checks elsewhere."
+        };
+    }
+
+    private static string Sentence(string text) => text.EndsWith('.') ? text : text + ".";
     public static IReadOnlyList<NetworkMonitorRawRow> Rows(NetworkMonitorObservation? observation)
     {
         if (observation is null) return [];

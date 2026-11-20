@@ -51,7 +51,7 @@
                         <StackPanel x:Name="RawObservationsPanel" Spacing="4" Visibility="Collapsed"
                                     AutomationProperties.AutomationId="NetworkHealthRawObservations"
                                     AutomationProperties.Name="Latest raw monitoring observations">
-                            <TextBlock Text="Latest raw observations - not a health verdict" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock Text="Latest raw observations" FontWeight="SemiBold" TextWrapping="Wrap" />
                             <StackPanel x:Name="RawObservationRows" Spacing="2" />
                         </StackPanel>
                         <TextBlock x:Name="ContextText" TextWrapping="Wrap" />

@@ -57,4 +57,8 @@ public sealed record NetworkMonitorSnapshot(
     DateTimeOffset ObservedAt,
     DateTimeOffset? NextCheckAt,
     NetworkMonitorObservation? LastObservation,
-    string? Detail);
+    string? Detail)
+{
+    /// <summary>Latest verdict from completed checks, or null before any observed check.</summary>
+    public FingVibe.Core.Networking.NetworkHealthAssessment? Health { get; init; }
+}
