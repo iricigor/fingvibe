@@ -9,6 +9,8 @@ Keep confirmed abandoned ideas here to avoid repeating investigations. Each entr
 - [DI-003: MSIX release packaging](#di-003-msix-release-packaging)
 - [DI-004: One-time firewall setup for LAN discovery](#di-004-one-time-firewall-setup-for-lan-discovery)
 - [DI-005: Decorative Connected home application backgrounds](#di-005-decorative-connected-home-application-backgrounds)
+- [DI-006: Residual codebase optimization and restructuring](#di-006-residual-codebase-optimization-and-restructuring)
+- [DI-007: Full-suite FlaUI/UIA3 comparison](#di-007-full-suite-flauiuia3-comparison)
 
 ## Entry template
 
@@ -87,3 +89,29 @@ The current mDNS listener uses UDP 5353 with an ephemeral-port fallback; SSDP us
 **Revisit only if:** The user explicitly chooses to reconsider the regression-testing impact.
 
 **Context:** [#349](https://github.com/iricigor/fingvibe/issues/349). This rejects the background treatment and associated container transparency, not the separate Connected home application-icon and downscaling task [#348](https://github.com/iricigor/fingvibe/issues/348), which remains unchanged.
+
+### DI-006: Residual codebase optimization and restructuring
+
+**Status:** Rejected | **Date:** 2026-11-20
+
+**Idea:** Pursue the residual candidates in [#275](https://github.com/iricigor/fingvibe/issues/275): initial history-loading/UI-thread redesign, concrete SQLite/history-interface cleanup, broad shell or shared-row restructuring, an application-logic test assembly, and standalone Full Devices parallelization.
+
+**Stopped because:** After extracting the concrete Full-script isolation failure and measured inventory-presentation optimization, the user chose to abandon the remaining lower-priority work and resolve the review collection. The user reports generally good application responsiveness; no measured production benefit currently justifies the speculative refactors and their regression surface. Full Devices parallelization improves validation turnaround, not application responsiveness: its historical 354-second passing job remains evidence, but this optional follow-up is not a current priority. This decision does not establish that the recorded costs or boundary risks disappeared.
+
+**Revisit only if:** A measured bottleneck or concrete maintenance/correctness defect justifies a bounded change, validation turnaround becomes a renewed priority, or the user explicitly requests reconsideration.
+
+**Context:** Decision record [#646](https://github.com/iricigor/fingvibe/issues/646). Full-script isolation remains [#643](https://github.com/iricigor/fingvibe/issues/643); measure/optimize/remeasure inventory presentation remains [#645](https://github.com/iricigor/fingvibe/issues/645). Neither is abandoned or authorized for implementation by this entry. Regression-gate policy [#256](https://github.com/iricigor/fingvibe/issues/256) and the separately parked FlaUI experiment [#311](https://github.com/iricigor/fingvibe/issues/311) are unchanged. Preserve existing behavior, cancellation/error contracts, accessibility and million-row performance budgets; this rejects speculative projects, not those standards. Historical findings remain in #275.
+
+**Later decision - 2026-11-20:** The user separately approved abandoning #311's unfinished expansion. Its parked disposition above is superseded by [DI-007](#di-007-full-suite-flauiuia3-comparison); the DI-006 scope and rationale are unchanged.
+
+### DI-007: Full-suite FlaUI/UIA3 comparison
+
+**Status:** Rejected | **Date:** 2026-11-20
+
+**Idea:** Expand the original history comparison into a full native-suite FlaUI/UIA3 parity experiment and associated test-quality audit, as recorded in [#311](https://github.com/iricigor/fingvibe/issues/311).
+
+**Stopped because:** The user approved abandoning the unfinished expansion after reviewing its evidence. The initial frozen-revision history comparison passed 30/30 trials per backend, with total medians of 5.299 seconds for PowerShell/UIA and 5.929 seconds for FlaUI/UIA3; it demonstrated no speed or reliability advantage. Different startup/lifecycle costs and the small local sample prevent an engine-level or general reliability verdict. The expanded prototype never established a successful end-to-end scenario: locked-desktop, WinAppDriver Developer Mode and clipboard-preservation blockers prevented meaningful full-suite results. Remaining parity and maintenance work has no demonstrated benefit to justify continuing now.
+
+**Revisit only if:** A specific recurring harness problem justifies a focused, assertion-preserving comparison with a suitable disposable execution environment, or the user explicitly requests reconsideration. A framework migration requires separate evidence and approval.
+
+**Context:** #311 is resolved as not planned for its unfinished scope, not completed parity or a successful audit. Preserve the completed initial measurements, diagnostic limitations and checkpoint [a85f13a4](https://github.com/iricigor/fingvibe/commit/a85f13a48e820ffe81b37a200b49c6fbc04a95ce) on `iricigor-improved-disco`; [PR #312](https://github.com/iricigor/fingvibe/pull/312) remains closed unmerged. The saved README and CSV retain the detailed protocol and results. No branch/artifact deletion, experiment resumption, production harness migration, native-coverage weakening or change to #256 is authorized. Recording task: [#646](https://github.com/iricigor/fingvibe/issues/646).
