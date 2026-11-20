@@ -710,9 +710,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#monitoring-state-and-raw-observations" class="md-nav__link">
+  <a href="#monitoring-state-and-health-verdicts" class="md-nav__link">
     <span class="md-ellipsis">
-      Monitoring state and raw observations
+      Monitoring state and health verdicts
     </span>
   </a>
   
@@ -1113,9 +1113,9 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#monitoring-state-and-raw-observations" class="md-nav__link">
+  <a href="#monitoring-state-and-health-verdicts" class="md-nav__link">
     <span class="md-ellipsis">
-      Monitoring state and raw observations
+      Monitoring state and health verdicts
     </span>
   </a>
   
@@ -1194,11 +1194,12 @@ it shows <strong>Monitoring off</strong>: no background checks run, so FingVibe 
 current health result instead of implying that the network is healthy.
 Turn monitoring on under <strong>Settings &gt; Background activity</strong>
 (<a href="../scheduled-scans/">Scheduled scans and monitoring</a>).</p>
-<h2 id="monitoring-state-and-raw-observations">Monitoring state and raw observations<a class="headerlink" href="#monitoring-state-and-raw-observations" title="Permanent link">&para;</a></h2>
+<h2 id="monitoring-state-and-health-verdicts">Monitoring state and health verdicts<a class="headerlink" href="#monitoring-state-and-health-verdicts" title="Permanent link">&para;</a></h2>
 <p>A small dot beside <strong>Network:</strong> in the header shows the monitoring state on every
 page. Hover over it or focus it to read the state and last-check time, and select
 it to open this page. The dot pulses briefly when a check starts; with Windows
-animations turned off it stays still.</p>
+animations turned off it stays still. The same state, with an explanation, appears
+at the top of this page and in the Network page's <strong>Network health</strong> section.</p>
 <table>
 <thead>
 <tr>
@@ -1210,42 +1211,81 @@ animations turned off it stays still.</p>
 <tbody>
 <tr>
 <td><strong>Monitoring off</strong></td>
-<td>Hollow outline</td>
+<td>Hollow grey outline</td>
 <td>No background checks run.</td>
 </tr>
 <tr>
 <td><strong>Monitoring paused</strong></td>
-<td>Dashed outline</td>
+<td>Dashed grey outline</td>
 <td>Windows is asleep; checks resume after a full minute.</td>
 </tr>
 <tr>
 <td><strong>Monitoring on - no result yet</strong></td>
 <td>Accent outline</td>
-<td>Waiting for the first check.</td>
+<td>Waiting for the first completed check.</td>
 </tr>
 <tr>
-<td><strong>Monitoring on - checking now</strong></td>
-<td>Filled accent</td>
-<td>A check is running.</td>
+<td><strong>Learning - no problems found</strong></td>
+<td>Green outline</td>
+<td>No problem found while FingVibe learns normal latency.</td>
 </tr>
 <tr>
-<td><strong>Monitoring on - raw observations</strong></td>
-<td>Filled accent</td>
-<td>The latest check result is shown.</td>
+<td><strong>Healthy</strong></td>
+<td>Filled green</td>
+<td>No problem found against learned normal latency.</td>
+</tr>
+<tr>
+<td><strong>Possible problem - verifying</strong></td>
+<td>Amber outline</td>
+<td>One suspicious check; FingVibe checks again within 30 seconds.</td>
+</tr>
+<tr>
+<td><strong>Problem confirmed</strong></td>
+<td>Filled red</td>
+<td>The same symptom appeared in two consecutive checks.</td>
+</tr>
+<tr>
+<td><strong>Uncertain - multiple network routes</strong></td>
+<td>Dashed amber outline</td>
+<td>Windows may route checks through another adapter or VPN.</td>
 </tr>
 <tr>
 <td><strong>Monitoring on - last result not current</strong></td>
 <td>Filled grey</td>
-<td>No newer result has arrived for over two and a half minutes.</td>
+<td>No check has completed for over three minutes.</td>
 </tr>
 </tbody>
 </table>
-<p>When a check completes, this page and the Network page's <strong>Network health</strong>
-section list its time and the latest per-target results: ping responses and
-latency range for the gateway, <code>1.1.1.1</code> and <code>8.8.8.8</code>, and the Windows,
-Cloudflare and Google DNS results. These are raw observations, not a health
-verdict: FingVibe does not decide from them whether the network is healthy.
-Results kept while monitoring is off or paused are marked as not current.</p>
+<p>FingVibe judges each completed check with these fixed rules:</p>
+<ul>
+<li><strong>Latency:</strong> each target learns its normal latency from 20 healthy checks.
+  A median above 20 ms (gateway) or 150 ms (<code>1.1.1.1</code>, <code>8.8.8.8</code>) is suspicious
+  while learning; afterwards it must also exceed three times the learned normal
+  latency. Learning pauses while that target is suspicious or has a problem.</li>
+<li><strong>ICMP probes unanswered:</strong> two or more of five unanswered probes are
+  suspicious only for a target that has answered before. A target that never
+  answers is shown as limited visibility, not as an outage, because many
+  networks block ICMP. Unanswered ICMP is not application packet loss.</li>
+<li><strong>DNS:</strong> a Windows DNS failure is suspicious. A public resolver that does not
+  answer while Windows DNS works is noted as possibly blocked, not as a DNS
+  failure. Windows results may come from its cache.</li>
+<li><strong>Confirmation and recovery:</strong> a problem is confirmed after two consecutive
+  suspicious checks for the same symptom and target. While verifying or tracking
+  a problem, checks run every 30 seconds. A problem clears after five consecutive
+  healthy checks; an unhealthy check restarts that count. Cancelled, skipped and
+  paused checks neither count nor restart it.</li>
+<li><strong>Context:</strong> changing the selected network, or turning monitoring off, starts
+  learning and recovery afresh. With more than one active gateway route (for
+  example a VPN or a second adapter), FingVibe reports <strong>Uncertain</strong> instead of
+  judging the selected LAN.</li>
+</ul>
+<p>These are fixed defaults, not guarantees: a healthy verdict means only that these
+checks found no problem. Verdicts and recovery progress are kept in memory and
+are not saved.</p>
+<p>Below the verdict, this page and the Network page list the latest raw results:
+ping responses and latency range for the gateway, <code>1.1.1.1</code> and <code>8.8.8.8</code>, and
+the Windows, Cloudflare and Google DNS results. Results kept while monitoring is
+off or paused are marked as not current.</p>
 <h2 id="service-status">Service status<a class="headerlink" href="#service-status" title="Permanent link">&para;</a></h2>
 <p>The <strong>Service status</strong> card below current health opens a separate page of
 provider-published reports for six providers. Each provider has one everyday
