@@ -1466,8 +1466,8 @@ automation IDs/namescopes, isolated representative data, keyboard/accessibility
 and rendered/virtualized reachability. Large-data correctness/resource budgets
 belong primarily in WinUI-free tests, with native integration still required.
 Agree budgets before implementation, preserve intentional elapsed-time checks,
-and investigate failures instead of hiding them. Enforced PR coverage
-manifests are not delivered by this foundation (#256).
+and investigate failures instead of hiding them. Phase 1 enforces PR regression
+manifests additively; it does not authorize comparison-based gate cutover.
 Independent execution modes below do not change those review requirements.
 
 ### Independent native validation
@@ -1575,7 +1575,7 @@ checks for representative filter/details, restoration/scan and shared-layout
 changes. Record run/job identity, full-job and execution durations, failures,
 omitted coverage and artifact links. Failures found only by exhaustive checks
 are baseline omissions, not baseline successes covering those behaviors.
-No comparison evidence authorizes #256's separately approved gate cutover.
+No comparison evidence authorizes #649's separately approved gate cutover.
 
 The following commands are for a chosen isolated interactive Windows test
 environment or disposable CI runner, **not the user's working desktop**:
@@ -1867,6 +1867,30 @@ When UI review runs, the capture plan always includes **Devices** after its scan
 Navigation verification is independent of screenshot selection: every supported scenario is exercised, even when only Devices is captured. Existing scan/filter, overview navigation, People/Rooms suggestions, and assignment smoke tests remain enabled. Each capture verifies the selected navigation item and visible page-specific controls; required navigation or capture failures stop the review instead of silently showing the wrong page.
 
 The workflow logs selection reasons and uploads the capture plan, completed manifest, and all PNGs together. Available partial captures, WinAppDriver output, startup/crash diagnostics, and the smoke-test transcript are retained on failure; a completed manifest is written only after all required checks pass. Its existing PR screenshot comment is updated with labeled images, without repeating the detailed file-by-file selection reasons. Security/UI failure comments are still updated and cleared when resolved; only build-artifact comments are append-only. Manual runs can request extra scenarios through the comma-separated `additional_scenarios` input: `Overview`, `Network`, `DeviceDetails`, `People`, `PersonDetails`, `Rooms`, `RoomDetails`, `Tools`, `SpeedTest`, `About`, `SqlEditor`, `Settings`, and `DevicesEmpty`. People and Rooms captures use in-memory review records instead of loading or changing saved user data. New pages or required states must be added to the scenario catalog, selection, navigation, and regression tests. Run the scenario regression tests with `pwsh -File tests\UiReviewScenarios.Tests.ps1`, and validation-planning/comment/gate regression tests with `pwsh -File tests\PrValidation.Tests.ps1`.
+
+### Deterministic PR regression coverage
+
+Each implementation PR commits exactly one
+`.github/pr-regression-manifests/<issue>.json` and references it with the
+`regression-manifest` marker supplied by the PR template. PR body text is input
+data, never an execution surface: selector commands are not accepted there or in
+the manifest. The JSON Schema is
+`.github/pr-regression/schema.json`; executable IDs and trusted runner mappings
+are owned by `.github/pr-regression/selectors.json`.
+
+`pr-regression-coverage` derives the merge-base diff, independently classifies
+changed paths, validates the schema/category/reference, adds CI-owned minimum
+selectors and executes the union. Missing or malformed manifests, unknown paths,
+unsupported/nonexistent selectors, zero file/matrix matches and failed selected
+tests fail the authoritative gate. PR `edited` events are included so changing
+the reference cannot preserve a stale result; commits use a fresh head SHA.
+
+Native selector IDs are allowlisted matrix jobs rather than commands. Phase 1
+delegates them to the existing complete native regression matrix and preserves
+`ui-ux-review`, its failure/publication dependencies, build/core/script/security/
+installer coverage and all current-revision captures. Passing the selected set
+is not equivalence evidence and does not remove any full PR check. Comparison
+reporting and any later reduction/cutover remain separately gated by #649.
 
 The workflow publishes screenshots to the `gh-pages` branch so the bot can embed the PNGs directly in its review comment. After the workflow creates that branch for the first time, open **Settings > Pages**, choose **Deploy from a branch**, select `gh-pages` and `/ (root)`, then save. Published image URLs use `https://<owner>.github.io/<repository>/ui-review/pr-<number>/run-<run-id>/<filename>.png`, keeping captures from different runs separate.
 

@@ -24,8 +24,11 @@ Review actual current-revision native phase/failure diagnostics, keyboard paths
 and visible paging/reachability; Core resource tests and source inventories do
 not replace rendered integration. Preserve stable automation/scenario mappings
 and deliberate timing checks. Do not conceal failures through retries,
-increased timeouts or reduced coverage. This is review guidance, not #256's
-future mandatory-manifest gate.
+increased timeouts or reduced coverage. Inspect the PR's validated regression manifest and selected
+selectors, but treat metadata and a passing selector set as planning evidence,
+not proof of coverage sufficiency. Phase 1 requires the manifest and preserves
+every existing authoritative UI check; reviewers still assess the expected
+assertions against the actual rendered behavior.
 
 The independent native baseline comparison is observational, not the
 authoritative `ui-ux-review` gate. Its passing launch/scan/filter/details result

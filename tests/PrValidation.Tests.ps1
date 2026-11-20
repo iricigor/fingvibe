@@ -21,6 +21,7 @@ function Assert-Throws([scriptblock] $Action, [string] $Pattern) {
 . (Join-Path $PSScriptRoot "PrValidation.Tests.WorkflowContracts.ps1")
 . (Join-Path $PSScriptRoot "PrValidation.Tests.NativeDispatch.ps1")
 . (Join-Path $PSScriptRoot "PrValidation.Tests.FinalGate.ps1")
+. (Join-Path $PSScriptRoot "PrValidation.Tests.RegressionCoverage.ps1")
 . (Join-Path $PSScriptRoot "ArchitectEpicPreparation.Tests.ps1")
 & (Join-Path $PSScriptRoot "NativeValidation.Tests.ps1")
 Write-Host "PR validation planning, comment history, and required-check regression tests passed."

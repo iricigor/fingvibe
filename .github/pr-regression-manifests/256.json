@@ -1,0 +1,18 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 256,
+  "category": "validation",
+  "changedBehavior": "Add an additive, deterministic PR regression manifest and selected-test gate while preserving the existing full authoritative validation.",
+  "selectors": [
+    "pr-validation",
+    "native-validation",
+    "ui-review-scenarios"
+  ],
+  "expectedAssertions": [
+    "Malformed or missing manifests, references, categories and selectors fail with an actionable error.",
+    "Unknown paths and selectors that match zero executable checks fail closed.",
+    "CI-owned selectors are unioned with manifest selectors and cannot be removed by PR metadata.",
+    "New commits and edited manifest references produce a fresh plan bound to the current head.",
+    "The existing ui-ux-review and complete native regression matrix remain required."
+  ]
+}
