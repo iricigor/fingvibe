@@ -19,7 +19,7 @@
         <link rel="next" href="../scheduled-scans/">
       
       
-      <link rel="icon" href="../../branding/network-radar.png">
+      <link rel="icon" href="../../branding/app-icon/connected-home.ico">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.22">
     
     
@@ -88,7 +88,7 @@
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="../.." title="FingVibe user manual" class="md-header__button md-logo" aria-label="FingVibe user manual" data-md-component="logo">
       
-  <img src="../../branding/network-radar.png" alt="logo">
+  <img src="../../branding/app-icon/connected-home.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -219,7 +219,7 @@
   <label class="md-nav__title" for="__drawer">
     <a href="../.." title="FingVibe user manual" class="md-nav__button md-logo" aria-label="FingVibe user manual" data-md-component="logo">
       
-  <img src="../../branding/network-radar.png" alt="logo">
+  <img src="../../branding/app-icon/connected-home.png" alt="logo">
 
     </a>
     FingVibe user manual
@@ -1196,9 +1196,13 @@ Editing a suggested short name stops its automatic updates.</p>
 </ol>
 <p>Person and Room save independently when changed. Either can be <strong>Unassigned</strong>.
 You can also open a person or room's details and choose <strong>Assign devices</strong>.</p>
-<p><a href="../../screenshots/manual/person-details.png"><img alt="A sample person's details with Edit, Delete, and Assign devices actions" src="../../screenshots/manual/person-details.png" /></a></p>
+<p><a href="../../screenshots/manual/person-details.png"><img alt="A sample person's details with Edit, Delete and an empty equipment Activity state" src="../../screenshots/manual/person-details.png" /></a></p>
 <p><em>This example has no assigned devices. The response count is not a presence
 measurement for a person. <a href="../screenshots/">Screenshot sources</a>.</em></p>
+<p><a href="../../screenshots/manual/assignments.png"><img alt="A selected synthetic device with Person and Room labels in one combined column and its Last seen value" src="../../screenshots/manual/assignments.png" /></a></p>
+<p><em>Both UI labels refer to invented review entries. Response counts and Last seen
+do not establish a person's presence. Open the wide image at full size.
+<a href="../screenshots/">Screenshot sources</a>.</em></p>
 <p>Assignments normally need a valid six-byte MAC address.
 They do not follow an IP address alone. Randomized or changing MACs can lose
 the link; supported inferred virtual identities keep their own assignments.</p>
@@ -1216,6 +1220,11 @@ unknown rather than proving absence.</p>
 section. You can also open the same page from the <strong>Room map</strong> card in
 <strong>Tools</strong>, or from the <strong>Network path and status</strong> section in
 <strong>Network health</strong>.</p>
+<p><a href="../../screenshots/manual/room-map.png"><img alt="Room map with three populated rooms, Home router as gateway, a highlighted linked Workstation and two unassigned devices" src="../../screenshots/manual/room-map.png" /></a></p>
+<p><em>Invented rooms and scan evidence. Home router is the synthetic gateway.
+Workstation's Ethernet and Wi-Fi MACs count once; its highlight identifies
+<strong>This PC</strong>. The connectors are conceptual, not discovered physical topology.
+<a href="../screenshots/">Screenshot sources</a>.</em></p>
 <p>The map includes all saved rooms, their assigned devices, and a separate
 <strong>No room assigned</strong> area. Empty saved rooms remain visible. Room and device
 sizes use bounded tiers, so counts do not turn into a proportional floor plan.

@@ -19,7 +19,7 @@
         <link rel="next" href="../problems/">
       
       
-      <link rel="icon" href="../../branding/network-radar.png">
+      <link rel="icon" href="../../branding/app-icon/connected-home.ico">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.22">
     
     
@@ -88,7 +88,7 @@
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="../.." title="FingVibe user manual" class="md-header__button md-logo" aria-label="FingVibe user manual" data-md-component="logo">
       
-  <img src="../../branding/network-radar.png" alt="logo">
+  <img src="../../branding/app-icon/connected-home.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -219,7 +219,7 @@
   <label class="md-nav__title" for="__drawer">
     <a href="../.." title="FingVibe user manual" class="md-nav__button md-logo" aria-label="FingVibe user manual" data-md-component="logo">
       
-  <img src="../../branding/network-radar.png" alt="logo">
+  <img src="../../branding/app-icon/connected-home.png" alt="logo">
 
     </a>
     FingVibe user manual
@@ -853,6 +853,30 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Restore a backup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#restore-a-whole-folder-copy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Restore a whole-folder copy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#restore-a-database-backups-copy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Restore a Database backups copy
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1128,6 +1152,30 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Restore a backup">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#restore-a-whole-folder-copy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Restore a whole-folder copy
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#restore-a-database-backups-copy" class="md-nav__link">
+    <span class="md-ellipsis">
+      Restore a Database backups copy
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1259,6 +1307,9 @@ not a live file copy. Backup duration and foreground-save contention depend on
 database size and storage; 15 seconds is a delay, not a completion deadline.
 These are local copies on the same PC, not cloud or drive-loss protection.
 There is no restore, delete, folder-selection or retention-setting UI.</p>
+<p><a href="../../screenshots/manual/database-backups.png"><img alt="Database backups with two completed fixture copies and one Daily representative" src="../../screenshots/manual/database-backups.png" /></a></p>
+<p><em>The database and backup folder are isolated runner fixtures. The displayed
+temporary path is not your normal data folder. <a href="../screenshots/">Screenshot sources</a>.</em></p>
 <p>To preserve preferences too, make a manual whole-folder copy:</p>
 <ol>
 <li>Close <strong>all</strong> FingVibe instances.</li>
@@ -1273,6 +1324,9 @@ The SQL editor's report output is not a complete backup.</p>
 <p>History is retained without automatic age/count trimming.
 The database and backups can grow over time.</p>
 <h2 id="restore-a-backup">Restore a backup<a class="headerlink" href="#restore-a-backup" title="Permanent link">&para;</a></h2>
+<p>There is no restore button. Keep the original backup unchanged and close all
+instances before replacing any saved data.</p>
+<h3 id="restore-a-whole-folder-copy">Restore a whole-folder copy<a class="headerlink" href="#restore-a-whole-folder-copy" title="Permanent link">&para;</a></h3>
 <ol>
 <li>Close all FingVibe instances.</li>
 <li>Make a separate copy of the current data folder first.</li>
@@ -1286,6 +1340,25 @@ The database and backups can grow over time.</p>
 It does not merge later edits into an older copy.
 Historical results are not live Online evidence.
 If the restored database cannot be loaded, stop and keep both copies for diagnosis.</p>
+<h3 id="restore-a-database-backups-copy">Restore a Database backups copy<a class="headerlink" href="#restore-a-database-backups-copy" title="Permanent link">&para;</a></h3>
+<p>The automatic and <strong>Back up now</strong> copies contain the database only, not a
+whole data folder.</p>
+<ol>
+<li>Close all FingVibe instances and wait for them to finish closing.</li>
+<li>Copy the current whole data folder to a separate safe location.</li>
+<li>Copy the chosen <code>device-inventory-...sqlite</code> backup outside that folder.</li>
+<li>Move <code>%LOCALAPPDATA%\FingVibe</code> aside; keep it intact for recovery.</li>
+<li>Create a new <code>%LOCALAPPDATA%\FingVibe</code> folder.</li>
+<li>Copy the chosen backup into it as <strong><code>device-inventory.sqlite</code></strong>.</li>
+<li>Start a compatible current release and check names, assignments and history.</li>
+</ol>
+<p>Do not merge in <code>latest-scan.json</code>, old databases or SQLite sidecar files from
+the replaced state. The restored database's committed checkpoint supplies saved
+scan evidence. Preferences start at their defaults; if needed, copy only the
+preference JSON files listed above from the preserved folder while the app is
+closed. A database copy cannot recover later edits or lost preferences.</p>
+<p>If loading fails, stop and keep the preserved folder and backup for diagnosis.
+Run a new scan when you need current response evidence.</p>
 <h2 id="older-json-files">Older JSON files<a class="headerlink" href="#older-json-files" title="Permanent link">&para;</a></h2>
 <p>Earlier versions stored inventory and metadata in JSON.
 Supported legacy files are migration input, not synchronized copies of SQLite.

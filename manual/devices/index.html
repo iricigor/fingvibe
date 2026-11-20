@@ -19,7 +19,7 @@
         <link rel="next" href="../device-details/">
       
       
-      <link rel="icon" href="../../branding/network-radar.png">
+      <link rel="icon" href="../../branding/app-icon/connected-home.ico">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.22">
     
     
@@ -88,7 +88,7 @@
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="../.." title="FingVibe user manual" class="md-header__button md-logo" aria-label="FingVibe user manual" data-md-component="logo">
       
-  <img src="../../branding/network-radar.png" alt="logo">
+  <img src="../../branding/app-icon/connected-home.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -219,7 +219,7 @@
   <label class="md-nav__title" for="__drawer">
     <a href="../.." title="FingVibe user manual" class="md-nav__button md-logo" aria-label="FingVibe user manual" data-md-component="logo">
       
-  <img src="../../branding/network-radar.png" alt="logo">
+  <img src="../../branding/app-icon/connected-home.png" alt="logo">
 
     </a>
     FingVibe user manual
@@ -1335,8 +1335,12 @@ Unclassified. For Vendor, it includes identified manufacturers and excludes
 both Unknown and Randomized MAC. The threshold counts dropdown choices, not
 devices. An active Any filter keeps its meaning when new values appear.
 Status remembers Any after restart just as it remembers individual statuses.</p>
-<p><a href="../../screenshots/manual/devices-empty.png"><img alt="An empty Devices result caused by a search restriction, while inventory totals remain visible" src="../../screenshots/manual/devices-empty.png" /></a></p>
-<p><em>The sample search matches no device. It does not mean the inventory is empty.
+<p><a href="../../screenshots/manual/devices.png"><img alt="Nine synthetic devices with varied types, service-discovery indicators and a collapsed two-NIC Workstation" src="../../screenshots/manual/devices.png" /></a></p>
+<p><em>Eight device types, with no active filters. Workstation explicitly links Ethernet
+and Wi-Fi MACs; its chevron is collapsed. The speaker and bridge show service
+discovery (SD) indicators and <code>--</code>, not invented ping latency.
+These are synthetic examples, not real response measurements. The selected
+loopback target differs from the saved sample subnet.
 <a href="../screenshots/">Screenshot sources</a>.</em></p>
 <h2 id="usage-category">Usage category<a class="headerlink" href="#usage-category" title="Permanent link">&para;</a></h2>
 <p>The category uses one line. A small pin marks a manual override; an information
@@ -1463,6 +1467,9 @@ memory while sorting, filtering, scanning or moving between pages, and starts
 collapsed when FingVibe restarts. Use Right Arrow or Left Arrow on a focused
 row to expand or collapse it.</p>
 <p>See <a href="../device-details/#virtual-device-details">Device details</a>.</p>
+<p><a href="../../screenshots/manual/virtual-device.png"><img alt="An expanded virtual identity showing earlier MAC addresses with their own status" src="../../screenshots/manual/virtual-device.png" /></a></p>
+<p><em>Invented identity/history fixture, not a proven physical-device association.
+<a href="../screenshots/">Screenshot sources</a>.</em></p>
 <h2 id="linked-devices">Linked devices<a class="headerlink" href="#linked-devices" title="Permanent link">&para;</a></h2>
 <p>A <a href="../device-details/#link-two-records-as-one-device">linked device</a> appears as
 one row with its shared name, type, OS, Person, Room and usage category and its

@@ -19,7 +19,7 @@
         <link rel="next" href="../screenshots/">
       
       
-      <link rel="icon" href="../../branding/network-radar.png">
+      <link rel="icon" href="../../branding/app-icon/connected-home.ico">
       <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.22">
     
     
@@ -88,7 +88,7 @@
   <nav class="md-header__inner md-grid" aria-label="Header">
     <a href="../.." title="FingVibe user manual" class="md-header__button md-logo" aria-label="FingVibe user manual" data-md-component="logo">
       
-  <img src="../../branding/network-radar.png" alt="logo">
+  <img src="../../branding/app-icon/connected-home.png" alt="logo">
 
     </a>
     <label class="md-header__button md-icon" for="__drawer">
@@ -219,7 +219,7 @@
   <label class="md-nav__title" for="__drawer">
     <a href="../.." title="FingVibe user manual" class="md-nav__button md-logo" aria-label="FingVibe user manual" data-md-component="logo">
       
-  <img src="../../branding/network-radar.png" alt="logo">
+  <img src="../../branding/app-icon/connected-home.png" alt="logo">
 
     </a>
     FingVibe user manual
@@ -1217,7 +1217,9 @@ to trigger another workflow. Existing screenshot publishing remains unchanged.
 These settings do not change application release policy or branch protection.</p>
 <p>A successful PR build is not proof that the live site was deployed.
 After publication, the main job waits for the Pages build and verifies the live
-revision marker, manual homepage, local search data, and all thirteen new images.
+revision marker, manual homepage, Connected home logo/favicon, local search data,
+and all committed manual images. The deployed branding files must match the
+checked artifact byte for byte.
 After merge, check that result and the real <code>/fingvibe/</code> project URL.
 Inspect interactive search and navigation there too.</p>
 <h2 id="writing-rules">Writing rules<a class="headerlink" href="#writing-rules" title="Permanent link">&para;</a></h2>
@@ -1239,9 +1241,24 @@ in <a href="../screenshots/">Screenshot sources</a>. Do not imply that a ready-s
 shows real measured results.</p>
 <p>Do not obtain fresh screenshots by automating a working user's desktop.
 Use existing disposable Windows CI capture tooling.</p>
+<p>For the varied Devices illustration, dispatch the <strong>Pull request build</strong> workflow
+on the agreed branch with <strong>documentation_showcase</strong> enabled. It runs the isolated
+documentation fixture after normal captures on the existing disposable runner.
+The fixture includes varied types, SD-only responders and an explicitly linked
+two-NIC PC. Its native assertions require all nine rows, SD indicators, <code>--</code>
+response times and a collapsed PC chevron before saving the image and manifest.
+A second isolated instance captures the populated Room map with three rooms,
+the linked PC counted once and two unassigned devices.
+Only that second instance opts into <code>FINGVIBE_UI_REVIEW_DOCUMENTATION_NETWORK=1</code>:
+a synthetic loopback <code>/24</code> with Workstation at <code>.2</code> as this PC and Home router at
+<code>.1</code> as gateway. Normal network discovery and default loopback review are unchanged.
+Normal PR captures and existing regression fixtures/groups are unchanged.</p>
 <h2 id="related-work">Related work<a class="headerlink" href="#related-work" title="Permanent link">&para;</a></h2>
-<p><a href="https://github.com/iricigor/fingvibe/issues/253">#253</a> owns the separate
-documentation refresh/audit-agent request. This site adds no agent or schedule.
+<p><a href="https://github.com/iricigor/fingvibe/issues/253">#253</a> owns the documentation,
+screenshot and Pages-branding refresh.
+<a href="https://github.com/iricigor/fingvibe/issues/650">#650</a> separately owns the
+daily documentation audit agent and its verified schedule. This refresh adds
+no agent or schedule.
 Shared technical/contributor documentation and Activity restoration can evolve
 independently; reconcile their released behavior before changing user instructions.</p>
 
