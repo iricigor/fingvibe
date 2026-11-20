@@ -4,7 +4,9 @@ namespace FingVibe.Core.Networking;
 
 /// <param name="Assessment">The evaluator's current verdict after the check.</param>
 /// <param name="Changed">Incidents whose saved record must be written.</param>
-public sealed record NetworkIncidentUpdate(NetworkHealthAssessment? Assessment, IReadOnlyList<NetworkIncident> Changed);
+/// <param name="Confirmed">A newly confirmed incident, which receives one automatic deeper diagnostic run.</param>
+public sealed record NetworkIncidentUpdate(
+    NetworkHealthAssessment? Assessment, IReadOnlyList<NetworkIncident> Changed, NetworkIncident? Confirmed = null);
 
 /// <summary>
 /// Owns incident lifecycle identity on top of <see cref="NetworkHealthEvaluator"/>: one active incident per network
@@ -89,13 +91,14 @@ public sealed class NetworkIncidentTracker(NetworkHealthEvaluator evaluator)
                 return new(assessment, changed);
 
             var at = assessment.ObservedAt;
+            NetworkIncident? confirmed = null;
             if (assessment.Verdict == NetworkHealthVerdict.Problem)
             {
                 NetworkIncident incident;
                 if (active is null)
                 {
                     var first = _firstSuspicious.Remove(contextKey, out var suspicious) && suspicious <= at ? suspicious : at;
-                    incident = new NetworkIncident(Guid.NewGuid(), contextKey, networkLabel, first, at)
+                    incident = confirmed = new NetworkIncident(Guid.NewGuid(), contextKey, networkLabel, first, at)
                     {
                         Symptoms = Merge([], assessment.Symptoms, at),
                         LastObservedAt = at,
@@ -141,7 +144,19 @@ public sealed class NetworkIncidentTracker(NetworkHealthEvaluator evaluator)
             {
                 _firstSuspicious.Remove(contextKey);
             }
-            return new(assessment, changed);
+            return new(assessment, changed, confirmed);
+        }
+    }
+
+    /// <summary>Removes incidents that retention pruned from saved history. Only recovered incidents can be removed.</summary>
+    public void Forget(IReadOnlyCollection<Guid> ids)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        lock (_sync)
+        {
+            if (_incidents.Any(item => item.IsActive && ids.Contains(item.Id)))
+                throw new InvalidOperationException("Ongoing and recovery-unknown incidents are never pruned.");
+            _incidents.RemoveAll(item => ids.Contains(item.Id));
         }
     }
 

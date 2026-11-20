@@ -92,6 +92,36 @@ Incidents are saved in the local device inventory database. Until that database
 exists (it is created by the first saved inventory change, such as a completed
 scan), new incidents are kept in memory with a visible note and saved later.
 Load and save failures are shown on this page and in the Network summary.
+
+### Saved incident evidence
+
+When an incident is confirmed, FingVibe automatically runs the same checks as
+**Run diagnostics** once for that incident, without opening this page: loopback,
+this PC's and the gateway's addresses, the `1.1.1.1` and `8.8.8.8` pings, the
+three DNS checks and a traceroute toward `1.1.1.1`. It does not ping other LAN
+devices. The run is limited to 45 seconds.
+
+User-started work has priority. Starting a LAN scan, speed test, device service
+scan or manual diagnostics stops the automatic run, and so do turning monitoring
+off, sleep, changing network and closing FingVibe. Completed checks are then
+saved as **partial** evidence with the reason. An interrupted or skipped run is
+never retried automatically; use **Run diagnostics** for a fresh manual check.
+
+Select an incident to see its saved evidence beside the list (below it in narrow
+windows). The evidence names its network and collection time, shows whether it
+is complete, partial, not run or failed, and lists each checkpoint and traceroute
+hop. It is history, not current status: viewing it sends no probes and does not
+change the current health or the manual diagnostics results.
+
+### Retention and backups
+
+Recovered incidents and their evidence are kept for 90 days after recovery was
+observed, and at most the newest 1,000 recovered incidents are kept. Ongoing and
+recovery-unknown incidents are never removed, and pruning never touches the device
+inventory or scan history. If old incidents cannot be removed, they are kept and
+a note is shown. [Database backups](data.md) copy the whole inventory database,
+so they include incidents, their evidence, observation gaps and recovery
+progress.
 ## Service status
 
 The **Service status** card below current health opens a separate page of

@@ -14,7 +14,7 @@ It is different from the installer folder under
 
 | File | Purpose |
 | --- | --- |
-| `device-inventory.sqlite` | Authoritative inventory, names, identification corrections, passively reported names/device IDs with last-received times, people/rooms, assignments, virtual identities, history, discovery baselines, declined possible-match MAC pairs, each device's latest mDNS/SSDP service-discovery evidence, and network health incidents with their observation gaps and recovery progress. |
+| `device-inventory.sqlite` | Authoritative inventory, names, identification corrections, passively reported names/device IDs with last-received times, people/rooms, assignments, virtual identities, history, discovery baselines, declined possible-match MAC pairs, each device's latest mDNS/SSDP service-discovery evidence, and network health incidents with their observation gaps, recovery progress and saved deeper-diagnostic evidence (resolved incidents kept 90 days, at most 1,000). |
 | `latest-scan.json` | Separate saved-scan cache, including service-discovery evidence and MAC-less responders for that scan. SQLite checkpoints are authoritative when present. |
 | `appearance.json` | Appearance choices. |
 | `device-table.json` | Column choices, widths, row density, previews, and Status filtering. |

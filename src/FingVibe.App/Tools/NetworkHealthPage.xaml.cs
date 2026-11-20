@@ -85,40 +85,110 @@ public sealed partial class NetworkHealthPage : UserControl
         NetworkMonitorDots.RenderRows(RawObservationsPanel, RawObservationRows, view.Rows, "NetworkHealthRawResult");
     }
 
-    internal void ShowIncidentHistory(IReadOnlyList<NetworkIncidentRow> rows, string? storageMessage)
+    internal void ShowIncidentHistory(IReadOnlyList<NetworkIncidentRow> rows,
+        IReadOnlyDictionary<Guid, NetworkEvidenceView> evidence, string? storageMessage)
     {
         IncidentStorageText.Text = storageMessage ?? "";
         IncidentStorageText.Visibility = storageMessage is null ? Visibility.Collapsed : Visibility.Visible;
         IncidentEmptyText.Visibility = rows.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        IncidentRows.Children.Clear();
-        for (var index = 0; index < rows.Count; index++)
+        IncidentLayout.Visibility = rows.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+        _incidentEvidence = evidence;
+        _rebuildingIncidents = true;
+        try
         {
-            var row = rows[index];
-            var item = new StackPanel { Spacing = 2 };
-            // The status line carries the whole incident for assistive technology; the visual lines repeat its parts.
-            var status = new TextBlock
+            IncidentList.Items.Clear();
+            ListViewItem? selected = null;
+            for (var index = 0; index < rows.Count; index++)
             {
-                Text = $"{row.Status}: {row.Symptoms}",
-                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-                TextWrapping = TextWrapping.Wrap
-            };
-            AutomationProperties.SetAutomationId(status, $"NetworkIncidentStatus{index}");
-            AutomationProperties.SetName(status, row.AccessibleName);
-            item.Children.Add(status);
-            foreach (var (text, secondary) in new[] { (row.Times, false), (row.Recovery, false), (row.Network, true), (row.Gaps, true) })
-            {
-                if (string.IsNullOrWhiteSpace(text)) continue;
-                var line = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap };
-                if (secondary) line.Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
-                AutomationProperties.SetAccessibilityView(line, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
-                item.Children.Add(line);
+                var row = rows[index];
+                var item = new StackPanel { Spacing = 2 };
+                item.Children.Add(Line($"{row.Status}: {row.Symptoms}", semibold: true));
+                foreach (var (text, secondary) in new[]
+                         { (row.Times, false), (row.Recovery, false), (row.Network, true), (row.Gaps, true), (row.Evidence, true) })
+                {
+                    if (!string.IsNullOrWhiteSpace(text)) item.Children.Add(Line(text, secondary: secondary));
+                }
+                var listItem = new ListViewItem
+                {
+                    Tag = row.Id,
+                    Content = new Border { Style = (Style)Application.Current.Resources["NetworkIncidentItemStyle"], Child = item },
+                    HorizontalContentAlignment = HorizontalAlignment.Stretch
+                };
+                // The item carries the whole incident for assistive technology; its visual lines are raw.
+                AutomationProperties.SetAutomationId(listItem, $"NetworkIncidentStatus{index}");
+                AutomationProperties.SetName(listItem, row.AccessibleName);
+                IncidentList.Items.Add(listItem);
+                if (row.Id == _selectedIncident) selected = listItem;
             }
-            IncidentRows.Children.Add(new Border
-            {
-                Style = (Style)Application.Current.Resources["NetworkIncidentItemStyle"],
-                Child = item
-            });
+            IncidentList.SelectedItem = selected;
         }
+        finally
+        {
+            _rebuildingIncidents = false;
+        }
+        if (IncidentList.SelectedItem is null) _selectedIncident = null;
+        ShowSelectedEvidence();
+
+        static TextBlock Line(string text, bool semibold = false, bool secondary = false)
+        {
+            var line = new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap };
+            if (semibold) line.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+            if (secondary) line.Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"];
+            AutomationProperties.SetAccessibilityView(line, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
+            return line;
+        }
+    }
+
+    private IReadOnlyDictionary<Guid, NetworkEvidenceView> _incidentEvidence = new Dictionary<Guid, NetworkEvidenceView>();
+    private Guid? _selectedIncident;
+    private bool _rebuildingIncidents;
+
+    private void IncidentList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_rebuildingIncidents) return;
+        _selectedIncident = (IncidentList.SelectedItem as ListViewItem)?.Tag as Guid?;
+        ShowSelectedEvidence();
+    }
+
+    /// <summary>Shows saved evidence only; selecting an incident never sends probes or changes current status.</summary>
+    private void ShowSelectedEvidence()
+    {
+        var view = _selectedIncident is { } id ? _incidentEvidence.GetValueOrDefault(id) : null;
+        IncidentEvidenceContext.Text = view?.Context ?? NetworkIncidentPresentation.SelectText;
+        Set(IncidentEvidenceOutcome, view?.Outcome);
+        Set(IncidentEvidenceSummary, view?.Summary);
+        Set(IncidentEvidenceTrace, view?.Trace);
+        Rows(IncidentEvidenceChecks, view?.Checks ?? [], "NetworkIncidentEvidenceCheck");
+        Rows(IncidentEvidenceHops, view?.Hops ?? [], "NetworkIncidentEvidenceHop");
+
+        static void Set(TextBlock text, string? value)
+        {
+            text.Text = value ?? "";
+            text.Visibility = value is null ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        static void Rows(Panel host, IReadOnlyList<NetworkEvidenceRow> rows, string prefix)
+        {
+            host.Children.Clear();
+            for (var index = 0; index < rows.Count; index++)
+            {
+                var text = new TextBlock { Text = $"{rows[index].Label}: {rows[index].Result}", TextWrapping = TextWrapping.Wrap };
+                AutomationProperties.SetAutomationId(text, $"{prefix}{index}");
+                host.Children.Add(text);
+            }
+        }
+    }
+
+    // Saved evidence sits alongside the list on wide windows and below it on narrow ones.
+    private void IncidentLayout_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var wide = e.NewSize.Width >= 640;
+        Grid.SetRow(IncidentEvidencePanel, wide ? 0 : 1);
+        Grid.SetColumn(IncidentEvidencePanel, wide ? 1 : 0);
+        Grid.SetColumnSpan(IncidentList, wide ? 1 : 2);
+        Grid.SetColumnSpan(IncidentEvidencePanel, wide ? 1 : 2);
+        IncidentEvidenceColumn.Width = wide ? new GridLength(1.2, GridUnitType.Star) : new GridLength(0);
+        IncidentLayout.ColumnSpacing = wide ? 24 : 0;
     }
 
     internal void ConfigurePeerCandidates(Func<LanNetwork, Guid?, IReadOnlyList<IPAddress>> peers) =>
@@ -705,18 +775,5 @@ public sealed partial class NetworkHealthPage : UserControl
         _ => "Hop-2 response"
     };
 
-    private static string Label(DiagnosticCheckpoint checkpoint) => checkpoint switch
-    {
-        DiagnosticCheckpoint.Loopback => "Loopback",
-        DiagnosticCheckpoint.LocalAddress => "This PC LAN IPv4",
-        DiagnosticCheckpoint.Gateway => "Default gateway LAN IPv4",
-        DiagnosticCheckpoint.LanPeer => "Selected LAN peer",
-        DiagnosticCheckpoint.RouterWan => "Optional router WAN IPv4",
-        DiagnosticCheckpoint.Hop2 => "Observed hop 2",
-        DiagnosticCheckpoint.CloudflarePing => "Cloudflare IP ping",
-        DiagnosticCheckpoint.GooglePing => "Google IP ping",
-        DiagnosticCheckpoint.ConfiguredDns => "Windows configured DNS",
-        DiagnosticCheckpoint.CloudflareDns => "Direct Cloudflare DNS",
-        _ => "Direct Google DNS"
-    };
+    private static string Label(DiagnosticCheckpoint checkpoint) => NetworkIncidentPresentation.CheckpointLabel(checkpoint);
 }

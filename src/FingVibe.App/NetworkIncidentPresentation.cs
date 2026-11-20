@@ -11,10 +11,26 @@ internal sealed record NetworkIncidentRow(
     string Times,
     string Recovery,
     string Network,
-    string? Gaps)
+    string? Gaps,
+    string Evidence = NetworkIncidentPresentation.NoEvidenceStatus)
 {
-    public string AccessibleName => string.Join(" ", new[] { $"{Status} incident.", Symptoms, Times, Recovery, Network, Gaps }
+    public string AccessibleName => string.Join(" ", new[] { $"{Status} incident.", Symptoms, Times, Recovery, Network, Gaps, Evidence }
         .Where(part => !string.IsNullOrWhiteSpace(part)));
+}
+
+internal sealed record NetworkEvidenceRow(string Label, string Result);
+
+/// <summary>Saved deeper diagnostic evidence for one incident, labelled with its network and observation time.</summary>
+internal sealed record NetworkEvidenceView(
+    string Context,
+    string Outcome,
+    string? Summary,
+    IReadOnlyList<NetworkEvidenceRow> Checks,
+    string? Trace,
+    IReadOnlyList<NetworkEvidenceRow> Hops)
+{
+    public string Signature => string.Join("\n", new[] { Context, Outcome, Summary ?? "", Trace ?? "" }
+        .Concat(Checks.Concat(Hops).Select(row => $"{row.Label}\t{row.Result}")));
 }
 
 /// <summary>
@@ -27,10 +43,82 @@ internal static class NetworkIncidentPresentation
         "No confirmed incidents are saved. Background monitoring records an incident after two suspicious checks in a row.";
     public const string HistoryNote =
         "Saved history only: viewing it sends no probes. Current health is shown above.";
+    public const string NoEvidenceStatus = "Deeper diagnostics: none saved.";
+    public const string SelectText =
+        "Select an incident to view its saved deeper diagnostic evidence. Viewing evidence sends no probes.";
 
     public static IReadOnlyList<NetworkIncidentRow> Rows(
         IReadOnlyList<NetworkIncident> incidents, DateTimeOffset now, TimeZoneInfo timeZone, CultureInfo culture) =>
-        incidents.Select(incident => Row(incident, now, timeZone, culture)).ToList();
+        Rows(incidents, new Dictionary<Guid, NetworkIncidentEvidence>(), now, timeZone, culture);
+
+    public static IReadOnlyList<NetworkIncidentRow> Rows(IReadOnlyList<NetworkIncident> incidents,
+        IReadOnlyDictionary<Guid, NetworkIncidentEvidence> evidence, DateTimeOffset now, TimeZoneInfo timeZone,
+        CultureInfo culture) =>
+        incidents.Select(incident => Row(incident, now, timeZone, culture) with
+        {
+            Evidence = EvidenceStatus(evidence.GetValueOrDefault(incident.Id))
+        }).ToList();
+
+    public static string EvidenceStatus(NetworkIncidentEvidence? evidence) => evidence?.Outcome switch
+    {
+        null => NoEvidenceStatus,
+        NetworkEvidenceOutcome.Running => "Deeper diagnostics: running.",
+        NetworkEvidenceOutcome.Complete => "Deeper diagnostics: complete.",
+        NetworkEvidenceOutcome.Partial => "Deeper diagnostics: partial.",
+        NetworkEvidenceOutcome.NotRun => "Deeper diagnostics: not run.",
+        _ => "Deeper diagnostics: failed."
+    };
+
+    public static NetworkEvidenceView Evidence(NetworkIncident incident, NetworkIncidentEvidence? evidence,
+        DateTimeOffset now, TimeZoneInfo timeZone, CultureInfo culture)
+    {
+        string Time(DateTimeOffset value) => NetworkMonitorViewPresentation.FormatTime(value, now, timeZone, culture);
+        if (evidence is null)
+            return new($"Incident first observed {Time(incident.FirstObservedAt)} on {incident.NetworkLabel}.",
+                "No deeper diagnostic evidence is saved for this incident. Deeper diagnostics run once, automatically, " +
+                "when an incident is confirmed; incidents recorded before that feature have none.",
+                null, [], null, []);
+
+        var context = $"Saved evidence from {incident.NetworkLabel}, collected {Time(evidence.StartedAt)}" +
+            (evidence.Outcome == NetworkEvidenceOutcome.Complete && evidence.CompletedAt is { } done
+                ? $" to {Time(done)}" : "") +
+            ". This is history, not current status; viewing it sends no probes.";
+        var outcome = evidence.Outcome switch
+        {
+            NetworkEvidenceOutcome.Running => "Running: deeper diagnostics started for this incident and have not finished.",
+            NetworkEvidenceOutcome.Complete => "Complete: every check finished within the 45-second limit.",
+            NetworkEvidenceOutcome.Partial => $"Partial: {evidence.Detail}",
+            _ => evidence.Detail
+        };
+        var summary = string.IsNullOrWhiteSpace(evidence.SummaryStatus) ? null
+            : $"{evidence.SummaryStatus}: {evidence.SummaryExplanation}";
+        var checks = evidence.Observations.OrderBy(item => item.Checkpoint)
+            .Select(item => new NetworkEvidenceRow(CheckpointLabel(item.Checkpoint),
+                FingVibe.Core.Formatting.NetworkDiagnosticFormatter.Describe(item))).ToList();
+        string? trace = evidence.Outcome is NetworkEvidenceOutcome.NotRun ? null
+            : evidence.Hops.Count == 0 ? "Traceroute toward 1.1.1.1: no hops were observed."
+            : evidence.TraceComplete ? $"Traceroute toward 1.1.1.1: destination reached at hop {evidence.Hops[^1].Number}. Unanswered earlier hops do not prove a broken link."
+            : $"Traceroute toward 1.1.1.1: incomplete after {evidence.Hops.Count} hop{(evidence.Hops.Count == 1 ? "" : "s")}. Filtering or routing may explain unanswered hops.";
+        var hops = evidence.Hops.Select(hop => new NetworkEvidenceRow($"Hop {hop.Number}",
+            $"{hop.Observation.State}: {hop.Observation.RespondingAddress?.ToString() ?? "no responder"}" +
+            (hop.Observation.RoundtripMilliseconds is { } ms ? $", {ms} ms" : ""))).ToList();
+        return new(context, outcome, summary, checks, trace, hops);
+    }
+
+    internal static string CheckpointLabel(FingVibe.Core.Models.DiagnosticCheckpoint checkpoint) => checkpoint switch
+    {
+        FingVibe.Core.Models.DiagnosticCheckpoint.Loopback => "Loopback",
+        FingVibe.Core.Models.DiagnosticCheckpoint.LocalAddress => "This PC LAN IPv4",
+        FingVibe.Core.Models.DiagnosticCheckpoint.Gateway => "Default gateway LAN IPv4",
+        FingVibe.Core.Models.DiagnosticCheckpoint.LanPeer => "Selected LAN peer",
+        FingVibe.Core.Models.DiagnosticCheckpoint.RouterWan => "Optional router WAN IPv4",
+        FingVibe.Core.Models.DiagnosticCheckpoint.Hop2 => "Observed hop 2",
+        FingVibe.Core.Models.DiagnosticCheckpoint.CloudflarePing => "Cloudflare IP ping",
+        FingVibe.Core.Models.DiagnosticCheckpoint.GooglePing => "Google IP ping",
+        FingVibe.Core.Models.DiagnosticCheckpoint.ConfiguredDns => "Windows configured DNS",
+        FingVibe.Core.Models.DiagnosticCheckpoint.CloudflareDns => "Direct Cloudflare DNS",
+        _ => "Direct Google DNS"
+    };
 
     /// <summary>Network summary line: the ongoing (or recovery-unknown) incident first, otherwise the most recent one.</summary>
     public static string Summary(

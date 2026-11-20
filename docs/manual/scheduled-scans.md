@@ -35,11 +35,15 @@ responses, failures, cancellation detail, and DNS source labels. FingVibe judges
 completed checks with fixed rules; the header dot, **Network health** and the
 Network page show the resulting verdict and the latest raw results; see
 [Network health](network-checks.md#monitoring-state-and-health-verdicts).
+When a problem is confirmed, monitoring also runs one deeper check for that
+incident, limited to 45 seconds, and saves its evidence with the incident; see
+[Saved incident evidence](network-checks.md#saved-incident-evidence).
 
 Manual LAN scans, speed tests, network diagnostics, and device-service scans
-take priority. They cancel an active monitoring cycle and start only after it
-has stopped, so measurements do not overlap. A conflict or cancellation is
-reported as skipped or cancelled, not as a connectivity failure.
+take priority. They cancel an active monitoring cycle or deeper check and start
+only after it has stopped, so measurements do not overlap. A conflict or
+cancellation is reported as skipped or cancelled, not as a connectivity failure;
+an interrupted deeper check keeps its completed results and is not retried.
 
 Windows sleep pauses both scheduled scans and monitoring. Disabling monitoring,
 changing the selected network, and closing FingVibe cancel an in-flight cycle

@@ -8,7 +8,9 @@ internal static class NetworkMonitorPresentation
     public const string Disclosure =
         "Monitoring is opt-in and runs only while FingVibe is open. Every 60 seconds it sends five one-second-spaced " +
         "ICMP probes to the gateway, 1.1.1.1 and 8.8.8.8, then resolves example.com through Windows (including its cache) " +
-        "and the Cloudflare and Google public DNS resolvers. User-started network work takes priority.";
+        "and the Cloudflare and Google public DNS resolvers. When a problem is confirmed, it runs one deeper check for " +
+        "that incident (local and gateway addresses, public IPs, DNS and a traceroute toward 1.1.1.1), limited to 45 " +
+        "seconds. User-started network work takes priority.";
 
     public const string LoadFailedMessage =
         "Saved network-monitoring settings could not be loaded, so monitoring is off. Changes apply until " +
@@ -86,7 +88,7 @@ internal static class NetworkMonitorPresentation
         };
     }
 
-    private static string ActivityName(NetworkActivityKind? activity) => activity switch
+    internal static string ActivityName(NetworkActivityKind? activity) => activity switch
     {
         NetworkActivityKind.LanScan => "a LAN scan",
         NetworkActivityKind.InternetSpeedTest => "a Cloudflare speed test",

@@ -1,5 +1,6 @@
 using System.Net;
 using FingVibe.Core.Models;
+using FingVibe.Core.Networking;
 
 namespace FingVibe.App;
 
@@ -9,6 +10,32 @@ namespace FingVibe.App;
 /// </summary>
 internal static class NetworkMonitorReviewFixture
 {
+    public const string SyntheticDetail = "Synthetic UI-review evidence; no probes sent.";
+
+    /// <summary>Answers every deeper diagnostic checkpoint and reaches 1.1.1.1 at hop 3 without sending probes.</summary>
+    public static INetworkDiagnosticProbes DiagnosticProbes { get; } = new ReviewProbes();
+
+    private sealed class ReviewProbes : INetworkDiagnosticProbes
+    {
+        public Task<DiagnosticObservation> PingAsync(
+            DiagnosticCheckpoint checkpoint, IPAddress target, int ttl, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var responder = checkpoint != DiagnosticCheckpoint.Hop2 || ttl >= 3 ? target
+                : IPAddress.Parse(ttl == 1 ? "192.0.2.1" : "198.51.100.1");
+            return Task.FromResult(new DiagnosticObservation(checkpoint, target.ToString(), DiagnosticState.Responded,
+                SyntheticDetail, responder, checkpoint == DiagnosticCheckpoint.Hop2 ? 10L + ttl : 4));
+        }
+
+        public Task<DiagnosticObservation> ResolveAsync(
+            DiagnosticCheckpoint checkpoint, IPAddress? resolver, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return Task.FromResult(new DiagnosticObservation(checkpoint, NetworkDiagnosticService.DnsHostname,
+                DiagnosticState.Responded, SyntheticDetail, IPAddress.Parse("192.0.2.80"), 9));
+        }
+    }
+
     public static NetworkMonitorObservation Create(LanNetwork network, DateTimeOffset now, bool problem = false)
     {
         var gateway = network.GatewayAddress ?? IPAddress.Parse("192.0.2.1");

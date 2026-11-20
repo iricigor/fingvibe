@@ -124,6 +124,27 @@ function Find-ById([string] $Id) {
     throw "Missing element with automation ID: $Id."
 }
 
+function Show-IncidentEvidenceLayout {
+    # Containers such as the evidence StackPanel report no UI Automation bounds, so compare rendered leaves: the first
+    # incident item and the evidence outcome line, scrolled into the Network health viewport together.
+    $targets = {
+        foreach ($id in @("NetworkIncidentStatus0", "NetworkIncidentEvidenceOutcome")) {
+            $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id))
+        }
+    }
+    $null = Show-UiRegressionScrollTargets -Description "Incident list and saved evidence" -GetWindow { $script:root } `
+        -GetViewport {
+            $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, "NetworkHealthScroll"))
+        } -GetTargets $targets
+    $item, $outcome = @(& $targets)
+    $itemBounds = $item.Current.BoundingRectangle
+    $outcomeBounds = $outcome.Current.BoundingRectangle
+    if ($itemBounds.IsEmpty -or $outcomeBounds.IsEmpty) { throw "The incident list and saved evidence must both be rendered." }
+    return $itemBounds, $outcomeBounds
+}
+
 function Assert-MonitorIndicatorContained {
     $window = Get-UiReviewWindowBounds $process.MainWindowHandle
     $indicator = (Find-ById "NetworkMonitorIndicator").Current
@@ -733,11 +754,45 @@ try {
         }
         $incidentBounds = (Find-ById "NetworkIncidentStatus0").Current.BoundingRectangle
         $windowBounds = Get-UiReviewWindowBounds $process.MainWindowHandle
-        if ($incidentBounds.Left -lt $windowBounds.X -or $incidentBounds.Right -gt $windowBounds.X + $windowBounds.Width) {
+        if (-not $incidentBounds.IsEmpty -and
+            ($incidentBounds.Left -lt $windowBounds.X -or $incidentBounds.Right -gt $windowBounds.X + $windowBounds.Width)) {
             throw "Incident history text must wrap within the window instead of overflowing horizontally."
+        }
+        # The confirmed incident's single automatic deeper check (synthetic probes in UI review) is saved with it.
+        $null = Wait-UiRegressionState -Description "the incident reports its saved deeper diagnostics" -Condition {
+            (Find-ById "NetworkIncidentStatus0").Current.Name -like "*Deeper diagnostics: complete."
+        }
+        (Find-ById "NetworkIncidentStatus0").GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+        $null = Wait-UiRegressionState -Description "selected incident shows its timestamped saved evidence" -Condition {
+            (Find-ById "NetworkIncidentEvidenceOutcome").Current.Name -eq "Complete: every check finished within the 45-second limit." -and
+                (Find-ById "NetworkIncidentEvidenceContext").Current.Name -like "Saved evidence from *, collected today *. This is history, not current status; viewing it sends no probes."
+        }
+        if ((Find-ById "NetworkIncidentEvidenceTrace").Current.Name -notlike "Traceroute toward 1.1.1.1: destination reached at hop 3.*" -or
+            (Find-ById "NetworkIncidentEvidenceCheck0").Current.Name -notlike "Loopback: 127.0.0.1 | Responded | Synthetic UI-review evidence*") {
+            throw "Saved evidence must list its checkpoints and traceroute."
+        }
+        if ((Find-ById "NetworkHealthState").Current.Name -ne "Problem confirmed") {
+            throw "Viewing saved evidence must not replace the current health status."
+        }
+        $listBounds, $evidenceBounds = Show-IncidentEvidenceLayout
+        if ($evidenceBounds.Left -lt $listBounds.Right) {
+            throw "On a wide window, saved evidence must sit alongside the incident list."
+        }
+        $windowBounds = Get-UiReviewWindowBounds $process.MainWindowHandle
+        if ($listBounds.Left -lt $windowBounds.X -or $evidenceBounds.Right -gt $windowBounds.X + $windowBounds.Width) {
+            throw "Incident history and saved evidence must wrap within the window instead of overflowing horizontally."
         }
         if ($ScreenshotDirectory) {
             Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-problem.png")
+        }
+        $bounds = Get-UiReviewWindowBounds $process.MainWindowHandle
+        $null = [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero, $bounds.X, $bounds.Y, 640, 700, 0x0044)
+        $null = Wait-UiRegressionState -Description "narrow saved evidence stacks below the incident list" -Condition {
+            $list, $panel = Show-IncidentEvidenceLayout
+            $panel.Top -ge $list.Bottom
+        }
+        if ((Find-ById "NetworkIncidentStatus0").GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected -ne $true) {
+            throw "Narrowing the window must keep the selected incident and its evidence."
         }
     }
     finally {

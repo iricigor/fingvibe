@@ -191,7 +191,8 @@
     foreach ($monitorOwner in @("src\FingVibe.App\MainWindow.NetworkMonitorIndicator.cs", "src\FingVibe.App\NetworkMonitorViewPresentation.cs",
         "src\FingVibe.Core\Networking\NetworkHealthEvaluator.cs", "src\FingVibe.App\MainWindow.NetworkIncidents.cs",
         "src\FingVibe.App\NetworkIncidentPresentation.cs", "src\FingVibe.Core\Networking\NetworkIncidentTracker.cs",
-        "src\FingVibe.Core\Storage\NetworkHealthHistoryStore.cs")) {
+        "src\FingVibe.Core\Storage\NetworkHealthHistoryStore.cs", "src\FingVibe.App\MainWindow.NetworkIncidentDiagnostics.cs",
+        "src\FingVibe.Core\Networking\NetworkIncidentDiagnostics.cs", "src\FingVibe.Core\Networking\NetworkIncidentEvidence.cs")) {
         Test-Change @{ $monitorOwner = "changed" } @("Devices", "Network", "NetworkHealth") "Monitoring presentation owner: $monitorOwner"
     }
     foreach ($serviceStatusOwner in @("src\FingVibe.App\Tools\ServiceStatusPage.xaml", "src\FingVibe.App\Tools\ServiceStatusPage.xaml.cs",
