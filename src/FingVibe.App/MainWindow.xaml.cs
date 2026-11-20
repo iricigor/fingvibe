@@ -18,6 +18,10 @@ public sealed partial class MainWindow : Window
     {
         _periodicScans = new PeriodicScanScheduler(RunScheduledScanAsync, CreatePeriodicScanTimeProvider());
         _periodicScanController = new PeriodicScanController(_periodicScans, LoadPeriodicScanSettings());
+        _networkMonitorScheduler = new NetworkMonitorScheduler(
+            RunNetworkMonitorAsync, CreateNetworkMonitorTimeProvider());
+        _networkMonitorController = new NetworkMonitorController(
+            _networkMonitorScheduler, LoadNetworkMonitorSettings());
         InitializeComponent();
         InitializeNavigationPane();
         InitializeBuildIdentity();
@@ -33,6 +37,7 @@ public sealed partial class MainWindow : Window
         InitializeDeviceTableSettings();
         InitializePeopleRoomsViews();
         InitializePeriodicScans();
+        InitializeNetworkMonitoring();
         InitializeDiscoveryNotifications();
         InitializeUsageCategories();
         Closed += (_, _) => _devicePortScanCancellation?.Cancel();
@@ -51,7 +56,8 @@ public sealed partial class MainWindow : Window
         StopUpdates();
         _backupScheduler?.Dispose();
         if (_allowWindowClose
-            || (!ToolsPage.HasActiveTest && _devicePortScanCancellation is null && !_periodicScanController.IsActive && !_isScanning))
+            || (!ToolsPage.HasActiveTest && _devicePortScanCancellation is null
+                && !_periodicScanController.IsActive && !_networkMonitorController.IsActive && !_isScanning))
         {
             return;
         }
@@ -67,7 +73,9 @@ public sealed partial class MainWindow : Window
         {
             // Stop scheduling first so no scheduled scan can start while other activity winds down.
             _scanCancellation?.Cancel();
-            await _periodicScanController.ShutdownAsync();
+            await Task.WhenAll(
+                _periodicScanController.ShutdownAsync(),
+                _networkMonitorController.ShutdownAsync());
             await _scanExecution.StopAsync();
             await StopDevicePortScanAsync();
             await ToolsPage.StopForWindowCloseAsync();
@@ -99,8 +107,9 @@ public sealed partial class MainWindow : Window
         OpenPendingDiscoveryNotification();
         UpdatePeopleRoomsPages();
         UpdatePeopleRoomFilters();
-        await ActivatePeriodicScansAsync();
         await InitializeNetworkAsync();
+        await ActivatePeriodicScansAsync();
+        await ActivateNetworkMonitoringAsync();
     }
 
     private void MainNavigation_SelectionChanged(

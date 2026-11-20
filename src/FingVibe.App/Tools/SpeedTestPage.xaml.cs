@@ -71,7 +71,8 @@ public sealed partial class SpeedTestPage : UserControl
             return;
         }
 
-        if (!ActivityCoordinator.TryAcquire(NetworkActivityKind.InternetSpeedTest, out var lease))
+        var lease = await ActivityCoordinator.AcquireAsync(NetworkActivityKind.InternetSpeedTest);
+        if (lease is null)
         {
             StatusText.Text = ActivityCoordinator.ActiveKind == NetworkActivityKind.LanScan
                 ? "A LAN scan is in progress. Wait for it to finish before starting a speed test."

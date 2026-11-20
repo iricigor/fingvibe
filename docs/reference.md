@@ -486,6 +486,20 @@ Newly observed devices from a scheduled scan use the same in-app discovery popup
 
 The choice is saved atomically to `%LOCALAPPDATA%\FingVibe\periodic-scan.json`; unsupported intervals load as 1 hour. An unreadable file leaves scheduling off, is never overwritten, and is reported in Settings, as are save failures. UI-review mode reads and writes this setting only when `FINGVIBE_UI_REVIEW_PERIODIC_SCAN` names a file, and `FINGVIBE_UI_REVIEW_PERIODIC_SCAN_TIME_SCALE` (greater than 1) shortens the scheduled waits for automation while Settings continues to show unscaled times. `tests\SidebarNavigation.Tests.ps1` exercises the controls, keyboard toggle, responsive layout, themes, cancellation, disabling, completion and restart restoration; `tests\DeviceDiscovery.Ui.Tests.ps1` checks minimized discovery deferral. Never run native UI automation on a working user's desktop.
 
+The independent monitoring choice is saved atomically to
+`%LOCALAPPDATA%\FingVibe\network-monitor.json`. The monitor remains off for a
+missing or unreadable preference. When enabled, its scheduler starts one
+one-minute cadence after loading and exposes five one-second-spaced raw samples
+per gateway/Cloudflare/Google target plus Windows, Cloudflare and Google DNS
+observations. Foreground network work preempts the background coordinator
+lease and waits for cancellation before acquiring the shared slot. Disable,
+sleep, network-context change and shutdown all await cancellation. The
+`NetworkMonitorSnapshot` contract carries raw timings/results and cancellation
+detail without a health verdict; #619 owns presentation. UI-review mode reads
+this preference only when `FINGVIBE_UI_REVIEW_NETWORK_MONITOR` names an
+isolated file. `FINGVIBE_UI_REVIEW_NETWORK_MONITOR_TIME_SCALE` shortens waits
+for disposable automation; review mode never sends the background probes.
+
 ### First local discovery
 
 After a completed manual or scheduled scan saves inventory/history successfully, a single

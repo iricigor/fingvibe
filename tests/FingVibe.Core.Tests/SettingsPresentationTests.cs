@@ -45,6 +45,20 @@ public sealed class SettingsPresentationTests
         Assert.DoesNotContain("in progress", summary);
     }
 
+    [Fact]
+    public void BackgroundSummaryKeepsScheduledAndMonitoringTogglesIndependent()
+    {
+        var summary = SettingsPresentation.BackgroundSummary(
+            new PeriodicScanSettings(false, 60),
+            new NetworkMonitorSettings(true),
+            "Off. Scans run only when you select Scan LAN.",
+            "Collecting raw ping and DNS observations.");
+
+        Assert.StartsWith("Disabled", summary);
+        Assert.Contains("Network monitoring enabled", summary);
+        Assert.EndsWith("Collecting raw ping and DNS observations.", summary);
+    }
+
     [Theory]
     [InlineData(0, 1)]
     [InlineData(200, 1)]

@@ -16,6 +16,7 @@ public sealed partial class SettingsPageView : UserControl
         [ThemeVariant.StandardDark, ThemeVariant.OledDark, ThemeVariant.ColorfulDark];
     private bool _updatingAppearance;
     private bool _updatingPeriodicScan;
+    private bool _updatingNetworkMonitor;
     private string? _appearanceSaveError;
     private string? _materialStatus;
 
@@ -27,7 +28,9 @@ public sealed partial class SettingsPageView : UserControl
             ScanIntervalPicker.Items.Add(new ComboBoxItem { Content = PeriodicScanPresentation.IntervalLabel(minutes) });
         }
         ScheduledScanEvidenceNote.Text = PeriodicScanPresentation.EvidenceNote;
+        NetworkMonitoringDisclosure.Text = NetworkMonitorPresentation.Disclosure;
         SetPeriodicScan(PeriodicScanSettings.Default);
+        SetNetworkMonitor(NetworkMonitorSettings.Default);
         AboutSummary.Text = $"{BuildIdentity.Current.Version} \u00b7 Build information and links";
         AutomationProperties.SetHelpText(AboutSettingsButton, AboutSummary.Text);
         Columns.SettingsChanged += (_, _) => UpdateDevicesSummary();
@@ -40,6 +43,7 @@ public sealed partial class SettingsPageView : UserControl
             Columns.Status, Columns.Response, Columns.OperatingSystem, Columns.UsageCategory, Columns.Person, Columns.Room, Columns.LastSeen];
     public event SelectionChangedEventHandler? AppearanceChanged;
     public event EventHandler? PeriodicScanChanged;
+    public event EventHandler? NetworkMonitorChanged;
 
     private ThemeVariant[] ModeThemes => ModePicker.SelectedIndex == 1 ? DarkThemes : LightThemes;
     internal AppearanceSettings? SelectedAppearance =>
@@ -60,11 +64,20 @@ public sealed partial class SettingsPageView : UserControl
         ScanIntervalPicker.SelectedIndex < 0
             ? null
             : new PeriodicScanSettings(ScheduledScansSwitch.IsOn, PeriodicScanSettings.IntervalChoices[ScanIntervalPicker.SelectedIndex]);
+    internal NetworkMonitorSettings SelectedNetworkMonitor => new(NetworkMonitoringSwitch.IsOn);
     internal string PeriodicScanStatus
     {
         set
         {
             ScheduledScanStatus.Text = value;
+            UpdateScheduledScansSummary();
+        }
+    }
+    internal string NetworkMonitorStatus
+    {
+        set
+        {
+            NetworkMonitorStatusText.Text = value;
             UpdateScheduledScansSummary();
         }
     }
@@ -119,7 +132,11 @@ public sealed partial class SettingsPageView : UserControl
     {
         if (SelectedPeriodicScan is { } settings)
         {
-            ScheduledScansSummary.Text = SettingsPresentation.ScheduledSummary(settings, ScheduledScanStatus.Text);
+            ScheduledScansSummary.Text = SettingsPresentation.BackgroundSummary(
+                settings,
+                SelectedNetworkMonitor,
+                ScheduledScanStatus.Text,
+                NetworkMonitorStatusText.Text);
             AutomationProperties.SetHelpText(ScheduledScansSection, ScheduledScansSummary.Text);
         }
     }
@@ -143,6 +160,29 @@ public sealed partial class SettingsPageView : UserControl
     private void ScheduledScansSwitch_Toggled(object sender, RoutedEventArgs e) => RaisePeriodicScanChanged();
 
     private void ScanIntervalPicker_SelectionChanged(object sender, SelectionChangedEventArgs e) => RaisePeriodicScanChanged();
+
+    internal void SetNetworkMonitor(NetworkMonitorSettings settings)
+    {
+        _updatingNetworkMonitor = true;
+        try
+        {
+            NetworkMonitoringSwitch.IsOn = settings.IsEnabled;
+        }
+        finally
+        {
+            _updatingNetworkMonitor = false;
+        }
+        UpdateScheduledScansSummary();
+    }
+
+    private void NetworkMonitoringSwitch_Toggled(object sender, RoutedEventArgs e)
+    {
+        UpdateScheduledScansSummary();
+        if (!_updatingNetworkMonitor)
+        {
+            NetworkMonitorChanged?.Invoke(this, EventArgs.Empty);
+        }
+    }
 
     private void RaisePeriodicScanChanged()
     {
