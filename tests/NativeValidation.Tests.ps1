@@ -144,9 +144,10 @@ if ($env:NATIVE_TEST_FAIL -eq $name) { throw "Simulated native failure: $name" }
 param($Version, $ArchiveName, $ArchivePath, $ChecksumsName, $ChecksumsPath)
 throw "Simulated secret asset failure"
 '@ | Set-Content -LiteralPath (Join-Path $scripts "Download-Gitleaks.ps1")
-    foreach ($name in @("UiReviewScenarios", "UiRegression.Helpers", "AdditionalServices.Script",
+    $scriptChecks = @("UiReviewScenarios", "UiRegression.Helpers", "AdditionalServices.Script",
         "SqlEditor.Script", "UsageCategory.Script", "DeviceActivity.Script", "NetworkActivity.Script", "EquipmentActivity.Script", "PrValidation",
-        "DispatcherGate", "LogoDevConfiguration", "BuildIdentity.Metadata", "Installer.Script", "GitleaksDownload", "DownloadRelease")) {
+        "DispatcherGate", "LogoDevConfiguration", "BuildIdentity.Metadata", "Installer.Script", "GitleaksDownload", "DownloadRelease")
+    foreach ($name in $scriptChecks) {
         @'
 $name = [IO.Path]::GetFileName($PSCommandPath).Replace(".Tests.ps1", "")
 if ((Get-Location).Path -ne $env:NATIVE_SCRIPT_SOURCE) { throw "Incorrect child source directory." }
@@ -192,18 +193,23 @@ if ($name -eq "DownloadRelease") { Write-Host "Simulated child exit"; exit 23 }
         Assert-NativeThrows {
             & (Join-Path $scripts "Invoke-FullValidationChecks.ps1") -SourceDirectory $fixture -LogDirectory $logDirectory
         } "*Full non-UI validation failed*"
-        $checkResults = @(Get-Content (Join-Path $logDirectory "checks.json") -Raw | ConvertFrom-Json)
+        $checkResults = Get-Content (Join-Path $logDirectory "checks.json") -Raw | ConvertFrom-Json
+        Assert-NativeEqual $checkResults.name (@("core", "speed-test") + $scriptChecks + @("secrets", "dependencies")) "Existing check catalog/order remains unchanged"
         Assert-NativeEqual @($checkResults | Where-Object result -eq failure).name @("core", "SqlEditor.Script", "PrValidation", "DownloadRelease", "secrets") "Child launch, terminating error and nonzero exit failures are explicit"
         Assert-NativeEqual @($checkResults | Where-Object name -in @("UiRegression.Helpers", "AdditionalServices.Script")).result @("success", "success") "Duplicate types execute with independent implementations"
         Assert-NativeEqual $checkResults[-1].name dependencies "Earlier failures must not hide independent checks"
         Assert-NativeEqual $checkResults[-1].result success "Dependency check must run after secret failure"
         Assert-NativeEqual $env:NATIVE_SCRIPT_STATE inherited "Child environment mutations cannot affect the parent"
         foreach ($entry in $checkResults) {
-            if ($entry.seconds -lt 0 -or $entry.PSObject.Properties.Name.Count -ne 3) {
+            Assert-NativeEqual $entry.PSObject.Properties.Name @("name", "result", "seconds") "Check evidence schema remains unchanged"
+            if ($entry.seconds -lt 0) {
                 throw "Named check results must retain the existing timing/schema contract."
             }
             if (-not (Test-Path -LiteralPath (Join-Path $logDirectory "$($entry.name).log"))) {
                 throw "Missing named check transcript: $($entry.name)"
+            }
+            if ((Get-Content $env:GITHUB_STEP_SUMMARY -Raw) -notmatch "$([regex]::Escape($entry.name)) : $($entry.result), [0-9.]+ seconds") {
+                throw "Missing named check timing in the step summary: $($entry.name)"
             }
         }
         foreach ($diagnostic in @{
