@@ -13,23 +13,24 @@ public sealed class NetworkIncidentTrackerTests
     private int _check;
 
     internal static NetworkMonitorObservation Observation(DateTimeOffset at, long cloudflare = 12, long gateway = 3,
-        bool cancelled = false)
+        bool cancelled = false, bool cloudflareUnanswered = false)
     {
         var samples = new List<NetworkMonitorPingSample>();
-        Add(NetworkMonitorTarget.Gateway, "192.168.0.1", gateway);
-        Add(NetworkMonitorTarget.Cloudflare, "1.1.1.1", cloudflare);
-        Add(NetworkMonitorTarget.Google, "8.8.8.8", 15);
+        Add(NetworkMonitorTarget.Gateway, "192.168.0.1", gateway, false);
+        Add(NetworkMonitorTarget.Cloudflare, "1.1.1.1", cloudflare, cloudflareUnanswered);
+        Add(NetworkMonitorTarget.Google, "8.8.8.8", 15, false);
         return new(at.AddSeconds(-6), at, "network", IPAddress.Parse("192.168.0.1"), samples,
         [
             new(NetworkMonitorDnsSource.WindowsConfiguredOrCached, at, at,
                 new(DiagnosticCheckpoint.ConfiguredDns, "example.com", DiagnosticState.Responded, "", RoundtripMilliseconds: 9))
         ], cancelled, "");
 
-        void Add(NetworkMonitorTarget target, string address, long latency)
+        void Add(NetworkMonitorTarget target, string address, long latency, bool unanswered)
         {
             for (var index = 0; index < 5; index++)
                 samples.Add(new(target, index + 1, at, at, new(DiagnosticCheckpoint.Gateway, address,
-                    DiagnosticState.Responded, "", RoundtripMilliseconds: latency)));
+                    unanswered ? DiagnosticState.Unanswered : DiagnosticState.Responded, "",
+                    RoundtripMilliseconds: unanswered ? null : latency)));
         }
     }
 
@@ -195,6 +196,32 @@ public sealed class NetworkIncidentTrackerTests
 
         var back = Assert.Single(Healthy(tracker).Changed);
         Assert.Equal((NetworkIncidentState.Ongoing, 2), (back.State, back.RecoveryChecks));
+    }
+
+    [Fact]
+    public void ResumedLatencyTargetThatStopsAnsweringIsNotCountedHealthy()
+    {
+        var tracker = Loaded();
+        Slow(tracker);
+        Slow(tracker);
+        Healthy(tracker);
+        tracker.Evaluator.Reset();
+
+        var silent = tracker.Evaluate(Observation(Next(), cloudflareUnanswered: true), Context, Label, false);
+        var incident = Assert.Single(silent.Changed);
+        Assert.Equal((NetworkIncidentState.Ongoing, 0), (incident.State, incident.RecoveryChecks));
+    }
+
+    [Fact]
+    public void EvaluatorResetDiscardsAnEarlierSuspiciousCheckAsFirstObservation()
+    {
+        var tracker = Loaded();
+        Slow(tracker);
+        tracker.Evaluator.Reset();
+        _check = 100;
+        Slow(tracker);
+        var incident = Assert.Single(Slow(tracker).Changed);
+        Assert.Equal((Start.AddSeconds(3030), Start.AddSeconds(3060)), (incident.FirstObservedAt, incident.ConfirmedAt));
     }
 
     [Fact]

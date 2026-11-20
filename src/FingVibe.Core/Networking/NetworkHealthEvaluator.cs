@@ -86,7 +86,7 @@ public sealed class NetworkHealthEvaluator
     /// <summary>
     /// Restores a persisted confirmed problem and its completed healthy-check count for the same network context,
     /// so recovery resumes counting after a restart, sleep or re-enable instead of starting over. Baselines restart
-    /// learning; targets named by unanswered-ICMP symptoms are known to have responded before.
+    /// learning; targets named by restored symptoms are known to have responded before.
     /// </summary>
     public void Resume(string contextKey, IEnumerable<NetworkHealthSymptom> problems, int recoveryChecks)
     {
@@ -101,7 +101,9 @@ public sealed class NetworkHealthEvaluator
             foreach (var symptom in problems)
             {
                 _problems[new(symptom.Kind, symptom.Target)] = symptom;
-                if (symptom is { Kind: NetworkHealthSymptomKind.IcmpUnanswered, Target: { } target })
+                // Latency and unanswered-ICMP symptoms both prove the target answered before, so a target that
+                // stops answering stays suspicious instead of being treated as never visible.
+                if (symptom.Target is { } target)
                     Target(target).EverResponded = true;
             }
             _recovery = _problems.Count == 0 ? 0 : recoveryChecks;

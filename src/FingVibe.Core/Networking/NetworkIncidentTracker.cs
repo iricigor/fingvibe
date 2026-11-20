@@ -73,9 +73,15 @@ public sealed class NetworkIncidentTracker(NetworkHealthEvaluator evaluator)
             if (!_loaded) return new(Evaluator.Evaluate(observation, contextKey, ambiguousRoute), []);
             var changed = ContextChangedCore(contextKey, observation.StartedAt);
             var active = Active(contextKey);
-            if (active is not null && Evaluator.ContextKey != contextKey)
-                Evaluator.Resume(contextKey, active.Symptoms.Select(symptom =>
-                    new NetworkHealthSymptom(symptom.Kind, symptom.Target, symptom.Description)), active.RecoveryChecks);
+            if (Evaluator.ContextKey != contextKey)
+            {
+                // The evaluator was reset (monitoring off, context refresh) or moved networks, so its suspicion
+                // streak restarts and an earlier suspicious check no longer marks the first observation.
+                _firstSuspicious.Remove(contextKey);
+                if (active is not null)
+                    Evaluator.Resume(contextKey, active.Symptoms.Select(symptom =>
+                        new NetworkHealthSymptom(symptom.Kind, symptom.Target, symptom.Description)), active.RecoveryChecks);
+            }
             var before = Evaluator.Current;
             var assessment = Evaluator.Evaluate(observation, contextKey, ambiguousRoute);
             // Cancelled and unobserved checks return the previous verdict; uncertain routes judge nothing.
