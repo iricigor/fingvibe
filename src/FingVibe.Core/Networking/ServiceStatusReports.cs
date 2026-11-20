@@ -43,7 +43,7 @@ public interface IServiceStatusSource
     Task<ServiceStatusSnapshot> GetReportsAsync(bool refresh, CancellationToken cancellationToken);
 }
 
-/// <summary>The default source until supported official feeds are integrated: it sends no requests and reports nothing.</summary>
+/// <summary>An explicitly unconnected source for offline use: it sends no requests and reports nothing.</summary>
 public sealed class UnconnectedServiceStatusSource : IServiceStatusSource
 {
     public Task<ServiceStatusSnapshot> GetReportsAsync(bool refresh, CancellationToken cancellationToken)

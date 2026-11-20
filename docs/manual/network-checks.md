@@ -27,12 +27,26 @@ connected**. Only **No incidents reported** comes from a current provider
 report; every other state means FingVibe does not know the service's status.
 Provider timestamps are shown separately from the local **Feed refresh** time.
 
-In this version FingVibe does not retrieve live provider feeds: entries with an
-official feed show **Feed not connected**, and **Refresh reports** sends no
-requests. Outlook.com and Amazon.de shopping have no approved status source and
-Apple's pages are link-only, so those entries are never monitored. Every row
-links to the provider's official status page or service, which opens in your
-browser.
+Opening Service status retrieves a supported public feed when there is no
+usable report younger than five minutes. **Refresh reports** explicitly
+requests fresh data; there is no background or local-incident polling. Reports
+are kept only in memory while FingVibe runs.
+
+Supported sources are the Azure status RSS, AWS EC2 `us-east-1` health RSS,
+Google Workspace and Google Cloud incident feeds, Cloudflare Status summary
+components, and GitHub Status components. The scope shown with each result is
+limited to the provider components or products represented by that feed: for
+example Gmail, published Google Cloud products/locations, Amazon EC2 in
+`us-east-1`, Cloudflare Recursive DNS or CDN/Network, and GitHub
+website/repository components or Actions. A provider-wide health claim is not
+inferred from one scoped feed.
+
+Outlook.com and Amazon.de shopping have no approved status source and Apple's
+pages are link-only, so those entries are never monitored. Every row links to
+the provider's official status page or service, which opens in your browser.
+If a request fails, an earlier usable report may be marked outdated; otherwise
+the row reports the feed as unavailable. Unexpected response data is shown as
+unreadable rather than healthy.
 
 ## Run diagnostics
 

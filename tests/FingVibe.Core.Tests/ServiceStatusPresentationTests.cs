@@ -49,9 +49,9 @@ public sealed class ServiceStatusPresentationTests
     }
 
     [Fact]
-    public void UnconnectedSourceNeverPresentsHealth()
+    public async Task UnconnectedSourceNeverPresentsHealth()
     {
-        var snapshot = new UnconnectedServiceStatusSource().GetReportsAsync(false, CancellationToken.None).Result;
+        var snapshot = await new UnconnectedServiceStatusSource().GetReportsAsync(false, CancellationToken.None);
         var rows = ServiceStatusPresentation.Rows(snapshot, Now);
 
         Assert.DoesNotContain(rows, row => row.Tone == ServiceStatusTone.Good);

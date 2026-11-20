@@ -15,6 +15,7 @@ Some features contact external services as explained below.
 | Configured provider logos | Logo.dev | Provider name and your public source IP, not LAN inventory or scan results. |
 | Speed test | `speed.cloudflare.com` | Measurement traffic, public source IP, and default engine result reporting after per-run confirmation. |
 | Network health diagnostics | Local checkpoints, public IP targets, and DNS resolvers | Ping/traceroute traffic and DNS queries for `example.com`. |
+| Service status provider reports | Official Microsoft Azure, AWS, Google, Cloudflare and GitHub status endpoints | Ordinary public GET requests for provider status data and your public source IP; no LAN inventory, selected adapter, credentials, local diagnostic results or monitoring history is sent. Results are held only in memory for five minutes. |
 | Stable-release update checks and user-requested downloads | `api.github.com`, GitHub Releases and its asset CDN | Public source IP and ordinary HTTP headers; no LAN inventory or saved scans are sent. |
 | Links opened from the app | Your external browser | Normal requests to the selected website. |
 
