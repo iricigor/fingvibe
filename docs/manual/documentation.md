@@ -96,6 +96,16 @@ shows real measured results.
 Do not obtain fresh screenshots by automating a working user's desktop.
 Use existing disposable Windows CI capture tooling.
 
+For the varied Devices illustration, dispatch the **Pull request build** workflow
+on the agreed branch with **documentation_showcase** enabled. It runs the isolated
+documentation fixture after normal captures on the existing disposable runner.
+The fixture includes varied types, SD-only responders and an explicitly linked
+two-NIC PC. Its native assertions require all nine rows, SD indicators, `--`
+response times and a collapsed PC chevron before saving the image and manifest.
+A second isolated instance captures the populated Room map with three rooms,
+the linked PC counted once and two unassigned devices.
+Normal PR captures and existing regression fixtures/groups are unchanged.
+
 ## Related work
 
 [#253](https://github.com/iricigor/fingvibe/issues/253) owns the documentation,

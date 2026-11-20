@@ -117,6 +117,7 @@ The manual uses native screenshots with sample data or documented privacy redact
 | --- | --- |
 | [Import from Fing](docs/manual/import.md) | Review an Excel export and choose which changes to keep. |
 | [SQL reports](docs/manual/sql.md) | Run a read-only example against saved inventory and history. |
+| [Room map](docs/manual/people-rooms.md#view-the-room-map) | Open Tools > Room map to view saved rooms and assigned equipment; this is not discovered physical topology. |
 | [History and Last seen](docs/manual/history.md) | Read scan evidence without inferring continuous presence. |
 | [Discoveries and scheduling](docs/manual/scheduled-scans.md) | Review unfamiliar devices and opt in to background activity. |
 | [Speed test](docs/manual/speed-test.md) | Measure internet download, upload, and latency with Cloudflare. |

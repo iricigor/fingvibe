@@ -8,6 +8,11 @@ on:
         description: "Extra captures (comma-separated): Overview, Network, DeviceDetails, DeviceHistory, People, PersonDetails, Rooms, RoomDetails, Tools, SpeedTest, NetworkHealth, ServiceStatus, About, FingImport, SqlEditor, Settings, DevicesEmpty"
         type: string
         required: false
+      documentation_showcase:
+        description: "Capture documentation Devices (varied types, SD, linked PC) and a populated Room map"
+        type: boolean
+        default: false
+        required: false
 
 permissions:
   contents: read
@@ -97,6 +102,10 @@ jobs:
       - name: Test device activity UI fixture without desktop automation
         shell: pwsh
         run: .\tests\DeviceActivity.Script.Tests.ps1
+
+      - name: Test documentation Devices fixture without desktop automation
+        shell: pwsh
+        run: .\tests\DocumentationDevices.Script.Tests.ps1
 
       - name: Test network activity UI fixture without desktop automation
         shell: pwsh
@@ -683,6 +692,25 @@ jobs:
           } finally {
             $clock.Stop()
             $timing = "Capture elapsed: $($clock.Elapsed.TotalSeconds.ToString('F1', [Globalization.CultureInfo]::InvariantCulture)) seconds"
+            Write-Host $timing
+            if ($env:GITHUB_STEP_SUMMARY) { $timing >> $env:GITHUB_STEP_SUMMARY }
+            Stop-Transcript
+          }
+
+      - name: Capture documentation Devices and Room map showcase
+        if: github.event_name == 'workflow_dispatch' && inputs.documentation_showcase
+        timeout-minutes: 4
+        shell: pwsh
+        run: |
+          $clock = [Diagnostics.Stopwatch]::StartNew()
+          Start-Transcript -Path "artifacts\ui-review\documentation-devices.log"
+          try {
+            .\tests\DocumentationDevices.Ui.Tests.ps1 `
+              -AppPath "${{ github.workspace }}\artifacts\ui-review-app\FingVibe.App.exe" `
+              -ScreenshotDirectory "${{ github.workspace }}\artifacts\ui-review"
+          } finally {
+            $clock.Stop()
+            $timing = "Documentation showcase capture elapsed: $($clock.Elapsed.TotalSeconds.ToString('F1', [Globalization.CultureInfo]::InvariantCulture)) seconds"
             Write-Host $timing
             if ($env:GITHUB_STEP_SUMMARY) { $timing >> $env:GITHUB_STEP_SUMMARY }
             Stop-Transcript
