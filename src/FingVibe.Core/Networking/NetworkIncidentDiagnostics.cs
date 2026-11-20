@@ -57,7 +57,7 @@ public sealed class NetworkIncidentDiagnostics(NetworkDiagnosticService service,
             return started with
             {
                 Outcome = outcome,
-                CompletedAt = _time.GetUtcNow(),
+                CompletedAt = Completed(started),
                 Detail = detail,
                 Observations = report.Observations,
                 Hops = report.Hops,
@@ -78,7 +78,7 @@ public sealed class NetworkIncidentDiagnostics(NetworkDiagnosticService service,
             return started with
             {
                 Outcome = cancelled ? NetworkEvidenceOutcome.Partial : NetworkEvidenceOutcome.Failed,
-                CompletedAt = _time.GetUtcNow(),
+                CompletedAt = Completed(started),
                 Detail = cancelled
                     ? stop.IsCancellationRequested ? Interrupted(interruptionReason()) : LimitReason
                     : $"Deeper diagnostics failed: {exception.Message} Completed checks were saved; it is not retried automatically.",
@@ -86,6 +86,13 @@ public sealed class NetworkIncidentDiagnostics(NetworkDiagnosticService service,
                 Hops = [.. hops]
             };
         }
+    }
+
+    // A backward clock step during the run must not produce evidence that ends before it started.
+    private DateTimeOffset Completed(NetworkIncidentEvidence started)
+    {
+        var now = _time.GetUtcNow();
+        return now < started.StartedAt ? started.StartedAt : now;
     }
 
     public static string Interrupted(string reason) =>

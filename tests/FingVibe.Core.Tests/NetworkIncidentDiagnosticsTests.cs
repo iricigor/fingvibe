@@ -97,6 +97,22 @@ public sealed class NetworkIncidentDiagnosticsTests
     }
 
     [Fact]
+    public async Task ABackwardClockStepNeverEndsEvidenceBeforeItStarted()
+    {
+        var diagnostics = new NetworkIncidentDiagnostics(
+            new NetworkDiagnosticService(NetworkMonitorReviewFixture.DiagnosticProbes), new SteppingBackClock(Start));
+        var started = diagnostics.Begin(Incident);
+        var evidence = await diagnostics.RunAsync(started, Network, () => "unused", CancellationToken.None);
+        Assert.Equal((NetworkEvidenceOutcome.Complete, (DateTimeOffset?)started.StartedAt), (evidence.Outcome, evidence.CompletedAt));
+    }
+
+    private sealed class SteppingBackClock(DateTimeOffset start) : TimeProvider
+    {
+        private int _calls;
+        public override DateTimeOffset GetUtcNow() => start.AddSeconds(-5 * _calls++);
+    }
+
+    [Fact]
     public void ARunningRecordFromAClosedAppBecomesPartial()
     {
         var running = new NetworkIncidentEvidence(Incident.Id, Incident.ContextKey, "Wi-Fi", Start)

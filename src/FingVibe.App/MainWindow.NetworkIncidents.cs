@@ -100,6 +100,28 @@ public sealed partial class MainWindow
                     }
                 }
             }
+            catch (Exception exception) when (evidence.Count > 0 && exception is InvalidDataException or InvalidOperationException)
+            {
+                // A rejected evidence record must not block incident lifecycle saves; it stays visible but unsaved.
+                foreach (var item in evidence) _pendingNetworkEvidence.Remove(item.IncidentId);
+                message = $"Deeper diagnostic evidence could not be saved and is shown only until FingVibe closes. {exception.Message}";
+                try
+                {
+                    if (await _networkHealthHistory.SaveAsync(batch))
+                    {
+                        foreach (var incident in batch)
+                        {
+                            if (_pendingNetworkIncidents.TryGetValue(incident.Id, out var pending) && ReferenceEquals(pending, incident))
+                                _pendingNetworkIncidents.Remove(incident.Id);
+                        }
+                    }
+                }
+                catch (Exception retry) when (retry is IOException or UnauthorizedAccessException
+                    or InvalidDataException or InvalidOperationException)
+                {
+                    message += $" Incident history could not be saved either; unsaved changes are kept and retried after the next change. {retry.Message}";
+                }
+            }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
                 or InvalidDataException or InvalidOperationException)
             {
