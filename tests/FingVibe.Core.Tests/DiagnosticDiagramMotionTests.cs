@@ -10,7 +10,7 @@ public sealed class DiagnosticDiagramMotionTests
     [Fact]
     public void ThreeDecorativeOverlaysAndRoutesMatchTheRenderedDiagram()
     {
-        var document = XDocument.Load(Path.Combine(AppContext.BaseDirectory, "NetworkTroubleshootingPage.xaml"));
+        var document = XDocument.Load(Path.Combine(AppContext.BaseDirectory, "NetworkHealthPage.xaml"));
         XNamespace xaml = "http://schemas.microsoft.com/winfx/2006/xaml";
         var canvas = document.Descendants().Single(element => (string?)element.Attribute(xaml + "Name") == "DiagramCanvas");
         var dots = canvas.Elements().Where(element =>

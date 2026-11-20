@@ -39,7 +39,7 @@ No Cloudflare speed measurement was started.
 | `settings.png` | `fingvibe-settings.png` | Appearance and upper table options. |
 | `import.png` | `fingvibe-fing-import.png` | Synthetic workbook and analysis, not final import success. |
 | `sql.png` | `fingvibe-sql-editor.png` | Query ready to run, not a completed report. |
-| `network-checks.png` | `fingvibe-troubleshooting.png` | Ready-state controls; review-mode probes disabled. |
+| `network-checks.png` | `fingvibe-network-health.png` (earlier `fingvibe-troubleshooting.png`) | Ready-state controls; review-mode probes disabled. |
 | `speed-test.png` | `fingvibe-speed-test.png` | Gauges waiting for measurements. |
 | `about.png` | `fingvibe-about.png` | Test-build identity and source links. |
 
@@ -81,7 +81,7 @@ Do not fabricate result images to fill a gap.
 
 Use disposable Windows CI and the repository's native capture tooling.
 Request appropriate scenarios such as Devices, Overview, Network, DeviceDetails,
-People, PersonDetails, Settings, FingImport, SqlEditor, Troubleshooting, SpeedTest,
+People, PersonDetails, Settings, FingImport, SqlEditor, NetworkHealth, SpeedTest,
 and About. Use synthetic fixtures and keep measurements stopped.
 
 Inspect the downloaded image, commit only the intended safe PNG, and update this

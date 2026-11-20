@@ -51,7 +51,7 @@
             if ($Value -eq "//List[@Name='Rooms']/ListItem[.//*[@Name='UI review room']]") { return "room-row" }
             if ($Value -eq "//Button[@Name='About FingVibe & updates']") { return "control-About FingVibe & updates" }
             if ($Value -eq "//Button[@Name='Speed test']") { return "control-Speed test" }
-            if ($Value -eq "//Button[@Name='Network troubleshooting']") { return "control-Network troubleshooting" }
+            if ($Value -eq "//Button[@Name='Network health']") { return "control-Network health" }
             if ($Value -eq "//Button[@Name='Import from Fing']") { return "control-Import from Fing" }
             if ($Value -eq "//Button[@Name='SQL editor']") { return "control-SQL editor" }
             if ($Value -eq "//Button[@Name='Database backups']") { return "control-Database backups" }
@@ -68,7 +68,7 @@
         elseif ($ElementId -eq "control-DeviceHistoryTab") { $script:currentPage = "DeviceHistory" }
         elseif ($ElementId -eq "control-Speed test") { $script:currentPage = "SpeedTest" }
         elseif ($ElementId -eq "control-About FingVibe & updates") { $script:currentPage = "About" }
-        elseif ($ElementId -eq "control-Network troubleshooting") { $script:currentPage = "Troubleshooting" }
+        elseif ($ElementId -eq "control-Network health") { $script:currentPage = "NetworkHealth" }
         elseif ($ElementId -eq "control-Import from Fing") { $script:currentPage = "FingImport" }
         elseif ($ElementId -eq "control-SQL editor") { $script:currentPage = "SqlEditor" }
         elseif ($ElementId -eq "control-Database backups") { $script:currentPage = "DatabaseBackups" }
@@ -108,7 +108,7 @@
                     "control-Speed test" { $script:currentPage -eq "Tools" }
                     "control-Start Cloudflare speed test" { $script:currentPage -eq "SpeedTest" }
                     "control-About FingVibe & updates" { $script:currentPage -eq "Settings" }
-                    "control-Network troubleshooting" { $script:currentPage -eq "Tools" }
+                    "control-Network health" { $script:currentPage -eq "Tools" }
                     "control-Import from Fing" { $script:currentPage -eq "Tools" }
                     "control-SQL editor" { $script:currentPage -eq "Tools" }
                     "control-SQL query" { $script:currentPage -eq "SqlEditor" }
@@ -124,9 +124,10 @@
                     "control-Completed backups" { $script:currentPage -eq "DatabaseBackups" }
                     "control-Browse Fing export" { $script:currentPage -eq "FingImport" }
                     "control-Analyze again" { $script:currentPage -eq "FingImport" }
-                    "control-Run network troubleshooting" { $script:currentPage -eq "Troubleshooting" }
-                    "control-Router WAN IPv4 address" { $script:currentPage -eq "Troubleshooting" }
-                    "control-Back to Tools" { $script:currentPage -in @("Troubleshooting", "FingImport", "SqlEditor", "DatabaseBackups") }
+                    "control-Monitoring off" { $script:currentPage -eq "NetworkHealth" }
+                    "control-Run network diagnostics" { $script:currentPage -eq "NetworkHealth" }
+                    "control-Router WAN IPv4 address" { $script:currentPage -eq "NetworkHealth" }
+                    "control-Back to Tools" { $script:currentPage -in @("NetworkHealth", "FingImport", "SqlEditor", "DatabaseBackups") }
                     "control-Back to Settings" { $script:currentPage -eq "About" }
                     "control-FingVibe LAN Scanner" { $script:currentPage -eq "About" }
                     "control-Search people and rooms" { $script:currentPage -eq "People & rooms" }
@@ -181,10 +182,10 @@
     Show-UiReviewCaptureScenario "DeviceDetails"
     $script:hiddenControl = "control-Network overview"
     Assert-Throws { Show-UiReviewCaptureScenario "DeviceDetails" } "*not visible*"
-    $script:hiddenControl = "control-Run network troubleshooting"
-    Show-UiReviewCaptureScenario "Troubleshooting"
     $script:hiddenControl = "control-Router WAN IPv4 address"
-    Assert-Throws { Show-UiReviewCaptureScenario "Troubleshooting" } "*not visible*"
+    Show-UiReviewCaptureScenario "NetworkHealth"
+    $script:hiddenControl = "control-Run network diagnostics"
+    Assert-Throws { Show-UiReviewCaptureScenario "NetworkHealth" } "*not visible*"
     $script:hiddenControl = ""
     foreach ($scenario in @("PersonDetails", "RoomDetails")) {
         $script:hiddenControl = "control-Assign devices"

@@ -83,7 +83,7 @@
         @("Devices", "DeviceDetails", "DeviceHistory") "Device details code"
     foreach ($path in @("src\FingVibe.App\PageHeaderSizing.cs", "tests\PageHeaders.Ui.Helpers.ps1")) {
         Test-Change @{ $path = "changed" } `
-            @("Devices", "DeviceDetails", "DeviceHistory", "SpeedTest", "Troubleshooting", "About",
+            @("Devices", "DeviceDetails", "DeviceHistory", "SpeedTest", "NetworkHealth", "About",
                 "FingImport", "SqlEditor", "DatabaseBackups", "Settings") "Back header owners"
     }
     foreach ($path in @("src\FingVibe.App\DeviceDetailsPresentation.cs", "src\FingVibe.App\Views\DeviceDetailValue.cs",
@@ -118,7 +118,7 @@
         "tests\EquipmentActivity.Ui.Tests.ps1")) {
         Test-Change @{ $path = "changed" } @("Devices", "PersonDetails") "Equipment activity"
     }
-    $asyncSurfaceScenarios = @("Devices", "Network", "DeviceDetails", "DeviceHistory", "PersonDetails", "Tools", "Troubleshooting", "DatabaseBackups")
+    $asyncSurfaceScenarios = @("Devices", "Network", "DeviceDetails", "DeviceHistory", "PersonDetails", "Tools", "NetworkHealth", "DatabaseBackups")
     $rowScenarios = @("Devices", "Overview", "Network", "DeviceDetails", "DeviceHistory", "People", "PersonDetails", "Rooms", "RoomMap", "RoomDetails", "Settings", "DevicesEmpty")
     $analyticsScenarios = @("Devices", "Network", "DeviceDetails", "DeviceHistory", "PersonDetails", "Settings")
     Test-Change @{ "src\FingVibe.App\AsyncSurfaceSession.cs" = "changed" } $asyncSurfaceScenarios "Shared asynchronous surface consumers"
@@ -126,12 +126,12 @@
     Test-Change @{ "src\FingVibe.Core\Storage\DeviceInventoryStore.Analytics.cs" = "changed" } $analyticsScenarios "Shared analytics evidence consumers"
     Test-Change @{ "src\FingVibe.App\AsyncSurfaceSession.cs" = "changed"; "src\FingVibe.Core\Storage\DeviceInventoryStore.Analytics.cs" = "changed"
         "src\FingVibe.App\Tools\SqlEditorPage.xaml" = "changed" } `
-        @("Devices", "Network", "DeviceDetails", "DeviceHistory", "PersonDetails", "Tools", "Troubleshooting", "SqlEditor", "DatabaseBackups", "Settings") `
+        @("Devices", "Network", "DeviceDetails", "DeviceHistory", "PersonDetails", "Tools", "NetworkHealth", "SqlEditor", "DatabaseBackups", "Settings") `
         "Shared contracts union with each other and with page-specific coverage"
     Test-Change @{ "src\FingVibe.App\AsyncSurfaceSession.cs" = "changed"; "src\FingVibe.App\ScanResultRow.cs" = "changed"
         "src\FingVibe.Core\Storage\DeviceInventoryStore.Analytics.cs" = "changed"; "src\FingVibe.App\Tools\AboutPage.xaml" = "changed" } `
         @("Devices", "Overview", "Network", "DeviceDetails", "DeviceHistory", "People", "PersonDetails", "Rooms", "RoomMap", "Tools",
-            "Troubleshooting", "About", "DatabaseBackups", "RoomDetails", "Settings", "DevicesEmpty") `
+            "NetworkHealth", "About", "DatabaseBackups", "RoomDetails", "Settings", "DevicesEmpty") `
         "All shared contracts keep catalog order and unrelated explicit page coverage"
     foreach ($path in @("src\FingVibe.Core\Models\DeviceInventory.cs", "src\FingVibe.Core\Models\PrivateVirtualDevice.cs",
         "src\FingVibe.Core\Models\DeviceHistorySummary.cs",
@@ -156,7 +156,7 @@
             @("Devices", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomMap", "RoomDetails") "People/Rooms icon surfaces"
     }
     Test-Change @{ "src\FingVibe.App\MainWindow.NetworkIdentity.cs" = "changed" } `
-        @("Devices", "Overview", "Network", "DeviceDetails", "PersonDetails", "RoomMap", "Troubleshooting") "Network identity code"
+        @("Devices", "Overview", "Network", "DeviceDetails", "PersonDetails", "RoomMap", "NetworkHealth") "Network identity code"
     Test-Change @{ "src\FingVibe.App\MainWindow.RoomMap.cs" = "changed" } `
         @("Devices", "DeviceDetails", "RoomMap", "RoomDetails") "Room map shell owner"
     Test-Change @{ "src\FingVibe.Core\Models\RoomMapLayout.cs" = "changed" } `
@@ -185,9 +185,23 @@
     Test-Change @{ "src\FingVibe.Core\NewModel.cs" = "changed" } @("Devices") "Core dependency baseline"
     Test-Change @{ ".github\scripts\UiReviewNavigation.ps1" = "changed" } @("Devices") "Pipeline baseline"
     Test-Change @{ "src\FingVibe.App\MainWindow.xaml.cs" = "changed" } @("Devices") "Shell code baseline"
-    Test-Change @{ "src\FingVibe.App\Tools\SpeedTestPage.xaml" = "changed" } @("Devices", "Tools", "SpeedTest", "Troubleshooting", "About", "FingImport", "SqlEditor", "DatabaseBackups") "Tools views"
-    Test-Change @{ "src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml" = "changed" } @("Devices", "RoomMap", "Tools", "Troubleshooting") "Troubleshooting view"
-    Test-Change @{ "src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml.cs" = "changed" } @("Devices", "RoomMap", "Tools", "Troubleshooting") "Troubleshooting behavior"
+    Test-Change @{ "src\FingVibe.App\Tools\SpeedTestPage.xaml" = "changed" } @("Devices", "Tools", "SpeedTest", "NetworkHealth", "About", "FingImport", "SqlEditor", "DatabaseBackups") "Tools views"
+    Test-Change @{ "src\FingVibe.App\Tools\NetworkHealthPage.xaml" = "changed" } @("Devices", "RoomMap", "Tools", "NetworkHealth") "Network health view"
+    Test-Change @{ "src\FingVibe.App\Tools\NetworkHealthPage.xaml.cs" = "changed" } @("Devices", "RoomMap", "Tools", "NetworkHealth") "Network health behavior"
+    & {
+        # Renames are diffed with --no-renames, so the pre-rename page arrives as a deleted path.
+        $oldPage = "src\FingVibe.App\Tools\NetworkTroubleshootingPage.xaml"
+        $null = Invoke-UiReviewGit $repository @("checkout", "--quiet", "--detach", $base)
+        $null = New-Item -ItemType Directory -Path (Split-Path (Join-Path $repository $oldPage)) -Force
+        Set-Content -LiteralPath (Join-Path $repository $oldPage) -Value "old troubleshooting page"
+        $null = Invoke-UiReviewGit $repository @("add", ".")
+        $null = Invoke-UiReviewGit $repository @("commit", "--quiet", "-m", "Old troubleshooting page")
+        $renameBase = Invoke-UiReviewGit $repository @("rev-parse", "HEAD")
+        $null = Invoke-UiReviewGit $repository @("rm", "--quiet", $oldPage)
+        $null = Invoke-UiReviewGit $repository @("commit", "--quiet", "-m", "Remove renamed troubleshooting page")
+        Assert-Equal @(Get-UiReviewCapturePlan -RepositoryPath $repository -BaseRevision $renameBase).Scenario `
+            @("Devices", "RoomMap", "Tools", "NetworkHealth") "Removed pre-rename troubleshooting page selects Network health"
+    }
     Test-Change @{ "src\FingVibe.App\Tools\AboutPage.xaml" = "changed" } @("Devices", "About", "Settings") "About view"
     Test-Change @{ "src\FingVibe.App\Tools\AboutPage.xaml.cs" = "changed" } @("Devices", "About", "Settings") "About behavior"
     foreach ($updateOwner in @("src\FingVibe.App\Tools\AboutPage.Updates.cs", "src\FingVibe.App\MainWindow.Updates.cs",
@@ -205,7 +219,7 @@
         @("Devices", "Overview", "Network", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomMap", "FingImport", "SqlEditor", "RoomDetails") "Inventory surfaces"
     $viewScenarios = @{
         OverviewPageView = @("Devices", "Overview")
-        NetworkPageView = @("Devices", "Network")
+        NetworkPageView = @("Devices", "Network", "NetworkHealth")
         DevicesPageView = @("Devices", "Settings", "DevicesEmpty")
         DeviceDetailsPageView = @("Devices", "DeviceDetails", "DeviceHistory")
         PeopleRoomsPageView = @("Devices", "DeviceDetails", "People", "PersonDetails", "Rooms", "RoomMap", "RoomDetails")

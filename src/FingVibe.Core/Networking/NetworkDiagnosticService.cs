@@ -187,7 +187,7 @@ public static class NetworkDiagnosticInterpreter
         if (network is null)
             return new(DiagnosticSummaryKind.Problem, "No active LAN connection", "Windows reports no selected active IPv4 LAN adapter. Check Wi-Fi or Ethernet, refresh the adapter list, and rerun; report persistent adapter problems.");
         if (report is null)
-            return new(DiagnosticSummaryKind.Neutral, "Ready / not tested", "Run checks on request. Windows chooses the route; the selected LAN adapter does not force probe routing.");
+            return new(DiagnosticSummaryKind.Neutral, "Ready / not tested", "Run diagnostics on request. Windows chooses the route; the selected LAN adapter does not force probe routing.");
         if (Enum.GetValues<DiagnosticCheckpoint>().Any(checkpoint => report.Observations.Count(item => item.Checkpoint == checkpoint) != 1))
             return new(DiagnosticSummaryKind.Neutral, "Incomplete diagnostics", "Some diagnostic checkpoints are missing or ambiguous. Rerun and report persistent diagnostic errors with their time.");
 

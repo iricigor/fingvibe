@@ -14,6 +14,18 @@ public sealed partial class NetworkPageView : UserControl
         InitializeActivity();
     }
 
+    public event EventHandler? NetworkHealthRequested;
+
+    private void OpenNetworkHealthButton_Click(object sender, RoutedEventArgs e) =>
+        NetworkHealthRequested?.Invoke(this, EventArgs.Empty);
+
+    private void NetworkHealthSummary_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        var narrow = e.NewSize.Width < 520;
+        Grid.SetRow(OpenNetworkHealthButton, narrow ? 1 : 0);
+        Grid.SetColumn(OpenNetworkHealthButton, narrow ? 0 : 1);
+    }
+
     internal void ShowSummary(string summary) => NetworkIdentityText.Text = summary;
 
     internal void ShowLocalNetwork(LanNetwork? network)

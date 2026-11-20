@@ -33,7 +33,7 @@ Normal user cancellation waits a full interval before the next attempt.
 Turning scheduling off or closing the app stops scheduled work.
 Already committed checkpoint observations remain saved as incomplete.
 
-LAN scans cannot overlap speed tests, troubleshooting, or device-service probes.
+LAN scans cannot overlap speed tests, network diagnostics, or device-service probes.
 If the app is busy, the network is unavailable, or a scan/save fails, Settings
 shows the reason and retry time. Retry waits grow up to the chosen interval.
 

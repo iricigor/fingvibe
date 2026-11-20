@@ -219,7 +219,7 @@ public static class ToolsLandingTestWindow
                 }
                 $focusState.Calls++
             }
-            $ids = @('SqlEditorCard', 'FingImportCard', 'SpeedTestCard', 'TroubleshootingCard', 'DatabaseBackupsCard')
+            $ids = @('SqlEditorCard', 'FingImportCard', 'SpeedTestCard', 'NetworkHealthCard', 'DatabaseBackupsCard')
             $Variant = 'high-contrast'
             $lookupState.Id = $ids[0]
             $rowGeometry.Top = 10

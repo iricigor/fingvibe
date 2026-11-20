@@ -18,11 +18,11 @@
         }
         foreach ($name in @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
             "UsageCategory.Ui", "DeviceActivity.Ui", "DeviceLinking.Ui", "NetworkActivity.Ui", "EquipmentActivity.Ui",
-            "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
+            "BuildIdentity.Ui", "NetworkHealth.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
             @(
                 'param($AppPath, $ScreenshotDirectory, $Version, $BuildKind, $BuildTimestamp, $BuildCommit, $PullRequestNumber, $SummaryOnly, $ObservationsOnly, $Group)',
                 '$name = [IO.Path]::GetFileName($PSCommandPath).Replace(".Tests.ps1", "")',
-                'if ($name -eq "NetworkTroubleshooting.Ui") {',
+                'if ($name -eq "NetworkHealth.Ui") {',
                 '    $settings = [Windows.UI.ViewManagement.UISettings, Windows.UI.ViewManagement, ContentType = WindowsRuntime]::new()',
                 '    if ($settings.TextScaleFactor -le 0) { throw "Expected a readable effective Windows text scale." }',
                 '    if ($env:UI_REGRESSION_FAIL -eq $name) { Write-Output "Troubleshooting child stdout before failure." }',
@@ -60,7 +60,7 @@
             "details-activity" = @("DeviceActivity.Ui")
             "details-linking" = @("DeviceLinking.Ui")
             "network-activity" = @("NetworkActivity.Ui")
-            "tools-utilities" = @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui")
+            "tools-utilities" = @("BuildIdentity.Ui", "NetworkHealth.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui")
             "tools-device-data" = @("AdditionalServices.Ui", "SqlEditor.Ui")
         }
         Assert-Equal $matrixSuites @($expectedSuiteChecks.Keys) "CI matrix dispatches every split suite"
@@ -75,7 +75,7 @@
         $calls = @(Get-Content $env:UI_REGRESSION_CALLS | ConvertFrom-Json)
         Assert-Equal $calls.Name @("SidebarNavigation", "SidebarNavigation", "SidebarNavigation", "SidebarNavigation", "DevicesList.Ui", "DevicesList.Ui", "DevicesList.Ui", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
             "UsageCategory.Ui", "DeviceScanHistory.Ui", "DeviceActivity.Ui", "DeviceLinking.Ui", "NetworkActivity.Ui",
-            "BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "Dispatch every preserved suite and focused updates once"
+            "BuildIdentity.Ui", "NetworkHealth.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "Dispatch every preserved suite and focused updates once"
         $deviceGroups = @((Import-PowerShellDataFile -LiteralPath (Join-Path $PSScriptRoot "UiRegression\Devices.Groups.psd1")).Groups.Name)
         Assert-Equal @($matrixSuites | Where-Object { $_ -like "devices*" }) @($deviceGroups | ForEach-Object { "devices-$_" }) "CI matrix runs every Devices group once on its own worker"
         Assert-Equal @($calls | Where-Object Name -eq "DevicesList.Ui" | ForEach-Object { $_.Parameters.Group }) $deviceGroups "Devices group jobs dispatch exactly their group"
@@ -89,10 +89,10 @@
         Assert-Equal ([DateTimeOffset]$calls[15].Parameters.BuildTimestamp).UtcDateTime ([DateTimeOffset]$parameters.BuildTimestamp).UtcDateTime "Forward stamped identity"
         Assert-Equal $calls[15].Parameters.PullRequestNumber 198 "Forward PR identity"
         Assert-Equal ($calls.Parameters.AppPath | Select-Object -Unique) $parameters.AppPath "Reuse supplied app, including spaces"
-        $troubleshootingCall = @($calls | Where-Object Name -eq "NetworkTroubleshooting.Ui")[0]
+        $troubleshootingCall = @($calls | Where-Object Name -eq "NetworkHealth.Ui")[0]
         Assert-Equal $troubleshootingCall.HostEdition "Desktop" "Troubleshooting resolves WinRT in Windows PowerShell"
         Assert-Equal $troubleshootingCall.Apartment "STA" "Troubleshooting retains the desktop automation apartment"
-        Assert-Equal $troubleshootingCall.Parameters.ScreenshotDirectory (Join-Path $parameters.ScreenshotDirectory "troubleshooting") "Forward the troubleshooting capture path, including spaces"
+        Assert-Equal $troubleshootingCall.Parameters.ScreenshotDirectory (Join-Path $parameters.ScreenshotDirectory "network-health") "Forward the Network health capture path, including spaces"
         & powershell.exe -NoProfile -File $runner -Suite sidebar -AppPath $parameters.AppPath `
             -ScreenshotDirectory $parameters.ScreenshotDirectory -CapturePlanPath $planPath
         if ($LASTEXITCODE -ne 0) { throw "Sidebar runner must support multi-scenario plans under Windows PowerShell." }
@@ -169,13 +169,13 @@
                 Assert-Equal $suiteCalls.Name $sharedDetailChecks[$suite] "$($sharedCase -join ' + ') dispatches affected checks in $suite"
             }
             if ($sharedCase -contains "src/FingVibe.App/AsyncSurfaceSession.cs") {
-                if (@($sharedPlan.Scenario | Where-Object { $_ -in @("Troubleshooting", "DatabaseBackups") }).Count -ne 2) {
-                    throw "Asynchronous surface changes must select troubleshooting and backup captures."
+                if (@($sharedPlan.Scenario | Where-Object { $_ -in @("NetworkHealth", "DatabaseBackups") }).Count -ne 2) {
+                    throw "Asynchronous surface changes must select Network health and backup captures."
                 }
                 $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
                 & $runner -Suite tools-utilities @sharedParameters
                 $toolCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name
-                foreach ($check in @("NetworkTroubleshooting.Ui", "DatabaseBackups.Ui")) {
+                foreach ($check in @("NetworkHealth.Ui", "DatabaseBackups.Ui")) {
                     if ($check -notin $toolCalls) { throw "Asynchronous surface plan must dispatch $check." }
                 }
             }
@@ -200,14 +200,14 @@
         $env:UI_REGRESSION_FAIL = $null
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
         & $runner -Suite tools @parameters
-        $toolChecks = @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")
+        $toolChecks = @("BuildIdentity.Ui", "NetworkHealth.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")
         Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name $toolChecks "Default Tools entry point preserves full sequential coverage"
-        $env:UI_REGRESSION_FAIL = "NetworkTroubleshooting.Ui"
+        $env:UI_REGRESSION_FAIL = "NetworkHealth.Ui"
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
-        Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: utilities*troubleshooting*exit code 1*"
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "A troubleshooting child failure fails its group without suppressing the independent group"
+        Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: utilities*network health*exit code 1*"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name @("BuildIdentity.Ui", "NetworkHealth.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "A troubleshooting child failure fails its group without suppressing the independent group"
         $troubleshootingLog = Get-Content (Join-Path $parameters.ScreenshotDirectory "regression.log") -Raw
-        if ($troubleshootingLog -notmatch 'Simulated regression failure' -or $troubleshootingLog -notmatch 'NetworkTroubleshooting.Ui') {
+        if ($troubleshootingLog -notmatch 'Simulated regression failure' -or $troubleshootingLog -notmatch 'NetworkHealth.Ui') {
             throw "The parent transcript must retain the troubleshooting child failure diagnostics."
         }
         if ($troubleshootingLog -notmatch 'Troubleshooting child stdout before failure\.') {
@@ -233,7 +233,7 @@
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
         Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: utilities*Simulated regression failure: ReleaseUpdates.Ui*"
         Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name `
-            @("BuildIdentity.Ui", "NetworkTroubleshooting.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") `
+            @("BuildIdentity.Ui", "NetworkHealth.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") `
             "Update failure is retained, stops later utility checks and still runs independent device data"
         $env:UI_REGRESSION_FAIL = "BuildIdentity.Ui"
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count

@@ -17,7 +17,7 @@ public sealed partial class MainWindow
 
     private async Task InitializeNetworkAsync()
     {
-        ToolsPage.ConfigureTroubleshooting((network, profile) =>
+        ToolsPage.ConfigureNetworkHealth((network, profile) =>
             NetworkDiagnosticService.GetOnlinePeers(_inventory, network, profile?.ToString("D")));
         var networks = IsUiReview
             ? new List<LanNetwork>

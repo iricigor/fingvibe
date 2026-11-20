@@ -14,14 +14,14 @@ Some features contact external services as explained below.
 | Public IP/provider details | `ipwho.is` | Your public source IP; the service returns provider and approximate location information. |
 | Configured provider logos | Logo.dev | Provider name and your public source IP, not LAN inventory or scan results. |
 | Speed test | `speed.cloudflare.com` | Measurement traffic, public source IP, and default engine result reporting after per-run confirmation. |
-| Network troubleshooting | Local checkpoints, public IP targets, and DNS resolvers | Ping/traceroute traffic and DNS queries for `example.com`. |
+| Network health diagnostics | Local checkpoints, public IP targets, and DNS resolvers | Ping/traceroute traffic and DNS queries for `example.com`. |
 | Stable-release update checks and user-requested downloads | `api.github.com`, GitHub Releases and its asset CDN | Public source IP and ordinary HTTP headers; no LAN inventory or saved scans are sent. |
 | Links opened from the app | Your external browser | Normal requests to the selected website. |
 
 Public lookup and provider logos are optional displays. Missing configuration
 or service failure does not prevent local scanning.
 The speed test is manual and asks for confirmation before each run.
-Troubleshooting probes start only when you choose **Run checks**.
+Network health probes start only when you choose **Run diagnostics**; monitoring is off and no background checks run.
 Official stable builds check for updates automatically while open; downloads and
 installation require your action. Development, PR and Test builds do not check
 automatically. See [Check for updates](navigation.md#check-for-updates).

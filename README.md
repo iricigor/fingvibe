@@ -102,7 +102,7 @@ Each guide includes a native screenshot with sample data or privacy redactions.
 | --- | --- |
 | [Import from Fing](docs/fing-import.md) | Review an Excel export and choose which changes to keep. |
 | [Speed test](docs/speed-test.md) | Measure internet download, upload, and latency with Cloudflare. |
-| [Network troubleshooting](docs/network-troubleshooting.md) | Run ICMP, DNS, and traceroute checks; interpret the [LAN diagram](docs/network-troubleshooting.md#lan-diagram). |
+| [Network health](docs/network-troubleshooting.md) | See monitoring status and run ICMP, DNS, and traceroute diagnostics; interpret the [LAN diagram](docs/network-troubleshooting.md#lan-diagram). |
 | [About FingVibe](docs/about.md) | Find the app version, build identity, and source links. |
 
 ## 🚀 Run locally

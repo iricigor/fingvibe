@@ -85,7 +85,7 @@ responsive scenarios explicitly pass `-MinimumWidth 480`; full-window containmen
 foreground, height and bitmap-content guards still apply.
 
 Tools uses `Tools.Groups.psd1` and `Tools.Ui.Tests.ps1 -Group <name>`:
-`utilities` runs BuildIdentity, Troubleshooting, FingImport and DatabaseBackups; `device-data`
+`utilities` runs BuildIdentity, NetworkHealth, FingImport and DatabaseBackups; `device-data`
 runs AdditionalServices and SqlEditor. These existing checks already own
 isolated fixtures, launches, readiness and shutdown; the group scenarios invoke
 them unchanged. Both suites default to `All`, continuing independent groups

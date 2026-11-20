@@ -15,7 +15,7 @@ Start with [Install and update](manual/install.md), then follow
 | <span aria-hidden="true">:material-radar:</span> Find devices | [Run your first scan](manual/first-scan.md) |
 | <span aria-hidden="true">:material-devices:</span> Understand a result | [Device status, filters, and icons](manual/devices.md) |
 | <span aria-hidden="true">:material-account-group:</span> Organize equipment | [People and rooms](manual/people-rooms.md) |
-| <span aria-hidden="true">:material-tools:</span> Check a connection | [Network troubleshooting](manual/network-checks.md) |
+| <span aria-hidden="true">:material-tools:</span> Check a connection | [Network health](manual/network-checks.md) |
 | <span aria-hidden="true">:material-shield-lock:</span> Understand privacy | [Network requests and local data](manual/privacy.md) |
 
 [![FingVibe Overview with a selected sample network and links to device results](screenshots/manual/overview.png)](screenshots/manual/overview.png)

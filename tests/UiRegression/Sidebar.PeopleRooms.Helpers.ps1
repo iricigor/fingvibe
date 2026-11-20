@@ -94,11 +94,11 @@ function Test-RoomMapEntries {
     Invoke-PeopleRoomsElement AutomationId RoomMapBackButton RoomMapPage
     $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
 
-    Select-SidebarPage 'Tools' 'Network troubleshooting'
-    Invoke-PeopleRoomsElement Name 'Network troubleshooting'
-    # The visible "Run checks" button is exposed to UI Automation as "Run network troubleshooting".
+    Select-SidebarPage 'Tools' 'Network health'
+    Invoke-PeopleRoomsElement Name 'Network health'
+    # The visible "Run diagnostics" button is exposed to UI Automation as "Run network diagnostics".
     $null = Find-PeopleRoomsElement AutomationId RunButton
-    Invoke-PeopleRoomsElement AutomationId TroubleshootingViewRoomMapButton
+    Invoke-PeopleRoomsElement AutomationId NetworkHealthViewRoomMapButton
     Invoke-PeopleRoomsElement AutomationId RoomMapBackButton RoomMapPage
     $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
     Write-Host 'Room map entry points, conceptual gateway fallback, focus reachability and return to Rooms passed.'

@@ -1,8 +1,12 @@
-# Network troubleshooting
+# Network health
 
-Open **Tools > Network troubleshooting**, review the LAN adapter context, and
-select **Run checks**. Use **Refresh adapters** after changing connections.
-No diagnostic probes run automatically. Run is blocked while a LAN scan,
+Open **Tools > Network health**, or choose **Open network health** in the
+**Network health** section of the Network page; both open the same page.
+Review the LAN adapter context and select **Run diagnostics**. Use
+**Refresh adapters** after changing connections.
+The top **Current health** card states **Monitoring off**: background health
+checks are not available yet, so the page never implies a healthy network
+without a check. No diagnostic probes run automatically. Run is blocked while a LAN scan,
 Cloudflare speed test, or another diagnostic run is active or stopping.
 Cancel, Back, navigation, a changed selected network context, and window close
 stop probes safely. Windows network-status notifications that leave the selected
@@ -11,18 +15,19 @@ active checks, results, and animation. Notifications are coalesced, and an
 awaited cancellation cannot reset a newer run or selection. If context
 verification fails, the page stops active work and reports the error while
 retaining existing results as potentially stale.
-The page separates **Connection and checks**, **Network path and status**,
-**Detailed checkpoint diagnostics**, and **Traceroute** into bordered cards.
-Network-request disclosure and interpretation notes are expandable within
-their relevant cards.
-**Run checks**, **Cancel**, and run progress appear near the top of the
-**Network path and status** card, above the diagram.
+**Run diagnostics**, **Cancel**, and run progress appear in the current-health
+card at the top. Below it, **Manual diagnostics** shows **Network path and
+status**, **Detailed checkpoint diagnostics**, **Traceroute**, and
+**Connection and checks** in bordered cards. Network-request disclosure and
+interpretation notes are expandable within their relevant cards.
 
-<a href="screenshots/network-troubleshooting.png"><img src="screenshots/network-troubleshooting.png" alt="FingVibe Network troubleshooting controls and complete network diagram, including LAN peers, this PC, router, upstream hop, internet, Cloudflare, and Google, with network-specific addresses redacted" width="1280"></a>
+<a href="screenshots/network-troubleshooting.png"><img src="screenshots/network-troubleshooting.png" alt="Earlier FingVibe Network troubleshooting controls and complete network diagram, including LAN peers, this PC, router, upstream hop, internet, Cloudflare, and Google, with network-specific addresses redacted" width="1280"></a>
 
-User-supplied native screenshot showing **Connection and checks** together with
+User-supplied native screenshot of the earlier Network troubleshooting layout,
+showing **Connection and checks** together with
 the complete **Network path and status** diagram, without the top-right
-test-build ribbon. Network-specific LAN, subnet, gateway, and WAN addresses
+test-build ribbon. The diagram is unchanged on the Network health page; the
+current-health card now sits above it and connection settings below it. Network-specific LAN, subnet, gateway, and WAN addresses
 were redacted with the user's approval. This is the ready state: no diagnostic
 checks have run, and the diagram is illustrative, not discovered topology.
 [Capture provenance and reproduction](screenshots/README.md#tool-screenshots).
@@ -159,7 +164,7 @@ Animation does not delay network probes or the **Checks complete** status.
 After checks finish it continues **until stopped**, replaying recorded outcomes
 without sending traffic or retaining the network-activity lease. A separate
 illustration label identifies recorded-result playback after checks finish. **Stop replay**
-stops only the illustration and leaves completed results intact; **Run checks**
+stops only the illustration and leaves completed results intact; **Run diagnostics**
 can start a fresh run without waiting for replay. Results have no expiry timer:
 they remain after stopping replay until an intentional reset, such as a new run,
 WAN edit, adapter refresh/change, genuine context change, or reopening the page.
@@ -196,8 +201,8 @@ sequence pass counts, simultaneous opposite-direction travel, first-pass/replay
 logical ordering and hop-2 waits, cancellation/reset, unchanged/changed context comparison,
 deferred WAN edits, stale asynchronous refresh guards, and connector geometry
 without network access or desktop automation.
-`powershell.exe -NoProfile -STA -File tests\NetworkTroubleshooting.Ui.Tests.ps1
--AppPath <built-exe>` checks the native Tools entry, visible WAN validation,
+`powershell.exe -NoProfile -STA -File tests\NetworkHealth.Ui.Tests.ps1
+-AppPath <built-exe>` checks the native Tools entry, the Network summary entry and its second-section placement, **Monitoring off** current health, Run diagnostics placement and keyboard focus, visible WAN validation,
 section headings, checkpoint IP labels, provider alignment, straight main-path
 and curved branch geometry, review-mode privacy, navigation reset, and the
 existing speed-test entry on an interactive Windows desktop.

@@ -4,7 +4,7 @@ foreach ($case in @(
     @{ Paths = @("tests/FingVibe.Core.Tests/ScannerTests.cs"); Expected = @($true, $false, $false) },
     @{ Paths = @("tests/UiReviewScenarios.Tests.ps1"); Expected = @($true, $false, $false) },
     @{ Paths = @("tests/UiReviewScreenshot.Tests.ps1"); Expected = @($true, $true, $true) },
-    @{ Paths = @("tests/NetworkTroubleshooting.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
+    @{ Paths = @("tests/NetworkHealth.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/FingImport.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/SqlEditor.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
     @{ Paths = @("tests/ReleaseUpdates.Ui.Tests.ps1"); Expected = @($true, $true, $true) },
@@ -113,6 +113,6 @@ foreach ($relative in $nativeFiles) {
     $plan = Get-PrValidationChanges -Paths @($path)
     if (-not ($plan.Build -and $plan.Ui)) { throw "Native UI test '$path' must select the app build and native UI." }
 }
-foreach ($required in @("NetworkTroubleshooting.Ui.Tests.ps1", "Inventory.Sqlite.Helpers.ps1", "UiReviewScreenshot.Tests.ps1")) {
+foreach ($required in @("NetworkHealth.Ui.Tests.ps1", "Inventory.Sqlite.Helpers.ps1", "UiReviewScreenshot.Tests.ps1")) {
     if (-not $nativeFiles.Contains($required)) { throw "Native closure must include '$required'." }
 }

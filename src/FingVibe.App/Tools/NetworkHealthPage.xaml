@@ -1,9 +1,9 @@
 <UserControl
-    x:Class="FingVibe.App.NetworkTroubleshootingPage"
+    x:Class="FingVibe.App.NetworkHealthPage"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:FingVibe.App">
-    <ScrollViewer x:Name="TroubleshootingScroll" HorizontalScrollBarVisibility="Disabled">
+    <ScrollViewer x:Name="NetworkHealthScroll" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
@@ -16,35 +16,59 @@
                         MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
                         AutomationProperties.Name="Back to Tools" Style="{StaticResource PageBackButtonStyle}" />
                 <local:PageHeaderIcon Grid.Column="1" Icon="troubleshooting" />
-                <TextBlock Grid.Column="2" Text="Network troubleshooting" Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
+                <TextBlock Grid.Column="2" Text="Network health" Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
                            VerticalAlignment="Center" TextWrapping="Wrap" />
             </Grid>
-            <Border Style="{StaticResource ScannerSummaryCardStyle}">
-                <StackPanel Spacing="12">
-                    <TextBlock Text="Connection and checks" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                    <Grid ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" MinWidth="200" MaxWidth="560" /><ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <ComboBox x:Name="AdapterPicker" Header="LAN adapter context" HorizontalAlignment="Stretch"
-                                  SelectionChanged="AdapterPicker_SelectionChanged" AutomationProperties.Name="Troubleshooting LAN adapter" />
-                        <Button x:Name="RefreshButton" Grid.Column="1" Content="Refresh adapters" Click="RefreshButton_Click" VerticalAlignment="Bottom" />
-                    </Grid>
-                    <TextBlock x:Name="ContextText" TextWrapping="Wrap" />
-                    <TextBlock Text="Windows chooses routes and DNS settings. Selecting an adapter does not bind probes to it; VPNs and multiple adapters can change the path."
-                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <TextBox x:Name="WanInput" Header="Optional router WAN IPv4 address" MaxWidth="440" HorizontalAlignment="Left"
-                             PlaceholderText="Leave blank if unknown" TextChanged="WanInput_TextChanged" AutomationProperties.Name="Router WAN IPv4 address" />
-                    <TextBlock x:Name="SettingsStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
-                    <Expander Header="How to find the router WAN address" HorizontalAlignment="Stretch">
-                        <TextBlock x:Name="WanHelp" TextWrapping="Wrap" />
-                    </Expander>
-                    <Expander Header="What these checks send" HorizontalAlignment="Stretch">
-                        <TextBlock Text="On Run, ICMP probes go to local checkpoints, one random online LAN peer when available, and both public IPs, a trace goes toward 1.1.1.1, and DNS queries for example.com use Windows DNS and UDP port 53 on Cloudflare and Google. Providers see your public source IP and query. No extra LAN discovery scan, router credentials or new public-IP lookup are requested."
-                                   TextWrapping="Wrap" FontSize="12" />
-                    </Expander>
-                </StackPanel>
+            <Border x:Name="CurrentHealthCard" Style="{StaticResource ScannerSummaryCardStyle}"
+                    AutomationProperties.AutomationId="NetworkHealthCurrent" AutomationProperties.Name="Current network health">
+                <Grid x:Name="CurrentHealthLayout" ColumnSpacing="24" RowSpacing="12" SizeChanged="CurrentHealthLayout_SizeChanged">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Spacing="6">
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Ellipse Width="10" Height="10" StrokeThickness="1.5" VerticalAlignment="Center"
+                                     Stroke="{ThemeResource TextFillColorSecondaryBrush}"
+                                     IsHitTestVisible="False" AutomationProperties.AccessibilityView="Raw" />
+                            <TextBlock x:Name="HealthStateText" Grid.Column="1" Text="Monitoring off" Style="{ThemeResource SubtitleTextBlockStyle}"
+                                       TextWrapping="Wrap" AutomationProperties.AutomationId="NetworkHealthState" />
+                        </Grid>
+                        <TextBlock Text="Background health checks are not running, so there is no current health result. This is not a healthy state."
+                                   TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   AutomationProperties.AutomationId="NetworkHealthStateDetail" />
+                        <TextBlock x:Name="ContextText" TextWrapping="Wrap" />
+                        <TextBlock Text="Windows chooses routes and DNS settings. Selecting an adapter does not bind probes to it; VPNs and multiple adapters can change the path."
+                                   TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                    <StackPanel x:Name="RunControls" Grid.Column="1" Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Button x:Name="RunButton" Content="Run diagnostics" Click="RunButton_Click"
+                                    Style="{ThemeResource AccentButtonStyle}" AutomationProperties.Name="Run network diagnostics" />
+                            <Button x:Name="CancelRunButton" Content="Cancel" IsEnabled="False" Click="CancelButton_Click" AutomationProperties.Name="Cancel network diagnostics" />
+                            <ProgressRing x:Name="RunProgress" IsActive="False" Width="24" Height="24" />
+                        </StackPanel>
+                        <TextBlock Text="Manual run of the checks below, using Connection and checks settings." TextWrapping="Wrap" MaxWidth="320"
+                                   FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                    <TextBlock x:Name="ProgressText" Grid.Row="1" Grid.ColumnSpan="2" Text="Ready. No checks have run."
+                               TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                </Grid>
             </Border>
+            <StackPanel Spacing="4">
+                <TextBlock Text="Manual diagnostics" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                <TextBlock Text="Results from the latest Run diagnostics on this page. Opening or viewing this page sends no probes."
+                           TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="12">
                     <Grid ColumnSpacing="12">
@@ -53,19 +77,12 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="Network path and status" Style="{ThemeResource SubtitleTextBlockStyle}"
-                                   VerticalAlignment="Center" />
+                                   VerticalAlignment="Center" TextWrapping="Wrap" />
                         <Button Grid.Column="1" Content="View room map"
-                                AutomationProperties.AutomationId="TroubleshootingViewRoomMapButton"
+                                AutomationProperties.AutomationId="NetworkHealthViewRoomMapButton"
                                 AutomationProperties.Name="View room map"
                                 Click="RoomMapButton_Click" />
                     </Grid>
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button x:Name="RunButton" Content="Run checks" Click="RunButton_Click"
-                                Style="{ThemeResource AccentButtonStyle}" AutomationProperties.Name="Run network troubleshooting" />
-                        <Button x:Name="CancelRunButton" Content="Cancel" IsEnabled="False" Click="CancelButton_Click" AutomationProperties.Name="Cancel network troubleshooting" />
-                        <ProgressRing x:Name="RunProgress" IsActive="False" Width="24" Height="24" />
-                    </StackPanel>
-                    <TextBlock x:Name="ProgressText" Text="Ready. No checks have run." TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
                     <TextBlock x:Name="DiagramPlaybackText" Visibility="Collapsed" TextWrapping="Wrap" FontSize="12"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock Text="Logical checks—not a physical network map." TextWrapping="Wrap"
@@ -156,6 +173,29 @@
                             <TextBlock x:Name="TraceStatus" Text="Not run." TextWrapping="Wrap" />
                             <StackPanel x:Name="TracePanel" Spacing="6" />
                         </StackPanel>
+                    </Expander>
+                </StackPanel>
+            </Border>
+            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                <StackPanel Spacing="12">
+                    <TextBlock Text="Connection and checks" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="200" MaxWidth="560" /><ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="AdapterPicker" Header="LAN adapter context" HorizontalAlignment="Stretch"
+                                  SelectionChanged="AdapterPicker_SelectionChanged" AutomationProperties.Name="Diagnostics LAN adapter" />
+                        <Button x:Name="RefreshButton" Grid.Column="1" Content="Refresh adapters" Click="RefreshButton_Click" VerticalAlignment="Bottom" />
+                    </Grid>
+                    <TextBox x:Name="WanInput" Header="Optional router WAN IPv4 address" MaxWidth="440" HorizontalAlignment="Left"
+                             PlaceholderText="Leave blank if unknown" TextChanged="WanInput_TextChanged" AutomationProperties.Name="Router WAN IPv4 address" />
+                    <TextBlock x:Name="SettingsStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
+                    <Expander Header="How to find the router WAN address" HorizontalAlignment="Stretch">
+                        <TextBlock x:Name="WanHelp" TextWrapping="Wrap" />
+                    </Expander>
+                    <Expander Header="What these checks send" HorizontalAlignment="Stretch">
+                        <TextBlock Text="On Run diagnostics, ICMP probes go to local checkpoints, one random online LAN peer when available, and both public IPs, a trace goes toward 1.1.1.1, and DNS queries for example.com use Windows DNS and UDP port 53 on Cloudflare and Google. Providers see your public source IP and query. No extra LAN discovery scan, router credentials or new public-IP lookup are requested."
+                                   TextWrapping="Wrap" FontSize="12" />
                     </Expander>
                 </StackPanel>
             </Border>
