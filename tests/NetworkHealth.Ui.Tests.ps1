@@ -725,7 +725,7 @@ try {
                 (Find-ById "NetworkHealthStateDetail").Current.Name -like "*Recovery: 0 of 5 consecutive healthy checks*"
         }
         $null = Wait-UiRegressionState -Description "Network health lists the ongoing incident newest first" -Condition {
-            (Find-ById "NetworkIncidentStatus0").Current.Name -like "Ongoing incident. High latency: Cloudflare 1.1.1.1*First observed today *confirmed today *Recovery: 0 of 5 consecutive healthy checks.*"
+            (Find-ById "NetworkIncidentStatus0").Current.Name -like "Ongoing incident. *High latency: Cloudflare 1.1.1.1*First observed today *confirmed today *Recovery: 0 of 5 consecutive healthy checks.*"
         }
         if ($script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
                 [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, "NetworkIncidentStatus1"))) {

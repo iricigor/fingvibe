@@ -98,6 +98,16 @@ function Test-RoomMapEntries {
     Invoke-PeopleRoomsElement Name 'Network health'
     # The visible "Run diagnostics" button is exposed to UI Automation as "Run network diagnostics".
     $null = Find-PeopleRoomsElement AutomationId RunButton
+    # Saved incident history sits above the manual diagnostic path, so scroll the entry into view like a user would.
+    $null = Show-UiRegressionScrollTargets -Description "Network health Room map entry" -GetWindow { $root } -GetViewport {
+        $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'NetworkHealthScroll'))
+    } -GetTargets {
+        $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'NetworkHealthViewRoomMapButton'))
+    }
     Invoke-PeopleRoomsElement AutomationId NetworkHealthViewRoomMapButton
     Invoke-PeopleRoomsElement AutomationId RoomMapBackButton RoomMapPage
     $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
