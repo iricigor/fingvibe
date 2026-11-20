@@ -29,11 +29,16 @@ try {
         (@($pc.Members.Mac | Sort-Object) -join ',') -ne '001122550002,001122550003') {
         throw 'The PC must link its Ethernet/Wi-Fi MACs and retain Windows Computer identification.'
     }
-    if (@($saved.Devices.Values.LatestObservation.Classification.Type | Sort-Object -Unique).Count -lt 8) {
-        throw 'The documentation fixture must include the agreed varied device types.'
-    }
     $snapshot = [FingVibe.Core.Storage.ScanSnapshotStore]::new($fixture.Snapshot).LoadAsync($token).GetAwaiter().GetResult()
     if ($snapshot.Results.Count -ne 10) { throw 'The snapshot must retain both linked NICs and all other responders.' }
+    if ($saved.LatestScan -ne $null -or @($saved.Devices.Values | Where-Object { $_.Observations.Count -gt 0 }).Count -ne 0) {
+        throw 'The review fixture must replay all responders, not infer nonresponse from an empty missing-observation snapshot.'
+    }
+    $restored = $saved.ObserveCompletedScan('ui-review-network', $snapshot)
+    if (@($restored.Devices.Values | Where-Object { -not $_.LatestObservation.Present -or $_.CurrentCompletedAt -ne $snapshot.CompletedAt }).Count -gt 0 -or
+        @($restored.Devices.Values.LatestObservation.Classification.Type | Sort-Object -Unique).Count -lt 8) {
+        throw 'Review restoration must produce all current responding devices and the agreed varied types.'
+    }
     foreach ($name in @('Kitchen speaker', 'Hue bridge')) {
         $result = @($snapshot.Results | Where-Object DeviceName -eq $name)
         if ($result.Count -ne 1 -or $result[0].RoundtripTimeMilliseconds -ne $null -or
@@ -56,13 +61,17 @@ try {
     $mapFixture = New-DocumentationDevicesFixture -Directory $mapDirectory -Subnet '127.0.0.1/32'
     Add-DocumentationDevicesLink $mapFixture.Inventory
     $mapStore = [FingVibe.Core.Storage.DeviceInventoryStore]::new([IO.Path]::ChangeExtension($mapFixture.Inventory, '.sqlite'))
-    $mapData = $mapStore.LoadMetadataAsync($token).GetAwaiter().GetResult()
+    $mapMetadata = $mapStore.LoadMetadataAsync($token).GetAwaiter().GetResult()
+    $mapSnapshot = [FingVibe.Core.Storage.ScanSnapshotStore]::new($mapFixture.Snapshot).LoadAsync($token).GetAwaiter().GetResult()
+    $mapData = $mapMetadata.ObserveCompletedScan('ui-review-network', $mapSnapshot)
     $network = [FingVibe.Core.Models.LanNetwork]::new('UI review loopback', [Net.IPAddress]::Loopback,
         [Net.IPAddress]::Loopback, 32, $false)
     $projection = [FingVibe.Core.Models.RoomMapProjection]::Create($mapData, $network, 'ui-review-network')
     if ($projection.Devices.Count -ne 9 -or $projection.UnassignedDevices.Count -ne 2 -or
         @($projection.Rooms | Where-Object { -not $_.IsPlaceholder }).Count -ne 3 -or
-        @($projection.Devices | Where-Object Name -eq 'Workstation').Count -ne 1) {
+        @($projection.Devices | Where-Object Name -eq 'Workstation').Count -ne 1 -or
+        @($projection.Devices | Where-Object Status -ne 'Online').Count -ne 0 -or
+        @($projection.Devices | Where-Object { $_.IsLocal -and $_.Name -eq 'Review PC' -and $_.Type -eq 'Computer' }).Count -ne 1) {
         throw 'The actual Room map projection must show three populated rooms and nine devices, counting the linked PC once.'
     }
     Write-Host 'Documentation Devices fixture/link/service-discovery checks passed without desktop automation.'

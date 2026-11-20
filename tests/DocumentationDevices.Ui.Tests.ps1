@@ -62,8 +62,6 @@ try {
     Set-UiReviewAppearanceChoice -Root $root -Picker ModePicker -Choice Dark
     Set-UiReviewAppearanceChoice -Root $root -Picker ThemePicker -Choice Standard
     Select-DevicePage DevicesNavItem
-    $clear = Find-DeviceElement ClearFiltersLink
-    if ($clear.Current.IsEnabled) { $clear.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke() }
     Set-DeviceFilterChoice InventoryStatusFilter 'All statuses'
     Set-SecondaryFiltersExpanded $true
     $names = @('Home router', 'Workstation', 'Android phone', 'iPad', 'Living room TV',
@@ -124,7 +122,8 @@ try {
     $null = Save-DeviceCapture 'documentation-room-map'
     @{ devices = $names; linkedPc = @{ name = 'Workstation'; macCount = 2; collapsed = $true }
         serviceDiscoveryOnly = @('Kitchen speaker', 'Hue bridge'); width = 1600; height = 900
-        roomMap = @{ rooms = @('Hallway', 'Office', 'Living room'); devices = 9; unassigned = 2; syntheticSubnet = '127.0.0.1/32' }
+        roomMap = @{ rooms = @('Hallway', 'Office', 'Living room'); devices = 9; unassigned = 2
+            localPc = 'Review PC'; syntheticSubnet = '127.0.0.1/32' }
         source = $env:GITHUB_SHA; run = $env:GITHUB_RUN_ID; attempt = $env:GITHUB_RUN_ATTEMPT } |
         ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $ScreenshotDirectory 'documentation-devices-manifest.json') -Encoding utf8
 }

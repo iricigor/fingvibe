@@ -11,15 +11,8 @@ function New-DocumentationDevicesFixture([string] $Directory, [DateTimeOffset] $
             type = $Type; operatingSystem = $Os
             typeEvidence = 'Synthetic documentation fixture'; operatingSystemEvidence = 'Synthetic documentation fixture'
         }
-        $devices[$mac] = @{
-            mac = $mac; imported = @{}; observations = @(@{
-                networkId = 'ui-review-network'; subnet = $Subnet; address = $address
-                hostname = $Name; vendor = 'Example Devices'; classification = $classification
-                ports = $Ports; latency = $Latency; probeDuration = '00:00:00.002'
-                firstSeen = $seen; lastSeen = $seen; lastChecked = $seen; present = $true
-                serviceAdvertisements = $Advertisements
-            }); scanHistory = @()
-        }
+        # Review restoration replays only records without observations; seed metadata, then replay the complete snapshot.
+        $devices[$mac] = @{ mac = $mac; imported = @{ name = $Name }; observations = @(); scanHistory = @() }
         $results.Add(@{
             address = $address; macAddress = $mac; deviceName = $Name; vendorName = 'Example Devices'
             status = 0; roundtripTimeMilliseconds = $Latency; probeDuration = '00:00:00.002'
@@ -33,7 +26,12 @@ function New-DocumentationDevicesFixture([string] $Directory, [DateTimeOffset] $
             observedAt = $seen; verification = $Verification
         }
     }
-    Add-DocumentationDevice 1 'Home router' 4 3 1 @(@{ port = 443; serviceName = 'HTTPS' })
+    if ($Subnet -eq '127.0.0.1/32') {
+        # The review interface identifies .1 as this PC, not a discovered router.
+        Add-DocumentationDevice 1 'Review PC' 1 1 1 @(@{ port = 443; serviceName = 'HTTPS' })
+    } else {
+        Add-DocumentationDevice 1 'Home router' 4 3 1 @(@{ port = 443; serviceName = 'HTTPS' })
+    }
     Add-DocumentationDevice 2 'Workstation Ethernet' 1 1 3 @(@{ port = 445; serviceName = 'SMB' })
     Add-DocumentationDevice 3 'Workstation Wi-Fi' 1 1 6 @(@{ port = 445; serviceName = 'SMB' })
     Add-DocumentationDevice 4 'Android phone' 2 2 12
