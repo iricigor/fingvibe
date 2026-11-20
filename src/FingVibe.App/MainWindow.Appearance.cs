@@ -51,6 +51,7 @@ public sealed partial class MainWindow
             if (!_appearanceClosed)
             {
                 ApplyAppearance();
+                RefreshVisibleResults();
             }
         });
     }

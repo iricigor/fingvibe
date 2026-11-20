@@ -146,7 +146,7 @@ throw "Simulated secret asset failure"
 '@ | Set-Content -LiteralPath (Join-Path $scripts "Download-Gitleaks.ps1")
     $scriptChecks = @("UiReviewScenarios", "UiRegression.Helpers", "AdditionalServices.Script",
         "SqlEditor.Script", "UsageCategory.Script", "DeviceActivity.Script", "DocumentationDevices.Script", "NetworkActivity.Script", "EquipmentActivity.Script", "PrValidation",
-        "DispatcherGate", "LogoDevConfiguration", "BuildIdentity.Metadata", "Installer.Script", "GitleaksDownload", "DownloadRelease")
+        "DispatcherGate", "DocumentationSyncAgent", "LogoDevConfiguration", "BuildIdentity.Metadata", "Installer.Script", "GitleaksDownload", "DownloadRelease")
     foreach ($name in $scriptChecks) {
         @'
 $name = [IO.Path]::GetFileName($PSCommandPath).Replace(".Tests.ps1", "")

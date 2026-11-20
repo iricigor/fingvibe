@@ -37,9 +37,7 @@ internal static class PeopleRoomsPresentation
         PeopleRoomsData data, IReadOnlyList<AssignedDeviceListRow> devices, Guid? personId, Guid? roomId) =>
         devices.Where(row =>
         {
-            var assignment = row.ScanResult?.VirtualDevice is { } device ? device.Assignment
-                : row.ScanResult?.LinkedDevice is { } linked ? linked.Assignment
-                : data.Assignments.GetValueOrDefault(row.IdentityKey);
+            var assignment = Assignment(data, row);
             return assignment is not null
                 && (personId is null || assignment.PersonId == personId)
                 && (roomId is null || assignment.RoomId == roomId);
@@ -58,18 +56,48 @@ internal static class PeopleRoomsPresentation
             : "No local scan evidence.";
 
     internal static IReadOnlyList<ManagedPersonListRow> PeopleRows(
-        PeopleRoomsData data, IReadOnlyList<AssignedDeviceListRow> devices, bool hasCurrentScan) =>
-        data.People.Select(person =>
+        PeopleRoomsData data, IReadOnlyList<AssignedDeviceListRow> devices, bool hasCurrentScan)
+    {
+        var counts = ProjectCounts(data, devices, person: true);
+        return data.People.Select(person =>
         {
-            var assigned = AssignedTo(data, devices, person.Id, null);
-            return new ManagedPersonListRow(person, DeviceCount(assigned.Count), ResponseCount(assigned, hasCurrentScan));
+            var summary = counts.GetValueOrDefault(person.Id);
+            return new ManagedPersonListRow(person, DeviceCount(summary.Devices),
+                hasCurrentScan ? $"{summary.Online} online" : "No local scan evidence");
         }).ToArray();
+    }
 
     internal static IReadOnlyList<ManagedRoomListRow> RoomRows(
-        PeopleRoomsData data, IReadOnlyList<AssignedDeviceListRow> devices, bool hasCurrentScan) =>
-        data.Rooms.Select(room =>
+        PeopleRoomsData data, IReadOnlyList<AssignedDeviceListRow> devices, bool hasCurrentScan)
+    {
+        var counts = ProjectCounts(data, devices, person: false);
+        return data.Rooms.Select(room =>
         {
-            var assigned = AssignedTo(data, devices, null, room.Id);
-            return new ManagedRoomListRow(room, DeviceCount(assigned.Count), ResponseCount(assigned, hasCurrentScan));
+            var summary = counts.GetValueOrDefault(room.Id);
+            return new ManagedRoomListRow(room, DeviceCount(summary.Devices),
+                hasCurrentScan ? $"{summary.Online} online" : "No local scan evidence");
         }).ToArray();
+    }
+
+    private static Dictionary<Guid, (int Devices, int Online)> ProjectCounts(
+        PeopleRoomsData data, IReadOnlyList<AssignedDeviceListRow> devices, bool person)
+    {
+        var counts = new Dictionary<Guid, (int Devices, int Online)>();
+        foreach (var device in devices)
+        {
+            var assignment = Assignment(data, device);
+            var id = person ? assignment?.PersonId : assignment?.RoomId;
+            if (id is not { } assigned) continue;
+            var summary = counts.GetValueOrDefault(assigned);
+            counts[assigned] = (
+                summary.Devices + 1,
+                summary.Online + (device.ScanResult?.IsOnline == true ? 1 : 0));
+        }
+        return counts;
+    }
+
+    private static DeviceAssignment? Assignment(PeopleRoomsData data, AssignedDeviceListRow row) =>
+        row.ScanResult?.VirtualDevice is { } virtualDevice ? virtualDevice.Assignment
+            : row.ScanResult?.LinkedDevice is { } linked ? linked.Assignment
+            : data.Assignments.GetValueOrDefault(row.IdentityKey);
 }

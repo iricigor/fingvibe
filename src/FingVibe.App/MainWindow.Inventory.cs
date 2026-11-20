@@ -190,7 +190,7 @@ public sealed partial class MainWindow
         UpdateDeviceActivity();
         UpdateNetworkActivity();
         UpdateMatchSuggestions();
-        _ = RefreshUsageCategoriesAsync(force: true);
+        _ = RefreshUsageCategoriesAsync(refreshPresentation: true);
     }
 
     private async Task SaveVirtualDeviceAsync(ScanResultRow row, Func<PrivateVirtualDevice, PrivateVirtualDevice> update)
