@@ -76,6 +76,8 @@ public sealed partial class ToolsPage : UserControl
     {
         SpeedTestView.Visibility = Visibility.Collapsed;
         NetworkHealthView.Visibility = Visibility.Collapsed;
+        ServiceStatusView.StopForNavigation();
+        ServiceStatusView.Visibility = Visibility.Collapsed;
         FingImportView.Visibility = Visibility.Collapsed;
         SqlEditorView.Visibility = Visibility.Collapsed;
         DatabaseBackupsView.Close();
@@ -117,12 +119,14 @@ public sealed partial class ToolsPage : UserControl
 
     private async void NetworkHealthCard_Click(object sender, RoutedEventArgs e) => await OpenNetworkHealthAsync();
 
-    internal async Task OpenNetworkHealthAsync()
+    internal async Task OpenNetworkHealthAsync(bool focusServiceStatus = false)
     {
         ToolsLanding.Visibility = Visibility.Collapsed;
         FingImportView.Visibility = Visibility.Collapsed;
+        ServiceStatusView.StopForNavigation();
+        ServiceStatusView.Visibility = Visibility.Collapsed;
         NetworkHealthView.Visibility = Visibility.Visible;
-        await NetworkHealthView.OpenAsync();
+        await NetworkHealthView.OpenAsync(focusServiceStatus);
     }
 
     private async void NetworkHealthView_BackRequested(object? sender, EventArgs e)
@@ -130,6 +134,17 @@ public sealed partial class ToolsPage : UserControl
         await StopForNavigationAsync();
         NetworkHealthCard.Focus(FocusState.Programmatic);
     }
+
+    private async void NetworkHealthView_ServiceStatusRequested(object? sender, EventArgs e)
+    {
+        await NetworkHealthView.StopForNavigationAsync();
+        NetworkHealthView.Visibility = Visibility.Collapsed;
+        ServiceStatusView.Visibility = Visibility.Visible;
+        await ServiceStatusView.OpenAsync();
+    }
+
+    private async void ServiceStatusView_BackRequested(object? sender, EventArgs e) =>
+        await OpenNetworkHealthAsync(focusServiceStatus: true);
 
     private void SpeedTestCard_Click(object sender, RoutedEventArgs e)
     {

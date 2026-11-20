@@ -11,6 +11,7 @@ $UiReviewScenarios = [ordered]@{
     Tools = @{ Label = "Tools"; FileName = "fingvibe-tools.png"; Page = "ToolsPage" }
     SpeedTest = @{ Label = "Speed test"; FileName = "fingvibe-speed-test.png"; Page = "ToolsPage" }
     NetworkHealth = @{ Label = "Network health"; FileName = "fingvibe-network-health.png"; Page = "ToolsPage" }
+    ServiceStatus = @{ Label = "Service status - controlled provider reports"; FileName = "fingvibe-service-status.png"; Page = "ToolsPage" }
     About = @{ Label = "About FingVibe"; FileName = "fingvibe-about.png"; Page = "SettingsPage" }
     FingImport = @{ Label = "Import from Fing - synthetic analysis"; FileName = "fingvibe-fing-import.png"; Page = "ToolsPage" }
     SqlEditor = @{ Label = "SQL editor - read-only query and schema"; FileName = "fingvibe-sql-editor.png"; Page = "ToolsPage" }
@@ -188,7 +189,7 @@ function Get-UiReviewCapturePlan {
                 Add-Scenarios @("Devices", "DevicesEmpty", "Settings") "$path changed results, filtering, or table controls."
             }
             elseif ($path -match '^src/FingVibe.App/.+Page\.xaml$' -and
-                [System.IO.Path]::GetFileName($path) -notin @("ToolsPage.xaml", "SpeedTestPage.xaml", "AboutPage.xaml", "NetworkHealthPage.xaml", "NetworkTroubleshootingPage.xaml", "FingImportPage.xaml", "SqlEditorPage.xaml", "DatabaseBackupsPage.xaml")) {
+                [System.IO.Path]::GetFileName($path) -notin @("ToolsPage.xaml", "SpeedTestPage.xaml", "AboutPage.xaml", "NetworkHealthPage.xaml", "NetworkTroubleshootingPage.xaml", "ServiceStatusPage.xaml", "FingImportPage.xaml", "SqlEditorPage.xaml", "DatabaseBackupsPage.xaml")) {
                 throw "View '$path' has no selection rule. Extend the scenario catalog, selection, navigation, and tests."
             }
             elseif ($path -match '^src/FingVibe.App/(Tools/AboutPage(\.Updates\.cs|\.xaml(\.cs)?)|MainWindow\.Updates\.cs|Updates/.+\.cs)$' -or
@@ -214,6 +215,10 @@ function Get-UiReviewCapturePlan {
             # NetworkTroubleshootingPage is the pre-rename path; --no-renames diffs report it as deleted.
             elseif ($path -match '^src/FingVibe.App/Tools/Network(Health|Troubleshooting)Page\.xaml(\.cs)?$') {
                 Add-Scenarios @("Tools", "NetworkHealth", "RoomMap") "$path changed Network health."
+            }
+            elseif ($path -match '^src/FingVibe.App/Tools/ServiceStatusPage\.xaml(\.cs)?$' -or
+                $path -match '^src/FingVibe.Core/Networking/ServiceStatus[A-Za-z]*\.cs$') {
+                Add-Scenarios @("Tools", "NetworkHealth", "ServiceStatus") "$path changed Service status."
             }
             elseif ($path -match '^src/FingVibe.App/Tools/ToolsPage\.xaml(\.cs)?$') {
                 Add-Scenarios @("Tools", "SpeedTest", "NetworkHealth", "About", "FingImport", "SqlEditor", "DatabaseBackups", "RoomMap") "$path changed the Tools landing page."

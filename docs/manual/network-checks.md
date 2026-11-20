@@ -8,6 +8,32 @@ The top of the page shows **Monitoring off**. Background health checks are not
 available yet, so FingVibe shows no current health result instead of implying
 that the network is healthy.
 
+## Service status
+
+The **Service status** card below current health opens a separate page of
+provider-published reports for six providers. Each provider has one everyday
+(**Consumer**) and one **Infrastructure** entry: Microsoft Outlook.com and
+Azure, Google Gmail and Google Cloud, Amazon.de shopping and AWS, Cloudflare
+1.1.1.1 public DNS and CDN/network, Apple iCloud and Developer services, and
+GitHub website/repositories and Actions. Use **All**, **Consumer** or
+**Infrastructure** to filter the table, and **Back to Network health** to return.
+
+Provider reports are not measurements of your connection, never change this
+network's measured health, and the page sends no local network probes. Each row
+keeps its state explicit: **No incidents reported**, an incident title such as
+**Degraded service**, **Feed unavailable**, **Report outdated**, **Feed
+unreadable**, **Official page only**, **Source pending** or **Feed not
+connected**. Only **No incidents reported** comes from a current provider
+report; every other state means FingVibe does not know the service's status.
+Provider timestamps are shown separately from the local **Feed refresh** time.
+
+In this version FingVibe does not retrieve live provider feeds: entries with an
+official feed show **Feed not connected**, and **Refresh reports** sends no
+requests. Outlook.com and Amazon.de shopping have no approved status source and
+Apple's pages are link-only, so those entries are never monitored. Every row
+links to the provider's official status page or service, which opens in your
+browser.
+
 ## Run diagnostics
 
 1. Open **Tools > Network health**.

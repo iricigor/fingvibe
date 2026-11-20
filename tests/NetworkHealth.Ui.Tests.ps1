@@ -9,14 +9,15 @@ $diagramDocument = [System.Xml.XmlDocument]::new()
 $diagramDocument.Load((Join-Path $PSScriptRoot "..\src\FingVibe.App\Tools\NetworkHealthPage.xaml"))
 $diagramCard = $diagramDocument.SelectSingleNode("//*[local-name()='Border'][.//*[@*[local-name()='Name']='DiagramScroll']]")
 $healthCard = $diagramDocument.SelectSingleNode("//*[local-name()='Border'][@*[local-name()='Name']='CurrentHealthCard']")
+$serviceStatusCard = $diagramDocument.SelectSingleNode("//*[local-name()='Border'][@*[local-name()='Name']='ServiceStatusEntryCard']")
 foreach ($name in @("RunButton", "CancelRunButton", "RunProgress", "ProgressText", "HealthStateText")) {
     if (-not $healthCard -or -not $healthCard.SelectSingleNode(".//*[@*[local-name()='Name']='$name']")) {
         throw "Run controls, progress and current health must belong to the top current-health card: $name."
     }
 }
 $cards = @($diagramDocument.SelectNodes("//*[local-name()='ScrollViewer']/*[local-name()='StackPanel']/*[local-name()='Border']"))
-if ($cards.Count -lt 2 -or $cards[0] -ne $healthCard -or $cards[1] -ne $diagramCard) {
-    throw "Current health must be the first card, directly followed by the manual diagnostic path and status."
+if ($cards.Count -lt 3 -or $cards[0] -ne $healthCard -or $cards[1] -ne $serviceStatusCard -or $cards[2] -ne $diagramCard) {
+    throw "Current health must be the first card, followed by the Service status entry and then the manual diagnostic path and status."
 }
 $connectors = @($diagramDocument.SelectNodes("//*[local-name()='Canvas']/*[local-name()='Path']"))
 if ($connectors.Count -ne 8 -or @($connectors | Where-Object { $_.GetAttribute("Data") -match '\bQ' }).Count -ne 2 -or
@@ -108,6 +109,108 @@ function Show-Controls([string[]] $Names) {
         if ($visible) { return }
     }
     throw "Could not scroll the logical section into view: $($Names -join ', ')."
+}
+
+function Find-Named([string] $Name) {
+    $condition = [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty, $Name)
+    $deadline = [DateTime]::UtcNow.AddSeconds(8)
+    do {
+        $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        if ($element) { return $element }
+        Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "Missing Service status element: $Name."
+}
+
+function Get-ServiceStatusEntryIds {
+    $condition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text)
+    @($script:root.FindAll([System.Windows.Automation.TreeScope]::Descendants, $condition) |
+        ForEach-Object { $_.Current.AutomationId } | Where-Object { $_ -like "ServiceStatusService-*" } |
+        ForEach-Object { $_.Substring("ServiceStatusService-".Length) })
+}
+
+function Select-ServiceStatusFilter([string] $Name, [int] $Expected, [string] $Present, [string] $Absent) {
+    $item = Find-Named $Name
+    $pattern = $null
+    if ($item.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$pattern)) { $pattern.Select() }
+    elseif ($item.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$pattern)) { $pattern.Invoke() }
+    else { throw "Service status filter '$Name' supports neither selection nor invocation." }
+    $null = Wait-UiRegressionState -Description "$Name filter shows $Expected entries" -Condition {
+        $ids = Get-ServiceStatusEntryIds
+        $ids.Count -eq $Expected -and $Present -in $ids -and $Absent -notin $ids
+    }
+}
+
+function Test-ServiceStatusPage([string] $ScreenshotName) {
+    $scroll = Scroll-Control "NetworkHealthScroll"
+    $scroll.SetScrollPercent(-1, 0)
+    Start-Sleep -Milliseconds 200
+    $open = Find-Control "Open service status" ([System.Windows.Automation.ControlType]::Button)
+    $run = (Find-Control "Run network diagnostics" ([System.Windows.Automation.ControlType]::Button)).Current.BoundingRectangle
+    $manual = (Find-Control "Manual diagnostics" ([System.Windows.Automation.ControlType]::Text)).Current.BoundingRectangle
+    if ($open.Current.IsOffscreen -or $open.Current.BoundingRectangle.Top -le $run.Bottom -or
+        $open.Current.BoundingRectangle.Bottom -ge $manual.Top) {
+        throw "The Service status entry must be visible below current health and above Manual diagnostics."
+    }
+    $null = Find-Control "Provider reports are separate from this network's measured health." ([System.Windows.Automation.ControlType]::Text)
+    Invoke-Control "Open service status"
+    $refresh = Find-Control "Refresh provider reports" ([System.Windows.Automation.ControlType]::Button)
+    $null = Wait-UiRegressionState -Description "Refresh reports keyboard focus on open" -Condition { $refresh.Current.HasKeyboardFocus }
+    $null = Find-Control "Back to Network health" ([System.Windows.Automation.ControlType]::Button)
+    $null = Wait-UiRegressionState -Description "controlled provider reports" -Condition { (Get-ServiceStatusEntryIds).Count -eq 12 }
+    $null = Find-Control "1 reported issue | 3 feeds without current data | 4 entries not monitored" ([System.Windows.Automation.ControlType]::Text)
+    foreach ($headline in @("No incidents reported", "Degraded service", "Source pending", "Official page only",
+        "Feed unavailable", "Report outdated", "Feed unreadable")) {
+        $null = Find-Control $headline ([System.Windows.Automation.ControlType]::Text)
+    }
+    foreach ($link in @("View incident for Google Google Cloud (opens in browser)",
+        "Open storefront for Amazon Amazon.de shopping (opens in browser)", "Status page for Apple iCloud (opens in browser)")) {
+        $null = Find-Control $link ([System.Windows.Automation.ControlType]::Hyperlink)
+    }
+    if ($ScreenshotDirectory) {
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "$ScreenshotName.png")
+    }
+    $window = Get-UiReviewWindowBounds $process.MainWindowHandle
+    $refreshBounds = $refresh.Current.BoundingRectangle
+    if ($refresh.Current.IsOffscreen -or $refreshBounds.Right -gt $window.X + $window.Width) {
+        throw "Refresh reports must stay fully reachable at this window size."
+    }
+}
+
+function Test-ServiceStatusTextContrast([string] $Mode) {
+    $path = Join-Path ([System.IO.Path]::GetTempPath()) "fingvibe-service-status-contrast-$([Guid]::NewGuid().ToString('N')).png"
+    Save-UiReviewWindowScreenshot $process.MainWindowHandle $path
+    $bitmap = [System.Drawing.Bitmap]::new($path)
+    try {
+        $window = Get-UiReviewWindowBounds $process.MainWindowHandle
+        foreach ($id in @("ServiceStatusReport-microsoft-outlook", "ServiceStatusDetail-microsoft-outlook", "ServiceStatusTimestamp-microsoft-azure")) {
+            $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id))
+            if (-not $element -or $element.Current.IsOffscreen) { throw "$Mode Service status text is not visible: $id." }
+            $bounds = $element.Current.BoundingRectangle
+            $left = [Math]::Max(0, [int]($bounds.Left - $window.Left)); $top = [Math]::Max(0, [int]($bounds.Top - $window.Top))
+            $right = [Math]::Min($bitmap.Width - 1, [int]($bounds.Right - $window.Left)); $bottom = [Math]::Min($bitmap.Height - 1, [int]($bounds.Bottom - $window.Top))
+            $darkest = 1.0; $lightest = 0.0
+            for ($y = $top; $y -le $bottom; $y++) {
+                for ($x = $left; $x -le $right; $x++) {
+                    $pixel = $bitmap.GetPixel($x, $y)
+                    $channels = foreach ($channel in @($pixel.R, $pixel.G, $pixel.B)) {
+                        $value = $channel / 255.0
+                        if ($value -le 0.04045) { $value / 12.92 } else { [Math]::Pow(($value + 0.055) / 1.055, 2.4) }
+                    }
+                    $luminance = 0.2126 * $channels[0] + 0.7152 * $channels[1] + 0.0722 * $channels[2]
+                    $darkest = [Math]::Min($darkest, $luminance); $lightest = [Math]::Max($lightest, $luminance)
+                }
+            }
+            $ratio = ($lightest + 0.05) / ($darkest + 0.05)
+            if ($ratio -lt 3) { throw "$Mode Service status text $id renders at contrast $([Math]::Round($ratio, 2)):1, below 3:1." }
+        }
+    }
+    finally {
+        $bitmap.Dispose()
+        Remove-Item -LiteralPath $path
+    }
 }
 
 function Find-Address([string] $Checkpoint) {
@@ -282,6 +385,44 @@ try {
         $summary.Current.BoundingRectangle.Bottom -ge $details.Current.BoundingRectangle.Top) {
         throw "The status summary must be visible above detailed diagnostics."
     }
+    Test-ServiceStatusPage "service-status"
+    Select-ServiceStatusFilter "Consumer services" 6 "microsoft-outlook" "microsoft-azure"
+    Select-ServiceStatusFilter "Infrastructure services" 6 "github-actions" "github-website"
+    Select-ServiceStatusFilter "All services" 12 "apple-icloud" "none"
+    $refresh = Find-Control "Refresh provider reports" ([System.Windows.Automation.ControlType]::Button)
+    $refresh.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $retrieval = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "ServiceStatusRetrieval"))
+    $null = Wait-UiRegressionState -Description "Refresh reports completes with a retrieval time" -Condition {
+        $refresh.Current.IsEnabled -and $retrieval.Current.Name -like "Feed refresh: today, *" -and (Get-ServiceStatusEntryIds).Count -eq 12
+    }
+    $bounds = Get-UiReviewWindowBounds $process.MainWindowHandle
+    $null = [UiReviewNativeWindow]::SetWindowPos(
+        $process.MainWindowHandle, [IntPtr]::Zero, $bounds.X, $bounds.Y, 640, 600, 0x0044)
+    $null = Find-Control "Microsoft - Outlook.com" ([System.Windows.Automation.ControlType]::Text)
+    $narrowWindow = Get-UiReviewWindowBounds $process.MainWindowHandle
+    foreach ($id in @("ServiceStatusService-microsoft-outlook", "ServiceStatusLink-microsoft-outlook")) {
+        $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id))
+        if (-not $element -or $element.Current.BoundingRectangle.Right -gt $narrowWindow.X + $narrowWindow.Width) {
+            throw "Narrow Service status entries must stack within the window: $id."
+        }
+    }
+    if ($ScreenshotDirectory) {
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "service-status-narrow.png")
+    }
+    $null = [UiReviewNativeWindow]::SetWindowPos(
+        $process.MainWindowHandle, [IntPtr]::Zero, $bounds.X, $bounds.Y, $bounds.Width, $bounds.Height, 0x0044)
+    Start-Sleep -Milliseconds 300
+    Invoke-Control "Back to Network health"
+    $openServiceStatus = Find-Control "Open service status" ([System.Windows.Automation.ControlType]::Button)
+    $null = Wait-UiRegressionState -Description "Back to Network health restores Service status focus" -Condition {
+        $openServiceStatus.Current.HasKeyboardFocus
+    }
+    if ((Find-Control "Cancel network diagnostics" ([System.Windows.Automation.ControlType]::Button)).Current.IsEnabled) {
+        throw "Service status interactions must not start local diagnostics."
+    }
     $bounds = Get-UiReviewWindowBounds $process.MainWindowHandle
     $null = [UiReviewNativeWindow]::SetWindowPos(
         $process.MainWindowHandle, [IntPtr]::Zero, $bounds.X, $bounds.Y, 640, 600, 0x0044)
@@ -372,6 +513,14 @@ try {
         if ($ScreenshotDirectory) {
             Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-peer-$mode.png")
         }
+        (Scroll-Control "NetworkHealthScroll").SetScrollPercent(-1, 0)
+        Invoke-Control "Open service status"
+        $null = Wait-UiRegressionState -Description "$mode controlled provider reports" -Condition { (Get-ServiceStatusEntryIds).Count -eq 12 }
+        Test-ServiceStatusTextContrast $mode
+        if ($ScreenshotDirectory) {
+            Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "service-status-$mode.png")
+        }
+        Invoke-Control "Back to Network health"
     }
     if ($env:GITHUB_ACTIONS -eq "true") {
         if (-not ("SidebarReviewKeyboard" -as [type])) {
@@ -421,6 +570,15 @@ try {
             if ($ScreenshotDirectory) {
                 Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-peer-text-200-high-contrast.png")
             }
+            (Scroll-Control "NetworkHealthScroll").SetScrollPercent(-1, 0)
+            Invoke-Control "Open service status"
+            $null = Find-Control "Refresh provider reports" ([System.Windows.Automation.ControlType]::Button)
+            foreach ($text in @("Microsoft - Outlook.com", "Degraded service", "Feed unavailable")) {
+                $null = Find-Control $text ([System.Windows.Automation.ControlType]::Text)
+            }
+            if ($ScreenshotDirectory) {
+                Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "service-status-text-200-high-contrast.png")
+            }
             $failed = $false
         }
         catch {
@@ -449,7 +607,7 @@ try {
         }
     }
     $peerPhasePassed = $true
-    Write-Host "Network health current state, checkpoints, peer outcomes/themes/accessibility, WAN validation, privacy, scrolling, Network summary/Tools navigation, and speed-test entry passed."
+    Write-Host "Network health current state, Service status entry/states/filters/refresh/narrow/focus, checkpoints, peer outcomes/themes/accessibility, WAN validation, privacy, scrolling, Network summary/Tools navigation, and speed-test entry passed."
 }
 catch {
     if ($ScreenshotDirectory -and $process -and -not $process.HasExited -and
