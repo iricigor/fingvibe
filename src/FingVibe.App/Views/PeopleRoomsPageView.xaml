@@ -12,26 +12,31 @@
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         </Style>
     </UserControl.Resources>
-    <ScrollViewer x:Name="PeopleRoomsPage" AutomationProperties.AutomationId="PeopleRoomsPage">
-        <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="12">
-            <Grid x:Name="PeopleRoomsHeadingRow" ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <Viewbox Width="48" Height="48" IsHitTestVisible="False"
-                         AutomationProperties.AccessibilityView="Raw">
-                    <Grid Width="64" Height="64">
-                        <FontIcon Glyph="&#xE80F;" FontFamily="Segoe Fluent Icons" FontSize="44"
-                                  Foreground="{ThemeResource PeopleRoomsHeaderHouseBrush}" />
-                        <FontIcon Glyph="&#xE77B;" FontFamily="Segoe Fluent Icons" FontSize="28"
-                                  Foreground="{ThemeResource PeopleRoomsHeaderPersonBrush}"
-                                  HorizontalAlignment="Right" VerticalAlignment="Bottom" />
-                    </Grid>
-                </Viewbox>
-                <TextBlock Grid.Column="1" Text="People &amp; rooms" Style="{StaticResource ScannerPageTitleStyle}"
-                           Margin="0" VerticalAlignment="Center" TextWrapping="Wrap" />
-            </Grid>
+    <Grid Margin="{StaticResource ScannerPageContentMargin}" RowSpacing="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid x:Name="PeopleRoomsHeadingRow" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Viewbox Width="48" Height="48" IsHitTestVisible="False"
+                     AutomationProperties.AccessibilityView="Raw">
+                <Grid Width="64" Height="64">
+                    <FontIcon Glyph="&#xE80F;" FontFamily="Segoe Fluent Icons" FontSize="44"
+                              Foreground="{ThemeResource PeopleRoomsHeaderHouseBrush}" />
+                    <FontIcon Glyph="&#xE77B;" FontFamily="Segoe Fluent Icons" FontSize="28"
+                              Foreground="{ThemeResource PeopleRoomsHeaderPersonBrush}"
+                              HorizontalAlignment="Right" VerticalAlignment="Bottom" />
+                </Grid>
+            </Viewbox>
+            <TextBlock Grid.Column="1" Text="People &amp; rooms" Style="{StaticResource ScannerPageTitleStyle}"
+                       Margin="0" VerticalAlignment="Center" TextWrapping="Wrap" />
+        </Grid>
+        <ScrollViewer x:Name="PeopleRoomsPage" Grid.Row="1" AutomationProperties.AutomationId="PeopleRoomsPage">
+        <StackPanel Spacing="12">
             <TextBlock Text="Manage people and manually assigned device locations; response counts describe the last scan, not presence."
                        TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
 
@@ -209,5 +214,6 @@
                 </StackPanel>
             </Border>
         </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

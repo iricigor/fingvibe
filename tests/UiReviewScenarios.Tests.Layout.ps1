@@ -11,6 +11,44 @@
         SettingsPage = "SettingsPageView"
     }
     $appDirectory = Join-Path $PSScriptRoot "..\src\FingVibe.App"
+    foreach ($pagePath in @(
+        "Views\OverviewPageView.xaml",
+        "Views\NetworkPageView.xaml",
+        "Views\DevicesPageView.xaml",
+        "Views\DeviceDetailsPageView.xaml",
+        "Views\PeopleRoomsPageView.xaml",
+        "Views\PersonDetailsPageView.xaml",
+        "Views\RoomDetailsPageView.xaml",
+        "Views\RoomMapPageView.xaml",
+        "Views\SettingsPageView.xaml",
+        "Tools\ToolsPage.xaml",
+        "Tools\AboutPage.xaml",
+        "Tools\DatabaseBackupsPage.xaml",
+        "Tools\FingImportPage.xaml",
+        "Tools\NetworkHealthPage.xaml",
+        "Tools\ServiceStatusPage.xaml",
+        "Tools\SpeedTestPage.xaml",
+        "Tools\SqlEditorPage.xaml"
+    )) {
+        $pageDocument = [xml](Get-Content (Join-Path $appDirectory $pagePath) -Raw)
+        $headerElements = @(
+            $pageDocument.SelectNodes("//*[contains(@Style,'ScannerPageTitleStyle')]")
+            $pageDocument.SelectNodes("//*[@*[local-name()='Name' and .='HeaderGrid']]")
+            $pageDocument.SelectNodes("//*[@*[local-name()='Name' and .='PeopleRoomsHeadingRow']]")
+            $pageDocument.SelectNodes("//*[@*[local-name()='Name' and .='PersonDetailName']]")
+            $pageDocument.SelectNodes("//*[@*[local-name()='Name' and .='RoomDetailName']]")
+            $pageDocument.SelectNodes("//*[@AutomationProperties.Name]") |
+                Where-Object { $_.GetAttribute("AutomationProperties.Name") -like "Back to *" }
+        )
+        if ($headerElements.Count -eq 0) {
+            throw "$pagePath must expose its fixed page-header contract."
+        }
+        foreach ($headerElement in $headerElements) {
+            if ($headerElement.SelectSingleNode("ancestor::*[local-name()='ScrollViewer']")) {
+                throw "$pagePath places a page heading or Back control inside a ScrollViewer; headers must remain stationary while the body scrolls."
+            }
+        }
+    }
     $roomMapDocument = [xml](Get-Content (Join-Path $appDirectory "Views\RoomMapPageView.xaml") -Raw)
     $roomMapCode = Get-Content (Join-Path $appDirectory "Views\RoomMapPageView.xaml.cs") -Raw
     $roomMapLayoutCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.Core\Models\RoomMapLayout.cs") -Raw

@@ -30,7 +30,26 @@
             <Setter Property="BorderBrush" Value="{ThemeResource SystemFillColorCriticalBackgroundBrush}" />
         </Style>
     </UserControl.Resources>
-    <ScrollViewer x:Name="BackupsScroll" HorizontalScrollBarVisibility="Disabled">
+    <Grid Margin="{StaticResource ScannerPageContentMargin}" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button x:Name="BackupsBackButton" Content="&#x2190; Tools" Click="Back_Click"
+                    MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
+                    MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
+                    AutomationProperties.Name="Back to Tools" Style="{StaticResource PageBackButtonStyle}" />
+            <local:PageHeaderIcon Grid.Column="1" Icon="tools" />
+            <TextBlock Grid.Column="2" Text="Database backups" Style="{StaticResource ScannerPageTitleStyle}"
+                       Margin="0" VerticalAlignment="Center" TextWrapping="Wrap" />
+        </Grid>
+        <ScrollViewer x:Name="BackupsScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup>
                 <VisualState x:Name="NarrowCompletedHeader">
@@ -53,21 +72,7 @@
                 </VisualState>
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
-        <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
-            <Grid ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <Button x:Name="BackupsBackButton" Content="&#x2190; Tools" Click="Back_Click"
-                        MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
-                        MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
-                        AutomationProperties.Name="Back to Tools" Style="{StaticResource PageBackButtonStyle}" />
-                <local:PageHeaderIcon Grid.Column="1" Icon="tools" />
-                <TextBlock Grid.Column="2" Text="Database backups" Style="{StaticResource ScannerPageTitleStyle}"
-                           Margin="0" VerticalAlignment="Center" TextWrapping="Wrap" />
-            </Grid>
+        <StackPanel Spacing="16">
             <TextBlock Text="Local copies of your saved devices, corrections, People/Rooms, assignments and scan history."
                        TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             <Border Padding="20" CornerRadius="8" BorderThickness="1"
@@ -149,5 +154,6 @@
             <TextBlock Text="These copies are stored on this PC, not in the cloud. They do not protect against loss of the same drive."
                        TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
         </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

@@ -22,7 +22,7 @@ public sealed partial class ToolsPage : UserControl
         foreach (var child in ToolsLandingGrid.Children)
         {
             if (child is not Button card) continue;
-            var row = index / columns + 1;
+            var row = index / columns;
             if (row >= ToolsLandingGrid.RowDefinitions.Count)
                 ToolsLandingGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             Grid.SetRow(card, row);

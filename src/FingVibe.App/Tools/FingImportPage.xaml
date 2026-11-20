@@ -51,22 +51,27 @@
             </Style>
         </ResourceDictionary>
     </UserControl.Resources>
-    <ScrollViewer x:Name="ImportScroll" HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
-            <Grid ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <Button Content="&#x2190; Tools" Click="Back_Click"
-                        MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
-                        MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
-                        AutomationProperties.Name="Back to Tools" Style="{StaticResource PageBackButtonStyle}" />
-                <local:PageHeaderIcon Grid.Column="1" Icon="import" />
-                <TextBlock Grid.Column="2" Text="Import from Fing" Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
-                           VerticalAlignment="Center" TextWrapping="Wrap" />
-            </Grid>
+    <Grid Margin="{StaticResource ScannerPageContentMargin}" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button Content="&#x2190; Tools" Click="Back_Click"
+                    MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
+                    MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
+                    AutomationProperties.Name="Back to Tools" Style="{StaticResource PageBackButtonStyle}" />
+            <local:PageHeaderIcon Grid.Column="1" Icon="import" />
+            <TextBlock Grid.Column="2" Text="Import from Fing" Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
+                       VerticalAlignment="Center" TextWrapping="Wrap" />
+        </Grid>
+        <ScrollViewer x:Name="ImportScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="16">
             <TextBlock Text="Bring your device names, details, and assignments into FingVibe. Review everything before importing."
                        TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             <Expander x:Name="ExportHelpExpander" Header="How to export your devices from Fing" IsExpanded="False"
@@ -164,5 +169,6 @@
                 </Grid>
             </Border>
         </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

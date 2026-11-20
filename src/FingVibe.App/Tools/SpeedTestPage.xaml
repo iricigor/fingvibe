@@ -3,23 +3,27 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:FingVibe.App">
-    <Grid>
-        <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
-                <Grid ColumnSpacing="12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Button Content="&#x2190; Tools" Click="BackButton_Click"
-                            MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
-                            MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
-                            AutomationProperties.Name="Back to Tools" Style="{StaticResource PageBackButtonStyle}" />
-                    <local:PageHeaderIcon Grid.Column="1" Icon="speed-test" />
-                    <TextBlock Grid.Column="2" Text="Speed test" Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
-                               VerticalAlignment="Center" TextWrapping="Wrap" />
-                </Grid>
+    <Grid Margin="{StaticResource ScannerPageContentMargin}" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Button Content="&#x2190; Tools" Click="BackButton_Click"
+                    MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
+                    MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
+                    AutomationProperties.Name="Back to Tools" Style="{StaticResource PageBackButtonStyle}" />
+            <local:PageHeaderIcon Grid.Column="1" Icon="speed-test" />
+            <TextBlock Grid.Column="2" Text="Speed test" Style="{StaticResource ScannerPageTitleStyle}" Margin="0"
+                       VerticalAlignment="Center" TextWrapping="Wrap" />
+        </Grid>
+        <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="16">
                 <TextBlock Text="Measure this PC's internet connection using Cloudflare. Windows chooses the internet route; the LAN scanner's selected adapter is not used."
                            TextWrapping="Wrap"
                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
