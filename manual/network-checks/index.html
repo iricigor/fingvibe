@@ -710,6 +710,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#monitoring-state-and-raw-observations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Monitoring state and raw observations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#service-status" class="md-nav__link">
     <span class="md-ellipsis">
       Service status
@@ -1104,6 +1113,15 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#monitoring-state-and-raw-observations" class="md-nav__link">
+    <span class="md-ellipsis">
+      Monitoring state and raw observations
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#service-status" class="md-nav__link">
     <span class="md-ellipsis">
       Service status
@@ -1171,9 +1189,63 @@
 <p>Use <strong>Tools &gt; Network health</strong> to run connection checks manually. The
 <strong>Open network health</strong> button in the Network page's <strong>Network health</strong>
 section opens the same page. Opening the page does not send diagnostic probes.</p>
-<p>The top of the page shows <strong>Monitoring off</strong>. Background health checks are not
-available yet, so FingVibe shows no current health result instead of implying
-that the network is healthy.</p>
+<p>The top of the page shows the background monitoring state. With monitoring off,
+it shows <strong>Monitoring off</strong>: no background checks run, so FingVibe shows no
+current health result instead of implying that the network is healthy.
+Turn monitoring on under <strong>Settings &gt; Background activity</strong>
+(<a href="../scheduled-scans/">Scheduled scans and monitoring</a>).</p>
+<h2 id="monitoring-state-and-raw-observations">Monitoring state and raw observations<a class="headerlink" href="#monitoring-state-and-raw-observations" title="Permanent link">&para;</a></h2>
+<p>A small dot beside <strong>Network:</strong> in the header shows the monitoring state on every
+page. Hover over it or focus it to read the state and last-check time, and select
+it to open this page. The dot pulses briefly when a check starts; with Windows
+animations turned off it stays still.</p>
+<table>
+<thead>
+<tr>
+<th>State</th>
+<th>Dot</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Monitoring off</strong></td>
+<td>Hollow outline</td>
+<td>No background checks run.</td>
+</tr>
+<tr>
+<td><strong>Monitoring paused</strong></td>
+<td>Dashed outline</td>
+<td>Windows is asleep; checks resume after a full minute.</td>
+</tr>
+<tr>
+<td><strong>Monitoring on - no result yet</strong></td>
+<td>Accent outline</td>
+<td>Waiting for the first check.</td>
+</tr>
+<tr>
+<td><strong>Monitoring on - checking now</strong></td>
+<td>Filled accent</td>
+<td>A check is running.</td>
+</tr>
+<tr>
+<td><strong>Monitoring on - raw observations</strong></td>
+<td>Filled accent</td>
+<td>The latest check result is shown.</td>
+</tr>
+<tr>
+<td><strong>Monitoring on - last result not current</strong></td>
+<td>Filled grey</td>
+<td>No newer result has arrived for over two and a half minutes.</td>
+</tr>
+</tbody>
+</table>
+<p>When a check completes, this page and the Network page's <strong>Network health</strong>
+section list its time and the latest per-target results: ping responses and
+latency range for the gateway, <code>1.1.1.1</code> and <code>8.8.8.8</code>, and the Windows,
+Cloudflare and Google DNS results. These are raw observations, not a health
+verdict: FingVibe does not decide from them whether the network is healthy.
+Results kept while monitoring is off or paused are marked as not current.</p>
 <h2 id="service-status">Service status<a class="headerlink" href="#service-status" title="Permanent link">&para;</a></h2>
 <p>The <strong>Service status</strong> card below current health opens a separate page of
 provider-published reports for six providers. Each provider has one everyday
