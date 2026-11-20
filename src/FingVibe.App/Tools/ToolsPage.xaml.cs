@@ -72,6 +72,8 @@ public sealed partial class ToolsPage : UserControl
     internal void ConfigureNetworkHealth(Func<LanNetwork, Guid?, IReadOnlyList<IPAddress>> peers) =>
         NetworkHealthView.ConfigurePeerCandidates(peers);
 
+    internal void ShowNetworkMonitor(NetworkMonitorView view) => NetworkHealthView.ShowNetworkMonitor(view);
+
     public async Task StopForNavigationAsync()
     {
         SpeedTestView.Visibility = Visibility.Collapsed;

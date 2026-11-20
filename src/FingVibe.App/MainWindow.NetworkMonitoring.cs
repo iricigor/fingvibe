@@ -154,10 +154,15 @@ public sealed partial class MainWindow
         {
             if (IsUiReview)
             {
-                return new(NetworkMonitorRunStatus.Skipped)
-                {
-                    Message = "UI-review mode does not send background network probes."
-                };
+                return Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_NETWORK_MONITOR_FIXTURE") == "1"
+                    ? new(NetworkMonitorRunStatus.Completed)
+                    {
+                        Observation = NetworkMonitorReviewFixture.Create(network, DateTimeOffset.UtcNow)
+                    }
+                    : new(NetworkMonitorRunStatus.Skipped)
+                    {
+                        Message = "UI-review mode does not send background network probes."
+                    };
             }
 
             var networkId = ResolveNetworkIdentity(network, out _);

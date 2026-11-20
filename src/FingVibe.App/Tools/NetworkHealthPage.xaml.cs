@@ -76,6 +76,15 @@ public sealed partial class NetworkHealthPage : UserControl
 
     public void SetNetworkContext(LanNetwork? network) => _shellNetwork = network;
 
+    internal void ShowNetworkMonitor(NetworkMonitorView view)
+    {
+        NetworkMonitorDots.Apply(HealthStateDot, view.Kind);
+        HealthStateText.Text = view.Title;
+        HealthStateDetailText.Text = view.Detail;
+        LastCheckText.Text = view.LastCheck;
+        NetworkMonitorDots.RenderRows(RawObservationsPanel, RawObservationRows, view.Rows, "NetworkHealthRawResult");
+    }
+
     internal void ConfigurePeerCandidates(Func<LanNetwork, Guid?, IReadOnlyList<IPAddress>> peers) =>
         _peerCandidates = peers;
 

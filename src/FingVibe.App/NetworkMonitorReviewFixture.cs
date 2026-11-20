@@ -1,0 +1,41 @@
+using System.Net;
+using FingVibe.Core.Models;
+
+namespace FingVibe.App;
+
+/// <summary>Synthetic raw observation delivered in UI review instead of sending probes. Never live data.</summary>
+internal static class NetworkMonitorReviewFixture
+{
+    public static NetworkMonitorObservation Create(LanNetwork network, DateTimeOffset now)
+    {
+        var gateway = network.GatewayAddress ?? IPAddress.Parse("192.0.2.1");
+        var samples = new List<NetworkMonitorPingSample>();
+        Add(NetworkMonitorTarget.Gateway, DiagnosticCheckpoint.Gateway, gateway.ToString(), [2, 3, 2, 4, 3]);
+        Add(NetworkMonitorTarget.Cloudflare, DiagnosticCheckpoint.CloudflarePing, "1.1.1.1", [11, 12, 14, 11, 13]);
+        Add(NetworkMonitorTarget.Google, DiagnosticCheckpoint.GooglePing, "8.8.8.8", [15, 16, null, 15, 17]);
+        return new(now.AddSeconds(-6), now, "ui-review-network", gateway, samples,
+        [
+            Dns(NetworkMonitorDnsSource.WindowsConfiguredOrCached, DiagnosticCheckpoint.ConfiguredDns, "Windows DNS",
+                DiagnosticState.Responded, "Resolved example.com.", 9),
+            Dns(NetworkMonitorDnsSource.Cloudflare, DiagnosticCheckpoint.CloudflareDns, "1.1.1.1",
+                DiagnosticState.Responded, "Resolved example.com.", 15),
+            Dns(NetworkMonitorDnsSource.Google, DiagnosticCheckpoint.GoogleDns, "8.8.8.8",
+                DiagnosticState.Error, "Timed out after 2 seconds.", null)
+        ], false, "Synthetic UI-review observation.");
+
+        void Add(NetworkMonitorTarget target, DiagnosticCheckpoint checkpoint, string address, long?[] latencies)
+        {
+            for (var index = 0; index < latencies.Length; index++)
+            {
+                var latency = latencies[index];
+                samples.Add(new(target, index + 1, now.AddSeconds(index - 6), now.AddSeconds(index - 5),
+                    new(checkpoint, address, latency is null ? DiagnosticState.Unanswered : DiagnosticState.Responded,
+                        latency is null ? "No reply." : "Reply.", RoundtripMilliseconds: latency)));
+            }
+        }
+
+        NetworkMonitorDnsObservation Dns(NetworkMonitorDnsSource source, DiagnosticCheckpoint checkpoint, string target,
+            DiagnosticState state, string detail, long? latency) =>
+            new(source, now.AddSeconds(-1), now, new(checkpoint, target, state, detail, RoundtripMilliseconds: latency));
+    }
+}

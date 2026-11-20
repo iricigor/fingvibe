@@ -31,7 +31,9 @@ one second apart and the normal 1.5-second probe timeout. It then resolves
 `example.com` through Windows DNS (including its cache), Cloudflare DNS, and
 Google DNS. The resulting raw state contract keeps per-target timings,
 responses, failures, cancellation detail, and DNS source labels; it does not
-calculate a health verdict.
+calculate a health verdict. The header dot, **Network health** and the Network
+page show the monitoring state and latest raw results; see
+[Network health](network-checks.md#monitoring-state-and-raw-observations).
 
 Manual LAN scans, speed tests, network diagnostics, and device-service scans
 take priority. They cancel an active monitoring cycle and start only after it
