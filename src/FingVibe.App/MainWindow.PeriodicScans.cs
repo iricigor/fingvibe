@@ -142,16 +142,16 @@ public sealed partial class MainWindow
             return;
         }
 
-        Func<Task>? change = status switch
+        Func<Task> change = status switch
         {
-            SystemSuspendStatus.Entering => _periodicScanController.SuspendAsync,
-            SystemSuspendStatus.AutoResume or SystemSuspendStatus.ManualResume => _periodicScanController.ResumeAsync,
-            _ => null
+            SystemSuspendStatus.Entering => async () => await Task.WhenAll(
+                _periodicScanController.SuspendAsync(),
+                _networkMonitorController.SuspendAsync()),
+            SystemSuspendStatus.AutoResume or SystemSuspendStatus.ManualResume => async () => await Task.WhenAll(
+                _periodicScanController.ResumeAsync(),
+                _networkMonitorController.ResumeAsync()),
+            _ => () => Task.CompletedTask
         };
-        if (change is null)
-        {
-            return;
-        }
 
         DispatcherQueue.TryEnqueue(async () =>
         {
@@ -162,6 +162,7 @@ public sealed partial class MainWindow
 
             await change();
             UpdatePeriodicScanPresentation();
+            UpdateNetworkMonitorPresentation();
         });
     }
 

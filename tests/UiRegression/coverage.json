@@ -1138,6 +1138,13 @@
               "baselineSha256": "bda78acfcbc54aa9ad4e846b39222bc51708459c6064227e8b677bcea96a4cb1"
             },
             {
+              "assertions": [],
+              "name": "Assert-NetworkMonitorSetting",
+              "refactored": true,
+              "changedBy": "#529: new helper; waits for the persisted opt-in network-monitoring setting.",
+              "baselineSha256": "328ade893825431d2b4493c4b0ad04723572ab00e9ccc152072c1d23b4a19e99"
+            },
+            {
               "assertions": [
                 "57657d98a549845dc9b954ee52daca2dad4273527e20dcfa77d14f22440b90ed"
               ],
@@ -1151,6 +1158,20 @@
               "name": "Hide-ScheduledScansCard",
               "refactored": false,
               "baselineSha256": "769248f083c48ba777a12bee2279da121379f48713670c9d15ecefaac08b699b"
+            },
+            {
+              "assertions": [],
+              "name": "Show-NetworkMonitoringControls",
+              "refactored": true,
+              "changedBy": "#529: new helper; reveals the network-monitoring switch, disclosure and status before assertions.",
+              "baselineSha256": "5b10776410b60598d9277b65d08f4f521f239946944bc54bc0d08cec3a02d933"
+            },
+            {
+              "assertions": [],
+              "name": "Switch-NetworkMonitoringWithKeyboard",
+              "refactored": true,
+              "changedBy": "#529: new helper; toggles network monitoring with Space and waits for the state.",
+              "baselineSha256": "4b753d5c1640c7b98a75412c94147dd7deb3c2bd2f869681b0f5a31e6060f5cc"
             },
             {
               "assertions": [
@@ -1197,6 +1218,7 @@
             "268b0d80ec6bf6d9dbd6ecc14d52a57391a95c74bb9f1dd7aeb1f5784767ff47",
             "2eb134db9bbcb6ca25154179580717ccfde05c5ffdb3d1401662e8abecd1a529",
             "2d453bd391d1f2e7d3d5ea5349eed66e67d49549b2d3c083356e14710a017a97",
+            "fcd0d4b7ae57dcde8acd20d132bc75007c6277ad346e5a81f2bc72aed79be47d",
             "8648a6d3926ea58e92f7be606d181a6086860de1a6c2263ae1a70938f5b535cd",
             "966090633a6bee9e7dce2353228827f3d7b721b74478e3fca742da7fe6d9530a",
             "f569f87fc21770e925a281e0212bdf211cc696aaec6e6f3e3cd196c7f389dce1",

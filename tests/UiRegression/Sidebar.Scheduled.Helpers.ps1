@@ -29,28 +29,42 @@ function Assert-ScheduledScanSettings([bool] $IsEnabled, [int] $IntervalMinutes)
     throw "Expected saved scheduled scans enabled=$IsEnabled every $IntervalMinutes minutes; got $($saved | ConvertTo-Json -Compress)."
 }
 
+function Assert-NetworkMonitorSetting([bool] $IsEnabled) {
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+        $saved = $null
+        try { $saved = Get-Content -LiteralPath $networkMonitorPath -Raw | ConvertFrom-Json }
+        catch [System.IO.IOException], [System.Management.Automation.ItemNotFoundException] { }
+        if ($saved -and $saved.isEnabled -eq $IsEnabled) { return }
+        Start-Sleep -Milliseconds 100
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "Expected saved network monitoring enabled=$IsEnabled; got $($saved | ConvertTo-Json -Compress)."
+}
+
 function Show-ScheduledScansCard {
     Expand-UiReviewSettingsSection -Root $root -Section ScheduledScansSection
     $page = Find-SidebarElement AutomationId SettingsPage
     $scroll = $page.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     $deadline = [DateTime]::UtcNow.AddSeconds(5)
     do {
-        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
-        Start-Sleep -Milliseconds 300
-        $pageBounds = $page.Current.BoundingRectangle
-        $ready = $true
-        foreach ($id in @("ScheduledScansHeading", "ScheduledScansSwitch", "ScanIntervalPicker",
-            "ScheduledScanStatus", "ScheduledScanEvidenceNote")) {
-            $element = Find-SidebarElement AutomationId $id -Optional
-            if (-not $element) { $ready = $false; break }
-            $bounds = $element.Current.BoundingRectangle
-            if ($bounds.Left -lt $pageBounds.Left -or $bounds.Right -gt $pageBounds.Right + 1 -or
-                $bounds.Top -lt $pageBounds.Top -or $bounds.Bottom -gt $pageBounds.Bottom + 1) {
-                $ready = $false
-                break
+        foreach ($position in @(100, 85, 70, 55, 40)) {
+            if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $position) }
+            Start-Sleep -Milliseconds 200
+            $pageBounds = $page.Current.BoundingRectangle
+            $ready = $true
+            foreach ($id in @("ScheduledScansHeading", "ScheduledScansSwitch", "ScanIntervalPicker",
+                "ScheduledScanStatus", "ScheduledScanEvidenceNote")) {
+                $element = Find-SidebarElement AutomationId $id -Optional
+                if (-not $element) { $ready = $false; break }
+                $bounds = $element.Current.BoundingRectangle
+                if ($bounds.Left -lt $pageBounds.Left -or $bounds.Right -gt $pageBounds.Right + 1 -or
+                    $bounds.Top -lt $pageBounds.Top -or $bounds.Bottom -gt $pageBounds.Bottom + 1) {
+                    $ready = $false
+                    break
+                }
             }
+            if ($ready) { return }
         }
-        if ($ready) { return }
     } while ([DateTime]::UtcNow -lt $deadline)
     Save-ScheduledScanFailure "scheduled-scans-clipped"
     throw "Scheduled scan control '$id' did not become fully visible in Settings."
@@ -61,6 +75,46 @@ function Hide-ScheduledScansCard {
         [System.Windows.Automation.ScrollPattern]::Pattern)
     if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 0) }
     Start-Sleep -Milliseconds 200
+}
+
+function Show-NetworkMonitoringControls {
+    Expand-UiReviewSettingsSection -Root $root -Section ScheduledScansSection
+    $page = Find-SidebarElement AutomationId SettingsPage
+    $scroll = $page.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    do {
+        if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, 100) }
+        Start-Sleep -Milliseconds 200
+        $pageBounds = $page.Current.BoundingRectangle
+        $ready = $true
+        foreach ($id in @("NetworkMonitoringSwitch", "NetworkMonitoringDisclosure", "NetworkMonitorStatusText")) {
+            $element = Find-SidebarElement AutomationId $id -Optional
+            if (-not $element) { $ready = $false; break }
+            $bounds = $element.Current.BoundingRectangle
+            if ($bounds.Left -lt $pageBounds.Left -or $bounds.Right -gt $pageBounds.Right + 1 -or
+                $bounds.Top -lt $pageBounds.Top -or $bounds.Bottom -gt $pageBounds.Bottom + 1) {
+                $ready = $false; break
+            }
+        }
+        if ($ready) { return }
+    } while ([DateTime]::UtcNow -lt $deadline)
+    Save-ScheduledScanFailure "network-monitoring-clipped"
+    throw "Network-monitoring control '$id' did not become fully visible in Settings."
+}
+
+function Switch-NetworkMonitoringWithKeyboard([bool] $Expected) {
+    Focus-SidebarWindow
+    Show-NetworkMonitoringControls
+    $switch = Find-SidebarElement AutomationId NetworkMonitoringSwitch
+    $switch.SetFocus()
+    [SidebarReviewKeyboard]::Tap(0x20)
+    $toggle = $switch.GetCurrentPattern([System.Windows.Automation.TogglePattern]::Pattern)
+    $expectedState = if ($Expected) { [System.Windows.Automation.ToggleState]::On } else { [System.Windows.Automation.ToggleState]::Off }
+    $deadline = [DateTime]::UtcNow.AddSeconds(2)
+    while ($toggle.Current.ToggleState -ne $expectedState) {
+        if ([DateTime]::UtcNow -ge $deadline) { throw "Network monitoring must toggle with Space." }
+        Start-Sleep -Milliseconds 50
+    }
 }
 
 function Switch-ScheduledScansWithKeyboard([bool] $Expected) {
@@ -102,6 +156,8 @@ function Test-ScheduledScans {
         Stop-SidebarApp
         $null = New-Item -ItemType Directory -Path $periodicScanDirectory -Force
         $env:FINGVIBE_UI_REVIEW_PERIODIC_SCAN = $periodicScanPath
+        $env:FINGVIBE_UI_REVIEW_NETWORK_MONITOR = $networkMonitorPath
+        $env:FINGVIBE_UI_REVIEW_NETWORK_MONITOR_TIME_SCALE = "180"
         # Each minute takes a third of a second, so 15 minutes is 5 seconds and 1 hour is 20 seconds.
         $env:FINGVIBE_UI_REVIEW_PERIODIC_SCAN_TIME_SCALE = "180"
         $env:FINGVIBE_UI_REVIEW_SNAPSHOT = Join-Path $periodicScanDirectory "latest-scan.json"
@@ -120,6 +176,31 @@ function Test-ScheduledScans {
             "Each scheduled scan samples which devices answer at that moment.*not proof that a device was offline*") {
             throw "Scheduled scans must be explained as sampled evidence, not continuous uptime."
         }
+        Show-NetworkMonitoringControls
+        if ((Find-SidebarElement AutomationId NetworkMonitoringSwitch).Current.Name -ne "Monitor network health") {
+            throw "Network monitoring must expose a descriptive accessible name."
+        }
+        $disclosure = (Find-SidebarElement AutomationId NetworkMonitoringDisclosure).Current.Name
+        foreach ($required in @("every 60 seconds", "gateway", "1.1.1.1", "8.8.8.8", "Windows", "cache", "public DNS resolvers")) {
+            if ($disclosure -notlike "*$required*") {
+                throw "Network monitoring disclosure is missing '$required'."
+            }
+        }
+        $monitorToggle = (Find-SidebarElement AutomationId NetworkMonitoringSwitch).GetCurrentPattern(
+            [System.Windows.Automation.TogglePattern]::Pattern)
+        if ($monitorToggle.Current.ToggleState -ne "Off") {
+            throw "Network monitoring must default off."
+        }
+        if (Test-Path -LiteralPath $networkMonitorPath) {
+            throw "Loading default network-monitor settings must not save them."
+        }
+        Switch-NetworkMonitoringWithKeyboard $true
+        Assert-NetworkMonitorSetting $true
+        if (Test-Path -LiteralPath $periodicScanPath) {
+            throw "Enabling monitoring must not change scheduled-scan preferences."
+        }
+        Switch-NetworkMonitoringWithKeyboard $false
+        Assert-NetworkMonitorSetting $false
         if ((Find-SidebarElement AutomationId ScanFreshnessText).Current.Name -like "*Scheduled*") {
             throw "The header must not mention scheduling while it is off."
         }
@@ -233,20 +314,34 @@ function Test-ScheduledScans {
         Show-ScheduledScansCard
         Set-UiReviewAppearanceChoice -Root $root -Picker ScanIntervalPicker -Choice "2 hours"
         Assert-ScheduledScanSettings $true 120
+        Switch-NetworkMonitoringWithKeyboard $true
+        Assert-NetworkMonitorSetting $true
         Stop-SidebarApp
         Start-SidebarApp
         Set-SidebarWindowWidth $expandedWidth
         Select-SidebarPage Settings "Window backdrop"
         Show-ScheduledScansCard
         Assert-ScheduledScansSelection On "2 hours"
+        $monitorToggle = (Find-SidebarElement AutomationId NetworkMonitoringSwitch).GetCurrentPattern(
+            [System.Windows.Automation.TogglePattern]::Pattern)
+        if ($monitorToggle.Current.ToggleState -ne "On") {
+            throw "Network-monitor persistence did not restore the saved opt-in."
+        }
         $null = Wait-SidebarText ScheduledScanStatus "First scheduled scan around *."
         $null = Wait-SidebarText ScanFreshnessText "*127.0.0.1/32 $dot Scheduled every 2 hours while app is open"
         (Find-SidebarElement AutomationId ScheduledScansSwitch).GetCurrentPattern(
             [System.Windows.Automation.TogglePattern]::Pattern).Toggle()
         Assert-ScheduledScanSettings $false 120
         $null = Wait-SidebarText ScheduledScanStatus "Off. Scans run only when you select Scan LAN."
+        $monitorToggle = (Find-SidebarElement AutomationId NetworkMonitoringSwitch).GetCurrentPattern(
+            [System.Windows.Automation.TogglePattern]::Pattern)
+        if ($monitorToggle.Current.ToggleState -ne "On") {
+            throw "Disabling scheduled scans must not change monitoring."
+        }
+        Switch-NetworkMonitoringWithKeyboard $false
+        Assert-NetworkMonitorSetting $false
         Hide-ScheduledScansCard
-        Write-Host "Scheduled scan defaults, keyboard toggle, interval, cancellation, disabling, completion, persistence, responsive layout, and themes passed."
+        Write-Host "Background activity defaults, independent keyboard toggles, interval, cancellation, completion, persistence, responsive layout, and themes passed."
     }
     finally {
         if ($null -ne $highContrast) {
@@ -258,5 +353,7 @@ function Test-ScheduledScans {
             throw [System.ComponentModel.Win32Exception]::new()
         }
         if (Test-Path -LiteralPath $scanHoldPath) { Remove-Item -LiteralPath $scanHoldPath }
+        $env:FINGVIBE_UI_REVIEW_NETWORK_MONITOR = $null
+        $env:FINGVIBE_UI_REVIEW_NETWORK_MONITOR_TIME_SCALE = $null
     }
 }

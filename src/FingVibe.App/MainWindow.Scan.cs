@@ -64,7 +64,8 @@ public sealed partial class MainWindow : IScanExecutionSteps
 
         try
         {
-            if (_networkActivityCoordinator.ActiveKind is null) network = RefreshScanNetwork(network);
+            if (_networkActivityCoordinator.ActiveKind is null or NetworkActivityKind.NetworkHealthMonitor)
+                network = RefreshScanNetwork(network);
         }
         catch (Exception exception) when (exception is NetworkInformationException or InvalidOperationException)
         {
@@ -92,7 +93,7 @@ public sealed partial class MainWindow : IScanExecutionSteps
             return Task.FromResult(new ScanRunOutcome(ScanRunStatus.Unavailable) { Message = "No LAN is selected." });
         }
 
-        if (_networkActivityCoordinator.ActiveKind is null)
+        if (_networkActivityCoordinator.ActiveKind is null or NetworkActivityKind.NetworkHealthMonitor)
         {
             try
             {

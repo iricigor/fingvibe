@@ -135,7 +135,7 @@ function Find-SidebarElement([string] $Property, [string] $Value, [switch] $Opti
         $pageMarkerId = 'DevicesHeading'
         'MainNavigation'
     } elseif ($Property -eq 'AutomationId' -and
-        $Value -match '^(Scheduled|ScanIntervalPicker|ResetColumnsButton|Combine|ModePicker|ThemePicker|BackdropPicker)') {
+        $Value -match '^(Scheduled|ScanIntervalPicker|NetworkMonitor|NetworkMonitoring|ResetColumnsButton|Combine|ModePicker|ThemePicker|BackdropPicker)') {
         $pageMarkerId = 'SettingsPage'
         'SettingsPage'
     } else { $null }
@@ -146,7 +146,7 @@ function Find-SidebarElement([string] $Property, [string] $Value, [switch] $Opti
 }
 
 function Show-SettingsSection([string] $Id) {
-    $section = if ($Id -match '^(Scheduled|ScanInterval)') { "ScheduledScansSection" }
+    $section = if ($Id -match '^(Scheduled|ScanInterval|NetworkMonitor)') { "ScheduledScansSection" }
         elseif ($Id -match '^(Appearance|ModePicker|ThemePicker|BackdropPicker)') { "AppearanceSection" }
         else { "DevicesSection" }
     Expand-UiReviewSettingsSection -Root $root -Section $section

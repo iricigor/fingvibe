@@ -241,11 +241,12 @@ public sealed partial class MainWindow
         return true;
     }
 
-    private bool TryAcquireDeviceProbeLease(out IDisposable? lease)
+    private async Task<IDisposable?> AcquireDeviceProbeLeaseAsync()
     {
-        if (_networkActivityCoordinator.TryAcquire(NetworkActivityKind.DeviceServiceScan, out lease)) return true;
+        var lease = await _networkActivityCoordinator.AcquireAsync(NetworkActivityKind.DeviceServiceScan);
+        if (lease is not null) return lease;
         DevicePage.PortScanStatus = "Another network measurement is active or stopping. Wait before retrying.";
-        return false;
+        return null;
     }
 
     private async void DevicePortScanButton_Click(object sender, RoutedEventArgs e)
@@ -255,10 +256,11 @@ public sealed partial class MainWindow
             if (!_devicePortScanIsFull) active.Cancel();
             return;
         }
-        if (!TryGetDeviceProbeTarget(out var row, out var result, out var network)
-            || !TryAcquireDeviceProbeLease(out var lease))
+        if (!TryGetDeviceProbeTarget(out var row, out var result, out var network))
             return;
 
+        var lease = await AcquireDeviceProbeLeaseAsync();
+        if (lease is null) return;
         using var activity = lease;
         using var cancellation = new CancellationTokenSource();
         _devicePortScanCancellation = cancellation;
@@ -407,7 +409,8 @@ public sealed partial class MainWindow
             DevicePage.PortScanStatus = "Full TCP: not started because the device address or network changed. Confirm again to scan.";
             return;
         }
-        if (!TryAcquireDeviceProbeLease(out var lease)) return;
+        var lease = await AcquireDeviceProbeLeaseAsync();
+        if (lease is null) return;
 
         using var activity = lease;
         using var cancellation = new CancellationTokenSource();

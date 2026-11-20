@@ -142,6 +142,17 @@
             throw "$($entry.Id) must preserve its native interaction and use the shared icon/text header treatment."
         }
     }
+    $scheduled = $settings.SelectSingleNode("//*[@*[local-name()='Name']='ScheduledScansSection']")
+    $monitorSwitch = $scheduled.SelectSingleNode(".//*[@*[local-name()='Name']='NetworkMonitoringSwitch']")
+    $monitorDisclosure = $scheduled.SelectSingleNode(".//*[@*[local-name()='Name']='NetworkMonitoringDisclosure']")
+    $monitorStatus = $scheduled.SelectSingleNode(".//*[@*[local-name()='Name']='NetworkMonitorStatusText']")
+    if (-not $monitorSwitch -or -not $monitorDisclosure -or -not $monitorStatus -or
+        $monitorSwitch.GetAttribute("Header") -cne "Monitor network health" -or
+        $monitorSwitch.GetAttribute("AutomationProperties.Name") -cne "Monitor network health" -or
+        $monitorDisclosure.GetAttribute("TextWrapping") -cne "Wrap" -or
+        $monitorStatus.GetAttribute("AutomationProperties.LiveSetting") -cne "Polite") {
+        throw "Background activity must group an accessible monitoring toggle, disclosure and polite status with scheduled scans."
+    }
     $shellDocument = [xml](Get-Content (Join-Path $appDirectory "MainWindow.xaml") -Raw)
     $rootGrid = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='RootGrid']")
     $ribbonArea = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='BuildRibbonArea']")

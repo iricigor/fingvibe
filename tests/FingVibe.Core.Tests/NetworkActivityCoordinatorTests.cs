@@ -79,4 +79,40 @@ public sealed class NetworkActivityCoordinatorTests
         leases[0].Dispose();
         Assert.Null(coordinator.ActiveKind);
     }
+
+    [Fact]
+    public async Task ForegroundActivityCancelsAndAwaitsTheBackgroundMonitor()
+    {
+        var coordinator = new NetworkActivityCoordinator();
+        using var monitorCancellation = new CancellationTokenSource();
+        Assert.True(coordinator.TryAcquireBackground(
+            NetworkActivityKind.NetworkHealthMonitor, monitorCancellation, out var monitor));
+
+        var foreground = coordinator.AcquireAsync(NetworkActivityKind.LanScan);
+
+        Assert.True(monitorCancellation.IsCancellationRequested);
+        Assert.False(foreground.IsCompleted);
+        Assert.Equal(NetworkActivityKind.NetworkHealthMonitor, coordinator.ActiveKind);
+        monitor!.Dispose();
+
+        using var lease = await foreground.WaitAsync(ScanExecutionFixture.Timeout);
+        Assert.NotNull(lease);
+        Assert.Equal(NetworkActivityKind.LanScan, coordinator.ActiveKind);
+        lease!.Dispose();
+        Assert.Null(coordinator.ActiveKind);
+    }
+
+    [Fact]
+    public async Task ForegroundActivityDoesNotDisplaceAnotherForegroundActivity()
+    {
+        var coordinator = new NetworkActivityCoordinator();
+        Assert.True(coordinator.TryAcquire(NetworkActivityKind.InternetSpeedTest, out var speedTest));
+
+        Assert.Null(await coordinator.AcquireAsync(NetworkActivityKind.LanScan));
+        Assert.False(coordinator.TryAcquireBackground(
+            NetworkActivityKind.NetworkHealthMonitor, new(), out _));
+        Assert.Equal(NetworkActivityKind.InternetSpeedTest, coordinator.ActiveKind);
+
+        speedTest!.Dispose();
+    }
 }

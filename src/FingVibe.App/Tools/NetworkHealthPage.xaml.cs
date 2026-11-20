@@ -285,7 +285,7 @@ public sealed partial class NetworkHealthPage : UserControl
         Render();
     }
 
-    private void RunButton_Click(object sender, RoutedEventArgs e)
+    private async void RunButton_Click(object sender, RoutedEventArgs e)
     {
         if (HasActiveTest) return;
         if (IsUiReview)
@@ -326,7 +326,10 @@ public sealed partial class NetworkHealthPage : UserControl
             SettingsStatus.Text = $"Network identity verification unavailable: {exception.Message} WAN persistence is disabled.";
             _settingsLoaded = false;
         }
-        if (ActivityCoordinator is null || !ActivityCoordinator.TryAcquire(NetworkActivityKind.NetworkTroubleshooting, out var lease))
+        var lease = ActivityCoordinator is null
+            ? null
+            : await ActivityCoordinator.AcquireAsync(NetworkActivityKind.NetworkTroubleshooting);
+        if (lease is null)
         {
             ProgressText.Text = "Network activity coordination is unavailable, or a LAN scan/speed test/diagnostic run is active or stopping. Wait and retry.";
             return;

@@ -573,7 +573,7 @@ try {
     $legacyInstaller = New-FixtureInstaller $fixtureSource $legacyVersion
     Invoke-Installer -Path $legacyInstaller -Name "legacy-$previousFamily-install" -Operation Install
     Assert-True ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $legacyVersion) "$previousFamily fixture was not installed."
-    foreach ($name in @("device-inventory.sqlite", "latest-scan.json", "people-rooms.json", "appearance.json", "device-table.json", "periodic-scan.json")) {
+    foreach ($name in @("device-inventory.sqlite", "latest-scan.json", "people-rooms.json", "appearance.json", "device-table.json", "periodic-scan.json", "network-monitor.json")) {
         "synthetic $previousFamily $name" | Set-Content -LiteralPath (Join-Path $data $name)
     }
     $legacyData = Get-SavedDataHashes
