@@ -28,6 +28,14 @@ Light mode offers **Standard**, **Warm**, and **Colorful**.
 Dark mode offers **Standard**, **True Black (OLED)**, and **Colorful**.
 Changing mode keeps Standard or Colorful; Warm and True Black map to each other.
 
+To switch only between Light and Dark from any page, choose the mode button
+directly above **Settings** in the sidebar (a sun or moon, also on the icon-only
+rail), then choose **Light** or **Dark**. It uses the same saved preference,
+theme pairing and backdrop as Settings. In Windows high contrast the choice is
+still saved for when high contrast ends, and the menu notes that Windows colors
+currently apply. If the preference cannot be saved, the button shows an alert
+and the menu explains that the change applies only until FingVibe closes.
+
 Backdrop choices are **Solid**, **Mica**, **Mica Alt**, and **Acrylic**.
 Solid shows the theme colors most directly.
 Windows transparency settings and platform support affect material backdrops.

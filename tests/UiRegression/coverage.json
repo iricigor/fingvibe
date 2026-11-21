@@ -997,6 +997,41 @@
               "refactored": true,
               "changedBy": "#345: retain all layout assertions and captures; also verify the live appearance summary in the existing theme loop.",
               "baselineSha256": "841d6c1ee5453d375a30aa406d6d37de120ab4a76975fbe4f7306758b8c0a628"
+            },
+            {
+              "name": "Get-AppearanceShortcut",
+              "refactored": true,
+              "introducedBy": "#662: quick Light/Dark sidebar appearance shortcut."
+            },
+            {
+              "name": "Open-AppearanceShortcut",
+              "refactored": true,
+              "introducedBy": "#662: quick Light/Dark sidebar appearance shortcut."
+            },
+            {
+              "name": "Close-AppearanceShortcut",
+              "refactored": true,
+              "introducedBy": "#662: quick Light/Dark sidebar appearance shortcut."
+            },
+            {
+              "name": "Set-AppearanceShortcutMode",
+              "refactored": true,
+              "introducedBy": "#662: quick Light/Dark sidebar appearance shortcut."
+            },
+            {
+              "name": "Get-SidebarAppearanceChoices",
+              "refactored": true,
+              "introducedBy": "#662: quick Light/Dark sidebar appearance shortcut."
+            },
+            {
+              "name": "Test-AppearanceShortcutPresentation",
+              "refactored": true,
+              "introducedBy": "#662: quick Light/Dark sidebar appearance shortcut."
+            },
+            {
+              "name": "Test-AppearanceShortcutPersistence",
+              "refactored": true,
+              "introducedBy": "#662: quick Light/Dark sidebar appearance shortcut."
             }
           ],
           "captures": [
@@ -1008,7 +1043,11 @@
             "d9dd08f2f104ab28a27f7b794b630307d1fc9a4f39948762cf1e7d03f76b27d7",
             "e758ca3936a1a7e031b00aadb6787fdabb841d3a1fd56114c3ddbec20e9223b3",
             "2c2018055cf8a3df2b882366e17b18a3947d252cea14192888dcb18291af04e7",
-            "3b0e7262c14b0710985155e1ec6245a795171641a4d7b215f638d2af8362dbe4"
+            "3b0e7262c14b0710985155e1ec6245a795171641a4d7b215f638d2af8362dbe4",
+            "95b2b6ca0efdcf289d2dbce6e78856bb5df54a586aa90ec6c606bc232a359700",
+            "605d3fd65c80fe9d2e6bf8afdcb6c439c525a63e5d7ad0878a23955ab069c1c2",
+            "5053aa555ce2a0d625645c5bde3e91375af6c9e6477e5b420b2c7ccf30b84713",
+            "ce349e2f5c0631f97bd3fb43265579abf36121cb32f066182e4ebe1b1465d62a"
           ],
           "fixtureAssignments": []
         },
