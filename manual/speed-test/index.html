@@ -1153,6 +1153,9 @@ metered or mobile connection. Results are reported to Cloudflare.</p>
 <p><em>Native test-build ready state. No live test was run for this screenshot,
 and no measured result is implied. <a href="../screenshots/">Screenshot sources</a>.</em></p>
 <h2 id="read-the-measurements">Read the measurements<a class="headerlink" href="#read-the-measurements" title="Permanent link">&para;</a></h2>
+<p>The page has three cards: <strong>Test</strong> (provider, route and data-use notes, status
+and the Start/Cancel buttons), <strong>Live measurement</strong> (the Download and Upload
+gauges, stacked on narrow windows) and <strong>Results</strong> (the completed measurement).</p>
 <p><strong>Download</strong> measures receiving data from the internet.
 <strong>Upload</strong> measures sending data.
 Both are shown in <strong>Mbps</strong>: megabits per second, not megabytes per second.</p>
@@ -1160,8 +1163,40 @@ Both are shown in <strong>Mbps</strong>: megabits per second, not megabytes per 
 It is different from a LAN device's ping response.</p>
 <p>Gauge values during the run are <strong>provisional</strong> estimates.
 Use the completed result for the final measurement.
-The gauge scale is logarithmic: equal visual spacing does not mean equal
-increments in Mbps. Numeric values remain the important readings.</p>
+The gauge scale is logarithmic from <strong>1 Mbps</strong> to <strong>10 Gbps</strong>: each labeled
+mark (1 Mbps, 10, 100, 1 Gbps, 10 Gbps) is 10 times the previous one, with
+smaller marks at 2 and 5. Readings outside that range rest at the end of the
+scale, but the number shown is always the exact measurement.</p>
+<p>Download and Upload values show a word rating, and each gauge arc shades from
+red (slow) through yellow to green (good):</p>
+<table>
+<thead>
+<tr>
+<th>Direction</th>
+<th>Slow</th>
+<th>Fair</th>
+<th>Good</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Download</td>
+<td>below 25 Mbps</td>
+<td>25 to under 100 Mbps</td>
+<td>100 Mbps or more</td>
+</tr>
+<tr>
+<td>Upload</td>
+<td>below 5 Mbps</td>
+<td>5 to under 20 Mbps</td>
+<td>20 Mbps or more</td>
+</tr>
+</tbody>
+</table>
+<p>The bands follow the US FCC 100/20 Mbps broadband benchmark and its earlier
+25 Mbps download floor. They are fixed, not a connection-quality score, and
+HTTP latency is not rated. The word always carries the rating; in Windows high
+contrast the gauge uses system colors instead of the gradient.</p>
 <p>The provider location is shown as unavailable when the engine does not supply it.
 The app does not guess a serving location.</p>
 <h2 id="cancellation-and-failures">Cancellation and failures<a class="headerlink" href="#cancellation-and-failures" title="Permanent link">&para;</a></h2>
