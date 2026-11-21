@@ -38,6 +38,23 @@ Keep page-specific layout and state with the page when adding or substantially c
 
 Extracted pages have separate WinUI XAML namescopes and compiled-binding roots. Preserve automation names/IDs and shared `DeviceColumnLayout.Current` bindings when changing page boundaries. Update the page-to-scenario rules in `.github/scripts/UiReviewScenarios.ps1` and their regression tests whenever a view is added or renamed.
 
+### Navigation affordance vocabulary
+
+Use the control vocabulary to communicate the result before a user activates it:
+
+- Whole navigable cards or rows are `Button` controls with one decorative trailing
+  chevron. Do not append an arrow character to the card label.
+- Secondary navigation within page content is a text-style `HyperlinkButton`
+  without a trailing chevron or arrow suffix.
+- Page actions remain buttons; native Back, expand/collapse and dialog cues keep
+  their distinct controls.
+- Browser destinations use an explicit external-link icon beside the text, plus an
+  accessible name that says the destination opens in a browser. The icon is
+  decorative and does not duplicate the accessible name.
+
+Keep navigation destinations, automation names and keyboard behavior unchanged
+unless a separate task changes them.
+
 ## Extending native UI regression coverage
 
 Devices and Sidebar keep their existing test entry points; focused behavior

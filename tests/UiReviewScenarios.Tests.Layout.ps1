@@ -293,6 +293,62 @@
                 Where-Object { $_.GetAttribute("TextWrapping") -cne "Wrap" }).Count -ne 0) {
             throw "Tools cards must keep one column each and wrap all labels, including open actions."
         }
+        $cardChevrons = @($card.SelectNodes(
+            ".//*[local-name()='FontIcon' and @Style='{StaticResource NavigationChevronIconStyle}']"))
+        $embeddedArrows = @($card.SelectNodes(".//*[local-name()='TextBlock']") |
+            Where-Object { $_.GetAttribute("Text").Contains([char]0x2192) })
+        if ($cardChevrons.Count -ne 1 -or $embeddedArrows.Count -ne 0) {
+            throw "$($card.GetAttribute('Name', 'http://schemas.microsoft.com/winfx/2006/xaml')) must use one separate trailing chevron."
+        }
+    }
+    $overviewDocument = [System.Xml.XmlDocument]::new()
+    $overviewDocument.Load((Join-Path $appDirectory "Views\OverviewPageView.xaml"))
+    $overviewCards = @($overviewDocument.SelectNodes(
+        "//*[local-name()='Button' and @Style='{StaticResource ScannerSummaryButtonStyle}']"))
+    if ($overviewCards.Count -ne 3) { throw "Overview must preserve its three whole-card navigation actions." }
+    foreach ($card in $overviewCards) {
+        $cardChevrons = @($card.SelectNodes(
+            ".//*[local-name()='FontIcon' and @Style='{StaticResource NavigationChevronIconStyle}']"))
+        $embeddedArrows = @($card.SelectNodes(".//*[local-name()='TextBlock']") |
+            Where-Object { $_.GetAttribute("Text").Contains([char]0x2192) })
+        if ($cardChevrons.Count -ne 1 -or $embeddedArrows.Count -ne 0) {
+            throw "Overview navigation cards must use one separate trailing chevron and no embedded arrow."
+        }
+    }
+    foreach ($link in @(
+        @{ Path = "Views\NetworkPageView.xaml"; Id = "OpenNetworkHealthButton" },
+        @{ Path = "Tools\NetworkHealthPage.xaml"; Id = "OpenServiceStatusButton" },
+        @{ Path = "Tools\NetworkHealthPage.xaml"; Id = "NetworkHealthViewRoomMapButton" },
+        @{ Path = "Views\PeopleRoomsPageView.xaml"; Id = "ViewRoomMapButton" },
+        @{ Path = "Views\DeviceDetailsPageView.xaml"; Id = "DeviceViewHistory" }
+    )) {
+        $linkDocument = [System.Xml.XmlDocument]::new()
+        $linkDocument.Load((Join-Path $appDirectory $link.Path))
+        $linkNode = $linkDocument.SelectSingleNode(
+            "//*[@*[local-name()='Name']='$($link.Id)' or @AutomationProperties.AutomationId='$($link.Id)']")
+        if (-not $linkNode -or $linkNode.LocalName -cne "HyperlinkButton" -or
+            [string]::IsNullOrWhiteSpace($linkNode.GetAttribute("AutomationProperties.Name"))) {
+            throw "$($link.Id) must remain a text-style internal navigation link with its accessible name."
+        }
+        if ($linkNode.SelectNodes(".//*[local-name()='FontIcon']").Count -ne 0 -or
+            $linkNode.GetAttribute("Content").Contains([char]0x203A) -or
+            $linkNode.GetAttribute("Content").Contains([char]0x2192)) {
+            throw "$($link.Id) must not add a decorative chevron or embedded arrow to internal-link text."
+        }
+    }
+    $aboutDocument = [System.Xml.XmlDocument]::new()
+    $aboutDocument.Load((Join-Path $appDirectory "Tools\AboutPage.xaml"))
+    $browserLinks = @($aboutDocument.SelectNodes(
+        "//*[local-name()='HyperlinkButton' and contains(@AutomationProperties.Name,'opens in browser')]"))
+    if ($browserLinks.Count -ne 5) { throw "About must retain all five browser destinations." }
+    foreach ($link in $browserLinks) {
+        $externalIcons = @($link.SelectNodes(
+            ".//*[local-name()='FontIcon' and @Style='{StaticResource ExternalLinkIconStyle}']"))
+        $embeddedArrows = @($link.SelectNodes(".//*[local-name()='TextBlock']") |
+            Where-Object { $_.GetAttribute("Text").Contains([char]0x2197) })
+        if ($externalIcons.Count -ne 1 -or $embeddedArrows.Count -ne 0) {
+            throw "About browser links must use one separate external-link icon."
+        }
     }
     $toolIcons = @(
         @{ Page = "SpeedTestPage"; Title = "Speed test"; Card = "SpeedTestCard"; Click = "SpeedTestCard_Click"; Icon = "speed-test" },

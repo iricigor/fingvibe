@@ -76,8 +76,9 @@ function Find-Control([string] $Name, [System.Windows.Automation.ControlType] $T
     throw "Missing Network health control: $Name."
 }
 
-function Invoke-Control([string] $Name) {
-    (Find-Control $Name ([System.Windows.Automation.ControlType]::Button)).
+function Invoke-Control([string] $Name,
+    [System.Windows.Automation.ControlType] $Type = [System.Windows.Automation.ControlType]::Button) {
+    (Find-Control $Name $Type).
         GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Start-Sleep -Milliseconds 300
 }
@@ -191,7 +192,7 @@ function Test-ServiceStatusPage([string] $ScreenshotName) {
     $scroll = Scroll-Control "NetworkHealthScroll"
     $scroll.SetScrollPercent(-1, 0)
     Start-Sleep -Milliseconds 200
-    $open = Find-Control "Open service status" ([System.Windows.Automation.ControlType]::Button)
+    $open = Find-Control "Open service status" ([System.Windows.Automation.ControlType]::Hyperlink)
     $run = (Find-Control "Run network diagnostics" ([System.Windows.Automation.ControlType]::Button)).Current.BoundingRectangle
     $manual = (Find-Control "Manual diagnostics" ([System.Windows.Automation.ControlType]::Text)).Current.BoundingRectangle
     if ($open.Current.IsOffscreen -or $open.Current.BoundingRectangle.Top -le $run.Bottom -or
@@ -199,7 +200,7 @@ function Test-ServiceStatusPage([string] $ScreenshotName) {
         throw "The Service status entry must be visible below current health and above Manual diagnostics."
     }
     $null = Find-Control "Provider reports are separate from this network's measured health." ([System.Windows.Automation.ControlType]::Text)
-    Invoke-Control "Open service status"
+    Invoke-Control "Open service status" ([System.Windows.Automation.ControlType]::Hyperlink)
     $refresh = Find-Control "Refresh provider reports" ([System.Windows.Automation.ControlType]::Button)
     $null = Wait-UiRegressionState -Description "Refresh reports keyboard focus on open" -Condition { $refresh.Current.HasKeyboardFocus }
     $null = Find-Control "Back to Network health" ([System.Windows.Automation.ControlType]::Button)
@@ -465,7 +466,7 @@ try {
         $process.MainWindowHandle, [IntPtr]::Zero, $bounds.X, $bounds.Y, $bounds.Width, $bounds.Height, 0x0044)
     Start-Sleep -Milliseconds 300
     Invoke-Control "Back to Network health"
-    $openServiceStatus = Find-Control "Open service status" ([System.Windows.Automation.ControlType]::Button)
+    $openServiceStatus = Find-Control "Open service status" ([System.Windows.Automation.ControlType]::Hyperlink)
     $null = Wait-UiRegressionState -Description "Back to Network health restores Service status focus" -Condition {
         $openServiceStatus.Current.HasKeyboardFocus
     }
@@ -536,11 +537,11 @@ try {
     $summaryState = (Find-Control "Monitoring off" ([System.Windows.Automation.ControlType]::Text)).Current.BoundingRectangle
     $publicLabel = (Find-Control "Public IP address" ([System.Windows.Automation.ControlType]::Text)).Current.BoundingRectangle
     $sizeLabel = (Find-Control "Network size" ([System.Windows.Automation.ControlType]::Text)).Current.BoundingRectangle
-    $openHealth = (Find-Control "Open network health" ([System.Windows.Automation.ControlType]::Button)).Current.BoundingRectangle
+    $openHealth = (Find-Control "Open network health" ([System.Windows.Automation.ControlType]::Hyperlink)).Current.BoundingRectangle
     if ($summaryState.Top -le $publicLabel.Bottom -or $summaryState.Bottom -ge $sizeLabel.Top -or $openHealth.Bottom -ge $sizeLabel.Top) {
         throw "The Network health summary must be the second Network section, after identity and before network size."
     }
-    Invoke-Control "Open network health"
+    Invoke-Control "Open network health" ([System.Windows.Automation.ControlType]::Hyperlink)
     $summaryRun = Find-Control "Run network diagnostics" ([System.Windows.Automation.ControlType]::Button)
     $null = Wait-UiRegressionState -Description "Network summary opens Network health with keyboard focus" -Condition { $summaryRun.Current.HasKeyboardFocus }
     if (-not (Find-Control "Tools" ([System.Windows.Automation.ControlType]::ListItem)).
@@ -563,7 +564,7 @@ try {
             Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-peer-$mode.png")
         }
         (Scroll-Control "NetworkHealthScroll").SetScrollPercent(-1, 0)
-        Invoke-Control "Open service status"
+        Invoke-Control "Open service status" ([System.Windows.Automation.ControlType]::Hyperlink)
         $null = Wait-UiRegressionState -Description "$mode controlled provider reports" -Condition { (Get-ServiceStatusEntryIds).Count -eq 12 }
         Test-ServiceStatusTextContrast $mode
         if ($ScreenshotDirectory) {
@@ -621,7 +622,7 @@ try {
                 Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "network-health-peer-text-200-high-contrast.png")
             }
             (Scroll-Control "NetworkHealthScroll").SetScrollPercent(-1, 0)
-            Invoke-Control "Open service status"
+            Invoke-Control "Open service status" ([System.Windows.Automation.ControlType]::Hyperlink)
             $null = Find-Control "Refresh provider reports" ([System.Windows.Automation.ControlType]::Button)
             foreach ($text in @("Microsoft - Outlook.com", "Degraded service", "Feed unavailable")) {
                 $null = Find-Control $text ([System.Windows.Automation.ControlType]::Text)
