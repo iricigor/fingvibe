@@ -184,7 +184,7 @@ if (`$failAt -eq '$name') { throw 'Synthetic module failure: $name' }
     try {
         Test-RegressionGroupOrchestration -Suite @{ name = 'Tools' } -Definition $definition -Root $root
         $modules = @($definition.Groups | ForEach-Object { $_.Modules })
-        Assert-Regression (($modules -join ',') -eq 'Identity,NetworkHealth,Import,Updates,Backups,Services,Sql') 'Tools must run focused updates exactly once while retaining all original checks and their relative order.'
+        Assert-Regression (($modules -join ',') -eq 'Identity,NetworkHealth,Import,Updates,Backups,Services,Sql,SpeedTest') 'Tools must run focused updates exactly once while retaining all original checks and their relative order.'
     }
     finally { Remove-Item -LiteralPath $root -Recurse -Force }
 }

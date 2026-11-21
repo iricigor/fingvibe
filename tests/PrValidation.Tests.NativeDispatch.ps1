@@ -18,7 +18,7 @@
         }
         foreach ($name in @("SidebarNavigation", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
             "UsageCategory.Ui", "DeviceActivity.Ui", "DeviceLinking.Ui", "NetworkActivity.Ui", "EquipmentActivity.Ui",
-            "BuildIdentity.Ui", "NetworkHealth.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")) {
+            "BuildIdentity.Ui", "NetworkHealth.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui", "SpeedTest.Ui")) {
             @(
                 'param($AppPath, $ScreenshotDirectory, $Version, $BuildKind, $BuildTimestamp, $BuildCommit, $PullRequestNumber, $SummaryOnly, $ObservationsOnly, $Group)',
                 '$name = [IO.Path]::GetFileName($PSCommandPath).Replace(".Tests.ps1", "")',
@@ -61,7 +61,7 @@
             "details-linking" = @("DeviceLinking.Ui")
             "network-activity" = @("NetworkActivity.Ui")
             "tools-utilities" = @("BuildIdentity.Ui", "NetworkHealth.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui")
-            "tools-device-data" = @("AdditionalServices.Ui", "SqlEditor.Ui")
+            "tools-device-data" = @("AdditionalServices.Ui", "SqlEditor.Ui", "SpeedTest.Ui")
         }
         Assert-Equal $matrixSuites @($expectedSuiteChecks.Keys) "CI matrix dispatches every split suite"
         foreach ($suite in $matrixSuites) {
@@ -75,7 +75,7 @@
         $calls = @(Get-Content $env:UI_REGRESSION_CALLS | ConvertFrom-Json)
         Assert-Equal $calls.Name @("SidebarNavigation", "SidebarNavigation", "SidebarNavigation", "SidebarNavigation", "DevicesList.Ui", "DevicesList.Ui", "DevicesList.Ui", "DevicesList.Ui", "DeviceScanHistory.Ui", "DeviceDiscovery.Ui",
             "UsageCategory.Ui", "DeviceScanHistory.Ui", "DeviceActivity.Ui", "DeviceLinking.Ui", "NetworkActivity.Ui",
-            "BuildIdentity.Ui", "NetworkHealth.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "Dispatch every preserved suite and focused updates once"
+            "BuildIdentity.Ui", "NetworkHealth.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui", "SpeedTest.Ui") "Dispatch every preserved suite and focused updates once"
         $deviceGroups = @((Import-PowerShellDataFile -LiteralPath (Join-Path $PSScriptRoot "UiRegression\Devices.Groups.psd1")).Groups.Name)
         Assert-Equal @($matrixSuites | Where-Object { $_ -like "devices*" }) @($deviceGroups | ForEach-Object { "devices-$_" }) "CI matrix runs every Devices group once on its own worker"
         Assert-Equal @($calls | Where-Object Name -eq "DevicesList.Ui" | ForEach-Object { $_.Parameters.Group }) $deviceGroups "Devices group jobs dispatch exactly their group"
@@ -96,19 +96,19 @@
         & powershell.exe -NoProfile -File $runner -Suite sidebar -AppPath $parameters.AppPath `
             -ScreenshotDirectory $parameters.ScreenshotDirectory -CapturePlanPath $planPath
         if ($LASTEXITCODE -ne 0) { throw "Sidebar runner must support multi-scenario plans under Windows PowerShell." }
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 23 "Windows PowerShell dispatches the sidebar without parsing details selection"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 24 "Windows PowerShell dispatches the sidebar without parsing details selection"
         ConvertTo-Json -InputObject @($definitions | Where-Object Scenario -eq Devices) -Depth 5 | Set-Content $planPath
         foreach ($suite in @("details-summary", "details-identity", "details-usage", "details-observations", "details-activity", "details-linking", "network-activity")) {
             & $runner -Suite $suite @parameters
-            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 23 "Unselected $suite must not launch native checks"
+            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 24 "Unselected $suite must not launch native checks"
         }
         ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios Network) -Depth 5 | Set-Content $planPath
         foreach ($suite in @("details-summary", "details-identity", "details-usage", "details-observations", "details-activity", "details-linking")) {
             & $runner -Suite $suite @parameters
-            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 23 "Network-only plan adds no checks to $suite"
+            Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS).Count 24 "Network-only plan adds no checks to $suite"
         }
         & $runner -Suite network-activity @parameters
-        $networkCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip 23 | ConvertFrom-Json)
+        $networkCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip 24 | ConvertFrom-Json)
         Assert-Equal $networkCalls.Name @("NetworkActivity.Ui") "Network-only plan still runs its activity regression"
         ConvertTo-Json -InputObject @(Get-UiReviewCapturePlan -RepositoryPath $runnerFixture -AdditionalScenarios DeviceDetails) -Depth 5 |
             Set-Content $planPath
@@ -200,12 +200,12 @@
         $env:UI_REGRESSION_FAIL = $null
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
         & $runner -Suite tools @parameters
-        $toolChecks = @("BuildIdentity.Ui", "NetworkHealth.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui")
+        $toolChecks = @("BuildIdentity.Ui", "NetworkHealth.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui", "SpeedTest.Ui")
         Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name $toolChecks "Default Tools entry point preserves full sequential coverage"
         $env:UI_REGRESSION_FAIL = "NetworkHealth.Ui"
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
         Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: utilities*network health*exit code 1*"
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name @("BuildIdentity.Ui", "NetworkHealth.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "A troubleshooting child failure fails its group without suppressing the independent group"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name @("BuildIdentity.Ui", "NetworkHealth.Ui", "AdditionalServices.Ui", "SqlEditor.Ui", "SpeedTest.Ui") "A troubleshooting child failure fails its group without suppressing the independent group"
         $troubleshootingLog = Get-Content (Join-Path $parameters.ScreenshotDirectory "regression.log") -Raw
         if ($troubleshootingLog -notmatch 'Simulated regression failure' -or $troubleshootingLog -notmatch 'NetworkHealth.Ui') {
             throw "The parent transcript must retain the troubleshooting child failure diagnostics."
@@ -233,12 +233,12 @@
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
         Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: utilities*Simulated regression failure: ReleaseUpdates.Ui*"
         Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name `
-            @("BuildIdentity.Ui", "NetworkHealth.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") `
+            @("BuildIdentity.Ui", "NetworkHealth.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "AdditionalServices.Ui", "SqlEditor.Ui", "SpeedTest.Ui") `
             "Update failure is retained, stops later utility checks and still runs independent device data"
         $env:UI_REGRESSION_FAIL = "BuildIdentity.Ui"
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
         Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: utilities*Simulated regression failure*"
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name @("BuildIdentity.Ui", "AdditionalServices.Ui", "SqlEditor.Ui") "An independent Tools group must still run after another group fails"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name @("BuildIdentity.Ui", "AdditionalServices.Ui", "SqlEditor.Ui", "SpeedTest.Ui") "An independent Tools group must still run after another group fails"
         $reportScript = & $readRegressionStep "Report regression retry outcome"
         $reportPath = Join-Path $runnerFixture "report.ps1"
         Set-Content -LiteralPath $reportPath -Value ('$ErrorActionPreference = "Stop"' + "`n" + $reportScript)

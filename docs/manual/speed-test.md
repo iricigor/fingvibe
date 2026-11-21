@@ -24,6 +24,10 @@ and no measured result is implied. [Screenshot sources](screenshots.md).*
 
 ## Read the measurements
 
+The page has three cards: **Test** (provider, route and data-use notes, status
+and the Start/Cancel buttons), **Live measurement** (the Download and Upload
+gauges, stacked on narrow windows) and **Results** (the completed measurement).
+
 **Download** measures receiving data from the internet.
 **Upload** measures sending data.
 Both are shown in **Mbps**: megabits per second, not megabytes per second.
@@ -33,8 +37,23 @@ It is different from a LAN device's ping response.
 
 Gauge values during the run are **provisional** estimates.
 Use the completed result for the final measurement.
-The gauge scale is logarithmic: equal visual spacing does not mean equal
-increments in Mbps. Numeric values remain the important readings.
+The gauge scale is logarithmic from **1 Mbps** to **10 Gbps**: each labeled
+mark (1 Mbps, 10, 100, 1 Gbps, 10 Gbps) is 10 times the previous one, with
+smaller marks at 2 and 5. Readings outside that range rest at the end of the
+scale, but the number shown is always the exact measurement.
+
+Download and Upload values show a word rating, and each gauge arc shades from
+red (slow) through yellow to green (good):
+
+| Direction | Slow | Fair | Good |
+| --- | --- | --- | --- |
+| Download | below 25 Mbps | 25 to under 100 Mbps | 100 Mbps or more |
+| Upload | below 5 Mbps | 5 to under 20 Mbps | 20 Mbps or more |
+
+The bands follow the US FCC 100/20 Mbps broadband benchmark and its earlier
+25 Mbps download floor. They are fixed, not a connection-quality score, and
+HTTP latency is not rated. The word always carries the rating; in Windows high
+contrast the gauge uses system colors instead of the gradient.
 
 The provider location is shown as unavailable when the engine does not supply it.
 The app does not guess a serving location.
