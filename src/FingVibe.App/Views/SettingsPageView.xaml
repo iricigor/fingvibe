@@ -60,7 +60,8 @@
                 <TextBlock Grid.Column="1" Text="Settings" Style="{StaticResource ScannerPageTitleStyle}"
                            Margin="0" VerticalAlignment="Center" />
             </Grid>
-            <ScrollViewer x:Name="SettingsScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <ScrollViewer x:Name="SettingsScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled"
+                          AutomationProperties.AutomationId="SettingsPage">
         <StackPanel Spacing="16">
             <StackPanel x:Name="SettingsCards" Spacing="4">
             <Expander x:Name="AppearanceSection" Style="{StaticResource SettingsSectionStyle}"

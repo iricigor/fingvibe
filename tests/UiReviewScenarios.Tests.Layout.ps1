@@ -142,6 +142,12 @@
         throw "People & rooms must omit the storage notice and collapse empty status lines while keeping save and error feedback."
     }
     $settings = [xml](Get-Content (Join-Path $appDirectory "Views\SettingsPageView.xaml") -Raw)
+    $settingsPage = $settings.SelectSingleNode("//*[@*[local-name()='Name']='SettingsPage']")
+    $settingsScroll = $settings.SelectSingleNode("//*[@*[local-name()='Name']='SettingsScroll']")
+    if (-not $settingsPage -or $settingsPage.LocalName -cne "Grid" -or -not $settingsScroll -or
+        $settingsScroll.GetAttribute("AutomationProperties.AutomationId") -cne "SettingsPage") {
+        throw "Settings must keep its fixed page grid for header visibility and expose the body ScrollViewer as the SettingsPage automation peer."
+    }
     $cards = $settings.SelectSingleNode("//*[@*[local-name()='Name']='SettingsCards']")
     if (-not $cards -or [double]$cards.GetAttribute("Spacing") -lt 4 -or [double]$cards.GetAttribute("Spacing") -gt 6) {
         throw "Settings cards must form one compact stack with 4-6 DIP gaps."
