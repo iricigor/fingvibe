@@ -1,0 +1,20 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 660,
+  "category": "ui",
+  "changedBehavior": "Standardize navigation cards, secondary links, actions, and browser destinations with separate visual indicators.",
+  "selectors": [
+    "ui-review-scenarios",
+    "ui-regression-helpers",
+    "native-sidebar-presentation",
+    "native-details-summary",
+    "native-network-activity",
+    "native-tools-utilities"
+  ],
+  "expectedAssertions": [
+    "Tools and Overview whole-card navigation uses one decorative trailing chevron without an arrow character in its label.",
+    "Approved secondary navigation remains text-only with no trailing chevron or arrow and retains its existing accessible identity.",
+    "About browser destinations show one separate external-link icon and retain browser-opening accessible names.",
+    "Actions, native Back and expand/collapse controls, destinations, keyboard activation, focus, high contrast, and narrow layout remain unchanged."
+  ]
+}
