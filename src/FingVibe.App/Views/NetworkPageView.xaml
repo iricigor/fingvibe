@@ -135,10 +135,11 @@
                         <TextBlock x:Name="SummaryIncidentStorageText" TextWrapping="Wrap" FontWeight="SemiBold" Visibility="Collapsed"
                                    AutomationProperties.AutomationId="NetworkHealthSummaryIncidentStorage" />
                     </StackPanel>
-                    <Button x:Name="OpenNetworkHealthButton" Grid.Column="1" Content="Open network health &#x203A;"
-                            VerticalAlignment="Center" Click="OpenNetworkHealthButton_Click"
-                            AutomationProperties.AutomationId="OpenNetworkHealthButton"
-                            AutomationProperties.Name="Open network health" />
+                    <HyperlinkButton x:Name="OpenNetworkHealthButton" Grid.Column="1" Content="Open network health"
+                                     HorizontalAlignment="Left" VerticalAlignment="Center"
+                                     Click="OpenNetworkHealthButton_Click"
+                                     AutomationProperties.AutomationId="OpenNetworkHealthButton"
+                                     AutomationProperties.Name="Open network health" />
                 </Grid>
             </Border>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
