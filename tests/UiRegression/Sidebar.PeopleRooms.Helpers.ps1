@@ -87,6 +87,14 @@ function Open-PeopleRoomsDetails([string] $Name, [string] $PageId) {
     [SidebarReviewKeyboard]::Tap(0x0D)
 }
 
+function Invoke-RoomMapBack([string] $ExpectedName) {
+    $back = Find-PeopleRoomsElement AutomationId RoomMapBackButton RoomMapPage
+    if ($back.Current.Name -cne $ExpectedName) {
+        throw "Room map Back must name its entry page '$ExpectedName', not '$($back.Current.Name)'."
+    }
+    $back.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+}
+
 function Test-RoomMapEntries {
     Select-SidebarPage 'People & rooms' 'Search people and rooms'
     Invoke-PeopleRoomsElement AutomationId ViewRoomMapButton PeopleRoomsPage
@@ -95,14 +103,13 @@ function Test-RoomMapEntries {
     if ($gateway.Current.IsKeyboardFocusable -ne $true) { throw 'The Room map gateway fallback must remain keyboard reachable.' }
     $unassigned = Find-PeopleRoomsElement AutomationId RoomMapUnassigned RoomMapPage
     if ($unassigned.Current.IsKeyboardFocusable -ne $true) { throw 'The Room map unassigned strip must remain keyboard reachable.' }
-    $null = Find-PeopleRoomsElement AutomationId RoomMapBackButton RoomMapPage
-    Invoke-PeopleRoomsElement AutomationId RoomMapBackButton RoomMapPage
+    Invoke-RoomMapBack 'Back to Rooms'
     $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
 
     Select-SidebarPage 'Tools' 'View room map'
     Invoke-PeopleRoomsElement Name 'View room map'
-    Invoke-PeopleRoomsElement AutomationId RoomMapBackButton RoomMapPage
-    $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
+    Invoke-RoomMapBack 'Back to Tools'
+    $null = Find-PeopleRoomsElement AutomationId RoomMapCard
 
     Select-SidebarPage 'Tools' 'Network health'
     Invoke-PeopleRoomsElement Name 'Network health'
@@ -119,9 +126,15 @@ function Test-RoomMapEntries {
                 [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'NetworkHealthViewRoomMapButton'))
     }
     Invoke-PeopleRoomsElement AutomationId NetworkHealthViewRoomMapButton
-    Invoke-PeopleRoomsElement AutomationId RoomMapBackButton RoomMapPage
-    $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
-    Write-Host 'Room map entry points, conceptual gateway fallback, focus reachability and return to Rooms passed.'
+    Invoke-RoomMapBack 'Back to Network health'
+    # Network health keeps the scroll position of its Room map entry and returns keyboard focus to that entry.
+    $null = Wait-UiRegressionState -Description 'Network health Room map entry focused after Back' -Condition {
+        $entry = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'NetworkHealthViewRoomMapButton'))
+        if ((Test-UiRegressionElementVisible $entry) -and $entry.Current.HasKeyboardFocus) { $entry }
+    }
+    Write-Host 'Room map entry points, conceptual gateway fallback, focus reachability and origin-aware Back passed.'
 }
 
 function Test-RoomMapDetailsRoundTrip {
@@ -199,7 +212,9 @@ function Test-RoomMapDetailsRoundTrip {
             [Math]::Abs($restoredScroll.Current.VerticalScrollPercent - $vertical) -gt 1) {
             throw 'Returning from Device Details must restore the originating device focus and Room map scroll position.'
         }
-        Write-Host 'Room map device and room detail round trips restored origin focus and scroll state.'
+        Invoke-RoomMapBack 'Back to Tools'
+        $null = Find-PeopleRoomsElement AutomationId RoomMapCard
+        Write-Host 'Room map device and room detail round trips restored origin focus, scroll state and Back destination.'
     }
     finally {
         Stop-SidebarApp
@@ -214,8 +229,42 @@ function Test-RoomMapAppearance([string] $Name) {
     Invoke-PeopleRoomsElement Name 'View room map'
     $null = Find-PeopleRoomsElement AutomationId RoomMapRootPlaceholder RoomMapPage
     Save-SidebarAppearance "room-map-$Name" -AssertMatchingSolid
-    Invoke-PeopleRoomsElement AutomationId RoomMapBackButton RoomMapPage
-    $null = Find-PeopleRoomsElement Name 'Search people and rooms' PeopleRoomsPage
+    Invoke-RoomMapBack 'Back to Tools'
+    $null = Find-PeopleRoomsElement AutomationId RoomMapCard
+}
+
+function Test-RoomMapThemes {
+    # Room map theme captures run with the Room map group, which owns its origin-aware navigation.
+    $mode = Get-SidebarAppearanceSelection ModePicker
+    $style = Get-SidebarAppearanceSelection ThemePicker
+    $highContrast = $null
+    $themesFailed = $true
+    try {
+        foreach ($theme in @('Standard Light', 'Standard Dark')) {
+            Set-SidebarAppearance ThemePicker $theme
+            Test-RoomMapAppearance ($theme.Replace(' ', '-').ToLowerInvariant())
+        }
+        $highContrast = [SidebarReviewKeyboard]::GetHighContrastFlags()
+        [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast -bor 1)
+        if (([SidebarReviewKeyboard]::GetHighContrastFlags() -band 1) -eq 0) { throw 'High contrast did not activate.' }
+        Start-Sleep -Seconds 2
+        Test-RoomMapAppearance 'high-contrast'
+        $themesFailed = $false
+    }
+    finally {
+        Invoke-UiRegressionCleanup -PrimaryFailed $themesFailed -Steps @(
+            {
+                if ($null -ne $highContrast) {
+                    [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast)
+                    Start-Sleep -Seconds 2
+                }
+            },
+            {
+                Select-SidebarPage Settings "Window backdrop"
+                Set-UiReviewAppearanceChoice -Root $root -Picker ModePicker -Choice $mode
+                Set-UiReviewAppearanceChoice -Root $root -Picker ThemePicker -Choice $style
+            })
+    }
 }
 
 function Test-RoomMapScale {

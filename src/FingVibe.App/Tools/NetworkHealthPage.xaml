@@ -155,7 +155,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="Network path and status" Style="{ThemeResource SubtitleTextBlockStyle}"
                                    VerticalAlignment="Center" TextWrapping="Wrap" />
-                        <Button Grid.Column="1" Content="View room map"
+                        <Button x:Name="RoomMapButton" Grid.Column="1" Content="View room map"
                                 AutomationProperties.AutomationId="NetworkHealthViewRoomMapButton"
                                 AutomationProperties.Name="View room map"
                                 Click="RoomMapButton_Click" />
