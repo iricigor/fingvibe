@@ -34,6 +34,12 @@
                     <SolidColorBrush x:Key="PeopleRoomsBadgeForegroundBrush" Color="#1D4ED8" />
                     <SolidColorBrush x:Key="PeopleRoomsHeaderHouseBrush" Color="#2563EB" />
                     <SolidColorBrush x:Key="PeopleRoomsHeaderPersonBrush" Color="#A855F7" />
+                    <Color x:Key="SpeedGaugeSlowColor">#D92D20</Color>
+                    <Color x:Key="SpeedGaugeFairColor">#E0A100</Color>
+                    <Color x:Key="SpeedGaugeGoodColor">#16A34A</Color>
+                    <SolidColorBrush x:Key="SpeedRatingSlowBrush" Color="#B42318" />
+                    <SolidColorBrush x:Key="SpeedRatingFairBrush" Color="#8A5300" />
+                    <SolidColorBrush x:Key="SpeedRatingGoodBrush" Color="#0E6B0E" />
                     <Style x:Key="PageHeaderColorIconStyle" TargetType="Image">
                         <Setter Property="Visibility" Value="Visible" />
                     </Style>
@@ -66,6 +72,12 @@
                     <SolidColorBrush x:Key="PeopleRoomsBadgeForegroundBrush" Color="#BFDBFE" />
                     <SolidColorBrush x:Key="PeopleRoomsHeaderHouseBrush" Color="#60A5FA" />
                     <SolidColorBrush x:Key="PeopleRoomsHeaderPersonBrush" Color="#C084FC" />
+                    <Color x:Key="SpeedGaugeSlowColor">#F97066</Color>
+                    <Color x:Key="SpeedGaugeFairColor">#FACC15</Color>
+                    <Color x:Key="SpeedGaugeGoodColor">#4ADE80</Color>
+                    <SolidColorBrush x:Key="SpeedRatingSlowBrush" Color="#FDA29B" />
+                    <SolidColorBrush x:Key="SpeedRatingFairBrush" Color="#F3D28B" />
+                    <SolidColorBrush x:Key="SpeedRatingGoodBrush" Color="#8FD88F" />
                     <Style x:Key="PageHeaderColorIconStyle" TargetType="Image">
                         <Setter Property="Visibility" Value="Visible" />
                     </Style>
@@ -94,6 +106,12 @@
                     <SolidColorBrush x:Key="PeopleRoomsBadgeForegroundBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                     <SolidColorBrush x:Key="PeopleRoomsHeaderHouseBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                     <SolidColorBrush x:Key="PeopleRoomsHeaderPersonBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <StaticResource x:Key="SpeedGaugeSlowColor" ResourceKey="SystemColorWindowTextColor" />
+                    <StaticResource x:Key="SpeedGaugeFairColor" ResourceKey="SystemColorWindowTextColor" />
+                    <StaticResource x:Key="SpeedGaugeGoodColor" ResourceKey="SystemColorWindowTextColor" />
+                    <SolidColorBrush x:Key="SpeedRatingSlowBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="SpeedRatingFairBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+                    <SolidColorBrush x:Key="SpeedRatingGoodBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
                     <Style x:Key="PageHeaderColorIconStyle" TargetType="Image">
                         <Setter Property="Visibility" Value="Collapsed" />
                     </Style>
@@ -103,6 +121,16 @@
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
             <Thickness x:Key="ScannerPageContentMargin">12,0,24,24</Thickness>
+            <!-- Speed-quality words keep their meaning in text; color only reinforces it and becomes the system text color in high contrast. -->
+            <Style x:Key="SpeedRatingSlowTextStyle" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{ThemeResource SpeedRatingSlowBrush}" />
+            </Style>
+            <Style x:Key="SpeedRatingFairTextStyle" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{ThemeResource SpeedRatingFairBrush}" />
+            </Style>
+            <Style x:Key="SpeedRatingGoodTextStyle" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{ThemeResource SpeedRatingGoodBrush}" />
+            </Style>
             <!-- Monitoring dots carry state through shape and fill, never a health colour; text always names the state. -->
             <Style x:Key="NetworkMonitorDotOffStyle" TargetType="Ellipse">
                 <Setter Property="Stroke" Value="{ThemeResource TextFillColorSecondaryBrush}" />

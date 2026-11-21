@@ -1,0 +1,27 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 579,
+  "category": "validation",
+  "changedBehavior": "Speed test page groups Test, Live measurement and Results cards; gauges use a unit-labeled 1 Mbps-10 Gbps logarithmic scale with a red-yellow-green speed-quality gradient, neutral needle and fixed FCC-based Slow/Fair/Good ratings on gauge and result values, with system colors in high contrast. A UI-review-only bridge fixture covers provisional, cancelled, failed and final states without internet traffic.",
+  "selectors": [
+    "pr-validation",
+    "native-validation",
+    "ui-review-scenarios",
+    "core-tests",
+    "speed-test",
+    "ui-regression-helpers",
+    "native-tools-device-data",
+    "native-tools-utilities",
+    "documentation-tests"
+  ],
+  "expectedAssertions": [
+    "Values map to the 1 Mbps-10 Gbps logarithmic arc, pinning below 1 Mbps and above 10 Gbps while numbers stay exact.",
+    "Ratings use exact boundaries: download 25 and 100 Mbps, upload 5 and 20 Mbps, applied to the displayed two-decimal value.",
+    "The gradient's yellow midpoint lies between each direction's Slow and Good thresholds.",
+    "The page contains only the header and the Test, Live measurement and Results cards in order, with controls and gauges in their cards.",
+    "After per-run confirmation, provisional gauges expose rated accessible names, Cancel is keyboard reachable and cancellation clears them.",
+    "Failed runs show their error without a Results card; final results expose Slow/Fair/Good in accessible names in light, dark and high contrast.",
+    "Narrow windows stack the gauges without horizontal clipping of controls, gauges or results.",
+    "Existing bridge parser, session state and speed-test host tests remain unchanged and green."
+  ]
+}

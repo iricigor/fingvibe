@@ -15,6 +15,13 @@ public sealed partial class SpeedTestPage : UserControl
     private static readonly Uri EnginePageUri = new($"https://{VirtualHostName}/index.html");
     private static readonly Uri PrivacyPolicyUri = new("https://www.cloudflare.com/privacypolicy/");
     private readonly SpeedTestSessionState _session = new();
+    // UI review only: scripted bridge messages replace the WebView2 engine so native checks cover provisional,
+    // final, cancelled and failed states through the same parsing and session path without internet traffic.
+    private static readonly Queue<string>? UiReviewFixtures =
+        Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW") == "1"
+        && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_SPEED_TEST") is { Length: > 0 } fixtures
+            ? new Queue<string>(fixtures.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            : null;
     private CoreWebView2? _configuredCore;
     private IDisposable? _activityLease;
     private Task? _cancellationTask;
@@ -92,6 +99,12 @@ public sealed partial class SpeedTestPage : UserControl
         ResetResults();
         SetRunning(true);
         StatusText.Text = "Preparing the Cloudflare measurement...";
+
+        if (UiReviewFixtures is { } fixtures)
+        {
+            await RunUiReviewFixtureAsync(runId, fixtures.Count > 0 ? fixtures.Dequeue() : "results");
+            return;
+        }
 
         try
         {
@@ -278,6 +291,11 @@ public sealed partial class SpeedTestPage : UserControl
             return;
         }
 
+        HandleBridgePayload(payload, runId);
+    }
+
+    private void HandleBridgePayload(string payload, string runId)
+    {
         if (!SpeedTestBridgeMessageParser.TryParse(payload, runId, out var message)
             || message is null
             || !_session.Apply(message))
@@ -333,6 +351,41 @@ public sealed partial class SpeedTestPage : UserControl
         }
     }
 
+    private async Task RunUiReviewFixtureAsync(string runId, string fixture)
+    {
+        var messages = new List<object>
+        {
+            new { kind = "progress", runId, phase = "download" },
+            new { kind = "sample", runId, phase = "download", bps = 62_500_000d },
+            new { kind = "progress", runId, phase = "upload" },
+            new { kind = "sample", runId, phase = "upload", bps = 3_200_000d }
+        };
+        if (fixture == "results")
+        {
+            messages.Add(new
+            {
+                kind = "result", runId, downloadBps = 312_400_000d, uploadBps = 18_600_000d, latencyMs = 14.2d,
+                location = "UI review fixture"
+            });
+        }
+        else if (fixture == "failed")
+        {
+            messages.Add(new { kind = "error", runId, category = "timeout", message = "UI review fixture timeout" });
+        }
+
+        // A "provisional" fixture leaves the run active until it is cancelled.
+        foreach (var message in messages)
+        {
+            await Task.Delay(150);
+            if (!_session.IsActive || !string.Equals(_session.RunId, runId, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            HandleBridgePayload(JsonSerializer.Serialize(message), runId);
+        }
+    }
+
     private static bool IsTrustedMessageSource(string source) =>
         Uri.TryCreate(source, UriKind.Absolute, out var uri)
         && uri.Scheme == Uri.UriSchemeHttps
@@ -365,15 +418,34 @@ public sealed partial class SpeedTestPage : UserControl
 
     private void ShowResults(SpeedTestBridgeMessage message)
     {
-        DownloadResultText.Text = (message.DownloadBps!.Value / 1_000_000)
-            .ToString("0.##", CultureInfo.CurrentCulture);
-        UploadResultText.Text = (message.UploadBps!.Value / 1_000_000)
-            .ToString("0.##", CultureInfo.CurrentCulture);
+        ShowResultSpeed(DownloadResultText, DownloadRatingText, SpeedDirection.Download, "Download speed",
+            message.DownloadBps!.Value);
+        ShowResultSpeed(UploadResultText, UploadRatingText, SpeedDirection.Upload, "Upload speed",
+            message.UploadBps!.Value);
         LatencyResultText.Text = message.LatencyMs!.Value.ToString("0.##", CultureInfo.CurrentCulture);
         LocationResultText.Text = message.Location is null
             ? "Serving location: Not provided by the Cloudflare engine."
             : $"Serving location: {message.Location}";
         ResultsCard.Visibility = Visibility.Visible;
+    }
+
+    private static void ShowResultSpeed(TextBlock value, TextBlock rating, SpeedDirection direction, string name, double bps)
+    {
+        var mbps = SpeedRating.DisplayMbps(bps);
+        var level = SpeedRating.Rate(direction, mbps);
+        value.Text = SpeedRating.FormatMbps(mbps);
+        rating.Text = SpeedRating.Label(level);
+        rating.Style = SpeedGauge.SpeedRatingStyle(level);
+        rating.Visibility = Visibility.Visible;
+        AutomationProperties.SetName(value, $"{name}: {value.Text} Mbps, {rating.Text}");
+    }
+
+    private static void ClearResultSpeed(TextBlock value, TextBlock rating, string name)
+    {
+        value.Text = "—";
+        rating.Text = string.Empty;
+        rating.Visibility = Visibility.Collapsed;
+        AutomationProperties.SetName(value, name);
     }
 
     private static string DescribeError(SpeedTestBridgeMessage message) => message.Category switch
@@ -522,8 +594,8 @@ public sealed partial class SpeedTestPage : UserControl
     {
         ResetGauges();
         ResultsCard.Visibility = Visibility.Collapsed;
-        DownloadResultText.Text = "—";
-        UploadResultText.Text = "—";
+        ClearResultSpeed(DownloadResultText, DownloadRatingText, "Download speed");
+        ClearResultSpeed(UploadResultText, UploadRatingText, "Upload speed");
         LatencyResultText.Text = "—";
         LocationResultText.Text = "Serving location: Not provided by the Cloudflare engine.";
     }
