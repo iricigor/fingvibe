@@ -234,6 +234,27 @@
                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                 <Setter Property="VerticalContentAlignment" Value="Top" />
             </Style>
+            <Style x:Key="NavigationChevronIconStyle" TargetType="FontIcon">
+                <Setter Property="Glyph" Value="&#xE76C;" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Width" Value="32" />
+                <Setter Property="Margin" Value="12,0,0,0" />
+                <Setter Property="HorizontalAlignment" Value="Right" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="IsTextScaleFactorEnabled" Value="False" />
+                <Setter Property="IsHitTestVisible" Value="False" />
+                <Setter Property="AutomationProperties.AccessibilityView" Value="Raw" />
+                <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+            </Style>
+            <Style x:Key="ExternalLinkIconStyle" TargetType="FontIcon">
+                <Setter Property="Glyph" Value="&#xE8A7;" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="IsTextScaleFactorEnabled" Value="False" />
+                <Setter Property="IsHitTestVisible" Value="False" />
+                <Setter Property="AutomationProperties.AccessibilityView" Value="Raw" />
+                <Setter Property="Foreground" Value="{ThemeResource AccentTextFillColorPrimaryBrush}" />
+            </Style>
             <Color x:Key="SystemAccentColor">#2563EB</Color>
             <Color x:Key="SystemAccentColorLight1">#4F83F1</Color>
             <Color x:Key="SystemAccentColorLight2">#82A9F7</Color>

@@ -91,9 +91,11 @@
                         <TextBlock Text="Provider reports are separate from this network's measured health."
                                    TextWrapping="Wrap" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     </StackPanel>
-                    <Button x:Name="OpenServiceStatusButton" Grid.Column="2" Content="Open service status" VerticalAlignment="Center"
-                            Click="OpenServiceStatusButton_Click" Style="{ThemeResource AccentButtonStyle}"
-                            AutomationProperties.AutomationId="OpenServiceStatusButton" AutomationProperties.Name="Open service status" />
+                    <HyperlinkButton x:Name="OpenServiceStatusButton" Grid.Column="2" Content="Open service status"
+                                     HorizontalAlignment="Left" VerticalAlignment="Center"
+                                     Click="OpenServiceStatusButton_Click"
+                                     AutomationProperties.AutomationId="OpenServiceStatusButton"
+                                     AutomationProperties.Name="Open service status" />
                 </Grid>
             </Border>
             <Border x:Name="IncidentHistoryCard" Style="{StaticResource ScannerSummaryCardStyle}"
@@ -150,10 +152,11 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="Network path and status" Style="{ThemeResource SubtitleTextBlockStyle}"
                                    VerticalAlignment="Center" TextWrapping="Wrap" />
-                        <Button Grid.Column="1" Content="View room map"
-                                AutomationProperties.AutomationId="NetworkHealthViewRoomMapButton"
-                                AutomationProperties.Name="View room map"
-                                Click="RoomMapButton_Click" />
+                        <HyperlinkButton Grid.Column="1" Content="View room map"
+                                         HorizontalAlignment="Left"
+                                         AutomationProperties.AutomationId="NetworkHealthViewRoomMapButton"
+                                         AutomationProperties.Name="View room map"
+                                         Click="RoomMapButton_Click" />
                     </Grid>
                     <TextBlock x:Name="DiagramPlaybackText" Visibility="Collapsed" TextWrapping="Wrap" FontSize="12"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />

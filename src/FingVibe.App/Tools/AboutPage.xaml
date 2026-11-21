@@ -36,18 +36,38 @@
                         <TextBlock x:Name="BuildTimestampText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
                         <TextBlock Text="Open-source network discovery, by Igor." TextWrapping="Wrap" />
                         <TextBlock x:Name="CommitText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
-                        <HyperlinkButton x:Name="PullRequestLink" Content="Pull request &#x2197;"
+                        <HyperlinkButton x:Name="PullRequestLink"
                                          HorizontalAlignment="Left" Padding="0,4"
-                                         AutomationProperties.Name="Pull request (opens in browser)" />
-                        <HyperlinkButton x:Name="BuildLink" Content="Build run &#x2197;"
+                                         AutomationProperties.Name="Pull request (opens in browser)">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="Pull request" />
+                                <FontIcon Style="{StaticResource ExternalLinkIconStyle}" />
+                            </StackPanel>
+                        </HyperlinkButton>
+                        <HyperlinkButton x:Name="BuildLink"
                                          HorizontalAlignment="Left" Padding="0,4"
-                                         AutomationProperties.Name="Build run (opens in browser)" />
-                        <HyperlinkButton Content="GitHub repository &#x2197;" Padding="0,4"
+                                         AutomationProperties.Name="Build run (opens in browser)">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="Build run" />
+                                <FontIcon Style="{StaticResource ExternalLinkIconStyle}" />
+                            </StackPanel>
+                        </HyperlinkButton>
+                        <HyperlinkButton Padding="0,4"
                                          NavigateUri="https://github.com/iricigor/fingvibe"
-                                         AutomationProperties.Name="GitHub repository (opens in browser)" />
-                        <HyperlinkButton Content="Creator's website &#x2197;" Padding="0,4"
+                                         AutomationProperties.Name="GitHub repository (opens in browser)">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="GitHub repository" />
+                                <FontIcon Style="{StaticResource ExternalLinkIconStyle}" />
+                            </StackPanel>
+                        </HyperlinkButton>
+                        <HyperlinkButton Padding="0,4"
                                          NavigateUri="https://igor.iric.online"
-                                         AutomationProperties.Name="Creator's website (opens in browser)" />
+                                         AutomationProperties.Name="Creator's website (opens in browser)">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="Creator's website" />
+                                <FontIcon Style="{StaticResource ExternalLinkIconStyle}" />
+                            </StackPanel>
+                        </HyperlinkButton>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -61,9 +81,15 @@
                     <TextBlock x:Name="UpdateDeploymentText" TextWrapping="Wrap" />
                     <Button x:Name="CheckUpdatesButton" Content="Check for updates" Click="CheckUpdates_Click"
                             HorizontalAlignment="Left" />
-                    <HyperlinkButton x:Name="UpdateReleaseLink" Content="Stable releases (opens in browser)"
+                    <HyperlinkButton x:Name="UpdateReleaseLink"
                                      NavigateUri="https://github.com/iricigor/fingvibe/releases/latest"
-                                     HorizontalAlignment="Left" Padding="0,4" />
+                                     HorizontalAlignment="Left" Padding="0,4"
+                                     AutomationProperties.Name="Stable releases (opens in browser)">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="Stable releases" />
+                            <FontIcon Style="{StaticResource ExternalLinkIconStyle}" />
+                        </StackPanel>
+                    </HyperlinkButton>
                     <Button x:Name="DownloadUpdateButton" Click="DownloadUpdate_Click" Visibility="Collapsed"
                             HorizontalAlignment="Left">
                         <TextBlock Text="Download update" TextWrapping="Wrap" />
