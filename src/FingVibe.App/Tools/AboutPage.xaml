@@ -99,7 +99,7 @@
                     <TextBlock x:Name="UpdateDownloadStatus" TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
                     <Button x:Name="CancelUpdateDownloadButton" Content="Cancel download" Click="CancelDownload_Click"
                             Visibility="Collapsed" HorizontalAlignment="Left" />
-                    <Button x:Name="InstallUpdateButton" Content="Install update" Click="InstallUpdate_Click"
+                    <Button x:Name="InstallUpdateButton" Content="Restart and update" Click="InstallUpdate_Click"
                             Visibility="Collapsed" HorizontalAlignment="Left" />
                 </StackPanel>
             </Border>
