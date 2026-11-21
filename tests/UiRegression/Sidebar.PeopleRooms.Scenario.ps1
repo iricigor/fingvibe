@@ -1,4 +1,5 @@
 Test-RoomMapEntries
+Test-RoomMapThemes
 Test-RoomMapScale
 Test-RoomMapAccessibility
 Test-RoomMapDetailsRoundTrip
