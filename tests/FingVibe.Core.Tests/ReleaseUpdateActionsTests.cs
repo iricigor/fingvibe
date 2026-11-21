@@ -26,8 +26,41 @@ public sealed class ReleaseUpdateActionsTests
         Assert.Equal(installed, fixture.Actions.CanInstall);
         if (installed)
         {
-            await Assert.ThrowsAsync<Win32Exception>(() => fixture.Actions.LaunchInstallerAsync());
+            await Assert.ThrowsAsync<Win32Exception>(() =>
+                fixture.Actions.StartInstallHandoffAsync(relaunch: true));
             Assert.True(fixture.Actions.CanInstall);
+            var recordPath = Assert.IsType<string>(fixture.Actions.InstallHandoffRecordPath);
+            Assert.NotEqual(recordPath, fixture.Actions.LatestInstallHandoffRecordPath);
+            Assert.Contains("Handoffs", recordPath);
+            var relaunch = await ReleaseInstallHandoffStore.ReadAsync(recordPath);
+            Assert.NotNull(relaunch);
+            Assert.Equal(ReleaseInstallHandoffState.Failed, relaunch.State);
+            Assert.True(relaunch.RelaunchRequested);
+            Assert.NotNull(relaunch.Outcome?.Error);
+
+            var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
+            await ReleaseInstallHandoffStore.WriteAsync(
+                fixture.Actions.LatestInstallHandoffRecordPath,
+                relaunch with
+                {
+                    State = ReleaseInstallHandoffState.Waiting,
+                    HelperProcessId = currentProcess.Id,
+                    HelperProcessStartedUtc = currentProcess.StartTime.ToUniversalTime()
+                });
+            await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                fixture.Actions.StartInstallHandoffAsync(relaunch: false));
+            await ReleaseInstallHandoffStore.WriteAsync(
+                fixture.Actions.LatestInstallHandoffRecordPath,
+                relaunch with { State = ReleaseInstallHandoffState.Waiting });
+
+            await Assert.ThrowsAsync<Win32Exception>(() =>
+                fixture.Actions.StartInstallHandoffAsync(relaunch: false));
+            var nextRecordPath = Assert.IsType<string>(fixture.Actions.InstallHandoffRecordPath);
+            Assert.NotEqual(recordPath, nextRecordPath);
+            var noRelaunch = await ReleaseInstallHandoffStore.ReadAsync(nextRecordPath);
+            Assert.NotNull(noRelaunch);
+            Assert.False(noRelaunch.RelaunchRequested);
+            Assert.Equal(ReleaseInstallHandoffState.Failed, noRelaunch.State);
         }
         fixture.Write("current", deployment);
         await fixture.Session.CheckAsync();
@@ -42,11 +75,13 @@ public sealed class ReleaseUpdateActionsTests
         await fixture.Actions.DownloadAsync(new Progress<double>());
         var path = fixture.Actions.DownloadedPath!;
         await File.WriteAllTextAsync(path, "modified-content!");
-        await Assert.ThrowsAsync<InvalidDataException>(() => fixture.Actions.LaunchInstallerAsync());
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            fixture.Actions.StartInstallHandoffAsync(relaunch: true));
         await fixture.Actions.DownloadAsync(new Progress<double>());
         path = fixture.Actions.DownloadedPath!;
         await File.WriteAllTextAsync(path + ":Zone.Identifier", "[ZoneTransfer]\r\nZoneId=0\r\n");
-        await Assert.ThrowsAsync<InvalidDataException>(() => fixture.Actions.LaunchInstallerAsync());
+        await Assert.ThrowsAsync<InvalidDataException>(() =>
+            fixture.Actions.StartInstallHandoffAsync(relaunch: true));
     }
 
     [WindowsUpdateFact]
