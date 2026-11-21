@@ -1,0 +1,19 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 656,
+  "category": "ui",
+  "changedBehavior": "Keep main-page and tool-page headings, identity rows, and Back controls in fixed rows while only their bodies scroll.",
+  "selectors": [
+    "ui-review-scenarios",
+    "ui-regression-helpers",
+    "native-sidebar-presentation",
+    "native-details-identity",
+    "native-tools-utilities"
+  ],
+  "expectedAssertions": [
+    "Main-page and tool-page titles and Back controls are outside their body ScrollViewer.",
+    "Fixed headers remain visible while overflowing page bodies scroll at narrow widths and enlarged text.",
+    "Page content remains reachable without adding nested vertical scroll regions.",
+    "Existing navigation, keyboard focus, high-contrast, and page-header appearance behavior remains unchanged."
+  ]
+}

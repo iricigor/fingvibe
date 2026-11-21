@@ -11,6 +11,44 @@
         SettingsPage = "SettingsPageView"
     }
     $appDirectory = Join-Path $PSScriptRoot "..\src\FingVibe.App"
+    foreach ($pagePath in @(
+        "Views\OverviewPageView.xaml",
+        "Views\NetworkPageView.xaml",
+        "Views\DevicesPageView.xaml",
+        "Views\DeviceDetailsPageView.xaml",
+        "Views\PeopleRoomsPageView.xaml",
+        "Views\PersonDetailsPageView.xaml",
+        "Views\RoomDetailsPageView.xaml",
+        "Views\RoomMapPageView.xaml",
+        "Views\SettingsPageView.xaml",
+        "Tools\ToolsPage.xaml",
+        "Tools\AboutPage.xaml",
+        "Tools\DatabaseBackupsPage.xaml",
+        "Tools\FingImportPage.xaml",
+        "Tools\NetworkHealthPage.xaml",
+        "Tools\ServiceStatusPage.xaml",
+        "Tools\SpeedTestPage.xaml",
+        "Tools\SqlEditorPage.xaml"
+    )) {
+        $pageDocument = [xml](Get-Content (Join-Path $appDirectory $pagePath) -Raw)
+        $headerElements = @(
+            $pageDocument.SelectNodes("//*[contains(@Style,'ScannerPageTitleStyle')]")
+            $pageDocument.SelectNodes("//*[@*[local-name()='Name' and .='HeaderGrid']]")
+            $pageDocument.SelectNodes("//*[@*[local-name()='Name' and .='PeopleRoomsHeadingRow']]")
+            $pageDocument.SelectNodes("//*[@*[local-name()='Name' and .='PersonDetailName']]")
+            $pageDocument.SelectNodes("//*[@*[local-name()='Name' and .='RoomDetailName']]")
+            $pageDocument.SelectNodes("//*[@AutomationProperties.Name]") |
+                Where-Object { $_.GetAttribute("AutomationProperties.Name") -like "Back to *" }
+        )
+        if ($headerElements.Count -eq 0) {
+            throw "$pagePath must expose its fixed page-header contract."
+        }
+        foreach ($headerElement in $headerElements) {
+            if ($headerElement.SelectSingleNode("ancestor::*[local-name()='ScrollViewer']")) {
+                throw "$pagePath places a page heading or Back control inside a ScrollViewer; headers must remain stationary while the body scrolls."
+            }
+        }
+    }
     $roomMapDocument = [xml](Get-Content (Join-Path $appDirectory "Views\RoomMapPageView.xaml") -Raw)
     $roomMapCode = Get-Content (Join-Path $appDirectory "Views\RoomMapPageView.xaml.cs") -Raw
     $roomMapLayoutCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.Core\Models\RoomMapLayout.cs") -Raw
@@ -104,6 +142,12 @@
         throw "People & rooms must omit the storage notice and collapse empty status lines while keeping save and error feedback."
     }
     $settings = [xml](Get-Content (Join-Path $appDirectory "Views\SettingsPageView.xaml") -Raw)
+    $settingsPage = $settings.SelectSingleNode("//*[@*[local-name()='Name']='SettingsPage']")
+    $settingsScroll = $settings.SelectSingleNode("//*[@*[local-name()='Name']='SettingsScroll']")
+    if (-not $settingsPage -or $settingsPage.LocalName -cne "Grid" -or -not $settingsScroll -or
+        $settingsScroll.GetAttribute("AutomationProperties.AutomationId") -cne "SettingsPage") {
+        throw "Settings must keep its fixed page grid for header visibility and expose the body ScrollViewer as the SettingsPage automation peer."
+    }
     $cards = $settings.SelectSingleNode("//*[@*[local-name()='Name']='SettingsCards']")
     if (-not $cards -or [double]$cards.GetAttribute("Spacing") -lt 4 -or [double]$cards.GetAttribute("Spacing") -gt 6) {
         throw "Settings cards must form one compact stack with 4-6 DIP gaps."
@@ -277,6 +321,14 @@
     }
     $toolsDocument = [System.Xml.XmlDocument]::new()
     $toolsDocument.Load((Join-Path $appDirectory "Tools\ToolsPage.xaml"))
+    $toolsLandingContainer = $toolsDocument.SelectSingleNode(
+        "//*[@*[local-name()='Name']='ToolsLandingContainer']")
+    $toolsLandingScroll = $toolsDocument.SelectSingleNode(
+        "//*[@*[local-name()='Name']='ToolsLanding']")
+    if ($toolsLandingContainer.LocalName -cne "Grid" -or $toolsLandingScroll.LocalName -cne "ScrollViewer" -or
+        $toolsLandingScroll.GetAttribute("AutomationProperties.AutomationId") -cne "ToolsLanding") {
+        throw "Tools must keep its fixed landing grid while exposing the body ScrollViewer as the ToolsLanding automation and ScrollPattern peer."
+    }
     $landing = $toolsDocument.SelectSingleNode("//*[@*[local-name()='Name']='ToolsLandingGrid']")
     $landingColumns = $landing.SelectNodes("./*[local-name()='Grid.ColumnDefinitions']/*")
     $cards = @($landing.SelectNodes("./*[local-name()='Button']"))

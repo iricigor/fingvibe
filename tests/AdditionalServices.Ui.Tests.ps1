@@ -214,8 +214,11 @@ function Show-ServiceScanSection([int] $ExtraSpace = 0) {
         $scale = [UiReviewNativeWindow]::GetDpiForWindow($process.MainWindowHandle) / 96.0
         $top = [Math]::Max($area.Top, $window.Top + 190 * $scale)
         $bottom = [Math]::Min($area.Bottom, $window.Bottom - 8 * $scale)
-        $button = (Find-ServiceControl DevicePortScanButton).Current.BoundingRectangle
-        $heading = (Find-ServiceControl DeviceIncludeUdpCheckBox).Current.BoundingRectangle
+        $buttonElement = Find-ServiceControl DevicePortScanButton -Optional
+        $headingElement = Find-ServiceControl DeviceIncludeUdpCheckBox -Optional
+        if (-not $buttonElement -or -not $headingElement) { continue }
+        $button = $buttonElement.Current.BoundingRectangle
+        $heading = $headingElement.Current.BoundingRectangle
         if ($button.Width -gt 0 -and $heading.Width -gt 0 -and
             $button.Top -ge $top + 8 * $scale -and $heading.Bottom -le $bottom - (110 + $ExtraSpace) * $scale) {
             return
@@ -353,8 +356,10 @@ function Test-DeviceDetailsEditing {
     Show-ServiceScanSection
     (Find-ServiceControl "Edit device identification" -ByName).SetFocus()
     Wait-ServiceState {
-        (Find-ServiceControl "Device type" -ByName).Current.BoundingRectangle.Width -gt 0 -and
-        (Find-ServiceControl DevicePortsHeading).Current.BoundingRectangle.Width -gt 0
+        $type = Find-ServiceControl "Device type" -ByName -Optional
+        $ports = Find-ServiceControl DevicePortsHeading -Optional
+        $type -and $ports -and $type.Current.BoundingRectangle.Width -gt 0 -and
+            $ports.Current.BoundingRectangle.Width -gt 0
     } "wide identification fields"
     $ports = (Find-ServiceControl DevicePortsHeading).Current.BoundingRectangle
     $type = (Find-ServiceControl "Device type" -ByName).Current.BoundingRectangle
@@ -554,7 +559,11 @@ try {
     if ($udp.Current.ToggleState -ne [System.Windows.Automation.ToggleState]::Off) { throw "UDP must start unchecked." }
     Save-ServiceEvidence "services-default"
     Invoke-ServiceControl "Scan additional ports"
-    Wait-ServiceState { (Find-ServiceControl DeviceTcpScanStatus).Current.Name -like "TCP: complete*" } "TCP-only completion"
+    Show-ServiceScanSection -ExtraSpace 24
+    Wait-ServiceState {
+        $status = Find-ServiceControl DeviceTcpScanStatus -Optional
+        $status -and $status.Current.Name -like "TCP: complete*"
+    } "TCP-only completion"
     if ($fixture.DnsRequests -ne 0 -or $fixture.NtpRequests -ne 0) { throw "Default scanning sent UDP requests." }
     if (Find-ServiceControl "2222/TCP - SSH alternate" -ByName -Optional) { throw "The TCP fixture unexpectedly responded before starting." }
     Wait-ServiceState { (Find-ServiceControl DevicePortScanButton).Current.Name -eq "Scan additional ports" } "usable TCP-only button"

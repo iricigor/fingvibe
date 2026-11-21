@@ -4,10 +4,15 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:FingVibe.App"
     xmlns:models="using:FingVibe.Core.Models">
-    <ScrollViewer x:Name="OverviewPage" SizeChanged="OverviewPage_SizeChanged"
-                  HorizontalScrollBarVisibility="Disabled">
-        <StackPanel Margin="{StaticResource ScannerPageContentMargin}" Spacing="16">
-            <TextBlock Text="Overview" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+    <Grid Margin="{StaticResource ScannerPageContentMargin}" RowSpacing="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <TextBlock Text="Overview" Style="{StaticResource ScannerPageTitleStyle}" Margin="0" />
+        <ScrollViewer x:Name="OverviewPage" Grid.Row="1" SizeChanged="OverviewPage_SizeChanged"
+                      HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Spacing="16">
             <TextBlock x:Name="OverviewVersionText" TextWrapping="Wrap"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
@@ -109,5 +114,6 @@
                 </StackPanel>
             </Button>
         </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

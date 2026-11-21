@@ -4,9 +4,23 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:FingVibe.App">
     <Grid>
-        <ScrollViewer x:Name="ToolsLanding" HorizontalScrollBarVisibility="Disabled">
-            <Grid x:Name="ToolsLandingGrid" Margin="{StaticResource ScannerPageContentMargin}"
-                  RowSpacing="16" ColumnSpacing="16">
+        <Grid x:Name="ToolsLandingContainer" Margin="{StaticResource ScannerPageContentMargin}" RowSpacing="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <local:PageHeaderIcon Icon="tools" />
+                <TextBlock Grid.Column="1" Text="Tools" Style="{StaticResource ScannerPageTitleStyle}"
+                           Margin="0" VerticalAlignment="Center" />
+            </Grid>
+            <ScrollViewer x:Name="ToolsLanding" Grid.Row="1" HorizontalScrollBarVisibility="Disabled"
+                          AutomationProperties.AutomationId="ToolsLanding">
+            <Grid x:Name="ToolsLandingGrid" RowSpacing="16" ColumnSpacing="16">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
@@ -14,15 +28,6 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Grid Grid.ColumnSpan="2" ColumnSpacing="12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <local:PageHeaderIcon Icon="tools" />
-                    <TextBlock Grid.Column="1" Text="Tools" Style="{StaticResource ScannerPageTitleStyle}"
-                               Margin="0" VerticalAlignment="Center" />
-                </Grid>
                 <Button x:Name="SqlEditorCard" Click="SqlEditorCard_Click"
                         Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="SQL editor">
                     <StackPanel Spacing="8">
@@ -129,7 +134,8 @@
                     </StackPanel>
                 </Button>
             </Grid>
-        </ScrollViewer>
+            </ScrollViewer>
+        </Grid>
         <local:SpeedTestPage x:Name="SpeedTestView"
                              Visibility="Collapsed"
                              BackRequested="SpeedTestView_BackRequested" />
