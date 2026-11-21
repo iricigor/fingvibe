@@ -194,13 +194,13 @@ public sealed partial class NetworkHealthPage : UserControl
     internal void ConfigurePeerCandidates(Func<LanNetwork, Guid?, IReadOnlyList<IPAddress>> peers) =>
         _peerCandidates = peers;
 
-    public async Task OpenAsync(bool focusServiceStatus = false)
+    public async Task OpenAsync(bool focusServiceStatus = false, bool focusRoomMap = false)
     {
         _open = true;
         if (_runTask is { } run) await run;
         if (!_open) return;
         RefreshNetworks(_shellNetwork);
-        FocusAfterOpen(focusServiceStatus ? OpenServiceStatusButton : RunButton);
+        FocusAfterOpen(focusRoomMap ? RoomMapButton : focusServiceStatus ? OpenServiceStatusButton : RunButton);
     }
 
     private void FocusAfterOpen(Control target)
