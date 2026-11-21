@@ -576,7 +576,7 @@ public sealed partial class NetworkHealthPage : UserControl
         var narrow = e.NewSize.Width < 560;
         Grid.SetRow(OpenServiceStatusButton, narrow ? 1 : 0);
         Grid.SetColumn(OpenServiceStatusButton, narrow ? 1 : 2);
-        OpenServiceStatusButton.HorizontalAlignment = narrow ? HorizontalAlignment.Left : HorizontalAlignment.Stretch;
+        OpenServiceStatusButton.HorizontalAlignment = HorizontalAlignment.Left;
     }
 
     private void OpenServiceStatusButton_Click(object sender, RoutedEventArgs e) =>

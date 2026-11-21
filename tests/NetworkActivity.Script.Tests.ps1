@@ -25,7 +25,7 @@ $cards = $xaml.SelectNodes("//ui:ScrollViewer[@x:Name='NetworkPage']/ui:StackPan
 if ($cards.Count -ne 4 -or
     -not $cards[0].SelectSingleNode(".//ui:TextBlock[@x:Name='PublicAddressText']", $namespaces) -or
     $cards[1].GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml") -cne "NetworkHealthSummary" -or
-    -not $cards[1].SelectSingleNode(".//ui:Button[@x:Name='OpenNetworkHealthButton']", $namespaces) -or
+    -not $cards[1].SelectSingleNode(".//ui:HyperlinkButton[@x:Name='OpenNetworkHealthButton']", $namespaces) -or
     -not $cards[2].SelectSingleNode(".//ui:TextBlock[@x:Name='SubnetSizeText']", $namespaces) -or
     -not $cards[3].SelectSingleNode(".//ui:ComboBox[@x:Name='NetworkActivityPeriod']", $namespaces)) {
     throw "Network identity, the Network health summary, subnet details and Activity must remain separate top-level cards in that order."

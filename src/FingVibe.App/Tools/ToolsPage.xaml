@@ -25,6 +25,11 @@
                 </Grid>
                 <Button x:Name="SqlEditorCard" Click="SqlEditorCard_Click"
                         Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="SQL editor">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
                     <StackPanel Spacing="8">
                         <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
@@ -37,11 +42,18 @@
                         </Grid>
                         <TextBlock Text="Explore saved inventory and scan history with read-only SQL."
                                    TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Text="Open SQL editor &#x2192;" TextWrapping="Wrap" />
+                        <TextBlock Text="Open SQL editor" TextWrapping="Wrap" />
                     </StackPanel>
+                    <FontIcon Grid.Column="1" Style="{StaticResource NavigationChevronIconStyle}" />
+                    </Grid>
                 </Button>
                 <Button x:Name="FingImportCard" Click="FingImportCard_Click"
                         Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="Import from Fing">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
                     <StackPanel Spacing="8">
                         <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
@@ -54,13 +66,20 @@
                         </Grid>
                         <TextBlock Text="Review and import device names, details, and assignments from a Fing Excel export."
                                    TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Text="Open Import from Fing &#x2192;" TextWrapping="Wrap" />
+                        <TextBlock Text="Open Import from Fing" TextWrapping="Wrap" />
                     </StackPanel>
+                    <FontIcon Grid.Column="1" Style="{StaticResource NavigationChevronIconStyle}" />
+                    </Grid>
                 </Button>
                 <Button x:Name="SpeedTestCard"
                         Click="SpeedTestCard_Click"
                         Style="{StaticResource ScannerSummaryButtonStyle}"
                         AutomationProperties.Name="Speed test">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
                     <StackPanel Spacing="8">
                         <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
@@ -74,11 +93,18 @@
                         <TextBlock Text="Measure this PC's internet connection with Cloudflare."
                                    TextWrapping="Wrap"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Text="Open speed test &#x2192;" TextWrapping="Wrap" />
+                        <TextBlock Text="Open speed test" TextWrapping="Wrap" />
                     </StackPanel>
+                    <FontIcon Grid.Column="1" Style="{StaticResource NavigationChevronIconStyle}" />
+                    </Grid>
                 </Button>
                 <Button x:Name="RoomMapCard" Click="RoomMapCard_Click"
                         Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="View room map">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
                     <StackPanel Spacing="8">
                         <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
@@ -91,11 +117,18 @@
                         </Grid>
                         <TextBlock Text="See saved room assignments, device status, and the conceptual gateway layout."
                                    TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Text="View room map &#x2192;" TextWrapping="Wrap" />
+                        <TextBlock Text="View room map" TextWrapping="Wrap" />
                     </StackPanel>
+                    <FontIcon Grid.Column="1" Style="{StaticResource NavigationChevronIconStyle}" />
+                    </Grid>
                 </Button>
                 <Button x:Name="NetworkHealthCard" Click="NetworkHealthCard_Click"
                         Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="Network health">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
                     <StackPanel Spacing="8">
                         <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
@@ -108,11 +141,18 @@
                         </Grid>
                         <TextBlock Text="See monitoring status and run diagnostics for local addresses, internet IPs, traceroute, and DNS."
                                    TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Text="Open network health &#x2192;" TextWrapping="Wrap" />
+                        <TextBlock Text="Open network health" TextWrapping="Wrap" />
                     </StackPanel>
+                    <FontIcon Grid.Column="1" Style="{StaticResource NavigationChevronIconStyle}" />
+                    </Grid>
                 </Button>
                 <Button x:Name="DatabaseBackupsCard" Click="DatabaseBackupsCard_Click"
                         Style="{StaticResource ScannerSummaryButtonStyle}" AutomationProperties.Name="Database backups">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
                     <StackPanel Spacing="8">
                         <Grid ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
@@ -125,8 +165,10 @@
                         </Grid>
                         <TextBlock Text="View local backup copies and protect your saved device inventory." TextWrapping="Wrap"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Text="Open database backups &#x2192;" TextWrapping="Wrap" />
+                        <TextBlock Text="Open database backups" TextWrapping="Wrap" />
                     </StackPanel>
+                    <FontIcon Grid.Column="1" Style="{StaticResource NavigationChevronIconStyle}" />
+                    </Grid>
                 </Button>
             </Grid>
         </ScrollViewer>
