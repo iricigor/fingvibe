@@ -223,7 +223,11 @@ function Close-LinkPicker {
 
 function Select-LinkChoice([string] $Id) {
     (Show-Link $Id).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-    Wait-Link { (Find-Link $Id).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } "choice $Id"
+    Wait-Link {
+        $choice = Find-Link $Id -Optional
+        $choice -and $choice.GetCurrentPattern(
+            [System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected
+    } "choice $Id"
 }
 
 function Set-LinkName([string] $Name) {
