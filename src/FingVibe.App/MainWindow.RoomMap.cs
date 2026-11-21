@@ -1,3 +1,4 @@
+using FingVibe.App.Views;
 using FingVibe.Core.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -9,16 +10,23 @@ public sealed partial class MainWindow
     private bool _deviceDetailsFromRoomMap;
     private bool _roomDetailsFromRoomMap;
     private NavigationViewItem? _roomMapReturnNavigationItem;
+    private RoomMapOrigin _roomMapOrigin = RoomMapOrigin.PeopleRooms;
 
-    private void ViewRoomMapButton_Click(object sender, RoutedEventArgs e)
+    private void ViewRoomMapButton_Click(object sender, RoutedEventArgs e) =>
+        OpenRoomMap(RoomMapOrigin.PeopleRooms);
+
+    private void ViewRoomMapFromToolsButton_Click(object? sender, RoomMapOrigin origin) =>
+        OpenRoomMap(origin);
+
+    private void OpenRoomMap(RoomMapOrigin origin)
     {
+        // Device and room detail round trips return through ReturnToRoomMap, so the entry origin persists.
+        _roomMapOrigin = origin;
+        RoomMapPage.SetBackDestination(origin);
         RoomMapPage.ResetScroll();
         UpdateRoomMapPage();
         ShowPage(RoomMapPage);
     }
-
-    private void ViewRoomMapFromToolsButton_Click(object? sender, EventArgs e) =>
-        ViewRoomMapButton_Click(this, new RoutedEventArgs());
 
     private void RoomMapDeviceRequested(object? sender, string identityKey)
     {
@@ -62,10 +70,22 @@ public sealed partial class MainWindow
         RoomMapPage.RestoreNavigation();
     }
 
-    private void BackToRoomsFromMapButton_Click(object sender, RoutedEventArgs e)
+    private async void BackToRoomsFromMapButton_Click(object sender, RoutedEventArgs e)
     {
-        MainNavigation.SelectedItem = PeopleRoomsNavItem;
-        ShowPage(PeopleRoomsPage);
+        if (_roomMapOrigin == RoomMapOrigin.PeopleRooms)
+        {
+            MainNavigation.SelectedItem = PeopleRoomsNavItem;
+            ShowPage(PeopleRoomsPage);
+            return;
+        }
+
+        MainNavigation.SelectedItem = ToolsNavItem;
+        if (ToolsPage.Visibility != Visibility.Visible) ShowPage(ToolsPage);
+        if (_roomMapOrigin == RoomMapOrigin.NetworkHealth)
+        {
+            // Network health keeps its scroll position, so focus its visible Room map entry rather than the top Run button.
+            await ToolsPage.OpenNetworkHealthAsync(focusRoomMap: true);
+        }
     }
 
     private void UpdateRoomMapPage()

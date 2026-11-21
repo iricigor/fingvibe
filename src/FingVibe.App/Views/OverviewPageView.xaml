@@ -68,25 +68,39 @@
                 <Button x:Name="OnlineDevicesCard" Click="OnlineDevicesCard_Click"
                         Style="{StaticResource ScannerSummaryButtonStyle}"
                         AutomationProperties.Name="See online devices">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
                     <StackPanel Spacing="6">
                         <TextBlock Text="Online devices" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <TextBlock x:Name="OnlineDevicesText" Text="Not scanned" Style="{ThemeResource TitleTextBlockStyle}"
                                    Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
                         <TextBlock Text="Devices that answered this scan." TextWrapping="Wrap"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Text="See online devices &#x2192;" TextWrapping="Wrap" />
+                        <TextBlock Text="See online devices" TextWrapping="Wrap" />
                     </StackPanel>
+                    <FontIcon Grid.Column="1" Style="{StaticResource NavigationChevronIconStyle}" />
+                    </Grid>
                 </Button>
                 <Button x:Name="OpenPortDevicesCard" Grid.Column="1" Click="OpenPortDevicesCard_Click"
                         Style="{StaticResource ScannerSummaryButtonStyle}"
                         AutomationProperties.Name="See devices with open ports">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
                     <StackPanel Spacing="6">
                         <TextBlock Text="Devices with open ports" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <TextBlock x:Name="OpenPortDevicesText" Text="Not scanned" Style="{ThemeResource TitleTextBlockStyle}" />
                         <TextBlock Text="Observed services, not a security verdict." TextWrapping="Wrap"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <TextBlock Text="See devices with open ports &#x2192;" TextWrapping="Wrap" />
+                        <TextBlock Text="See devices with open ports" TextWrapping="Wrap" />
                     </StackPanel>
+                    <FontIcon Grid.Column="1" Style="{StaticResource NavigationChevronIconStyle}" />
+                    </Grid>
                 </Button>
             </Grid>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
@@ -100,13 +114,20 @@
             </Border>
             <Button Style="{StaticResource ScannerSummaryButtonStyle}"
                     Click="AboutFingVibe_Click" AutomationProperties.Name="About FingVibe">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
                 <StackPanel Spacing="4">
                     <TextBlock Text="About FingVibe" FontWeight="SemiBold" />
                     <TextBlock Text="Open-source network discovery, by Igor." TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock x:Name="AboutVersionText" TextWrapping="Wrap" />
-                    <TextBlock Text="About FingVibe &#x2192;" />
+                    <TextBlock Text="About FingVibe" />
                 </StackPanel>
+                <FontIcon Grid.Column="1" Style="{StaticResource NavigationChevronIconStyle}" />
+                </Grid>
             </Button>
         </StackPanel>
     </ScrollViewer>

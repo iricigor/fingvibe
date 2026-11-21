@@ -64,7 +64,8 @@ unknown rather than proving absence.
 Open **People & rooms**, then choose **View room map** in the **Rooms**
 section. You can also open the same page from the **Room map** card in
 **Tools**, or from the **Network path and status** section in
-**Network health**.
+**Network health**. **Back** returns to the page where you opened the map
+and names it, even after you visit a room or device from the map.
 
 [![Room map with three populated rooms, Home router as gateway, a highlighted linked Workstation and two unassigned devices](../screenshots/manual/room-map.png)](../screenshots/manual/room-map.png)
 

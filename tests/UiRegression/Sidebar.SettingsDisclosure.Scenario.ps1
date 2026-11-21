@@ -1,2 +1,3 @@
 Test-SettingsDisclosure
+Test-AppearanceShortcutPresentation
 Test-AppearanceShortcutPersistence
