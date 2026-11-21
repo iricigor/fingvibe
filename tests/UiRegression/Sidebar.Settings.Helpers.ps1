@@ -1,4 +1,4 @@
-﻿function Test-SettingsCardHeaders {
+function Test-SettingsCardHeaders {
     $previous = $null
     $textLeft = $null
     foreach ($card in @(
@@ -372,4 +372,191 @@ function Test-SettingsLayout {
     Set-UiReviewTheme -Root $root -Theme "Standard Dark"
     Select-SidebarPage "People & rooms" "Search people and rooms"
     Write-Host "Settings mode/theme mapping, six palettes, responsive bounds, mandatory IP, and column reset passed."
+}
+
+function Get-AppearanceShortcut { Find-SidebarElement AutomationId AppearanceShortcutNavItem }
+
+function Open-AppearanceShortcut {
+    Focus-SidebarWindow
+    (Get-AppearanceShortcut).SetFocus()
+    $null = Wait-UiRegressionState -Description 'appearance shortcut keyboard focus' -Condition {
+        (Get-AppearanceShortcut).Current.HasKeyboardFocus
+    }
+    [SidebarReviewKeyboard]::Tap(0x0D)
+    $null = Wait-UiRegressionState -Description 'open appearance shortcut' -Condition {
+        Test-UiRegressionElementVisible (Find-SidebarElement AutomationId AppearanceShortcutLight -Optional)
+    }
+}
+
+function Close-AppearanceShortcut {
+    [SidebarReviewKeyboard]::Tap(0x1B)
+    $null = Wait-UiRegressionState -Description 'closed appearance shortcut returns focus' -Condition {
+        -not (Test-UiRegressionElementVisible (Find-SidebarElement AutomationId AppearanceShortcutLight -Optional)) -and
+            (Get-AppearanceShortcut).Current.HasKeyboardFocus
+    }
+}
+
+function Set-AppearanceShortcutMode([string] $Mode, [switch] $KeepOpen) {
+    Open-AppearanceShortcut
+    (Find-SidebarElement AutomationId "AppearanceShortcut$Mode").GetCurrentPattern(
+        [System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    $null = Wait-UiRegressionState -Description "appearance shortcut $Mode mode" -Condition {
+        (Get-AppearanceShortcut).Current.Name -eq "Appearance mode: $Mode"
+    }
+    if (-not $KeepOpen) { Close-AppearanceShortcut }
+}
+
+function Get-SidebarAppearanceChoices {
+    Select-SidebarPage Settings "Window backdrop"
+    $choices = @{}
+    foreach ($picker in @('ModePicker', 'ThemePicker', 'BackdropPicker')) {
+        $selected = (Find-SidebarElement AutomationId $picker).GetCurrentPattern(
+            [System.Windows.Automation.SelectionPattern]::Pattern).Current.GetSelection()
+        if ($selected.Count -ne 1) { throw "Appearance picker '$picker' must have one selected choice." }
+        $choices[$picker] = $selected[0].Current.Name
+    }
+    $choices
+}
+
+function Test-AppearanceShortcutPresentation {
+    Select-SidebarPage "People & rooms" "Search people and rooms"
+    $shortcut = Get-AppearanceShortcut
+    if ($shortcut.Current.Name -ne 'Appearance mode: Dark' -or $shortcut.Current.HelpText -notlike 'Choose Light or Dark mode.*') {
+        throw "The appearance shortcut must name the current mode and its choices: '$($shortcut.Current.Name)'."
+    }
+    $settingsCondition = [System.Windows.Automation.AndCondition]::new(
+        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty, 'Settings'),
+        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::ListItem))
+    $settings = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $settingsCondition).Current.BoundingRectangle
+    $tools = (Find-SidebarElement AutomationId ToolsNavItem).Current.BoundingRectangle
+    $bounds = $shortcut.Current.BoundingRectangle
+    if ($bounds.Top -lt $tools.Bottom - 1 -or $bounds.Bottom -gt $settings.Top + 1 -or
+        $settings.Top - $bounds.Bottom -gt 12 * $scale -or [Math]::Abs($bounds.Left - $settings.Left) -gt 2 * $scale) {
+        throw 'The appearance shortcut must sit in the sidebar footer directly beside Settings.'
+    }
+    Open-AppearanceShortcut
+    $null = Wait-UiRegressionState -Description 'current mode focused in the shortcut' -Condition {
+        $dark = Find-SidebarElement AutomationId AppearanceShortcutDark
+        $dark.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected -and
+            ($dark.Current.HasKeyboardFocus -or (Find-SidebarElement AutomationId AppearanceShortcutLight).Current.HasKeyboardFocus)
+    }
+    if (Find-SidebarElement AutomationId AppearanceShortcutHighContrastNote -Optional) {
+        throw 'The high-contrast note must stay hidden outside high contrast.'
+    }
+    Save-SidebarAppearance 'appearance-shortcut-open'
+    Close-AppearanceShortcut
+
+    Switch-SidebarPane
+    try {
+        if ((Get-AppearanceShortcut).Current.BoundingRectangle.Width / $scale -ge 80) {
+            throw 'The appearance shortcut must remain available on the compact icon rail.'
+        }
+        Set-AppearanceShortcutMode Light -KeepOpen
+        Save-SidebarAppearance 'appearance-shortcut-compact-light'
+        Close-AppearanceShortcut
+        Set-AppearanceShortcutMode Dark
+    }
+    finally { Switch-SidebarPane }
+
+    $highContrast = [SidebarReviewKeyboard]::GetHighContrastFlags()
+    try {
+        [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast -bor 1)
+        if (([SidebarReviewKeyboard]::GetHighContrastFlags() -band 1) -eq 0) { throw 'High contrast did not activate.' }
+        Start-Sleep -Seconds 2
+        Set-AppearanceShortcutMode Light -KeepOpen
+        $null = Find-SidebarElement AutomationId AppearanceShortcutHighContrastNote
+        if ((Get-AppearanceShortcut).Current.HelpText -notlike '*Windows high contrast colors currently apply*') {
+            throw 'The shortcut must announce that Windows high contrast colors currently apply.'
+        }
+        Save-SidebarAppearance 'appearance-shortcut-high-contrast'
+        Close-AppearanceShortcut
+        if ((Get-SidebarAppearanceChoices).ModePicker -ne 'Light') {
+            throw 'A mode chosen in high contrast must still update the saved appearance preference.'
+        }
+        Select-SidebarPage "People & rooms" "Search people and rooms"
+        Set-AppearanceShortcutMode Dark
+    }
+    finally {
+        [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast)
+        Start-Sleep -Seconds 2
+    }
+    Write-Host 'Appearance shortcut placement, keyboard open/close, compact rail and high-contrast behavior passed.'
+}
+
+function Test-AppearanceShortcutPersistence {
+    $appearancePath = Join-Path $fixtureDirectory 'appearance\appearance.json'
+    $savedAppearance = $env:FINGVIBE_UI_REVIEW_APPEARANCE
+    Stop-SidebarApp
+    try {
+        $env:FINGVIBE_UI_REVIEW_APPEARANCE = $appearancePath
+        Start-SidebarApp
+        Set-SidebarWindowWidth $expandedWidth
+        Set-SidebarAppearance BackdropPicker Acrylic
+        foreach ($pair in @(
+            @{ Light = 'Standard Light'; Style = 'Standard'; DarkStyle = 'Standard'; LightFile = 'StandardLight'; DarkFile = 'StandardDark' },
+            @{ Light = 'Warm Light'; Style = 'Warm'; DarkStyle = 'True Black (OLED)'; LightFile = 'WarmLight'; DarkFile = 'OledDark' },
+            @{ Light = 'Colorful Light'; Style = 'Colorful'; DarkStyle = 'Colorful'; LightFile = 'ColorfulLight'; DarkFile = 'ColorfulDark' })) {
+            Set-SidebarAppearance ThemePicker $pair.Light
+            if ((Get-AppearanceShortcut).Current.Name -ne 'Appearance mode: Light') {
+                throw "A Settings change to $($pair.Light) must update the shortcut."
+            }
+            foreach ($step in @(
+                @{ Mode = 'Dark'; Style = $pair.DarkStyle; File = $pair.DarkFile },
+                @{ Mode = 'Light'; Style = $pair.Style; File = $pair.LightFile })) {
+                Select-SidebarPage "People & rooms" "Search people and rooms"
+                Set-AppearanceShortcutMode $step.Mode
+                $choices = Get-SidebarAppearanceChoices
+                $saved = Get-Content -LiteralPath $appearancePath -Raw | ConvertFrom-Json
+                if ($choices.ModePicker -ne $step.Mode -or $choices.ThemePicker -ne $step.Style -or
+                    $choices.BackdropPicker -ne 'Acrylic' -or $saved.theme -ne $step.File -or $saved.backdrop -ne 'Acrylic') {
+                    throw "Shortcut $($step.Mode) from $($pair.Light) must keep the paired theme and backdrop in Settings and storage."
+                }
+            }
+        }
+        Select-SidebarPage "People & rooms" "Search people and rooms"
+        Set-AppearanceShortcutMode Dark
+        Stop-SidebarApp
+        Start-SidebarApp
+        Set-SidebarWindowWidth $expandedWidth
+        if ((Get-AppearanceShortcut).Current.Name -ne 'Appearance mode: Dark') { throw 'The shortcut mode must persist across restart.' }
+        $choices = Get-SidebarAppearanceChoices
+        if ($choices.ModePicker -ne 'Dark' -or $choices.ThemePicker -ne 'Colorful' -or $choices.BackdropPicker -ne 'Acrylic') {
+            throw 'Settings must restore the shortcut-saved appearance after restart.'
+        }
+
+        $failure = 'Appearance applied, but could not be saved for the next launch.'
+        Remove-Item -LiteralPath $appearancePath -Force
+        $null = New-Item -ItemType Directory -Path $appearancePath
+        Select-SidebarPage "People & rooms" "Search people and rooms"
+        Set-AppearanceShortcutMode Light -KeepOpen
+        $status = Find-SidebarElement AutomationId AppearanceShortcutSaveStatus
+        if ($status.Current.Name -ne $failure -or (Get-AppearanceShortcut).Current.HelpText -notlike "*$failure*") {
+            throw 'A save failure must be reported at the shortcut while Settings is hidden.'
+        }
+        Save-SidebarAppearance 'appearance-shortcut-save-failure'
+        Close-AppearanceShortcut
+        if ((Find-SidebarElement AutomationId AppearanceShortcutNavItem).Current.Name -ne 'Appearance mode: Light' -or
+            -not (Test-Path -LiteralPath $appearancePath -PathType Container)) {
+            throw 'An unsaved mode must still apply without being written.'
+        }
+        Select-SidebarPage Settings "Window backdrop"
+        if ((Find-SidebarElement AutomationId AppearanceSaveStatus).Current.Name -notlike "*$failure*") {
+            throw 'Settings must keep its existing appearance save-error feedback.'
+        }
+        Remove-Item -LiteralPath $appearancePath -Force
+        Select-SidebarPage "People & rooms" "Search people and rooms"
+        Set-AppearanceShortcutMode Dark
+        if ((Get-AppearanceShortcut).Current.HelpText -like "*$failure*" -or
+            (Get-Content -LiteralPath $appearancePath -Raw | ConvertFrom-Json).theme -ne 'ColorfulDark') {
+            throw 'A later successful save must clear the shortcut save error.'
+        }
+        Write-Host 'Appearance shortcut synchronization, all theme pairs, backdrop, restart persistence and save failure passed.'
+    }
+    finally {
+        Stop-SidebarApp
+        $env:FINGVIBE_UI_REVIEW_APPEARANCE = $savedAppearance
+        Start-SidebarApp
+        Set-SidebarWindowWidth $expandedWidth
+    }
 }

@@ -139,6 +139,40 @@
                                     Style="{ThemeResource SidebarToolsIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
+                <!-- Quick Light/Dark choice beside Settings; it shares Settings' saved appearance. -->
+                <NavigationViewItem x:Name="AppearanceShortcutNavItem" Content="Dark mode" SelectsOnInvoked="False"
+                                    AutomationProperties.AutomationId="AppearanceShortcutNavItem">
+                    <NavigationViewItem.Icon>
+                        <FontIcon x:Name="AppearanceShortcutIcon" Glyph="&#xE708;" />
+                    </NavigationViewItem.Icon>
+                    <NavigationViewItem.InfoBadge>
+                        <InfoBadge x:Name="AppearanceShortcutBadge" Visibility="Collapsed"
+                                   Style="{ThemeResource CriticalIconInfoBadgeStyle}"
+                                   AutomationProperties.AccessibilityView="Raw" />
+                    </NavigationViewItem.InfoBadge>
+                    <FlyoutBase.AttachedFlyout>
+                        <Flyout x:Name="AppearanceShortcutFlyout" Placement="RightEdgeAlignedBottom">
+                            <StackPanel Spacing="8" MaxWidth="280">
+                                <RadioButtons x:Name="AppearanceShortcutModes" Header="Appearance mode"
+                                              AutomationProperties.AutomationId="AppearanceShortcutModes"
+                                              SelectionChanged="AppearanceShortcutModes_SelectionChanged">
+                                    <RadioButton x:Name="AppearanceShortcutLight" Content="Light"
+                                                 AutomationProperties.AutomationId="AppearanceShortcutLight" />
+                                    <RadioButton x:Name="AppearanceShortcutDark" Content="Dark"
+                                                 AutomationProperties.AutomationId="AppearanceShortcutDark" />
+                                </RadioButtons>
+                                <TextBlock x:Name="AppearanceShortcutHighContrastNote" Visibility="Collapsed"
+                                           TextWrapping="Wrap"
+                                           AutomationProperties.AutomationId="AppearanceShortcutHighContrastNote"
+                                           Text="Windows high contrast colors currently apply. Your choice is saved for when high contrast ends." />
+                                <TextBlock x:Name="AppearanceShortcutSaveStatus" Visibility="Collapsed"
+                                           TextWrapping="Wrap"
+                                           AutomationProperties.AutomationId="AppearanceShortcutSaveStatus"
+                                           AutomationProperties.LiveSetting="Assertive" />
+                            </StackPanel>
+                        </Flyout>
+                    </FlyoutBase.AttachedFlyout>
+                </NavigationViewItem>
             </NavigationView.FooterMenuItems>
 
             <Grid Background="Transparent">

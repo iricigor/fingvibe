@@ -1,4 +1,4 @@
-﻿foreach ($theme in $UiReviewAppearanceThemes) {
+foreach ($theme in $UiReviewAppearanceThemes) {
     Set-SidebarAppearance ThemePicker $theme
     Save-SidebarAppearance "sidebar-$theme" -AssertMatchingSolid
     if ($theme -in @("Standard Light", "Standard Dark")) {
@@ -31,3 +31,4 @@ foreach ($backdrop in @("Mica", "Mica Alt", "Acrylic", "Solid")) {
     Save-SidebarAppearance "sidebar-$backdrop"
 }
 Set-SidebarAppearance BackdropPicker Mica
+Test-AppearanceShortcutPresentation

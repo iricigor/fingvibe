@@ -1,0 +1,21 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 662,
+  "category": "ui",
+  "changedBehavior": "A sidebar footer shortcut directly above Settings opens explicit Light and Dark choices from any page, shares Settings' saved appearance, theme pairing and backdrop, works on the compact rail and in high contrast, and reports persistence failures at the shortcut.",
+  "selectors": [
+    "core-tests",
+    "ui-regression-helpers",
+    "ui-review-scenarios",
+    "native-sidebar-presentation",
+    "native-sidebar-preferences-scheduling",
+    "documentation-tests"
+  ],
+  "expectedAssertions": [
+    "Mode switching keeps Standard, Warm/True Black (OLED) and Colorful pairings and the backdrop in both directions.",
+    "The shortcut sits directly above Settings, names the current mode, opens with Enter, focuses the current choice and returns focus on Escape.",
+    "The shortcut stays usable on the compact rail and in high contrast, where it still updates the preference and notes that Windows colors apply.",
+    "Shortcut and Settings stay synchronized both ways, and every theme pair persists across restart with an unchanged backdrop.",
+    "A save failure while Settings is hidden shows visible, accessible feedback at the shortcut, keeps Settings' error, applies without writing and clears after a later successful save."
+  ]
+}

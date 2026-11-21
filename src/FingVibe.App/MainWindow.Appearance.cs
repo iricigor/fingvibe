@@ -3,6 +3,8 @@ using FingVibe.Core.Models;
 using FingVibe.Core.Storage;
 using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Automation.Peers;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using Windows.UI;
@@ -12,7 +14,12 @@ namespace FingVibe.App;
 
 public sealed partial class MainWindow
 {
-    private readonly AppearanceSettingsStore _appearanceStore = new(Path.Combine(
+    private const string AppearanceSaveFailure = "Appearance applied, but could not be saved for the next launch.";
+    // UI review keeps appearance in memory unless a check supplies an isolated store to cover persistence.
+    private static string? ReviewAppearancePath => IsUiReview
+        && Environment.GetEnvironmentVariable("FINGVIBE_UI_REVIEW_APPEARANCE") is { Length: > 0 } path ? path : null;
+    private static bool PersistAppearance => !IsUiReview || ReviewAppearancePath is not null;
+    private readonly AppearanceSettingsStore _appearanceStore = new(ReviewAppearancePath ?? Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "FingVibe",
         "appearance.json"));
@@ -21,12 +28,14 @@ public sealed partial class MainWindow
     private AppearanceSettings _appearance = new();
     private bool _appearanceReady;
     private bool _appearanceClosed;
+    private string? _appearanceSaveError;
+    private bool _updatingAppearanceShortcut;
 
     private void InitializeAppearance()
     {
-        _appearance = IsUiReview
+        _appearance = !PersistAppearance
             ? new AppearanceSettings(Theme: ThemeVariant.StandardDark)
-            : _appearanceStore.Load(Application.Current.RequestedTheme == ApplicationTheme.Dark
+            : _appearanceStore.Load(IsUiReview || Application.Current.RequestedTheme == ApplicationTheme.Dark
                 ? ThemeVariant.StandardDark
                 : ThemeVariant.StandardLight);
         SettingsPage.SetAppearance(_appearance);
@@ -65,19 +74,84 @@ public sealed partial class MainWindow
 
         _appearance = appearance;
         ApplyAppearance();
-        if (IsUiReview)
+        SaveAppearance(fromShortcut: false);
+    }
+
+    private void AppearanceShortcutModes_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_updatingAppearanceShortcut || !_appearanceReady || AppearanceShortcutModes.SelectedIndex < 0)
         {
             return;
         }
+
+        var updated = AppearanceModes.WithMode(_appearance, dark: AppearanceShortcutModes.SelectedIndex == 1);
+        if (updated == _appearance)
+        {
+            return;
+        }
+
+        _appearance = updated;
+        SettingsPage.SetAppearance(_appearance);
+        ApplyAppearance();
+        SaveAppearance(fromShortcut: true);
+    }
+
+    private void SaveAppearance(bool fromShortcut)
+    {
+        if (!PersistAppearance)
+        {
+            return;
+        }
+
         try
         {
             _appearanceStore.Save(_appearance);
-            SettingsPage.SaveError = null;
+            _appearanceSaveError = null;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
-            SettingsPage.SaveError = "Appearance applied, but could not be saved for the next launch.";
+            _appearanceSaveError = AppearanceSaveFailure;
         }
+
+        SettingsPage.SaveError = _appearanceSaveError;
+        UpdateAppearanceShortcut();
+        if (fromShortcut && _appearanceSaveError is { } error)
+        {
+            // The status text is inside the open flyout; also announce it while focus stays on a mode choice.
+            FrameworkElementAutomationPeer.CreatePeerForElement(AppearanceShortcutSaveStatus)?.RaiseNotificationEvent(
+                AutomationNotificationKind.Other, AutomationNotificationProcessing.ImportantMostRecent,
+                error, "AppearanceSaveError");
+        }
+    }
+
+    private void UpdateAppearanceShortcut()
+    {
+        var dark = AppearanceModes.IsDark(_appearance.Theme);
+        var mode = dark ? "Dark" : "Light";
+        _updatingAppearanceShortcut = true;
+        try
+        {
+            AppearanceShortcutModes.SelectedIndex = dark ? 1 : 0;
+        }
+        finally
+        {
+            _updatingAppearanceShortcut = false;
+        }
+
+        AppearanceShortcutNavItem.Content = $"{mode} mode";
+        AppearanceShortcutIcon.Glyph = dark ? "\uE708" : "\uE706";
+        var highContrast = _accessibilitySettings.HighContrast;
+        AppearanceShortcutHighContrastNote.Visibility = highContrast ? Visibility.Visible : Visibility.Collapsed;
+        AppearanceShortcutSaveStatus.Text = _appearanceSaveError ?? string.Empty;
+        AppearanceShortcutSaveStatus.Visibility = _appearanceSaveError is null ? Visibility.Collapsed : Visibility.Visible;
+        AppearanceShortcutBadge.Visibility = AppearanceShortcutSaveStatus.Visibility;
+        var name = $"Appearance mode: {mode}";
+        var help = "Choose Light or Dark mode."
+            + (highContrast ? $" {AppearanceShortcutHighContrastNote.Text}" : string.Empty)
+            + (_appearanceSaveError is { } error ? $" {error}" : string.Empty);
+        AutomationProperties.SetName(AppearanceShortcutNavItem, name);
+        AutomationProperties.SetHelpText(AppearanceShortcutNavItem, help);
+        ToolTipService.SetToolTip(AppearanceShortcutNavItem, $"{name}. {help}");
     }
 
     private void ApplyAppearance()
@@ -107,6 +181,7 @@ public sealed partial class MainWindow
             : _appearance.Backdrop != WindowBackdrop.Solid && !hasBackdrop
                 ? "This material is unavailable. A solid background is used; your choice is kept."
                 : null;
+        UpdateAppearanceShortcut();
     }
 
     private void UpdateNavigationPaneBackground(bool isPaneOpen)
