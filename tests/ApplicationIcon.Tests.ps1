@@ -197,7 +197,7 @@ $mainWindow = Get-Content -LiteralPath (Join-Path $appSource "MainWindow.xaml") 
 $sidebarIcons = @([regex]::Matches($mainWindow,
         '<BitmapIcon\b[^>]*\bUriSource="ms-appx:///Assets/PageIcons/([A-Za-z0-9-]+\.png)"') |
     ForEach-Object { $_.Groups[1].Value })
-if ($sidebarIcons.Count -ne 4) { throw "Expected four sidebar family BitmapIcons; found $($sidebarIcons.Count)." }
+if ($sidebarIcons.Count -ne 5) { throw "Expected five sidebar family BitmapIcons; found $($sidebarIcons.Count)." }
 foreach ($name in $sidebarIcons) {
     $image = [System.Drawing.Image]::FromFile((Join-Path $pageIconSource $name))
     try {
