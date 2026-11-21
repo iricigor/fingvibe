@@ -152,7 +152,7 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="Network path and status" Style="{ThemeResource SubtitleTextBlockStyle}"
                                    VerticalAlignment="Center" TextWrapping="Wrap" />
-                        <HyperlinkButton Grid.Column="1" Content="View room map"
+                        <HyperlinkButton x:Name="RoomMapButton" Grid.Column="1" Content="View room map"
                                          HorizontalAlignment="Left"
                                          AutomationProperties.AutomationId="NetworkHealthViewRoomMapButton"
                                          AutomationProperties.Name="View room map"

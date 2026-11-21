@@ -118,7 +118,6 @@
                     "control-Database backups" { $script:currentPage -eq "Tools" }
                     "control-View room map" { $script:currentPage -eq "Tools" }
                     "control-Room map" { $script:currentPage -eq "RoomMap" }
-                    "control-Back to Rooms" { $script:currentPage -eq "RoomMap" }
                     "control-No room assigned" { $script:currentPage -eq "RoomMap" }
                     "control-Back up now" { $script:currentPage -eq "DatabaseBackups" }
                     "control-Open backup folder" { $script:currentPage -eq "DatabaseBackups" }
@@ -132,7 +131,7 @@
                     "control-Back to Network health" { $script:currentPage -eq "ServiceStatus" }
                     "control-Refresh provider reports" { $script:currentPage -eq "ServiceStatus" }
                     "control-Source pending" { $script:currentPage -eq "ServiceStatus" }
-                    "control-Back to Tools" { $script:currentPage -in @("NetworkHealth", "FingImport", "SqlEditor", "DatabaseBackups") }
+                    "control-Back to Tools" { $script:currentPage -in @("NetworkHealth", "FingImport", "SqlEditor", "DatabaseBackups", "RoomMap") }
                     "control-Back to Settings" { $script:currentPage -eq "About" }
                     "control-FingVibe LAN Scanner" { $script:currentPage -eq "About" }
                     "control-Search people and rooms" { $script:currentPage -eq "People & rooms" }

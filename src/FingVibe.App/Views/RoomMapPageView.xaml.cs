@@ -10,6 +10,13 @@ using Microsoft.UI.Xaml.Shapes;
 
 namespace FingVibe.App.Views;
 
+public enum RoomMapOrigin
+{
+    PeopleRooms,
+    Tools,
+    NetworkHealth
+}
+
 public sealed partial class RoomMapPageView : UserControl
 {
     private DeviceInventoryData _data = DeviceInventoryData.Empty;
@@ -80,6 +87,21 @@ public sealed partial class RoomMapPageView : UserControl
     {
         _renderWidth = 0;
         Render();
+    }
+
+    internal void SetBackDestination(RoomMapOrigin origin)
+    {
+        var (label, name) = origin switch
+        {
+            RoomMapOrigin.Tools => ("Tools", "Back to Tools"),
+            RoomMapOrigin.NetworkHealth => ("Network health", "Back to Network health"),
+            _ => ("Rooms", "Back to Rooms")
+        };
+        RoomMapBackButton.Content = "\u2190 " + label;
+        AutomationProperties.SetName(RoomMapBackButton, name);
+        // Like Device and Room details, the default Back button keeps having no ToolTip that would duplicate its automation name.
+        ToolTipService.SetToolTip(RoomMapBackButton, origin == RoomMapOrigin.PeopleRooms ? null : name);
+        RoomMapBackButton.UpdateLayout();
     }
 
     private void BackToRoomsButton_Click(object sender, RoutedEventArgs e) =>
