@@ -140,6 +140,7 @@ function Open-LinkDevice([string] $Search, [string] $Name = $Search) {
 function Show-Link([string] $Id) {
     $call = Start-UiRegressionCall positioning
     try {
+        Wait-Link { Find-Link DeviceDetailsScroll -Optional } "device details scroll viewer"
         $viewport = Find-Link DeviceDetailsScroll
         $scroll = $viewport.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
         foreach ($percent in 0..100) {

@@ -137,14 +137,16 @@ function Wait-ServiceState([scriptblock] $Predicate, [string] $Description, [int
 }
 
 function Invoke-ServiceControl([string] $Name) {
-    if ($Name -ceq "Scan additional ports") { Show-ServiceScanSection }
-    Wait-ServiceState {
-        $control = Find-ServiceControl $Name -ByName -Optional
-        $control -and -not $control.Current.IsOffscreen -and
-            -not $control.Current.BoundingRectangle.IsEmpty -and
-            $control.Current.BoundingRectangle.Width -gt 0 -and
-            $control.Current.BoundingRectangle.Height -gt 0
-    } "visible '$Name' control"
+    if ($Name -ceq "Scan additional ports") {
+        Show-ServiceScanSection
+        Wait-ServiceState {
+            $control = Find-ServiceControl $Name -ByName -Optional
+            $control -and -not $control.Current.IsOffscreen
+        } "visible '$Name' control"
+        (Find-ServiceControl $Name -ByName).GetCurrentPattern(
+            [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+        return
+    }
     (Find-ServiceControl $Name -ByName).GetCurrentPattern(
         [System.Windows.Automation.InvokePattern]::Pattern).Invoke()
 }
