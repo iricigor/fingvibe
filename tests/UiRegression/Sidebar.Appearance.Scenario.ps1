@@ -1,10 +1,9 @@
-﻿foreach ($theme in $UiReviewAppearanceThemes) {
+foreach ($theme in $UiReviewAppearanceThemes) {
     Set-SidebarAppearance ThemePicker $theme
     Save-SidebarAppearance "sidebar-$theme" -AssertMatchingSolid
     if ($theme -in @("Standard Light", "Standard Dark")) {
         $maximum = if ($theme -eq "Standard Light") { 12 } else { 16 }
         Test-SidebarDividerAppearance -Name "sidebar-divider-$theme" -MaximumContrast $maximum
-        Test-RoomMapAppearance ($theme.Replace(' ', '-').ToLowerInvariant())
     }
 }
 try {
@@ -14,7 +13,6 @@ try {
         throw "High contrast did not activate."
     }
     Start-Sleep -Seconds 2
-    Test-RoomMapAppearance 'high-contrast'
     Test-SidebarDividerAppearance -Name "sidebar-divider-high-contrast" -MaximumContrast 255
     (Find-SidebarElement AutomationId NavigationResizeGrip).SetFocus()
     Save-SidebarAppearance "sidebar-divider-high-contrast-focus"

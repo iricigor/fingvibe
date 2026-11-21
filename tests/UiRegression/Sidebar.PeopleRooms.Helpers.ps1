@@ -223,6 +223,40 @@ function Test-RoomMapAppearance([string] $Name) {
     $null = Find-PeopleRoomsElement AutomationId RoomMapCard
 }
 
+function Test-RoomMapThemes {
+    # Room map theme captures run with the Room map group, which owns its origin-aware navigation.
+    $mode = Get-SidebarAppearanceSelection ModePicker
+    $style = Get-SidebarAppearanceSelection ThemePicker
+    $highContrast = $null
+    $themesFailed = $true
+    try {
+        foreach ($theme in @('Standard Light', 'Standard Dark')) {
+            Set-SidebarAppearance ThemePicker $theme
+            Test-RoomMapAppearance ($theme.Replace(' ', '-').ToLowerInvariant())
+        }
+        $highContrast = [SidebarReviewKeyboard]::GetHighContrastFlags()
+        [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast -bor 1)
+        if (([SidebarReviewKeyboard]::GetHighContrastFlags() -band 1) -eq 0) { throw 'High contrast did not activate.' }
+        Start-Sleep -Seconds 2
+        Test-RoomMapAppearance 'high-contrast'
+        $themesFailed = $false
+    }
+    finally {
+        Invoke-UiRegressionCleanup -PrimaryFailed $themesFailed -Steps @(
+            {
+                if ($null -ne $highContrast) {
+                    [SidebarReviewKeyboard]::SetHighContrastFlags($highContrast)
+                    Start-Sleep -Seconds 2
+                }
+            },
+            {
+                Select-SidebarPage Settings "Window backdrop"
+                Set-UiReviewAppearanceChoice -Root $root -Picker ModePicker -Choice $mode
+                Set-UiReviewAppearanceChoice -Root $root -Picker ThemePicker -Choice $style
+            })
+    }
+}
+
 function Test-RoomMapScale {
     $savedInventory = $env:FINGVIBE_UI_REVIEW_INVENTORY
     $scaleDirectory = Join-Path $fixtureDirectory 'room-map-scale'

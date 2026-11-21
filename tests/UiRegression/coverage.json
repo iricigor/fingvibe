@@ -1240,6 +1240,7 @@
             { "name": "Test-RoomMapEntries", "refactored": true },
             { "name": "Test-RoomMapDetailsRoundTrip", "refactored": true, "introducedBy": "#557: room and device details return to the originating Room map focus and scroll state." },
             { "name": "Test-RoomMapAppearance", "refactored": true },
+            { "name": "Test-RoomMapThemes", "refactored": true, "introducedBy": "#655: Room map light, dark and high-contrast captures moved from sidebar-presentation into the Room map group, keeping Test-RoomMapAppearance's assertions and captures." },
             { "name": "Test-RoomMapScale", "refactored": true },
             { "name": "Get-SidebarAppearanceSelection", "refactored": true, "introducedBy": "#557: read the current Settings appearance choices so Room map theme checks restore them." },
             { "name": "Assert-RoomMapConnectionInk", "refactored": true, "introducedBy": "#557: rendered Room map connection trunk contrast in light, dark, high-contrast and 200% text-scale modes." },
