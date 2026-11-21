@@ -95,7 +95,7 @@ function Test-PageBackHeaders {
         $reference = (Find-PageHeaderElement $Root DeviceOverviewTab).Current.BoundingRectangle
         $scale = [UiReviewNativeWindow]::GetDpiForWindow($WindowHandle) / 96.0
         $viewport = (Find-PageHeaderElement $Root DeviceDetailsScroll).Current.BoundingRectangle
-        $contentLeft = $viewport.Left + 12 * $scale
+        $contentLeft = $viewport.Left
         foreach ($tab in @('Overview', 'History')) {
             $item = Find-PageHeaderElement $Root "Device${tab}Tab"
             $item.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()

@@ -321,6 +321,14 @@
     }
     $toolsDocument = [System.Xml.XmlDocument]::new()
     $toolsDocument.Load((Join-Path $appDirectory "Tools\ToolsPage.xaml"))
+    $toolsLandingContainer = $toolsDocument.SelectSingleNode(
+        "//*[@*[local-name()='Name']='ToolsLandingContainer']")
+    $toolsLandingScroll = $toolsDocument.SelectSingleNode(
+        "//*[@*[local-name()='Name']='ToolsLanding']")
+    if ($toolsLandingContainer.LocalName -cne "Grid" -or $toolsLandingScroll.LocalName -cne "ScrollViewer" -or
+        $toolsLandingScroll.GetAttribute("AutomationProperties.AutomationId") -cne "ToolsLanding") {
+        throw "Tools must keep its fixed landing grid while exposing the body ScrollViewer as the ToolsLanding automation and ScrollPattern peer."
+    }
     $landing = $toolsDocument.SelectSingleNode("//*[@*[local-name()='Name']='ToolsLandingGrid']")
     $landingColumns = $landing.SelectNodes("./*[local-name()='Grid.ColumnDefinitions']/*")
     $cards = @($landing.SelectNodes("./*[local-name()='Button']"))

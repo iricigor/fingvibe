@@ -310,7 +310,8 @@ function Show-Usage([string] $Id) {
         foreach ($percent in 0..100) {
             if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
             Start-Sleep -Milliseconds 10
-            $control = Find-Usage $Id
+            $control = Find-Usage $Id -Optional
+            if (-not $control) { continue }
             $bounds = $control.Current.BoundingRectangle
             $area = $viewport.Current.BoundingRectangle
             # The scroll viewer's automation bounds can extend past the physical window frame.

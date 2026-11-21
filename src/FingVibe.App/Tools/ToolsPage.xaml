@@ -4,7 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:FingVibe.App">
     <Grid>
-        <Grid x:Name="ToolsLanding" Margin="{StaticResource ScannerPageContentMargin}" RowSpacing="16">
+        <Grid x:Name="ToolsLandingContainer" Margin="{StaticResource ScannerPageContentMargin}" RowSpacing="16">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
@@ -18,7 +18,8 @@
                 <TextBlock Grid.Column="1" Text="Tools" Style="{StaticResource ScannerPageTitleStyle}"
                            Margin="0" VerticalAlignment="Center" />
             </Grid>
-            <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
+            <ScrollViewer x:Name="ToolsLanding" Grid.Row="1" HorizontalScrollBarVisibility="Disabled"
+                          AutomationProperties.AutomationId="ToolsLanding">
             <Grid x:Name="ToolsLandingGrid" RowSpacing="16" ColumnSpacing="16">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />

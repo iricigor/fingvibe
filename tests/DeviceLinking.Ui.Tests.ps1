@@ -145,7 +145,8 @@ function Show-Link([string] $Id) {
         foreach ($percent in 0..100) {
             if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
             Start-Sleep -Milliseconds 10
-            $control = Find-Link $Id
+            $control = Find-Link $Id -Optional
+            if (-not $control) { continue }
             $bounds = $control.Current.BoundingRectangle
             $area = $viewport.Current.BoundingRectangle
             $bottom = [Math]::Min($area.Bottom, $script:root.Current.BoundingRectangle.Bottom - 16)
