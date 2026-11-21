@@ -305,6 +305,8 @@ function Open-UsageDevice([string] $Name = "Usage laptop") {
 function Show-Usage([string] $Id) {
     $call = Start-UiRegressionCall positioning
     try {
+        # The Device Details scroll peer can be briefly re-created under the fixed page header.
+        Wait-Usage { Find-Usage DeviceDetailsScroll -Optional } "device details scroll viewer"
         $viewport = Find-Usage DeviceDetailsScroll
         $scroll = $viewport.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
         foreach ($percent in 0..100) {

@@ -117,7 +117,11 @@ function Show-LinkDevices([string] $Search) {
     } else {
         (Find-Link DevicesNavItem).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
     }
-    Wait-Link { $list = Find-Link ResultsList -Optional; $list -and -not $list.Current.IsOffscreen } "Devices"
+    Wait-Link {
+        $list = Find-Link ResultsList -Optional
+        $search = Find-Link "Search devices" -ByName -Optional
+        $list -and -not $list.Current.IsOffscreen -and $search
+    } "Devices"
     (Find-Link "Search devices" -ByName).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($Search)
 }
 
