@@ -356,7 +356,8 @@
                                            FontFamily="Segoe UI Emoji" AutomationProperties.AutomationId="MergeMacOtherName" />
                                 <TextBlock x:Name="MergeMacOtherStatus" TextWrapping="Wrap" />
                                 <TextBlock x:Name="MergeMacOtherAddresses" FontFamily="Consolas" TextWrapping="Wrap"
-                                           IsTextSelectionEnabled="True" AutomationProperties.AutomationId="MergeMacOtherAddresses" />
+                                           MinHeight="24" IsTextSelectionEnabled="True"
+                                           AutomationProperties.AutomationId="MergeMacOtherAddresses" />
                                 <TextBlock x:Name="MergeMacOtherDescription" TextWrapping="Wrap"
                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             </StackPanel>
