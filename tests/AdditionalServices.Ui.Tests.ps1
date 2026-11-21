@@ -207,6 +207,8 @@ function Open-ServiceDetails {
 }
 
 function Show-ServiceScanSection([int] $ExtraSpace = 0) {
+    # The Device Details scroll peer can be briefly re-created under the fixed page header.
+    Wait-ServiceState { Find-ServiceControl DeviceDetailsScroll -Optional } "device details scroll viewer"
     $element = Find-ServiceControl DeviceDetailsScroll
     $scroll = $element.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     $center = [Math]::Clamp([int][Math]::Round($scroll.Current.VerticalScrollPercent), 0, 100)

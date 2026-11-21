@@ -151,7 +151,9 @@ function Show-Link([string] $Id) {
             $bounds = $control.Current.BoundingRectangle
             $area = $viewport.Current.BoundingRectangle
             $bottom = [Math]::Min($area.Bottom, $script:root.Current.BoundingRectangle.Bottom - 16)
-            if (-not $control.Current.IsOffscreen -and $bounds.Height -gt 0 -and
+            # UIA bounds are clipped to the viewport, so a control cut off at the bottom edge still appears to fit.
+            $atViewportEdge = $bounds.Bottom -ge $area.Bottom - 1 -and $scroll.Current.VerticallyScrollable -and $percent -lt 100
+            if (-not $control.Current.IsOffscreen -and $bounds.Height -gt 0 -and -not $atViewportEdge -and
                 $bounds.Top -ge $area.Top -and $bounds.Bottom -le $bottom) { return $control }
         }
         throw "Device-linking control '$Id' is clipped or unreachable."
