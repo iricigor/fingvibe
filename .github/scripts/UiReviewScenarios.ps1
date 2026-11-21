@@ -227,7 +227,7 @@ function Get-UiReviewCapturePlan {
             elseif ($path -match '^src/FingVibe.App/Tools/ToolsPage\.xaml(\.cs)?$') {
                 Add-Scenarios @("Tools", "SpeedTest", "NetworkHealth", "About", "FingImport", "SqlEditor", "DatabaseBackups", "RoomMap") "$path changed the Tools landing page."
             }
-            elseif ($path -match '^src/FingVibe.App/(Tools/|Assets/SpeedTest/)') {
+            elseif ($path -match '^src/FingVibe.App/(Tools/|Assets/SpeedTest/)' -or $path -eq 'tests/SpeedTest.Ui.Tests.ps1') {
                 Add-Scenarios @("Tools", "SpeedTest", "NetworkHealth", "About", "FingImport", "SqlEditor", "DatabaseBackups") "$path changed Tools or the speed test."
             }
             elseif ($path -match '^src/FingVibe.App/(MainWindow.PeopleRooms.cs|ManagedPeopleRoomsRows.cs|PeopleRooms(Presentation|Icons).cs|Views/PeopleRooms(Dialogs|IconPicker).cs)$') {

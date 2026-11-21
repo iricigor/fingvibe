@@ -253,7 +253,11 @@ function Resolve-LinkDraft {
     $person.SetFocus()
     # Keyboard: Space selects the focused radio button.
     [System.Windows.Forms.SendKeys]::SendWait(" ")
-    Wait-Link { (Find-Link MergeMacChoicePersonThis).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } "keyboard person choice"
+    Wait-Link {
+        $choice = Find-Link MergeMacChoicePersonThis -Optional
+        $choice -and $choice.GetCurrentPattern(
+            [System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected
+    } "keyboard person choice"
     Select-LinkChoice MergeMacChoiceRoomOther
     foreach ($field in @("Vendor", "Family", "Model")) {
         $id = "MergeMacChoice${field}Separate"
@@ -265,7 +269,7 @@ function Resolve-LinkDraft {
         }
         finally { Complete-UiRegressionCall $call }
         $choice.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-        Wait-Link { (Find-Link $id).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } "$field Keep separate selected"
+        Wait-Link { ($c = Find-Link $id -Optional) -and $c.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } "$field Keep separate selected"
         $label = if ($field -eq "Vendor") { "Vendor / manufacturer" } else { $field }
         if ((Find-Link "MergeMacResult$field").Current.Name -ne "Linked device ${label}: No shared value") {
             throw "$field must show that no value will be shared."
@@ -890,7 +894,7 @@ try {
     $separate = Show-Link MergeMacChoiceVendorSeparate
     $separate.SetFocus()
     [System.Windows.Forms.SendKeys]::SendWait(" ")
-    Wait-Link { (Find-Link MergeMacChoiceVendorSeparate).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } "keyboard Keep separate choice at 200% text scale"
+    Wait-Link { ($c = Find-Link MergeMacChoiceVendorSeparate -Optional) -and $c.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected } "keyboard Keep separate choice at 200% text scale"
     Save-LinkCapture "link-comparison-text-scale-200" MergeMacMerge
     $cancel = Show-Link MergeMacCancel
     $cancel.SetFocus()

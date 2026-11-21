@@ -28,13 +28,13 @@ public sealed partial class DatabaseBackupsPage : UserControl
         _surface.StateChanged += (_, _) => AutomationProperties.SetItemStatus(BackupsScroll, _surface.Status);
         _ageTimer.Tick += (_, _) => UpdateBackupSummary();
         _uiSettings.TextScaleFactorChanged += (_, _) => DispatcherQueue.TryEnqueue(
-            () => UpdateCompletedBackupsHeaderLayout(ActualWidth));
+            () => UpdateCompletedBackupsHeaderLayout());
         Unloaded += (_, _) => Close();
         SizeChanged += (_, args) =>
         {
             BackupActions.Orientation = args.NewSize.Width < 540
                 ? Orientation.Vertical : Orientation.Horizontal;
-            UpdateCompletedBackupsHeaderLayout(args.NewSize.Width);
+            UpdateCompletedBackupsHeaderLayout();
         };
     }
 
@@ -57,7 +57,7 @@ public sealed partial class DatabaseBackupsPage : UserControl
         BackupPolicyExpander.IsExpanded = false;
         _ageTimer.Start();
         ShowStatus();
-        UpdateCompletedBackupsHeaderLayout(ActualWidth);
+        UpdateCompletedBackupsHeaderLayout();
         (BackUpNowButton.IsEnabled ? BackUpNowButton : OpenBackupFolderButton).Focus(FocusState.Programmatic);
         Refresh();
     }
@@ -126,9 +126,11 @@ public sealed partial class DatabaseBackupsPage : UserControl
             ? $"at {created.ToLocalTime():G}" : $"{ScanAgeFormatter.FormatAge(now - created)} ago";
     }
 
-    private void UpdateCompletedBackupsHeaderLayout(double pageWidth)
+    private void UpdateCompletedBackupsHeaderLayout()
     {
-        var wide = pageWidth >= 600 * _uiSettings.TextScaleFactor;
+        // Matches the former 1000-DIP window AdaptiveTrigger; the trigger cannot target the scroller now that the header is fixed.
+        var windowWidth = XamlRoot?.Size.Width ?? ActualWidth;
+        var wide = windowWidth >= 1000 * _uiSettings.TextScaleFactor;
         CompletedBackupsHeader.Orientation = wide ? Orientation.Horizontal : Orientation.Vertical;
         CompletedBackupsHeader.Spacing = wide ? 12 : 4;
     }

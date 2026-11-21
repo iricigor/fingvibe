@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Globalization;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
@@ -12,12 +11,14 @@ public sealed partial class SpeedGauge : UserControl
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(16) };
     private readonly Stopwatch _clock = new();
     private readonly Windows.UI.ViewManagement.UISettings _uiSettings = new();
+    private SpeedDirection _direction = SpeedDirection.Download;
 
     public SpeedGauge()
     {
         InitializeComponent();
         _timer.Tick += OnTick;
         Unloaded += (_, _) => Stop();
+        ApplyDirection();
     }
 
     public string Direction
@@ -26,8 +27,8 @@ public sealed partial class SpeedGauge : UserControl
         set
         {
             TitleText.Text = value;
-            DirectionIcon.Glyph = value == "Upload" ? "\uE898" : "\uE896";
-            AutomationProperties.SetName(ValueText, $"{value} provisional speed: no sample");
+            _direction = value == "Upload" ? SpeedDirection.Upload : SpeedDirection.Download;
+            ApplyDirection();
         }
     }
 
@@ -39,8 +40,14 @@ public sealed partial class SpeedGauge : UserControl
     public void ShowSample(double bps)
     {
         _motion.SetBandwidth(bps);
-        ValueText.Text = (bps / 1_000_000).ToString("0.##", CultureInfo.CurrentCulture);
-        AutomationProperties.SetName(ValueText, $"{Direction} provisional speed: {ValueText.Text} Mbps");
+        var mbps = SpeedRating.DisplayMbps(bps);
+        var level = SpeedRating.Rate(_direction, mbps);
+        var rating = SpeedRating.Label(level);
+        ValueText.Text = SpeedRating.FormatMbps(mbps);
+        RatingText.Text = rating;
+        RatingText.Style = SpeedRatingStyle(level);
+        RatingText.Visibility = Visibility.Visible;
+        AutomationProperties.SetName(ValueText, $"{Direction} provisional speed: {ValueText.Text} Mbps, {rating}");
         if (!_uiSettings.AnimationsEnabled)
         {
             _motion.Advance(0, false);
@@ -62,8 +69,32 @@ public sealed partial class SpeedGauge : UserControl
         _motion.Reset();
         Needle.Angle = _motion.Angle;
         ValueText.Text = "--";
+        RatingText.Text = string.Empty;
+        RatingText.Visibility = Visibility.Collapsed;
         SetMeasuring(false);
         AutomationProperties.SetName(ValueText, $"{Direction} provisional speed: no sample");
+    }
+
+    internal static Style SpeedRatingStyle(SpeedRatingLevel level) =>
+        (Style)Application.Current.Resources[level switch
+        {
+            SpeedRatingLevel.Good => "SpeedRatingGoodTextStyle",
+            SpeedRatingLevel.Fair => "SpeedRatingFairTextStyle",
+            _ => "SpeedRatingSlowTextStyle"
+        }];
+
+    private void ApplyDirection()
+    {
+        DirectionIcon.Glyph = _direction == SpeedDirection.Upload ? "\uE898" : "\uE896";
+        var (slow, middle, good) = SpeedRating.GradientFractions(_direction);
+        SlowStop.Offset = SpeedGaugeMotion.ArcHorizontalOffset(slow);
+        FairStop.Offset = SpeedGaugeMotion.ArcHorizontalOffset(middle);
+        GoodStop.Offset = SpeedGaugeMotion.ArcHorizontalOffset(good);
+        ScaleCaption.Text = SpeedRating.ScaleCaption(_direction);
+        if (ValueText.Text == "--")
+        {
+            AutomationProperties.SetName(ValueText, $"{Direction} provisional speed: no sample");
+        }
     }
 
     private void OnTick(object? sender, object e)
