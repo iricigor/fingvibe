@@ -235,9 +235,13 @@ function Set-LinkName([string] $Name) {
 }
 
 function Assert-LinkMerge([bool] $Enabled, [string] $Unresolved) {
-    Wait-Link { (Find-Link MergeMacMerge).Current.IsEnabled -eq $Enabled } "Merge as one device enabled=$Enabled"
-    if ((Find-Link MergeMacUnresolved).Current.Name -notlike $Unresolved) {
-        throw "Unexpected unresolved summary: $((Find-Link MergeMacUnresolved).Current.Name)"
+    Wait-Link {
+        $merge = Find-Link MergeMacMerge -Optional
+        $merge -and $merge.Current.IsEnabled -eq $Enabled
+    } "Merge as one device enabled=$Enabled"
+    $summary = Show-Link MergeMacUnresolved
+    if ($summary.Current.Name -notlike $Unresolved) {
+        throw "Unexpected unresolved summary: $($summary.Current.Name)"
     }
 }
 

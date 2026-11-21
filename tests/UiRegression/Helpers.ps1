@@ -81,6 +81,15 @@ function Show-UiRegressionScrollTargets {
                 @($elements | Where-Object { -not $_ }).Count) { return $null }
             $area = $viewportElement.Current.BoundingRectangle
             $windowArea = $windowElement.Current.BoundingRectangle
+            $fixedElements = @($elements | Where-Object {
+                $bounds = $_.Current.BoundingRectangle
+                (Test-UiRegressionElementWithin $_ $windowElement $windowElement) -and
+                    ($bounds.Right -le $area.Left -or $bounds.Left -ge $area.Right -or
+                     $bounds.Bottom -le $area.Top -or $bounds.Top -ge $area.Bottom)
+            })
+            # Fixed headers remain visible outside the body scroller; scrolling that
+            # scroller cannot move them and must not be used to prove visibility.
+            if ($fixedElements.Count -eq $elements.Count) { return $elements[0] }
             $viewportTop = [Math]::Max($area.Top, $windowArea.Top)
             $viewportBottom = [Math]::Min($area.Bottom, $windowArea.Bottom)
             $top = $viewportTop + $TopMargin

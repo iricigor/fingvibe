@@ -501,6 +501,7 @@ try {
             if (-not [UiReviewNativeWindow]::SetWindowPos($script:process.MainWindowHandle, [IntPtr]::Zero,
                 $bounds.Left, $bounds.Top, $width, $bounds.Height, 0x0044)) { throw "Unable to resize the category review window." }
             Start-Sleep -Milliseconds 300
+            Open-UsageDevice "Concurrent name"
             Choose-Usage Personal
             foreach ($id in @("UsageCategoryPicker", "UsageCategorySave", "UsageCategoryCancel", "UsageCategoryRefresh")) {
                 $control = Show-Usage $id

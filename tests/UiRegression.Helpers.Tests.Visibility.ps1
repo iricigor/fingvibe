@@ -36,6 +36,16 @@
     Assert-Regression ($largest.Count -eq 2 -and $full -in $largest -and $tolerated -in $largest) 'Largest-rendered peer selection must exclude UIA rectangles clipped on any edge while retaining tolerance-sized peers.'
     Assert-Regression (@(Select-UiRegressionLargestRenderedPeers @() -Tolerance 1.5).Count -eq 0) 'Largest-rendered peer selection must preserve an empty candidate set.'
 
+    $fixedWindow = New-BoundedElement 0 0 500 300
+    $bodyViewport = New-BoundedElement 0 100 500 200
+    $fixedHeader = New-BoundedElement 10 40 120 30
+    $bodyViewport | Add-Member ScriptMethod GetCurrentPattern {
+        throw 'Fixed header positioning must not request the body ScrollPattern.'
+    }
+    $fixedResult = Show-UiRegressionScrollTargets -Description 'fixed page header' `
+        -GetViewport { $bodyViewport } -GetWindow { $fixedWindow } -GetTargets { $fixedHeader }
+    Assert-Regression ($fixedResult -eq $fixedHeader) 'A visible peer outside the body scroller must not be repositioned with that scroller.'
+
     $viewport = New-BoundedElement 0 0 500 300
     $window = New-BoundedElement 0 0 500 300
     $first = New-BoundedElement 10 900 100 20
