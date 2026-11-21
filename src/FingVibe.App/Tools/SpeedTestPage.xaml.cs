@@ -498,6 +498,13 @@ public sealed partial class SpeedTestPage : UserControl
 
     private async Task CancelActiveTestCoreAsync(string runId, string finalMessage)
     {
+        if (UiReviewFixtures is not null)
+        {
+            // The fixture stands in for the engine, which confirms cancellation with its own bridge message.
+            HandleBridgePayload(JsonSerializer.Serialize(new { kind = "cancelled", runId }), runId);
+            return;
+        }
+
         try
         {
             var core = EngineWebView.CoreWebView2;
