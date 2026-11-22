@@ -104,8 +104,8 @@ foreground, height and bitmap-content guards still apply.
 
 Tools uses `Tools.Groups.psd1` and `Tools.Ui.Tests.ps1 -Group <name>`:
 `utilities` runs BuildIdentity, NetworkHealth and FingImport; `maintenance` runs
-ReleaseUpdates and DatabaseBackups; `device-data` runs AdditionalServices,
-SqlEditor and SpeedTest. These existing checks already own
+ReleaseUpdates and DatabaseBackups; `device-data` runs AdditionalServices; `sql-speed`
+runs SqlEditor and SpeedTest. These existing checks already own
 isolated fixtures, launches, readiness and shutdown; the group scenarios invoke
 them unchanged. Both suites default to `All`, continuing independent groups
 after a failure and failing the aggregate. CI and standalone Full validation
@@ -166,11 +166,13 @@ unknown/zero-match selectors, executes the selected local tests and leaves nativ
 selectors to the existing authoritative matrix. Reviewers still judge whether
 the declared tests meaningfully cover the change.
 
-Device Details checks run in six independent CI jobs: `details-summary`,
+Device Details checks run in seven independent CI jobs: `details-summary`,
 `details-identity`, `details-usage`, `details-observations` and `details-activity` follow the
-Overview/History tab boundary, and `details-linking` covers linking device
-records. Add observation-table checks to `details-observations`, usage-category
-checks to `details-usage`, Activity checks to `details-activity` and linking
+Overview/History tab boundary, and `details-linking` and `details-link-matches`
+cover linking device records (`DeviceLinking.Ui -Group links` and `-Group matches`).
+Add observation-table checks to `details-observations`, usage-category
+checks to `details-usage`, Activity checks to `details-activity`, possible-match
+and add/combine checks to `details-link-matches` and other linking
 checks to `details-linking`. Keep each suite independently retryable so one
 flaky native group does not rerun every Device Details check.
 The Network page's `NetworkActivity.Ui` runs independently in `network-activity`

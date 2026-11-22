@@ -66,7 +66,7 @@ The `pr-979` artifact suffix is the manual workflow's run number, not PR #979.
 | `scheduled-scans.png` | `sidebar-preferences-scheduling` | `attempt-1/sidebar/scheduled-scans-Standard Dark.png` | Scheduling on, four-hour choice, independent monitoring off; 1280 x 720. |
 | `device-history.png` | `details-activity` | `attempt-1/activity/activity-Standard-Dark-1280.png` | Activity with two synthetic response/nonresponse squares and unknown gaps. |
 | `scan-observations.png` | `details-observations` | `attempt-1/observations/history-table-standard-dark.png` | Five synthetic completed scan observations, not continuous live status. |
-| `sql.png` | `tools-device-data` | `attempt-1/sql-editor/sql-results-standard-dark.png` | Completed SELECT returning one invented device name. |
+| `sql.png` | `tools-sql-speed` | `attempt-1/sql-editor/sql-results-standard-dark.png` | Completed SELECT returning one invented device name. |
 | `import-conflicts.png` | `tools-utilities` | `attempt-1/fing-import/fing-import-name-emoji.png` | Synthetic name conflict with Keep existing; the proposed name has a selected emoji. |
 | `import-review.png` | `tools-utilities` | `attempt-1/fing-import/fing-import-ready.png` | Skipped Person/Room fields and final import controls; no import was performed. |
 | `database-backups.png` | `tools-maintenance` | `attempt-1/database-backups/backups-expanded-daily.png` | Two consistent copies of an isolated fixture database, with one daily representative. |

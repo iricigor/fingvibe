@@ -4,6 +4,7 @@
     Groups = @(
         @{ Name = 'utilities'; Modules = @('Identity', 'NetworkHealth', 'Import') }
         @{ Name = 'maintenance'; Modules = @('Updates', 'Backups') }
-        @{ Name = 'device-data'; Modules = @('Services', 'Sql', 'SpeedTest') }
+        @{ Name = 'device-data'; Modules = @('Services') }
+        @{ Name = 'sql-speed'; Modules = @('Sql', 'SpeedTest') }
     )
 }

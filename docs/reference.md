@@ -107,6 +107,8 @@ Build identity is stamped into assembly metadata using `BuildKind` (`Release`, `
 
 Without a saved theme preference, FingVibe starts with Standard Light or Standard Dark to match the Windows app mode. **Settings > Appearance** separates **Mode** (Light or Dark), **Theme**, and **Window backdrop**. Light offers Standard, Warm, and Colorful; Dark offers Standard, True Black (OLED), and Colorful. Switching modes retains Standard or Colorful; Warm and True Black map to each other. Colorful uses pale blue/violet surfaces in Light and deep indigo surfaces in Dark without replacing semantic status colors. Solid shows the palette most faithfully; backdrop materials can soften its colors.
 
+A sidebar footer shortcut directly above Settings offers the same Light/Dark choice from any page, including the icon-only rail. It uses Core `AppearanceModes` for the pairing shared with Settings, preserves the backdrop, and saves through the same store. Save failures show an InfoBadge, a message in its flyout and its accessible help text, alongside the existing Settings error. In high contrast it still saves the mode and notes that Windows colors currently apply. Native UI review can set `FINGVIBE_UI_REVIEW_APPEARANCE` to an isolated appearance file; without it UI review keeps appearance in memory.
+
 Appearance choices apply immediately and are saved to `%LOCALAPPDATA%\FingVibe\appearance.json` for the next launch; existing saved themes remain compatible and take precedence over Windows app mode. Ordinary Windows light/dark changes do not switch the theme while FingVibe is running. Unsupported backdrop materials fall back to a solid theme background without discarding your selection. Material rendering also follows Windows transparency settings; Windows high contrast takes precedence and uses system colors instead.
 
 Settings initially shows three collapsed preference sections: **Appearance**, **Devices page**, and **Background activity**. The latter holds separate Scheduled scans and Monitor network health choices. Each header summarizes the current choices; schedule summaries distinguish the configured interval from actual paused, unavailable or failed execution. Expand a header with the pointer or keyboard to edit its existing controls. Expansion is remembered only during the current app session, including navigation through About, and resets to collapsed on restart without changing saved preferences.
@@ -1390,7 +1392,8 @@ one published payload:
 | `sidebar-preferences-scheduling` | SettingsDisclosure, Persistence, Scheduled |
 | `tools-utilities` | BuildIdentity.Ui, NetworkHealth.Ui, FingImport.Ui |
 | `tools-maintenance` | ReleaseUpdates.Ui, DatabaseBackups.Ui |
-| `tools-device-data` | AdditionalServices.Ui, SqlEditor.Ui, SpeedTest.Ui |
+| `tools-device-data` | AdditionalServices.Ui |
+| `tools-sql-speed` | SqlEditor.Ui, SpeedTest.Ui |
 
 This is the assertion/capture ownership boundary: each original behavior module
 or check runs exactly once, unchanged, including its keyboard/accessibility,
@@ -1432,18 +1435,35 @@ Backups checks to their own worker in the same relative order, without changing
 any assertions, sleeps or timeouts. The resulting job durations must be measured
 on the new revision rather than treating projected headroom as acceptance.
 
+For #662, rejected-head run 45024199867 spent 242s in `DeviceLinking.Ui` inside a
+271s `details-linking` job; the same job took 166-266s on unrelated revisions.
+`DeviceLinking.Ui -Group` splits it into `links` (section states through high
+contrast, manual-choice text scaling and unlinking) and `matches` (possible
+matches, their text scaling, and adding/combining saved linked devices). The
+match checks own a separate inventory and add/combine uses only the saved
+spare/pair links, so each group keeps its original order, assertions, sleeps,
+timeouts and 200% text scale; `All` runs the original sequence.
+
+The next #662 head, run 45028039259, spent 209s in the `tools-device-data`
+suite (Services 162s, Sql 28s, SpeedTest 19s) inside a 242s job; the job took
+214-238s on recent revisions. `tools-sql-speed` moves the already-independent
+SQL editor and Speed test checks to their own worker in the same relative order,
+without changing any assertions, sleeps or timeouts.
+
 Device Details regression follows the #262 Overview/History tab boundary
 across independent matrix jobs (#292): `details-summary`
 (`DeviceScanHistory.Ui -SummaryOnly`), `details-identity` (`DeviceDiscovery.Ui`),
 `details-usage` (`UsageCategory.Ui`), `details-observations`
 (`DeviceScanHistory.Ui -ObservationsOnly`),
-`details-activity` (`DeviceActivity.Ui`) and `details-linking` (`DeviceLinking.Ui`, #547/#548/#582/#583:
+`details-activity` (`DeviceActivity.Ui`), `details-linking` (`DeviceLinking.Ui -Group links`) and
+`details-link-matches` (`DeviceLinking.Ui -Group matches`) (#547/#548/#582/#583:
 Merge MAC addresses states including the mixed linked-with-suggestion header, possible-match icons,
 tooltips, review, Decline and its failure/restart, picker, explicit choices, Cancel, failed-save draft,
 shared editing, one linked-device row, adding a record and combining a linked device, the linked-device
 History card's members, unlinking from
 two and five MAC addresses, restart, high contrast, keyboard and text scaling, using separate
-linking and possible-match fixtures). Each job launches its own fixtures and app
+linking and possible-match fixtures; possible matches and adding/combining run in `details-link-matches`,
+the other linking checks in `details-linking`). Each job launches its own fixtures and app
 instances, is selected by the `DeviceDetails` or `DeviceHistory` capture-plan scenario, and must
 dispatch at least one check. The separate `network-activity` suite runs
 `NetworkActivity.Ui` only when `Network` is selected, instead of adding it to

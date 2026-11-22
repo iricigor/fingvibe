@@ -10,10 +10,8 @@ namespace FingVibe.App.Views;
 
 public sealed partial class SettingsPageView : UserControl
 {
-    private static readonly ThemeVariant[] LightThemes =
-        [ThemeVariant.StandardLight, ThemeVariant.WarmLight, ThemeVariant.ColorfulLight];
-    private static readonly ThemeVariant[] DarkThemes =
-        [ThemeVariant.StandardDark, ThemeVariant.OledDark, ThemeVariant.ColorfulDark];
+    private static readonly ThemeVariant[] LightThemes = [.. AppearanceModes.LightThemes];
+    private static readonly ThemeVariant[] DarkThemes = [.. AppearanceModes.DarkThemes];
     private bool _updatingAppearance;
     private bool _updatingPeriodicScan;
     private bool _updatingNetworkMonitor;
