@@ -62,7 +62,7 @@
     }
     $navItem = [regex]::Match((Get-Content (Join-Path $appDirectory "MainWindow.xaml") -Raw),
         '(?s)<NavigationViewItem x:Name="PeopleRoomsNavItem".*?</NavigationViewItem>').Value
-    if ($navItem -notmatch 'UriSource="ms-appx:///Assets/PageIcons/people-rooms-mono-32\.png"' -or
+    if ($navItem -notmatch 'UriSource="ms-appx:///Assets/PageIcons/people-rooms-mono-48\.png"' -or
         $navItem -notmatch 'Style="\{ThemeResource SidebarPeopleRoomsIconStyle\}"' -or $navItem -match '<PathIcon\b') {
         throw "People & rooms navigation must use one theme-colored single-color 'people-rooms' family icon."
     }
@@ -377,7 +377,7 @@
     $aboutDocument.Load((Join-Path $appDirectory "Tools\AboutPage.xaml"))
     $browserLinks = @($aboutDocument.SelectNodes(
         "//*[local-name()='HyperlinkButton' and contains(@AutomationProperties.Name,'opens in browser')]"))
-    if ($browserLinks.Count -ne 5) { throw "About must retain all five browser destinations." }
+    if ($browserLinks.Count -ne 7) { throw "About must retain all seven browser destinations." }
     foreach ($link in $browserLinks) {
         $externalIcons = @($link.SelectNodes(
             ".//*[local-name()='FontIcon' and @Style='{StaticResource ExternalLinkIconStyle}']"))
@@ -386,6 +386,16 @@
         if ($externalIcons.Count -ne 1 -or $embeddedArrows.Count -ne 0) {
             throw "About browser links must use one separate external-link icon."
         }
+    }
+    $updateItems = @($aboutDocument.SelectSingleNode("//*[@*[local-name()='Name']='InstallUpdateButton']").ParentNode.ChildNodes |
+        Where-Object { $_.NodeType -eq 'Element' } | ForEach-Object { $_.GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml") })
+    $notesExpander = $aboutDocument.SelectSingleNode("//*[@*[local-name()='Name']='ReleaseNotesExpander']")
+    if ([Array]::IndexOf($updateItems, "ReleaseNotesExpander") -ne [Array]::IndexOf($updateItems, "InstallUpdateButton") + 1 -or
+        [Array]::IndexOf($updateItems, "ReleaseNotesFallbackLink") -ne [Array]::IndexOf($updateItems, "ReleaseNotesExpander") + 1 -or
+        $notesExpander.GetAttribute("IsExpanded") -cne "False" -or
+        $notesExpander.SelectSingleNode(".//*[local-name()='ScrollViewer' or local-name()='WebView2' or local-name()='RichTextBlock' or local-name()='Hyperlink']") -or
+        @($notesExpander.SelectNodes(".//*[local-name()='HyperlinkButton']")).Count -ne 1) {
+        throw "Release notes must be a collapsed expander below Update now, using page scrolling, plain text and one explicit GitHub link."
     }
     $toolIcons = @(
         @{ Page = "SpeedTestPage"; Title = "Speed test"; Card = "SpeedTestCard"; Click = "SpeedTestCard_Click"; Icon = "speed-test" },

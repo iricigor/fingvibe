@@ -1,4 +1,4 @@
-﻿function Test-SidebarContentInset([string] $Page) {
+function Test-SidebarContentInset([string] $Page) {
     $grip = (Find-SidebarElement AutomationId NavigationResizeGrip).Current.BoundingRectangle
     $edge = $grip.Left + $grip.Width / 2
     $header = (Find-SidebarElement AutomationId DetectedNetworkLabel).Current.BoundingRectangle
@@ -65,19 +65,19 @@ function Test-SidebarDividerAppearance([string] $Name = "sidebar-divider", [int]
 }
 
 # BitmapIcon point-samples its monochrome mask, so oversized art leaves only scattered stroke pixels.
-# Recognizable 16-DIP family icons ink about 45-55 pixels at 100% scale; the broken 256 px masks inked 20-31.
+# 24-DIP family icons ink about 145-180 pixels at 100% scale and span about 21 DIPs (87.5%); 16-DIP icons inked 45-55.
 function Assert-SidebarFamilyIcons([string] $Name) {
     $window = Get-UiReviewWindowBounds $windowHandle
     $bitmap = [System.Drawing.Bitmap]::new((Join-Path $ScreenshotDirectory "$Name.png"))
     try {
-        foreach ($id in @("OverviewNavItem", "NetworkNavItem", "DevicesNavItem", "ToolsNavItem")) {
+        foreach ($id in @("OverviewNavItem", "NetworkNavItem", "DevicesNavItem", "PeopleRoomsNavItem", "ToolsNavItem")) {
             $item = (Find-SidebarElement AutomationId $id).Current.BoundingRectangle
-            # Skip the selection pill at the item's left edge and any focus border around it.
+            # Skip the selection pill at the item's left edge, any focus border around it and the label.
             $left = [int]($item.Left - $window.Left + 8 * $scale)
-            $right = [int]([Math]::Min($item.Left + 34 * $scale, $item.Right) - $window.Left)
+            $right = [int]([Math]::Min($item.Left + 44 * $scale, $item.Right) - $window.Left)
             $middle = $item.Top - $window.Top + $item.Height / 2
-            $top = [int]($middle - 12 * $scale)
-            $bottom = [int]($middle + 12 * $scale)
+            $top = [int]($middle - 14 * $scale)
+            $bottom = [int]($middle + 14 * $scale)
             $counts = @{}
             for ($y = $top; $y -lt $bottom; $y++) {
                 for ($x = $left; $x -lt $right; $x++) { $counts[$bitmap.GetPixel($x, $y).ToArgb()]++ }
@@ -85,15 +85,24 @@ function Assert-SidebarFamilyIcons([string] $Name) {
             $background = [System.Drawing.Color]::FromArgb(
                 ($counts.GetEnumerator() | Sort-Object Value -Descending | Select-Object -First 1).Key)
             $ink = 0
+            $inkLeft = $right; $inkTop = $bottom; $inkRight = $left - 1; $inkBottom = $top - 1
             for ($y = $top; $y -lt $bottom; $y++) {
                 for ($x = $left; $x -lt $right; $x++) {
                     $pixel = $bitmap.GetPixel($x, $y)
                     if ([Math]::Abs([int]$pixel.R - $background.R) + [Math]::Abs([int]$pixel.G - $background.G) +
-                        [Math]::Abs([int]$pixel.B - $background.B) -gt 96) { $ink++ }
+                        [Math]::Abs([int]$pixel.B - $background.B) -gt 96) {
+                        $ink++
+                        $inkLeft = [Math]::Min($inkLeft, $x); $inkRight = [Math]::Max($inkRight, $x)
+                        $inkTop = [Math]::Min($inkTop, $y); $inkBottom = [Math]::Max($inkBottom, $y)
+                    }
                 }
             }
-            if ($ink -lt 38 * $scale * $scale) {
-                throw "$id family icon is not recognizable in '$Name': $ink inked pixels (expected at least $([int](38 * $scale * $scale)))."
+            if ($ink -lt 90 * $scale * $scale) {
+                throw "$id family icon is not recognizable in '$Name': $ink inked pixels (expected at least $([int](90 * $scale * $scale)))."
+            }
+            $span = [Math]::Max($inkRight - $inkLeft + 1, $inkBottom - $inkTop + 1) / $scale
+            if ($span -lt 18 -or $span -gt 24) {
+                throw "$id family icon must render at 24 DIPs in '$Name': its artwork spans $([Math]::Round($span, 1)) DIPs (expected about 21)."
             }
         }
     }

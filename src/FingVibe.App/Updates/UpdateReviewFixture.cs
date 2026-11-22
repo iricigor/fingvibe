@@ -21,6 +21,7 @@ internal sealed class UpdateReviewFixture(string path) : TimeProvider
         public required string Download { get; init; }
         public bool? Metered { get; init; }
         public bool? PublishDigest { get; init; }
+        public string Notes { get; init; } = "default";
     }
 
     private Settings Read()
@@ -44,6 +45,17 @@ internal sealed class UpdateReviewFixture(string path) : TimeProvider
         "portable" => new(false, "Controlled review fixture: portable copy; ZIP/manual replacement only."),
         "uncertain" => new(false, "Controlled review fixture: uncertain deployment; ZIP/manual replacement only."),
         _ => throw new InvalidDataException("Unknown update review deployment.")
+    };
+
+    // Long enough to exercise truncation; includes HTML and links that must render as inert text.
+    private static string? ReleaseBody(string notes, string version) => notes switch
+    {
+        "empty" => "",
+        "default" => $"Controlled review notes for FingVibe {version}.\n\n## Highlights\n\n" +
+            "- **Release notes in About:** see [#695](https://github.com/iricigor/fingvibe/pull/695). <script>alert('x')</script>\n" +
+            string.Join("\n", Enumerable.Range(1, 40).Select(index =>
+                $"- Controlled change {index}: a short description that keeps the fixture realistic and readable.")),
+        _ => throw new InvalidDataException("Unknown update review notes mode.")
     };
 
     public static void RejectLaunch() => throw new Win32Exception(1223, "Controlled installer launch rejection; no installer was executed.");
@@ -96,7 +108,8 @@ internal sealed class UpdateReviewFixture(string path) : TimeProvider
                     Content = new StringContent(JsonSerializer.Serialize(new
                     {
                         tag_name = $"v{version}", draft = false, prerelease = false,
-                        html_url = $"https://github.com/iricigor/fingvibe/releases/tag/v{version}", assets
+                        html_url = $"https://github.com/iricigor/fingvibe/releases/tag/v{version}", assets,
+                        body = ReleaseBody(settings.Notes, version)
                     }))
                 };
             }

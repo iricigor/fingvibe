@@ -13,7 +13,9 @@ confirmed Setup in the background; metered or unknown-cost connections do not.
 **Update now** still requires confirmation, revalidates or downloads the Setup,
 closes FingVibe before installation, records the observed installer/relaunch
 result and reopens the verified installation after success. About keeps a compact
-status summary and reports the result after reopening. Portable copies use manual ZIP
+status summary and reports the result after reopening. An available update's notes
+appear in a collapsed **What's new** expander as plain text, with a link to the full
+notes on GitHub. Portable copies use manual ZIP
 replacement. PR, Test and
 Development builds do not check for updates or compare their versions with
 stable releases. See [update checks and downloads](manual/navigation.md#check-for-updates)
