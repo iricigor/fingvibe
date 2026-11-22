@@ -231,7 +231,7 @@ foreach ($step in @("Download completed captures", "Publish screenshots for inli
         'runs-on: windows-2025',
         'timeout-minutes: 35',
         'fail-fast: false',
-        'suite: \[sidebar-presentation, sidebar-scan-flows, sidebar-scan-presentation, sidebar-preferences-scheduling, devices-presentation, devices-row-expansion, devices-filters-previews, devices-columns-sorting, details-summary, details-identity, details-usage, details-observations, details-activity, details-linking, network-activity, tools-utilities, tools-maintenance, tools-device-data\]',
+        'suite: \[sidebar-presentation, sidebar-scan-flows, sidebar-scan-presentation, sidebar-preferences-scheduling, devices-presentation, devices-row-expansion, devices-filters-previews, devices-columns-sorting, details-summary, details-identity, details-usage, details-observations, details-activity, details-linking, details-link-matches, network-activity, tools-utilities, tools-maintenance, tools-device-data\]',
         '(?s)name: Run native regression suite\s+timeout-minutes: 15',
         "(?s)name: Run native regression suite\s+timeout-minutes: 15\s+id: native\s+continue-on-error: true\s+if: \$\{\{ !startsWith\(matrix.suite, 'sidebar-'\) \}\}\s+shell: pwsh",
         "(?s)name: Run sidebar regression in Windows PowerShell\s+timeout-minutes: 15\s+id: sidebar\s+continue-on-error: true\s+if: startsWith\(matrix.suite, 'sidebar-'\)\s+shell: powershell",

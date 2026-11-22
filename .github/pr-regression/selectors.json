@@ -35,6 +35,7 @@
     { "id": "native-details-observations", "runner": "native-suite", "target": "details-observations" },
     { "id": "native-details-activity", "runner": "native-suite", "target": "details-activity" },
     { "id": "native-details-linking", "runner": "native-suite", "target": "details-linking" },
+    { "id": "native-details-link-matches", "runner": "native-suite", "target": "details-link-matches" },
     { "id": "native-network-activity", "runner": "native-suite", "target": "network-activity" },
     { "id": "native-tools-utilities", "runner": "native-suite", "target": "tools-utilities" },
     { "id": "native-tools-maintenance", "runner": "native-suite", "target": "tools-maintenance" },

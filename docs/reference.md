@@ -1426,18 +1426,29 @@ Backups checks to their own worker in the same relative order, without changing
 any assertions, sleeps or timeouts. The resulting job durations must be measured
 on the new revision rather than treating projected headroom as acceptance.
 
+For #662, rejected-head run 45024199867 spent 242s in `DeviceLinking.Ui` inside a
+271s `details-linking` job; the same job took 166-266s on unrelated revisions.
+`DeviceLinking.Ui -Group` splits it into `links` (section states through high
+contrast, manual-choice text scaling and unlinking) and `matches` (possible
+matches, their text scaling, and adding/combining saved linked devices). The
+match checks own a separate inventory and add/combine uses only the saved
+spare/pair links, so each group keeps its original order, assertions, sleeps,
+timeouts and 200% text scale; `All` runs the original sequence.
+
 Device Details regression follows the #262 Overview/History tab boundary
 across independent matrix jobs (#292): `details-summary`
 (`DeviceScanHistory.Ui -SummaryOnly`), `details-identity` (`DeviceDiscovery.Ui`),
 `details-usage` (`UsageCategory.Ui`), `details-observations`
 (`DeviceScanHistory.Ui -ObservationsOnly`),
-`details-activity` (`DeviceActivity.Ui`) and `details-linking` (`DeviceLinking.Ui`, #547/#548/#582/#583:
+`details-activity` (`DeviceActivity.Ui`), `details-linking` (`DeviceLinking.Ui -Group links`) and
+`details-link-matches` (`DeviceLinking.Ui -Group matches`) (#547/#548/#582/#583:
 Merge MAC addresses states including the mixed linked-with-suggestion header, possible-match icons,
 tooltips, review, Decline and its failure/restart, picker, explicit choices, Cancel, failed-save draft,
 shared editing, one linked-device row, adding a record and combining a linked device, the linked-device
 History card's members, unlinking from
 two and five MAC addresses, restart, high contrast, keyboard and text scaling, using separate
-linking and possible-match fixtures). Each job launches its own fixtures and app
+linking and possible-match fixtures; possible matches and adding/combining run in `details-link-matches`,
+the other linking checks in `details-linking`). Each job launches its own fixtures and app
 instances, is selected by the `DeviceDetails` or `DeviceHistory` capture-plan scenario, and must
 dispatch at least one check. The separate `network-activity` suite runs
 `NetworkActivity.Ui` only when `Network` is selected, instead of adding it to

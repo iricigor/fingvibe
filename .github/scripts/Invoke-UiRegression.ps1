@@ -3,7 +3,7 @@ param(
     [Parameter(Mandatory)]
     [ValidateSet("sidebar", "sidebar-presentation", "sidebar-scan-flows", "sidebar-scan-presentation", "sidebar-preferences-scheduling",
         "devices", "devices-presentation", "devices-row-expansion", "devices-filters-previews", "devices-columns-sorting",
-        "details-summary", "details-identity", "details-usage", "details-observations", "details-activity", "details-linking", "network-activity",
+        "details-summary", "details-identity", "details-usage", "details-observations", "details-activity", "details-linking", "details-link-matches", "network-activity",
         "tools", "tools-utilities", "tools-maintenance", "tools-device-data")]
     [string] $Suite,
     [Parameter(Mandatory)][string] $AppPath,
@@ -83,7 +83,11 @@ try {
             }
             elseif ($Suite -eq "details-linking" -and
                 ($plan.Scenario | Where-Object { $_ -in @("DeviceDetails", "DeviceHistory") })) {
-                Invoke-RegressionCheck "DeviceLinking.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "linking") }
+                Invoke-RegressionCheck "DeviceLinking.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "linking"); Group = "links" }
+            }
+            elseif ($Suite -eq "details-link-matches" -and
+                ($plan.Scenario | Where-Object { $_ -in @("DeviceDetails", "DeviceHistory") })) {
+                Invoke-RegressionCheck "DeviceLinking.Ui" @{ ScreenshotDirectory = (Join-Path $ScreenshotDirectory "linking-matches"); Group = "matches" }
             }
         }
         "network-activity" {
