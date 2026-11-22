@@ -25,7 +25,8 @@ public sealed partial class MainWindow
             fixture is null
                 ? BuildIdentity.Current.ParsedVersion?.ToString() ?? BuildIdentity.Current.Version
                 : "v1.2.99", source.GetLatestAsync, clock);
-        _updateActions = new ReleaseUpdateActions(_updateHttp, _updates, fixture);
+        _updateActions = new ReleaseUpdateActions(_updateHttp, _updates, fixture,
+            fixture is null ? UpdateConnectionCost.IsMeteredOrUnknown : fixture.IsMeteredOrUnknown);
         SettingsPage.ConfigureUpdates(_updates, _updateActions, fixture is not null, Close);
         _updates.Changed += (_, state) => DispatcherQueue.TryEnqueue(() => ApplyUpdateIndicator(state));
         _updateTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };

@@ -1,0 +1,19 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 694,
+  "category": "ui",
+  "changedBehavior": "Verified installed stable builds silently download and stage confirmed updates only on unrestricted connections, revalidate version-keyed Setup files after restart, share an in-flight download with Update now, clean stale temporary/version folders, and expose failures only in Update details.",
+  "selectors": [
+    "core-tests",
+    "ui-regression-helpers",
+    "ui-review-scenarios",
+    "native-tools-utilities",
+    "documentation-tests"
+  ],
+  "expectedAssertions": [
+    "Metered, unknown-cost, portable, uncertain and non-release installations never background-download.",
+    "One unrestricted update download is staged under a version-keyed Updates directory, verified against the published digest and Internet marking, and reused after restart only after revalidation.",
+    "Update now joins an in-flight background download instead of starting a duplicate and falls back to visible foreground progress when no valid staged file exists.",
+    "Invalid/partial staged files and stale version/GUID folders are removed without being executed, while background failures remain visible only in Update details and retry on a later check."
+  ]
+}

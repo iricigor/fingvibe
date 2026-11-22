@@ -7,9 +7,11 @@ commit, with links to the pull request and build run when those identifiers
 are available. Repository and creator links open in your browser. Settings stays
 selected; **Back to Settings** returns focus to the About row without resetting
 your preference sections. Official stable builds check for newer stable releases
-automatically while open, and offer **Check for updates**. Downloads require
-your action; **Update now** requires confirmation, downloads/verifies the
-release, closes FingVibe before Setup runs, records the observed installer/relaunch
+automatically while open, and offer **Check for updates**. On an unmetered
+connection, verified installed copies may silently download and stage the
+confirmed Setup in the background; metered or unknown-cost connections do not.
+**Update now** still requires confirmation, revalidates or downloads the Setup,
+closes FingVibe before installation, records the observed installer/relaunch
 result and reopens the verified installation after success. About keeps a compact
 status summary and reports the result after reopening. Portable copies use manual ZIP
 replacement. PR, Test and
