@@ -82,11 +82,10 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-            <Button x:Name="DeviceBackButton" Content="&#x2190; Devices" Click="BackToDevicesButton_Click"
-                    MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
-                    MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
-                    AutomationProperties.AutomationId="DeviceBackButton"
-                    AutomationProperties.Name="Back to devices" Style="{StaticResource PageBackButtonStyle}" />
+            <!-- Margin 0 keeps this detail header's own 16-DIP column gap until #670 adopts the shared header. -->
+            <app:PageBackButton x:Name="DeviceBackButton" Destination="Devices" AccessibleDestination="devices"
+                    Margin="0" BackRequested="BackToDevicesButton_Click"
+                    AutomationProperties.AutomationId="DeviceBackButton" />
             <Border x:Name="DetailsTabsHost" Grid.Column="1" Padding="4" CornerRadius="8"
                     VerticalAlignment="Center" HorizontalAlignment="Left"
                     Background="{ThemeResource ControlFillColorSecondaryBrush}">

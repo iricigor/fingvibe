@@ -57,12 +57,12 @@
         [pscustomobject]@{ Left = $Left; Top = $Top; Width = $Width; Height = $Height
             Right = $Left + $Width; Bottom = $Top + $Height }
     }
-    $back = & $rect 10 10 100 44
-    $reference = & $rect 126 10 100 44
-    $text = & $rect 20 22 75 20
+    $back = & $rect 10 10 100 48
+    $reference = & $rect 126 10 100 48
+    $text = & $rect 30 24 67 20
     $window = & $rect 0 0 500 500
     & {
-        $caption = "$([char]0x2190) Devices"
+        $caption = 'Devices'
         $captionPeer = [pscustomobject]@{ Current = [pscustomobject]@{
             IsOffscreen = $false; BoundingRectangle = $text
         } }
@@ -117,7 +117,7 @@
             throw 'Measure the actual rendered caption peer, never its Button or estimated bounds.'
         }
         Assert-Equal $captionState.Calls 2 'Raw caption discovery retries missing peers through the actual waiter'
-        Assert-PageBackGeometry $back $reference $reference $found.Current.BoundingRectangle $window 1 10
+        Assert-PageBackGeometry $back $reference $found.Current.BoundingRectangle $window 1 10
         $found = Find-PageHeaderElement $captionButton $caption -ByName -Type ([Windows.Automation.ControlType]::Text) -Raw -AllowOffscreen
         if (-not [object]::ReferenceEquals($found, $hiddenCaption)) { throw 'Explicit raw offscreen lookup lost the actual peer.' }
         $captionState.Failure = $true
@@ -145,7 +145,7 @@
         $null = New-Item -ItemType Directory -Path $measurementDirectory
         try {
             Save-PageBackHeader $measurementRoot ([IntPtr]::Zero) $measurementDirectory 'raw-caption' `
-                'Back to devices' $caption $reference 1 10 -NextId DeviceOverviewTab
+                'Back to devices' $caption 1 10 -NextId DeviceOverviewTab
             Assert-Equal $captures.Count 1 'Real header measurement reaches its existing capture boundary'
             Assert-Equal $captures[0] (Join-Path $measurementDirectory 'back-raw-caption.png') 'Header capture identity'
             $measurement = Get-Content (Join-Path $measurementDirectory 'back-header-measurements.jsonl') -Raw | ConvertFrom-Json
@@ -403,25 +403,30 @@
             Assert-Equal $script:UiRegressionCallStack.Count 0 'About entry completes real lookup/wait accounting'
         }
     }
-    Assert-PageBackGeometry $back $reference $reference $text $window 1 10
-    Assert-PageBackGeometry $back $reference (& $rect 10 70 100 44) $text $window 1 10
-    Assert-PageBackGeometry (& $rect 10 10 150 66) $reference (& $rect 180 10 100 44) $text $window 1 10 -Scaled
-    Assert-PageBackGeometry (& $rect 10 10 150 66) (& $rect 180 10 150 66) `
-        (& $rect 180 10 150 66) $text $window 1.5 10
+    # #658: Back is the shared 48-DIP header-control height and fits its destination; it grows with enlarged text.
+    Assert-PageBackGeometry $back $reference $text $window 1 10
+    Assert-PageBackGeometry $back (& $rect 10 70 100 44) $text $window 1 10
+    Assert-PageBackGeometry (& $rect 10 10 150 66) (& $rect 180 10 100 44) (& $rect 30 30 116 24) $window 1 10 -Scaled
+    Assert-PageBackGeometry (& $rect 10 10 150 72) (& $rect 180 10 150 66) (& $rect 30 30 120 24) $window 1.5 10
+    foreach ($height in @(44, 50)) {
+        Assert-Throws {
+            Assert-PageBackGeometry (& $rect 10 10 100 $height) $reference $text $window 1 10
+        } '*48-DIP header-control height within 1 DIP*'
+    }
     Assert-Throws {
-        Assert-PageBackGeometry (& $rect 10 10 102 44) $reference $reference $text $window 1 10
-    } '*within 1 DIP*'
+        Assert-PageBackGeometry (& $rect 10 10 100 46) $reference $text $window 1 10 -Scaled
+    } '*48-DIP header-control height within 1 DIP*'
     Assert-Throws {
-        Assert-PageBackGeometry $back (& $rect 122 6 108 52) $reference $text $window 1 10
-    } '*within 1 DIP*'
+        Assert-PageBackGeometry (& $rect 10 10 130 48) (& $rect 150 10 100 48) $text $window 1 10
+    } '*fit its destination*'
     Assert-Throws {
-        Assert-PageBackGeometry $back $reference (& $rect 0 10 100 44) $text $window 1 10
+        Assert-PageBackGeometry $back (& $rect 0 10 100 44) $text $window 1 10
     } '*precede*'
     Assert-Throws {
-        Assert-PageBackGeometry $back $reference $reference (& $rect 20 22 100 20) $window 1 10
+        Assert-PageBackGeometry $back $reference (& $rect 20 22 100 20) $window 1 10
     } '*clipped by Back*'
     Assert-Throws {
-        Assert-PageBackGeometry $back $reference $reference $text $window 1 0
+        Assert-PageBackGeometry $back $reference $text $window 1 0
     } '*content left edge*'
     $errors = $null
     $null = [Management.Automation.Language.Parser]::ParseFile(

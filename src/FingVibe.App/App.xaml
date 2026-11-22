@@ -175,14 +175,6 @@
                 <Setter Property="Stroke" Value="{ThemeResource TextFillColorSecondaryBrush}" />
                 <Setter Property="Fill" Value="{ThemeResource TextFillColorTertiaryBrush}" />
             </Style>
-            <local:PageHeaderSizing x:Key="PageHeaderSizing" />
-            <Style x:Key="PageBackButtonStyle" TargetType="Button">
-                <Setter Property="Padding" Value="8" />
-                <Setter Property="FontSize" Value="14" />
-                <Setter Property="CornerRadius" Value="6" />
-                <Setter Property="HorizontalAlignment" Value="Left" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-            </Style>
             <local:PortIconGlyphConverter x:Key="PortIconGlyphConverter" />
             <local:LatencyColorConverter x:Key="LatencyColorConverter" />
             <local:ResultRowBackgroundConverter x:Key="ResultRowBackgroundConverter" />
@@ -249,13 +241,20 @@
             <!-- Shared fixed page header: [Back, 16 DIP,] 48-DIP PageHeaderIcon, 12 DIP, title. It is the page's own
                  Auto row above the scrolling body, starts at the content edge and has no background or divider.
                  Defined here, after its BasedOn styles, because merged dictionaries load before App resources. -->
+            <!-- The one shared page-header control height (#658): header row, Back and, with #659, the page tabs. -->
+            <x:Double x:Key="PageHeaderControlHeight">48</x:Double>
             <Style x:Key="PageHeaderRowStyle" TargetType="Grid">
                 <Setter Property="ColumnSpacing" Value="12" />
-                <Setter Property="MinHeight" Value="48" />
+                <Setter Property="MinHeight" Value="{StaticResource PageHeaderControlHeight}" />
             </Style>
-            <!-- The row's 12-DIP spacing plus this margin makes the 16-DIP gap after Back; its look stays PageBackButtonStyle. -->
-            <Style x:Key="PageHeaderBackButtonStyle" TargetType="Button" BasedOn="{StaticResource PageBackButtonStyle}">
+            <!-- B3 Back (#658): borderless and transparent at rest, subtle fill on hover/pressed, system colours in high
+                 contrast (all from SubtleButtonStyle), the system focus visual and the shared 48-DIP height, growing with
+                 text. The row's 12-DIP spacing plus the 4-DIP margin makes the 16-DIP gap after Back. -->
+            <Style TargetType="local:PageBackButton" BasedOn="{StaticResource SubtleButtonStyle}">
+                <Setter Property="MinHeight" Value="{StaticResource PageHeaderControlHeight}" />
+                <Setter Property="Padding" Value="12,8" />
                 <Setter Property="Margin" Value="0,0,4,0" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
             </Style>
             <Style x:Key="PageHeaderTitleStyle" TargetType="TextBlock" BasedOn="{StaticResource ScannerPageTitleStyle}">
                 <Setter Property="Margin" Value="0" />
