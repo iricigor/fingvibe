@@ -1187,7 +1187,9 @@
 
 <h1 id="find-your-way-around">Find your way around<a class="headerlink" href="#find-your-way-around" title="Permanent link">&para;</a></h1>
 <p>The left menu switches pages. The <strong>Network:</strong> picker and scan status are shared
-across pages. Changing pages does not automatically start another scan.</p>
+across pages. Changing pages does not automatically start another scan.
+Page icons, titles and Back actions stay fixed below that shared header while
+the page body scrolls.</p>
 <table>
 <thead>
 <tr>
@@ -1232,7 +1234,8 @@ Scroll down in a small window to reach later cards. Keyboard focus follows
 that same order.</p>
 <p>The Room map has no sidebar item. Open it from <strong>Tools</strong>, from the Rooms
 section of <strong>People &amp; rooms</strong>, or from the Network health diagram.
-Its <strong>Rooms</strong> Back action returns to room management, matching other subpage Back buttons.</p>
+Its Back action names the page where you opened it: <strong>Rooms</strong>, <strong>Tools</strong>, or
+<strong>Network health</strong>. It keeps that destination after a visit to device or room details.</p>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
 <p>Overview describes the <strong>displayed scan</strong>, not a live network monitor.
 Choose an online-device or open-port summary to open the corresponding
@@ -1260,14 +1263,18 @@ choices are remembered; automatic changes for a small window are not.</p>
 <p>You can focus the divider and use <strong>Left/Right</strong> arrow keys.
 Hold <strong>Shift</strong> for larger steps. Small windows may show an overlay menu.</p>
 <h2 id="return-and-use-the-keyboard">Return and use the keyboard<a class="headerlink" href="#return-and-use-the-keyboard" title="Permanent link">&para;</a></h2>
-<p>Device details has a <strong>Devices</strong> return action. Individual Tools pages have a
-<strong>Tools</strong> return action. These return to the relevant page; they do not save an
+<p>Device details normally has a <strong>Devices</strong> return action. Device or room details
+opened from the Room map return to <strong>Room map</strong> instead. Individual Tools pages
+normally return to <strong>Tools</strong>; Service status returns to <strong>Network health</strong>.
+These return to the relevant page; they do not save an
 unfinished draft unless the page explicitly says so.</p>
 <p>About has a <strong>Settings</strong> return action that restores focus to its Settings row.
 These single-line arrow-and-destination buttons stay at the left of the page
-header, before the page, device, person or room icon and title. Their normal minimum size matches
-the individual <strong>Overview</strong> tab in Device details, not the padded tab group.
-Longer destinations and enlarged Windows text can grow the buttons.</p>
+header, before the page, device, person or room icon and title. They are quiet,
+borderless controls until hovered or pressed, with a visible keyboard-focus cue.
+The Device details tab group matches their height; narrow windows or enlarged
+Windows text can move the tabs below the header. Tooltips and accessible names
+say <strong>Back to</strong> the visible destination.</p>
 <p>Use <strong>Tab</strong> to move through controls, and <strong>Enter</strong> or <strong>Space</strong> to activate the
 focused control. Checkboxes expose their selected state. Tooltips and accessible
 names provide full values when table text is shortened.</p>
@@ -1299,7 +1306,7 @@ When I close persists the confirmed version; it prepares a verified installer in
 the same per-version staging folder, hides the availability dots, and shows
 <strong>Cancel scheduled update</strong>. A missing or invalid file leaves the schedule
 pending rather than running Setup.
-The next completed normal close that has a verified file starts the #666 handoff
+The next completed normal close that has a verified file starts the close-first updater
 with relaunch disabled, so FingVibe remains closed after installation. Cancelled
 closes, in-progress downloads without a verified file, crashes, forced termination
 and Windows shutdown do not install. The schedule survives app restarts and moves
@@ -1320,8 +1327,9 @@ popup links to GitHub Releases.</p>
 <p>When an update is available, a collapsed <strong>What's new in X.Y.Z</strong> expander below
 the update action shows that release's notes from the same GitHub response the
 check already fetched; no extra request is made. The notes are plain text with
-headings, bullets and paragraphs. Markdown links, images and HTML are shown only
-as text, and nothing in them can open a browser or load remote content. Long notes
+headings, bullets and paragraphs. Links and images become plain text; HTML tags
+and embedded content are removed. The displayed notes cannot open a browser or
+load remote content. Long notes
 end with <strong>View full notes on GitHub</strong>. If a release has no readable notes,
 <strong>View release notes on GitHub</strong> appears instead; checking and installing are
 unaffected. Expanded notes scroll with the page.</p>
@@ -1331,7 +1339,7 @@ only here and are retried at the next qualifying check. The main Updates card
 keeps one version/status
 sentence and a relative <strong>Last checked</strong> value; failures and Windows security
 warnings stay visible outside the expander.</p>
-<p>After FingVibe reopens, About reads the delivered #666 attempt/outcome record:
+<p>After FingVibe reopens, About reads the saved update attempt/outcome record:
 it reports <strong>Updated to X.Y.Z</strong> only when the running installation matches the
 recorded target, otherwise it reports the failure and recovery path. Launching
 Setup alone does not prove installation completed.</p>

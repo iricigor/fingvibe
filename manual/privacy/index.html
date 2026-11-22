@@ -1209,9 +1209,9 @@ Some features contact external services as explained below.</p>
 <td>Ordinary public GET requests for provider status data and your public source IP; no LAN inventory, selected adapter, credentials, local diagnostic results or monitoring history is sent. Results are held only in memory for five minutes.</td>
 </tr>
 <tr>
-<td>Stable-release update checks and user-requested downloads</td>
+<td>Stable-release update checks and downloads</td>
 <td><code>api.github.com</code>, GitHub Releases and its asset CDN</td>
-<td>Public source IP and ordinary HTTP headers; no LAN inventory or saved scans are sent.</td>
+<td>Public source IP and ordinary HTTP headers; no LAN inventory or saved scans are sent. Verified installed stable builds can download Setup in the background on an unmetered connection.</td>
 </tr>
 <tr>
 <td>Links opened from the app</td>
@@ -1226,9 +1226,12 @@ The speed test is manual and asks for confirmation before each run.
 Manual Network health probes start only when you choose <strong>Run diagnostics</strong>.
 Background monitoring is separately opt-in from Background activity Settings and
 is off by default. The option discloses its targets and cadence before use.
-Official stable builds check for updates automatically while open; downloads and
-installation require your action. Development, PR and Test builds do not check
-automatically. See <a href="../navigation/#check-for-updates">Check for updates</a>.</p>
+Official stable builds check for updates automatically while open. Verified
+installed copies can silently download and stage a confirmed Setup on an
+unmetered connection; metered or unknown-cost connections and portable copies
+do not background-download. Installation still requires your confirmation:
+<strong>Restart now</strong> or <strong>When I close</strong>. Development, PR and Test builds do not check
+or download updates automatically. See <a href="../navigation/#check-for-updates">Check for updates</a>.</p>
 <h2 id="understand-public-addresses">Understand public addresses<a class="headerlink" href="#understand-public-addresses" title="Permanent link">&para;</a></h2>
 <p>An internet service normally sees your connection's public source IP.
 That may belong to a VPN or provider gateway rather than this PC's LAN address.
