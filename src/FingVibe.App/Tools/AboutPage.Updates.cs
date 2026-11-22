@@ -13,6 +13,7 @@ public sealed partial class AboutPage
     private ReleaseUpdateSession? _updates;
     private ReleaseUpdateActions? _actions;
     private Action? _closeForInstaller;
+    private StableRelease? _renderedNotesRelease;
 
     internal void ConfigureUpdates(ReleaseUpdateSession updates, ReleaseUpdateActions actions, bool isFixture, Action close)
     {
@@ -60,6 +61,52 @@ public sealed partial class AboutPage
         };
         InstallUpdateButton.Visibility = canUpdateNow ? Visibility.Visible : Visibility.Collapsed;
         InstallUpdateButton.IsEnabled = canUpdateNow && !state.IsChecking;
+        RenderReleaseNotes(state.ConfirmedUpdate);
+    }
+
+    private void RenderReleaseNotes(StableRelease? update)
+    {
+        // Rebuild only for a different release so routine state refreshes keep the reader's expansion.
+        if (Equals(update, _renderedNotesRelease)) return;
+        _renderedNotesRelease = update;
+        ReleaseNotesContent.Children.Clear();
+        ReleaseNotesExpander.IsExpanded = false;
+        var notes = update?.Notes;
+        ReleaseNotesExpander.Visibility = notes is null ? Visibility.Collapsed : Visibility.Visible;
+        ReleaseNotesFallbackLink.Visibility = update is not null && notes is null ? Visibility.Visible : Visibility.Collapsed;
+        ReleaseNotesFullLink.Visibility = notes?.IsTruncated == true ? Visibility.Visible : Visibility.Collapsed;
+        if (update is null) return;
+        ReleaseNotesFallbackLink.NavigateUri = ReleaseNotesFullLink.NavigateUri = update.PageUri;
+        if (notes is null) return;
+        ReleaseNotesHeader.Text = $"What's new in {update.VersionText.TrimStart('v')}";
+        AutomationProperties.SetName(ReleaseNotesExpander, ReleaseNotesHeader.Text);
+        foreach (var block in notes.Blocks)
+            ReleaseNotesContent.Children.Add(CreateReleaseNoteElement(block));
+    }
+
+    private static FrameworkElement CreateReleaseNoteElement(ReleaseNoteBlock block)
+    {
+        var text = new TextBlock { Text = block.Text, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true };
+        switch (block.Kind)
+        {
+            case ReleaseNoteKind.Heading:
+                text.Style = (Style)Application.Current.Resources["BodyStrongTextBlockStyle"];
+                text.Margin = new Thickness(0, 4, 0, 0);
+                AutomationProperties.SetHeadingLevel(text, Microsoft.UI.Xaml.Automation.Peers.AutomationHeadingLevel.Level3);
+                return text;
+            case ReleaseNoteKind.Bullet:
+                var row = new Grid { ColumnSpacing = 8, Margin = new Thickness(8, 0, 0, 0) };
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                var marker = new TextBlock { Text = "•" };
+                AutomationProperties.SetAccessibilityView(marker, Microsoft.UI.Xaml.Automation.Peers.AccessibilityView.Raw);
+                Grid.SetColumn(text, 1);
+                row.Children.Add(marker);
+                row.Children.Add(text);
+                return row;
+            default:
+                return text;
+        }
     }
 
     private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
