@@ -169,7 +169,7 @@ public sealed partial class SqlEditorPage : UserControl
         if (ExamplePicker.SelectedItem is not ReportingExample example) return;
         var current = SqlText.Text;
         // Loading keeps a hand-edited query recoverable; replacing an unchanged example needs no undo.
-        var replaced = string.IsNullOrWhiteSpace(current) || current == _loadedExample?.Sql || current == example.Sql
+        var replaced = string.IsNullOrWhiteSpace(current) || SameSql(current, _loadedExample?.Sql) || SameSql(current, example.Sql)
             ? null : current;
         LoadExample(example);
         _replacedQuery = replaced;
@@ -196,18 +196,24 @@ public sealed partial class SqlEditorPage : UserControl
     private void SqlText_TextChanged(object sender, TextChangedEventArgs e)
     {
         // Editing the loaded example accepts it, so the earlier query is no longer offered for restore.
-        if (_loadedExample is not null && SqlText.Text != _loadedExample.Sql) _replacedQuery = null;
+        if (_loadedExample is not null && !SameSql(SqlText.Text, _loadedExample.Sql)) _replacedQuery = null;
         UpdateLoadedExample();
     }
 
     private void UpdateLoadedExample()
     {
-        var unchanged = _loadedExample is not null && SqlText.Text == _loadedExample.Sql;
+        var unchanged = _loadedExample is not null && SameSql(SqlText.Text, _loadedExample.Sql);
         LoadedExampleText.Text = _loadedExample is null ? string.Empty
             : unchanged ? $"Example loaded: {_loadedExample.Name}. Choose Run when ready."
             : $"Edited from example: {_loadedExample.Name}.";
         RestoreQueryButton.Visibility = unchanged && _replacedQuery is not null ? Visibility.Visible : Visibility.Collapsed;
     }
+
+    // TextBox stores line breaks as \r, so compare queries independently of the newline style.
+    private static bool SameSql(string? left, string? right) =>
+        left is not null && right is not null && NormalizeNewlines(left) == NormalizeNewlines(right);
+
+    private static string NormalizeNewlines(string sql) => sql.Replace("\r\n", "\n").Replace('\r', '\n');
 
     private void Example_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
