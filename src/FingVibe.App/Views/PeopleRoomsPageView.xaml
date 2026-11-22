@@ -11,6 +11,11 @@
             <Setter Property="Margin" Value="0" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         </Style>
+        <!-- A stable, always-visible ellipsis that opens labeled Edit and Delete actions. -->
+        <Style x:Key="PeopleRoomsActionsButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
     </UserControl.Resources>
     <Grid Margin="{StaticResource ScannerPageContentMargin}" RowSpacing="12">
         <Grid.RowDefinitions>
@@ -67,13 +72,16 @@
                             <ColumnDefinition Width="160" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="Short name" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="1" Text="Name" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="2" Text="Devices" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="3" Text="Last scan" FontWeight="SemiBold" />
-                        <!-- Reserves the row More button width, including text scaling, so the headers share row columns. -->
-                        <Button Grid.Column="4" Content="More" Opacity="0" IsHitTestVisible="False" IsTabStop="False"
-                                AutomationProperties.AccessibilityView="Raw" />
+                        <TextBlock Text="Short name" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="Name" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="Devices" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="3" Text="Responding devices" FontWeight="SemiBold" VerticalAlignment="Center"
+                                   TextWrapping="Wrap" />
+                        <!-- Reserves the row actions button width, including text scaling, so the headers share row columns. -->
+                        <Button Grid.Column="4" Style="{StaticResource PeopleRoomsActionsButtonStyle}" Opacity="0"
+                                IsHitTestVisible="False" IsTabStop="False" AutomationProperties.AccessibilityView="Raw">
+                            <FontIcon Glyph="&#xE712;" FontSize="16" />
+                        </Button>
                     </Grid>
                     <ListView x:Name="PeopleList" ItemContainerStyle="{StaticResource PeopleRoomsListItemStyle}" IsItemClickEnabled="True"
                               ItemClick="PeopleList_ItemClick" AutomationProperties.Name="People">
@@ -100,14 +108,20 @@
                                         </Grid.ColumnDefinitions>
                                         <FontIcon Glyph="{x:Bind IconGlyph}" FontFamily="Segoe Fluent Icons" FontSize="16"
                                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                                  VerticalAlignment="Center"
                                                   AutomationProperties.AccessibilityView="Raw" />
-                                        <TextBlock Grid.Column="1" Text="{x:Bind Person.Name}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Text="{x:Bind Person.Name}" TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center" />
                                     </Grid>
-                                    <TextBlock Grid.Column="2" Text="{x:Bind DeviceCountText}" />
-                                    <TextBlock Grid.Column="3" Text="{x:Bind RespondedCountText}" />
-                                    <Button Grid.Column="4" Content="More" Tag="{x:Bind Person.Id}"
+                                    <TextBlock Grid.Column="2" Text="{x:Bind DeviceCountText}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="3" Text="{x:Bind RespondedCountText}" VerticalAlignment="Center" />
+                                    <Button Grid.Column="4" Tag="{x:Bind Person.Id}"
+                                            Style="{StaticResource PeopleRoomsActionsButtonStyle}"
                                             AutomationProperties.Name="{x:Bind ActionsLabel}"
-                                            Click="PersonActionsButton_Click" />
+                                            ToolTipService.ToolTip="More actions"
+                                            Click="PersonActionsButton_Click">
+                                        <FontIcon Glyph="&#xE712;" FontSize="16" />
+                                    </Button>
                                 </Grid>
                             </DataTemplate>
                         </ListView.ItemTemplate>
@@ -126,28 +140,37 @@
             <Border x:Name="RoomsTableBorder" Style="{StaticResource ScannerSummaryCardStyle}" Padding="0">
                 <StackPanel>
                     <Border Style="{StaticResource CardHeadingBandStyle}" Margin="0" Padding="12,10">
-                    <Grid Style="{StaticResource CardHeadingRowStyle}">
+                    <Grid x:Name="RoomsHeadingRow" Style="{StaticResource CardHeadingRowStyle}"
+                          SizeChanged="RoomsHeadingRow_SizeChanged">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
                         <FontIcon Glyph="&#xE80F;" Style="{StaticResource CardHeadingIconStyle}" />
                         <TextBlock Grid.Column="1" Text="Rooms" Style="{StaticResource CardHeadingTextStyle}" />
                         <TextBlock x:Name="RoomsCountText" Grid.Column="2" VerticalAlignment="Center"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <Button x:Name="AddRoomButton" Grid.Column="3" Content="Add room"
-                                VerticalAlignment="Center" Click="AddRoomButton_Click" />
+                        <!-- Room-wide actions share the heading; they wrap beneath it when the row cannot hold them. -->
+                        <StackPanel x:Name="RoomsActions" Grid.Column="3" Orientation="Horizontal" Spacing="8"
+                                    VerticalAlignment="Center">
+                            <HyperlinkButton x:Name="ViewRoomMapButton" Content="View room map"
+                                             VerticalAlignment="Center"
+                                             AutomationProperties.AutomationId="ViewRoomMapButton"
+                                             AutomationProperties.Name="View room map"
+                                             Click="RoomMapButton_Click" />
+                            <Button x:Name="AddRoomButton" Content="Add room"
+                                    VerticalAlignment="Center" Click="AddRoomButton_Click" />
+                        </StackPanel>
                     </Grid>
                     </Border>
                     <TextBlock x:Name="RoomsStatusText" Visibility="Collapsed" Margin="12,0,12,8" TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                    <HyperlinkButton x:Name="ViewRoomMapButton" Content="View room map"
-                                     Margin="12,0,12,8" HorizontalAlignment="Left"
-                                     AutomationProperties.AutomationId="ViewRoomMapButton"
-                                     AutomationProperties.Name="View room map"
-                                     Click="RoomMapButton_Click" />
                     <Grid x:Name="RoomsColumnHeaders" Padding="12,8" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="96" />
@@ -156,13 +179,16 @@
                             <ColumnDefinition Width="160" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="Short name" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="1" Text="Name" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="2" Text="Devices" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="3" Text="Last scan" FontWeight="SemiBold" />
-                        <!-- Reserves the row More button width, including text scaling, so the headers share row columns. -->
-                        <Button Grid.Column="4" Content="More" Opacity="0" IsHitTestVisible="False" IsTabStop="False"
-                                AutomationProperties.AccessibilityView="Raw" />
+                        <TextBlock Text="Short name" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="Name" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="Devices" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="3" Text="Responding devices" FontWeight="SemiBold" VerticalAlignment="Center"
+                                   TextWrapping="Wrap" />
+                        <!-- Reserves the row actions button width, including text scaling, so the headers share row columns. -->
+                        <Button Grid.Column="4" Style="{StaticResource PeopleRoomsActionsButtonStyle}" Opacity="0"
+                                IsHitTestVisible="False" IsTabStop="False" AutomationProperties.AccessibilityView="Raw">
+                            <FontIcon Glyph="&#xE712;" FontSize="16" />
+                        </Button>
                     </Grid>
                     <ListView x:Name="RoomsList" ItemContainerStyle="{StaticResource PeopleRoomsListItemStyle}" IsItemClickEnabled="True"
                               ItemClick="RoomsList_ItemClick" AutomationProperties.Name="Rooms">
@@ -189,14 +215,20 @@
                                         </Grid.ColumnDefinitions>
                                         <FontIcon Glyph="{x:Bind IconGlyph}" FontFamily="Segoe Fluent Icons" FontSize="16"
                                                   Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                                                  VerticalAlignment="Center"
                                                   AutomationProperties.AccessibilityView="Raw" />
-                                        <TextBlock Grid.Column="1" Text="{x:Bind Room.Name}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Text="{x:Bind Room.Name}" TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center" />
                                     </Grid>
-                                    <TextBlock Grid.Column="2" Text="{x:Bind DeviceCountText}" />
-                                    <TextBlock Grid.Column="3" Text="{x:Bind RespondedCountText}" />
-                                    <Button Grid.Column="4" Content="More" Tag="{x:Bind Room.Id}"
+                                    <TextBlock Grid.Column="2" Text="{x:Bind DeviceCountText}" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="3" Text="{x:Bind RespondedCountText}" VerticalAlignment="Center" />
+                                    <Button Grid.Column="4" Tag="{x:Bind Room.Id}"
+                                            Style="{StaticResource PeopleRoomsActionsButtonStyle}"
                                             AutomationProperties.Name="{x:Bind ActionsLabel}"
-                                            Click="RoomActionsButton_Click" />
+                                            ToolTipService.ToolTip="More actions"
+                                            Click="RoomActionsButton_Click">
+                                        <FontIcon Glyph="&#xE712;" FontSize="16" />
+                                    </Button>
                                 </Grid>
                             </DataTemplate>
                         </ListView.ItemTemplate>

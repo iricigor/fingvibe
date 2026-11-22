@@ -1,0 +1,25 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 664,
+  "category": "ui",
+  "changedBehavior": "Selected UI/UX review proposals from #664: scan progress names user-facing stages (Finding devices, Confirming remaining devices) with elapsed time instead of protocol names and a numbered phase counter, keeping ARP/ICMP counters in the status tooltip and help text; the troubleshooter's all-checks summary reads Checks passed; the Overview subnet badge shows the CIDR prefix labeled subnet instead of an A/B/C letter; People & rooms renames Last scan to Responding devices, centers header and row content, uses a stable ellipsis actions button with labeled Edit/Delete items and places View room map beside Add room.",
+  "selectors": [
+    "core-tests",
+    "ui-regression-helpers",
+    "native-pr-matrix",
+    "ui-review-scenarios",
+    "native-sidebar-scan-presentation",
+    "native-sidebar-scan-flows",
+    "native-sidebar-preferences-scheduling",
+    "native-details-identity",
+    "native-tools-utilities",
+    "documentation-tests"
+  ],
+  "expectedAssertions": [
+    "ScanProgressPresentation messages use Finding devices / Confirming remaining devices wording without (n/5) counters or ARP/ICMP names, Detail keeps the protocol counters, and Elapsed formats m:ss without an estimate.",
+    "During a manual or scheduled scan the shared status starts with the Finding devices stage and an elapsed suffix; checkpointed background confirmation shows Initial results shown with the address-lookup step; cancellation, failure and successful completion messages are never overwritten by the elapsed timer.",
+    "NetworkDiagnosticInterpreter reports Checks passed when every required checkpoint responded, and incident evidence records that status.",
+    "SubnetDescriptionFormatter returns the /prefix badge for every prefix length while Size, Mask, AddressCount and Scope are unchanged.",
+    "People & rooms editing still opens labeled Edit and Delete items from the row button named Actions for the entry, View room map remains a text HyperlinkButton with its automation ID, and both table cards keep their shared heading bands."
+  ]
+}

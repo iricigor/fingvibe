@@ -6,7 +6,6 @@ namespace FingVibe.Core.Networking;
 
 public sealed record SubnetDescription(
     string Badge,
-    string BadgeLabel,
     string Size,
     string Mask,
     string AddressCount,
@@ -41,11 +40,10 @@ public static class SubnetDescriptionFormatter
     {
         var start = ToUInt32(SubnetCalculator.GetNetworkAddress(address, prefixLength));
         var end = ToUInt32(SubnetCalculator.GetBroadcastAddress(address, prefixLength));
-        var badge = prefixLength switch { 8 => "A", 16 => "B", 24 => "C", _ => $"/{prefixLength}" };
 
+        // The summary badge always uses the CIDR prefix; a lone A/B/C letter reads like a health grade.
         return new SubnetDescription(
-            badge,
-            prefixLength is 8 or 16 or 24 ? "class" : "mask",
+            $"/{prefixLength}",
             FormatSize(prefixLength),
             $"Masked bits: /{prefixLength}",
             FormatAddressCount(prefixLength),

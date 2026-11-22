@@ -52,9 +52,7 @@ public sealed class SubnetDescriptionFormatterTests
             : result.AddressCount.Replace(CultureInfo.CurrentCulture.NumberFormat.NumberGroupSeparator, "");
         Assert.Equal(addressCount, normalizedCount);
 
-        var badge = prefix switch { 8 => "A", 16 => "B", 24 => "C", _ => $"/{prefix}" };
-        Assert.Equal(badge, result.Badge);
-        Assert.Equal(prefix is 8 or 16 or 24 ? "class" : "mask", result.BadgeLabel);
+        Assert.Equal($"/{prefix}", result.Badge);
     }
 
     [Fact]

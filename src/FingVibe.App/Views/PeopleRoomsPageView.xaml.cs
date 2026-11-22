@@ -1,11 +1,13 @@
 using FingVibe.Core.Models;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 
 namespace FingVibe.App.Views;
 
 public sealed partial class PeopleRoomsPageView : UserControl
 {
+    private readonly Windows.UI.ViewManagement.UISettings _uiSettings = new();
     private bool _canEdit;
     private IReadOnlyList<ManagedPersonListRow> _peopleRows = [];
     private IReadOnlyList<ManagedRoomListRow> _roomRows = [];
@@ -85,6 +87,16 @@ public sealed partial class PeopleRoomsPageView : UserControl
     private void RoomMapButton_Click(object sender, RoutedEventArgs e) =>
         RoomMapRequested?.Invoke(this, e);
 
+    private void RoomsHeadingRow_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        // The title, count, View room map and Add room share one row until it would crowd the title.
+        var inline = e.NewSize.Width >= 420 * _uiSettings.TextScaleFactor;
+        Grid.SetRow(RoomsActions, inline ? 0 : 1);
+        Grid.SetColumn(RoomsActions, inline ? 3 : 0);
+        Grid.SetColumnSpan(RoomsActions, inline ? 1 : 4);
+        RoomsActions.Margin = new Thickness(0, inline ? 0 : 8, 0, 0);
+    }
+
     private void PeopleList_ItemClick(object sender, ItemClickEventArgs e)
     {
         if (e.ClickedItem is ManagedPersonListRow row)
@@ -103,35 +115,34 @@ public sealed partial class PeopleRoomsPageView : UserControl
 
     private void PersonActionsButton_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: Guid id } button)
+        if (sender is Button { Tag: Guid id } button)
         {
-            return;
+            var name = _peopleRows.FirstOrDefault(row => row.Person.Id == id)?.Person.Name ?? "this person";
+            ShowActionsMenu(button, name, () => EditRequested?.Invoke(this, id), () => DeleteRequested?.Invoke(this, id));
         }
-
-        var menu = new MenuFlyout();
-        var edit = new MenuFlyoutItem { Text = "Edit", IsEnabled = _canEdit };
-        edit.Click += (_, _) => EditRequested?.Invoke(this, id);
-        var delete = new MenuFlyoutItem { Text = "Delete", IsEnabled = _canEdit };
-        delete.Click += (_, _) => DeleteRequested?.Invoke(this, id);
-        menu.Items.Add(edit);
-        menu.Items.Add(delete);
-        menu.ShowAt(button);
     }
 
     private void RoomActionsButton_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: Guid id } button)
+        if (sender is Button { Tag: Guid id } button)
         {
-            return;
+            var name = _roomRows.FirstOrDefault(row => row.Room.Id == id)?.Room.Name ?? "this room";
+            ShowActionsMenu(button, name, () => EditRoomRequested?.Invoke(this, id), () => DeleteRoomRequested?.Invoke(this, id));
         }
+    }
 
+    // Visible labels stay short; help text names the entry, and Delete still asks for confirmation.
+    private void ShowActionsMenu(Button button, string name, Action edit, Action delete)
+    {
         var menu = new MenuFlyout();
-        var edit = new MenuFlyoutItem { Text = "Edit", IsEnabled = _canEdit };
-        edit.Click += (_, _) => EditRoomRequested?.Invoke(this, id);
-        var delete = new MenuFlyoutItem { Text = "Delete", IsEnabled = _canEdit };
-        delete.Click += (_, _) => DeleteRoomRequested?.Invoke(this, id);
-        menu.Items.Add(edit);
-        menu.Items.Add(delete);
+        var editItem = new MenuFlyoutItem { Text = "Edit", Icon = new FontIcon { Glyph = "\uE70F" }, IsEnabled = _canEdit };
+        AutomationProperties.SetHelpText(editItem, $"Edit {name}");
+        editItem.Click += (_, _) => edit();
+        var deleteItem = new MenuFlyoutItem { Text = "Delete", Icon = new FontIcon { Glyph = "\uE74D" }, IsEnabled = _canEdit };
+        AutomationProperties.SetHelpText(deleteItem, $"Delete {name} after confirmation");
+        deleteItem.Click += (_, _) => delete();
+        menu.Items.Add(editItem);
+        menu.Items.Add(deleteItem);
         menu.ShowAt(button);
     }
 }
