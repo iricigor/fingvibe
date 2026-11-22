@@ -97,7 +97,7 @@ assignment changes refresh the retained map without moving unchanged items.
 
 **Only online** starts on and hides offline devices and devices without local
 scan evidence while preserving the room layout. Turn it off to show every
-relevant device again. Use **← Rooms** to return to the existing room
+relevant device again. Use the **Rooms** Back action to return to the existing room
 management page. Narrow
 windows keep normal-size device icons and allow horizontal and vertical
 scrolling. With larger Windows text sizes, room headers and device tiles grow

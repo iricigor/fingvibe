@@ -94,10 +94,10 @@
     $detailsCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\DeviceDetailsPageView.xaml.cs") -Raw
     $roomDetailsCode = Get-Content (Join-Path $PSScriptRoot "..\src\FingVibe.App\Views\RoomDetailsPageView.xaml.cs") -Raw
     if ($detailsCode -notmatch 'SetBackDestination\(bool roomMap\)' -or
-        $detailsCode -notmatch 'Back to Room map' -or
+        $detailsCode -notmatch 'DeviceBackButton\.Destination = roomMap \? "Room map"' -or
         $roomDetailsCode -notmatch 'SetBackDestination\(bool roomMap\)' -or
-        $roomDetailsCode -notmatch 'Back to Room map') {
-        throw "Device and Room Details must expose source-aware Back labels and accessible names for Room map returns."
+        $roomDetailsCode -notmatch 'RoomBackButton\.Destination = roomMap \? "Room map"') {
+        throw "Device and Room Details must expose source-aware Back labels and accessible names (Back to Room map) for Room map returns."
     }
     if ($detailsCode -notmatch '(?s)internal void ShowDevice\(.*?DetailsTabs\.SelectedItem = OverviewTab;') {
         throw "Opening a device must reset Device Details to Overview."

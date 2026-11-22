@@ -25,7 +25,7 @@ that same order.
 
 The Room map has no sidebar item. Open it from **Tools**, from the Rooms
 section of **People & rooms**, or from the Network health diagram.
-Its **← Rooms** action returns to room management, matching other subpage Back buttons.
+Its **Rooms** Back action returns to room management, matching other subpage Back buttons.
 
 ## Overview
 

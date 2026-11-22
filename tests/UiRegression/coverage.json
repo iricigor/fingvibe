@@ -1420,7 +1420,7 @@
           "originalRanges": [],
           "refactored": true,
           "introducedBy": "#656: scrolls each page body to the bottom in a short window (and at 200% text on disposable CI) and requires its title and Back to stay visible, stationary and below the network bar.",
-          "changedBy": "#657: at 100% text, also requires the shared header geometry (content-edge Back, 16-DIP gap, 48-DIP icon, 12-DIP gap, centered title at one height) within 1 DIP, with a guarded failure capture.",
+          "changedBy": "#657: at 100% text, also requires the shared header geometry (content-edge Back, 16-DIP gap, 48-DIP icon, 12-DIP gap, centered title at one height) within 1 DIP, with a guarded failure capture. #658: the same check requires Back to be one Button of the shared 48-DIP header-control height within 1 DIP.",
           "functions": [],
           "captures": [
             "4da6789e8048471dd9565bde03c5c3a45c84e084ac8f36de7bceab549b290908",

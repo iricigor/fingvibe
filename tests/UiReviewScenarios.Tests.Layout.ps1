@@ -39,6 +39,7 @@
             $pageDocument.SelectNodes("//*[@*[local-name()='Name' and .='RoomDetailName']]")
             $pageDocument.SelectNodes("//*[@AutomationProperties.Name]") |
                 Where-Object { $_.GetAttribute("AutomationProperties.Name") -like "Back to *" }
+            $pageDocument.SelectNodes("//*[local-name()='PageBackButton']")
         )
         if ($headerElements.Count -eq 0) {
             throw "$pagePath must expose its fixed page-header contract."
@@ -69,11 +70,12 @@
         "//*[@*[local-name()='Name']='RoomMapBackButton']")
     $roomMapOnlineOnly = $roomMapDocument.SelectSingleNode(
         "//*[@*[local-name()='Name']='RoomMapOnlineOnlySwitch']")
-    if ($roomMapBackButton.GetAttribute("AutomationProperties.Name") -cne "Back to Rooms" -or
-        $roomMapBackButton.GetAttribute("Style") -cne "{StaticResource PageHeaderBackButtonStyle}" -or
+    if ($roomMapBackButton.LocalName -cne "PageBackButton" -or
+        $roomMapBackButton.GetAttribute("Destination") -cne "Rooms" -or
+        $roomMapBackButton.HasAttribute("Style") -or
         $roomMapOnlineOnly.GetAttribute("IsOn") -cne "True" -or
         $roomMapOnlineOnly.GetAttribute("Header") -cne "Only online") {
-        throw "Room map must use the standard Back to Rooms action and start with Only online enabled."
+        throw "Room map must use the shared Back control (Back to Rooms by default) and start with Only online enabled."
     }
     $unassignedSummary = $roomMapDocument.SelectSingleNode(
         "//*[@*[local-name()='Name']='RoomMapUnassignedSummaryText']")
@@ -619,15 +621,15 @@
             }
             if ($isPageTitle) {
                 $destination = if ($tool.Page -eq "AboutPage") { "Settings" } else { "Tools" }
-                $back = $header.SelectSingleNode("./*[local-name()='Button' and @AutomationProperties.Name='Back to $destination']")
+                $back = $header.SelectSingleNode("./*[local-name()='PageBackButton' and @Destination='$destination']")
                 if (-not $back -or $columns[1].GetAttribute("Width") -cne "Auto" -or
                     $back.GetAttribute("Grid.Column") -notin @("", "0") -or
-                    $header.SelectSingleNode("./*[local-name()='Button' or local-name()='PageHeaderIcon' or local-name()='TextBlock']") -ne $back -or
-                    $back.GetAttribute("Content") -cne "$([char]0x2190) $destination" -or
-                    $pageDocument.SelectNodes("//*[local-name()='Button' and @AutomationProperties.Name='Back to $destination']").Count -ne 1 -or
-                    $back.GetAttribute("Style") -cne "{StaticResource PageHeaderBackButtonStyle}" -or
+                    $header.SelectSingleNode("./*[local-name()='Button' or local-name()='PageBackButton' or local-name()='PageHeaderIcon' or local-name()='TextBlock']") -ne $back -or
+                    $back.HasAttribute("Content") -or $back.HasChildNodes -or
+                    $pageDocument.SelectNodes("//*[local-name()='PageBackButton']").Count -ne 1 -or
+                    $back.HasAttribute("Style") -or
                     $back.HasAttribute("Width") -or $back.HasAttribute("Height")) {
-                    throw "$($tool.Title) must have one content-safe neutral Back action first in its title row."
+                    throw "$($tool.Title) must have one content-safe shared Back control first in its title row."
                 }
             }
             $icons = $header.SelectNodes("./*[local-name()='PageHeaderIcon']")
@@ -653,7 +655,7 @@
     }
     # #657: every main and tool page shares one compact fixed header: [Back, 16 DIP,] 48-DIP icon, 12 DIP, title.
     $headerStyles = @{}
-    foreach ($key in @("PageHeaderRowStyle", "PageHeaderBackButtonStyle", "PageHeaderTitleStyle", "ScannerPageTitleStyle", "PageBackButtonStyle")) {
+    foreach ($key in @("PageHeaderRowStyle", "PageHeaderTitleStyle", "ScannerPageTitleStyle")) {
         $headerStyles[$key] = $appResources.SelectSingleNode("/*/*/*[local-name()='ResourceDictionary']/*[local-name()='Style' and @*[local-name()='Key']='$key']")
         if (-not $headerStyles[$key]) { throw "App resources must define $key." }
     }
@@ -665,17 +667,13 @@
     }
     $styleOrder = @($appResources.SelectNodes("//*[local-name()='Style']/@*[local-name()='Key']") | ForEach-Object Value)
     if ($headerStyles.PageHeaderRowStyle.GetAttribute("TargetType") -cne "Grid" -or
-        (& $headerSetters $headerStyles.PageHeaderRowStyle) -cne "ColumnSpacing=12;MinHeight=48" -or
-        $headerStyles.PageHeaderBackButtonStyle.GetAttribute("TargetType") -cne "Button" -or
-        $headerStyles.PageHeaderBackButtonStyle.GetAttribute("BasedOn") -cne "{StaticResource PageBackButtonStyle}" -or
-        (& $headerSetters $headerStyles.PageHeaderBackButtonStyle) -cne "Margin=0,0,4,0" -or
+        (& $headerSetters $headerStyles.PageHeaderRowStyle) -cne "ColumnSpacing=12;MinHeight={StaticResource PageHeaderControlHeight}" -or
         $headerStyles.PageHeaderTitleStyle.GetAttribute("TargetType") -cne "TextBlock" -or
         $headerStyles.PageHeaderTitleStyle.GetAttribute("BasedOn") -cne "{StaticResource ScannerPageTitleStyle}" -or
         (& $headerSetters $headerStyles.PageHeaderTitleStyle) -cne "Margin=0;VerticalAlignment=Center;TextWrapping=Wrap" -or
         $headerStyles.ScannerPageTitleStyle.GetAttribute("BasedOn") -cne "{StaticResource TitleTextBlockStyle}" -or
-        $styleOrder.IndexOf("PageHeaderBackButtonStyle") -lt $styleOrder.IndexOf("PageBackButtonStyle") -or
         $styleOrder.IndexOf("PageHeaderTitleStyle") -lt $styleOrder.IndexOf("ScannerPageTitleStyle")) {
-        throw "The shared page header must be a background-free 12-DIP row (16 DIP after Back via a 4-DIP Back margin only) with the 28-px semibold page title centered, wrapping and without its 8-DIP bottom margin."
+        throw "The shared page header must be a background-free 12-DIP row of the shared 48-DIP header-control height with the 28-px semibold page title centered, wrapping and without its 8-DIP bottom margin."
     }
     $sharedHeaders = @(
         @{ Path = "Views\OverviewPageView.xaml"; Icon = "overview"; Title = "Overview" },
@@ -684,14 +682,14 @@
         @{ Path = "Views\PeopleRoomsPageView.xaml"; Icon = "people-rooms"; Title = "People & rooms"; RowName = "PeopleRoomsHeadingRow" },
         @{ Path = "Views\SettingsPageView.xaml"; Icon = "tools"; Title = "Settings" },
         @{ Path = "Tools\ToolsPage.xaml"; Icon = "tools"; Title = "Tools" },
-        @{ Path = "Tools\SqlEditorPage.xaml"; Icon = "tools"; Title = "SQL editor"; Back = "Back to Tools"; Click = "Back_Click" },
-        @{ Path = "Tools\FingImportPage.xaml"; Icon = "import"; Title = "Import from Fing"; Back = "Back to Tools"; Click = "Back_Click" },
-        @{ Path = "Tools\SpeedTestPage.xaml"; Icon = "speed-test"; Title = "Speed test"; Back = "Back to Tools"; Click = "BackButton_Click" },
-        @{ Path = "Views\RoomMapPageView.xaml"; Icon = "rooms"; Title = "Room map"; Back = "Back to Rooms"; Click = "BackToRoomsButton_Click"; RowName = "RoomMapHeadingRow"; BackName = "RoomMapBackButton" },
-        @{ Path = "Tools\NetworkHealthPage.xaml"; Icon = "troubleshooting"; Title = "Network health"; Back = "Back to Tools"; Click = "BackButton_Click" },
-        @{ Path = "Tools\ServiceStatusPage.xaml"; Icon = "network"; Title = "Service status"; Back = "Back to Network health"; Click = "BackButton_Click" },
-        @{ Path = "Tools\DatabaseBackupsPage.xaml"; Icon = "tools"; Title = "Database backups"; Back = "Back to Tools"; Click = "Back_Click"; BackName = "BackupsBackButton" },
-        @{ Path = "Tools\AboutPage.xaml"; Icon = "about"; Title = "About FingVibe"; Back = "Back to Settings"; Click = "Back_Click"; BackName = "BackToSettingsButton"; TitleName = "PageHeading" }
+        @{ Path = "Tools\SqlEditorPage.xaml"; Icon = "tools"; Title = "SQL editor"; Back = "Tools"; Click = "Back_Click" },
+        @{ Path = "Tools\FingImportPage.xaml"; Icon = "import"; Title = "Import from Fing"; Back = "Tools"; Click = "Back_Click" },
+        @{ Path = "Tools\SpeedTestPage.xaml"; Icon = "speed-test"; Title = "Speed test"; Back = "Tools"; Click = "BackButton_Click" },
+        @{ Path = "Views\RoomMapPageView.xaml"; Icon = "rooms"; Title = "Room map"; Back = "Rooms"; Click = "BackToRoomsButton_Click"; RowName = "RoomMapHeadingRow"; BackName = "RoomMapBackButton" },
+        @{ Path = "Tools\NetworkHealthPage.xaml"; Icon = "troubleshooting"; Title = "Network health"; Back = "Tools"; Click = "BackButton_Click" },
+        @{ Path = "Tools\ServiceStatusPage.xaml"; Icon = "network"; Title = "Service status"; Back = "Network health"; Click = "BackButton_Click" },
+        @{ Path = "Tools\DatabaseBackupsPage.xaml"; Icon = "tools"; Title = "Database backups"; Back = "Tools"; Click = "Back_Click"; BackName = "BackupsBackButton" },
+        @{ Path = "Tools\AboutPage.xaml"; Icon = "about"; Title = "About FingVibe"; Back = "Settings"; Click = "Back_Click"; BackName = "BackToSettingsButton"; TitleName = "PageHeading" }
     )
     $xamlNamespace = "http://schemas.microsoft.com/winfx/2006/xaml"
     foreach ($entry in $sharedHeaders) {
@@ -703,7 +701,7 @@
         $children = if ($header) { @($header.SelectNodes("./*[not(contains(local-name(), '.'))]")) }
         $columns = if ($header) { @($header.SelectNodes("./*[local-name()='Grid.ColumnDefinitions']/*")) }
         $hasBack = [bool]$entry.Back
-        $expected = if ($hasBack) { @("Button", "PageHeaderIcon", "TextBlock") } else { @("PageHeaderIcon", "TextBlock") }
+        $expected = if ($hasBack) { @("PageBackButton", "PageHeaderIcon", "TextBlock") } else { @("PageHeaderIcon", "TextBlock") }
         if ($rows.Count -ne 1 -or $header.LocalName -cne "Grid" -or $headerHost.LocalName -cne "Grid" -or
             $header.GetAttribute("Grid.Row") -notin @("", "0") -or $hostRows.Count -lt 2 -or
             $hostRows[0].GetAttribute("Height") -cne "Auto" -or
@@ -729,15 +727,16 @@
         }
         if ($hasBack) {
             $back = $children[0]
-            if ($back.GetAttribute("AutomationProperties.Name") -cne $entry.Back -or $back.GetAttribute("Click") -cne $entry.Click -or
-                $back.GetAttribute("Style") -cne "{StaticResource PageHeaderBackButtonStyle}" -or
+            if ($back.GetAttribute("Destination") -cne $entry.Back -or $back.GetAttribute("BackRequested") -cne $entry.Click -or
+                $back.HasAttribute("Style") -or $back.HasAttribute("Click") -or $back.HasAttribute("Content") -or
+                $back.HasAttribute("AutomationProperties.Name") -or $back.HasChildNodes -or
                 $back.GetAttribute("Grid.Column") -notin @("", "0") -or $back.HasAttribute("Margin") -or
                 ($entry.BackName -and $back.GetAttribute("Name", $xamlNamespace) -cne $entry.BackName)) {
-                throw "$($entry.Path) must keep its '$($entry.Back)' action, handler and name first in the shared header."
+                throw "$($entry.Path) must keep its Back to $($entry.Back) action, handler and name first in the shared header."
             }
         }
-        if (@($document.SelectNodes("//*[@Style='{StaticResource ScannerPageTitleStyle}' or @Style='{StaticResource PageBackButtonStyle}']")).Count -ne 0) {
-            throw "$($entry.Path) must use only the shared page-header title and Back styles."
+        if (@($document.SelectNodes("//*[@Style='{StaticResource ScannerPageTitleStyle}']")).Count -ne 0) {
+            throw "$($entry.Path) must use only the shared page-header title style."
         }
     }
     foreach ($detailView in @("DeviceDetailsPageView", "PersonDetailsPageView", "RoomDetailsPageView")) {
@@ -745,6 +744,84 @@
         if ($detailXaml -match 'PageHeader(Row|BackButton|Title)Style') {
             throw "$detailView keeps its own detail header; the shared page header does not cover detail pages (#657)."
         }
+    }
+    # #658: one quiet reusable Back control on every tool and detail page; pages own navigation, guards and cleanup.
+    $backControlStyle = @($appResources.SelectNodes("/*/*/*[local-name()='ResourceDictionary']/*[local-name()='Style' and @TargetType='local:PageBackButton']"))
+    $controlHeight = @($appResources.SelectNodes("/*/*/*[local-name()='ResourceDictionary']/*[@*[local-name()='Key']='PageHeaderControlHeight']"))
+    $appResourceKeys = @($appResources.SelectNodes("/*/*/*[local-name()='ResourceDictionary']/*/@*[local-name()='Key' or local-name()='TargetType']") | ForEach-Object Value)
+    if ($controlHeight.Count -ne 1 -or $controlHeight[0].LocalName -cne "Double" -or $controlHeight[0].InnerText -cne "48" -or
+        $appResourceKeys.IndexOf("PageHeaderControlHeight") -gt $appResourceKeys.IndexOf("PageHeaderRowStyle") -or
+        $backControlStyle.Count -ne 1 -or $backControlStyle[0].HasAttribute("x:Key") -or
+        $backControlStyle[0].GetAttribute("BasedOn") -cne "{StaticResource SubtleButtonStyle}" -or
+        (& $headerSetters $backControlStyle[0]) -cne "MinHeight={StaticResource PageHeaderControlHeight};Padding=12,8;Margin=0,0,4,0;VerticalContentAlignment=Center" -or
+        $appResourceKeys.IndexOf("PageHeaderControlHeight") -gt $appResourceKeys.IndexOf("local:PageBackButton")) {
+        throw "The shared Back must be one implicit SubtleButtonStyle-based style (transparent and borderless at rest, subtle hover/pressed fill, system colours in high contrast) with the shared 48-DIP PageHeaderControlHeight minimum and the 4-DIP header gap margin, without a local look."
+    }
+    $backControlCode = Get-Content (Join-Path $appDirectory "PageBackButton.cs") -Raw
+    foreach ($pattern in @('class PageBackButton : Button\b', 'DependencyProperty DestinationProperty', 'DependencyProperty AccessibleDestinationProperty',
+        'event RoutedEventHandler\? BackRequested', 'Click \+= \(_, args\) => BackRequested\?\.Invoke\(this, args\)', 'Glyph = "\\uE72B"',
+        '\$"Back to \{', 'AutomationProperties\.SetName\(this, name\)', '_toolTip\.Content = name', 'ToolTipService\.SetToolTip\(this, _toolTip\)',
+        'SetAccessibilityView\(_toolTip, AccessibilityView\.Raw\)', 'SetAccessibilityView\(_destinationText, AccessibilityView\.Raw\)')) {
+        if ($backControlCode -notmatch $pattern) {
+            throw "PageBackButton must stay a native Button that shows its destination and derives its name and tooltip 'Back to {destination}' ($pattern)."
+        }
+    }
+    $backPages = @(
+        @{ Path = "Tools\AboutPage.xaml"; Destination = "Settings"; Handler = "Back_Click"; Name = "BackToSettingsButton" },
+        @{ Path = "Tools\DatabaseBackupsPage.xaml"; Destination = "Tools"; Handler = "Back_Click"; Name = "BackupsBackButton" },
+        @{ Path = "Tools\FingImportPage.xaml"; Destination = "Tools"; Handler = "Back_Click" },
+        @{ Path = "Tools\NetworkHealthPage.xaml"; Destination = "Tools"; Handler = "BackButton_Click" },
+        @{ Path = "Tools\ServiceStatusPage.xaml"; Destination = "Network health"; Handler = "BackButton_Click" },
+        @{ Path = "Tools\SpeedTestPage.xaml"; Destination = "Tools"; Handler = "BackButton_Click" },
+        @{ Path = "Tools\SqlEditorPage.xaml"; Destination = "Tools"; Handler = "Back_Click" },
+        @{ Path = "Views\RoomMapPageView.xaml"; Destination = "Rooms"; Handler = "BackToRoomsButton_Click"; Name = "RoomMapBackButton"; AutomationId = "RoomMapBackButton" },
+        @{ Path = "Views\DeviceDetailsPageView.xaml"; Destination = "Devices"; Spoken = "devices"; Handler = "BackToDevicesButton_Click"; Name = "DeviceBackButton"; AutomationId = "DeviceBackButton"; Margin = "0" },
+        @{ Path = "Views\PersonDetailsPageView.xaml"; Destination = "People & rooms"; Spoken = "people and rooms"; Handler = "BackToPeopleButton_Click" },
+        @{ Path = "Views\RoomDetailsPageView.xaml"; Destination = "People & rooms"; Spoken = "people and rooms"; Handler = "BackToRoomsButton_Click"; Name = "RoomBackButton"; AutomationId = "RoomBackButton" }
+    )
+    foreach ($entry in $backPages) {
+        $pageXaml = Get-Content (Join-Path $appDirectory $entry.Path) -Raw
+        $document = [xml]$pageXaml
+        $backs = @($document.SelectNodes("//*[local-name()='PageBackButton']"))
+        $back = $backs[0]
+        $allowed = @("Destination", "AccessibleDestination", "BackRequested", "Name", "AutomationProperties.AutomationId", "Margin", "Grid.Column")
+        if ($backs.Count -ne 1 -or $back.NamespaceURI -notin @("using:FingVibe.App") -or
+            $back.GetAttribute("Destination") -cne $entry.Destination -or
+            $back.GetAttribute("AccessibleDestination") -cne "$($entry.Spoken)" -or
+            $back.GetAttribute("BackRequested") -cne $entry.Handler -or
+            $back.GetAttribute("Name", $xamlNamespace) -cne "$($entry.Name)" -or
+            $back.GetAttribute("AutomationProperties.AutomationId") -cne "$($entry.AutomationId)" -or
+            $back.GetAttribute("Margin") -cne "$($entry.Margin)" -or $back.HasChildNodes -or
+            @($back.Attributes | Where-Object { $_.LocalName -notin $allowed -and $_.Name -notlike "xmlns*" }).Count -ne 0 -or
+            @($document.SelectNodes("//*[local-name()='Button' and starts-with(@AutomationProperties.Name, 'Back to ')]")).Count -ne 0 -or
+            $pageXaml -match '&#x2190;|\u2190|&#xE72B;|PageBackButtonStyle|PageHeaderBackButtonStyle|PageHeaderSizing') {
+            throw "$($entry.Path) must use exactly one shared Back control to '$($entry.Destination)' with its existing handler, name and automation ID, and no hand-built arrow, style or sizing."
+        }
+    }
+    $backUses = @(Get-ChildItem $appDirectory -Recurse -Include *.xaml, *.cs | Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' } |
+        Select-String -Pattern '<(local|app):PageBackButton\b' -AllMatches | ForEach-Object { $_.Matches })
+    $retiredBack = @(Get-ChildItem $appDirectory -Recurse -Include *.xaml, *.cs | Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' } |
+        Select-String -Pattern 'PageBackButtonStyle|PageHeaderBackButtonStyle|PageHeaderSizing|ReferenceHeight')
+    if ($backUses.Count -ne $backPages.Count -or $retiredBack.Count -ne 0 -or
+        (Test-Path -LiteralPath (Join-Path $appDirectory "PageHeaderSizing.cs"))) {
+        throw "Only the $($backPages.Count) tool and detail pages may use the shared Back control (found $($backUses.Count)), and the retired Back styles and reference sizing must stay removed."
+    }
+    foreach ($runtime in @(
+        @{ Path = "Views\DeviceDetailsPageView.xaml.cs"; Button = "DeviceBackButton"; Pattern = 'DeviceBackButton\.Destination = roomMap \? "Room map" : "Devices"' },
+        @{ Path = "Views\RoomDetailsPageView.xaml.cs"; Button = "RoomBackButton"; Pattern = 'RoomBackButton\.Destination = roomMap \? "Room map" : "People & rooms"' },
+        @{ Path = "Views\RoomMapPageView.xaml.cs"; Button = "RoomMapBackButton"; Pattern = '(?s)RoomMapBackButton\.Destination = origin switch.*RoomMapOrigin\.Tools => "Tools".*RoomMapOrigin\.NetworkHealth => "Network health".*_ => "Rooms"' }
+    )) {
+        $runtimeCode = Get-Content (Join-Path $appDirectory $runtime.Path) -Raw
+        if ($runtimeCode -notmatch $runtime.Pattern -or
+            $runtimeCode -match "(SetName|SetToolTip)\(\s*$($runtime.Button)\b|$($runtime.Button)\.Content\s*=") {
+            throw "$($runtime.Path) must route its runtime Back destination through the shared control so text, name and tooltip change together."
+        }
+    }
+    $sqlCode = Get-Content (Join-Path $appDirectory "Tools\SqlEditorPage.xaml.cs") -Raw
+    $importCode = Get-Content (Join-Path $appDirectory "Tools\FingImportPage.xaml.cs") -Raw
+    if ($sqlCode -notmatch '(?s)async void Back_Click\(object sender, RoutedEventArgs e\)\s*\{\s*await StopAsync\(\);\s*BackRequested\?\.Invoke' -or
+        $importCode -notmatch '(?s)void Back_Click\(object sender, RoutedEventArgs e\)\s*\{\s*if \(!_busy\) BackRequested\?\.Invoke') {
+        throw "Pages must keep their own leave guards and tool cleanup in their Back handlers."
     }
     $headerUses = @(Get-ChildItem $appDirectory -Recurse -Filter *.xaml | Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' } |
         Select-String -Pattern 'PageHeaderRowStyle\}' -AllMatches | ForEach-Object { $_.Matches })

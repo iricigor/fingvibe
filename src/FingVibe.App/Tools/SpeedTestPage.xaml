@@ -14,10 +14,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <Button Content="&#x2190; Tools" Click="BackButton_Click"
-                    MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
-                    MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
-                    AutomationProperties.Name="Back to Tools" Style="{StaticResource PageHeaderBackButtonStyle}" />
+            <local:PageBackButton Destination="Tools" BackRequested="BackButton_Click" />
             <local:PageHeaderIcon Grid.Column="1" Icon="speed-test" />
             <TextBlock Grid.Column="2" Text="Speed test" Style="{StaticResource PageHeaderTitleStyle}" />
         </Grid>

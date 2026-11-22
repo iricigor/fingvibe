@@ -81,11 +81,12 @@
     $base = $originalBase
     Test-Change @{ "src\FingVibe.App\MainWindow.DeviceDetails.cs" = "changed" } `
         @("Devices", "DeviceDetails", "DeviceHistory") "Device details code"
-    foreach ($path in @("src\FingVibe.App\PageHeaderSizing.cs", "tests\PageHeaders.Ui.Helpers.ps1")) {
-        Test-Change @{ $path = "changed" } `
-            @("Devices", "DeviceDetails", "DeviceHistory", "SpeedTest", "NetworkHealth", "About",
-                "FingImport", "SqlEditor", "DatabaseBackups", "Settings") "Back header owners"
-    }
+    Test-Change @{ "tests\PageHeaders.Ui.Helpers.ps1" = "changed" } `
+        @("Devices", "DeviceDetails", "DeviceHistory", "SpeedTest", "NetworkHealth", "About",
+            "FingImport", "SqlEditor", "DatabaseBackups", "Settings") "Back header owners"
+    Test-Change @{ "src\FingVibe.App\PageBackButton.cs" = "changed" } `
+        @("Devices", "DeviceDetails", "DeviceHistory", "PersonDetails", "RoomMap", "SpeedTest", "NetworkHealth",
+            "ServiceStatus", "About", "FingImport", "SqlEditor", "DatabaseBackups", "RoomDetails") "Shared Back control consumers"
     foreach ($path in @("src\FingVibe.App\DeviceDetailsPresentation.cs", "src\FingVibe.App\Views\DeviceDetailValue.cs",
         "src\FingVibe.App\Views\DeviceScanHistoryItem.cs")) {
         Test-Change @{ $path = "changed" } @("Devices", "DeviceDetails", "DeviceHistory") "Device details presentation"

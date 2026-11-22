@@ -21,14 +21,9 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Button x:Name="RoomMapBackButton"
-                        Content="&#x2190; Rooms"
-                        MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
-                        MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
+                <local:PageBackButton x:Name="RoomMapBackButton" Destination="Rooms"
                         AutomationProperties.AutomationId="RoomMapBackButton"
-                        AutomationProperties.Name="Back to Rooms"
-                        Style="{StaticResource PageHeaderBackButtonStyle}"
-                        Click="BackToRoomsButton_Click" />
+                        BackRequested="BackToRoomsButton_Click" />
                 <local:PageHeaderIcon Grid.Column="1" Icon="rooms" />
                 <TextBlock Grid.Column="2" Text="Room map"
                            Style="{StaticResource PageHeaderTitleStyle}" />

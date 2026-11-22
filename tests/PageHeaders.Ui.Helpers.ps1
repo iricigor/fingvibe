@@ -1,7 +1,7 @@
 function Assert-PageBackGeometry {
-    param($Back, $Reference, $Next, $Text, $Window, [double] $Scale, [double] $ContentLeft, [switch] $Scaled)
-    if ($Scale -le 0 -or $Reference.Width -le 0 -or $Reference.Height -le 0) {
-        throw "Back geometry requires a rendered Overview item and a positive display scale."
+    param($Back, $Next, $Text, $Window, [double] $Scale, [double] $ContentLeft, [switch] $Scaled)
+    if ($Scale -le 0) {
+        throw "Back geometry requires a positive display scale."
     }
     if ($Back.Width -le 0 -or $Back.Height -le 0 -or $Text.Width -le 0 -or $Text.Height -le 0) {
         throw "Back and its single-line destination must be rendered."
@@ -24,11 +24,13 @@ function Assert-PageBackGeometry {
         (-not $sameRow -and ($Back.Top -gt $Next.Top -or $Back.Left -gt $Next.Left + $Scale))) {
         throw "Back must precede the tabs or tool heading at the left content edge."
     }
-    $widthDelta = ($Back.Width - $Reference.Width) / $Scale
-    $heightDelta = ($Back.Height - $Reference.Height) / $Scale
-    if ((-not $Scaled -and ([Math]::Abs($widthDelta) -gt 1 -or [Math]::Abs($heightDelta) -gt 1)) -or
-        ($Scaled -and ($widthDelta -lt -1 -or $heightDelta -lt -1))) {
-        throw "Back must match the Overview item within 1 DIP, or grow for enlarged text (delta $widthDelta x $heightDelta DIP)."
+    # #658: the shared Back is the 48-DIP header-control height (App.xaml PageHeaderControlHeight) and fits its destination.
+    $heightDelta = $Back.Height / $Scale - 48
+    if ((-not $Scaled -and [Math]::Abs($heightDelta) -gt 1) -or ($Scaled -and $heightDelta -lt -1)) {
+        throw "Back must be the shared 48-DIP header-control height within 1 DIP, or grow for enlarged text (delta $heightDelta DIP)."
+    }
+    if (($Back.Right - $Text.Right) / $Scale -gt 16) {
+        throw "Back must fit its destination text, not a fixed or reference width."
     }
 }
 
@@ -92,7 +94,6 @@ function Test-PageBackHeaders {
         $back = Find-PageHeaderElement $Root 'Back to devices' -ByName `
             -Type ([Windows.Automation.ControlType]::Button) -AllowOffscreen
         $back.SetFocus()
-        $reference = (Find-PageHeaderElement $Root DeviceOverviewTab).Current.BoundingRectangle
         $scale = [UiReviewNativeWindow]::GetDpiForWindow($WindowHandle) / 96.0
         $viewport = (Find-PageHeaderElement $Root DeviceDetailsScroll).Current.BoundingRectangle
         $contentLeft = $viewport.Left
@@ -100,7 +101,7 @@ function Test-PageBackHeaders {
             $item = Find-PageHeaderElement $Root "Device${tab}Tab"
             $item.GetCurrentPattern([Windows.Automation.SelectionItemPattern]::Pattern).Select()
             Save-PageBackHeader $Root $WindowHandle $Directory "$Variant-details-$tab" `
-                'Back to devices' "$([char]0x2190) Devices" $reference $scale $contentLeft `
+                'Back to devices' 'Devices' $scale $contentLeft `
                 -NextId "Device${tab}Tab" -Scaled:$Scaled
         }
         $back = Find-PageHeaderElement $Root 'Back to devices' -ByName -Type ([Windows.Automation.ControlType]::Button)
@@ -122,7 +123,7 @@ function Test-PageBackHeaders {
             }
             $card.GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
             Save-PageBackHeader $Root $WindowHandle $Directory "$Variant-$($page.Card)" `
-                'Back to Tools' "$([char]0x2190) Tools" $reference $scale $contentLeft -NextName $page.Title -Scaled:$Scaled
+                'Back to Tools' 'Tools' $scale $contentLeft -NextName $page.Title -Scaled:$Scaled
             $back = Find-PageHeaderElement $Root 'Back to Tools' -ByName -Type ([Windows.Automation.ControlType]::Button)
             $back.SetFocus()
             [System.Windows.Forms.SendKeys]::SendWait(' ')
@@ -133,7 +134,7 @@ function Test-PageBackHeaders {
         (Find-PageHeaderElement $Root 'About FingVibe' -ByName -Type ([Windows.Automation.ControlType]::Button) -AllowOffscreen).
             GetCurrentPattern([Windows.Automation.InvokePattern]::Pattern).Invoke()
         Save-PageBackHeader $Root $WindowHandle $Directory "$Variant-About" `
-            'Back to Settings' "$([char]0x2190) Settings" $reference $scale $contentLeft -NextId PageHeading -Scaled:$Scaled
+            'Back to Settings' 'Settings' $scale $contentLeft -NextId PageHeading -Scaled:$Scaled
         $back = Find-PageHeaderElement $Root 'Back to Settings' -ByName -Type ([Windows.Automation.ControlType]::Button)
         $back.SetFocus()
         [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
@@ -150,22 +151,21 @@ function Test-PageBackHeaders {
 
 function Save-PageBackHeader {
     param($Root, [IntPtr] $WindowHandle, [string] $Directory, [string] $Name,
-        [string] $BackName, [string] $Caption, $Reference, [double] $Scale, [double] $ContentLeft,
+        [string] $BackName, [string] $Caption, [double] $Scale, [double] $ContentLeft,
         [string] $NextId, [string] $NextName, [switch] $Scaled)
     $back = Find-PageHeaderElement $Root $BackName -ByName -Type ([Windows.Automation.ControlType]::Button) -AllowOffscreen
     $back.SetFocus()
     $back = Find-PageHeaderElement $Root $BackName -ByName -Type ([Windows.Automation.ControlType]::Button)
     if (-not $back.Current.HasKeyboardFocus) { throw "$BackName must accept keyboard focus." }
-    # WinUI's generated Button caption is raw-only; keep its actual text bounds, not the Button's.
+    # The shared Back's destination text is raw-only; keep its actual text bounds, not the Button's.
     $text = Find-PageHeaderElement $back $Caption -ByName -Type ([Windows.Automation.ControlType]::Text) -Raw
     $next = if ($NextId) { Find-PageHeaderElement $Root $NextId }
         else { Find-PageHeaderElement $Root $NextName -ByName -Type ([Windows.Automation.ControlType]::Text) }
     $bounds = $back.Current.BoundingRectangle
-    Assert-PageBackGeometry $bounds $Reference $next.Current.BoundingRectangle `
+    Assert-PageBackGeometry $bounds $next.Current.BoundingRectangle `
         $text.Current.BoundingRectangle $Root.Current.BoundingRectangle $Scale $ContentLeft -Scaled:$Scaled
     [pscustomobject]@{
         name = $Name; dpi = $Scale * 96; backWidthDip = $bounds.Width / $Scale; backHeightDip = $bounds.Height / $Scale
-        overviewWidthDip = $Reference.Width / $Scale; overviewHeightDip = $Reference.Height / $Scale
         enlargedText = [bool]$Scaled
     } | ConvertTo-Json -Compress | Add-Content -LiteralPath (Join-Path $Directory 'back-header-measurements.jsonl') -Encoding UTF8
     Save-UiReviewWindowScreenshot $WindowHandle (Join-Path $Directory "back-$Name.png")

@@ -1,0 +1,36 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 658,
+  "category": "validation",
+  "changedBehavior": "About, Database backups, Import from Fing, Network health, Service status, Speed test, SQL editor, Room map, Device details, Person details and Room details replace their separately built Back buttons with one reusable PageBackButton control. It is borderless and transparent at rest (SubtleButtonStyle: subtle fill on hover and press, system colours in high contrast, the standard focus visual), shows a back arrow and its always-visible destination in body text, is the shared 48-DIP PageHeaderControlHeight tall (growing with larger text) and as wide as its destination, and derives its accessible name and tooltip 'Back to {destination}', including the runtime Room map, Device details and Room details destinations. Pages keep their navigation targets, leave guards and tool cleanup; PageBackButtonStyle, PageHeaderBackButtonStyle and the Overview-tab PageHeaderSizing reference are removed.",
+  "selectors": [
+    "pr-validation",
+    "native-validation",
+    "ui-review-scenarios",
+    "ui-regression-helpers",
+    "native-sidebar-presentation",
+    "native-sidebar-scan-flows",
+    "native-sidebar-scan-presentation",
+    "native-devices-row-expansion",
+    "native-details-summary",
+    "native-details-identity",
+    "native-details-usage",
+    "native-details-observations",
+    "native-details-activity",
+    "native-details-linking",
+    "native-details-link-matches",
+    "native-tools-utilities",
+    "native-tools-maintenance",
+    "native-tools-device-data",
+    "native-tools-sql-speed",
+    "documentation-tests"
+  ],
+  "expectedAssertions": [
+    "Each of the 11 tool and detail pages has exactly one PageBackButton with its expected Destination (and spoken AccessibleDestination for devices and people and rooms), existing BackRequested handler, x:Name and automation ID, and no Content, Style, sizing, hand-built arrow or plain 'Back to' Button; no other XAML uses the control.",
+    "App.xaml defines PageHeaderControlHeight (48) once before the header row and one implicit PageBackButton style based on SubtleButtonStyle with only that minimum height, 12,8 padding, the 4-DIP header-gap margin and centered content; PageBackButtonStyle, PageHeaderBackButtonStyle and PageHeaderSizing stay removed.",
+    "PageBackButton stays a native Button that raises BackRequested from Click and sets its visible text, accessible name and raw-view tooltip from the destination; Room map, Device details and Room details change destinations only through the control.",
+    "The SQL editor still stops its query before leaving and Import from Fing still ignores Back while busy.",
+    "Natively, page Back headers at 100% text are 48 DIP tall within 1 DIP and only as wide as their destination text, grow with 200% text, and stay at the content edge before the tabs or tool heading; the fixed-header check also requires Back to be a 48-DIP Button centered with the header icon and title.",
+    "Changes to PageBackButton.cs select every consumer capture; App.xaml changes still select every capture."
+  ]
+}

@@ -34,14 +34,6 @@ public sealed partial class DeviceDetailsPageView : UserControl
     public DeviceDetailsPageView()
     {
         InitializeComponent();
-        var headerSizing = (PageHeaderSizing)Application.Current.Resources["PageHeaderSizing"];
-        OverviewTab.ApplyTemplate();
-        headerSizing.MeasureReference(OverviewTab);
-        OverviewTab.SizeChanged += (_, args) =>
-        {
-            if (args.NewSize.Width > 0 && args.NewSize.Height > 0)
-                headerSizing.SetReferenceSize(args.NewSize);
-        };
         InitializeClassificationPickers();
         InitializeUsageCategory();
         DeviceScanHistoryExpander.Visibility =
@@ -92,11 +84,9 @@ public sealed partial class DeviceDetailsPageView : UserControl
     {
         if (roomMap == _backToRoomMap) return;
         _backToRoomMap = roomMap;
-        DeviceBackButton.Content = roomMap ? "\u2190 Room map" : "\u2190 Devices";
-        AutomationProperties.SetName(DeviceBackButton, roomMap ? "Back to Room map" : "Back to devices");
-        // The default Devices Back button keeps having no ToolTip: a keyboard-focused ToolTip would be a second
-        // "Back to devices" automation peer without an Invoke pattern.
-        ToolTipService.SetToolTip(DeviceBackButton, roomMap ? "Back to Room map" : null);
+        // The shared Back control derives "Back to Room map" / "Back to devices" for its name and tooltip.
+        DeviceBackButton.AccessibleDestination = roomMap ? null : "devices";
+        DeviceBackButton.Destination = roomMap ? "Room map" : "Devices";
         DeviceBackButton.UpdateLayout();
         LayoutHeader(HeaderGrid.ActualWidth);
     }

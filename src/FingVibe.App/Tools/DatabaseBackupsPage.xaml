@@ -63,10 +63,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <Button x:Name="BackupsBackButton" Content="&#x2190; Tools" Click="Back_Click"
-                    MinWidth="{Binding ReferenceWidth, Source={StaticResource PageHeaderSizing}}"
-                    MinHeight="{Binding ReferenceHeight, Source={StaticResource PageHeaderSizing}}"
-                    AutomationProperties.Name="Back to Tools" Style="{StaticResource PageHeaderBackButtonStyle}" />
+            <local:PageBackButton x:Name="BackupsBackButton" Destination="Tools" BackRequested="Back_Click" />
             <local:PageHeaderIcon Grid.Column="1" Icon="tools" />
             <TextBlock Grid.Column="2" Text="Database backups" Style="{StaticResource PageHeaderTitleStyle}" />
         </Grid>

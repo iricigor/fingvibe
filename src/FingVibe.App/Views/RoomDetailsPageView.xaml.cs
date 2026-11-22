@@ -1,6 +1,5 @@
 using FingVibe.Core.Models;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 
 namespace FingVibe.App.Views;
@@ -24,11 +23,9 @@ public sealed partial class RoomDetailsPageView : UserControl
     {
         if (roomMap == _backToRoomMap) return;
         _backToRoomMap = roomMap;
-        RoomBackButtonText.Text = roomMap ? "Room map" : "People & rooms";
-        AutomationProperties.SetName(
-            RoomBackButton, roomMap ? "Back to Room map" : "Back to people and rooms");
-        // Like Device Details, the default Back button keeps having no ToolTip that would duplicate its automation name.
-        ToolTipService.SetToolTip(RoomBackButton, roomMap ? "Back to Room map" : null);
+        // The shared Back control derives "Back to Room map" / "Back to people and rooms" for its name and tooltip.
+        RoomBackButton.AccessibleDestination = roomMap ? null : "people and rooms";
+        RoomBackButton.Destination = roomMap ? "Room map" : "People & rooms";
         RoomBackButton.UpdateLayout();
     }
 

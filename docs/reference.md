@@ -13,8 +13,8 @@ details now live on Settings' About page rather than a Tools card.
 The icons use full-color artwork in light/dark themes and theme-colored
 monochrome equivalents in Windows high contrast;
 titles wrap at narrow widths. Icons are decorative, so button names and keyboard
-navigation remain unchanged. Each individual tool places its secondary
-**← Tools** action at the left of the title row, before the tool icon and
+navigation remain unchanged. Each individual tool places its quiet **Tools**
+Back action at the left of the title row, before the tool icon and
 heading. **Run diagnostics** and **Start test** use the same accent-button styling;
 **Import all** retains its existing emphasis. Supporting actions stay neutral.
 Overview, Network, Devices, People & rooms, Settings, Tools and every tool page
@@ -23,9 +23,22 @@ status, Database backups and About) share one compact fixed header: Back where
 relevant, 16 DIP, the 48-DIP page icon, 12 DIP and the 28-px semibold title,
 centered on one row. Main pages have no empty Back slot. The header is its own
 row aligned with the content's left edge, without a background or divider, and
-the body scrolls beneath it without moving it. The `PageHeaderRowStyle`,
-`PageHeaderBackButtonStyle` and `PageHeaderTitleStyle` styles in `App.xaml`
-define it; Device, Person and Room detail headers keep their own layout.
+the body scrolls beneath it without moving it. The `PageHeaderRowStyle` and
+`PageHeaderTitleStyle` styles, the 48-DIP `PageHeaderControlHeight` resource
+and the implicit `PageBackButton` style in `App.xaml` define it; Device,
+Person and Room detail headers keep their own layout.
+
+Every tool and detail page with Back (the eight tool pages above plus Device,
+Person and Room details) uses one reusable `PageBackButton` control. It is
+borderless and transparent at rest, showing a back arrow and its always-visible
+destination (for example **Tools**, **Devices** or **People & rooms**) in body
+text, with a subtle fill on hover and press, the standard focus visual and
+system colours in high contrast. It is the shared 48-DIP header-control height,
+growing with larger text, and only as wide as its destination. Its accessible
+name and tooltip read **Back to** that destination, including Room map's and
+the detail pages' origin-aware destinations. The control only raises a Back
+request: each page keeps its own navigation target, leave confirmations and
+tool cleanup. Page tabs (#659) are meant to reuse `PageHeaderControlHeight`.
 
 - [Run locally and scan behavior](#run-locally)
 - [Device identification](#device-identification)
@@ -1397,7 +1410,7 @@ one published payload:
 | --- | --- |
 | `sidebar-presentation` | Navigation, Settings, Appearance, Responsive |
 | `sidebar-scan-flows` | Refresh, PeopleRooms (shared scanned-inventory fixture) |
-| `sidebar-scan-presentation` | Progress (independent themes, geometry, keyboard and text-scaling checks), FixedHeaders (page title/Back stay fixed while short-window bodies scroll, including 200% text; at 100% text, shared header geometry within 1 DIP) |
+| `sidebar-scan-presentation` | Progress (independent themes, geometry, keyboard and text-scaling checks), FixedHeaders (page title/Back stay fixed while short-window bodies scroll, including 200% text; at 100% text, shared header geometry within 1 DIP, with Back a 48-DIP Button) |
 | `sidebar-preferences-scheduling` | SettingsDisclosure, Persistence, Scheduled |
 | `tools-utilities` | BuildIdentity.Ui, NetworkHealth.Ui, FingImport.Ui |
 | `tools-maintenance` | ReleaseUpdates.Ui, DatabaseBackups.Ui |

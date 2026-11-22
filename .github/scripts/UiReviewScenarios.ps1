@@ -101,7 +101,12 @@ function Get-UiReviewCapturePlan {
                     Add-Scenarios @($UiReviewScenarios.Keys) "$path changed shared window layout."
                 }
             }
-            elseif ($path -in @('src/FingVibe.App/PageHeaderSizing.cs', 'tests/PageHeaders.Ui.Helpers.ps1')) {
+            elseif ($path -eq 'src/FingVibe.App/PageBackButton.cs') {
+                # The shared Back control (#658); its implicit style lives in App.xaml (all scenarios).
+                Add-Scenarios @("About", "DatabaseBackups", "FingImport", "NetworkHealth", "ServiceStatus", "SpeedTest", "SqlEditor",
+                    "RoomMap", "DeviceDetails", "DeviceHistory", "PersonDetails", "RoomDetails") "$path changed the shared Back control used by every tool and detail page."
+            }
+            elseif ($path -eq 'tests/PageHeaders.Ui.Helpers.ps1') {
                 Add-Scenarios @("DeviceDetails", "DeviceHistory", "SpeedTest", "NetworkHealth",
                     "About", "FingImport", "SqlEditor", "DatabaseBackups", "Settings") "$path changed Back headers."
             }

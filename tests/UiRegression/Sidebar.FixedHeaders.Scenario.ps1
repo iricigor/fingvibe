@@ -85,11 +85,14 @@ $testFixedHeaders = {
             $center = ($title.Top + $title.Bottom) / 2 - $bar
             $titleLeft = if ($page.Back) { $before.back.Right + (4 + 12 + 48 + 12) * $scale } else { $content.Left + (48 + 12) * $scale }
             if ($null -eq $headerTitleCenter) { $headerTitleCenter = $center }
+            # #658: the shared Back is one invokable Button of the 48-DIP header-control height, like the icon.
             if ([Math]::Abs($title.Left - $titleLeft) -gt $scale -or [Math]::Abs($center - $headerTitleCenter) -gt $scale -or
                 ($page.Back -and ([Math]::Abs($before.back.Left - $content.Left) -gt $scale -or
-                    [Math]::Abs(($before.back.Top + $before.back.Bottom) / 2 - $bar - $center) -gt $scale))) {
+                    [Math]::Abs(($before.back.Top + $before.back.Bottom) / 2 - $bar - $center) -gt $scale -or
+                    $targets.back.Current.ControlType -ne [System.Windows.Automation.ControlType]::Button -or
+                    [Math]::Abs($before.back.Height / $scale - 48) -gt 1))) {
                 Save-SidebarAppearance "fixed-header-failure"
-                throw "'$($page.Title)' must use the shared header geometry within 1 DIP ($Variant). Title=$title; expected left=$titleLeft; center offset=$center vs $headerTitleCenter; content left=$($content.Left); back=$($before.back)."
+                throw "'$($page.Title)' must use the shared header geometry within 1 DIP ($Variant). Title=$title; expected left=$titleLeft; center offset=$center vs $headerTitleCenter; content left=$($content.Left); back=$($before.back) (48-DIP Button)."
             }
         }
         $scroll = $viewport.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)

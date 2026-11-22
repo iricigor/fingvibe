@@ -12,7 +12,7 @@ $speedScroll = $speedDocument.SelectSingleNode("//*[local-name()='ScrollViewer']
 $pageChildren = @($speedDocument.SelectNodes("//*[local-name()='ScrollViewer']/*[local-name()='StackPanel']/*"))
 $cardNames = @($pageChildren | ForEach-Object { $_.GetAttribute('Name', $xamlNamespace) })
 if (-not $speedScroll -or $speedScroll.PreviousSibling.LocalName -ne 'Grid' -or
-    -not $speedScroll.PreviousSibling.SelectSingleNode(".//*[@*[local-name()='AutomationProperties.Name']='Back to Tools']") -or
+    -not $speedScroll.PreviousSibling.SelectSingleNode(".//*[local-name()='PageBackButton' and @Destination='Tools']") -or
     $pageChildren.Count -ne 3 -or @($pageChildren | Where-Object LocalName -ne 'Border').Count -ne 0 -or
     ($cardNames -join ',') -ne 'TestCard,LiveMeasurementCard,ResultsCard') {
     throw 'The Speed test page must keep its header fixed above the Test, Live measurement and Results cards, in order, with no loose paragraphs.'
