@@ -13,7 +13,6 @@ foreach ($theme in $UiReviewAppearanceThemes) {
                 $windowPattern.Current.WindowVisualState -eq [System.Windows.Automation.WindowVisualState]::Maximized
             }
             Test-TitleBarLayout
-            Test-TitleBarCaptionHover "title-bar-high-contrast"
             Save-SidebarAppearance "title-bar-$theme-maximized"
         }
         finally {
@@ -33,6 +32,7 @@ try {
     }
     Start-Sleep -Seconds 2
     Test-TitleBarLayout
+    Test-TitleBarCaptionHover "title-bar-high-contrast"
     Save-SidebarAppearance "title-bar-high-contrast"
     Test-SidebarDividerAppearance -Name "sidebar-divider-high-contrast" -MaximumContrast 255
     Assert-SidebarFamilyIcons "sidebar-divider-high-contrast-hidden"

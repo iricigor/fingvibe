@@ -893,7 +893,7 @@
             {
               "name": "Test-TitleBarInteractions",
               "refactored": true,
-              "introducedBy": "#719: immediate pointer/keyboard appearance switching without a popup, retained focus, real title-bar dragging, custom caption pointer/keyboard actions and canceled maximize presses."
+              "introducedBy": "#719: immediate pointer/keyboard appearance switching without a popup, retained focus, real title-bar dragging and double-click maximize/restore, custom caption pointer/keyboard actions and canceled maximize presses."
             },
             {
               "assertions": [],
@@ -1368,7 +1368,7 @@
           ],
           "baselineSha256": "291544e71d18a4cd946472975d213fe279f66481ade8c4a2277a0748fe78f539",
           "refactored": true,
-          "changedBy": "#318: exercise lower divider contrast in light/dark themes and system-color hover/focus presentation in high contrast. #719 adds title-bar pointer/keyboard and native hit-target checks plus restored/maximized light/dark and high-contrast captures; existing divider assertions and captures remain. Owner refinement replaces the appearance picker with immediate toggling and removes the duplicate sidebar shortcut; its shared theme-pairing, backdrop, persistence and save-error coverage remains in Settings helpers.",
+          "changedBy": "#318: exercise lower divider contrast in light/dark themes and system-color hover/focus presentation in high contrast. #719 adds title-bar pointer/keyboard and native hit-target checks plus restored/maximized light/dark and high-contrast captures; rounded caption hover assertions run while high contrast is actually enabled. Existing divider assertions and captures remain. Owner refinement replaces the appearance picker with immediate toggling and removes the duplicate sidebar shortcut; its shared theme-pairing, backdrop, persistence and save-error coverage remains in Settings helpers.",
           "functions": [],
           "captures": [
             "da901e1248c1b5cccdc741440da7b359ad6264edf56c82d8b6b24b5e2922d5e1",

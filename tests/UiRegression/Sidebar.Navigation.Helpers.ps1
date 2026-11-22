@@ -110,6 +110,21 @@ function Test-TitleBarInteractions {
             [Math]::Abs($root.Current.BoundingRectangle.Top - $before.Top - 40 * $scale) -lt 4 * $scale
     }
     $pattern = $root.GetCurrentPattern([System.Windows.Automation.WindowPattern]::Pattern)
+    foreach ($state in @(
+        [System.Windows.Automation.WindowVisualState]::Maximized,
+        [System.Windows.Automation.WindowVisualState]::Normal
+    )) {
+        $name = (Find-SidebarElement AutomationId TitleBarAppName).Current.BoundingRectangle
+        $x = [int]($name.Left + $name.Width / 2); $y = [int]($name.Top + $name.Height / 2)
+        [SidebarReviewKeyboard]::PressAt($x, $y)
+        [SidebarReviewKeyboard]::Release()
+        [SidebarReviewKeyboard]::PressAt($x, $y)
+        [SidebarReviewKeyboard]::Release()
+        $null = Wait-UiRegressionState -Description "title-bar double-click switches to $state" -Condition {
+            $pattern.Current.WindowVisualState -eq $state
+        }
+        Test-TitleBarLayout
+    }
     $maximize = (Find-SidebarElement AutomationId TitleBarMaximizeButton).Current.BoundingRectangle
     $x = [int]($maximize.Left + $maximize.Width / 2); $y = [int]($maximize.Top + $maximize.Height / 2)
     [SidebarReviewKeyboard]::PressAt($x, $y)
