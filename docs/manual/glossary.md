@@ -29,7 +29,10 @@ Use these short explanations when a network term or visual hint is unfamiliar.
 
 The website uses locally served SVG icons from the documentation theme.
 They help scan a page but do not replace text.
-The Windows app uses its own native glyphs.
+The Windows app uses its own page artwork and native glyphs. Main-page and tool
+icons are full color in ordinary themes and use system colors in Windows high
+contrast; sidebar icons follow the theme. These decorative icons do not replace
+page names.
 
 | Visual | Meaning and limitation |
 | --- | --- |
