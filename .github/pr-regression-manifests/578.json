@@ -4,6 +4,7 @@
   "category": "validation",
   "changedBehavior": "Every Device Details card on the Overview and History tabs uses one shared H4 card heading: a shaded band with a small decorative icon, 16-px semibold heading and divider, defined once in App-level resources.",
   "selectors": [
+    "core-tests",
     "ui-review-scenarios",
     "ui-regression-helpers",
     "native-details-summary",
