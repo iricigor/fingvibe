@@ -1,0 +1,47 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!-- Shared card heading (H4): a shaded band with a small decorative icon, the heading text and a divider.
+         The band, divider, icon and weight all mark the heading, so hierarchy never depends on color alone. -->
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="CardHeadingBandBrush" Color="#EEF0F3" />
+            <SolidColorBrush x:Key="CardHeadingDividerBrush" Color="#DCE0E6" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+            <SolidColorBrush x:Key="CardHeadingBandBrush" Color="#333944" />
+            <SolidColorBrush x:Key="CardHeadingDividerBrush" Color="#4A5260" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="HighContrast">
+            <SolidColorBrush x:Key="CardHeadingBandBrush" Color="{ThemeResource SystemColorWindowColor}" />
+            <SolidColorBrush x:Key="CardHeadingDividerBrush" Color="{ThemeResource SystemColorWindowTextColor}" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+    <!-- Spans the full card width inside a ScannerSummaryCardStyle border by cancelling its 16-DIP padding. -->
+    <Style x:Key="CardHeadingBandStyle" TargetType="Border">
+        <Setter Property="Margin" Value="-16,-16,-16,0" />
+        <Setter Property="Padding" Value="16,10" />
+        <Setter Property="Background" Value="{ThemeResource CardHeadingBandBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource CardHeadingDividerBrush}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="CornerRadius" Value="7,7,0,0" />
+    </Style>
+    <Style x:Key="CardHeadingRowStyle" TargetType="Grid">
+        <Setter Property="ColumnSpacing" Value="10" />
+    </Style>
+    <Style x:Key="CardHeadingIconStyle" TargetType="FontIcon">
+        <Setter Property="FontFamily" Value="Segoe Fluent Icons" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorSecondaryBrush}" />
+        <Setter Property="AutomationProperties.AccessibilityView" Value="Raw" />
+    </Style>
+    <Style x:Key="CardHeadingTextStyle" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Foreground" Value="{ThemeResource TextFillColorPrimaryBrush}" />
+        <Setter Property="AutomationProperties.HeadingLevel" Value="Level2" />
+    </Style>
+</ResourceDictionary>
