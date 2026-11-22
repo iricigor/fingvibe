@@ -76,8 +76,8 @@ Each subject has two self-contained SVG masters with `width="256"`,
 `height="256"`, and `viewBox="0 0 256 256"`, plus corresponding transparent
 256px PNG exports: **24 SVGs and 24 individual PNGs**, with one additional
 comparison PNG. People & rooms also has a simplified 32 px navigation-mask
-master, `people-rooms-mono-32.svg`, exported only to
-`src/FingVibe.App/Assets/PageIcons/people-rooms-mono-32.png`. The SVG artwork
+master, `people-rooms-mono-32.svg`. The 24-DIP sidebar uses separate 48 px
+navigation masks described below. The SVG artwork
 uses no fonts, external images, scripts, or remote resources. Comparison labels
 are rasterized and are not part of the individual icons.
 
@@ -101,6 +101,31 @@ apart from the removed edge stroke.
 
 The People & rooms files were drawn the same way for #589. Its 32 px navigation
 mask was rendered at 4x and downsampled to 32 px.
+
+### 24-DIP sidebar navigation masks
+
+[Task #661](https://github.com/iricigor/fingvibe/issues/661) sets the sidebar
+family icons to **24 DIP**, selected by @iricigor on 2026-11-22; page headers
+and Tools cards stay at 48 DIP. `BitmapIcon` point-samples its monochrome
+mask, so each sidebar icon is a 48 px (2x) single-color mask that stays crisp
+at 100-200% scaling: `overview`, `network`, `devices`, `people-rooms` and
+`tools` `-mono-48.svg` here, exported only to
+`src/FingVibe.App/Assets/PageIcons/<name>-mono-48.png`.
+
+Each 48 px master wraps the unchanged geometry of its 256 px single-color
+master (People & rooms: its simplified 32 px mask) in one translate/scale
+group. Only placement and stroke widths change, so the designs stay as
+selected. The visible-weight rule is:
+
+- The artwork's longer side spans 42 px, 87.5% of the box, centered.
+- Each icon's heaviest stroke is 3 px (1.5 DIP); lighter strokes keep their
+  original proportion, with a 2 px minimum so that 2x point sampling keeps
+  them at 100% scaling.
+
+The previous 32 px masks filled 63-69% of their box except People & rooms
+(88%), and their strokes ranged from 1 to 2 px. To regenerate a PNG, render its
+48 px SVG at 4x (192 px) on a transparent background, box-filter alpha down to
+48 px and keep only the teal RGB color.
 
 Before any later adoption, agree the actual surfaces, variants, sizing,
 theme/high-contrast behavior, and accessibility requirements. Legibility at
