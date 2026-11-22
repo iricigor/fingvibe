@@ -169,6 +169,39 @@
     $result = Show-UiRegressionScrollTargets @arguments
     Assert-Regression ($result -eq $target -and $positions.Count -le 4) 'Unknown bounds from the lower endpoint must discover content by moving back toward the viewport.'
 
+    # A small view whose first measured move overshoots (its extent was still settling) hides the target
+    # above the viewport; discovery must search back toward it in viewport-sized steps.
+    $overshoot = @{ Top = 280.0; Moves = 0 }
+    $positions.Clear()
+    $scroll = [pscustomobject]@{ Current = [pscustomobject]@{
+        VerticallyScrollable = $true; VerticalScrollPercent = 0.0; VerticalViewSize = 5.0
+    } }
+    $scroll | Add-Member ScriptMethod SetScrollPercent {
+        param($Horizontal, $Percent)
+        $positions.Add($Percent)
+        $pixels = if ($overshoot.Moves++ -eq 0) { 114.0 } else { 57.0 }
+        $overshoot.Top -= ($Percent - $this.Current.VerticalScrollPercent) * $pixels
+        $this.Current.VerticalScrollPercent = $Percent
+        $top = $overshoot.Top
+        if ($top + 30 -le 0 -or $top -ge 300) {
+            $target.Current.IsOffscreen = $true
+            $target.Current.BoundingRectangle = [pscustomobject]@{
+                Left = 0; Top = 0; Right = 0; Bottom = 0; Width = 0; Height = 0; IsEmpty = $true
+            }
+        } else {
+            $target.Current.IsOffscreen = $false
+            $target.Current.BoundingRectangle = New-TestRectangle 10 $top 100 30
+        }
+    }
+    $viewport = New-BoundedElement 0 0 500 300
+    $viewport | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $scroll }
+    $target.Current.IsOffscreen = $false
+    $target.Current.BoundingRectangle = New-TestRectangle 10 280 100 30
+    $result = Show-UiRegressionScrollTargets -Description 'overshot target' `
+        -GetViewport { $viewport } -GetWindow { $window } -GetTargets { $target }
+    Assert-Regression ($result -eq $target -and $positions.Count -eq 2 -and $positions[1] -lt $positions[0]) 'A target hidden by an overshooting move must be found by reversing that move.'
+    Assert-Regression ($target.Current.BoundingRectangle.Top -ge 0 -and $target.Current.BoundingRectangle.Bottom -le 300) 'The reversed discovery must leave the target inside its viewport.'
+
     $actual = @{ Top = 285.0; Height = 180.0 }
     $target.Current.IsOffscreen = $false
     $target.Current.BoundingRectangle = New-TestRectangle 10 285 100 15

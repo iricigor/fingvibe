@@ -68,7 +68,7 @@ function Show-UiRegressionScrollTargets {
         [ValidateRange(1, 10000)][int] $TimeoutMilliseconds = 10000
     )
     $state = @{
-        Moves = 0; Geometry = $null; MissingBoundsMoves = 0; Direction = 0; Reversals = 0
+        Moves = 0; Geometry = $null; MissingBoundsMoves = 0; Direction = 0; Reversals = 0; LastMove = 0
         StableGeometry = $null; StableSince = $null
     }
     $targetDescription = $Description
@@ -109,20 +109,25 @@ function Show-UiRegressionScrollTargets {
                     throw "$targetDescription has no rendered bounds in a non-scrollable viewport."
                 }
                 if ($state.Direction -eq 0) {
-                    $state.Direction = if ($scroll.Current.VerticalScrollPercent -ge 50) { -1 } else { 1 }
+                    # A target that vanished after a measured move overshot it; search back the way it came.
+                    $state.Direction = if ($state.LastMove) { -$state.LastMove }
+                        elseif ($scroll.Current.VerticalScrollPercent -ge 50) { -1 } else { 1 }
                 }
                 if ($state.MissingBoundsMoves -ge 8) {
                     throw "$targetDescription remained unrealized after eight bounded viewport moves."
                 }
                 $currentPercent = $scroll.Current.VerticalScrollPercent
-                $nextPercent = [Math]::Max(0, [Math]::Min(100, $currentPercent + 25 * $state.Direction))
+                # Step at most one viewport so a small view scans contiguously instead of jumping past the target.
+                $view = [Math]::Min(99.0, [Math]::Max(0.1, $scroll.Current.VerticalViewSize)) / 100
+                $step = [Math]::Min(25.0, [Math]::Max(1.0, 100 * $view / (1 - $view)))
+                $nextPercent = [Math]::Max(0, [Math]::Min(100, $currentPercent + $step * $state.Direction))
                 if ($nextPercent -eq $currentPercent) {
                     if ($state.Reversals -ge 1) {
                         throw "$targetDescription has no rendered bounds after reaching both scroll limits."
                     }
                     $state.Direction = -$state.Direction
                     $state.Reversals++
-                    $nextPercent = [Math]::Max(0, [Math]::Min(100, $currentPercent + 25 * $state.Direction))
+                    $nextPercent = [Math]::Max(0, [Math]::Min(100, $currentPercent + $step * $state.Direction))
                 }
                 $state.MissingBoundsMoves++
                 $scroll.SetScrollPercent(-1, $nextPercent)
@@ -168,6 +173,7 @@ function Show-UiRegressionScrollTargets {
             $percent = [Math]::Max(0.0, [Math]::Min(100.0, $scroll.Current.VerticalScrollPercent + 100 * $delta / $extent))
             $state.Geometry = $geometry
             $state.Moves++
+            $state.LastMove = [Math]::Sign($percent - $scroll.Current.VerticalScrollPercent)
             Write-Host "Positioning ${targetDescription}: target $targetTop-$targetBottom; viewport $top-$bottom; view $viewSize%; scroll $($scroll.Current.VerticalScrollPercent)% -> $percent%."
             $scroll.SetScrollPercent(-1, $percent)
             # The next bounded observation must see the actual target bounds, not just a changed percentage.

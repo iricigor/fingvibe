@@ -82,9 +82,11 @@ $testFixedHeaders = {
             if ($RequireOverflow) { throw "'$($page.Title)' must overflow its body in a short window with enlarged text ($Variant)." }
             continue
         }
-        $scroll.SetScrollPercent(-1, 100)
+        # List content can still grow after the resize; keep requesting the bottom until it holds.
         $null = Wait-UiRegressionState -Description "'$($page.Title)' body scrolled to the bottom ($Variant)" -Condition {
-            $scroll.Current.VerticalScrollPercent -ge 99.5
+            if ($scroll.Current.VerticalScrollPercent -ge 99.5) { return $true }
+            $scroll.SetScrollPercent(-1, 100)
+            $false
         }
         $after = Wait-UiRegressionState -Description "'$($page.Title)' header after scrolling ($Variant)" -Condition {
             & $findFixedHeaderTargets $page $viewport

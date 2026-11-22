@@ -66,9 +66,19 @@ function Find-Usage([string] $Value, [switch] $ByName, [switch] $Optional) {
                 }
             }
         }
+        if (-not $element -and -not $Optional) {
+            # Device Details rebuilds asynchronously after saves and restarts, so a required peer can be
+            # briefly absent. Await reconstruction within a bound; optional lookups stay single-shot.
+            $deadline = [DateTime]::UtcNow.AddSeconds(5)
+            while (-not $element -and [DateTime]::UtcNow -lt $deadline) {
+                Start-Sleep -Milliseconds 100
+                $element = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                    [System.Windows.Automation.PropertyCondition]::new($property, $Value))
+            }
+        }
     }
     finally { Complete-UiRegressionCall $call }
-    if (-not $element -and -not $Optional) { throw "Missing usage-category control '$Value'." }
+    if (-not $element -and -not $Optional) { throw "Missing usage-category control '$Value' after 5000 ms." }
     return $element
 }
 
