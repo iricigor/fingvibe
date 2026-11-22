@@ -14,12 +14,24 @@
                     <TextBlock x:Name="RoomBackButtonText" Text="People &amp; rooms" />
                 </StackPanel>
             </Button>
-            <Grid ColumnSpacing="12">
+            <Grid x:Name="RoomDetailHeading" ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <local:PageHeaderIcon Icon="rooms" />
+                <TextBlock x:Name="RoomDetailName" Grid.Column="1" FontSize="28"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <Button x:Name="EditRoomDetailButton" Grid.Column="2" Content="Edit" Click="EditRoomButton_Click" />
+                <Button x:Name="DeleteRoomDetailButton" Grid.Column="3" Content="Delete" Click="DeleteRoomButton_Click" />
+            </Grid>
+            <!-- The room's own symbol and short-name badge stay separate from the Rooms family icon. -->
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <Border Padding="12,6" CornerRadius="8" Background="{ThemeResource ControlFillColorDefaultBrush}">
                     <StackPanel Spacing="6" HorizontalAlignment="Center">
@@ -30,13 +42,9 @@
                                    HorizontalAlignment="Center" />
                     </StackPanel>
                 </Border>
-                <TextBlock x:Name="RoomDetailName" Grid.Column="1" FontSize="28"
-                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                <Button x:Name="EditRoomDetailButton" Grid.Column="2" Content="Edit" Click="EditRoomButton_Click" />
-                <Button x:Name="DeleteRoomDetailButton" Grid.Column="3" Content="Delete" Click="DeleteRoomButton_Click" />
+                <TextBlock x:Name="RoomDetailNotes" Grid.Column="1" TextWrapping="Wrap" VerticalAlignment="Center"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             </Grid>
-            <TextBlock x:Name="RoomDetailNotes" TextWrapping="Wrap"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="4">
                     <TextBlock x:Name="RoomDeviceCountText" FontWeight="SemiBold" />

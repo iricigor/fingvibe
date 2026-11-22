@@ -49,16 +49,39 @@
     $peopleRoomsCode = Get-Content (Join-Path $appDirectory "Views\PeopleRoomsPageView.xaml.cs") -Raw
     $headingRow = $peopleRoomsDocument.SelectSingleNode("//*[@*[local-name()='Name']='PeopleRoomsHeadingRow']")
     if (-not $headingRow) { throw "People & rooms must expose its shared icon/title layout." }
-    $headingIcon = $headingRow.SelectSingleNode("./*[local-name()='Viewbox']")
+    $headingIcon = $headingRow.SelectSingleNode("./*[local-name()='PageHeaderIcon']")
     $headingTitle = $headingRow.SelectSingleNode("./*[local-name()='TextBlock']")
-    if (-not $headingIcon -or $headingIcon.GetAttribute("Width") -cne "48" -or
-        $headingIcon.GetAttribute("Height") -cne "48" -or
-        $headingIcon.GetAttribute("AutomationProperties.AccessibilityView") -cne "Raw" -or
+    if (-not $headingIcon -or $headingIcon.GetAttribute("Icon") -cne "people-rooms" -or
+        $headingIcon.HasAttribute("Width") -or $headingIcon.HasAttribute("Height") -or
+        $headingRow.SelectNodes("./*[local-name()='PageHeaderIcon' or local-name()='Viewbox']").Count -ne 1 -or
         $headingRow.GetAttribute("ColumnSpacing") -cne "12" -or
         $headingTitle.GetAttribute("Grid.Column") -cne "1" -or
         $headingTitle.GetAttribute("VerticalAlignment") -cne "Center" -or
         $headingTitle.GetAttribute("TextWrapping") -cne "Wrap") {
-        throw "People & rooms must align its wrapping title beside one decorative 48-DIP icon with a 12-DIP gap."
+        throw "People & rooms must align its wrapping title beside one shared 48-DIP 'people-rooms' family icon with a 12-DIP gap."
+    }
+    $navItem = [regex]::Match((Get-Content (Join-Path $appDirectory "MainWindow.xaml") -Raw),
+        '(?s)<NavigationViewItem x:Name="PeopleRoomsNavItem".*?</NavigationViewItem>').Value
+    if ($navItem -notmatch 'UriSource="ms-appx:///Assets/PageIcons/people-rooms-mono-32\.png"' -or
+        $navItem -notmatch 'Style="\{ThemeResource SidebarPeopleRoomsIconStyle\}"' -or $navItem -match '<PathIcon\b') {
+        throw "People & rooms navigation must use one theme-colored single-color 'people-rooms' family icon."
+    }
+    foreach ($detail in @(
+        @{ View = "PersonDetailsPageView"; Heading = "PersonDetailHeading"; Icon = "people"; Name = "PersonDetailName"; Symbol = "PersonDetailIcon"; Badge = "PersonDetailShortName" },
+        @{ View = "RoomDetailsPageView"; Heading = "RoomDetailHeading"; Icon = "rooms"; Name = "RoomDetailName"; Symbol = "RoomDetailIcon"; Badge = "RoomDetailShortName" }
+    )) {
+        $detailDocument = [xml](Get-Content (Join-Path $appDirectory "Views\$($detail.View).xaml") -Raw)
+        $heading = $detailDocument.SelectSingleNode("//*[@*[local-name()='Name']='$($detail.Heading)']")
+        $first = if ($heading) { $heading.SelectSingleNode("./*[not(starts-with(local-name(), 'Grid.'))]") }
+        $detailName = if ($heading) { $heading.SelectSingleNode("./*[@*[local-name()='Name']='$($detail.Name)']") }
+        if (-not $first -or $first.LocalName -cne "PageHeaderIcon" -or $first.GetAttribute("Icon") -cne $detail.Icon -or
+            $heading.SelectNodes(".//*[local-name()='PageHeaderIcon']").Count -ne 1 -or
+            -not $detailName -or $detailName.GetAttribute("Grid.Column") -cne "1" -or
+            $heading.SelectSingleNode(".//*[@*[local-name()='Name']='$($detail.Symbol)' or @*[local-name()='Name']='$($detail.Badge)']") -or
+            -not $detailDocument.SelectSingleNode("//*[@*[local-name()='Name']='$($detail.Symbol)']") -or
+            -not $detailDocument.SelectSingleNode("//*[@*[local-name()='Name']='$($detail.Badge)']")) {
+            throw "$($detail.View) must show the '$($detail.Icon)' family icon before its title and keep the entity symbol and short-name badge separate."
+        }
     }
     foreach ($section in @(
         @{ Name = "People"; Add = "AddPersonButton" },
