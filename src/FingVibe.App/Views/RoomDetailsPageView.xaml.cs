@@ -27,6 +27,23 @@ public sealed partial class RoomDetailsPageView : UserControl
         RoomBackButton.AccessibleDestination = roomMap ? null : "people and rooms";
         RoomBackButton.Destination = roomMap ? "Room map" : "People & rooms";
         RoomBackButton.UpdateLayout();
+        LayoutHeading(RoomDetailHeading.ActualWidth);
+    }
+
+    private void RoomDetailHeading_SizeChanged(object sender, SizeChangedEventArgs e) => LayoutHeading(e.NewSize.Width);
+
+    // Edit and Delete follow the title and wrap beneath it when the title would keep less than 160 DIP (scaled with text).
+    private void LayoutHeading(double width)
+    {
+        if (width <= 0) return;
+        RoomDetailActions.Measure(new Windows.Foundation.Size(double.PositiveInfinity, double.PositiveInfinity));
+        var columns = RoomDetailHeading.ColumnDefinitions;
+        var title = width - columns[0].ActualWidth - columns[1].ActualWidth - 3 * RoomDetailHeading.ColumnSpacing
+            - RoomDetailActions.DesiredSize.Width;
+        var inline = title >= 160 * new Windows.UI.ViewManagement.UISettings().TextScaleFactor;
+        Grid.SetRow(RoomDetailActions, inline ? 0 : 2);
+        Grid.SetColumn(RoomDetailActions, inline ? 3 : 2);
+        RoomDetailActions.Margin = new Thickness(0, inline ? 0 : 8, 0, 0);
     }
 
     internal void Refresh(PeopleRoomsData data, IReadOnlyList<AssignedDeviceListRow> devices,
@@ -61,6 +78,7 @@ public sealed partial class RoomDetailsPageView : UserControl
         RoomDetailIcon.Glyph = PeopleRoomsIcons.Resolve(PeopleRoomsIcons.Rooms, room.IconId).Glyph;
         RoomDetailName.Text = room.Name;
         RoomDetailNotes.Text = room.Notes ?? string.Empty;
+        RoomDetailNotes.Visibility = string.IsNullOrWhiteSpace(room.Notes) ? Visibility.Collapsed : Visibility.Visible;
         RoomDeviceCountText.Text = count;
         RoomRespondedCountText.Text = responses;
         RoomAssignedDevicesList.ItemsSource = devices;

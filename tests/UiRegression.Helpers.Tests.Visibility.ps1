@@ -222,3 +222,40 @@
     Assert-Regression ($result -eq $target -and $positions.Count -eq 1) 'A clipped UIA bottom edge must not cause repeated tiny scroll corrections.'
     Assert-Regression ($target.Current.BoundingRectangle.Top -eq 35 -and $target.Current.BoundingRectangle.Height -eq 180) 'Positioning must reveal the full target, not accept its clipped rectangle as its true height.'
 }
+# #670: identity detail headers keep #657's 16-DIP Back gap, 48-DIP icon slot, 12-DIP title gap and one centered row.
+& {
+    function New-HeaderRectangle([double] $Left, [double] $Top, [double] $Width, [double] $Height, [double] $Scale = 1) {
+        [pscustomobject]@{ Left = $Left * $Scale; Top = $Top * $Scale; Width = $Width * $Scale; Height = $Height * $Scale
+            Right = ($Left + $Width) * $Scale; Bottom = ($Top + $Height) * $Scale }
+    }
+    foreach ($scale in @(1.0, 1.5)) {
+        $header = @{
+            Back = New-HeaderRectangle 12 100 110 48 $scale
+            Icon = New-HeaderRectangle 138 100 48 48 $scale
+            Title = New-HeaderRectangle 198 105.5 200 37 $scale
+            Secondary = New-HeaderRectangle 198 148 150 19 $scale
+            Badge = New-HeaderRectangle 149 152 26 24 $scale
+            Scale = $scale; Description = 'Synthetic details'
+        }
+        Assert-UiRegressionIdentityHeader @header
+        foreach ($case in @(
+            @{ Key = 'Title'; Value = New-HeaderRectangle 200 105.5 200 37 $scale; Pattern = '*title=*' },
+            @{ Key = 'Title'; Value = New-HeaderRectangle 198 100 200 37 $scale; Pattern = '*title=*' },
+            @{ Key = 'Icon'; Value = New-HeaderRectangle 138 106 32 32 $scale; Pattern = '*icon=*' },
+            @{ Key = 'Icon'; Value = New-HeaderRectangle 142 100 48 48 $scale; Pattern = '*icon=*' },
+            @{ Key = 'Secondary'; Value = New-HeaderRectangle 138 148 150 19 $scale; Pattern = '*secondary=*' },
+            @{ Key = 'Secondary'; Value = New-HeaderRectangle 198 130 150 19 $scale; Pattern = '*secondary=*' },
+            @{ Key = 'Badge'; Value = New-HeaderRectangle 138 152 26 24 $scale; Pattern = '*badge=*' },
+            @{ Key = 'Badge'; Value = New-HeaderRectangle 149 120 26 24 $scale; Pattern = '*badge=*' }
+        )) {
+            $mutated = $header.Clone()
+            $mutated[$case.Key] = $case.Value
+            Assert-RegressionFailure { Assert-UiRegressionIdentityHeader @mutated } $case.Pattern
+        }
+        $wide = $header.Clone()
+        $wide.Badge = New-HeaderRectangle 138 152 60 24 $scale
+        Assert-UiRegressionIdentityHeader @wide
+        $wide.Badge = New-HeaderRectangle 126 152 60 24 $scale
+        Assert-RegressionFailure { Assert-UiRegressionIdentityHeader @wide } '*badge=*'
+    }
+}

@@ -104,6 +104,13 @@ function Test-PageBackHeaders {
                 'Back to devices' 'Devices' $scale $contentLeft `
                 -NextId "Device${tab}Tab" -Scaled:$Scaled
         }
+        # #670: the identity header keeps #657's icon and title positions; the tabs stay below it until #659.
+        $status = Find-PageHeaderElement $Root DeviceStatusText -AllowOffscreen
+        Assert-UiRegressionIdentityHeader -Back (Find-PageHeaderElement $Root DeviceBackButton).Current.BoundingRectangle `
+            -Icon (Find-PageHeaderElement $Root DeviceTypeIcon).Current.BoundingRectangle `
+            -Title (Find-PageHeaderElement $Root DeviceNameText).Current.BoundingRectangle `
+            -Secondary $(if (Test-UiRegressionElementVisible $status) { $status.Current.BoundingRectangle }) `
+            -Scale $scale -Description "Device details ($Variant)"
         $back = Find-PageHeaderElement $Root 'Back to devices' -ByName -Type ([Windows.Automation.ControlType]::Button)
         $back.SetFocus()
         [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')

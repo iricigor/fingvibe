@@ -9,44 +9,43 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <StackPanel Spacing="16">
+        <!-- Identity variant of the shared page header (#670): Back, the room's own 48-DIP symbol with its short-name
+             badge beneath it, the name in the shared title style, then Edit and Delete. -->
+        <Grid x:Name="RoomDetailHeading" Style="{StaticResource PageHeaderRowStyle}"
+              SizeChanged="RoomDetailHeading_SizeChanged">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="48" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
             <local:PageBackButton x:Name="RoomBackButton" Destination="People &amp; rooms"
                     AccessibleDestination="people and rooms" BackRequested="BackToRoomsButton_Click"
                     AutomationProperties.AutomationId="RoomBackButton" />
-            <Grid x:Name="RoomDetailHeading" ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <local:PageHeaderIcon Icon="rooms" />
-                <TextBlock x:Name="RoomDetailName" Grid.Column="1" FontSize="28"
-                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                <Button x:Name="EditRoomDetailButton" Grid.Column="2" Content="Edit" Click="EditRoomButton_Click" />
-                <Button x:Name="DeleteRoomDetailButton" Grid.Column="3" Content="Delete" Click="DeleteRoomButton_Click" />
-            </Grid>
-        </StackPanel>
+            <FontIcon x:Name="RoomDetailIcon" Grid.Column="1" Width="48" Height="48" FontSize="48"
+                      FontFamily="Segoe Fluent Icons" IsTextScaleFactorEnabled="False"
+                      Foreground="{ThemeResource TextFillColorPrimaryBrush}"
+                      AutomationProperties.AccessibilityView="Raw" />
+            <TextBlock x:Name="RoomDetailName" Grid.Column="2" Style="{StaticResource PageHeaderTitleStyle}" />
+            <StackPanel x:Name="RoomDetailActions" Grid.Column="3" Orientation="Horizontal" Spacing="12"
+                        VerticalAlignment="Center">
+                <Button x:Name="EditRoomDetailButton" Content="Edit" Click="EditRoomButton_Click" />
+                <Button x:Name="DeleteRoomDetailButton" Content="Delete" Click="DeleteRoomButton_Click" />
+            </StackPanel>
+            <!-- A badge wider than the icon at larger text extends right instead of moving the title. -->
+            <TextBlock x:Name="RoomDetailShortName" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                       MinWidth="48" Margin="0,4,0,0" HorizontalAlignment="Left" TextAlignment="Center"
+                       FontFamily="Segoe UI Emoji" FontSize="18" FontWeight="SemiBold" />
+        </Grid>
         <ScrollViewer x:Name="RoomDetailPage" Grid.Row="1">
         <StackPanel Spacing="16">
-            <!-- The room's own symbol and short-name badge stay separate from the Rooms family icon. -->
-            <Grid ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <Border Padding="12,6" CornerRadius="8" Background="{ThemeResource ControlFillColorDefaultBrush}">
-                    <StackPanel Spacing="6" HorizontalAlignment="Center">
-                        <FontIcon x:Name="RoomDetailIcon" FontFamily="Segoe Fluent Icons" FontSize="48"
-                                  Foreground="{ThemeResource TextFillColorPrimaryBrush}"
-                                  AutomationProperties.AccessibilityView="Raw" />
-                        <TextBlock x:Name="RoomDetailShortName" FontFamily="Segoe UI Emoji" FontSize="18" FontWeight="SemiBold"
-                                   HorizontalAlignment="Center" />
-                    </StackPanel>
-                </Border>
-                <TextBlock x:Name="RoomDetailNotes" Grid.Column="1" TextWrapping="Wrap" VerticalAlignment="Center"
-                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            </Grid>
+            <TextBlock x:Name="RoomDetailNotes" TextWrapping="Wrap" Visibility="Collapsed"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="4">
                     <TextBlock x:Name="RoomDeviceCountText" FontWeight="SemiBold" />

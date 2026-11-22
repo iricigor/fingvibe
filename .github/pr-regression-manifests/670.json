@@ -1,0 +1,34 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 670,
+  "category": "ui",
+  "changedBehavior": "Device, Person and Room details adopt the identity variant of the shared fixed page header from #657: one PageHeaderRowStyle row in its own Auto row above the scrolling body, with the shared Back (its 4-DIP margin restored on Device details), the entity's own 48-DIP icon in the icon slot (device type icon; person or room symbol with its short-name badge centered beneath it, replacing the People/Rooms family icons and the separate symbol card), and the entity name in PageHeaderTitleStyle instead of the hand-set 26/28-px sizes. Device status stays as a secondary line under the title; the copy and Rename device actions stay beside the device name; person/room Edit and Delete stay after the title and wrap beneath it when the title would be squeezed. Device Details' Overview/History tabs keep their look in their own fixed row below the header (no longer beside Back). Back destinations, x:Names and automation IDs are unchanged.",
+  "selectors": [
+    "core-tests",
+    "ui-regression-helpers",
+    "native-pr-matrix",
+    "ui-review-scenarios",
+    "additional-services",
+    "native-sidebar-scan-flows",
+    "native-devices-presentation",
+    "native-devices-columns-sorting",
+    "native-details-summary",
+    "native-details-identity",
+    "native-details-usage",
+    "native-details-observations",
+    "native-details-activity",
+    "native-details-linking",
+    "native-details-link-matches",
+    "native-tools-device-data",
+    "documentation-tests"
+  ],
+  "expectedAssertions": [
+    "Device, Person and Room details each have exactly one PageHeaderRowStyle header, named HeaderGrid, PersonDetailHeading or RoomDetailHeading, directly in the page grid's first Auto row and outside every ScrollViewer, with no background, divider, border or family PageHeaderIcon.",
+    "Each header orders the shared PageBackButton (no local margin), the entity's own 48x48-DIP FontIcon (FontSize 48, not text-scaled) in column 1 and the name in column 2 with PageHeaderTitleStyle (Device: DeviceDetailValue ValueStyle with Rename_Click), with no hand-set FontSize, FontWeight, Margin or trimming.",
+    "DeviceStatusText is a wrapping secondary-brush line in row 1 under the title; PersonDetailShortName and RoomDetailShortName keep their 18-px semibold badge centered beneath the icon slot without widening it; icon, title, badge and status exist exactly once and only in the header.",
+    "Edit and Delete keep their names and handlers after the title and wrap beneath it only when the title would be squeezed; Device Details tabs keep their SelectorBar in their own Auto row between the header and DeviceDetailsScroll.",
+    "Only the 14 main/tool headers and these 3 identity headers use PageHeaderRowStyle, and DeviceDetailValue applies the shared title style instead of ValueFontSize.",
+    "Natively, Device details (100%, 200% text and high contrast) and Person/Room details (sidebar flows) place the entity icon 16 DIP after Back and the title 76 DIP after Back's right edge within 1 DIP, centered with Back, with the 48-DIP device icon, the status under the title and the short-name badge beneath the icon slot; wide Device Details tabs stay below the identity header.",
+    "Back destinations and names (Back to devices, Back to Room map, Back to people and rooms), automation IDs and Get-UiRegressionDeviceDetailsBodyTop's tabs-based body top are unchanged."
+  ]
+}

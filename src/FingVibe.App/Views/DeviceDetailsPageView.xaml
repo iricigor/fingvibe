@@ -69,52 +69,45 @@
     </VisualStateManager.VisualStateGroups>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <StackPanel Spacing="16">
-            <Grid x:Name="HeaderGrid" ColumnSpacing="16" RowSpacing="12" SizeChanged="Header_SizeChanged">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-            <!-- Margin 0 keeps this detail header's own 16-DIP column gap until #670 adopts the shared header. -->
+        <!-- Identity variant of the shared page header (#670): Back, the 48-DIP device-type icon and the device name in
+             the shared title style on the first 48-DIP row, with the existing status as a secondary line beneath it. -->
+        <Grid x:Name="HeaderGrid" Style="{StaticResource PageHeaderRowStyle}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
             <app:PageBackButton x:Name="DeviceBackButton" Destination="Devices" AccessibleDestination="devices"
-                    Margin="0" BackRequested="BackToDevicesButton_Click"
+                    BackRequested="BackToDevicesButton_Click"
                     AutomationProperties.AutomationId="DeviceBackButton" />
-            <Border x:Name="DetailsTabsHost" Grid.Column="1" Padding="4" CornerRadius="8"
-                    VerticalAlignment="Center" HorizontalAlignment="Left"
-                    Background="{ThemeResource ControlFillColorSecondaryBrush}">
-                <SelectorBar x:Name="DetailsTabs" SelectionChanged="DetailsTabs_SelectionChanged"
-                             AutomationProperties.AutomationId="DeviceDetailsTabs" AutomationProperties.Name="Device details sections">
-                    <SelectorBarItem x:Name="OverviewTab" Text="Overview" IsSelected="True"
-                                     Padding="16,12" CornerRadius="6" AutomationProperties.AutomationId="DeviceOverviewTab" AutomationProperties.Name="Overview" />
-                    <SelectorBarItem x:Name="HistoryTab" Text="History" Padding="16,12" CornerRadius="6"
-                                     AutomationProperties.AutomationId="DeviceHistoryTab" AutomationProperties.Name="History" />
-                </SelectorBar>
-            </Border>
-            <Grid x:Name="DeviceIdentityHeader" Grid.Column="2" ColumnSpacing="12" MaxWidth="720"
-                  HorizontalAlignment="Right" VerticalAlignment="Center">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <FontIcon x:Name="DeviceTypeIcon" FontFamily="Segoe Fluent Icons" FontSize="32"
-                          VerticalAlignment="Top" Margin="0,6,0,0" />
-                <StackPanel Grid.Column="1" Spacing="4">
-                    <views:DeviceDetailValue x:Name="DeviceNameValue" CopyLabel="Device name" ValueFontSize="26"
-                                             RenameRequested="Rename_Click" />
-                    <TextBlock x:Name="DeviceStatusText" TextWrapping="Wrap"
-                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                </StackPanel>
-            </Grid>
-            </Grid>
-        </StackPanel>
-        <ScrollViewer x:Name="DevicePage" Grid.Row="1" AutomationProperties.AutomationId="DeviceDetailsScroll"
+            <FontIcon x:Name="DeviceTypeIcon" Grid.Column="1" Width="48" Height="48" FontSize="48"
+                      FontFamily="Segoe Fluent Icons" IsTextScaleFactorEnabled="False" />
+            <views:DeviceDetailValue x:Name="DeviceNameValue" Grid.Column="2" VerticalAlignment="Center"
+                                     ValueStyle="{StaticResource PageHeaderTitleStyle}" ValueAutomationId="DeviceNameText"
+                                     CopyLabel="Device name" RenameRequested="Rename_Click" />
+            <TextBlock x:Name="DeviceStatusText" Grid.Row="1" Grid.Column="2" TextWrapping="Wrap"
+                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+        </Grid>
+        <!-- The local tabs keep their look below the header until #659 moves them into it. -->
+        <Border x:Name="DetailsTabsHost" Grid.Row="1" Padding="4" CornerRadius="8"
+                VerticalAlignment="Center" HorizontalAlignment="Left"
+                Background="{ThemeResource ControlFillColorSecondaryBrush}">
+            <SelectorBar x:Name="DetailsTabs" SelectionChanged="DetailsTabs_SelectionChanged"
+                         AutomationProperties.AutomationId="DeviceDetailsTabs" AutomationProperties.Name="Device details sections">
+                <SelectorBarItem x:Name="OverviewTab" Text="Overview" IsSelected="True"
+                                 Padding="16,12" CornerRadius="6" AutomationProperties.AutomationId="DeviceOverviewTab" AutomationProperties.Name="Overview" />
+                <SelectorBarItem x:Name="HistoryTab" Text="History" Padding="16,12" CornerRadius="6"
+                                 AutomationProperties.AutomationId="DeviceHistoryTab" AutomationProperties.Name="History" />
+            </SelectorBar>
+        </Border>
+        <ScrollViewer x:Name="DevicePage" Grid.Row="2" AutomationProperties.AutomationId="DeviceDetailsScroll"
                       HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="16">
             <Border x:Name="DeviceNameEditor" Visibility="Collapsed" Style="{StaticResource ScannerSummaryCardStyle}">

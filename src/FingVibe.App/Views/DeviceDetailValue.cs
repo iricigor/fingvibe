@@ -15,6 +15,8 @@ public sealed class DeviceDetailValue : Grid
         nameof(Value), typeof(string), typeof(DeviceDetailValue), new PropertyMetadata("", Changed));
     public static readonly DependencyProperty SourceProperty = DependencyProperty.Register(
         nameof(Source), typeof(string), typeof(DeviceDetailValue), new PropertyMetadata("", Changed));
+    public static readonly DependencyProperty ValueStyleProperty = DependencyProperty.Register(
+        nameof(ValueStyle), typeof(Style), typeof(DeviceDetailValue), new PropertyMetadata(null, ValueStyleChanged));
 
     private readonly TextBlock _label = new() { FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly TextBlock _value = new() { FontSize = 16, TextWrapping = TextWrapping.Wrap, IsTextSelectionEnabled = true };
@@ -85,7 +87,9 @@ public sealed class DeviceDetailValue : Grid
     public string Label { get => (string)GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public string Value { get => (string)GetValue(ValueProperty); set => SetValue(ValueProperty, value); }
     public string Source { get => (string)GetValue(SourceProperty); set => SetValue(SourceProperty, value); }
-    public double ValueFontSize { get => _value.FontSize; set => _value.FontSize = value; }
+    /// <summary>A page-header title (#670) styles its value with the shared page-title style.</summary>
+    public Style? ValueStyle { get => (Style?)GetValue(ValueStyleProperty); set => SetValue(ValueStyleProperty, value); }
+    public string ValueAutomationId { set => AutomationProperties.SetAutomationId(_value, value); }
     public string CopyLabel { get; set; } = "";
     public event RoutedEventHandler? RenameRequested;
     internal void FocusRename() => _rename.Focus(FocusState.Programmatic);
@@ -126,6 +130,16 @@ public sealed class DeviceDetailValue : Grid
 
     private static void Changed(DependencyObject sender, DependencyPropertyChangedEventArgs args) =>
         ((DeviceDetailValue)sender).Refresh();
+
+    private static void ValueStyleChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
+    {
+        var detail = (DeviceDetailValue)sender;
+        detail._value.ClearValue(TextBlock.FontSizeProperty);
+        detail._value.Style = (Style?)args.NewValue;
+        // A title never stacks a browser link, so drop that row's gap and center the title on its header row.
+        detail._valueRow.RowSpacing = 0;
+        detail.ConstrainValue();
+    }
 
     private void Refresh()
     {
