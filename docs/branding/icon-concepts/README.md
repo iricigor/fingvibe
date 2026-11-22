@@ -89,6 +89,16 @@ antialiasing. Equivalent SVG rendering may differ slightly at antialiased
 edges. The SVGs are the editable masters: to regenerate a PNG, render its SVG
 at 256px on a transparent background without stretching the viewBox.
 
+On 2026-11-22, task #685 established that the pale halo on dark surfaces was
+not a WinUI compositing or non-premultiplied-alpha defect. Every full-color SVG
+also rendered a separate 2-pixel `#38577B` stroke over the rounded navy tile
+edge. At 48-DIP that deliberately light edge became the visible outline. The
+family now uses `stroke="none"` on the tile; the interior gloss/detail artwork
+and the gradient/tile shape are unchanged. Runtime and concept PNGs rebuild
+only the outer antialiased tile boundary from the same fill gradient, so
+transparent corners and the existing interior artwork remain byte-consistent
+apart from the removed edge stroke.
+
 The People & rooms files were drawn the same way for #589. Its 32 px navigation
 mask was rendered at 4x and downsampled to 32 px.
 

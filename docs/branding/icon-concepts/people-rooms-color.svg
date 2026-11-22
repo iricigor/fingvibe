@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
 <title id="title">S1-P2 / People &amp; rooms</title><desc id="desc">A person and a three-room floor plan side by side as separate symbols</desc>
 <defs><linearGradient id="tile" gradientUnits="userSpaceOnUse" x1="16" y1="16" x2="240" y2="240"><stop stop-color="#173967"/><stop offset="1" stop-color="#101B34"/></linearGradient></defs>
-<rect x="16" y="16" width="224" height="224" rx="52" fill="url(#tile)" stroke="#38577B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="16" y="16" width="224" height="224" rx="52" fill="url(#tile)" stroke="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M42.456 72.447 A102 102 0 0 1 157.822 30.457" fill="none" stroke="#50739B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 <rect x="163.9" y="153.8" width="47" height="33.6" fill="#1D5560" stroke="none"/>
 <circle cx="66.4" cy="79.8" r="15.7" fill="#1B304D" stroke="#F093BE" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
