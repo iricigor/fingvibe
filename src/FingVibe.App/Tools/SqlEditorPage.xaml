@@ -20,11 +20,23 @@
         </Grid>
         <ScrollViewer x:Name="SqlPageScroll" Grid.Row="1" HorizontalScrollBarVisibility="Disabled">
         <StackPanel Spacing="12">
-            <TextBlock Text="Read saved inventory, not live scans or unsaved edits. One statement; 5 seconds, 1,000 rows, 1 MiB. NULL means a missing value."
+            <TextBlock Text="Read-only. Queries saved inventory, not live scans or unsaved edits. One statement; 5 seconds, 1,000 rows, 1 MiB. NULL means a missing value."
                        TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            <TextBox x:Name="SqlText" Header="SQL query" AcceptsReturn="True" TextWrapping="Wrap"
-                     FontFamily="Consolas" Height="136" MaxLength="65536"
-                     AutomationProperties.Name="SQL query" />
+            <StackPanel Spacing="4">
+                <TextBox x:Name="SqlText" Header="SQL query" AcceptsReturn="True" TextWrapping="Wrap"
+                         FontFamily="Consolas" Height="136" MaxLength="65536"
+                         TextChanged="SqlText_TextChanged"
+                         AutomationProperties.Name="SQL query" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock x:Name="LoadedExampleText" TextWrapping="Wrap" VerticalAlignment="Center"
+                               AutomationProperties.LiveSetting="Polite"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <HyperlinkButton x:Name="RestoreQueryButton" Content="Restore previous query"
+                                     Padding="0" VerticalAlignment="Center" Visibility="Collapsed"
+                                     AutomationProperties.Name="Restore previous query"
+                                     Click="RestoreQuery_Click" />
+                </StackPanel>
+            </StackPanel>
             <Grid ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -42,11 +54,18 @@
                            TextWrapping="Wrap" TextAlignment="Right" VerticalAlignment="Center"
                            IsTextSelectionEnabled="True" AutomationProperties.LiveSetting="Polite" />
             </Grid>
+            <StackPanel x:Name="ResultsHeading" Orientation="Horizontal" Spacing="12" Visibility="Collapsed">
+                <TextBlock Text="Results" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"
+                           AutomationProperties.HeadingLevel="Level2" />
+                <TextBlock x:Name="ResultsSummary" VerticalAlignment="Center" TextWrapping="Wrap"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
             <ScrollViewer x:Name="ResultScroll" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
                           HorizontalScrollMode="Enabled" VerticalScrollMode="Disabled" Visibility="Collapsed"
                           HorizontalContentAlignment="Stretch" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                 <StackPanel x:Name="ResultContent">
                     <Grid x:Name="ResultHeader" Background="{ThemeResource SubtleFillColorSecondaryBrush}"
+                          BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,0,0,1"
                           AutomationProperties.Name="SQL result columns" />
                     <ListView x:Name="ResultRows" Height="240" SelectionMode="None" IsItemClickEnabled="False"
                               Padding="0"
@@ -64,17 +83,39 @@
             </ScrollViewer>
             <Expander x:Name="SchemaExpander" Header="Schema and examples" HorizontalAlignment="Stretch">
                 <StackPanel Spacing="12">
+                    <TextBlock Text="Examples" FontSize="16" FontWeight="SemiBold" AutomationProperties.HeadingLevel="Level2" />
                     <ComboBox x:Name="ExamplePicker" Header="Example query" HorizontalAlignment="Stretch"
-                              DisplayMemberPath="Name" AutomationProperties.Name="SQL example query" />
-                    <Button Content="Use example" Click="UseExample_Click" AutomationProperties.Name="Use SQL example" />
-                    <TextBlock Text="Boolean values are 0/1. Enums use stored numeric codes. Timestamps retain their offsets; use SQLite datetime/date functions for UTC grouping. Observation indices belong to this saved snapshot, not an event archive. MAC and virtual histories are separate; summing both can double-count devices."
-                               TextWrapping="Wrap" />
-                    <ComboBox x:Name="SchemaPicker" Header="Reporting view" HorizontalAlignment="Stretch"
-                              DisplayMemberPath="Name" SelectionChanged="Schema_SelectionChanged"
-                              AutomationProperties.Name="Reporting view" />
+                              DisplayMemberPath="DisplayName" SelectionChanged="Example_SelectionChanged"
+                              AutomationProperties.Name="SQL example query" />
+                    <TextBlock x:Name="ExamplePurpose" TextWrapping="Wrap" />
+                    <Border Padding="12,8" CornerRadius="4" BorderThickness="1"
+                            BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                            Background="{ThemeResource SubtleFillColorSecondaryBrush}">
+                        <TextBlock x:Name="ExampleSql" FontFamily="Consolas" TextWrapping="Wrap" IsTextSelectionEnabled="True"
+                                   AutomationProperties.Name="Example SQL preview" />
+                    </Border>
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <Button x:Name="UseExampleButton" Content="Load into editor" Click="UseExample_Click"
+                                AutomationProperties.Name="Load SQL example into editor" />
+                        <TextBlock Text="Loading never runs the query." VerticalAlignment="Center" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                    <Border Height="1" Margin="0,4" Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            AutomationProperties.AccessibilityView="Raw" />
+                    <TextBlock Text="Query-ready views" FontSize="16" FontWeight="SemiBold" AutomationProperties.HeadingLevel="Level2" />
+                    <TextBlock Text="Use these views in reports. Each row's meaning, key columns and joins are described below; the exact view name is in parentheses."
+                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <ComboBox x:Name="SchemaPicker" Header="Query-ready view" HorizontalAlignment="Stretch"
+                              DisplayMemberPath="DisplayName" SelectionChanged="Schema_SelectionChanged"
+                              AutomationProperties.Name="Query-ready view" />
                     <TextBlock x:Name="SchemaDescription" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
                     <TextBlock x:Name="SchemaColumns" FontFamily="Consolas" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
-                    <TextBlock Text="Underlying tables are internal storage details. Prefer the reporting views above for reports."
+                    <TextBlock Text="Data notes: Boolean values are 0/1. Enums use stored numeric codes. Timestamps retain their offsets; use SQLite datetime/date functions for UTC grouping. Observation indices belong to this saved snapshot, not an event archive. MAC and virtual histories are separate; summing both can double-count devices."
+                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <Border Height="1" Margin="0,4" Background="{ThemeResource DividerStrokeColorDefaultBrush}"
+                            AutomationProperties.AccessibilityView="Raw" />
+                    <TextBlock Text="Advanced: storage tables" FontSize="16" FontWeight="SemiBold" AutomationProperties.HeadingLevel="Level2" />
+                    <TextBlock Text="Underlying tables are internal storage details, mostly JSON. Prefer the query-ready views above for reports."
                                TextWrapping="Wrap" />
                     <ComboBox x:Name="TablePicker" Header="List of tables" HorizontalAlignment="Stretch"
                               SelectionChanged="Table_SelectionChanged" AutomationProperties.Name="List of tables">

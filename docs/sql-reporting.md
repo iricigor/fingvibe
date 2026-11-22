@@ -6,12 +6,22 @@ the window stop the query and release its connection. The result shows column
 names, rows, elapsed milliseconds, and explicit error or truncation feedback.
 Run and Cancel share a row with the right-aligned status. Results fill the page
 content width on a theme-aware surface; wide results scroll horizontally.
-**Schema and examples** lists every reporting view and its columns, explains its
-keys, and supplies examples that can be copied into the editor with **Use example**.
-Its **List of tables** separately shows the supported underlying tables with
+**Schema and examples** groups three parts. **Examples** are ordered from
+**Simple** (the default **Rooms by name** query) through **Medium** to
+**Advanced**; each shows its level, purpose and full SQL before you choose
+**Load into editor**. Loading never runs a query. The line under the editor
+names the loaded example (or says it was edited), and loading over a
+hand-edited query offers **Restore previous query** until you edit the loaded
+example. **Query-ready views** lists every reporting view by a friendly name
+with its exact `r_` identifier in parentheses, its columns, and notes on row
+meaning, keys and joins, followed by general data notes. **Advanced: storage
+tables** separately shows the supported underlying tables with
 short descriptions; selecting one displays its columns. This list uses the
 query service's existing allowlist, not the database's unrestricted schema.
 Prefer reporting views: underlying JSON tables remain internal storage details.
+Completed results show a **Results** heading with their row and column count,
+elapsed time and any partial-result notice beside the data; column headings are
+bold and rows are separated by lines.
 
 Queries read a consistent snapshot of **persisted** `device-inventory.sqlite`,
 not unsaved edits, live scanner objects, or a cache. A committed partial scan can

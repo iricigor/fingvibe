@@ -6,12 +6,19 @@ You can start with a built-in example without writing a query yourself.
 
 ## Run an example
 
-1. Open **Tools > SQL editor**.
+1. Open **Tools > SQL editor**. It starts with the simple **Rooms by name**
+   example loaded.
 2. Expand **Schema and examples**.
-3. Read an example and choose **Use example**.
+3. Under **Examples**, choose an example. Read its level (**Simple**, **Medium**
+   or **Advanced**), purpose and SQL preview, then choose **Load into editor**.
+   Loading never runs the query.
 4. Choose **Run**.
-5. Read the result columns and the status message.
+5. Read the **Results** table and the status message.
 6. Choose **Cancel** if you need to stop the query.
+
+If loading an example replaced a query you had typed, choose **Restore
+previous query** under the editor to get it back. The link disappears once you
+edit the loaded example.
 
 [![SQL editor with a completed SELECT and one synthetic device-name result](../screenshots/manual/sql.png)](../screenshots/manual/sql.png)
 
@@ -19,9 +26,9 @@ You can start with a built-in example without writing a query yourself.
 [Screenshot sources](screenshots.md).*
 
 A **schema** describes available tables/views and columns.
-Use the listed reporting views, whose names start with `r_`.
-They are more suitable than internal storage tables.
-**List of tables** separately lists the supported underlying tables and their
+Use the **Query-ready views**, listed by friendly name with their exact `r_`
+view names in parentheses. They are more suitable than internal storage tables.
+**Advanced: storage tables** separately lists the supported underlying tables and their
 descriptions. Select a table to see its columns. This does not grant access to
 other database tables or change the editor's read-only limits.
 

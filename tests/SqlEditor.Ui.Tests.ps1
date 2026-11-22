@@ -248,7 +248,7 @@ function Select-SqlSchemaEndpoint([string] $Id, [switch] $Last) {
 
 function Find-SqlExampleButton {
     $condition = [System.Windows.Automation.PropertyCondition]::new(
-        [System.Windows.Automation.AutomationElement]::NameProperty, "Use SQL example")
+        [System.Windows.Automation.AutomationElement]::NameProperty, "Load SQL example into editor")
     return $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
 }
 
@@ -411,6 +411,17 @@ try {
     Wait-SqlKeyboardOutcome {
         (Find-SqlControl SqlText).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value -like "*FROM r_assignments*"
     } "existing example selected by keyboard"
+    # Loading over a hand-edited query names the example and keeps the replaced query restorable.
+    if ((Find-SqlControl LoadedExampleText).Current.Name -notlike "Example loaded: Device, person and room*" -or
+        $null -eq (Find-SqlControl RestoreQueryButton -Optional) -or
+        (Find-SqlControl QueryStatus).Current.Name -notlike "Error*5-second execution limit*") {
+        throw "Loading an example must name it, offer Restore previous query, and never run the loaded SQL."
+    }
+    Invoke-SqlControl RestoreQueryButton
+    Wait-SqlKeyboardOutcome {
+        (Find-SqlControl SqlText).GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).Current.Value -ceq $expensive -and
+            -not (Find-SqlControl RestoreQueryButton -Optional)
+    } "edited query restored after loading an example"
     Select-SqlSchemaEndpoint TablePicker -Last
     Wait-SqlKeyboardOutcome {
         (Find-SqlControl TableColumns).Current.Name -eq "kind, id, sequence, completed_at, network_id, subnet, present, completed_ticks, scan_id, virtual_id"

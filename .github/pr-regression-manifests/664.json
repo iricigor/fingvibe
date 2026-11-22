@@ -2,17 +2,19 @@
   "schema": "fingvibe-pr-regression-v1",
   "issue": 664,
   "category": "ui",
-  "changedBehavior": "Selected UI/UX review proposals from #664: scan progress names user-facing stages (Finding devices, Confirming remaining devices) with elapsed time instead of protocol names and a numbered phase counter, keeping ARP/ICMP counters in the status tooltip and help text; the troubleshooter's all-checks summary reads Checks passed; the Overview subnet badge shows the CIDR prefix labeled subnet instead of an A/B/C letter; People & rooms renames Last scan to Responding devices, centers header and row content, uses a stable ellipsis actions button with labeled Edit/Delete items and places View room map beside Add room.",
+  "changedBehavior": "Selected UI/UX review proposals from #664: scan progress names user-facing stages (Finding devices, Confirming remaining devices) with elapsed time instead of protocol names and a numbered phase counter, keeping ARP/ICMP counters in the status tooltip and help text; the troubleshooter's all-checks summary reads Checks passed; the Overview subnet badge shows the CIDR prefix labeled subnet instead of an A/B/C letter; People & rooms renames Last scan to Responding devices, centers header and row content, uses a stable ellipsis actions button with labeled Edit/Delete items and places View room map beside Add room; Only online room map tiles omit the repeated Online line and give names two lines; the SQL editor starts with a simple Rooms by name example, previews each example's level, purpose and SQL before Load into editor, names the loaded example, offers Restore previous query after replacing an edited query, groups Query-ready views (friendly names with exact identifiers) and Advanced storage tables, and shows a Results heading with bold column headings and row separators.",
   "selectors": [
     "core-tests",
     "ui-regression-helpers",
     "native-pr-matrix",
     "ui-review-scenarios",
+    "sql-editor",
     "native-sidebar-scan-presentation",
     "native-sidebar-scan-flows",
     "native-sidebar-preferences-scheduling",
     "native-details-identity",
     "native-tools-utilities",
+    "native-tools-sql-speed",
     "documentation-tests"
   ],
   "expectedAssertions": [
@@ -20,6 +22,8 @@
     "During a manual or scheduled scan the shared status starts with the Finding devices stage and an elapsed suffix; checkpointed background confirmation shows Initial results shown with the address-lookup step; cancellation, failure and successful completion messages are never overwritten by the elapsed timer.",
     "NetworkDiagnosticInterpreter reports Checks passed when every required checkpoint responded, and incident evidence records that status.",
     "SubnetDescriptionFormatter returns the /prefix badge for every prefix length while Size, Mask, AddressCount and Scope are unchanged.",
-    "People & rooms editing still opens labeled Edit and Delete items from the row button named Actions for the entry, View room map remains a text HyperlinkButton with its automation ID, and both table cards keep their shared heading bands."
+    "People & rooms editing still opens labeled Edit and Delete items from the row button named Actions for the entry, View room map remains a text HyperlinkButton with its automation ID, and both table cards keep their shared heading bands.",
+    "Room map tiles keep their automation names (name, status, address), sizes and 200% text containment; Only online tiles drop the repeated status line.",
+    "Every SQL example (now five, simple to advanced, Rooms by name first) and every query-ready view executes on the seeded inventory; keyboard loading of the second example replaces an edited query without running it, names the loaded example, and Restore previous query returns the exact edited SQL; schema and table pickers keep their keyboard endpoints and the action row and result width contracts are unchanged."
   ]
 }
