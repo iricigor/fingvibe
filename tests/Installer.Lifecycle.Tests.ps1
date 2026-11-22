@@ -9,7 +9,7 @@ param(
 # The current feature family; keep it equal to the release version in .github/workflows/release.yml.
 # Bumping the feature version changes only this value: the previous family and every fixture
 # version are derived from it, so no lifecycle case is added per release.
-$FeatureFamily = "1.4"
+$FeatureFamily = "1.5"
 
 $ErrorActionPreference = "Stop"
 if ($env:GITHUB_ACTIONS -ne "true" -or $env:RUNNER_ENVIRONMENT -ne "github-hosted") {
