@@ -2,7 +2,7 @@
   "schema": "fingvibe-pr-regression-v1",
   "issue": 662,
   "category": "validation",
-  "changedBehavior": "A sidebar footer shortcut directly above Settings opens explicit Light and Dark choices from any page, shares Settings' saved appearance, theme pairing and backdrop, works on the compact rail and in high contrast, and reports persistence failures at the shortcut. Device linking regression checks are split into details-linking and details-link-matches native jobs to keep affected-UI jobs within the 240-second budget.",
+  "changedBehavior": "A sidebar footer shortcut directly above Settings opens explicit Light and Dark choices from any page, shares Settings' saved appearance, theme pairing and backdrop, works on the compact rail and in high contrast, and reports persistence failures at the shortcut. Device linking regression checks are split into details-linking and details-link-matches native jobs, and Tools SQL editor and Speed test checks move to a tools-sql-speed native job, to keep affected-UI jobs within the 240-second budget.",
   "selectors": [
     "core-tests",
     "pr-validation",
@@ -13,6 +13,8 @@
     "native-sidebar-preferences-scheduling",
     "native-details-linking",
     "native-details-link-matches",
+    "native-tools-device-data",
+    "native-tools-sql-speed",
     "documentation-tests"
   ],
   "expectedAssertions": [
@@ -21,6 +23,7 @@
     "The shortcut stays usable on the compact rail and in high contrast, where it still updates the preference and notes that Windows colors apply.",
     "Shortcut and Settings stay synchronized both ways, and every theme pair persists across restart with an unchanged backdrop.",
     "A save failure while Settings is hidden shows visible, accessible feedback at the shortcut, keeps Settings' error, applies without writing and clears after a later successful save.",
-    "DeviceLinking.Ui runs its links and matches groups in separate details-linking and details-link-matches native jobs, each within the 240-second job budget, while every linking check still runs exactly once with unchanged assertions."
+    "DeviceLinking.Ui runs its links and matches groups in separate details-linking and details-link-matches native jobs, each within the 240-second job budget, while every linking check still runs exactly once with unchanged assertions.",
+    "SQL editor and Speed test checks run in their own tools-sql-speed native job, so tools-device-data and tools-sql-speed each stay within the 240-second job budget while every Tools check still runs exactly once in its original order."
   ]
 }

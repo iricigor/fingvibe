@@ -63,7 +63,8 @@
             "network-activity" = @("NetworkActivity.Ui")
             "tools-utilities" = @("BuildIdentity.Ui", "NetworkHealth.Ui", "FingImport.Ui")
             "tools-maintenance" = @("ReleaseUpdates.Ui", "DatabaseBackups.Ui")
-            "tools-device-data" = @("AdditionalServices.Ui", "SqlEditor.Ui", "SpeedTest.Ui")
+            "tools-device-data" = @("AdditionalServices.Ui")
+            "tools-sql-speed" = @("SqlEditor.Ui", "SpeedTest.Ui")
         }
         Assert-Equal $matrixSuites @($expectedSuiteChecks.Keys) "CI matrix dispatches every split suite"
         foreach ($suite in $matrixSuites) {

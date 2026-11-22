@@ -104,8 +104,8 @@ foreground, height and bitmap-content guards still apply.
 
 Tools uses `Tools.Groups.psd1` and `Tools.Ui.Tests.ps1 -Group <name>`:
 `utilities` runs BuildIdentity, NetworkHealth and FingImport; `maintenance` runs
-ReleaseUpdates and DatabaseBackups; `device-data` runs AdditionalServices,
-SqlEditor and SpeedTest. These existing checks already own
+ReleaseUpdates and DatabaseBackups; `device-data` runs AdditionalServices; `sql-speed`
+runs SqlEditor and SpeedTest. These existing checks already own
 isolated fixtures, launches, readiness and shutdown; the group scenarios invoke
 them unchanged. Both suites default to `All`, continuing independent groups
 after a failure and failing the aggregate. CI and standalone Full validation

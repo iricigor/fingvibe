@@ -16,7 +16,7 @@ function Assert-NativeThrows([scriptblock] $Action, [string] $Pattern) {
 
 $baseline = @(Get-NativeValidationPlan -Mode Baseline -Suite capture)
 Assert-NativeEqual $baseline.Scenario @("Devices", "DeviceDetails", "DevicesEmpty") "Baseline captures only its demonstrated states"
-foreach ($suite in @("capture", "sidebar", "sidebar-presentation", "sidebar-scan-flows", "sidebar-scan-presentation", "sidebar-preferences-scheduling", "devices", "details-summary", "details-identity", "details-usage", "details-observations", "details-activity", "details-linking", "details-link-matches", "network-activity", "tools", "tools-utilities", "tools-maintenance", "tools-device-data")) {
+foreach ($suite in @("capture", "sidebar", "sidebar-presentation", "sidebar-scan-flows", "sidebar-scan-presentation", "sidebar-preferences-scheduling", "devices", "details-summary", "details-identity", "details-usage", "details-observations", "details-activity", "details-linking", "details-link-matches", "network-activity", "tools", "tools-utilities", "tools-maintenance", "tools-device-data", "tools-sql-speed")) {
     $full = @(Get-NativeValidationPlan -Mode Full -Suite $suite)
     Assert-NativeEqual $full.Scenario @($UiReviewScenarios.Keys) "Full always forces every catalog scenario, without PR metadata"
 }
@@ -130,7 +130,7 @@ if ($env:NATIVE_TEST_FAIL -eq $name) { throw "Simulated native failure: $name" }
         throw "Failure timing and summary must survive."
     }
 
-    foreach ($suite in @("sidebar-presentation", "sidebar-scan-flows", "sidebar-scan-presentation", "sidebar-preferences-scheduling", "tools-utilities", "tools-maintenance", "tools-device-data")) {
+    foreach ($suite in @("sidebar-presentation", "sidebar-scan-flows", "sidebar-scan-presentation", "sidebar-preferences-scheduling", "tools-utilities", "tools-maintenance", "tools-device-data", "tools-sql-speed")) {
         $before = @(Get-Content $env:NATIVE_TEST_CALLS).Count
         & $runner -Mode Full -Suite $suite @parameters
         $groupCalls = @(Get-Content $env:NATIVE_TEST_CALLS | Select-Object -Skip $before | ConvertFrom-Json)
@@ -255,7 +255,7 @@ try {
         if (-not $json.StartsWith("[") -or -not $json.EndsWith("]")) {
             throw "Matrix suite output must remain a JSON array even for the single baseline suite: $json"
         }
-        $expected = if ($mode -eq "Baseline") { @("capture") } else { @("sidebar-presentation", "sidebar-scan-flows", "sidebar-scan-presentation", "sidebar-preferences-scheduling", "devices", "details-summary", "details-identity", "details-usage", "details-observations", "details-activity", "details-linking", "details-link-matches", "network-activity", "tools-utilities", "tools-maintenance", "tools-device-data", "capture") }
+        $expected = if ($mode -eq "Baseline") { @("capture") } else { @("sidebar-presentation", "sidebar-scan-flows", "sidebar-scan-presentation", "sidebar-preferences-scheduling", "devices", "details-summary", "details-identity", "details-usage", "details-observations", "details-activity", "details-linking", "details-link-matches", "network-activity", "tools-utilities", "tools-maintenance", "tools-device-data", "tools-sql-speed", "capture") }
         Assert-NativeEqual @($json | ConvertFrom-Json) $expected "Actual workflow matrix output selects exact suites"
     }
     $env:MODE = "invalid"
@@ -296,7 +296,7 @@ if (-not $standalone.Contains("revision: $standaloneRevision") -or $standalone -
     throw "Standalone full execution must pin the pushed main commit (manual: main), without PR metadata or cancellation."
 }
 foreach ($invariant in @("fail-fast: false", "persist-credentials: false", "fromJSON(needs.plan.outputs.suites)",
-    '@("sidebar-presentation", "sidebar-scan-flows", "sidebar-scan-presentation", "sidebar-preferences-scheduling", "devices", "details-summary", "details-identity", "details-usage", "details-observations", "details-activity", "details-linking", "details-link-matches", "network-activity", "tools-utilities", "tools-maintenance", "tools-device-data", "capture")', "ref: `${{ needs.plan.outputs.revision }}",
+    '@("sidebar-presentation", "sidebar-scan-flows", "sidebar-scan-presentation", "sidebar-preferences-scheduling", "devices", "details-summary", "details-identity", "details-usage", "details-observations", "details-activity", "details-linking", "details-link-matches", "network-activity", "tools-utilities", "tools-maintenance", "tools-device-data", "tools-sql-speed", "capture")', "ref: `${{ needs.plan.outputs.revision }}",
     "Assert-NativeValidationResults", "if: always()", "shell: powershell", "execution request")) {
     if (-not $reusable.Contains($invariant)) { throw "Missing full execution invariant: $invariant" }
 }

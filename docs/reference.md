@@ -1392,7 +1392,8 @@ one published payload:
 | `sidebar-preferences-scheduling` | SettingsDisclosure, Persistence, Scheduled |
 | `tools-utilities` | BuildIdentity.Ui, NetworkHealth.Ui, FingImport.Ui |
 | `tools-maintenance` | ReleaseUpdates.Ui, DatabaseBackups.Ui |
-| `tools-device-data` | AdditionalServices.Ui, SqlEditor.Ui, SpeedTest.Ui |
+| `tools-device-data` | AdditionalServices.Ui |
+| `tools-sql-speed` | SqlEditor.Ui, SpeedTest.Ui |
 
 This is the assertion/capture ownership boundary: each original behavior module
 or check runs exactly once, unchanged, including its keyboard/accessibility,
@@ -1442,6 +1443,12 @@ matches, their text scaling, and adding/combining saved linked devices). The
 match checks own a separate inventory and add/combine uses only the saved
 spare/pair links, so each group keeps its original order, assertions, sleeps,
 timeouts and 200% text scale; `All` runs the original sequence.
+
+The next #662 head, run 45028039259, spent 209s in the `tools-device-data`
+suite (Services 162s, Sql 28s, SpeedTest 19s) inside a 242s job; the job took
+214-238s on recent revisions. `tools-sql-speed` moves the already-independent
+SQL editor and Speed test checks to their own worker in the same relative order,
+without changing any assertions, sleeps or timeouts.
 
 Device Details regression follows the #262 Overview/History tab boundary
 across independent matrix jobs (#292): `details-summary`
