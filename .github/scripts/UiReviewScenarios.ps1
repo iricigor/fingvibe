@@ -246,7 +246,7 @@ function Get-UiReviewCapturePlan {
             }
             elseif ($path -eq 'src/FingVibe.App/CardHeadingResources.xaml') {
                 # Extend this list as other pages adopt the shared card heading.
-                Add-Scenarios @("DeviceDetails", "DeviceHistory") "$path changed the shared card-heading style used by Device Details cards."
+                Add-Scenarios @("DeviceDetails", "DeviceHistory", "Overview", "Network", "People", "Rooms", "PersonDetails") "$path changed the shared card-heading style used by Device Details, Overview, Network, People & rooms and Person details cards."
             }
             elseif ($path -match '^src/FingVibe.App/(App.xaml|AppearancePalette.cs|MainWindow.Appearance.cs)$') {
                 Add-Scenarios @($UiReviewScenarios.Keys) "$path changed shared theme or appearance."
