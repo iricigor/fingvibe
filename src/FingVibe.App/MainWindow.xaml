@@ -114,36 +114,53 @@
                     </StackPanel>
                 </Grid>
             </NavigationView.PaneCustomContent>
+            <!-- Family icons use a 24-DIP icon box with 48 px masks; BitmapIcon point-samples, so 2x art stays crisp.
+                 The override is per item so Settings keeps the native 16-DIP glyph. -->
             <NavigationView.MenuItems>
                 <NavigationViewItem x:Name="OverviewNavItem" Content="Overview" Tag="Overview">
+                    <NavigationViewItem.Resources>
+                        <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">24</x:Double>
+                    </NavigationViewItem.Resources>
                     <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/overview-mono-32.png"
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/overview-mono-48.png"
                                     Style="{ThemeResource SidebarOverviewIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="NetworkNavItem" Content="Network" Tag="Network">
+                    <NavigationViewItem.Resources>
+                        <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">24</x:Double>
+                    </NavigationViewItem.Resources>
                     <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/network-mono-32.png"
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/network-mono-48.png"
                                     Style="{ThemeResource SidebarNetworkIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="DevicesNavItem" Content="Devices" Tag="Devices">
+                    <NavigationViewItem.Resources>
+                        <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">24</x:Double>
+                    </NavigationViewItem.Resources>
                     <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/devices-mono-32.png"
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/devices-mono-48.png"
                                     Style="{ThemeResource SidebarDevicesIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
                 <NavigationViewItem x:Name="PeopleRoomsNavItem" Content="People &amp; rooms" Tag="PeopleRooms">
+                    <NavigationViewItem.Resources>
+                        <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">24</x:Double>
+                    </NavigationViewItem.Resources>
                     <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/people-rooms-mono-32.png"
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/people-rooms-mono-48.png"
                                     Style="{ThemeResource SidebarPeopleRoomsIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
             <NavigationView.FooterMenuItems>
                 <NavigationViewItem x:Name="ToolsNavItem" Content="Tools" Tag="Tools">
+                    <NavigationViewItem.Resources>
+                        <x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">24</x:Double>
+                    </NavigationViewItem.Resources>
                     <NavigationViewItem.Icon>
-                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/tools-mono-32.png"
+                        <BitmapIcon UriSource="ms-appx:///Assets/PageIcons/tools-mono-48.png"
                                     Style="{ThemeResource SidebarToolsIconStyle}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
