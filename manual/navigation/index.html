@@ -1296,6 +1296,14 @@ lead to the release page instead. Downloads reject incomplete/changed files.
 Completed files are saved under <code>%LOCALAPPDATA%\FingVibe\Updates\&lt;unique
 directory&gt;</code>; downloaded executables retain Internet security markings. A
 download failure popup links to GitHub Releases.</p>
+<p>When an update is available, a collapsed <strong>What's new in X.Y.Z</strong> expander below
+the update action shows that release's notes from the same GitHub response the
+check already fetched; no extra request is made. The notes are plain text with
+headings, bullets and paragraphs. Markdown links, images and HTML are shown only
+as text, and nothing in them can open a browser or load remote content. Long notes
+end with <strong>View full notes on GitHub</strong>. If a release has no readable notes,
+<strong>View release notes on GitHub</strong> appears instead; checking and installing are
+unaffected. Expanded notes scroll with the page.</p>
 <p><strong>Update details</strong> is collapsed by default and contains exact check times,
 deployment and helper diagnostics. The main Updates card keeps one version/status
 sentence and a relative <strong>Last checked</strong> value; failures and Windows security
