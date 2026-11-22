@@ -107,12 +107,18 @@ and reject incomplete/changed files. Completed files are saved under
 `%LOCALAPPDATA%\FingVibe\Updates\<unique directory>`; downloaded executables retain
 Internet security markings. A download failure popup links to GitHub Releases.
 
-For a verified installation, **Install update** asks before launching Setup and
-closing FingVibe normally. The existing unsigned, per-user installer refuses to
-update while FingVibe is running: wait for FingVibe to close before continuing its
-wizard. Existing user data is preserved by the installer. SmartScreen, Defender,
-UAC, organization policy or cancellation may prevent execution; no protection is
-bypassed. Launching Setup does not prove installation completed. A launch-failure
-popup asks you to install the downloaded file manually and has only **OK**.
+For a verified installation, **Restart and update** asks before closing FingVibe.
+A bounded helper then waits for the application process to exit, rechecks the
+downloaded Setup's identity and Internet security marking, runs the existing
+per-user Setup silently enough to avoid the normal wizard, and reopens the
+verified installation after Setup reports success. SmartScreen, Defender, UAC,
+organization policy or cancellation may still require attention; no protection
+is bypassed. The originating process identity, expected version, installer
+identity and observed install/relaunch outcome are recorded under
+`%LOCALAPPDATA%\FingVibe\Updates` so a later launch can distinguish an accepted
+request or process launch from a completed installation. A setup or relaunch
+failure is explicit and leaves the record for recovery; saved user data is
+preserved. A helper-launch failure keeps FingVibe open and shows a failure
+popup with only **OK**.
 For ZIP updates, close FingVibe and replace your portable application files
 manually, keeping your saved data; FingVibe does not unpack or overwrite them.

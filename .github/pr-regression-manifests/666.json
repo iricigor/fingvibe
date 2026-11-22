@@ -1,0 +1,21 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 666,
+  "category": "ui",
+  "changedBehavior": "A verified close-first update helper waits for FingVibe to exit, revalidates and runs Setup, records correlated installer/relaunch outcomes, and optionally restarts the verified installation.",
+  "selectors": [
+    "core-tests",
+    "installer-script",
+    "ui-review-scenarios",
+    "pr-validation",
+    "documentation-tests",
+    "native-tools-utilities"
+  ],
+  "expectedAssertions": [
+    "Only a complete, eligible installed-copy Setup can create a close-first handoff, and changed hash/size/security-marking evidence is refused.",
+    "The helper waits for the originating process identity, runs the verified installer, records its exit outcome and verifies the installed version/ownership marker.",
+    "Relaunch-disabled mode leaves FingVibe closed; relaunch-enabled mode starts only the verified installed executable.",
+    "Failure to prepare or launch the helper remains explicit while FingVibe is open; later installer/relaunch outcomes remain durable for the next launch.",
+    "Restart and update remains keyboard reachable and keeps existing download, confirmation, cancellation and portable-copy behavior."
+  ]
+}

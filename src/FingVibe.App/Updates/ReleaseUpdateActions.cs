@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using System.ComponentModel;
 using System.Security;
 using System.Security.Cryptography;
+using System.Text;
 using System.Runtime.Versioning;
 using FingVibe.Core.Updates;
 using Microsoft.Win32;
@@ -19,6 +21,10 @@ internal sealed class ReleaseUpdateActions(HttpClient http, ReleaseUpdateSession
     public bool IsDownloading => _downloadCancellation is not null;
     public bool IsDisposed => _disposed;
     public string? DownloadedPath => _downloaded?.Path;
+    public string? InstallHandoffRecordPath { get; private set; }
+    public string LatestInstallHandoffRecordPath { get; } = fixture is null
+        ? ReleaseInstallHandoffStore.DefaultRecordPath
+        : Path.Combine(fixture.DownloadRoot, "install-handoff.json");
     public bool CanInstall => !_disposed && session.IsEligible && Deployment.IsInstalled && !IsDownloading
         && _downloaded is { } file && session.State.ConfirmedUpdate?.Version == file.Version;
 
@@ -62,13 +68,81 @@ internal sealed class ReleaseUpdateActions(HttpClient http, ReleaseUpdateSession
         }
     }
 
-    public async Task LaunchInstallerAsync()
+    public async Task<ReleaseInstallHandoffRecord> StartInstallHandoffAsync(bool relaunch)
+    {
+        if (!CanInstall || _downloaded is null)
+            throw new InvalidOperationException("A complete Setup for the currently confirmed update is required.");
+        using var admission = new Semaphore(1, 1, "FingVibe-Update-Handoff-Admission");
+        if (!admission.WaitOne(TimeSpan.FromSeconds(10)))
+            throw new InvalidOperationException("Another update handoff is still being prepared.");
+        try
+        {
+            return await StartInstallHandoffCoreAsync(relaunch).ConfigureAwait(false);
+        }
+        finally
+        {
+            admission.Release();
+        }
+    }
+
+    private async Task<ReleaseInstallHandoffRecord> StartInstallHandoffCoreAsync(bool relaunch)
     {
         if (!CanInstall || _downloaded is not { } downloaded)
             throw new InvalidOperationException("A complete Setup for the currently confirmed update is required.");
+        var previous = await ReleaseInstallHandoffStore.ReadAsync(LatestInstallHandoffRecordPath).ConfigureAwait(false);
+        if (previous?.State is ReleaseInstallHandoffState.Requested or ReleaseInstallHandoffState.Waiting
+            or ReleaseInstallHandoffState.Installing)
+        {
+            var helperAlive = IsMatchingProcess(previous.HelperProcessId, previous.HelperProcessStartedUtc);
+            var installerAlive = IsMatchingProcess(previous.InstallerProcessId, previous.InstallerProcessStartedUtc);
+            if (helperAlive || installerAlive)
+                throw new InvalidOperationException("Another update handoff or installer is still in progress.");
+            var stale = previous with
+            {
+                State = ReleaseInstallHandoffState.Failed,
+                Outcome = new ReleaseInstallOutcome(DateTimeOffset.UtcNow, null, false, null,
+                    "The previous update helper is no longer running; the attempt can be reconciled and retried.")
+            };
+            await ReleaseInstallHandoffStore.WriteAsync(previous.RecordPath, stale).ConfigureAwait(false);
+            await ReleaseInstallHandoffStore.WriteAsync(LatestInstallHandoffRecordPath, stale).ConfigureAwait(false);
+        }
+        var attemptId = Guid.NewGuid().ToString("N");
+        InstallHandoffRecordPath = fixture is null
+            ? ReleaseInstallHandoffStore.AttemptRecordPath(attemptId)
+            : Path.Combine(fixture.DownloadRoot, "Handoffs", attemptId, "install-handoff.json");
+        var handoffDirectory = Path.GetDirectoryName(InstallHandoffRecordPath)
+            ?? throw new InvalidOperationException("The update handoff record needs a parent directory.");
+        Directory.CreateDirectory(handoffDirectory);
+        using var origin = Process.GetCurrentProcess();
+        var installationDirectory = Path.GetFullPath(AppContext.BaseDirectory).TrimEnd(Path.DirectorySeparatorChar);
+        var request = new ReleaseInstallHandoffRecord
+        {
+            AttemptId = attemptId,
+            State = ReleaseInstallHandoffState.Requested,
+            RequestedUtc = DateTimeOffset.UtcNow,
+            OriginProcessId = origin.Id,
+            OriginProcessStartedUtc = origin.StartTime.ToUniversalTime(),
+            OriginExecutablePath = Environment.ProcessPath
+                ?? Path.Combine(installationDirectory, "FingVibe.App.exe"),
+            RecordPath = InstallHandoffRecordPath,
+            InstallerPath = downloaded.Path,
+            InstallerSize = downloaded.Asset.Size,
+            InstallerSha256 = downloaded.Hash,
+            ExpectedZoneId = 3,
+            ExpectedVersion = downloaded.Version.ToString(),
+            InstallationDirectory = installationDirectory,
+            RelaunchRequested = relaunch,
+            RelaunchExecutablePath = Path.Combine(installationDirectory, "FingVibe.App.exe"),
+            InstallerLogPath = Path.Combine(handoffDirectory, "installer.log"),
+            LatestRecordPath = LatestInstallHandoffRecordPath
+        };
+        await ReleaseInstallHandoffStore.WriteAsync(InstallHandoffRecordPath, request).ConfigureAwait(false);
+        await ReleaseInstallHandoffStore.WriteAsync(LatestInstallHandoffRecordPath, request).ConfigureAwait(false);
+        var activeRecord = request;
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
         timeout.CancelAfter(TimeSpan.FromSeconds(30));
         var verified = false;
+        Process? helper = null;
         try
         {
             await using var file = new FileStream(downloaded.Path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
@@ -81,13 +155,106 @@ internal sealed class ReleaseUpdateActions(HttpClient http, ReleaseUpdateSession
             timeout.Token.ThrowIfCancellationRequested();
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (fixture is not null) UpdateReviewFixture.RejectLaunch();
-            using var process = Process.Start(new ProcessStartInfo(downloaded.Path) { UseShellExecute = true })
-                ?? throw new IOException("Windows did not accept the installer launch.");
+            var scriptSource = Path.Combine(AppContext.BaseDirectory, "Assets", "InstallUpdateHandoff.ps1");
+            if (!File.Exists(scriptSource)) throw new IOException("The packaged update handoff helper is unavailable.");
+            var encodedScript = Convert.ToBase64String(Encoding.Unicode.GetBytes(
+                File.ReadAllText(scriptSource)));
+            var start = new ProcessStartInfo(Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+                "System32", "WindowsPowerShell", "v1.0", "powershell.exe"))
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WorkingDirectory = handoffDirectory
+            };
+            start.ArgumentList.Add("-NoLogo");
+            start.ArgumentList.Add("-NoProfile");
+            start.ArgumentList.Add("-NonInteractive");
+            start.ArgumentList.Add("-EncodedCommand");
+            start.ArgumentList.Add(encodedScript);
+            start.Environment["FINGVIBE_UPDATE_HANDOFF_RECORD"] = InstallHandoffRecordPath;
+            helper = Process.Start(start)
+                ?? throw new IOException("Windows did not accept the update handoff launch.");
+            await WaitForHandoffReadyAsync(helper, InstallHandoffRecordPath).ConfigureAwait(false);
+            return activeRecord;
         }
-        catch (Exception exception) when (!verified && exception is IOException or InvalidDataException or UnauthorizedAccessException or SecurityException)
+        catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException
+            or SecurityException or Win32Exception or InvalidOperationException or OperationCanceledException)
         {
-            _downloaded = null;
-            throw new InvalidDataException("Setup verification failed. Do not run this file; obtain a fresh update manually.", exception);
+            var current = await ReleaseInstallHandoffStore.ReadAsync(InstallHandoffRecordPath).ConfigureAwait(false);
+            var failed = (current?.AttemptId == activeRecord.AttemptId ? current : activeRecord) with
+            {
+                State = ReleaseInstallHandoffState.Failed,
+                Outcome = new ReleaseInstallOutcome(DateTimeOffset.UtcNow, null, false, null,
+                    exception.GetBaseException().Message)
+            };
+            await ReleaseInstallHandoffStore.WriteAsync(InstallHandoffRecordPath, failed).ConfigureAwait(false);
+            var latest = await ReleaseInstallHandoffStore.ReadAsync(LatestInstallHandoffRecordPath).ConfigureAwait(false);
+            if (latest?.AttemptId == failed.AttemptId)
+                await ReleaseInstallHandoffStore.WriteAsync(LatestInstallHandoffRecordPath, failed).ConfigureAwait(false);
+            if (!verified && exception is IOException or InvalidDataException or UnauthorizedAccessException or SecurityException)
+            {
+                _downloaded = null;
+                throw new InvalidDataException("Setup verification failed. Do not run this file; obtain a fresh update manually.", exception);
+            }
+
+            throw;
+        }
+        finally
+        {
+            helper?.Dispose();
+        }
+    }
+
+    private static async Task WaitForHandoffReadyAsync(Process helper, string recordPath)
+    {
+        var deadline = Stopwatch.StartNew();
+        while (deadline.Elapsed < TimeSpan.FromSeconds(10))
+        {
+            var record = await ReleaseInstallHandoffStore.ReadAsync(recordPath).ConfigureAwait(false);
+            helper.Refresh();
+            if (helper.HasExited)
+            {
+                if (record?.State == ReleaseInstallHandoffState.Failed)
+                    throw new IOException(record.Outcome?.Error ?? "The update handoff failed before it was ready.");
+                throw new IOException("The update handoff exited before it acknowledged readiness.");
+            }
+            if (record?.State == ReleaseInstallHandoffState.Failed)
+            {
+                if (!helper.HasExited) helper.Kill(entireProcessTree: true);
+                await helper.WaitForExitAsync().ConfigureAwait(false);
+                throw new IOException(record.Outcome?.Error ?? "The update handoff failed before it was ready.");
+            }
+            if (record?.State is ReleaseInstallHandoffState.Waiting or ReleaseInstallHandoffState.Installing
+                or ReleaseInstallHandoffState.Succeeded)
+                return;
+            await Task.Delay(100).ConfigureAwait(false);
+        }
+        if (!helper.HasExited) helper.Kill(entireProcessTree: true);
+        await helper.WaitForExitAsync().ConfigureAwait(false);
+        throw new IOException("The update handoff did not acknowledge readiness in time.");
+    }
+
+    private static bool IsMatchingProcess(int? processId, DateTimeOffset? startedUtc)
+    {
+        if (processId is not int id || startedUtc is not DateTimeOffset started) return false;
+        try
+        {
+            using var process = Process.GetProcessById(id);
+            return !process.HasExited &&
+                Math.Abs(((DateTimeOffset)process.StartTime.ToUniversalTime() - started).TotalSeconds) <= 2;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+        catch (InvalidOperationException)
+        {
+            return false;
+        }
+        catch (Win32Exception)
+        {
+            return false;
         }
     }
 

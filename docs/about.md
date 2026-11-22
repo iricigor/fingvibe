@@ -8,8 +8,10 @@ are available. Repository and creator links open in your browser. Settings stays
 selected; **Back to Settings** returns focus to the About row without resetting
 your preference sections. Official stable builds check for newer stable releases
 automatically while open, and offer **Check for updates**. Downloads require
-your action; installing a downloaded Setup requires confirmation and closes
-FingVibe normally. Portable copies use manual ZIP replacement. PR, Test and
+your action; **Restart and update** requires confirmation, closes FingVibe
+before Setup runs, records the observed installer/relaunch result, and reopens
+the verified installation after success. Portable copies use manual ZIP
+replacement. PR, Test and
 Development builds do not check for updates or compare their versions with
 stable releases. See [update checks and downloads](manual/navigation.md#check-for-updates)
 and [installation and updates](manual/install.md).

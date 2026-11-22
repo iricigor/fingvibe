@@ -217,12 +217,15 @@ try {
     Set-UpdateResponse
     Invoke-UpdateControl DownloadUpdateButton
     Wait-UpdateText UpdateDownloadStatus 'Setup downloaded*'
+    if ((Find-UpdateControl InstallUpdateButton).Current.Name -ne 'Restart and update') {
+        throw 'A verified installed Setup must use the restart-and-update action.'
+    }
     Invoke-UpdateControl InstallUpdateButton
     $null = Wait-UiRegressionState { Find-UpdateControl UpdateInstallConfirmationDialog } 'explicit install confirmation'
     Invoke-UpdateDialogButton Cancel
     if ($script:process.HasExited) { throw 'Cancelling confirmation must keep FingVibe running.' }
     Invoke-UpdateControl InstallUpdateButton
-    Invoke-UpdateDialogButton 'Install and close'
+    Invoke-UpdateDialogButton 'Restart and update'
     $dialog = Wait-UpdateDialog UpdateLaunchFailureDialog OK 'installer rejection popup'
     $links = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,
