@@ -110,6 +110,31 @@
                     <Button x:Name="CancelScheduledUpdateButton" Content="Cancel scheduled update"
                             Click="CancelScheduledUpdate_Click" Visibility="Collapsed"
                             AutomationProperties.Name="Cancel scheduled update" HorizontalAlignment="Left" />
+                    <!-- Untrusted release text renders only as plain TextBlocks; links open only from explicit GitHub buttons. -->
+                    <Expander x:Name="ReleaseNotesExpander" IsExpanded="False" HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Stretch" Visibility="Collapsed">
+                        <Expander.Header>
+                            <TextBlock x:Name="ReleaseNotesHeader" TextWrapping="Wrap" />
+                        </Expander.Header>
+                        <StackPanel Spacing="6">
+                            <StackPanel x:Name="ReleaseNotesContent" Spacing="6" />
+                            <HyperlinkButton x:Name="ReleaseNotesFullLink" Padding="0,4" Visibility="Collapsed"
+                                             AutomationProperties.Name="View full notes on GitHub (opens in browser)">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="View full notes on GitHub" TextWrapping="Wrap" />
+                                    <FontIcon Style="{StaticResource ExternalLinkIconStyle}" />
+                                </StackPanel>
+                            </HyperlinkButton>
+                        </StackPanel>
+                    </Expander>
+                    <HyperlinkButton x:Name="ReleaseNotesFallbackLink" Padding="0,4" Visibility="Collapsed"
+                                     HorizontalAlignment="Left"
+                                     AutomationProperties.Name="View release notes on GitHub (opens in browser)">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <TextBlock Text="View release notes on GitHub" TextWrapping="Wrap" />
+                            <FontIcon Style="{StaticResource ExternalLinkIconStyle}" />
+                        </StackPanel>
+                    </HyperlinkButton>
                     <Expander x:Name="UpdateDetailsExpander" Header="Update details"
                               IsExpanded="False" HorizontalAlignment="Stretch">
                         <StackPanel Spacing="6">

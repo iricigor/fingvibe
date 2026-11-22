@@ -11,6 +11,39 @@ if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hoste
 . (Join-Path $PSScriptRoot '..\.github\scripts\UiReviewAppearance.ps1')
 . (Join-Path $PSScriptRoot 'UiRegression\Helpers.ps1')
 Add-Type -AssemblyName System.Windows.Forms
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+public static class UpdateReviewContrast
+{
+    [StructLayout(LayoutKind.Sequential)]
+    private struct HIGHCONTRAST
+    {
+        public uint Size;
+        public uint Flags;
+        public IntPtr Scheme;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SystemParametersInfo(uint action, uint parameter, ref HIGHCONTRAST value, uint flags);
+
+    public static uint GetFlags()
+    {
+        var value = new HIGHCONTRAST { Size = (uint)Marshal.SizeOf<HIGHCONTRAST>() };
+        if (!SystemParametersInfo(0x0042, value.Size, ref value, 0))
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+        return value.Flags;
+    }
+
+    public static void SetFlags(uint flags)
+    {
+        var value = new HIGHCONTRAST { Size = (uint)Marshal.SizeOf<HIGHCONTRAST>(), Flags = flags };
+        if (!SystemParametersInfo(0x0043, value.Size, ref value, 2))
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+    }
+}
+"@
 
 function Find-UpdateControl([string] $Id) {
     $call = Start-UiRegressionCall lookup
@@ -60,9 +93,9 @@ function Open-UpdateAbout {
     $null = Wait-UiRegressionState { Find-UpdateControl UpdateStatus } 'About update section'
 }
 
-function Set-UpdateResponse([string] $Outcome = 'newer', [string] $Download = 'success', [string] $Deployment = 'installed', [int] $AdvanceSeconds = 0) {
+function Set-UpdateResponse([string] $Outcome = 'newer', [string] $Download = 'success', [string] $Deployment = 'installed', [int] $AdvanceSeconds = 0, [string] $Notes = 'default') {
     $script:now = $script:now.AddSeconds($AdvanceSeconds)
-    @{ now = $script:now.ToString('O'); outcome = $Outcome; download = $Download; deployment = $Deployment } |
+    @{ now = $script:now.ToString('O'); outcome = $Outcome; download = $Download; deployment = $Deployment; notes = $Notes } |
         ConvertTo-Json | Set-Content -LiteralPath "$script:response.new" -Encoding UTF8
     [IO.File]::Move("$script:response.new", $script:response, $true)
 }
@@ -159,12 +192,42 @@ function Invoke-UpdateWhenClosed {
     Invoke-UpdateDialogButton 'When I close'
 }
 
+function Assert-UpdateReleaseNotes([string] $Capture) {
+    $notes = Show-UpdateControl ReleaseNotesExpander
+    $pattern = $notes.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+    if ($notes.Current.Name -ne "What's new in 1.2.130" -or
+        $pattern.Current.ExpandCollapseState -ne [System.Windows.Automation.ExpandCollapseState]::Collapsed -or
+        (Test-UiRegressionElementVisible (Find-UpdateControl ReleaseNotesFallbackLink))) {
+        throw "An available update must start with a collapsed 'What's new in 1.2.130' expander and no fallback link."
+    }
+    $pattern.Expand()
+    $full = Show-UpdateControl ReleaseNotesFullLink
+    $null = Wait-UiRegressionState {
+        $pattern.Current.ExpandCollapseState -eq [System.Windows.Automation.ExpandCollapseState]::Expanded
+    } 'expanded release notes state'
+    $texts = @($notes.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::Text)) | ForEach-Object { $_.Current.Name })
+    $links = @($notes.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::Hyperlink)))
+    if ('Highlights' -notin $texts -or 'Release notes in About: see #695.' -notin $texts -or
+        @($texts | Where-Object { $_ -match 'alert|<script|https?://|\*\*' }).Count -ne 0 -or
+        $links.Count -ne 1 -or $full.Current.Name -ne 'View full notes on GitHub (opens in browser)') {
+        throw "Release notes must render headings and bullets as inert plain text with only the explicit full-notes link: $($texts -join ' | ')."
+    }
+    $null = Show-UpdateControl ReleaseNotesExpander
+    Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory $Capture)
+    $pattern.Collapse()
+}
+
 $environment = Save-UiRegressionEnvironment @(
     'FINGVIBE_UI_REVIEW', 'FINGVIBE_UI_REVIEW_INVENTORY', 'FINGVIBE_UI_REVIEW_SNAPSHOT', 'FINGVIBE_UPDATE_REVIEW')
 $fixture = New-UiRegressionFixtureDirectory -Suite updates
 $script:response = Join-Path $fixture 'responses.json'
 $script:now = [DateTimeOffset]::Parse('2026-11-16T12:00:00Z')
 $script:process = $null
+$script:contrastFlags = $null
 $script:root = $null
 $phase = $null
 $failure = $null
@@ -253,6 +316,7 @@ try {
                 [System.Windows.Automation.ExpandCollapseState]::Collapsed) {
         throw 'Windows security wording must stay visible while update diagnostics remain collapsed.'
     }
+    Assert-UpdateReleaseNotes 'updates-release-notes-light.png'
     $check = Show-UpdateControl CheckUpdatesButton
     if (-not $check.Current.IsKeyboardFocusable) { throw 'Check for updates must support keyboard focus.' }
     $check.SetFocus()
@@ -282,6 +346,15 @@ try {
     Set-UpdateResponse -Download fail -AdvanceSeconds 10
     Invoke-UpdateControl CheckUpdatesButton
     Wait-UpdateText UpdateStatus 'FingVibe * is available.'
+    Assert-UpdateReleaseNotes 'updates-release-notes-dark.png'
+    $script:contrastFlags = [UpdateReviewContrast]::GetFlags()
+    [UpdateReviewContrast]::SetFlags($script:contrastFlags -bor 1)
+    if (([UpdateReviewContrast]::GetFlags() -band 1) -eq 0) { throw 'High contrast did not activate.' }
+    Start-Sleep -Seconds 2
+    Assert-UpdateReleaseNotes 'updates-release-notes-high-contrast.png'
+    [UpdateReviewContrast]::SetFlags($script:contrastFlags)
+    $script:contrastFlags = $null
+    Start-Sleep -Seconds 2
     Invoke-UpdateNow
     $dialog = Wait-UpdateDialog UpdateDownloadFailureDialog Close 'download failure popup'
     $links = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants,
@@ -350,12 +423,19 @@ try {
     $phase = Step-UiRegressionPhase $phase 'Updates/portable-narrow' $ScreenshotDirectory
     Stop-UiRegressionApp $script:process
     $script:process.Dispose()
-    Set-UpdateResponse -Deployment portable
+    Set-UpdateResponse -Deployment portable -Notes empty
     Start-UpdateApp
     Select-UpdateSettings
     Open-UpdateAbout
-    Invoke-UpdateControl CheckUpdatesButton
+    # The relaunched app checks at startup; Check for updates is disabled until that check completes.
     Wait-UpdateText UpdateStatus 'FingVibe * is available.'
+    $null = Wait-UiRegressionState { (Find-UpdateControl CheckUpdatesButton).Current.IsEnabled } `
+        'Check for updates enabled after the startup check'
+    $fallback = Show-UpdateControl ReleaseNotesFallbackLink
+    if ($fallback.Current.Name -ne 'View release notes on GitHub (opens in browser)' -or
+        (Test-UiRegressionElementVisible (Find-UpdateControl ReleaseNotesExpander))) {
+        throw 'Empty release notes must fall back to the GitHub release notes link without an expander.'
+    }
     if ((Find-UpdateControl DownloadUpdateButton).Current.Name -ne 'Download portable ZIP') { throw 'Portable copies must receive ZIP, not Setup.' }
     Invoke-UpdateControl DownloadUpdateButton
     Wait-UpdateText UpdateDownloadStatus 'ZIP downloaded*'
@@ -368,7 +448,7 @@ try {
     $details = Find-UpdateControl UpdateDetailsExpander
     $details.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
     Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory 'updates-portable-narrow.png')
-    foreach ($id in @('UpdateStatus', 'UpdateDetails', 'UpdateDeploymentText', 'DownloadUpdateButton', 'UpdateDownloadStatus')) {
+    foreach ($id in @('UpdateStatus', 'UpdateDetails', 'UpdateDeploymentText', 'DownloadUpdateButton', 'UpdateDownloadStatus', 'ReleaseNotesFallbackLink')) {
         $element = Show-UpdateControl $id
         if (-not (Test-UiRegressionElementWithin $element (Find-UpdateControl UpdatesScroll) $script:root)) {
             throw "Narrow update content is clipped or unreachable: $id."
@@ -387,6 +467,7 @@ finally {
     Invoke-UiRegressionCleanup -PrimaryFailed ($null -ne $failure) -Steps @(
         { if ($phase) { Complete-UiRegressionPhase $phase -Directory $ScreenshotDirectory -Succeeded ($null -eq $failure) } },
         { Write-UiRegressionCallCosts -Directory $ScreenshotDirectory -Name 'Updates' },
+        { if ($null -ne $script:contrastFlags) { [UpdateReviewContrast]::SetFlags($script:contrastFlags) } },
         { Stop-UiRegressionApp $script:process },
         { if ($script:process) { $script:process.Dispose() } },
         { Restore-UiRegressionEnvironment $environment },
