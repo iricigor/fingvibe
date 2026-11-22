@@ -219,7 +219,9 @@ try {
     }
     Set-UiReviewTheme $script:root 'Standard Light'
     Assert-UpdateIndicators $true (Join-Path $ScreenshotDirectory 'updates-settings-light.png')
-    Invoke-UpdateControl SettingsUpdateNowButton
+    # The Settings action lives in the Settings page scroller, not the About UpdatesScroll viewport.
+    $settingsUpdate = Show-UpdateControl SettingsUpdateNowButton SettingsPage
+    $settingsUpdate.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     $null = Wait-UiRegressionState { Find-UpdateControl UpdateInstallConfirmationDialog } `
         'Settings Update now confirmation'
     Invoke-UpdateDialogButton Cancel
