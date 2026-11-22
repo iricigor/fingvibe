@@ -916,7 +916,7 @@ running without either switch exercises both. Never run it on a working
 user's desktop. Its explicit `FINGVIBE_UI_REVIEW_INVENTORY` path isolates saved
 fixtures from real user data, like the existing review snapshot override.
 
-The expanded sidebar uses a compact 216-DIP Windows Settings-style layout with colored navigation icons and a wrapping FingVibe header. The sidebar and main page share one background, including when a backdrop material is selected. Collapsing the pane keeps an icon rail; narrow windows use native overlay navigation, with Tools above Settings at the bottom. While an overlay is open, both backgrounds temporarily use the same solid theme color to keep the menu readable without a contrasting pane tint; closing it restores the selected material. Windows high contrast replaces decorative icon colors with system colors.
+The expanded sidebar uses a compact 216-DIP Windows Settings-style layout with colored 24-DIP navigation icons and a wrapping FingVibe header. The sidebar and main page share one background, including when a backdrop material is selected. Collapsing the pane keeps an icon rail; narrow windows use native overlay navigation, with Tools above Settings at the bottom. While an overlay is open, both backgrounds temporarily use the same solid theme color to keep the menu readable without a contrasting pane tint; closing it restores the selected material. Windows high contrast replaces decorative icon colors with system colors.
 
 ### Device identification
 

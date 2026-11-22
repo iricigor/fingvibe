@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" role="img" aria-labelledby="title">
+<title id="title">Tools 24-DIP navigation mask</title>
+<g transform="translate(-8.5 -9.293) scale(0.25366)">
+  <rect x="51" y="90" width="154" height="113" rx="15" fill="none" stroke="#4DF0D3" stroke-width="11.827" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="94,88 94,59 162,59 162,88" fill="none" stroke="#4DF0D3" stroke-width="11.827" stroke-linecap="round" stroke-linejoin="round"/>
+  <polyline points="53,129 203,129" fill="none" stroke="#4DF0D3" stroke-width="10.513" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="112" y="116" width="32" height="28" rx="5" fill="none" stroke="#4DF0D3" stroke-width="9.199" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+</svg>
