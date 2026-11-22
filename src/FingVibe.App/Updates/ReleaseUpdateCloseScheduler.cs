@@ -156,7 +156,12 @@ internal sealed class ReleaseUpdateCloseScheduler : IDisposable
         }
     }
 
-    public Task WaitForIdleAsync() => _reconcileTask ?? Task.CompletedTask;
+    public async Task WaitForIdleAsync()
+    {
+        // A completed reconcile can raise events that start another one; wait until none is in flight.
+        while (_reconcileTask is { IsCompleted: false } task)
+            await task.ConfigureAwait(false);
+    }
 
     private void Session_Changed(object? sender, UpdateState state)
     {
@@ -274,13 +279,17 @@ internal sealed class ReleaseUpdateCloseScheduler : IDisposable
             !StableRelease.TryParseVersion(schedule.Version, out var version) ||
             downloaded.Version != version)
             return false;
-        _schedule = schedule with
+        var armed = schedule with
         {
             InstallerPath = downloaded.Path,
             InstallerSha256 = downloaded.Sha256,
             InstallerSize = downloaded.Size
         };
-        _store.Save(_schedule);
+        if (armed != schedule)
+        {
+            _schedule = armed;
+            _store.Save(armed);
+        }
         DownloadProgress = 100;
         LastError = null;
         RaiseChanged();

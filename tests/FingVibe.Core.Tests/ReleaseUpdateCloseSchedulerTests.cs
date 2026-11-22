@@ -224,7 +224,7 @@ public sealed class ReleaseUpdateCloseSchedulerTests
 
         public void Restart()
         {
-            Scheduler.Dispose();
+            StopScheduler();
             Actions.Dispose();
             Session.Dispose();
             Session = new(true, "1.2.99", new GitHubReleaseSource(_http, Review).GetLatestAsync, Review);
@@ -236,11 +236,19 @@ public sealed class ReleaseUpdateCloseSchedulerTests
         {
             if (_disposed) return;
             _disposed = true;
-            Scheduler.Dispose();
+            StopScheduler();
             Actions.Dispose();
             Session.Dispose();
             _http.Dispose();
             Directory.Delete(_directory, true);
+        }
+
+        // Disposal stops new reconciles; wait for one already in flight so it cannot write into a deleted or
+        // restarted fixture directory.
+        private void StopScheduler()
+        {
+            Scheduler.Dispose();
+            Scheduler.WaitForIdleAsync().GetAwaiter().GetResult();
         }
     }
 }
