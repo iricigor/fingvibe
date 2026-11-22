@@ -359,7 +359,7 @@ try {
     $previousOnline = Get-DiscoveryOnlineCount
     (Find-DiscoveryControl ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-DiscoveryState {
-        (Find-DiscoveryControl ScanStatusText).Current.Name -like "*Initial results shown*(1/5) Background ARP:*"
+        (Find-DiscoveryControl ScanStatusText).Current.Name -like "*Initial results shown*Confirming remaining devices: address lookup*"
     } "checkpointed initial results"
     $pendingOnline = Get-DiscoveryOnlineCount
     if ($pendingOnline -ne $previousOnline + 1) {
@@ -399,7 +399,7 @@ try {
     # A later final checkpoint updates the same scan without stealing focus from browsing.
     (Find-DiscoveryControl ScanButton).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-DiscoveryState {
-        (Find-DiscoveryControl ScanStatusText).Current.Name -like "*Initial results shown*(1/5) Background ARP:*"
+        (Find-DiscoveryControl ScanStatusText).Current.Name -like "*Initial results shown*Confirming remaining devices: address lookup*"
     } "second initial checkpoint"
     Wait-DiscoveryState {
         (Find-DiscoveryControl ResultsList).FindAll([System.Windows.Automation.TreeScope]::Children, $condition).Count -gt 0
@@ -448,7 +448,7 @@ try {
     }
     Wait-DiscoveryState {
         $status = Find-DiscoveryControl ScanStatusText -Optional
-        $status -and $status.Current.Name -like "Scheduled scan*Scanning ICMP:*"
+        $status -and $status.Current.Name -like "Scheduled scan*Finding devices:*"
     } "scheduled scan retaining previous evidence"
     if ((Get-DiscoveryOnlineCount) -ne $scheduledOnline) { throw "Scheduled scan start reset retained Online membership." }
     $null = [UiReviewNativeWindow]::ShowWindow($handle, 6)

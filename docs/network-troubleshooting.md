@@ -186,7 +186,7 @@ Untested, unavailable, running, and cancelled checks stay hollow and have
 distinct neutral textual states. Windows high contrast uses system colors.
 The two-row status below the diagram explains the evidence and next action,
 not just a color. Ready, running, cancelled, errors, and insufficient evidence
-remain neutral/partial. **All good** means the local, gateway, both public-IP,
+remain neutral/partial. **Checks passed** means the local, gateway, both public-IP,
 and DNS checks passed, not that every service is healthy.
 
 Loopback and self-ping do not verify cable/Wi-Fi. Hop 2 is not necessarily the

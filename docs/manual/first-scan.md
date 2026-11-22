@@ -45,6 +45,13 @@ again. It can wait another ten seconds before the final ping attempt.
 An address has at most three ping attempts and one fresh ARP check.
 Devices already confirmed are not retried.
 
+The status names these steps in plain words. **Finding devices** is the first
+ping of every address. **Confirming remaining devices** covers the ARP check
+(shown as an address lookup), each ten-second wait, the **second try** and the
+**last try**. The status also shows how long the scan has been running, such as
+`0:42 elapsed`; it does not predict when the scan will finish. Point at the
+status to see the exact ARP or ping attempt and its counts.
+
 The later stages can take longer than the first results. A mostly silent
 network can take more than twenty extra seconds, plus probe and save time.
 The selected network cannot silently change to a different network mid-scan.

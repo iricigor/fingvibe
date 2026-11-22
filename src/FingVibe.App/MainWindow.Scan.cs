@@ -1,8 +1,11 @@
+using System.Diagnostics;
 using System.Net.NetworkInformation;
 using FingVibe.Core.Models;
 using FingVibe.Core.Networking;
 using FingVibe.Core.Storage;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
+using Microsoft.UI.Xaml.Controls;
 
 namespace FingVibe.App;
 
@@ -23,8 +26,18 @@ public sealed partial class MainWindow : IScanExecutionSteps
     private string _retainedResultsMessage = string.Empty;
     private DeviceInventoryData? _scanDiscoveryBaseline;
     private bool _initialResultsPublished;
+    private readonly Stopwatch _scanElapsed = new();
+    private readonly DispatcherTimer _scanElapsedTimer = new() { Interval = TimeSpan.FromSeconds(1) };
+    private bool _scanElapsedInitialized;
+    private string? _scanProgressMessage;
+    private string? _scanProgressDetail;
 
     private string ScanProgressPrefix => _scanTrigger == ScanTrigger.Scheduled ? "Scheduled scan · " : string.Empty;
+
+    // Elapsed time and protocol detail decorate only the latest scanner-progress text, never the
+    // cancellation, failure or save messages that later replace it.
+    private bool IsScanProgressShown => _isScanning && _scanMessage is not null
+        && string.Equals(_scanMessage, _scanProgressMessage, StringComparison.Ordinal);
 
     private void UpdateScanStatus()
     {
@@ -47,12 +60,49 @@ public sealed partial class MainWindow : IScanExecutionSteps
         ScanFreshnessText.Text = context;
         ScanButton.Visibility = _isScanning ? Visibility.Collapsed : Visibility.Visible;
         ScanButton.IsEnabled = !_isScanning && network is not null;
-        var status = string.Join(" · ", new[] { _scanMessage, _snapshotError, _inventoryError, _backupError, _discoveryMessage, _windowsNotificationMessage, targetWarning }
+        var progressShown = IsScanProgressShown;
+        var scanMessage = progressShown
+            ? $"{_scanMessage} · {ScanProgressPresentation.Elapsed(_scanElapsed.Elapsed)}"
+            : _scanMessage;
+        var status = string.Join(" · ", new[] { scanMessage, _snapshotError, _inventoryError, _backupError, _discoveryMessage, _windowsNotificationMessage, targetWarning }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
         ScanStatusText.Text = status;
         ScanStatusText.Visibility = string.IsNullOrWhiteSpace(status) ? Visibility.Collapsed : Visibility.Visible;
+        var detail = progressShown ? _scanProgressDetail : null;
+        ToolTipService.SetToolTip(ScanStatusText, detail);
+        AutomationProperties.SetHelpText(ScanStatusText, detail ?? string.Empty);
         ScanMessages.Visibility = _isScanning || !string.IsNullOrWhiteSpace(status)
             ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void ShowScanProgressMessage(string message, LanScanProgress progress)
+    {
+        _scanMessage = _scanProgressMessage = message;
+        _scanProgressDetail = ScanProgressPresentation.Detail(progress);
+    }
+
+    private void StartScanElapsed()
+    {
+        if (!_scanElapsedInitialized)
+        {
+            _scanElapsedTimer.Tick += (_, _) =>
+            {
+                if (IsScanProgressShown) UpdateScanStatus();
+            };
+            Closed += (_, _) => StopScanElapsed();
+            _scanElapsedInitialized = true;
+        }
+
+        _scanElapsed.Restart();
+        _scanElapsedTimer.Start();
+    }
+
+    private void StopScanElapsed()
+    {
+        _scanElapsedTimer.Stop();
+        _scanElapsed.Stop();
+        _scanProgressMessage = null;
+        _scanProgressDetail = null;
     }
 
     private async void ScanButton_Click(object sender, RoutedEventArgs e)
@@ -157,9 +207,12 @@ public sealed partial class MainWindow : IScanExecutionSteps
         ScanProgressBar.Maximum = total;
         ScanProgressBar.Value = 0;
         StartScanPulse();
+        StartScanElapsed();
         _retainedResultsMessage = _displayedScan is not null
             ? " · Displaying retained results; unresolved statuses are from the previous scan" : string.Empty;
-        _scanMessage = $"{ScanProgressPrefix}{ScanProgressPresentation.Message(new LanScanProgress(LanScanPhase.FirstPass, 0, total))}{_retainedResultsMessage}";
+        var initialProgress = new LanScanProgress(LanScanPhase.FirstPass, 0, total);
+        ShowScanProgressMessage($"{ScanProgressPrefix}{ScanProgressPresentation.Message(initialProgress)}{_retainedResultsMessage}",
+            initialProgress);
         UpdateScanStatus();
         if (focusScanAction) CancelButton.Focus(FocusState.Programmatic);
         _discoveryMessage = null;
@@ -256,6 +309,7 @@ public sealed partial class MainWindow : IScanExecutionSteps
             _inventoryError = "The Windows network profile changed during this scan. Observations are unscoped and no devices are marked Offline.";
         var saved = await SaveCompletedScanAsync(request.Network, results, networkId, duration);
         _scanMessage = null;
+        _scanProgressMessage = null;
         if (networkId is null)
             _discoveryMessage = "New-device alerts and baseline establishment are disabled for this scan because network identity is unavailable.";
         return saved;
@@ -298,6 +352,7 @@ public sealed partial class MainWindow : IScanExecutionSteps
         CancelButton.Visibility = Visibility.Collapsed;
         ScanProgressArea.Visibility = Visibility.Collapsed;
         StopScanPulse();
+        StopScanElapsed();
         UpdateScanStatus();
         if (restoreFocus && ScanButton.Visibility == Visibility.Visible
             && ScanActions.Visibility == Visibility.Visible)
@@ -310,9 +365,9 @@ public sealed partial class MainWindow : IScanExecutionSteps
         ScanProgressBar.Maximum = progress.Total;
         ScanProgressBar.Value = progress.Completed;
         UpdateScanPulseWidth();
-        _scanMessage = _initialResultsPublished
+        ShowScanProgressMessage(_initialResultsPublished
             ? $"{ScanProgressPrefix}Initial results shown · {ScanProgressPresentation.Message(progress)} · Unresolved statuses retained from the previous scan"
-            : $"{ScanProgressPrefix}{ScanProgressPresentation.Message(progress)}{retainedResults}";
+            : $"{ScanProgressPrefix}{ScanProgressPresentation.Message(progress)}{retainedResults}", progress);
         UpdateScanStatus();
     }
 
