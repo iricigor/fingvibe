@@ -1,0 +1,21 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 689,
+  "category": "validation",
+  "changedBehavior": "Content cards on Network health, Speed test, Import from Fing and About open with the shared H4 card heading from #578: a shaded band with a decorative section icon, 16-px semibold heading and divider. Heading-row actions stay in the band.",
+  "selectors": [
+    "ui-review-scenarios",
+    "ui-regression-helpers",
+    "native-tools-utilities",
+    "native-tools-maintenance",
+    "native-tools-device-data",
+    "native-sidebar-scan-flows",
+    "documentation-tests"
+  ],
+  "expectedAssertions": [
+    "Each adopted tool card starts with exactly one shared card-heading band holding a decorative icon and the styled heading, with no local font, color or inset overrides.",
+    "Heading text, View room map and Analyze again actions, running-tool state, automation names and IDs are unchanged.",
+    "Network health and Speed test keep their card order and memberships, and no other plain subtitle heading remains in a tool content card except the documented live-state and entry tiles.",
+    "Changes to the shared style select the Speed test, Network health, About and Fing import captures."
+  ]
+}

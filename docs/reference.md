@@ -222,6 +222,14 @@ counts and Add actions in the band), **Person details** (Equipment activity) and
 navigation-button controls inside the shared header treatment, while the Room
 assigned-device action stays in its band. Whole-card navigation tiles and
 summary tiles without a heading keep their own treatments.
+The tool pages use the same heading on their content cards: **Network health**
+(Incident history, Network path and status, Detailed checkpoint diagnostics,
+Traceroute, Connection and checks), **Speed test** (Test, Live measurement,
+Results), **Import from Fing** (the three numbered steps) and **About** (FingVibe
+LAN Scanner, Updates). Actions that shared a heading row, such as **View room
+map** and **Analyze again**, stay in the band. The live health state, the Service
+status entry tile, the Fing import action bar and the Service status provider
+table keep their own treatments.
 Identification and compact service tiles use up to three columns,
 reducing to one as width and text scaling require. The **Rename device** pencil in the
 identity header reveals the existing name editor only when requested. Copy and

@@ -78,7 +78,16 @@
             </Expander>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="1   Choose a file" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE8E5;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock Grid.Column="1" Text="1   Choose a file" Style="{StaticResource CardHeadingTextStyle}" />
+                        </Grid>
+                    </Border>
                     <Border x:Name="DropArea" AllowDrop="True" DragOver="File_DragOver" Drop="File_Drop"
                             Padding="16" CornerRadius="6" BorderThickness="1"
                             BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
@@ -105,14 +114,19 @@
             </Border>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="12">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="2   Analysis" Style="{ThemeResource SubtitleTextBlockStyle}" VerticalAlignment="Center" />
-                        <Button x:Name="AnalyzeButton" Grid.Column="1" Content="Analyze again" Click="Analyze_Click" IsEnabled="False" />
-                    </Grid>
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE721;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock Grid.Column="1" Text="2   Analysis" Style="{StaticResource CardHeadingTextStyle}" />
+                            <Button x:Name="AnalyzeButton" Grid.Column="2" Content="Analyze again" Click="Analyze_Click" IsEnabled="False"
+                                    VerticalAlignment="Center" />
+                        </Grid>
+                    </Border>
                     <TextBlock x:Name="AnalysisCountsText" Text="Choose a file to analyze. Analysis does not change saved data."
                                TextWrapping="Wrap" AutomationProperties.LiveSetting="Polite" />
                     <StackPanel x:Name="AnalysisGroups" Spacing="8" />
@@ -124,7 +138,16 @@
             </Border>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="3   Changes and conflicts" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE70F;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock Grid.Column="1" Text="3   Changes and conflicts" Style="{StaticResource CardHeadingTextStyle}" />
+                        </Grid>
+                    </Border>
                     <StackPanel x:Name="SelectionActions" Orientation="Horizontal" Spacing="8" Visibility="Collapsed">
                         <Button Content="Select all" Click="SelectAll_Click" />
                         <Button Content="Deselect all" Click="DeselectAll_Click" />
