@@ -1,0 +1,18 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 685,
+  "category": "ui",
+  "changedBehavior": "Full-color PageIcon tile edges no longer use the baked light #38577B outline that appeared as a pale halo on dark backgrounds; source SVG and 256px PNG masters retain identical icon artwork and rounded tile fill.",
+  "selectors": [
+    "ui-review-scenarios",
+    "pr-validation",
+    "documentation-tests",
+    "native-tools-utilities"
+  ],
+  "expectedAssertions": [
+    "Full-color PageIcon SVG masters omit the tile stroke and runtime PNGs match their documented 256px PNG masters.",
+    "The outer rounded tile band contains no pale halo color while the interior artwork, tile gradient, transparency and family styling remain unchanged.",
+    "Published page/tool icon assets remain present and load in light, dark and high contrast at 100-200% scaling.",
+    "The documented root cause and minimal border-only fix are preserved for future icon regeneration."
+  ]
+}
