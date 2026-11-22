@@ -153,6 +153,11 @@ function Open-LinkDevice([string] $Search, [string] $Name = $Search) {
     Wait-Link { $scroll = Find-Link DeviceDetailsScroll -Optional; $scroll -and -not $scroll.Current.IsOffscreen } "device details"
 }
 
+function Get-LinkBodyTop {
+    Get-UiRegressionDeviceDetailsBodyTop -Root $script:root `
+        -Scale ([UiReviewNativeWindow]::GetDpiForWindow($script:process.MainWindowHandle) / 96.0)
+}
+
 function Show-Link([string] $Id) {
     $call = Start-UiRegressionCall positioning
     try {
@@ -160,6 +165,7 @@ function Show-Link([string] $Id) {
         $null = Show-UiRegressionScrollTargets -Description "Device-linking control '$Id'" `
             -GetViewport { Find-Link DeviceDetailsScroll -Optional } `
             -GetTargets { Find-Link $Id -Optional } `
+            -GetTopEdge { Get-LinkBodyTop } `
             -GetWindow { $script:root } -BottomMargin 16
         return Find-Link $Id
     }
@@ -278,7 +284,7 @@ function Resolve-LinkDraft {
         $call = Start-UiRegressionCall positioning
         try {
             $choice = Show-UiRegressionScrollTargets -GetViewport { Find-Link DeviceDetailsScroll } `
-                -GetTargets { Find-Link $id } -GetWindow { $script:root } `
+                -GetTargets { Find-Link $id } -GetWindow { $script:root } -GetTopEdge { Get-LinkBodyTop } `
                 -Description "$field Keep separate choice" -BottomMargin 16
         }
         finally { Complete-UiRegressionCall $call }

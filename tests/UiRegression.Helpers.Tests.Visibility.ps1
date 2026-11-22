@@ -46,6 +46,26 @@
         -GetViewport { $bodyViewport } -GetWindow { $fixedWindow } -GetTargets { $fixedHeader }
     Assert-Regression ($fixedResult -eq $fixedHeader) 'A visible peer outside the body scroller must not be repositioned with that scroller.'
 
+    $edgeWindow = New-BoundedElement 0 0 500 300
+    $edgeViewport = New-BoundedElement 0 0 500 300
+    $underHeader = New-BoundedElement 10 40 100 30
+    $edgeMoves = [Collections.Generic.List[double]]::new()
+    $edgeScroll = [pscustomobject]@{ Current = [pscustomobject]@{
+        VerticallyScrollable = $true; VerticalScrollPercent = 50.0; VerticalViewSize = 20.0
+    } }
+    $edgeScroll | Add-Member ScriptMethod SetScrollPercent {
+        param($Horizontal, $Percent)
+        $edgeMoves.Add($Percent)
+        $delta = ($Percent - $this.Current.VerticalScrollPercent) * 12
+        $this.Current.VerticalScrollPercent = $Percent
+        $bounds = $underHeader.Current.BoundingRectangle
+        $underHeader.Current.BoundingRectangle = New-TestRectangle $bounds.Left ($bounds.Top - $delta) $bounds.Width $bounds.Height
+    }
+    $edgeViewport | Add-Member ScriptMethod GetCurrentPattern { param($Pattern) return $edgeScroll }
+    $null = Show-UiRegressionScrollTargets -Description 'body target under a fixed header' -GetTopEdge { 120 } `
+        -GetViewport { $edgeViewport } -GetWindow { $edgeWindow } -GetTargets { $underHeader }
+    Assert-Regression ($edgeMoves.Count -ge 1 -and $underHeader.Current.BoundingRectangle.Top -ge 120) 'A scroller rectangle that extends under a fixed header must not prove a body target visible.'
+
     $viewport = New-BoundedElement 0 0 500 300
     $window = New-BoundedElement 0 0 500 300
     $first = New-BoundedElement 10 900 100 20

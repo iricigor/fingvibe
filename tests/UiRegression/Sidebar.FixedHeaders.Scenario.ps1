@@ -10,10 +10,10 @@ $fixedHeaderPages = @(
 
 $fixedHeaderOriginalBounds = Get-UiReviewWindowBounds $windowHandle
 $setFixedHeaderWindow = {
-    param([int] $LogicalHeight)
+    param([int] $LogicalWidth, [int] $LogicalHeight)
     $area = [System.Windows.Forms.Screen]::FromHandle($windowHandle).WorkingArea
     if (-not [UiReviewNativeWindow]::SetWindowPos(
-            $windowHandle, [IntPtr]::Zero, $area.Left, $area.Top, [int] (640 * $scale),
+            $windowHandle, [IntPtr]::Zero, $area.Left, $area.Top, [int] ($LogicalWidth * $scale),
             [int] ($LogicalHeight * $scale), 0x0044)) {
         throw [System.ComponentModel.Win32Exception]::new()
     }
@@ -50,7 +50,8 @@ $findFixedHeaderTargets = {
 $testFixedHeaders = {
     param([string] $Variant, [switch] $RequireOverflow)
     foreach ($page in $fixedHeaderPages) {
-        & $setFixedHeaderWindow 720
+        # Navigation is hidden in the narrow minimal layout, so select at full width before shrinking.
+        & $setFixedHeaderWindow $expandedWidth 720
         Select-SidebarPage $page.Nav $page.Nav
         if ($page.Card) {
             $cardCondition = [System.Windows.Automation.PropertyCondition]::new(
@@ -58,7 +59,7 @@ $testFixedHeaders = {
             $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $cardCondition).
                 GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
         }
-        & $setFixedHeaderWindow 520
+        & $setFixedHeaderWindow 640 520
         $viewport = Find-SidebarElement AutomationId $page.Scroll
         $targets = Wait-UiRegressionState -Description "fixed '$($page.Title)' header ($Variant)" -Condition {
             & $findFixedHeaderTargets $page $viewport
@@ -67,14 +68,13 @@ $testFixedHeaders = {
         $bar = (@("DetectedNetworkLabel", "NetworkPicker", "ScanFreshnessText", "ScanButton") |
             ForEach-Object { (Find-SidebarElement AutomationId $_).Current.BoundingRectangle.Bottom } |
             Measure-Object -Maximum).Maximum
-        $viewportTop = $viewport.Current.BoundingRectangle.Top
         $before = @{}
         foreach ($name in $targets.Keys) {
             $bounds = $targets[$name].Current.BoundingRectangle
             $before[$name] = $bounds
-            if (-not $window.Contains($bounds) -or $bounds.Top -lt $bar - $scale -or $bounds.Bottom -gt $viewportTop + $scale) {
+            if (-not $window.Contains($bounds) -or $bounds.Top -lt $bar - $scale) {
                 Save-SidebarAppearance "fixed-header-failure"
-                throw "'$($page.Title)' $name must be fully visible between the network bar and the page body ($Variant). Bounds=$bounds; bar bottom=$bar; body top=$viewportTop; window=$window."
+                throw "'$($page.Title)' $name must be fully visible below the network bar ($Variant). Bounds=$bounds; bar bottom=$bar; window=$window."
             }
         }
         $scroll = $viewport.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)

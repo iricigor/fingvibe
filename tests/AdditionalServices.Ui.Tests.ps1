@@ -122,8 +122,15 @@ function Find-ServiceControl([string] $Value, [switch] $ByName, [switch] $Option
         [System.Windows.Automation.AutomationElement]::NameProperty
     } else { [System.Windows.Automation.AutomationElement]::AutomationIdProperty }
     $condition = [System.Windows.Automation.PropertyCondition]::new($property, $Value)
-    $element = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
-    if (-not $element -and -not $Optional) { throw "Missing service-scan control '$Value'." }
+    # Port-scan progress rebuilds Device Details asynchronously, so a required peer can be briefly
+    # absent. Required lookups await reconstruction within a bound; optional lookups stay single-shot.
+    $deadline = [DateTime]::UtcNow.AddMilliseconds($(if ($Optional) { 0 } else { 5000 }))
+    do {
+        $element = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
+        if ($element -or [DateTime]::UtcNow -ge $deadline) { break }
+        Start-Sleep -Milliseconds 100
+    } while ($true)
+    if (-not $element -and -not $Optional) { throw "Missing service-scan control '$Value' after 5000 ms." }
     return $element
 }
 

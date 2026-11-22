@@ -31,6 +31,28 @@
         </Style>
     </UserControl.Resources>
     <Grid Margin="{StaticResource ScannerPageContentMargin}" RowSpacing="16">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup>
+                <VisualState x:Name="NarrowCompletedHeader">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="CompletedBackupsHeader.Orientation" Value="Vertical" />
+                        <Setter Target="CompletedBackupsHeader.Spacing" Value="4" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="WideCompletedHeader">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1000" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="CompletedBackupsHeader.Orientation" Value="Horizontal" />
+                        <Setter Target="CompletedBackupsHeader.Spacing" Value="12" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />

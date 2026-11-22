@@ -16,7 +16,6 @@ public sealed partial class DatabaseBackupsPage : UserControl
     private bool _visible;
     private IReadOnlyList<InventoryBackup> _copies = [];
     private readonly DispatcherTimer _ageTimer = new() { Interval = TimeSpan.FromMinutes(1) };
-    private readonly Windows.UI.ViewManagement.UISettings _uiSettings = new();
     private readonly Style _normalButtonStyle;
     private sealed record BackupRow(string Created, string Name, string Size, bool IsAlternateRow,
         string Daily, string DailyDescription);
@@ -27,15 +26,9 @@ public sealed partial class DatabaseBackupsPage : UserControl
         _normalButtonStyle = BackUpNowButton.Style;
         _surface.StateChanged += (_, _) => AutomationProperties.SetItemStatus(BackupsScroll, _surface.Status);
         _ageTimer.Tick += (_, _) => UpdateBackupSummary();
-        _uiSettings.TextScaleFactorChanged += (_, _) => DispatcherQueue.TryEnqueue(
-            () => UpdateCompletedBackupsHeaderLayout());
         Unloaded += (_, _) => Close();
-        SizeChanged += (_, args) =>
-        {
-            BackupActions.Orientation = args.NewSize.Width < 540
-                ? Orientation.Vertical : Orientation.Horizontal;
-            UpdateCompletedBackupsHeaderLayout();
-        };
+        SizeChanged += (_, args) => BackupActions.Orientation = args.NewSize.Width < 540
+            ? Orientation.Vertical : Orientation.Horizontal;
     }
 
     public event EventHandler? BackRequested;
@@ -57,7 +50,6 @@ public sealed partial class DatabaseBackupsPage : UserControl
         BackupPolicyExpander.IsExpanded = false;
         _ageTimer.Start();
         ShowStatus();
-        UpdateCompletedBackupsHeaderLayout();
         (BackUpNowButton.IsEnabled ? BackUpNowButton : OpenBackupFolderButton).Focus(FocusState.Programmatic);
         Refresh();
     }
@@ -124,15 +116,6 @@ public sealed partial class DatabaseBackupsPage : UserControl
 
         string Age(DateTimeOffset created) => created > now
             ? $"at {created.ToLocalTime():G}" : $"{ScanAgeFormatter.FormatAge(now - created)} ago";
-    }
-
-    private void UpdateCompletedBackupsHeaderLayout()
-    {
-        // Matches the former 1000-DIP window AdaptiveTrigger; the trigger cannot target the scroller now that the header is fixed.
-        var windowWidth = XamlRoot?.Size.Width ?? ActualWidth;
-        var wide = windowWidth >= 1000 * _uiSettings.TextScaleFactor;
-        CompletedBackupsHeader.Orientation = wide ? Orientation.Horizontal : Orientation.Vertical;
-        CompletedBackupsHeader.Spacing = wide ? 12 : 4;
     }
 
     private void ShowStatus()

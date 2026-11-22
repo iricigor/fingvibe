@@ -60,6 +60,8 @@ function Show-UiRegressionScrollTargets {
         [Parameter(Mandatory)][scriptblock] $GetTargets,
         [Parameter(Mandatory)][scriptblock] $GetWindow,
         [Parameter(Mandatory)][string] $Description,
+        # Absolute top of the visible body when a scroller's own UIA rectangle can extend under fixed headers.
+        [scriptblock] $GetTopEdge,
         [double] $TopMargin = 0,
         [double] $BottomMargin = 0,
         [switch] $AlignBottom,
@@ -91,6 +93,11 @@ function Show-UiRegressionScrollTargets {
             # scroller cannot move them and must not be used to prove visibility.
             if ($fixedElements.Count -eq $elements.Count) { return $elements[0] }
             $viewportTop = [Math]::Max($area.Top, $windowArea.Top)
+            if ($GetTopEdge) {
+                $edge = & $GetTopEdge
+                if ($null -eq $edge) { return $null }
+                $viewportTop = [Math]::Max($viewportTop, [double]$edge)
+            }
             $viewportBottom = [Math]::Min($area.Bottom, $windowArea.Bottom)
             $top = $viewportTop + $TopMargin
             $bottom = $viewportBottom - $BottomMargin
@@ -196,7 +203,7 @@ function Select-UiRegressionDeviceTab {
     $byId = { param($Id) $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Id)) }
     $item = & $byId "Device${Tab}Tab"
-    # The tab bar scrolls with the page; only a hidden Details page removes its peers.
+    # The tab bar stays in the fixed header; only a hidden Details page removes its peers.
     if (-not $item) {
         if ($IfOpen) { return $false }
         throw "Device Details is not open, so its $Tab tab cannot be selected."
@@ -244,6 +251,22 @@ function Show-UiRegressionDeviceTabFor {
     if (-not $item -or
         $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Current.IsSelected) { return $false }
     Select-UiRegressionDeviceTab -Root $Root -Tab $tab
+}
+
+# The Device Details body starts one 16-DIP row gap below its fixed header. Its ScrollViewer's own UIA
+# rectangle can extend to the window top, so positioning uses the rendered header instead.
+function Get-UiRegressionDeviceDetailsBodyTop {
+    param([Parameter(Mandatory)] $Root, [Parameter(Mandatory)][double] $Scale)
+    $bottoms = foreach ($id in @("DeviceBackButton", "DeviceOverviewTab", "DeviceStatusText")) {
+        $element = $Root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $id))
+        if (-not $element -or $element.Current.IsOffscreen) { continue }
+        $bounds = $element.Current.BoundingRectangle
+        if (-not $bounds.IsEmpty -and $bounds.Height -gt 0) { $bounds.Bottom }
+    }
+    if (@($bottoms).Count -eq 0) { return $null }
+    return ($bottoms | Measure-Object -Maximum).Maximum + 16 * $Scale
 }
 
 function Find-UiRegressionElement {
