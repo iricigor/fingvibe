@@ -30,7 +30,7 @@
     "Only the 14 main/tool headers and these 3 identity headers use PageHeaderRowStyle, and DeviceDetailValue applies the shared title style instead of ValueFontSize.",
     "Natively, Device details (100%, 200% text and high contrast) and Person/Room details (sidebar flows) place the entity icon 16 DIP after Back and the title 76 DIP after Back's right edge within 1 DIP, centered with Back, with the 48-DIP device icon, the status under the title and the short-name badge beneath the icon slot; wide Device Details tabs stay below the identity header.",
     "Back destinations and names (Back to devices, Back to Room map, Back to people and rooms), automation IDs and Get-UiRegressionDeviceDetailsBodyTop's tabs-based body top are unchanged.",
-    "Device linking focuses the fixed header Back control while measured scrolling runs, then focuses and selects the revealed choice without weakening visibility assertions or accepting an unchanged scroll percentage.",
-    "Additional-services script coverage can run after other PowerShell selectors in the same process without redefining the existing SidebarReviewKeyboard test type."
+    "Additional-services script coverage can run after other PowerShell selectors in the same process without redefining the existing SidebarReviewKeyboard test type.",
+    "Measured positioning reissues an unchanged scroll request up to twice, after its existing 750-ms settle wait, before failing with 'did not move'; Device linking keeps main's focus-then-position order, and no visibility assertion is weakened."
   ]
 }

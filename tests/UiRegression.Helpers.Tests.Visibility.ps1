@@ -122,6 +122,36 @@
     $before = $positions.Count
     Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*did not move after a measured scroll adjustment*'
     Assert-Regression ($positions.Count -eq $before + 1) 'An accepted scroll percentage without rendered movement must fail, not repeat or masquerade as visibility.'
+    # #670: a request WinUI never applied (unchanged percentage) is reissued, and succeeds once it takes effect.
+    $scroll.MoveBounds = $true
+    $scroll.Current.VerticalScrollPercent = 0.0
+    $first.Current.BoundingRectangle = New-TestRectangle 10 900 100 20
+    $last.Current.BoundingRectangle = New-TestRectangle 10 1100 100 30
+    $script:ignoredRequests = 1
+    $scroll | Add-Member -Force ScriptMethod SetScrollPercent {
+        param($Horizontal, $Percent)
+        $positions.Add($Percent)
+        if ($script:ignoredRequests -gt 0) { $script:ignoredRequests--; return }
+        $delta = ($Percent - $this.Current.VerticalScrollPercent) * 12
+        $this.Current.VerticalScrollPercent = $Percent
+        foreach ($target in @($first, $last)) {
+            $bounds = $target.Current.BoundingRectangle
+            $target.Current.BoundingRectangle = New-TestRectangle $bounds.Left ($bounds.Top - $delta) $bounds.Width $bounds.Height
+        }
+    }
+    $before = $positions.Count
+    $arguments.TimeoutMilliseconds = 5000
+    $result = Show-UiRegressionScrollTargets @arguments
+    Assert-Regression ($result -eq $first -and $positions.Count -eq $before + 2 -and $last.Current.BoundingRectangle.Bottom -eq 290) `
+        'An unapplied scroll request must be reissued once and then accepted only from the rendered geometry.'
+    $script:ignoredRequests = 99
+    $scroll.Current.VerticalScrollPercent = 0.0
+    $first.Current.BoundingRectangle = New-TestRectangle 10 900 100 20
+    $last.Current.BoundingRectangle = New-TestRectangle 10 1100 100 30
+    $before = $positions.Count
+    Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*did not move after a measured scroll adjustment*'
+    Assert-Regression ($positions.Count -eq $before + 3) 'A request that is never applied is reissued at most twice before failing.'
+    $arguments.TimeoutMilliseconds = 2000
     $scroll.Current.VerticallyScrollable = $false
     Assert-RegressionFailure { Show-UiRegressionScrollTargets @arguments } '*non-scrollable viewport*'
 

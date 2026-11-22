@@ -164,10 +164,6 @@ function Show-Link([string] $Id) {
     $call = Start-UiRegressionCall positioning
     try {
         Wait-Link { Find-Link DeviceDetailsScroll -Optional } "device details scroll viewer"
-        # A focused choice can make WinUI snap the scroller back to that choice when a different
-        # control needs more clearance. Keep focus on the fixed header while measured scrolling runs.
-        $back = Find-Link DeviceBackButton -Optional
-        if ($back -and $back.Current.IsKeyboardFocusable) { $back.SetFocus() }
         $null = Show-UiRegressionScrollTargets -Description "Device-linking control '$Id'" `
             -GetViewport { Find-Link DeviceDetailsScroll -Optional } `
             -GetTargets { Find-Link $Id -Optional } `
@@ -179,9 +175,11 @@ function Show-Link([string] $Id) {
 }
 
 function Invoke-Link([string] $Id) {
-    $target = Show-Link $Id
+    # Device Details brings the focused control into view, which can revert a programmatic scroll away
+    # from earlier keyboard focus; focus the action first, as a keyboard user would, then verify visibility.
+    $target = Find-Link $Id
     if ($target.Current.IsKeyboardFocusable) { $target.SetFocus() }
-    $target.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    (Show-Link $Id).GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
 }
 
 function Save-LinkCapture([string] $Name, [string] $Control = "MergeMacAddresses") {
@@ -251,9 +249,10 @@ function Close-LinkPicker {
 }
 
 function Select-LinkChoice([string] $Id) {
-    $target = Show-Link $Id
+    # As in Invoke-Link: a previously focused choice would be brought back into view and revert the scroll.
+    $target = Find-Link $Id
     if ($target.Current.IsKeyboardFocusable) { $target.SetFocus() }
-    $target.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+    (Show-Link $Id).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
     Wait-Link {
         $choice = Find-Link $Id -Optional
         $choice -and $choice.GetCurrentPattern(

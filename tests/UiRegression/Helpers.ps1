@@ -1,4 +1,4 @@
-﻿function Wait-UiRegressionState {
+function Wait-UiRegressionState {
     param(
         [Parameter(Mandatory)][scriptblock] $Condition,
         [Parameter(Mandatory)][string] $Description,
@@ -69,7 +69,7 @@ function Show-UiRegressionScrollTargets {
     )
     $state = @{
         Moves = 0; Geometry = $null; MissingBoundsMoves = 0; Direction = 0; Reversals = 0; LastMove = 0
-        MovedAt = $null; StartPercent = $null; RequestedPercent = $null
+        MovedAt = $null; StartPercent = $null; RequestedPercent = $null; Reissues = 0
         StableGeometry = $null; StableSince = $null
     }
     $targetDescription = $Description
@@ -166,6 +166,17 @@ function Show-UiRegressionScrollTargets {
             if ($geometry -eq $state.Geometry) {
                 # WinUI can apply a UIA scroll after the next observation; wait briefly without reissuing it.
                 if ($state.MovedAt.ElapsedMilliseconds -lt 750) { return $null }
+                # A request WinUI never applied (the percentage itself is unchanged, for example because a focus-driven
+                # bring-into-view was still settling) is reissued up to twice (#670). An accepted percentage without
+                # rendered movement still fails immediately, so a reissue can never masquerade as visibility.
+                if ($state.Reissues -lt 2 -and
+                    [Math]::Abs($scroll.Current.VerticalScrollPercent - $state.StartPercent) -lt 0.001) {
+                    $state.Reissues++
+                    $state.MovedAt = [Diagnostics.Stopwatch]::StartNew()
+                    Write-Host "Reissuing ${targetDescription}: still at $($scroll.Current.VerticalScrollPercent)%, requesting $($state.RequestedPercent)% again."
+                    $scroll.SetScrollPercent(-1, $state.RequestedPercent)
+                    return $null
+                }
                 throw "$targetDescription did not move after a measured scroll adjustment (requested $($state.RequestedPercent)% from $($state.StartPercent)%; now $($scroll.Current.VerticalScrollPercent)%)."
             }
             if ($state.Moves -ge 8) { throw "$targetDescription did not settle after eight measured scroll adjustments." }
@@ -179,6 +190,7 @@ function Show-UiRegressionScrollTargets {
             if ($extent -le 0) { throw "$targetDescription has an invalid scroll extent." }
             $percent = [Math]::Max(0.0, [Math]::Min(100.0, $scroll.Current.VerticalScrollPercent + 100 * $delta / $extent))
             $state.Geometry = $geometry
+            $state.Reissues = 0
             $state.Moves++
             $state.LastMove = [Math]::Sign($percent - $scroll.Current.VerticalScrollPercent)
             $state.StartPercent = $scroll.Current.VerticalScrollPercent
