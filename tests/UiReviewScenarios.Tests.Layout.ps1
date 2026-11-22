@@ -133,7 +133,7 @@
         @{ Id = "ScheduledScansSection"; Type = "Expander"; Summary = "ScheduledScansSummary" },
         @{ Id = "AboutSettingsButton"; Type = "Button"; Summary = "AboutSummary" }
     )) {
-        $card = $cards.SelectSingleNode("./*[@*[local-name()='Name']='$($entry.Id)']")
+        $card = $cards.SelectSingleNode(".//*[@*[local-name()='Name']='$($entry.Id)']")
         $header = $card.SelectSingleNode(".//*[local-name()='Grid' and @Style='{StaticResource SettingsCardHeaderStyle}']")
         if ($card.LocalName -cne $entry.Type -or -not $header -or
             $header.SelectSingleNode("./*[local-name()='Grid.ColumnDefinitions']/*[1]").GetAttribute("Width") -cne "32" -or
@@ -141,6 +141,17 @@
             -not $header.SelectSingleNode(".//*[@*[local-name()='Name']='$($entry.Summary)' and @Style='{StaticResource SettingsCardSummaryStyle}']")) {
             throw "$($entry.Id) must preserve its native interaction and use the shared icon/text header treatment."
         }
+    }
+    $aboutRow = $cards.SelectSingleNode("./*[local-name()='Grid' and @*[local-name()='Name']='AboutSettingsRow']")
+    $settingsUpdate = $aboutRow.SelectSingleNode("./*[local-name()='Button' and @*[local-name()='Name']='SettingsUpdateNowButton']")
+    $aboutButton = $aboutRow.SelectSingleNode("./*[local-name()='Button' and @*[local-name()='Name']='AboutSettingsButton']")
+    if (-not $aboutRow -or -not $aboutButton -or -not $settingsUpdate -or
+        $aboutButton.ParentNode -ne $aboutRow -or $settingsUpdate.ParentNode -ne $aboutRow) {
+        throw "Settings Update now must remain a sibling action, not a nested About row control."
+    }
+    if ($settingsUpdate.GetAttribute("Content") -cne "Update now" -or
+        $settingsUpdate.GetAttribute("Click") -cne "SettingsUpdateNowButton_Click") {
+        throw "Settings must expose the shared Update now action."
     }
     $scheduled = $settings.SelectSingleNode("//*[@*[local-name()='Name']='ScheduledScansSection']")
     $monitorSwitch = $scheduled.SelectSingleNode(".//*[@*[local-name()='Name']='NetworkMonitoringSwitch']")

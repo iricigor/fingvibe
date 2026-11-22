@@ -84,9 +84,9 @@ names provide full values when table text is shortened.
 ## Check for updates
 
 Open **Settings > About FingVibe & updates**. Official stable builds check the
-latest published stable GitHub release one minute after startup, then five minutes
+latest published stable GitHub release one minute after startup, then ten minutes
 after each completed check while FingVibe remains open. **Check for updates** uses
-the same check and resets the next deadline to five minutes after completion,
+the same check and resets the next deadline to ten minutes after completion,
 including on failure. GitHub rate-limit delays take precedence. Checking never
 downloads, installs, closes FingVibe, or interrupts scanning with a popup.
 
@@ -98,23 +98,32 @@ version/time alongside the latest failure; only a successful no-newer result cle
 the indicators. Development, PR and Test builds do not check or install updates:
 their manual stable-release link warns that their versions are not comparable.
 
-**Download Setup** is offered only for a verified per-user installation whose
-registration, current directory, installed version and installer ownership match.
-Otherwise **Download portable ZIP** uses the manual replacement path; an uncertain
+For a verified per-user installation, **Update now** is offered in About and next
+to the Settings About row. After one confirmation it downloads the Setup with
+progress and Cancel, revalidates it, and hands it to the close-first installer.
+The existing verification requires a matching per-user registration, current
+directory, installed version and installer ownership. Otherwise **Download
+portable ZIP** uses the manual replacement path; an uncertain
 or portable copy is never silently converted into an installation. Missing assets
-lead to the release page instead. Downloads show progress, support cancellation
-and reject incomplete/changed files. Completed files are saved under
-`%LOCALAPPDATA%\FingVibe\Updates\<unique directory>`; downloaded executables retain
-Internet security markings. A download failure popup links to GitHub Releases.
+lead to the release page instead. Downloads reject incomplete/changed files.
+Completed files are saved under `%LOCALAPPDATA%\FingVibe\Updates\<unique
+directory>`; downloaded executables retain Internet security markings. A
+download failure popup links to GitHub Releases.
 
-For a verified installation, **Restart and update** asks before closing FingVibe.
-A bounded helper then waits for the application process to exit, rechecks the
-downloaded Setup's identity and Internet security marking, runs the existing
-per-user Setup silently enough to avoid the normal wizard, and reopens the
-verified installation after Setup reports success. SmartScreen, Defender, UAC,
-organization policy or cancellation may still require attention; no protection
-is bypassed. The originating process identity, expected version, installer
-identity and observed install/relaunch outcome are recorded under
+**Update details** is collapsed by default and contains exact check times,
+deployment and helper diagnostics. The main Updates card keeps one version/status
+sentence and a relative **Last checked** value; failures and Windows security
+warnings stay visible outside the expander.
+
+After FingVibe reopens, About reads the delivered #666 attempt/outcome record:
+it reports **Updated to X.Y.Z** only when the running installation matches the
+recorded target, otherwise it reports the failure and recovery path. Launching
+Setup alone does not prove installation completed.
+
+Update now replaces the previous separate Download Setup and Restart and update
+steps. SmartScreen, Defender, UAC, organization policy or cancellation may still require
+attention; no protection is bypassed. The originating process identity, expected
+version, installer identity and observed install/relaunch outcome are recorded under
 `%LOCALAPPDATA%\FingVibe\Updates` so a later launch can distinguish an accepted
 request or process launch from a completed installation. A setup or relaunch
 failure is explicit and leaves the record for recovery; saved user data is

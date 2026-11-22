@@ -21,6 +21,7 @@ public sealed class ReleaseUpdateActionsTests
         Assert.Equal(installed, fixture.Actions.Deployment.IsInstalled);
         Assert.Equal(installed ? ".exe" : ".zip", Path.GetExtension(fixture.Actions.SelectedAsset!.Name));
         Assert.False(fixture.Actions.CanInstall);
+        Assert.Equal(installed, fixture.Actions.CanUpdateNow);
         await fixture.Actions.DownloadAsync(new Progress<double>());
         Assert.True(File.Exists(fixture.Actions.DownloadedPath));
         Assert.Equal(installed, fixture.Actions.CanInstall);
@@ -82,6 +83,24 @@ public sealed class ReleaseUpdateActionsTests
         await File.WriteAllTextAsync(path + ":Zone.Identifier", "[ZoneTransfer]\r\nZoneId=0\r\n");
         await Assert.ThrowsAsync<InvalidDataException>(() =>
             fixture.Actions.StartInstallHandoffAsync(relaunch: true));
+    }
+
+    [WindowsUpdateFact]
+    public async Task UpdateNowDownloadsVerifiesAndUsesOneHandoffForInstalledCopies()
+    {
+        using var fixture = new Fixture("installed");
+        await fixture.Session.CheckAsync();
+        Assert.True(fixture.Actions.CanUpdateNow);
+        Assert.False(fixture.Actions.CanInstall);
+        await Assert.ThrowsAsync<Win32Exception>(() =>
+            fixture.Actions.UpdateNowAsync(new Progress<double>()));
+        Assert.True(File.Exists(fixture.Actions.DownloadedPath));
+        Assert.True(fixture.Actions.CanInstall);
+        var recordPath = Assert.IsType<string>(fixture.Actions.InstallHandoffRecordPath);
+        var record = await ReleaseInstallHandoffStore.ReadAsync(recordPath);
+        Assert.NotNull(record);
+        Assert.True(record.RelaunchRequested);
+        Assert.Equal(ReleaseInstallHandoffState.Failed, record.State);
     }
 
     [WindowsUpdateFact]

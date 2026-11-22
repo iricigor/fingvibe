@@ -27,19 +27,13 @@ public sealed partial class AboutPage
                 : "The installed release version could not be verified. No automatic checks or installation are offered; use the stable releases link for manual review.";
         updates.Changed += (_, state) => DispatcherQueue.TryEnqueue(() => RenderUpdateState(state));
         RenderUpdateState(updates.State);
+        _ = RenderInstallOutcomeAsync();
     }
 
     private void RenderUpdateState(UpdateState state)
     {
-        UpdateStatus.Text = state.IsChecking ? "Checking for updates..." : state.Outcome switch
-        {
-            UpdateOutcome.NotChecked => "Updates have not been checked yet.",
-            UpdateOutcome.Current when state.Latest?.Version < _updates!.InstalledVersion => "No newer stable release is available.",
-            UpdateOutcome.Current => "You are on the latest version",
-            UpdateOutcome.Available => "A newer version is available",
-            UpdateOutcome.Failed => "Unable to determine the latest version",
-            _ => "This build does not use stable-release update checks."
-        };
+        UpdateStatus.Text = ReleaseUpdatePresentation.Status(state, _updates!.InstalledVersion);
+        UpdateLastChecked.Text = ReleaseUpdatePresentation.LastChecked(state.CheckedAt, DateTimeOffset.UtcNow);
         var details = new List<string>();
         if (state.Latest is { } release) details.Add($"Latest known stable version: {release.VersionText}.");
         if (state.ConfirmedUpdate is { } confirmed)
@@ -54,14 +48,18 @@ public sealed partial class AboutPage
         CheckUpdatesButton.IsEnabled = !state.IsChecking;
         UpdateReleaseLink.NavigateUri = state.ConfirmedUpdate?.PageUri ?? StableRelease.ReleasesUri;
         UpdateReleaseLink.Content = state.ConfirmedUpdate is null ? "Stable releases (opens in browser)" : "Release notes and downloads (opens in browser)";
-        DownloadUpdateButton.Visibility = _actions?.SelectedAsset is null ? Visibility.Collapsed : Visibility.Visible;
+        var canUpdateNow = _actions?.CanUpdateNow == true;
+        UpdateSecurityWarning.Visibility = canUpdateNow ? Visibility.Visible : Visibility.Collapsed;
+        DownloadUpdateButton.Visibility = !canUpdateNow && _actions?.SelectedAsset is not null
+            && _actions?.Deployment.IsInstalled == false ? Visibility.Visible : Visibility.Collapsed;
         DownloadUpdateButton.IsEnabled = _actions is { IsDownloading: false } && !state.IsChecking;
         DownloadUpdateButton.Content = new TextBlock
         {
             Text = _actions?.Deployment.IsInstalled == true ? "Download Setup" : "Download portable ZIP",
             TextWrapping = TextWrapping.Wrap
         };
-        InstallUpdateButton.Visibility = _actions?.CanInstall == true ? Visibility.Visible : Visibility.Collapsed;
+        InstallUpdateButton.Visibility = canUpdateNow ? Visibility.Visible : Visibility.Collapsed;
+        InstallUpdateButton.IsEnabled = canUpdateNow && !state.IsChecking;
     }
 
     private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
@@ -94,20 +92,7 @@ public sealed partial class AboutPage
             Trace.TraceWarning($"Update download failed: {exception}");
             if (_actions.IsDisposed) return;
             UpdateDownloadStatus.Text = $"Download failed: {exception.Message}";
-            var content = new StackPanel { Spacing = 12 };
-            content.Children.Add(new TextBlock { Text = $"The update could not be downloaded. {exception.Message}", TextWrapping = TextWrapping.Wrap });
-            content.Children.Add(new HyperlinkButton
-            {
-                Content = "Download manually from GitHub Releases",
-                NavigateUri = new Uri("https://github.com/iricigor/fingvibe/releases")
-            });
-            var dialog = new ContentDialog
-            {
-                Name = "UpdateDownloadFailureDialog", XamlRoot = XamlRoot,
-                Title = "Update download failed", Content = content, CloseButtonText = "Close"
-            };
-            AutomationProperties.SetAutomationId(dialog, "UpdateDownloadFailureDialog");
-            await dialog.ShowAsync();
+            await ShowDownloadFailureAsync(exception);
         }
         finally
         {
@@ -118,14 +103,14 @@ public sealed partial class AboutPage
 
     private void CancelDownload_Click(object sender, RoutedEventArgs e) => _actions?.CancelDownload();
 
-    private async void InstallUpdate_Click(object sender, RoutedEventArgs e)
+    internal async Task UpdateNowAsync()
     {
-        if (_actions is null) return;
+        if (_actions is null || !_actions.CanUpdateNow) return;
         var confirmationDialog = new ContentDialog
         {
-            Name = "UpdateInstallConfirmationDialog", XamlRoot = XamlRoot, Title = "Restart and update FingVibe?",
-            Content = $"FingVibe will close first, then a bounded helper will reverify and run {_actions.DownloadedPath}. After Setup completes, FingVibe will reopen from its verified installation directory. SmartScreen, Defender, UAC or organization policy may still require interaction. Saved data is preserved. The helper records the actual outcome; launching Setup alone does not mean installation completed.",
-            PrimaryButtonText = "Restart and update", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close
+            Name = "UpdateInstallConfirmationDialog", XamlRoot = XamlRoot, Title = "Update FingVibe now?",
+            Content = "FingVibe will close, update, and reopen. Saved data is preserved. Windows may still ask for confirmation.",
+            PrimaryButtonText = "Update now", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close
         };
         AutomationProperties.SetAutomationId(confirmationDialog, "UpdateInstallConfirmationDialog");
         var confirmation = await confirmationDialog.ShowAsync();
@@ -133,13 +118,35 @@ public sealed partial class AboutPage
         InstallUpdateButton.IsEnabled = false;
         try
         {
+            UpdateDownloadProgress.Value = 0;
+            UpdateDownloadProgress.Visibility = CancelUpdateDownloadButton.Visibility = Visibility.Visible;
+            UpdateDownloadStatus.Text = "Downloading update...";
+            if (!_actions.CanInstall)
+            {
+                try
+                {
+                    await _actions.DownloadAsync(new Progress<double>(value => UpdateDownloadProgress.Value = value));
+                }
+                catch (OperationCanceledException)
+                {
+                    UpdateDownloadStatus.Text = "Download cancelled or timed out. No incomplete file can be installed.";
+                    return;
+                }
+                catch (Exception downloadException) when (downloadException is IOException or InvalidDataException
+                    or HttpRequestException or UnauthorizedAccessException or SecurityException)
+                {
+                    UpdateDownloadStatus.Text = $"Download failed: {downloadException.Message}";
+                    await ShowDownloadFailureAsync(downloadException);
+                    return;
+                }
+            }
             await _actions.StartInstallHandoffAsync(relaunch: true);
             _closeForInstaller?.Invoke();
         }
-        catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException
+        catch (Exception exception) when (exception is IOException or InvalidDataException or HttpRequestException or UnauthorizedAccessException
             or Win32Exception or InvalidOperationException or SecurityException or OperationCanceledException)
         {
-            Trace.TraceWarning($"Update installer launch failed: {exception}");
+            Trace.TraceWarning($"Update now failed: {exception}");
             if (_actions.IsDisposed) return;
             var recovery = exception is InvalidDataException
                 ? "Do not run the downloaded file. Obtain a fresh update manually from the official GitHub Releases before installation."
@@ -155,8 +162,56 @@ public sealed partial class AboutPage
         }
         finally
         {
+            UpdateDownloadProgress.Visibility = CancelUpdateDownloadButton.Visibility = Visibility.Collapsed;
             InstallUpdateButton.IsEnabled = true;
             if (!_actions.IsDisposed && _updates is not null) RenderUpdateState(_updates.State);
         }
+    }
+
+    private async void InstallUpdate_Click(object sender, RoutedEventArgs e) => await UpdateNowAsync();
+
+    private async Task RenderInstallOutcomeAsync()
+    {
+        if (_actions is null || _updates is null) return;
+        ReleaseInstallHandoffRecord? record = null;
+        string? message = null;
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
+        do
+        {
+            record = await _actions.ReadLatestInstallHandoffAsync();
+            message = ReleaseUpdatePresentation.InstallResult(record, _updates.InstalledVersion,
+                AppContext.BaseDirectory, Environment.ProcessPath);
+            if (record is null || record.Outcome is not null || DateTimeOffset.UtcNow >= deadline) break;
+            await Task.Delay(250);
+        } while (true);
+        if (DispatcherQueue.HasThreadAccess)
+            ApplyInstallOutcome(message);
+        else
+            DispatcherQueue.TryEnqueue(() => ApplyInstallOutcome(message));
+    }
+
+    private async Task ShowDownloadFailureAsync(Exception exception)
+    {
+        var content = new StackPanel { Spacing = 12 };
+        content.Children.Add(new TextBlock { Text = $"The update could not be downloaded. {exception.Message}", TextWrapping = TextWrapping.Wrap });
+        content.Children.Add(new HyperlinkButton
+        {
+            Content = "Download manually from GitHub Releases",
+            NavigateUri = new Uri("https://github.com/iricigor/fingvibe/releases")
+        });
+        var dialog = new ContentDialog
+        {
+            Name = "UpdateDownloadFailureDialog", XamlRoot = XamlRoot,
+            Title = "Update download failed", Content = content, CloseButtonText = "Close"
+        };
+        AutomationProperties.SetAutomationId(dialog, "UpdateDownloadFailureDialog");
+        await dialog.ShowAsync();
+    }
+
+    private void ApplyInstallOutcome(string? message)
+    {
+        UpdateInstallOutcome.Text = message ?? "";
+        UpdateInstallOutcome.Visibility = string.IsNullOrWhiteSpace(message)
+            ? Visibility.Collapsed : Visibility.Visible;
     }
 }

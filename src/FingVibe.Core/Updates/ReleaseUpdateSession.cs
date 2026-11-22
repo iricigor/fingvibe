@@ -106,7 +106,7 @@ public sealed class ReleaseUpdateSession : IDisposable
         {
             if (_stopped) return;
             var now = _clock.GetUtcNow();
-            var next = now.AddMinutes(5);
+            var next = now.AddMinutes(10);
             if (retry is { } later && later > next) next = later;
             var newer = release is not null && release.Version > InstalledVersion;
             _state = _state with

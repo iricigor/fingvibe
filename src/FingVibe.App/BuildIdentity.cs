@@ -21,6 +21,7 @@ internal sealed class BuildIdentity
     public static BuildIdentity Current { get; } = FromAssembly(typeof(BuildIdentity).Assembly);
 
     public string Version { get; }
+    public Version? ParsedVersion { get; }
     public BuildKind Kind { get; }
     public int? PullRequestNumber { get; }
     public string? Commit { get; }
@@ -65,8 +66,10 @@ internal sealed class BuildIdentity
     internal BuildIdentity(string? version, string? kind, string? pullRequest, string? commit, string? buildUrl,
         string? buildTimestamp = null)
     {
-        Version = System.Version.TryParse(version?.Split('+')[0], out var parsedVersion)
-            ? $"v{parsedVersion.Major}.{parsedVersion.Minor}.{Math.Max(0, parsedVersion.Build)}"
+        ParsedVersion = System.Version.TryParse(version?.Split('+')[0], out var parsedVersion)
+            ? parsedVersion : null;
+        Version = ParsedVersion is { } complete
+            ? $"v{complete.Major}.{complete.Minor}.{Math.Max(0, complete.Build)}"
             : "Version unavailable";
         Kind = kind switch
         {

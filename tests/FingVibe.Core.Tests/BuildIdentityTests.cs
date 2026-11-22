@@ -37,6 +37,14 @@ public sealed class BuildIdentityTests
     }
 
     [Fact]
+    public void PreservesFourComponentVersionForUpdateComparison()
+    {
+        var build = new BuildIdentity("1.2.99.1+abc", null, null, null, null);
+        Assert.Equal("v1.2.99", build.Version);
+        Assert.Equal(new Version(1, 2, 99, 1), build.ParsedVersion);
+    }
+
+    [Fact]
     public void AcknowledgmentHidesOnlyRibbonAndDoesNotSurviveNewSession()
     {
         var build = new BuildIdentity("0.0.456", "PullRequest", "67", "abc123", null);
