@@ -203,13 +203,15 @@ try {
         }
     } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $handoffDirectory 'install-handoff.json') -Encoding UTF8
     $phase = Step-UiRegressionPhase $phase 'Updates/background-and-indicators' $ScreenshotDirectory
+    # Hold the GitHub response so the automatic startup check is observable before any time passes.
+    Set-UpdateResponse -Outcome held
     Start-UpdateApp
     Select-UpdateSettings
     Open-UpdateAbout
-    Wait-UpdateText UpdateStatus 'Updates have not been checked yet.'
+    Wait-UpdateText UpdateStatus 'Checking for updates...'
     Wait-UpdateText UpdateInstallOutcome 'Updated to 1.2.99.'
     (Find-UpdateControl OverviewNavItem).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-    Set-UpdateResponse -AdvanceSeconds 60
+    Set-UpdateResponse
     $null = Wait-UiRegressionState { (Find-UpdateSettingsNavigation).Current.ItemStatus -eq 'Update available' } 'background update without About'
     Select-UpdateSettings
     $settingsUpdate = Find-UpdateControl SettingsUpdateNowButton

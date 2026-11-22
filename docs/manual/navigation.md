@@ -84,7 +84,7 @@ names provide full values when table text is shortened.
 ## Check for updates
 
 Open **Settings > About FingVibe & updates**. Official stable builds check the
-latest published stable GitHub release one minute after startup, then ten minutes
+latest published stable GitHub release at startup, then ten minutes
 after each completed check while FingVibe remains open. **Check for updates** uses
 the same check and resets the next deadline to ten minutes after completion,
 including on failure. GitHub rate-limit delays take precedence. Checking never

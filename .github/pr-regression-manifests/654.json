@@ -2,7 +2,7 @@
   "schema": "fingvibe-pr-regression-v1",
   "issue": 654,
   "category": "ui",
-  "changedBehavior": "Verified installed copies use one Update now action from Settings or About; update checks run every ten minutes, About status/details are compact, and the delivered installer handoff outcome is shown after reopening.",
+  "changedBehavior": "Verified installed copies use one Update now action from Settings or About; update checks run at startup and every ten minutes, About status/details are compact, and the delivered installer handoff outcome is shown after reopening.",
   "selectors": [
     "core-tests",
     "ui-regression-helpers",
@@ -15,7 +15,7 @@
   "expectedAssertions": [
     "Installed copies expose a single Update now action in both Settings and About; it confirms once, downloads/verifies, then uses the #666 handoff with relaunch enabled.",
     "Cancellation, tamper or download failure never runs Setup; portable and unverified copies keep ZIP/manual replacement.",
-    "Startup and subsequent update checks use a ten-minute completion-based cadence without overlap, while failures retain any confirmed release.",
+    "The first automatic update check runs at startup and later checks use a ten-minute completion-based cadence without overlap, while failures retain any confirmed release.",
     "About shows one status sentence, relative Last checked and the action; exact timestamps/deployment diagnostics live in collapsed Update details.",
     "The next launch reports Updated to the target or explicit recovery from #666 durable outcome evidence, without popup or forced navigation."
   ]

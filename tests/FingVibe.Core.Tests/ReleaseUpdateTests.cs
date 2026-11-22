@@ -117,23 +117,26 @@ public sealed class ReleaseUpdateTests
             clock.Advance(TimeSpan.FromSeconds(2));
             return Task.FromResult(Release());
         }, clock);
-        clock.Advance(TimeSpan.FromSeconds(30));
         await session.RunDueAsync();
-        Assert.Equal(0, calls);
-        await session.CheckAsync();
-        Assert.Equal(Start.AddSeconds(32).AddMinutes(10), session.State.NextCheckAt);
+        Assert.Equal(1, calls);
+        Assert.Equal(Start.AddSeconds(2).AddMinutes(10), session.State.NextCheckAt);
         clock.Advance(TimeSpan.FromSeconds(30));
         await session.RunDueAsync();
         Assert.Equal(1, calls);
+        await session.CheckAsync();
+        Assert.Equal(Start.AddSeconds(34).AddMinutes(10), session.State.NextCheckAt);
+        clock.Advance(TimeSpan.FromMinutes(9));
+        await session.RunDueAsync();
+        Assert.Equal(2, calls);
         clock.Advance(TimeSpan.FromHours(2));
         await session.RunDueAsync();
         await session.RunDueAsync();
-        Assert.Equal(2, calls);
+        Assert.Equal(3, calls);
         Assert.Equal(clock.GetUtcNow().AddMinutes(10), session.State.NextCheckAt);
     }
 
     [Fact]
-    public async Task FailedManualBeforeStartupAlsoResetsSchedule()
+    public async Task FailedManualCheckAlsoResetsSchedule()
     {
         var clock = new FakeTimeProvider(Start);
         using var session = new ReleaseUpdateSession(true, "1.2.99",
@@ -146,7 +149,7 @@ public sealed class ReleaseUpdateTests
     }
 
     [Fact]
-    public async Task AutomaticChecksStartAtOneMinuteThenRecurTenMinutesAfterCompletion()
+    public async Task AutomaticChecksRunAtStartupThenRecurTenMinutesAfterCompletion()
     {
         var clock = new FakeTimeProvider(Start);
         var calls = 0;
@@ -155,18 +158,19 @@ public sealed class ReleaseUpdateTests
             calls++;
             return Task.FromResult(Release());
         }, clock);
-        clock.Advance(TimeSpan.FromSeconds(59));
-        await session.RunDueAsync();
-        Assert.Equal(0, calls);
-        clock.Advance(TimeSpan.FromSeconds(1));
+        Assert.Equal(Start, session.State.NextCheckAt);
         await session.RunDueAsync();
         Assert.Equal(1, calls);
-        clock.Advance(TimeSpan.FromMinutes(10));
+        clock.Advance(TimeSpan.FromMinutes(10) - TimeSpan.FromSeconds(1));
         await session.RunDueAsync();
+        Assert.Equal(1, calls);
+        clock.Advance(TimeSpan.FromSeconds(1));
+        await session.RunDueAsync();
+        Assert.Equal(2, calls);
         clock.Advance(TimeSpan.FromMinutes(10));
         await session.RunDueAsync();
         Assert.Equal(3, calls);
-        Assert.Equal(Start.AddMinutes(31), session.State.NextCheckAt);
+        Assert.Equal(Start.AddMinutes(30), session.State.NextCheckAt);
     }
 
     [Theory]
