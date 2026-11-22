@@ -50,6 +50,9 @@ internal sealed class ReleaseUpdateActions : IDisposable
     public string? BackgroundDownloadError { get; private set; }
     public bool IsDisposed => _disposed;
     public string? DownloadedPath => _downloaded?.Path;
+    internal ReleaseUpdateDownloadSnapshot? Downloaded => _downloaded is { } downloaded
+        ? new(downloaded.Path, downloaded.Hash, downloaded.Asset.Size, downloaded.Version)
+        : null;
     public string? InstallHandoffRecordPath { get; private set; }
     public string LatestInstallHandoffRecordPath { get; }
     public bool CanInstall => !_disposed && session.IsEligible && Deployment.IsInstalled && !IsDownloading
@@ -63,6 +66,41 @@ internal sealed class ReleaseUpdateActions : IDisposable
 
     private ReleaseAsset? SelectAsset(StableRelease release) => Deployment.IsInstalled ? release.Setup : release.Portable;
     private bool IsForegroundDownloading => IsDownloading && !_backgroundDownload;
+
+    internal async Task<bool> RestoreDownloadedAsync(ReleaseUpdateSchedule schedule, StableRelease release)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!schedule.IsArmed || !session.IsEligible || !Deployment.IsInstalled ||
+            SelectAsset(release) is not { } asset ||
+            !StableRelease.TryParseVersion(schedule.Version, out var expectedVersion) ||
+            expectedVersion != release.Version)
+            return false;
+        try
+        {
+            var root = Path.GetFullPath(DownloadRoot()).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            var path = Path.GetFullPath(schedule.InstallerPath!);
+            if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase) ||
+                Path.GetFileName(path) != asset.Name || !File.Exists(path))
+                return false;
+            var file = new FileInfo(path);
+            if (file.Length != schedule.InstallerSize || file.Length != asset.Size) return false;
+            await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
+            var hash = Convert.ToHexString(await SHA256.HashDataAsync(stream, _lifetime.Token).ConfigureAwait(false));
+            if (!hash.Equals(schedule.InstallerSha256, StringComparison.OrdinalIgnoreCase) ||
+                (asset.Sha256 is not null && !hash.Equals(asset.Sha256, StringComparison.OrdinalIgnoreCase)) ||
+                !(await File.ReadAllTextAsync(path + ":Zone.Identifier", _lifetime.Token).ConfigureAwait(false))
+                    .Split('\n').Any(line => line.Trim() == "ZoneId=3"))
+                return false;
+            _downloaded = (path, hash, asset, release.Version);
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+            or SecurityException or OperationCanceledException or ArgumentException or NotSupportedException)
+        {
+            Trace.TraceWarning($"Scheduled update file could not be restored: {exception}");
+            return false;
+        }
+    }
 
     public async Task DownloadAsync(IProgress<double> progress)
     {
@@ -137,8 +175,11 @@ internal sealed class ReleaseUpdateActions : IDisposable
         try
         {
             var root = DownloadRoot();
-            var directory = background ? StagedDirectory(root, release.Version) : Path.Combine(root, Guid.NewGuid().ToString("N"));
-            if (background && Directory.Exists(directory))
+            // Installed copies keep one per-version Setup that startup cleanup preserves, so a scheduled
+            // or restarted update can re-verify it instead of downloading again; portable ZIPs stay unique.
+            var staged = background || Deployment.IsInstalled;
+            var directory = staged ? StagedDirectory(root, release.Version) : Path.Combine(root, Guid.NewGuid().ToString("N"));
+            if (staged && Directory.Exists(directory))
                 Directory.Delete(directory, recursive: true);
             var progress = new Progress<double>(value =>
             {
@@ -163,9 +204,10 @@ internal sealed class ReleaseUpdateActions : IDisposable
         catch (Exception exception) when (exception is IOException or InvalidDataException or HttpRequestException
             or UnauthorizedAccessException or SecurityException or OperationCanceledException)
         {
+            if (background || Deployment.IsInstalled)
+                DeleteStagedDirectoryFor(release.Version);
             if (background)
             {
-                DeleteStagedDirectoryFor(release.Version);
                 BackgroundDownloadError = exception is OperationCanceledException
                     ? "The background update download was cancelled."
                     : exception.GetBaseException().Message;
@@ -586,3 +628,6 @@ internal sealed class ReleaseUpdateActions : IDisposable
         session.Changed -= Session_Changed;
     }
 }
+
+internal sealed record ReleaseUpdateDownloadSnapshot(
+    string Path, string Sha256, long Size, Version Version);

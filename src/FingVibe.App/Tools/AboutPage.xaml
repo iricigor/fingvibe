@@ -80,6 +80,8 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock x:Name="UpdateInstallOutcome" TextWrapping="Wrap"
                                AutomationProperties.LiveSetting="Polite" Visibility="Collapsed" />
+                    <TextBlock x:Name="UpdateScheduledStatus" TextWrapping="Wrap"
+                               AutomationProperties.LiveSetting="Polite" Visibility="Collapsed" />
                     <TextBlock x:Name="UpdateSecurityWarning" TextWrapping="Wrap" Visibility="Collapsed"
                                Text="Windows may still ask for confirmation. SmartScreen, Defender, UAC or organization policy is not bypassed."
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
@@ -105,6 +107,9 @@
                             Visibility="Collapsed" HorizontalAlignment="Left" />
                     <Button x:Name="InstallUpdateButton" Content="Update now" Click="InstallUpdate_Click"
                             Visibility="Collapsed" HorizontalAlignment="Left" />
+                    <Button x:Name="CancelScheduledUpdateButton" Content="Cancel scheduled update"
+                            Click="CancelScheduledUpdate_Click" Visibility="Collapsed"
+                            AutomationProperties.Name="Cancel scheduled update" HorizontalAlignment="Left" />
                     <!-- Untrusted release text renders only as plain TextBlocks; links open only from explicit GitHub buttons. -->
                     <Expander x:Name="ReleaseNotesExpander" IsExpanded="False" HorizontalAlignment="Stretch"
                               HorizontalContentAlignment="Stretch" Visibility="Collapsed">

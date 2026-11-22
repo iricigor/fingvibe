@@ -10,9 +10,12 @@ your preference sections. Official stable builds check for newer stable releases
 automatically while open, and offer **Check for updates**. On an unmetered
 connection, verified installed copies may silently download and stage the
 confirmed Setup in the background; metered or unknown-cost connections do not.
-**Update now** still requires confirmation, revalidates or downloads the Setup,
-closes FingVibe before installation, records the observed installer/relaunch
-result and reopens the verified installation after success. About keeps a compact
+**Update now** still requires confirmation. Choose **Restart now** to reuse or
+download and revalidate the Setup, close FingVibe, run Setup and reopen after
+success, or choose **When I close** to keep the verified update for the next
+completed normal close. The postponed version and its verified installer record
+survive restarts; cancelling restores the ordinary available-update state.
+About keeps a compact
 status summary and reports the result after reopening. An available update's notes
 appear in a collapsed **What's new** expander as plain text, with a link to the full
 notes on GitHub. Portable copies use manual ZIP
