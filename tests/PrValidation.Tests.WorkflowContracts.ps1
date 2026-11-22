@@ -33,7 +33,7 @@ try {
         $versionScript = $versionStep.Groups["script"].Value.Replace('${{ github.run_number }}', "$runNumber")
         & ([scriptblock]::Create($versionScript))
         $identity = Get-Content -LiteralPath $releaseOutput -Raw | ConvertFrom-StringData
-        Assert-Equal @($identity.number, $identity.tag) @("1.4.$runNumber", "v1.4.$runNumber") "Generated feature version and tag retain the run number"
+        Assert-Equal @($identity.number, $identity.tag) @("1.5.$runNumber", "v1.5.$runNumber") "Generated feature version and tag retain the run number"
         $releaseScript = $releaseStep.Groups["script"].Value.
             Replace('${{ steps.version.outputs.number }}', $identity.number).
             Replace('${{ steps.version.outputs.tag }}', $identity.tag).
@@ -47,7 +47,7 @@ try {
             "artifacts\FingVibe-$($identity.number)-win-x64.zip",
             "artifacts\installer\FingVibe-$($identity.number)-win-x64-Setup.exe",
             "--target", "fixture-commit", "--title", "FingVibe $($identity.number)",
-            "--notes-file", "docs\release-notes-1.4.md", "--generate-notes"
+            "--notes-file", "docs\release-notes-1.5.md", "--generate-notes"
         ) "Release artifacts, title and tag share the generated identity and prepend curated notes"
         $global:PrValidationReleaseState.Existing = $true
         $global:PrValidationReleaseState.Calls.Clear()

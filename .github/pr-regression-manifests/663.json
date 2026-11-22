@@ -1,0 +1,18 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 663,
+  "category": "validation",
+  "changedBehavior": "Releases move from the 1.4 feature family to 1.5: release.yml generates version 1.5.<run> and tag v1.5.<run> and prepends docs\\release-notes-1.5.md to the release body. The new changelog covers every merged change after #584 through this PR. Installer lifecycle tests use feature family 1.5, so they check a higher-build 1.4 installation upgrading to 1.5 and the rejected 1.4 downgrade. Workflow-contract tests, the docs\\reference.md release and installer sections, and the tools\\README.md example no longer assume 1.4. CI's separate 0.0 identity is unchanged.",
+  "selectors": [
+    "core-tests",
+    "pr-validation",
+    "installer-script",
+    "documentation-tests"
+  ],
+  "expectedAssertions": [
+    "The release identity step yields number 1.5.<run> and tag v1.5.<run>, and the release is created with --notes-file docs\\release-notes-1.5.md plus --generate-notes (PrValidation WorkflowContracts).",
+    "Installer.Lifecycle.Tests.ps1 uses FeatureFamily 1.5 and derives previous family 1.4: a higher-build 1.4 fixture upgrades to 1.5 with saved data unchanged, and the 1.4 downgrade is rejected.",
+    "docs\\release-notes-1.5.md exists and links every merged application-related PR after #584 through this PR; documentation checks pass with the updated reference.md and tools\\README.md.",
+    "CI's 0.0 identity and the installer script are unchanged."
+  ]
+}
