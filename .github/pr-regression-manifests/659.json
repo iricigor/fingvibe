@@ -1,0 +1,34 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 659,
+  "category": "ui",
+  "changedBehavior": "Device Details' Overview/History tabs move from their own row below the header to the right end of the shared identity header row and adopt one App-level D3 quiet segmented style (PageHeaderTabTrackStyle, PageHeaderTabsStyle, PageHeaderTabItemStyle): a neutral 48-DIP track (PageHeaderControlHeight, 1-DIP border, 8-DIP corners, 4-DIP padding) of 38-DIP items whose selected state is a raised neutral surface with an elevation border, semibold primary text and a 16x3 accent pill, with unselected items as secondary text and no fill; high contrast uses system highlight colours. A hidden semibold copy keeps item widths fixed across selection. Item padding matches Back's so the track and Back grow alike with text. The local SelectorBarItem theme overrides and the DetailsSectionSelection visual states are removed. The device name uses a new single-line PageHeaderSingleLineTitleStyle that truncates with an ellipsis and shows the full name as a tooltip while trimmed. The tabs wrap beneath the header, left-aligned, when the name would keep less than 160 DIP (scaled with text); the body is 16 DIP below the header. Back's look, width and destination are unchanged.",
+  "selectors": [
+    "core-tests",
+    "ui-regression-helpers",
+    "native-pr-matrix",
+    "ui-review-scenarios",
+    "additional-services",
+    "native-sidebar-scan-flows",
+    "native-devices-presentation",
+    "native-devices-columns-sorting",
+    "native-details-summary",
+    "native-details-identity",
+    "native-details-usage",
+    "native-details-observations",
+    "native-details-activity",
+    "native-details-linking",
+    "native-details-link-matches",
+    "native-tools-device-data",
+    "documentation-tests"
+  ],
+  "expectedAssertions": [
+    "DetailsTabsHost is the last child of HeaderGrid in column 3 with PageHeaderTabTrackStyle; DetailsTabs uses PageHeaderTabsStyle and both items use PageHeaderTabItemStyle without local padding, corners or backgrounds; the page grid is Auto,* with RowSpacing 16 and DeviceDetailsScroll in row 1.",
+    "HeaderGrid_SizeChanged places the tabs at row 0/column 3 when the name keeps at least 160 DIP times the text scale, otherwise at row 2/column 0 spanning 4 columns with an 8-DIP top margin.",
+    "App.xaml defines the track, tabs, item and single-line title styles; the item template keeps PART_ContainerRoot, PART_TextVisual and the six CombinedStates, whose selected states set SemiBold, the selected elevation border and the 16x3 pill; all 14 PageHeaderTab* brushes exist in Light, Dark and HighContrast (system colours).",
+    "No SelectorBarItem theme overrides, DetailsSectionSelection states or OverviewSelected/HistorySelected code remain in Device Details.",
+    "Natively, wide Device Details tabs end the identity header row right of Rename device, centred with Back within 2 px, with the track (tabs + 10 DIP) at Back's height; at 480 px they wrap beneath Back, left-aligned and unclipped; at 760 px they stay inside the window.",
+    "Natively, at 100% text the track is 48 DIP within 1 DIP and equals Back's height; at enlarged text it grows with Back (within 4 DIP), centred on the row or wrapped left-aligned beneath Back; the identity header geometry and Back's width are unchanged.",
+    "Tab automation IDs (DeviceDetailsTabs, DeviceOverviewTab, DeviceHistoryTab), keyboard order after Back, default Overview, retained drafts and paging, and Get-UiRegressionDeviceDetailsBodyTop are unchanged."
+  ]
+}

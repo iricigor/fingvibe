@@ -726,7 +726,7 @@
     # 48-DIP icon (short-name badge beneath it), 12 DIP, the name in the shared title style and only existing secondary text.
     $identityHeaders = @(
         @{ View = "DeviceDetailsPageView"; Row = "HeaderGrid"; Back = "DeviceBackButton"; Icon = "DeviceTypeIcon"; Title = "DeviceNameValue"
-            TitleType = "DeviceDetailValue"; Secondary = "DeviceStatusText"; Columns = "Auto,Auto,*" },
+            TitleType = "DeviceDetailValue"; TitleStyle = "PageHeaderSingleLineTitleStyle"; Secondary = "DeviceStatusText"; Columns = "Auto,Auto,*,Auto" },
         @{ View = "PersonDetailsPageView"; Row = "PersonDetailHeading"; Icon = "PersonDetailIcon"; Title = "PersonDetailName"
             TitleType = "TextBlock"; Badge = "PersonDetailShortName"; Actions = "PersonDetailActions"; Columns = "Auto,48,*,Auto"
             Buttons = @("EditPersonDetailButton=EditPersonButton_Click", "DeletePersonDetailButton=DeletePersonButton_Click") },
@@ -750,7 +750,7 @@
             $header.SelectSingleNode("ancestor::*[local-name()='ScrollViewer'] | .//*[local-name()='ScrollViewer']") -or
             @($header.Attributes | Where-Object { $_.LocalName -notin @("Style", "Name", "SizeChanged") }).Count -ne 0 -or
             ($columns -join ",") -cne $entry.Columns -or
-            $header.SelectSingleNode(".//*[local-name()='PageHeaderIcon' or local-name()='Border' or local-name()='Rectangle']")) {
+            $header.SelectSingleNode(".//*[local-name()='PageHeaderIcon' or (local-name()='Border' and not(@*[local-name()='Name']='DetailsTabsHost')) or local-name()='Rectangle']")) {
             throw "$($entry.View) must place one identity header in its own fixed Auto row above the scrolling body, with no background, divider or family icon."
         }
         $back = $children[0]
@@ -766,7 +766,7 @@
             $title.GetAttribute("Grid.Column") -cne "2" -or $title.HasAttribute("Grid.Row") -or
             @($title.Attributes | Where-Object { $_.LocalName -in @("FontSize", "ValueFontSize", "FontWeight", "Margin", "TextTrimming") }).Count -ne 0 -or
             ($entry.TitleType -eq "TextBlock" -and $title.GetAttribute("Style") -cne "{StaticResource PageHeaderTitleStyle}") -or
-            ($entry.TitleType -ne "TextBlock" -and ($title.GetAttribute("ValueStyle") -cne "{StaticResource PageHeaderTitleStyle}" -or
+            ($entry.TitleType -ne "TextBlock" -and ($title.GetAttribute("ValueStyle") -cne "{StaticResource $($entry.TitleStyle)}" -or
                 $title.GetAttribute("RenameRequested") -cne "Rename_Click" -or $title.GetAttribute("VerticalAlignment") -cne "Center"))) {
             throw "$($entry.View) must order Back (shared 16-DIP gap), its own 48-DIP entity icon and the name in the shared title style without hand-set sizes."
         }
@@ -805,17 +805,78 @@
             }
         }
     }
-    $deviceDocument = [xml](Get-Content (Join-Path $appDirectory "Views\DeviceDetailsPageView.xaml") -Raw)
+    # #659: the shared D3 quiet segmented tabs end the Device Details header row (wrapping beneath it only when the
+    # single-line name would be squeezed), with one App-level look and no local SelectorBarItem overrides.
+    $deviceXaml = Get-Content (Join-Path $appDirectory "Views\DeviceDetailsPageView.xaml") -Raw
+    $deviceDocument = [xml]$deviceXaml
+    $deviceCode = Get-Content (Join-Path $appDirectory "Views\DeviceDetailsPageView.xaml.cs") -Raw
     $tabsHost = $deviceDocument.SelectSingleNode("//*[@*[local-name()='Name']='DetailsTabsHost']")
     $deviceHeader = $deviceDocument.SelectSingleNode("//*[@*[local-name()='Name']='HeaderGrid']")
-    if ($tabsHost.ParentNode -ne $deviceHeader.ParentNode -or $tabsHost.GetAttribute("Grid.Row") -cne "1" -or
-        $tabsHost.SelectSingleNode("preceding-sibling::*[1]") -ne $deviceHeader -or
-        $tabsHost.SelectSingleNode("following-sibling::*[1]").LocalName -cne "ScrollViewer" -or
-        $tabsHost.SelectSingleNode("following-sibling::*[1]").GetAttribute("Grid.Row") -cne "2" -or
-        (@($deviceHeader.ParentNode.SelectNodes("./*[local-name()='Grid.RowDefinitions']/*") | ForEach-Object { $_.GetAttribute("Height") }) -join ",") -cne "Auto,Auto,*" -or
-        $deviceHeader.ParentNode.HasAttribute("RowSpacing") -or $tabsHost.GetAttribute("Margin") -cne "0,8,0,16" -or
-        -not $tabsHost.SelectSingleNode("./*[local-name()='SelectorBar' and @*[local-name()='Name']='DetailsTabs']")) {
-        throw "Device Details tabs must keep their look in their own fixed row 8 DIP below the identity header and 16 DIP above the body until #659."
+    $tabItems = @($tabsHost.SelectNodes("./*[local-name()='SelectorBar']/*[local-name()='SelectorBarItem']"))
+    if ($tabsHost.ParentNode -ne $deviceHeader -or $tabsHost.GetAttribute("Grid.Column") -cne "3" -or
+        $tabsHost.HasAttribute("Grid.Row") -or $tabsHost.HasAttribute("Margin") -or
+        $tabsHost.GetAttribute("Style") -cne "{StaticResource PageHeaderTabTrackStyle}" -or
+        @($tabsHost.Attributes | Where-Object { $_.LocalName -notin @("Name", "Grid.Column", "Style") }).Count -ne 0 -or
+        $tabsHost.SelectSingleNode("following-sibling::*") -or
+        $deviceHeader.GetAttribute("SizeChanged") -cne "HeaderGrid_SizeChanged" -or
+        (@($deviceHeader.SelectNodes("./*[local-name()='Grid.RowDefinitions']/*")).Count) -ne 3 -or
+        (@($deviceHeader.ParentNode.SelectNodes("./*[local-name()='Grid.RowDefinitions']/*") | ForEach-Object { $_.GetAttribute("Height") }) -join ",") -cne "Auto,*" -or
+        $deviceHeader.ParentNode.GetAttribute("RowSpacing") -cne "16" -or
+        $deviceHeader.SelectSingleNode("following-sibling::*[1]").LocalName -cne "ScrollViewer" -or
+        $deviceHeader.SelectSingleNode("following-sibling::*[1]").GetAttribute("Grid.Row") -cne "1" -or
+        -not $tabsHost.SelectSingleNode("./*[local-name()='SelectorBar' and @*[local-name()='Name']='DetailsTabs' and @Style='{StaticResource PageHeaderTabsStyle}']") -or
+        $tabItems.Count -ne 2 -or @($tabItems | Where-Object {
+            $_.GetAttribute("Style") -cne "{StaticResource PageHeaderTabItemStyle}" -or $_.HasAttribute("Padding") -or
+            $_.HasAttribute("CornerRadius") -or $_.HasAttribute("Background") }).Count -ne 0 -or
+        $deviceXaml -match 'SelectorBarItem(Background|Foreground)|DetailsSectionSelection|UserControl\.Resources' -or
+        $deviceCode -match 'OverviewSelected|HistorySelected' -or
+        $deviceCode -notmatch 'Grid\.SetRow\(DetailsTabsHost, inline \? 0 : 2\)' -or
+        $deviceCode -notmatch 'Grid\.SetColumn\(DetailsTabsHost, inline \? 3 : 0\)' -or
+        $deviceCode -notmatch 'Grid\.SetColumnSpan\(DetailsTabsHost, inline \? 1 : 4\)' -or
+        $deviceCode -notmatch 'title >= 160 \* new Windows\.UI\.ViewManagement\.UISettings\(\)\.TextScaleFactor') {
+        throw "Device Details tabs must use the shared quiet page-tab style at the right end of the identity header, wrapping left-aligned beneath it only when the name would keep less than 160 DIP, with the body 16 DIP below."
+    }
+    $tabStyles = @{}
+    foreach ($key in @("PageHeaderSingleLineTitleStyle", "PageHeaderTabTrackStyle", "PageHeaderTabsStyle", "PageHeaderTabItemStyle")) {
+        $tabStyles[$key] = $appResources.SelectSingleNode("/*/*/*[local-name()='ResourceDictionary']/*[local-name()='Style' and @*[local-name()='Key']='$key']")
+        if (-not $tabStyles[$key]) { throw "App resources must define $key." }
+    }
+    $itemTemplate = $tabStyles.PageHeaderTabItemStyle.SelectSingleNode(".//*[local-name()='ControlTemplate']")
+    $itemStates = @($itemTemplate.SelectNodes(".//*[local-name()='VisualStateGroup' and @*[local-name()='Name']='CombinedStates']/*[local-name()='VisualState']") |
+        ForEach-Object { $_.GetAttribute("Name", $xamlNamespace) })
+    $selectedSetters = { param($State)
+        @($itemTemplate.SelectNodes(".//*[local-name()='VisualState' and @*[local-name()='Name']='$State']//*[local-name()='Setter']") |
+            ForEach-Object { "$($_.GetAttribute('Target'))=$($_.GetAttribute('Value'))" }) }
+    $pill = $itemTemplate.SelectSingleNode(".//*[local-name()='Rectangle' and @*[local-name()='Name']='PART_SelectionVisual']")
+    if ((& $headerSetters $tabStyles.PageHeaderSingleLineTitleStyle) -cne "TextWrapping=NoWrap;TextTrimming=CharacterEllipsis" -or
+        $tabStyles.PageHeaderSingleLineTitleStyle.GetAttribute("BasedOn") -cne "{StaticResource PageHeaderTitleStyle}" -or
+        (& $headerSetters $tabStyles.PageHeaderTabTrackStyle) -cne "MinHeight={StaticResource PageHeaderControlHeight};Padding=4;CornerRadius=8;BorderThickness=1;Background={ThemeResource PageHeaderTabTrackBackgroundBrush};BorderBrush={ThemeResource PageHeaderTabTrackBorderBrush};HorizontalAlignment=Left;VerticalAlignment=Center" -or
+        (& $headerSetters $tabStyles.PageHeaderTabsStyle) -cne "Padding=0;VerticalAlignment=Stretch" -or
+        (& $headerSetters $tabStyles.PageHeaderTabItemStyle) -notmatch '(^|;)MinHeight=38;CornerRadius=6;' -or
+        ($itemStates -join ",") -cne "UnselectedNormal,UnselectedPointerOver,UnselectedPressed,SelectedNormal,SelectedPointerOver,SelectedPressed" -or
+        @("SelectedNormal", "SelectedPointerOver", "SelectedPressed" | Where-Object {
+            $setters = & $selectedSetters $_
+            $setters -notcontains "PART_TextVisual.FontWeight=SemiBold" -or $setters -notcontains "PART_SelectionVisual.Opacity=1" -or
+            $setters -notcontains "Surface.BorderBrush={ThemeResource PageHeaderTabSelectedBorderBrush}" }).Count -ne 0 -or
+        -not $pill -or $pill.GetAttribute("Width") -cne "16" -or $pill.GetAttribute("Height") -cne "3" -or
+        -not $itemTemplate.SelectSingleNode(".//*[local-name()='TextBlock' and @FontWeight='SemiBold' and @Opacity='0']") -or
+        -not $itemTemplate.SelectSingleNode(".//*[local-name()='TextBlock' and @*[local-name()='Name']='PART_TextVisual']") -or
+        -not $itemTemplate.SelectSingleNode("./*[local-name()='Grid' and @*[local-name()='Name']='PART_ContainerRoot']")) {
+        throw "The shared page tabs must be a 48-DIP neutral track of 38-DIP items whose selected state is a raised surface, semibold text and a 16x3 pill (never colour alone) at a fixed width."
+    }
+    $tabBrushes = @("PageHeaderTabTrackBackgroundBrush", "PageHeaderTabTrackBorderBrush", "PageHeaderTabForegroundBrush",
+        "PageHeaderTabForegroundPointerOverBrush", "PageHeaderTabForegroundPressedBrush", "PageHeaderTabBackgroundPointerOverBrush",
+        "PageHeaderTabBackgroundPressedBrush", "PageHeaderTabBorderPointerOverBrush", "PageHeaderTabSelectedBackgroundBrush",
+        "PageHeaderTabSelectedBackgroundPointerOverBrush", "PageHeaderTabSelectedBackgroundPressedBrush",
+        "PageHeaderTabSelectedForegroundBrush", "PageHeaderTabPillBrush", "PageHeaderTabSelectedBorderBrush")
+    foreach ($theme in @("Light", "Dark", "HighContrast")) {
+        $dictionary = $appResources.SelectSingleNode("//*[local-name()='ResourceDictionary.ThemeDictionaries']/*[@*[local-name()='Key']='$theme']")
+        foreach ($brush in $tabBrushes) {
+            $node = $dictionary.SelectSingleNode("./*[@*[local-name()='Key']='$brush']")
+            if (-not $node -or ($theme -eq "HighContrast" -and $node.GetAttribute("Color") -notmatch '^\{ThemeResource SystemColor\w+Color\}$')) {
+                throw "The $theme theme must define $brush$(if ($theme -eq 'HighContrast') { ' from system colours' })."
+            }
+        }
     }
     $valueCode = Get-Content (Join-Path $appDirectory "Views\DeviceDetailValue.cs") -Raw
     if ($valueCode -notmatch 'DependencyProperty ValueStyleProperty' -or

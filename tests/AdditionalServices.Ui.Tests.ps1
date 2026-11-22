@@ -298,9 +298,14 @@ function Test-DeviceDetailsEditing {
     Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-details-wide.png")
     $tabs = (Find-ServiceControl DeviceDetailsTabs).Current.BoundingRectangle
     $identity = (Find-ServiceControl "Rename device" -ByName).Current.BoundingRectangle
-    # #670: the tabs keep their look below the identity header at every width until #659 moves them into it.
-    if ($tabs.Top -lt $identity.Bottom) {
-        throw "Wide tabs must stay below the device identity header."
+    $headerBack = (Find-ServiceControl DeviceBackButton).Current.BoundingRectangle
+    $tabTrack = (Find-ServiceControl DeviceOverviewTab).Current.BoundingRectangle
+    $headerScale = [UiReviewNativeWindow]::GetDpiForWindow($process.MainWindowHandle) / 96.0
+    # #659: the quiet tabs end the identity header row, vertically centred with the 48-DIP Back (track = item + 5 DIP each side).
+    if ($tabs.Left -lt $identity.Right -or $tabs.Top -ge $headerBack.Bottom -or
+        [Math]::Abs(($tabs.Top + $tabs.Bottom) / 2 - ($headerBack.Top + $headerBack.Bottom) / 2) -gt 2 * $headerScale -or
+        [Math]::Abs($tabTrack.Height + 10 * $headerScale - $headerBack.Height) -gt 2 * $headerScale) {
+        throw "Wide tabs must end the device identity header row at Back's 48-DIP height."
     }
     $nameCopy = Find-ServiceControl "Copy Device name" -ByName
     $rename = Find-ServiceControl "Rename device" -ByName
@@ -414,6 +419,19 @@ function Test-DeviceDetailsEditing {
     Invoke-ServiceControl Cancel
     $window = Get-UiReviewWindowBounds $process.MainWindowHandle
     try {
+        # #659: at 480 px the tabs wrap beneath the header, left-aligned with Back, without clipping.
+        $null = [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero,
+            $window.Left, $window.Top, 480, $window.Height, 0x0044)
+        Start-Sleep -Milliseconds 300
+        $scroll = (Find-ServiceControl DeviceDetailsScroll).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
+        $scroll.SetScrollPercent(-1, 0)
+        Wait-ServiceState {
+            $tabs = (Find-ServiceControl DeviceDetailsTabs).Current.BoundingRectangle
+            $back = (Find-ServiceControl DeviceBackButton).Current.BoundingRectangle
+            $bounds = Get-UiReviewWindowBounds $process.MainWindowHandle
+            $tabs.Top -ge $back.Bottom -and [Math]::Abs($tabs.Left - $back.Left) -le 8 -and $tabs.Right -le $bounds.Right
+        } "480-px tabs wrapped beneath the header"
+        Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-details-header-480.png")
         $null = [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero,
             $window.Left, $window.Top, 760, $window.Height, 0x0044)
         Start-Sleep -Milliseconds 300
@@ -421,9 +439,9 @@ function Test-DeviceDetailsEditing {
         $scroll.SetScrollPercent(-1, 0)
         Wait-ServiceState {
             $tabs = (Find-ServiceControl DeviceDetailsTabs).Current.BoundingRectangle
-            $identity = (Find-ServiceControl "Rename device" -ByName).Current.BoundingRectangle
-            $tabs.Top -ge $identity.Bottom
-        } "narrow tabs below the identity"
+            $bounds = Get-UiReviewWindowBounds $process.MainWindowHandle
+            -not $tabs.IsEmpty -and $tabs.Right -le $bounds.Right
+        } "narrow tabs inside the window"
         Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-details-header-narrow.png")
         Open-IdentificationEditor
         (Find-ServiceControl DeviceBrandInput).GetCurrentPattern(
