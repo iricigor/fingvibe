@@ -135,6 +135,8 @@ public sealed class DeviceDetailValue : Grid
     private static void ValueStyleChanged(DependencyObject sender, DependencyPropertyChangedEventArgs args)
     {
         var detail = (DeviceDetailValue)sender;
+        // The style owns wrapping too, so a single-line header title (#659) truncates instead of wrapping.
+        detail._value.ClearValue(TextBlock.TextWrappingProperty);
         detail._value.ClearValue(TextBlock.FontSizeProperty);
         detail._value.Style = (Style?)args.NewValue;
         // A title never stacks a browser link, so drop that row's gap and center the title on its header row.

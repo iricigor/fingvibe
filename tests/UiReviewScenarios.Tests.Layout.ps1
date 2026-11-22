@@ -880,9 +880,9 @@
     }
     $valueCode = Get-Content (Join-Path $appDirectory "Views\DeviceDetailValue.cs") -Raw
     if ($valueCode -notmatch 'DependencyProperty ValueStyleProperty' -or
-        $valueCode -notmatch '(?s)ValueStyleChanged.*?_value\.ClearValue\(TextBlock\.FontSizeProperty\);\s*detail\._value\.Style =' -or
+        $valueCode -notmatch '(?s)ValueStyleChanged.*?_value\.ClearValue\(TextBlock\.TextWrappingProperty\);\s*detail\._value\.ClearValue\(TextBlock\.FontSizeProperty\);\s*detail\._value\.Style =' -or
         $valueCode -match 'ValueFontSize') {
-        throw "The Device Details name must take the shared page-title style rather than a hand-set font size."
+        throw "The Device Details name must take the shared page-title style, including its wrapping, rather than a hand-set font size or wrap."
     }
     # #658: one quiet reusable Back control on every tool and detail page; pages own navigation, guards and cleanup.
     $backControlStyle = @($appResources.SelectNodes("/*/*/*[local-name()='ResourceDictionary']/*[local-name()='Style' and @TargetType='local:PageBackButton']"))

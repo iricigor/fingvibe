@@ -283,6 +283,12 @@ function Open-IdentificationEditor {
     } "first identification input focus"
 }
 
+# #659: the device name is one truncating title line (within Back's height) beside or above the tabs, never wrapping.
+function Test-DeviceNameSingleLine($BackBounds) {
+    $name = (Find-ServiceControl DeviceNameText).Current.BoundingRectangle
+    -not $name.IsEmpty -and $name.Height -gt 0 -and $name.Height -le $BackBounds.Height
+}
+
 function Test-DeviceDetailsEditing {
     $scroll = (Find-ServiceControl DeviceDetailsScroll).GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
     $scroll.SetScrollPercent(-1, 0)
@@ -429,7 +435,8 @@ function Test-DeviceDetailsEditing {
             $tabs = (Find-ServiceControl DeviceDetailsTabs).Current.BoundingRectangle
             $back = (Find-ServiceControl DeviceBackButton).Current.BoundingRectangle
             $bounds = Get-UiReviewWindowBounds $process.MainWindowHandle
-            $tabs.Top -ge $back.Bottom -and [Math]::Abs($tabs.Left - $back.Left) -le 8 -and $tabs.Right -le $bounds.Right
+            $tabs.Top -ge $back.Bottom -and [Math]::Abs($tabs.Left - $back.Left) -le 8 -and $tabs.Right -le $bounds.Right -and
+                (Test-DeviceNameSingleLine $back)
         } "480-px tabs wrapped beneath the header"
         Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-details-header-480.png") -MinimumWidth 480
         $null = [UiReviewNativeWindow]::SetWindowPos($process.MainWindowHandle, [IntPtr]::Zero,
@@ -440,7 +447,8 @@ function Test-DeviceDetailsEditing {
         Wait-ServiceState {
             $tabs = (Find-ServiceControl DeviceDetailsTabs).Current.BoundingRectangle
             $bounds = Get-UiReviewWindowBounds $process.MainWindowHandle
-            -not $tabs.IsEmpty -and $tabs.Right -le $bounds.Right
+            -not $tabs.IsEmpty -and $tabs.Right -le $bounds.Right -and
+                (Test-DeviceNameSingleLine (Find-ServiceControl DeviceBackButton).Current.BoundingRectangle)
         } "narrow tabs inside the window"
         Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-details-header-narrow.png")
         Open-IdentificationEditor
