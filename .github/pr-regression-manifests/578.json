@@ -1,0 +1,25 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 578,
+  "category": "validation",
+  "changedBehavior": "Every Device Details card on the Overview and History tabs uses one shared H4 card heading: a shaded band with a small decorative icon, 16-px semibold heading and divider, defined once in App-level resources.",
+  "selectors": [
+    "ui-review-scenarios",
+    "ui-regression-helpers",
+    "native-details-summary",
+    "native-details-identity",
+    "native-details-usage",
+    "native-details-observations",
+    "native-details-activity",
+    "native-details-linking",
+    "additional-services",
+    "device-activity",
+    "documentation-tests"
+  ],
+  "expectedAssertions": [
+    "All ten Device Details cards start with exactly one shared card-heading band containing a decorative icon and the styled heading text.",
+    "Heading text, counts, Edit and View history actions, automation names and IDs are unchanged.",
+    "Network overview and Assignments stay side by side, and identification and ports keep their left alignment with the other cards.",
+    "High contrast draws the band and its edge in system colors, and changes to the shared style select the Device Details captures."
+  ]
+}
