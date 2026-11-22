@@ -1381,6 +1381,7 @@ one published payload:
 | `sidebar-scan-presentation` | Progress (independent themes, geometry, keyboard and text-scaling checks) |
 | `sidebar-preferences-scheduling` | SettingsDisclosure, Persistence, Scheduled |
 | `tools-utilities` | BuildIdentity.Ui, NetworkHealth.Ui, FingImport.Ui |
+| `tools-maintenance` | ReleaseUpdates.Ui, DatabaseBackups.Ui |
 | `tools-device-data` | AdditionalServices.Ui, SqlEditor.Ui, SpeedTest.Ui |
 
 This is the assertion/capture ownership boundary: each original behavior module
@@ -1415,6 +1416,13 @@ checks. They are not predicted acceptance results: compare repeated final-source
 native jobs, capture inventories, setup/download/cleanup and aggregate runner
 consumption with this baseline, keeping queue time and pipeline critical path
 separate. See #314 for the fresh Devices prerequisite and delivered measurements.
+
+For #696, rejected-head run 45000935269 spent 192s in the `tools-utilities`
+suite (Identity 47s, Network health 49s, Import 43s, Updates 30s, Backups 23s)
+inside a 253s job. `tools-maintenance` moves the already-independent Updates and
+Backups checks to their own worker in the same relative order, without changing
+any assertions, sleeps or timeouts. The resulting job durations must be measured
+on the new revision rather than treating projected headroom as acceptance.
 
 Device Details regression follows the #262 Overview/History tab boundary
 across independent matrix jobs (#292): `details-summary`

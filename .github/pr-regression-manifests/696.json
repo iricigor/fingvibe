@@ -8,6 +8,7 @@
     "ui-review-scenarios",
     "ui-regression-helpers",
     "native-tools-utilities",
+    "native-tools-maintenance",
     "native-sidebar-preferences-scheduling",
     "documentation-tests"
   ],
@@ -15,6 +16,8 @@
     "Pending and armed close schedules persist atomically, reuse only a matching verified installer, supersede to a newer confirmed version and clear on cancel or a completed handoff.",
     "Restart now and When I close preserve the existing download/verification path; a cancelled or unready close never installs, and successful scheduled handoff disables relaunch.",
     "Settings and About replace orange availability state with the scheduled version and expose Restart now plus Cancel scheduled update with stable names and keyboard access.",
-    "The three-button dialog keeps Cancel as default, while the normal close funnel waits for existing activity shutdown before any scheduled handoff."
+    "The three-button dialog keeps Cancel as default, while the normal close funnel waits for existing activity shutdown before any scheduled handoff.",
+    "Installed-copy foreground downloads use the per-version staging folder, so startup cleanup keeps a scheduled installer and restart restores it by re-hashing instead of downloading again.",
+    "Update and backup checks run in their own tools-maintenance native job, so tools-utilities and tools-maintenance each stay within the 240-second job budget while every Tools check still runs exactly once in its original order."
   ]
 }
