@@ -173,6 +173,46 @@ $appSource = Join-Path $PSScriptRoot "..\src\FingVibe.App"
 $pageIconSource = Join-Path $appSource "Assets\PageIcons"
 $pageIcons = @(Get-ChildItem -LiteralPath $pageIconSource -Filter *.png -File)
 if ($pageIcons.Count -eq 0) { throw "No page-family icons were found in $pageIconSource." }
+$pageIconConcepts = Join-Path $PSScriptRoot "..\docs\branding\icon-concepts"
+foreach ($icon in $pageIcons | Where-Object Name -like "*-color.png") {
+    $source = Join-Path $pageIconConcepts $icon.Name
+    $svg = [IO.Path]::ChangeExtension($source, ".svg")
+    if (-not (Test-Path -LiteralPath $source -PathType Leaf) -or -not (Test-Path -LiteralPath $svg -PathType Leaf)) {
+        throw "Full-color PageIcon $($icon.Name) must retain matching concept PNG and SVG masters."
+    }
+    if ((Get-FileHash -LiteralPath $icon.FullName).Hash -ne (Get-FileHash -LiteralPath $source).Hash) {
+        throw "Runtime PageIcon $($icon.Name) differs from its documented 256 px master."
+    }
+    $vector = Get-Content -LiteralPath $svg -Raw
+    if ($vector -notmatch 'stroke="none"' -or $vector -match 'stroke="#38577B"') {
+        throw "Full-color PageIcon $($icon.Name) must not retain the halo-producing #38577B tile stroke."
+    }
+    $bitmap = [Drawing.Bitmap]::new((Resolve-Path -LiteralPath $icon.FullName).Path)
+    try {
+        if ($bitmap.Width -ne 256 -or $bitmap.Height -ne 256) {
+            throw "Full-color PageIcon $($icon.Name) must remain 256 x 256."
+        }
+        foreach ($coordinate in 60..195) {
+            $points = @(
+                [Drawing.Point]::new($coordinate, 15),
+                [Drawing.Point]::new($coordinate, 16),
+                [Drawing.Point]::new($coordinate, 239),
+                [Drawing.Point]::new($coordinate, 240),
+                [Drawing.Point]::new(15, $coordinate),
+                [Drawing.Point]::new(16, $coordinate),
+                [Drawing.Point]::new(239, $coordinate),
+                [Drawing.Point]::new(240, $coordinate)
+            )
+            foreach ($point in $points) {
+                $color = $bitmap.GetPixel($point.X, $point.Y)
+                if ($color.A -gt 32 -and $color.G -gt 70 -and $color.B -gt 105) {
+                    throw "Full-color PageIcon $($icon.Name) contains a pale tile-edge halo pixel at $point."
+                }
+            }
+        }
+    }
+    finally { $bitmap.Dispose() }
+}
 $referenced = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
 foreach ($xaml in Get-ChildItem -LiteralPath $appSource -Filter *.xaml -File -Recurse |
     Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' }) {
