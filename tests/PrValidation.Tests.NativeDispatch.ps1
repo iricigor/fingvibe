@@ -61,7 +61,7 @@
             "details-linking" = @("DeviceLinking.Ui")
             "network-activity" = @("NetworkActivity.Ui")
             "tools-utilities" = @("BuildIdentity.Ui", "NetworkHealth.Ui", "FingImport.Ui")
-            "tools-utilities-maintenance" = @("ReleaseUpdates.Ui", "DatabaseBackups.Ui")
+            "tools-maintenance" = @("ReleaseUpdates.Ui", "DatabaseBackups.Ui")
             "tools-device-data" = @("AdditionalServices.Ui", "SqlEditor.Ui", "SpeedTest.Ui")
         }
         Assert-Equal $matrixSuites @($expectedSuiteChecks.Keys) "CI matrix dispatches every split suite"
@@ -175,7 +175,7 @@
                 }
                 $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
                 & $runner -Suite tools-utilities @sharedParameters
-                & $runner -Suite tools-utilities-maintenance @sharedParameters
+                & $runner -Suite tools-maintenance @sharedParameters
                 $toolCalls = @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name
                 foreach ($check in @("NetworkHealth.Ui", "DatabaseBackups.Ui")) {
                     if ($check -notin $toolCalls) { throw "Asynchronous surface plan must dispatch $check." }
@@ -207,7 +207,7 @@
         $env:UI_REGRESSION_FAIL = "NetworkHealth.Ui"
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
         Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: utilities*network health*exit code 1*"
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name @("BuildIdentity.Ui", "NetworkHealth.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui", "SpeedTest.Ui") "A troubleshooting child failure fails its group without suppressing independent maintenance and device-data groups"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name @("BuildIdentity.Ui", "NetworkHealth.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui", "SpeedTest.Ui") "A troubleshooting child failure fails its group without suppressing the independent groups"
         $troubleshootingLog = Get-Content (Join-Path $parameters.ScreenshotDirectory "regression.log") -Raw
         if ($troubleshootingLog -notmatch 'Simulated regression failure' -or $troubleshootingLog -notmatch 'NetworkHealth.Ui') {
             throw "The parent transcript must retain the troubleshooting child failure diagnostics."
@@ -229,18 +229,18 @@
         }
         $env:UI_REGRESSION_FAIL = "DatabaseBackups.Ui"
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
-        Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: utilities*Simulated regression failure: DatabaseBackups.Ui*"
+        Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: maintenance*Simulated regression failure: DatabaseBackups.Ui*"
         Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name $toolChecks "A backup failure is retained while the independent device-data group still runs"
         $env:UI_REGRESSION_FAIL = "ReleaseUpdates.Ui"
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
-        Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: utilities*Simulated regression failure: ReleaseUpdates.Ui*"
+        Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: maintenance*Simulated regression failure: ReleaseUpdates.Ui*"
         Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name `
             @("BuildIdentity.Ui", "NetworkHealth.Ui", "FingImport.Ui", "ReleaseUpdates.Ui", "AdditionalServices.Ui", "SqlEditor.Ui", "SpeedTest.Ui") `
-            "Update failure is retained, stops later utility checks and still runs independent device data"
+            "Update failure is retained, stops later maintenance checks and still runs independent device data"
         $env:UI_REGRESSION_FAIL = "BuildIdentity.Ui"
         $before = @(Get-Content $env:UI_REGRESSION_CALLS).Count
         Assert-Throws { & $runner -Suite tools @parameters } "*Tools groups failed: utilities*Simulated regression failure*"
-        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name @("BuildIdentity.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui", "SpeedTest.Ui") "Independent Tools groups must still run after another group fails"
+        Assert-Equal @(Get-Content $env:UI_REGRESSION_CALLS | Select-Object -Skip $before | ConvertFrom-Json).Name @("BuildIdentity.Ui", "ReleaseUpdates.Ui", "DatabaseBackups.Ui", "AdditionalServices.Ui", "SqlEditor.Ui", "SpeedTest.Ui") "An independent Tools group must still run after another group fails"
         $reportScript = & $readRegressionStep "Report regression retry outcome"
         $reportPath = Join-Path $runnerFixture "report.ps1"
         Set-Content -LiteralPath $reportPath -Value ('$ErrorActionPreference = "Stop"' + "`n" + $reportScript)

@@ -69,7 +69,7 @@ The `pr-979` artifact suffix is the manual workflow's run number, not PR #979.
 | `sql.png` | `tools-device-data` | `attempt-1/sql-editor/sql-results-standard-dark.png` | Completed SELECT returning one invented device name. |
 | `import-conflicts.png` | `tools-utilities` | `attempt-1/fing-import/fing-import-name-emoji.png` | Synthetic name conflict with Keep existing; the proposed name has a selected emoji. |
 | `import-review.png` | `tools-utilities` | `attempt-1/fing-import/fing-import-ready.png` | Skipped Person/Room fields and final import controls; no import was performed. |
-| `database-backups.png` | `tools-utilities-maintenance` | `attempt-1/database-backups/backups-expanded-daily.png` | Two consistent copies of an isolated fixture database, with one daily representative. |
+| `database-backups.png` | `tools-maintenance` | `attempt-1/database-backups/backups-expanded-daily.png` | Two consistent copies of an isolated fixture database, with one daily representative. |
 | `assignments.png` | `devices-columns-sorting` | `attempt-1/devices/devices-assignments-True-True.png` | Selected synthetic device with combined Person/Room labels and Last seen; 1880 x 720. |
 | `virtual-device.png` | `devices-row-expansion` | `attempt-1/devices/devices-mac-expansion-wide.png` | Expanded inferred identity with three earlier MACs and an additional-count summary; 1280 x 720. |
 

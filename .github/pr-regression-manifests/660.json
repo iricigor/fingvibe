@@ -9,8 +9,7 @@
     "native-sidebar-presentation",
     "native-details-summary",
     "native-network-activity",
-    "native-tools-utilities",
-    "native-tools-utilities-maintenance"
+    "native-tools-utilities"
   ],
   "expectedAssertions": [
     "Tools and Overview whole-card navigation uses one decorative trailing chevron without an arrow character in its label.",

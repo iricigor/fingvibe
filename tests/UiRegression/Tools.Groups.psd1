@@ -3,7 +3,7 @@
     Preconditions = @()
     Groups = @(
         @{ Name = 'utilities'; Modules = @('Identity', 'NetworkHealth', 'Import') }
-        @{ Name = 'utilities-maintenance'; Modules = @('Updates', 'Backups') }
+        @{ Name = 'maintenance'; Modules = @('Updates', 'Backups') }
         @{ Name = 'device-data'; Modules = @('Services', 'Sql', 'SpeedTest') }
     )
 }

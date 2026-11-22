@@ -1,0 +1,19 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 695,
+  "category": "ui",
+  "changedBehavior": "An available update shows its release notes in a collapsed What's new expander below Update now in About, parsed from the existing update-check response into inert plain-text headings, bullets and paragraphs, with GitHub links for truncated or missing notes.",
+  "selectors": [
+    "core-tests",
+    "ui-review-scenarios",
+    "documentation-tests",
+    "native-tools-utilities"
+  ],
+  "expectedAssertions": [
+    "Release bodies from the existing latest-release response become plain-text headings, bullets and paragraphs; links, images, HTML, scripts and comments never survive as markup, and empty or markup-only bodies yield no notes.",
+    "Long notes are truncated at a fixed character limit and flagged for the View full notes on GitHub link.",
+    "About shows a collapsed What's new in X.Y.Z expander directly below Update now, without nested scrolling or rich/web content, and only explicit GitHub links open the browser.",
+    "Expanded notes are readable in light, dark and Windows high contrast; empty notes fall back to View release notes on GitHub without affecting update checks.",
+    "After relaunch, the portable flow waits for the automatic startup update check to finish instead of invoking a still-disabled Check for updates button."
+  ]
+}

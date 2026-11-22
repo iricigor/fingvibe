@@ -9,7 +9,6 @@
     "ui-review-scenarios",
     "native-sidebar-scan-flows",
     "native-tools-utilities",
-    "native-tools-utilities-maintenance",
     "documentation-tests"
   ],
   "expectedAssertions": [

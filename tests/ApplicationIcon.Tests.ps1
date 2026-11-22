@@ -232,21 +232,38 @@ foreach ($name in $referenced) {
         throw "Page-family icon $name is referenced but missing from the source assets."
     }
 }
-# BitmapIcon point-samples monochrome masks, so 16-DIP sidebar icons need 2x (32 px) art to stay legible.
+# BitmapIcon point-samples monochrome masks, so 24-DIP sidebar icons need 2x (48 px) art to stay crisp up to 200%.
 $mainWindow = Get-Content -LiteralPath (Join-Path $appSource "MainWindow.xaml") -Raw
-$sidebarIcons = @([regex]::Matches($mainWindow,
-        '<BitmapIcon\b[^>]*\bUriSource="ms-appx:///Assets/PageIcons/([A-Za-z0-9-]+\.png)"') |
-    ForEach-Object { $_.Groups[1].Value })
-if ($sidebarIcons.Count -ne 5) { throw "Expected five sidebar family BitmapIcons; found $($sidebarIcons.Count)." }
-foreach ($name in $sidebarIcons) {
-    $image = [System.Drawing.Image]::FromFile((Join-Path $pageIconSource $name))
+$sidebarItems = @([regex]::Matches($mainWindow, '(?s)<NavigationViewItem x:Name="[A-Za-z]+NavItem".*?</NavigationViewItem>') |
+    Where-Object Value -match '<BitmapIcon\b')
+if ($sidebarItems.Count -ne 5) { throw "Expected five sidebar family BitmapIcons; found $($sidebarItems.Count)." }
+foreach ($item in $sidebarItems) {
+    if ($item.Value -notmatch '<x:Double x:Key="NavigationViewItemOnLeftIconBoxHeight">24</x:Double>') {
+        throw "Every sidebar family icon must use a 24-DIP icon box."
+    }
+    $name = [regex]::Match($item.Value, 'UriSource="ms-appx:///Assets/PageIcons/([A-Za-z0-9-]+\.png)"').Groups[1].Value
+    $bitmap = [System.Drawing.Bitmap]::new((Join-Path $pageIconSource $name))
     try {
-        if ($name -notlike "*-mono-32.png" -or $image.Width -ne 32 -or $image.Height -ne 32 -or
-            -not [System.Drawing.Image]::IsAlphaPixelFormat($image.PixelFormat)) {
-            throw "Sidebar icon $name must be a 32 px single-color mask with alpha."
+        if ($name -notlike "*-mono-48.png" -or $bitmap.Width -ne 48 -or $bitmap.Height -ne 48 -or
+            -not [System.Drawing.Image]::IsAlphaPixelFormat($bitmap.PixelFormat)) {
+            throw "Sidebar icon $name must be a 48 px single-color mask with alpha."
+        }
+        $left = 48; $top = 48; $right = -1; $bottom = -1
+        for ($y = 0; $y -lt 48; $y++) {
+            for ($x = 0; $x -lt 48; $x++) {
+                if ($bitmap.GetPixel($x, $y).A -ge 128) {
+                    $left = [Math]::Min($left, $x); $right = [Math]::Max($right, $x)
+                    $top = [Math]::Min($top, $y); $bottom = [Math]::Max($bottom, $y)
+                }
+            }
+        }
+        # Equal visible weight: the artwork's longer side fills about 85-90% of the box.
+        $longer = [Math]::Max($right - $left + 1, $bottom - $top + 1)
+        if ($longer -lt 41 -or $longer -gt 43) {
+            throw "Sidebar icon $name artwork spans $longer px; expected about 42 px (85-90% of 48)."
         }
     }
-    finally { $image.Dispose() }
+    finally { $bitmap.Dispose() }
 }
 foreach ($icon in $pageIcons) {
     $deployed = Join-Path $AppDirectory "Assets\PageIcons\$($icon.Name)"

@@ -11,6 +11,39 @@ if ($env:GITHUB_ACTIONS -ne 'true' -or $env:RUNNER_ENVIRONMENT -ne 'github-hoste
 . (Join-Path $PSScriptRoot '..\.github\scripts\UiReviewAppearance.ps1')
 . (Join-Path $PSScriptRoot 'UiRegression\Helpers.ps1')
 Add-Type -AssemblyName System.Windows.Forms
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+public static class UpdateReviewContrast
+{
+    [StructLayout(LayoutKind.Sequential)]
+    private struct HIGHCONTRAST
+    {
+        public uint Size;
+        public uint Flags;
+        public IntPtr Scheme;
+    }
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SystemParametersInfo(uint action, uint parameter, ref HIGHCONTRAST value, uint flags);
+
+    public static uint GetFlags()
+    {
+        var value = new HIGHCONTRAST { Size = (uint)Marshal.SizeOf<HIGHCONTRAST>() };
+        if (!SystemParametersInfo(0x0042, value.Size, ref value, 0))
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+        return value.Flags;
+    }
+
+    public static void SetFlags(uint flags)
+    {
+        var value = new HIGHCONTRAST { Size = (uint)Marshal.SizeOf<HIGHCONTRAST>(), Flags = flags };
+        if (!SystemParametersInfo(0x0043, value.Size, ref value, 2))
+            throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+    }
+}
+"@
 
 function Find-UpdateControl([string] $Id) {
     $call = Start-UiRegressionCall lookup
@@ -60,9 +93,10 @@ function Open-UpdateAbout {
     $null = Wait-UiRegressionState { Find-UpdateControl UpdateStatus } 'About update section'
 }
 
-function Set-UpdateResponse([string] $Outcome = 'newer', [string] $Download = 'success', [string] $Deployment = 'installed', [int] $AdvanceSeconds = 0) {
+function Set-UpdateResponse([string] $Outcome = 'newer', [string] $Download = 'success', [string] $Deployment = 'installed',
+    [bool] $Metered = $true, [int] $AdvanceSeconds = 0, [string] $Notes = 'default') {
     $script:now = $script:now.AddSeconds($AdvanceSeconds)
-    @{ now = $script:now.ToString('O'); outcome = $Outcome; download = $Download; deployment = $Deployment } |
+    @{ now = $script:now.ToString('O'); outcome = $Outcome; download = $Download; deployment = $Deployment; metered = $Metered; notes = $Notes } |
         ConvertTo-Json | Set-Content -LiteralPath "$script:response.new" -Encoding UTF8
     [IO.File]::Move("$script:response.new", $script:response, $true)
 }
@@ -147,12 +181,54 @@ function Invoke-UpdateDialogButton([string] $Name) {
     $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
 }
 
+function Invoke-UpdateNow {
+    Invoke-UpdateControl InstallUpdateButton
+    $null = Wait-UiRegressionState { Find-UpdateControl UpdateInstallConfirmationDialog } 'Update now confirmation'
+    Invoke-UpdateDialogButton 'Restart now'
+}
+
+function Invoke-UpdateWhenClosed {
+    Invoke-UpdateControl InstallUpdateButton
+    $null = Wait-UiRegressionState { Find-UpdateControl UpdateInstallConfirmationDialog } 'When I close confirmation'
+    Invoke-UpdateDialogButton 'When I close'
+}
+
+function Assert-UpdateReleaseNotes([string] $Capture) {
+    $notes = Show-UpdateControl ReleaseNotesExpander
+    $pattern = $notes.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern)
+    if ($notes.Current.Name -ne "What's new in 1.2.130" -or
+        $pattern.Current.ExpandCollapseState -ne [System.Windows.Automation.ExpandCollapseState]::Collapsed -or
+        (Test-UiRegressionElementVisible (Find-UpdateControl ReleaseNotesFallbackLink))) {
+        throw "An available update must start with a collapsed 'What's new in 1.2.130' expander and no fallback link."
+    }
+    $pattern.Expand()
+    $full = Show-UpdateControl ReleaseNotesFullLink
+    $null = Wait-UiRegressionState {
+        $pattern.Current.ExpandCollapseState -eq [System.Windows.Automation.ExpandCollapseState]::Expanded
+    } 'expanded release notes state'
+    $texts = @($notes.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::Text)) | ForEach-Object { $_.Current.Name })
+    $links = @($notes.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+                [System.Windows.Automation.ControlType]::Hyperlink)))
+    if ('Highlights' -notin $texts -or 'Release notes in About: see #695.' -notin $texts -or
+        @($texts | Where-Object { $_ -match 'alert|<script|https?://|\*\*' }).Count -ne 0 -or
+        $links.Count -ne 1 -or $full.Current.Name -ne 'View full notes on GitHub (opens in browser)') {
+        throw "Release notes must render headings and bullets as inert plain text with only the explicit full-notes link: $($texts -join ' | ')."
+    }
+    $null = Show-UpdateControl ReleaseNotesExpander
+    Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory $Capture)
+    $pattern.Collapse()
+}
+
 $environment = Save-UiRegressionEnvironment @(
     'FINGVIBE_UI_REVIEW', 'FINGVIBE_UI_REVIEW_INVENTORY', 'FINGVIBE_UI_REVIEW_SNAPSHOT', 'FINGVIBE_UPDATE_REVIEW')
 $fixture = New-UiRegressionFixtureDirectory -Suite updates
 $script:response = Join-Path $fixture 'responses.json'
 $script:now = [DateTimeOffset]::Parse('2026-11-16T12:00:00Z')
 $script:process = $null
+$script:contrastFlags = $null
 $script:root = $null
 $phase = $null
 $failure = $null
@@ -163,19 +239,85 @@ try {
     $env:FINGVIBE_UI_REVIEW_SNAPSHOT = Join-Path $fixture 'unused-snapshot.json'
     $env:FINGVIBE_UPDATE_REVIEW = $script:response
     Set-UpdateResponse
+    $handoffDirectory = Join-Path $fixture 'downloads'
+    $null = New-Item -ItemType Directory -Path $handoffDirectory -Force
+    @{
+        schema = 1
+        attemptId = 'previous-fixture'
+        state = 'succeeded'
+        requestedUtc = '2026-11-16T11:58:00Z'
+        originProcessId = 100
+        originProcessStartedUtc = '2026-11-16T11:57:00Z'
+        originExecutablePath = $AppPath
+        recordPath = (Join-Path $handoffDirectory 'install-handoff.json')
+        helperProcessId = 101
+        helperProcessStartedUtc = '2026-11-16T11:58:01Z'
+        installerPath = (Join-Path $handoffDirectory 'FingVibe-1.2.99-win-x64-Setup.exe')
+        installerSize = 17
+        installerSha256 = ('A' * 64)
+        expectedZoneId = 3
+        expectedVersion = '1.2.99'
+        installationDirectory = (Split-Path -Parent $AppPath)
+        relaunchRequested = $true
+        relaunchExecutablePath = $AppPath
+        installerLogPath = (Join-Path $handoffDirectory 'installer.log')
+        latestRecordPath = (Join-Path $handoffDirectory 'install-handoff.json')
+        installerProcessId = 102
+        installerProcessStartedUtc = '2026-11-16T11:58:02Z'
+        outcome = @{
+            completedUtc = '2026-11-16T11:59:00Z'
+            installerExitCode = 0
+            relaunchStarted = $true
+            relaunchProcessId = 103
+            error = $null
+        }
+    } | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $handoffDirectory 'install-handoff.json') -Encoding UTF8
     $phase = Step-UiRegressionPhase $phase 'Updates/background-and-indicators' $ScreenshotDirectory
+    # Hold the GitHub response so the automatic startup check is observable before any time passes.
+    Set-UpdateResponse -Outcome held
     Start-UpdateApp
     Select-UpdateSettings
     Open-UpdateAbout
-    Wait-UpdateText UpdateStatus 'Updates have not been checked yet.'
+    Wait-UpdateText UpdateStatus 'Checking for updates...'
+    Wait-UpdateText UpdateInstallOutcome 'Updated to 1.2.99.'
     (Find-UpdateControl OverviewNavItem).GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
-    Set-UpdateResponse -AdvanceSeconds 60
+    Set-UpdateResponse
     $null = Wait-UiRegressionState { (Find-UpdateSettingsNavigation).Current.ItemStatus -eq 'Update available' } 'background update without About'
     Select-UpdateSettings
+    $settingsUpdate = Find-UpdateControl SettingsUpdateNowButton
+    if (-not (Test-UiRegressionElementVisible $settingsUpdate) -or
+        -not $settingsUpdate.Current.IsKeyboardFocusable -or $settingsUpdate.Current.Name -ne 'Update FingVibe now') {
+        throw 'Settings must offer a separate, keyboard-accessible Update now action.'
+    }
     Set-UiReviewTheme $script:root 'Standard Light'
     Assert-UpdateIndicators $true (Join-Path $ScreenshotDirectory 'updates-settings-light.png')
-    Open-UpdateAbout
-    Wait-UpdateText UpdateStatus 'A newer version is available'
+    # The Settings action lives in the Settings page scroller, not the About UpdatesScroll viewport.
+    $settingsUpdate = Show-UpdateControl SettingsUpdateNowButton SettingsPage
+    $settingsUpdate.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
+    $dialog = Wait-UiRegressionState { Find-UpdateControl UpdateInstallConfirmationDialog } `
+        'Settings Update now confirmation'
+    $dialogButtons = @($dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::Button)) | ForEach-Object { $_.Current.Name })
+    if (($dialogButtons -join '|') -ne 'Restart now|When I close|Cancel') {
+        throw "Update confirmation must expose Restart now, When I close and default Cancel in that order."
+    }
+    Invoke-UpdateDialogButton Cancel
+    Wait-UpdateText UpdateStatus 'FingVibe * is available.'
+    # AboutView is a UserControl without its own UIA peer; the About scroller replacing the Settings scroller proves the shared path.
+    $null = Wait-UiRegressionState {
+        (Test-UiRegressionElementVisible (Find-UpdateControl UpdatesScroll)) -and
+            -not (Test-UiRegressionElementVisible (Find-UpdateControl SettingsPage))
+    } 'Settings Update now shared About action path'
+    Wait-UpdateText UpdateStatus 'FingVibe * is available.'
+    if (-not (Test-UiRegressionElementVisible (Find-UpdateControl UpdateSecurityWarning)) -or
+        (Find-UpdateControl UpdateDetailsExpander).GetCurrentPattern(
+            [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -ne
+                [System.Windows.Automation.ExpandCollapseState]::Collapsed) {
+        throw 'Windows security wording must stay visible while update diagnostics remain collapsed.'
+    }
+    Assert-UpdateReleaseNotes 'updates-release-notes-light.png'
     $check = Show-UpdateControl CheckUpdatesButton
     if (-not $check.Current.IsKeyboardFocusable) { throw 'Check for updates must support keyboard focus.' }
     $check.SetFocus()
@@ -183,8 +325,12 @@ try {
     [Windows.Forms.SendKeys]::SendWait(' ')
     Wait-UpdateText UpdateStatus 'Checking for updates...'
     Set-UpdateResponse -Outcome offline
-    Wait-UpdateText UpdateStatus 'Unable to determine the latest version'
+    Wait-UpdateText UpdateStatus 'Update check failed:*'
+    $details = Find-UpdateControl UpdateDetailsExpander
+    $details.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
     Wait-UpdateText UpdateDetails '*Last confirmed*Latest check failed*'
+    Wait-UpdateText UpdateDetails '*Background download skipped because the connection is metered or its cost is unknown.*'
+    Wait-UpdateText UpdateLastChecked 'Last checked * ago'
     $null = Show-UpdateControl UpdateStatus
     Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory 'updates-last-confirmed.png')
     Invoke-UpdateControl BackToSettingsButton
@@ -193,7 +339,7 @@ try {
     Open-UpdateAbout
     Set-UpdateResponse -Outcome current -AdvanceSeconds 10
     Invoke-UpdateControl CheckUpdatesButton
-    Wait-UpdateText UpdateStatus 'You are on the latest version'
+    Wait-UpdateText UpdateStatus 'FingVibe is up to date.'
     Invoke-UpdateControl BackToSettingsButton
     Assert-UpdateIndicators $false (Join-Path $ScreenshotDirectory 'updates-current-dark.png')
     Open-UpdateAbout
@@ -201,8 +347,17 @@ try {
     $phase = Step-UiRegressionPhase $phase 'Updates/download-and-launch-failures' $ScreenshotDirectory
     Set-UpdateResponse -Download fail -AdvanceSeconds 10
     Invoke-UpdateControl CheckUpdatesButton
-    Wait-UpdateText UpdateStatus 'A newer version is available'
-    Invoke-UpdateControl DownloadUpdateButton
+    Wait-UpdateText UpdateStatus 'FingVibe * is available.'
+    Assert-UpdateReleaseNotes 'updates-release-notes-dark.png'
+    $script:contrastFlags = [UpdateReviewContrast]::GetFlags()
+    [UpdateReviewContrast]::SetFlags($script:contrastFlags -bor 1)
+    if (([UpdateReviewContrast]::GetFlags() -band 1) -eq 0) { throw 'High contrast did not activate.' }
+    Start-Sleep -Seconds 2
+    Assert-UpdateReleaseNotes 'updates-release-notes-high-contrast.png'
+    [UpdateReviewContrast]::SetFlags($script:contrastFlags)
+    $script:contrastFlags = $null
+    Start-Sleep -Seconds 2
+    Invoke-UpdateNow
     $dialog = Wait-UpdateDialog UpdateDownloadFailureDialog Close 'download failure popup'
     $links = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,
@@ -210,22 +365,21 @@ try {
     if ($links.Count -ne 1 -or $links[0].Current.Name -notlike '*GitHub Releases*') { throw 'Download failure requires the manual releases hyperlink.' }
     Invoke-UpdateDialogButton Close
     Set-UpdateResponse -Download slow
-    Invoke-UpdateControl DownloadUpdateButton
+    Invoke-UpdateNow
     Invoke-UpdateControl CancelUpdateDownloadButton
     Wait-UpdateText UpdateDownloadStatus 'Download cancelled*'
-    if (Test-UiRegressionElementVisible (Find-UpdateControl InstallUpdateButton)) { throw 'Cancelled downloads must never offer installation.' }
+    if (-not (Test-UiRegressionElementVisible (Find-UpdateControl InstallUpdateButton))) {
+        throw 'Cancelled downloads must leave Update now available for a safe retry.'
+    }
     Set-UpdateResponse
-    Invoke-UpdateControl DownloadUpdateButton
-    Wait-UpdateText UpdateDownloadStatus 'Setup downloaded*'
-    if ((Find-UpdateControl InstallUpdateButton).Current.Name -ne 'Restart and update') {
-        throw 'A verified installed Setup must use the restart-and-update action.'
+    if ((Find-UpdateControl InstallUpdateButton).Current.Name -ne 'Update now') {
+        throw 'A verified installed update must use the one-action Update now control.'
     }
     Invoke-UpdateControl InstallUpdateButton
     $null = Wait-UiRegressionState { Find-UpdateControl UpdateInstallConfirmationDialog } 'explicit install confirmation'
     Invoke-UpdateDialogButton Cancel
     if ($script:process.HasExited) { throw 'Cancelling confirmation must keep FingVibe running.' }
-    Invoke-UpdateControl InstallUpdateButton
-    Invoke-UpdateDialogButton 'Restart and update'
+    Invoke-UpdateNow
     $dialog = Wait-UpdateDialog UpdateLaunchFailureDialog OK 'installer rejection popup'
     $links = $dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants,
         [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::ControlTypeProperty,
@@ -240,15 +394,74 @@ try {
     Invoke-UpdateDialogButton OK
     if ($script:process.HasExited) { throw 'Rejected installer handoff must keep FingVibe open.' }
 
-    $phase = Step-UiRegressionPhase $phase 'Updates/portable-narrow' $ScreenshotDirectory
+    $phase = Step-UiRegressionPhase $phase 'Updates/schedule-when-closing' $ScreenshotDirectory
+    Invoke-UpdateWhenClosed
+    Wait-UpdateText UpdateScheduledStatus '1.2.130 will install when you close FingVibe.'
+    if (-not (Test-UiRegressionElementVisible (Find-UpdateControl CancelScheduledUpdateButton))) {
+        throw 'A scheduled update must expose Cancel scheduled update.'
+    }
+    if ((Find-UpdateControl InstallUpdateButton).Current.Name -ne 'Restart now') {
+        throw 'A scheduled update must offer Restart now.'
+    }
+    Invoke-UpdateControl BackToSettingsButton
+    $settingsRow = Show-UpdateControl AboutSettingsButton SettingsPage
+    $settingsNav = Find-UpdateSettingsNavigation
+    if ($settingsRow.Current.ItemStatus -ne 'Update scheduled for close' -or
+        $settingsNav.Current.ItemStatus -ne 'Update scheduled for close' -or
+        (Find-UpdateControl SettingsUpdateNowButton).Current.Name -ne 'Restart FingVibe now') {
+        throw 'Scheduled update state must replace the orange availability indicators in both Settings surfaces.'
+    }
     Stop-UiRegressionApp $script:process
     $script:process.Dispose()
-    Set-UpdateResponse -Deployment portable
     Start-UpdateApp
     Select-UpdateSettings
     Open-UpdateAbout
+    Wait-UpdateText UpdateScheduledStatus '1.2.130 will install when you close FingVibe.'
+    Invoke-UpdateControl CancelScheduledUpdateButton
+    Wait-UpdateText UpdateStatus 'FingVibe * is available.'
+    Invoke-UpdateControl BackToSettingsButton
+    Assert-UpdateIndicators $true (Join-Path $ScreenshotDirectory 'updates-schedule-cancelled.png')
+
+    $phase = Step-UiRegressionPhase $phase 'Updates/background-staging' $ScreenshotDirectory
+    Open-UpdateAbout
+    # Use a newer release than the one already verified by the foreground flow; a verified version is never re-downloaded.
+    Set-UpdateResponse -Outcome newest -Download fail -Metered $false -AdvanceSeconds 10
     Invoke-UpdateControl CheckUpdatesButton
-    Wait-UpdateText UpdateStatus 'A newer version is available'
+    Wait-UpdateText UpdateStatus 'FingVibe v1.2.131 is available.'
+    $details = Find-UpdateControl UpdateDetailsExpander
+    if ($details.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Current.ExpandCollapseState -ne
+        [System.Windows.Automation.ExpandCollapseState]::Expanded) {
+        $details.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    }
+    Wait-UpdateText UpdateDetails '*Background download failed: Controlled download failure.*'
+    if (Test-UiRegressionElementVisible (Find-UpdateControl UpdateDownloadFailureDialog)) {
+        throw 'Background download failure must remain diagnostic-only; it must not show a popup.'
+    }
+    Set-UpdateResponse -Outcome newest -Metered $false -AdvanceSeconds 10
+    Invoke-UpdateControl CheckUpdatesButton
+    Wait-UpdateText UpdateDetails '*A verified update to 1.2.131 is ready.*'
+    Set-UpdateResponse -Outcome newest -Download fail -Metered $false
+    Invoke-UpdateNow
+    $dialog = Wait-UpdateDialog UpdateLaunchFailureDialog OK 'staged update installer rejection'
+    Invoke-UpdateDialogButton OK
+    if ($script:process.HasExited) { throw 'A staged update must reach the handoff without foreground download.' }
+
+    $phase = Step-UiRegressionPhase $phase 'Updates/portable-narrow' $ScreenshotDirectory
+    Stop-UiRegressionApp $script:process
+    $script:process.Dispose()
+    Set-UpdateResponse -Deployment portable -Notes empty
+    Start-UpdateApp
+    Select-UpdateSettings
+    Open-UpdateAbout
+    # The relaunched app checks at startup; Check for updates is disabled until that check completes.
+    Wait-UpdateText UpdateStatus 'FingVibe * is available.'
+    $null = Wait-UiRegressionState { (Find-UpdateControl CheckUpdatesButton).Current.IsEnabled } `
+        'Check for updates enabled after the startup check'
+    $fallback = Show-UpdateControl ReleaseNotesFallbackLink
+    if ($fallback.Current.Name -ne 'View release notes on GitHub (opens in browser)' -or
+        (Test-UiRegressionElementVisible (Find-UpdateControl ReleaseNotesExpander))) {
+        throw 'Empty release notes must fall back to the GitHub release notes link without an expander.'
+    }
     if ((Find-UpdateControl DownloadUpdateButton).Current.Name -ne 'Download portable ZIP') { throw 'Portable copies must receive ZIP, not Setup.' }
     Invoke-UpdateControl DownloadUpdateButton
     Wait-UpdateText UpdateDownloadStatus 'ZIP downloaded*'
@@ -258,8 +471,10 @@ try {
         throw [ComponentModel.Win32Exception]::new()
     }
     $null = Show-UpdateControl UpdateStatus
+    $details = Find-UpdateControl UpdateDetailsExpander
+    $details.GetCurrentPattern([System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
     Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory 'updates-portable-narrow.png')
-    foreach ($id in @('UpdateStatus', 'UpdateDetails', 'UpdateDeploymentText', 'DownloadUpdateButton', 'UpdateDownloadStatus')) {
+    foreach ($id in @('UpdateStatus', 'UpdateDetails', 'UpdateDeploymentText', 'DownloadUpdateButton', 'UpdateDownloadStatus', 'ReleaseNotesFallbackLink')) {
         $element = Show-UpdateControl $id
         if (-not (Test-UiRegressionElementWithin $element (Find-UpdateControl UpdatesScroll) $script:root)) {
             throw "Narrow update content is clipped or unreachable: $id."
@@ -278,6 +493,7 @@ finally {
     Invoke-UiRegressionCleanup -PrimaryFailed ($null -ne $failure) -Steps @(
         { if ($phase) { Complete-UiRegressionPhase $phase -Directory $ScreenshotDirectory -Succeeded ($null -eq $failure) } },
         { Write-UiRegressionCallCosts -Directory $ScreenshotDirectory -Name 'Updates' },
+        { if ($null -ne $script:contrastFlags) { [UpdateReviewContrast]::SetFlags($script:contrastFlags) } },
         { Stop-UiRegressionApp $script:process },
         { if ($script:process) { $script:process.Dispose() } },
         { Restore-UiRegressionEnvironment $environment },

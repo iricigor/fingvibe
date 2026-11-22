@@ -7,7 +7,7 @@
     "ui-review-scenarios",
     "ui-regression-helpers",
     "native-tools-utilities",
-    "native-tools-utilities-maintenance",
+    "native-tools-maintenance",
     "native-tools-device-data",
     "native-sidebar-scan-flows",
     "documentation-tests"

@@ -54,12 +54,14 @@ public sealed partial class MainWindow : Window
 
     private async void MainWindow_Closing(AppWindow sender, AppWindowClosingEventArgs args)
     {
-        StopUpdates();
-        _backupScheduler?.Dispose();
         if (_allowWindowClose
             || (!ToolsPage.HasActiveTest && _devicePortScanCancellation is null
-                && !_periodicScanController.IsActive && !_networkMonitorController.IsActive && !_isScanning))
+                && !_periodicScanController.IsActive && !_networkMonitorController.IsActive && !_isScanning
+                && _updateCloseScheduler?.IsScheduled != true))
         {
+            _updateCloseScheduler?.Dispose();
+            StopUpdates();
+            _backupScheduler?.Dispose();
             return;
         }
 
@@ -80,6 +82,7 @@ public sealed partial class MainWindow : Window
             await _scanExecution.StopAsync();
             await StopDevicePortScanAsync();
             await ToolsPage.StopForWindowCloseAsync();
+            await TryInstallScheduledUpdateOnCloseAsync();
         }
         catch (Exception exception)
         {
@@ -87,6 +90,9 @@ public sealed partial class MainWindow : Window
         }
         finally
         {
+            _updateCloseScheduler?.Dispose();
+            StopUpdates();
+            _backupScheduler?.Dispose();
             _allowWindowClose = true;
             Close();
         }

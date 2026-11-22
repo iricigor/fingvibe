@@ -1,0 +1,19 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 661,
+  "category": "ui",
+  "changedBehavior": "Sidebar family navigation icons (Overview, Network, Devices, People & rooms, Tools) render at 24 DIP from new 48 px single-color masks whose artwork fills 87.5% of the box with equal 1.5-DIP primary strokes; Settings, page-header and Tools card icons keep their existing sizes.",
+  "selectors": [
+    "ui-review-scenarios",
+    "ui-regression-helpers",
+    "documentation-tests",
+    "native-sidebar-presentation",
+    "native-tools-utilities"
+  ],
+  "expectedAssertions": [
+    "Every sidebar family BitmapIcon uses a 24-DIP icon box and a 48 px alpha mask whose artwork spans about 42 px (85-90% of the box).",
+    "People & rooms navigation keeps one theme-colored single-color family icon, now the 48 px mask.",
+    "Rendered sidebar family icons are recognizable and span about 21 DIPs in expanded and icon-only panes, in Standard Light, Standard Dark and Windows high contrast.",
+    "Sidebar headings, selection, Tools/Settings placement and the Tools page's 48-DIP card icons keep their existing layout checks, and all PageIcons ship in the published payload."
+  ]
+}

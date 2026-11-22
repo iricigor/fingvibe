@@ -52,43 +52,52 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
             </Border>
-            <Grid ColumnSpacing="12">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="Assigned devices" Style="{ThemeResource SubtitleTextBlockStyle}" />
-                <Button x:Name="AssignRoomDevicesButton" Grid.Column="1" Content="Assign devices" Click="AssignRoomDeviceButton_Click" />
-            </Grid>
-            <TextBlock x:Name="RoomAssignedDevicesEmptyText" Text="No devices assigned."
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-            <ListView x:Name="RoomAssignedDevicesList" IsItemClickEnabled="True"
-                      ItemClick="AssignedRoomDevice_ItemClick" AutomationProperties.Name="Assigned devices">
-                <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="local:AssignedDeviceListRow">
-                        <Grid Padding="8,4">
+            <Border Style="{StaticResource ScannerSummaryCardStyle}">
+                <StackPanel Spacing="12">
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
                             <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="160" />
-                                <ColumnDefinition Width="160" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <StackPanel>
-                                <TextBlock Text="{x:Bind NameText}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{x:Bind StatusText}" ToolTipService.ToolTip="{x:Bind StatusContext}"
-                                           FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                            </StackPanel>
-                            <TextBlock Grid.Column="1" Text="{x:Bind AddressText}" FontFamily="Consolas" />
-                            <TextBlock Grid.Column="2" Text="{x:Bind MacAddressText}" FontFamily="Consolas" />
-                            <Button Grid.Column="3" Content="Unassign" Tag="{x:Bind IdentityKey}"
-                                    Click="UnassignRoomDeviceButton_Click" />
+                            <FontIcon Glyph="&#xE77B;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock Grid.Column="1" Text="Assigned devices" Style="{StaticResource CardHeadingTextStyle}" />
+                            <Button x:Name="AssignRoomDevicesButton" Grid.Column="2" Content="Assign devices"
+                                    Click="AssignRoomDeviceButton_Click" />
                         </Grid>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
-            <TextBlock x:Name="RoomDetailStatusText" TextWrapping="Wrap"
-                       AutomationProperties.LiveSetting="Polite"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </Border>
+                    <TextBlock x:Name="RoomAssignedDevicesEmptyText" Text="No devices assigned."
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <ListView x:Name="RoomAssignedDevicesList" IsItemClickEnabled="True"
+                              ItemClick="AssignedRoomDevice_ItemClick" AutomationProperties.Name="Assigned devices">
+                        <ListView.ItemTemplate>
+                            <DataTemplate x:DataType="local:AssignedDeviceListRow">
+                                <Grid Padding="8,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="160" />
+                                        <ColumnDefinition Width="160" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="{x:Bind NameText}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{x:Bind StatusText}" ToolTipService.ToolTip="{x:Bind StatusContext}"
+                                                   FontSize="11" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="{x:Bind AddressText}" FontFamily="Consolas" />
+                                    <TextBlock Grid.Column="2" Text="{x:Bind MacAddressText}" FontFamily="Consolas" />
+                                    <Button Grid.Column="3" Content="Unassign" Tag="{x:Bind IdentityKey}"
+                                            Click="UnassignRoomDeviceButton_Click" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                    <TextBlock x:Name="RoomDetailStatusText" TextWrapping="Wrap"
+                               AutomationProperties.LiveSetting="Polite"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

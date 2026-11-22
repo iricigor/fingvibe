@@ -12,7 +12,6 @@
     "ui-regression-helpers",
     "native-tools-device-data",
     "native-tools-utilities",
-    "native-tools-utilities-maintenance",
     "documentation-tests"
   ],
   "expectedAssertions": [

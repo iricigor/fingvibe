@@ -63,10 +63,21 @@
             </Border>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="12">
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE9D2;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock Grid.Column="1" Text="Equipment activity" Style="{StaticResource CardHeadingTextStyle}" />
+                        </Grid>
+                    </Border>
                     <Grid ColumnSpacing="16" RowSpacing="12" SizeChanged="EquipmentHeader_SizeChanged">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                        <TextBlock Text="Equipment activity" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock Text="Activity of assigned devices, not an indication of whether a person is home or away."
+                                   TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <ComboBox x:Name="EquipmentActivityPeriod" Grid.Column="1" HorizontalAlignment="Stretch"
                                   AutomationProperties.AutomationId="EquipmentActivityPeriod" AutomationProperties.Name="Equipment activity period"
                                   SelectedIndex="0" SelectionChanged="EquipmentSelection_Changed">
@@ -75,8 +86,6 @@
                             <ComboBoxItem Content="30 days by weekday" />
                         </ComboBox>
                     </Grid>
-                    <TextBlock Text="Activity of assigned devices, not an indication of whether a person is home or away."
-                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock x:Name="EquipmentActivityWindow" Text="Activity is not loaded." TextWrapping="Wrap"
                                AutomationProperties.AutomationId="EquipmentActivityWindow" />
                     <TextBlock x:Name="EquipmentActivityContributors" Text="Equipment is not loaded." TextWrapping="Wrap"

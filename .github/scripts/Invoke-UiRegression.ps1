@@ -4,7 +4,7 @@ param(
     [ValidateSet("sidebar", "sidebar-presentation", "sidebar-scan-flows", "sidebar-scan-presentation", "sidebar-preferences-scheduling",
         "devices", "devices-presentation", "devices-row-expansion", "devices-filters-previews", "devices-columns-sorting",
         "details-summary", "details-identity", "details-usage", "details-observations", "details-activity", "details-linking", "network-activity",
-        "tools", "tools-utilities", "tools-utilities-maintenance", "tools-device-data")]
+        "tools", "tools-utilities", "tools-maintenance", "tools-device-data")]
     [string] $Suite,
     [Parameter(Mandatory)][string] $AppPath,
     [Parameter(Mandatory)][string] $ScreenshotDirectory,
