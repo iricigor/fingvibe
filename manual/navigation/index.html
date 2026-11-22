@@ -1289,20 +1289,33 @@ version/time alongside the latest failure; only a successful no-newer result cle
 the indicators. Development, PR and Test builds do not check or install updates:
 their manual stable-release link warns that their versions are not comparable.</p>
 <p>For a verified per-user installation, <strong>Update now</strong> is offered in About and next
-to the Settings About row. It reuses a verified staged Setup immediately or, when
-none is ready, downloads it with visible progress and Cancel. A background
-download already in progress joins that same task instead of starting twice.
-After one confirmation, FingVibe revalidates the file and hands it to the
-close-first installer.
-The existing verification requires a matching per-user registration, current
+to the Settings About row. Its confirmation provides <strong>Restart now</strong>, <strong>When I
+close</strong> and <strong>Cancel</strong>, with Cancel selected by default. Restart now reuses a
+verified staged Setup immediately or, when none is ready, downloads it with
+visible progress and Cancel. A background download already in progress joins
+that same task instead of starting twice. FingVibe then revalidates the file,
+hands it to the close-first installer and reopens after a successful install.
+When I close persists the confirmed version; it prepares a verified installer in
+the same per-version staging folder, hides the availability dots, and shows
+<strong>Cancel scheduled update</strong>. A missing or invalid file leaves the schedule
+pending rather than running Setup.
+The next completed normal close that has a verified file starts the #666 handoff
+with relaunch disabled, so FingVibe remains closed after installation. Cancelled
+closes, in-progress downloads without a verified file, crashes, forced termination
+and Windows shutdown do not install. The schedule survives app restarts and moves
+to a newer confirmed version. The next launch reports its install outcome through
+the same About result display.</p>
+<p>The existing verification requires a matching per-user registration, current
 directory, installed version and installer ownership. Otherwise <strong>Download
 portable ZIP</strong> uses the manual replacement path; an uncertain
 or portable copy is never silently converted into an installation. Missing assets
 lead to the release page instead. Downloads reject incomplete/changed files.
-Background Setup files use <code>%LOCALAPPDATA%\FingVibe\Updates\v&lt;version&gt;</code> and are
-re-hashed before reuse after restart. Foreground fallback downloads retain their
-unique temporary folders; old version and temporary folders are cleaned up, and
-all downloaded executables retain Internet security markings. A download failure
+Background and foreground Setup files for installed copies use
+<code>%LOCALAPPDATA%\FingVibe\Updates\v&lt;version&gt;</code> and are re-hashed before reuse after
+restart, so a scheduled update is not downloaded again merely because FingVibe
+restarted. Portable ZIP downloads retain unique temporary folders; old version and
+temporary folders are cleaned up, and all downloaded executables retain Internet
+security markings. A download failure
 popup links to GitHub Releases.</p>
 <p>When an update is available, a collapsed <strong>What's new in X.Y.Z</strong> expander below
 the update action shows that release's notes from the same GitHub response the
