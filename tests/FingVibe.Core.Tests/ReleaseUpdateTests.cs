@@ -82,6 +82,9 @@ public sealed class ReleaseUpdateTests
         Assert.Equal("Updated to 1.2.130.",
             ReleaseUpdatePresentation.InstallResult(record, new Version(1, 2, 130), "installed",
                 "installed\\FingVibe.App.exe"));
+        using (var installed = new ReleaseUpdateSession(true, "v1.2.130", _ => Task.FromResult(Release())))
+            Assert.Equal("Updated to 1.2.130.", ReleaseUpdatePresentation.InstallResult(record,
+                installed.InstalledVersion, "installed", "installed\\FingVibe.App.exe"));
         Assert.Null(ReleaseUpdatePresentation.InstallResult(record, new Version(1, 2, 130), "other-install",
             "other-install\\FingVibe.App.exe"));
         Assert.Contains("did not complete",

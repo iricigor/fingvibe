@@ -176,6 +176,9 @@
         $settingsUpdate.GetAttribute("Click") -cne "SettingsUpdateNowButton_Click") {
         throw "Settings must expose the shared Update now action."
     }
+    if ($aboutRow.HasAttribute("ColumnSpacing") -or $settingsUpdate.GetAttribute("Margin") -cne "12,0,0,0") {
+        throw "A collapsed Settings Update now action must not narrow the About card; keep its spacing on the button margin."
+    }
     $scheduled = $settings.SelectSingleNode("//*[@*[local-name()='Name']='ScheduledScansSection']")
     $monitorSwitch = $scheduled.SelectSingleNode(".//*[@*[local-name()='Name']='NetworkMonitoringSwitch']")
     $monitorDisclosure = $scheduled.SelectSingleNode(".//*[@*[local-name()='Name']='NetworkMonitoringDisclosure']")

@@ -38,16 +38,21 @@ internal static class ReleaseUpdatePresentation
         if (!sameDirectory || !sameExecutable) return null;
         if (record.Outcome is null)
             return $"The previous update to {record.ExpectedVersion} did not finish reporting an outcome. Retry or download the stable release manually.";
-        if (!Version.TryParse(record.ExpectedVersion, out var expected))
+        if (!StableRelease.TryParseVersion(record.ExpectedVersion, out var expected))
             return "The previous update result could not be matched to a version. Download the stable release manually.";
+        var expectedText = expected.ToString(expected.Revision == 0 ? 3 : 4);
         if (record.State == ReleaseInstallHandoffState.Succeeded &&
-            runningVersion == expected && record.Outcome.RelaunchStarted)
-            return $"Updated to {expected}.";
+            Normalize(runningVersion) == expected && record.Outcome.RelaunchStarted)
+            return $"Updated to {expectedText}.";
         var error = string.IsNullOrWhiteSpace(record.Outcome.Error)
             ? "The installer did not complete as expected."
             : record.Outcome.Error;
-        return $"Update to {expected} did not complete: {error} Retry or download the stable release manually.";
+        return $"Update to {expectedText} did not complete: {error} Retry or download the stable release manually.";
     }
+
+    // Session versions carry an explicit zero revision; plain Version values use -1 for missing parts.
+    private static Version Normalize(Version version) => new(version.Major, version.Minor,
+        Math.Max(0, version.Build), Math.Max(0, version.Revision));
 
     private static bool PathsEqual(string left, string right) =>
         Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar).Equals(
