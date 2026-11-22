@@ -17,7 +17,7 @@ Some features contact external services as explained below.
 | Network health diagnostics | Local checkpoints, public IP targets, and DNS resolvers | Ping/traceroute traffic and DNS queries for `example.com`. |
 | Optional background network monitoring | Selected LAN gateway, `1.1.1.1`, `8.8.8.8`, Windows DNS, and public DNS resolvers; after a confirmed incident, also loopback, this PC's address and a traceroute toward `1.1.1.1` | Five one-second-spaced ICMP probes per target every 60 seconds plus DNS queries for `example.com`, and one automatic deeper check (at most 45 seconds) per confirmed incident. Raw check results stay in the app's live state; confirmed incidents and their deeper-check evidence are saved only in the local inventory database and never uploaded. |
 | Service status provider reports | Official Microsoft Azure, AWS, Google, Cloudflare and GitHub status endpoints | Ordinary public GET requests for provider status data and your public source IP; no LAN inventory, selected adapter, credentials, local diagnostic results or monitoring history is sent. Results are held only in memory for five minutes. |
-| Stable-release update checks and user-requested downloads | `api.github.com`, GitHub Releases and its asset CDN | Public source IP and ordinary HTTP headers; no LAN inventory or saved scans are sent. |
+| Stable-release update checks and downloads | `api.github.com`, GitHub Releases and its asset CDN | Public source IP and ordinary HTTP headers; no LAN inventory or saved scans are sent. Verified installed stable builds can download Setup in the background on an unmetered connection. |
 | Links opened from the app | Your external browser | Normal requests to the selected website. |
 
 Public lookup and provider logos are optional displays. Missing configuration
@@ -26,9 +26,12 @@ The speed test is manual and asks for confirmation before each run.
 Manual Network health probes start only when you choose **Run diagnostics**.
 Background monitoring is separately opt-in from Background activity Settings and
 is off by default. The option discloses its targets and cadence before use.
-Official stable builds check for updates automatically while open; downloads and
-installation require your action. Development, PR and Test builds do not check
-automatically. See [Check for updates](navigation.md#check-for-updates).
+Official stable builds check for updates automatically while open. Verified
+installed copies can silently download and stage a confirmed Setup on an
+unmetered connection; metered or unknown-cost connections and portable copies
+do not background-download. Installation still requires your confirmation:
+**Restart now** or **When I close**. Development, PR and Test builds do not check
+or download updates automatically. See [Check for updates](navigation.md#check-for-updates).
 
 ## Understand public addresses
 

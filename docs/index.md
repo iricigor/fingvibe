@@ -30,6 +30,11 @@ This manual was checked against release **v1.4.223** on **2026-11-20**
 It describes available behavior, not planned features.
 Your version is shown in **Settings > About FingVibe & updates**.
 
+Navigation and update guidance also incorporates delivered `main` changes through
+[November 22 source revision `b0b0e65`](https://github.com/iricigor/fingvibe/commit/b0b0e65f51c97c03f518a2dd6c197e82e163f5f1).
+This is a source audit, not a new release or screenshot verification. Retained
+screenshots predate the current headers and tabs; follow the text for their layout.
+
 Activity grids, scan observations, first/last-seen summaries and usage categories
 are available. See [History](manual/history.md). You can also run
 [SQL reports](manual/sql.md), review [new-device discoveries](manual/scheduled-scans.md#new-device-discoveries),

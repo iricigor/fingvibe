@@ -3,6 +3,11 @@
 The current manual uses real native Windows captures from disposable GitHub
 Actions runners. They show controlled review data, not a user's LAN, real
 equipment availability or internet speed measurements.
+The retained November 20 captures predate the shared fixed headers, quiet Back
+controls, current Device Details tabs, shaded section headings and sidebar mode
+shortcut delivered on November 22. They still illustrate the recorded data and
+states, but are not exact current-layout references. No replacement capture was
+made during the documentation synchronization.
 
 ## Current captures: v1.4.223 documentation
 
@@ -66,10 +71,10 @@ The `pr-979` artifact suffix is the manual workflow's run number, not PR #979.
 | `scheduled-scans.png` | `sidebar-preferences-scheduling` | `attempt-1/sidebar/scheduled-scans-Standard Dark.png` | Scheduling on, four-hour choice, independent monitoring off; 1280 x 720. |
 | `device-history.png` | `details-activity` | `attempt-1/activity/activity-Standard-Dark-1280.png` | Activity with two synthetic response/nonresponse squares and unknown gaps. |
 | `scan-observations.png` | `details-observations` | `attempt-1/observations/history-table-standard-dark.png` | Five synthetic completed scan observations, not continuous live status. |
-| `sql.png` | `tools-sql-speed` | `attempt-1/sql-editor/sql-results-standard-dark.png` | Completed SELECT returning one invented device name. |
+| `sql.png` | `tools-device-data` | `attempt-1/sql-editor/sql-results-standard-dark.png` | Completed SELECT returning one invented device name. |
 | `import-conflicts.png` | `tools-utilities` | `attempt-1/fing-import/fing-import-name-emoji.png` | Synthetic name conflict with Keep existing; the proposed name has a selected emoji. |
 | `import-review.png` | `tools-utilities` | `attempt-1/fing-import/fing-import-ready.png` | Skipped Person/Room fields and final import controls; no import was performed. |
-| `database-backups.png` | `tools-maintenance` | `attempt-1/database-backups/backups-expanded-daily.png` | Two consistent copies of an isolated fixture database, with one daily representative. |
+| `database-backups.png` | `tools-utilities` | `attempt-1/database-backups/backups-expanded-daily.png` | Two consistent copies of an isolated fixture database, with one daily representative. |
 | `assignments.png` | `devices-columns-sorting` | `attempt-1/devices/devices-assignments-True-True.png` | Selected synthetic device with combined Person/Room labels and Last seen; 1880 x 720. |
 | `virtual-device.png` | `devices-row-expansion` | `attempt-1/devices/devices-mac-expansion-wide.png` | Expanded inferred identity with three earlier MACs and an additional-count summary; 1280 x 720. |
 
@@ -77,6 +82,10 @@ The retained Devices-based regression images contain invented names/MACs, loopba
 illustrative response times. Its saved `127.0.0.0/24` context differs from the
 safe selected `127.0.0.1/32` target. The visible different-target warning is
 intentional, not edited out, and does not indicate a real LAN scan.
+
+Artifact names above are the original run's names, verified against its GitHub
+artifact list. Later suite splits moved SQL/speed tests to `tools-sql-speed` and
+updates/backups to `tools-maintenance`; those names do not rename old artifacts.
 
 The scheduler suite accelerates waits only in its isolated review fixture;
 the visible interval is still four hours. Activity and observation suites seed
@@ -155,6 +164,7 @@ and is not presented as the current page layout or discovered physical topology.
 
 | Gap | Boundary |
 | --- | --- |
+| Current headers, tabs, section headings and sidebar shortcut | Prose follows November 22 source; the retained images need replacement native captures from disposable Windows CI before claiming current visual coverage. |
 | Windows discovery toast and in-app popup | Text explains delivered behavior; no new state-specific notification capture is claimed. |
 | Complete current diagnostics diagram | The available new view clips public providers; retain the clearly historical complete diagram rather than imply completeness. |
 | Stable-build update checks/download/install | About shows the actual Test build's no-check state; stable workflow steps come from released source, not a fabricated update screenshot. |

@@ -4,13 +4,18 @@ Select a row on **Devices** to open its details.
 Use the **Devices** return action when finished.
 
 Device details starts with a fixed header: the **Devices** return action, the
-device icon, and the device's name with its status beneath. Two segmented tabs
-sit below the header:
+device icon, and the device's name with its status beneath. Two quiet segmented
+tabs sit at the right end of the header, or wrap beneath it in a narrow window
+or with larger Windows text:
 
 - **Overview** (selected each time you open a device): network overview,
   assignments, observation summary, usage category, possible matching MAC
   addresses, identification, and ports and services.
 - **History**: Activity, scan observations and, for virtual and linked devices, MAC and address history.
+
+The selected tab has a raised surface and a short accent mark. The name stays
+on one line and can shorten with an ellipsis; its tooltip gives the full name.
+The header and tabs stay visible while the content below scrolls.
 
 Choose **View device history** in the summary, or select **History**, to switch.
 With the keyboard, move focus to a tab and press Space or Enter. Switching tabs keeps unsaved
@@ -21,6 +26,7 @@ pencil appear beside the name on hover or keyboard focus, without moving the hea
 
 *Native test-build screenshot. The hostname belongs to the disposable CI runner;
 addresses and metadata are safe review data. Lower sections require scrolling.
+This capture predates the current header and tab layout.
 [Screenshot sources](screenshots.md).*
 
 ## Understand identification
