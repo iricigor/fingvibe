@@ -145,22 +145,11 @@ function Show-Link([string] $Id) {
     $call = Start-UiRegressionCall positioning
     try {
         Wait-Link { Find-Link DeviceDetailsScroll -Optional } "device details scroll viewer"
-        $viewport = Find-Link DeviceDetailsScroll
-        $scroll = $viewport.GetCurrentPattern([System.Windows.Automation.ScrollPattern]::Pattern)
-        foreach ($percent in 0..100) {
-            if ($scroll.Current.VerticallyScrollable) { $scroll.SetScrollPercent(-1, $percent) }
-            Start-Sleep -Milliseconds 10
-            $control = Find-Link $Id -Optional
-            if (-not $control) { continue }
-            $bounds = $control.Current.BoundingRectangle
-            $area = $viewport.Current.BoundingRectangle
-            $bottom = [Math]::Min($area.Bottom, $script:root.Current.BoundingRectangle.Bottom - 16)
-            # UIA bounds are clipped to the viewport, so a control cut off at the bottom edge still appears to fit.
-            $atViewportEdge = $bounds.Bottom -ge $area.Bottom - 1 -and $scroll.Current.VerticallyScrollable -and $percent -lt 100
-            if (-not $control.Current.IsOffscreen -and $bounds.Height -gt 0 -and -not $atViewportEdge -and
-                $bounds.Top -ge $area.Top -and $bounds.Bottom -le $bottom) { return $control }
-        }
-        throw "Device-linking control '$Id' is clipped or unreachable."
+        $null = Show-UiRegressionScrollTargets -Description "Device-linking control '$Id'" `
+            -GetViewport { Find-Link DeviceDetailsScroll -Optional } `
+            -GetTargets { Find-Link $Id -Optional } `
+            -GetWindow { $script:root } -BottomMargin 16
+        return Find-Link $Id
     }
     finally { Complete-UiRegressionCall $call }
 }
@@ -188,6 +177,8 @@ function Assert-LinkSection([string] $Header, [string] $State) {
     Wait-Link { $section = Get-LinkSection; $section -and $section.Header -eq $Header } "Merge MAC addresses showing '$Header'"
     $section = Get-LinkSection
     if ($section.State -ne $State) { throw "Merge MAC addresses '$Header' must open $State, not $($section.State)." }
+    Wait-Link { Find-Link "Edit device identification" -ByName -Optional } `
+        "Edit device identification peer"
     $identification = (Find-Link "Edit device identification" -ByName).Current.BoundingRectangle
     if ($identification.Top -lt $section.Element.Current.BoundingRectangle.Bottom) {
         throw "Merge MAC addresses must sit directly above Device identification."
