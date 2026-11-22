@@ -99,8 +99,20 @@ the indicators. Development, PR and Test builds do not check or install updates:
 their manual stable-release link warns that their versions are not comparable.
 
 For a verified per-user installation, **Update now** is offered in About and next
-to the Settings About row. After one confirmation it downloads the Setup with
-progress and Cancel, revalidates it, and hands it to the close-first installer.
+to the Settings About row. Its confirmation provides **Restart now**, **When I
+close** and **Cancel**, with Cancel selected by default. Restart now downloads the
+Setup with progress and Cancel, revalidates it, hands it to the close-first
+installer and reopens after a successful install. When I close persists the
+confirmed version; it prepares a verified installer, hides the availability
+dots, and shows **Cancel scheduled update**. A missing or invalid file leaves the
+schedule pending rather than running Setup.
+The next completed normal close that has a verified file starts the #666 handoff
+with relaunch disabled, so FingVibe remains closed after installation. Cancelled
+closes, in-progress downloads without a verified file, crashes, forced termination
+and Windows shutdown do not install. The schedule survives app restarts and moves
+to a newer confirmed version. The next launch reports its install outcome through
+the same About result display.
+
 The existing verification requires a matching per-user registration, current
 directory, installed version and installer ownership. Otherwise **Download
 portable ZIP** uses the manual replacement path; an uncertain

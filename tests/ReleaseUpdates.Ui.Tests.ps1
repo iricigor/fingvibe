@@ -150,7 +150,13 @@ function Invoke-UpdateDialogButton([string] $Name) {
 function Invoke-UpdateNow {
     Invoke-UpdateControl InstallUpdateButton
     $null = Wait-UiRegressionState { Find-UpdateControl UpdateInstallConfirmationDialog } 'Update now confirmation'
-    Invoke-UpdateDialogButton 'Update now'
+    Invoke-UpdateDialogButton 'Restart now'
+}
+
+function Invoke-UpdateWhenClosed {
+    Invoke-UpdateControl InstallUpdateButton
+    $null = Wait-UiRegressionState { Find-UpdateControl UpdateInstallConfirmationDialog } 'When I close confirmation'
+    Invoke-UpdateDialogButton 'When I close'
 }
 
 $environment = Save-UiRegressionEnvironment @(
@@ -224,8 +230,15 @@ try {
     # The Settings action lives in the Settings page scroller, not the About UpdatesScroll viewport.
     $settingsUpdate = Show-UpdateControl SettingsUpdateNowButton SettingsPage
     $settingsUpdate.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-    $null = Wait-UiRegressionState { Find-UpdateControl UpdateInstallConfirmationDialog } `
+    $dialog = Wait-UiRegressionState { Find-UpdateControl UpdateInstallConfirmationDialog } `
         'Settings Update now confirmation'
+    $dialogButtons = @($dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+            [System.Windows.Automation.ControlType]::Button)) | ForEach-Object { $_.Current.Name })
+    if (($dialogButtons -join '|') -ne 'Restart now|When I close|Cancel') {
+        throw "Update confirmation must expose Restart now, When I close and default Cancel in that order."
+    }
     Invoke-UpdateDialogButton Cancel
     Wait-UpdateText UpdateStatus 'FingVibe * is available.'
     # AboutView is a UserControl without its own UIA peer; the About scroller replacing the Settings scroller proves the shared path.
@@ -305,6 +318,34 @@ try {
     Save-UiRegressionScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory 'updates-launch-rejected.png')
     Invoke-UpdateDialogButton OK
     if ($script:process.HasExited) { throw 'Rejected installer handoff must keep FingVibe open.' }
+
+    $phase = Step-UiRegressionPhase $phase 'Updates/schedule-when-closing' $ScreenshotDirectory
+    Invoke-UpdateWhenClosed
+    Wait-UpdateText UpdateScheduledStatus '1.2.130 will install when you close FingVibe.'
+    if (-not (Test-UiRegressionElementVisible (Find-UpdateControl CancelScheduledUpdateButton))) {
+        throw 'A scheduled update must expose Cancel scheduled update.'
+    }
+    if ((Find-UpdateControl InstallUpdateButton).Current.Name -ne 'Restart now') {
+        throw 'A scheduled update must offer Restart now.'
+    }
+    Invoke-UpdateControl BackToSettingsButton
+    $settingsRow = Show-UpdateControl AboutSettingsButton SettingsPage
+    $settingsNav = Find-UpdateSettingsNavigation
+    if ($settingsRow.Current.ItemStatus -ne 'Update scheduled for close' -or
+        $settingsNav.Current.ItemStatus -ne 'Update scheduled for close' -or
+        (Find-UpdateControl SettingsUpdateNowButton).Current.Name -ne 'Restart FingVibe now') {
+        throw 'Scheduled update state must replace the orange availability indicators in both Settings surfaces.'
+    }
+    Stop-UiRegressionApp $script:process
+    $script:process.Dispose()
+    Start-UpdateApp
+    Select-UpdateSettings
+    Open-UpdateAbout
+    Wait-UpdateText UpdateScheduledStatus '1.2.130 will install when you close FingVibe.'
+    Invoke-UpdateControl CancelScheduledUpdateButton
+    Wait-UpdateText UpdateStatus 'FingVibe * is available.'
+    Invoke-UpdateControl BackToSettingsButton
+    Assert-UpdateIndicators $true (Join-Path $ScreenshotDirectory 'updates-schedule-cancelled.png')
 
     $phase = Step-UiRegressionPhase $phase 'Updates/portable-narrow' $ScreenshotDirectory
     Stop-UiRegressionApp $script:process

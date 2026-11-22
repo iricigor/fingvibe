@@ -12,12 +12,15 @@ public sealed partial class AboutPage
 {
     private ReleaseUpdateSession? _updates;
     private ReleaseUpdateActions? _actions;
+    private ReleaseUpdateCloseScheduler? _closeScheduler;
     private Action? _closeForInstaller;
 
-    internal void ConfigureUpdates(ReleaseUpdateSession updates, ReleaseUpdateActions actions, bool isFixture, Action close)
+    internal void ConfigureUpdates(ReleaseUpdateSession updates, ReleaseUpdateActions actions,
+        ReleaseUpdateCloseScheduler closeScheduler, bool isFixture, Action close)
     {
         _updates = updates;
         _actions = actions;
+        _closeScheduler = closeScheduler;
         _closeForInstaller = close;
         UpdateInstalledVersion.Text = isFixture ? "Controlled update fixture: installed v1.2.99"
             : $"Installed version: {BuildIdentity.Current.Version}";
@@ -26,6 +29,7 @@ public sealed partial class AboutPage
                 ? "Development, PR and Test builds are not directly comparable to stable releases. No automatic checks or installation are offered; use the stable releases link to review releases manually."
                 : "The installed release version could not be verified. No automatic checks or installation are offered; use the stable releases link for manual review.";
         updates.Changed += (_, state) => DispatcherQueue.TryEnqueue(() => RenderUpdateState(state));
+        closeScheduler.Changed += (_, _) => DispatcherQueue.TryEnqueue(() => RenderUpdateState(updates.State));
         RenderUpdateState(updates.State);
         _ = RenderInstallOutcomeAsync();
     }
@@ -43,7 +47,18 @@ public sealed partial class AboutPage
         if (state.NextCheckAt is { } next) details.Add($"Next automatic check no earlier than {next:u}.");
         if (state.ConfirmedUpdate is not null && _actions?.SelectedAsset is null)
             details.Add("The required Windows x64 asset is unavailable. Use the release page for manual download.");
+        if (_closeScheduler?.LastError is { } closeError)
+            details.Add($"Postponed update failed: {closeError}");
         UpdateDetails.Text = string.Join(Environment.NewLine, details);
+        var scheduledVersion = _closeScheduler?.ScheduledVersionText;
+        var scheduled = scheduledVersion is not null;
+        UpdateScheduledStatus.Text = scheduled
+            ? _closeScheduler!.IsReady
+                ? $"{scheduledVersion} will install when you close FingVibe."
+                : $"{scheduledVersion} is scheduled; its verified download is being prepared."
+            : "";
+        UpdateScheduledStatus.Visibility = scheduled ? Visibility.Visible : Visibility.Collapsed;
+        CancelScheduledUpdateButton.Visibility = scheduled ? Visibility.Visible : Visibility.Collapsed;
         CheckUpdatesButton.Visibility = _updates!.IsEligible ? Visibility.Visible : Visibility.Collapsed;
         CheckUpdatesButton.IsEnabled = !state.IsChecking;
         UpdateReleaseLink.NavigateUri = state.ConfirmedUpdate?.PageUri ?? StableRelease.ReleasesUri;
@@ -58,8 +73,10 @@ public sealed partial class AboutPage
             Text = _actions?.Deployment.IsInstalled == true ? "Download Setup" : "Download portable ZIP",
             TextWrapping = TextWrapping.Wrap
         };
-        InstallUpdateButton.Visibility = canUpdateNow ? Visibility.Visible : Visibility.Collapsed;
-        InstallUpdateButton.IsEnabled = canUpdateNow && !state.IsChecking;
+        InstallUpdateButton.Visibility = canUpdateNow || scheduled ? Visibility.Visible : Visibility.Collapsed;
+        InstallUpdateButton.IsEnabled = !state.IsChecking &&
+            (scheduled ? _closeScheduler!.IsReady : canUpdateNow);
+        InstallUpdateButton.Content = scheduled ? "Restart now" : "Update now";
     }
 
     private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
@@ -110,11 +127,44 @@ public sealed partial class AboutPage
         {
             Name = "UpdateInstallConfirmationDialog", XamlRoot = XamlRoot, Title = "Update FingVibe now?",
             Content = "FingVibe will close, update, and reopen. Saved data is preserved. Windows may still ask for confirmation.",
-            PrimaryButtonText = "Update now", CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close
+            PrimaryButtonText = "Restart now", SecondaryButtonText = "When I close",
+            CloseButtonText = "Cancel", DefaultButton = ContentDialogButton.Close
         };
         AutomationProperties.SetAutomationId(confirmationDialog, "UpdateInstallConfirmationDialog");
         var confirmation = await confirmationDialog.ShowAsync();
+        if (confirmation == ContentDialogResult.Secondary && _closeScheduler is not null)
+        {
+            UpdateDownloadProgress.Value = 0;
+            UpdateDownloadProgress.Visibility = CancelUpdateDownloadButton.Visibility = Visibility.Visible;
+            UpdateDownloadStatus.Text = "Preparing the verified update for the next normal close...";
+            try
+            {
+                await _closeScheduler.ScheduleAsync(
+                    new Progress<double>(value => UpdateDownloadProgress.Value = value));
+                UpdateDownloadStatus.Text = _closeScheduler.IsReady
+                    ? $"FingVibe {_closeScheduler.ScheduledVersionText} will install when you close FingVibe."
+                    : "The update remains scheduled; verification will continue.";
+            }
+            catch (OperationCanceledException)
+            {
+                UpdateDownloadStatus.Text = "Scheduled update cancelled. FingVibe remains available.";
+            }
+            catch (Exception exception) when (exception is IOException or InvalidDataException
+                or HttpRequestException or UnauthorizedAccessException or SecurityException)
+            {
+                Trace.TraceWarning($"Scheduling update for close failed: {exception}");
+                UpdateDownloadStatus.Text = $"The update could not be prepared: {exception.Message}";
+                await ShowDownloadFailureAsync(exception);
+            }
+            finally
+            {
+                UpdateDownloadProgress.Visibility = CancelUpdateDownloadButton.Visibility = Visibility.Collapsed;
+                if (_updates is not null) RenderUpdateState(_updates.State);
+            }
+            return;
+        }
         if (confirmation != ContentDialogResult.Primary) return;
+        if (_closeScheduler is not null) await _closeScheduler.CancelAsync();
         InstallUpdateButton.IsEnabled = false;
         try
         {
@@ -169,6 +219,12 @@ public sealed partial class AboutPage
     }
 
     private async void InstallUpdate_Click(object sender, RoutedEventArgs e) => await UpdateNowAsync();
+    private async void CancelScheduledUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        if (_closeScheduler is null) return;
+        await _closeScheduler.CancelAsync();
+        if (_updates is not null) RenderUpdateState(_updates.State);
+    }
 
     private async Task RenderInstallOutcomeAsync()
     {

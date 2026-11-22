@@ -1,0 +1,20 @@
+{
+  "schema": "fingvibe-pr-regression-v1",
+  "issue": 696,
+  "category": "ui",
+  "changedBehavior": "The update confirmation offers Restart now, When I close and Cancel. A persisted When I close schedule survives restart, reuses a verified file, moves to newer confirmed versions, hides availability indicators, can be cancelled, and starts the close-first handoff with relaunch disabled only on a completed normal close.",
+  "selectors": [
+    "core-tests",
+    "ui-review-scenarios",
+    "ui-regression-helpers",
+    "native-tools-utilities",
+    "native-sidebar-preferences-scheduling",
+    "documentation-tests"
+  ],
+  "expectedAssertions": [
+    "Pending and armed close schedules persist atomically, reuse only a matching verified installer, supersede to a newer confirmed version and clear on cancel or a completed handoff.",
+    "Restart now and When I close preserve the existing download/verification path; a cancelled or unready close never installs, and successful scheduled handoff disables relaunch.",
+    "Settings and About replace orange availability state with the scheduled version and expose Restart now plus Cancel scheduled update with stable names and keyboard access.",
+    "The three-button dialog keeps Cancel as default, while the normal close funnel waits for existing activity shutdown before any scheduled handoff."
+  ]
+}

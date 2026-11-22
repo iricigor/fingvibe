@@ -8,9 +8,11 @@ are available. Repository and creator links open in your browser. Settings stays
 selected; **Back to Settings** returns focus to the About row without resetting
 your preference sections. Official stable builds check for newer stable releases
 automatically while open, and offer **Check for updates**. Downloads require
-your action; **Update now** requires confirmation, downloads/verifies the
-release, closes FingVibe before Setup runs, records the observed installer/relaunch
-result and reopens the verified installation after success. About keeps a compact
+your action; **Update now** requires confirmation. Choose **Restart now** to download/verify,
+close FingVibe, run Setup and reopen after success, or choose **When I close** to
+keep the verified update for the next completed normal close. The postponed
+version and its verified installer record survive restarts; cancelling restores
+the ordinary available-update state. About keeps a compact
 status summary and reports the result after reopening. Portable copies use manual ZIP
 replacement. PR, Test and
 Development builds do not check for updates or compare their versions with

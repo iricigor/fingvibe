@@ -8,6 +8,7 @@ namespace FingVibe.App;
 
 internal sealed class UpdateReviewFixture(string path) : TimeProvider
 {
+    private int _downloadCount;
     private sealed record Settings
     {
         public required DateTimeOffset Now { get; init; }
@@ -26,6 +27,7 @@ internal sealed class UpdateReviewFixture(string path) : TimeProvider
     }
 
     public override DateTimeOffset GetUtcNow() => Read().Now;
+    public int DownloadCount => Volatile.Read(ref _downloadCount);
     public string DownloadRoot => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))
         ?? throw new InvalidDataException("The update fixture needs a parent directory."), "downloads");
     public HttpMessageHandler CreateHandler() => new Handler(this);
@@ -67,6 +69,7 @@ internal sealed class UpdateReviewFixture(string path) : TimeProvider
                     "current" => "1.2.99",
                     "older" => "1.2.98",
                     "newer" => "1.2.130",
+                    "newest" => "1.2.131",
                     "missing-assets" => "1.2.130",
                     _ => throw new InvalidDataException("Unknown update review outcome.")
                 };
@@ -87,6 +90,7 @@ internal sealed class UpdateReviewFixture(string path) : TimeProvider
             }
             if (request.RequestUri?.Host != "github.com")
                 throw new InvalidDataException("The update review fixture refuses an unexpected host.");
+            Interlocked.Increment(ref owner._downloadCount);
             if (settings.Download == "fail") throw new HttpRequestException("Controlled download failure.");
             if (settings.Download == "slow") await Task.Delay(TimeSpan.FromSeconds(10), cancellationToken);
             if (settings.Download is not ("success" or "slow" or "interrupted"))

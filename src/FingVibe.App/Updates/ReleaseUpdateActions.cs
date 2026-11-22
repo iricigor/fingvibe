@@ -21,6 +21,9 @@ internal sealed class ReleaseUpdateActions(HttpClient http, ReleaseUpdateSession
     public bool IsDownloading => _downloadCancellation is not null;
     public bool IsDisposed => _disposed;
     public string? DownloadedPath => _downloaded?.Path;
+    internal ReleaseUpdateDownloadSnapshot? Downloaded => _downloaded is { } downloaded
+        ? new(downloaded.Path, downloaded.Hash, downloaded.Asset.Size, downloaded.Version)
+        : null;
     public string? InstallHandoffRecordPath { get; private set; }
     public string LatestInstallHandoffRecordPath { get; } = fixture is null
         ? ReleaseInstallHandoffStore.DefaultRecordPath
@@ -29,11 +32,47 @@ internal sealed class ReleaseUpdateActions(HttpClient http, ReleaseUpdateSession
         && _downloaded is { } file && session.State.ConfirmedUpdate?.Version == file.Version;
     public bool CanUpdateNow => !_disposed && session.IsEligible && Deployment.IsInstalled && !IsDownloading
         && SelectedAsset is not null && session.State.ConfirmedUpdate is not null;
+    public event EventHandler? Changed;
 
     public ReleaseAsset? SelectedAsset => session.State.ConfirmedUpdate is { } release
         ? SelectAsset(release) : null;
 
     private ReleaseAsset? SelectAsset(StableRelease release) => Deployment.IsInstalled ? release.Setup : release.Portable;
+
+    internal async Task<bool> RestoreDownloadedAsync(ReleaseUpdateSchedule schedule, StableRelease release)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!schedule.IsArmed || !session.IsEligible || !Deployment.IsInstalled ||
+            SelectAsset(release) is not { } asset ||
+            !StableRelease.TryParseVersion(schedule.Version, out var expectedVersion) ||
+            expectedVersion != release.Version)
+            return false;
+        try
+        {
+            var root = Path.GetFullPath(DownloadRoot()).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            var path = Path.GetFullPath(schedule.InstallerPath!);
+            if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase) ||
+                Path.GetFileName(path) != asset.Name || !File.Exists(path))
+                return false;
+            var file = new FileInfo(path);
+            if (file.Length != schedule.InstallerSize || file.Length != asset.Size) return false;
+            await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
+            var hash = Convert.ToHexString(await SHA256.HashDataAsync(stream, _lifetime.Token).ConfigureAwait(false));
+            if (!hash.Equals(schedule.InstallerSha256, StringComparison.OrdinalIgnoreCase) ||
+                (asset.Sha256 is not null && !hash.Equals(asset.Sha256, StringComparison.OrdinalIgnoreCase)) ||
+                !(await File.ReadAllTextAsync(path + ":Zone.Identifier", _lifetime.Token).ConfigureAwait(false))
+                    .Split('\n').Any(line => line.Trim() == "ZoneId=3"))
+                return false;
+            _downloaded = (path, hash, asset, release.Version);
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+            or SecurityException or OperationCanceledException or ArgumentException or NotSupportedException)
+        {
+            Trace.TraceWarning($"Scheduled update file could not be restored: {exception}");
+            return false;
+        }
+    }
 
     public async Task DownloadAsync(IProgress<double> progress)
     {
@@ -46,8 +85,7 @@ internal sealed class ReleaseUpdateActions(HttpClient http, ReleaseUpdateSession
         _downloaded = null;
         try
         {
-            var root = fixture?.DownloadRoot ?? Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FingVibe", "Updates");
+            var root = DownloadRoot();
             var directory = Path.Combine(root, Guid.NewGuid().ToString("N"));
             var path = await ReleaseDownload.DownloadAsync(http, asset, directory, progress, cancellation.Token).ConfigureAwait(false);
             await using var stream = File.OpenRead(path);
@@ -57,6 +95,7 @@ internal sealed class ReleaseUpdateActions(HttpClient http, ReleaseUpdateSession
         finally
         {
             _downloadCancellation = null;
+            Changed?.Invoke(this, EventArgs.Empty);
         }
     }
 
@@ -300,4 +339,10 @@ internal sealed class ReleaseUpdateActions(HttpClient http, ReleaseUpdateSession
         _lifetime.Cancel();
         CancelDownload();
     }
+
+    private string DownloadRoot() => fixture?.DownloadRoot ?? Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "FingVibe", "Updates");
 }
+
+internal sealed record ReleaseUpdateDownloadSnapshot(
+    string Path, string Sha256, long Size, Version Version);

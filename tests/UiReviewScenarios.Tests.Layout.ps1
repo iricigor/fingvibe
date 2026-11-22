@@ -190,6 +190,11 @@
         $monitorStatus.GetAttribute("AutomationProperties.LiveSetting") -cne "Polite") {
         throw "Background activity must group an accessible monitoring toggle, disclosure and polite status with scheduled scans."
     }
+    $closeSource = Get-Content (Join-Path $appDirectory "MainWindow.xaml.cs") -Raw
+    if ($closeSource -notmatch '(?s)await ToolsPage\.StopForWindowCloseAsync\(\);\s*await TryInstallScheduledUpdateOnCloseAsync\(\);' -or
+        $closeSource -notmatch '(?s)finally\s*\{\s*_updateCloseScheduler\?\.Dispose\(\);\s*StopUpdates\(\);') {
+        throw "Postponed update handoff must run after existing activity shutdown and before the final close cleanup."
+    }
     $shellDocument = [xml](Get-Content (Join-Path $appDirectory "MainWindow.xaml") -Raw)
     $rootGrid = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='RootGrid']")
     $ribbonArea = $shellDocument.SelectSingleNode("//*[@*[local-name()='Name']='BuildRibbonArea']")
@@ -375,6 +380,16 @@
     }
     $aboutDocument = [System.Xml.XmlDocument]::new()
     $aboutDocument.Load((Join-Path $appDirectory "Tools\AboutPage.xaml"))
+    $scheduledStatus = $aboutDocument.SelectSingleNode(
+        "//*[@*[local-name()='Name']='UpdateScheduledStatus']")
+    $cancelScheduled = $aboutDocument.SelectSingleNode(
+        "//*[@*[local-name()='Name']='CancelScheduledUpdateButton']")
+    if (-not $scheduledStatus -or $scheduledStatus.GetAttribute("AutomationProperties.LiveSetting") -cne "Polite" -or
+        $scheduledStatus.GetAttribute("Visibility") -cne "Collapsed" -or -not $cancelScheduled -or
+        $cancelScheduled.GetAttribute("Click") -cne "CancelScheduledUpdate_Click" -or
+        $cancelScheduled.GetAttribute("Visibility") -cne "Collapsed") {
+        throw "About must expose one polite scheduled-update line and one collapsed Cancel scheduled update action."
+    }
     $browserLinks = @($aboutDocument.SelectNodes(
         "//*[local-name()='HyperlinkButton' and contains(@AutomationProperties.Name,'opens in browser')]"))
     if ($browserLinks.Count -ne 5) { throw "About must retain all five browser destinations." }
