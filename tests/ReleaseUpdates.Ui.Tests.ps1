@@ -226,9 +226,11 @@ try {
         'Settings Update now confirmation'
     Invoke-UpdateDialogButton Cancel
     Wait-UpdateText UpdateStatus 'FingVibe * is available.'
-    if (-not (Test-UiRegressionElementVisible (Find-UpdateControl AboutView))) {
-        throw 'Settings Update now must use the shared About action path.'
-    }
+    # AboutView is a UserControl without its own UIA peer; the About scroller replacing the Settings scroller proves the shared path.
+    $null = Wait-UiRegressionState {
+        (Test-UiRegressionElementVisible (Find-UpdateControl UpdatesScroll)) -and
+            -not (Test-UiRegressionElementVisible (Find-UpdateControl SettingsPage))
+    } 'Settings Update now shared About action path'
     Wait-UpdateText UpdateStatus 'FingVibe * is available.'
     if (-not (Test-UiRegressionElementVisible (Find-UpdateControl UpdateSecurityWarning)) -or
         (Find-UpdateControl UpdateDetailsExpander).GetCurrentPattern(
