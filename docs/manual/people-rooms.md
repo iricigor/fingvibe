@@ -96,7 +96,10 @@ FingVibe selects a valid nearby device or room instead. Completed scans and
 assignment changes refresh the retained map without moving unchanged items.
 
 **Only online** starts on and hides offline devices and devices without local
-scan evidence while preserving the room layout. Turn it off to show every
+scan evidence while preserving the room layout. Because every shown device is
+then online, tiles omit the repeated **Online** line and give long device names
+a second line instead; the tooltip and screen-reader name still state the status.
+Turn it off to show every
 relevant device again. Use the Back action to return to **Rooms**, **Tools**, or
 **Network health**, depending on where you opened the map. Narrow windows keep
 normal-size device icons and allow horizontal and vertical

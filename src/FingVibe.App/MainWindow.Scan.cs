@@ -29,14 +29,15 @@ public sealed partial class MainWindow : IScanExecutionSteps
     private readonly Stopwatch _scanElapsed = new();
     private readonly DispatcherTimer _scanElapsedTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private bool _scanElapsedInitialized;
+    private string? _scanProgressBase;
     private string? _scanProgressMessage;
     private string? _scanProgressDetail;
 
     private string ScanProgressPrefix => _scanTrigger == ScanTrigger.Scheduled ? "Scheduled scan · " : string.Empty;
 
-    // Elapsed time and protocol detail decorate only the latest scanner-progress text, never the
-    // cancellation, failure or save messages that later replace it.
-    private bool IsScanProgressShown => _isScanning && _scanMessage is not null
+    // The elapsed timer may refresh only the progress text it composed itself; cancellation, failure and
+    // save messages that later replace _scanMessage are never overwritten.
+    private bool IsScanProgressShown => _isScanning && _scanProgressMessage is not null
         && string.Equals(_scanMessage, _scanProgressMessage, StringComparison.Ordinal);
 
     private void UpdateScanStatus()
@@ -60,15 +61,11 @@ public sealed partial class MainWindow : IScanExecutionSteps
         ScanFreshnessText.Text = context;
         ScanButton.Visibility = _isScanning ? Visibility.Collapsed : Visibility.Visible;
         ScanButton.IsEnabled = !_isScanning && network is not null;
-        var progressShown = IsScanProgressShown;
-        var scanMessage = progressShown
-            ? $"{_scanMessage} · {ScanProgressPresentation.Elapsed(_scanElapsed.Elapsed)}"
-            : _scanMessage;
-        var status = string.Join(" · ", new[] { scanMessage, _snapshotError, _inventoryError, _backupError, _discoveryMessage, _windowsNotificationMessage, targetWarning }
+        var status = string.Join(" · ", new[] { _scanMessage, _snapshotError, _inventoryError, _backupError, _discoveryMessage, _windowsNotificationMessage, targetWarning }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
         ScanStatusText.Text = status;
         ScanStatusText.Visibility = string.IsNullOrWhiteSpace(status) ? Visibility.Collapsed : Visibility.Visible;
-        var detail = progressShown ? _scanProgressDetail : null;
+        var detail = IsScanProgressShown ? _scanProgressDetail : null;
         ToolTipService.SetToolTip(ScanStatusText, detail);
         AutomationProperties.SetHelpText(ScanStatusText, detail ?? string.Empty);
         ScanMessages.Visibility = _isScanning || !string.IsNullOrWhiteSpace(status)
@@ -77,9 +74,14 @@ public sealed partial class MainWindow : IScanExecutionSteps
 
     private void ShowScanProgressMessage(string message, LanScanProgress progress)
     {
-        _scanMessage = _scanProgressMessage = message;
+        _scanProgressBase = message;
         _scanProgressDetail = ScanProgressPresentation.Detail(progress);
+        RefreshScanProgressMessage();
     }
+
+    private void RefreshScanProgressMessage() =>
+        _scanMessage = _scanProgressMessage =
+            $"{_scanProgressBase} · {ScanProgressPresentation.Elapsed(_scanElapsed.Elapsed)}";
 
     private void StartScanElapsed()
     {
@@ -87,7 +89,9 @@ public sealed partial class MainWindow : IScanExecutionSteps
         {
             _scanElapsedTimer.Tick += (_, _) =>
             {
-                if (IsScanProgressShown) UpdateScanStatus();
+                if (!IsScanProgressShown) return;
+                RefreshScanProgressMessage();
+                UpdateScanStatus();
             };
             Closed += (_, _) => StopScanElapsed();
             _scanElapsedInitialized = true;
@@ -101,8 +105,7 @@ public sealed partial class MainWindow : IScanExecutionSteps
     {
         _scanElapsedTimer.Stop();
         _scanElapsed.Stop();
-        _scanProgressMessage = null;
-        _scanProgressDetail = null;
+        _scanProgressBase = _scanProgressMessage = _scanProgressDetail = null;
     }
 
     private async void ScanButton_Click(object sender, RoutedEventArgs e)
@@ -309,7 +312,6 @@ public sealed partial class MainWindow : IScanExecutionSteps
             _inventoryError = "The Windows network profile changed during this scan. Observations are unscoped and no devices are marked Offline.";
         var saved = await SaveCompletedScanAsync(request.Network, results, networkId, duration);
         _scanMessage = null;
-        _scanProgressMessage = null;
         if (networkId is null)
             _discoveryMessage = "New-device alerts and baseline establishment are disabled for this scan because network identity is unavailable.";
         return saved;

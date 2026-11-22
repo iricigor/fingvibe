@@ -407,6 +407,8 @@ public sealed partial class RoomMapPageView : UserControl
         AutomationProperties.SetAccessibilityView(icon, AccessibilityView.Raw);
         Grid.SetColumn(icon, 0);
         var text = new StackPanel { Spacing = 0, VerticalAlignment = VerticalAlignment.Center };
+        // Only online shows online devices alone, so it drops the repeated status line (the accessible name and
+        // tooltip keep it) and lets long names use two lines instead.
         text.Children.Add(new TextBlock
         {
             Text = device.Name,
@@ -414,18 +416,22 @@ public sealed partial class RoomMapPageView : UserControl
             FontWeight = device.Status == RoomMapDeviceStatus.Online
                 ? Microsoft.UI.Text.FontWeights.SemiBold
                 : Microsoft.UI.Text.FontWeights.Normal,
-            TextWrapping = TextWrapping.NoWrap,
+            TextWrapping = onlyOnline ? TextWrapping.Wrap : TextWrapping.NoWrap,
+            MaxLines = onlyOnline ? 2 : 1,
             TextTrimming = TextTrimming.CharacterEllipsis,
             Foreground = foreground
         });
-        text.Children.Add(new TextBlock
+        if (!onlyOnline)
         {
-            Text = device.CompactStatusText,
-            FontSize = 10,
-            TextWrapping = TextWrapping.NoWrap,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            Foreground = foreground
-        });
+            text.Children.Add(new TextBlock
+            {
+                Text = device.CompactStatusText,
+                FontSize = 10,
+                TextWrapping = TextWrapping.NoWrap,
+                TextTrimming = TextTrimming.CharacterEllipsis,
+                Foreground = foreground
+            });
+        }
         Grid.SetColumn(text, 1);
         tileContent.Children.Add(icon);
         tileContent.Children.Add(text);
