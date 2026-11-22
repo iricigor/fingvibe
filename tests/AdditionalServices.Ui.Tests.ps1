@@ -298,8 +298,9 @@ function Test-DeviceDetailsEditing {
     Save-UiReviewWindowScreenshot $process.MainWindowHandle (Join-Path $ScreenshotDirectory "device-details-wide.png")
     $tabs = (Find-ServiceControl DeviceDetailsTabs).Current.BoundingRectangle
     $identity = (Find-ServiceControl "Rename device" -ByName).Current.BoundingRectangle
-    if ($tabs.Right -gt $identity.Left -or $tabs.Top -gt $identity.Bottom) {
-        throw "Wide tabs must be left of the right-side device identity."
+    # #670: the tabs keep their look below the identity header at every width until #659 moves them into it.
+    if ($tabs.Top -lt $identity.Bottom) {
+        throw "Wide tabs must stay below the device identity header."
     }
     $nameCopy = Find-ServiceControl "Copy Device name" -ByName
     $rename = Find-ServiceControl "Rename device" -ByName

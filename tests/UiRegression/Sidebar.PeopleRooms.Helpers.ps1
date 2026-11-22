@@ -835,6 +835,18 @@ function Test-PeopleRoomsFlows {
         Invoke-PeopleRoomsElement Name Save
         Open-PeopleRoomsDetails $name $pageId
         $null = Find-PeopleRoomsElement Name 'Saved notes' $detailId
+        # #670: the identity header keeps #657's title position with the entity's own icon slot and badge beneath it.
+        $detailBack = Find-UiRegressionElement -Description "$category details Back" -Container { $root } -Condition (
+            [System.Windows.Automation.AndCondition]::new(
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::NameProperty, 'Back to people and rooms'),
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Button)))
+        $detailBadge = Find-SidebarElement AutomationId "${category}DetailShortName"
+        if ($detailBadge.Current.Name -cne $short) { throw "$category details must keep the '$short' short-name badge." }
+        Assert-UiRegressionIdentityHeader -Back $detailBack.Current.BoundingRectangle `
+            -Title (Find-SidebarElement AutomationId "${category}DetailName").Current.BoundingRectangle `
+            -Badge $detailBadge.Current.BoundingRectangle -Scale $scale -Description "$category details"
         $null = Find-PeopleRoomsElement Name '0 devices assigned' $detailId
         Assert-SharedNetworkHeader
         Test-SharedScanContext $name

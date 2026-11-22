@@ -11,7 +11,9 @@ Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
             $node.GetCommandName() -eq "Add-Type"
     }, $true)
     if (-not $nativeHelper) { throw "Missing sidebar native input helper." }
-    Invoke-Expression $nativeHelper.Extent.Text
+    if (-not ("SidebarReviewKeyboard" -as [type])) {
+        Invoke-Expression $nativeHelper.Extent.Text
+    }
     $save = $sidebarAst.Find({
         param($node)
         $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and

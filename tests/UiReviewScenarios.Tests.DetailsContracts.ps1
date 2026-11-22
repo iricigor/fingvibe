@@ -78,10 +78,11 @@
         if (-not $historyPanel.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must be on the History tab." }
     }
     $header = $page.SelectSingleNode("//*[@x:Name='HeaderGrid']", $namespaces)
-    if (-not $header.SelectSingleNode(".//*[@x:Name='DetailsTabs']", $namespaces) -or
+    if ($header.SelectSingleNode(".//*[@x:Name='DetailsTabs']", $namespaces) -or
+        -not $page.SelectSingleNode("//*[@x:Name='DetailsTabsHost']/*[@x:Name='DetailsTabs']", $namespaces) -or
         -not $header.SelectSingleNode(".//*[@x:Name='DeviceNameValue']", $namespaces) -or
         -not $header.SelectSingleNode(".//*[@x:Name='DeviceBackButton']", $namespaces)) {
-        throw "Back, segmented tabs and identity must share the responsive details header."
+        throw "Back and identity must share the details header, with the segmented tabs below it until #659 (#670)."
     }
     $deviceBack = $header.SelectSingleNode(".//*[@x:Name='DeviceBackButton']", $namespaces)
     Assert-Equal $deviceBack.GetAttribute("AutomationProperties.AutomationId") "DeviceBackButton" "Device Details Back is stable for Room map return"

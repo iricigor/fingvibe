@@ -109,6 +109,8 @@ function Select-HistoryDevices {
 
 function Find-HistoryDeviceRow([string] $Name) {
     Select-HistoryDevices
+    # Returning from Device details can show the results list a moment before the search box is realized (#670).
+    $null = Wait-UiRegressionState -Description "the device search box" -Condition { Find-HistoryControl "Search devices" -ByName -Optional -NoTabSwitch }
     $search = (Find-HistoryControl "Search devices" -ByName).GetCurrentPattern(
         [System.Windows.Automation.ValuePattern]::Pattern)
     if ($search.Current.Value -cne $Name) {

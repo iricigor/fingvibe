@@ -3,8 +3,9 @@
 Select a row on **Devices** to open its details.
 Use the **Devices** return action when finished.
 
-Device details has two segmented tabs beside **Devices**, with the device's
-name and status grouped on the right. At narrow widths the tabs move below the header:
+Device details starts with a fixed header: the **Devices** return action, the
+device icon, and the device's name with its status beneath. Two segmented tabs
+sit below the header:
 
 - **Overview** (selected each time you open a device): network overview,
   assignments, observation summary, usage category, possible matching MAC

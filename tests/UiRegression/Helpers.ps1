@@ -1,4 +1,4 @@
-﻿function Wait-UiRegressionState {
+function Wait-UiRegressionState {
     param(
         [Parameter(Mandatory)][scriptblock] $Condition,
         [Parameter(Mandatory)][string] $Description,
@@ -69,7 +69,7 @@ function Show-UiRegressionScrollTargets {
     )
     $state = @{
         Moves = 0; Geometry = $null; MissingBoundsMoves = 0; Direction = 0; Reversals = 0; LastMove = 0
-        MovedAt = $null; StartPercent = $null; RequestedPercent = $null
+        MovedAt = $null; StartPercent = $null; RequestedPercent = $null; Reissues = 0
         StableGeometry = $null; StableSince = $null
     }
     $targetDescription = $Description
@@ -166,6 +166,17 @@ function Show-UiRegressionScrollTargets {
             if ($geometry -eq $state.Geometry) {
                 # WinUI can apply a UIA scroll after the next observation; wait briefly without reissuing it.
                 if ($state.MovedAt.ElapsedMilliseconds -lt 750) { return $null }
+                # A request WinUI never applied (the percentage itself is unchanged, for example because a focus-driven
+                # bring-into-view was still settling) is reissued up to twice (#670). An accepted percentage without
+                # rendered movement still fails immediately, so a reissue can never masquerade as visibility.
+                if ($state.Reissues -lt 2 -and
+                    [Math]::Abs($scroll.Current.VerticalScrollPercent - $state.StartPercent) -lt 0.001) {
+                    $state.Reissues++
+                    $state.MovedAt = [Diagnostics.Stopwatch]::StartNew()
+                    Write-Host "Reissuing ${targetDescription}: still at $($scroll.Current.VerticalScrollPercent)%, requesting $($state.RequestedPercent)% again."
+                    $scroll.SetScrollPercent(-1, $state.RequestedPercent)
+                    return $null
+                }
                 throw "$targetDescription did not move after a measured scroll adjustment (requested $($state.RequestedPercent)% from $($state.StartPercent)%; now $($scroll.Current.VerticalScrollPercent)%)."
             }
             if ($state.Moves -ge 8) { throw "$targetDescription did not settle after eight measured scroll adjustments." }
@@ -179,6 +190,7 @@ function Show-UiRegressionScrollTargets {
             if ($extent -le 0) { throw "$targetDescription has an invalid scroll extent." }
             $percent = [Math]::Max(0.0, [Math]::Min(100.0, $scroll.Current.VerticalScrollPercent + 100 * $delta / $extent))
             $state.Geometry = $geometry
+            $state.Reissues = 0
             $state.Moves++
             $state.LastMove = [Math]::Sign($percent - $scroll.Current.VerticalScrollPercent)
             $state.StartPercent = $scroll.Current.VerticalScrollPercent
@@ -269,8 +281,8 @@ function Show-UiRegressionDeviceTabFor {
     Select-UiRegressionDeviceTab -Root $Root -Tab $tab
 }
 
-# The Device Details body starts one 16-DIP row gap below its fixed header. Its ScrollViewer's own UIA
-# rectangle can extend to the window top, so positioning uses the rendered header instead.
+# The Device Details body starts one 16-DIP row gap below its fixed identity header and the tabs row beneath it.
+# Its ScrollViewer's own UIA rectangle can extend to the window top, so positioning uses the rendered header instead.
 function Get-UiRegressionDeviceDetailsBodyTop {
     param([Parameter(Mandatory)] $Root, [Parameter(Mandatory)][double] $Scale)
     $bottoms = foreach ($id in @("DeviceBackButton", "DeviceOverviewTab", "DeviceStatusText")) {
@@ -283,6 +295,42 @@ function Get-UiRegressionDeviceDetailsBodyTop {
     }
     if (@($bottoms).Count -eq 0) { return $null }
     return ($bottoms | Measure-Object -Maximum).Maximum + 16 * $Scale
+}
+
+# #670: detail pages use the identity variant of #657's header. Back's right edge plus the 4-DIP Back margin and the
+# 12-DIP row spacing starts the 48-DIP entity icon; the title starts 12 DIP after it, centered with Back. An optional
+# secondary line starts under the title, and a short-name badge sits centered beneath the icon (or starts there when wider).
+function Assert-UiRegressionIdentityHeader {
+    param([Parameter(Mandatory)] $Back, $Icon, [Parameter(Mandatory)] $Title, $Secondary, $Badge,
+        [Parameter(Mandatory)][double] $Scale, [Parameter(Mandatory)][string] $Description)
+    $iconLeft = $Back.Right + (4 + 12) * $Scale
+    $titleLeft = $iconLeft + (48 + 12) * $Scale
+    $center = ($Back.Top + $Back.Bottom) / 2
+    $failures = @()
+    if ($Title.Width -le 0 -or [Math]::Abs($Title.Left - $titleLeft) -gt $Scale -or
+        [Math]::Abs(($Title.Top + $Title.Bottom) / 2 - $center) -gt $Scale) {
+        $failures += "title=$Title (expected left $titleLeft, center $center)"
+    }
+    if ($Icon -and ([Math]::Abs($Icon.Left - $iconLeft) -gt $Scale -or
+            [Math]::Abs($Icon.Width / $Scale - 48) -gt 1 -or [Math]::Abs($Icon.Height / $Scale - 48) -gt 1 -or
+            [Math]::Abs(($Icon.Top + $Icon.Bottom) / 2 - $center) -gt $Scale)) {
+        $failures += "icon=$Icon (expected 48 DIP at left $iconLeft, center $center)"
+    }
+    if ($Secondary -and ([Math]::Abs($Secondary.Left - $Title.Left) -gt $Scale -or
+            $Secondary.Top -lt [Math]::Max($Back.Bottom, $Title.Bottom) - $Scale)) {
+        $failures += "secondary=$Secondary (expected under the title)"
+    }
+    if ($Badge) {
+        $badgeAligned = if ($Badge.Width -le 48 * $Scale + $Scale) {
+            [Math]::Abs(($Badge.Left + $Badge.Right) / 2 - ($iconLeft + 24 * $Scale)) -le $Scale
+        } else { [Math]::Abs($Badge.Left - $iconLeft) -le $Scale }
+        if ($Badge.Width -le 0 -or -not $badgeAligned -or $Badge.Top -lt $Back.Bottom - $Scale) {
+            $failures += "badge=$Badge (expected beneath the icon slot at $iconLeft)"
+        }
+    }
+    if ($failures.Count -gt 0) {
+        throw "$Description must keep the shared identity header geometry within 1 DIP of Back=${Back}: $($failures -join '; ')."
+    }
 }
 
 function Find-UiRegressionElement {

@@ -105,23 +105,6 @@
         $navItem -notmatch 'Style="\{ThemeResource SidebarPeopleRoomsIconStyle\}"' -or $navItem -match '<PathIcon\b') {
         throw "People & rooms navigation must use one theme-colored single-color 'people-rooms' family icon."
     }
-    foreach ($detail in @(
-        @{ View = "PersonDetailsPageView"; Heading = "PersonDetailHeading"; Icon = "people"; Name = "PersonDetailName"; Symbol = "PersonDetailIcon"; Badge = "PersonDetailShortName" },
-        @{ View = "RoomDetailsPageView"; Heading = "RoomDetailHeading"; Icon = "rooms"; Name = "RoomDetailName"; Symbol = "RoomDetailIcon"; Badge = "RoomDetailShortName" }
-    )) {
-        $detailDocument = [xml](Get-Content (Join-Path $appDirectory "Views\$($detail.View).xaml") -Raw)
-        $heading = $detailDocument.SelectSingleNode("//*[@*[local-name()='Name']='$($detail.Heading)']")
-        $first = if ($heading) { $heading.SelectSingleNode("./*[not(starts-with(local-name(), 'Grid.'))]") }
-        $detailName = if ($heading) { $heading.SelectSingleNode("./*[@*[local-name()='Name']='$($detail.Name)']") }
-        if (-not $first -or $first.LocalName -cne "PageHeaderIcon" -or $first.GetAttribute("Icon") -cne $detail.Icon -or
-            $heading.SelectNodes(".//*[local-name()='PageHeaderIcon']").Count -ne 1 -or
-            -not $detailName -or $detailName.GetAttribute("Grid.Column") -cne "1" -or
-            $heading.SelectSingleNode(".//*[@*[local-name()='Name']='$($detail.Symbol)' or @*[local-name()='Name']='$($detail.Badge)']") -or
-            -not $detailDocument.SelectSingleNode("//*[@*[local-name()='Name']='$($detail.Symbol)']") -or
-            -not $detailDocument.SelectSingleNode("//*[@*[local-name()='Name']='$($detail.Badge)']")) {
-            throw "$($detail.View) must show the '$($detail.Icon)' family icon before its title and keep the entity symbol and short-name badge separate."
-        }
-    }
     foreach ($section in @(
         @{ Name = "People"; Add = "AddPersonButton" },
         @{ Name = "Rooms"; Add = "AddRoomButton" }
@@ -739,11 +722,106 @@
             throw "$($entry.Path) must use only the shared page-header title style."
         }
     }
-    foreach ($detailView in @("DeviceDetailsPageView", "PersonDetailsPageView", "RoomDetailsPageView")) {
-        $detailXaml = Get-Content (Join-Path $appDirectory "Views\$detailView.xaml") -Raw
-        if ($detailXaml -match 'PageHeader(Row|BackButton|Title)Style') {
-            throw "$detailView keeps its own detail header; the shared page header does not cover detail pages (#657)."
+    # #670: Device, Person and Room details use the identity variant of the shared header: Back, the entity's own
+    # 48-DIP icon (short-name badge beneath it), 12 DIP, the name in the shared title style and only existing secondary text.
+    $identityHeaders = @(
+        @{ View = "DeviceDetailsPageView"; Row = "HeaderGrid"; Back = "DeviceBackButton"; Icon = "DeviceTypeIcon"; Title = "DeviceNameValue"
+            TitleType = "DeviceDetailValue"; Secondary = "DeviceStatusText"; Columns = "Auto,Auto,*" },
+        @{ View = "PersonDetailsPageView"; Row = "PersonDetailHeading"; Icon = "PersonDetailIcon"; Title = "PersonDetailName"
+            TitleType = "TextBlock"; Badge = "PersonDetailShortName"; Actions = "PersonDetailActions"; Columns = "Auto,48,*,Auto"
+            Buttons = @("EditPersonDetailButton=EditPersonButton_Click", "DeletePersonDetailButton=DeletePersonButton_Click") },
+        @{ View = "RoomDetailsPageView"; Row = "RoomDetailHeading"; Back = "RoomBackButton"; Icon = "RoomDetailIcon"; Title = "RoomDetailName"
+            TitleType = "TextBlock"; Badge = "RoomDetailShortName"; Actions = "RoomDetailActions"; Columns = "Auto,48,*,Auto"
+            Buttons = @("EditRoomDetailButton=EditRoomButton_Click", "DeleteRoomDetailButton=DeleteRoomButton_Click") }
+    )
+    foreach ($entry in $identityHeaders) {
+        $document = [xml](Get-Content (Join-Path $appDirectory "Views\$($entry.View).xaml") -Raw)
+        $named = { param($Name) , @($document.SelectNodes("//*[@*[local-name()='Name']='$Name']")) }
+        $rows = @($document.SelectNodes("//*[@Style='{StaticResource PageHeaderRowStyle}']"))
+        $header = $rows[0]
+        $pageGrid = $document.DocumentElement.SelectSingleNode("./*[local-name()='Grid']")
+        $hostRows = @($pageGrid.SelectNodes("./*[local-name()='Grid.RowDefinitions']/*"))
+        $scroll = $pageGrid.SelectSingleNode("./*[local-name()='ScrollViewer']")
+        $children = if ($header) { @($header.SelectNodes("./*[not(contains(local-name(), '.'))]")) }
+        $columns = if ($header) { @($header.SelectNodes("./*[local-name()='Grid.ColumnDefinitions']/*") | ForEach-Object { $_.GetAttribute("Width") }) }
+        if ($rows.Count -ne 1 -or $header.LocalName -cne "Grid" -or $header.ParentNode -ne $pageGrid -or
+            $header.GetAttribute("Name", $xamlNamespace) -cne $entry.Row -or $header.GetAttribute("Grid.Row") -notin @("", "0") -or
+            $hostRows[0].GetAttribute("Height") -cne "Auto" -or -not $scroll -or [int]$scroll.GetAttribute("Grid.Row") -lt 1 -or
+            $header.SelectSingleNode("ancestor::*[local-name()='ScrollViewer'] | .//*[local-name()='ScrollViewer']") -or
+            @($header.Attributes | Where-Object { $_.LocalName -notin @("Style", "Name", "SizeChanged") }).Count -ne 0 -or
+            ($columns -join ",") -cne $entry.Columns -or
+            $header.SelectSingleNode(".//*[local-name()='PageHeaderIcon' or local-name()='Border' or local-name()='Rectangle']")) {
+            throw "$($entry.View) must place one identity header in its own fixed Auto row above the scrolling body, with no background, divider or family icon."
         }
+        $back = $children[0]
+        $icon = $children[1]
+        $title = $children[2]
+        if ($back.LocalName -cne "PageBackButton" -or $back.HasAttribute("Margin") -or $back.HasAttribute("Grid.Column") -or
+            $back.HasAttribute("Grid.Row") -or $back.GetAttribute("Name", $xamlNamespace) -cne "$($entry.Back)" -or
+            $icon.LocalName -cne "FontIcon" -or $icon.GetAttribute("Name", $xamlNamespace) -cne $entry.Icon -or
+            $icon.GetAttribute("Grid.Column") -cne "1" -or $icon.HasAttribute("Grid.Row") -or $icon.HasAttribute("Margin") -or
+            $icon.GetAttribute("Width") -cne "48" -or $icon.GetAttribute("Height") -cne "48" -or $icon.GetAttribute("FontSize") -cne "48" -or
+            $icon.GetAttribute("IsTextScaleFactorEnabled") -cne "False" -or
+            $title.LocalName -cne $entry.TitleType -or $title.GetAttribute("Name", $xamlNamespace) -cne $entry.Title -or
+            $title.GetAttribute("Grid.Column") -cne "2" -or $title.HasAttribute("Grid.Row") -or
+            @($title.Attributes | Where-Object { $_.LocalName -in @("FontSize", "ValueFontSize", "FontWeight", "Margin", "TextTrimming") }).Count -ne 0 -or
+            ($entry.TitleType -eq "TextBlock" -and $title.GetAttribute("Style") -cne "{StaticResource PageHeaderTitleStyle}") -or
+            ($entry.TitleType -ne "TextBlock" -and ($title.GetAttribute("ValueStyle") -cne "{StaticResource PageHeaderTitleStyle}" -or
+                $title.GetAttribute("RenameRequested") -cne "Rename_Click" -or $title.GetAttribute("VerticalAlignment") -cne "Center"))) {
+            throw "$($entry.View) must order Back (shared 16-DIP gap), its own 48-DIP entity icon and the name in the shared title style without hand-set sizes."
+        }
+        foreach ($name in @($entry.Icon, $entry.Title, $entry.Badge, $entry.Secondary) | Where-Object { $_ }) {
+            if ((& $named $name).Count -ne 1 -or -not $header.SelectSingleNode(".//*[@*[local-name()='Name']='$name']")) {
+                throw "$($entry.View) must keep exactly one $name, inside its identity header."
+            }
+        }
+        if ($entry.Secondary) {
+            $secondary = (& $named $entry.Secondary)[0]
+            if ($secondary.ParentNode -ne $header -or $secondary.GetAttribute("Grid.Row") -cne "1" -or
+                $secondary.GetAttribute("Grid.Column") -cne "2" -or $secondary.GetAttribute("TextWrapping") -cne "Wrap" -or
+                $secondary.GetAttribute("Foreground") -cne "{ThemeResource TextFillColorSecondaryBrush}") {
+                throw "$($entry.View) must show its existing $($entry.Secondary) as a wrapping secondary line under the title."
+            }
+        }
+        if ($entry.Badge) {
+            $badge = (& $named $entry.Badge)[0]
+            if ($badge.ParentNode -ne $header -or $badge.LocalName -cne "TextBlock" -or $badge.GetAttribute("Grid.Row") -cne "1" -or
+                $badge.GetAttribute("Grid.Column") -cne "1" -or $badge.GetAttribute("FontSize") -cne "18" -or
+                $badge.GetAttribute("FontWeight") -cne "SemiBold" -or $badge.GetAttribute("MinWidth") -cne "48" -or
+                $badge.GetAttribute("TextAlignment") -cne "Center" -or $badge.GetAttribute("HorizontalAlignment") -cne "Left") {
+                throw "$($entry.View) must keep its short-name badge centered beneath the 48-DIP icon without widening the icon slot."
+            }
+        }
+        if ($entry.Actions) {
+            $actions = (& $named $entry.Actions)[0]
+            $buttons = @($actions.SelectNodes("./*[local-name()='Button']") | ForEach-Object {
+                "$($_.GetAttribute('Name', $xamlNamespace))=$($_.GetAttribute('Click'))" })
+            $viewCode = Get-Content (Join-Path $appDirectory "Views\$($entry.View).xaml.cs") -Raw
+            if ($actions.ParentNode -ne $header -or $actions.GetAttribute("Grid.Column") -cne "3" -or
+                ($buttons -join "|") -cne ($entry.Buttons -join "|") -or
+                $viewCode -notmatch "Grid\.SetRow\($($entry.Actions), inline \? 0 : 2\)" -or
+                $viewCode -notmatch "Grid\.SetColumn\($($entry.Actions), inline \? 3 : 2\)") {
+                throw "$($entry.View) must keep Edit and Delete after the title, wrapping them beneath it only when the title would be squeezed."
+            }
+        }
+    }
+    $deviceDocument = [xml](Get-Content (Join-Path $appDirectory "Views\DeviceDetailsPageView.xaml") -Raw)
+    $tabsHost = $deviceDocument.SelectSingleNode("//*[@*[local-name()='Name']='DetailsTabsHost']")
+    $deviceHeader = $deviceDocument.SelectSingleNode("//*[@*[local-name()='Name']='HeaderGrid']")
+    if ($tabsHost.ParentNode -ne $deviceHeader.ParentNode -or $tabsHost.GetAttribute("Grid.Row") -cne "1" -or
+        $tabsHost.SelectSingleNode("preceding-sibling::*[1]") -ne $deviceHeader -or
+        $tabsHost.SelectSingleNode("following-sibling::*[1]").LocalName -cne "ScrollViewer" -or
+        $tabsHost.SelectSingleNode("following-sibling::*[1]").GetAttribute("Grid.Row") -cne "2" -or
+        (@($deviceHeader.ParentNode.SelectNodes("./*[local-name()='Grid.RowDefinitions']/*") | ForEach-Object { $_.GetAttribute("Height") }) -join ",") -cne "Auto,Auto,*" -or
+        $deviceHeader.ParentNode.HasAttribute("RowSpacing") -or $tabsHost.GetAttribute("Margin") -cne "0,8,0,16" -or
+        -not $tabsHost.SelectSingleNode("./*[local-name()='SelectorBar' and @*[local-name()='Name']='DetailsTabs']")) {
+        throw "Device Details tabs must keep their look in their own fixed row 8 DIP below the identity header and 16 DIP above the body until #659."
+    }
+    $valueCode = Get-Content (Join-Path $appDirectory "Views\DeviceDetailValue.cs") -Raw
+    if ($valueCode -notmatch 'DependencyProperty ValueStyleProperty' -or
+        $valueCode -notmatch '(?s)ValueStyleChanged.*?_value\.ClearValue\(TextBlock\.FontSizeProperty\);\s*detail\._value\.Style =' -or
+        $valueCode -match 'ValueFontSize') {
+        throw "The Device Details name must take the shared page-title style rather than a hand-set font size."
     }
     # #658: one quiet reusable Back control on every tool and detail page; pages own navigation, guards and cleanup.
     $backControlStyle = @($appResources.SelectNodes("/*/*/*[local-name()='ResourceDictionary']/*[local-name()='Style' and @TargetType='local:PageBackButton']"))
@@ -775,7 +853,7 @@
         @{ Path = "Tools\SpeedTestPage.xaml"; Destination = "Tools"; Handler = "BackButton_Click" },
         @{ Path = "Tools\SqlEditorPage.xaml"; Destination = "Tools"; Handler = "Back_Click" },
         @{ Path = "Views\RoomMapPageView.xaml"; Destination = "Rooms"; Handler = "BackToRoomsButton_Click"; Name = "RoomMapBackButton"; AutomationId = "RoomMapBackButton" },
-        @{ Path = "Views\DeviceDetailsPageView.xaml"; Destination = "Devices"; Spoken = "devices"; Handler = "BackToDevicesButton_Click"; Name = "DeviceBackButton"; AutomationId = "DeviceBackButton"; Margin = "0" },
+        @{ Path = "Views\DeviceDetailsPageView.xaml"; Destination = "Devices"; Spoken = "devices"; Handler = "BackToDevicesButton_Click"; Name = "DeviceBackButton"; AutomationId = "DeviceBackButton" },
         @{ Path = "Views\PersonDetailsPageView.xaml"; Destination = "People & rooms"; Spoken = "people and rooms"; Handler = "BackToPeopleButton_Click" },
         @{ Path = "Views\RoomDetailsPageView.xaml"; Destination = "People & rooms"; Spoken = "people and rooms"; Handler = "BackToRoomsButton_Click"; Name = "RoomBackButton"; AutomationId = "RoomBackButton" }
     )
@@ -825,8 +903,8 @@
     }
     $headerUses = @(Get-ChildItem $appDirectory -Recurse -Filter *.xaml | Where-Object { $_.FullName -notmatch '\\(bin|obj)\\' } |
         Select-String -Pattern 'PageHeaderRowStyle\}' -AllMatches | ForEach-Object { $_.Matches })
-    if ($headerUses.Count -ne $sharedHeaders.Count) {
-        throw "Only the $($sharedHeaders.Count) covered main and tool pages may use the shared page header; found $($headerUses.Count)."
+    if ($headerUses.Count -ne $sharedHeaders.Count + $identityHeaders.Count) {
+        throw "Only the $($sharedHeaders.Count) covered main and tool pages and the $($identityHeaders.Count) identity detail headers may use the shared page header; found $($headerUses.Count)."
     }
     $shellCode = (Get-ChildItem (Join-Path $appDirectory "MainWindow*.cs") |
         ForEach-Object { Get-Content $_.FullName -Raw }) -join "`n"
