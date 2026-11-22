@@ -386,8 +386,10 @@ try {
     Start-UpdateApp
     Select-UpdateSettings
     Open-UpdateAbout
-    Invoke-UpdateControl CheckUpdatesButton
+    # The relaunched app checks at startup; Check for updates is disabled until that check completes.
     Wait-UpdateText UpdateStatus 'FingVibe * is available.'
+    $null = Wait-UiRegressionState { (Find-UpdateControl CheckUpdatesButton).Current.IsEnabled } `
+        'Check for updates enabled after the startup check'
     $fallback = Show-UpdateControl ReleaseNotesFallbackLink
     if ($fallback.Current.Name -ne 'View release notes on GitHub (opens in browser)' -or
         (Test-UiRegressionElementVisible (Find-UpdateControl ReleaseNotesExpander))) {

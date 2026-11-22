@@ -13,6 +13,7 @@
     "Release bodies from the existing latest-release response become plain-text headings, bullets and paragraphs; links, images, HTML, scripts and comments never survive as markup, and empty or markup-only bodies yield no notes.",
     "Long notes are truncated at a fixed character limit and flagged for the View full notes on GitHub link.",
     "About shows a collapsed What's new in X.Y.Z expander directly below Update now, without nested scrolling or rich/web content, and only explicit GitHub links open the browser.",
-    "Expanded notes are readable in light, dark and Windows high contrast; empty notes fall back to View release notes on GitHub without affecting update checks."
+    "Expanded notes are readable in light, dark and Windows high contrast; empty notes fall back to View release notes on GitHub without affecting update checks.",
+    "After relaunch, the portable flow waits for the automatic startup update check to finish instead of invoking a still-disabled Check for updates button."
   ]
 }
