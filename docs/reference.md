@@ -206,6 +206,13 @@ explanation anchored at the bottom. They stack at natural height in narrow windo
 second row pairs **Observation summary** with compact **Usage category**, using
 the same column widths and equal card heights within each row. A full-width,
 read-first **Device identification** card follows, then **Ports & services**.
+Every Device details card on both tabs opens with the shared card heading from
+`CardHeadingResources.xaml`. It is a shaded band across the card top with a
+small decorative section icon, a 16-px semibold heading and a 1-DIP divider.
+Heading text, counts and Edit actions stay in the band, and the band grows when
+the heading wraps. Windows high contrast draws the band and its edge in system
+colors. Activity's period and hour controls now sit below the band at full card
+width.
 Identification and compact service tiles use up to three columns,
 reducing to one as width and text scaling require. The **Rename device** pencil in the
 identity header reveals the existing name editor only when requested. Copy and
