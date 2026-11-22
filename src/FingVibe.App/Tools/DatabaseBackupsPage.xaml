@@ -76,6 +76,17 @@
                     Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                 <StackPanel Spacing="12">
                     <TextBlock Text="Automatic backups" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <!-- The latest outcome and the backup actions lead; the list and policy follow on demand. -->
+                    <TextBlock x:Name="BackupLastSuccess" Text="No successful backup yet." TextWrapping="Wrap" />
+                    <StackPanel x:Name="BackupActions" Orientation="Horizontal" Spacing="12">
+                        <Button x:Name="BackUpNowButton" Content="Back up now" Click="BackUpNow_Click"
+                                Style="{StaticResource AccentButtonStyle}" AutomationProperties.Name="Back up now"
+                                AutomationProperties.LiveSetting="Polite" />
+                        <Button x:Name="OpenBackupFolderButton" Content="Open backup folder" Click="OpenFolder_Click"
+                                AutomationProperties.Name="Open backup folder" />
+                    </StackPanel>
+                    <ProgressBar x:Name="BackupProgress" IsIndeterminate="True" Visibility="Collapsed"
+                                 AutomationProperties.Name="Creating backup" />
                     <Expander x:Name="CompletedBackupsExpander" IsExpanded="False" HorizontalAlignment="Stretch"
                               HorizontalContentAlignment="Stretch" AutomationProperties.Name="Completed backups">
                         <Expander.Header>
@@ -90,14 +101,14 @@
                             <Grid ColumnSpacing="12" Margin="12,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="160" />
-                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="56" />
                                     <ColumnDefinition Width="90" />
-                                    <ColumnDefinition Width="60" />
+                                    <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Text="Created (local time)" TextWrapping="Wrap" FontWeight="SemiBold" />
-                                <TextBlock Grid.Column="1" Text="Backup file" FontWeight="SemiBold" />
-                                <TextBlock Grid.Column="2" Text="Size" FontWeight="SemiBold" />
-                                <TextBlock Grid.Column="3" Text="Daily" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="1" Text="Daily" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="2" Text="Size" FontWeight="SemiBold" TextAlignment="Right" />
+                                <TextBlock Grid.Column="3" Text="Backup file" FontWeight="SemiBold" />
                             </Grid>
                             <ItemsControl x:Name="BackupRows" AutomationProperties.Name="Completed backups, newest first">
                                 <ItemsControl.ItemTemplate>
@@ -108,17 +119,23 @@
                                             <Grid ColumnSpacing="12">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="160" />
-                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="56" />
                                                     <ColumnDefinition Width="90" />
-                                                    <ColumnDefinition Width="60" />
+                                                    <ColumnDefinition Width="*" />
                                                 </Grid.ColumnDefinitions>
-                                                <TextBlock Text="{Binding Created}" TextWrapping="Wrap" AutomationProperties.AutomationId="BackupCreatedText" />
-                                                <TextBlock Grid.Column="1" Text="{Binding Name}" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
-                                                <TextBlock Grid.Column="2" Text="{Binding Size}" TextWrapping="Wrap"
-                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                                                <TextBlock Grid.Column="3" Text="{Binding Daily}" AutomationProperties.AutomationId="BackupDailyText"
+                                                <TextBlock Text="{Binding Created}" TextWrapping="Wrap" AutomationProperties.AutomationId="BackupCreatedText"
+                                                           AutomationProperties.HelpText="{Binding DailyDescription}" />
+                                                <!-- Only daily recovery points carry the calendar marker; text and tooltip explain it. -->
+                                                <TextBlock Grid.Column="1" Text="&#xE787;" FontFamily="Segoe Fluent Icons" FontSize="16"
+                                                           VerticalAlignment="Center" Visibility="{Binding DailyVisibility}"
+                                                           Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}"
+                                                           AutomationProperties.AutomationId="BackupDailyText"
+                                                           AutomationProperties.Name="Daily recovery point"
                                                            ToolTipService.ToolTip="{Binding DailyDescription}"
                                                            AutomationProperties.HelpText="{Binding DailyDescription}" />
+                                                <TextBlock Grid.Column="2" Text="{Binding Size}" TextWrapping="Wrap" TextAlignment="Right" />
+                                                <TextBlock Grid.Column="3" Text="{Binding Name}" TextWrapping="Wrap" IsTextSelectionEnabled="True"
+                                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                                             </Grid>
                                         </Border>
                                     </DataTemplate>
@@ -128,23 +145,33 @@
                     </Expander>
                     <Expander x:Name="BackupPolicyExpander" Header="How backups work" IsExpanded="False"
                               HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
-                        <TextBlock Text="Keeps the latest seven backups plus the newest copy from each of the last seven backup days. Daily copies survive days without backups. Backups are scheduled 15 seconds after startup loading or a successfully saved scan. Failed or interrupted copies never replace a good backup."
-                                   TextWrapping="Wrap" />
+                        <StackPanel Spacing="8">
+                            <TextBlock TextWrapping="Wrap" AutomationProperties.Name="Recent copies: the latest seven backups.">
+                                <Run Text="Recent copies:" FontWeight="SemiBold" /> <Run Text="the latest seven backups." />
+                            </TextBlock>
+                            <TextBlock TextWrapping="Wrap" AutomationProperties.Name="Daily copies: the newest copy from each of the last seven backup days. They survive days without backups.">
+                                <Run Text="Daily copies:" FontWeight="SemiBold" /> <Run Text="the newest copy from each of the last seven backup days. They survive days without backups." />
+                            </TextBlock>
+                            <TextBlock TextWrapping="Wrap" AutomationProperties.Name="Automatic backups: scheduled 15 seconds after startup loading or a successfully saved scan.">
+                                <Run Text="Automatic backups:" FontWeight="SemiBold" /> <Run Text="scheduled 15 seconds after startup loading or a successfully saved scan." />
+                            </TextBlock>
+                            <TextBlock TextWrapping="Wrap" AutomationProperties.Name="Failure protection: failed or interrupted copies never replace a good backup.">
+                                <Run Text="Failure protection:" FontWeight="SemiBold" /> <Run Text="failed or interrupted copies never replace a good backup." />
+                            </TextBlock>
+                        </StackPanel>
                     </Expander>
-                    <ProgressBar x:Name="BackupProgress" IsIndeterminate="True" Visibility="Collapsed"
-                                 AutomationProperties.Name="Creating backup" />
-                    <TextBlock x:Name="BackupLastSuccess" Text="No successful backup yet." TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
-            <StackPanel x:Name="BackupActions" Orientation="Horizontal" Spacing="12">
-                <Button x:Name="BackUpNowButton" Content="Back up now" Click="BackUpNow_Click"
-                        Style="{StaticResource AccentButtonStyle}" AutomationProperties.Name="Back up now"
-                        AutomationProperties.LiveSetting="Polite" />
-                <Button x:Name="OpenBackupFolderButton" Content="Open backup folder" Click="OpenFolder_Click"
-                        AutomationProperties.Name="Open backup folder" />
-            </StackPanel>
             <TextBlock x:Name="BackupFolderText" Text="Backup folder is loading..." TextWrapping="Wrap"
                        IsTextSelectionEnabled="True" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+            <HyperlinkButton x:Name="RestoreBackupHelpLink" Padding="0,4"
+                             NavigateUri="https://iricigor.github.io/fingvibe/manual/data/#restore-a-database-backups-copy"
+                             AutomationProperties.Name="How to restore a backup (opens in browser)">
+                <StackPanel Orientation="Horizontal" Spacing="6">
+                    <TextBlock Text="How to restore a backup" />
+                    <FontIcon Style="{StaticResource ExternalLinkIconStyle}" />
+                </StackPanel>
+            </HyperlinkButton>
             <InfoBar x:Name="BackupError" IsOpen="False" IsClosable="False" Severity="Error"
                      Title="Backup needs attention" />
             <TextBlock Text="These copies are stored on this PC, not in the cloud. They do not protect against loss of the same drive."

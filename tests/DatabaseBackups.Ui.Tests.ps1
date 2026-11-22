@@ -142,13 +142,25 @@ try {
     }
     (Find-BackupControl BackupPolicyExpander).GetCurrentPattern(
         [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Expand()
+    # The policy is four labeled lines rather than one paragraph; each line keeps its exact accessible text.
+    $policyLines = @(
+        'Recent copies: the latest seven backups.',
+        'Daily copies: the newest copy from each of the last seven backup days. They survive days without backups.',
+        'Automatic backups: scheduled 15 seconds after startup loading or a successfully saved scan.',
+        'Failure protection: failed or interrupted copies never replace a good backup.')
+    $findPolicyLines = {
+        @($policyLines | ForEach-Object {
+            $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+                [System.Windows.Automation.PropertyCondition]::new(
+                    [System.Windows.Automation.AutomationElement]::NameProperty, $_))
+        })
+    }
+    $null = Wait-UiRegressionState { @(& $findPolicyLines | Where-Object { $_ }).Count -eq $policyLines.Count } 'disclosed backup policy lines'
+    $null = Show-UiRegressionScrollTargets -GetViewport { Find-BackupControl BackupsScroll } `
+        -GetTargets $findPolicyLines -GetWindow { $script:root } -Description 'backup policy lines'
     $null = Wait-UiRegressionState {
-        $policy = $script:root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
-            [System.Windows.Automation.PropertyCondition]::new(
-                [System.Windows.Automation.AutomationElement]::NameProperty,
-                'Keeps the latest seven backups plus the newest copy from each of the last seven backup days. Daily copies survive days without backups. Backups are scheduled 15 seconds after startup loading or a successfully saved scan. Failed or interrupted copies never replace a good backup.'))
-        Test-UiRegressionElementVisible $policy
-    } 'disclosed backup policy'
+        @(& $findPolicyLines | Where-Object { Test-UiRegressionElementVisible $_ }).Count -eq $policyLines.Count
+    } 'disclosed labeled backup policy'
     (Find-BackupControl BackupPolicyExpander).GetCurrentPattern(
         [System.Windows.Automation.ExpandCollapsePattern]::Pattern).Collapse()
     Show-BackupAction OpenBackupFolderButton
@@ -214,11 +226,15 @@ try {
     $title = (Find-BackupControl CompletedBackupsTitle).Current.BoundingRectangle
     $summary = (Find-BackupControl BackupCount).Current.BoundingRectangle
     $policy = (Find-BackupControl BackupPolicyExpander).Current.BoundingRectangle
+    $lastSuccess = Find-BackupControl BackupLastSuccess
+    $backUpNow = (Find-BackupControl BackUpNowButton).Current.BoundingRectangle
     if ([Math]::Abs(($title.Top + $title.Bottom - $summary.Top - $summary.Bottom) / 2) -gt 2 -or
         $summary.Left -lt $title.Right -or $policy.Top -le $title.Bottom -or
-        (Find-BackupControl BackupLastSuccess).Current.BoundingRectangle.Top -le $policy.Bottom -or
+        $lastSuccess.Current.BoundingRectangle.Bottom -gt $backUpNow.Top -or $backUpNow.Bottom -gt $title.Top -or
+        $lastSuccess.Current.Name -notlike 'Last successful backup: * ago' -or
+        $lastSuccess.Current.HelpText -notlike 'Created * local time.' -or
         -not (Test-UiRegressionElementWithin (Find-BackupControl BackupCount) (Find-BackupControl CompletedBackupsExpander) $script:root)) {
-        throw 'Wide automatic-backup section must show title/summary on one row, then policy and last success.'
+        throw 'Wide automatic-backup section must lead with the relative last success and actions, then title/summary on one row, then policy.'
     }
     Expand-BackupCopies
     $copies = @(Get-ChildItem (Join-Path $fixture 'Backups') -Filter '*.sqlite')
@@ -268,14 +284,21 @@ try {
     Invoke-BackupControl BackUpNowButton
     $null = Wait-BackupSurface Ready $before
     Expand-BackupCopies
+    $findBackupText = { param($Id) @($script:root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+        [System.Windows.Automation.PropertyCondition]::new(
+            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, $Id))) }
     $daily = @(Wait-UiRegressionState {
-        $markers = @($script:root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
-            [System.Windows.Automation.PropertyCondition]::new(
-                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, 'BackupDailyText')))
-        if ($markers.Count -eq 2 -and (Test-UiRegressionElementVisible $markers[0]) -and
-            (Test-UiRegressionElementVisible $markers[1])) { return $markers }
-    } 'two visible completed-backup daily markers')
-    if ($daily.Count -ne 2 -or $daily[0].Current.Name -ne 'Yes' -or $daily[1].Current.Name -ne 'No') {
+        $markers = @(& $findBackupText 'BackupDailyText')
+        $rows = @(& $findBackupText 'BackupCreatedText')
+        if ($markers.Count -eq 1 -and $rows.Count -eq 2 -and (Test-UiRegressionElementVisible $markers[0]) -and
+            (Test-UiRegressionElementVisible $rows[1])) { return $markers }
+    } 'one visible daily marker beside two completed backups')
+    $rows = @(& $findBackupText 'BackupCreatedText')
+    # Only the newest row carries the calendar marker; the older same-day copy is a recent backup only.
+    if ($daily.Count -ne 1 -or $daily[0].Current.Name -ne 'Daily recovery point' -or
+        $daily[0].Current.HelpText -notlike 'Daily recovery point:*' -or
+        $daily[0].Current.BoundingRectangle.Bottom -gt $rows[1].Current.BoundingRectangle.Top -or
+        $rows[1].Current.HelpText -notlike 'Recent backup only:*') {
         throw 'Only the newest same-day backup must be marked as the daily recovery point.'
     }
     Save-UiReviewWindowScreenshot $script:process.MainWindowHandle (Join-Path $ScreenshotDirectory 'backups-expanded-daily.png')

@@ -1304,13 +1304,18 @@ waiting for a final backup. Manual outcomes show a muted green **Backed up** or
 muted red **Backup failed**, disabling the button for one minute after the
 attempt finishes; errors remain inline and automatic triggers are unaffected.
 Pending/running/outcome status belongs to the button, not a separate idle line.
-Inside **Automatic backups**, collapsed **Completed backups** precedes
-collapsed **How backups work**; its heading and summary share a row on wide
-windows and stack on narrow windows.
+Inside **Automatic backups**, a relative **Last successful backup** age (exact
+local time as tooltip and help text, refreshed each minute) and the **Back up
+now** / **Open backup folder** actions precede collapsed **Completed backups**,
+which precedes collapsed **How backups work** (four labeled policy lines); the
+completed-backups heading and summary share a row on wide windows and stack on
+narrow windows. A **How to restore a backup** browser link opens the manual's
+documented restore steps; there is still no restore action in the app.
 This cooldown is application-session
 state, not a saved preference. Completed backups starts collapsed with count
 and refreshed newest/oldest relative ages; expansion shows striped rows with
-local times, sizes and storage-derived daily markers. See [saved data and backups](manual/data.md).
+local times, a calendar **Daily recovery point** marker only on storage-derived
+daily representatives, right-aligned sizes and the file name last. See [saved data and backups](manual/data.md).
 
 ## Read-only SQL editor
 
