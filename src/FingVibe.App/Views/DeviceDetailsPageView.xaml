@@ -27,7 +27,7 @@
             </ResourceDictionary.ThemeDictionaries>
         </ResourceDictionary>
     </UserControl.Resources>
-    <Grid Margin="{StaticResource ScannerPageContentMargin}" RowSpacing="16">
+    <Grid Margin="{StaticResource ScannerPageContentMargin}">
     <VisualStateManager.VisualStateGroups>
         <VisualStateGroup x:Name="DetailsSectionSelection">
             <VisualState x:Name="OverviewSelected">
@@ -95,8 +95,9 @@
             <TextBlock x:Name="DeviceStatusText" Grid.Row="1" Grid.Column="2" TextWrapping="Wrap"
                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
         </Grid>
-        <!-- The local tabs keep their look below the header until #659 moves them into it. -->
-        <Border x:Name="DetailsTabsHost" Grid.Row="1" Padding="4" CornerRadius="8"
+        <!-- The local tabs keep their look below the header until #659 moves them into it. An 8-DIP gap above them
+             limits the viewport cost; the body keeps its 16-DIP gap below them. -->
+        <Border x:Name="DetailsTabsHost" Grid.Row="1" Margin="0,8,0,16" Padding="4" CornerRadius="8"
                 VerticalAlignment="Center" HorizontalAlignment="Left"
                 Background="{ThemeResource ControlFillColorSecondaryBrush}">
             <SelectorBar x:Name="DetailsTabs" SelectionChanged="DetailsTabs_SelectionChanged"

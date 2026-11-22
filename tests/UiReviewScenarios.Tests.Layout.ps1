@@ -813,8 +813,9 @@
         $tabsHost.SelectSingleNode("following-sibling::*[1]").LocalName -cne "ScrollViewer" -or
         $tabsHost.SelectSingleNode("following-sibling::*[1]").GetAttribute("Grid.Row") -cne "2" -or
         (@($deviceHeader.ParentNode.SelectNodes("./*[local-name()='Grid.RowDefinitions']/*") | ForEach-Object { $_.GetAttribute("Height") }) -join ",") -cne "Auto,Auto,*" -or
+        $deviceHeader.ParentNode.HasAttribute("RowSpacing") -or $tabsHost.GetAttribute("Margin") -cne "0,8,0,16" -or
         -not $tabsHost.SelectSingleNode("./*[local-name()='SelectorBar' and @*[local-name()='Name']='DetailsTabs']")) {
-        throw "Device Details tabs must keep their look in their own fixed row directly below the identity header until #659."
+        throw "Device Details tabs must keep their look in their own fixed row 8 DIP below the identity header and 16 DIP above the body until #659."
     }
     $valueCode = Get-Content (Join-Path $appDirectory "Views\DeviceDetailValue.cs") -Raw
     if ($valueCode -notmatch 'DependencyProperty ValueStyleProperty' -or
