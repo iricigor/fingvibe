@@ -22,8 +22,16 @@
                 </Grid>
                 <Border x:Name="TestCard" Style="{StaticResource ScannerSummaryCardStyle}">
                     <StackPanel Spacing="12">
-                        <TextBlock Text="Test" Style="{ThemeResource SubtitleTextBlockStyle}"
-                                   AutomationProperties.HeadingLevel="Level2" />
+                        <Border Style="{StaticResource CardHeadingBandStyle}">
+                            <Grid Style="{StaticResource CardHeadingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <FontIcon Glyph="&#xE768;" Style="{StaticResource CardHeadingIconStyle}" />
+                                <TextBlock Grid.Column="1" Text="Test" Style="{StaticResource CardHeadingTextStyle}" />
+                            </Grid>
+                        </Border>
                         <StackPanel Spacing="4">
                             <TextBlock Text="Measurement provider" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             <TextBlock Text="Cloudflare" FontWeight="SemiBold" />
@@ -63,8 +71,16 @@
                 </Border>
                 <Border x:Name="LiveMeasurementCard" Style="{StaticResource ScannerSummaryCardStyle}">
                     <StackPanel Spacing="12">
-                        <TextBlock Text="Live measurement" Style="{ThemeResource SubtitleTextBlockStyle}"
-                                   AutomationProperties.HeadingLevel="Level2" />
+                        <Border Style="{StaticResource CardHeadingBandStyle}">
+                            <Grid Style="{StaticResource CardHeadingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <FontIcon Glyph="&#xEC4A;" Style="{StaticResource CardHeadingIconStyle}" />
+                                <TextBlock Grid.Column="1" Text="Live measurement" Style="{StaticResource CardHeadingTextStyle}" />
+                            </Grid>
+                        </Border>
                         <Grid x:Name="LiveGauges" ColumnSpacing="16" RowSpacing="24" SizeChanged="LiveGauges_SizeChanged">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
@@ -85,8 +101,16 @@
                         Style="{StaticResource ScannerSummaryCardStyle}"
                         Visibility="Collapsed">
                     <StackPanel Spacing="12">
-                        <TextBlock Text="Results" Style="{ThemeResource SubtitleTextBlockStyle}"
-                                   AutomationProperties.HeadingLevel="Level2" />
+                        <Border Style="{StaticResource CardHeadingBandStyle}">
+                            <Grid Style="{StaticResource CardHeadingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <FontIcon Glyph="&#xE73E;" Style="{StaticResource CardHeadingIconStyle}" />
+                                <TextBlock Grid.Column="1" Text="Results" Style="{StaticResource CardHeadingTextStyle}" />
+                            </Grid>
+                        </Border>
                         <Grid ColumnSpacing="12" RowSpacing="12">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />

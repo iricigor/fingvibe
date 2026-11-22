@@ -213,6 +213,14 @@ Heading text, counts and Edit actions stay in the band, and the band grows when
 the heading wraps. Windows high contrast draws the band and its edge in system
 colors. Activity's period and hour controls now sit below the band at full card
 width.
+The tool pages use the same heading on their content cards: **Network health**
+(Incident history, Network path and status, Detailed checkpoint diagnostics,
+Traceroute, Connection and checks), **Speed test** (Test, Live measurement,
+Results), **Import from Fing** (the three numbered steps) and **About** (FingVibe
+LAN Scanner, Updates). Actions that shared a heading row, such as **View room
+map** and **Analyze again**, stay in the band. The live health state, the Service
+status entry tile, the Fing import action bar and the Service status provider
+table keep their own treatments.
 Identification and compact service tiles use up to three columns,
 reducing to one as width and text scaling require. The **Rename device** pencil in the
 identity header reveals the existing name editor only when requested. Copy and

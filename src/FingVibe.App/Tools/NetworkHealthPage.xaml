@@ -101,7 +101,16 @@
             <Border x:Name="IncidentHistoryCard" Style="{StaticResource ScannerSummaryCardStyle}"
                     AutomationProperties.AutomationId="NetworkIncidentHistory" AutomationProperties.Name="Incident history">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Incident history" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE81C;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock Grid.Column="1" Text="Incident history" Style="{StaticResource CardHeadingTextStyle}" />
+                        </Grid>
+                    </Border>
                     <TextBlock x:Name="IncidentHistoryNote" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                Text="Saved history only: viewing it sends no probes. Current health is shown above." />
                     <TextBlock x:Name="IncidentStorageText" Visibility="Collapsed" TextWrapping="Wrap" FontWeight="SemiBold"
@@ -145,19 +154,22 @@
             </StackPanel>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="12">
-                    <Grid ColumnSpacing="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Network path and status" Style="{ThemeResource SubtitleTextBlockStyle}"
-                                   VerticalAlignment="Center" TextWrapping="Wrap" />
-                        <HyperlinkButton x:Name="RoomMapButton" Grid.Column="1" Content="View room map"
-                                         HorizontalAlignment="Left"
-                                         AutomationProperties.AutomationId="NetworkHealthViewRoomMapButton"
-                                         AutomationProperties.Name="View room map"
-                                         Click="RoomMapButton_Click" />
-                    </Grid>
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE968;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock Grid.Column="1" Text="Network path and status" Style="{StaticResource CardHeadingTextStyle}" />
+                            <HyperlinkButton x:Name="RoomMapButton" Grid.Column="2" Content="View room map"
+                                             HorizontalAlignment="Left" VerticalAlignment="Center"
+                                             AutomationProperties.AutomationId="NetworkHealthViewRoomMapButton"
+                                             AutomationProperties.Name="View room map"
+                                             Click="RoomMapButton_Click" />
+                        </Grid>
+                    </Border>
                     <TextBlock x:Name="DiagramPlaybackText" Visibility="Collapsed" TextWrapping="Wrap" FontSize="12"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock Text="Logical checks—not a physical network map." TextWrapping="Wrap"
@@ -236,13 +248,31 @@
             </Border>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="Detailed checkpoint diagnostics" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE9D9;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock Grid.Column="1" Text="Detailed checkpoint diagnostics" Style="{StaticResource CardHeadingTextStyle}" />
+                        </Grid>
+                    </Border>
                     <StackPanel x:Name="DiagnosticsPanel" Spacing="6" />
                 </StackPanel>
             </Border>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="8">
-                    <TextBlock Text="Traceroute" Style="{ThemeResource SubtitleTextBlockStyle}" />
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE774;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock Grid.Column="1" Text="Traceroute" Style="{StaticResource CardHeadingTextStyle}" />
+                        </Grid>
+                    </Border>
                     <Expander Header="Traceroute details toward 1.1.1.1" HorizontalAlignment="Stretch">
                         <StackPanel Spacing="8">
                             <TextBlock x:Name="TraceStatus" Text="Not run." TextWrapping="Wrap" />
@@ -253,7 +283,16 @@
             </Border>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="12">
-                    <TextBlock Text="Connection and checks" Style="{ThemeResource SubtitleTextBlockStyle}" TextWrapping="Wrap" />
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE839;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock Grid.Column="1" Text="Connection and checks" Style="{StaticResource CardHeadingTextStyle}" />
+                        </Grid>
+                    </Border>
                     <Grid ColumnSpacing="8">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" MinWidth="200" MaxWidth="560" /><ColumnDefinition Width="Auto" />
