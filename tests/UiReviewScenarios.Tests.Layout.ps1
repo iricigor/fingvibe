@@ -62,7 +62,7 @@
     }
     $navItem = [regex]::Match((Get-Content (Join-Path $appDirectory "MainWindow.xaml") -Raw),
         '(?s)<NavigationViewItem x:Name="PeopleRoomsNavItem".*?</NavigationViewItem>').Value
-    if ($navItem -notmatch 'UriSource="ms-appx:///Assets/PageIcons/people-rooms-mono-32\.png"' -or
+    if ($navItem -notmatch 'UriSource="ms-appx:///Assets/PageIcons/people-rooms-mono-48\.png"' -or
         $navItem -notmatch 'Style="\{ThemeResource SidebarPeopleRoomsIconStyle\}"' -or $navItem -match '<PathIcon\b') {
         throw "People & rooms navigation must use one theme-colored single-color 'people-rooms' family icon."
     }
