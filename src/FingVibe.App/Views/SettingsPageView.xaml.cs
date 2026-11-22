@@ -19,6 +19,9 @@ public sealed partial class SettingsPageView : UserControl
     private bool _updatingNetworkMonitor;
     private string? _appearanceSaveError;
     private string? _materialStatus;
+    private ReleaseUpdateSession? _updates;
+    private ReleaseUpdateActions? _updateActions;
+    private ReleaseUpdateCloseScheduler? _updateCloseScheduler;
 
     public SettingsPageView()
     {
@@ -89,20 +92,37 @@ public sealed partial class SettingsPageView : UserControl
         AboutView.FocusHeading();
     }
 
-    internal void ConfigureUpdates(ReleaseUpdateSession session, ReleaseUpdateActions actions, bool isFixture, Action close)
+    internal void ConfigureUpdates(ReleaseUpdateSession session, ReleaseUpdateActions actions,
+        ReleaseUpdateCloseScheduler closeScheduler, bool isFixture, Action close)
     {
-        AboutView.ConfigureUpdates(session, actions, isFixture, close);
+        _updates = session;
+        _updateActions = actions;
+        _updateCloseScheduler = closeScheduler;
+        AboutView.ConfigureUpdates(session, actions, closeScheduler, isFixture, close);
         void Apply(UpdateState state)
         {
-            var available = state.ConfirmedUpdate is not null;
+            var available = state.ConfirmedUpdate is not null && closeScheduler.IsScheduled != true;
             AboutUpdateIndicator.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
-            AboutSummary.Text = available
+            var canUpdate = actions.CanUpdateNow;
+            var hasSchedule = closeScheduler.IsScheduled;
+            SettingsUpdateNowButton.Visibility = canUpdate || hasSchedule ? Visibility.Visible : Visibility.Collapsed;
+            SettingsUpdateNowButton.IsEnabled = !state.IsChecking &&
+                (hasSchedule ? closeScheduler.IsReady : canUpdate);
+            SettingsUpdateNowButton.Content = hasSchedule ? "Restart now" : "Update now";
+            AutomationProperties.SetName(SettingsUpdateNowButton, hasSchedule
+                ? "Restart FingVibe now" : "Update FingVibe now");
+            AboutSummary.Text = closeScheduler.ScheduledVersionText is { } scheduledVersion
+                ? $"{scheduledVersion} will install when you close FingVibe"
+                : available
                 ? $"Update available: {state.ConfirmedUpdate!.VersionText} \u00b7 Last confirmed {state.ConfirmedAt:u}"
                 : $"{BuildIdentity.Current.Version} \u00b7 Build information and updates";
-            AutomationProperties.SetItemStatus(AboutSettingsButton, available ? "Update available" : "");
+            AutomationProperties.SetItemStatus(AboutSettingsButton, closeScheduler.IsScheduled
+                ? "Update scheduled for close" : available ? "Update available" : "");
             AutomationProperties.SetHelpText(AboutSettingsButton, AboutSummary.Text);
         }
         session.Changed += (_, state) => DispatcherQueue.TryEnqueue(() => Apply(state));
+        closeScheduler.Changed += (_, _) => DispatcherQueue.TryEnqueue(() => Apply(session.State));
+        actions.Changed += (_, _) => DispatcherQueue.TryEnqueue(() => Apply(session.State));
         Apply(session.State);
     }
 
@@ -113,6 +133,12 @@ public sealed partial class SettingsPageView : UserControl
     }
 
     private void AboutSettingsButton_Click(object sender, RoutedEventArgs e) => ShowAbout();
+    private async void SettingsUpdateNowButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_updateActions is null || _updates is null || !_updateActions.CanUpdateNow) return;
+        ShowAbout();
+        await AboutView.UpdateNowAsync();
+    }
 
     private void AboutView_BackRequested(object? sender, EventArgs e)
     {

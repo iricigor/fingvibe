@@ -4,12 +4,28 @@ namespace FingVibe.Core.Updates;
 
 public static class ReleaseDownload
 {
+    public static async Task<string> VerifyAsync(string path, ReleaseAsset asset, CancellationToken cancellationToken)
+    {
+        ValidateAsset(asset);
+        if (Path.GetFileName(path) != asset.Name)
+            throw new InvalidDataException("The downloaded file name differs from the published release asset.");
+        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, true);
+        var hash = Convert.ToHexString(await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false));
+        if (stream.Length != asset.Size)
+            throw new InvalidDataException("The downloaded file size differs from the published release.");
+        if (asset.Sha256 is not null && !hash.Equals(asset.Sha256, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("The downloaded file does not match the published SHA-256 digest.");
+        if (OperatingSystem.IsWindows() &&
+            !(await File.ReadAllTextAsync(path + ":Zone.Identifier", cancellationToken).ConfigureAwait(false))
+                .Split('\n').Any(line => line.Trim() == "ZoneId=3"))
+            throw new InvalidDataException("The downloaded file is missing its Internet security marking.");
+        return hash;
+    }
+
     public static async Task<string> DownloadAsync(HttpClient http, ReleaseAsset asset, string directory,
         IProgress<double>? progress, CancellationToken cancellationToken)
     {
-        if (!StableRelease.IsDownloadUri(asset.DownloadUri, asset.Name)
-            || Path.GetFileName(asset.Name) != asset.Name || asset.Size <= 0 || asset.Size > 2L * 1024 * 1024 * 1024)
-            throw new InvalidDataException("The selected release asset is invalid.");
+        ValidateAsset(asset);
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, asset.Name);
         var created = false;
@@ -55,5 +71,12 @@ public static class ReleaseDownload
                 throw new IOException("The update download timed out. Try again or download manually.", exception);
             throw;
         }
+    }
+
+    private static void ValidateAsset(ReleaseAsset asset)
+    {
+        if (!StableRelease.IsDownloadUri(asset.DownloadUri, asset.Name)
+            || Path.GetFileName(asset.Name) != asset.Name || asset.Size <= 0 || asset.Size > 2L * 1024 * 1024 * 1024)
+            throw new InvalidDataException("The selected release asset is invalid.");
     }
 }

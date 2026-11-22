@@ -470,12 +470,39 @@ function Test-EndpointLinks {
     }
 }
 
+function Test-UiaElementUnavailable([Exception] $Exception) {
+    for ($current = $Exception; $current; $current = $current.InnerException) {
+        if ($current -is [System.Windows.Automation.ElementNotAvailableException]) { return $true }
+    }
+    return $false
+}
+
 function Get-FullScanWarning {
-    $dialog = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
-        [System.Windows.Automation.PropertyCondition]::new(
-            [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "FullPortScanWarningDialog"))
-    if ($dialog -and -not $dialog.Current.IsOffscreen) { return $dialog }
+    # The ContentDialog's UIA peer can be recreated or briefly offscreen while it opens or closes.
+    try {
+        $dialog = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants,
+            [System.Windows.Automation.PropertyCondition]::new(
+                [System.Windows.Automation.AutomationElement]::AutomationIdProperty, "FullPortScanWarningDialog"))
+        if ($dialog -and -not $dialog.Current.IsOffscreen) { return $dialog }
+    } catch { if (-not (Test-UiaElementUnavailable $_.Exception)) { throw } }
     return $null
+}
+
+function Find-FullScanWarningElement([System.Windows.Automation.Condition] $Condition, [string] $Description, [switch] $All) {
+    $deadline = [DateTime]::UtcNow.AddSeconds(10)
+    do {
+        try {
+            $dialog = Get-FullScanWarning
+            if ($dialog) {
+                $found = if ($All) {
+                    @($dialog.FindAll([System.Windows.Automation.TreeScope]::Descendants, $Condition) | ForEach-Object { $_.Current.Name })
+                } else { $dialog.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $Condition) }
+                if ($found) { return ,$found }
+            }
+        } catch { if (-not (Test-UiaElementUnavailable $_.Exception)) { throw } }
+        Start-Sleep -Milliseconds 50
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "Timed out waiting for $Description."
 }
 
 function Open-FullScanWarning {
@@ -484,21 +511,23 @@ function Open-FullScanWarning {
     $button.SetFocus()
     Wait-ServiceState { [System.Windows.Automation.AutomationElement]::FocusedElement.Current.AutomationId -eq "DeviceFullPortScanButton" } "full-scan keyboard focus"
     [System.Windows.Forms.SendKeys]::SendWait(" ")
-    Wait-ServiceState { Get-FullScanWarning } "full-scan warning"
-    $text = ((Get-FullScanWarning).FindAll([System.Windows.Automation.TreeScope]::Descendants,
-        [System.Windows.Automation.PropertyCondition]::new(
-            [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-            [System.Windows.Automation.ControlType]::Text)) | ForEach-Object { $_.Current.Name }) -join " "
-    foreach ($caveat in @("every port from 1 to 65,535 on 127.0.0.1", "65,535 connection attempts", "several minutes",
-            "security monitoring", "own or are authorized", "sleeping or slow Wi-Fi devices", "rescan", "UDP is not included")) {
-        if ($text -notlike "*$caveat*") { throw "The full-scan warning is missing '$caveat': $text" }
-    }
+    $caveats = @("every port from 1 to 65,535 on 127.0.0.1", "65,535 connection attempts", "several minutes",
+        "security monitoring", "own or are authorized", "sleeping or slow Wi-Fi devices", "rescan", "UDP is not included")
+    $textCondition = [System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::ControlTypeProperty, [System.Windows.Automation.ControlType]::Text)
+    $deadline = [DateTime]::UtcNow.AddSeconds(10)
+    do {
+        $text = (Find-FullScanWarningElement $textCondition "full-scan warning" -All) -join " "
+        $missing = @($caveats | Where-Object { $text -notlike "*$_*" })
+        if (-not $missing) { return }
+        Start-Sleep -Milliseconds 50
+    } while ([DateTime]::UtcNow -lt $deadline)
+    throw "The full-scan warning is missing '$($missing[0])': $text"
 }
 
 function Invoke-FullScanWarningButton([string] $Name) {
-    $button = (Get-FullScanWarning).FindFirst([System.Windows.Automation.TreeScope]::Descendants,
-        [System.Windows.Automation.PropertyCondition]::new([System.Windows.Automation.AutomationElement]::NameProperty, $Name))
-    if (-not $button) { throw "The full-scan warning has no '$Name' button." }
+    $button = Find-FullScanWarningElement ([System.Windows.Automation.PropertyCondition]::new(
+        [System.Windows.Automation.AutomationElement]::NameProperty, $Name)) "full-scan warning '$Name' button"
     $button.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
     Wait-ServiceState { -not (Get-FullScanWarning) } "full-scan warning dismissal"
 }

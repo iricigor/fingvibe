@@ -152,7 +152,16 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <TextBlock Text="Network overview" FontSize="18" FontWeight="SemiBold" />
+                        <Border Style="{StaticResource CardHeadingBandStyle}">
+                            <Grid Style="{StaticResource CardHeadingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <FontIcon Glyph="&#xE968;" Style="{StaticResource CardHeadingIconStyle}" />
+                                <TextBlock Grid.Column="1" Text="Network overview" Style="{StaticResource CardHeadingTextStyle}" />
+                            </Grid>
+                        </Border>
                         <Grid x:Name="OverviewFields" Grid.Row="1" ColumnSpacing="16" RowSpacing="12" SizeChanged="Fields_SizeChanged">
                             <views:DeviceDetailValue x:Name="DeviceAddressText" Label="IP address" />
                             <views:DeviceDetailValue x:Name="DeviceMacText" Label="MAC address" />
@@ -177,7 +186,16 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
-                        <TextBlock Text="Assignments" FontSize="18" FontWeight="SemiBold" />
+                        <Border Style="{StaticResource CardHeadingBandStyle}">
+                            <Grid Style="{StaticResource CardHeadingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <FontIcon Glyph="&#xE77B;" Style="{StaticResource CardHeadingIconStyle}" />
+                                <TextBlock Grid.Column="1" Text="Assignments" Style="{StaticResource CardHeadingTextStyle}" />
+                            </Grid>
+                        </Border>
                         <Grid x:Name="AssignmentFields" Grid.Row="1" ColumnSpacing="12" RowSpacing="12" SizeChanged="Fields_SizeChanged">
                             <ComboBox x:Name="DevicePersonPicker" Header="Person" HorizontalAlignment="Stretch"
                                       AutomationProperties.Name="Person" SelectionChanged="DevicePersonPicker_SelectionChanged" />
@@ -194,12 +212,21 @@
                 <Border x:Name="DeviceHistorySummaryCard" Grid.Row="1" Style="{StaticResource ScannerSummaryCardStyle}"
                         AutomationProperties.AutomationId="DeviceHistorySummaryCard">
                     <StackPanel Spacing="8">
-                        <Grid ColumnSpacing="8" RowSpacing="4" SizeChanged="Fields_SizeChanged">
-                            <TextBlock Text="Observation summary" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
-                            <HyperlinkButton x:Name="DeviceViewHistory" Content="View history" Padding="0" Click="ViewHistory_Click"
-                                             AutomationProperties.AutomationId="DeviceViewHistory"
-                                             AutomationProperties.Name="View device history" />
-                        </Grid>
+                        <Border Style="{StaticResource CardHeadingBandStyle}">
+                            <Grid Style="{StaticResource CardHeadingRowStyle}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <FontIcon Glyph="&#xE9D9;" Style="{StaticResource CardHeadingIconStyle}" />
+                                <Grid Grid.Column="1" ColumnSpacing="8" RowSpacing="4" SizeChanged="Fields_SizeChanged">
+                                    <TextBlock Text="Observation summary" Style="{StaticResource CardHeadingTextStyle}" />
+                                    <HyperlinkButton x:Name="DeviceViewHistory" Content="View history" Padding="0" Click="ViewHistory_Click"
+                                                     AutomationProperties.AutomationId="DeviceViewHistory"
+                                                     AutomationProperties.Name="View device history" />
+                                </Grid>
+                            </Grid>
+                        </Border>
                         <TextBlock x:Name="DeviceHistoryFirstSeen" AutomationProperties.AutomationId="DeviceHistoryFirstSeen"
                                    TextWrapping="Wrap" IsTextSelectionEnabled="True" />
                         <TextBlock x:Name="DeviceHistoryLastSeen" AutomationProperties.AutomationId="DeviceHistoryLastSeen"
@@ -236,15 +263,19 @@
                 </Border>
                 <Border x:Name="UsageCategoryCard" Grid.Row="1" Grid.Column="1" Style="{StaticResource ScannerSummaryCardStyle}">
                         <StackPanel Spacing="8">
-                            <Grid ColumnSpacing="8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Text="Usage category" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                <Button x:Name="UsageCategoryEdit" Grid.Column="1" Content="Edit" Click="UsageCategoryEdit_Click"
-                                        AutomationProperties.AutomationId="UsageCategoryEdit" AutomationProperties.Name="Edit usage category" />
-                            </Grid>
+                            <Border Style="{StaticResource CardHeadingBandStyle}">
+                                <Grid Style="{StaticResource CardHeadingRowStyle}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <FontIcon Glyph="&#xE8EC;" Style="{StaticResource CardHeadingIconStyle}" />
+                                    <TextBlock Grid.Column="1" Text="Usage category" Style="{StaticResource CardHeadingTextStyle}" />
+                                    <Button x:Name="UsageCategoryEdit" Grid.Column="2" Content="Edit" Click="UsageCategoryEdit_Click"
+                                            AutomationProperties.AutomationId="UsageCategoryEdit" AutomationProperties.Name="Edit usage category" />
+                                </Grid>
+                            </Border>
                             <TextBlock x:Name="UsageCategoryEffective" FontWeight="SemiBold" TextWrapping="Wrap"
                                        AutomationProperties.AutomationId="UsageCategoryEffective" AutomationProperties.LiveSetting="Polite" />
                             <TextBlock x:Name="UsageCategorySummary" TextWrapping="Wrap" FontSize="12"
@@ -427,21 +458,24 @@
             <Border x:Name="IdentificationCard" Style="{StaticResource ScannerSummaryCardStyle}"
                     VerticalAlignment="Top">
                 <StackPanel Spacing="12">
-                    <Grid ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="Device identification" FontSize="18" FontWeight="SemiBold"
-                                   TextWrapping="Wrap" VerticalAlignment="Center" />
-                        <Button x:Name="DeviceClassificationEditButton" Grid.Column="1"
-                                AutomationProperties.Name="Edit device identification" Click="ClassificationEdit_Click">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <FontIcon Glyph="&#xE70F;" FontSize="14" />
-                                <TextBlock Text="Edit" />
-                            </StackPanel>
-                        </Button>
-                    </Grid>
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE7F8;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock Grid.Column="1" Text="Device identification" Style="{StaticResource CardHeadingTextStyle}" />
+                            <Button x:Name="DeviceClassificationEditButton" Grid.Column="2"
+                                    AutomationProperties.Name="Edit device identification" Click="ClassificationEdit_Click">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <FontIcon Glyph="&#xE70F;" FontSize="14" />
+                                    <TextBlock Text="Edit" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </Border>
                     <Grid x:Name="IdentificationReadFields" ColumnSpacing="16" RowSpacing="12" SizeChanged="Fields_SizeChanged">
                         <views:DeviceDetailValue x:Name="DeviceTypeValueText" Label="Device type" />
                         <views:DeviceDetailValue x:Name="DeviceOsText" Label="Operating system" />
@@ -505,9 +539,19 @@
             <Border x:Name="ServiceDiscoveryCard" Style="{StaticResource ScannerSummaryCardStyle}" Visibility="Collapsed"
                     AutomationProperties.AutomationId="ServiceDiscoveryCard">
                 <StackPanel Spacing="8">
-                    <TextBlock x:Name="ServiceDiscoveryHeading" Text="Service discovery (0)" FontSize="18" FontWeight="SemiBold"
-                               TextWrapping="Wrap" AutomationProperties.AutomationId="ServiceDiscoveryHeading"
-                               AutomationProperties.HeadingLevel="Level2" />
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE721;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock x:Name="ServiceDiscoveryHeading" Grid.Column="1" Text="Service discovery (0)"
+                                       Style="{StaticResource CardHeadingTextStyle}"
+                                       AutomationProperties.AutomationId="ServiceDiscoveryHeading"
+                                       AutomationProperties.HeadingLevel="Level2" />
+                        </Grid>
+                    </Border>
                     <TextBlock x:Name="ServiceDiscoverySummaryText" TextWrapping="Wrap"
                                AutomationProperties.AutomationId="ServiceDiscoverySummary"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -517,7 +561,17 @@
             </Border>
             <Border x:Name="PortsServicesCard" Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="8">
-                    <TextBlock x:Name="DevicePortsHeading" Text="Ports &amp; services (0)" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE839;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock x:Name="DevicePortsHeading" Grid.Column="1" Text="Ports &amp; services (0)"
+                                       Style="{StaticResource CardHeadingTextStyle}" />
+                        </Grid>
+                    </Border>
                     <TextBlock x:Name="DeviceNoPortsText" Text="No open ports detected."
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <Button x:Name="DevicePortScanButton" Content="Scan additional ports"
@@ -557,8 +611,16 @@
                         AutomationProperties.AutomationId="DeviceHistoryPanel">
             <Border x:Name="DeviceActivityCard" Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="12">
-                    <Grid ColumnSpacing="16" RowSpacing="8" SizeChanged="Fields_SizeChanged">
-                        <TextBlock Text="Activity" FontSize="20" FontWeight="SemiBold" />
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE9D2;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock Grid.Column="1" Text="Activity" Style="{StaticResource CardHeadingTextStyle}" />
+                        </Grid>
+                    </Border>
                         <Grid ColumnSpacing="16" RowSpacing="8" SizeChanged="Fields_SizeChanged">
                         <ComboBox x:Name="ActivityPeriod" Header="Period" HorizontalAlignment="Stretch" VerticalAlignment="Top"
                                   AutomationProperties.AutomationId="ActivityPeriod" AutomationProperties.Name="Activity period"
@@ -587,7 +649,6 @@
                         </Grid>
                     </StackPanel>
                         </Grid>
-                    </Grid>
                     <TextBlock x:Name="ActivityWindow" TextWrapping="Wrap" FontSize="12"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                AutomationProperties.AutomationId="ActivityWindow" />
@@ -619,7 +680,16 @@
             </Border>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="16">
-                    <TextBlock Text="Scan observations" FontSize="18" FontWeight="SemiBold" />
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE81C;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock Grid.Column="1" Text="Scan observations" Style="{StaticResource CardHeadingTextStyle}" />
+                        </Grid>
+                    </Border>
                     <TextBlock Text="Saved scans - not continuous live status." TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <Expander x:Name="DeviceScanHistoryDetails" Header="Details" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
@@ -712,8 +782,18 @@
             </Border>
             <Border x:Name="VirtualDeviceHistoryCard" Style="{StaticResource ScannerSummaryCardStyle}" Visibility="Collapsed">
                 <StackPanel Spacing="8">
-                    <TextBlock x:Name="VirtualDeviceHistoryTitle" Text="Virtual device" FontWeight="SemiBold"
-                               AutomationProperties.AutomationId="VirtualDeviceHistoryTitle" />
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE71B;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock x:Name="VirtualDeviceHistoryTitle" Grid.Column="1" Text="Virtual device"
+                                       Style="{StaticResource CardHeadingTextStyle}"
+                                       AutomationProperties.AutomationId="VirtualDeviceHistoryTitle" />
+                        </Grid>
+                    </Border>
                     <TextBlock x:Name="VirtualDeviceHistoryDescription" Text="MACs are associated by private vendor prefix and the lowest available device number. This is an inference, not proof of one physical device. Names, identification and assignments follow this virtual device."
                                TextWrapping="Wrap" />
                     <Expander Header="MAC and address history" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">

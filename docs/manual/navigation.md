@@ -84,11 +84,14 @@ names provide full values when table text is shortened.
 ## Check for updates
 
 Open **Settings > About FingVibe & updates**. Official stable builds check the
-latest published stable GitHub release one minute after startup, then five minutes
+latest published stable GitHub release at startup, then ten minutes
 after each completed check while FingVibe remains open. **Check for updates** uses
-the same check and resets the next deadline to five minutes after completion,
+the same check and resets the next deadline to ten minutes after completion,
 including on failure. GitHub rate-limit delays take precedence. Checking never
-downloads, installs, closes FingVibe, or interrupts scanning with a popup.
+installs, closes FingVibe, or interrupts scanning with a popup. When a verified
+installed copy confirms a newer stable release on an unmetered connection,
+FingVibe may silently download and stage its Setup. Metered or unknown-cost
+connections, portable copies, and non-release builds never background-download.
 
 About distinguishes not checked, checking, current, newer version and failed
 detection. A confirmed newer version shows small orange circles on **Settings**
@@ -98,23 +101,62 @@ version/time alongside the latest failure; only a successful no-newer result cle
 the indicators. Development, PR and Test builds do not check or install updates:
 their manual stable-release link warns that their versions are not comparable.
 
-**Download Setup** is offered only for a verified per-user installation whose
-registration, current directory, installed version and installer ownership match.
-Otherwise **Download portable ZIP** uses the manual replacement path; an uncertain
-or portable copy is never silently converted into an installation. Missing assets
-lead to the release page instead. Downloads show progress, support cancellation
-and reject incomplete/changed files. Completed files are saved under
-`%LOCALAPPDATA%\FingVibe\Updates\<unique directory>`; downloaded executables retain
-Internet security markings. A download failure popup links to GitHub Releases.
+For a verified per-user installation, **Update now** is offered in About and next
+to the Settings About row. Its confirmation provides **Restart now**, **When I
+close** and **Cancel**, with Cancel selected by default. Restart now reuses a
+verified staged Setup immediately or, when none is ready, downloads it with
+visible progress and Cancel. A background download already in progress joins
+that same task instead of starting twice. FingVibe then revalidates the file,
+hands it to the close-first installer and reopens after a successful install.
+When I close persists the confirmed version; it prepares a verified installer in
+the same per-version staging folder, hides the availability dots, and shows
+**Cancel scheduled update**. A missing or invalid file leaves the schedule
+pending rather than running Setup.
+The next completed normal close that has a verified file starts the #666 handoff
+with relaunch disabled, so FingVibe remains closed after installation. Cancelled
+closes, in-progress downloads without a verified file, crashes, forced termination
+and Windows shutdown do not install. The schedule survives app restarts and moves
+to a newer confirmed version. The next launch reports its install outcome through
+the same About result display.
 
-For a verified installation, **Restart and update** asks before closing FingVibe.
-A bounded helper then waits for the application process to exit, rechecks the
-downloaded Setup's identity and Internet security marking, runs the existing
-per-user Setup silently enough to avoid the normal wizard, and reopens the
-verified installation after Setup reports success. SmartScreen, Defender, UAC,
-organization policy or cancellation may still require attention; no protection
-is bypassed. The originating process identity, expected version, installer
-identity and observed install/relaunch outcome are recorded under
+The existing verification requires a matching per-user registration, current
+directory, installed version and installer ownership. Otherwise **Download
+portable ZIP** uses the manual replacement path; an uncertain
+or portable copy is never silently converted into an installation. Missing assets
+lead to the release page instead. Downloads reject incomplete/changed files.
+Background and foreground Setup files for installed copies use
+`%LOCALAPPDATA%\FingVibe\Updates\v<version>` and are re-hashed before reuse after
+restart, so a scheduled update is not downloaded again merely because FingVibe
+restarted. Portable ZIP downloads retain unique temporary folders; old version and
+temporary folders are cleaned up, and all downloaded executables retain Internet
+security markings. A download failure
+popup links to GitHub Releases.
+
+When an update is available, a collapsed **What's new in X.Y.Z** expander below
+the update action shows that release's notes from the same GitHub response the
+check already fetched; no extra request is made. The notes are plain text with
+headings, bullets and paragraphs. Markdown links, images and HTML are shown only
+as text, and nothing in them can open a browser or load remote content. Long notes
+end with **View full notes on GitHub**. If a release has no readable notes,
+**View release notes on GitHub** appears instead; checking and installing are
+unaffected. Expanded notes scroll with the page.
+
+**Update details** is collapsed by default and contains exact check times,
+deployment, staging and helper diagnostics. Background download failures appear
+only here and are retried at the next qualifying check. The main Updates card
+keeps one version/status
+sentence and a relative **Last checked** value; failures and Windows security
+warnings stay visible outside the expander.
+
+After FingVibe reopens, About reads the delivered #666 attempt/outcome record:
+it reports **Updated to X.Y.Z** only when the running installation matches the
+recorded target, otherwise it reports the failure and recovery path. Launching
+Setup alone does not prove installation completed.
+
+Update now replaces the previous separate Download Setup and Restart and update
+steps. SmartScreen, Defender, UAC, organization policy or cancellation may still require
+attention; no protection is bypassed. The originating process identity, expected
+version, installer identity and observed install/relaunch outcome are recorded under
 `%LOCALAPPDATA%\FingVibe\Updates` so a later launch can distinguish an accepted
 request or process launch from a completed installation. A setup or relaunch
 failure is explicit and leaves the record for recovery; saved user data is

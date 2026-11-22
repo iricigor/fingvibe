@@ -31,6 +31,8 @@
     <Compile Include="..\..\src\FingVibe.App\BuildIdentity.cs" Link="BuildIdentity.cs" />
     <Compile Include="..\..\src\FingVibe.App\Updates\UpdateReviewFixture.cs" Link="UpdateReviewFixture.cs" />
     <Compile Include="..\..\src\FingVibe.App\Updates\ReleaseUpdateActions.cs" Link="ReleaseUpdateActions.cs" />
+    <Compile Include="..\..\src\FingVibe.App\Updates\ReleaseUpdateCloseScheduler.cs" Link="ReleaseUpdateCloseScheduler.cs" />
+    <Compile Include="..\..\src\FingVibe.App\Updates\ReleaseUpdatePresentation.cs" Link="ReleaseUpdatePresentation.cs" />
     <Compile Include="..\..\src\FingVibe.App\ScanResultRow.cs" Link="ScanResultRow.cs" />
     <Compile Include="..\..\src\FingVibe.App\ServiceDiscoveryPresentation.cs" Link="ServiceDiscoveryPresentation.cs" />
     <Compile Include="..\..\src\FingVibe.App\UsageCategoryPresentation.cs" Link="UsageCategoryPresentation.cs" />

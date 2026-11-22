@@ -33,16 +33,18 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="8">
-                        <FontIcon Glyph="&#xE968;"
-                                  FontSize="16"
-                                  Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" />
-                        <TextBlock x:Name="NetworkIdentityText"
-                                   Text="Detecting network identity..."
-                                   FontSize="18"
-                                   FontWeight="SemiBold"
-                                   TextWrapping="Wrap" />
-                    </StackPanel>
+                    <Border Grid.ColumnSpan="2" Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE968;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock x:Name="NetworkIdentityText" Grid.Column="1"
+                                       Text="Detecting network identity..."
+                                       Style="{StaticResource CardHeadingTextStyle}" />
+                        </Grid>
+                    </Border>
                     <StackPanel Grid.Row="1" Spacing="2">
                         <TextBlock Text="Public IP address" FontWeight="SemiBold" />
                         <TextBlock x:Name="PublicAddressText" Text="Detecting..." FontSize="16" IsTextSelectionEnabled="True" />
@@ -100,6 +102,17 @@
             </Border>
             <Border x:Name="NetworkHealthSummary" Style="{StaticResource ScannerSummaryCardStyle}"
                     AutomationProperties.AutomationId="NetworkHealthSummary" AutomationProperties.Name="Network health summary">
+                <StackPanel Spacing="12">
+                <Border Style="{StaticResource CardHeadingBandStyle}">
+                    <Grid Style="{StaticResource CardHeadingRowStyle}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon Glyph="&#xE95E;" Style="{StaticResource CardHeadingIconStyle}" />
+                        <TextBlock Grid.Column="1" Text="Network health" Style="{StaticResource CardHeadingTextStyle}" />
+                    </Grid>
+                </Border>
                 <Grid ColumnSpacing="24" RowSpacing="12" SizeChanged="NetworkHealthSummary_SizeChanged">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -110,7 +123,6 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <StackPanel Spacing="4">
-                        <TextBlock Text="Network health" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
                         <Grid ColumnSpacing="8">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -141,6 +153,7 @@
                                      AutomationProperties.AutomationId="OpenNetworkHealthButton"
                                      AutomationProperties.Name="Open network health" />
                 </Grid>
+                </StackPanel>
             </Border>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <Grid ColumnSpacing="24" RowSpacing="16">
@@ -185,12 +198,19 @@
             </Border>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="12">
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE9D2;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock Grid.Column="1" Text="Device activity" Style="{StaticResource CardHeadingTextStyle}" />
+                        </Grid>
+                    </Border>
                     <Grid ColumnSpacing="16" RowSpacing="12" SizeChanged="ActivityFields_SizeChanged">
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="Device activity" FontSize="18" FontWeight="SemiBold" />
-                            <TextBlock Text="Distinct devices seen per interval, not simultaneous-online counts."
-                                       TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        </StackPanel>
+                        <TextBlock Text="Distinct devices seen per interval, not simultaneous-online counts."
+                                   TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <ComboBox x:Name="NetworkActivityPeriod" HorizontalAlignment="Stretch" VerticalAlignment="Top"
                                   AutomationProperties.AutomationId="NetworkActivityPeriod" AutomationProperties.Name="Network activity period"
                                   SelectedIndex="0" SelectionChanged="ActivitySelection_Changed">

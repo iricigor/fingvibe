@@ -13,6 +13,42 @@
     Assert-Equal $history.SelectSingleNode(".//*[@x:Name='DeviceScanHistoryList']", $namespaces).IsTabStop "True" "The observation viewport must be reachable by keyboard focus"
     $activity = $page.SelectSingleNode("//*[@x:Name='DeviceActivityCard']", $namespaces)
     Assert-Equal $activity.GetAttribute("Visibility") "" "Restored Activity uses normal visible layout"
+    # Every Device Details card heading uses the shared H4 card heading: band first, decorative icon, then heading text.
+    [xml] $cardHeadings = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\src\FingVibe.App\CardHeadingResources.xaml") -Raw
+    $appResources = Get-Content -LiteralPath (Join-Path $PSScriptRoot "..\src\FingVibe.App\App.xaml") -Raw
+    if ($appResources -notmatch '<ResourceDictionary Source="ms-appx:///CardHeadingResources.xaml" />') {
+        throw "App resources must merge the shared card-heading dictionary."
+    }
+    $headingNamespaces = [System.Xml.XmlNamespaceManager]::new($cardHeadings.NameTable)
+    $headingNamespaces.AddNamespace("x", "http://schemas.microsoft.com/winfx/2006/xaml")
+    $contrast = $cardHeadings.SelectSingleNode("//*[@x:Key='HighContrast']", $headingNamespaces)
+    if ($contrast.SelectNodes("./*[contains(@Color, 'SystemColorWindow')]").Count -ne 2) {
+        throw "High-contrast card headings must use system colors for the band and its visible edge."
+    }
+    $expectedHeadings = [ordered]@{
+        NetworkOverviewCard = "Network overview"; AssignmentsCard = "Assignments"; DeviceHistorySummaryCard = "Observation summary"
+        UsageCategoryCard = "Usage category"; IdentificationCard = "Device identification"; ServiceDiscoveryCard = "Service discovery (0)"
+        PortsServicesCard = "Ports & services (0)"; DeviceActivityCard = "Activity"; VirtualDeviceHistoryCard = "Virtual device"
+    }
+    $cards = @($page.SelectNodes("//*[local-name()='Border' and @Style='{StaticResource ScannerSummaryCardStyle}']") |
+        Where-Object { $_.GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml") -ne "DeviceNameEditor" })
+    $titles = @()
+    foreach ($card in $cards) {
+        $bands = $card.SelectNodes(".//*[local-name()='Border' and @Style='{StaticResource CardHeadingBandStyle}']")
+        $first = $card.SelectSingleNode("./*/*[not(contains(local-name(), '.'))]")
+        $icon = if ($bands.Count -eq 1) { $bands[0].SelectSingleNode(".//*[local-name()='FontIcon' and @Style='{StaticResource CardHeadingIconStyle}']") }
+        $title = if ($bands.Count -eq 1) { $bands[0].SelectSingleNode(".//*[local-name()='TextBlock' and @Style='{StaticResource CardHeadingTextStyle}']") }
+        if ($bands.Count -ne 1 -or $first -ne $bands[0] -or -not $icon -or -not $icon.GetAttribute("Glyph") -or -not $title -or
+            $title.HasAttribute("FontSize") -or $title.HasAttribute("FontWeight")) {
+            throw "Device Details card '$($title.Text)' must start with one shared card-heading band holding an icon and styled heading."
+        }
+        $titles += $title.Text
+        $name = $card.GetAttribute("Name", "http://schemas.microsoft.com/winfx/2006/xaml")
+        if ($expectedHeadings.Contains($name)) { Assert-Equal $title.Text $expectedHeadings[$name] "$name heading text" }
+    }
+    if ($cards.Count -ne 10 -or "Scan observations" -notin $titles) {
+        throw "All ten Device Details cards on both tabs must adopt the shared card heading."
+    }
     foreach ($id in @("DeviceScanHistoryTable", "DeviceScanHistoryEmpty",
         "DeviceHistoryNewer", "DeviceHistoryOlder", "DeviceHistoryPageStatus")) {
         if (-not $history.SelectSingleNode(".//*[@x:Name='$id']", $namespaces)) { throw "$id must be inside completed observations." }

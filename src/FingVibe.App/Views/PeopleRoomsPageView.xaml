@@ -22,16 +22,7 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
-            <Viewbox Width="48" Height="48" IsHitTestVisible="False"
-                     AutomationProperties.AccessibilityView="Raw">
-                <Grid Width="64" Height="64">
-                    <FontIcon Glyph="&#xE80F;" FontFamily="Segoe Fluent Icons" FontSize="44"
-                              Foreground="{ThemeResource PeopleRoomsHeaderHouseBrush}" />
-                    <FontIcon Glyph="&#xE77B;" FontFamily="Segoe Fluent Icons" FontSize="28"
-                              Foreground="{ThemeResource PeopleRoomsHeaderPersonBrush}"
-                              HorizontalAlignment="Right" VerticalAlignment="Bottom" />
-                </Grid>
-            </Viewbox>
+            <local:PageHeaderIcon Icon="people-rooms" />
             <TextBlock Grid.Column="1" Text="People &amp; rooms" Style="{StaticResource ScannerPageTitleStyle}"
                        Margin="0" VerticalAlignment="Center" TextWrapping="Wrap" />
         </Grid>
@@ -51,18 +42,22 @@
 
             <Border x:Name="PeopleTableBorder" Style="{StaticResource ScannerSummaryCardStyle}" Padding="0">
                 <StackPanel>
-                    <Grid Padding="12,10" ColumnSpacing="12">
+                    <Border Style="{StaticResource CardHeadingBandStyle}" Margin="0" Padding="12,10">
+                    <Grid Style="{StaticResource CardHeadingRowStyle}">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="People" FontSize="18" FontWeight="SemiBold" />
-                        <TextBlock x:Name="PeopleCountText" Grid.Column="1" VerticalAlignment="Center"
+                        <FontIcon Glyph="&#xE716;" Style="{StaticResource CardHeadingIconStyle}" />
+                        <TextBlock Grid.Column="1" Text="People" Style="{StaticResource CardHeadingTextStyle}" />
+                        <TextBlock x:Name="PeopleCountText" Grid.Column="2" VerticalAlignment="Center"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <Button x:Name="AddPersonButton" Grid.Column="2" Content="Add person"
+                        <Button x:Name="AddPersonButton" Grid.Column="3" Content="Add person"
                                 VerticalAlignment="Center" Click="AddPersonButton_Click" />
                     </Grid>
+                    </Border>
                     <TextBlock x:Name="PeopleStatusText" Visibility="Collapsed" Margin="12,0,12,8" TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <Grid x:Name="PeopleColumnHeaders" Padding="12,8" Background="{ThemeResource ScannerHeaderBackgroundBrush}">
@@ -131,18 +126,22 @@
 
             <Border x:Name="RoomsTableBorder" Style="{StaticResource ScannerSummaryCardStyle}" Padding="0">
                 <StackPanel>
-                    <Grid Padding="12,10" ColumnSpacing="12">
+                    <Border Style="{StaticResource CardHeadingBandStyle}" Margin="0" Padding="12,10">
+                    <Grid Style="{StaticResource CardHeadingRowStyle}">
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="Rooms" FontSize="18" FontWeight="SemiBold" />
-                        <TextBlock x:Name="RoomsCountText" Grid.Column="1" VerticalAlignment="Center"
+                        <FontIcon Glyph="&#xE80F;" Style="{StaticResource CardHeadingIconStyle}" />
+                        <TextBlock Grid.Column="1" Text="Rooms" Style="{StaticResource CardHeadingTextStyle}" />
+                        <TextBlock x:Name="RoomsCountText" Grid.Column="2" VerticalAlignment="Center"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
-                        <Button x:Name="AddRoomButton" Grid.Column="2" Content="Add room"
+                        <Button x:Name="AddRoomButton" Grid.Column="3" Content="Add room"
                                 VerticalAlignment="Center" Click="AddRoomButton_Click" />
                     </Grid>
+                    </Border>
                     <TextBlock x:Name="RoomsStatusText" Visibility="Collapsed" Margin="12,0,12,8" TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <HyperlinkButton x:Name="ViewRoomMapButton" Content="View room map"

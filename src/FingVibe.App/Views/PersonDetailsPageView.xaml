@@ -16,12 +16,27 @@
                     <TextBlock Text="People &amp; rooms" />
                 </StackPanel>
             </Button>
-            <Grid ColumnSpacing="12">
+            <Grid x:Name="PersonDetailHeading" ColumnSpacing="12">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <local:PageHeaderIcon Icon="people" />
+                <TextBlock x:Name="PersonDetailName" Grid.Column="1" FontSize="28"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <Button x:Name="EditPersonDetailButton" Grid.Column="2" Content="Edit" Click="EditPersonButton_Click" />
+                <Button x:Name="DeletePersonDetailButton" Grid.Column="3" Content="Delete" Click="DeletePersonButton_Click" />
+            </Grid>
+        </StackPanel>
+        <ScrollViewer x:Name="PersonDetailPage" Grid.Row="1" AutomationProperties.AutomationId="PersonDetailPage">
+        <StackPanel Spacing="16">
+            <!-- The person's own symbol and short-name badge stay separate from the People family icon. -->
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <Border Padding="12,6" CornerRadius="8" Background="{ThemeResource ControlFillColorDefaultBrush}">
                     <StackPanel Spacing="6" HorizontalAlignment="Center">
@@ -32,16 +47,9 @@
                                    HorizontalAlignment="Center" />
                     </StackPanel>
                 </Border>
-                <TextBlock x:Name="PersonDetailName" Grid.Column="1" FontSize="28"
-                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                <Button x:Name="EditPersonDetailButton" Grid.Column="2" Content="Edit" Click="EditPersonButton_Click" />
-                <Button x:Name="DeletePersonDetailButton" Grid.Column="3" Content="Delete" Click="DeletePersonButton_Click" />
+                <TextBlock x:Name="PersonDetailNotes" Grid.Column="1" TextWrapping="Wrap" VerticalAlignment="Center"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             </Grid>
-        </StackPanel>
-        <ScrollViewer x:Name="PersonDetailPage" Grid.Row="1" AutomationProperties.AutomationId="PersonDetailPage">
-        <StackPanel Spacing="16">
-            <TextBlock x:Name="PersonDetailNotes" TextWrapping="Wrap"
-                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             <StackPanel Spacing="4">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <Ellipse x:Name="EquipmentOnlineDot" Width="10" Height="10" Visibility="Collapsed"
@@ -62,10 +70,21 @@
             </Border>
             <Border Style="{StaticResource ScannerSummaryCardStyle}">
                 <StackPanel Spacing="12">
+                    <Border Style="{StaticResource CardHeadingBandStyle}">
+                        <Grid Style="{StaticResource CardHeadingRowStyle}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon Glyph="&#xE9D2;" Style="{StaticResource CardHeadingIconStyle}" />
+                            <TextBlock Grid.Column="1" Text="Equipment activity" Style="{StaticResource CardHeadingTextStyle}" />
+                        </Grid>
+                    </Border>
                     <Grid ColumnSpacing="16" RowSpacing="12" SizeChanged="EquipmentHeader_SizeChanged">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                        <TextBlock Text="Equipment activity" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock Text="Activity of assigned devices, not an indication of whether a person is home or away."
+                                   TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         <ComboBox x:Name="EquipmentActivityPeriod" Grid.Column="1" HorizontalAlignment="Stretch"
                                   AutomationProperties.AutomationId="EquipmentActivityPeriod" AutomationProperties.Name="Equipment activity period"
                                   SelectedIndex="0" SelectionChanged="EquipmentSelection_Changed">
@@ -74,8 +93,6 @@
                             <ComboBoxItem Content="30 days by weekday" />
                         </ComboBox>
                     </Grid>
-                    <TextBlock Text="Activity of assigned devices, not an indication of whether a person is home or away."
-                               TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                     <TextBlock x:Name="EquipmentActivityWindow" Text="Activity is not loaded." TextWrapping="Wrap"
                                AutomationProperties.AutomationId="EquipmentActivityWindow" />
                     <TextBlock x:Name="EquipmentActivityContributors" Text="Equipment is not loaded." TextWrapping="Wrap"
