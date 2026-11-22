@@ -110,6 +110,7 @@ public sealed partial class SettingsPageView : UserControl
             AutomationProperties.SetHelpText(AboutSettingsButton, AboutSummary.Text);
         }
         session.Changed += (_, state) => DispatcherQueue.TryEnqueue(() => Apply(state));
+        actions.Changed += (_, _) => DispatcherQueue.TryEnqueue(() => Apply(session.State));
         Apply(session.State);
     }
 

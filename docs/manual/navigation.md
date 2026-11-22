@@ -88,7 +88,10 @@ latest published stable GitHub release at startup, then ten minutes
 after each completed check while FingVibe remains open. **Check for updates** uses
 the same check and resets the next deadline to ten minutes after completion,
 including on failure. GitHub rate-limit delays take precedence. Checking never
-downloads, installs, closes FingVibe, or interrupts scanning with a popup.
+installs, closes FingVibe, or interrupts scanning with a popup. When a verified
+installed copy confirms a newer stable release on an unmetered connection,
+FingVibe may silently download and stage its Setup. Metered or unknown-cost
+connections, portable copies, and non-release builds never background-download.
 
 About distinguishes not checked, checking, current, newer version and failed
 detection. A confirmed newer version shows small orange circles on **Settings**
@@ -99,16 +102,21 @@ the indicators. Development, PR and Test builds do not check or install updates:
 their manual stable-release link warns that their versions are not comparable.
 
 For a verified per-user installation, **Update now** is offered in About and next
-to the Settings About row. After one confirmation it downloads the Setup with
-progress and Cancel, revalidates it, and hands it to the close-first installer.
+to the Settings About row. It reuses a verified staged Setup immediately or, when
+none is ready, downloads it with visible progress and Cancel. A background
+download already in progress joins that same task instead of starting twice.
+After one confirmation, FingVibe revalidates the file and hands it to the
+close-first installer.
 The existing verification requires a matching per-user registration, current
 directory, installed version and installer ownership. Otherwise **Download
 portable ZIP** uses the manual replacement path; an uncertain
 or portable copy is never silently converted into an installation. Missing assets
 lead to the release page instead. Downloads reject incomplete/changed files.
-Completed files are saved under `%LOCALAPPDATA%\FingVibe\Updates\<unique
-directory>`; downloaded executables retain Internet security markings. A
-download failure popup links to GitHub Releases.
+Background Setup files use `%LOCALAPPDATA%\FingVibe\Updates\v<version>` and are
+re-hashed before reuse after restart. Foreground fallback downloads retain their
+unique temporary folders; old version and temporary folders are cleaned up, and
+all downloaded executables retain Internet security markings. A download failure
+popup links to GitHub Releases.
 
 When an update is available, a collapsed **What's new in X.Y.Z** expander below
 the update action shows that release's notes from the same GitHub response the
@@ -120,7 +128,9 @@ end with **View full notes on GitHub**. If a release has no readable notes,
 unaffected. Expanded notes scroll with the page.
 
 **Update details** is collapsed by default and contains exact check times,
-deployment and helper diagnostics. The main Updates card keeps one version/status
+deployment, staging and helper diagnostics. Background download failures appear
+only here and are retried at the next qualifying check. The main Updates card
+keeps one version/status
 sentence and a relative **Last checked** value; failures and Windows security
 warnings stay visible outside the expander.
 
