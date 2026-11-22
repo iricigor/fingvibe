@@ -14,6 +14,38 @@
         Assert-Regression ($null -ne $helper) "$($source.Function) must exist."
         Invoke-Expression $helper.Extent.Text
     }
+    $linkingSource = Join-Path $PSScriptRoot 'DeviceLinking.Ui.Tests.ps1'
+    $linkingErrors = $null
+    $linkingAst = [Management.Automation.Language.Parser]::ParseFile(
+        $linkingSource, [ref]$null, [ref]$linkingErrors)
+    Assert-Regression (-not $linkingErrors) 'DeviceLinking.Ui.Tests.ps1 must parse.'
+    $linkingFunctions = @{}
+    foreach ($name in @('Show-Link', 'Invoke-Link', 'Select-LinkChoice')) {
+        $function = $linkingAst.Find({
+            param($node)
+            $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name
+        }, $true)
+        Assert-Regression ($null -ne $function) "$name must exist."
+        $linkingFunctions[$name] = $function.Extent.Text
+    }
+    Assert-Regression (
+        $linkingFunctions['Show-Link'].Contains('Find-Link DeviceBackButton') -and
+        $linkingFunctions['Show-Link'].Contains('Show-UiRegressionScrollTargets')) `
+        'Device Details linking must use both its fixed Back control and measured positioning.'
+    Assert-Regression (
+        $linkingFunctions['Show-Link'].IndexOf('Find-Link DeviceBackButton') -lt
+        $linkingFunctions['Show-Link'].IndexOf('Show-UiRegressionScrollTargets')) `
+        'Device Details linking must move focus to its fixed Back control before measured scrolling.'
+    foreach ($name in @('Invoke-Link', 'Select-LinkChoice')) {
+        Assert-Regression (
+            $linkingFunctions[$name].Contains('Show-Link $Id') -and
+            $linkingFunctions[$name].Contains('.SetFocus()')) `
+            "$name must position and then focus its peer."
+        Assert-Regression (
+            $linkingFunctions[$name].IndexOf('Show-Link $Id') -lt
+            $linkingFunctions[$name].IndexOf('.SetFocus()')) `
+            "$name must position the peer before focusing it so WinUI cannot revert the measured scroll."
+    }
     function Wait-UiRegressionState([scriptblock] $Condition, [string] $Description) {
         for ($attempt = 0; $attempt -lt 4; $attempt++) {
             $result = & $Condition
